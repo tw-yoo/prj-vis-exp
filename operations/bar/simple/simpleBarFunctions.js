@@ -32,7 +32,7 @@ export function simpleBarRetrieveValue(chartId, op) {
         .attr("fill", hlColor)
         .attr("stroke", "black")
         .attr("stroke-width", 2);
-
+// ── 라벨(막대 위) ───────────────────────────────────── */
     const bar = target.node();
     if (bar) {
         const x = +bar.getAttribute("x") + (+bar.getAttribute("width") / 2) + marginL;
