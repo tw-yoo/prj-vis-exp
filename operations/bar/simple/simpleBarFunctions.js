@@ -33,7 +33,7 @@ export function simpleBarRetrieveValue(chartId, op) {
         .attr("stroke", "black")
         .attr("stroke-width", 2);
 
-    const bar = target.node();          // 이제 실제 SVGRectElement
+    const bar = target.node();
     if (bar) {
         const x = +bar.getAttribute("x") + (+bar.getAttribute("width") / 2) + marginL;
         const y = +bar.getAttribute("y") - 6 + marginT;
@@ -54,8 +54,6 @@ export function simpleBarRetrieveValue(chartId, op) {
 export function simpleBarFilter(chartId, op) {
 
     let returnChartId = chartId;
-
-    console.log(op)
 
     const duration = 600;
 
@@ -97,7 +95,6 @@ export function simpleBarFilter(chartId, op) {
             .attr("opacity", pass ? 1 : dimOpacity);
     });
 
-    /* 라벨 */
     svg.append("text")
         .attr("class", "filter-label")
         .attr("x", 8)
@@ -108,3 +105,63 @@ export function simpleBarFilter(chartId, op) {
 
     return returnChartId;
 }
+
+export function simpleBarFindExtremum(chartId, op) {
+    let returnChartId = chartId;
+    const duration = 600;
+
+    const hlColor  = "#a65dfb";      // 보라색 하이라이트
+    const origColor = "#69b3a2";
+
+    const svg  = d3.select(`#${chartId}`).select("svg");
+    if (svg.empty()) return returnChartId;
+
+    const marginL = +svg.attr("data-m-left") || 0;
+    const marginT = +svg.attr("data-m-top")  || 0;
+
+    const bars = svg.selectAll("rect");
+
+    bars.interrupt()
+        .attr("fill", origColor)
+        .attr("stroke", "none")
+        .attr("opacity", 1);
+    svg.selectAll(".annotation, .filter-label").remove();
+
+    const values = bars.nodes().map(el => +el.getAttribute("data-value"));
+    const extremeVal = op.type === "min" ? d3.min(values) : d3.max(values);
+
+    const target = bars.filter(function () {
+        return +this.getAttribute("data-value") === extremeVal;
+    });
+
+    target.transition()
+        .duration(duration)
+        .attr("fill", hlColor)
+        .attr("stroke", "black")
+        .attr("stroke-width", 2);
+
+    /* ─── 라벨(막대 위) ───────────────────────────────────── */
+    const node = target.node();
+    if (node) {
+        const x = +node.getAttribute("x") + (+node.getAttribute("width") / 2) + marginL;
+        const y = +node.getAttribute("y") - 6 + marginT;
+        const label = `${type === "min" ? "Min" : "Max"}: ${extremeVal}`;
+
+        svg.append("text")
+            .attr("class", "annotation")
+            .attr("x", x)
+            .attr("y", y)
+            .attr("text-anchor", "middle")
+            .attr("font-size", 12)
+            .attr("fill", hlColor)
+            .text(label);
+    }
+
+    return returnChartId;
+}
+
+export function simpleBarCompare(chartId, op) {}
+
+export function simpleBarDetermineRange(chartId, op) {}
+
+export function simpleBarSort(chartId, op) {}

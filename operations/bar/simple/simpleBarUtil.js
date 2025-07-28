@@ -77,3 +77,5 @@ export function renderSimpleBarChart(chartId, spec) {
         .attr("data-value", d => d[yField])
         .attr("data-y-domain-max", yScale.domain()[1]);   // y 값 보존
 }
+
+export function renderStackedBarChart(chartId, spec) {}

@@ -1,5 +1,5 @@
 import { ChartType } from "../object/chartType.js";
-import {renderSimpleBarChart} from "../operations/bar/simple/simpleBarUtil.js";
+import {renderSimpleBarChart, renderStackedBarChart} from "../operations/bar/simple/simpleBarUtil.js";
 
 export function getChartType(spec) {
     const mark = spec.mark;
@@ -52,5 +52,8 @@ export function renderChart(chartId, spec) {
         case ChartType.SIMPLE_BAR:
             renderSimpleBarChart(chartId, spec);
             break
+        case ChartType.STACKED_BAR:
+            renderStackedBarChart(chartId, spec);
+            break;
     }
 }

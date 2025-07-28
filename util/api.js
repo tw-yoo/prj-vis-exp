@@ -28,7 +28,6 @@ export async function updateAnswerFromBackend(vlSpec, question) {
 
     } catch (error) {
         console.error('Error sending prompt to GenAI:', error);
-        // 오류 처리 로직
     }
 
 }
