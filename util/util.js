@@ -9,38 +9,27 @@ export function getChartType(spec) {
     const encoding = spec.encoding || {};
     const hasColor = !!encoding.color;
     const hasXOffset = !!encoding.xOffset;
-    const hasFacet = spec.facet || spec.repeat || spec.columns || spec.rows;
+    const hasFacet = !!(encoding.column || encoding.row || spec.facet || spec.repeat);
 
-    // Check for multiple bar chart via faceting or repeating
-    if (mark === "bar" && hasFacet) {
-        return ChartType.MULTIPLE_BAR;
-    }
-
-    // Grouped bar chart: bar mark + xOffset or column/facet with color
-    else if (mark === "bar" && hasXOffset) {
-        return ChartType.GROUPED_BAR;
-    }
-
-    // Stacked bar chart: bar mark + color + (stack explicitly set or implied)
-    else if (
-        mark === "bar" &&
-        hasColor &&
-        encoding.y?.stack !== "none"
-    ) {
-        return ChartType.STACKED_BAR;
-    }
-
-    // Simple bar chart: bar mark + no stacking
-    else if (mark === "bar") {
+    if (mark === "bar") {
+        if (hasFacet) {
+            return ChartType.MULTIPLE_BAR;
+        }
+        if (hasColor) {
+            const stackType = encoding.y?.stack || encoding.x?.stack || null;
+            if (stackType !== "none") {
+                return ChartType.STACKED_BAR;
+            } else {
+                return ChartType.GROUPED_BAR;
+            }
+        }
         return ChartType.SIMPLE_BAR;
     }
 
-    // Simple line chart: line mark + no color
     else if (mark === "line") {
         return ChartType.SIMPLE_LINE;
     }
 
-    // Multi-line chart: line mark + color
     else if (mark === "line" && hasColor) {
         return ChartType.MULTI_LINE;
     }
@@ -53,12 +42,15 @@ export async function renderChart(chartId, spec) {
 
     switch (chartType) {
         case ChartType.SIMPLE_BAR:
-            renderSimpleBarChart(chartId, spec);
+            await renderSimpleBarChart(chartId, spec);
             break
         case ChartType.STACKED_BAR:
-            renderStackedBarChart(chartId, spec);
+            await renderStackedBarChart(chartId, spec);
             break;
         case ChartType.GROUPED_BAR:
+            await renderGroupedBarChart(chartId, spec);
+            break;
+        case ChartType.MULTIPLE_BAR:
             await renderGroupedBarChart(chartId, spec);
             break;
         case ChartType.SIMPLE_LINE:

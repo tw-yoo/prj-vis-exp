@@ -31,5 +31,3 @@ export async function updateAnswerFromBackend(vlSpec, question) {
     }
 
 }
-
-// What is the difference between mean and max cases?

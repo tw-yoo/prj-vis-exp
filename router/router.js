@@ -1,15 +1,10 @@
-import {
-    opsRetrieveValue,
-    opsFilter,
-    opsFindExtremum,
-    opsDetermineRange,
-    opsMakeComparisons,
-    opsSort
-} from '../functions.js';
-import { validateAtomicOpsSpec } from "./routerUtil.js";
+import {validateAtomicOpsSpec} from "./routerUtil.js";
 import {getChartType} from "../util/util.js";
 import {ChartType} from "../object/chartType.js";
 import {runSimpleBarOps} from "../operations/bar/simple/simpleBarUtil.js";
+import {runStackedBarOps} from "../operations/bar/stacked/stackedBarUtil";
+import {runGroupedBarOps} from "../operations/bar/grouped/groupedBarUtil";
+import {runSimpleLineOps} from "../operations/line/simple/simpleLineUtil";
 
 export async function executeAtomicOps(vlSpec, opsSpec) {
     if (validateAtomicOpsSpec(opsSpec)) {
@@ -24,53 +19,19 @@ export async function executeAtomicOps(vlSpec, opsSpec) {
             await runSimpleBarOps("chart", opsSpec);
             break
         case ChartType.STACKED_BAR:
-            // await runStackedBarOps(opsSpec);
+            await runStackedBarOps(opsSpec);
             break
         case ChartType.GROUPED_BAR:
-            // await runGroupedBarOps(opsSpec);
+            await runGroupedBarOps(opsSpec);
             break
         case ChartType.MULTIPLE_BAR:
-            // await runMultipleBarOps(opsSpec);
+            await runGroupedBarOps(opsSpec);
             break
         case ChartType.SIMPLE_LINE:
-            // await runSimpleLineOps(opsSpec);
+            await runSimpleLineOps(opsSpec);
             break
         case ChartType.MULTI_LINE:
-            // await runMultiLineOps(opsSpec);
+            await runSimpleLineOps(opsSpec);
             break
-    }
-
-    return
-    // 아래 함수는 사용하지 않을 예정
-    for (const operation of opsSpec.ops) {
-        switch (operation.op) {
-            case 'retrieveValue':
-                await opsRetrieveValue(vlSpec, operation.field, operation.keyField, operation.key);
-                break;
-            case 'filter':
-                await opsFilter(vlSpec, operation.field, operation.operator, operation.value);
-                break;
-            case 'findExtremum':
-                await opsFindExtremum(vlSpec, operation.field, operation.which);
-                break;
-            case 'determineRange':
-                await opsDetermineRange(vlSpec, operation.field);
-                break;
-            case 'compare':
-                await opsMakeComparisons(
-                    vlSpec,
-                    operation.field,
-                    operation.leftKeyField,
-                    operation.leftValue,
-                    operation.operator,
-                    operation.rightValue
-                );
-                break;
-            case 'sort':
-                await opsSort(vlSpec, operation.keyField, operation.valueField, operation.field, operation.order);
-                break;
-            default:
-                console.warn(`Unknown operation "${operation.op}"`);
-        }
     }
 }

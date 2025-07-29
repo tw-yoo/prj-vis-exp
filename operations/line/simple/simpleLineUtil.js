@@ -1,17 +1,51 @@
+import {OperationType} from "../../../object/operationType";
+import {
+    simpleLineCompare,
+    simpleLineDetermineRange,
+    simpleLineFilter,
+    simpleLineFindExtremum,
+    simpleLineRetrieveValue,
+    simpleLineSort
+} from "./simpleLineFunctions";
+
+export async function runSimpleLineOps(chartId, opsSpec) {
+    for (const operation of opsSpec.ops) {
+        switch (operation.op) {
+            case OperationType.RETRIEVE_VALUE:
+                simpleLineRetrieveValue(chartId, operation);
+                break;
+            case OperationType.FILTER:
+                simpleLineFilter(chartId, operation);
+                break;
+            case OperationType.FIND_EXTREMUM:
+                simpleLineFindExtremum(chartId, operation);
+                break;
+            case OperationType.DETERMINE_RANGE:
+                simpleLineDetermineRange(chartId, operation);
+                break;
+            case OperationType.COMPARE:
+                simpleLineCompare(chartId, operation);
+                break;
+            case OperationType.SORT:
+                simpleLineSort(chartId, operation);
+                break;
+            default:
+                console.warn("Not supported operation", operation.op);
+        }
+    }
+}
+
 export async function renderSimpleLineChart(chartId, spec) {
-    // 1. Setup
-    const container = d3.select(`#${chartId}`);
+    const container = await d3.select(`#${chartId}`);
     container.selectAll("*").remove();
     const width = 1200;
     const height = 800;
     const margin = { top: 40, right: 120, bottom: 50, left: 60 };
 
-    // 2. Extract encoding fields
     const xField = spec.encoding.x.field;
     const yField = spec.encoding.y.field;
     const colorField = spec.encoding.color?.field;
 
-    // 3. Load and parse data
     const parseDate = d => {
         const parsed = new Date(d[xField]);
         return parsed;
@@ -20,10 +54,10 @@ export async function renderSimpleLineChart(chartId, spec) {
         d[xField] = spec.encoding.x.type === "temporal" ? new Date(d[xField]) : d[xField];
         d[yField] = +d[yField];
         if (colorField) d[colorField] = d[colorField];
+        console.log(d);
         return d;
     });
 
-    // 4. Group into series
     let series;
     if (colorField) {
         const grouped = d3.groups(data, d => d[colorField]).slice(0, 15);
@@ -32,7 +66,6 @@ export async function renderSimpleLineChart(chartId, spec) {
         series = [{ key: yField, values: data }];
     }
 
-    // 5. Scales
     const xValues = data.map(d => d[xField]);
     const yMax = d3.max(data, d => d[yField]);
     const xScale = spec.encoding.x.type === "temporal"
@@ -40,14 +73,11 @@ export async function renderSimpleLineChart(chartId, spec) {
         : d3.scalePoint().domain([...new Set(xValues)]).range([margin.left, width - margin.right]);
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([height - margin.bottom, margin.top]);
 
-    // 6. Color scale
     const colorDomain = series.map(s => s.key);
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(colorDomain);
 
-    // 7. SVG container
     const svg = container.append("svg").attr("width", width).attr("height", height);
 
-    // 8. Axes
     svg.append("g")
         .attr("transform", `translate(0,${height - margin.bottom})`)
         .call(d3.axisBottom(xScale));
@@ -55,12 +85,10 @@ export async function renderSimpleLineChart(chartId, spec) {
         .attr("transform", `translate(${margin.left},0)`)
         .call(d3.axisLeft(yScale));
 
-    // 9. Line generator
     const lineGen = d3.line()
         .x(d => xScale(d[xField]))
         .y(d => yScale(d[yField]));
 
-    // 10. Draw lines
     series.forEach(s => {
         svg.append("path")
             .datum(s.values)
@@ -70,7 +98,6 @@ export async function renderSimpleLineChart(chartId, spec) {
             .attr("d", lineGen);
     });
 
-    // 11. Legend for multi-line
     if (series.length > 1) {
         const legend = svg.append("g")
             .attr("transform", `translate(${width - margin.right + 20}, ${margin.top})`);

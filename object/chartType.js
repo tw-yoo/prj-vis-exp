@@ -1,4 +1,3 @@
-// chartTypes.js
 export const ChartType = Object.freeze({
     SIMPLE_BAR: "Simple bar chart",
     STACKED_BAR: "Stacked bar chart",

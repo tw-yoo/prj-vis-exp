@@ -122,7 +122,6 @@
   <script type="module" src="functions.js"></script>
 
   <script>
-    // Initialize CodeMirror editors after the page loads
     window.addEventListener('DOMContentLoaded', () => {
       window.vlEditor = CodeMirror.fromTextArea(document.getElementById("vl-spec"), {
         mode: { name: "javascript", json: true },
