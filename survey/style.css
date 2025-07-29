@@ -1,0 +1,17 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+/* 메인 컨테이너: 중앙 정렬 및 최대 너비 제한 */
+.form-container {
+    max-width: 720px;
+    margin: 5vh auto; /* 위아래 여백은 viewport height 기준 */
+    padding: 5vw; /* 좌우 여백은 viewport width 기준 */
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
