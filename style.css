@@ -10,7 +10,7 @@ html, body { margin: 0; height: 100%; }
 
 #right-panel {
     display: grid;
-    grid-template-rows: auto auto;
+    grid-template-rows: 1fr auto;
     row-gap: 0;
     justify-items: center;
     align-items: start;
@@ -20,16 +20,16 @@ html, body { margin: 0; height: 100%; }
 #run-button { width: 80px; height: 30px; }
 #chart {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow: hidden;
+    overflow: visible;
 }
 
 #chart svg {
-    width: 70% !important;
-    height: 70% !important;
+    width: 100% !important;
+    height: 100% !important;
     transform: none;
 }
 

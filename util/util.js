@@ -1,5 +1,8 @@
 import { ChartType } from "../object/chartType.js";
-import {renderSimpleBarChart, renderStackedBarChart} from "../operations/bar/simple/simpleBarUtil.js";
+import {renderSimpleBarChart} from "../operations/bar/simple/simpleBarUtil.js";
+import {renderStackedBarChart} from "../operations/bar/stacked/stackedBarUtil.js";
+import {renderGroupedBarChart} from "../operations/bar/grouped/groupedBarUtil.js";
+import {renderSimpleLineChart} from "../operations/line/simple/simpleLineUtil.js";
 
 export function getChartType(spec) {
     const mark = spec.mark;
@@ -45,7 +48,7 @@ export function getChartType(spec) {
     return null;
 }
 
-export function renderChart(chartId, spec) {
+export async function renderChart(chartId, spec) {
     const chartType = getChartType(spec);
 
     switch (chartType) {
@@ -54,6 +57,15 @@ export function renderChart(chartId, spec) {
             break
         case ChartType.STACKED_BAR:
             renderStackedBarChart(chartId, spec);
+            break;
+        case ChartType.GROUPED_BAR:
+            await renderGroupedBarChart(chartId, spec);
+            break;
+        case ChartType.SIMPLE_LINE:
+            await renderSimpleLineChart(chartId, spec);
+            break;
+        case ChartType.MULTI_LINE:
+            await renderSimpleLineChart(chartId, spec);
             break;
     }
 }
