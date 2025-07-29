@@ -108,5 +108,3 @@ export function renderSimpleBarChart(chartId, spec) {
      .text(yField);                               
 }
 
-
-export function renderStackedBarChart(chartId, spec) {}
