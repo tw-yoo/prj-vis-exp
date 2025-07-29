@@ -33,14 +33,17 @@ export async function runSimpleBarOps(chartId, opsSpec) {
   }
 }
 
-export function renderSimpleBarChart(chartId, spec) {
+export async function renderSimpleBarChart(chartId, spec) {
 
   const host   = d3.select(`#${chartId}`);
   host.selectAll("*").remove();
 
-  const data   = spec.data.values;
   const xField = spec.encoding.x.field;
   const yField = spec.encoding.y.field;
+  const data = await d3.csv(spec.data.url, d => {
+    d[yField] = +d[yField];
+    return d;
+  });
 
   const margin = { top: 40, right: 20, bottom: 80, left: 60 };
   const width  = 600;

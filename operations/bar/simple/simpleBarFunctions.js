@@ -14,7 +14,6 @@ export function simpleBarRetrieveValue(chartId, op) {
 
   const bars = svg.selectAll("rect");
 
-  /* 초기화 */
   bars
     .interrupt()
     .attr("fill", origColor)
@@ -23,7 +22,6 @@ export function simpleBarRetrieveValue(chartId, op) {
 
   svg.selectAll(".annotation, .filter-label").remove();
 
-  /* ▶︎ BUG FIX: function() { …this… } 로 교체 */
   const target = bars.filter(function () {
     return d3.select(this).attr("data-id") === `${op.key}`;
   });
@@ -34,7 +32,6 @@ export function simpleBarRetrieveValue(chartId, op) {
     .attr("fill", hlColor)
     .attr("stroke", "black")
     .attr("stroke-width", 2);
-  // ── 라벨(막대 위) ───────────────────────────────────── */
   const bar = target.node();
   if (bar) {
     const x = +bar.getAttribute("x") + +bar.getAttribute("width") / 2 + marginL;
@@ -68,7 +65,6 @@ export function simpleBarFilter(chartId, op) {
 
   const bars = svg.selectAll("rect");
 
-  /* 초기화 */
   bars
     .interrupt()
     .attr("fill", origColor)
@@ -77,7 +73,6 @@ export function simpleBarFilter(chartId, op) {
 
   svg.selectAll(".annotation, .filter-label").remove();
 
-  /* 조건 판별 */
   const satisfy =
     {
       ">": (a, b) => a > b,
@@ -87,7 +82,6 @@ export function simpleBarFilter(chartId, op) {
       "==": (a, b) => a === b,
     }[op.satisfy] ?? (() => true);
 
-  /* 애니메이션 */
   bars.each(function () {
     const node = d3.select(this);
     const val = +node.attr("data-value");
@@ -126,8 +120,6 @@ export function simpleBarFindExtremum(chartId, op) {
   const marginT = +svg.attr("data-m-top") || 0;
 
   const bars = svg.selectAll("rect");
-
-  /* ─── 초기화 ───────────────────────────────────────── */
   bars
     .interrupt()
     .attr("fill", origColor)
@@ -135,8 +127,7 @@ export function simpleBarFindExtremum(chartId, op) {
     .attr("opacity", 1);
   svg.selectAll(".annotation, .filter-label").remove();
 
-  /* ─── 값 배열 & 극값 인덱스 찾기 ───────────────────── */
-  const field = op.field || "value"; // 기본 'value'
+  const field = op.field || "value";
   const getVal = (el) => {
     const row = d3.select(el).datum();
     return field in row ? +row[field] : +el.getAttribute("data-value");
@@ -146,7 +137,6 @@ export function simpleBarFindExtremum(chartId, op) {
   const idx =
     op.type === "min" ? vals.indexOf(d3.min(vals)) : vals.indexOf(d3.max(vals));
   if (idx === -1) {
-    // 안전장치
     console.warn("findExtremum: target bar not found");
     return returnChartId;
   }
@@ -154,7 +144,6 @@ export function simpleBarFindExtremum(chartId, op) {
   const extremeVal = vals[idx];
   const target = bars.filter((d, i) => i === idx);
 
-  /* ─── 하이라이트 애니메이션 ───────────────────────── */
   target
     .transition()
     .duration(duration)
@@ -162,7 +151,6 @@ export function simpleBarFindExtremum(chartId, op) {
     .attr("stroke", "black")
     .attr("stroke-width", 2);
 
-  /* ─── 라벨(막대 위) ───────────────────────────────── */
   const node = target.node();
   if (node) {
     const x =
@@ -183,7 +171,6 @@ export function simpleBarFindExtremum(chartId, op) {
 
   return returnChartId;
 }
-
 
 export function simpleBarCompare(chartId, op) {
   let returnChartId = chartId;
