@@ -55,5 +55,5 @@ document.getElementById('run-ops-button').addEventListener('click', async () => 
         return;
     }
     const opsSpec = JSON.parse(opsText);
-    await executeAtomicOps(vlSpec, opsSpec);
+    await executeAtomicOps("chart", vlSpec, opsSpec);
 });

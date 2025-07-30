@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Survey Creator + D3 in Editor</title>
 
+    <link rel="stylesheet" href="survey_style.css" />
+
     <!-- 1) SurveyJS Form Library -->
     <link href="https://unpkg.com/survey-core/survey-core.min.css" rel="stylesheet" />
     <script src="https://unpkg.com/survey-core/survey.core.min.js"></script>
@@ -21,78 +23,9 @@
     <!-- 4) D3.js -->
     <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
 
-    <style>
-        html, body { margin:0; padding:0; height:100%; }
-        #surveyCreator { width:100%; height:100%; }
-        .d3chart-container { width: 100%; height: 150px; margin-bottom: 8px; }
-    </style>
 </head>
 <body>
-<div id="surveyCreator"></div>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // 1) Editor 옵션으로 Creator 생성
-        const creator = new SurveyCreator.SurveyCreator({
-            showEmbededSurveyTab: true,
-            isAutoSave: false
-        });
-
-        // 2) 생성된 Creator DOM에 렌더
-        creator.render(document.getElementById("surveyCreator"));
-
-        // 3) 미리 정의된 템플릿(예: question1 포함) 로드
-        //    실제 JSON은 에디터에서 Copy JSON 한 것을 붙여넣으세요.
-        const surveyJson = {
-            pages: [{
-                name: "page1",
-                elements: [{
-                    type: "text",
-                    name: "question1",
-                    title: "What is your name?"
-                }]
-            }],
-            headerView: "advanced"
-        };
-        creator.JSON = surveyJson;
-
-        // 4) 에디터 프리뷰(creator.survey)에서 question1 렌더 직후 차트 삽입
-        creator.survey.onAfterRenderQuestion.add((sender, options) => {
-            if (options.question.name === "question1") {
-                // 차트용 div 생성 & 제목 아래 위치시키기
-                const chartDiv = document.createElement("div");
-                chartDiv.className = "d3chart-container";
-                const bodyEl = options.htmlElement.querySelector(".sd-question__body") || options.htmlElement;
-                bodyEl.prepend(chartDiv);
-
-                // D3로 간단한 막대 차트 렌더링
-                const data = [25, 50, 75, 60];
-                const width = chartDiv.clientWidth;
-                const height = chartDiv.clientHeight;
-                const svg = d3.select(chartDiv)
-                    .append("svg")
-                    .attr("width", width)
-                    .attr("height", height);
-
-                const x = d3.scaleBand()
-                    .domain(d3.range(data.length))
-                    .range([0, width])
-                    .padding(0.3);
-                const y = d3.scaleLinear()
-                    .domain([0, d3.max(data)])
-                    .range([height, 0]);
-
-                svg.selectAll("rect")
-                    .data(data)
-                    .enter()
-                    .append("rect")
-                    .attr("x", (d, i) => x(i))
-                    .attr("y", d => y(d))
-                    .attr("width", x.bandwidth())
-                    .attr("height", d => height - y(d));
-            }
-        });
-    });
-</script>
+    <div id="surveyCreator"></div>
+    <script type="module" src="survey_index.js"></script>
 </body>
 </html>

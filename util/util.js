@@ -38,7 +38,7 @@ export function getChartType(spec) {
 }
 
 export async function renderChart(chartId, spec) {
-    const chartType = getChartType(spec);
+    const chartType = await getChartType(spec);
 
     switch (chartType) {
         case ChartType.SIMPLE_BAR:
