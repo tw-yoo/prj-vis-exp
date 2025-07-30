@@ -100,11 +100,12 @@
   "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
   "description": "Retrieve the case count for the year 2010",
   "ops": [
-{
-  "op": "findExtremum",
-  "field": "cases",
-  "type": "max"
-}
+    {
+      "op": "sort",
+      "field": "cases",
+      "order": "descending"
+    }
+
 
   ]
 }
