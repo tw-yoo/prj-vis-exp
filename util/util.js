@@ -1,5 +1,6 @@
 import { ChartType } from "../object/chartType.js";
 import {renderSimpleBarChart, renderStackedBarChart} from "../operations/bar/simple/simpleBarUtil.js";
+import {renderSimpleLineChart} from "../operations/line/simple/simpleLineUtil.js";
 
 export function getChartType(spec) {
     const mark = spec.mark;
@@ -47,13 +48,23 @@ export function getChartType(spec) {
 
 export function renderChart(chartId, spec) {
     const chartType = getChartType(spec);
-
+console.log("renderChart → type =", chartType); 
     switch (chartType) {
         case ChartType.SIMPLE_BAR:
             renderSimpleBarChart(chartId, spec);
             break
         case ChartType.STACKED_BAR:
             renderStackedBarChart(chartId, spec);
+            break;
+        case ChartType.GROUPED_BAR:
+            // renderGroupedBarChart(chartId, spec);
+            break;
+        case ChartType.MULTIPLE_BAR:
+            // renderMultipleBarChart(chartId, spec);
+            break;
+        case ChartType.SIMPLE_LINE:
+            console.log("call renderSimpleLineChart");
+            renderSimpleLineChart(chartId, spec);
             break;
     }
 }

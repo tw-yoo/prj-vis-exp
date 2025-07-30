@@ -10,6 +10,7 @@ import { validateAtomicOpsSpec } from "./routerUtil.js";
 import {getChartType} from "../util/util.js";
 import {ChartType} from "../object/chartType.js";
 import {runSimpleBarOps} from "../operations/bar/simple/simpleBarUtil.js";
+import {runSimpleLineOps} from "../operations/line/simple/simpleLineUtil.js";
 
 export async function executeAtomicOps(vlSpec, opsSpec) {
     if (validateAtomicOpsSpec(opsSpec)) {
@@ -33,7 +34,7 @@ export async function executeAtomicOps(vlSpec, opsSpec) {
             // await runMultipleBarOps(opsSpec);
             break
         case ChartType.SIMPLE_LINE:
-            // await runSimpleLineOps(opsSpec);
+            await runSimpleLineOps("chart", opsSpec);
             break
         case ChartType.MULTI_LINE:
             // await runMultiLineOps(opsSpec);
