@@ -2,9 +2,12 @@ import {validateAtomicOpsSpec} from "./routerUtil.js";
 import {getChartType} from "../util/util.js";
 import {ChartType} from "../object/chartType.js";
 import {runSimpleBarOps} from "../operations/bar/simple/simpleBarUtil.js";
-import {runStackedBarOps} from "../operations/bar/stacked/stackedBarUtil";
-import {runGroupedBarOps} from "../operations/bar/grouped/groupedBarUtil";
-import {runSimpleLineOps} from "../operations/line/simple/simpleLineUtil";
+import {runStackedBarOps} from "../operations/bar/stacked/stackedBarUtil.js";
+//import {runStackedBarOps} from "../operations/bar/stacked/stackedBarUtil.js";
+import {runGroupedBarOps} from "../operations/bar/grouped/groupedBarUtil.js";
+import {runSimpleLineOps} from "../operations/line/simple/simpleLineUtil.js";
+import {runGroupedBarOps} from "../operations/bar/grouped/groupedBarUtil.js";
+import {runSimpleLineOps} from "../operations/line/simple/simpleLineUtil.js";
 
 export async function executeAtomicOps(vlSpec, opsSpec) {
     if (validateAtomicOpsSpec(opsSpec)) {

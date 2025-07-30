@@ -1,4 +1,4 @@
-import {OperationType} from "../../../object/operationType";
+import {OperationType} from "../../../object/.js";
 import {
     simpleLineCompare,
     simpleLineDetermineRange,
@@ -6,7 +6,7 @@ import {
     simpleLineFindExtremum,
     simpleLineRetrieveValue,
     simpleLineSort
-} from "./simpleLineFunctions";
+} from "./simpleLineFunctions.js";
 
 export async function runSimpleLineOps(chartId, opsSpec) {
     for (const operation of opsSpec.ops) {
