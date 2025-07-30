@@ -367,14 +367,14 @@ export function simpleLineSort(chartId, op) {
   const limited = sorted.slice(0, limit);
 
 const xScale = d3.scalePoint()
-                 .domain(sorted.map(d => +d.id))   // 숫자 domain
+                 .domain(sorted.map(d => +d.id))  
                  .range([0, plotW])
                  .padding(0.5);
 
 const lineGen = d3.line()
-                  .x(d => xScale(+d[xField]))      // 숫자 전달
+                  .x(d => xScale(+d[xField]))    
                   .y(d => yScale(+d[yField]));
-  /* 포인트 이동 */
+
   sorted.forEach(item => {
     d3.select(item.el)
       .transition()
@@ -385,7 +385,7 @@ const lineGen = d3.line()
         .attr("fill", limited.includes(item) ? hlColor : origColor);
   });
 
-  /* 선(path) d 속성만 업데이트 */
+
   const yScale = d3.scaleLinear()
                    .domain([0, +svg.attr("data-y-domain-max")])
                    .range([+svg.attr("data-plot-h"), 0]);
@@ -398,7 +398,6 @@ const lineGen = d3.line()
        .duration(duration)
        .attr("d", lineGen);
 
-  /* 값 라벨 */
   limited.forEach(item => {
     svg.append("text")
        .attr("class", "value-tag")
@@ -409,7 +408,6 @@ const lineGen = d3.line()
        .text(item.value);
   });
 
-  /* 헤더 */
   svg.append("text")
      .attr("class", "sort-label")
      .attr("x", marginL)
