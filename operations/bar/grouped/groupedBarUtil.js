@@ -40,18 +40,18 @@ export async function renderGroupedBarChart(chartId, spec) {
   const container = await d3.select(`#${chartId}`);
   await container.selectAll("*").remove();
 
-  const margin = { top: 50, right: 120, bottom: 50, left: 60 };
+  const margin = {top: 50, right: 120, bottom: 50, left: 60};
   const fullWidth = container.node().clientWidth || 900;
   const fullHeight = container.node().clientHeight || 400;
-  const width  = fullWidth  - margin.left - margin.right;
-  const height = fullHeight - margin.top  - margin.bottom;
+  const width = fullWidth - margin.left - margin.right;
+  const height = fullHeight - margin.top - margin.bottom;
 
-  const { column, row, x, y, color } = spec.encoding;
+  const {column, row, x, y, color} = spec.encoding;
   const isVertical = y.type === 'quantitative';
   const facetEncoding = column ?? row;
   const facetField = facetEncoding.field;
-  const xField     = x.field;
-  const yField     = y.field;
+  const xField = x.field;
+  const yField = y.field;
   const colorField = color?.field;
 
   const data = await d3.csv(spec.data.url, d => {
@@ -106,6 +106,32 @@ export async function renderGroupedBarChart(chartId, spec) {
     svg.append("g")
         .attr("transform", `translate(${margin.left},0)`)
         .call(d3.axisLeft(y0));
+
+    // Legend for horizontal grouped bar
+    if (colorField) {
+      const colorDomain = colorScale.domain();
+      const legend = svg.append("g")
+          .attr("transform", `translate(${margin.left + width + 20},${margin.top})`);
+      legend.append("text")
+          .attr("x", 0)
+          .attr("y", -10)
+          .attr("font-weight", "bold")
+          .text(colorField);
+      colorDomain.forEach((c, i) => {
+        const row = legend.append("g")
+            .attr("transform", `translate(0,${i * 20})`);
+        row.append("rect")
+            .attr("width", 12)
+            .attr("height", 12)
+            .attr("fill", colorScale(c));
+        row.append("text")
+            .attr("x", 16)
+            .attr("y", 10)
+            .attr("font-size", "10px")
+            .text(c);
+      });
+    }
+
     return;
   }
 
