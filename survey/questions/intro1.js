@@ -1,4 +1,4 @@
-export const page1Questions= {
+export const introPage= {
     name: "page1",
     elements: [
     {

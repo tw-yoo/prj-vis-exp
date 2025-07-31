@@ -1,5 +1,5 @@
 import { renderQuestionChartAndButton } from "./charts/chart_genearation.js";
-import {page1Questions} from "./questions/intro1.js";
+import {introPage} from "./questions/intro1.js";
 import {page1_1Questions} from "./questions/question1_1.js";
 import {page1_2Questions} from "./questions/question1_2.js";
 
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     creator.render(document.getElementById("surveyCreator"));
 
     const questionList = [
-        page1Questions,
+        introPage,
         page1_1Questions,
         page1_2Questions,
     ];
