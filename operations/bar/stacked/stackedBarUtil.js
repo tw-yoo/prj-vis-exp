@@ -107,7 +107,7 @@ export async function renderStackedBarChart(chartId, spec) {
         .enter()
         .append("rect")
         .attr("x", d => xScale(isNormalized ? d.normStart : d.start))
-        .attr("width", d => xScale(isNormalized ? d.normEnd : d.end) - xScale(isNormalized ? d.normStart : d.start))
+        .attr("width", d => Math.abs(xScale(isNormalized ? d.normEnd : d.end) - xScale(isNormalized ? d.normStart : d.start)))
         .attr("y", d => yScale(d[yField]))
         .attr("height", yScale.bandwidth())
         .attr("fill", d => color(d[colorField]));

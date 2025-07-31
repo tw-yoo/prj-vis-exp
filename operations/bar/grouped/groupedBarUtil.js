@@ -38,7 +38,7 @@ export async function runGroupedBarOps(chartId, opsSpec) {
 
 export async function renderGroupedBarChart(chartId, spec) {
   const container = await d3.select(`#${chartId}`);
-  container.selectAll("*").remove();
+  await container.selectAll("*").remove();
 
   const margin = { top: 50, right: 120, bottom: 50, left: 60 };
   const fullWidth = container.node().clientWidth || 900;
@@ -46,20 +46,70 @@ export async function renderGroupedBarChart(chartId, spec) {
   const width  = fullWidth  - margin.left - margin.right;
   const height = fullHeight - margin.top  - margin.bottom;
 
-  const { column, x, y, color } = spec.encoding;
-  const colField   = column.field;
+  const { column, row, x, y, color } = spec.encoding;
+  const isVertical = y.type === 'quantitative';
+  const facetEncoding = column ?? row;
+  const facetField = facetEncoding.field;
   const xField     = x.field;
   const yField     = y.field;
   const colorField = color?.field;
 
-  const data = d3.csv(spec.data.url, d => {
-    d[yField] = +d[yField];
+  const data = await d3.csv(spec.data.url, d => {
+    if (x.type === 'quantitative') d[xField] = +d[xField];
+    if (y.type === 'quantitative') d[yField] = +d[yField];
     return d;
   });
-  console.log(data);
 
-  const facets = d3.groups(data, d => d[colField]);
-  console.log(facets);
+  if (!isVertical) {
+    const facets = d3.groups(data, d => d[facetEncoding.field]);
+    const y0 = d3.scaleBand()
+        .domain(facets.map(([f]) => f))
+        .range([margin.top, margin.top + height])
+        .paddingInner(0.2);
+    const yDomain = Array.from(new Set(data.map(d => d[yField])));
+    const y1 = d3.scaleBand()
+        .domain(yDomain)
+        .range([0, y0.bandwidth()])
+        .padding(0.05);
+    const xMax = d3.max(data, d => d[xField]);
+    const xScale = d3.scaleLinear()
+        .domain([0, xMax])
+        .nice()
+        .range([margin.left, margin.left + width]);
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
+        .domain(Array.from(new Set(data.map(d => d[colorField] || d[yField]))));
+    const svg = container.append("svg")
+        .attr("width", fullWidth)
+        .attr("height", fullHeight);
+    facets.forEach(([facetValue, vals]) => {
+      const g = svg.append("g")
+          .attr("transform", `translate(0,${y0(facetValue)})`);
+      g.selectAll("rect")
+          .data(vals)
+          .join("rect")
+          .attr("y", d => y1(d[yField]))
+          .attr("x", margin.left)
+          .attr("height", y1.bandwidth())
+          .attr("width", d => xScale(d[xField]) - margin.left)
+          .attr("fill", d => colorScale(d[colorField]));
+      g.append("text")
+          .attr("x", margin.left / 2)
+          .attr("y", y0.bandwidth() / 2)
+          .attr("dy", "0.35em")
+          .attr("text-anchor", "middle")
+          .style("font-weight", "bold")
+          .text(facetValue);
+    });
+    svg.append("g")
+        .attr("transform", `translate(0,${margin.top + height})`)
+        .call(d3.axisBottom(xScale));
+    svg.append("g")
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y0));
+    return;
+  }
+
+  const facets = d3.groups(data, d => d[facetField]);
 
   const x0 = d3.scaleBand()
       .domain(facets.map(([facet]) => facet))
