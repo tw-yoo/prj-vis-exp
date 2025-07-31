@@ -105,6 +105,7 @@ export async function renderSimpleLineChart(chartId, spec) {
   series.forEach(s => {
     svg.append('path')
       .datum(s.values)
+      .attr('class', 'series-line') 
       .attr('fill', 'none')
       .attr('stroke', color(s.key))
       .attr('stroke-width', 2)

@@ -70,17 +70,16 @@
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
 {
   "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "구글 주가 2010-01-01 값을 가져온다",
+  "description": "주가 내림차순 정렬, 상위 5개 강조",
   "ops": [
     {
-      "op": "retrieveValue",
+      "op": "sort",
       "field": "price",
-      "keyField": "date",
-      "key": "2010-01-01"
+      "order": "descending",
+      "limit": 5
     }
   ]
 }
-
         </textarea>
     </div>
     <div></div>

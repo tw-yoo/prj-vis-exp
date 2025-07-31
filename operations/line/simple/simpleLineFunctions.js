@@ -260,7 +260,6 @@ export function simpleLineDetermineRange(chartId, op) {
   return chartId;
 }
 
-
 export function simpleLineCompare(chartId, op) {
   const svg = d3.select(`#${chartId}`).select("svg");
   if (svg.empty()) return chartId;
@@ -268,167 +267,193 @@ export function simpleLineCompare(chartId, op) {
   const pts = svg.selectAll("circle.point");
   if (pts.empty()) return chartId;
 
-  const origColor = "#69b3a2";
-  pts.interrupt().attr("fill", origColor).attr("stroke", "none");
+  /* ── 초기화 ─────────────────────────── */
+  pts.interrupt().attr("fill", "#69b3a2").attr("stroke", "none");
   svg.selectAll(".compare-label, .value-tag").remove();
 
+  /* ── 연산자 매핑 ────────────────────── */
+  const oper = String(op.operator || op.op || "").trim();
   const cmp = {
-    gt: (a, b) => a >  b,
-    gte:(a, b) => a >= b,
-    lt: (a, b) => a <  b,
-    lte:(a, b) => a <= b,
-    eq: (a, b) => a === b,
-    ne: (a, b) => a !== b,
-  }[op.operator];
-  if (!cmp) return chartId;
-
-  const sample = pts.datum();
-  const isField = v => typeof v === "string" && v in sample;
-  const marginL = +svg.attr("data-m-left") || 0;
-  const marginT = +svg.attr("data-m-top")  || 0;
-
-  if (!isField(op.left) && !isField(op.right)) {
-    const sel = id => pts.filter(function () {
-      return d3.select(this).attr("data-id") === String(id);
-    });
-
-    const leftPt  = sel(op.left);
-    const rightPt = sel(op.right);
-    if (leftPt.empty() || rightPt.empty()) return chartId;
-
-    const lv = +leftPt.attr("data-value");
-    const rv = +rightPt.attr("data-value");
-    const ok = cmp(lv, rv);
-
-    highlight(leftPt,  lv, "#ffb74d");
-    highlight(rightPt, rv, "#64b5f6");
-    headText(ok, op.left, op.operator, op.right);
+    ">":  (a, b) => a >  b,  gt:  (a, b) => a >  b,
+    ">=": (a, b) => a >= b,  gte: (a, b) => a >= b,
+    "<":  (a, b) => a <  b,  lt:  (a, b) => a <  b,
+    "<=": (a, b) => a <= b,  lte: (a, b) => a <= b,
+    "==": (a, b) => a === b, "=":  (a, b) => a === b,  eq: (a, b) => a === b,
+    "!=": (a, b) => a !== b, ne:  (a, b) => a !== b,
+  }[oper];
+  if (!cmp) {
+    console.warn(`simpleLineCompare: unsupported operator "${oper}"`);
     return chartId;
   }
 
-  const getVal = (row, v) => isField(v) ? row[v] : v;
-  const row = sample;
-  const lv  = getVal(row, op.left);
-  const rv  = getVal(row, op.right);
-  const ok  = cmp(+lv, +rv);
-  headText(ok, op.left, op.operator, op.right);
-  return chartId;
+  /* ── 헬퍼 ───────────────────────────── */
+  const marginL = +svg.attr("data-m-left") || 0;
+  const plotW   = +svg.attr("data-plot-w") || 0;
+  const sample  = pts.datum() || {};
+  const isField = v => typeof v === "string" && v in sample;
+  const num     = v => +v;
 
-  function highlight(sel, value, color) {
-    sel.attr("fill", color).attr("stroke", "black");
-    const n = sel.node();
-    const x = +n.getAttribute("cx") + marginL;
-    const y = +n.getAttribute("cy") - 8 + marginT;
-    svg.append("text")
-       .attr("class", "value-tag")
-       .attr("x", x)
-       .attr("y", y)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 12)
-       .attr("fill", color)
-       .text(value);
-  }
-
-  function headText(ok, lKey, oper, rKey) {
-    const center = marginL + (+svg.attr("data-plot-w") || 0) / 2;
-    const sym = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", ne: "≠" }[oper] || oper;
+  const headLabel = (ok, l, o, r) => {
+    const sym = { gt: ">", gte: "≥", lt: "<", lte: "≤",
+                  eq: "=", ne: "≠", ">": ">", ">=": "≥",
+                  "<": "<", "<=": "≤", "==": "=", "=": "=", "!=": "≠" }[o] || o;
     svg.append("text")
        .attr("class", "compare-label")
-       .attr("x", center)
+       .attr("x", marginL + plotW / 2)
        .attr("y", 18)
        .attr("text-anchor", "middle")
        .attr("font-size", 13)
        .attr("font-weight", "bold")
        .attr("fill", ok ? "#2e7d32" : "#c62828")
-       .text(`${lKey} ${sym} ${rKey} → ${ok}`);
+       .text(`${l} ${sym} ${r} → ${ok}`);
+  };
+
+  const highlight = (sel, val, color) => {
+    sel.attr("fill", color).attr("stroke", "black");
+    const n = sel.node();
+    svg.append("text")
+       .attr("class", "value-tag")
+       .attr("x", +n.getAttribute("cx"))
+       .attr("y", +n.getAttribute("cy") - 8)
+       .attr("text-anchor", "middle")
+       .attr("font-size", 12)
+       .attr("fill", color)
+       .text(val);
+  };
+
+  /* ── Case 1: 포인트 id vs id ───────── */
+  if (!isField(op.left) && !isField(op.right)) {
+    const selById = id => pts.filter(function () {
+      return d3.select(this).attr("data-id") === String(id);
+    });
+    const leftPt  = selById(op.left);
+    const rightPt = selById(op.right);
+    if (leftPt.empty() || rightPt.empty()) {
+      console.warn("simpleLineCompare: point id not found", op.left, op.right);
+      return chartId;
+    }
+
+    const lv = num(leftPt.attr("data-value"));
+    const rv = num(rightPt.attr("data-value"));
+    const ok = cmp(lv, rv);
+
+    highlight(leftPt,  lv, "#ffb74d");
+    highlight(rightPt, rv, "#64b5f6");
+    headLabel(ok, op.left, oper, op.right);
+    return chartId;
   }
+
+  /* ── Case 2: 필드·상수 비교 ────────── */
+  const lv = isField(op.left)  ? num(sample[op.left])  : num(op.left);
+  const rv = isField(op.right) ? num(sample[op.right]) : num(op.right);
+  const ok = cmp(lv, rv);
+
+  headLabel(ok, op.left, oper, op.right);
+  return chartId;
 }
+
 
 
 export function simpleLineSort(chartId, op) {
   const svg = d3.select(`#${chartId}`).select("svg");
   if (svg.empty()) return chartId;
 
-  const marginL  = +svg.attr("data-m-left")  || 0;
-  const marginT  = +svg.attr("data-m-top")   || 0;
-  const plotW    = +svg.attr("data-plot-w")  || 0;
+  const marginL = +svg.attr("data-m-left")  || 0;
+  const marginT = +svg.attr("data-m-top")   || 0;
+  const plotW   = +svg.attr("data-plot-w")  || 0;
+  const plotH   = +svg.attr("data-plot-h")  || 0;
+  const yMax    = +svg.attr("data-y-domain-max");
   const duration = 600;
-
-  const xField = svg.attr("data-x-field");
-  const yField = svg.attr("data-y-field");
 
   const pts = svg.selectAll("circle.point");
   if (pts.empty()) return chartId;
 
+  /* ── 초기화 ───────────────────────── */
   const origColor = "#69b3a2";
   const hlColor   = "#ffa500";
   pts.interrupt().attr("fill", origColor).attr("stroke", "none");
-  svg.selectAll(".value-tag,.sort-label").remove();
+  svg.selectAll(".value-tag,.sort-label, path.sorted-line").remove();
 
-  const field = op.field;
+  /* ── 정렬 배열 만들기 ─────────────── */
+  const dataArr = pts.nodes().map(el => {
+    const s = d3.select(el);
+    return { el, id: s.attr("data-id"), value: +s.attr("data-value") };
+  });
   const orderFn = op.order === "descending" ? d3.descending : d3.ascending;
-  const limit = op.limit > 0 ? Math.min(op.limit, pts.size()) : pts.size();
+  dataArr.sort((a, b) => orderFn(a.value, b.value));
 
-  const arr = pts.nodes().map(el => {
-    const datum = d3.select(el).datum();
-    const id    = d3.select(el).attr("data-id");
-    const value = +d3.select(el).attr("data-value");
-    return { el, datum, id, value };
-  });
+  const limit  = op.limit > 0 ? Math.min(op.limit, dataArr.length) : dataArr.length;
+  const topSet = new Set(dataArr.slice(0, limit).map(d => d.id));
 
-  const sorted  = arr.sort((a, b) => orderFn(a.value, b.value));
-  const limited = sorted.slice(0, limit);
-
-const xScale = d3.scalePoint()
-                 .domain(sorted.map(d => +d.id))  
-                 .range([0, plotW])
-                 .padding(0.5);
-
-const lineGen = d3.line()
-                  .x(d => xScale(+d[xField]))    
-                  .y(d => yScale(+d[yField]));
-
-  sorted.forEach(item => {
-    d3.select(item.el)
-      .transition()
-        .duration(duration)
-        .attr("cx", xScale(item.id))
-      .transition()
-        .duration(duration / 2)
-        .attr("fill", limited.includes(item) ? hlColor : origColor);
-  });
-
+  /* ── 스케일 ───────────────────────── */
+  const xScale = d3.scalePoint()
+                   .domain(dataArr.map(d => d.id))
+                   .range([marginL, marginL + plotW])
+                   .padding(0.5);
 
   const yScale = d3.scaleLinear()
-                   .domain([0, +svg.attr("data-y-domain-max")])
-                   .range([+svg.attr("data-plot-h"), 0]);
+                   .domain([0, yMax])
+                   .range([marginT + plotH, marginT]);
 
+  /* ── 점 이동 + 하이라이트 ─────────── */
+  dataArr.forEach(d =>
+    d3.select(d.el)
+      .transition().duration(duration)
+      .attr("cx", xScale(d.id))
+      .attr("fill", topSet.has(d.id) ? hlColor : origColor)
+  );
 
-
-  svg.select("path.main-line")
-     .datum(sorted.map(d => d.datum))
-     .transition()
-       .duration(duration)
-       .attr("d", lineGen);
-
-  limited.forEach(item => {
+  /* ── 값 라벨 (상위 limit) ─────────── */
+  dataArr.slice(0, limit).forEach(d =>
     svg.append("text")
        .attr("class", "value-tag")
-       .attr("x", xScale(item.id) + marginL)
-       .attr("y", +item.el.getAttribute("cy") - 8 + marginT)
+       .attr("x", xScale(d.id))
+       .attr("y", +d.el.getAttribute("cy") - 8)
        .attr("text-anchor", "middle")
        .attr("font-size", 12)
-       .text(item.value);
-  });
+       .text(d.value)
+  );
 
+  /* ── 기존 선 완전히 제거 ──────────── */
+  svg.selectAll("path.series-line").remove();   // ★ 완전 제거
+
+  /* ── 정렬된 새 선 그리기 ───────────── */
+  const lineGen = d3.line()
+                    .x(d => xScale(d.id))
+                    .y(d => yScale(d.value));
+
+  svg.append("path")
+     .datum(dataArr)
+     .attr("class", "sorted-line")
+     .attr("fill", "none")
+     .attr("stroke", "#1976d2")
+     .attr("stroke-width", 2)
+     .attr("d", lineGen)
+     .attr("stroke-dasharray", function () {
+       const L = this.getTotalLength();
+       return `${L} ${L}`;
+     })
+     .attr("stroke-dashoffset", function () { return this.getTotalLength(); })
+     .transition()
+       .duration(duration)
+       .attr("stroke-dashoffset", 0);
+
+  /* ── x-축 갱신 ───────────────────── */
+  let xAxis = svg.select(".x-axis");
+  if (xAxis.empty())
+    xAxis = svg.append("g")
+               .attr("class", "x-axis")
+               .attr("transform", `translate(0,${marginT + plotH})`);
+  xAxis.transition().duration(duration).call(d3.axisBottom(xScale));
+
+  /* ── 헤더 라벨 ───────────────────── */
   svg.append("text")
      .attr("class", "sort-label")
      .attr("x", marginL)
      .attr("y", marginT - 15)
      .attr("font-size", 12)
      .attr("fill", hlColor)
-     .text(`Sort: ${field} ${op.order}` + (op.limit ? `, limit ${limit}` : ""));
+     .text(`Sort: value ${op.order}${op.limit ? `, limit ${limit}` : ""}`);
 
   return chartId;
 }
-
