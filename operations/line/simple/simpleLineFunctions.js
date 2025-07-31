@@ -358,11 +358,11 @@ export function simpleLineSort(chartId, op) {
   const svg = d3.select(`#${chartId}`).select("svg");
   if (svg.empty()) return chartId;
 
-  const marginL = +svg.attr("data-m-left")  || 0;
-  const marginT = +svg.attr("data-m-top")   || 0;
-  const plotW   = +svg.attr("data-plot-w")  || 0;
-  const plotH   = +svg.attr("data-plot-h")  || 0;
-  const yMax    = +svg.attr("data-y-domain-max");
+  const marginL  = +svg.attr("data-m-left")  || 0;
+  const marginT  = +svg.attr("data-m-top")   || 0;
+  const plotW    = +svg.attr("data-plot-w")  || 0;
+  const plotH    = +svg.attr("data-plot-h")  || 0;
+  const yMax     = +svg.attr("data-y-domain-max");
   const duration = 600;
 
   const pts = svg.selectAll("circle.point");
@@ -414,37 +414,45 @@ export function simpleLineSort(chartId, op) {
        .text(d.value)
   );
 
-  /* ── 기존 선 완전히 제거 ──────────── */
-  svg.selectAll("path.series-line").remove();   // ★ 완전 제거
+  /* ── 기존 선 제거 ─────────────────── */
+  svg.selectAll("path.series-line").remove();
 
-  /* ── 정렬된 새 선 그리기 ───────────── */
-  const lineGen = d3.line()
-                    .x(d => xScale(d.id))
-                    .y(d => yScale(d.value));
-
-  svg.append("path")
-     .datum(dataArr)
-     .attr("class", "sorted-line")
-     .attr("fill", "none")
-     .attr("stroke", "#1976d2")
-     .attr("stroke-width", 2)
-     .attr("d", lineGen)
-     .attr("stroke-dasharray", function () {
-       const L = this.getTotalLength();
-       return `${L} ${L}`;
-     })
-     .attr("stroke-dashoffset", function () { return this.getTotalLength(); })
-     .transition()
-       .duration(duration)
-       .attr("stroke-dashoffset", 0);
-
-  /* ── x-축 갱신 ───────────────────── */
+  /* ── x-축 갱신 ────────────────────── */
   let xAxis = svg.select(".x-axis");
   if (xAxis.empty())
     xAxis = svg.append("g")
                .attr("class", "x-axis")
                .attr("transform", `translate(0,${marginT + plotH})`);
   xAxis.transition().duration(duration).call(d3.axisBottom(xScale));
+
+  /* ── 점 이동이 끝난 뒤 정확 좌표로 새 선 그리기 ── */
+  d3.timeout(() => {
+    // circle 의 실제 cx, cy 좌표를 읽어 line 을 그림
+    const lineData = dataArr.map(d => ({
+      x: +d.el.getAttribute("cx"),
+      y: +d.el.getAttribute("cy")
+    }));
+
+    const lineGen = d3.line()
+                      .x(d => d.x)
+                      .y(d => d.y);
+
+    svg.append("path")
+       .datum(lineData)
+       .attr("class", "sorted-line")
+       .attr("fill", "none")
+       .attr("stroke", "#1976d2")
+       .attr("stroke-width", 2)
+       .attr("d", lineGen)
+       .attr("stroke-dasharray", function () {
+         const L = this.getTotalLength();
+         return `${L} ${L}`;
+       })
+       .attr("stroke-dashoffset", function () { return this.getTotalLength(); })
+       .transition()
+         .duration(duration)
+         .attr("stroke-dashoffset", 0);
+  }, duration);  // ← 점 이동과 동일한 시간만큼 기다림
 
   /* ── 헤더 라벨 ───────────────────── */
   svg.append("text")
