@@ -81,18 +81,18 @@
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
 {
   "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "8월 rain 일수 조회",
+  "description": "rain 구간 오름차순 정렬",
   "ops": [
     {
-      "op": "retrieveValue",
+      "op": "sort",
       "field": "count",
-      "keyField": "month",
-      "key": 8,
+      "order": "ascending",
       "subgroupField": "weather",
       "subgroupKey": "rain"
     }
   ]
 }
+
 
 
         </textarea>
