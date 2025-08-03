@@ -5,6 +5,7 @@ import {runSimpleBarOps} from "../operations/bar/simple/simpleBarUtil.js";
 import {runStackedBarOps} from "../operations/bar/stacked/stackedBarUtil.js";
 import {runGroupedBarOps} from "../operations/bar/grouped/groupedBarUtil.js";
 import {runSimpleLineOps} from "../operations/line/simple/simpleLineUtil.js";
+import {runMultipleLineOps} from "../operations/line/multiple/multiLineUtil.js";
 
 export async function executeAtomicOps(chartId, vlSpec, opsSpec) {
     if (validateAtomicOpsSpec(opsSpec)) {
@@ -31,7 +32,7 @@ export async function executeAtomicOps(chartId, vlSpec, opsSpec) {
             await runSimpleLineOps(chartId, opsSpec);
             break
         case ChartType.MULTI_LINE:
-            await runSimpleLineOps(chartId, opsSpec);
-            break
+            await runMultipleLineOps(chartId, opsSpec);
+            break;
     }
 }
