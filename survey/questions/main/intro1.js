@@ -5,32 +5,12 @@ export const introPage= {
         type: "html",
         name: "survey_intro",
         html: `
-            <h2>Thank you for participating our survey!</h2>
-            <p>Introduction</p>
-            <ul>
-                <li>Introduction1</li>
-                <li>Introduction2</li>
-            </ul>
+            <h2>연구에 참여해주셔서 감사합니다!</h2>
+            <p>이 실험은 차트(그래프)에 대한 질문에 대해 사람들에게 다양한 방식으로 설명을 보여주고, 그 설명이 이해에 어떤 영향을 주는지 알아보는 연구입니다. 여러분은 총 4가지 서로 다른 설명 방식(이후부터는 “방법 1”부터 “방법 4”라고 부릅니다)을 순서대로 또는 랜덤한 순서로 보게 되며, 각 설명을 읽은 뒤에 질문에 답하고 피드백을 주시게 됩니다.</p>
+            
+            <p><strong>설문 진행 순서</strong>: (1) 튜토리얼 -> (2) 차트와 설명을 보고 설문조사 수행 -> (3) 설문조사 마무리</p>
+            
             `
-    },
-    {
-        type: "text",
-        name: "question2",
-        title: "What is your name?",
-        isRequired: false,
-    },
-    {
-        type: "text",
-        name: "question3",
-        title: "How old are you? (e.g., 25, 34)",
-        inputType: "number",
-        isRequired: false,
-    },
-    {
-        type: "text",
-        name: "question4",
-        title: "What is your job? (e.g., undergraduate student, graduate student, software developer)",
-        isRequired: false,
     }
 ]
 }

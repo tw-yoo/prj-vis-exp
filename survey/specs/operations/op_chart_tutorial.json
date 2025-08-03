@@ -1,0 +1,12 @@
+{
+  "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
+  "description": "Retrieve the case count for the year 2010",
+  "ops": [
+    {
+      "op": "retrieveValue",
+      "field": "cases",
+      "keyField": "year",
+      "key": 2010
+    }
+  ]
+}

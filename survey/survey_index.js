@@ -2,6 +2,9 @@ import { renderQuestionChartAndButton } from "./charts/chart_genearation.js";
 import {introPage} from "./questions/main/intro1.js";
 import {page1_1Questions} from "./questions/main/question1_1.js";
 import {page1_2Questions} from "./questions/main/question1_2.js";
+import {tutorialPage1} from "./questions/main/tutorial1.js";
+import {tutorialPageLast} from "./questions/main/tutorial_last.js";
+import {tutorialPage2} from "./questions/main/tutorial2.js";
 
 
 document.addEventListener("DOMContentLoaded", async function() {
@@ -13,7 +16,8 @@ document.addEventListener("DOMContentLoaded", async function() {
         showTranslationTab: false,
         showThemeTab: false,
         showPreviewTab: true,
-        isAutoSave: false
+        isAutoSave: false,
+        showSidebar: false
     });
     creator.survey.widthMode = "responsive";
 
@@ -21,20 +25,32 @@ document.addEventListener("DOMContentLoaded", async function() {
       if (options.area === "designer-tab" || options.area === "preview-tab") {
         const designerSurvey = options.survey;
         designerSurvey.onAfterRenderQuestion.add(async (surveyInst, opt) => {
-          if (opt.question.name === "question1") {
-              await renderQuestionChartAndButton(
-                  opt.htmlElement,
-                  "question1",
-            );
-          }
+            switch (opt.question.name) {
+                case "question1":
+                    await renderQuestionChartAndButton(
+                        opt.htmlElement,
+                        "question1",
+                    );
+                    break;
+                case "chart_tutorial":
+                    await renderQuestionChartAndButton(
+                        opt.htmlElement,
+                        "chart_tutorial",
+                    )
+            }
+          // if (opt.question.name === "question1") {
+          // }
         });
       }
     });
 
-    creator.activeTab = "designer";
+    creator.activeTab = "preview";
     creator.render(document.getElementById("surveyCreator"));
 
     const questionList = [
+        tutorialPage1,
+        tutorialPage2,
+        tutorialPageLast,
         introPage,
         page1_1Questions,
         page1_2Questions,
