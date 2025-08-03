@@ -11,21 +11,22 @@ async function getVegaLiteSpec(questionName) {
 }
 
 async function getOperationSpec(questionName) {
-    let operationSpec;
-
-    await fetch(`specs/operations/op_${questionName}.json`)
-        .then((r) => operationSpec = r.json())
-
-    return operationSpec;
+    try {
+        const res = await fetch(`specs/operations/op_${questionName}.json`);
+        if (res.status === 404) return null;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+    } catch (e) {
+        console.warn("Could not load operation spec:", e);
+        return null;
+    }
 }
 
-export async function renderChart(htmlElement, questionName) {}
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-
-export async function renderQuestionChartAndButton(
-    htmlElement,
-    questionName,
-) {
+export async function renderQuestionChart(htmlElement, questionName) {
     const chartId = `chart-${questionName}`;
 
     const chartDiv = document.createElement("div");
@@ -42,19 +43,17 @@ export async function renderQuestionChartAndButton(
 
     const vegaLiteSpec = await getVegaLiteSpec(questionName);
     vegaLiteSpec.data.url = "../" + vegaLiteSpec.data.url;
+    console.log(vegaLiteSpec);
     await renderChart(chartId, vegaLiteSpec);
 
     const operationSpec = await getOperationSpec(questionName);
 
-    // Add button below chart
-    const btn = document.createElement("button");
-
-    btn.style.width = "80%";
-    btn.style.display = "block";
-    btn.style.margin = "5px auto";
-    btn.style.padding = "5px 0";
-    btn.textContent = "Run";
-
-    btn.addEventListener("click", () => {executeAtomicOps(chartId, vegaLiteSpec, operationSpec)});
-    chartDiv.after(btn);
+    if (operationSpec) {
+        for (let i = 0; i < 10; i ++) {
+            await renderChart(chartId, vegaLiteSpec);
+            await sleep(3000)
+            await executeAtomicOps(chartId, vegaLiteSpec, operationSpec);
+            await sleep(3000)
+        }
+    }
 }

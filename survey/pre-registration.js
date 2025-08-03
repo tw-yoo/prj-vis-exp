@@ -1,4 +1,3 @@
-import { renderQuestionChartAndButton } from "./charts/chart_genearation.js";
 import {introPage} from "./questions/main/intro1.js";
 import {page1_1Questions} from "./questions/main/question1_1.js";
 import {page1_2Questions} from "./questions/main/question1_2.js";
