@@ -71,19 +71,18 @@
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
 
 {
-  "$schema": "...",
-  "description": "MSFT의 2005년 3월 1일 가격 조회",
+  "description": "MSFT 시리즈 가격 내림차순 정렬",
   "ops": [
     {
-      "op": "retrieveValue",
-      "seriesField": "symbol",    
-      "seriesKey":   "MSFT",      
-      "field":       "price",
-      "keyField":    "date",
-      "key":         "Mar 1 2005"
+      "op": "sort",
+      "seriesField": "symbol",
+      "seriesKey": "MSFT",
+      "field": "price",
+      "order": "descending"
     }
   ]
 }
+
 
 
 
