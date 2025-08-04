@@ -35,53 +35,32 @@
       <div id="vl-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Population Census for year 2000, grouped by age and gender",
-  "data": {
-    "url": "data/test/data/bar_grouped_ver.csv"
-  },
-  "mark": "bar",
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "encoding": {
-    "column": {
-      "field": "age",
-      "type": "ordinal",
-      "spacing": 5
+    "row": {
+      "field": "Country",
+      "type": "nominal",
+      "sort":null
     },
     "y": {
-      "aggregate": "sum",
-      "field": "people",
-      "type": "quantitative",
-      "axis": {
-        "title": "Population",
-        "grid": false
-      }
-    },
-    "x": {
-      "field": "gender",
+      "field": "Urban/total",
       "type": "nominal",
-      "scale": {
-        "rangeStep": 12
-      },
-      "axis": {
-        "title": ""
-      }
+      "title": null,
+      "sort":null
     },
     "color": {
-      "field": "gender",
-      "type": "nominal",
-      "scale": {
-        "range": ["#EA98D2", "#659CCA"]
-      }
+      "field": "Urban/total",
+      "type": "nominal"
+    },
+    "x": {
+      "field": "Persons per square kilometers",
+      "type": "quantitative"
     }
   },
-  "config": {
-    "view": {
-      "stroke": "transparent"
-    },
-    "axis": {
-      "domainWidth": 1
-    }
-  }
+  "data": {
+    "url": "data/test/data/bar_grouped_hor.csv"
+  },
+  "mark": "bar"
 }
       </textarea>
 
@@ -106,20 +85,18 @@
       </div>
       <div id="ops-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
-
 {
   "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "중국(China)과 인도(India)의 Improve 비율 비교",
+  "description": "Asia 국가들의 Urban 인구밀도 그룹을 내림차순 정렬하고 상위 3개를 강조 (horizontal/vertical 지원)",
   "ops": [
     {
-      "op": "compare",
+      "op": "sort",
       "keyField": "Country",
-      "subgroupField": "opinion",
-      "subgroupKey": "Improve",
-      "field": "percentage",
-      "left": "China",
-      "right": "India",
-      "operator": "gt"
+      "subgroupField": "Urban/total",
+      "subgroupKey": "Urban",
+      "field": "Persons per square kilometers",
+      "order": "descending",
+      "limit": 3
     }
   ]
 }
