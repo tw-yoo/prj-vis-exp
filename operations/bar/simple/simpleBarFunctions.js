@@ -227,6 +227,7 @@ export function simpleBarFindExtremum(chartId, op) {
   return chartId;
 }
 
+
 // Assumes getOrientation(svg), getMargins(svg), getCenter(bar, orientation, margins) helpers are available
 export function simpleBarCompare(chartId, op) {
   const svg = d3.select(`#${chartId}`).select("svg");
@@ -235,27 +236,27 @@ export function simpleBarCompare(chartId, op) {
   const bars = svg.selectAll("rect");
   if (bars.empty()) return chartId;
 
-  // reset styling
+  // 0) reset styling & remove old labels
   const origColor = "#69b3a2";
   bars.interrupt().attr("fill", origColor).attr("stroke", "none");
   svg.selectAll(".compare-label, .value-tag").remove();
 
-  // comparator function
+  // 1) pull out field names from op
+  const { keyField = "id", field = "value" } = op;
+
+  // comparator 함수
   const cmp = {
-    gt:  (a, b) => a > b,
+    gt:  (a, b) => a >  b,
     gte: (a, b) => a >= b,
-    lt:  (a, b) => a < b,
+    lt:  (a, b) => a <  b,
     lte: (a, b) => a <= b,
     eq:  (a, b) => a === b,
     ne:  (a, b) => a !== b,
   }[op.operator];
   if (!cmp) {
-    console.warn("Bad operator", op.operator);
+    console.warn("simpleBarCompare: bad operator", op.operator);
     return chartId;
   }
-
-  const sample  = bars.datum();
-  const isField = v => typeof v === "string" && v in sample;
 
   // orientation & margins
   const orientation = getOrientation(svg);
@@ -263,11 +264,9 @@ export function simpleBarCompare(chartId, op) {
   const plotW = +svg.attr("data-plot-w");
   const plotH = +svg.attr("data-plot-h");
 
-  // helper to select bar by id
-  const selBar = id =>
-    bars.filter(function() {
-      return d3.select(this).attr("data-id") === String(id);
-    });
+  // 2) datum 기반으로 bar 선택
+  const selBar = keyValue =>
+    bars.filter(d => d[keyField] == keyValue);
 
   // highlight & label for each bar
   function highlight(selection, value, color) {
@@ -295,7 +294,6 @@ export function simpleBarCompare(chartId, op) {
     const text = `${lKey} ${symbol} ${rKey} → ${ok}`;
 
     if (orientation === "horizontal") {
-      // place to the right, centered vertically
       const x = marginL + plotW + 16;
       const y = marginT + plotH / 2;
       svg.append("text")
@@ -309,7 +307,6 @@ export function simpleBarCompare(chartId, op) {
          .attr("fill", ok ? "#2e7d32" : "#c62828")
          .text(text);
     } else {
-      // place above, centered horizontally
       const x = marginL + plotW / 2;
       const y = marginT - 8;
       svg.append("text")
@@ -324,28 +321,20 @@ export function simpleBarCompare(chartId, op) {
     }
   }
 
-  // two-bar compare
-  if (!isField(op.left) && !isField(op.right)) {
-    const leftBar  = selBar(op.left);
-    const rightBar = selBar(op.right);
-    if (leftBar.empty() || rightBar.empty()) return chartId;
-
-    const lv = +leftBar.attr("data-value");
-    const rv = +rightBar.attr("data-value");
-    const ok = cmp(lv, rv);
-
-    highlight(leftBar,  lv, "#ffb74d");
-    highlight(rightBar, rv, "#64b5f6");
-    showHeader(ok, op.left, op.operator, op.right);
-
+  // 3) 두 바 비교
+  const leftBar  = selBar(op.left);
+  const rightBar = selBar(op.right);
+  if (leftBar.empty() || rightBar.empty()) {
+    console.warn("simpleBarCompare: bar not found for", op.left, op.right);
     return chartId;
   }
 
-  // single-datum compare
-  const getVal = (row, v) => isField(v) ? row[v] : v;
-  const lv = getVal(sample, op.left);
-  const rv = getVal(sample, op.right);
-  const ok = cmp(+lv, +rv);
+  const lv = +leftBar.datum()[field];
+  const rv = +rightBar.datum()[field];
+  const ok = cmp(lv, rv);
+
+  highlight(leftBar,  lv, "#ffb74d");
+  highlight(rightBar, rv, "#64b5f6");
   showHeader(ok, op.left, op.operator, op.right);
 
   return chartId;
@@ -475,182 +464,132 @@ export function simpleBarDetermineRange(chartId, op) {
 
 
 
-// Assumes these helpers are in scope:
-// function getOrientation(svg) { return svg.attr("data-orientation") || "vertical"; }
-// function getMargins(svg)     { return { left: +svg.attr("data-m-left")||0, top: +svg.attr("data-m-top")||0 }; }
-
 export function simpleBarSort(chartId, op) {
   const svg = d3.select(`#${chartId}`).select("svg");
   if (svg.empty()) return chartId;
 
-  // Determine orientation
-  const orientation = getOrientation(svg);
+  // 0) 기본 설정
+  const orientation = svg.attr("data-orientation");
   const { left: mL, top: mT } = getMargins(svg);
   const plotW = +svg.attr("data-plot-w");
   const plotH = +svg.attr("data-plot-h");
-  const bars   = svg.selectAll("rect");
-  if (bars.empty()) return chartId;
-
-  const duration  = 600;
+  const xField = svg.attr("data-x-field");
+  const yField = svg.attr("data-y-field");
+  
+  const g = svg.select("g");
   const origColor = "#69b3a2";
-  const hlColor   = "#ffa500";
+  const hlColor = "#ffa500";
+  const duration = 600;
 
-  // 1) Reset styles & remove old labels/axes
-  bars.interrupt()
-      .attr("fill", origColor)
-      .attr("stroke", null)
-      .attr("opacity", 1);
-  svg.selectAll(".value-tag, .sort-label, .x-axis-label, .y-axis-label").remove();
+  const keyField = orientation === "vertical" ? xField : yField;
+  const valueField = orientation === "vertical" ? yField : xField;
+  
+  // op 파싱
+  const { field = valueField, order = "descending", limit = 0 } = op;
 
-  // 2) Build array of {el, value, id}
-  const arr = bars.nodes().map(el => {
-    const datum = d3.select(el).datum() || {};
-    const raw   = +el.getAttribute("data-value");
-    const val   = datum[op.field] != null ? +datum[op.field] : raw;
-    return { el, value: val, id: d3.select(el).attr("data-id") };
+  // 1) 기존 차트의 바인딩된 데이터 가져오기
+  const data = g.selectAll("rect").data();
+  if (!data || data.length === 0) return chartId;
+
+  // 2) 데이터 정렬
+  const sortedData = data.slice().sort((a, b) => {
+    const valA = a[field];
+    const valB = b[field];
+    if (isNaN(valA) || isNaN(valB)) {
+      console.warn("Sorting encountered a NaN value.");
+      return 0;
+    }
+    return order === "ascending" ? valA - valB : valB - valA;
   });
 
-  // 3) Sort & optional limit
-  const sorted = arr.slice().sort((a, b) =>
-    op.order === "ascending" ? a.value - b.value : b.value - a.value
-  );
-  const limit = op.limit > 0 ? Math.min(op.limit, sorted.length) : sorted.length;
-  const topN = sorted.slice(0, limit);
-  const rest = sorted.slice(limit);
-  const newOrder = topN.concat(rest);
+  // 3) 상위 N개 하이라이트
+  const topN = limit > 0 ? sortedData.slice(0, Math.min(limit, sortedData.length)) : [];
 
-  if (orientation === "horizontal") {
-    // Horizontal bars: reorder along Y
-    const originalY = bars.nodes()
-      .map(el => +el.getAttribute("y") + mT)
-      .sort((a, b) => a - b);
+  // 4) 스케일 업데이트 및 애니메이션
+  if (orientation === "vertical") {
+    // 스케일 재정의
+    const xScale = d3.scaleBand()
+      .domain(sortedData.map(d => d[xField]))
+      .range([0, plotW])
+      .padding(0.2);
+    const yScale = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d[yField])]).nice()
+      .range([plotH, 0]);
 
-    newOrder.forEach((item, i) => {
-      d3.select(item.el)
-        .transition().duration(duration)
-        .attr("y", originalY[i] - mT)
-        .transition().duration(duration/2)
-        .attr("fill", topN.includes(item) ? hlColor : origColor);
-    });
-
-    // Redraw Y axis
-    const yScale = d3.scaleBand()
-      .domain(newOrder.map(d => d.id))
-      .range([0, plotH])
-      .padding(0.1);
-
-    svg.select(".y-axis")
-       .transition().duration(duration)
-       .call(d3.axisLeft(yScale));
-    svg.selectAll(".y-axis g.tick")
-       .transition().duration(duration)
-       .attr("transform", (d, i) => `translate(0,${originalY[i]})`);
-
-    // Redraw X axis + label
-    const xMax = d3.max(arr, d => d.value);
-    const xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plotW]);
-
-    svg.select(".x-axis")
-       .transition().duration(duration)
-       .call(d3.axisBottom(xScale));
-    svg.append("text")
-       .attr("class","x-axis-label")
-       .attr("x", mL + plotW/2)
-       .attr("y", mT + plotH + 35)
-       .attr("text-anchor","middle")
-       .attr("font-size",14)
-       .text(op.field);
-
-    // 4) Value tags on topN bars
-    topN.forEach(item => {
-      const idx = newOrder.indexOf(item);
-      const bar = bars.nodes()[idx];
-      const xEnd = +bar.getAttribute("x") + +bar.getAttribute("width") + 4;
-      const yPos = originalY[idx];
-
-      svg.append("text")
-         .attr("class","value-tag")
-         .attr("x", xEnd)
-         .attr("y", yPos)
-         .attr("dominant-baseline","middle")
-         .attr("font-size",12)
-         .attr("fill","#000")
-         .text(item.value);
-    });
-
-    // 5) Display full order summary
-    svg.append("text")
-       .attr("class","sort-label")
-       .attr("x", mL + plotW + 8)
-       .attr("y", mT + 4)
-       .attr("text-anchor","start")
-       .attr("font-size",12)
-       .attr("fill", hlColor)
-       .text(`Order: ${newOrder.map(d => d.id).join(" → ")}`);
-
+    // rect 업데이트
+    g.selectAll("rect")
+      .data(sortedData, d => d[keyField])
+      .transition().duration(duration)
+      .attr("x", d => xScale(d[xField]))
+      .attr("y", d => yScale(d[yField]))
+      .attr("width", xScale.bandwidth())
+      .attr("height", d => plotH - yScale(d[yField]))
+      .attr("fill", d => topN.some(item => item[keyField] === d[keyField]) ? hlColor : origColor);
+      
+    // X축 업데이트
+    g.select(".x-axis")
+      .transition().duration(duration)
+      .call(d3.axisBottom(xScale))
+      .selectAll("text")
+      .attr("transform", "rotate(-45)")
+      .style("text-anchor", "end");
+      
+    // 값 레이블 업데이트
+    g.selectAll(".value-tag")
+      .data(sortedData, d => d[keyField])
+      .join("text")
+      .transition().duration(duration)
+      .attr("x", d => xScale(d[xField]) + xScale.bandwidth() / 2)
+      .attr("y", d => yScale(d[yField]) - 6)
+      .attr("text-anchor", "middle")
+      .attr("fill", d => topN.some(item => item[keyField] === d[keyField]) ? hlColor : "black")
+      .text(d => d[yField]);
   } else {
-    // Vertical bars: reorder along X
-    const originalX = bars.nodes()
-      .map(el => +el.getAttribute("x") + mL)
-      .sort((a, b) => a - b);
+    // 가로 막대
+    const yScale = d3.scaleBand()
+      .domain(sortedData.map(d => d[yField]))
+      .range([0, plotH])
+      .padding(0.2);
+    const xScale = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d[xField])]).nice()
+      .range([0, plotW]);
 
-    newOrder.forEach((item, i) => {
-      d3.select(item.el)
-        .transition().duration(duration)
-        .attr("x", originalX[i] - mL)
-        .transition().duration(duration/2)
-        .attr("fill", topN.includes(item) ? hlColor : origColor);
-    });
+    // rect 업데이트
+    g.selectAll("rect")
+      .data(sortedData, d => d[keyField])
+      .transition().duration(duration)
+      .attr("x", 0)
+      .attr("y", d => yScale(d[yField]))
+      .attr("width", d => xScale(d[xField]))
+      .attr("height", yScale.bandwidth())
+      .attr("fill", d => topN.some(item => item[keyField] === d[keyField]) ? hlColor : origColor);
 
-    const xBand = d3.scaleBand()
-      .domain(newOrder.map(d => d.id))
-      .range([mL, mL + plotW])
-      .padding(0.1);
-
-    svg.select(".x-axis")
-       .transition().duration(duration)
-       .call(d3.axisBottom(xBand))
-       .selectAll("text").attr("y",10);
-    svg.selectAll(".x-axis g.tick")
-       .transition().duration(duration)
-       .attr("transform",(d,i)=>`translate(${originalX[i]},0)`);
-
-    // Redraw Y axis label
-    svg.append("text")
-       .attr("class","y-axis-label")
-       .attr("transform","rotate(-90)")
-       .attr("x", -(mT + plotH/2))
-       .attr("y", mL - 45)
-       .attr("text-anchor","middle")
-       .attr("font-size",14)
-       .text(op.field);
-
-    // Value tags on topN bars
-    topN.forEach(item => {
-      const idx = newOrder.indexOf(item);
-      const bar = bars.nodes()[idx];
-      const xPos = originalX[idx] + (+bar.getAttribute("width")/2);
-      const yEnd = +bar.getAttribute("y") - 6 + mT;
-
-      svg.append("text")
-         .attr("class","value-tag")
-         .attr("x", xPos)
-         .attr("y", yEnd)
-         .attr("text-anchor","middle")
-         .attr("font-size",12)
-         .attr("fill","#000")
-         .text(item.value);
-    });
-
-    // Sort order summary
-    svg.append("text")
-       .attr("class","sort-label")
-       .attr("x", originalX[0])
-       .attr("y", mT - 15)
-       .attr("font-size",12)
-       .attr("fill", hlColor)
-       .text(`Order: ${newOrder.map(d => d.id).join(" → ")}`);
+    // Y축 업데이트
+    g.select(".y-axis")
+      .transition().duration(duration)
+      .call(d3.axisLeft(yScale));
+      
+    // 값 레이블 업데이트
+    g.selectAll(".value-tag")
+      .data(sortedData, d => d[keyField])
+      .join("text")
+      .transition().duration(duration)
+      .attr("x", d => xScale(d[xField]) + 6)
+      .attr("y", d => yScale(d[yField]) + yScale.bandwidth() / 2)
+      .attr("dominant-baseline", "middle")
+      .attr("fill", d => topN.some(item => item[keyField] === d[keyField]) ? hlColor : "black")
+      .text(d => d[xField]);
   }
-
+  
+  // 정렬 순서 요약 레이블 업데이트
+  svg.selectAll(".sort-label").remove();
+  svg.append("text")
+    .attr("class", "sort-label")
+    .attr("x", mL)
+    .attr("y", mT - 10)
+    .attr("font-size", 12)
+    .attr("fill", hlColor)
+    .text(`Order: ${sortedData.map(d => d[keyField]).join(" → ")}`);
+    
   return chartId;
 }

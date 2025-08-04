@@ -37,28 +37,18 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "encoding": {
-    "row": {
-      "field": "Country",
-      "type": "nominal",
-      "sort":null
-    },
     "y": {
-      "field": "Urban/total",
-      "type": "nominal",
-      "title": null,
-      "sort":null
-    },
-    "color": {
-      "field": "Urban/total",
-      "type": "nominal"
+      "field": "rating",
+      "type": "quantitative"
     },
     "x": {
-      "field": "Persons per square kilometers",
-      "type": "quantitative"
+      "field": "country",
+      "type": "nominal",
+      "sort": null
     }
   },
   "data": {
-    "url": "data/test/data/bar_grouped_hor.csv"
+    "url": "data/test/data/bar_simple_ver.csv"
   },
   "mark": "bar"
 }
@@ -87,16 +77,13 @@
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
 {
   "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "Asia 국가들의 Urban 인구밀도 그룹을 내림차순 정렬하고 상위 3개를 강조 (horizontal/vertical 지원)",
+  "description": "percent 내림차순 정렬 후 상위 5개 항목만 강조하기",
   "ops": [
     {
       "op": "sort",
-      "keyField": "Country",
-      "subgroupField": "Urban/total",
-      "subgroupKey": "Urban",
-      "field": "Persons per square kilometers",
+      "field": "percent",
       "order": "descending",
-      "limit": 3
+      "limit": 5
     }
   ]
 }

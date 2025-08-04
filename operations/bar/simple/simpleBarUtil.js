@@ -103,11 +103,12 @@ export async function renderSimpleBarChart(chartId, spec) {
                   .attr("data-m-top",   margin.top)
                   .attr("data-plot-w",  plotW)
                   .attr("data-plot-h",  plotH)
-                  // vertical 전용: y-domain 최대값 저장 (horizontal 에선 필요없음)
-                  .attr("data-y-domain-max", isHorizontal ? null
-                        : d3.scaleLinear()
-                            .domain([0, d3.max(data, d => d[yField])]).nice()
-                            .domain()[1]);
+                  .attr("data-x-field", xField)
+                  .attr("data-y-field", yField)
+                  .attr("data-original-data", JSON.stringify(data.map(d => ({
+                    id: d[xField] || d[yField],
+                    value: d[yField] || d[xField],
+                  }))));
 
   const g = svg.append("g")
                .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -123,8 +124,11 @@ export async function renderSimpleBarChart(chartId, spec) {
                      .range([0, plotH])
                      .padding(0.2);
 
-    g.append("g").call(d3.axisLeft(yScale));
     g.append("g")
+     .attr("class", "y-axis")
+     .call(d3.axisLeft(yScale));
+    g.append("g")
+     .attr("class", "x-axis")
      .attr("transform", `translate(0,${plotH})`)
      .call(d3.axisBottom(xScale).ticks(5));
 
@@ -136,8 +140,8 @@ export async function renderSimpleBarChart(chartId, spec) {
      .attr("width",  d => xScale(d[xField]))
      .attr("height", yScale.bandwidth())
      .attr("fill",   "#69b3a2")
-     .attr("data-id",    d => d[yField])
-     .attr("data-value", d => d[xField]);
+     .attr("data-id",     d => d[yField])
+     .attr("data-value",  d => d[xField]);
   } else {
     // — 세로 막대
     const xScale = d3.scaleBand()
@@ -149,6 +153,7 @@ export async function renderSimpleBarChart(chartId, spec) {
                      .range([plotH, 0]);
 
     g.append("g")
+     .attr("class", "x-axis")
      .attr("transform", `translate(0,${plotH})`)
      .call(d3.axisBottom(xScale))
      .selectAll("text")
@@ -156,6 +161,7 @@ export async function renderSimpleBarChart(chartId, spec) {
      .style("text-anchor", "end");
 
     g.append("g")
+     .attr("class", "y-axis")
      .call(d3.axisLeft(yScale).ticks(5));
 
     g.selectAll("rect")
@@ -166,8 +172,8 @@ export async function renderSimpleBarChart(chartId, spec) {
      .attr("width",  xScale.bandwidth())
      .attr("height", d => plotH - yScale(d[yField]))
      .attr("fill",   "#69b3a2")
-     .attr("data-id",    d => d[xField])
-     .attr("data-value", d => d[yField]);
+     .attr("data-id",     d => d[xField])
+     .attr("data-value",  d => d[yField]);
   }
 
   // ── 7) 축 레이블 ────────────────────────────────────
