@@ -79,16 +79,13 @@ export function stackedBarRetrieveValue(chartId, op) {
   return chartId;
 }
 
-/* ------------------------------------------------------------------ */
-/*   stackedBarFilter  (numeric + subgroup combined)                  */
-/*   with fade-in animations                                         */
-/* ------------------------------------------------------------------ */
+// Assumes d3, getOrientation(svg), getMargins(svg) helpers are in scope
 export function stackedBarFilter(chartId, op) {
   const svg = d3.select(`#${chartId}`).select("svg:last-of-type");
   if (svg.empty()) return chartId;
 
-  // 0. 리셋
-  svg.selectAll(".filter-rect,.filter-label").remove();
+  // 0. Reset
+  svg.selectAll(".filter-rect, .filter-label").remove();
   svg.selectAll("g.tick text")
      .attr("fill", "#000")
      .attr("font-weight", null)
@@ -96,16 +93,13 @@ export function stackedBarFilter(chartId, op) {
   svg.selectAll("rect")
      .attr("opacity", 1);
 
-  // 1. 파라미터
-  const field          = op.field          || "count";
-  const satisfy        = op.satisfy        || ">=";
-  const keyValue       = op.key;
-  const subgroupField  = op.subgroupField  || null;
-  const subgroupKey    = op.subgroupKey != null
-                          ? String(op.subgroupKey)
-                          : null;
+  // 1. Params
+  const keyValue      = op.key;
+  const satisfy       = op.satisfy || ">=";
+  const subgroupField = op.subgroupField || null;
+  const subgroupKey   = op.subgroupKey != null ? String(op.subgroupKey) : null;
 
-  // 2. 비교 함수
+  // 2. Comparator
   const cmp = {
     ">":  (v,k) => v  >  k,
     ">=": (v,k) => v >= k,
@@ -113,25 +107,26 @@ export function stackedBarFilter(chartId, op) {
     "<=": (v,k) => v <= k,
     "==": (v,k) => v == k,
     "!=": (v,k) => v != k
-  }[satisfy] || ((v,k) => v >= k);
+  }[satisfy] || ((v,k)=>v>=k);
 
-  // 3. 하이라이트 색상
+  // 3. Highlight colors
   const hl   = "#ffeb3b";
   const halo = "#ffffff";
   const pad  = 2;
 
-  // 4. 강조할 카테고리 모음 (축 강조용)
+  const orientation = getOrientation(svg);
+  const { left: mL, top: mT } = getMargins(svg);
+
+  // 4. Collect categories to highlight
   const highlightCats = new Set();
 
-  // 5. 각 rect 에 대해
-  svg.selectAll("rect").each(function() {
-    const sel = d3.select(this);
-    const d   = sel.datum();
-
-    // 데이터 없는 rect 스킵
+  // 5. For each rect
+  svg.selectAll("rect").each(function(d) {
     if (!d || d.start == null || d.end == null) return;
+    const sel = d3.select(this);
+    const value = d.end - d.start;
 
-    // subgroup 필터: 일치하지 않으면 디밍
+    // subgroup filter
     if (subgroupField && subgroupKey !== null) {
       const subVal = String(d[subgroupField] ?? d.subgroup);
       if (subVal !== subgroupKey) {
@@ -140,104 +135,99 @@ export function stackedBarFilter(chartId, op) {
       }
     }
 
-    // numeric 필터: 불충족 시 디밍
-    const value = d.end - d.start;
-    if (op.field && !cmp(value, keyValue)) {
+    // numeric filter
+    if (!cmp(value, keyValue)) {
       sel.transition().duration(300).attr("opacity", 0.25);
       return;
     }
 
-    // 두 조건 모두 만족하면 하이라이트
+    // both passed → highlight
     const bbox = this.getBBox();
 
-    // white halo outline (fade in)
+    // outlines
     svg.append("rect")
-       .attr("class", "filter-rect")
+       .attr("class","filter-rect")
        .attr("x", bbox.x - pad).attr("y", bbox.y - pad)
        .attr("width", bbox.width + pad*2)
-       .attr("height", bbox.height + pad*2)
-       .attr("fill", "none")
-       .attr("stroke", halo)
-       .attr("stroke-width", 4)
-       .attr("pointer-events", "none")
-       .attr("opacity", 0)
-       .transition().duration(400).attr("opacity", 1);
+       .attr("height",bbox.height+ pad*2)
+       .attr("fill","none").attr("stroke",halo).attr("stroke-width",4)
+       .attr("pointer-events","none").attr("opacity",0)
+       .transition().duration(400).attr("opacity",1);
 
-    // yellow outline (fade in)
     svg.append("rect")
-       .attr("class", "filter-rect")
+       .attr("class","filter-rect")
        .attr("x", bbox.x - pad).attr("y", bbox.y - pad)
        .attr("width", bbox.width + pad*2)
-       .attr("height", bbox.height + pad*2)
-       .attr("fill", "none")
-       .attr("stroke", hl)
-       .attr("stroke-width", 3)
-       .attr("pointer-events", "none")
-       .attr("opacity", 0)
-       .transition().duration(400).attr("opacity", 1);
+       .attr("height",bbox.height+ pad*2)
+       .attr("fill","none").attr("stroke",hl).attr("stroke-width",3)
+       .attr("pointer-events","none").attr("opacity",0)
+       .transition().duration(400).attr("opacity",1);
 
-    // value label with black halo (fade in with delay)
-    const isH = bbox.width > bbox.height;
+    // label
+    let x, y, anchor, baseline;
+    if (orientation === "horizontal") {
+      x = bbox.x + bbox.width + 6;
+      y = bbox.y + bbox.height/2;
+      anchor = "start";
+      baseline = "middle";
+    } else {
+      x = bbox.x + bbox.width/2;
+      y = bbox.y - 6;
+      anchor = "middle";
+      baseline = "auto";
+    }
+
     svg.append("text")
-       .attr("class", "filter-label")
-       .attr("x", isH ? bbox.x + bbox.width + 6 : bbox.x + bbox.width/2)
-       .attr("y", isH ? bbox.y + bbox.height/2 : bbox.y - 6)
+       .attr("class","filter-label")
+       .attr("x", x).attr("y", y)
        .attr("fill", hl)
-       .attr("font-size", "12px")
-       .attr("font-weight", "bold")
-       .attr("paint-order", "stroke")
-       .attr("stroke", "#000")
-       .attr("stroke-width", 3)
-       .attr("dominant-baseline", isH ? "middle" : "auto")
-       .attr("text-anchor", isH ? "start" : "middle")
+       .attr("font-size","12px")
+       .attr("font-weight","bold")
+       .attr("stroke","#000").attr("stroke-width",3).attr("paint-order","stroke")
+       .attr("text-anchor", anchor)
+       .attr("dominant-baseline", baseline)
        .text(value.toLocaleString())
-       .attr("opacity", 0)
-       .transition().delay(200).duration(400).attr("opacity", 1);
+       .attr("opacity",0)
+       .transition().delay(200).duration(400).attr("opacity",1);
 
-    // 축 강조용 카테고리 저장
     highlightCats.add(String(d.category));
   });
 
-  // 6. x축 tick 강조 (fade in)
-  svg.selectAll("g.tick").each(function(tickVal) {
-    if (highlightCats.has(String(tickVal))) {
+  // 6. Axis tick highlight
+  svg.selectAll("g.tick").each(function(t) {
+    if (highlightCats.has(String(t))) {
       d3.select(this).select("text")
         .attr("fill", hl)
-        .attr("font-weight", "bold")
-        .attr("opacity", 0)
-        .transition().delay(300).duration(400).attr("opacity", 1);
+        .attr("font-weight","bold")
+        .attr("opacity",0)
+        .transition().delay(300).duration(400).attr("opacity",1);
     }
   });
 
   return chartId;
 }
 
-
-/* ------------------------------------------------------------------ */
-/*   stackedBarFindExtremum  (rain 세그먼트만 필터 + 애니메이션)      */
-/* ------------------------------------------------------------------ */
+// Assumes d3, getOrientation(svg), getMargins(svg) helpers are in scope
 export function stackedBarFindExtremum(chartId, op) {
   const svg = d3.select(`#${chartId}`).select("svg:last-of-type");
   if (svg.empty()) return chartId;
 
-  // 0. 이전 표시 제거
-  svg.selectAll(".extremum-rect,.extremum-label").remove();
+  // 0) Clear previous highlights
+  svg.selectAll(".extremum-rect, .extremum-label").remove();
   svg.selectAll("g.tick text")
      .attr("fill", "#000")
      .attr("font-weight", null)
      .attr("opacity", 1);
 
-  // 1. 파라미터
+  // 1) Parameters
   const subgroupField = op.subgroupField;
   const subgroupKey   = op.subgroupKey != null ? String(op.subgroupKey) : null;
   const type          = (op.type || "max").toLowerCase();
 
-  // 2. 모든 스택 세그먼트 수집 (rain만)
+  // 2) Gather only the stacked segments for this subgroup
   const segments = [];
-  svg.selectAll("rect").each(function() {
-    const d = d3.select(this).datum();
+  svg.selectAll("rect").each(function(d) {
     if (!d || d.start == null || d.end == null) return;
-    // subgroup 필터링
     if (subgroupField && subgroupKey !== null) {
       const subVal = String(d[subgroupField] ?? d.subgroup);
       if (subVal !== subgroupKey) return;
@@ -246,216 +236,260 @@ export function stackedBarFindExtremum(chartId, op) {
   });
   if (!segments.length) return chartId;
 
-  // 3. extremum 계산
-  const extremumValue = (type === "min")
+  // 3) Compute extremum value
+  const extremumValue = type === "min"
     ? d3.min(segments, s => s.value)
     : d3.max(segments, s => s.value);
 
-  // 4. 스타일 설정
+  // 4) Styling constants
+  const pad  = 2;
   const halo = "#ffffff";
   const hl   = "#ffeb3b";
-  const pad  = 2;
-  const highlightCats = new Set();
 
-  // 5. 극값 세그먼트 강조 (fade-in)
+  const orientation = getOrientation(svg);
+  const { left: mL, top: mT } = getMargins(svg);
+
+  // 5) Highlight each extremum segment
   segments
     .filter(s => s.value === extremumValue)
     .forEach(s => {
-      const { datum, node, value } = s;
-      const bbox = node.getBBox();
-      const isH = bbox.width > bbox.height;
-      const labelX = isH
-        ? bbox.x + bbox.width + 6
-        : bbox.x + bbox.width / 2;
-      const labelY = isH
-        ? bbox.y + bbox.height / 2
-        : bbox.y - 6;
+      const bbox = s.node.getBBox();
 
-      // 흰색 halo
+      // draw white halo
       svg.append("rect")
-         .attr("class", "extremum-rect")
+         .attr("class","extremum-rect")
          .attr("x", bbox.x - pad).attr("y", bbox.y - pad)
-         .attr("width", bbox.width + pad*2)
+         .attr("width",  bbox.width  + pad*2)
          .attr("height", bbox.height + pad*2)
-         .attr("fill", "none").attr("stroke", halo).attr("stroke-width", 4)
-         .attr("pointer-events", "none")
-         .attr("opacity", 0)
-         .transition().duration(400).attr("opacity", 1);
+         .attr("fill","none").attr("stroke",halo).attr("stroke-width",4)
+         .attr("opacity",0)
+         .transition().duration(400).attr("opacity",1);
 
-      // 노란색 outline
+      // draw yellow outline
       svg.append("rect")
-         .attr("class", "extremum-rect")
+         .attr("class","extremum-rect")
          .attr("x", bbox.x - pad).attr("y", bbox.y - pad)
-         .attr("width", bbox.width + pad*2)
+         .attr("width",  bbox.width  + pad*2)
          .attr("height", bbox.height + pad*2)
-         .attr("fill", "none").attr("stroke", hl).attr("stroke-width", 3)
-         .attr("pointer-events", "none")
-         .attr("opacity", 0)
-         .transition().delay(100).duration(400).attr("opacity", 1);
+         .attr("fill","none").attr("stroke",hl).attr("stroke-width",3)
+         .attr("opacity",0)
+         .transition().delay(100).duration(400).attr("opacity",1);
 
-      // 값 라벨
+      // figure out label position based on chart orientation
+      let x, y, anchor, baseline;
+      if (orientation === "horizontal") {
+        x = bbox.x + bbox.width + 6;
+        y = bbox.y + bbox.height / 2;
+        anchor = "start";
+        baseline = "middle";
+      } else {
+        x = bbox.x + bbox.width / 2;
+        y = bbox.y - 6;
+        anchor = "middle";
+        baseline = "auto";
+      }
+
+      // draw the value label
       svg.append("text")
-         .attr("class", "extremum-label")
-         .attr("x", labelX).attr("y", labelY)
-         .attr("fill", hl).attr("font-size", "12px").attr("font-weight", "bold")
-         .attr("paint-order", "stroke").attr("stroke", "#000").attr("stroke-width", 3)
-         .attr("dominant-baseline", isH ? "middle" : "auto")
-         .attr("text-anchor", isH ? "start" : "middle")
-         .text(`${type === "min" ? "MIN" : "MAX"} ${value.toLocaleString()}`)
-         .attr("opacity", 0)
-         .transition().delay(200).duration(400).attr("opacity", 1);
-
-      highlightCats.add(String(datum.category));
+         .attr("class","extremum-label")
+         .attr("x", x).attr("y", y)
+         .attr("text-anchor", anchor)
+         .attr("dominant-baseline", baseline)
+         .attr("fill", hl)
+         .attr("font-size","12px")
+         .attr("font-weight","bold")
+         .attr("paint-order","stroke")
+         .attr("stroke","#000")
+         .attr("stroke-width",3)
+         .text(`${type === "min" ? "MIN" : "MAX"} ${extremumValue.toLocaleString()}`)
+         .attr("opacity",0)
+         .transition().delay(200).duration(400).attr("opacity",1);
     });
 
-  // 6. x축 tick 강조 (fade-in)
-  svg.selectAll("g.tick").each(function(t) {
-    if (highlightCats.has(String(t))) {
-      d3.select(this).select("text")
-        .attr("fill", hl).attr("font-weight", "bold")
-        .attr("opacity", 0)
-        .transition().delay(300).duration(400).attr("opacity", 1);
-    }
-  });
+  // 6) Highlight the corresponding axis ticks
+  if (orientation === "horizontal") {
+    svg.select(".y-axis").selectAll("g.tick").each(function(t) {
+      if (t === segments[0].datum.category) {
+        d3.select(this).select("text")
+          .attr("fill", hl)
+          .attr("font-weight","bold")
+          .attr("opacity",0)
+          .transition().delay(300).duration(400).attr("opacity",1);
+      }
+    });
+  } else {
+    svg.select(".x-axis").selectAll("g.tick").each(function(t) {
+      if (t === segments[0].datum.category) {
+        d3.select(this).select("text")
+          .attr("fill", hl)
+          .attr("font-weight","bold")
+          .attr("opacity",0)
+          .transition().delay(300).duration(400).attr("opacity",1);
+      }
+    });
+  }
 
   return chartId;
 }
+// Assumes these helpers are in scope:
+// function getOrientation(svg) { return svg.attr("data-orientation") || "vertical"; }
+// function getMargins(svg)     { return { left: +svg.attr("data-m-left")||0, top: +svg.attr("data-m-top")||0 }; }
 
-/* ------------------------------------------------------------------ */
-/*   stackedBarCompare  (with animations)                            */
-/*   Compare two segments (same subgroup)                             */
-/* ------------------------------------------------------------------ */
 export function stackedBarCompare(chartId, op) {
   const svg = d3.select(`#${chartId}`).select("svg:last-of-type");
   if (svg.empty()) return chartId;
 
-  // 0. 이전 표시 제거
-  svg.selectAll(".compare-rect,.compare-line,.compare-label").remove();
+  // 0. clear previous
+  svg.selectAll(".compare-rect, .compare-line, .compare-label").remove();
   svg.selectAll("g.tick text")
      .attr("fill", "#000")
      .attr("font-weight", null)
      .attr("opacity", 1);
 
-  // 1. 파라미터
-  const field          = op.field           || "count";
-  const keyField       = op.keyField        || "month";
-  const subgroupField  = op.subgroupField   || null;
-  const subgroupKey    = op.subgroupKey     != null ? String(op.subgroupKey) : null;
-  const leftKey        = op.left;
-  const rightKey       = op.right;
-  const operator       = (op.operator || "gt").toLowerCase();
+  // params
+  const keyField      = op.keyField      || "Country";
+  const subgroupField = op.subgroupField || "opinion";
+  const subgroupKey   = op.subgroupKey   != null ? String(op.subgroupKey) : null;
+  const leftKey       = String(op.left);
+  const rightKey      = String(op.right);
+  const operator      = (op.operator || "gt").toLowerCase();
 
-  // 2. 타겟 세그먼트 찾기
-  let leftRect = null, rightRect = null, leftDatum, rightDatum;
-  svg.selectAll("rect").each(function() {
-    const d = d3.select(this).datum();
+  // find target rects
+  let leftRect, rightRect, leftDatum, rightDatum;
+  svg.selectAll("rect").each(function(d) {
     if (!d || d.start == null || d.end == null) return;
-    const catVal = String(d[keyField] ?? d.category);
-    const subVal = subgroupField ? String(d[subgroupField] ?? d.subgroup) : null;
-    if (String(leftKey) === catVal && (!subgroupKey || subgroupKey === subVal)) {
-      leftRect = d3.select(this); leftDatum = d;
-    }
-    if (String(rightKey) === catVal && (!subgroupKey || subgroupKey === subVal)) {
-      rightRect = d3.select(this); rightDatum = d;
-    }
+    const cat = String(d[keyField] ?? d.category);
+    const sub = subgroupField && d[subgroupField] != null
+                ? String(d[subgroupField])
+                : null;
+    if (cat === leftKey && (!subgroupKey || subgroupKey === sub))  { leftRect  = d3.select(this); leftDatum  = d; }
+    if (cat === rightKey && (!subgroupKey || subgroupKey === sub)) { rightRect = d3.select(this); rightDatum = d; }
   });
   if (!leftRect || !rightRect) {
     console.warn("stackedBarCompare: target not found");
     return chartId;
   }
 
-  // 3. geometry & values
+  // geometry & values
   const lbox = leftRect.node().getBBox();
   const rbox = rightRect.node().getBBox();
-  const lval = leftDatum.end - leftDatum.start;
+  const lval = leftDatum.end  - leftDatum.start;
   const rval = rightDatum.end - rightDatum.start;
 
-  // 4. 스타일
-  const halo = "#ffffff", hl = "#ffeb3b", pad = 2;
-  const midX = (lbox.x + rbox.x + rbox.width) / 2;
-  const midY = Math.min(lbox.y + lbox.height/2, rbox.y + rbox.height/2) - 20;
+  // styles
+  const pad  = 2;
+  const halo = "#ffffff";
+  const hl   = "#ffeb3b";
 
-  // 5. outlines fade‐in
-  [lbox, rbox].forEach(bbox => {
+  const orientation = getOrientation(svg);
+
+  // helper to draw outlines
+  [lbox, rbox].forEach(b => {
     svg.append("rect")
-       .attr("class", "compare-rect")
-       .attr("x", bbox.x - pad).attr("y", bbox.y - pad)
-       .attr("width", bbox.width + pad*2).attr("height", bbox.height + pad*2)
-       .attr("fill", "none").attr("stroke", halo).attr("stroke-width", 4)
-       .attr("opacity", 0).transition().duration(400).attr("opacity", 1);
+       .attr("class","compare-rect")
+       .attr("x", b.x - pad).attr("y", b.y - pad)
+       .attr("width",  b.width  + pad*2)
+       .attr("height", b.height + pad*2)
+       .attr("fill","none").attr("stroke",halo).attr("stroke-width",4)
+       .attr("opacity",0).transition().duration(400).attr("opacity",1);
+
     svg.append("rect")
-       .attr("class", "compare-rect")
-       .attr("x", bbox.x - pad).attr("y", bbox.y - pad)
-       .attr("width", bbox.width + pad*2).attr("height", bbox.height + pad*2)
-       .attr("fill", "none").attr("stroke", hl).attr("stroke-width", 3)
-       .attr("opacity", 0).transition().delay(100).duration(400).attr("opacity", 1);
+       .attr("class","compare-rect")
+       .attr("x", b.x - pad).attr("y", b.y - pad)
+       .attr("width",  b.width  + pad*2)
+       .attr("height", b.height + pad*2)
+       .attr("fill","none").attr("stroke",hl).attr("stroke-width",3)
+       .attr("opacity",0).transition().delay(100).duration(400).attr("opacity",1);
   });
 
-  // 6. connecting line with stroke‐dash animation
-  const x1 = lbox.x + lbox.width/2, y1 = lbox.y + lbox.height/2;
-  const x2 = rbox.x + rbox.width/2, y2 = rbox.y + rbox.height/2;
-  svg.append("line")
-     .attr("class", "compare-line")
-     .attr("x1", x1).attr("y1", y1)
-     .attr("x2", x2).attr("y2", y2)
-     .attr("stroke", hl).attr("stroke-width", 2)
-     .attr("stroke-dasharray", function(){ const L=this.getTotalLength(); return `${L} ${L}` })
-     .attr("stroke-dashoffset", function(){ return this.getTotalLength() })
-     .transition().duration(600).attr("stroke-dashoffset", 0);
+  // draw connecting line & labels based on orientation
+  if (orientation === "horizontal") {
+    // horizontal bars → vertical connector
+    const xCenter = Math.min(lbox.x + lbox.width/2, rbox.x + rbox.width/2) - 20;
+    const y1 = lbox.y + lbox.height/2;
+    const y2 = rbox.y + rbox.height/2;
 
-  // 7. value labels fade‐in
-  [[x1,y1,lval], [x2,y2,rval]].forEach(([cx,cy,val], i) => {
+    svg.append("line")
+       .attr("class","compare-line")
+       .attr("x1", xCenter).attr("y1", y1)
+       .attr("x2", xCenter).attr("y2", y2)
+       .attr("stroke", hl).attr("stroke-width", 2)
+       .attr("stroke-dasharray", function(){ const L=this.getTotalLength(); return `${L} ${L}`})
+       .attr("stroke-dashoffset", function(){ return this.getTotalLength() })
+       .transition().duration(600).attr("stroke-dashoffset", 0);
+
+    // value tags to right of each bar
+    [[lbox, lval], [rbox, rval]].forEach(([b,val], i) => {
+      const x = b.x + b.width + 6;
+      const y = b.y + b.height/2;
+      svg.append("text")
+         .attr("class","compare-label")
+         .attr("x", x).attr("y", y)
+         .attr("fill", hl).attr("font-size","12px").attr("font-weight","bold")
+         .attr("paint-order","stroke").attr("stroke","#000").attr("stroke-width",3)
+         .attr("text-anchor","start").attr("dominant-baseline","middle")
+         .text(val.toLocaleString())
+         .attr("opacity",0)
+         .transition().delay(200 + i*100).duration(400).attr("opacity",1);
+    });
+
+    // summary between bars
+    const midY = (y1 + y2)/2;
     svg.append("text")
-       .attr("class", "compare-label")
-       .attr("x", cx + 6).attr("y", cy - 6)
-       .attr("fill", hl).attr("font-size", "12px").attr("font-weight", "bold")
-       .attr("paint-order", "stroke").attr("stroke", "#000").attr("stroke-width", 3)
-       .attr("text-anchor", "start").attr("dominant-baseline", "middle")
-       .text(val.toLocaleString())
-       .attr("opacity", 0)
-       .transition().delay(200 + i*100).duration(400).attr("opacity", 1);
-  });
+       .attr("class","compare-label")
+       .attr("x", xCenter - 4).attr("y", midY)
+       .attr("text-anchor","end").attr("dominant-baseline","middle")
+       .attr("fill", hl).attr("font-size","13px").attr("font-weight","bold")
+       .text(`${leftKey} → ${rightKey}`)
+       .attr("opacity",0)
+       .transition().delay(350).duration(400).attr("opacity",1);
 
-  // 8. comparison result label fade‐in
-  const cmpFns = { gt:(a,b)=>a>b, lt:(a,b)=>a<b, gte:(a,b)=>a>=b, lte:(a,b)=>a<=b, eq:(a,b)=>a===b, neq:(a,b)=>a!==b };
-  const cmpSyms = { gt:">", lt:"<", gte:"≥", lte:"≤", eq:"=", neq:"≠" };
-  const sym = cmpSyms[operator] || ">";
-  const ok  = cmpFns[operator](lval,rval) ? "✓" : "✗";
-  const delta = lval - rval;
+  } else {
+    // vertical bars → horizontal connector
+    const x1 = lbox.x + lbox.width/2;
+    const x2 = rbox.x + rbox.width/2;
+    const yMid = Math.min(lbox.y, rbox.y) - 20;
 
-  svg.append("text")
-     .attr("class", "compare-label")
-     .attr("x", midX).attr("y", midY)
-     .attr("fill", hl).attr("font-size", "13px").attr("font-weight", "bold")
-     .attr("text-anchor", "middle")
-     .text(`${leftKey} ${sym} ${rightKey} ${ok}`)
-     .attr("opacity", 0).transition().delay(300).duration(400).attr("opacity", 1);
+    svg.append("line")
+       .attr("class","compare-line")
+       .attr("x1", x1).attr("y1", yMid)
+       .attr("x2", x2).attr("y2", yMid)
+       .attr("stroke", hl).attr("stroke-width", 2)
+       .attr("stroke-dasharray", function(){ const L=this.getTotalLength(); return `${L} ${L}`})
+       .attr("stroke-dashoffset", function(){ return this.getTotalLength() })
+       .transition().duration(600).attr("stroke-dashoffset", 0);
 
-  svg.append("text")
-     .attr("class", "compare-label")
-     .attr("x", midX).attr("y", midY + 16)
-     .attr("fill", hl).attr("font-size", "12px")
-     .attr("text-anchor", "middle")
-     .text(`Δ ${delta.toLocaleString()}`)
-     .attr("opacity", 0).transition().delay(350).duration(400).attr("opacity", 1);
+    // value tags above each bar
+    [[lbox, lval], [rbox, rval]].forEach(([b,val], i) => {
+      const x = b.x + b.width/2;
+      const y = b.y - 6;
+      svg.append("text")
+         .attr("class","compare-label")
+         .attr("x", x).attr("y", y)
+         .attr("fill", hl).attr("font-size","12px").attr("font-weight","bold")
+         .attr("paint-order","stroke").attr("stroke","#000").attr("stroke-width",3)
+         .attr("text-anchor","middle")
+         .text(val.toLocaleString())
+         .attr("opacity",0)
+         .transition().delay(200 + i*100).duration(400).attr("opacity",1);
+    });
 
-  // 9. x-axis tick 강조 fade‐in
-  const ticks = new Set([String(leftKey), String(rightKey)]);
-  svg.selectAll("g.tick").each(function(t) {
-    if (ticks.has(String(t))) {
-      d3.select(this).select("text")
-        .attr("fill", hl).attr("font-weight", "bold")
-        .attr("opacity", 0).transition().delay(400).duration(400).attr("opacity", 1);
-    }
-  });
+    // summary between bars
+    const midX = (x1 + x2)/2;
+    svg.append("text")
+       .attr("class","compare-label")
+       .attr("x", midX).attr("y", yMid - 4)
+       .attr("text-anchor","middle")
+       .attr("fill", hl).attr("font-size","13px").attr("font-weight","bold")
+       .text(`${leftKey} → ${rightKey}`)
+       .attr("opacity",0)
+       .transition().delay(350).duration(400).attr("opacity",1);
+  }
 
   return chartId;
 }
 
-
-
-
-
+// Assumes d3, getOrientation(svg), getMargins(svg) helpers are in scope
 export function stackedBarDetermineRange(chartId, op) {
   const svg = d3.select(`#${chartId} svg:last-of-type`);
   if (svg.empty()) return chartId;
@@ -467,154 +501,153 @@ export function stackedBarDetermineRange(chartId, op) {
     return chartId;
   }
 
-  // dims & margins
+  // dimensions & margins
   const width  = +svg.attr("width");
   const height = +svg.attr("height");
   const margin = { top: 20, right: 30, bottom: 30, left: 50 };
 
-  // 1) collect every bar segment
-  const allSegs = [];
-  svg.selectAll("rect").each(function() {
-    const d = d3.select(this).datum();
-    if (d && d.start != null && d.end != null) {
-      allSegs.push({
-        node:     this,
-        category: String(d.category),
-        subgroup: String(d[subgroupField] ?? d.subgroup),
-        value:    d.end - d.start
-      });
-    }
-  });
+  const orientation = getOrientation(svg);
+  const { left: mL, top: mT } = getMargins(svg);
 
-  // 2) filter to just your season
-  const rainSegs = allSegs.filter(s => s.subgroup === subgroupKey);
-  if (!rainSegs.length) {
+  // 1) collect only the segments for this subgroup
+  const segs = [];
+  svg.selectAll("rect").each(function(d) {
+    if (!d || d.start == null || d.end == null) return;
+    const subVal = String(d[subgroupField] ?? d.subgroup);
+    if (subVal !== subgroupKey) return;
+    segs.push({ node: this, value: d.end - d.start });
+  });
+  if (!segs.length) {
     console.warn("no segments matched", subgroupKey);
     return chartId;
   }
 
-  // 3) compute new scales
-  const months    = Array.from(new Set(rainSegs.map(s => s.category)));
-  const xNewScale = d3.scaleBand()
-                      .domain(months)
-                      .range([margin.left, width - margin.right])
-                      .padding(0.1);
-  const maxVal    = d3.max(rainSegs, s => s.value);
-  const yNewScale = d3.scaleLinear()
-                      .domain([0, maxVal]).nice()
-                      .range([height - margin.bottom, margin.top]);
+  // 2) find min/max values and corresponding boxes
+  const values = segs.map(s => s.value);
+  const minV   = d3.min(values);
+  const maxV   = d3.max(values);
+  const minSeg = segs.find(s => s.value === minV);
+  const maxSeg = segs.find(s => s.value === maxV);
+  const minBox = minSeg.node.getBBox();
+  const maxBox = maxSeg.node.getBBox();
 
-  // 4) fade out non-rain bars
-  svg.selectAll("rect")
-     .transition().duration(800)
-     .attr("opacity", d => (d && String(d[subgroupField] ?? d.subgroup) === subgroupKey) ? 1 : 0)
-     .on("end", function(d) {
-       if (!(d && String(d[subgroupField] ?? d.subgroup) === subgroupKey)) {
-         d3.select(this).remove();
-       }
-     });
-
-  // 5) after fade completes, reflow axes + rain bars
-  svg.transition().delay(800).duration(0).on("end", () => {
-    // remove old axes
-    svg.selectAll("g")
-       .filter(function() {
-         const t = d3.select(this).attr("transform") || "";
-         return t.startsWith("translate(0,"); // x-axis
-       })
-       .remove();
-
-    svg.selectAll("g")
-       .filter(function() {
-         const t = d3.select(this).attr("transform") || "";
-         return t.startsWith("translate(") && t.includes(",0)"); // y-axis
-       })
-       .remove();
-
-    // 5a) draw new axes (invisibly)
-    const xG = svg.append("g")
-                  .attr("transform", `translate(0,${height - margin.bottom})`)
-                  .attr("opacity", 0)
-                  .call(d3.axisBottom(xNewScale));
-    const yG = svg.append("g")
-                  .attr("transform", `translate(${margin.left},0)`)
-                  .attr("opacity", 0)
-                  .call(d3.axisLeft(yNewScale));
-
-    xG.transition().duration(500).attr("opacity", 1);
-    yG.transition().duration(500).attr("opacity", 1);
-
-    // 5b) reposition each rain bar
-    rainSegs.forEach((s, i) => {
-      const sel = d3.select(s.node);
-      const newX = xNewScale(s.category);
-      const newY = yNewScale(s.value);
-      const newH = height - margin.bottom - newY;
-
-      sel.transition()
-         .delay(300)
-         .duration(600)
-         .attr("x", newX)
-         .attr("width", xNewScale.bandwidth())
-         .attr("y", newY)
-         .attr("height", newH);
-    });
-  });
-
-  // 6) draw range lines + Δ once bars settled
-  const hl   = "#ffeb3b", halo = "#ffffff";
+  const hl   = "#ffeb3b";
+  const halo = "#ffffff";
   const pad  = 2;
-  const xPos = width - margin.right + 10;
-  const yMin = yNewScale(0);
-  const yMax = yNewScale(maxVal);
-  const delta= maxVal;
 
-  // schedule after all bars have moved
-  setTimeout(() => {
-    [yMax, yMin].forEach(yPos => {
-      // white halo
+  if (orientation === "horizontal") {
+    // horizontal stacked bars → vertical dashed lines
+    const xMin = minBox.x + minBox.width;
+    const xMax = maxBox.x + maxBox.width;
+    const y0   = mT;
+    const y1   = height - margin.bottom;
+
+    // white halo lines
+    [xMin, xMax].forEach(x => {
       svg.append("line")
          .attr("class","range-line")
-         .attr("x1", margin.left).attr("x2", margin.left)
-         .attr("y1", yPos).attr("y2", yPos)
+         .attr("x1", x).attr("x2", x)
+         .attr("y1", y0).attr("y2", y1)
          .attr("stroke", halo).attr("stroke-width", 4)
-         .attr("pointer-events","none")
-         .transition().duration(600).attr("x2", width - margin.right);
+         .attr("opacity", 0)
+         .transition().duration(400).attr("opacity", 1);
 
-      // yellow line
       svg.append("line")
          .attr("class","range-line")
-         .attr("x1", margin.left).attr("x2", margin.left)
-         .attr("y1", yPos).attr("y2", yPos)
+         .attr("x1", x).attr("x2", x)
+         .attr("y1", y0).attr("y2", y1)
          .attr("stroke", hl).attr("stroke-width", 2)
-         .attr("pointer-events","none")
-         .transition().duration(600).attr("x2", width - margin.right);
+         .attr("stroke-dasharray","4 4")
+         .attr("opacity", 0)
+         .transition().delay(100).duration(400).attr("opacity", 1);
     });
 
-    // Δ vertical
+    // horizontal connector at top
     svg.append("line")
        .attr("class","range-line")
-       .attr("x1", xPos).attr("x2", xPos)
-       .attr("y1", yMin).attr("y2", yMin)
-       .attr("stroke", hl).attr("stroke-width", 2)
-       .attr("pointer-events","none")
-       .transition().duration(600).attr("y2", yMax);
+       .attr("x1", xMin).attr("x2", xMax)
+       .attr("y1", y0 - pad).attr("y2", y0 - pad)
+       .attr("stroke", halo).attr("stroke-width", 4)
+       .attr("opacity", 0)
+       .transition().duration(400).attr("opacity", 1);
 
-    // Δ label
+    svg.append("line")
+       .attr("class","range-line")
+       .attr("x1", xMin).attr("x2", xMax)
+       .attr("y1", y0 - pad).attr("y2", y0 - pad)
+       .attr("stroke", hl).attr("stroke-width", 2)
+       .attr("stroke-dasharray","4 4")
+       .attr("opacity", 0)
+       .transition().delay(100).duration(400).attr("opacity", 1);
+
+    // Δ label above
     svg.append("text")
        .attr("class","delta-label")
-       .attr("x", xPos+6).attr("y", yMin)
-       .attr("fill", hl).attr("font-size","12px").attr("font-weight","bold")
-       .attr("dominant-baseline","middle")
-       .attr("opacity",0)
-       .text(`Δ ${delta.toLocaleString()}`)
-       .transition().delay(600).duration(400)
-       .attr("y",(yMin+yMax)/2).attr("opacity",1);
+       .attr("x", (xMin + xMax) / 2)
+       .attr("y", y0 - pad*3)
+       .attr("text-anchor","middle")
+       .attr("dominant-baseline","baseline")
+       .attr("font-size",12)
+       .attr("fill",hl)
+       .text(`Δ ${ (maxV - minV).toLocaleString() }`);
+  } else {
+    // vertical stacked bars → horizontal dashed lines
+    const yMin = mT + (height - margin.bottom - maxV / d3.max(values) * (height - margin.top - margin.bottom)); 
+    // actually map value to pixel: easier to get from box
+    const yMinBox = minBox.y + minBox.height;
+    const yMaxBox = maxBox.y + maxBox.height;
+    const x0 = margin.left;
+    const x1 = width - margin.right;
 
-    // highlight new x-ticks
-    svg.selectAll("g.tick text")
-       .attr("fill", hl).attr("font-weight", "bold");
-  }, 1600);
+    // white halo lines
+    [yMinBox, yMaxBox].forEach(y => {
+      svg.append("line")
+         .attr("class","range-line")
+         .attr("x1", x0).attr("x2", x1)
+         .attr("y1", y).attr("y2", y)
+         .attr("stroke", halo).attr("stroke-width", 4)
+         .attr("opacity", 0)
+         .transition().duration(400).attr("opacity", 1);
+
+      svg.append("line")
+         .attr("class","range-line")
+         .attr("x1", x0).attr("x2", x1)
+         .attr("y1", y).attr("y2", y)
+         .attr("stroke", hl).attr("stroke-width", 2)
+         .attr("stroke-dasharray","4 4")
+         .attr("opacity", 0)
+         .transition().delay(100).duration(400).attr("opacity", 1);
+    });
+
+    // vertical connector at right
+    svg.append("line")
+       .attr("class","range-line")
+       .attr("x1", x1 + pad).attr("x2", x1 + pad)
+       .attr("y1", yMaxBox).attr("y2", yMinBox)
+       .attr("stroke", halo).attr("stroke-width", 4)
+       .attr("opacity", 0)
+       .transition().duration(400).attr("opacity", 1);
+
+    svg.append("line")
+       .attr("class","range-line")
+       .attr("x1", x1 + pad).attr("x2", x1 + pad)
+       .attr("y1", yMaxBox).attr("y2", yMinBox)
+       .attr("stroke", hl).attr("stroke-width", 2)
+       .attr("stroke-dasharray","4 4")
+       .attr("opacity", 0)
+       .transition().delay(100).duration(400).attr("opacity", 1);
+
+    // Δ label to the right
+    svg.append("text")
+       .attr("class","delta-label")
+       .attr("x", x1 + pad*3)
+       .attr("y", (yMaxBox + yMinBox) / 2)
+       .attr("text-anchor","start")
+       .attr("dominant-baseline","middle")
+       .attr("font-size",12)
+       .attr("fill",hl)
+       .text(`Δ ${ (maxV - minV).toLocaleString() }`);
+  }
 
   return chartId;
 }

@@ -81,14 +81,13 @@
       </div>
       <div id="ops-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
+
 {
   "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "Retrieve the percentage for Brazil in the Improve segment",
+  "description": "Compute and annotate the Δ range of the 'Improve' opinion segments",
   "ops": [
     {
-      "op": "retrieveValue",
-      "keyField": "Country",
-      "key": "Brazil",
+      "op": "determineRange",
       "subgroupField": "opinion",
       "subgroupKey": "Improve"
     }
