@@ -34,18 +34,30 @@
       </div>
       <div id="vl-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
-{
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Stock prices of 5 Tech Companies over Time.",
-  "data": {"url": "data/test/data/line_multiple.csv"},
-  "mark": "line",
-  "encoding": {
-    "x": {"field": "date", "type": "temporal"},
-    "y": {"field": "price", "type": "quantitative"},
-    "color": {"field": "symbol", "type": "nominal"}
-  }
-}
 
+        {
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "encoding": {
+    "y": {
+      "field": "Country",
+      "type": "nominal",
+      "sort":null
+
+    },
+    "color": {
+      "field": "opinion",
+      "type": "nominal"
+    },
+    "x": {
+      "field": "percentage",
+      "type": "quantitative"
+    }
+  },
+  "data": {
+    "url": "data/test/data/bar_stacked_hor.csv"
+  },
+  "mark": "bar"
+}
       </textarea>
 
       <div class="row-header">
@@ -69,21 +81,19 @@
       </div>
       <div id="ops-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
-
 {
-  "description": "MSFT 시리즈 가격 내림차순 정렬",
+  "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
+  "description": "Retrieve the percentage for Brazil in the Improve segment",
   "ops": [
     {
-      "op": "sort",
-      "seriesField": "symbol",
-      "seriesKey": "MSFT",
-      "field": "price",
-      "order": "descending"
+      "op": "retrieveValue",
+      "keyField": "Country",
+      "key": "Brazil",
+      "subgroupField": "opinion",
+      "subgroupKey": "Improve"
     }
   ]
 }
-
-
 
 
         </textarea>
@@ -96,7 +106,7 @@
   </div>
 
   <script type="module" src="index.js"></script>
-<!--  <script type="module" src="functions.js"></script>-->
+  <!--  <script type="module" src="functions.js"></script>-->
 
   <script>
     window.addEventListener('DOMContentLoaded', () => {

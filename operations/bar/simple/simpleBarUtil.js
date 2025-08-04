@@ -34,24 +34,21 @@ export async function runSimpleBarOps(chartId, opsSpec) {
 }
 
 export async function renderSimpleBarChart(chartId, spec) {
-
   const yField = spec.encoding.y.field;
   const xField = spec.encoding.x.field;
   const xType  = spec.encoding.x.type;
   const yType  = spec.encoding.y.type;
   const isHorizontal = xType === 'quantitative' && yType !== 'quantitative';
 
+  // ── 1) 데이터 로드 & 숫자형 변환 ─────────────────────
   let data;
   if (spec.data.url.endsWith('.json')) {
-    // Load JSON data when URL points to a .json file
     data = await d3.json(spec.data.url);
-    // Coerce numeric fields for JSON-loaded data
     data.forEach(d => {
       if (xType === 'quantitative') d[xField] = +d[xField];
       if (yType === 'quantitative') d[yField] = +d[yField];
     });
   } else {
-    // Fallback to CSV loader for other formats
     data = await d3.csv(spec.data.url, d => {
       if (xType === 'quantitative') d[xField] = +d[xField];
       if (yType === 'quantitative') d[yField] = +d[yField];
@@ -59,31 +56,23 @@ export async function renderSimpleBarChart(chartId, spec) {
     });
   }
 
-  console.log(data)
-
-  // Apply Vega-Lite transforms (e.g., filter)
-  let processedData = data;
+  // ── 2) transform(filter) 처리 ───────────────────────
   if (spec.transform) {
     spec.transform.forEach(t => {
       if (t.filter) {
         const expr = t.filter.replace(/datum\./g, 'd.');
         const filterFn = new Function('d', `return ${expr};`);
-        console.log(filterFn);
-        processedData = processedData.filter(filterFn);
+        data = data.filter(filterFn);
       }
-      // Future: handle other transform types (e.g., calculate)
     });
-    data = processedData;
   }
 
-  // Handle Vega-Lite aggregation (e.g., sum)
+  // ── 3) aggregation 처리 ─────────────────────────────
   const enc = spec.encoding;
   const agg = enc.x.aggregate || enc.y.aggregate;
   if (agg) {
-    // Determine grouping and value fields based on which channel has aggregation
     const groupField = enc.x.aggregate ? enc.y.field : enc.x.field;
     const valueField = enc.x.aggregate ? enc.x.field : enc.y.field;
-    // Perform grouping and aggregation using d3.rollup
     data = Array.from(
       d3.rollup(
         data,
@@ -96,14 +85,36 @@ export async function renderSimpleBarChart(chartId, spec) {
     }));
   }
 
-  if (isHorizontal) {
-    // Horizontal bar chart
-    const margin = { top: 40, right: 20, bottom: 80, left: 60 };
-    const width  = 600;
-    const height = 300;
-    const plotW  = width  - margin.left - margin.right;
-    const plotH  = height - margin.top  - margin.bottom;
+  // ── 4) 크기 & 마진 계산 ─────────────────────────────
+  const margin = { top: 40, right: 20, bottom: 80, left: 60 };
+  const width  = 600;
+  const height = 300;
+  const plotW  = width  - margin.left - margin.right;
+  const plotH  = height - margin.top  - margin.bottom;
 
+  // ── 5) SVG 생성 & 공통 속성 설정 ────────────────────
+  const host = d3.select(`#${chartId}`);
+  host.selectAll("*").remove();
+  const svg = host.append("svg")
+                  .attr("viewBox", [0, 0, width, height])
+                  .style("overflow", "visible")
+                  .attr("data-orientation", isHorizontal ? "horizontal" : "vertical")
+                  .attr("data-m-left",  margin.left)
+                  .attr("data-m-top",   margin.top)
+                  .attr("data-plot-w",  plotW)
+                  .attr("data-plot-h",  plotH)
+                  // vertical 전용: y-domain 최대값 저장 (horizontal 에선 필요없음)
+                  .attr("data-y-domain-max", isHorizontal ? null
+                        : d3.scaleLinear()
+                            .domain([0, d3.max(data, d => d[yField])]).nice()
+                            .domain()[1]);
+
+  const g = svg.append("g")
+               .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  // ── 6) 차트 그리기 (가로 vs 세로) ────────────────────
+  if (isHorizontal) {
+    // — 가로 막대
     const xScale = d3.scaleLinear()
                      .domain([0, d3.max(data, d => d[xField])]).nice()
                      .range([0, plotW]);
@@ -112,83 +123,30 @@ export async function renderSimpleBarChart(chartId, spec) {
                      .range([0, plotH])
                      .padding(0.2);
 
-    const host = d3.select(`#${chartId}`);
-    host.selectAll("*").remove();
-    const svg = host.append("svg")
-                    .attr("viewBox", [0, 0, width, height])
-                    .style("overflow", "visible");
-    const g = svg.append("g")
-                 .attr("transform", `translate(${margin.left},${margin.top})`);
-
-    // Y axis (categories)
     g.append("g").call(d3.axisLeft(yScale));
-
-    // X axis (values)
     g.append("g")
      .attr("transform", `translate(0,${plotH})`)
      .call(d3.axisBottom(xScale).ticks(5));
 
-    // Bars
     g.selectAll("rect")
      .data(data)
      .join("rect")
-     .attr("y", d => yScale(d[yField]))
-     .attr("x", 0)
+     .attr("x",      0)
+     .attr("y",      d => yScale(d[yField]))
+     .attr("width",  d => xScale(d[xField]))
      .attr("height", yScale.bandwidth())
-     .attr("width", d => xScale(d[xField]))
-     .attr("fill", "#69b3a2")
+     .attr("fill",   "#69b3a2")
      .attr("data-id",    d => d[yField])
      .attr("data-value", d => d[xField]);
-
-    // Axis labels
-    svg.append("text")
-       .attr("class", "x-axis-label")
-       .attr("x", margin.left + plotW / 2)
-       .attr("y", height - margin.bottom + 40)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 14)
-       .text(xField);
-
-    svg.append("text")
-       .attr("class", "y-axis-label")
-       .attr("transform", "rotate(-90)")
-       .attr("x", - (margin.top + plotH / 2))
-       .attr("y", margin.left - 45)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 14)
-       .text(yField);
-
-    return;
   } else {
-    const host   = d3.select(`#${chartId}`);
-    host.selectAll("*").remove();
-
-    const margin = { top: 40, right: 20, bottom: 80, left: 60 };
-    const width  = 600;
-    const height = 300;
-    const plotW  = width  - margin.left - margin.right;
-    const plotH  = height - margin.top  - margin.bottom;
-
+    // — 세로 막대
     const xScale = d3.scaleBand()
                      .domain(data.map(d => d[xField]))
                      .range([0, plotW])
                      .padding(0.2);
-
     const yScale = d3.scaleLinear()
                      .domain([0, d3.max(data, d => d[yField])]).nice()
                      .range([plotH, 0]);
-
-    const svg = host.append("svg")
-                    .attr("viewBox", [0, 0, width, height])
-                    .style("overflow", "visible")
-                    .attr("data-m-left", margin.left)
-                    .attr("data-m-top",  margin.top)
-                    .attr("data-plot-w", plotW)
-                    .attr("data-plot-h", plotH)
-                    .attr("data-y-domain-max", yScale.domain()[1]);
-
-    const g = svg.append("g")
-                 .attr("transform", `translate(${margin.left},${margin.top})`);
 
     g.append("g")
      .attr("transform", `translate(0,${plotH})`)
@@ -197,35 +155,36 @@ export async function renderSimpleBarChart(chartId, spec) {
      .attr("transform", "rotate(-45)")
      .style("text-anchor", "end");
 
-    g.append("g").call(d3.axisLeft(yScale).ticks(5));
+    g.append("g")
+     .call(d3.axisLeft(yScale).ticks(5));
 
     g.selectAll("rect")
      .data(data)
      .join("rect")
-     .attr("x", d => xScale(d[xField]))
-     .attr("y", d => yScale(d[yField]))
+     .attr("x",      d => xScale(d[xField]))
+     .attr("y",      d => yScale(d[yField]))
      .attr("width",  xScale.bandwidth())
      .attr("height", d => plotH - yScale(d[yField]))
      .attr("fill",   "#69b3a2")
      .attr("data-id",    d => d[xField])
      .attr("data-value", d => d[yField]);
-
-    svg.append("text")
-       .attr("class", "x-axis-label")
-       .attr("x", margin.left + plotW / 2)
-       .attr("y", height - margin.bottom + 40)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 14)
-       .text(xField);
-
-    svg.append("text")
-       .attr("class", "y-axis-label")
-       .attr("transform", "rotate(-90)")
-       .attr("x", - (margin.top + plotH / 2))
-       .attr("y", margin.left - 45)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 14)
-       .text(yField);
   }
-}
 
+  // ── 7) 축 레이블 ────────────────────────────────────
+  svg.append("text")
+     .attr("class", "x-axis-label")
+     .attr("x", margin.left + plotW / 2)
+     .attr("y", height - margin.bottom + 40)
+     .attr("text-anchor", "middle")
+     .attr("font-size", 14)
+     .text(xField);
+
+  svg.append("text")
+     .attr("class", "y-axis-label")
+     .attr("transform", "rotate(-90)")
+     .attr("x", -(margin.top + plotH / 2))
+     .attr("y", margin.left - 45)
+     .attr("text-anchor", "middle")
+     .attr("font-size", 14)
+     .text(yField);
+}
