@@ -517,114 +517,106 @@ export async function simpleLineCompare(chartId, op) {
 //
 
 
-export function simpleLineSort(chartId, op) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return chartId;
+// export async function simpleLineSort(chartId, op) {
+//     const svg = d3.select(`#${chartId}`).select("svg");
+//     if (svg.empty()) return chartId;
 
-  const marginL  = +svg.attr("data-m-left")  || 0;
-  const marginT  = +svg.attr("data-m-top")   || 0;
-  const plotW    = +svg.attr("data-plot-w")  || 0;
-  const plotH    = +svg.attr("data-plot-h")  || 0;
-  const yMax     = +svg.attr("data-y-domain-max");
-  const duration = 600;
+//     // `d3.datum()`을 사용하여 데이터 가져오기
+//     let pts = svg.selectAll("circle.point");
+//     if (pts.empty()) return chartId;
 
-  const pts = svg.selectAll("circle.point");
-  if (pts.empty()) return chartId;
+//     const marginL = +svg.attr("data-m-left") || 0;
+//     const plotW = +svg.attr("data-plot-w") || 0;
+//     const plotH = +svg.attr("data-plot-h") || 0;
+//     const marginT = +svg.attr("data-m-top") || 0;
+//     const yMax = +svg.attr("data-y-domain-max");
+//     const duration = 600;
 
-  /* ── 초기화 ───────────────────────── */
-  const origColor = "#69b3a2";
-  const hlColor   = "#ffa500";
-  pts.interrupt().attr("fill", origColor).attr("stroke", "none");
-  svg.selectAll(".value-tag,.sort-label, path.sorted-line").remove();
+//     /* ── 초기화 ───────────────────────── */
+//     const origColor = "#69b3a2";
+//     const hlColor = "#ffa500";
+//     pts.interrupt().attr("fill", origColor).attr("stroke", "none");
+//     svg.selectAll(".value-tag, .sort-label, path.sorted-line").remove();
 
-  /* ── 정렬 배열 만들기 ─────────────── */
-  const dataArr = pts.nodes().map(el => {
-    const s = d3.select(el);
-    return { el, id: s.attr("data-id"), value: +s.attr("data-value") };
-  });
-  const orderFn = op.order === "descending" ? d3.descending : d3.ascending;
-  dataArr.sort((a, b) => orderFn(a.value, b.value));
+//     /* ── 정렬 배열 만들기 ─────────────── */
+//     const dataArr = pts.data(); // `d3.data()`로 바인딩된 원본 데이터 배열 가져오기
+//     const orderFn = op.order === "descending" ? d3.descending : d3.ascending;
+//     dataArr.sort((a, b) => orderFn(a.value, b.value));
 
-  const limit  = op.limit > 0 ? Math.min(op.limit, dataArr.length) : dataArr.length;
-  const topSet = new Set(dataArr.slice(0, limit).map(d => d.id));
+//     const limit = op.limit > 0 ? Math.min(op.limit, dataArr.length) : dataArr.length;
+//     const topSet = new Set(dataArr.slice(0, limit).map(d => d.key)); // `key` 필드 사용
 
-  /* ── 스케일 ───────────────────────── */
-  const xScale = d3.scalePoint()
-                   .domain(dataArr.map(d => d.id))
-                   .range([marginL, marginL + plotW])
-                   .padding(0.5);
+//     /* ── 스케일 ───────────────────────── */
+//     const xScale = d3.scalePoint()
+//         .domain(dataArr.map(d => d.key)) // `key` 필드 사용
+//         .range([marginL, marginL + plotW])
+//         .padding(0.5);
 
-  const yScale = d3.scaleLinear()
-                   .domain([0, yMax])
-                   .range([marginT + plotH, marginT]);
+//     const yScale = d3.scaleLinear()
+//         .domain([0, yMax])
+//         .range([marginT + plotH, marginT]);
 
-  /* ── 점 이동 + 하이라이트 ─────────── */
-  dataArr.forEach(d =>
-    d3.select(d.el)
-      .transition().duration(duration)
-      .attr("cx", xScale(d.id))
-      .attr("fill", topSet.has(d.id) ? hlColor : origColor)
-  );
+//     /* ── 점 이동 + 하이라이트 ─────────── */
+//     const promises = pts.data(dataArr, d => d.key) // 데이터 바인딩으로 정렬 순서 업데이트
+//         .transition().duration(duration)
+//         .attr("cx", d => xScale(d.key))
+//         .attr("cy", d => yScale(d.value))
+//         .attr("fill", d => topSet.has(d.key) ? hlColor : origColor)
+//         .end(); // transition이 끝날 때까지 기다림
 
-  /* ── 값 라벨 (상위 limit) ─────────── */
-  dataArr.slice(0, limit).forEach(d =>
-    svg.append("text")
-       .attr("class", "value-tag")
-       .attr("x", xScale(d.id))
-       .attr("y", +d.el.getAttribute("cy") - 8)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 12)
-       .text(d.value)
-  );
+//     await Promise.all(promises);
 
-  /* ── 기존 선 제거 ─────────────────── */
-  svg.selectAll("path.series-line").remove();
+//     /* ── 값 라벨 (상위 limit) ─────────── */
+//     svg.selectAll(".value-tag")
+//         .data(dataArr.slice(0, limit), d => d.key)
+//         .enter().append("text")
+//         .attr("class", "value-tag")
+//         .attr("x", d => xScale(d.key))
+//         .attr("y", d => yScale(d.value) - 8) // 스케일을 사용하여 올바른 y 좌표 계산
+//         .attr("text-anchor", "middle")
+//         .attr("font-size", 12)
+//         .text(d => d.value);
 
-  /* ── x-축 갱신 ────────────────────── */
-  let xAxis = svg.select(".x-axis");
-  if (xAxis.empty())
-    xAxis = svg.append("g")
-               .attr("class", "x-axis")
-               .attr("transform", `translate(0,${marginT + plotH})`);
-  xAxis.transition().duration(duration).call(d3.axisBottom(xScale));
+//     /* ── 기존 선 제거 및 새 선 그리기 ─── */
+//     svg.selectAll("path.series-line").remove();
 
-  /* ── 점 이동이 끝난 뒤 정확 좌표로 새 선 그리기 ── */
-  d3.timeout(() => {
-    // circle 의 실제 cx, cy 좌표를 읽어 line 을 그림
-    const lineData = dataArr.map(d => ({
-      x: +d.el.getAttribute("cx"),
-      y: +d.el.getAttribute("cy")
-    }));
+//     const lineGen = d3.line()
+//         .x(d => xScale(d.key))
+//         .y(d => yScale(d.value));
 
-    const lineGen = d3.line()
-                      .x(d => d.x)
-                      .y(d => d.y);
+//     const linePath = svg.append("path")
+//         .datum(dataArr)
+//         .attr("class", "sorted-line")
+//         .attr("fill", "none")
+//         .attr("stroke", "#1976d2")
+//         .attr("stroke-width", 2)
+//         .attr("d", lineGen);
 
-    svg.append("path")
-       .datum(lineData)
-       .attr("class", "sorted-line")
-       .attr("fill", "none")
-       .attr("stroke", "#1976d2")
-       .attr("stroke-width", 2)
-       .attr("d", lineGen)
-       .attr("stroke-dasharray", function () {
-         const L = this.getTotalLength();
-         return `${L} ${L}`;
-       })
-       .attr("stroke-dashoffset", function () { return this.getTotalLength(); })
-       .transition()
-         .duration(duration)
-         .attr("stroke-dashoffset", 0);
-  }, duration);  // ← 점 이동과 동일한 시간만큼 기다림
+//     const L = linePath.node().getTotalLength();
+//     linePath
+//         .attr("stroke-dasharray", `${L} ${L}`)
+//         .attr("stroke-dashoffset", L)
+//         .transition()
+//         .duration(duration)
+//         .attr("stroke-dashoffset", 0);
 
-  /* ── 헤더 라벨 ───────────────────── */
-  svg.append("text")
-     .attr("class", "sort-label")
-     .attr("x", marginL)
-     .attr("y", marginT - 15)
-     .attr("font-size", 12)
-     .attr("fill", hlColor)
-     .text(`Sort: value ${op.order}${op.limit ? `, limit ${limit}` : ""}`);
+//     /* ── x-축 갱신 ────────────────────── */
+//     let xAxis = svg.select(".x-axis");
+//     if (xAxis.empty()) {
+//         xAxis = svg.append("g")
+//             .attr("class", "x-axis")
+//             .attr("transform", `translate(0,${marginT + plotH})`);
+//     }
+//     xAxis.transition().duration(duration).call(d3.axisBottom(xScale));
 
-  return chartId;
-}
+//     /* ── 헤더 라벨 ───────────────────── */
+//     svg.append("text")
+//         .attr("class", "sort-label")
+//         .attr("x", marginL)
+//         .attr("y", marginT - 15)
+//         .attr("font-size", 12)
+//         .attr("fill", hlColor)
+//         .text(`Sort: value ${op.order}${op.limit ? `, limit ${limit}` : ""}`);
+
+//     return chartId;
+// }
