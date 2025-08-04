@@ -1,36 +1,42 @@
+// Assumes d3, getOrientation(svg), getMargins(svg) helpers are in scope
+
 /* ------------------------------------------------------------------ */
-/*   groupedBarRetrieveValue (animated + correct outline position)    */
+/*   groupedBarRetrieveValue (vertical + horizontal 모두 지원)      */
 /* ------------------------------------------------------------------ */
 export function groupedBarRetrieveValue(chartId, op) {
   const svg = d3.select(`#${chartId} svg:last-of-type`);
   if (svg.empty()) return chartId;
 
-  // 0. clear previous
+  // orientation 탐지
+  const orientation = getOrientation(svg);
+  const { left: mL, top: mT } = getMargins(svg);
+
+  // 0. 이전 표시 제거
   svg.selectAll(".retrieve-rect,.retrieve-label").remove();
   svg.selectAll("g.tick text")
      .attr("fill", "#000")
      .attr("font-weight", null);
 
-  // 1. params
-  const facetField    = op.keyField      || "age";
+  // 1. 파라미터
+  const facetField    = op.keyField      || "Country";
   const facetKey      = String(op.key);
-  const subgroupField = op.subgroupField || "gender";
+  const subgroupField = op.subgroupField || "Urban/total";
   const subgroupKey   = String(op.subgroupKey);
-  const valueField    = op.field         || "people";
+  const valueField    = op.field         || "Persons per square kilometers";
 
-  // 2. collect only real bars
+  // 2. 실제 바만 골라서
   const bars = svg.selectAll("rect")
     .filter(d => d && d[facetField] != null && d[subgroupField] != null);
 
-  // 3. fade others down to 20%
+  // 3. 다른 바는 반투명(20%) 처리
   bars.transition().duration(400)
       .attr("opacity", d =>
-        String(d[facetField])===facetKey && String(d[subgroupField])===subgroupKey
+        String(d[facetField]) === facetKey && String(d[subgroupField]) === subgroupKey
           ? 1
           : 0.2
       );
 
-  // 4. pick out the exact target
+  // 4. 타겟 바 선택
   const target = bars.filter(d =>
     String(d[facetField]) === facetKey &&
     String(d[subgroupField]) === subgroupKey
@@ -40,7 +46,7 @@ export function groupedBarRetrieveValue(chartId, op) {
     return chartId;
   }
 
-  // 5. compute its global bbox
+  // 5. BBox + CTM 계산 (SVG 절대 좌표)
   const node = target.node();
   const box  = node.getBBox();
   const ctm  = node.getCTM();
@@ -48,9 +54,9 @@ export function groupedBarRetrieveValue(chartId, op) {
   const y0   = ctm.f + box.y * ctm.d;
   const w0   = box.width  * ctm.a;
   const h0   = box.height * ctm.d;
-  const value = target.datum()[valueField];
+  const val  = target.datum()[valueField];
 
-  // 6. animate outline drawing
+  // 6. 바깥 테두리 애니메이션
   const perim = 2 * (w0 + h0);
   svg.append("rect")
      .attr("class", "retrieve-rect")
@@ -65,22 +71,40 @@ export function groupedBarRetrieveValue(chartId, op) {
    .transition().delay(400).duration(600)
      .attr("stroke-dashoffset", 0);
 
-  // 7. label fade+slide
-  svg.append("text")
-     .attr("class", "retrieve-label")
-     .attr("x", x0 + w0/2)
-     .attr("y", y0 - 20)              // start higher
-     .attr("text-anchor", "middle")
-     .attr("fill", "#ffa500")
-     .attr("font-weight", "bold")
-     .attr("opacity", 0)
-     .text(value.toLocaleString())
-     .raise()
-   .transition().delay(1000).duration(400)
-     .attr("y", y0 - 6)
-     .attr("opacity", 1);
+  // 7. 값 라벨 (orientation 분기)
+  if (orientation === "horizontal") {
+    // 가로 차트: 막대 끝 오른쪽에, 세로 중앙 정렬
+    svg.append("text")
+       .attr("class", "retrieve-label")
+       .attr("x", x0 + w0 + 6)
+       .attr("y", y0 + h0 / 2)
+       .attr("text-anchor", "start")
+       .attr("dominant-baseline", "middle")
+       .attr("fill", "#ffa500")
+       .attr("font-weight", "bold")
+       .attr("opacity", 0)
+       .text(val.toLocaleString())
+       .raise()
+     .transition().delay(1000).duration(400)
+       .attr("opacity", 1);
+  } else {
+    // 세로 차트: 막대 위쪽 중앙에
+    svg.append("text")
+       .attr("class", "retrieve-label")
+       .attr("x", x0 + w0 / 2)
+       .attr("y", y0 - 6)
+       .attr("text-anchor", "middle")
+       .attr("dominant-baseline", "auto")
+       .attr("fill", "#ffa500")
+       .attr("font-weight", "bold")
+       .attr("opacity", 0)
+       .text(val.toLocaleString())
+       .raise()
+     .transition().delay(1000).duration(400)
+       .attr("opacity", 1);
+  }
 
-  // 8. highlight x-tick
+  // 8. 해당 축 틱 강조
   svg.selectAll("g.tick").each(function(t) {
     if (String(t) === facetKey) {
       d3.select(this).select("text")
@@ -94,12 +118,18 @@ export function groupedBarRetrieveValue(chartId, op) {
 }
 
 
+// Assumes d3, getOrientation(svg), getMargins(svg) helpers are available
+
 /* ------------------------------------------------------------------ */
-/*   groupedBarFilter – facet/subgroup/value 모두 선택 적용 가능     */
+/*   groupedBarFilter – facet/subgroup/value 모두 선택 (수직+수평)    */
 /* ------------------------------------------------------------------ */
 export function groupedBarFilter(chartId, op) {
   const svg = d3.select(`#${chartId} svg:last-of-type`);
   if (svg.empty()) return chartId;
+
+  // orientation & margins
+  const orientation = getOrientation(svg);
+  const { left: mL, top: mT } = getMargins(svg);
 
   // 0. 초기화
   svg.selectAll(".filter-outline, .filter-label").remove();
@@ -110,15 +140,15 @@ export function groupedBarFilter(chartId, op) {
      .attr("opacity", 1);
 
   // 1. 파라미터
-  const facetField    = op.facetField;                     // e.g. "age"
+  const facetField    = op.facetField;                     
   const facetKey      = op.facetKey   != null ? String(op.facetKey) : null;
-  const subgroupField = op.subgroupField;                  // e.g. "gender"
+  const subgroupField = op.subgroupField;                  
   const subgroupKey   = op.subgroupKey != null ? String(op.subgroupKey) : null;
-  const valueField    = op.field;                          // e.g. "people"
-  const satisfy       = op.satisfy;                        // ">",">=", etc.
-  const threshold     = op.value != null ? +op.value : null;
+  const valueField    = op.field;                          
+  const satisfy       = op.satisfy;                        
+  const threshold     = op.value    != null ? +op.value : null;
 
-  // 2. 비교 함수 준비
+  // 2. 비교 함수
   const cmpFns = {
     ">":  (v,k)=>v>k,   ">=":(v,k)=>v>=k,
     "<":  (v,k)=>v<k,   "<=":(v,k)=>v<=k,
@@ -126,11 +156,11 @@ export function groupedBarFilter(chartId, op) {
   };
   const cmp = cmpFns[satisfy] || (()=>true);
 
-  // 3. 매치 함수: 지정된 조건만 검사
+  // 3. 매치 함수
   function isMatch(d) {
-    if (facetField && facetKey   != null && String(d[facetField])    !== facetKey)     return false;
-    if (subgroupField && subgroupKey != null && String(d[subgroupField]) !== subgroupKey) return false;
-    if (valueField    && threshold  != null && !cmp(d[valueField], threshold))         return false;
+    if (facetField    && facetKey     != null && String(d[facetField])    !== facetKey)     return false;
+    if (subgroupField && subgroupKey   != null && String(d[subgroupField]) !== subgroupKey) return false;
+    if (valueField    && threshold     != null && !cmp(d[valueField], threshold))        return false;
     return true;
   }
 
@@ -142,11 +172,11 @@ export function groupedBarFilter(chartId, op) {
       (valueField    && d[valueField]    != null)
     ));
 
-  // 5. 페이드(0–300ms)
+  // 5. 페이드 처리
   bars.transition().duration(300)
     .attr("opacity", d => isMatch(d) ? 1 : 0.2);
 
-  // 6. 하이라이트(350ms 이후)
+  // 6. 하이라이트 (350ms 후)
   setTimeout(() => {
     bars.filter(isMatch).each(function(d) {
       const node = this;
@@ -158,40 +188,59 @@ export function groupedBarFilter(chartId, op) {
       const h0   = box.height * ct.d;
       const perim = 2*(w0+h0);
 
-      // 흰색 헬로
+      // white halo
       svg.append("rect")
          .attr("class","filter-outline")
-         .attr("x",x0).attr("y",y0)
-         .attr("width",w0).attr("height",h0)
+         .attr("x", x0-pad).attr("y", y0-pad)
+         .attr("width",  w0+pad*2).attr("height", h0+pad*2)
          .attr("fill","none").attr("stroke","#fff").attr("stroke-width",4)
          .attr("stroke-dasharray",perim).attr("stroke-dashoffset",perim)
          .raise()
        .transition().duration(300).attr("stroke-dashoffset",0);
 
-      // 노란색 아웃라인
+      // yellow outline
       svg.append("rect")
          .attr("class","filter-outline")
-         .attr("x",x0).attr("y",y0)
-         .attr("width",w0).attr("height",h0)
+         .attr("x", x0-pad).attr("y", y0-pad)
+         .attr("width",  w0+pad*2).attr("height", h0+pad*2)
          .attr("fill","none").attr("stroke","#ffeb3b").attr("stroke-width",2)
          .attr("stroke-dasharray",perim).attr("stroke-dashoffset",perim)
          .raise()
        .transition().delay(100).duration(300).attr("stroke-dashoffset",0);
 
-      // 값 라벨
-      svg.append("text")
-         .attr("class","filter-label")
-         .attr("x",x0 + w0/2).attr("y",y0 - 18)
-         .attr("text-anchor","middle")
-         .attr("fill","#ffeb3b").attr("font-weight","bold")
-         .attr("opacity",0)
-         .text(d[valueField].toLocaleString())
-         .raise()
-       .transition().delay(200).duration(300)
-         .attr("y", y0 - 6).attr("opacity",1);
+      // value label (orientation 분기)
+      if (orientation === "horizontal") {
+        // 오른쪽 중앙
+        svg.append("text")
+           .attr("class","filter-label")
+           .attr("x", x0 + w0 + 6)
+           .attr("y", y0 + h0/2)
+           .attr("text-anchor","start")
+           .attr("dominant-baseline","middle")
+           .attr("fill","#ffeb3b").attr("font-weight","bold")
+           .attr("opacity",0)
+           .text(d[valueField].toLocaleString())
+           .raise()
+         .transition().delay(200).duration(300)
+           .attr("opacity",1);
+      } else {
+        // 위쪽 중앙
+        svg.append("text")
+           .attr("class","filter-label")
+           .attr("x", x0 + w0/2)
+           .attr("y", y0 - 6)
+           .attr("text-anchor","middle")
+           .attr("dominant-baseline","auto")
+           .attr("fill","#ffeb3b").attr("font-weight","bold")
+           .attr("opacity",0)
+           .text(d[valueField].toLocaleString())
+           .raise()
+         .transition().delay(200).duration(300)
+           .attr("opacity",1);
+      }
     });
 
-    // 7. x축(그룹) 눈금 강조
+    // 7. 축 눈금 강조
     if (facetKey != null) {
       svg.selectAll("g.tick").each(function(t) {
         if (String(t) === facetKey) {
@@ -208,14 +257,19 @@ export function groupedBarFilter(chartId, op) {
 }
 
 
+// Assumes d3, getOrientation(svg), getMargins(svg) helpers are available
+
 /* ------------------------------------------------------------------ */
-/*   groupedBarFindExtremum  (dim non-extrema + new highlight color) */
+/*   groupedBarFindExtremum  (vertical + horizontal 모두 지원)       */
 /* ------------------------------------------------------------------ */
 export function groupedBarFindExtremum(chartId, op) {
   const svg = d3.select(`#${chartId} svg:last-of-type`);
   if (svg.empty()) return chartId;
 
-  // 0. Clear previous and reset all bars & ticks
+  const orientation  = getOrientation(svg);
+  const { left: mL, top: mT } = getMargins(svg);
+
+  // 0. 이전 표시 제거 및 리셋
   svg.selectAll(".extrema-outline, .extrema-label").remove();
   svg.selectAll("rect").interrupt().attr("opacity", 1);
   svg.selectAll("g.tick text").interrupt()
@@ -223,7 +277,7 @@ export function groupedBarFindExtremum(chartId, op) {
      .attr("font-weight", null)
      .attr("opacity", 1);
 
-  // 1. Extract parameters
+  // 1. 파라미터
   const facetField    = op.facetField;
   const facetKey      = op.facetKey   != null ? String(op.facetKey) : null;
   const subgroupField = op.subgroupField;
@@ -231,7 +285,7 @@ export function groupedBarFindExtremum(chartId, op) {
   const valueField    = op.field;
   const type          = (op.type || "max").toLowerCase();
 
-  // 2. Gather matching bars
+  // 2. 세그먼트 수집
   const segments = [];
   svg.selectAll("rect").each(function(d) {
     if (!d || d[valueField] == null) return;
@@ -241,36 +295,35 @@ export function groupedBarFindExtremum(chartId, op) {
   });
   if (!segments.length) return chartId;
 
-  // 3. Compute extremum
+  // 3. 극값 계산
   const extremumValue = type === "min"
     ? d3.min(segments, s => s.value)
     : d3.max(segments, s => s.value);
 
-  // 4. Dim non-extremum bars
+  // 4. 나머지 바는 반투명 처리
   svg.selectAll("rect").transition().duration(300)
      .attr("opacity", d => {
-       // only bars in segments are considered; others stay at full opacity
        const seg = segments.find(s => s.datum === d);
        return seg && seg.value === extremumValue ? 1 : 0.2;
      });
 
-  // 5. Highlight extrema with teal instead of yellow
-  const highlightColor = "#00BCD4";  // teal
-  const halo            = "#ffffff";
-  const pad             = 2;
+  // 5. 하이라이트 (teal)
+  const halo  = "#ffffff";
+  const hl    = "#00BCD4";
+  const pad   = 2;
 
   segments.filter(s => s.value === extremumValue).forEach((s, i) => {
     const { node, datum, value } = s;
-    const box = node.getBBox();
-    const ct  = node.getCTM();
-    const x0  = ct.e + box.x * ct.a;
-    const y0  = ct.f + box.y * ct.d;
-    const w0  = box.width  * ct.a;
-    const h0  = box.height * ct.d;
+    const box  = node.getBBox();
+    const ct   = node.getCTM();
+    const x0   = ct.e + box.x * ct.a;
+    const y0   = ct.f + box.y * ct.d;
+    const w0   = box.width  * ct.a;
+    const h0   = box.height * ct.d;
     const perim = 2 * (w0 + h0);
     const label = `${type === "min" ? "MIN" : "MAX"} ${value.toLocaleString()}`;
 
-    // white halo outline
+    // 흰색 헬로
     svg.append("rect")
        .attr("class", "extrema-outline")
        .attr("x", x0 - pad).attr("y", y0 - pad)
@@ -286,33 +339,51 @@ export function groupedBarFindExtremum(chartId, op) {
        .attr("class", "extrema-outline")
        .attr("x", x0 - pad).attr("y", y0 - pad)
        .attr("width",  w0 + pad*2).attr("height", h0 + pad*2)
-       .attr("fill", "none").attr("stroke", highlightColor).attr("stroke-width", 2)
+       .attr("fill", "none").attr("stroke", hl).attr("stroke-width", 2)
        .attr("stroke-dasharray", perim).attr("stroke-dashoffset", perim)
        .raise()
      .transition().delay(i * 100 + 200).duration(400)
        .attr("stroke-dashoffset", 0);
 
-    // label (fade + slide)
-    svg.append("text")
-       .attr("class", "extrema-label")
-       .attr("x", x0 + w0 / 2).attr("y", y0 - pad * 2 - 6)
-       .attr("text-anchor", "middle")
-       .attr("fill", highlightColor).attr("font-weight", "bold")
-       .attr("opacity", 0)
-       .text(label)
-       .raise()
-     .transition().delay(i * 100 + 400).duration(400)
-       .attr("opacity", 1);
+    // 값 라벨 (orientation 분기)
+    if (orientation === "horizontal") {
+      // 오른쪽 중앙
+      svg.append("text")
+         .attr("class", "extrema-label")
+         .attr("x", x0 + w0 + 6)
+         .attr("y", y0 + h0/2)
+         .attr("text-anchor", "start")
+         .attr("dominant-baseline", "middle")
+         .attr("fill", hl).attr("font-weight", "bold")
+         .attr("opacity", 0)
+         .text(label)
+         .raise()
+       .transition().delay(i * 100 + 400).duration(400)
+         .attr("opacity", 1);
+    } else {
+      // 위쪽 중앙
+      svg.append("text")
+         .attr("class", "extrema-label")
+         .attr("x", x0 + w0/2)
+         .attr("y", y0 - pad*2 - 6)
+         .attr("text-anchor", "middle")
+         .attr("fill", hl).attr("font-weight", "bold")
+         .attr("opacity", 0)
+         .text(label)
+         .raise()
+       .transition().delay(i * 100 + 400).duration(400)
+         .attr("opacity", 1);
+    }
   });
 
-  // 6. Highlight tick for the facet
-  if (facetKey !== null) {
+  // 6. 축 눈금 강조
+  if (facetKey != null) {
     setTimeout(() => {
       svg.selectAll("g.tick").each(function(t) {
         if (String(t) === facetKey) {
           d3.select(this).select("text")
             .transition().duration(400)
-            .attr("fill", highlightColor)
+            .attr("fill", hl)
             .attr("font-weight", "bold");
         }
       });
@@ -322,14 +393,13 @@ export function groupedBarFindExtremum(chartId, op) {
   return chartId;
 }
 
-/* ------------------------------------------------------------------ */
-/* groupedBarCompare – CTM 기반 전역좌표 + 풀폭 수평 점선 + Δ 브래킷 */
-/* ------------------------------------------------------------------ */
+
+// Assumes d3, getOrientation(svg), getMargins(svg) are available
 export function groupedBarCompare(chartId, op) {
   const svg = d3.select(`#${chartId} svg:last-of-type`);
   if (svg.empty()) return chartId;
 
-  // 1. 초기화
+  // 1) 초기화
   svg.selectAll(".compare-overlay").remove();
   const overlay = svg.append("g").attr("class", "compare-overlay");
   svg.selectAll("rect").interrupt().attr("opacity", 1);
@@ -337,7 +407,9 @@ export function groupedBarCompare(chartId, op) {
      .attr("fill", "#000")
      .attr("font-weight", null);
 
-  // 2. 파라미터
+  // 2) 파라미터 & orientation
+  const orientation   = getOrientation(svg); // "horizontal" or "vertical"
+  const { left: mL, top: mT } = getMargins(svg);
   const keyField      = op.keyField;
   const subgroupField = op.subgroupField;
   const subgroupKey   = op.subgroupKey != null ? String(op.subgroupKey) : null;
@@ -346,157 +418,162 @@ export function groupedBarCompare(chartId, op) {
   const rightKey      = String(op.right);
   const operator      = (op.operator || "gt").toLowerCase();
 
-  // 3. 대상 막대 찾기
+  // 3) 대상 막대 찾기
   const bars = svg.selectAll("rect")
     .filter(d => d && d[keyField] != null && d[valueField] != null);
-  const leftBar  = bars.filter(d => String(d[keyField]) === leftKey  &&
-                    (!subgroupField || String(d[subgroupField]) === subgroupKey));
-  const rightBar = bars.filter(d => String(d[keyField]) === rightKey &&
-                    (!subgroupField || String(d[subgroupField]) === subgroupKey));
+  const leftBar  = bars.filter(d =>
+    String(d[keyField]) === leftKey &&
+    (!subgroupField || String(d[subgroupField]) === subgroupKey)
+  );
+  const rightBar = bars.filter(d =>
+    String(d[keyField]) === rightKey &&
+    (!subgroupField || String(d[subgroupField]) === subgroupKey)
+  );
   if (leftBar.empty() || rightBar.empty()) return chartId;
 
-  // 4. 로컬→전역 좌표 변환 헬퍼
-  function toGlobal(node, xLocal, yLocal) {
+  // 4) 로컬→전역 좌표 헬퍼
+  function toGlobal(node, xLoc, yLoc) {
     const m = node.getCTM();
-    return { x: m.a*xLocal + m.c*yLocal + m.e,
-             y: m.b*xLocal + m.d*yLocal + m.f };
+    return { x: m.a*xLoc + m.c*yLoc + m.e,
+             y: m.b*xLoc + m.d*yLoc + m.f };
   }
   function barGeom(sel) {
     const n = sel.node();
     const x = +n.getAttribute("x"),
           y = +n.getAttribute("y"),
-          w = +n.getAttribute("width");
-    const cxLocal = x + w/2, yLocal = y;
-    const { x: cx, y: yTop } = toGlobal(n, cxLocal, yLocal);
-    return { cx, yTop, v: sel.datum()[valueField], node: n };
+          w = +n.getAttribute("width"),
+          h = +n.getAttribute("height");
+    let gx, gy;
+    if (orientation === "horizontal") {
+      // 끝점 = (x + w, y + h/2)
+      ({ x: gx, y: gy } = toGlobal(n, x + w, y + h/2));
+    } else {
+      // top 중앙 = (x + w/2, y)
+      ({ x: gx, y: gy } = toGlobal(n, x + w/2, y));
+    }
+    return { gx, gy, v: sel.datum()[valueField], node: n };
   }
 
-  // 5. 나머지 막대 디밍
+  // 5) 나머지 바 디밍 + 색상
   svg.selectAll("rect").transition().duration(350)
      .attr("opacity", function() {
        return (this === leftBar.node() || this === rightBar.node()) ? 1 : 0.25;
      });
-
-  // 6. 색상 설정
   const colorL = "#ff8a65", colorR = "#42a5f5", lineC = "#37474F";
   leftBar.attr("fill", colorL).attr("stroke", "#000");
   rightBar.attr("fill", colorR).attr("stroke", "#000");
 
-  // 7. 각 막대 top 정보
+  // 6) 좌표 계산
   const L = barGeom(leftBar);
   const R = barGeom(rightBar);
 
-  // 8. 값 라벨
-  function valueLabel({cx, yTop, v}, color, delay=350) {
+  // 7) 값 라벨
+  function valueLabel({gx, gy, v}, color, delay=350) {
     overlay.append("text")
-      .attr("class","compare-val")
-      .attr("x", cx).attr("y", yTop - 8)
-      .attr("text-anchor","middle")
-      .attr("fill", color).attr("font-weight","bold")
+      .attr("class", "compare-val")
+      .attr("x", gx + (orientation==="horizontal"? 6 : 0))
+      .attr("y", gy + (orientation==="horizontal"? 0 : -6))
+      .attr("text-anchor", orientation==="horizontal" ? "start" : "middle")
+      .attr("dominant-baseline", orientation==="horizontal" ? "middle" : "auto")
+      .attr("fill", color)
+      .attr("font-weight", "bold")
       .attr("opacity", 0)
       .text(v.toLocaleString())
       .raise()
-    .transition().delay(delay).duration(350)
-      .attr("opacity",1);
+     .transition().delay(delay).duration(350)
+      .attr("opacity", 1);
   }
   valueLabel(L, colorL);
-  valueLabel(R, colorR);
+  valueLabel(R, colorR, 450);
 
-  // 9. 플롯 영역 경계 계산 (x축 domain path 이용)
-  function plotBounds() {
-    const xAxis = svg.selectAll("g").filter(function() {
-      const t = d3.select(this).attr("transform") || "";
-      return /^translate\(0,/.test(t) && !d3.select(this).selectAll("path.domain").empty();
-    }).node();
-    if (xAxis) {
-      const dAttr = d3.select(xAxis).select("path.domain").attr("d") || "";
-      const m = /M\s*([-\d.]+),\s*([-\d.]+)\s*H\s*([-\d.]+)/.exec(dAttr);
-      if (m) return { xMin:+m[1], xMax:+m[3] };
+  // 8) 전체 영역 경계
+  const { xMin, xMax, yMin, yMax } = (() => {
+    if (orientation === "horizontal") {
+      // y축 domain path에서 min/max Y 추출
+      const yAxis = svg.selectAll("g").filter(function() {
+        const t = d3.select(this).attr("transform")||"";
+        return /^translate\(0,/.test(t);
+      }).node();
+      if (yAxis) {
+        const path = d3.select(yAxis).select("path.domain").attr("d")||"";
+        const m = /M\s*[-\d.]+,\s*([-\d.]+)/.exec(path);
+        if (m) {
+          const scale = d3.scaleLinear()
+                          .domain([0,1])
+                          .range([+m[1], +m[1]]); // fallback
+          return { xMin: L.gx, xMax: R.gx, yMin: +m[1], yMax: +m[1] };
+        }
+      }
     }
-    // fallback: 모든 바의 전역 x
-    const xs = bars.nodes().flatMap(n => {
-      const x0 = +n.getAttribute("x"), y0 = +n.getAttribute("y"),
-            w0 = +n.getAttribute("width");
-      const p1 = toGlobal(n, x0, y0), p2 = toGlobal(n, x0 + w0, y0);
-      return [p1.x, p2.x];
+    // fallback
+    const xs = bars.nodes().flatMap(n=>{
+      const b = n.getBBox();
+      const p1 = toGlobal(n, b.x, b.y), p2 = toGlobal(n, b.x+b.width, b.y+b.height);
+      return [p1.x,p2.x,p1.y,p2.y];
     });
-    return { xMin: d3.min(xs), xMax: d3.max(xs) };
-  }
-  const { xMin, xMax } = plotBounds();
+    return {
+      xMin: d3.min(xs),
+      xMax: d3.max(xs),
+      yMin: d3.min(xs),
+      yMax: d3.max(xs)
+    };
+  })();
 
-  // 10. 풀폭 수평 점선 (두 높이에 대해)
-  function fullWidthLine(y, delay=450) {
-    const len = xMax - xMin;
+  // 9) 점선 연결
+  function drawLine(x1,y1,x2,y2,delay=600) {
+    const len = Math.hypot(x2-x1,y2-y1);
     overlay.append("line")
       .attr("class","compare-line")
-      .attr("x1", xMin).attr("y1", y)
-      .attr("x2", xMin).attr("y2", y)
-      .attr("stroke", lineC).attr("stroke-width", 1.5)
+      .attr("x1", x1).attr("y1", y1)
+      .attr("x2", x1).attr("y2", y1)
+      .attr("stroke", lineC).attr("stroke-width", 2)
       .attr("stroke-dasharray", `${len} ${len}`)
       .attr("stroke-dashoffset", len)
-      .attr("shape-rendering", "crispEdges")
       .raise()
-    .transition().delay(delay).duration(600)
-      .attr("x2", xMax).attr("stroke-dashoffset",0);
+     .transition().delay(delay).duration(600)
+      .attr("x2", x2).attr("y2", y2)
+      .attr("stroke-dashoffset", 0);
   }
-  fullWidthLine(L.yTop, 450);
-  fullWidthLine(R.yTop, 550);
+  drawLine(L.gx, L.gy, R.gx, L.gy, 600);  // 수평선
+  drawLine(R.gx, L.gy, R.gx, R.gy, 800);  // 수직 브래킷
 
-  // 11. Δ 브래킷(수직) + 라벨
-  const midX = (L.cx + R.cx)/2;
-  const yA = Math.min(L.yTop, R.yTop);
-  const yB = Math.max(L.yTop, R.yTop);
-
-  overlay.append("line")
-    .attr("class","compare-line")
-    .attr("x1", midX).attr("x2", midX)
-    .attr("y1", yA).attr("y2", yA)
-    .attr("stroke", lineC).attr("stroke-width", 2)
-    .attr("stroke-dasharray","4 2")
-    .attr("shape-rendering", "crispEdges")
-    .raise()
-  .transition().delay(1000).duration(450)
-    .attr("y2", yB);
-
+  // 10) Δ 라벨
   const delta = Math.abs(L.v - R.v);
   overlay.append("text")
     .attr("class","compare-delta")
-    .attr("x", midX).attr("y", (yA+yB)/2 - 8)
+    .attr("x", (L.gx+R.gx)/2)
+    .attr("y", (L.gy+R.gy)/2 + (orientation==="horizontal"? -8 : -8))
     .attr("text-anchor","middle")
-    .attr("fill", lineC).attr("font-weight","bold")
-    .attr("opacity",0)
+    .attr("fill", lineC)
+    .attr("font-weight","bold")
+    .attr("opacity", 0)
     .text(`Δ ${delta.toLocaleString()}`)
     .raise()
-  .transition().delay(1200).duration(350)
+   .transition().delay(1200).duration(400)
     .attr("opacity",1);
 
-  // 12. 결과 라벨
-  const cmpFns = {
-    gt: (a,b)=>a>b, gte:(a,b)=>a>=b,
-    lt: (a,b)=>a<b, lte:(a,b)=>a<=b,
-    eq: (a,b)=>a===b, neq:(a,b)=>a!==b
-  };
-  const cmp = cmpFns[operator] || cmpFns.gt;
-  const sym = {gt:">", gte:"≥", lt:"<", lte:"≤", eq:"=", neq:"≠"}[operator] || ">";
-  const ok  = cmp(L.v, R.v);
-
+  // 11) 결과 라벨
+  const cmpFns = { gt:(a,b)=>a>b, lt:(a,b)=>a<b, gte:(a,b)=>a>=b, lte:(a,b)=>a<=b, eq:(a,b)=>a===b, ne:(a,b)=>a!==b };
+  const symMap = { gt:">", lt:"<", gte:"≥", lte:"≤", eq:"=", ne:"≠" };
+  const ok = cmpFns[operator](L.v, R.v);
   overlay.append("text")
     .attr("class","compare-result")
-    .attr("x", midX).attr("y", yA - 24)
+    .attr("x", (L.gx+R.gx)/2)
+    .attr("y", (orientation==="horizontal"? Math.min(L.gy,R.gy)-24 : L.gy-24))
     .attr("text-anchor","middle")
     .attr("fill", ok ? "#2e7d32" : "#c62828")
     .attr("font-weight","bold")
     .attr("opacity",0)
-    .text(`${leftKey} ${sym} ${rightKey} ${ok ? "✓" : "✗"}`)
+    .text(`${leftKey} ${symMap[operator]||">"} ${rightKey} ${ok?"✓":"✗"}`)
     .raise()
-  .transition().delay(1200).duration(350)
+   .transition().delay(1400).duration(400)
     .attr("opacity",1);
 
-  // 13. x축 틱 강조
+  // 12) 축 눈금 강조
   svg.selectAll("g.tick").each(function(t) {
-    if (String(t) === leftKey || String(t) === rightKey) {
+    if (String(t)===leftKey || String(t)===rightKey) {
       d3.select(this).select("text")
-        .transition().delay(700).duration(300)
+        .transition().delay(1600).duration(400)
         .attr("fill", lineC)
         .attr("font-weight","bold");
     }
