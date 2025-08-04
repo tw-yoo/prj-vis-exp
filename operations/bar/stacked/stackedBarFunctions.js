@@ -664,18 +664,18 @@ export function stackedBarSort(chartId, op) {
   const order         = (op.order || "ascending").toLowerCase();
   const limit         = op.limit != null ? +op.limit : null;
   const subgroupField = op.subgroupField || null;
-  const subgroupKey   = op.subgroupKey   != null
-                         ? String(op.subgroupKey)
-                         : null;
+  const subgroupKey   = op.subgroupKey   != null ? String(op.subgroupKey) : null;
 
-  // 1. dimensions
-  const width  = +svg.attr("width");
-  const height = +svg.attr("height");
-  const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+  // 1. dimensions & orientation
+  const width       = +svg.attr("width");
+  const height      = +svg.attr("height");
+  const margin      = { top: 20, right: 30, bottom: 50, left: 60 };
+  const orientation = getOrientation(svg);
 
   // 2. collect only data-bound bars
   const bars = svg.selectAll("rect")
     .filter(d => d && d.start != null && d.end != null);
+  if (!bars.size()) return chartId;
 
   // 3. extract segments for later outline
   const segs = [];
@@ -703,75 +703,78 @@ export function stackedBarSort(chartId, op) {
     .map(([cat]) => cat);
 
   // 6. new scales
-  const xNew = d3.scaleBand()
-    .domain(sortedCats)
-    .range([margin.left, width - margin.right])
-    .padding(0.1);
+  if (orientation === "horizontal") {
+    // horizontal bars: categories on Y axis
+    const yScale = d3.scaleBand()
+      .domain(sortedCats)
+      .range([margin.top, height - margin.bottom])
+      .padding(0.1);
 
-  const yMax = d3.max(sortedCats.map(c => sums.get(c)));
-  const yNew = d3.scaleLinear()
-    .domain([0, yMax]).nice()
-    .range([height - margin.bottom, margin.top]);
+    // 7. fade out non-subgroup bars (0–500ms)
+    bars.transition().duration(500)
+        .attr("opacity", d => {
+          if (subgroupField && subgroupKey) {
+            return String(d[subgroupField] ?? d.subgroup) === subgroupKey ? 1 : 0;
+          }
+          return 1;
+        });
 
-  // 7. fade out non-subgroup bars (0–500ms)
-  bars.transition().duration(500)
-      .attr("opacity", d => {
-        if (subgroupField && subgroupKey) {
-          return String(d[subgroupField] ?? d.subgroup) === subgroupKey ? 1 : 0;
-        }
-        return 1;
-      });
+    // 8. slide & re-anchor bars (500–1500ms)
+    bars.transition().delay(500).duration(1000)
+        .attr("y", d => yScale(String(d.category)))
+        .attr("height", yScale.bandwidth());
 
-  // 8. slide & re-anchor bars (500–1500ms)
-  bars.transition().delay(500).duration(1000)
-      .attr("x", d => xNew(String(d.category)))
-      .attr("width", xNew.bandwidth())
-      .attr("y", d => yNew(d.end - d.start))
-      .attr("height", d => (height - margin.bottom) - yNew(d.end - d.start));
+    // 9. update Y axis
+    svg.select(".y-axis")
+       .transition().duration(800)
+       .call(d3.axisLeft(yScale));
+    svg.selectAll(".y-axis g.tick")
+       .transition().duration(800)
+       .attr("transform", d => `translate(0,${yScale(d)})`);
 
-  // 9. fade out old axes & legend (1500–1800ms)
-  svg.selectAll("g")
-     .transition().delay(1500).duration(300)
-     .attr("opacity", 0)
-     .remove();
+  } else {
+    // vertical bars: categories on X axis
+    const xScale = d3.scaleBand()
+      .domain(sortedCats)
+      .range([margin.left, width - margin.right])
+      .padding(0.1);
 
-  // 10. draw new axes (1800–2300ms)
-  setTimeout(() => {
-    // x-axis
-    svg.append("g")
-       .attr("class", "sorted-x-axis")
-       .attr("transform", `translate(0,${height - margin.bottom})`)
-       .attr("opacity", 0)
-       .call(d3.axisBottom(xNew))
-       .transition().duration(500).attr("opacity", 1);
+    bars.transition().duration(500)
+        .attr("opacity", d => {
+          if (subgroupField && subgroupKey) {
+            return String(d[subgroupField] ?? d.subgroup) === subgroupKey ? 1 : 0;
+          }
+          return 1;
+        });
 
-    // y-axis
-    svg.append("g")
-       .attr("class", "sorted-y-axis")
-       .attr("transform", `translate(${margin.left},0)`)
-       .attr("opacity", 0)
-       .call(d3.axisLeft(yNew))
-       .transition().duration(500).attr("opacity", 1);
-  }, 1800);
+    bars.transition().delay(500).duration(1000)
+        .attr("x", d => xScale(String(d.category)))
+        .attr("width", xScale.bandwidth());
 
-  // 11. highlight top-N (2300–2800ms)
+    svg.select(".x-axis")
+       .transition().duration(800)
+       .call(d3.axisBelowThen? d3.axisBottom(xScale) : d3.axisBottom(xScale))
+       .selectAll("text").attr("y", 10);
+    svg.selectAll(".x-axis g.tick")
+       .transition().duration(800)
+       .attr("transform", d => `translate(${xScale(d)},0)`);
+  }
+
+  // 10. highlight top-N segments outlines
   if (limit != null) {
+    const hl   = "#ffeb3b", halo = "#ffffff", pad = 2;
+    const topCats = sortedCats.slice(0, limit);
     setTimeout(() => {
-      const topCats = sortedCats.slice(0, limit);
-      const hl   = "#ffeb3b", halo = "#ffffff", pad = 2;
       segs.forEach(s => {
-        if (topCats.includes(s.category) &&
-            (!subgroupField || s.subgroup === subgroupKey)) {
-          const bbox = d3.select(s.node).node().getBBox();
+        if (topCats.includes(s.category) && (!subgroupField || s.subgroup === subgroupKey)) {
+          const bbox = s.node.getBBox();
           // white halo
           svg.append("rect")
              .attr("class", "sort-outline")
              .attr("x", bbox.x - pad).attr("y", bbox.y - pad)
              .attr("width", bbox.width + pad*2)
              .attr("height", bbox.height + pad*2)
-             .attr("fill", "none")
-             .attr("stroke", halo)
-             .attr("stroke-width", 4)
+             .attr("fill", "none").attr("stroke", halo).attr("stroke-width", 4)
              .attr("opacity", 0)
              .transition().duration(400).attr("opacity", 1).raise();
           // yellow outline
@@ -780,14 +783,12 @@ export function stackedBarSort(chartId, op) {
              .attr("x", bbox.x - pad).attr("y", bbox.y - pad)
              .attr("width", bbox.width + pad*2)
              .attr("height", bbox.height + pad*2)
-             .attr("fill", "none")
-             .attr("stroke", hl)
-             .attr("stroke-width", 3)
+             .attr("fill", "none").attr("stroke", hl).attr("stroke-width", 3)
              .attr("opacity", 0)
              .transition().duration(400).attr("opacity", 1).raise();
         }
       });
-    }, 2300);
+    }, 1500);
   }
 
   return chartId;

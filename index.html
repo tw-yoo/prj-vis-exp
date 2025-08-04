@@ -84,12 +84,13 @@
 
 {
   "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "Compute and annotate the Δ range of the 'Improve' opinion segments",
+  "description": "Sort countries by total ‘Improve’ percentage descending",
   "ops": [
     {
-      "op": "determineRange",
+      "op": "sort",
       "subgroupField": "opinion",
-      "subgroupKey": "Improve"
+      "subgroupKey": "Improve",
+      "order": "descending"
     }
   ]
 }
