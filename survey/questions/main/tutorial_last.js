@@ -3,7 +3,7 @@ export const tutorialPageLast= {
     elements: [
         {
             type: "html",
-            name: "survey_last",
+            name: "survey_main_intro",
             html: `
             <h2>설문 진행을 위한 안내</h2>
             <ul>

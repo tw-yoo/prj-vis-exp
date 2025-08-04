@@ -54,7 +54,6 @@ export async function renderSimpleLineChart(chartId, spec) {
         d[xField] = spec.encoding.x.type === "temporal" ? new Date(d[xField]) : d[xField];
         d[yField] = +d[yField];
         if (colorField) d[colorField] = d[colorField];
-        console.log(d);
         return d;
     });
 

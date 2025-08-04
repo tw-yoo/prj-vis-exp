@@ -59,8 +59,6 @@ export async function renderSimpleBarChart(chartId, spec) {
     });
   }
 
-  console.log(data)
-
   // Apply Vega-Lite transforms (e.g., filter)
   let processedData = data;
   if (spec.transform) {
@@ -68,7 +66,6 @@ export async function renderSimpleBarChart(chartId, spec) {
       if (t.filter) {
         const expr = t.filter.replace(/datum\./g, 'd.');
         const filterFn = new Function('d', `return ${expr};`);
-        console.log(filterFn);
         processedData = processedData.filter(filterFn);
       }
       // Future: handle other transform types (e.g., calculate)

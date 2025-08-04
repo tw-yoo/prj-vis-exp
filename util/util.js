@@ -39,7 +39,6 @@ export function getChartType(spec) {
 
 export async function renderChart(chartId, spec) {
     const chartType = await getChartType(spec);
-    console.log("chartType", chartType);
     switch (chartType) {
         case ChartType.SIMPLE_BAR:
             await renderSimpleBarChart(chartId, spec);

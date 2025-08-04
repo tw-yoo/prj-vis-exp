@@ -43,7 +43,6 @@ export async function renderQuestionChart(htmlElement, questionName) {
 
     const vegaLiteSpec = await getVegaLiteSpec(questionName);
     vegaLiteSpec.data.url = "../" + vegaLiteSpec.data.url;
-    console.log(vegaLiteSpec);
     await renderChart(chartId, vegaLiteSpec);
 
     const operationSpec = await getOperationSpec(questionName);
@@ -56,4 +55,28 @@ export async function renderQuestionChart(htmlElement, questionName) {
             await sleep(3000)
         }
     }
+}
+
+export async function generateCompletionCode(htmlElement = null) {
+  const completionCodeDiv = document.createElement("div");
+  // generate a zero-padded 6-digit random number
+  const code = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+  completionCodeDiv.textContent = `완료코드: ${code}`;
+  completionCodeDiv.className = "completion-code";
+  completionCodeDiv.id = "completion-code";
+  completionCodeDiv.style.marginTop = "8px";
+  completionCodeDiv.style.fontWeight = "bold";
+  // Determine insertion point similar to renderQuestionChart
+  let parent = document.body;
+  if (htmlElement instanceof HTMLElement) {
+    parent = htmlElement.querySelector(".sd-question-body") || htmlElement.querySelector(".sd-text__content") || htmlElement;
+  }
+  // Append or replace existing
+  const existing = parent.querySelector('#completion-code') || document.getElementById('completion-code');
+  if (existing) {
+    existing.replaceWith(completionCodeDiv);
+  } else {
+    parent.appendChild(completionCodeDiv);
+  }
+  return code;
 }

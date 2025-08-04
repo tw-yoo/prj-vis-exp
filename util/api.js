@@ -22,8 +22,6 @@ export async function updateAnswerFromBackend(vlSpec, question) {
 
         const responseData = await response.json();
 
-        console.log(responseData);
-
         document.getElementById('explanation').value = `Answer: ${responseData.answer}. \n\nExplanation: ${responseData.explanation}`;
 
     } catch (error) {

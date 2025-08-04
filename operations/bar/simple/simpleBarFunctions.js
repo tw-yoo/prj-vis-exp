@@ -1,5 +1,4 @@
 export function simpleBarRetrieveValue(chartId, op) {
-  console.log("[RetrieveValue] called", op);
   let returnChartId = chartId;
 
   const hlColor = "#ff6961";
@@ -107,7 +106,6 @@ export function simpleBarFilter(chartId, op) {
 }
 
 export function simpleBarFindExtremum(chartId, op) {
-  console.log("[findExtremum] called", op);
   let returnChartId = chartId;
   const duration = 600;
   const hlColor = "#a65dfb";
