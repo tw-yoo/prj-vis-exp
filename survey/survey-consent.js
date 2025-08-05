@@ -13,12 +13,13 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
     creator.survey.widthMode = "responsive";
 
-    creator.activeTab = "designer";
+    creator.activeTab = "preview";
     creator.render(document.getElementById("surveyCreator"));
 
     const surveyJson = {
         pages: surveyConsentQuestionList,
-        headerView: "advanced"
+        headerView: "advanced",
+        widthMode: "static"
     };
     creator.JSON = surveyJson;
 });

@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", async function() {
         // tutorialPage2,
         tutorialPage3_1,
         tutorialPage3_2,
-        // tutorialPage3_3,
+        tutorialPage3_3,
         // tutorialPage3_4,
         tutorialPageLast,
         //

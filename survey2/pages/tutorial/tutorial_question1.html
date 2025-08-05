@@ -1,0 +1,78 @@
+<div class="page-content">
+  <div class="page-fixed-header">
+    <h3>Task: Read the chart, answer, and explanation. Check if the answer and explanation is right.</h3>
+  </div>
+  <h1>Tutorial (1/4)</h1>
+  <p>왼쪽에는 차트와, 차트와 관련된 질문, 그리고 정답이 나옵니다.</p>
+  <p>오른쪽에는 정답에 대한 설명이 나옵니다.</p>
+  <p>모든 내용을 잘 읽고, 아래 질문에 대답해주세요.</p>
+  <div class="split-container">
+    <style>
+    </style>
+    <div class="left">
+      <div class="pane-header">
+        <h3>차트와, 차트와 관련된 질문, 그리고 정답</h3>
+      </div>
+      <div class="pane-body">
+        <div data-component="chart"
+             data-chart="tutorial1"
+        ></div>
+        <p><strong>Question:</strong>2005년 이후 연도 중 cases가 가장 많은 두 해는 언제이며, 각각의 값은 얼마인가요?</p>
+        <p><strong>Answer:</strong>1049.94</p>
+      </div>
+    </div>
+    <div class="right">
+      <div class="pane-header">
+        <h3>정답에 대한 설명</h3>
+      </div>
+      <div class="pane-body">
+        <p>To answer the question, we need to analyze the provided dataset, which contains 'cases' and 'year' information. The question asks for the two years with the most cases from 2005 onwards and the sum of those cases.</p>
+        <ol>
+          <li>
+            <strong>Filter the Data:</strong> We first isolate the data points for the years 2005 and later.
+            <ul>
+              <li>2005: 184.211</li>
+              <li>2006: 168.827</li>
+              <li>2007: 174.935</li>
+              <li>2008: 186.108</li>
+              <li>2009: 223.809</li>
+              <li>2010: 262.799</li>
+              <li>2011: 297.551</li>
+              <li>2012: 325.044</li>
+              <li>2013: 344.23</li>
+              <li>2014: 408.037</li>
+              <li>2015: 456.216</li>
+              <li>2016: 516.031</li>
+              <li>2017: 533.909</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Identify the Top Two Years:</strong> By examining the 'cases' values for this filtered period, we can identify the two highest values.
+            <ul style="list-style-type: disc; padding-left: 40px;">
+              <li>The highest number of cases is <strong>533.909</strong>, which occurred in the year <strong>2017</strong>.</li>
+              <li>The second-highest number of cases is <strong>516.031</strong>, which occurred in the year <strong>2016</strong>.</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Calculate the Sum:</strong> Finally, we sum the 'cases' for these two years.
+            <p class="calculation">
+              Sum = 533.909 (from 2017) + 516.031 (from 2016) = <strong>1049.94</strong>.
+            </p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+  <div data-component="likert"
+       data-name="q1"
+       data-question="Is the answer correct?"
+       data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"
+       data-baseid="q1"></div>
+  </div>
+
+<div data-component="likert"
+     data-name="q2"
+     data-question="Is the explanation correct?"
+     data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"
+     data-baseid="q2"></div>
+</div>

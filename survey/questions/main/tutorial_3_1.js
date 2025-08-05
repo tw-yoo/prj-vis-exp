@@ -78,7 +78,14 @@ export const tutorialPage3_1= {
         },
         {
             type: "rating",
-            name: "question2",
+            name: "survey_question1",
+            title: "이 설명을 통해 질문의 정답을 이해할 수 있었다.",
+            minRateDescription: "전혀 동의하지 않는다.",
+            maxRateDescription: "매우 동의한다."
+        },
+        {
+            type: "rating",
+            name: "survey_question1",
             title: "제시된 설명이 정확하다",
             minRateDescription: "전혀 동의하지 않는다.",
             maxRateDescription: "매우 동의한다."

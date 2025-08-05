@@ -17,7 +17,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     });
     creator.survey.widthMode = "responsive";
 
-    creator.activeTab = "designer";
+    creator.activeTab = "preview";
     creator.render(document.getElementById("surveyCreator"));
 
     const questionList = [
@@ -26,7 +26,8 @@ document.addEventListener("DOMContentLoaded", async function() {
 
     const surveyJson = {
         pages: preRegistrationPageQuestionList,
-        headerView: "advanced"
+        headerView: "advanced",
+        widthMode: "static"
     };
     creator.JSON = surveyJson;
 });

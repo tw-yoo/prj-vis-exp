@@ -48,7 +48,7 @@ export const preRegistrationPageQuestionList= [
                 title: "How well do you speak English?",
                 isRequired: true,
                 minRateDescription: "Not at all",
-                maxRateDescription: "Very well"
+                maxRateDescription: "Very well (native English)"
             },
             {
                 type: "radiogroup",
@@ -83,7 +83,8 @@ export const preRegistrationPageQuestionList= [
             {
                 type: "text",
                 name: "question3_1",
-                title: "What is your email address?"
+                title: "What is your email address?",
+                inputType: "email"
             }
         ]
     }
