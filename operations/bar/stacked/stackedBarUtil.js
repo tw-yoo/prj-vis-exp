@@ -1,5 +1,10 @@
-import { OperationType } from "../../../object/operationType.js";
+// stackedBarUtil.js (import 오류 수정 완료)
+
+//import { renderStackedBarChart } from "./stackedBarUtil.js";
 import {
+    // --- 여기가 핵심 수정 부분: clearAllAnnotations를 import 목록에 추가 ---
+    clearAllAnnotations,
+    // --- 수정 끝 ---
     stackedBarCompare,
     stackedBarDetermineRange,
     stackedBarFilter,
@@ -8,34 +13,55 @@ import {
     stackedBarSort
 } from "./stackedBarFunctions.js";
 
+const chartDataStore = {};
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function runStackedBarOps(chartId, opsSpec) {
-    for (const operation of opsSpec.ops) {
-        switch (operation.op) {
-            case OperationType.RETRIEVE_VALUE:
-                stackedBarRetrieveValue(chartId, operation);
-                break;
-            case OperationType.FILTER:
-                stackedBarFilter(chartId, operation);
-                break;
-            case OperationType.FIND_EXTREMUM:
-                stackedBarFindExtremum(chartId, operation);
-                break;
-            case OperationType.DETERMINE_RANGE:
-                stackedBarDetermineRange(chartId, operation);
-                break;
-            case OperationType.COMPARE:
-                stackedBarCompare(chartId, operation);
-                break;
-            case OperationType.SORT:
-                stackedBarSort(chartId, operation);
-                break;
-            default:
-                console.warn("Not supported operation", operation.op);
+export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
+    const svg = d3.select(`#${chartId}`).select("svg");
+
+    if (svg.select(".plot-area").empty()) {
+        if (!vlSpec) { console.error("Chart not found and vlSpec not provided."); return; }
+        await renderStackedBarChart(chartId, vlSpec);
+    }
+    
+    // 부드러운 애니메이션 리셋
+    clearAllAnnotations(svg);
+    const chartRects = svg.select(".plot-area").selectAll("rect");
+    const resetPromises = [];
+    chartRects.each(function() {
+        const rect = d3.select(this);
+        const t = rect.transition().duration(400)
+            .attr("opacity", 1)
+            .attr("stroke", "none")
+            .end();
+        resetPromises.push(t);
+    });
+    await Promise.all(resetPromises);
+    
+    let currentData = chartDataStore[chartId].data;
+
+    // 오퍼레이션 루프 실행
+    for (let i = 0; i < opsSpec.ops.length; i++) {
+        const operation = opsSpec.ops[i];
+        let opType = operation.op.toLowerCase();
+        
+        switch (opType) {
+            case 'retrievevalue': currentData = await stackedBarRetrieveValue(chartId, operation, currentData); break;
+            case 'filter': currentData = await stackedBarFilter(chartId, operation, currentData); break;
+            case 'findextremum': currentData = await stackedBarFindExtremum(chartId, operation, currentData); break;
+            case 'determinerange': currentData = await stackedBarDetermineRange(chartId, operation, currentData); break;
+            case 'compare': currentData = await stackedBarCompare(chartId, operation, currentData); break;
+            case 'sort': currentData = await stackedBarSort(chartId, operation, currentData); break;
+            default: console.warn("Not supported operation", operation.op);
+        }
+
+        if (i < opsSpec.ops.length - 1) {
+            await delay(1500);
         }
     }
 }
 
+// renderStackedBarChart 함수는 이전에 수정한 최종본 그대로 사용합니다.
 export async function renderStackedBarChart(chartId, spec) {
     const host = d3.select(`#${chartId}`);
     host.selectAll("*").remove();
@@ -43,128 +69,104 @@ export async function renderStackedBarChart(chartId, spec) {
     const xField = spec.encoding.x.field;
     const yField = spec.encoding.y.field;
     const colorField = spec.encoding.color.field;
-    const xType = spec.encoding.x.type;
     const yType = spec.encoding.y.type;
-    const orientation = (xType === 'quantitative' && yType !== 'quantitative')
-        ? 'horizontal'
-        : (yType === 'quantitative' && xType !== 'quantitative')
-        ? 'vertical'
-        : 'horizontal';
+    const orientation = yType === 'quantitative' ? 'vertical' : 'horizontal';
 
-    const data = await d3.csv(spec.data.url, d => {
-        if (xType === 'quantitative') d[xField] = +d[xField];
-        if (yType === 'quantitative') d[yField] = +d[yField];
+    const rawData = await d3.csv(spec.data.url);
+    const data = rawData.map(d => {
+        d[yField] = +d[yField];
         return d;
     });
 
-    const margin = { top: 20, right: 30, bottom: 30, left: 100 };
-    const width = 600;
-    const height = 400;
+    chartDataStore[chartId] = { data: data, spec: spec };
 
-    // Build stack series
-    const series = d3.rollup(
-        data,
-        v => {
-            const total = d3.sum(v, d => orientation === 'horizontal' ? d[xField] : d[yField]);
-            let acc = 0;
-            return v.map(d => {
-                const value = orientation === 'horizontal' ? d[xField] : d[yField];
-                const start = acc;
-                acc += value;
+    const margin = { top: 40, right: 100, bottom: 50, left: 60 };
+    const width = 700;
+    const height = 400;
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    const svg = host.append("svg")
+        .attr("viewBox", [0, 0, width, height])
+        .style("overflow", "visible")
+        .attr("data-orientation", orientation)
+        .attr("data-x-field", xField)
+        .attr("data-y-field", yField)
+        .attr("data-color-field", colorField)
+        .attr("data-m-left", margin.left)
+        .attr("data-m-top", margin.top)
+        .attr("data-plot-w", plotW)
+        .attr("data-plot-h", plotH);
+
+    const subgroups = Array.from(new Set(data.map(d => d[colorField])));
+    const groups = Array.from(new Set(data.map(d => d[xField])));
+
+    const dataForStack = Array.from(d3.group(data, d => d[xField]), ([group, values]) => {
+        const obj = { [xField]: group };
+        subgroups.forEach(subgroup => {
+            const findVal = values.find(v => v[colorField] === subgroup);
+            obj[subgroup] = findVal ? findVal[yField] : 0;
+        });
+        return obj;
+    });
+
+    const stackedData = d3.stack().keys(subgroups)(dataForStack);
+    
+    const g = svg.append("g")
+        .attr("class", "plot-area")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const xScale = d3.scaleBand().domain(groups).range([0, plotW]).padding(0.1);
+    const yMax = d3.max(stackedData, layer => d3.max(layer, d => d[1]));
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plotH, 0]);
+    const color = d3.scaleOrdinal(d3.schemeTableau10).domain(subgroups);
+
+    g.append("g").attr("class", "x-axis")
+        .attr("transform", `translate(0,${plotH})`).call(d3.axisBottom(xScale));
+    g.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
+
+    g.append("g")
+        .selectAll("g")
+        .data(stackedData)
+        .join("g")
+            .attr("fill", d => color(d.key))
+            .attr("class", d => `series-${d.key}`)
+        .selectAll("rect")
+        .data(d => d.map(segment => ({ ...segment, seriesKey: d.key })))
+        .join("rect")
+            .attr("x", d => xScale(d.data[xField]))
+            .attr("y", d => yScale(d[1]))
+            .attr("height", d => yScale(d[0]) - yScale(d[1]))
+            .attr("width", xScale.bandwidth())
+            .datum(function(d) {
                 return {
-                    category: orientation === 'horizontal' ? d[yField] : d[xField],
-                    subgroup: d[colorField],
-                    start,
-                    end: acc,
-                    normStart: start / total,
-                    normEnd: acc / total
+                    key: d.data[xField],
+                    subgroup: d.seriesKey,
+                    value: d.data[d.seriesKey] || 0,
+                    y0: d[0],
+                    y1: d[1]
                 };
             });
-        },
-        d => orientation === 'horizontal' ? d[yField] : d[xField]
-    );
-
-    const stackData = Array.from(series.values()).flat();
-    const categories = Array.from(new Set(data.map(d => orientation === 'horizontal' ? d[yField] : d[xField])));
-    const subgroups = Array.from(new Set(data.map(d => d[colorField])));
-
-    // Scales and axes
-    let xScale, yScale, xAxis, yAxis;
-    if (orientation === 'horizontal') {
-        const xMax = d3.max(stackData, d => d.end);
-        xScale = d3.scaleLinear().domain([0, xMax]).range([margin.left, width - margin.right]);
-        yScale = d3.scaleBand().domain(categories).range([margin.top, height - margin.bottom]).padding(0.1);
-        xAxis = d3.axisBottom(xScale);
-        yAxis = d3.axisLeft(yScale);
-    } else {
-        const yMax = d3.max(stackData, d => d.end);
-        xScale = d3.scaleBand().domain(categories).range([margin.left, width - margin.right]).padding(0.1);
-        yScale = d3.scaleLinear().domain([0, yMax]).range([height - margin.bottom, margin.top]);
-        xAxis = d3.axisBottom(xScale);
-        yAxis = d3.axisLeft(yScale);
-    }
-
-    const color = d3.scaleOrdinal(d3.schemeCategory10).domain(subgroups);
-
-    // Create SVG
-    const svg = host.append("svg")
-        .attr("width", width)
-        .attr("height", height);
-
-    // Draw bars
-    svg.selectAll("rect")
-        .data(stackData)
-        .enter()
-        .append("rect")
-        .attr("fill", d => color(d.subgroup))
-        .attr(orientation === 'horizontal' ? "x" : "x", d =>
-            orientation === 'horizontal' ? xScale(d.start) : xScale(d.category))
-        .attr(orientation === 'horizontal' ? "width" : "width", d =>
-            orientation === 'horizontal' ? xScale(d.end) - xScale(d.start) : xScale.bandwidth())
-        .attr(orientation === 'horizontal' ? "y" : "y", d =>
-            orientation === 'horizontal' ? yScale(d.category) : yScale(d.end))
-        .attr(orientation === 'horizontal' ? "height" : "height", d =>
-            orientation === 'horizontal' ? yScale.bandwidth() : yScale(d.start) - yScale(d.end));
-
-    // Append axes
-    svg.append("g")
-        .attr("transform", `translate(0,${height - margin.bottom})`)
-        .call(xAxis);
-
-    svg.append("g")
-        .attr("transform", `translate(${margin.left},0)`)
-        .call(yAxis);
-
-    // Axis labels
+            
+    // 축 레이블
     svg.append("text")
-        .attr("x", (margin.left + width - margin.right) / 2)
-        .attr("y", height - margin.bottom + 25)
-        .attr("text-anchor", "middle")
-        .text(spec.encoding.x.field);
+        .attr("x", margin.left + plotW / 2).attr("y", height - 5)
+        .attr("text-anchor", "middle").style("font-size", "14px").style("font-weight", "bold")
+        .text(xField);
 
     svg.append("text")
-        .attr("transform", "rotate(-90)")
-        .attr("x", -(margin.top + height - margin.bottom) / 2)
-        .attr("y", margin.left - 40)
-        .attr("text-anchor", "middle")
-        .text(spec.encoding.y.field);
+        .attr("transform", "rotate(-90)").attr("x", -(margin.top + plotH / 2)).attr("y", 15)
+        .attr("text-anchor", "middle").style("font-size", "14px").style("font-weight", "bold")
+        .text(yField);
 
-    // Legend
+    // 범례
     const legend = svg.append("g")
-        .attr("transform", `translate(${width - margin.right + 20},${margin.top})`);
-    legend.append("text")
-        .attr("x", 0)
-        .attr("y", -10)
-        .attr("text-anchor", "start")
-        .text(spec.encoding.color.field);
-    subgroups.forEach((name, i) => {
-        const row = legend.append("g")
-            .attr("transform", `translate(0,${i*20})`);
-        row.append("rect")
-            .attr("width", 15).attr("height", 15)
-            .attr("fill", color(name));
-        row.append("text")
-            .attr("x", 20).attr("y", 12).attr("text-anchor", "start")
-            .text(name);
+        .attr("transform", `translate(${width - margin.right + 10}, ${margin.top})`);
+
+    subgroups.forEach((subgroup, i) => {
+        const legendRow = legend.append("g").attr("transform", `translate(0, ${i * 20})`);
+        legendRow.append("rect").attr("width", 15).attr("height", 15).attr("fill", color(subgroup));
+        legendRow.append("text").attr("x", 20).attr("y", 12).attr("text-anchor", "start")
+            .style("font-size", "12px").text(subgroup);
     });
 }

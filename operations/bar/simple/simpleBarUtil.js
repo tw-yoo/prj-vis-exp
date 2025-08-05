@@ -53,7 +53,7 @@ export async function runSimpleBarOps(chartId, opsSpec) {
     // --- 각 오퍼레이션 사이에 딜레이 추가 ---
     // 마지막 오퍼레이션 후에는 딜레이를 주지 않도록 조건을 추가합니다.
     if (i < opsSpec.ops.length - 1) {
-      await delay(1000); // 1.2초 동안 대기 (시간은 조절 가능)
+      await delay(1500); // 1.2초 동안 대기 (시간은 조절 가능)
     }
   }
 }

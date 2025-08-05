@@ -121,7 +121,7 @@ export async function simpleBarFilter(chartId, op, data) {
   svg.selectAll("rect").interrupt().attr("fill", "#69b3a2").attr("opacity", 1).attr("stroke", "none");
   svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label, .value-line, .threshold-line, .threshold-label").remove();
 
-  const duration = 600;
+  const duration = 800;
   const matchColor = "#ffa500";
   const thresholdColor = "blue"; // 기준선 색상
   const yField = svg.attr("data-y-field");
