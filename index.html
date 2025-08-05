@@ -82,13 +82,16 @@
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
 {
   "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "count 80 이상 구간 필터",
+  "description": "7월(sun)과 1월(sun) 일수 비교",
   "ops": [
     {
-      "op": "filter",
-      "field": "count",
-      "satisfy": ">=",
-      "key": 60
+      "op": "compare",
+      "keyField": "month",
+      "subgroupField": "weather",
+      "subgroupKey": "sun",
+      "left": 7,
+      "right": 1,
+      "operator": "gt"
     }
   ]
 }

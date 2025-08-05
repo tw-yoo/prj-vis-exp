@@ -15,7 +15,6 @@ import {
 
 const chartDataStore = {};
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
 export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
     const svg = d3.select(`#${chartId}`).select("svg");
 
@@ -24,7 +23,6 @@ export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
         await renderStackedBarChart(chartId, vlSpec);
     }
     
-    // 부드러운 애니메이션 리셋
     clearAllAnnotations(svg);
     const chartRects = svg.select(".plot-area").selectAll("rect");
     const resetPromises = [];
@@ -38,20 +36,24 @@ export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
     });
     await Promise.all(resetPromises);
     
-    let currentData = chartDataStore[chartId].data;
+    // --- 여기가 핵심 수정 부분 ---
+    // 원본 데이터와 현재 데이터를 명확히 구분하여 관리합니다.
+    const fullData = chartDataStore[chartId].data;
+    let currentData = [...fullData]; // 시작은 원본 데이터의 복사본
+    // --- 수정 끝 ---
 
-    // 오퍼레이션 루프 실행
     for (let i = 0; i < opsSpec.ops.length; i++) {
         const operation = opsSpec.ops[i];
         let opType = operation.op.toLowerCase();
         
+        // --- 모든 함수에 fullData를 추가로 전달합니다. ---
         switch (opType) {
-            case 'retrievevalue': currentData = await stackedBarRetrieveValue(chartId, operation, currentData); break;
-            case 'filter': currentData = await stackedBarFilter(chartId, operation, currentData); break;
-            case 'findextremum': currentData = await stackedBarFindExtremum(chartId, operation, currentData); break;
-            case 'determinerange': currentData = await stackedBarDetermineRange(chartId, operation, currentData); break;
-            case 'compare': currentData = await stackedBarCompare(chartId, operation, currentData); break;
-            case 'sort': currentData = await stackedBarSort(chartId, operation, currentData); break;
+            case 'retrievevalue': currentData = await stackedBarRetrieveValue(chartId, operation, currentData, fullData); break;
+            case 'filter': currentData = await stackedBarFilter(chartId, operation, currentData, fullData); break;
+            case 'findextremum': currentData = await stackedBarFindExtremum(chartId, operation, currentData, fullData); break;
+            case 'determinerange': currentData = await stackedBarDetermineRange(chartId, operation, currentData, fullData); break;
+            case 'compare': currentData = await stackedBarCompare(chartId, operation, currentData, fullData); break;
+            case 'sort': currentData = await stackedBarSort(chartId, operation, currentData, fullData); break;
             default: console.warn("Not supported operation", operation.op);
         }
 
