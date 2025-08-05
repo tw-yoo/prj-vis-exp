@@ -10,54 +10,96 @@ import {
 
 // simpleBarUtil.js
 const chartDataStore = {};
+function clearAllAnnotations(svg) {
+    svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
+}
+function getSvgAndSetup(chartId) {
+    const svg = d3.select(`#${chartId}`).select("svg");
+    const orientation = svg.attr("data-orientation") || "vertical";
+    const xField = svg.attr("data-x-field");
+    const yField = svg.attr("data-y-field");
+    const margins = {
+        left: +svg.attr("data-m-left") || 0,
+        top: +svg.attr("data-m-top") || 0,
+    };
+    const plot = {
+        w: +svg.attr("data-plot-w") || 0,
+        h: +svg.attr("data-plot-h") || 0,
+    };
+    const g = svg.select("g");
+    return { svg, g, orientation, xField, yField, margins, plot };
+}
 
 // --- 딜레이(지연)를 위한 헬퍼 함수 ---
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+// simpleBarUtil.js 파일의 runSimpleBarOps 함수 (최종 수정 완료)
+// simpleBarUtil.js 파일의 runSimpleBarOps 함수
+
 export async function runSimpleBarOps(chartId, opsSpec) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  let currentData = [...chartDataStore[chartId]];
-
-  if (!currentData || currentData.length === 0) {
-      console.error("runSimpleBarOps: No data found in chartDataStore for", chartId);
-      return;
-  }
-
-  // --- 오퍼레이션 루프 수정 ---
-  // for...of 대신 인덱스를 사용하기 위해 일반 for 루프로 변경
-  for (let i = 0; i < opsSpec.ops.length; i++) {
-    const operation = opsSpec.ops[i];
+    // 헬퍼 함수를 사용하여 필요한 요소들을 가져옵니다.
+    const { svg, g } = getSvgAndSetup(chartId);
     
-    // 이전과 동일한 switch 문
-    switch (operation.op) {
-      case OperationType.RETRIEVE_VALUE:
-        currentData = await simpleBarRetrieveValue(chartId, operation, currentData);
-        break;
-      case OperationType.FILTER:
-        currentData = await simpleBarFilter(chartId, operation, currentData);
-        break;
-      case OperationType.FIND_EXTREMUM:
-        currentData = await simpleBarFindExtremum(chartId, operation, currentData);
-        break;
-      case OperationType.DETERMINE_RANGE:
-        currentData = await simpleBarDetermineRange(chartId, operation, currentData);
-        break;
-      case OperationType.COMPARE:
-        currentData = await simpleBarCompare(chartId, operation, currentData);
-        break;
-      case OperationType.SORT:
-        currentData = await simpleBarSort(chartId, operation, currentData);
-        break;
-    }
+    // --- 1. 부드러운 애니메이션 리셋 ---
+    // 이전 오퍼레이션의 주석/레이블 등을 모두 제거합니다.
+    clearAllAnnotations(svg);
+    
+    // 모든 막대의 색상과 투명도를 애니메이션으로 원상 복구시킵니다.
+    const resetPromises = [];
+    g.selectAll("rect").each(function() {
+        const rect = d3.select(this);
+        const t = rect.transition().duration(400)
+            .attr("fill", "#69b3a2") // 기본 색상
+            .attr("opacity", 1)      // 기본 투명도
+            .attr("stroke", "none")  // 테두리 제거
+            .end();
+        resetPromises.push(t);
+    });
+    await Promise.all(resetPromises);
+    // --- 리셋 끝 ---
 
-    // --- 각 오퍼레이션 사이에 딜레이 추가 ---
-    // 마지막 오퍼레이션 후에는 딜레이를 주지 않도록 조건을 추가합니다.
-    if (i < opsSpec.ops.length - 1) {
-      await delay(1500); // 1.2초 동안 대기 (시간은 조절 가능)
+    // chartDataStore에서 원본 데이터를 가져옵니다.
+    if (!chartDataStore[chartId]) {
+        console.error("runSimpleBarOps: No data in store. Please render the chart first.");
+        return;
     }
-  }
+    const fullData = [...chartDataStore[chartId]];
+    let currentData = [...fullData]; // 현재 데이터는 원본의 복사본으로 시작합니다.
+
+    // 오퍼레이션 루프
+    for (let i = 0; i < opsSpec.ops.length; i++) {
+        const operation = opsSpec.ops[i];
+        
+        // 모든 함수에 currentData와 fullData를 함께 전달합니다.
+        switch (operation.op.toLowerCase()) {
+            case 'retrievevalue':
+                currentData = await simpleBarRetrieveValue(chartId, operation, currentData, fullData);
+                break;
+            case 'filter':
+                currentData = await simpleBarFilter(chartId, operation, currentData, fullData);
+                break;
+            case 'findextremum':
+                currentData = await simpleBarFindExtremum(chartId, operation, currentData, fullData);
+                break;
+            case 'determinerange':
+                currentData = await simpleBarDetermineRange(chartId, operation, currentData, fullData);
+                break;
+            case 'compare':
+                currentData = await simpleBarCompare(chartId, operation, currentData, fullData);
+                break;
+            case 'sort':
+                currentData = await simpleBarSort(chartId, operation, currentData, fullData);
+                break;
+            default:
+                console.warn(`Unsupported operation: ${operation.op}`);
+        }
+
+        // 마지막 오퍼레이션이 아닐 경우 딜레이를 줍니다.
+        if (i < opsSpec.ops.length - 1) {
+            await delay(1500);
+        }
+    }
 }
-
 // renderSimpleBarChart 함수는 수정할 필요가 없습니다.
 export async function renderSimpleBarChart(chartId, spec) {
   // ... (기존 코드와 동일)
