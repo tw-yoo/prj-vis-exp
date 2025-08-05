@@ -551,7 +551,7 @@ export async function simpleBarSort(chartId, op, data) {
   await Promise.all(transitions);
   
   svg.selectAll(".sort-label, .value-tag").remove();
-  svg.append("text").attr("class", "sort-label").attr("x", mL).attr("y", mT - 10).attr("font-size", 12).attr("fill", hlColor).text(`Order: ${sortedData.map(d => d[keyField]).join(" → ")}`);
+  //svg.append("text").attr("class", "sort-label").attr("x", mL).attr("y", mT - 10).attr("font-size", 12).attr("fill", hlColor).text(`Order: ${sortedData.map(d => d[keyField]).join(" → ")}`);
   
   return sortedData;
 }

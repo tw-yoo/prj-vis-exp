@@ -76,22 +76,29 @@
       </div>
       <div id="ops-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
- {
-  "description": "rating을 내림차순으로 정렬한 후, 80점 이상인 항목을 필터링합니다.",
+{
+  "description": "rating이 60 이상인 국가들만 필터링하고, 그 결과를 내림차순 정렬한 뒤 가장 낮은 rating을 가진 국가를 찾습니다.",
   "ops": [
+    {
+      "op": "filter",
+      "field": "rating",
+      "satisfy": ">=",
+      "key": 60
+    },
     {
       "op": "sort",
       "field": "rating",
       "order": "descending"
     },
     {
-      "op": "filter",
-      "field": "rating",
-      "satisfy": ">=",
-      "key": 80
+      "op": "findExtremum",
+      "type": "min",
+      "field": "rating"
     }
   ]
-}
+}    
+
+
         </textarea>
     </div>
     <div></div>
