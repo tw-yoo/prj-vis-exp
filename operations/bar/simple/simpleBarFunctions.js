@@ -31,20 +31,18 @@ function getCenter(bar, orientation, margins) {
   }
 }
 
-// ────────────────────────────────────────────────────────────────
-// 오퍼레이션 함수들 (simpleBarFunctions.js의 내용)
-// ────────────────────────────────────────────────────────────────
-
-// simpleBarRetrieveValue (비동기 처리를 위해 async/await 적용)
+// simpleBarRetrieveValue (수평선 추가 및 비동기 처리 적용)
 export async function simpleBarRetrieveValue(chartId, op, data) {
   console.log("[RetrieveValue] called", op);
   const svg = d3.select(`#${chartId}`).select("svg");
   if (svg.empty()) return data;
 
+  // 기존의 모든 시각적 요소 초기화
   const bars = svg.selectAll("rect");
   bars.interrupt().attr("fill", "#69b3a2").attr("stroke", "none").attr("opacity", 1);
-  svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label").remove();
+  svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label, .value-line").remove();
 
+  // 목표 막대 필터링
   const target = bars.filter(function () {
     return d3.select(this).attr("data-id") === `${op.key}`;
   });
@@ -54,225 +52,245 @@ export async function simpleBarRetrieveValue(chartId, op, data) {
       return data;
   }
   
+  // 목표 막대 하이라이트 애니메이션
   await target.transition().duration(600).attr("fill", "#ff6961").attr("stroke", "black").attr("stroke-width", 2).end();
 
   const bar = target.node();
   if (bar) {
+    // 필요한 속성들 가져오기
     const orientation = getOrientation(svg);
     const margins = getMargins(svg);
     const { x, y } = getCenter(bar, orientation, margins);
     const val = bar.getAttribute("data-value");
+
+    const barX = +bar.getAttribute("x");
+    const barY = +bar.getAttribute("y");
+    const barW = +bar.getAttribute("width");
+    const barH = +bar.getAttribute("height");
+    
+    // --- 피드백 반영: Y축에 수직인 선(수평선) 추가 ---
+    const lineHighlightColor = "#ff6961";
+    
+    // 새로운 <line> 요소를 추가
+    const line = svg.append("line")
+      .attr("class", "value-line")
+      .attr("stroke", lineHighlightColor)
+      .attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", "4 4");
+
+    if (orientation === 'vertical') {
+      // 수직 차트: Y축에서 막대 상단 중앙까지 선 그리기
+      const lineY = margins.top + barY;
+      line.attr("x1", margins.left)
+          .attr("y1", lineY)
+          .attr("x2", margins.left + barX + barW / 2)
+          .attr("y2", lineY);
+    } else { // 'horizontal'
+      // 수평 차트: Y축에서 막대 오른쪽 끝까지 선 그리기
+      const lineY = margins.top + barY + barH / 2;
+      line.attr("x1", margins.left)
+          .attr("y1", lineY)
+          .attr("x2", margins.left + barW) // 막대의 끝부분
+          .attr("y2", lineY);
+    }
+    // --- 수정 끝 ---
+
+    // 값 레이블 추가
     svg.append("text")
       .attr("class", "annotation")
       .attr("x", x)
       .attr("y", y)
       .attr("text-anchor", "middle")
       .attr("font-size", 12)
-      .attr("fill", "#ff6961")
+      .attr("fill", lineHighlightColor)
+      .attr("stroke", "white")
+      .attr("stroke-width", 3)
+      .attr("paint-order", "stroke")
       .text(val);
   }
 
   return data;
 }
 
-// simpleBarFunctions.js 파일의 simpleBarFilter 함수를 아래와 같이 수정
+
 export async function simpleBarFilter(chartId, op, data) {
   const svg = d3.select(`#${chartId}`).select("svg");
   if (svg.empty()) return data;
 
+  // 1. 초기화 부분에 '.threshold-line', '.threshold-label' 추가
+  svg.selectAll("rect").interrupt().attr("fill", "#69b3a2").attr("opacity", 1).attr("stroke", "none");
+  svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label, .value-line, .threshold-line, .threshold-label").remove();
+
   const duration = 600;
-  const origColor = "#69b3a2";
   const matchColor = "#ffa500";
+  const thresholdColor = "blue"; // 기준선 색상
   const yField = svg.attr("data-y-field");
   const xField = svg.attr("data-x-field");
   const orientation = getOrientation(svg);
   
-  // 필터링에 사용할 필드를 op.field에서 가져오고, 없으면 yField를 사용
-  const filterField = op.field || yField;
+  const filterField = op.field || (orientation === 'vertical' ? yField : xField);
   
-  // 이전 스타일 및 레이블 초기화
-  svg.selectAll("rect").interrupt().attr("fill", origColor).attr("opacity", 1).attr("stroke", "none");
-  svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label").remove();
-
-  // 필터링 조건 정의
-  const satisfyMap = {
-    ">": (a, b) => a > b,
-    ">=": (a, b) => a >= b,
-    "<": (a, b) => a < b,
-    "<=": (a, b) => a <= b,
-    "==": (a, b) => a === b
-  };
+  const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
   const satisfy = satisfyMap[op.satisfy] || (() => true);
-  
-  const filterKey = +op.key;
-  
-  console.log("simpleBarFilter debug:");
-  console.log("  - filterField:", filterField);
-  console.log("  - satisfy:", op.satisfy);
-  console.log("  - filterKey:", filterKey);
-  console.log("  - first data item to check:", data[0]);
+  const filterKey = isNaN(+op.key) ? op.key : +op.key;
 
-  // 필터링 로직: filterField를 사용하여 조건 검사
   const filteredData = data.filter(d => {
-    const value = +d[filterField];
-    const condition = satisfy(value, filterKey);
-    console.log(`  - Check item: ${d[xField] || d[yField]} | value: ${value} ${op.satisfy} ${filterKey} -> ${condition}`);
-    return condition;
+    const value = isNaN(+d[filterField]) ? d[filterField] : +d[filterField];
+    return satisfy(value, filterKey);
   });
-
+  
   if (filteredData.length === 0) {
       console.warn("simpleBarFilter: Filtered data is empty. All bars will be removed.");
   }
 
-  // 이 아래의 코드는 수정하지 않았습니다.
   const g = svg.select("g");
   const plotW = +svg.attr("data-plot-w");
   const plotH = +svg.attr("data-plot-h");
   
-  // y축 스케일은 전체 데이터셋을 기준으로 설정하여 시각적 일관성 유지
-  const yScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => d[yField])]).nice().range([plotH, 0]);
-  const xScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => d[xField])]).nice().range([0, plotW]);
+  const yScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => +d[yField]) || 0]).nice().range([plotH, 0]);
+  const xScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => +d[xField]) || 0]).nice().range([0, plotW]);
 
   const transitions = [];
   
+  // (애니메이션 부분은 이전과 동일)
   if (orientation === 'vertical') {
-    // x축 스케일은 필터링된 데이터에 맞춰 재정의
     const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d[xField])).range([0, plotW]).padding(0.2);
-
     const bars = g.selectAll("rect").data(filteredData, d => d[xField]);
-    
-    transitions.push(
-      bars.exit()
-        .transition().duration(duration)
-        .attr("y", plotH)
-        .attr("height", 0)
-        .remove()
-        .end()
-    );
-    
-    const updateBars = bars.enter().append("rect")
-      .attr("x", d => xScaleFiltered(d[xField]))
-      .attr("y", plotH)
-      .attr("height", 0)
-      .merge(bars);
-      
-    transitions.push(
-      updateBars.transition().duration(duration)
-        .attr("x", d => xScaleFiltered(d[xField]))
-        .attr("y", d => yScaleFull(d[yField]))
-        .attr("width", xScaleFiltered.bandwidth())
-        .attr("height", d => plotH - yScaleFull(d[yField]))
-        .attr("fill", matchColor)
-        .attr("opacity", 1)
-        .attr("stroke", "black")
-        .attr("stroke-width", 1.5)
-        .attr("data-id", d => d[xField])
-        .attr("data-value", d => d[yField])
-        .end()
-    );
-    
-    transitions.push(
-      g.select(".x-axis")
-        .transition().duration(duration)
-        .call(d3.axisBottom(xScaleFiltered))
-        .end()
-    );
+    transitions.push(bars.exit().transition().duration(duration).attr("y", plotH).attr("height", 0).remove().end());
+    const updateBars = bars.enter().append("rect").attr("x", d => xScaleFiltered(d[xField])).attr("y", plotH).attr("height", 0).merge(bars);
+    transitions.push(updateBars.transition().duration(duration).attr("x", d => xScaleFiltered(d[xField])).attr("y", d => yScaleFull(d[yField])).attr("width", xScaleFiltered.bandwidth()).attr("height", d => plotH - yScaleFull(d[yField])).attr("fill", matchColor).attr("opacity", 1).attr("stroke", "black").attr("stroke-width", 1).attr("data-id", d => d[xField]).attr("data-value", d => d[yField]).end());
+    transitions.push(g.select(".x-axis").transition().duration(duration).call(d3.axisBottom(xScaleFiltered)).end());
   } else {
     const yScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d[yField])).range([0, plotH]).padding(0.2);
-    
     const bars = g.selectAll("rect").data(filteredData, d => d[yField]);
-    
-    transitions.push(
-      bars.exit()
-        .transition().duration(duration)
-        .attr("width", 0)
-        .remove()
-        .end()
-    );
-    
-    const updateBars = bars.enter().append("rect")
-      .attr("x", 0)
-      .attr("y", d => yScaleFiltered(d[yField]))
-      .attr("width", 0)
-      .merge(bars);
-      
-    transitions.push(
-      updateBars.transition().duration(duration)
-        .attr("x", 0)
-        .attr("y", d => yScaleFiltered(d[yField]))
-        .attr("width", d => xScaleFull(d[xField]))
-        .attr("height", yScaleFiltered.bandwidth())
-        .attr("fill", matchColor)
-        .attr("opacity", 1)
-        .attr("stroke", "black")
-        .attr("stroke-width", 1.5)
-        .end()
-    );
-
-    transitions.push(
-      g.select(".y-axis")
-        .transition().duration(duration)
-        .call(d3.axisLeft(yScaleFiltered))
-        .end()
-    );
+    transitions.push(bars.exit().transition().duration(duration).attr("width", 0).remove().end());
+    const updateBars = bars.enter().append("rect").attr("x", 0).attr("y", d => yScaleFiltered(d[yField])).attr("width", 0).merge(bars);
+    transitions.push(updateBars.transition().duration(duration).attr("x", 0).attr("y", d => yScaleFiltered(d[yField])).attr("width", d => xScaleFull(d[xField])).attr("height", yScaleFiltered.bandwidth()).attr("fill", matchColor).attr("opacity", 1).attr("stroke", "black").attr("stroke-width", 1).attr("data-id", d => d[yField]).attr("data-value", d => d[xField]).end());
+    transitions.push(g.select(".y-axis").transition().duration(duration).call(d3.axisLeft(yScaleFiltered)).end());
   }
 
   await Promise.all(transitions);
 
   const margins = getMargins(svg);
-  svg.append("text")
-    .attr("class", "filter-label")
-    .attr("x", margins.left + 8)
-    .attr("y", margins.top + 14)
-    .attr("font-size", 12)
-    .attr("fill", matchColor)
+
+  // --- 2. 피드백 반영: 기준선(Threshold Line) 추가 ---
+  // op.key가 숫자일 경우에만 기준선을 그립니다.
+  if (!isNaN(filterKey)) {
+    if (orientation === 'vertical') {
+      const yPos = yScaleFull(filterKey); // 기준값의 Y 위치 계산
+      // 기준선 추가
+      svg.append("line").attr("class", "threshold-line")
+        .attr("x1", margins.left).attr("y1", margins.top + yPos)
+        .attr("x2", margins.left + plotW).attr("y2", margins.top + yPos)
+        .attr("stroke", thresholdColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+      // 기준선 레이블 추가
+      svg.append("text").attr("class", "threshold-label")
+        .attr("x", margins.left + plotW).attr("y", margins.top + yPos - 5)
+        .attr("text-anchor", "end").attr("fill", thresholdColor).attr("font-size", 12).attr("font-weight", "bold")
+        .text(`기준: ${filterKey}`);
+    } else { // horizontal
+      const xPos = xScaleFull(filterKey); // 기준값의 X 위치 계산
+      // 기준선 추가 (수평 차트에서는 수직선이 됨)
+      svg.append("line").attr("class", "threshold-line")
+        .attr("x1", margins.left + xPos).attr("y1", margins.top)
+        .attr("x2", margins.left + xPos).attr("y2", margins.top + plotH)
+        .attr("stroke", thresholdColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+      // 기준선 레이블 추가
+      svg.append("text").attr("class", "threshold-label")
+        .attr("x", margins.left + xPos + 5).attr("y", margins.top + 10)
+        .attr("text-anchor", "start").attr("fill", thresholdColor).attr("font-size", 12).attr("font-weight", "bold")
+        .text(`기준: ${filterKey}`);
+    }
+  }
+
+  // --- 3. 각 막대의 값은 계속 표시 ---
+  g.selectAll("rect").each(function() {
+      const bar = this;
+      const val = bar.getAttribute("data-value");
+      const { x, y } = getCenter(bar, orientation, margins);
+      svg.append("text")
+          .attr("class", "value-tag").attr("x", x).attr("y", y)
+          .attr("text-anchor", "middle").attr("font-size", 10)
+          .attr("fill", "#000").attr("stroke", "white").attr("stroke-width", 2).attr("paint-order", "stroke")
+          .text(val);
+  });
+  
+  // 필터 정보 레이블
+  svg.append("text").attr("class", "filter-label")
+    .attr("x", margins.left).attr("y", margins.top - 8)
+    .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
     .text(`Filter: ${filterField} ${op.satisfy} ${op.key}`);
 
   return filteredData;
 }
 
-
-// simpleBarFindExtremum (비동기 처리 적용 및 색상 수정)
 export async function simpleBarFindExtremum(chartId, op, data) {
   console.log("[findExtremum] called", op);
   const svg = d3.select(`#${chartId}`).select("svg");
   if (svg.empty()) return data;
 
   const duration = 600;
-  const hlColor = "#a65dfb";
-  const origColor = "#ffa500"; // 필터링 후 색상
+  const hlColor = "#a65dfb"; // 극값 하이라이트 색상 (보라색)
+  const baseColor = "#69b3a2"; // 차트의 기본 색상
   const bars = svg.selectAll("rect");
   
-  // 기존 막대가 필터링 후의 상태일 수 있으므로 색상을 원색으로 초기화
-  bars.interrupt().attr("fill", origColor).attr("stroke", "none").attr("opacity", 1);
-  svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label").remove();
+  // 1. 초기화 로직 수정
+  // 이전 상태가 어떻든 모든 막대를 기본 색상으로 되돌립니다.
+  // 이전에 그린 선('.value-line')도 제거합니다.
+  bars.interrupt().attr("fill", baseColor).attr("stroke", "none").attr("opacity", 1);
+  svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label, .value-line, .threshold-line, .threshold-label").remove();
 
+  // 현재 화면에 보이는 막대들의 데이터를 가져옵니다. (연속/단일 처리의 핵심)
   const currentBarsData = bars.data();
   if (currentBarsData.length === 0) {
       console.warn("findExtremum: No bars found to process.");
       return data;
   }
   
-  const field = op.field || "value";
-  const vals = currentBarsData.map(d => +d[field]);
-
-  const idx = op.type === "min" ? vals.indexOf(d3.min(vals)) : vals.indexOf(d3.max(vals));
+  // 현재 데이터셋 내에서 극값을 찾습니다.
+  const valueField = svg.attr("data-orientation") === 'vertical' ? svg.attr("data-y-field") : svg.attr("data-x-field");
+  const vals = currentBarsData.map(d => +d[valueField]);
+  const extremumFunc = op.type === "min" ? d3.min : d3.max;
+  const extremeVal = extremumFunc(vals);
   
-  if (idx === -1) {
+  const target = bars.filter(d => +d[valueField] === extremeVal);
+
+  if (target.empty()) {
     console.warn("findExtremum: target bar not found");
     return data;
   }
 
-  const extremeVal = vals[idx];
-  const target = bars.filter((d, i) => i === idx);
-
-  // 애니메이션이 끝날 때까지 기다립니다.
+  // 극값 막대 하이라이트 애니메이션
   await target.transition().duration(duration).attr("fill", hlColor).attr("stroke", "black").attr("stroke-width", 2).end();
 
   const node = target.node();
   if (node) {
     const orientation = getOrientation(svg);
     const margins = getMargins(svg);
+    
+    // 2. 수평선 추가 로직
+    const barX = +node.getAttribute("x");
+    const barY = +node.getAttribute("y");
+    const barW = +node.getAttribute("width");
+    const barH = +node.getAttribute("height");
+    
+    const line = svg.append("line")
+      .attr("class", "value-line")
+      .attr("stroke", hlColor)
+      .attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", "4 4");
+
+    if (orientation === 'vertical') {
+      const lineY = margins.top + barY;
+      line.attr("x1", margins.left).attr("y1", lineY)
+          .attr("x2", margins.left + barX + barW / 2).attr("y2", lineY);
+    } else { // 'horizontal'
+      const lineY = margins.top + barY + barH / 2;
+      line.attr("x1", margins.left).attr("y1", lineY)
+          .attr("x2", margins.left + barW).attr("y2", lineY);
+    }
+
+    // 값 레이블 추가 (기존 로직과 동일)
     const { x: baseX, y: baseY } = getCenter(node, orientation, margins);
     const padding = 12;
     const x = orientation === "horizontal" ? baseX + padding : baseX;
@@ -281,21 +299,15 @@ export async function simpleBarFindExtremum(chartId, op, data) {
 
     svg.append("text")
       .attr("class", "annotation")
-      .attr("x", x)
-      .attr("y", y)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 12)
-      .attr("fill", hlColor)
-      .attr("stroke", "white")
-      .attr("stroke-width", 3)
-      .attr("paint-order", "stroke")
+      .attr("x", x).attr("y", y)
+      .attr("text-anchor", "middle").attr("font-size", 12).attr("fill", hlColor)
+      .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
       .text(labelText);
   }
 
-  return data;
+  // 현재 필터링된 데이터 상태를 그대로 반환합니다.
+  return currentBarsData;
 }
-
-// simpleBarCompare (비동기 처리를 위해 async/await 적용)
 export async function simpleBarCompare(chartId, op, data) {
   const svg = d3.select(`#${chartId}`).select("svg");
   if (svg.empty()) return data;
@@ -303,28 +315,21 @@ export async function simpleBarCompare(chartId, op, data) {
   const bars = svg.selectAll("rect");
   if (bars.empty()) return data;
 
-  const origColor = "#69b3a2";
-  bars.interrupt().attr("fill", origColor).attr("stroke", "none");
-  svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label").remove();
+  // 1. 초기화 로직 수정
+  // 모든 막대를 기본 색상으로 되돌리고, 이전에 그렸던 모든 주석/선을 제거합니다.
+  const baseColor = "#69b3a2";
+  bars.interrupt().attr("fill", baseColor).attr("stroke", "none");
+  svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .delta-label, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
 
-  const { keyField = "id", field = "value" } = op;
-  const cmp = {
-    gt: (a, b) => a > b,
-    gte: (a, b) => a >= b,
-    lt: (a, b) => a < b,
-    lte: (a, b) => a <= b,
-    eq: (a, b) => a === b,
-    ne: (a, b) => a !== b,
-  }[op.operator];
+  // (기존과 동일한 비교 로직)
+  const keyField = op.keyField || (svg.attr("data-orientation") === 'vertical' ? svg.attr("data-x-field") : svg.attr("data-y-field"));
+  const valueField = op.field || (svg.attr("data-orientation") === 'vertical' ? svg.attr("data-y-field") : svg.attr("data-x-field"));
+
+  const cmp = { gt: (a, b) => a > b, gte: (a, b) => a >= b, lt: (a, b) => a < b, lte: (a, b) => a <= b, eq: (a, b) => a === b, ne: (a, b) => a !== b }[op.operator];
   if (!cmp) {
     console.warn("simpleBarCompare: bad operator", op.operator);
     return data;
   }
-
-  const orientation = getOrientation(svg);
-  const { left: marginL, top: marginT } = getMargins(svg);
-  const plotW = +svg.attr("data-plot-w");
-  const plotH = +svg.attr("data-plot-h");
 
   const leftBar = bars.filter(d => d[keyField] == op.left);
   const rightBar = bars.filter(d => d[keyField] == op.right);
@@ -336,44 +341,96 @@ export async function simpleBarCompare(chartId, op, data) {
 
   const leftData = data.find(d => d[keyField] == op.left);
   const rightData = data.find(d => d[keyField] == op.right);
-
-  const lv = +leftData[field];
-  const rv = +rightData[field];
+  const lv = +leftData[valueField];
+  const rv = +rightData[valueField];
   const ok = cmp(lv, rv);
 
-  function highlight(selection, value, color) {
-    selection.attr("fill", color).attr("stroke", "black");
+  // 2. 애니메이션 및 주석 추가 로직 수정
+  const duration = 600;
+  const leftColor = "#ffb74d"; // 왼쪽 막대 색상 (주황)
+  const rightColor = "#64b5f6"; // 오른쪽 막대 색상 (파랑)
+
+  // 두 막대의 하이라이트 애니메이션을 동시에 시작
+  const transitions = [];
+  transitions.push(
+    leftBar.transition().duration(duration)
+      .attr("fill", leftColor).attr("stroke", "black").attr("stroke-width", 1.5)
+      .end()
+  );
+  transitions.push(
+    rightBar.transition().duration(duration)
+      .attr("fill", rightColor).attr("stroke", "black").attr("stroke-width", 1.5)
+      .end()
+  );
+
+  // 모든 애니메이션이 끝날 때까지 기다립니다.
+  await Promise.all(transitions);
+
+  const orientation = getOrientation(svg);
+  const margins = getMargins(svg);
+
+  // 선과 값 레이블을 추가하는 헬퍼 함수
+  function addAnnotations(selection, value, color) {
     const barNode = selection.node();
-    const { x: cx, y: cy } = getCenter(barNode, orientation, { left: marginL, top: marginT });
+    if (!barNode) return;
+
+    // 수평선 추가
+    const barX = +barNode.getAttribute("x");
+    const barY = +barNode.getAttribute("y");
+    const barW = +barNode.getAttribute("width");
+    const barH = +barNode.getAttribute("height");
+    
+    const line = svg.append("line")
+      .attr("class", "value-line")
+      .attr("stroke", color)
+      .attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", "4 4");
+
+    if (orientation === 'vertical') {
+      const lineY = margins.top + barY;
+      line.attr("x1", margins.left).attr("y1", lineY)
+          .attr("x2", margins.left + barX + barW / 2).attr("y2", lineY);
+    } else {
+      const lineY = margins.top + barY + barH / 2;
+      line.attr("x1", margins.left).attr("y1", lineY)
+          .attr("x2", margins.left + barW).attr("y2", lineY);
+    }
+
+    // 값 레이블 추가
+    const { x: cx, y: cy } = getCenter(barNode, orientation, margins);
     const pad = 12;
     const x = orientation === "horizontal" ? cx + pad : cx;
     const y = orientation === "horizontal" ? cy : cy - pad;
-    svg.append("text").attr("class", "value-tag").attr("x", x).attr("y", y).attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", 12).attr("fill", color).text(value);
+    svg.append("text")
+      .attr("class", "value-tag").attr("x", x).attr("y", y)
+      .attr("text-anchor", "middle").attr("dominant-baseline", "central")
+      .attr("font-size", 12).attr("fill", color)
+      .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+      .text(value);
   }
 
+  // 비교 결과 헤더를 표시하는 헬퍼 함수
   function showHeader(ok, lKey, oper, rKey) {
+    const plotW = +svg.attr("data-plot-w");
+    const plotH = +svg.attr("data-plot-h");
     const symbol = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", ne: "≠" }[oper] || oper;
     const text = `${lKey} ${symbol} ${rKey} → ${ok}`;
     const fill = ok ? "#2e7d32" : "#c62828";
-    if (orientation === "horizontal") {
-      const x = marginL + plotW + 16;
-      const y = marginT + plotH / 2;
-      svg.append("text").attr("class", "compare-label").attr("x", x).attr("y", y).attr("text-anchor", "start").attr("dominant-baseline", "middle").attr("font-size", 13).attr("font-weight", "bold").attr("fill", fill).text(text);
-    } else {
-      const x = marginL + plotW / 2;
-      const y = marginT - 8;
-      svg.append("text").attr("class", "compare-label").attr("x", x).attr("y", y).attr("text-anchor", "middle").attr("font-size", 13).attr("font-weight", "bold").attr("fill", fill).text(text);
-    }
+    const x = margins.left + plotW / 2;
+    const y = margins.top - 10;
+    svg.append("text").attr("class", "compare-label")
+      .attr("x", x).attr("y", y)
+      .attr("text-anchor", "middle").attr("font-size", 13).attr("font-weight", "bold").attr("fill", fill)
+      .text(text);
   }
 
-  highlight(leftBar, lv, "#ffb74d");
-  highlight(rightBar, rv, "#64b5f6");
+  // 애니메이션이 끝난 후, 각 막대에 선과 레이블을 추가
+  addAnnotations(leftBar, lv, leftColor);
+  addAnnotations(rightBar, rv, rightColor);
   showHeader(ok, op.left, op.operator, op.right);
   
-  // D3.js transition이 없으므로 바로 반환 가능
   return data;
 }
-
 // simpleBarDetermineRange (비동기 처리를 위해 async/await 적용)
 export async function simpleBarDetermineRange(chartId, op, data) {
   const svg = d3.select(`#${chartId}`).select("svg");
