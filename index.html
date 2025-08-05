@@ -37,27 +37,21 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "encoding": {
-    "x": {
-      "field": "month",
-      "type": "nominal",
-      "sort":null
-
-    },
-    "color": {
-      "field": "weather",
-      "type": "nominal"
-    },
     "y": {
-      "field": "count",
+      "field": "rating",
       "type": "quantitative"
+    },
+    "x": {
+      "field": "country",
+      "type": "nominal",
+      "sort": null
     }
   },
   "data": {
-    "url": "data/test/data/bar_stacked_ver.csv"
+    "url": "data/test/data/bar_simple_ver.csv"
   },
   "mark": "bar"
 }
-
 
       </textarea>
 
@@ -82,22 +76,22 @@
       </div>
       <div id="ops-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
-{
-  "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "weather이 Sunny인 항목의 count 내림차순 TOP-3 구간",
+ {
+  "description": "rating을 내림차순으로 정렬한 후, 80점 이상인 항목을 필터링합니다.",
   "ops": [
     {
       "op": "sort",
-      "field": "count",
-      "order": "descending",
-      "limit": 3,
-      "subgroupField": "weather",
-      "subgroupKey": "sun"
+      "field": "rating",
+      "order": "descending"
+    },
+    {
+      "op": "filter",
+      "field": "rating",
+      "satisfy": ">=",
+      "key": 80
     }
   ]
 }
-
-
         </textarea>
     </div>
     <div></div>
