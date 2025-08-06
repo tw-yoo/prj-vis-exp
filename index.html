@@ -35,28 +35,56 @@
       <div id="vl-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Population Census for year 2000, grouped by age and gender",
+  "data": {
+    "url": "data/test/data/bar_grouped_ver.csv"
+  },
+  "mark": "bar",
   "encoding": {
-    "x": {
-      "field": "month",
-      "type": "nominal",
-      "sort":null
-
-    },
-    "color": {
-      "field": "weather",
-      "type": "nominal"
+    "column": {
+      "field": "age",
+      "type": "ordinal",
+      "spacing": 5
     },
     "y": {
-      "field": "count",
-      "type": "quantitative"
+      "aggregate": "sum",
+      "field": "people",
+      "type": "quantitative",
+      "axis": {
+        "title": "Population",
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "gender",
+      "type": "nominal",
+      "scale": {
+        "rangeStep": 12
+      },
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "gender",
+      "type": "nominal",
+      "scale": {
+        "range": ["#EA98D2", "#659CCA"]
+      }
     }
   },
-  "data": {
-    "url": "data/test/data/bar_stacked_ver.csv"
-  },
-  "mark": "bar"
-}   </textarea>
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}
+      
+      </textarea>
 
       <div class="row-header">
         <div class="label">Question</div>
@@ -79,20 +107,20 @@
       </div>
       <div id="ops-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
-{
-  "description": "sun 날씨 중 count가 60 이상인 데이터를 필터링하고, 그 중에서 8월 데이터를 조회합니다.",
-  "ops": [
-    {
-      "op": "filter",
-      "subgroupKey": "sun"
-    },
-    {
-      "op": "retrieveValue",
-      "key": "8",
-      "subgroupKey": "sun"
+   {
+        "description": "Female 그룹에 focus 후, 인구수가 많은 순으로 정렬합니다.",
+        "ops": [
+            {
+                "op": "focus",
+                "key": "Female"
+            },
+            {
+                "op": "sort",
+                "field": "people",
+                "order": "descending"
+            }
+        ]
     }
-  ]
-}
 
    </textarea>
     </div>
