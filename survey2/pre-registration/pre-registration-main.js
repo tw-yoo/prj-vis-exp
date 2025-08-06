@@ -28,12 +28,12 @@ if (saved) {
   Object.assign(responses, JSON.parse(saved));
 }
 const screeningAnswers = {
-    q1: "1",
-    q2: "1",
-    screening1: "1",
-    screening2: "1",
-    screening3: "1",
-    screening4: "1"
+    pre_q1: "1",
+    pre_q2: "1",
+    pre_screen_q1: "1",
+    pre_screen_q2: "1",
+    pre_screen_q3: "1",
+    pre_screen_q4: "1"
 }
 
 function screeningPassed(userResponses) {
@@ -178,6 +178,11 @@ async function loadPage(i, pushHistory = true) {
 
         renderComponents();
         restoreResponses();
+        // Reload responses from localStorage to keep JS state in sync
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+          Object.assign(responses, JSON.parse(savedData));
+        }
 
         const nav = createNavButtons({
             prevId: `prev_${idx}`,
@@ -190,15 +195,20 @@ async function loadPage(i, pushHistory = true) {
                   return;
                 }
                 if (isLastPage) {
+                    const email = responses.email || '';
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(email)) {
+                      alert('Please enter a valid email address.');
+                      return;
+                    }
                     try {
-                        console.log(responses)
-                        const res = await fetch('http://localhost:3000/api/pre-registration', {
+                        const payload = { email: responses.email, ...responses };
+                        const res = await fetch('http://localhost:3000/pre-registration/add', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(responses)
+                            body: JSON.stringify(payload)
                         });
                         if (!res.ok) throw new Error(res.statusText);
-                        alert('Your response is sent to the server.');
                         loadPage(3);
                     } catch (err) {
                         alert('Error: '+ err.message);

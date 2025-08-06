@@ -5,6 +5,37 @@ import {
   createOpenEndedInput, createChart
 } from './components.js';
 
+// State for form responses
+const responses = {};
+const STORAGE_KEY = 'formResponses';
+// Load any saved responses on initial load
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) {
+  Object.assign(responses, JSON.parse(saved));
+}
+
+// Persist responses on input change
+document.addEventListener('change', e => {
+  if (e.target.matches('input[type="radio"]')) {
+    responses[e.target.name] = e.target.value;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(responses));
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.matches('input[type="text"], textarea')) {
+    responses[e.target.name] = e.target.value;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(responses));
+  }
+});
+
+// Handle browser back/forward navigation
+window.addEventListener('popstate', event => {
+  const state = event.state;
+  if (state && typeof state.pageIndex === 'number') {
+    loadPage(state.pageIndex, false);
+  }
+});
+
 function renderComponents() {
 
   document.querySelectorAll('[data-component="chart"]').forEach(async el  => {
@@ -36,6 +67,18 @@ function renderComponents() {
   });
 }
 
+function restoreResponses() {
+  for (const [name, value] of Object.entries(responses)) {
+    const radios = document.querySelectorAll(`input[type="radio"][name="${name}"]`);
+    if (radios.length) {
+      radios.forEach(radio => radio.checked = radio.value === value);
+    } else {
+      const input = document.querySelector(`input[type="text"][name="${name}"], textarea[name="${name}"]`);
+      if (input) input.value = value;
+    }
+  }
+}
+
 const pages = [
   'pages/main.html',
   'pages/tutorial/tutorial_intro.html',
@@ -61,11 +104,15 @@ function updateButtons() {
     if (next) next.disabled = idx === pages.length - 1;
 }
 
-async function loadPage(i) {
+async function loadPage(i, pushHistory = true) {
   if (i < 0 || i >= pages.length) return;
   idx = i;
   // Reflect current page in the URL without reloading
-  history.replaceState(null, '', `?page=${idx}`);
+  if (pushHistory) {
+    history.pushState({ pageIndex: i }, '', `?page=${i}`);
+  } else {
+    history.replaceState({ pageIndex: i }, '', `?page=${i}`);
+  }
   updateButtons();
   const scrollEl = container();
   if (!scrollEl) return;
@@ -80,13 +127,21 @@ async function loadPage(i) {
     if (placeholder) placeholder.insertAdjacentHTML('afterend', frag);
     // Instantiate components declared in fragment
     renderComponents();
+    // Restore form inputs from saved responses
+    restoreResponses();
+    // Reload in-memory responses in case of full reload
+    const savedData = localStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+      Object.assign(responses, JSON.parse(savedData));
+    }
     // Navigation buttons appended after content
     const nav = createNavButtons({
       prevId: `prev_${idx}`,
       nextId: `next_${idx}`,
       onPrev: () => loadPage(idx - 1),
       onNext: () => loadPage(idx + 1),
-      isLastPage
+      isLastPage: idx === pages.length - 1,
+      isAvailable: true
     });
     scrollEl.appendChild(nav);
   } catch (e) {
@@ -96,5 +151,6 @@ async function loadPage(i) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadPage(idx);
+  history.replaceState({ pageIndex: idx }, '', `?page=${idx}`);
+  loadPage(idx, false);
 });

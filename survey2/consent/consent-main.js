@@ -13,27 +13,26 @@ function goBack() {
 }
 
 const responses = {};
-const screeningAnswers = {
-    q1: "1",
-    q2: "1",
-    screening1: "1",
-    screening2: "1",
-    screening3: "1",
-    screening4: "1"
+const STORAGE_KEY = 'preRegResponses';
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) {
+    Object.assign(responses, JSON.parse(saved));
 }
 
 function screeningPassed(userResponses) {
-    for (const [key, value] of Object.entries(userResponses)) {
-        if (screeningAnswers[key] === undefined || screeningAnswers[key] !== value ) {
-            return false;
-        }
-    }
-    return true;
+    return userResponses["consent-confirm"] === "1"
 }
 
 document.addEventListener('change', e => {
     if (e.target.matches('input[type="radio"]')) {
         responses[e.target.name] = e.target.value;
+    }
+});
+
+document.addEventListener('input', e => {
+    if (e.target.matches('input[type="text"], textarea')) {
+        responses[e.target.name] = e.target.value;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(responses));
     }
 });
 
@@ -68,7 +67,8 @@ function renderComponents() {
 }
 
 const pages = [
-    'pages/consent.html'
+    'pages/consent.html',
+    'pages/consent-last.html'
 ];
 
 const params = new URLSearchParams(window.location.search);
@@ -104,7 +104,7 @@ async function loadPage(i, pushHistory = true) {
     scrollEl.innerHTML = '<div id="dynamic-insert"></div>';
     try {
         const isLastPage = idx > 0;
-        const isAvailable = idx === 0 ||  idx === 1;
+        const isAvailable = idx === 0;
         const res = await fetch(pages[idx], { cache: 'no-store' });
         if (!res.ok) throw new Error(res.status);
         const frag = await res.text();
@@ -117,7 +117,33 @@ async function loadPage(i, pushHistory = true) {
             prevId: `prev_${idx}`,
             nextId: `next_${idx}`,
             onPrev: goBack,
-            onNext: () => {},
+            onNext: async () => {
+                if (idx === 0) {
+                    const email = responses.email || '';
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(email)) {
+                        alert('Please enter a valid email address.');
+                        return;
+                    }
+
+                    if (screeningPassed(responses)) {
+                        try {
+                            const res = await fetch('http://localhost:3000/consent/add', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(responses)
+                            });
+                            if (!res.ok) throw new Error(res.statusText);
+
+                            loadPage(1);
+                        } catch (error) {
+                            alert('Error: ' + error.message);
+                        }
+                    } else {
+                        alert("Please complete the electronic signature.")
+                    }
+                }
+            },
             isLastPage: true,
             isAvailable: isAvailable,
             hidePrev: true,
