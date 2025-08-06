@@ -32,6 +32,7 @@ export function getCenter(bar, orientation, margins) {
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // simpleBarFunctions.js의 simpleBarFilter 함수 (최종 완성본)
+// simpleBarFunctions.js의 simpleBarFilter 함수 (수정 완료)
 
 export async function simpleBarFilter(chartId, op, data, fullData) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
@@ -51,50 +52,39 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
 
     const yScaleFull = d3.scaleLinear().domain([0, d3.max(fullData, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
 
-    // --- 1단계: 기준선 먼저 표시 ---
     if (!isNaN(filterKey)) {
         const yPos = yScaleFull(filterKey);
         const thresholdColor = "blue";
-
         svg.append("line").attr("class", "threshold-line")
             .attr("x1", margins.left).attr("y1", margins.top + yPos)
             .attr("x2", margins.left).attr("y2", margins.top + yPos)
             .attr("stroke", thresholdColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
             .transition().duration(800)
             .attr("x2", plot.w + margins.left);
-        
         svg.append("text").attr("class", "threshold-label")
             .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
             .attr("text-anchor", "start").attr("dominant-baseline", "middle")
             .attr("fill", thresholdColor).attr("font-size", 12).attr("font-weight", "bold")
             .text(filterKey)
-            .attr("opacity", 0)
-            .transition().delay(400).duration(400)
-            .attr("opacity", 1);
-        
-        await delay(800); // 기준선 애니메이션이 끝날 때까지 대기
+            .attr("opacity", 0).transition().delay(400).duration(400).attr("opacity", 1);
+        await delay(800);
     }
 
-    // --- 2단계: 기준선에 맞춰 막대 하이라이트 ---
-    const targetIds = new Set(filteredData.map(d => d[xField]));
+    const targetIds = new Set(filteredData.map(d => d.key || d[xField]));
     const allBars = g.selectAll("rect");
     const highlightPromises = [];
-
     allBars.each(function() {
         const bar = d3.select(this);
         const d = bar.datum();
-        const isTarget = d ? targetIds.has(d[xField]) : false;
-        
+        const id = d ? (d.key || d[xField]) : null;
+        const isTarget = id ? targetIds.has(id) : false;
         if (isTarget) {
-            const t = bar.transition().duration(1000)
-                .attr("fill", matchColor)
-                .end();
+            const t = bar.transition().duration(1000).attr("fill", matchColor).end();
             highlightPromises.push(t);
         }
     });
     await Promise.all(highlightPromises);
 
-    // --- 3단계: 필터링된 막대들로 재구성 (Transform) ---
     if (filteredData.length === 0) {
         console.warn("simpleBarFilter: Filtered data is empty.");
         allBars.transition().duration(500).attr("opacity", 0).remove();
@@ -102,21 +92,24 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
     }
     
     const transformPromises = [];
-    const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d[xField])).range([0, plot.w]).padding(0.2);
-    const bars = g.selectAll("rect").data(filteredData, d => d[xField]);
+    const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.key || d[xField])).range([0, plot.w]).padding(0.2);
+
+    // --- 여기가 핵심 수정 부분: Key 함수를 더 똑똑하게 변경 ---
+    const keyFunction = d => d.key || d[xField];
+    const bars = g.selectAll("rect").data(filteredData, keyFunction);
+    // --- 수정 끝 ---
 
     transformPromises.push(bars.exit().transition().duration(800)
         .attr("height", 0).attr("y", plot.h).remove().end());
     
     transformPromises.push(bars.transition().duration(800)
-        .attr("x", d => xScaleFiltered(d[xField])).attr("width", xScaleFiltered.bandwidth()).end());
+        .attr("x", d => xScaleFiltered(d.key || d[xField])).attr("width", xScaleFiltered.bandwidth()).end());
 
     transformPromises.push(g.select(".x-axis").transition().duration(800)
         .call(d3.axisBottom(xScaleFiltered)).end());
 
     await Promise.all(transformPromises);
 
-    // --- 최종 주석 및 레이블 추가 ---
     g.selectAll("rect").each(function() {
         const bar = this;
         const val = bar.getAttribute("data-value");
@@ -135,7 +128,6 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
 
     return filteredData;
 }
-
 export async function simpleBarRetrieveValue(chartId, op, data, fullData) {
     const { svg, g, xField, yField, orientation, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);

@@ -24,7 +24,7 @@ export function clearAllAnnotations(svg) {
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // --- 유일한 오퍼레이션 함수 ---
-export async function stackedBarFilter(chartId, op, currentData, fullData) {
+export async function stackedBarChangeToSimple(chartId, op, currentData, fullData) {
     const { svg, xField, yField, colorField, plot, margins } = getSvgAndSetup(chartId);
     
     let filteredData = [...fullData];

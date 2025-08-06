@@ -1,20 +1,25 @@
+
 import {
     simpleBarCompare,
     simpleBarFindExtremum,
-    simpleBarFilter,
+    simpleBarFilter, // simpleBarFilter를 import 합니다.
     simpleBarRetrieveValue,
     simpleBarDetermineRange,
-    simpleBarSort
+    simpleBarSort,
+    getSvgAndSetup as simpleGetSvgAndSetup,
+    clearAllAnnotations as simpleClearAllAnnotations,
+    delay as simpleDelay
 } from "../simple/simpleBarFunctions.js";
 
 import {
-    stackedBarFilter,
+    stackedBarChangeToSimple, // 이름이 바뀐 함수를 import 합니다.
     clearAllAnnotations,
     getSvgAndSetup
 } from "./stackedBarFunctions.js";
 
 const chartDataStore = {};
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+// stackedBarUtil.js의 runStackedBarOps 함수 (최종 수정 완료)
 
 export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
     const svg = d3.select(`#${chartId}`).select("svg");
@@ -26,7 +31,6 @@ export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
     
     const { colorField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
     const chartRects = svg.select(".plot-area").selectAll("rect");
     const originalData = chartDataStore[chartId].data;
     const subgroups = Array.from(new Set(originalData.map(d => d[colorField])));
@@ -56,24 +60,25 @@ export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
         const opType = operation.op.toLowerCase();
 
         if (isTransformed) {
-            // "변신" 후에는 simpleBar 함수들을 사용합니다.
             switch (opType) {
                 case 'retrievevalue': currentData = await simpleBarRetrieveValue(chartId, operation, currentData, fullData); break;
+                case 'filter': currentData = await simpleBarFilter(chartId, operation, currentData, fullData); break;
                 case 'findextremum': currentData = await simpleBarFindExtremum(chartId, operation, currentData, fullData); break;
                 case 'determinerange': currentData = await simpleBarDetermineRange(chartId, operation, currentData, fullData); break;
                 case 'compare': currentData = await simpleBarCompare(chartId, operation, currentData, fullData); break;
                 case 'sort': currentData = await simpleBarSort(chartId, operation, currentData, fullData); break;
-                default: console.warn(`Unsupported operation after filter: ${operation.op}`);
+                default: console.warn(`Unsupported operation after transformation: ${operation.op}`);
             }
         } else {
-            // "변신" 전에는 stackedBar 함수만 사용합니다.
+            // --- 여기가 핵심 수정 부분 ---
             switch (opType) {
-                case 'filter':
-                    currentData = await stackedBarFilter(chartId, operation, currentData, fullData);
+                case 'changetosimple':
+                    // stackedBarChangeToSimple 호출 시 4개의 인자를 모두 전달합니다.
+                    currentData = await stackedBarChangeToSimple(chartId, operation, currentData, fullData);
                     isTransformed = true; // 상태 전환!
                     break;
                 default:
-                    console.warn(`Operation '${opType}' is not supported on a stacked chart. Please filter first.`);
+                    console.warn(`Operation '${opType}' is not supported. Please start with 'changeToSimple'.`);
             }
         }
 
@@ -82,7 +87,6 @@ export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
         }
     }
 }
-
 export async function renderStackedBarChart(chartId, spec) {
     const host = d3.select(`#${chartId}`);
     host.selectAll("*").remove();
