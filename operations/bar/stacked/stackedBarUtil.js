@@ -1,20 +1,21 @@
-// stackedBarUtil.js (import 오류 수정 완료)
-
-//import { renderStackedBarChart } from "./stackedBarUtil.js";
 import {
-    // --- 여기가 핵심 수정 부분: clearAllAnnotations를 import 목록에 추가 ---
-    clearAllAnnotations,
-    // --- 수정 끝 ---
-    stackedBarCompare,
-    stackedBarDetermineRange,
+    simpleBarCompare,
+    simpleBarFindExtremum,
+    simpleBarFilter,
+    simpleBarRetrieveValue,
+    simpleBarDetermineRange,
+    simpleBarSort
+} from "../simple/simpleBarFunctions.js";
+
+import {
     stackedBarFilter,
-    stackedBarFindExtremum,
-    stackedBarRetrieveValue,
-    stackedBarSort
+    clearAllAnnotations,
+    getSvgAndSetup
 } from "./stackedBarFunctions.js";
 
 const chartDataStore = {};
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
     const svg = d3.select(`#${chartId}`).select("svg");
 
@@ -23,38 +24,57 @@ export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
         await renderStackedBarChart(chartId, vlSpec);
     }
     
+    const { colorField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+
     const chartRects = svg.select(".plot-area").selectAll("rect");
+    const originalData = chartDataStore[chartId].data;
+    const subgroups = Array.from(new Set(originalData.map(d => d[colorField])));
+    const colorScale = d3.scaleOrdinal(d3.schemeTableau10).domain(subgroups);
+
     const resetPromises = [];
     chartRects.each(function() {
         const rect = d3.select(this);
-        const t = rect.transition().duration(400)
-            .attr("opacity", 1)
-            .attr("stroke", "none")
-            .end();
-        resetPromises.push(t);
+        const d = rect.datum();
+        if (d && d.subgroup) {
+            const t = rect.transition().duration(400)
+                .attr("opacity", 1)
+                .attr("stroke", "none")
+                .attr("fill", colorScale(d.subgroup))
+                .end();
+            resetPromises.push(t);
+        }
     });
     await Promise.all(resetPromises);
     
-    // --- 여기가 핵심 수정 부분 ---
-    // 원본 데이터와 현재 데이터를 명확히 구분하여 관리합니다.
     const fullData = chartDataStore[chartId].data;
-    let currentData = [...fullData]; // 시작은 원본 데이터의 복사본
-    // --- 수정 끝 ---
+    let currentData = [...fullData];
+    let isTransformed = false;
 
     for (let i = 0; i < opsSpec.ops.length; i++) {
         const operation = opsSpec.ops[i];
-        let opType = operation.op.toLowerCase();
-        
-        // --- 모든 함수에 fullData를 추가로 전달합니다. ---
-        switch (opType) {
-            case 'retrievevalue': currentData = await stackedBarRetrieveValue(chartId, operation, currentData, fullData); break;
-            case 'filter': currentData = await stackedBarFilter(chartId, operation, currentData, fullData); break;
-            case 'findextremum': currentData = await stackedBarFindExtremum(chartId, operation, currentData, fullData); break;
-            case 'determinerange': currentData = await stackedBarDetermineRange(chartId, operation, currentData, fullData); break;
-            case 'compare': currentData = await stackedBarCompare(chartId, operation, currentData, fullData); break;
-            case 'sort': currentData = await stackedBarSort(chartId, operation, currentData, fullData); break;
-            default: console.warn("Not supported operation", operation.op);
+        const opType = operation.op.toLowerCase();
+
+        if (isTransformed) {
+            // "변신" 후에는 simpleBar 함수들을 사용합니다.
+            switch (opType) {
+                case 'retrievevalue': currentData = await simpleBarRetrieveValue(chartId, operation, currentData, fullData); break;
+                case 'findextremum': currentData = await simpleBarFindExtremum(chartId, operation, currentData, fullData); break;
+                case 'determinerange': currentData = await simpleBarDetermineRange(chartId, operation, currentData, fullData); break;
+                case 'compare': currentData = await simpleBarCompare(chartId, operation, currentData, fullData); break;
+                case 'sort': currentData = await simpleBarSort(chartId, operation, currentData, fullData); break;
+                default: console.warn(`Unsupported operation after filter: ${operation.op}`);
+            }
+        } else {
+            // "변신" 전에는 stackedBar 함수만 사용합니다.
+            switch (opType) {
+                case 'filter':
+                    currentData = await stackedBarFilter(chartId, operation, currentData, fullData);
+                    isTransformed = true; // 상태 전환!
+                    break;
+                default:
+                    console.warn(`Operation '${opType}' is not supported on a stacked chart. Please filter first.`);
+            }
         }
 
         if (i < opsSpec.ops.length - 1) {
@@ -63,7 +83,6 @@ export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
     }
 }
 
-// renderStackedBarChart 함수는 이전에 수정한 최종본 그대로 사용합니다.
 export async function renderStackedBarChart(chartId, spec) {
     const host = d3.select(`#${chartId}`);
     host.selectAll("*").remove();
@@ -148,6 +167,12 @@ export async function renderStackedBarChart(chartId, spec) {
                     y0: d[0],
                     y1: d[1]
                 };
+            })
+            .attr("data-id", function() {
+                return d3.select(this).datum().key;
+            })
+            .attr("data-value", function() {
+                return d3.select(this).datum().value;
             });
             
     // 축 레이블
