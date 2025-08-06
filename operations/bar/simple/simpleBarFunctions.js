@@ -123,7 +123,7 @@ export async function simpleBarRetrieveValue(chartId, op, data) {
 
   return data;
 }
-
+// simpleBarFunctions.js의 simpleBarFilter 함수 (최종 수정 완료)
 
 export async function simpleBarFilter(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
@@ -132,7 +132,7 @@ export async function simpleBarFilter(chartId, op, data) {
     const matchColor = "#ffa500";
     const baseColor = "#69b3a2";
 
-    // 데이터 필터링
+    // 데이터 필터링 로직 (기존과 동일)
     const filterField = op.field || yField;
     const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
     const satisfy = satisfyMap[op.satisfy] || (() => true);
@@ -142,7 +142,34 @@ export async function simpleBarFilter(chartId, op, data) {
         return satisfy(value, filterKey);
     });
 
-    // --- 1단계: 원본 차트에서 하이라이트 ---
+    const yScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
+
+    // --- 1단계: 기준선 먼저 표시 ---
+    if (!isNaN(filterKey)) {
+        const yPos = yScaleFull(filterKey);
+        const thresholdColor = "blue";
+
+        // 기준선과 레이블을 먼저 나타나게 함
+        svg.append("line").attr("class", "threshold-line")
+            .attr("x1", margins.left).attr("y1", margins.top + yPos)
+            .attr("x2", margins.left).attr("y2", margins.top + yPos) // 시작은 X=0
+            .attr("stroke", thresholdColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
+            .transition().duration(800) // 0.8초에 걸쳐 선이 그려지는 애니메이션
+            .attr("x2", plot.w + margins.left);
+        
+        svg.append("text").attr("class", "threshold-label")
+            .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
+            .attr("text-anchor", "start").attr("dominant-baseline", "middle")
+            .attr("fill", thresholdColor).attr("font-size", 12).attr("font-weight", "bold")
+            .text(filterKey)
+            .attr("opacity", 0)
+            .transition().delay(400).duration(400) // 선이 중간쯤 그려졌을 때 나타남
+            .attr("opacity", 1);
+        
+        await delay(800); // 기준선 애니메이션이 끝날 때까지 대기
+    }
+
+    // --- 2단계: 원본 차트에서 하이라이트 ---
     const targetIds = new Set(filteredData.map(d => d[xField]));
     const allBars = g.selectAll("rect");
     const highlightPromises = [];
@@ -151,7 +178,7 @@ export async function simpleBarFilter(chartId, op, data) {
         const bar = d3.select(this);
         const d = bar.datum();
         const isTarget = d ? targetIds.has(d[xField]) : false;
-        const t = bar.transition().duration(1200) // 하이라이트 과정을 길게 보여주기
+        const t = bar.transition().duration(1200)
             .attr("fill", isTarget ? matchColor : baseColor)
             .attr("opacity", isTarget ? 1.0 : 0.2)
             .end();
@@ -159,7 +186,7 @@ export async function simpleBarFilter(chartId, op, data) {
     });
     await Promise.all(highlightPromises);
 
-    // --- 2단계: 필터링된 막대들로 재구성 (Transform) ---
+    // --- 3단계: 필터링된 막대들로 재구성 (Transform) ---
     if (filteredData.length === 0) {
         console.warn("simpleBarFilter: Filtered data is empty.");
         allBars.transition().duration(500).attr("opacity", 0).remove();
@@ -167,7 +194,6 @@ export async function simpleBarFilter(chartId, op, data) {
     }
     
     const transformPromises = [];
-    const yScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
     const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d[xField])).range([0, plot.w]).padding(0.2);
     const bars = g.selectAll("rect").data(filteredData, d => d[xField]);
 
@@ -183,23 +209,6 @@ export async function simpleBarFilter(chartId, op, data) {
     await Promise.all(transformPromises);
 
     // --- 최종 주석 및 레이블 추가 ---
-    if (!isNaN(filterKey)) {
-        const yPos = yScaleFull(filterKey);
-        svg.append("line").attr("class", "threshold-line")
-            .attr("x1", margins.left).attr("y1", margins.top + yPos)
-            .attr("x2", plot.w + margins.left).attr("y2", margins.top + yPos)
-            .attr("stroke", "blue").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-        
-        // vvv --- 레이블 수정 및 위치 변경 --- vvv
-        svg.append("text").attr("class", "threshold-label")
-            .attr("x", margins.left + plot.w + 5) // 오른쪽 바깥으로 5px 이동
-            .attr("y", margins.top + yPos)
-            .attr("text-anchor", "start") // 왼쪽 정렬
-            .attr("dominant-baseline", "middle") // Y축 중앙 정렬
-            .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold")
-            .text(filterKey); // '기준:' 글자 삭제
-    }
-
     g.selectAll("rect").each(function() {
         const bar = this;
         const val = bar.getAttribute("data-value");
@@ -218,8 +227,6 @@ export async function simpleBarFilter(chartId, op, data) {
 
     return filteredData;
 }
-
-
 
 
 // simpleBarFunctions.js의 simpleBarFindExtremum 함수 (수정 완료)
@@ -434,30 +441,41 @@ export async function simpleBarCompare(chartId, op, data) {
   
   return data;
 }
-// simpleBarDetermineRange (비동기 처리를 위해 async/await 적용)
-// simpleBarFunctions.js의 simpleBarDetermineRange 함수 (최종 수정 완료)
+
+// simpleBarFunctions.js의 simpleBarDetermineRange 함수 (수정 완료)
 
 export async function simpleBarDetermineRange(chartId, op, data, fullData) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // --- 1. 불필요한 색상 변경 코드 삭제 ---
-    // g.selectAll("rect").transition()...attr("fill", "#d3d3d3");
+    // --- 1. 하이라이트 색상을 선명한 파란색으로 통일 ---
+    const hlColor = "#0d6efd"; // 선명한 파란색 (Bootstrap blue)
 
     const valueField = orientation === 'vertical' ? yField : xField;
-    const values = data.map(d => +d[valueField]); // 현재 데이터(필터링된 데이터)에서 min/max 찾기
+    const values = data.map(d => +d[valueField]);
     const minV = d3.min(values);
     const maxV = d3.max(values);
 
-    // --- 2. 중요: 현재 보이는 Y축과 동일한 스케일을 만들기 위해 'fullData'를 사용 ---
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(fullData, d => +d[yField]) || 0]) // 원본 데이터의 최댓값 사용
+        .domain([0, d3.max(fullData, d => +d[yField]) || 0])
         .nice()
         .range([plot.h, 0]);
 
-    const hlColor = "blue";
+    // 모든 애니메이션을 담을 배열
+    const animationPromises = [];
 
-    // 이하 로직은 이전과 동일
+    // --- 2. 최솟값/최댓값 막대 하이라이트 애니메이션 ---
+    const minBars = g.selectAll("rect").filter(d => +d[valueField] === minV);
+    const maxBars = g.selectAll("rect").filter(d => +d[valueField] === maxV);
+
+    animationPromises.push(
+        minBars.transition().duration(600).attr("fill", hlColor).end()
+    );
+    animationPromises.push(
+        maxBars.transition().duration(600).attr("fill", hlColor).end()
+    );
+
+    // --- 3. 라인 및 텍스트 애니메이션 ---
     [
         { value: minV, label: "Min" },
         { value: maxV, label: "Max" }
@@ -465,25 +483,50 @@ export async function simpleBarDetermineRange(chartId, op, data, fullData) {
         if (item.value === undefined) return;
         const yPos = margins.top + yScale(item.value);
 
-        svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left).attr("x2", margins.left + plot.w)
+        // 수평선이 그려지는 애니메이션 추가
+        const line = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left)
+            .attr("x2", margins.left) // 시작점은 Y축 (너비 0)
             .attr("y1", yPos).attr("y2", yPos)
             .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
         
-        svg.append("text").attr("class", "annotation")
+        animationPromises.push(
+            line.transition().duration(800)
+                .attr("x2", margins.left + plot.w) // 끝점까지 선이 그려짐
+                .end()
+        );
+        
+        // 라벨이 서서히 나타나는 애니메이션 추가
+        const text = svg.append("text").attr("class", "annotation")
             .attr("x", margins.left - 20).attr("y", yPos)
             .attr("text-anchor", "end").attr("dominant-baseline", "middle")
             .attr("fill", hlColor).attr("font-weight", "bold")
-            .text(`${item.label}: ${item.value}`);
+            .text(`${item.label}: ${item.value}`)
+            .attr("opacity", 0); // 처음엔 투명
+
+        animationPromises.push(
+            text.transition().delay(400).duration(400) // 선이 그려진 후 나타남
+                .attr("opacity", 1)
+                .end()
+        );
     });
 
+    // 상단 Range 텍스트도 서서히 나타나도록 수정
     if (minV !== undefined && maxV !== undefined) {
         const rangeText = `Range: ${minV} ~ ${maxV}`;
-        svg.append("text").attr("class", "annotation")
+        const topLabel = svg.append("text").attr("class", "annotation")
             .attr("x", margins.left).attr("y", margins.top - 10)
             .attr("font-size", 14).attr("font-weight", "bold")
-            .attr("fill", hlColor).text(rangeText);
+            .attr("fill", hlColor).text(rangeText)
+            .attr("opacity", 0);
+
+        animationPromises.push(
+            topLabel.transition().duration(600).attr("opacity", 1).end()
+        );
     }
+    
+    // --- 4. 모든 애니메이션이 끝날 때까지 기다림 ---
+    await Promise.all(animationPromises);
     
     return data;
 }
