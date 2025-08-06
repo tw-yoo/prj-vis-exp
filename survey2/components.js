@@ -1,18 +1,32 @@
-// components.js
 import {renderChart} from "../util/util.js";
 import {executeAtomicOps} from "../router/router.js";
 import {getVegaLiteSpec, getOperationSpec} from "./util.js"
 
-export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = false, isAvailable = true }) {
-    if (!isAvailable) return;
-    const w = document.createElement('div'); w.className = 'survey-nav';
-    const p = document.createElement('button'); p.id = prevId; p.className = 'button prev-btn'; p.textContent = 'Previous'; p.disabled = true;
+export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = false, isAvailable = true, hidePrev = false }) {
+    const w = document.createElement('div');
+    w.className = 'survey-nav';
+    if (!isAvailable) {
+        w.style.display = 'none';
+        return w;
+    }
+    let p;
     const n = document.createElement('button');
     n.id = nextId;
     n.className = 'button next-btn';
     n.textContent = isLastPage ? 'Submit' : 'Next';
-    p.addEventListener('click', onPrev); n.addEventListener('click', onNext);
-    w.append(p, n); return w;
+    n.addEventListener('click', onNext);
+    if (!hidePrev) {
+        p = document.createElement('button');
+        p.id = prevId;
+        p.className = 'button prev-btn';
+        p.textContent = 'Previous';
+        p.disabled = true;
+        p.addEventListener('click', onPrev);
+        w.append(p, n);
+    } else {
+        w.append(n);
+    }
+    return w;
 }
 
 export async function createChart(cId) {
@@ -74,5 +88,13 @@ export function createOpenEndedInput({ id, labelText, placeholder, multiline }) 
     const inp = multiline
         ? Object.assign(document.createElement('textarea'), { id, placeholder, rows: 3, className: 'text-input', style: 'resize:vertical;' })
         : Object.assign(document.createElement('input'), { type:'text', id, placeholder, className:'text-input' });
+    inp.name = id;
+    // Dispatch a survey-response event when the input changes
+    inp.addEventListener('input', e => {
+      const responseEvent = new CustomEvent('survey-response', {
+        detail: { name: id, value: e.target.value }
+      });
+      document.dispatchEvent(responseEvent);
+    });
     w.append(l, inp); return w;
 }

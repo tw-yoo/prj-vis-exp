@@ -1,11 +1,32 @@
-// main.js
 import {
     createNavButtons,
     createLikertQuestion,
     createOpenEndedInput, createChart
 } from '../components.js';
 
+// Sync browser back/forward buttons with SPA navigation
+window.addEventListener('popstate', event => {
+  const state = event.state;
+  if (state && typeof state.pageIndex === 'number') {
+    loadPage(state.pageIndex, false);
+  }
+});
+
+let pageHistory = [];
+function goBack() {
+  if (pageHistory.length <= 1) return;
+  pageHistory.pop();
+  const prevIndex = pageHistory[pageHistory.length - 1];
+  loadPage(prevIndex, false);
+}
+
 const responses = {};
+const STORAGE_KEY = 'preRegResponses';
+// Load saved responses from localStorage
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) {
+  Object.assign(responses, JSON.parse(saved));
+}
 const screeningAnswers = {
     q1: "1",
     q2: "1",
@@ -24,10 +45,17 @@ function screeningPassed(userResponses) {
     return true;
 }
 
-// Delegate change/input events to capture dynamic inputs
+// Save responses to localStorage on change/input
 document.addEventListener('change', e => {
   if (e.target.matches('input[type="radio"]')) {
     responses[e.target.name] = e.target.value;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(responses));
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.matches('input[type="text"], textarea')) {
+    responses[e.target.name] = e.target.value;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(responses));
   }
 });
 
@@ -49,7 +77,6 @@ function renderComponents() {
         el.replaceWith(comp);
     });
 
-    // Open-ended inputs
     document.querySelectorAll('[data-component="open-ended"]').forEach(el => {
         const { id, labeltext, placeholder, multiline } = el.dataset;
         const comp = createOpenEndedInput({
@@ -65,13 +92,17 @@ function renderComponents() {
 const pages = [
     'pages/pre-registration.html',
     'pages/pre-registration-pass.html',
-    'pages/pre-registration-fail.html'
-];
-// Initialize page index from URL, defaulting to 0
+    'pages/pre-registration-fail.html',
+    'pages/pre-registration-last.html'
+  ];
+
+// Prevent manual skipping: track highest unlocked page
+let maxAllowedIndex = 0;
+
 const params = new URLSearchParams(window.location.search);
 let idx = parseInt(params.get('page'), 10);
-if (isNaN(idx) || idx < 0 || idx >= pages.length) {
-    idx = 0;
+if (isNaN(idx) || idx < 0 || idx >= pages.length || idx > maxAllowedIndex) {
+  idx = 0;
 }
 
 const container = () => document.querySelector('.main-scroll');
@@ -79,56 +110,112 @@ const dynInsert = () => document.getElementById('dynamic-insert');
 const btnPrev = () => document.querySelector('.prev-btn');
 const btnNext = () => document.querySelector('.next-btn');
 
+// Ensure all questions have been answered before proceeding
+function validatePage() {
+  // Check radio groups
+  const radioNames = Array.from(new Set(
+    Array.from(document.querySelectorAll('input[type="radio"]')).map(r => r.name)
+  ));
+  for (const name of radioNames) {
+    if (!document.querySelector(`input[name="${name}"]:checked`)) {
+      return false;
+    }
+  }
+  // Check text inputs and textareas
+  const textInputs = document.querySelectorAll('input[type="text"], textarea');
+  for (const input of textInputs) {
+    if (input.value.trim().length === 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function updateButtons() {
     const prev = btnPrev();
     const next = btnNext();
-    if (prev) prev.disabled = idx === 0;
+    if (prev) prev.disabled = pageHistory.length <= 1;
     if (next) next.disabled = idx === pages.length - 1;
 }
 
-async function loadPage(i) {
+async function loadPage(i, pushHistory = true) {
+  // Block manual jumps to locked pages
+  if (!pushHistory && i > maxAllowedIndex) {
+    alert('You cannot navigate to that page yet.');
+    i = maxAllowedIndex;
+  }
     if (i < 0 || i >= pages.length) return;
+    if (pushHistory) {
+        pageHistory.push(i);
+    }
     idx = i;
-    // Reflect current page in the URL without reloading
-    history.replaceState(null, '', `?page=${idx}`);
+
+  if (pushHistory) {
+    maxAllowedIndex = Math.max(maxAllowedIndex, idx);
+  }
+
+    // Update browser history
+    if (pushHistory) {
+      history.pushState({ pageIndex: idx }, '', `?page=${idx}`);
+    } else {
+      history.replaceState({ pageIndex: idx }, '', `?page=${idx}`);
+    }
+
+    // history.replaceState(null, '', `?page=${idx}`);
     updateButtons();
     const scrollEl = container();
     if (!scrollEl) return;
-    // Reset content placeholder
+
     scrollEl.innerHTML = '<div id="dynamic-insert"></div>';
     try {
-        let isLastPage = idx > 0;
-        let isAvailable = true;
+        const isLastPage = idx > 0;
+        const isAvailable = idx === 0 ||  idx === 1;
         const res = await fetch(pages[idx], { cache: 'no-store' });
         if (!res.ok) throw new Error(res.status);
         const frag = await res.text();
         const placeholder = scrollEl.querySelector('#dynamic-insert');
         if (placeholder) placeholder.insertAdjacentHTML('afterend', frag);
-        // Instantiate components declared in fragment
+
         renderComponents();
-        // Navigation buttons appended after content
+        restoreResponses();
+
         const nav = createNavButtons({
             prevId: `prev_${idx}`,
             nextId: `next_${idx}`,
-            onPrev: () => loadPage(idx - 1),
-            onNext: () => {
+            onPrev: goBack,
+            onNext: async () => {
+                // Validate only on non-final pages
+                if (!validatePage()) {
+                  alert('Please answer all questions.');
+                  return;
+                }
                 if (isLastPage) {
-                    loadPage(0);
+                    try {
+                        console.log(responses)
+                        const res = await fetch('http://localhost:3000/api/pre-registration', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(responses)
+                        });
+                        if (!res.ok) throw new Error(res.statusText);
+                        alert('Your response is sent to the server.');
+                        loadPage(3);
+                    } catch (err) {
+                        alert('Error: '+ err.message);
+                    }
+                    return;
                 } else if (idx === 0) {
                     if (screeningPassed(responses)) {
                         loadPage(idx + 1);
                     } else {
                         loadPage(idx + 2);
                     }
-                } else if (idx === 2) {
-                    isAvailable = false;
-                }
-                else {
+                } else {
                     loadPage(idx + 1);
                 }
             },
-            isLastPage,
-            isAvailable
+            isLastPage: isLastPage,
+            isAvailable: isAvailable,
         });
         scrollEl.appendChild(nav);
     } catch (e) {
@@ -138,5 +225,18 @@ async function loadPage(i) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadPage(idx);
+  history.replaceState({ pageIndex: idx }, '', `?page=${idx}`);
+  loadPage(idx, false);
 });
+function restoreResponses() {
+  Object.entries(responses).forEach(([name, value]) => {
+    // Restore radio buttons
+    const radio = document.querySelector(`input[name="${name}"][value="${value}"]`);
+    if (radio) radio.checked = true;
+    // Restore text inputs and textareas
+    const inputEl = document.querySelector(`#${name}`);
+    if (inputEl && (inputEl.tagName === 'INPUT' || inputEl.tagName === 'TEXTAREA')) {
+      inputEl.value = value;
+    }
+  });
+}
