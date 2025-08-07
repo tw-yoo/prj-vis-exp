@@ -1,622 +1,439 @@
-/* simpleLineFunctions.js ────────────────────────────────────────── */
-export async function simpleLineRetrieveValue(chartId, op) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return chartId;
+// simpleLineFunctions.js (최종 완성본)
+// simpleLineFunctions.js 파일에 이 함수를 추가하세요.
 
-  // 0. 기존 artefacts 제거
-  svg.selectAll(".retrieval-line,.retrieval-point,.retrieval-label").remove();
+/**
+ * 다음 오퍼레이션을 위해 차트를 정리하고 준비합니다.
+ * 모든 보조선과 텍스트를 지우고, 이전에 하이라이트된 점들은 회색 '흔적'으로 변경합니다.
+ */
+export async function prepareForNextOperation(chartId) {
+    const { svg, g } = getSvgAndSetup(chartId);
+    
+    // 1. 모든 보조선과 텍스트(class="annotation")를 제거합니다.
+   // clearAllAnnotations(svg);
 
-  /* 1. 모든 path에서 datum 수집 */
-  let allSeries = [];
-  svg.selectAll("path").each(function (d) {
-    if (d && Array.isArray(d)) allSeries = allSeries.concat(d);
-  });
-  if (!allSeries.length) {
-    console.warn("simpleLineRetrieveValue: no datum bound to line paths");
-    return chartId;
-  }
+    // 2. 현재 하이라이트된 점들을 찾아 회색 '흔적'으로 변경합니다.
+    //    (여기서는 반지름(r)이 5보다 큰 점을 하이라이트된 것으로 간주)
+    g.selectAll("circle.datapoint")
+     .filter(function() { return d3.select(this).attr("r") > 5; })
+     .transition().duration(500)
+     .attr("r", 6) // 흔적 포인트 크기
+     .attr("fill", "#a9a9a9") // 흔적 색상 (어두운 회색)
+     .attr("stroke", "none");
 
-  /* 2. 파라미터 */
-  const keyField = op.keyField;
-  const yField   = op.field;
-  const keyValue = op.key;
+    // 3. 메인 라인 색상도 연하게 유지하여 배경 역할을 하도록 할 수 있습니다.
+    g.select("path.series-line")
+     .transition().duration(500)
+     .attr("stroke", "#d3d3d3"); // 연한 회색
 
-  const target = allSeries.find(d => {
-    const k = d[keyField];
-    return k instanceof Date
-      ? k.getFullYear() === +keyValue
-      : k == keyValue;
-  });
-  if (!target) {
-    console.warn("Key not found:", keyValue);
-    return chartId;
-  }
-
-  /* 3. 스케일 재생성 (렌더와 동일) */
-  const width  = +svg.attr("width");
-  const height = +svg.attr("height");
-  const margin = { top: 40, right: 120, bottom: 50, left: 60 };
-
-  const xVals = allSeries.map(d => d[keyField]);
-  const yVals = allSeries.map(d => d[yField]);
-  const isTemporal = xVals[0] instanceof Date;
-
-  const xScale = isTemporal
-    ? d3.scaleTime().domain(d3.extent(xVals)).range([margin.left, width - margin.right])
-    : d3.scalePoint().domain([...new Set(xVals)]).range([margin.left, width - margin.right]);
-
-  const yScale = d3.scaleLinear()
-    .domain([0, d3.max(yVals)]).nice()
-    .range([height - margin.bottom, margin.top]);
-
-  const cx = xScale(target[keyField]);
-  const cy = yScale(target[yField]);
-
-  /* 4. 시각 표시 */
-  svg.append("line")
-     .attr("class", "retrieval-line")
-     .attr("x1", cx).attr("x2", cx)
-     .attr("y1", cy).attr("y2", height - margin.bottom)
-     .attr("stroke", "#ffa500").attr("stroke-width", 1.5)
-     .attr("stroke-dasharray", "4 2");
-
-  svg.append("line")
-     .attr("class", "retrieval-line")
-     .attr("x1", margin.left).attr("x2", cx)
-     .attr("y1", cy).attr("y2", cy)
-     .attr("stroke", "#ffa500").attr("stroke-width", 1.5)
-     .attr("stroke-dasharray", "4 2");
-
-  svg.append("circle")
-     .attr("class", "retrieval-point")
-     .attr("cx", cx).attr("cy", cy).attr("r", 6)
-     .attr("fill", "#ffa500").attr("stroke", "#fff").attr("stroke-width", 1.5);
-
-  svg.append("text")
-     .attr("class", "retrieval-label")
-     .attr("x", cx + 8).attr("y", cy - 8)
-     .attr("fill", "#ffa500").attr("font-size", "12px").attr("font-weight", "bold")
-     .text(target[yField].toLocaleString());
-
-  return chartId;
+    await delay(500);
 }
-
-/* ──────────────────────────────────────────────────────────────── */
-/*  Filter & highlight points                                       */
-/* ──────────────────────────────────────────────────────────────── */
-export async function simpleLineFilter(chartId, op) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return chartId;
-
-  /* ── 0. 기존 하이라이트 제거 ───────────────────────────────── */
-  svg.selectAll(".filter-point,.filter-label").remove();
-  svg.selectAll("g.tick text")         // 축 글자 색 원복
-     .attr("fill", "#000")
-     .attr("font-weight", null);
-
-  /* ── 1. 모든 시리즈 데이터 수집 ─────────────────────────────── */
-  let allSeries = [];
-  svg.selectAll("path").each(function (d) {
-    if (Array.isArray(d)) allSeries = allSeries.concat(d);
-  });
-  if (!allSeries.length) {
-    console.warn("simpleLineFilter: no data found");
-    return chartId;
-  }
-
-  /* ── 2. 파라미터 & 비교 함수 ──────────────────────────────── */
-  const field    = op.field;   // 비교 대상 필드
-  const satisfy  = op.satisfy; // >, >=, <, <=, ==, !=
-  const key      = op.key;
-
-  const cmp = (v) => {
-    switch (satisfy) {
-      case ">":  return +v  >  +key;
-      case ">=": return +v >=  +key;
-      case "<":  return +v  <  +key;
-      case "<=": return +v <=  +key;
-      case "!=": return  v !=  key;
-      case "==":
-      default:   return  v ==  key;
-    }
-  };
-
-  const selected = allSeries.filter(d => cmp(d[field]));
-  if (!selected.length) {
-    console.warn("simpleLineFilter: no points satisfy condition");
-    return chartId;
-  }
-
-  /* ── 3. 스케일 재구성 (렌더러와 동일) ──────────────────────── */
-  const width  = +svg.attr("width");
-  const height = +svg.attr("height");
-  const margin = { top: 40, right: 120, bottom: 50, left: 60 };
-
-  // x축 후보 필드 = 첫 데이터의 key 중 filter-field 제외
-  const first   = allSeries[0];
-  const xField  = Object.keys(first).find(k => k !== field);
-  const xVals   = allSeries.map(d => d[xField]);
-  const yVals   = allSeries.map(d => d[field]);
-  const isTime  = xVals[0] instanceof Date;
-
-  const xScale = isTime
-    ? d3.scaleTime().domain(d3.extent(xVals)).range([margin.left, width - margin.right])
-    : d3.scalePoint().domain([...new Set(xVals)]).range([margin.left, width - margin.right]);
-
-  const yScale = d3.scaleLinear()
-    .domain([0, d3.max(yVals)]).nice()
-    .range([height - margin.bottom, margin.top]);
-
-  /* ── 4. 선택된 점 시각화 ──────────────────────────────────── */
-  const xTicksToHighlight = new Set();
-
-  selected.forEach(d => {
-    const cx = xScale(d[xField]);
-    const cy = yScale(d[field]);
-
-    // 포인트
-    svg.append("circle")
-       .attr("class", "filter-point")
-       .attr("cx", cx).attr("cy", cy).attr("r", 6)
-       .attr("fill", "#ffa500").attr("stroke", "#fff").attr("stroke-width", 1.5);
-
-    // 값 레이블
-    svg.append("text")
-       .attr("class", "filter-label")
-       .attr("x", cx + 8).attr("y", cy - 8)
-       .attr("fill", "#ffa500").attr("font-size", "12px").attr("font-weight", "bold")
-       .text(d[field].toLocaleString());
-
-    xTicksToHighlight.add(d[xField] instanceof Date ? +d[xField] : d[xField]);
-  });
-
-  /* ── 5. x축 tick 강조 ────────────────────────────────────── */
-  svg.selectAll("g.tick")
-     .each(function(tickVal){
-        const val = tickVal instanceof Date ? +tickVal : tickVal;
-        if (xTicksToHighlight.has(val)) {
-          d3.select(this).select("text")
-            .attr("fill", "#ffa500")
-            .attr("font-weight", "bold");
-        }
-     });
-
-  return chartId;
-}
-
-
-/* simpleLineFunctions.js ───────────────────────────────────────── */
-/*  Extremum (max/min) 표시                                         */
-export async function simpleLineFindExtremum(chartId, op) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return chartId;
-
-  /* ── 0. 이전 표시 제거 ─────────────────────────────────────── */
-  svg.selectAll(".extremum-line,.extremum-point,.extremum-label").remove();
-  svg.selectAll("g.tick text")
-     .attr("fill", "#000")
-     .attr("font-weight", null);
-
-  /* ── 1. 데이터 수집 ───────────────────────────────────────── */
-  let allSeries = [];
-  svg.selectAll("path").each(function (d) {
-    if (Array.isArray(d)) allSeries = allSeries.concat(d);
-  });
-  if (!allSeries.length) {
-    console.warn("simpleLineFindExtremum: no data found");
-    return chartId;
-  }
-
-  /* ── 2. 파라미터 & 극값 계산 ──────────────────────────────── */
-  const field   = op.field;   // y축 필드
-  const type    = (op.type || "max").toLowerCase(); // "max" | "min"
-
-  const extremumValue = type === "min"
-      ? d3.min(allSeries, d => d[field])
-      : d3.max(allSeries, d => d[field]);
-
-  const selected = allSeries.filter(d => d[field] === extremumValue);
-
-  /* ── 3. 스케일 재구성 (렌더와 동일) ───────────────────────── */
-  const width  = +svg.attr("width");
-  const height = +svg.attr("height");
-  const margin = { top: 40, right: 120, bottom: 50, left: 60 };
-
-  const xField = Object.keys(allSeries[0]).find(k => k !== field);
-  const xVals  = allSeries.map(d => d[xField]);
-  const isTime = xVals[0] instanceof Date;
-
-  const xScale = isTime
-    ? d3.scaleTime().domain(d3.extent(xVals)).range([margin.left, width - margin.right])
-    : d3.scalePoint().domain([...new Set(xVals)]).range([margin.left, width - margin.right]);
-
-  const yScale = d3.scaleLinear()
-    .domain([0, d3.max(allSeries, d => d[field])]).nice()
-    .range([height - margin.bottom, margin.top]);
-
-  /* ── 4. 시각화 ────────────────────────────────────────────── */
-  const xTicksToHighlight = new Set();
-
-  selected.forEach(d => {
-    const cx = xScale(d[xField]);
-    const cy = yScale(d[field]);
-
-    // 수직선
-    svg.append("line")
-       .attr("class", "extremum-line")
-       .attr("x1", cx).attr("x2", cx)
-       .attr("y1", cy).attr("y2", height - margin.bottom)
-       .attr("stroke", "#ffa500").attr("stroke-width", 1.5)
-       .attr("stroke-dasharray", "4 2");
-
-    // 수평선
-    svg.append("line")
-       .attr("class", "extremum-line")
-       .attr("x1", margin.left).attr("x2", cx)
-       .attr("y1", cy).attr("y2", cy)
-       .attr("stroke", "#ffa500").attr("stroke-width", 1.5)
-       .attr("stroke-dasharray", "4 2");
-
-    // 포인트
-    svg.append("circle")
-       .attr("class", "extremum-point")
-       .attr("cx", cx).attr("cy", cy).attr("r", 6)
-       .attr("fill", "#ffa500").attr("stroke", "#fff").attr("stroke-width", 1.5);
-
-    // 값 라벨
-    svg.append("text")
-       .attr("class", "extremum-label")
-       .attr("x", cx + 8).attr("y", cy - 8)
-       .attr("fill", "#ffa500").attr("font-size", "12px").attr("font-weight", "bold")
-       .text(d[field].toLocaleString());
-
-    xTicksToHighlight.add(isTime ? +d[xField] : d[xField]);
-  });
-
-  /* ── 5. x축 눈금 강조 ──────────────────────────────────── */
-  svg.selectAll("g.tick")
-     .each(function(tickVal){
-       const val = tickVal instanceof Date ? +tickVal : tickVal;
-       if (xTicksToHighlight.has(val)) {
-         d3.select(this).select("text")
-           .attr("fill", "#ffa500")
-           .attr("font-weight", "bold");
-       }
-     });
-
-  return chartId;
-}
-/* simpleLineFunctions.js ───────────────────────────────────────── */
-/*  Range 표시 (min-line, max-line, Δ 라벨, 포인트/값 라벨)          */
-export async function simpleLineDetermineRange(chartId, op) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return chartId;
-
-  /* ── 0. 이전 표시 제거 ───────────────────────────────────── */
-  svg.selectAll(".range-line,.range-point,.range-label,.delta-label").remove();
-
-  /* ── 1. 데이터 수집 ─────────────────────────────────────── */
-  let allSeries = [];
-  svg.selectAll("path").each(function (d) {
-    if (Array.isArray(d)) allSeries = allSeries.concat(d);
-  });
-  if (!allSeries.length) return chartId;
-
-  /* ── 2. 파라미터 & min / max 계산 ──────────────────────── */
-  const field = op.field;
-  const minVal = d3.min(allSeries, d => d[field]);
-  const maxVal = d3.max(allSeries, d => d[field]);
-  if (minVal === maxVal) return chartId;
-
-  /* ── 3. 스케일 재구성 (렌더와 동일) ─────────────────────── */
-  const width  = +svg.attr("width");
-  const height = +svg.attr("height");
-  const margin = { top: 40, right: 120, bottom: 50, left: 60 };
-
-  const xField = Object.keys(allSeries[0]).find(k => k !== field);
-  const xVals  = allSeries.map(d => d[xField]);
-  const isTime = xVals[0] instanceof Date;
-
-  const xScale = isTime
-    ? d3.scaleTime().domain(d3.extent(xVals)).range([margin.left, width - margin.right])
-    : d3.scalePoint().domain([...new Set(xVals)]).range([margin.left, width - margin.right]);
-
-  const yScale = d3.scaleLinear()
-    .domain([0, maxVal]).nice()
-    .range([height - margin.bottom, margin.top]);
-
-  const yMin = yScale(minVal);
-  const yMax = yScale(maxVal);
-
-  /* ── 4. 수평선 (최대 / 최소) ────────────────────────────── */
-  svg.append("line")
-     .attr("class", "range-line")
-     .attr("x1", margin.left).attr("x2", width - margin.right)
-     .attr("y1", yMax).attr("y2", yMax)
-     .attr("stroke", "#ffa500").attr("stroke-width", 1.5);
-
-  svg.append("line")
-     .attr("class", "range-line")
-     .attr("x1", margin.left).attr("x2", width - margin.right)
-     .attr("y1", yMin).attr("y2", yMin)
-     .attr("stroke", "#ffa500").attr("stroke-width", 1.5);
-
-  /* ── 5. Δ 수직선 ─────────────────────────────────────── */
-  const xPos = width - margin.right + 10;
-  svg.append("line")
-     .attr("class", "range-line")
-     .attr("x1", xPos).attr("x2", xPos)
-     .attr("y1", yMax).attr("y2", yMin)
-     .attr("stroke", "#ffa500").attr("stroke-width", 1.5);
-
-  svg.append("text")
-     .attr("class", "delta-label")
-     .attr("x", xPos + 6)
-     .attr("y", (yMax + yMin) / 2)
-     .attr("fill", "#ffa500").attr("font-size", "12px").attr("font-weight", "bold")
-     .attr("dominant-baseline", "middle")
-     .text(`Δ ${(maxVal - minVal).toLocaleString()}`);
-
-  /* ── 6. 포인트 & 값 라벨 (min / max) ─────────────────── */
-  const minDatum = allSeries.find(d => d[field] === minVal);
-  const maxDatum = allSeries.find(d => d[field] === maxVal);
-
-  [
-    { datum: maxDatum, y: yMax, label: `MAX ${maxVal.toLocaleString()}` },
-    { datum: minDatum, y: yMin, label: `MIN ${minVal.toLocaleString()}` }
-  ].forEach(({ datum, y, label }) => {
-    const cx = xScale(datum[xField]);
-
-    svg.append("circle")
-       .attr("class", "range-point")
-       .attr("cx", cx).attr("cy", y).attr("r", 6)
-       .attr("fill", "#ffa500").attr("stroke", "#fff").attr("stroke-width", 1.5);
-
-    svg.append("text")
-       .attr("class", "range-label")
-       .attr("x", cx + 8).attr("y", y - 8)
-       .attr("fill", "#ffa500").attr("font-size", "12px").attr("font-weight", "bold")
-       .text(label);
-  });
-
-  return chartId;
-}
-
-/* simpleLineFunctions.js ───────────────────────────────────────── */
-/*  Compare two keys                                                */
-export async function simpleLineCompare(chartId, op) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return chartId;
-
-  /* ── 0. 기존 표시 제거 ───────────────────────────────────── */
-  svg.selectAll(".compare-line,.compare-point,.compare-label").remove();
-  svg.selectAll("g.tick text")
-     .attr("fill", "#000")
-     .attr("font-weight", null);
-
-  /* ── 1. 데이터 수집 ─────────────────────────────────────── */
-  let allSeries = [];
-  svg.selectAll("path").each(function (d) {
-    if (Array.isArray(d)) allSeries = allSeries.concat(d);
-  });
-  if (!allSeries.length) return chartId;
-
-  /* ── 2. 파라미터 파싱 ──────────────────────────────────── */
-  const field    = op.field;                // y축 필드
-  const leftKey  = op.left;                 // ex) 2014
-  const rightKey = op.right;                // ex) 1994
-  const operator = (op.operator || "gt").toLowerCase(); // gt, lt, gte, lte, eq, neq
-  const keyField = op.keyField || Object.keys(allSeries[0]).find(k => k !== field);
-
-  // Dates 비교 시 연도 단위
-  const match = (d, k) => {
-    const v = d[keyField];
-    return v instanceof Date ? v.getFullYear() === +k : v == k;
-  };
-
-  const leftDatum  = allSeries.find(d => match(d, leftKey));
-  const rightDatum = allSeries.find(d => match(d, rightKey));
-
-  if (!leftDatum || !rightDatum) {
-    console.warn("simpleLineCompare: key not found");
-    return chartId;
-  }
-
-  /* ── 3. 스케일 재구성 (렌더와 동일) ─────────────────────── */
-  const width  = +svg.attr("width");
-  const height = +svg.attr("height");
-  const margin = { top: 40, right: 120, bottom: 50, left: 60 };
-
-  const xVals  = allSeries.map(d => d[keyField]);
-  const isTime = xVals[0] instanceof Date;
-
-  const xScale = isTime
-    ? d3.scaleTime().domain(d3.extent(xVals)).range([margin.left, width - margin.right])
-    : d3.scalePoint().domain([...new Set(xVals)]).range([margin.left, width - margin.right]);
-
-  const yScale = d3.scaleLinear()
-    .domain([0, d3.max(allSeries, d => d[field])]).nice()
-    .range([height - margin.bottom, margin.top]);
-
-  const cx1 = xScale(leftDatum[keyField]);
-  const cy1 = yScale(leftDatum[field]);
-  const cx2 = xScale(rightDatum[keyField]);
-  const cy2 = yScale(rightDatum[field]);
-
-  /* ── 4. 두 점 연결선 ──────────────────────────────────── */
-  svg.append("line")
-     .attr("class", "compare-line")
-     .attr("x1", cx1).attr("y1", cy1)
-     .attr("x2", cx2).attr("y2", cy2)
-     .attr("stroke", "#ffa500").attr("stroke-width", 2);
-
-  /* ── 5. 포인트 & 값 라벨 ──────────────────────────────── */
-  [
-    { cx: cx1, cy: cy1, val: leftDatum[field] },
-    { cx: cx2, cy: cy2, val: rightDatum[field] }
-  ].forEach(({ cx, cy, val }) => {
-    svg.append("circle")
-       .attr("class", "compare-point")
-       .attr("cx", cx).attr("cy", cy).attr("r", 6)
-       .attr("fill", "#ffa500").attr("stroke", "#fff").attr("stroke-width", 1.5);
-
-    svg.append("text")
-       .attr("class", "compare-label")
-       .attr("x", cx + 8).attr("y", cy - 8)
-       .attr("fill", "#ffa500").attr("font-size", "12px").attr("font-weight", "bold")
-       .text(val.toLocaleString());
-  });
-
-  /* ── 6. 비교 결과 라벨 (연결선 중간) ─────────────────── */
-  const midX = (cx1 + cx2) / 2;
-  const midY = (cy1 + cy2) / 2;
-
-  const compareFn = {
-    "gt":  (a, b) => a >  b,
-    "lt":  (a, b) => a <  b,
-    "gte": (a, b) => a >= b,
-    "lte": (a, b) => a <= b,
-    "eq":  (a, b) => a == b,
-    "neq": (a, b) => a != b
-  }[operator] || ((a, b) => a > b);
-
-  const resultBool = compareFn(leftDatum[field], rightDatum[field]);
-  const delta      = leftDatum[field] - rightDatum[field];
-  const operatorSymbol = { gt: ">", lt: "<", gte: "≥", lte: "≤", eq: "=", neq: "≠" }[operator] || ">";
-
-  svg.append("text")
-     .attr("class", "compare-label")
-     .attr("x", midX).attr("y", midY - 10)
-     .attr("fill", "#ffa500").attr("font-size", "13px").attr("font-weight", "bold")
-     .attr("text-anchor", "middle")
-     .text(`${leftKey} ${operatorSymbol} ${rightKey} ${resultBool ? "✓" : "✗"}`);
-
-  svg.append("text")
-     .attr("class", "compare-label")
-     .attr("x", midX).attr("y", midY + 8)
-     .attr("fill", "#ffa500").attr("font-size", "12px").attr("text-anchor", "middle")
-     .text(`Δ ${delta.toLocaleString()}`);
-
-  /* ── 7. x축 tick 강조 ────────────────────────────────── */
-  const ticksToHighlight = new Set(
-    [leftDatum[keyField], rightDatum[keyField]].map(v => (v instanceof Date ? +v : v))
-  );
-  svg.selectAll("g.tick")
-     .each(function(tickVal){
-       const val = tickVal instanceof Date ? +tickVal : tickVal;
-       if (ticksToHighlight.has(val)) {
-         d3.select(this).select("text")
-           .attr("fill", "#ffa500")
-           .attr("font-weight", "bold");
-       }
-     });
-
-  return chartId;
-}
-
-//
-
-
-export async function simpleLineSort(chartId, op) {
+// --- 헬퍼 함수 ---
+export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
-    if (svg.empty()) return chartId;
+    const g = svg.select(".plot-area");
+    const xField = svg.attr("data-x-field");
+    const yField = svg.attr("data-y-field");
+    const margins = { left: +svg.attr("data-m-left"), top: +svg.attr("data-m-top") };
+    const plot = { w: +svg.attr("data-plot-w"), h: +svg.attr("data-plot-h") };
+    return { svg, g, xField, yField, margins, plot };
+}
+export function clearAllAnnotations(svg) {
+    svg.selectAll(".annotation").remove();
+}
+export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-    // `d3.datum()`을 사용하여 데이터 가져오기
-    let pts = svg.selectAll("circle.point");
-    if (pts.empty()) return chartId;
 
-    const marginL = +svg.attr("data-m-left") || 0;
-    const plotW = +svg.attr("data-plot-w") || 0;
-    const plotH = +svg.attr("data-plot-h") || 0;
-    const marginT = +svg.attr("data-m-top") || 0;
-    const yMax = +svg.attr("data-y-domain-max");
-    const duration = 600;
+// --- 오퍼레이션 함수 ---
 
-    /* ── 초기화 ───────────────────────── */
-    const origColor = "#69b3a2";
-    const hlColor = "#ffa500";
-    pts.interrupt().attr("fill", origColor).attr("stroke", "none");
-    svg.selectAll(".value-tag, .sort-label, path.sorted-line").remove();
+export async function simpleLineRetrieveValue(chartId, op, data, fullData) {
+    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+   // clearAllAnnotations(svg);
+    
+    const targetKey = String(op.key);
+    const hlColor = "#ff6961";
 
-    /* ── 정렬 배열 만들기 ─────────────── */
-    const dataArr = pts.data(); // `d3.data()`로 바인딩된 원본 데이터 배열 가져오기
-    const orderFn = op.order === "descending" ? d3.descending : d3.ascending;
-    dataArr.sort((a, b) => orderFn(a.value, b.value));
+    const targetPoint = g.selectAll("circle.datapoint")
+        .filter(function() { return d3.select(this).attr("data-id") === targetKey; });
 
-    const limit = op.limit > 0 ? Math.min(op.limit, dataArr.length) : dataArr.length;
-    const topSet = new Set(dataArr.slice(0, limit).map(d => d.key)); // `key` 필드 사용
+    if (targetPoint.empty()) {
+        console.warn("RetrieveValue: target point not found for key:", op.key);
+        return data;
+    }
 
-    /* ── 스케일 ───────────────────────── */
-    const xScale = d3.scalePoint()
-        .domain(dataArr.map(d => d.key)) // `key` 필드 사용
-        .range([marginL, marginL + plotW])
-        .padding(0.5);
+    const cx = +targetPoint.attr("cx");
+    const cy = +targetPoint.attr("cy");
+    const val = targetPoint.attr("data-value");
 
-    const yScale = d3.scaleLinear()
-        .domain([0, yMax])
-        .range([marginT + plotH, marginT]);
+    g.select("path.series-line").transition().duration(600).attr("opacity", 0.3);
+    targetPoint.transition().duration(600)
+        .attr("opacity", 1).attr("r", 8).attr("fill", hlColor)
+        .attr("stroke", "white").attr("stroke-width", 2);
+    await delay(600);
+    
+    // --- 여기가 핵심 수정 부분: 두 선을 동시에 그리기 ---
+    const xLine = svg.append("line").attr("class", "annotation")
+        .attr("x1", cx + margins.left).attr("y1", cy + margins.top)
+        .attr("x2", cx + margins.left).attr("y2", cy + margins.top)
+        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
 
-    /* ── 점 이동 + 하이라이트 ─────────── */
-    const promises = pts.data(dataArr, d => d.key) // 데이터 바인딩으로 정렬 순서 업데이트
-        .transition().duration(duration)
-        .attr("cx", d => xScale(d.key))
-        .attr("cy", d => yScale(d.value))
-        .attr("fill", d => topSet.has(d.key) ? hlColor : origColor)
-        .end(); // transition이 끝날 때까지 기다림
+    const yLine = svg.append("line").attr("class", "annotation")
+        .attr("x1", cx + margins.left).attr("y1", cy + margins.top)
+        .attr("x2", cx + margins.left).attr("y2", cy + margins.top)
+        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
 
-    await Promise.all(promises);
+    // 두 애니메이션을 동시에 시작하고, 모두 끝날 때까지 기다립니다.
+    const xLinePromise = xLine.transition().duration(500).attr("y2", plot.h + margins.top).end();
+    const yLinePromise = yLine.transition().duration(500).attr("x2", margins.left).end();
+    
+    await Promise.all([xLinePromise, yLinePromise]);
+    // --- 수정 끝 ---
+        
+    // 선이 모두 그려진 후 텍스트를 표시합니다.
+    svg.append("text").attr("class", "annotation")
+        .attr("x", cx + margins.left + 5).attr("y", cy + margins.top - 5)
+        .attr("fill", hlColor)
+        .attr("font-weight", "bold")
+        .text(val);
 
-    /* ── 값 라벨 (상위 limit) ─────────── */
-    svg.selectAll(".value-tag")
-        .data(dataArr.slice(0, limit), d => d.key)
-        .enter().append("text")
-        .attr("class", "value-tag")
-        .attr("x", d => xScale(d.key))
-        .attr("y", d => yScale(d.value) - 8) // 스케일을 사용하여 올바른 y 좌표 계산
-        .attr("text-anchor", "middle")
-        .attr("font-size", 12)
-        .text(d => d.value);
+    return data;
+}
 
-    /* ── 기존 선 제거 및 새 선 그리기 ─── */
-    svg.selectAll("path.series-line").remove();
+
+export async function simpleLineFilter(chartId, op, data, fullData) {
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg); // 함수 시작 시 이전 오퍼레이션의 annotation만 제거
+    
+    const hlColor = "#ffa500";
+    const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b };
+    const satisfy = satisfyMap[op.satisfy];
+    const filterKey = +op.key;
+
+    if (!satisfy) return data;
+
+    // --- 1. 필터링 기준선과 레이블 시각화 (기능 유지) ---
+    const yScale = d3.scaleLinear().domain(d3.extent(fullData, d => d[yField])).nice().range([plot.h, 0]);
+    const yPos = yScale(filterKey);
+
+    svg.append("line").attr("class", "annotation threshold-line")
+        .attr("x1", margins.left).attr("y1", margins.top + yPos)
+        .attr("x2", margins.left).attr("y2", margins.top + yPos)
+        .attr("stroke", "blue").attr("stroke-dasharray", "5 5")
+        .transition().duration(800)
+        .attr("x2", plot.w + margins.left);
+        
+    svg.append("text").attr("class", "annotation threshold-label")
+        .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
+        .attr("text-anchor", "start").attr("dominant-baseline", "middle")
+        .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold")
+        .text(filterKey)
+        .attr("opacity", 0).transition().delay(400).duration(400).attr("opacity", 1);
+        
+    await delay(800);
+
+    // --- 2. 데이터 포인트 및 라인 처리 ---
+    const allPoints = g.selectAll("circle.datapoint");
+    const filteredPoints = allPoints.filter(d => satisfy(d[yField], filterKey));
+    const nonFilteredPoints = allPoints.filter(d => !satisfy(d[yField], filterKey));
+
+    const animationPromises = [];
+
+    animationPromises.push(nonFilteredPoints.transition().duration(800)
+        .attr("opacity", 0)
+        .attr("r", 0)
+        .remove()
+        .end());
+
+    animationPromises.push(filteredPoints.transition().duration(800)
+        .attr("opacity", 1)
+        .attr("r", 6)
+        .attr("fill", hlColor)
+        .end());
+
+    const filteredData = filteredPoints.data();
+    const xScale = d3.scaleTime().domain(d3.extent(fullData, d => d[xField])).range([0, plot.w]);
+    const lineGen = d3.line()
+        .x(d => xScale(d[xField]))
+        .y(d => yScale(d[yField]));
+    
+    animationPromises.push(g.select("path.series-line")
+        .datum(filteredData)
+        .transition().duration(800)
+        .attr("stroke", hlColor)
+        .attr("opacity", 0.8)
+        .attr("d", lineGen)
+        .end());
+
+    await Promise.all(animationPromises);
+
+    // --- 3. 최종 주석 추가 (값 태그와 수직선 기능 복구) ---
+    filteredPoints.each(function() {
+        const point = d3.select(this);
+        const d = point.datum();
+        const cx = +point.attr("cx");
+        const cy = +point.attr("cy");
+
+        // === 값 표시 태그 (복구된 기능) ===
+        svg.append("text").attr("class", "annotation value-tag")
+            .attr("x", margins.left + cx)
+            .attr("y", margins.top + cy - 10)
+            .attr("text-anchor", "middle").attr("font-size", 10)
+            .attr("fill", "#333").attr("stroke", "white").attr("stroke-width", 2).attr("paint-order", "stroke")
+            .text(d[yField].toLocaleString());
+        
+        // === 수직 안내선 (복구된 기능) ===
+        svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
+            .attr("x2", margins.left + cx).attr("y2", margins.top + cy)
+            .attr("stroke", hlColor).attr("stroke-width", 1).attr("stroke-dasharray", "4 2")
+            .transition().duration(500)
+            .attr("y2", margins.top + plot.h);
+    });
+
+    // 필터 정보 레이블 표시
+    svg.append("text").attr("class", "annotation filter-label")
+        .attr("x", margins.left)
+        .attr("y", margins.top - 8)
+        .attr("font-size", 12).attr("fill", hlColor).attr("font-weight", "bold")
+        .text(`Filter: ${op.field} ${op.satisfy} ${op.key}`);
+
+    return filteredData;
+}
+
+
+
+export async function simpleLineFindExtremum(chartId, op, data, fullData) {
+    const { svg, g, yField, margins, plot } = getSvgAndSetup(chartId);
+    
+    const hlColor = "#a65dfb";
+    const extremumValue = op.type === 'min' ? d3.min(data, d => d[yField]) : d3.max(data, d => d[yField]);
+    const targetPoint = g.selectAll("circle.datapoint").filter(d => d[yField] === extremumValue);
+
+    if (targetPoint.empty()) return data;
+
+    g.select("path.series-line").transition().duration(600).attr("opacity", 0.3);
+    await targetPoint.transition().duration(600)
+        .attr("opacity", 1).attr("r", 8).attr("fill", hlColor).attr("stroke", "white")
+        .end();
+
+    const node = targetPoint.nodes()[0];
+    if (node) {
+        const cx = +node.getAttribute("cx");
+        const cy = +node.getAttribute("cy");
+        
+        const vLine = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
+            .attr("x2", margins.left + cx).attr("y2", margins.top + cy)
+            .attr("stroke", hlColor).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            
+        const hLine = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
+            .attr("x2", margins.left + cx).attr("y2", margins.top + cy)
+            .attr("stroke", hlColor).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+
+        const vLinePromise = vLine.transition().duration(500).attr("y2", margins.top + plot.h).end();
+        const hLinePromise = hLine.transition().duration(500).attr("x2", margins.left).end();
+        await Promise.all([vLinePromise, hLinePromise]);
+            
+        const labelText = `${op.type === "min" ? "Min" : "Max"}: ${extremumValue.toLocaleString()}`;
+        svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left + cx).attr("y", margins.top + cy - 15)
+            .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
+            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(labelText)
+            .attr("opacity", 0).transition().duration(400).attr("opacity", 1);
+    }
+    return data;
+}
+
+export async function simpleLineDetermineRange(chartId, op, data, fullData) {
+    const { svg, g, yField, margins, plot } = getSvgAndSetup(chartId);
+   // clearAllAnnotations(svg);
+    const hlColor = "#0d6efd";
+
+    const minV = d3.min(data, d => d[yField]);
+    const maxV = d3.max(data, d => d[yField]);
+    const minPoint = g.selectAll("circle.datapoint").filter(d => d[yField] === minV);
+    const maxPoint = g.selectAll("circle.datapoint").filter(d => d[yField] === maxV);
+
+    if (minPoint.empty() || maxPoint.empty()) return data;
+
+    // 선을 흐리게 하고 최소/최대 점을 강조합니다.
+    g.select("path.series-line").transition().duration(600).attr("opacity", 0.3);
+    await Promise.all([
+        minPoint.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end(),
+        maxPoint.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end()
+    ]);
+
+    const animationPromises = [];
+    const pointsToAnnotate = [
+        { point: minPoint, label: "MIN", value: minV },
+        { point: maxPoint, label: "MAX", value: maxV }
+    ];
+
+    // 최소/최대값 포인트에 대해 수직선, 수평선과 라벨을 추가합니다.
+    pointsToAnnotate.forEach(item => {
+        const cx = +item.point.attr("cx");
+        const cy = +item.point.attr("cy");
+
+        // 수직선 (점 -> X축) - 이 부분은 그대로 유지
+        const vLine = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
+            .attr("x2", margins.left + cx).attr("y2", margins.top + cy)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+        animationPromises.push(
+            vLine.transition().duration(800).attr("y2", margins.top + plot.h).end()
+        );
+        
+        // --- 이 부분만 수정되었습니다 ---
+        // 수평선 (차트 전체 너비)
+        const hLine = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left) // 왼쪽 끝에서 시작
+            .attr("y1", margins.top + cy)
+            .attr("x2", margins.left) // 처음엔 길이가 0
+            .attr("y2", margins.top + cy)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+        animationPromises.push(
+            hLine.transition().duration(800).attr("x2", margins.left + plot.w).end() // 오른쪽 끝까지 확장
+        );
+        // --- 수정 끝 ---
+
+        // 점 위의 라벨 (MIN/MAX) - 이 부분은 그대로 유지
+        const pointLabel = svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left + cx).attr("y", margins.top + cy - 15)
+            .attr("text-anchor", "middle").attr("fill", hlColor)
+            .attr("font-weight", "bold").attr("font-size", "12px")
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(`${item.label}: ${item.value.toLocaleString()}`)
+            .attr("opacity", 0);
+        animationPromises.push(
+            pointLabel.transition().delay(200).duration(400).attr("opacity", 1).end()
+        );
+    });
+
+    // 차트 상단에 값 범위 텍스트를 추가합니다 - 이 부분은 그대로 유지
+    const rangeText = svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left + plot.w / 2).attr("y", margins.top + 20)
+        .attr("text-anchor", "middle").attr("font-size", "14px").attr("font-weight", "bold")
+        .attr("fill", hlColor)
+        .text(`값 범위: ${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`)
+        .attr("opacity", 0);
+    animationPromises.push(
+        rangeText.transition().delay(600).duration(400).attr("opacity", 1).end()
+    );
+
+    await Promise.all(animationPromises);
+    return data;
+}
+
+
+
+export async function simpleLineCompare(chartId, op, data, fullData) {
+    const { svg, g, yField, margins, plot } = getSvgAndSetup(chartId);
+    //clearAllAnnotations(svg);
+    const leftColor = "#ffb74d", rightColor = "#64b5f6";
+
+    const leftPoint = g.selectAll("circle.datapoint").filter(function() { return d3.select(this).attr("data-id") === String(op.left); });
+    const rightPoint = g.selectAll("circle.datapoint").filter(function() { return d3.select(this).attr("data-id") === String(op.right); });
+    
+    if (leftPoint.empty() || rightPoint.empty()) {
+        console.warn("Compare: One or both points not found.");
+        return data;
+    }
+
+    const lv = +leftPoint.attr("data-value");
+    const leftId = leftPoint.attr("data-id");
+    const rv = +rightPoint.attr("data-value");
+    const rightId = rightPoint.attr("data-id");
+
+    // 시리즈 라인 흐리게 처리 및 두 점 강조
+    g.select("path.series-line").transition().duration(600).attr("opacity", 0.3);
+    leftPoint.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", leftColor);
+    rightPoint.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", rightColor);
+    await delay(600);
+
+    const animationPromises = [];
+    const pointsToAnnotate = [
+        { point: leftPoint, color: leftColor, id: leftId, value: lv },
+        { point: rightPoint, color: rightColor, id: rightId, value: rv }
+    ];
+
+    pointsToAnnotate.forEach(item => {
+        const cx = +item.point.attr("cx");
+        const cy = +item.point.attr("cy");
+
+        // 수평선 (Y축 -> 점)
+        const hLine = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left).attr("y1", margins.top + cy)
+            .attr("x2", margins.left).attr("y2", margins.top + cy)
+            .attr("stroke", item.color).attr("stroke-dasharray", "4 4");
+        animationPromises.push(hLine.transition().duration(500).attr("x2", margins.left + cx).end());
+
+        // 수직선 (점 -> X축)
+        const vLine = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
+            .attr("x2", margins.left + cx).attr("y2", margins.top + cy)
+            .attr("stroke", item.color).attr("stroke-dasharray", "4 4");
+        animationPromises.push(vLine.transition().duration(500).attr("y2", margins.top + plot.h).end());
+
+        // 점 레이블 (값 표시)
+        const label = svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left + cx).attr("y", margins.top + cy - 15)
+            .attr("text-anchor", "middle").attr("fill", item.color)
+            .attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(item.value.toLocaleString())
+            .attr("opacity", 0);
+        animationPromises.push(label.transition().delay(200).duration(400).attr("opacity", 1).end());
+    });
+
+    // 비교 결과 텍스트 생성
+    const diff = Math.abs(lv - rv);
+    let resultText = "";
+    if (lv > rv) {
+        resultText = `${leftId}이(가) ${rightId}보다 ${diff.toLocaleString()} 더 큽니다.`;
+    } else if (rv > lv) {
+        resultText = `${rightId}이(가) ${leftId}보다 ${diff.toLocaleString()} 더 큽니다.`;
+    } else {
+        resultText = `${leftId}와(과) ${rightId}의 값이 ${lv.toLocaleString()}으로 동일합니다.`;
+    }
+
+    // 비교 결과 텍스트를 차트 상단에 표시
+    const resultLabel = svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
+        .attr("text-anchor", "middle").attr("font-size", "14px").attr("font-weight", "bold")
+        .attr("fill", "#333")
+        .text(resultText)
+        .attr("opacity", 0);
+
+    animationPromises.push(
+        resultLabel.transition().delay(500).duration(400).attr("opacity", 1).end()
+    );
+    
+    await Promise.all(animationPromises);
+    return data;
+}
+
+export async function simpleLineSort(chartId, op, data, fullData) {
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    
+    const sortedData = [...data].sort((a, b) => {
+        return op.order === "ascending" ? a[yField] - b[yField] : b[yField] - a[yField];
+    });
+
+    const newXScale = d3.scalePoint().domain(sortedData.map(d => d[xField])).range([0, plot.w]);
+    const yScale = d3.scaleLinear().domain(d3.extent(data, d => d[yField])).nice().range([plot.h, 0]);
 
     const lineGen = d3.line()
-        .x(d => xScale(d.key))
-        .y(d => yScale(d.value));
+        .x(d => newXScale(d[xField]))
+        .y(d => yScale(d[yField]));
 
-    const linePath = svg.append("path")
-        .datum(dataArr)
-        .attr("class", "sorted-line")
-        .attr("fill", "none")
-        .attr("stroke", "#1976d2")
-        .attr("stroke-width", 2)
-        .attr("d", lineGen);
-
-    const L = linePath.node().getTotalLength();
-    linePath
-        .attr("stroke-dasharray", `${L} ${L}`)
-        .attr("stroke-dashoffset", L)
-        .transition()
-        .duration(duration)
-        .attr("stroke-dashoffset", 0);
-
-    /* ── x-축 갱신 ────────────────────── */
-    let xAxis = svg.select(".x-axis");
-    if (xAxis.empty()) {
-        xAxis = svg.append("g")
-            .attr("class", "x-axis")
-            .attr("transform", `translate(0,${marginT + plotH})`);
-    }
-    xAxis.transition().duration(duration).call(d3.axisBottom(xScale));
-
-    /* ── 헤더 라벨 ───────────────────── */
-    svg.append("text")
-        .attr("class", "sort-label")
-        .attr("x", marginL)
-        .attr("y", marginT - 15)
-        .attr("font-size", 12)
-        .attr("fill", hlColor)
-        .text(`Sort: value ${op.order}${op.limit ? `, limit ${limit}` : ""}`);
-
-    return chartId;
+    await Promise.all([
+        g.select(".x-axis").transition().duration(1200).call(d3.axisBottom(newXScale)).end(),
+        g.selectAll("circle.datapoint").data(sortedData, d => d[xField])
+            .transition().duration(1200).attr("cx", d => newXScale(d[xField])).end(),
+        g.select("path.series-line").datum(sortedData)
+            .transition().duration(1200).attr("d", lineGen).end()
+    ]);
+    
+    return sortedData;
 }
