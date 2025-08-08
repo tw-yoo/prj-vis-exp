@@ -98,105 +98,70 @@ export async function simpleLineRetrieveValue(chartId, op, data, fullData) {
     return data;
 }
 
+// simpleLineFunctions.js 파일의 simpleLineFilter 함수를 교체해주세요.
 
 export async function simpleLineFilter(chartId, op, data, fullData) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg); // 함수 시작 시 이전 오퍼레이션의 annotation만 제거
-    
-    const hlColor = "#ffa500";
-    const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b };
-    const satisfy = satisfyMap[op.satisfy];
-    const filterKey = +op.key;
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
 
-    if (!satisfy) return data;
+    if (op.field !== xField) {
+        console.warn(`This filter only supports the x-axis field ('${xField}').`);
+        return data;
+    }
 
-    // --- 1. 필터링 기준선과 레이블 시각화 (기능 유지) ---
-    const yScale = d3.scaleLinear().domain(d3.extent(fullData, d => d[yField])).nice().range([plot.h, 0]);
-    const yPos = yScale(filterKey);
+    const hlColor = "steelblue";
 
-    svg.append("line").attr("class", "annotation threshold-line")
-        .attr("x1", margins.left).attr("y1", margins.top + yPos)
-        .attr("x2", margins.left).attr("y2", margins.top + yPos)
-        .attr("stroke", "blue").attr("stroke-dasharray", "5 5")
-        .transition().duration(800)
-        .attr("x2", plot.w + margins.left);
-        
-    svg.append("text").attr("class", "annotation threshold-label")
-        .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
-        .attr("text-anchor", "start").attr("dominant-baseline", "middle")
-        .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold")
-        .text(filterKey)
-        .attr("opacity", 0).transition().delay(400).duration(400).attr("opacity", 1);
-        
-    await delay(800);
+    const fromDate = op.from ? new Date(op.from) : d3.min(fullData, d => d[xField]);
+    const toDate = op.to ? new Date(op.to) : d3.max(fullData, d => d[xField]);
+    const xScale = d3.scaleTime().domain(d3.extent(fullData, d => d[xField])).range([0, plot.w]);
 
-    // --- 2. 데이터 포인트 및 라인 처리 ---
-    const allPoints = g.selectAll("circle.datapoint");
-    const filteredPoints = allPoints.filter(d => satisfy(d[yField], filterKey));
-    const nonFilteredPoints = allPoints.filter(d => !satisfy(d[yField], filterKey));
+    const clipId = `${chartId}-clip-path`;
+    svg.select("defs").remove();
+    const defs = svg.append("defs");
+    
+    defs.append("clipPath")
+        .attr("id", clipId)
+        .append("rect")
+        .attr("x", xScale(fromDate))
+        .attr("y", 0)
+        .attr("width", xScale(toDate) - xScale(fromDate))
+        .attr("height", plot.h);
 
-    const animationPromises = [];
+    const baseLine = g.select("path.series-line");
+    g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0);
 
-    animationPromises.push(nonFilteredPoints.transition().duration(800)
-        .attr("opacity", 0)
-        .attr("r", 0)
-        .remove()
-        .end());
+    await baseLine.transition().duration(600).attr("stroke", "#d3d3d3").end();
 
-    animationPromises.push(filteredPoints.transition().duration(800)
-        .attr("opacity", 1)
-        .attr("r", 6)
-        .attr("fill", hlColor)
-        .end());
+    const drawVLine = (date) => {
+        const xPos = xScale(date);
+        const vLine = svg.append("line").attr("class", "annotation") // 지워져야 할 요소
+            .attr("x1", margins.left + xPos).attr("y1", margins.top)
+            .attr("x2", margins.left + xPos).attr("y2", margins.top)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+        return vLine.transition().duration(600).attr("y2", margins.top + plot.h).end();
+    };
+    await Promise.all([drawVLine(fromDate), drawVLine(toDate)]);
+    
+    // === 핵심 수정: .annotation 클래스 제거 ===
+    const highlightedLine = baseLine.clone(true)
+        .attr("class", "highlighted-line") // 다음 단계까지 남아있어야 할 요소
+        .attr("stroke", hlColor)
+        .attr("stroke-width", 2.5)
+        .attr("clip-path", `url(#${clipId})`);
+    
+    const filterLabel = svg.append("text").attr("class", "annotation filter-label") // 지워져야 할 요소
+        .attr("x", margins.left + plot.w / 2)
+        .attr("y", margins.top - 10)
+        .attr("text-anchor", "middle")
+        .attr("font-size", 12).attr("font-weight", "bold").attr("fill", hlColor)
+        .text(`Filter Range: ${op.from} ~ ${op.to}`);
 
-    const filteredData = filteredPoints.data();
-    const xScale = d3.scaleTime().domain(d3.extent(fullData, d => d[xField])).range([0, plot.w]);
-    const lineGen = d3.line()
-        .x(d => xScale(d[xField]))
-        .y(d => yScale(d[yField]));
-    
-    animationPromises.push(g.select("path.series-line")
-        .datum(filteredData)
-        .transition().duration(800)
-        .attr("stroke", hlColor)
-        .attr("opacity", 0.8)
-        .attr("d", lineGen)
-        .end());
+    highlightedLine.attr("opacity", 0).transition().duration(500).attr("opacity", 1);
+    filterLabel.attr("opacity", 0).transition().duration(500).attr("opacity", 1);
+    
+    await delay(500);
 
-    await Promise.all(animationPromises);
-
-    // --- 3. 최종 주석 추가 (값 태그와 수직선 기능 복구) ---
-    filteredPoints.each(function() {
-        const point = d3.select(this);
-        const d = point.datum();
-        const cx = +point.attr("cx");
-        const cy = +point.attr("cy");
-
-        // === 값 표시 태그 (복구된 기능) ===
-        svg.append("text").attr("class", "annotation value-tag")
-            .attr("x", margins.left + cx)
-            .attr("y", margins.top + cy - 10)
-            .attr("text-anchor", "middle").attr("font-size", 10)
-            .attr("fill", "#333").attr("stroke", "white").attr("stroke-width", 2).attr("paint-order", "stroke")
-            .text(d[yField].toLocaleString());
-        
-        // === 수직 안내선 (복구된 기능) ===
-        svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
-            .attr("x2", margins.left + cx).attr("y2", margins.top + cy)
-            .attr("stroke", hlColor).attr("stroke-width", 1).attr("stroke-dasharray", "4 2")
-            .transition().duration(500)
-            .attr("y2", margins.top + plot.h);
-    });
-
-    // 필터 정보 레이블 표시
-    svg.append("text").attr("class", "annotation filter-label")
-        .attr("x", margins.left)
-        .attr("y", margins.top - 8)
-        .attr("font-size", 12).attr("fill", hlColor).attr("font-weight", "bold")
-        .text(`Filter: ${op.field} ${op.satisfy} ${op.key}`);
-
-    return filteredData;
+    const filteredData = data.filter(d => d[xField] >= fromDate && d[xField] <= toDate);
+    return filteredData;
 }
 
 
@@ -247,7 +212,6 @@ export async function simpleLineFindExtremum(chartId, op, data, fullData) {
 
 export async function simpleLineDetermineRange(chartId, op, data, fullData) {
     const { svg, g, yField, margins, plot } = getSvgAndSetup(chartId);
-   // clearAllAnnotations(svg);
     const hlColor = "#0d6efd";
 
     const minV = d3.min(data, d => d[yField]);
@@ -257,7 +221,6 @@ export async function simpleLineDetermineRange(chartId, op, data, fullData) {
 
     if (minPoint.empty() || maxPoint.empty()) return data;
 
-    // 선을 흐리게 하고 최소/최대 점을 강조합니다.
     g.select("path.series-line").transition().duration(600).attr("opacity", 0.3);
     await Promise.all([
         minPoint.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end(),
@@ -270,34 +233,25 @@ export async function simpleLineDetermineRange(chartId, op, data, fullData) {
         { point: maxPoint, label: "MAX", value: maxV }
     ];
 
-    // 최소/최대값 포인트에 대해 수직선, 수평선과 라벨을 추가합니다.
     pointsToAnnotate.forEach(item => {
         const cx = +item.point.attr("cx");
         const cy = +item.point.attr("cy");
 
-        // 수직선 (점 -> X축) - 이 부분은 그대로 유지
+        // 수직선 (점 -> X축)
         const vLine = svg.append("line").attr("class", "annotation")
             .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
             .attr("x2", margins.left + cx).attr("y2", margins.top + cy)
             .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-        animationPromises.push(
-            vLine.transition().duration(800).attr("y2", margins.top + plot.h).end()
-        );
+        animationPromises.push(vLine.transition().duration(800).attr("y2", margins.top + plot.h).end());
         
-        // --- 이 부분만 수정되었습니다 ---
         // 수평선 (차트 전체 너비)
         const hLine = svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left) // 왼쪽 끝에서 시작
-            .attr("y1", margins.top + cy)
-            .attr("x2", margins.left) // 처음엔 길이가 0
-            .attr("y2", margins.top + cy)
+            .attr("x1", margins.left).attr("y1", margins.top + cy)
+            .attr("x2", margins.left).attr("y2", margins.top + cy)
             .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-        animationPromises.push(
-            hLine.transition().duration(800).attr("x2", margins.left + plot.w).end() // 오른쪽 끝까지 확장
-        );
-        // --- 수정 끝 ---
+        animationPromises.push(hLine.transition().duration(800).attr("x2", margins.left + plot.w).end());
 
-        // 점 위의 라벨 (MIN/MAX) - 이 부분은 그대로 유지
+        // 점 위의 라벨 (MIN/MAX)
         const pointLabel = svg.append("text").attr("class", "annotation")
             .attr("x", margins.left + cx).attr("y", margins.top + cy - 15)
             .attr("text-anchor", "middle").attr("fill", hlColor)
@@ -305,21 +259,36 @@ export async function simpleLineDetermineRange(chartId, op, data, fullData) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(`${item.label}: ${item.value.toLocaleString()}`)
             .attr("opacity", 0);
-        animationPromises.push(
-            pointLabel.transition().delay(200).duration(400).attr("opacity", 1).end()
-        );
+        animationPromises.push(pointLabel.transition().delay(200).duration(400).attr("opacity", 1).end());
     });
 
-    // 차트 상단에 값 범위 텍스트를 추가합니다 - 이 부분은 그대로 유지
-    const rangeText = svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left + plot.w / 2).attr("y", margins.top + 20)
-        .attr("text-anchor", "middle").attr("font-size", "14px").attr("font-weight", "bold")
-        .attr("fill", hlColor)
-        .text(`값 범위: ${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`)
-        .attr("opacity", 0);
+    // === 이 부분이 수정되었습니다: 값 범위 텍스트 위치 및 스타일 변경 ===
+    const rangeText = svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left + plot.w - 15) // 오른쪽 끝에 가깝게
+        .attr("y", margins.top + plot.h / 2)   // 세로 중앙에
+        .attr("text-anchor", "end") // 오른쪽 정렬
+        .attr("font-size", "14px")
+        .attr("font-weight", "bold")
+        .attr("fill", hlColor)
+        .attr("stroke", "white") // 흰색 테두리 (배경 역할)
+        .attr("stroke-width", 4)
+        .attr("paint-order", "stroke"); // 텍스트를 먼저 그리고 테두리를 그려서 가독성 확보
+
+    // 텍스트를 두 줄로 표시
+    rangeText.append("tspan")
+        .attr("x", margins.left + plot.w - 15)
+        .attr("dy", "-0.6em") // 윗줄
+        .text("값 범위:");
+
+    rangeText.append("tspan")
+        .attr("x", margins.left + plot.w - 15)
+        .attr("dy", "1.2em") // 아랫줄
+        .text(`${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`);
+
     animationPromises.push(
-        rangeText.transition().delay(600).duration(400).attr("opacity", 1).end()
+        rangeText.attr("opacity", 0).transition().delay(600).duration(400).attr("opacity", 1).end()
     );
+    // --- 수정 끝 ---
 
     await Promise.all(animationPromises);
     return data;
