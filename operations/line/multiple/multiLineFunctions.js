@@ -1,11 +1,120 @@
+// multipleLineFunctions.js
+
+import { getSvgAndSetup as getSvgAndSetup, delay } from '../simple/simpleLineFunctions.js';
+
 /**
- * multipleLineRetrieveValue
- * 멀티라인 차트에서 특정 시리즈(seriesField/seriesKey)와 날짜(keyField/key)에 해당하는 값만
- * 정확한 위치에 강조합니다.
- *
- * @param {string} chartId - 차트 컨테이너 ID
- * @param {object} op      - { seriesField?, seriesKey?, field, keyField, key }
+ * Clears all temporary annotations from the chart.
  */
+export function clearAllAnnotations(svg) {
+    svg.selectAll(".annotation, .transform-label").remove();
+}
+
+// multipleLineFunctions.js
+
+export async function multipleLineChangeToSimple(chartId, op, currentData, chartData) {
+  const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+  clearAllAnnotations(svg);
+
+  const targetSeriesKey = op.seriesKey;
+  if (!targetSeriesKey) {
+    console.warn("ChangeToSimple requires a 'seriesKey' in the operation.");
+    return currentData;
+  }
+
+  const { series, fullXScale, fullYScale, colorScale } = chartData;
+  const targetSeries = series.find(s => s.key === targetSeriesKey);
+
+  if (!targetSeries) {
+    console.warn(`Series with key '${targetSeriesKey}' not found.`);
+    return currentData;
+  }
+
+  const filteredData  = targetSeries.values;
+  const highlightColor = colorScale(targetSeriesKey);
+
+  // --- 1) 다른 라인은 흐리게, 타깃 라인은 강조 ---
+  // 모든 라인에서 메인 플래그 제거
+  g.selectAll("path.series-line")
+    .classed("main-line", false)
+    .attr("data-main", "false");
+
+  const animationPromises = [];
+
+  // 비타깃 라인 페이드
+  animationPromises.push(
+    g.selectAll("path.series-line")
+      .filter(d => d.key !== targetSeriesKey)
+      .transition().duration(800)
+      .attr("opacity", 0.1)
+      .end()
+  );
+
+  // 타깃 라인 강조
+  const targetLine = g.selectAll("path.series-line")
+    .filter(d => d.key === targetSeriesKey);
+
+  animationPromises.push(
+    targetLine.transition().duration(800)
+      .attr("stroke", highlightColor)
+      .attr("stroke-width", 2.5)
+      .attr("opacity", 1)
+      .end()
+  );
+
+  // 범례 숨김(있다면)
+  const legend = g.select(".legend");
+  if (!legend.empty()) {
+    animationPromises.push(
+      legend.transition().duration(800).attr("opacity", 0).end()
+    );
+  }
+
+  await Promise.all(animationPromises);
+
+  // 메인 라인 마킹 (simple-* 함수들이 이것만 사용하도록)
+  targetLine
+    .classed("main-line", true)
+    .attr("data-main", "true")
+    .raise();
+
+  // --- 2) simple 라인 유틸용 datapoint 생성 (ISO data-id) ---
+  const fmtISO = d3.timeFormat("%Y-%m-%d");
+
+  // 기존 점 정리(안전)
+  g.selectAll("circle.datapoint").remove();
+
+  g.selectAll("circle.datapoint")
+    .data(filteredData, d => {
+      const xv = d[xField];
+      return xv instanceof Date ? +xv : String(xv);
+    })
+    .join("circle")
+      .attr("class", "datapoint main-dp")
+      .attr("cx", d => fullXScale(d[xField]))
+      .attr("cy", d => fullYScale(d[yField]))
+      .attr("r", 5)
+      .attr("fill", highlightColor)
+      .attr("opacity", 0) // 초기에는 투명 (simple-*에서 필요 시 보여줌)
+      .attr("data-id", d => {
+        const xv = d[xField];
+        return xv instanceof Date ? fmtISO(xv) : String(xv);
+      })
+      .attr("data-value", d => d[yField]);
+
+  // --- 3) 전환 라벨 (지워지기 쉬운 annotation 클래스로) ---
+  svg.append("text")
+    .attr("class", "transform-label annotation")
+    .attr("x", margins.left)
+    .attr("y", margins.top - 10)
+    .attr("font-size", 14)
+    .attr("font-weight", "bold")
+    .attr("fill", highlightColor)
+    .text(`Displaying Series: ${targetSeriesKey}`);
+
+  // simple-* 함수들이 그대로 사용할 단일 라인의 데이터 반환
+  return filteredData;
+}
+
 export function multipleLineRetrieveValue(chartId, op) {
   console.log("[multipleLine] retrieveValue called:", op);
 
