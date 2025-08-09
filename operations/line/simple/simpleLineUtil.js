@@ -86,79 +86,106 @@ export async function runSimpleLineOps(chartId, opsSpec) {
     }
 }
 
-
 export async function renderSimpleLineChart(chartId, spec) {
-    const container = d3.select(`#${chartId}`);
-    container.selectAll("*").remove();
+  const container = d3.select(`#${chartId}`);
+  container.selectAll("*").remove();
 
-    const margin = { top: 40, right: 60, bottom: 50, left: 80 };
-    const width = 800 - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
+  const margin = { top: 40, right: 60, bottom: 50, left: 80 };
+  const width = 800 - margin.left - margin.right;
+  const height = 400 - margin.top - margin.bottom;
 
-    const xField = spec.encoding.x.field;
-    const yField = spec.encoding.y.field;
+  const xField = spec.encoding.x.field;
+  const yField = spec.encoding.y.field;
+  const xType  = spec.encoding.x.type; // <= 중요!
 
-    const data = await d3.csv(spec.data.url, d => {
-        d[xField] = new Date(d[xField]);
-        d[yField] = +d[yField];
-        return d;
-    });
+  const raw = await d3.csv(spec.data.url);
 
-    chartDataStore[chartId] = data;
+  // ✅ 연도/날짜 안전 파싱
+  const data = raw.map(d => {
+    const o = { ...d };
+    // y값 숫자화
+    o[yField] = +o[yField];
 
-    const svg = container.append("svg")
-        .attr("viewBox", [0, 0, width + margin.left + margin.right, height + margin.top + margin.bottom])
-        .attr("data-x-field", xField)
-        .attr("data-y-field", yField)
-        .attr("data-m-left", margin.left)
-        .attr("data-m-top", margin.top)
-        .attr("data-plot-w", width)
-        .attr("data-plot-h", height);
+    if (xType === 'temporal') {
+      // "1990" 같이 연도만 있으면 확실하게 1월1일로
+      if (/^\d{4}$/.test(d[xField])) o[xField] = new Date(+d[xField], 0, 1);
+      else                           o[xField] = new Date(d[xField]);
+    } else if (xType === 'quantitative') {
+      o[xField] = +d[xField];
+    } else {
+      // nominal/ordinal은 그대로 둠
+      o[xField] = d[xField];
+    }
+    return o;
+  });
 
-    const g = svg.append("g")
-        .attr("class", "plot-area")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
-        
-    const xScale = d3.scaleTime().domain(d3.extent(data, d => d[xField])).range([0, width]);
-    const yMax = d3.max(data, d => d[yField]);
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([height, 0]);
+  chartDataStore[chartId] = data;
 
-    g.append("g").attr("class", "x-axis")
-      .attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale));
-    g.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
+  const svg = container.append("svg")
+    .attr("viewBox", [0, 0, width + margin.left + margin.right, height + margin.top + margin.bottom])
+    .attr("data-x-field", xField)
+    .attr("data-y-field", yField)
+    .attr("data-m-left", margin.left)
+    .attr("data-m-top", margin.top)
+    .attr("data-plot-w", width)
+    .attr("data-plot-h", height);
 
-    const lineGen = d3.line()
-        .x(d => xScale(d[xField]))
-        .y(d => yScale(d[yField]));
+  const g = svg.append("g")
+    .attr("class", "plot-area")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    g.append("path")
-        .datum(data)
-        .attr("class", "series-line")
-        .attr("fill", "none")
-        .attr("stroke", "steelblue")
-        .attr("stroke-width", 2)
-        .attr("d", lineGen);
+  // x스케일
+  const xScale = (xType === 'temporal')
+    ? d3.scaleTime().domain(d3.extent(data, d => d[xField])).range([0, width])
+    : (xType === 'quantitative'
+        ? d3.scaleLinear().domain(d3.extent(data, d => d[xField])).nice().range([0, width])
+        : d3.scalePoint().domain(data.map(d => d[xField])).range([0, width]));
 
-    // 상호작용을 위한 투명한 점들을 미리 생성
-    g.selectAll(".datapoint")
-        .data(data)
-        .join("circle")
-        .attr("class", "datapoint")
-        .attr("cx", d => xScale(d[xField]))
-        .attr("cy", d => yScale(d[yField]))
-        .attr("r", 5)
-        .attr("fill", "steelblue")
-        .attr("opacity", 0)
-        .attr("data-id", d => d[xField].getFullYear())
-        .attr("data-value", d => d[yField]);
-        
-    // 축 레이블 추가
-    svg.append("text").attr("class", "x-axis-label")
-        .attr("x", margin.left + width / 2).attr("y", height + margin.top + margin.bottom - 10)
-        .attr("text-anchor", "middle").text(xField);
+  const yMax = d3.max(data, d => d[yField]);
+  const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([height, 0]);
 
-    svg.append("text").attr("class", "y-axis-label")
-        .attr("transform", "rotate(-90)")
-        .attr("x", -(margin.top + height / 2)).attr("y", margin.left - 60)
-        .attr("text-anchor", "middle").text(yField);
+  g.append("g").attr("class", "x-axis")
+    .attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale));
+  g.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
+
+  const lineGen = d3.line()
+    .x(d => xScale(d[xField]))
+    .y(d => yScale(d[yField]));
+
+  g.append("path")
+    .datum(data)
+    .attr("class", "series-line")
+    .attr("fill", "none")
+    .attr("stroke", "steelblue")
+    .attr("stroke-width", 2)
+    .attr("d", lineGen);
+
+  // ✅ 유연 매칭용 datapoint
+  const fmtISO = d3.timeFormat("%Y-%m-%d");
+  g.selectAll(".datapoint")
+    .data(data)
+    .join("circle")
+    .attr("class", "datapoint")
+    .attr("cx", d => xScale(d[xField]))
+    .attr("cy", d => yScale(d[yField]))
+    .attr("r", 5)
+    .attr("fill", "steelblue")
+    .attr("opacity", 0)
+    // 아래 3개 속성은 retrieve/filter/compare 유연 매칭에 중요!
+    .attr("data-id", d => (
+      d[xField] instanceof Date ? fmtISO(d[xField]) : String(d[xField])
+    ))
+    .attr("data-key-year", d => (
+      d[xField] instanceof Date ? d[xField].getFullYear() : null
+    ))
+    .attr("data-value", d => d[yField]);
+
+  // 축 라벨(선택)
+  svg.append("text").attr("class", "x-axis-label")
+    .attr("x", margin.left + width / 2).attr("y", height + margin.top + margin.bottom - 10)
+    .attr("text-anchor", "middle").text(xField);
+  svg.append("text").attr("class", "y-axis-label")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -(margin.top + height / 2)).attr("y", margin.left - 60)
+    .attr("text-anchor", "middle").text(yField);
 }
