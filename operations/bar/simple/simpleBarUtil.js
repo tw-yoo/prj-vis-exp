@@ -8,221 +8,250 @@ import {
   simpleBarSort,
 } from "./simpleBarFunctions.js";
 
+// simpleBarUtil.js
+const chartDataStore = {};
+function clearAllAnnotations(svg) {
+    svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
+}
+function getSvgAndSetup(chartId) {
+    const svg = d3.select(`#${chartId}`).select("svg");
+    const orientation = svg.attr("data-orientation") || "vertical";
+    const xField = svg.attr("data-x-field");
+    const yField = svg.attr("data-y-field");
+    const margins = {
+        left: +svg.attr("data-m-left") || 0,
+        top: +svg.attr("data-m-top") || 0,
+    };
+    const plot = {
+        w: +svg.attr("data-plot-w") || 0,
+        h: +svg.attr("data-plot-h") || 0,
+    };
+    const g = svg.select("g");
+    return { svg, g, orientation, xField, yField, margins, plot };
+}
+
+// --- 딜레이(지연)를 위한 헬퍼 함수 ---
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// simpleBarUtil.js 파일의 runSimpleBarOps 함수 (최종 수정 완료)
+// simpleBarUtil.js 파일의 runSimpleBarOps 함수
+
 export async function runSimpleBarOps(chartId, opsSpec) {
-  for (const operation of opsSpec.ops) {
-    switch (operation.op) {
-      case OperationType.RETRIEVE_VALUE:
-        simpleBarRetrieveValue(chartId, operation);
-        break;
-      case OperationType.FILTER:
-        simpleBarFilter(chartId, operation);
-        break;
-      case OperationType.FIND_EXTREMUM:
-        simpleBarFindExtremum(chartId, operation);
-        break;
-      case OperationType.DETERMINE_RANGE:
-        simpleBarDetermineRange(chartId, operation);
-        break;
-      case OperationType.COMPARE:
-        simpleBarCompare(chartId, operation);
-        break;
-      case OperationType.SORT:
-        simpleBarSort(chartId, operation);
-        break;
+    // 헬퍼 함수를 사용하여 필요한 요소들을 가져옵니다.
+    const { svg, g } = getSvgAndSetup(chartId);
+    
+    // --- 1. 부드러운 애니메이션 리셋 ---
+    // 이전 오퍼레이션의 주석/레이블 등을 모두 제거합니다.
+    clearAllAnnotations(svg);
+    
+    // 모든 막대의 색상과 투명도를 애니메이션으로 원상 복구시킵니다.
+    const resetPromises = [];
+    g.selectAll("rect").each(function() {
+        const rect = d3.select(this);
+        const t = rect.transition().duration(400)
+            .attr("fill", "#69b3a2") // 기본 색상
+            .attr("opacity", 1)      // 기본 투명도
+            .attr("stroke", "none")  // 테두리 제거
+            .end();
+        resetPromises.push(t);
+    });
+    await Promise.all(resetPromises);
+    // --- 리셋 끝 ---
+
+    // chartDataStore에서 원본 데이터를 가져옵니다.
+    if (!chartDataStore[chartId]) {
+        console.error("runSimpleBarOps: No data in store. Please render the chart first.");
+        return;
     }
-  }
-}
+    const fullData = [...chartDataStore[chartId]];
+    let currentData = [...fullData]; // 현재 데이터는 원본의 복사본으로 시작합니다.
 
+    // 오퍼레이션 루프
+    for (let i = 0; i < opsSpec.ops.length; i++) {
+        const operation = opsSpec.ops[i];
+        
+        // 모든 함수에 currentData와 fullData를 함께 전달합니다.
+        switch (operation.op.toLowerCase()) {
+            case 'retrievevalue':
+                currentData = await simpleBarRetrieveValue(chartId, operation, currentData, fullData);
+                break;
+            case 'filter':
+                currentData = await simpleBarFilter(chartId, operation, currentData, fullData);
+                break;
+            case 'findextremum':
+                currentData = await simpleBarFindExtremum(chartId, operation, currentData, fullData);
+                break;
+            case 'determinerange':
+                currentData = await simpleBarDetermineRange(chartId, operation, currentData, fullData);
+                break;
+            case 'compare':
+                currentData = await simpleBarCompare(chartId, operation, currentData, fullData);
+                break;
+            case 'sort':
+                currentData = await simpleBarSort(chartId, operation, currentData, fullData);
+                break;
+            default:
+                console.warn(`Unsupported operation: ${operation.op}`);
+        }
+
+        // 마지막 오퍼레이션이 아닐 경우 딜레이를 줍니다.
+        if (i < opsSpec.ops.length - 1) {
+            await delay(1500);
+        }
+    }
+}
+// renderSimpleBarChart 함수는 수정할 필요가 없습니다.
 export async function renderSimpleBarChart(chartId, spec) {
-
+  // ... (기존 코드와 동일)
   const yField = spec.encoding.y.field;
-  const xField = spec.encoding.x.field;
-  const xType  = spec.encoding.x.type;
-  const yType  = spec.encoding.y.type;
-  const isHorizontal = xType === 'quantitative' && yType !== 'quantitative';
+  const xField = spec.encoding.x.field;
+  const xType = spec.encoding.x.type;
+  const yType = spec.encoding.y.type;
+  const isHorizontal = xType === 'quantitative' && yType !== 'quantitative';
 
-  let data;
-  if (spec.data.url.endsWith('.json')) {
-    // Load JSON data when URL points to a .json file
-    data = await d3.json(spec.data.url);
-    // Coerce numeric fields for JSON-loaded data
-    data.forEach(d => {
-      if (xType === 'quantitative') d[xField] = +d[xField];
-      if (yType === 'quantitative') d[yField] = +d[yField];
-    });
-  } else {
-    // Fallback to CSV loader for other formats
-    data = await d3.csv(spec.data.url, d => {
-      if (xType === 'quantitative') d[xField] = +d[xField];
-      if (yType === 'quantitative') d[yField] = +d[yField];
-      return d;
-    });
-  }
+  let data;
+  if (spec.data.url.endsWith('.json')) {
+    data = await d3.json(spec.data.url);
+  } else {
+    data = await d3.csv(spec.data.url);
+  }
 
-  // Apply Vega-Lite transforms (e.g., filter)
-  let processedData = data;
-  if (spec.transform) {
-    spec.transform.forEach(t => {
-      if (t.filter) {
-        const expr = t.filter.replace(/datum\./g, 'd.');
-        const filterFn = new Function('d', `return ${expr};`);
-        processedData = processedData.filter(filterFn);
-      }
-      // Future: handle other transform types (e.g., calculate)
-    });
-    data = processedData;
-  }
+  // 데이터 가공 및 타입 변환
+  data.forEach(d => {
+    if (xType === 'quantitative') d[xField] = +d[xField];
+    if (yType === 'quantitative') d[yField] = +d[yField];
+  });
+  
+  // 데이터 필터링 (Vega-Lite 스펙에 transform이 있는 경우)
+  if (spec.transform) {
+      spec.transform.forEach(t => {
+        if (t.filter) {
+          const expr = t.filter.replace(/datum\./g, 'd.');
+          const filterFn = new Function('d', `return ${expr};`);
+          data = data.filter(filterFn);
+        }
+      });
+  }
 
-  // Handle Vega-Lite aggregation (e.g., sum)
-  const enc = spec.encoding;
-  const agg = enc.x.aggregate || enc.y.aggregate;
-  if (agg) {
-    // Determine grouping and value fields based on which channel has aggregation
-    const groupField = enc.x.aggregate ? enc.y.field : enc.x.field;
-    const valueField = enc.x.aggregate ? enc.x.field : enc.y.field;
-    // Perform grouping and aggregation using d3.rollup
-    data = Array.from(
-      d3.rollup(
-        data,
-        v => d3[agg](v, d => +d[valueField]),
-        d => d[groupField]
-      )
-    ).map(([key, value]) => ({
-      [groupField]: key,
-      [valueField]: value
-    }));
-  }
+  // 데이터 집계 (Vega-Lite 스펙에 aggregate가 있는 경우)
+  const enc = spec.encoding;
+  const agg = enc.x.aggregate || enc.y.aggregate;
+  if (agg) {
+    const groupField = enc.x.aggregate ? enc.y.field : enc.x.field;
+    const valueField = enc.x.aggregate ? enc.x.field : enc.y.field;
+    data = Array.from(
+      d3.rollup(
+        data,
+        v => d3[agg](v, d => +d[valueField]),
+        d => d[groupField]
+      )
+    ).map(([key, value]) => ({
+      [groupField]: key,
+      [valueField]: value
+    }));
+  }
 
-  if (isHorizontal) {
-    // Horizontal bar chart
-    const margin = { top: 40, right: 20, bottom: 80, left: 60 };
-    const width  = 600;
-    const height = 300;
-    const plotW  = width  - margin.left - margin.right;
-    const plotH  = height - margin.top  - margin.bottom;
+  // 전역 데이터 저장소에 원본 데이터 저장
+  chartDataStore[chartId] = data;
 
-    const xScale = d3.scaleLinear()
-                     .domain([0, d3.max(data, d => d[xField])]).nice()
-                     .range([0, plotW]);
-    const yScale = d3.scaleBand()
-                     .domain(data.map(d => d[yField]))
-                     .range([0, plotH])
-                     .padding(0.2);
+  const margin = { top: 40, right: 20, bottom: 80, left: 60 };
+  const width = 600;
+  const height = 300;
+  const plotW = width - margin.left - margin.right;
+  const plotH = height - margin.top - margin.bottom;
 
-    const host = d3.select(`#${chartId}`);
-    host.selectAll("*").remove();
-    const svg = host.append("svg")
-                    .attr("viewBox", [0, 0, width, height])
-                    .style("overflow", "visible");
-    const g = svg.append("g")
-                 .attr("transform", `translate(${margin.left},${margin.top})`);
+  const host = d3.select(`#${chartId}`);
+  host.selectAll("*").remove();
+  const svg = host.append("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("overflow", "visible")
+    .attr("data-orientation", isHorizontal ? "horizontal" : "vertical")
+    .attr("data-m-left", margin.left)
+    .attr("data-m-top", margin.top)
+    .attr("data-plot-w", plotW)
+    .attr("data-plot-h", plotH)
+    .attr("data-x-field", xField)
+    .attr("data-y-field", yField); // 이제 data-original-data 속성은 필요 없습니다.
 
-    // Y axis (categories)
-    g.append("g").call(d3.axisLeft(yScale));
+  const g = svg.append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    // X axis (values)
-    g.append("g")
-     .attr("transform", `translate(0,${plotH})`)
-     .call(d3.axisBottom(xScale).ticks(5));
+  // (기존과 동일한 D3 렌더링 코드)
+  if (isHorizontal) {
+    const xScale = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d[xField])]).nice()
+      .range([0, plotW]);
+    const yScale = d3.scaleBand()
+      .domain(data.map(d => d[yField]))
+      .range([0, plotH])
+      .padding(0.2);
 
-    // Bars
-    g.selectAll("rect")
-     .data(data)
-     .join("rect")
-     .attr("y", d => yScale(d[yField]))
-     .attr("x", 0)
-     .attr("height", yScale.bandwidth())
-     .attr("width", d => xScale(d[xField]))
-     .attr("fill", "#69b3a2")
-     .attr("data-id",    d => d[yField])
-     .attr("data-value", d => d[xField]);
+    g.append("g")
+      .attr("class", "y-axis")
+      .call(d3.axisLeft(yScale));
+    g.append("g")
+      .attr("class", "x-axis")
+      .attr("transform", `translate(0,${plotH})`)
+      .call(d3.axisBottom(xScale).ticks(5));
 
-    // Axis labels
-    svg.append("text")
-       .attr("class", "x-axis-label")
-       .attr("x", margin.left + plotW / 2)
-       .attr("y", height - margin.bottom + 40)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 14)
-       .text(xField);
+    g.selectAll("rect")
+      .data(data)
+      .join("rect")
+      .attr("x", 0)
+      .attr("y", d => yScale(d[yField]))
+      .attr("width", d => xScale(d[xField]))
+      .attr("height", yScale.bandwidth())
+      .attr("fill", "#69b3a2")
+      .attr("data-id", d => d[yField])
+      .attr("data-value", d => d[xField]);
+  } else {
+    const xScale = d3.scaleBand()
+      .domain(data.map(d => d[xField]))
+      .range([0, plotW])
+      .padding(0.2);
+    const yScale = d3.scaleLinear()
+      .domain([0, d3.max(data, d => d[yField])]).nice()
+      .range([plotH, 0]);
 
-    svg.append("text")
-       .attr("class", "y-axis-label")
-       .attr("transform", "rotate(-90)")
-       .attr("x", - (margin.top + plotH / 2))
-       .attr("y", margin.left - 45)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 14)
-       .text(yField);
+    g.append("g")
+      .attr("class", "x-axis")
+      .attr("transform", `translate(0,${plotH})`)
+      .call(d3.axisBottom(xScale))
+      .selectAll("text")
+      .attr("transform", "rotate(-45)")
+      .style("text-anchor", "end");
 
-    return;
-  } else {
-    const host   = d3.select(`#${chartId}`);
-    host.selectAll("*").remove();
+    g.append("g")
+      .attr("class", "y-axis")
+      .call(d3.axisLeft(yScale).ticks(5));
 
-    const margin = { top: 40, right: 20, bottom: 80, left: 60 };
-    const width  = 600;
-    const height = 300;
-    const plotW  = width  - margin.left - margin.right;
-    const plotH  = height - margin.top  - margin.bottom;
+    g.selectAll("rect")
+      .data(data)
+      .join("rect")
+      .attr("x", d => xScale(d[xField]))
+      .attr("y", d => yScale(d[yField]))
+      .attr("width", xScale.bandwidth())
+      .attr("height", d => plotH - yScale(d[yField]))
+      .attr("fill", "#69b3a2")
+      .attr("data-id", d => d[xField])
+      .attr("data-value", d => d[yField]);
+  }
 
-    const xScale = d3.scaleBand()
-                     .domain(data.map(d => d[xField]))
-                     .range([0, plotW])
-                     .padding(0.2);
+  // 축 라벨 추가
+  svg.append("text")
+    .attr("class", "x-axis-label")
+    .attr("x", margin.left + plotW / 2)
+    .attr("y", height - margin.bottom + 40)
+    .attr("text-anchor", "middle")
+    .attr("font-size", 14)
+    .text(xField);
 
-    const yScale = d3.scaleLinear()
-                     .domain([0, d3.max(data, d => d[yField])]).nice()
-                     .range([plotH, 0]);
-
-    const svg = host.append("svg")
-                    .attr("viewBox", [0, 0, width, height])
-                    .style("overflow", "visible")
-                    .attr("data-m-left", margin.left)
-                    .attr("data-m-top",  margin.top)
-                    .attr("data-plot-w", plotW)
-                    .attr("data-plot-h", plotH)
-                    .attr("data-y-domain-max", yScale.domain()[1]);
-
-    const g = svg.append("g")
-                 .attr("transform", `translate(${margin.left},${margin.top})`);
-
-    g.append("g")
-     .attr("transform", `translate(0,${plotH})`)
-     .call(d3.axisBottom(xScale))
-     .selectAll("text")
-     .attr("transform", "rotate(-45)")
-     .style("text-anchor", "end");
-
-    g.append("g").call(d3.axisLeft(yScale).ticks(5));
-
-    g.selectAll("rect")
-     .data(data)
-     .join("rect")
-     .attr("x", d => xScale(d[xField]))
-     .attr("y", d => yScale(d[yField]))
-     .attr("width",  xScale.bandwidth())
-     .attr("height", d => plotH - yScale(d[yField]))
-     .attr("fill",   "#69b3a2")
-     .attr("data-id",    d => d[xField])
-     .attr("data-value", d => d[yField]);
-
-    svg.append("text")
-       .attr("class", "x-axis-label")
-       .attr("x", margin.left + plotW / 2)
-       .attr("y", height - margin.bottom + 40)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 14)
-       .text(xField);
-
-    svg.append("text")
-       .attr("class", "y-axis-label")
-       .attr("transform", "rotate(-90)")
-       .attr("x", - (margin.top + plotH / 2))
-       .attr("y", margin.left - 45)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 14)
-       .text(yField);
-  }
+  svg.append("text")
+    .attr("class", "y-axis-label")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -(margin.top + plotH / 2))
+    .attr("y", margin.left - 45)
+    .attr("text-anchor", "middle")
+    .attr("font-size", 14)
+    .text(yField);
 }
-

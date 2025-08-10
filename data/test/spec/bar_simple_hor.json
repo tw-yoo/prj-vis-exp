@@ -11,7 +11,8 @@
     },
     "x": {
       "field": "percent",
-      "type": "quantitative"
+      "type": "quantitative",
+      "stack": "none"
     },
     "y": {
       "field": "major",

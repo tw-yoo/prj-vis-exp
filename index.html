@@ -34,46 +34,64 @@
       </div>
       <div id="vl-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
-                {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Population Census for year 2000, grouped by age and gender",
   "data": {
-    "values": [
-      { "cases": 129.505, "year": 1998 },
-      { "cases": 123.061, "year": 1999 },
-      { "cases": 125.734, "year": 2000 },
-      { "cases": 149.338, "year": 2001 },
-      { "cases": 166.061, "year": 2002 },
-      { "cases": 169.598, "year": 2003 },
-      { "cases": 167.543, "year": 2004 },
-      { "cases": 184.211, "year": 2005 },
-      { "cases": 168.827, "year": 2006 },
-      { "cases": 174.935, "year": 2007 },
-      { "cases": 186.108, "year": 2008 },
-      { "cases": 223.809, "year": 2009 },
-      { "cases": 262.799, "year": 2010 },
-      { "cases": 297.551, "year": 2011 },
-      { "cases": 325.044, "year": 2012 },
-      { "cases": 344.23,  "year": 2013 },
-      { "cases": 408.037, "year": 2014 },
-      { "cases": 456.216, "year": 2015 },
-      { "cases": 516.031, "year": 2016 },
-      { "cases": 533.909, "year": 2017 }
-    ]
+    "url": "data/test/data/bar_grouped_ver.csv"
   },
   "mark": "bar",
   "encoding": {
+    "column": {
+      "field": "age",
+      "type": "ordinal",
+      "spacing": 5
+    },
     "y": {
-      "field": "cases",
-      "type": "quantitative"
+      "aggregate": "sum",
+      "field": "people",
+      "type": "quantitative",
+      "axis": {
+        "title": "Population",
+        "grid": false
+      }
     },
     "x": {
-      "field": "year",
+      "field": "gender",
       "type": "nominal",
-      "sort": null
+      "scale": {
+        "rangeStep": 12
+      },
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "gender",
+      "type": "nominal",
+      "scale": {
+        "range": ["#EA98D2", "#659CCA"]
+      }
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
     }
   }
 }
-            </textarea>
+
+
+
+
+
+
+
+      
+      </textarea>
 
       <div class="row-header">
         <div class="label">Question</div>
@@ -96,20 +114,16 @@
       </div>
       <div id="ops-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
-{
-  "$schema": "https://github.com/tw-yoo/csi6312/blob/main/schemas/atomic-ops/v1.json",
-  "description": "Retrieve the case count for the year 2010",
-  "ops": [
-    {
-      "op": "sort",
-      "field": "cases",
-      "order": "descending",
-      "limit": 5
-    }
 
+        
+{
+  "ops": [
+    { "op": "filter", "conditions": [{ "field": "gender", "equals": "Female" }] }
   ]
 }
-        </textarea>
+
+
+   </textarea>
     </div>
     <div></div>
     <div id="right-panel">
@@ -119,7 +133,7 @@
   </div>
 
   <script type="module" src="index.js"></script>
-<!--  <script type="module" src="functions.js"></script>-->
+  <!--  <script type="module" src="functions.js"></script>-->
 
   <script>
     window.addEventListener('DOMContentLoaded', () => {
@@ -150,56 +164,3 @@
 
 </html>
 
-<!-- 
-
-1. retrieve
-    {
-      "op": "retrieveValue",
-      "field": "cases",
-      "keyField": "year",
-      "key": 2010
-    }
-
-2.filter
-    {
-      "op": "filter",
-      "satisfy": ">=",
-      "key": 300
-    }
-
-3. compare
-    {
-      "op": "compare",
-      "left": 2010,
-      "operator": "gt",
-      "right": 2000
-    }
-
-4.   findExtremum
-  {
-      "op": "findExtremum",
-      "field": "cases",
-      "type": "min"
-    }
-
-5. determineRange
-    {
-      "op"   : "determineRange",
-      "field": "cases"
-    }
-
-6. sort
-    {
-      "op": "sort",
-      "field": "cases",
-      "order": "descending"
-    }
-    {
-      "op": "sort",
-      "field": "cases",
-      "order": "descending",
-      "limit": 5
-    }
-
-
--->
