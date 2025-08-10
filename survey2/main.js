@@ -83,7 +83,8 @@ const pages = [
   'pages/main.html',
   'pages/tutorial/tutorial_intro.html',
   'pages/tutorial/tutorial_question1.html',
-  'pages/temp2.html',
+  'pages/tutorial/tutorial_question2.html',
+  'pages/main_survey/main_intro.html',
 ];
 // Initialize page index from URL, defaulting to 0
 const params = new URLSearchParams(window.location.search);
@@ -119,7 +120,7 @@ async function loadPage(i, pushHistory = true) {
   // Reset content placeholder
   scrollEl.innerHTML = '<div id="dynamic-insert"></div>';
   try {
-    const isLastPage = pages[pages.length - 1] === idx;
+    const isLastPage = idx === pages.length - 1;
     const res = await fetch(pages[idx], { cache: 'no-store' });
     if (!res.ok) throw new Error(res.status);
     const frag = await res.text();
@@ -140,8 +141,10 @@ async function loadPage(i, pushHistory = true) {
       nextId: `next_${idx}`,
       onPrev: () => loadPage(idx - 1),
       onNext: () => loadPage(idx + 1),
-      isLastPage: idx === pages.length - 1,
-      isAvailable: true
+      isLastPage,
+      isAvailable: true,
+      totalPages: pages.length,
+      currentPage: idx + 1
     });
     scrollEl.appendChild(nav);
   } catch (e) {

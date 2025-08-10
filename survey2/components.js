@@ -2,7 +2,7 @@ import {renderChart} from "../util/util.js";
 import {executeAtomicOps} from "../router/router.js";
 import {getVegaLiteSpec, getOperationSpec} from "./util.js"
 
-export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = false, isAvailable = true, hidePrev = false }) {
+export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null }) {
     const w = document.createElement('div');
     w.className = 'survey-nav';
     if (!isAvailable) {
@@ -15,6 +15,30 @@ export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = 
     n.className = 'button next-btn';
     n.textContent = isLastPage ? 'Submit' : 'Next';
     n.addEventListener('click', onNext);
+
+    // Create progress bar
+    const progress = document.createElement('progress');
+    progress.className = 'progress-bar';
+    progress.max = totalPages;
+    progress.value = currentPage;
+    if (totalPages !== null && currentPage !== null) {
+        progress.max = totalPages;
+        progress.value = currentPage;
+    }
+
+    const progressLabel = document.createElement('span');
+    if (totalPages !== null && currentPage !== null) {
+        const percentage = ((currentPage / totalPages) * 100).toFixed(2);
+        progressLabel.textContent = `(${currentPage}/${totalPages}) ${percentage}%`;
+    }
+
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'progress-container';
+    // Append progress bar, then line break, then label
+    progressContainer.append(progress);
+    progressContainer.append(document.createElement('br'));
+    progressContainer.append(progressLabel);
+
     if (!hidePrev) {
         p = document.createElement('button');
         p.id = prevId;
@@ -22,9 +46,11 @@ export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = 
         p.textContent = 'Previous';
         p.disabled = true;
         p.addEventListener('click', onPrev);
-        w.append(p, n);
+        // Order: Previous, progress container, Next
+        w.append(p, progressContainer, n);
     } else {
-        w.append(n);
+        // Order: progress container, Next
+        w.append(progressContainer, n);
     }
     return w;
 }

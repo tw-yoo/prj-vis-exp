@@ -4,6 +4,13 @@ html, body {
     line-height: 1.6;
 }
 
+:root {
+  --divider-color: rgba(0, 0, 0, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --divider-color: rgba(255, 255, 255, 0.18); }
+}
+
 .container {
     display: grid;
     grid-template-columns: minmax(60px, 20%) 1fr minmax(60px, 20%);
@@ -32,6 +39,8 @@ html, body {
 .main-scroll {
     /* Main content scrolls within its grid cell */
     overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
+    overflow-y: scroll;
     /*background: #e2ecd7; !* scrollable area placeholder color *!*/
     padding-top: 25px;
     padding-right: 25px;
@@ -43,6 +52,8 @@ html, body {
     display: flex;
     height: 600px;
     overflow: hidden;
+    position: relative;
+    --split-left: 40%;
 }
 .split-container .left,
 .split-container .right {
@@ -51,16 +62,20 @@ html, body {
     display: flex;
     flex-direction: column;
     /*height: 600px; !* ensure container height stays *!*/
+    box-sizing: border-box;
 }
 .split-container .left {
-    flex: 0 0 40%;
+    flex: 0 0 var(--split-left);
     background: #ffffff;
     /*background: #f9f9f9;*/
+    border-right: 1px solid var(--divider-color);
+    border-color: #1f2937;
 }
 .split-container .right {
     flex: 1;
     background: #ffffff;
 }
+
 
 .split-container .pane-header {
     flex: 0 0 auto;
@@ -70,6 +85,8 @@ html, body {
 .split-container .pane-body {
     flex: 1 1 auto;
     overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
+    overflow-y: scroll;
     padding: 10px;
 }
 
