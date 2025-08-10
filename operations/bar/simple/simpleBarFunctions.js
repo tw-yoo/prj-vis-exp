@@ -1,453 +1,434 @@
-export function simpleBarRetrieveValue(chartId, op) {
-  console.log("[RetrieveValue] called", op);
-  let returnChartId = chartId;
+export function getSvgAndSetup(chartId) {
+    const svg = d3.select(`#${chartId}`).select("svg");
+    const orientation = svg.attr("data-orientation") || "vertical";
+    const xField = svg.attr("data-x-field");
+    const yField = svg.attr("data-y-field");
+    const margins = {
+        left: +svg.attr("data-m-left") || 0,
+        top: +svg.attr("data-m-top") || 0,
+    };
+    const plot = {
+        w: +svg.attr("data-plot-w") || 0,
+        h: +svg.attr("data-plot-h") || 0,
+    };
+    const g = svg.select("g");
+    return { svg, g, orientation, xField, yField, margins, plot };
+}
 
-  const hlColor = "#ff6961";
-  const origColor = "#69b3a2";
-  const duration = 600;
+export function clearAllAnnotations(svg) {
+    svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
+}
 
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return chartId;
+export function getCenter(bar, orientation, margins) {
+    const x0 = +bar.getAttribute("x"), y0 = +bar.getAttribute("y"),
+          w = +bar.getAttribute("width"), h = +bar.getAttribute("height");
+    if (orientation === "horizontal") {
+        return { x: x0 + w + 4 + margins.left, y: y0 + h / 2 + margins.top };
+    } else {
+        return { x: x0 + w / 2 + margins.left, y: y0 - 6 + margins.top };
+    }
+}
 
-  const marginL = +svg.attr("data-m-left") || 0;
-  const marginT = +svg.attr("data-m-top") || 0;
+export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-  const bars = svg.selectAll("rect");
+// simpleBarFunctions.js의 simpleBarFilter 함수 (최종 완성본)
+// simpleBarFunctions.js의 simpleBarFilter 함수 (수정 완료)
 
-  bars
-    .interrupt()
-    .attr("fill", origColor)
-    .attr("stroke", "none")
-    .attr("opacity", 1);
+export async function simpleBarFilter(chartId, op, data, fullData) {
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-  svg.selectAll(".annotation, .filter-label").remove();
+    const matchColor = "#ffa500";
+    const baseColor = "#69b3a2";
 
-  const target = bars.filter(function () {
-    return d3.select(this).attr("data-id") === `${op.key}`;
-  });
+    const filterField = op.field || yField;
+    const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
+    const satisfy = satisfyMap[op.satisfy] || (() => true);
+    const filterKey = isNaN(+op.key) ? op.key : +op.key;
+    const filteredData = data.filter(d => {
+        const value = isNaN(+d[filterField]) ? d[filterField] : +d[filterField];
+        return satisfy(value, filterKey);
+    });
 
-  target
-    .transition()
-    .duration(duration)
-    .attr("fill", hlColor)
-    .attr("stroke", "black")
-    .attr("stroke-width", 2);
-  const bar = target.node();
-  if (bar) {
-    const x = +bar.getAttribute("x") + +bar.getAttribute("width") / 2 + marginL;
-    const y = +bar.getAttribute("y") - 6 + marginT;
+    const yScaleFull = d3.scaleLinear().domain([0, d3.max(fullData, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
+
+    if (!isNaN(filterKey)) {
+        const yPos = yScaleFull(filterKey);
+        const thresholdColor = "blue";
+        svg.append("line").attr("class", "threshold-line")
+            .attr("x1", margins.left).attr("y1", margins.top + yPos)
+            .attr("x2", margins.left).attr("y2", margins.top + yPos)
+            .attr("stroke", thresholdColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
+            .transition().duration(800)
+            .attr("x2", plot.w + margins.left);
+        svg.append("text").attr("class", "threshold-label")
+            .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
+            .attr("text-anchor", "start").attr("dominant-baseline", "middle")
+            .attr("fill", thresholdColor).attr("font-size", 12).attr("font-weight", "bold")
+            .text(filterKey)
+            .attr("opacity", 0).transition().delay(400).duration(400).attr("opacity", 1);
+        await delay(800);
+    }
+
+    const targetIds = new Set(filteredData.map(d => d.key || d[xField]));
+    const allBars = g.selectAll("rect");
+    const highlightPromises = [];
+    allBars.each(function() {
+        const bar = d3.select(this);
+        const d = bar.datum();
+        const id = d ? (d.key || d[xField]) : null;
+        const isTarget = id ? targetIds.has(id) : false;
+        if (isTarget) {
+            const t = bar.transition().duration(1000).attr("fill", matchColor).end();
+            highlightPromises.push(t);
+        }
+    });
+    await Promise.all(highlightPromises);
+
+    if (filteredData.length === 0) {
+        console.warn("simpleBarFilter: Filtered data is empty.");
+        allBars.transition().duration(500).attr("opacity", 0).remove();
+        return [];
+    }
+    
+    const transformPromises = [];
+    const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.key || d[xField])).range([0, plot.w]).padding(0.2);
+
+    // --- 여기가 핵심 수정 부분: Key 함수를 더 똑똑하게 변경 ---
+    const keyFunction = d => d.key || d[xField];
+    const bars = g.selectAll("rect").data(filteredData, keyFunction);
+    // --- 수정 끝 ---
+
+    transformPromises.push(bars.exit().transition().duration(800)
+        .attr("height", 0).attr("y", plot.h).remove().end());
+    
+    transformPromises.push(bars.transition().duration(800)
+        .attr("x", d => xScaleFiltered(d.key || d[xField])).attr("width", xScaleFiltered.bandwidth()).end());
+
+    transformPromises.push(g.select(".x-axis").transition().duration(800)
+        .call(d3.axisBottom(xScaleFiltered)).end());
+
+    await Promise.all(transformPromises);
+
+    g.selectAll("rect").each(function() {
+        const bar = this;
+        const val = bar.getAttribute("data-value");
+        svg.append("text").attr("class", "value-tag")
+            .attr("x", getCenter(bar, "vertical", margins).x)
+            .attr("y", getCenter(bar, "vertical", margins).y)
+            .attr("text-anchor", "middle").attr("font-size", 10)
+            .attr("fill", "#000").attr("stroke", "white").attr("stroke-width", 2).attr("paint-order", "stroke")
+            .text(val);
+    });
+    
+    svg.append("text").attr("class", "filter-label")
+        .attr("x", margins.left).attr("y", margins.top - 8)
+        .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
+        .text(`Filter: ${filterField} ${op.satisfy} ${op.key}`);
+
+    return filteredData;
+}
+export async function simpleBarRetrieveValue(chartId, op, data, fullData) {
+    const { svg, g, xField, yField, orientation, margins } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const targetId = String(op.key);
+    const hlColor = "#ff6961";
+    const baseColor = "#69b3a2";
+
+    const target = g.selectAll("rect").filter(function() {
+        return d3.select(this).attr("data-id") === targetId;
+    });
+    
+    if (target.empty()) {
+        console.warn("RetrieveValue: target bar not found for key:", op.key);
+        g.selectAll("rect").transition().duration(300).attr("fill", baseColor).attr("opacity", 1);
+        return data;
+    }
+    
+    const otherBars = g.selectAll("rect").filter(function() {
+        return d3.select(this).attr("data-id") !== targetId;
+    });
+
+    await Promise.all([
+        target.transition().duration(600)
+            .attr("fill", hlColor).attr("opacity", 1).end(),
+        otherBars.transition().duration(600)
+            .attr("fill", baseColor).attr("opacity", 0.3).end()
+    ]);
+
+    const bar = target.node();
     const val = bar.getAttribute("data-value");
-    svg
-      .append("text")
-      .attr("class", "annotation")
-      .attr("x", x)
-      .attr("y", y)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 12)
-      .attr("fill", hlColor)
-      .text(val);
-  }
+    
+    const barX = +bar.getAttribute("x"), barY = +bar.getAttribute("y"),
+          barW = +bar.getAttribute("width"), barH = +bar.getAttribute("height");
+          
+    const lineY = margins.top + (orientation === 'vertical' ? barY : barY + barH / 2);
+    const finalX2 = margins.left + (orientation === 'vertical' ? barX + barW / 2 : barW);
+    
+    const line = svg.append("line").attr("class", "annotation")
+        .attr("stroke", hlColor).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4")
+        .attr("x1", margins.left).attr("y1", lineY)
+        .attr("x2", margins.left).attr("y2", lineY);
 
-  return returnChartId;
+    await line.transition().duration(400).attr("x2", finalX2).end();
+
+    const { x, y } = getCenter(bar, orientation, margins);
+    svg.append("text").attr("class", "annotation")
+        .attr("x", x).attr("y", y).attr("text-anchor", "middle")
+        .attr("font-size", 12).attr("fill", hlColor)
+        .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+        .text(val)
+        .attr("opacity", 0)
+        .transition().duration(400).attr("opacity", 1);
+
+    return data;
 }
 
-export function simpleBarFilter(chartId, op) {
-  let returnChartId = chartId;
+export async function simpleBarFindExtremum(chartId, op, data, fullData) {
+    const { svg, g, xField, yField, margins, orientation } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-  const duration = 600;
+    if (!data || data.length === 0) {
+        console.warn("findExtremum: No data to process.");
+        return data;
+    }
+    
+    const hlColor = "#a65dfb";
+    const valueField = op.field || (orientation === 'vertical' ? yField : xField);
 
-  const matchColor = "#ffa500";
-  const dimOpacity = 0.15;
-  const origColor = "#69b3a2";
+    const extremumValue = op.type === 'min' 
+        ? d3.min(data, d => +d[valueField]) 
+        : d3.max(data, d => +d[valueField]);
+    
+    const target = g.selectAll("rect")
+        .filter(d => {
+            if (!d) return false;
+            const barValue = d.value !== undefined ? d.value : d[valueField];
+            return +barValue === extremumValue;
+        });
 
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return chartId;
+    if (target.empty()) {
+        console.warn("findExtremum: target bar not found for value:", extremumValue);
+        return data;
+    }
 
-  const bars = svg.selectAll("rect");
+    await target.transition().duration(600)
+        .attr("fill", hlColor)
+        .end();
 
-  bars
-    .interrupt()
-    .attr("fill", origColor)
-    .attr("opacity", 1)
-    .attr("stroke", "none");
+    const node = target.nodes()[0];
+    if (node) {
+        const barX = +node.getAttribute("x"), barY = +node.getAttribute("y"),
+              barW = +node.getAttribute("width"), barH = +node.getAttribute("height");
+        
+        const lineY = margins.top + (orientation === 'vertical' ? barY : barY + barH / 2);
+        const finalX2 = margins.left + (orientation === 'vertical' ? barX + barW / 2 : barW);
 
-  svg.selectAll(".annotation, .filter-label").remove();
+        const line = svg.append("line").attr("class", "annotation")
+            .attr("stroke", hlColor).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4")
+            .attr("x1", margins.left).attr("y1", lineY)
+            .attr("x2", margins.left).attr("y2", lineY);
 
-  const satisfy =
-    {
-      ">": (a, b) => a > b,
-      ">=": (a, b) => a >= b,
-      "<": (a, b) => a < b,
-      "<=": (a, b) => a <= b,
-      "==": (a, b) => a === b,
-    }[op.satisfy] ?? (() => true);
+        await line.transition().duration(400).attr("x2", finalX2).end();
 
-  bars.each(function () {
-    const node = d3.select(this);
-    const val = +node.attr("data-value");
-    const pass = satisfy(val, op.key);
+        const { x, y } = getCenter(node, orientation, margins);
+        const labelText = `${op.type === "min" ? "Min" : "Max"}: ${extremumValue}`;
 
-    node
-      .transition()
-      .duration(duration)
-      .attr("fill", pass ? matchColor : origColor)
-      .attr("opacity", pass ? 1 : dimOpacity);
-  });
-
-  svg
-    .append("text")
-    .attr("class", "filter-label")
-    .attr("x", 8)
-    .attr("y", 14)
-    .attr("font-size", 12)
-    .attr("fill", matchColor)
-    .text(`Filter: value ${op.satisfy} ${op.key}`);
-
-  return returnChartId;
+        svg.append("text").attr("class", "annotation")
+            .attr("x", x).attr("y", y)
+            .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
+            .attr("fill", hlColor)
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(labelText)
+            .attr("opacity", 0)
+            .transition().duration(400).attr("opacity", 1);
+    }
+    
+    return data;
 }
 
-export function simpleBarFindExtremum(chartId, op) {
-  console.log("[findExtremum] called", op);
-  let returnChartId = chartId;
-  const duration = 600;
-  const hlColor = "#a65dfb";
-  const origColor = "#69b3a2";
+export async function simpleBarSort(chartId, op, data, fullData) {
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return returnChartId;
+    const sortField = op.field || yField;
+    
+    const sortedData = [...data].sort((a, b) => {
+        const valA = a.value !== undefined ? a.value : a[sortField];
+        const valB = b.value !== undefined ? b.value : b[sortField];
+        return op.order === "ascending" ? valA - valB : valB - valA;
+    });
 
-  const marginL = +svg.attr("data-m-left") || 0;
-  const marginT = +svg.attr("data-m-top") || 0;
+    const newXScale = d3.scaleBand()
+        .domain(sortedData.map(d => d.key || d[xField]))
+        .range([0, plot.w])
+        .padding(0.2);
 
-  const bars = svg.selectAll("rect");
-  bars
-    .interrupt()
-    .attr("fill", origColor)
-    .attr("stroke", "none")
-    .attr("opacity", 1);
-  svg.selectAll(".annotation, .filter-label").remove();
+    const keyFunction = d => d.key || d[xField];
+    const transitions = [];
+    
+    transitions.push(
+        g.selectAll("rect").data(sortedData, keyFunction)
+            .transition().duration(1000)
+            .attr("x", d => newXScale(d.key || d[xField]))
+            .attr("width", newXScale.bandwidth())
+            .end()
+    );
 
-  const field = op.field || "value";
-  const getVal = (el) => {
-    const row = d3.select(el).datum();
-    return field in row ? +row[field] : +el.getAttribute("data-value");
-  };
+    transitions.push(
+        g.select(".x-axis").transition().duration(1000)
+            .call(d3.axisBottom(newXScale))
+            .end()
+    );
+    await Promise.all(transitions);
 
-  const vals = bars.nodes().map(getVal);
-  const idx =
-    op.type === "min" ? vals.indexOf(d3.min(vals)) : vals.indexOf(d3.max(vals));
-  if (idx === -1) {
-    console.warn("findExtremum: target bar not found");
-    return returnChartId;
-  }
-
-  const extremeVal = vals[idx];
-  const target = bars.filter((d, i) => i === idx);
-
-  target
-    .transition()
-    .duration(duration)
-    .attr("fill", hlColor)
-    .attr("stroke", "black")
-    .attr("stroke-width", 2);
-
-  const node = target.node();
-  if (node) {
-    const x =
-      +node.getAttribute("x") + +node.getAttribute("width") / 2 + marginL;
-    const y = +node.getAttribute("y") - 6 + marginT;
-    const label = `${op.type === "min" ? "Min" : "Max"}: ${extremeVal}`;
-
-    svg
-      .append("text")
-      .attr("class", "annotation")
-      .attr("x", x)
-      .attr("y", y)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 12)
-      .attr("fill", hlColor)
-      .text(label);
-  }
-
-  return returnChartId;
-}
-
-export function simpleBarCompare(chartId, op) {
-  let returnChartId = chartId;
-
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return returnChartId;
-
-  const bars = svg.selectAll("rect");
-  if (bars.empty()) return returnChartId;
-
-
-  const origColor = "#69b3a2";
-  bars.interrupt().attr("fill", origColor).attr("stroke", "none");
-  svg.selectAll(".compare-label, .value-tag").remove();
-
-
-  const cmp = {
-    gt: (a, b) => a > b,
-    gte: (a, b) => a >= b,
-    lt: (a, b) => a < b,
-    lte: (a, b) => a <= b,
-    eq: (a, b) => a === b,
-    ne: (a, b) => a !== b,
-  }[op.operator];
-  if (!cmp) {
-    console.warn("Bad operator", op.operator);
-    return returnChartId;
-  }
-
-  const sample = bars.datum();
-  const isField = (v) => typeof v === "string" && v in sample;
-  const marginL = +svg.attr("data-m-left") || 0;
-  const marginT = +svg.attr("data-m-top") || 0;
-
-  if (!isField(op.left) && !isField(op.right)) {
-    const sel = (id) =>
-      bars.filter(function () {
-        return d3.select(this).attr("data-id") === String(id);
-      });
-
-    const leftBar = sel(op.left);
-    const rightBar = sel(op.right);
-    if (leftBar.empty() || rightBar.empty()) return returnChartId;
-
-    const lv = +leftBar.attr("data-value");
-    const rv = +rightBar.attr("data-value");
-    const ok = cmp(lv, rv);
-
-    highlightBar(leftBar, lv, "#ffb74d"); 
-    highlightBar(rightBar, rv, "#64b5f6"); 
-    showHeadText(ok, op.left, op.operator, op.right);
-
-    return returnChartId;
-  }
-
-  const getVal = (row, v) => (isField(v) ? row[v] : v);
-  const row = sample;
-  const lv = getVal(row, op.left);
-  const rv = getVal(row, op.right);
-  const ok = cmp(+lv, +rv);
-
-  showHeadText(ok, op.left, op.operator, op.right);
-  return returnChartId;
-
-  function highlightBar(selection, value, color) {
-    selection.attr("fill", color).attr("stroke", "black");
-    const n = selection.node();
-    const x = +n.getAttribute("x") + +n.getAttribute("width") / 2 + marginL;
-    const y = +n.getAttribute("y") - 6 + marginT;
-
-    svg
-      .append("text")
-      .attr("class", "value-tag")
-      .attr("x", x)
-      .attr("y", y)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 12)
-      .attr("fill", color)
-      .text(value);
-  }
-
-  function showHeadText(ok, lKey, oper, rKey) {
-    const center =
-      (+svg.attr("data-m-left") || 0) + (+svg.attr("data-plot-w") || 0) / 2;
-    const symbol =
-      { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", ne: "≠" }[oper] || oper;
-    svg
-      .append("text")
-      .attr("class", "compare-label")
-      .attr("x", center)
-      .attr("y", 18)
-      .attr("text-anchor", "middle")
-      .attr("font-size", 13)
-      .attr("font-weight", "bold")
-      .attr("fill", ok ? "#2e7d32" : "#c62828")
-      .text(`${lKey} ${symbol} ${rKey} → ${ok}`);
-  }
-}
-
-export function simpleBarDetermineRange(chartId, op) {
-  console.log("[determineRange] called", op);
-  let returnChartId = chartId;
-
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return returnChartId;
-
-  const marginL = +svg.attr("data-m-left") || 0;
-  const marginT = +svg.attr("data-m-top")  || 0;
-  const plotW   = +svg.attr("data-plot-w") || 0;
-  const plotH   = +svg.attr("data-plot-h") || 0;
-
-  const dataMax = +svg.attr("data-y-domain-max");
-  const yScale  = d3.scaleLinear()
-                    .domain([0, dataMax])
-                    .range([plotH, 0]);
-
-  const bars   = svg.selectAll("rect");
-  const vals   = bars.nodes().map(el => +el.getAttribute("data-value"));
-  const minVal = d3.min(vals);
-  const maxVal = d3.max(vals);
-  const diff   = +(maxVal - minVal).toFixed(3);
-  const minIdx = vals.indexOf(minVal);
-  const maxIdx = vals.indexOf(maxVal);
-
-  const yMinPix = yScale(minVal);
-  const yMaxPix = yScale(maxVal);
-  const yMinAbs = marginT + yMinPix;
-  const yMaxAbs = marginT + yMaxPix;
-  const xVert   = marginL + plotW + 10;
-
-  bars.attr("fill", "#69b3a2").attr("stroke", "none");
-  svg.selectAll(".range-line, .delta-label, .annotation").remove();
-
-  [yMinAbs, yMaxAbs].forEach(y =>
-    svg.append("line")
-       .attr("class", "range-line")
-       .attr("x1", marginL)
-       .attr("x2", marginL + plotW)
-       .attr("y1", y)
-       .attr("y2", y)
-       .attr("stroke", "#ffb74d")
-       .attr("stroke-width", 2)
-       .attr("stroke-dasharray", "4 4")
-  );
-
-  svg.append("line")
-     .attr("class", "range-line")
-     .attr("x1", xVert)
-     .attr("x2", xVert)
-     .attr("y1", yMinAbs)
-     .attr("y2", yMaxAbs)
-     .attr("stroke", "#ffb74d")
-     .attr("stroke-width", 2)
-     .attr("stroke-dasharray", "4 4");
-
-  svg.append("text")
-     .attr("class", "delta-label")
-     .attr("x", xVert + 5)
-     .attr("y", (yMinAbs + yMaxAbs) / 2)
-     .attr("dominant-baseline", "middle")
-     .attr("font-size", 12)
-     .attr("fill", "#ffb74d")
-     .text(`Δ ${diff}`);
-
-  [[minIdx, minVal], [maxIdx, maxVal]].forEach(([idx, v]) => {
-    const bar = bars.filter((d,i) => i === idx)
-                    .attr("fill", "#ffb74d");
-    const n   = bar.node();
-    const x   = +n.getAttribute("x") + (+n.getAttribute("width")/2) + marginL;
-    const y   = +n.getAttribute("y") - 6 + marginT;
-
+    const orderText = op.order === 'ascending' ? 'Ascending' : 'Descending';
+    const labelText = `Sorted by ${sortField} (${orderText})`;
     svg.append("text")
-       .attr("class", "annotation")
-       .attr("x", x)
-       .attr("y", y)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 12)
-       .attr("fill", "#ffb74d")
-       .text(v);
-  });
+        .attr("class", "annotation")
+        .attr("x", margins.left)
+        .attr("y", margins.top - 10)
+        .attr("font-size", 14).attr("font-weight", "bold")
+        .attr("fill", "#6f42c1").text(labelText);
 
-  return returnChartId;
+    return sortedData;
 }
 
-export function simpleBarSort(chartId, op) {
-  console.log("[sort] called", op);
-  let returnChartId = chartId;
-  const duration = 600;
-  const svg = d3.select(`#${chartId}`).select("svg");
-  if (svg.empty()) return returnChartId;
-  const marginL = +svg.attr("data-m-left") || 0;
-  const marginT = +svg.attr("data-m-top")  || 0;
-  const plotW   = +svg.attr("data-plot-w") || 0;
-  const bars = svg.selectAll("rect");
-  if (bars.empty()) return returnChartId;
+export async function simpleBarCompare(chartId, op, data, fullData) {
+    const { svg, g, xField, yField, margins } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-  const origColor = "#69b3a2";
-  const hlColor   = "#ffa500";
+    const keyField = op.keyField || xField;
+    const finder = (keyToFind) => (d) => {
+        if (!d) return false;
+        const id = d.key || d[keyField];
+        return String(id) === String(keyToFind);
+    };
 
-  bars.interrupt()
-      .attr("fill", origColor)
-      .attr("stroke", "none")
-      .attr("opacity", 1);
+    const leftBar = g.selectAll("rect").filter(finder(op.left));
+    const rightBar = g.selectAll("rect").filter(finder(op.right));
+    
+    if (leftBar.empty() || rightBar.empty()) {
+        return data;
+    }
 
-  svg.selectAll(".annotation,.filter-label,.compare-label,.range-line,.delta-label,.value-tag,.sort-label").remove();
+    const valueField = op.field || yField;
+    const lv = leftBar.datum().value !== undefined ? leftBar.datum().value : leftBar.datum()[valueField];
+    const rv = rightBar.datum().value !== undefined ? rightBar.datum().value : rightBar.datum()[valueField];
+    
+    const cmp = { "gt": (a, b) => a > b, ">": (a, b) => a > b, "gte": (a, b) => a >= b, ">=": (a, b) => a >= b, "lt": (a, b) => a < b, "<": (a, b) => a < b, "lte": (a, b) => a <= b, "<=": (a, b) => a <= b, "eq": (a, b) => a === b, "==": (a, b) => a === b };
+    const ok = cmp[op.operator] ? cmp[op.operator](lv, rv) : false;
+    
+    const leftColor = "#ffb74d", rightColor = "#64b5f6";
 
-  const field = op.field;
-  const order = op.order === "descending" ? "descending" : "ascending";
-  const limit = op.limit > 0 ? Math.min(op.limit, bars.size()) : bars.size();
+    await Promise.all([
+        leftBar.transition().duration(600).attr("fill", leftColor).attr("stroke", "black").end(),
+        rightBar.transition().duration(600).attr("fill", rightColor).attr("stroke", "black").end()
+    ]);
 
-  const originalX = bars.nodes()
-    .map(el => +el.getAttribute("x") + marginL)
-    .sort((a, b) => a - b);
+    const addCompareAnnotation = (bar, value, color) => {
+        const node = bar.node(), bbox = node.getBBox();
+        const lineY = margins.top + bbox.y;
+        svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left).attr("y1", lineY)
+            .attr("x2", margins.left + bbox.x + bbox.width / 2).attr("y2", lineY)
+            .attr("stroke", color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+        svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left + bbox.x + bbox.width / 2)
+            .attr("y", margins.top + bbox.y - 5)
+            .attr("text-anchor", "middle").attr("fill", color)
+            .attr("font-weight", "bold").text(value);
+    };
 
-  const arr = bars.nodes().map(el => {
-    const row   = d3.select(el).datum() || {};
-    const raw   = el.getAttribute("data-value");
-    const value = row[field] !== undefined ? +row[field] : +raw;
-    const id    = d3.select(el).attr("data-id");
-    return { el, value, id };
-  });
+    addCompareAnnotation(leftBar, lv, leftColor);
+    addCompareAnnotation(rightBar, rv, rightColor);
 
-  const sortedByValue = arr.slice().sort((a, b) =>
-    order === "ascending" ? a.value - b.value : b.value - a.value
-  );
-  const limited = sortedByValue.slice(0, limit);
-  const rest    = arr.filter(item => !limited.includes(item));
-  const newOrder = limited.concat(rest);
+    const symbol = { "gt": ">", ">": ">", "gte": "≥", ">=": "≥", "lt": "<", "<": "<", "lte": "≤", "<=": "≤", "eq": "=", "==": "=" }[op.operator];
+    svg.append("text").attr("class", "compare-label")
+        .attr("x", margins.left).attr("y", margins.top - 10)
+        .attr("font-size", 14).attr("font-weight", "bold")
+        .attr("fill", ok ? "green" : "red").text(`${op.left} ${symbol} ${op.right} → ${ok}`);
+        
+    return data;
+}
 
-  newOrder.forEach((item, i) => {
-    d3.select(item.el)
-      .transition()
-        .duration(duration)
-        .attr("x", originalX[i] - marginL)
-      .transition()
-        .duration(duration / 2)
-        .attr("fill", limited.includes(item) ? hlColor : origColor);
-  });
+export async function simpleBarDetermineRange(chartId, op, data, fullData) {
+    const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-  const xScale = d3.scaleBand()
-    .domain(newOrder.map(d => d.id))
-    .range([marginL, marginL + plotW])
-    .padding(0.1);
+    const hlColor = "#0d6efd";
+    const valueField = op.field || (orientation === 'vertical' ? yField : xField);
 
-  svg.select(".x-axis")
-     .transition()
-       .duration(duration)
-     .call(d3.axisBottom(xScale))
-     .selectAll("text")
-       .attr("y", 10);
+    const values = data.map(d => {
+        return d.value !== undefined ? +d.value : +d[valueField];
+    });
+    const minV = d3.min(values);
+    const maxV = d3.max(values);
+const yScale = d3.scaleLinear()
+        .domain([0, d3.max(data, d => (d.value !== undefined ? +d.value : +d[valueField])) || 0])
+        .nice()
+        .range([plot.h, 0]);
 
-  svg.selectAll(".x-axis g.tick")
-     .transition()
-       .duration(duration)
-     .attr("transform", (d, i) => `translate(${originalX[i]},0)`);
+    const animationPromises = [];
 
-  limited.forEach(item => {
-    const idx = newOrder.indexOf(item);
-    const x   = originalX[idx] + (+bars.nodes()[0].getAttribute("width") / 2);
-    const y   = +item.el.getAttribute("y") - 6 + marginT;
-    svg.append("text")
-       .attr("class", "value-tag")
-       .attr("x", x)
-       .attr("y", y)
-       .attr("text-anchor", "middle")
-       .attr("font-size", 12)
-       .attr("fill", "black")
-       .text(item.value);
-  });
+    const findBars = (val) => g.selectAll("rect").filter(d => {
+        if (!d) return false;
+        const barValue = d.value !== undefined ? d.value : d[valueField];
+        return +barValue === val;
+    });
 
-  svg.append("text")
-     .attr("class", "sort-label")
-     .attr("x", originalX[0])
-     .attr("y", marginT - 15)
-     .attr("font-size", 12)
-     .attr("fill", hlColor)
-     .text(`Sort: ${field} ${order}` + (op.limit ? `, limit ${limit}` : ""));
+    const minBars = findBars(minV);
+    const maxBars = findBars(maxV);
 
-  return returnChartId;
+    animationPromises.push(
+        minBars.transition().duration(600).attr("fill", hlColor).end()
+    );
+    animationPromises.push(
+        maxBars.transition().duration(600).attr("fill", hlColor).end()
+    );
+
+    [
+        { value: minV, label: "Min" },
+        { value: maxV, label: "Max" }
+    ].forEach(item => {
+        if (item.value === undefined) return;
+        const yPos = margins.top + yScale(item.value);
+        const line = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left).attr("x2", margins.left)
+            .attr("y1", yPos).attr("y2", yPos)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+        
+        animationPromises.push(
+            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
+        );
+        
+        const text = svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left - 20).attr("y", yPos)
+            .attr("text-anchor", "end").attr("dominant-baseline", "middle")
+            .attr("fill", hlColor).attr("font-weight", "bold")
+            .text(`${item.label}: ${item.value}`)
+            .attr("opacity", 0);
+
+        animationPromises.push(
+            text.transition().delay(400).duration(400).attr("opacity", 1).end()
+        );
+    });
+
+    if (minV !== undefined && maxV !== undefined) {
+        const rangeText = `Range: ${minV} ~ ${maxV}`;
+        const topLabel = svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left).attr("y", margins.top - 10)
+            .attr("font-size", 14).attr("font-weight", "bold")
+            .attr("fill", hlColor).text(rangeText)
+            .attr("opacity", 0);
+
+        animationPromises.push(
+            topLabel.transition().duration(600).attr("opacity", 1).end()
+        );
+    }
+    
+    await Promise.all(animationPromises);
+    
+    return data;
 }

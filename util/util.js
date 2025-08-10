@@ -3,39 +3,50 @@ import {renderSimpleBarChart} from "../operations/bar/simple/simpleBarUtil.js";
 import {renderStackedBarChart} from "../operations/bar/stacked/stackedBarUtil.js";
 import {renderGroupedBarChart} from "../operations/bar/grouped/groupedBarUtil.js";
 import {renderSimpleLineChart} from "../operations/line/simple/simpleLineUtil.js";
+import {renderMultipleLineChart} from "../operations/line/multiple/multiLineUtil.js";
 
 export function getChartType(spec) {
-    const mark = spec.mark;
-    const encoding = spec.encoding || {};
-    const hasColor = !!encoding.color;
-    const hasXOffset = !!encoding.xOffset;
-    const hasFacet = !!(encoding.column || encoding.row || spec.facet || spec.repeat);
+  const mark      = spec.mark;
+  const encoding  = spec.encoding || {};
+  const hasColor  = !!encoding.color;
+  const hasFacet  = !!(encoding.column || encoding.row || spec.facet || spec.repeat);
 
-    if (mark === "bar") {
-        if (hasFacet) {
-            return ChartType.MULTIPLE_BAR;
-        }
-        if (hasColor) {
-            const stackType = encoding.y?.stack || encoding.x?.stack || null;
-            if (stackType !== "none") {
-                return ChartType.STACKED_BAR;
-            } else {
-                return ChartType.GROUPED_BAR;
-            }
-        }
-        return ChartType.SIMPLE_BAR;
+  if (mark === "bar") {
+    // 1) facet이 있으면 multiple-bar
+    if (hasFacet) {
+      return ChartType.MULTIPLE_BAR;
     }
 
-    else if (mark === "line") {
-        return ChartType.SIMPLE_LINE;
+    // 2) color만 쓰인 single-series 수평/수직 바 차트인지 검사
+    const isSingleSeriesColor =
+      // color 필드가 y축(field)이거나 x축(field)이면서
+      encoding.color?.field === encoding.y?.field &&
+      encoding.x?.type === "quantitative" &&
+      encoding.y?.type === "nominal";
+
+    // color가 없거나, 위 단일 시리즈 색상 맵핑이면 simple-bar
+    if (!hasColor || isSingleSeriesColor) {
+      return ChartType.SIMPLE_BAR;
     }
 
-    else if (mark === "line" && hasColor) {
-        return ChartType.MULTI_LINE;
+    // 3) 그 밖에, stack 속성에 따라 stacked vs. grouped
+    const stackType = encoding.y?.stack || encoding.x?.stack || null;
+    if (stackType !== "none") {
+      return ChartType.STACKED_BAR;
+    } else {
+      return ChartType.GROUPED_BAR;
     }
+  }
+  else if (mark === "line" && hasColor) {
+    return ChartType.MULTI_LINE;
+  }
+  else if (mark === "line") {
+    return ChartType.SIMPLE_LINE;
+  }
 
-    return null;
+  return null;
 }
+
 
 export async function renderChart(chartId, spec) {
     const chartType = await getChartType(spec);
@@ -57,7 +68,8 @@ export async function renderChart(chartId, spec) {
             await renderSimpleLineChart(chartId, spec);
             break;
         case ChartType.MULTI_LINE:
-            await renderSimpleLineChart(chartId, spec);
+            await renderMultipleLineChart(chartId, spec);
             break;
+            
     }
 }
