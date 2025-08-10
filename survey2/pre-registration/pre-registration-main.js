@@ -226,6 +226,8 @@ async function loadPage(i, pushHistory = true) {
             },
             isLastPage: isLastPage,
             isAvailable: isAvailable,
+            totalPages: 2,
+            currentPage: Math.min(idx+1, 2),
         });
         scrollEl.appendChild(nav);
     } catch (e) {
