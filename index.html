@@ -118,10 +118,21 @@
         
 {
   "ops": [
-    { "op": "filter", "conditions": [{ "field": "gender", "equals": "Female" }] }
+    { "op": "filter",
+      "mode": "keep",
+      "conditions": [{ "field": "people", "satisfy": ">=", "key": 10000000 }]
+    },
+    { "op": "filter",
+      "mode": "keep",
+      "conditions": [{ "field": "age", "from": 30, "to": 60 }]
+    },
+    { "op": "compare",
+      "field": "people",
+      "left":  { "facet": 35, "x": "Male"   },
+      "right": { "facet": 35, "x": "Female" }
+    }
   ]
 }
-
 
    </textarea>
     </div>
