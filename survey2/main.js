@@ -1,12 +1,17 @@
 // main.js
+import {getRandomCompletionCode} from "./util.js";
 import {
   createNavButtons,
   createLikertQuestion,
-  createOpenEndedInput, createChart
+  createOpenEndedInput, createChart, createCompletionCode
 } from './components.js';
 
+const completionCode = getRandomCompletionCode();
 // State for form responses
-const responses = {};
+const responses = {
+  "completion-code": completionCode,
+};
+
 const STORAGE_KEY = 'formResponses';
 // Load any saved responses on initial load
 const saved = localStorage.getItem(STORAGE_KEY);
@@ -65,6 +70,11 @@ function renderComponents() {
     });
     el.replaceWith(comp);
   });
+
+  document.querySelectorAll('[data-component="completion-code"]').forEach(el => {
+    const comp = createCompletionCode(completionCode);
+    el.replaceWith(comp);
+  });
 }
 
 function restoreResponses() {
@@ -82,9 +92,11 @@ function restoreResponses() {
 const pages = [
   'pages/main.html',
   'pages/tutorial/tutorial_intro.html',
-  'pages/tutorial/tutorial_question1.html',
-  'pages/tutorial/tutorial_question2.html',
+  'pages/tutorial/tutorial_overview.html',
+  'pages/tutorial/tutorial_question.html',
   'pages/main_survey/main_intro.html',
+    'pages/main_survey/exp1/exp1_round1.html',
+    'pages/completion.html'
 ];
 // Initialize page index from URL, defaulting to 0
 const params = new URLSearchParams(window.location.search);
@@ -144,7 +156,9 @@ async function loadPage(i, pushHistory = true) {
       isLastPage,
       isAvailable: true,
       totalPages: pages.length,
-      currentPage: idx + 1
+      currentPage: idx + 1,
+      onSubmit: () => {console.log("submit")},
+      submitFormId: "survey-form"
     });
     scrollEl.appendChild(nav);
   } catch (e) {

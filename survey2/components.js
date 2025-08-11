@@ -2,7 +2,7 @@ import {renderChart} from "../util/util.js";
 import {executeAtomicOps} from "../router/router.js";
 import {getVegaLiteSpec, getOperationSpec} from "./util.js"
 
-export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null }) {
+export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = null, submitFormId = null, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null }) {
     const w = document.createElement('div');
     w.className = 'survey-nav';
     if (!isAvailable) {
@@ -14,9 +14,18 @@ export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = 
     n.id = nextId;
     n.className = 'button next-btn';
     n.textContent = isLastPage ? 'Submit' : 'Next';
-    n.addEventListener('click', onNext);
 
-    // Create progress bar
+    const shouldSubmit = isLastPage && (typeof onSubmit === 'function' || !!submitFormId);
+    // n.type = shouldSubmit ? 'submit' : 'button';
+    if (shouldSubmit && typeof onSubmit === 'function') {
+        n.addEventListener('click', onSubmit);
+    } else {
+        n.addEventListener('click', onNext);
+    }
+    if (shouldSubmit && submitFormId) {
+        n.setAttribute('form', submitFormId);
+    }
+
     const progress = document.createElement('progress');
     progress.className = 'progress-bar';
     progress.max = totalPages;
@@ -34,7 +43,6 @@ export function createNavButtons({ prevId, nextId, onPrev, onNext, isLastPage = 
 
     const progressContainer = document.createElement('div');
     progressContainer.className = 'progress-container';
-    // Append progress bar, then line break, then label
     progressContainer.append(progress);
     progressContainer.append(document.createElement('br'));
     progressContainer.append(progressLabel);
@@ -91,14 +99,14 @@ export async function createChart(cId) {
     }
 }
 
-export function createLikertQuestion({ name, questionText, labels, baseId }) {
+export function createLikertQuestion({ name, questionText, labels }) {
     const f = document.createElement('fieldset'); f.className = 'likert-group'; f.setAttribute('aria-label', questionText);
     const l = document.createElement('legend'); l.className = 'question'; l.textContent = questionText; f.append(l);
     const opts = document.createElement('div'); opts.className = 'options';
     labels.forEach((txt, i) => {
         const lab = document.createElement('label'); lab.className = 'likert-option';
         const inp = document.createElement('input'); inp.type = 'radio'; inp.name = name; inp.value = (i+1)+'';
-        inp.id = `${baseId}-opt-${i+1}`;
+        inp.id = `${name}-opt-${i+1}`;
         const dot = document.createElement('span'); dot.className = 'custom-radio';
         const txtSpan = document.createElement('span'); txtSpan.className = 'option-text'; txtSpan.textContent = txt;
         lab.append(inp, dot, txtSpan);
@@ -123,4 +131,24 @@ export function createOpenEndedInput({ id, labelText, placeholder, multiline }) 
       document.dispatchEvent(responseEvent);
     });
     w.append(l, inp); return w;
+}
+
+export function createCompletionCode(completionCode) {
+
+    // Persist so other pages (e.g., completion page) can read it
+    try { localStorage.setItem('completion_code', completionCode); } catch (_) {}
+
+    // Build DOM: "Completion Code: <strong>XXXXXX</strong>"
+    const w = document.createElement('div');
+    w.className = 'completion-code';
+
+    const label = document.createElement('span');
+    label.textContent = 'Completion Code: ';
+
+    const strong = document.createElement('strong');
+    strong.id = 'completion-code';
+    strong.textContent = completionCode;
+
+    w.append(label, strong);
+    return w;
 }

@@ -35,6 +35,7 @@
 
 /* 네비게이션 컨테이너 */
 .survey-nav {
+    width: 500px;
     display: flex;
     justify-content: space-between;
     margin: 1rem 0;
@@ -42,6 +43,7 @@
 
 /* Likert group */
 .likert-group {
+    width: 30%;
     border: none;
     /*padding-right: 50%;*/
     margin: 1rem 0;

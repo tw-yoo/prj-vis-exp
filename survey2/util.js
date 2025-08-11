@@ -23,3 +23,23 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function getRandomCompletionCode() {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const len = 6;
+    let code = '';
+
+    try {
+        const arr = new Uint32Array(len);
+        crypto.getRandomValues(arr);
+        for (let i = 0; i < len; i++) {
+            code += alphabet[arr[i] % alphabet.length];
+        }
+    } catch (_) {
+        // Fallback to Math.random if crypto is unavailable
+        for (let i = 0; i < len; i++) {
+            code += alphabet[Math.floor(Math.random() * alphabet.length)];
+        }
+    }
+
+    return code;
+}
