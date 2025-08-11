@@ -1,31 +1,26 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Survey Creator + D3 in Editor</title>
+    <meta charset="UTF-8">
+    <title>Survey</title>
+    <link rel="stylesheet" href="css/survey_style.css">
+    <link rel="stylesheet" href="css/element.css">
 
-    <link rel="stylesheet" href="survey_style.css" />
-
-    <!-- 1) SurveyJS Form Library -->
-    <link href="https://unpkg.com/survey-core/survey-core.min.css" rel="stylesheet" />
-    <script src="https://unpkg.com/survey-core/survey.core.min.js"></script>
-    <script src="https://unpkg.com/survey-js-ui/survey-js-ui.min.js"></script>
-
-    <!-- 2) Theme (선택) -->
-    <script src="https://unpkg.com/survey-core/themes/index.min.js"></script>
-
-    <!-- 3) Survey Creator -->
-    <link href="https://unpkg.com/survey-creator-core/survey-creator-core.min.css" rel="stylesheet" />
-    <script src="https://unpkg.com/survey-creator-core/survey-creator-core.min.js"></script>
-    <script src="https://unpkg.com/survey-creator-js/survey-creator-js.min.js"></script>
-
-    <!-- 4) D3.js -->
     <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
-
 </head>
 <body>
-    <div id="surveyCreator"></div>
-    <script type="module" src="survey_index.js"></script>
+<div class="container">
+    <div class="space"></div>
+    <div class="main">
+        <div class="main-fixed top"></div>
+        <div class="main-scroll">
+            <div id="dynamic-insert"></div>
+        </div>
+        <div class="main-fixed bottom"></div>
+    </div>
+    <div class="space"></div>
+</div>
+<script type="module" src="components.js"></script>
+<script type="module" src="main.js" defer></script>
 </body>
 </html>
