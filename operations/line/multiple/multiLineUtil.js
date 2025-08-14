@@ -17,6 +17,8 @@ import {
     // The one unique function for multi-line charts
     multipleLineChangeToSimple
 } from './multiLineFunctions.js';
+import {OperationType} from "../../../object/operationType.js";
+import {stackChartToTempTable} from "../../../util/util.js";
 
 // Global store for chart data and state
 const chartDataStore = {};
@@ -61,7 +63,7 @@ async function fullChartReset(chartId) {
  * Runs a sequence of operations on a multiple line chart.
  * It handles the transformation to a simple line chart.
  */
-export async function runMultipleLineOps(chartId, opsSpec) {
+export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
     // 1. Reset the chart to its original state before starting
     await fullChartReset(chartId);
     
@@ -84,24 +86,27 @@ export async function runMultipleLineOps(chartId, opsSpec) {
         if (isTransformed) {
             // After transformation, use simple line functions
             switch (opType) {
-                case 'retrievevalue':
+                case OperationType.RETRIEVE_VALUE:
                     currentData = await simpleLineRetrieveValue(chartId, operation, currentData, fullData);
                     break;
-                case 'filter':
+                case OperationType.FILTER:
                     currentData = await simpleLineFilter(chartId, operation, currentData, fullData);
                     break;
-                case 'findextremum':
+                case OperationType.FIND_EXTREMUM:
                     currentData = await simpleLineFindExtremum(chartId, operation, currentData, fullData);
                     break;
-                case 'determinerange':
+                case OperationType.DETERMINE_RANGE:
                     currentData = await simpleLineDetermineRange(chartId, operation, currentData, fullData);
                     break;
-                case 'compare':
+                case OperationType.COMPARE:
                     currentData = await simpleLineCompare(chartId, operation, currentData, fullData);
                     break;
-                case 'sort':
+                case OperationType.SORT:
                     // Note: Sort is less meaningful for time-series but implemented for completeness
                     currentData = await simpleLineSort(chartId, operation, currentData, fullData);
+                    break;
+                case OperationType.STACK:
+                    await stackChartToTempTable(chartId, vlSpec);
                     break;
                 default:
                     console.warn(`Unsupported operation after transformation: ${operation.op}`);

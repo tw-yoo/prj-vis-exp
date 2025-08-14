@@ -16,12 +16,14 @@ import {
     clearAllAnnotations,
     getSvgAndSetup
 } from "./stackedBarFunctions.js";
+import {OperationType} from "../../../object/operationType.js";
+import {stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {};
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 // stackedBarUtil.js의 runStackedBarOps 함수 (최종 수정 완료)
 
-export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
+export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
     const svg = d3.select(`#${chartId}`).select("svg");
 
     if (svg.select(".plot-area").empty()) {
@@ -61,12 +63,13 @@ export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
 
         if (isTransformed) {
             switch (opType) {
-                case 'retrievevalue': currentData = await simpleBarRetrieveValue(chartId, operation, currentData, fullData); break;
-                case 'filter': currentData = await simpleBarFilter(chartId, operation, currentData, fullData); break;
-                case 'findextremum': currentData = await simpleBarFindExtremum(chartId, operation, currentData, fullData); break;
-                case 'determinerange': currentData = await simpleBarDetermineRange(chartId, operation, currentData, fullData); break;
-                case 'compare': currentData = await simpleBarCompare(chartId, operation, currentData, fullData); break;
-                case 'sort': currentData = await simpleBarSort(chartId, operation, currentData, fullData); break;
+                case OperationType.RETRIEVE_VALUE: currentData = await simpleBarRetrieveValue(chartId, operation, currentData, fullData); break;
+                case OperationType.FILTER: currentData = await simpleBarFilter(chartId, operation, currentData, fullData); break;
+                case OperationType.FIND_EXTREMUM: currentData = await simpleBarFindExtremum(chartId, operation, currentData, fullData); break;
+                case OperationType.DETERMINE_RANGE: currentData = await simpleBarDetermineRange(chartId, operation, currentData, fullData); break;
+                case OperationType.COMPARE: currentData = await simpleBarCompare(chartId, operation, currentData, fullData); break;
+                case OperationType.SORT: currentData = await simpleBarSort(chartId, operation, currentData, fullData); break;
+                case OperationType.STACK: await stackChartToTempTable(chartId, vlSpec); break;
                 default: console.warn(`Unsupported operation after transformation: ${operation.op}`);
             }
         } else {

@@ -12,6 +12,8 @@ import {
     delay,
     prepareForNextOperation
 } from "./simpleLineFunctions.js";
+import {OperationType} from "../../../object/operationType.js";
+import {stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {}; // 이 파일에 chartDataStore가 있다고 가정
 /**
@@ -36,7 +38,7 @@ async function fullChartReset(chartId) {
 /**
  * SimpleLineChart에 대한 연속적인 오퍼레이션을 실행하는 메인 함수
  */
-export async function runSimpleLineOps(chartId, opsSpec) {
+export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
     // 1. 전체 시퀀스 시작 전, 이전 실행 결과를 완벽하게 초기화
     await fullChartReset(chartId);
 
@@ -67,12 +69,13 @@ export async function runSimpleLineOps(chartId, opsSpec) {
         
         // 3. 현재 오퍼레이션 실행
         switch (operation.op.toLowerCase()) {
-            case 'retrievevalue': currentData = await simpleLineRetrieveValue(chartId, operation, currentData, fullData); break;
-            case 'filter': currentData = await simpleLineFilter(chartId, operation, currentData, fullData); break;
-            case 'findextremum': currentData = await simpleLineFindExtremum(chartId, operation, currentData, fullData); break;
-            case 'determinerange': currentData = await simpleLineDetermineRange(chartId, operation, currentData, fullData); break;
-            case 'compare': currentData = await simpleLineCompare(chartId, operation, currentData, fullData); break;
-            case 'sort': currentData = await simpleLineSort(chartId, operation, currentData, fullData); break;
+            case OperationType.RETRIEVE_VALUE: currentData = await simpleLineRetrieveValue(chartId, operation, currentData, fullData); break;
+            case OperationType.FILTER: currentData = await simpleLineFilter(chartId, operation, currentData, fullData); break;
+            case OperationType.FIND_EXTREMUM: currentData = await simpleLineFindExtremum(chartId, operation, currentData, fullData); break;
+            case OperationType.DETERMINE_RANGE: currentData = await simpleLineDetermineRange(chartId, operation, currentData, fullData); break;
+            case OperationType.COMPARE: currentData = await simpleLineCompare(chartId, operation, currentData, fullData); break;
+            case OperationType.SORT: currentData = await simpleLineSort(chartId, operation, currentData, fullData); break;
+            case OperationType.STACK: await stackChartToTempTable(chartId, vlSpec); break;
             default: console.warn(`Unsupported operation: ${operation.op}`);
         }
 

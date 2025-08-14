@@ -18,6 +18,8 @@ import {
   clearAllAnnotations,
   delay
 } from "./groupedBarFunctions.js";
+import {OperationType} from "../../../object/operationType.js";
+import {stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {};
 
@@ -26,7 +28,7 @@ const chartDataStore = {};
  * - 렌더가 안되어 있으면 spec으로 자동 렌더
  * - 각 스텝 시작 전에 "주석만" 정리(그래픽 상태는 유지)
  */
-export async function runGroupedBarOps(chartId, opsSpec) {
+export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
   const svg = d3.select(`#${chartId}`).select("svg");
   const chartInfo = chartDataStore[chartId];
 
@@ -51,29 +53,32 @@ export async function runGroupedBarOps(chartId, opsSpec) {
     clearAllAnnotations(d3.select(`#${chartId}`).select("svg"));
 
     switch (opType) {
-      case "filter":
-        currentData = await groupedBarFilter(chartId, op, currentData, fullData);
-        break;
+        case OperationType.FILTER:
+            currentData = await groupedBarFilter(chartId, op, currentData, fullData);
+            break;
 
-      case "retrievevalue":
-        currentData = await groupedBarRetrieveValue(chartId, op, currentData, fullData);
-        break;
+        case OperationType.RETRIEVE_VALUE:
+            currentData = await groupedBarRetrieveValue(chartId, op, currentData, fullData);
+            break;
 
-      case "findextremum":
-        currentData = await groupedBarFindExtremum(chartId, op, currentData, fullData);
-        break;
+        case OperationType.FIND_EXTREMUM:
+            currentData = await groupedBarFindExtremum(chartId, op, currentData, fullData);
+            break;
 
-      case "determinerange":
-        currentData = await groupedBarDetermineRange(chartId, op, currentData, fullData);
-        break;
+        case OperationType.DETERMINE_RANGE:
+            currentData = await groupedBarDetermineRange(chartId, op, currentData, fullData);
+            break;
 
-      case "compare":
-        currentData = await groupedBarCompare(chartId, op, currentData, fullData);
-        break;
+        case OperationType.COMPARE:
+            currentData = await groupedBarCompare(chartId, op, currentData, fullData);
+            break;
 
-      case "sort":
-        currentData = await groupedBarSort(chartId, op, currentData, fullData);
-        break;
+        case OperationType.SORT:
+            currentData = await groupedBarSort(chartId, op, currentData, fullData);
+            break;
+        case OperationType.STACK:
+            await stackChartToTempTable(chartId, vlSpec);
+            break
 
       case "focus":
         // 예: 특정 x(또는 color)만 남기고 재배열 (그룹드 전용 focus)

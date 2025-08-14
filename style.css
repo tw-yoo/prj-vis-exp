@@ -16,18 +16,27 @@ html, body { margin: 0; height: 100%; }
     box-sizing: border-box;
 }
 #run-button { width: 80px; height: 30px; }
-#chart {
+#chart:not(.chart-canvas),
+#chart__host {
     width: 100%;
-    height: 100%;
+    height: auto;
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     overflow: visible;
+    line-height: 0;
+    padding: 0;
+    margin: 0;
+    gap: 0;
 }
 
 #chart svg {
+    display: block;
     width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
+    max-height: 100%;
+    margin: 0;
+    padding: 0;
     transform: none;
 }
 
@@ -41,4 +50,49 @@ html, body { margin: 0; height: 100%; }
 #ops-info-box {
     margin-top: 4px;
     font-family: sans-serif;
+}
+
+.temp-chart-table {
+    margin-top: 0;
+}
+
+[data-host-for] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.chart-canvas {
+  display: block;
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  line-height: 0;
+}
+
+.chart-canvas svg {
+  display: block;
+  margin-bottom: 0;
+}
+
+.temp-chart-table {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  align-items: stretch;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+.temp-chart-cell { height: 100%; }
+.temp-chart-cell svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
 }
