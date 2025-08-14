@@ -126,71 +126,219 @@ function findRectByTuple(g, t={}) {
   return sel.empty() ? null : sel.node();
 }
 
-// ---------- FILTER ----------
+
+// --- helper: 조건 분류 ---
+function splitCondsByAxis(conds, yField) {
+  const yConds = [], xConds = [];
+  (conds||[]).forEach(c => {
+    if (!c || !c.field) return;
+    if (c.field === yField && (c.from!=null || c.to!=null || (c.satisfy && c.key!=null))) yConds.push(c);
+    else xConds.push(c);
+  });
+  return { yConds, xConds };
+}// --- 새 헬퍼: 임계선 "한 번만" 정적으로 그리기/업데이트 ---
+function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
+  const yConds = (conditions||[]).filter(c =>
+    c.field === yField && (c.from!=null || c.to!=null || (c.satisfy && c.key!=null))
+  );
+  const uniq = new Map();
+  yConds.forEach(c => {
+    if (c.from!=null) uniq.set(`from:${+c.from}`, { y:+c.from, label:`from ${fmtNum(+c.from)}` });
+    if (c.to!=null)   uniq.set(`to:${+c.to}`,     { y:+c.to,   label:`to ${fmtNum(+c.to)}` });
+    if (c.satisfy && c.key!=null)
+      uniq.set(`${c.satisfy}:${+c.key}`, { y:+c.key, label:`${c.satisfy} ${fmtNum(+c.key)}` });
+  });
+
+  // 기존 임계선 싹 비우고(중복·깜빡임 방지) → 새로 "고정" 그리기
+  svg.selectAll(".threshold-line, .threshold-label").remove();
+
+  for (const [id, { y, label }] of uniq) {
+    const yPix = margins.top + yScale(y);
+    svg.append("line")
+      .attr("class", "threshold-line")
+      .attr("data-thr-id", id)
+      .attr("x1", margins.left).attr("x2", margins.left + plot.w)
+      .attr("y1", yPix).attr("y2", yPix)
+      .attr("stroke", "#0d6efd").attr("stroke-width", 1.5).attr("stroke-dasharray", "5 5");
+    svg.append("text")
+      .attr("class", "threshold-label")
+      .attr("data-thr-id", id)
+      .attr("x", margins.left + plot.w + 6).attr("y", yPix)
+      .attr("dominant-baseline", "middle").attr("fill", "#0d6efd")
+      .attr("font-size", 12).attr("font-weight", "bold")
+      .text(label);
+  }
+}
+
+
+
+
+// ---------- FILTER 라우터 ----------
 export async function groupedBarFilter(chartId, op, currentData, fullData) {
+  const { yField } = getSvgAndSetup(chartId);
+  const conditions = Array.isArray(op.conditions) && op.conditions.length ? op.conditions : [op].filter(Boolean);
+  const { yConds, xConds } = splitCondsByAxis(conditions, yField);
+
+  // 둘 다 있으면: Y 기준 먼저(수평선 표시) → X 기준
+  if (yConds.length && xConds.length) {
+    const mid = { ...op, conditions: yConds };
+    currentData = await groupedBarFilterByY(chartId, mid, currentData, fullData);
+    const last = { ...op, conditions: xConds };
+    return await groupedBarFilterByX(chartId, last, currentData, fullData);
+  }
+  if (yConds.length) {
+    return await groupedBarFilterByY(chartId, { ...op, conditions: yConds }, currentData, fullData);
+  }
+  return await groupedBarFilterByX(chartId, { ...op, conditions: xConds }, currentData, fullData);
+}
+// ---------- FILTER (Y축 전용: 한 번만, 무애니메이션, 홀드) ----------
+export async function groupedBarFilterByY(chartId, op, currentData, fullData) {
   const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
 
-  svg.selectAll(".annotation, .filter-label, .compare-label, .range-line, .threshold-line, .threshold-label, .value-tag").remove();
+  // 주석만 정리 (임계선은 이 함수가 책임지고 다시 그림)
+  svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
 
-  const mode       = (op.mode||"highlight").toLowerCase();      // highlight | hide | keep
-  const rescaleY   = (op.rescaleY !== false);
-  const logic      = op.logic || "and";
-  const showValues = (op.showValues ?? "match");                 // "match" | "all" | "none"
-  const style      = op.style || {};                             // { matchFill, otherFill, matchStroke, otherOpacity }
+  const mode      = (op.mode||"keep").toLowerCase();       // keep | highlight | hide
+  const rescaleY  = (op.rescaleY !== false);
+  const logic     = op.logic || "and";
+  const style     = op.style || {};
+  const holdMs    = op.holdMs ?? 1200;                     // ← 막대 애니메이션 전 잠깐 멈춤
 
-  const conditions = Array.isArray(op.conditions) && op.conditions.length ? op.conditions
-                    : [op].filter(c => c && c.field);
-
+  const conditions = op.conditions || [];
   const pass = buildPredicate(conditions, logic);
   const allowedIds = new Set(fullData.filter(pass).map(r => idOf(r, facetField, xField)));
 
   const rects = g.selectAll("rect");
   if (rects.empty()) return currentData;
 
-  const yMaxForGuide = d3.max(fullData, r=>+r[yField]) || 1;
-  const yGuide = d3.scaleLinear().domain([0, yMaxForGuide]).nice().range([plot.h, 0]);
+  // 최종 y스케일 먼저 계산
+  const rowsForScale =
+    mode === "keep"
+      ? fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)))
+      : currentData; // highlight/hide는 도메인 유지 쪽이 자연스러움
+  const yMax = rescaleY ? d3.max(rowsForScale, r=>+r[yField]) : d3.max(currentData, r=>+r[yField]);
+  const yFinal = d3.scaleLinear().domain([0, yMax || 1]).nice().range([plot.h, 0]);
 
+  // ⬅️ 임계선: "최종 스케일" 기준으로 한 번만, 무애니메이션으로 고정 배치
+  drawYThresholdsOnce(svg, margins, plot, yFinal, yField, conditions);
+
+  // 잠깐 홀드(사용자가 기준선을 인지할 시간)
+  if (holdMs > 0) await delay(holdMs);
+
+  // 이후 실제 필터 적용
   if (mode==="highlight" || mode==="hide") {
     const dim = (mode==="hide") ? 0.08 : (style.otherOpacity ?? 0.25);
-
     const hit = [], miss = [];
-    rects.each(function(){
-      const d = d3.select(this).datum();
-      (allowedIds.has(idOfDatum(d)) ? hit : miss).push(this);
-    });
+    rects.each(function(){ const d = d3.select(this).datum(); (allowedIds.has(idOfDatum(d)) ? hit : miss).push(this); });
 
-    const t1 = d3.selectAll(hit).transition().duration(350)
+    const t1 = d3.selectAll(hit).transition().duration(650)
       .attr("opacity", 1)
       .attr("stroke", style.matchStroke || "black")
-      .attr("stroke-width", style.matchStroke ? 1.5 : 1)
-      .end();
-
-    const t2 = d3.selectAll(miss).transition().duration(350)
-      .attr("opacity", dim)
-      .attr("stroke", "none")
-      .end();
+      .attr("stroke-width", style.matchStroke ? 1.5 : 1).end();
+    const t2 = d3.selectAll(miss).transition().duration(650)
+      .attr("opacity", dim).attr("stroke", "none").end();
 
     if (style.matchFill) d3.selectAll(hit).attr("fill", style.matchFill);
     if (style.otherFill) d3.selectAll(miss).attr("fill", style.otherFill);
 
     await Promise.all([t1, t2]);
 
-    if (showValues !== "none") {
-      const targets = (showValues==="all") ? rects.nodes() : hit;
-      targets.forEach(node => {
-        const d = d3.select(node).datum();
-        const bb = node.getBBox();
-        const cx = margins.left + readGroupX(node) + bb.x + bb.width/2;
-        const cy = margins.top + bb.y - 6;
-        svg.append("text")
-          .attr("class","value-tag").attr("x", cx).attr("y", cy)
-          .attr("text-anchor","middle").attr("font-size",11).attr("font-weight","bold")
-          .attr("fill","#333").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-          .text(fmtNum(d.value));
-      });
-    }
+    svg.append("text").attr("class","filter-label")
+      .attr("x", margins.left).attr("y", margins.top - 10)
+      .attr("font-size", 14).attr("font-weight","bold").attr("fill","#0d6efd")
+      .text(describeFilter(conditions, logic));
 
-    drawThresholdsForY(svg, margins, plot, yGuide, yField, conditions);
+    return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
+  }
+
+  // keep 모드
+  const keepSel = rects.filter(function(){ const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
+  const dropSel = rects.filter(function(){ const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
+
+  await dropSel.transition().duration(500).attr("opacity",0).attr("width",0).remove().end();
+
+  const keptData = []; keepSel.each(function(){ keptData.push(d3.select(this).datum()); });
+  if (!keptData.length) return [];
+
+  const keptFacets = Array.from(new Set(keptData.map(d=>d.facet)));
+  const keptKeys   = Array.from(new Set(keptData.map(d=>d.key)));
+
+  const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
+  const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
+
+  const tasks = [];
+  keptFacets.forEach(fv => {
+    tasks.push(
+      g.select(`.facet-group-${cssEscape(String(fv))}`)
+        .transition().duration(900)
+        .attr("transform", `translate(${x0(fv)},0)`)
+        .attr("opacity", 1).end()
+    );
+  });
+  g.selectAll('[class^="facet-group-"]').each(function(){
+    const cls = this.getAttribute("class")||""; const fv  = cls.replace(/^facet-group-/, "");
+    if (!keptFacets.map(String).includes(String(fv))) d3.select(this).transition().duration(450).attr("opacity",0).remove();
+  });
+
+  keepSel.each(function(){
+    const R = d3.select(this), d = R.datum();
+    let sel = R.transition().duration(900)
+      .attr("x", x1(d.key)).attr("width", x1.bandwidth())
+      .attr("y", yFinal(d.value)).attr("height", plot.h - yFinal(d.value))
+      .attr("opacity", 1);
+    if (style.matchFill) sel.attr("fill", style.matchFill);
+  });
+
+  tasks.push(g.select(".y-axis").transition().duration(900).call(d3.axisLeft(yFinal)).end());
+  const bottom = g.select(".x-axis-bottom-line");
+  tasks.push(bottom.transition().duration(900).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
+  bottom.attr("transform", `translate(0,${plot.h})`);
+
+  await Promise.all(tasks);
+
+  svg.append("text").attr("class","filter-label")
+    .attr("x", margins.left).attr("y", margins.top - 10)
+    .attr("font-size",14).attr("font-weight","bold").attr("fill","#0d6efd")
+    .text(describeFilter(conditions, logic));
+
+  // 임계선은 이미 최종 스케일로 "한 번" 그렸으므로 재그리지 않음
+  return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
+}
+
+
+// ---------- FILTER (X축/범주 전용: 수평선 없음) ----------
+export async function groupedBarFilterByX(chartId, op, currentData, fullData) {
+  const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
+
+  // 주석만 정리(임계선은 유지)
+  svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
+
+  const mode      = (op.mode||"keep").toLowerCase();
+  const rescaleY  = (op.rescaleY !== false);
+  const logic     = op.logic || "and";
+  const style     = op.style || {};
+
+  const conditions = op.conditions || [];
+  const pass = buildPredicate(conditions, logic);
+  const allowedIds = new Set(fullData.filter(pass).map(r => idOf(r, facetField, xField)));
+
+  const rects = g.selectAll("rect");
+  if (rects.empty()) return currentData;
+
+  if (mode==="highlight" || mode==="hide") {
+    const dim = (mode==="hide") ? 0.08 : (style.otherOpacity ?? 0.25);
+    const hit = [], miss = [];
+    rects.each(function(){ const d = d3.select(this).datum(); (allowedIds.has(idOfDatum(d)) ? hit : miss).push(this); });
+
+    const t1 = d3.selectAll(hit).transition().duration(500)
+      .attr("opacity", 1).attr("stroke", style.matchStroke || "black").attr("stroke-width", style.matchStroke ? 1.5 : 1).end();
+    const t2 = d3.selectAll(miss).transition().duration(500)
+      .attr("opacity", dim).attr("stroke", "none").end();
+
+    if (style.matchFill) d3.selectAll(hit).attr("fill", style.matchFill);
+    if (style.otherFill) d3.selectAll(miss).attr("fill", style.otherFill);
+
+    await Promise.all([t1, t2]);
 
     svg.append("text").attr("class","filter-label")
       .attr("x", margins.left).attr("y", margins.top - 10)
@@ -201,19 +349,12 @@ export async function groupedBarFilter(chartId, op, currentData, fullData) {
   }
 
   // keep
-  const keepSel = rects.filter(function(){
-    const d = d3.select(this).datum();
-    return allowedIds.has(idOfDatum(d));
-  });
-  const dropSel = rects.filter(function(){
-    const d = d3.select(this).datum();
-    return !allowedIds.has(idOfDatum(d));
-  });
+  const keepSel = rects.filter(function(){ const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
+  const dropSel = rects.filter(function(){ const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
 
-  await dropSel.transition().duration(250).attr("opacity",0).attr("width",0).remove().end();
+  await dropSel.transition().duration(450).attr("opacity",0).attr("width",0).remove().end();
 
-  const keptData = [];
-  keepSel.each(function(){ keptData.push(d3.select(this).datum()); });
+  const keptData = []; keepSel.each(function(){ keptData.push(d3.select(this).datum()); });
   if (!keptData.length) return [];
 
   const keptFacets = Array.from(new Set(keptData.map(d=>d.facet)));
@@ -222,62 +363,37 @@ export async function groupedBarFilter(chartId, op, currentData, fullData) {
   const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
   const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
   const yMax = rescaleY ? d3.max(keptData, d=>d.value) : d3.max(currentData, r=>+r[yField]);
-  const y = d3.scaleLinear().domain([0, (yMax||1)]).nice().range([plot.h, 0]);
+  const y    = d3.scaleLinear().domain([0, (yMax||1)]).nice().range([plot.h, 0]);
 
   const tasks = [];
   keptFacets.forEach(fv => {
     tasks.push(
-      g.select(`.facet-group-${cssEscape(fv)}`)
-        .transition().duration(600)
+      g.select(`.facet-group-${cssEscape(String(fv))}`)
+        .transition().duration(800)
         .attr("transform", `translate(${x0(fv)},0)`)
-        .attr("opacity", 1)
-        .end()
+        .attr("opacity", 1).end()
     );
   });
-  g.selectAll(`[class^="facet-group-"]`).each(function(){
-    const cls = this.getAttribute("class")||"";
-    const fv  = cls.replace(/^facet-group-/, "");
-    if (!keptFacets.map(String).includes(String(fv))) {
-      d3.select(this).transition().duration(250).attr("opacity",0).remove();
-    }
+  g.selectAll('[class^="facet-group-"]').each(function(){
+    const cls = this.getAttribute("class")||""; const fv  = cls.replace(/^facet-group-/, "");
+    if (!keptFacets.map(String).includes(String(fv))) d3.select(this).transition().duration(400).attr("opacity",0).remove();
   });
 
   keepSel.each(function(){
     const R = d3.select(this), d = R.datum();
-    let sel = R.transition().duration(700)
-      .attr("x", x1(d.key))
-      .attr("width", x1.bandwidth())
-      .attr("y", y(d.value))
-      .attr("height", plot.h - y(d.value))
+    let sel = R.transition().duration(800)
+      .attr("x", x1(d.key)).attr("width", x1.bandwidth())
+      .attr("y", y(d.value)).attr("height", plot.h - y(d.value))
       .attr("opacity", 1);
     if (style.matchFill) sel.attr("fill", style.matchFill);
   });
-  tasks.push(g.select(".y-axis").transition().duration(700).call(d3.axisLeft(y)).end());
 
-  g.select(".x-axis-top-labels").transition().duration(300).attr("opacity", 0);
+  tasks.push(g.select(".y-axis").transition().duration(800).call(d3.axisLeft(y)).end());
   const bottom = g.select(".x-axis-bottom-line");
-  tasks.push(bottom.transition().duration(700)
-    .call(d3.axisBottom(x0).tickSizeOuter(0))
-    .end());
+  tasks.push(bottom.transition().duration(800).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
   bottom.attr("transform", `translate(0,${plot.h})`);
 
   await Promise.all(tasks);
-
-  if (showValues !== "none") {
-    keepSel.nodes().forEach(node => {
-      const d = d3.select(node).datum();
-      const bb = node.getBBox();
-      const cx = margins.left + readGroupX(node) + bb.x + bb.width/2;
-      const cy = margins.top + bb.y - 6;
-      svg.append("text").attr("class","value-tag")
-        .attr("x", cx).attr("y", cy)
-        .attr("text-anchor","middle").attr("font-size",11).attr("font-weight","bold")
-        .attr("fill","#333").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-        .text(fmtNum(d.value));
-    });
-  }
-
-  drawThresholdsForY(svg, margins, plot, y, yField, conditions);
 
   svg.append("text").attr("class","filter-label")
     .attr("x", margins.left).attr("y", margins.top - 10)
@@ -286,6 +402,7 @@ export async function groupedBarFilter(chartId, op, currentData, fullData) {
 
   return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
 }
+
 
 // ---------- RETRIEVE VALUE ----------
 export async function groupedBarRetrieveValue(chartId, op, currentData, fullData) {
@@ -442,50 +559,99 @@ export async function groupedBarDetermineRange(chartId, op, currentData) {
   return currentData;
 }
 
-// ---------- COMPARE ----------
+// ---------- COMPARE (범용 + 수평선 + 요약) ----------
 export async function groupedBarCompare(chartId, op, currentData) {
-  const { svg, g } = getSvgAndSetup(chartId);
-  clearAllAnnotations(svg);
+  const { svg, g, margins, plot } = getSvgAndSetup(chartId);
 
-  const L = findRectByTuple(g, op.left);
-  const R = findRectByTuple(g, op.right);
-  if (!L || !R) { console.warn("groupedBarCompare: 대상 막대를 찾지 못했어요", op); return currentData; }
+  // compare에서만 쓴 것만 정리(임계선/범위선 등은 유지)
+  svg.selectAll(".compare-label, .compare-summary, .compare-hline, .compare-dot, .compare-value").remove();
 
-  const ld = d3.select(L).datum(), rd = d3.select(R).datum();
+  const Ln = findRectByTuple(g, op.left);
+  const Rn = findRectByTuple(g, op.right);
+  if (!Ln || !Rn) { console.warn("groupedBarCompare: 대상 막대를 찾지 못했어요", op); return currentData; }
 
+  const L = d3.select(Ln), R = d3.select(Rn);
+  const ld = L.datum(),     rd = R.datum();  // { facet, key, value }
+
+  // 하이라이트(데이터 종류와 무관)
   await Promise.all([
-    d3.select(L).transition().duration(300).attr("stroke","#ffb74d").attr("stroke-width",2).end(),
-    d3.select(R).transition().duration(300).attr("stroke","#64b5f6").attr("stroke-width",2).end(),
+    L.transition().duration(500).attr("stroke","#ffb74d").attr("stroke-width",2).end(),
+    R.transition().duration(500).attr("stroke","#64b5f6").attr("stroke-width",2).end(),
   ]);
 
-  const pL = absCenter(svg, L), pR = absCenter(svg, R);
-  const diff = Math.abs(ld.value - rd.value);
+  // 막대 꼭대기 절대 좌표
+  const pL = absCenter(svg, Ln), pR = absCenter(svg, Rn);
+  const yL = pL.y, yR = pR.y;
 
-  svg.append("line").attr("class","annotation")
-    .attr("x1", pL.x).attr("y1", pL.y - 8)
-    .attr("x2", pL.x).attr("y2", pL.y - 8)
-    .attr("stroke","#333").attr("stroke-dasharray","4 4")
-    .transition().duration(300).attr("x2", pR.x);
+  // 두 값이 거의 같으면 라인/라벨 살짝 오프셋
+  const near = Math.abs(yL - yR) < 6;
+  const o = near ? 6 : 0;
 
-  svg.append("text").attr("class","annotation")
-    .attr("x", pL.x).attr("y", pL.y - 12).attr("text-anchor","middle")
+  // ⬇️ 두 값의 수평선(차트 전체 폭)
+  const drawH = (y, color, cls, dy=0) => {
+    svg.append("line")
+      .attr("class", `compare-hline ${cls}`)
+      .attr("x1", margins.left).attr("y1", y+dy)
+      .attr("x2", margins.left).attr("y2", y+dy)
+      .attr("stroke", color).attr("stroke-dasharray", "4 4")
+      .transition().duration(450)
+      .attr("x2", margins.left + plot.w);
+  };
+  drawH(yL, "#ffb74d", "left",  -o/2);
+  drawH(yR, "#64b5f6", "right", +o/2);
+
+  // 값 라벨(좌우로 벌려 겹침 방지)
+  const gap = 12;
+  svg.append("text").attr("class","compare-value")
+    .attr("x", pL.x - gap).attr("y", yL - 10 - o/2).attr("text-anchor","end")
     .attr("fill","#ffb74d").attr("font-weight","bold")
     .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
     .text(fmtNum(ld.value));
 
-  svg.append("text").attr("class","annotation")
-    .attr("x", pR.x).attr("y", pR.y - 12).attr("text-anchor","middle")
+  svg.append("text").attr("class","compare-value")
+    .attr("x", pR.x + gap).attr("y", yR - 10 + o/2).attr("text-anchor","start")
     .attr("fill","#64b5f6").attr("font-weight","bold")
     .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
     .text(fmtNum(rd.value));
 
-  svg.append("text").attr("class","annotation compare-label")
-    .attr("x", (pL.x+pR.x)/2).attr("y", Math.min(pL.y,pR.y) - 18)
+  // Δ 라벨(두 라인 중 더 위쪽 위에)
+  const topY = Math.min(yL - o/2, yR + o/2) - 14;
+  svg.append("text").attr("class","compare-label")
+    .attr("x", (pL.x+pR.x)/2).attr("y", topY)
     .attr("text-anchor","middle").attr("font-size",14).attr("font-weight","bold")
-    .attr("fill","#333").text(`Δ ${fmtNum(diff)}`);
+    .attr("fill","#333")
+    .text(`Δ ${fmtNum(Math.abs(ld.value - rd.value))}`);
+
+  // ✅ 요약 문장(데이터명 자동 생성: facet/key 중 있는 것만 조합)
+  const nameOf = (d) => {
+    const parts = [];
+    if (d.facet != null && d.facet !== "") parts.push(String(d.facet));
+    if (d.key   != null && d.key   !== "") parts.push(String(d.key));
+    return parts.join(" · ") || "선택값";
+  };
+  const leftName  = nameOf(ld);
+  const rightName = nameOf(rd);
+
+  let summary;
+  if (ld.value === rd.value) {
+    summary = `${leftName}와 ${rightName}는 같습니다 — ${fmtNum(ld.value)}`;
+  } else if (ld.value > rd.value) {
+    summary = `${leftName}가 ${rightName}보다 큽니다 (Δ ${fmtNum(ld.value - rd.value)})`;
+  } else {
+    summary = `${rightName}가 ${leftName}보다 큽니다 (Δ ${fmtNum(rd.value - ld.value)})`;
+  }
+
+  svg.append("text").attr("class","compare-summary")
+    .attr("x", margins.left).attr("y", margins.top - 28)
+    .attr("font-size", 13).attr("font-weight", "bold").attr("fill", "#111")
+    .text(summary);
 
   return currentData;
 }
+
+
+
+
 // groupedBarFunctions.js 내 groupedBarSort 교체본
 export async function groupedBarSort(chartId, op, currentData) {
   const { svg, g, plot } = getSvgAndSetup(chartId);

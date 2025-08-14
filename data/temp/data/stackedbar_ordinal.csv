@@ -1,0 +1,16 @@
+rating,age_group,count
+Strongly Disagree,18-29,15
+Strongly Disagree,30-49,25
+Strongly Disagree,50+,40
+Disagree,18-29,30
+Disagree,30-49,55
+Disagree,50+,50
+Neutral,18-29,80
+Neutral,30-49,95
+Neutral,50+,70
+Agree,18-29,120
+Agree,30-49,150
+Agree,50+,110
+Strongly Agree,18-29,60
+Strongly Agree,30-49,80
+Strongly Agree,50+,55
