@@ -31,103 +31,117 @@ export function getCenter(bar, orientation, margins) {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// simpleBarFunctions.js의 simpleBarFilter 함수 (최종 완성본)
-// simpleBarFunctions.js의 simpleBarFilter 함수 (수정 완료)
+// simpleBarFunctions.js
+
+// 렌더링 함수(renderSimpleBarChart)에 이 코드를 추가하여 sort 순서를 SVG에 저장해야 합니다.
+// svg.attr("data-x-sort-order", spec.encoding.x.sort ? spec.encoding.x.sort.join(',') : null);
+
 
 export async function simpleBarFilter(chartId, op, data, fullData) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     const matchColor = "#ffa500";
-    const baseColor = "#69b3a2";
+    let filteredData;
+    let labelText = "";
 
-    const filterField = op.field || yField;
-    const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
-    const satisfy = satisfyMap[op.satisfy] || (() => true);
-    const filterKey = isNaN(+op.key) ? op.key : +op.key;
-    const filteredData = data.filter(d => {
-        const value = isNaN(+d[filterField]) ? d[filterField] : +d[filterField];
-        return satisfy(value, filterKey);
-    });
+    // --- 추가된 부분: Ordinal X축 범위 필터링 로직 ---
+    const sortOrderStr = svg.attr("data-x-sort-order");
+    const sortOrder = sortOrderStr ? sortOrderStr.split(',') : [];
 
-    const yScaleFull = d3.scaleLinear().domain([0, d3.max(fullData, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
+    if (op.field === xField && (op.from || op.to) && sortOrder.length > 0) {
+        // Ordinal 필터링 수행
+        const fromIndex = op.from ? sortOrder.indexOf(op.from) : 0;
+        const toIndex = op.to ? sortOrder.indexOf(op.to) : sortOrder.length - 1;
 
-    if (!isNaN(filterKey)) {
-        const yPos = yScaleFull(filterKey);
-        const thresholdColor = "blue";
-        svg.append("line").attr("class", "threshold-line")
-            .attr("x1", margins.left).attr("y1", margins.top + yPos)
-            .attr("x2", margins.left).attr("y2", margins.top + yPos)
-            .attr("stroke", thresholdColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
-            .transition().duration(800)
-            .attr("x2", plot.w + margins.left);
-        svg.append("text").attr("class", "threshold-label")
-            .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
-            .attr("text-anchor", "start").attr("dominant-baseline", "middle")
-            .attr("fill", thresholdColor).attr("font-size", 12).attr("font-weight", "bold")
-            .text(filterKey)
-            .attr("opacity", 0).transition().delay(400).duration(400).attr("opacity", 1);
-        await delay(800);
-    }
-
-    const targetIds = new Set(filteredData.map(d => d.key || d[xField]));
-    const allBars = g.selectAll("rect");
-    const highlightPromises = [];
-    allBars.each(function() {
-        const bar = d3.select(this);
-        const d = bar.datum();
-        const id = d ? (d.key || d[xField]) : null;
-        const isTarget = id ? targetIds.has(id) : false;
-        if (isTarget) {
-            const t = bar.transition().duration(1000).attr("fill", matchColor).end();
-            highlightPromises.push(t);
+        if (fromIndex === -1 || toIndex === -1) {
+            console.warn("Invalid 'from' or 'to' value in sortOrder:", op);
+            return data; // 잘못된 키이면 현재 데이터 유지
         }
-    });
-    await Promise.all(highlightPromises);
 
+        const allowedCategories = new Set(sortOrder.slice(fromIndex, toIndex + 1));
+        filteredData = data.filter(d => allowedCategories.has(d[xField]));
+        
+        labelText = `Filter: ${xField} in [${sortOrder.slice(fromIndex, toIndex + 1).join(', ')}]`;
+
+    } else {
+        // --- 기존 로직: Nominal X축 또는 Quantitative Y축 필터링 ---
+        const filterField = op.field || yField;
+        const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
+        const satisfy = satisfyMap[op.satisfy] || (() => true);
+        const filterKey = isNaN(+op.key) ? op.key : +op.key;
+        
+        filteredData = data.filter(d => {
+            const value = isNaN(+d[filterField]) ? d[filterField] : +d[filterField];
+            return satisfy(value, filterKey);
+        });
+
+        labelText = `Filter: ${filterField} ${op.satisfy} ${op.key}`;
+
+        // y축 필터링일 때만 임계선 표시
+        if (filterField === yField && !isNaN(filterKey)) {
+            const yScaleFull = d3.scaleLinear().domain([0, d3.max(fullData, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
+            const yPos = yScaleFull(filterKey);
+            svg.append("line").attr("class", "threshold-line")
+                .attr("x1", margins.left).attr("y1", margins.top + yPos)
+                .attr("x2", margins.left + plot.w).attr("y2", margins.top + yPos)
+                .attr("stroke", "blue").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+            svg.append("text").attr("class", "threshold-label")
+                .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
+                .attr("dominant-baseline", "middle")
+                .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold")
+                .text(filterKey);
+        }
+    }
+    // --- 로직 분기 끝 ---
+
+
+    // --- 이후 시각화 업데이트 로직은 공통 ---
     if (filteredData.length === 0) {
-        console.warn("simpleBarFilter: Filtered data is empty.");
-        allBars.transition().duration(500).attr("opacity", 0).remove();
+        console.warn("Filter resulted in empty data.");
+        g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove();
         return [];
     }
     
-    const transformPromises = [];
-    const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.key || d[xField])).range([0, plot.w]).padding(0.2);
+    // x축 스케일 재설정 및 업데이트
+    const xScaleFiltered = d3.scaleBand()
+        .domain(filteredData.map(d => d[xField]))
+        .range([0, plot.w])
+        .padding(0.2);
 
-    // --- 여기가 핵심 수정 부분: Key 함수를 더 똑똑하게 변경 ---
-    const keyFunction = d => d.key || d[xField];
+    const keyFunction = d => d[xField];
     const bars = g.selectAll("rect").data(filteredData, keyFunction);
-    // --- 수정 끝 ---
 
-    transformPromises.push(bars.exit().transition().duration(800)
-        .attr("height", 0).attr("y", plot.h).remove().end());
+    const updatePromises = [];
+
+    // 사라지는 막대 처리
+    updatePromises.push(bars.exit().transition().duration(800)
+        .attr("opacity", 0).attr("height", 0).attr("y", plot.h).remove().end());
     
-    transformPromises.push(bars.transition().duration(800)
-        .attr("x", d => xScaleFiltered(d.key || d[xField])).attr("width", xScaleFiltered.bandwidth()).end());
+    // 남는 막대 위치/크기 업데이트
+    updatePromises.push(bars.transition().duration(800)
+        .attr("x", d => xScaleFiltered(d[xField]))
+        .attr("width", xScaleFiltered.bandwidth())
+        .attr("fill", matchColor).end());
 
-    transformPromises.push(g.select(".x-axis").transition().duration(800)
+    // x축 업데이트
+    updatePromises.push(g.select(".x-axis").transition().duration(800)
         .call(d3.axisBottom(xScaleFiltered)).end());
 
-    await Promise.all(transformPromises);
-
-    g.selectAll("rect").each(function() {
-        const bar = this;
-        const val = bar.getAttribute("data-value");
-        svg.append("text").attr("class", "value-tag")
-            .attr("x", getCenter(bar, "vertical", margins).x)
-            .attr("y", getCenter(bar, "vertical", margins).y)
-            .attr("text-anchor", "middle").attr("font-size", 10)
-            .attr("fill", "#000").attr("stroke", "white").attr("stroke-width", 2).attr("paint-order", "stroke")
-            .text(val);
-    });
+    await Promise.all(updatePromises);
     
+    // 필터 라벨 표시
     svg.append("text").attr("class", "filter-label")
         .attr("x", margins.left).attr("y", margins.top - 8)
         .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
-        .text(`Filter: ${filterField} ${op.satisfy} ${op.key}`);
+        .text(labelText);
 
     return filteredData;
 }
+
+
+
+
 export async function simpleBarRetrieveValue(chartId, op, data, fullData) {
     const { svg, g, xField, yField, orientation, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
