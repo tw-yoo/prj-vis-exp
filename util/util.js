@@ -47,8 +47,139 @@ export function getChartType(spec) {
   return null;
 }
 
+function getHostContainer(chartId) {
+  return document.querySelector(`[data-host-for="${chartId}"]`) ||
+         document.getElementById(chartId + '__host') ||
+         null;
+}
+
+function remapIdsForRenderer(chartId) {
+  const orig = document.getElementById(chartId);
+  if (!orig) return { host: null, canvas: null };
+  if (orig.classList && orig.classList.contains('chart-canvas')) {
+    const host = getHostContainer(chartId) || orig.parentElement;
+    return { host, canvas: orig };
+  }
+
+  let host = orig;
+  let canvas = host.querySelector(':scope > .chart-canvas');
+  if (!canvas) return { host, canvas: null };
+
+  host.setAttribute('data-host-for', chartId);
+  host.id = chartId + '__host';
+  canvas.id = chartId; // canvas becomes the public target id
+  return { host, canvas };
+}
+
+function ensureTempTableBelow(chartId, spec) {
+  const hostEl = getHostContainer(chartId) || document.getElementById(chartId);
+  const chartEl = hostEl; // keep the original variable name below for minimal diffs
+  if (!chartEl || !chartEl.parentNode) return;
+
+  let table = chartEl.querySelector(':scope > .temp-chart-table');
+  const hadExisting = !!table;
+  if (!table) {
+    table = document.createElement('div');
+    table.className = 'temp-chart-table';
+  }
+
+  const renderedWidth = chartEl.getBoundingClientRect ? chartEl.getBoundingClientRect().width : 0;
+  const fallbackWidth = (typeof spec?.width === 'number') ? spec.width : 600;
+  const targetWidth = Math.round(renderedWidth || fallbackWidth);
+
+  let renderedHeight = 0;
+  const canvasEl = document.getElementById(chartId) && document.getElementById(chartId).classList.contains('chart-canvas')
+      ? document.getElementById(chartId)
+      : chartEl.querySelector(':scope > .chart-canvas');
+  const svgEl = (canvasEl && canvasEl.querySelector('svg')) || (document.getElementById(chartId) && document.getElementById(chartId).querySelector('svg')) || chartEl.querySelector('svg');
+  if (svgEl && svgEl.getBoundingClientRect) {
+    renderedHeight = svgEl.getBoundingClientRect().height || 0;
+  } else if (canvasEl && canvasEl.getBoundingClientRect) {
+    renderedHeight = canvasEl.getBoundingClientRect().height || 0;
+  } else if (chartEl.getBoundingClientRect) {
+    renderedHeight = chartEl.getBoundingClientRect().height || 0;
+  }
+  const fallbackHeight = (typeof spec?.height === 'number') ? spec.height : 300;
+  const targetHeight = Math.max(1, Math.round((renderedHeight || fallbackHeight) * 0.2));
+
+  const hostWidth = chartEl.getBoundingClientRect ? Math.round(chartEl.getBoundingClientRect().width) : null;
+  const widthFromSvg = svgEl ? Math.round(svgEl.getBoundingClientRect().width) : null;
+
+  table.style.width = `${widthFromSvg || hostWidth || targetWidth}px`;
+  table.style.height = `${targetHeight}px`;
+
+  const currentCells = table.querySelectorAll(':scope > .temp-chart-cell').length;
+  for (let col = currentCells; col < 5; col++) {
+    const cell = document.createElement('div');
+    cell.className = 'temp-chart-cell';
+    cell.setAttribute('data-row', '0');
+    cell.setAttribute('data-col', String(col));
+    table.appendChild(cell);
+  }
+
+  if (!hadExisting) {
+    chartEl.appendChild(table);
+  }
+}
+
+function ensureChartCanvas(chartId) {
+  const container = document.getElementById(chartId) || getHostContainer(chartId);
+  if (!container) return null;
+  let canvas = container.querySelector(':scope > .chart-canvas');
+  if (!canvas) {
+    canvas = document.createElement('div');
+    canvas.className = 'chart-canvas';
+    container.insertBefore(canvas, container.firstChild);
+    const directSvg = container.querySelector(':scope > svg');
+    if (directSvg) {
+      canvas.appendChild(directSvg);
+    }
+  }
+  return canvas;
+}
+
+export async function stackChartToTempTable(chartId, vlSpec) {
+  const host = getHostContainer(chartId) || document.getElementById(chartId);
+  if (!host) return false;
+
+  const canvas = ensureChartCanvas(chartId);
+  remapIdsForRenderer(chartId);
+
+  const svg = (document.getElementById(chartId) && document.getElementById(chartId).querySelector('svg')) || (canvas && canvas.querySelector('svg')) || host.querySelector('svg');
+  const table = host.querySelector(':scope > .temp-chart-table');
+  if (!svg || !table) return false;
+
+  const cells = table.querySelectorAll(':scope > .temp-chart-cell');
+  if (!cells || cells.length === 0) return false;
+
+  const limit = Math.min(5, cells.length);
+  for (let i = 0; i < limit; i++) {
+    const cell = cells[i];
+    if (!cell) continue;
+
+    const hasChildElement = Array.from(cell.childNodes).some(n => n.nodeType === 1);
+    if (!hasChildElement) {
+      const clone = svg.cloneNode(true);
+
+      if (clone.removeAttribute) clone.removeAttribute('id');
+      clone.querySelectorAll && clone.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+
+      cell.textContent = '';
+      cell.appendChild(clone);
+
+      if (vlSpec) {
+        await renderChart(chartId, vlSpec);
+      }
+      return true;
+    }
+  }
+  return false;
+}
 
 export async function renderChart(chartId, spec) {
+    ensureChartCanvas(chartId);
+    remapIdsForRenderer(chartId);
+
     const chartType = await getChartType(spec);
     switch (chartType) {
         case ChartType.SIMPLE_BAR:
@@ -69,6 +200,6 @@ export async function renderChart(chartId, spec) {
         case ChartType.MULTI_LINE:
             await renderMultipleLineChart(chartId, spec);
             break;
-            
     }
+    ensureTempTableBelow(chartId, spec);
 }

@@ -18,13 +18,15 @@ import {
   stackedBarRetrieve,
     stackedBarFilter,
 } from "./stackedBarFunctions.js";
+import {OperationType} from "../../../object/operationType.js";
+import {stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {};
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 
-export async function runStackedBarOps(chartId, opsSpec, vlSpec) {
-  const svg = d3.select(`#${chartId}`).select("svg");
+export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
+    const svg = d3.select(`#${chartId}`).select("svg");
 
   if (svg.select(".plot-area").empty()) {
     if (!vlSpec) {

@@ -5,5 +5,6 @@ export const OperationType = Object.freeze({
     DETERMINE_RANGE: "determineRange",
     COMPARE: "compare",
     SORT: "sort",
+    STACK: "stack"
 });
 

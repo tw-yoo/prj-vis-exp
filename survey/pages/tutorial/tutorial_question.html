@@ -59,16 +59,21 @@
             </div>
         </div>
     </div>
+    <div class="panel-guide">
+        You can scroll through each panel independently to view all the information.
+    </div>
 
-    <div data-component="likert"
-         data-name="q_answer_correct"
-         data-question="Q1: The provided answer is correct."
-         data-labels="Yes|No|Not sure"></div>
+    <div class="likert-container">
+        <div data-component="likert"
+             data-name="q_answer_correct"
+             data-question="Q1: The provided answer is correct."
+             data-labels="Yes|No"></div>
 
-    <div data-component="likert"
-         data-name="q_explanation_correct"
-         data-question="Q2: The explanation correctly justifies why the answer is correct."
-         data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>
+        <div data-component="likert"
+             data-name="q_explanation_correct"
+             data-question="Q2: The explanation clearly demonstrates how the answer is reached."
+             data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>
+    </div>
 
     <p>When you are ready, click <strong>Next</strong> to continue.</p>
 </div>

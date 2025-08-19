@@ -11,10 +11,12 @@ import {
   clearAllAnnotations,
   delay
 } from "./groupedBarFunctions.js";
+import {OperationType} from "../../../object/operationType.js";
+import {stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {};
 
-export async function runGroupedBarOps(chartId, opsSpec) {
+export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
   const svg = d3.select(`#${chartId}`).select("svg");
   const chartInfo = chartDataStore[chartId];
 
@@ -37,29 +39,32 @@ export async function runGroupedBarOps(chartId, opsSpec) {
     clearAllAnnotations(d3.select(`#${chartId}`).select("svg"));
 
     switch (opType) {
-      case "filter":
-        currentData = await groupedBarFilter(chartId, op, currentData, fullData);
-        break;
+        case OperationType.FILTER:
+            currentData = await groupedBarFilter(chartId, op, currentData, fullData);
+            break;
 
-      case "retrievevalue":
-        currentData = await groupedBarRetrieveValue(chartId, op, currentData, fullData);
-        break;
+        case OperationType.RETRIEVE_VALUE:
+            currentData = await groupedBarRetrieveValue(chartId, op, currentData, fullData);
+            break;
 
-      case "findextremum":
-        currentData = await groupedBarFindExtremum(chartId, op, currentData, fullData);
-        break;
+        case OperationType.FIND_EXTREMUM:
+            currentData = await groupedBarFindExtremum(chartId, op, currentData, fullData);
+            break;
 
-      case "determinerange":
-        currentData = await groupedBarDetermineRange(chartId, op, currentData, fullData);
-        break;
+        case OperationType.DETERMINE_RANGE:
+            currentData = await groupedBarDetermineRange(chartId, op, currentData, fullData);
+            break;
 
-      case "compare":
-        currentData = await groupedBarCompare(chartId, op, currentData, fullData);
-        break;
+        case OperationType.COMPARE:
+            currentData = await groupedBarCompare(chartId, op, currentData, fullData);
+            break;
 
-      case "sort":
-        currentData = await groupedBarSort(chartId, op, currentData, fullData);
-        break;
+        case OperationType.SORT:
+            currentData = await groupedBarSort(chartId, op, currentData, fullData);
+            break;
+        case OperationType.STACK:
+            await stackChartToTempTable(chartId, vlSpec);
+            break
 
       case "focus":
         currentData = await groupedBarFocus(chartId, op, currentData, fullData);

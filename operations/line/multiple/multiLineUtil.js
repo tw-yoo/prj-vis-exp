@@ -17,6 +17,8 @@ import {
     multiLineRetrieveByX,
     multiLineFilterByY
 } from './multiLineFunctions.js';
+import {OperationType} from "../../../object/operationType.js";
+import {stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {};
 
@@ -50,8 +52,7 @@ async function fullChartReset(chartId) {
     await Promise.all(resetPromises);
 }
 
-
-export async function runMultipleLineOps(chartId, opsSpec) {
+export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
     await fullChartReset(chartId);
     
     const chartInfo = chartDataStore[chartId];

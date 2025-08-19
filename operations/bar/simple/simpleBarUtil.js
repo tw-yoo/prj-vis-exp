@@ -8,6 +8,7 @@ import {
   simpleBarSort,
   simpleBarSum
 } from "./simpleBarFunctions.js";
+import {stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {};
 function clearAllAnnotations(svg) {
@@ -32,8 +33,7 @@ function getSvgAndSetup(chartId) {
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-
-export async function runSimpleBarOps(chartId, opsSpec) {
+export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
     const { svg, g } = getSvgAndSetup(chartId);
 
     clearAllAnnotations(svg);
@@ -60,27 +60,30 @@ export async function runSimpleBarOps(chartId, opsSpec) {
         const operation = opsSpec.ops[i];
 
         switch (operation.op.toLowerCase()) {
-            case 'retrievevalue':
+            case OperationType.RETRIEVE_VALUE:
                 currentData = await simpleBarRetrieveValue(chartId, operation, currentData, fullData);
                 break;
-            case 'filter':
+            case OperationType.FILTER:
                 currentData = await simpleBarFilter(chartId, operation, currentData, fullData);
                 break;
-            case 'findextremum':
+            case OperationType.FIND_EXTREMUM:
                 currentData = await simpleBarFindExtremum(chartId, operation, currentData, fullData);
                 break;
-            case 'determinerange':
+            case OperationType.DETERMINE_RANGE:
                 currentData = await simpleBarDetermineRange(chartId, operation, currentData, fullData);
                 break;
-            case 'compare':
+            case OperationType.COMPARE:
                 currentData = await simpleBarCompare(chartId, operation, currentData, fullData);
                 break;
-            case 'sort':
+            case OperationType.SORT:
                 currentData = await simpleBarSort(chartId, operation, currentData, fullData);
                 break;
             case 'sum':
                 currentData = await simpleBarSum(chartId, operation, currentData, fullData);
                 break;
+            case OperationType.STACK:
+                await stackChartToTempTable(chartId, vlSpec);
+                break
             default:
                 console.warn(`Unsupported operation: ${operation.op}`);
         }

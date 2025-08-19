@@ -4,6 +4,10 @@ html, body {
     line-height: 1.6;
 }
 
+h1, h2, h3 {
+    margin: 0;
+}
+
 :root {
   --divider-color: rgba(0, 0, 0, 0.12);
 }
@@ -33,7 +37,7 @@ html, body {
 
 .main-fixed {
     /* Header and footer sections stay their own height */
-    min-height: 20px; /* ensures visibility on very short viewports */
+    min-height: 5px; /* ensures visibility on very short viewports */
 }
 
 .main-scroll {
@@ -42,7 +46,7 @@ html, body {
     scrollbar-gutter: stable both-edges;
     overflow-y: scroll;
     /*background: #e2ecd7; !* scrollable area placeholder color *!*/
-    padding-top: 25px;
+    padding-top: 0px;
     padding-right: 25px;
     padding-bottom: 25px;
     padding-left: 25px;
@@ -54,6 +58,7 @@ html, body {
     overflow: hidden;
     position: relative;
     --split-left: 50%;
+    border: 1px solid;
 }
 .split-container .left,
 .split-container .right {
@@ -88,6 +93,16 @@ html, body {
     scrollbar-gutter: stable both-edges;
     overflow-y: scroll;
     padding: 10px;
+}
+
+.panel-guide {
+    border: 1px solid;
+    display: flex;
+    justify-content: center; /* horizontal centering */
+    align-items: center;    /* vertical centering */
+    font-weight: bold;
+    font-size: 1.2em;
+    text-align: center;     /* ensures text stays centered if multi-line */
 }
 
 .page-fixed-header {
