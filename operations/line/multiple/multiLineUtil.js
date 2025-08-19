@@ -1,29 +1,25 @@
-// multipleLineUtil.js
 
 import {
-    // Import all simple line functions that will be used after the transformation
+
     simpleLineCompare,
     simpleLineDetermineRange,
     simpleLineFilter,
     simpleLineFindExtremum,
     simpleLineRetrieveValue,
     simpleLineSort,
-    // Import helpers from simple line as they are compatible
+
     clearAllAnnotations as simpleClearAllAnnotations,
     delay
 } from '../simple/simpleLineFunctions.js';
 
 import {
-    // The one unique function for multi-line charts
-    multipleLineChangeToSimple
+    multipleLineChangeToSimple,
+    multiLineRetrieveByX,
+    multiLineFilterByY
 } from './multiLineFunctions.js';
 
-// Global store for chart data and state
 const chartDataStore = {};
 
-/**
- * Resets the chart to its initial multi-line state before running new operations.
- */
 async function fullChartReset(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     if (svg.empty()) return;
@@ -31,13 +27,11 @@ async function fullChartReset(chartId) {
     const g = svg.select(".plot-area");
     const { colorScale } = chartDataStore[chartId];
 
-    // Remove all annotations and temporary elements
     simpleClearAllAnnotations(svg);
     g.selectAll(".datapoint").remove();
 
     const resetPromises = [];
 
-    // Restore all series lines
     resetPromises.push(g.selectAll("path.series-line")
         .transition().duration(400)
         .attr("opacity", 1)
@@ -46,7 +40,7 @@ async function fullChartReset(chartId) {
         .end()
     );
 
-    // Restore the legend
+
     resetPromises.push(g.select(".legend")
         .transition().duration(400)
         .attr("opacity", 1)
@@ -57,87 +51,66 @@ async function fullChartReset(chartId) {
 }
 
 
-/**
- * Runs a sequence of operations on a multiple line chart.
- * It handles the transformation to a simple line chart.
- */
 export async function runMultipleLineOps(chartId, opsSpec) {
-    // 1. Reset the chart to its original state before starting
     await fullChartReset(chartId);
     
     const chartInfo = chartDataStore[chartId];
     if (!chartInfo) {
-        console.error(`runMultipleLineOps: No data in store for chartId '${chartId}'. Render the chart first.`);
+        console.error(`runMultipleLineOps: No data in store for chartId '${chartId}'.`);
         return;
     }
     
-    // Start with the full dataset
-    const fullData = chartInfo.data;
-    let currentData = [...fullData];
-    let isTransformed = false; // State to track if we've switched to simple-line mode
+    let currentData = [...chartInfo.data];
+    let isTransformed = false;
 
-    // 2. Loop through the operations
     for (let i = 0; i < opsSpec.ops.length; i++) {
         const operation = opsSpec.ops[i];
         const opType = operation.op.toLowerCase();
 
         if (isTransformed) {
-            // After transformation, use simple line functions
             switch (opType) {
-                case 'retrievevalue':
-                    currentData = await simpleLineRetrieveValue(chartId, operation, currentData, fullData);
-                    break;
-                case 'filter':
-                    currentData = await simpleLineFilter(chartId, operation, currentData, fullData);
-                    break;
-                case 'findextremum':
-                    currentData = await simpleLineFindExtremum(chartId, operation, currentData, fullData);
-                    break;
-                case 'determinerange':
-                    currentData = await simpleLineDetermineRange(chartId, operation, currentData, fullData);
-                    break;
-                case 'compare':
-                    currentData = await simpleLineCompare(chartId, operation, currentData, fullData);
-                    break;
-                case 'sort':
-                    // Note: Sort is less meaningful for time-series but implemented for completeness
-                    currentData = await simpleLineSort(chartId, operation, currentData, fullData);
-                    break;
-                default:
-                    console.warn(`Unsupported operation after transformation: ${operation.op}`);
+                case 'retrievevalue': currentData = await simpleLineRetrieveValue(chartId, operation, currentData, chartInfo.data); break;
+                case 'filter':        currentData = await simpleLineFilter(chartId, operation, currentData, chartInfo.data); break;
+                case 'findextremum':  currentData = await simpleLineFindExtremum(chartId, operation, currentData, chartInfo.data); break;
+                case 'determinerange':currentData = await simpleLineDetermineRange(chartId, operation, currentData, chartInfo.data); break;
+                case 'compare':       currentData = await simpleLineCompare(chartId, operation, currentData, chartInfo.data); break;
+                case 'sort':          currentData = await simpleLineSort(chartId, operation, currentData, chartInfo.data); break;
+                default: console.warn(`Unsupported operation after transformation: ${operation.op}`);
             }
         } else {
-            // Before transformation, only 'changetosimple' is allowed
+
             switch (opType) {
                 case 'changetosimple':
-                    // Pass the full chartInfo object which contains series, scales, etc.
                     currentData = await multipleLineChangeToSimple(chartId, operation, currentData, chartInfo);
-                    isTransformed = true; // CRITICAL: Update state after transformation
+                    isTransformed = true;
+                    break;
+                
+                case 'retrievebyx':
+                    await multiLineRetrieveByX(chartId, operation, chartInfo);
+                    break;
+                case 'filterbyy': 
+                    await multiLineFilterByY(chartId, operation, chartInfo);
                     break;
                 default:
-                    console.warn(`Invalid operation. You must start with 'changeToSimple' for a multiple-line chart. Received: '${opType}'`);
-                    return; // Stop execution if the sequence is invalid
+                    console.warn(`Invalid operation. Received: '${opType}'`);
+                    return;
             }
+
         }
 
-        // Add a delay between operations for visualization
         if (i < opsSpec.ops.length - 1) {
-            await delay(2500); // Wait 2.5 seconds before the next step
-             if (isTransformed) {
-                // After a simple operation, we might want to reset highlights before the next one
-                const svg = d3.select(`#${chartId} svg`);
-                simpleClearAllAnnotations(svg);
-                svg.selectAll("circle.datapoint").transition().duration(300).attr("r", 5).attr("opacity", 0);
-                await delay(300);
+            await delay(2500);
+            if (isTransformed) {
+                 const svg = d3.select(`#${chartId} svg`);
+                 simpleClearAllAnnotations(svg);
+                 svg.selectAll("circle.datapoint").transition().duration(300).attr("r", 5).attr("opacity", 0);
+                 await delay(300);
             }
         }
     }
 }
 
 
-/**
- * Renders the initial multiple line chart from a Vega-Lite-like spec.
- */
 export async function renderMultipleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
@@ -170,7 +143,6 @@ export async function renderMultipleLineChart(chartId, spec) {
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
         .domain(series.map(s => s.key));
 
-    // Store data and scales for operations
     chartDataStore[chartId] = {
         data,
         series,

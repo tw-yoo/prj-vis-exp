@@ -31,12 +31,6 @@ export function getCenter(bar, orientation, margins) {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// simpleBarFunctions.js
-
-// 렌더링 함수(renderSimpleBarChart)에 이 코드를 추가하여 sort 순서를 SVG에 저장해야 합니다.
-// svg.attr("data-x-sort-order", spec.encoding.x.sort ? spec.encoding.x.sort.join(',') : null);
-
-
 export async function simpleBarFilter(chartId, op, data, fullData) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -45,18 +39,17 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
     let filteredData;
     let labelText = "";
 
-    // --- 추가된 부분: Ordinal X축 범위 필터링 로직 ---
     const sortOrderStr = svg.attr("data-x-sort-order");
     const sortOrder = sortOrderStr ? sortOrderStr.split(',') : [];
 
     if (op.field === xField && (op.from || op.to) && sortOrder.length > 0) {
-        // Ordinal 필터링 수행
+
         const fromIndex = op.from ? sortOrder.indexOf(op.from) : 0;
         const toIndex = op.to ? sortOrder.indexOf(op.to) : sortOrder.length - 1;
 
         if (fromIndex === -1 || toIndex === -1) {
             console.warn("Invalid 'from' or 'to' value in sortOrder:", op);
-            return data; // 잘못된 키이면 현재 데이터 유지
+            return data;
         }
 
         const allowedCategories = new Set(sortOrder.slice(fromIndex, toIndex + 1));
@@ -65,7 +58,6 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
         labelText = `Filter: ${xField} in [${sortOrder.slice(fromIndex, toIndex + 1).join(', ')}]`;
 
     } else {
-        // --- 기존 로직: Nominal X축 또는 Quantitative Y축 필터링 ---
         const filterField = op.field || yField;
         const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
         const satisfy = satisfyMap[op.satisfy] || (() => true);
@@ -78,7 +70,6 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
 
         labelText = `Filter: ${filterField} ${op.satisfy} ${op.key}`;
 
-        // y축 필터링일 때만 임계선 표시
         if (filterField === yField && !isNaN(filterKey)) {
             const yScaleFull = d3.scaleLinear().domain([0, d3.max(fullData, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
             const yPos = yScaleFull(filterKey);
@@ -93,17 +84,13 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
                 .text(filterKey);
         }
     }
-    // --- 로직 분기 끝 ---
 
-
-    // --- 이후 시각화 업데이트 로직은 공통 ---
     if (filteredData.length === 0) {
         console.warn("Filter resulted in empty data.");
         g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove();
         return [];
     }
-    
-    // x축 스케일 재설정 및 업데이트
+
     const xScaleFiltered = d3.scaleBand()
         .domain(filteredData.map(d => d[xField]))
         .range([0, plot.w])
@@ -114,23 +101,19 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
 
     const updatePromises = [];
 
-    // 사라지는 막대 처리
     updatePromises.push(bars.exit().transition().duration(800)
         .attr("opacity", 0).attr("height", 0).attr("y", plot.h).remove().end());
     
-    // 남는 막대 위치/크기 업데이트
     updatePromises.push(bars.transition().duration(800)
         .attr("x", d => xScaleFiltered(d[xField]))
         .attr("width", xScaleFiltered.bandwidth())
         .attr("fill", matchColor).end());
 
-    // x축 업데이트
     updatePromises.push(g.select(".x-axis").transition().duration(800)
         .call(d3.axisBottom(xScaleFiltered)).end());
 
     await Promise.all(updatePromises);
-    
-    // 필터 라벨 표시
+
     svg.append("text").attr("class", "filter-label")
         .attr("x", margins.left).attr("y", margins.top - 8)
         .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
@@ -445,4 +428,63 @@ const yScale = d3.scaleLinear()
     await Promise.all(animationPromises);
     
     return data;
+}
+
+export async function simpleBarSum(chartId, op, currentData) {
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const sumField = op.field || yField;
+    const totalSum = d3.sum(currentData, d => d[sumField]);
+
+    const newYScale = d3.scaleLinear()
+        .domain([0, totalSum]).nice()
+        .range([plot.h, 0]);
+
+    const yAxisTransition = svg.select(".y-axis").transition().duration(1000)
+        .call(d3.axisLeft(newYScale))
+        .end();
+
+    const bars = g.selectAll("rect");
+    const barWidth = +bars.attr("width");
+    const targetX = plot.w / 2 - barWidth / 2; 
+
+    let runningTotal = 0;
+    const stackPromises = [];
+
+    bars.each(function(d) {
+        const value = d[sumField];
+        const rect = d3.select(this);
+        
+        const t = rect.transition().duration(1200)
+            .attr("x", targetX)
+            .attr("y", newYScale(runningTotal + value))
+            .attr("height", plot.h - newYScale(value))
+            .end();
+        
+        stackPromises.push(t);
+        runningTotal += value;
+    });
+
+    await Promise.all([yAxisTransition, ...stackPromises]);
+    await delay(200);
+
+    const finalY = newYScale(totalSum);
+
+    svg.append("line").attr("class", "annotation value-line")
+        .attr("x1", margins.left)
+        .attr("y1", margins.top + finalY)
+        .attr("x2", margins.left + plot.w)
+        .attr("y2", margins.top + finalY)
+        .attr("stroke", "red")
+        .attr("stroke-width", 2);
+
+    svg.append("text").attr("class", "annotation value-tag")
+        .attr("x", margins.left + plot.w - 10) 
+        .attr("y", margins.top + finalY - 10) 
+        .attr("fill", "red")
+        .attr("font-weight", "bold")
+        .attr("text-anchor", "end") 
+        .text(`Sum: ${totalSum.toLocaleString()}`);
+    return currentData; 
 }
