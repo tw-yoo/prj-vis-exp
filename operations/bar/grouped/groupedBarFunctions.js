@@ -1,5 +1,3 @@
-// groupedBarFunctions.js — 중복 제거 최종본
-
 // ---------- 공통 셋업 ----------
 export function getSvgAndSetup(chartId) {
   const svg = d3.select(`#${chartId}`).select("svg");
@@ -21,7 +19,6 @@ export function clearAllAnnotations(svg) {
 
 export const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
-// ---------- 유틸(한 번만 선언) ----------
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
 function fmtNum(v){ return (v!=null && isFinite(v)) ? (+v).toLocaleString() : String(v); }
@@ -29,7 +26,6 @@ function cssEscape(x){ try{ return CSS.escape(String(x)); } catch { return Strin
 function idOf(row, facetField, xField) { return `${row[facetField]}-${row[xField]}`; }
 function idOfDatum(d) { return `${d.facet}-${d.key}`; }
 
-// parent <g transform="translate(x,0)"> 의 x를 안전하게 읽기
 function readGroupX(node) {
   const p = node?.parentNode;
   if (!p) return 0;
@@ -126,8 +122,6 @@ function findRectByTuple(g, t={}) {
   return sel.empty() ? null : sel.node();
 }
 
-
-// --- helper: 조건 분류 ---
 function splitCondsByAxis(conds, yField) {
   const yConds = [], xConds = [];
   (conds||[]).forEach(c => {
@@ -136,7 +130,7 @@ function splitCondsByAxis(conds, yField) {
     else xConds.push(c);
   });
   return { yConds, xConds };
-}// --- 새 헬퍼: 임계선 "한 번만" 정적으로 그리기/업데이트 ---
+}
 function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
   const yConds = (conditions||[]).filter(c =>
     c.field === yField && (c.from!=null || c.to!=null || (c.satisfy && c.key!=null))
@@ -149,7 +143,7 @@ function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
       uniq.set(`${c.satisfy}:${+c.key}`, { y:+c.key, label:`${c.satisfy} ${fmtNum(+c.key)}` });
   });
 
-  // 기존 임계선 싹 비우고(중복·깜빡임 방지) → 새로 "고정" 그리기
+  
   svg.selectAll(".threshold-line, .threshold-label").remove();
 
   for (const [id, { y, label }] of uniq) {
@@ -171,15 +165,11 @@ function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
 }
 
 
-
-
-// ---------- FILTER 라우터 ----------
 export async function groupedBarFilter(chartId, op, currentData, fullData) {
   const { yField } = getSvgAndSetup(chartId);
   const conditions = Array.isArray(op.conditions) && op.conditions.length ? op.conditions : [op].filter(Boolean);
   const { yConds, xConds } = splitCondsByAxis(conditions, yField);
 
-  // 둘 다 있으면: Y 기준 먼저(수평선 표시) → X 기준
   if (yConds.length && xConds.length) {
     const mid = { ...op, conditions: yConds };
     currentData = await groupedBarFilterByY(chartId, mid, currentData, fullData);
@@ -191,18 +181,17 @@ export async function groupedBarFilter(chartId, op, currentData, fullData) {
   }
   return await groupedBarFilterByX(chartId, { ...op, conditions: xConds }, currentData, fullData);
 }
-// ---------- FILTER (Y축 전용: 한 번만, 무애니메이션, 홀드) ----------
+
 export async function groupedBarFilterByY(chartId, op, currentData, fullData) {
   const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
 
-  // 주석만 정리 (임계선은 이 함수가 책임지고 다시 그림)
   svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
 
-  const mode      = (op.mode||"keep").toLowerCase();       // keep | highlight | hide
+  const mode      = (op.mode||"keep").toLowerCase();
   const rescaleY  = (op.rescaleY !== false);
   const logic     = op.logic || "and";
   const style     = op.style || {};
-  const holdMs    = op.holdMs ?? 1200;                     // ← 막대 애니메이션 전 잠깐 멈춤
+  const holdMs    = op.holdMs ?? 1200;                    
 
   const conditions = op.conditions || [];
   const pass = buildPredicate(conditions, logic);
@@ -211,21 +200,19 @@ export async function groupedBarFilterByY(chartId, op, currentData, fullData) {
   const rects = g.selectAll("rect");
   if (rects.empty()) return currentData;
 
-  // 최종 y스케일 먼저 계산
+
   const rowsForScale =
     mode === "keep"
       ? fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)))
-      : currentData; // highlight/hide는 도메인 유지 쪽이 자연스러움
+      : currentData; 
   const yMax = rescaleY ? d3.max(rowsForScale, r=>+r[yField]) : d3.max(currentData, r=>+r[yField]);
   const yFinal = d3.scaleLinear().domain([0, yMax || 1]).nice().range([plot.h, 0]);
 
-  // ⬅️ 임계선: "최종 스케일" 기준으로 한 번만, 무애니메이션으로 고정 배치
   drawYThresholdsOnce(svg, margins, plot, yFinal, yField, conditions);
 
-  // 잠깐 홀드(사용자가 기준선을 인지할 시간)
+
   if (holdMs > 0) await delay(holdMs);
 
-  // 이후 실제 필터 적용
   if (mode==="highlight" || mode==="hide") {
     const dim = (mode==="hide") ? 0.08 : (style.otherOpacity ?? 0.25);
     const hit = [], miss = [];
@@ -251,7 +238,7 @@ export async function groupedBarFilterByY(chartId, op, currentData, fullData) {
     return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
   }
 
-  // keep 모드
+
   const keepSel = rects.filter(function(){ const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
   const dropSel = rects.filter(function(){ const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
 
@@ -301,16 +288,15 @@ export async function groupedBarFilterByY(chartId, op, currentData, fullData) {
     .attr("font-size",14).attr("font-weight","bold").attr("fill","#0d6efd")
     .text(describeFilter(conditions, logic));
 
-  // 임계선은 이미 최종 스케일로 "한 번" 그렸으므로 재그리지 않음
   return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
 }
 
 
-// ---------- FILTER (X축/범주 전용: 수평선 없음) ----------
+
 export async function groupedBarFilterByX(chartId, op, currentData, fullData) {
   const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
 
-  // 주석만 정리(임계선은 유지)
+
   svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
 
   const mode      = (op.mode||"keep").toLowerCase();
@@ -348,7 +334,7 @@ export async function groupedBarFilterByX(chartId, op, currentData, fullData) {
     return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
   }
 
-  // keep
+
   const keepSel = rects.filter(function(){ const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
   const dropSel = rects.filter(function(){ const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
 
@@ -404,7 +390,6 @@ export async function groupedBarFilterByX(chartId, op, currentData, fullData) {
 }
 
 
-// ---------- RETRIEVE VALUE ----------
 export async function groupedBarRetrieveValue(chartId, op, currentData, fullData) {
   const { svg, g, margins, plot } = getSvgAndSetup(chartId);
   clearAllAnnotations(svg);
@@ -440,7 +425,6 @@ export async function groupedBarRetrieveValue(chartId, op, currentData, fullData
   return currentData;
 }
 
-// ---------- FIND EXTREMUM ----------
 export async function groupedBarFindExtremum(chartId, op, currentData) {
   const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
   clearAllAnnotations(svg);
@@ -502,7 +486,6 @@ export async function groupedBarFindExtremum(chartId, op, currentData) {
   return currentData;
 }
 
-// ---------- DETERMINE RANGE ----------
 export async function groupedBarDetermineRange(chartId, op, currentData) {
   const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
   clearAllAnnotations(svg);
@@ -559,11 +542,9 @@ export async function groupedBarDetermineRange(chartId, op, currentData) {
   return currentData;
 }
 
-// ---------- COMPARE (범용 + 수평선 + 요약) ----------
 export async function groupedBarCompare(chartId, op, currentData) {
   const { svg, g, margins, plot } = getSvgAndSetup(chartId);
 
-  // compare에서만 쓴 것만 정리(임계선/범위선 등은 유지)
   svg.selectAll(".compare-label, .compare-summary, .compare-hline, .compare-dot, .compare-value").remove();
 
   const Ln = findRectByTuple(g, op.left);
@@ -571,23 +552,19 @@ export async function groupedBarCompare(chartId, op, currentData) {
   if (!Ln || !Rn) { console.warn("groupedBarCompare: 대상 막대를 찾지 못했어요", op); return currentData; }
 
   const L = d3.select(Ln), R = d3.select(Rn);
-  const ld = L.datum(),     rd = R.datum();  // { facet, key, value }
+  const ld = L.datum(),     rd = R.datum(); 
 
-  // 하이라이트(데이터 종류와 무관)
   await Promise.all([
     L.transition().duration(500).attr("stroke","#ffb74d").attr("stroke-width",2).end(),
     R.transition().duration(500).attr("stroke","#64b5f6").attr("stroke-width",2).end(),
   ]);
 
-  // 막대 꼭대기 절대 좌표
   const pL = absCenter(svg, Ln), pR = absCenter(svg, Rn);
   const yL = pL.y, yR = pR.y;
 
-  // 두 값이 거의 같으면 라인/라벨 살짝 오프셋
   const near = Math.abs(yL - yR) < 6;
   const o = near ? 6 : 0;
 
-  // ⬇️ 두 값의 수평선(차트 전체 폭)
   const drawH = (y, color, cls, dy=0) => {
     svg.append("line")
       .attr("class", `compare-hline ${cls}`)
@@ -600,7 +577,6 @@ export async function groupedBarCompare(chartId, op, currentData) {
   drawH(yL, "#ffb74d", "left",  -o/2);
   drawH(yR, "#64b5f6", "right", +o/2);
 
-  // 값 라벨(좌우로 벌려 겹침 방지)
   const gap = 12;
   svg.append("text").attr("class","compare-value")
     .attr("x", pL.x - gap).attr("y", yL - 10 - o/2).attr("text-anchor","end")
@@ -614,7 +590,6 @@ export async function groupedBarCompare(chartId, op, currentData) {
     .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
     .text(fmtNum(rd.value));
 
-  // Δ 라벨(두 라인 중 더 위쪽 위에)
   const topY = Math.min(yL - o/2, yR + o/2) - 14;
   svg.append("text").attr("class","compare-label")
     .attr("x", (pL.x+pR.x)/2).attr("y", topY)
@@ -622,7 +597,6 @@ export async function groupedBarCompare(chartId, op, currentData) {
     .attr("fill","#333")
     .text(`Δ ${fmtNum(Math.abs(ld.value - rd.value))}`);
 
-  // ✅ 요약 문장(데이터명 자동 생성: facet/key 중 있는 것만 조합)
   const nameOf = (d) => {
     const parts = [];
     if (d.facet != null && d.facet !== "") parts.push(String(d.facet));
@@ -650,9 +624,6 @@ export async function groupedBarCompare(chartId, op, currentData) {
 }
 
 
-
-
-// groupedBarFunctions.js 내 groupedBarSort 교체본
 export async function groupedBarSort(chartId, op, currentData) {
   const { svg, g, plot } = getSvgAndSetup(chartId);
   clearAllAnnotations(svg);
@@ -665,7 +636,7 @@ export async function groupedBarSort(chartId, op, currentData) {
   const rectData = g.selectAll("rect").data();
 
   if (target === "facet") {
-    // 1) 정렬 순서 계산
+
     let facets = Array.from(new Set(rectData.map(d=>d.facet)));
     if (by === "key") {
       facets.sort((a,b)=> asc ? (a>b?1:-1) : (a<b?1:-1));
@@ -674,7 +645,6 @@ export async function groupedBarSort(chartId, op, currentData) {
       facets.sort((a,b)=> asc ? (sum.get(a)-sum.get(b)) : (sum.get(b)-sum.get(a)));
     }
 
-    // 2) 스케일과 그룹 위치 업데이트
     const x0 = d3.scaleBand().domain(facets).range([0, plot.w]).paddingInner(0.2);
     const tasks = [];
     facets.forEach(f => {
@@ -685,7 +655,6 @@ export async function groupedBarSort(chartId, op, currentData) {
       );
     });
 
-    // 3) 아래축을 "보이는" 라벨로 갱신 (← 핵심: tickFormat("") 제거)
     let bottom = g.select(".x-axis-bottom-line");
     if (bottom.empty()) {
       bottom = g.append("g").attr("class","x-axis-bottom-line");
@@ -693,13 +662,12 @@ export async function groupedBarSort(chartId, op, currentData) {
     bottom.attr("transform", `translate(0,${plot.h})`);
     tasks.push(
       bottom.transition().duration(700)
-        .call(d3.axisBottom(x0).tickSizeOuter(0)) // 라벨 출력!
+        .call(d3.axisBottom(x0).tickSizeOuter(0)) 
         .end()
     );
 
     await Promise.all(tasks);
 
-    // 4) 읽기 좋게 라벨 약간 기울이기(겹침 방지)
     bottom.selectAll("text")
       .attr("dy", "0.7em")
       .attr("dx", "-0.3em")
@@ -709,7 +677,6 @@ export async function groupedBarSort(chartId, op, currentData) {
     return currentData;
   }
 
-  // 기존 x(target) 정렬 분기는 그대로 둠
   const facets = Array.from(new Set(rectData.map(d=>d.facet)));
   const moveTasks = [];
   facets.forEach(f=>{
@@ -735,7 +702,6 @@ export async function groupedBarSort(chartId, op, currentData) {
   return currentData;
 }
 
-// ---------- FOCUS ----------
 export async function groupedBarFocus(chartId, op, currentData, fullData) {
   const key = op.x ?? op.key ?? op.label;
   if (key==null) { console.warn("groupedBarFocus: key(x) 필요"); return currentData; }

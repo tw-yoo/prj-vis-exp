@@ -31,103 +31,100 @@ export function getCenter(bar, orientation, margins) {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// simpleBarFunctions.js의 simpleBarFilter 함수 (최종 완성본)
-// simpleBarFunctions.js의 simpleBarFilter 함수 (수정 완료)
-
 export async function simpleBarFilter(chartId, op, data, fullData) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     const matchColor = "#ffa500";
-    const baseColor = "#69b3a2";
+    let filteredData;
+    let labelText = "";
 
-    const filterField = op.field || yField;
-    const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
-    const satisfy = satisfyMap[op.satisfy] || (() => true);
-    const filterKey = isNaN(+op.key) ? op.key : +op.key;
-    const filteredData = data.filter(d => {
-        const value = isNaN(+d[filterField]) ? d[filterField] : +d[filterField];
-        return satisfy(value, filterKey);
-    });
+    const sortOrderStr = svg.attr("data-x-sort-order");
+    const sortOrder = sortOrderStr ? sortOrderStr.split(',') : [];
 
-    const yScaleFull = d3.scaleLinear().domain([0, d3.max(fullData, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
+    if (op.field === xField && (op.from || op.to) && sortOrder.length > 0) {
 
-    if (!isNaN(filterKey)) {
-        const yPos = yScaleFull(filterKey);
-        const thresholdColor = "blue";
-        svg.append("line").attr("class", "threshold-line")
-            .attr("x1", margins.left).attr("y1", margins.top + yPos)
-            .attr("x2", margins.left).attr("y2", margins.top + yPos)
-            .attr("stroke", thresholdColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
-            .transition().duration(800)
-            .attr("x2", plot.w + margins.left);
-        svg.append("text").attr("class", "threshold-label")
-            .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
-            .attr("text-anchor", "start").attr("dominant-baseline", "middle")
-            .attr("fill", thresholdColor).attr("font-size", 12).attr("font-weight", "bold")
-            .text(filterKey)
-            .attr("opacity", 0).transition().delay(400).duration(400).attr("opacity", 1);
-        await delay(800);
-    }
+        const fromIndex = op.from ? sortOrder.indexOf(op.from) : 0;
+        const toIndex = op.to ? sortOrder.indexOf(op.to) : sortOrder.length - 1;
 
-    const targetIds = new Set(filteredData.map(d => d.key || d[xField]));
-    const allBars = g.selectAll("rect");
-    const highlightPromises = [];
-    allBars.each(function() {
-        const bar = d3.select(this);
-        const d = bar.datum();
-        const id = d ? (d.key || d[xField]) : null;
-        const isTarget = id ? targetIds.has(id) : false;
-        if (isTarget) {
-            const t = bar.transition().duration(1000).attr("fill", matchColor).end();
-            highlightPromises.push(t);
+        if (fromIndex === -1 || toIndex === -1) {
+            console.warn("Invalid 'from' or 'to' value in sortOrder:", op);
+            return data;
         }
-    });
-    await Promise.all(highlightPromises);
+
+        const allowedCategories = new Set(sortOrder.slice(fromIndex, toIndex + 1));
+        filteredData = data.filter(d => allowedCategories.has(d[xField]));
+        
+        labelText = `Filter: ${xField} in [${sortOrder.slice(fromIndex, toIndex + 1).join(', ')}]`;
+
+    } else {
+        const filterField = op.field || yField;
+        const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
+        const satisfy = satisfyMap[op.satisfy] || (() => true);
+        const filterKey = isNaN(+op.key) ? op.key : +op.key;
+        
+        filteredData = data.filter(d => {
+            const value = isNaN(+d[filterField]) ? d[filterField] : +d[filterField];
+            return satisfy(value, filterKey);
+        });
+
+        labelText = `Filter: ${filterField} ${op.satisfy} ${op.key}`;
+
+        if (filterField === yField && !isNaN(filterKey)) {
+            const yScaleFull = d3.scaleLinear().domain([0, d3.max(fullData, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
+            const yPos = yScaleFull(filterKey);
+            svg.append("line").attr("class", "threshold-line")
+                .attr("x1", margins.left).attr("y1", margins.top + yPos)
+                .attr("x2", margins.left + plot.w).attr("y2", margins.top + yPos)
+                .attr("stroke", "blue").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+            svg.append("text").attr("class", "threshold-label")
+                .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
+                .attr("dominant-baseline", "middle")
+                .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold")
+                .text(filterKey);
+        }
+    }
 
     if (filteredData.length === 0) {
-        console.warn("simpleBarFilter: Filtered data is empty.");
-        allBars.transition().duration(500).attr("opacity", 0).remove();
+        console.warn("Filter resulted in empty data.");
+        g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove();
         return [];
     }
-    
-    const transformPromises = [];
-    const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.key || d[xField])).range([0, plot.w]).padding(0.2);
 
-    // --- 여기가 핵심 수정 부분: Key 함수를 더 똑똑하게 변경 ---
-    const keyFunction = d => d.key || d[xField];
+    const xScaleFiltered = d3.scaleBand()
+        .domain(filteredData.map(d => d[xField]))
+        .range([0, plot.w])
+        .padding(0.2);
+
+    const keyFunction = d => d[xField];
     const bars = g.selectAll("rect").data(filteredData, keyFunction);
-    // --- 수정 끝 ---
 
-    transformPromises.push(bars.exit().transition().duration(800)
-        .attr("height", 0).attr("y", plot.h).remove().end());
+    const updatePromises = [];
+
+    updatePromises.push(bars.exit().transition().duration(800)
+        .attr("opacity", 0).attr("height", 0).attr("y", plot.h).remove().end());
     
-    transformPromises.push(bars.transition().duration(800)
-        .attr("x", d => xScaleFiltered(d.key || d[xField])).attr("width", xScaleFiltered.bandwidth()).end());
+    updatePromises.push(bars.transition().duration(800)
+        .attr("x", d => xScaleFiltered(d[xField]))
+        .attr("width", xScaleFiltered.bandwidth())
+        .attr("fill", matchColor).end());
 
-    transformPromises.push(g.select(".x-axis").transition().duration(800)
+    updatePromises.push(g.select(".x-axis").transition().duration(800)
         .call(d3.axisBottom(xScaleFiltered)).end());
 
-    await Promise.all(transformPromises);
+    await Promise.all(updatePromises);
 
-    g.selectAll("rect").each(function() {
-        const bar = this;
-        const val = bar.getAttribute("data-value");
-        svg.append("text").attr("class", "value-tag")
-            .attr("x", getCenter(bar, "vertical", margins).x)
-            .attr("y", getCenter(bar, "vertical", margins).y)
-            .attr("text-anchor", "middle").attr("font-size", 10)
-            .attr("fill", "#000").attr("stroke", "white").attr("stroke-width", 2).attr("paint-order", "stroke")
-            .text(val);
-    });
-    
     svg.append("text").attr("class", "filter-label")
         .attr("x", margins.left).attr("y", margins.top - 8)
         .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
-        .text(`Filter: ${filterField} ${op.satisfy} ${op.key}`);
+        .text(labelText);
 
     return filteredData;
 }
+
+
+
+
 export async function simpleBarRetrieveValue(chartId, op, data, fullData) {
     const { svg, g, xField, yField, orientation, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -431,4 +428,63 @@ const yScale = d3.scaleLinear()
     await Promise.all(animationPromises);
     
     return data;
+}
+
+export async function simpleBarSum(chartId, op, currentData) {
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const sumField = op.field || yField;
+    const totalSum = d3.sum(currentData, d => d[sumField]);
+
+    const newYScale = d3.scaleLinear()
+        .domain([0, totalSum]).nice()
+        .range([plot.h, 0]);
+
+    const yAxisTransition = svg.select(".y-axis").transition().duration(1000)
+        .call(d3.axisLeft(newYScale))
+        .end();
+
+    const bars = g.selectAll("rect");
+    const barWidth = +bars.attr("width");
+    const targetX = plot.w / 2 - barWidth / 2; 
+
+    let runningTotal = 0;
+    const stackPromises = [];
+
+    bars.each(function(d) {
+        const value = d[sumField];
+        const rect = d3.select(this);
+        
+        const t = rect.transition().duration(1200)
+            .attr("x", targetX)
+            .attr("y", newYScale(runningTotal + value))
+            .attr("height", plot.h - newYScale(value))
+            .end();
+        
+        stackPromises.push(t);
+        runningTotal += value;
+    });
+
+    await Promise.all([yAxisTransition, ...stackPromises]);
+    await delay(200);
+
+    const finalY = newYScale(totalSum);
+
+    svg.append("line").attr("class", "annotation value-line")
+        .attr("x1", margins.left)
+        .attr("y1", margins.top + finalY)
+        .attr("x2", margins.left + plot.w)
+        .attr("y2", margins.top + finalY)
+        .attr("stroke", "red")
+        .attr("stroke-width", 2);
+
+    svg.append("text").attr("class", "annotation value-tag")
+        .attr("x", margins.left + plot.w - 10) 
+        .attr("y", margins.top + finalY - 10) 
+        .attr("fill", "red")
+        .attr("font-weight", "bold")
+        .attr("text-anchor", "end") 
+        .text(`Sum: ${totalSum.toLocaleString()}`);
+    return currentData; 
 }

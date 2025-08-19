@@ -1,6 +1,4 @@
-// stackedBarFunctions.js (최종 단순화 버전)
 
-// --- 헬퍼 함수 ---
 export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const orientation = svg.attr("data-orientation");
@@ -23,7 +21,6 @@ export function clearAllAnnotations(svg) {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- 유일한 오퍼레이션 함수 ---
 export async function stackedBarChangeToSimple(chartId, op, currentData, fullData) {
     const { svg, xField, yField, colorField, plot, margins } = getSvgAndSetup(chartId);
     
@@ -99,3 +96,119 @@ export async function stackedBarChangeToSimple(chartId, op, currentData, fullDat
 
     return filteredData;
 }
+
+
+export async function stackedBarRetrieve(chartId, op, fullData) {
+    const { svg, g, xField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const allRects = g.selectAll("rect");
+    const targetX = op.x;
+    const targetG = op.g;
+
+    const hlColor = "#007bff";
+    const animationDuration = 600;
+
+    if (targetX != null && targetG != null) {
+
+        const stackRects = allRects.filter(d => d.key == targetX);
+        const otherRects = allRects.filter(d => d.key != targetX);
+        
+        if (stackRects.empty()) {
+            console.warn("Retrieve: Target stack not found for", op.x);
+            return;
+        }
+
+        await otherRects.transition().duration(animationDuration).attr("opacity", 0.2).end();
+
+        await delay(800);
+
+        const targetSegment = stackRects.filter(d => d.subgroup == targetG);
+        const otherSegmentsInStack = stackRects.filter(d => d.subgroup != targetG);
+
+        if (targetSegment.empty()) {
+            console.warn("Retrieve: Target segment not found for", op);
+            return;
+        }
+
+        await Promise.all([
+            otherSegmentsInStack.transition().duration(animationDuration).attr("opacity", 0.2).end(),
+            targetSegment.transition().duration(animationDuration).attr("stroke", hlColor).attr("stroke-width", 2).end()
+        ]);
+
+
+        const d = targetSegment.datum();
+        const x = +targetSegment.attr("x") + (+targetSegment.attr("width") / 2);
+        const y = +targetSegment.attr("y") + (+targetSegment.attr("height") / 2);
+
+        g.append("text").attr("class", "annotation value-tag")
+            .attr("x", x).attr("y", y).attr("text-anchor", "middle")
+            .attr("dominant-baseline", "middle").attr("fill", "white").attr("font-weight", "bold")
+            .attr("stroke", hlColor).attr("stroke-width", 0.5)
+            .text(d.value);
+
+    } else if (targetX != null) {
+
+        const targetRects = allRects.filter(d => d.key == targetX);
+        const otherRects = allRects.filter(d => d.key != targetX);
+
+        if (targetRects.empty()) {
+            console.warn("Retrieve: Target stack not found for", op.x);
+            return;
+        }
+        
+        await Promise.all([
+            otherRects.transition().duration(animationDuration).attr("opacity", 0.2).end(),
+            targetRects.transition().duration(animationDuration).attr("opacity", 1.0).end()
+        ]);
+
+        const total = d3.sum(fullData.filter(d => d[xField] == targetX), d => d.count);
+        const topRect = targetRects.filter((d, i, nodes) => i === nodes.length - 1).node();
+        
+        g.append("text").attr("class", "annotation value-tag")
+            .attr("x", +topRect.getAttribute("x") + (+topRect.getAttribute("width") / 2))
+            .attr("y", +topRect.getAttribute("y") - 10)
+            .attr("text-anchor", "middle").attr("font-weight", "bold")
+            .attr("fill", hlColor)
+            .text(`Total: ${total}`);
+    }
+}
+
+
+export async function stackedBarFilter(chartId, op, currentData, fullData) {
+    const { g, xField } = getSvgAndSetup(chartId);
+    const allRects = g.selectAll("rect");
+
+    let passedData = [];
+    let passedKeys = new Set();
+
+    if (op.g) {
+        passedData = currentData.filter(d => d.weather === op.g);
+        passedKeys = new Set(passedData.map(d => `${d.month}-${d.weather}`));
+
+    } else if (op.y && op.y.satisfy) { 
+        const totals = d3.rollup(currentData, v => d3.sum(v, d => d.count), d => d[xField]);
+        const cmp = { ">": (a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b };
+        const satisfyFn = cmp[op.y.satisfy];
+        const key = op.y.key;
+        
+        const passedMonths = new Set();
+        for (const [month, total] of totals) {
+            if (satisfyFn(total, key)) { passedMonths.add(String(month)); }
+        }
+        passedData = currentData.filter(d => passedMonths.has(String(d[xField])));
+        passedKeys = new Set(passedData.map(d => `${d.month}-${d.weather}`));
+
+    } else if (op.x) { // by x
+        const targetX = String(op.x);
+        passedData = currentData.filter(d => String(d[xField]) === targetX);
+        passedKeys = new Set(passedData.map(d => `${d.month}-${d.weather}`));
+    }
+    
+    await allRects.transition().duration(800)
+        .attr("opacity", d => passedKeys.has(`${d.key}-${d.subgroup}`) ? 1.0 : 0.2)
+        .end();
+
+    return passedData;
+}
+
