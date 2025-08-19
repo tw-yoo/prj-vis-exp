@@ -43,7 +43,7 @@
 
 /* Likert group */
 .likert-group {
-    width: 30%;
+    width: 50%;
     border: none;
     /*padding-right: 50%;*/
     margin: 1rem 0;
@@ -54,6 +54,14 @@
     font-weight: 600;
     margin-bottom: 8px;
     display: block;
+}
+
+/* Likert 질문들을 감싸는 부모 요소 */
+.likert-container {
+    display: flex;
+    flex-direction: row;   /* 가로 배치 */
+    gap: 20px;             /* 질문 사이 여백 */
+    align-items: flex-start; /* 세로 정렬 옵션 */
 }
 
 .options {
