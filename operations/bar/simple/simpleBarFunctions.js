@@ -31,7 +31,7 @@ export function getCenter(bar, orientation, margins) {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function simpleBarFilter(chartId, op, data, fullData) {
+export async function simpleBarFilter(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -71,7 +71,7 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
         labelText = `Filter: ${filterField} ${op.satisfy} ${op.key}`;
 
         if (filterField === yField && !isNaN(filterKey)) {
-            const yScaleFull = d3.scaleLinear().domain([0, d3.max(fullData, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
+            const yScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
             const yPos = yScaleFull(filterKey);
             svg.append("line").attr("class", "threshold-line")
                 .attr("x1", margins.left).attr("y1", margins.top + yPos)
@@ -122,10 +122,7 @@ export async function simpleBarFilter(chartId, op, data, fullData) {
     return filteredData;
 }
 
-
-
-
-export async function simpleBarRetrieveValue(chartId, op, data, fullData) {
+export async function simpleBarRetrieveValue(chartId, op, data) {
     const { svg, g, xField, yField, orientation, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -182,7 +179,7 @@ export async function simpleBarRetrieveValue(chartId, op, data, fullData) {
     return data;
 }
 
-export async function simpleBarFindExtremum(chartId, op, data, fullData) {
+export async function simpleBarFindExtremum(chartId, op, data) {
     const { svg, g, xField, yField, margins, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -245,7 +242,7 @@ export async function simpleBarFindExtremum(chartId, op, data, fullData) {
     return data;
 }
 
-export async function simpleBarSort(chartId, op, data, fullData) {
+export async function simpleBarSort(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -292,7 +289,7 @@ export async function simpleBarSort(chartId, op, data, fullData) {
     return sortedData;
 }
 
-export async function simpleBarCompare(chartId, op, data, fullData) {
+export async function simpleBarCompare(chartId, op, data) {
     const { svg, g, xField, yField, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -350,7 +347,7 @@ export async function simpleBarCompare(chartId, op, data, fullData) {
     return data;
 }
 
-export async function simpleBarDetermineRange(chartId, op, data, fullData) {
+export async function simpleBarDetermineRange(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 

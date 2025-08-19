@@ -61,25 +61,25 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
 
         switch (operation.op.toLowerCase()) {
             case OperationType.RETRIEVE_VALUE:
-                currentData = await simpleBarRetrieveValue(chartId, operation, currentData, fullData);
+                currentData = await simpleBarRetrieveValue(chartId, operation, currentData);
                 break;
             case OperationType.FILTER:
-                currentData = await simpleBarFilter(chartId, operation, currentData, fullData);
+                currentData = await simpleBarFilter(chartId, operation, currentData);
                 break;
             case OperationType.FIND_EXTREMUM:
-                currentData = await simpleBarFindExtremum(chartId, operation, currentData, fullData);
+                currentData = await simpleBarFindExtremum(chartId, operation, currentData);
                 break;
             case OperationType.DETERMINE_RANGE:
-                currentData = await simpleBarDetermineRange(chartId, operation, currentData, fullData);
+                currentData = await simpleBarDetermineRange(chartId, operation, currentData);
                 break;
             case OperationType.COMPARE:
-                currentData = await simpleBarCompare(chartId, operation, currentData, fullData);
+                currentData = await simpleBarCompare(chartId, operation, currentData);
                 break;
             case OperationType.SORT:
-                currentData = await simpleBarSort(chartId, operation, currentData, fullData);
+                currentData = await simpleBarSort(chartId, operation, currentData);
                 break;
-            case 'sum':
-                currentData = await simpleBarSum(chartId, operation, currentData, fullData);
+            case OperationType.SUM:
+                currentData = await simpleBarSum(chartId, operation, currentData);
                 break;
             case OperationType.STACK:
                 await stackChartToTempTable(chartId, vlSpec);
