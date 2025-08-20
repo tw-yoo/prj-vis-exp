@@ -1,4 +1,4 @@
-import {DatumValue} from "../../../object/valueType.js";
+import {DatumValue, BoolValue} from "../../../object/valueType.js";
 
 export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
@@ -120,7 +120,7 @@ export async function simpleBarFilter(chartId, op, data) {
 
         const allowedCategories = new Set(sortOrder.slice(fromIndex, toIndex + 1));
         filteredData = data.filter(d => allowedCategories.has(d.target));
-        
+
         labelText = `Filter: ${xField} in [${sortOrder.slice(fromIndex, toIndex + 1).join(', ')}]`;
 
     } else {
@@ -128,7 +128,7 @@ export async function simpleBarFilter(chartId, op, data) {
         const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a === b };
         const satisfy = satisfyMap[op.operator] || (() => true);
         const filterKey = isNaN(+op.value) ? op.value : +op.value;
-        
+
         filteredData = data.filter(d => {
             const value = isNaN(+d.value) ? d.value : +d.value;
             return satisfy(value, filterKey);
@@ -176,7 +176,7 @@ export async function simpleBarFilter(chartId, op, data) {
 
     updatePromises.push(bars.exit().transition().duration(800)
         .attr("opacity", 0).attr("height", 0).attr("y", plot.h).remove().end());
-    
+
     updatePromises.push(bars.transition().duration(800)
         .attr("x", d => xScaleFiltered(d[categoryKey]))
         .attr("width", xScaleFiltered.bandwidth())
@@ -358,61 +358,86 @@ export async function simpleBarDetermineRange(chartId, op, data) {
 }
 
 export async function simpleBarCompare(chartId, op, data) {
-    const { svg, g, xField, yField, margins } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, margins, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const keyField = op.keyField || xField;
-    const finder = (keyToFind) => (d) => {
-        if (!d) return false;
-        const id = d.key || d[keyField];
-        return String(id) === String(keyToFind);
+    // Helper: resolve an element's category id (target) from bound datum
+    const categoryName = data?.[0]?.category || (orientation === 'vertical' ? xField : yField);
+    const measureName  = data?.[0]?.measure  || (orientation === 'vertical' ? yField : xField);
+
+    const getId = (d) => {
+        if (!d) return undefined;
+        if (d[categoryName] !== undefined) return String(d[categoryName]);
+        // if (categoryName) return String(d.category);
+        // if (xField) return String(xField);
+        return undefined;
     };
 
-    const leftBar = g.selectAll("rect").filter(finder(op.left));
-    const rightBar = g.selectAll("rect").filter(finder(op.right));
+    const finder = (selector) => (d) => String(getId(d)) === String(selector);
+
+    const leftBar  = g.selectAll('rect').filter(finder(op.targetA));
+    const rightBar = g.selectAll('rect').filter(finder(op.targetB));
 
     if (leftBar.empty() || rightBar.empty()) {
-        return data;
+        console.warn('simpleBarCompare: one or both targets not found', op.targetA, op.targetB);
+        return new BoolValue('', false);
     }
 
-    const valueField = op.field || yField;
-    const lv = leftBar.datum().value !== undefined ? leftBar.datum().value : leftBar.datum()[valueField];
-    const rv = rightBar.datum().value !== undefined ? rightBar.datum().value : rightBar.datum()[valueField];
+    // Helper: resolve numeric value according to op.field
+    const valueAxisField = (orientation === 'vertical') ? yField : xField;
+    const getVal = (d) => {
+        if (!d) return NaN;
+        if (op.field === 'value') return +d.value;
+        if (d.measure && op.field === d.measure) return +d.value;           // DatumValue case
+        if (measureName && op.field === measureName) return +(+d.value ?? +d[measureName]);
+        if (op.field === valueAxisField) return +(+d.value ?? +d[valueAxisField]);
+        if (op.field in (d || {})) return +d[op.field];                      // plain object bound datum
+        return +d.value;                                                     // final fallback
+    };
 
-    const cmp = { "gt": (a, b) => a > b, ">": (a, b) => a > b, "gte": (a, b) => a >= b, ">=": (a, b) => a >= b, "lt": (a, b) => a < b, "<": (a, b) => a < b, "lte": (a, b) => a <= b, "<=": (a, b) => a <= b, "eq": (a, b) => a === b, "==": (a, b) => a === b };
+    const lv = leftBar.datum()[measureName];
+    const rv = rightBar.datum()[measureName];
+
+    const cmp = {
+        'gt': (a,b) => a > b, '>': (a,b) => a > b,
+        'gte': (a,b) => a >= b, '>=': (a,b) => a >= b,
+        'lt': (a,b) => a < b, '<': (a,b) => a < b,
+        'lte': (a,b) => a <= b, '<=': (a,b) => a <= b,
+        'eq': (a,b) => a === b, '==': (a,b) => a === b
+    };
     const ok = cmp[op.operator] ? cmp[op.operator](lv, rv) : false;
 
-    const leftColor = "#ffb74d", rightColor = "#64b5f6";
+    const leftColor = '#ffb74d', rightColor = '#64b5f6';
 
     await Promise.all([
-        leftBar.transition().duration(600).attr("fill", leftColor).attr("stroke", "black").end(),
-        rightBar.transition().duration(600).attr("fill", rightColor).attr("stroke", "black").end()
+        leftBar.transition().duration(600).attr('fill', leftColor).attr('stroke', 'black').end(),
+        rightBar.transition().duration(600).attr('fill', rightColor).attr('stroke', 'black').end()
     ]);
 
     const addCompareAnnotation = (bar, value, color) => {
         const node = bar.node(), bbox = node.getBBox();
         const lineY = margins.top + bbox.y;
-        svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left).attr("y1", lineY)
-            .attr("x2", margins.left + bbox.x + bbox.width / 2).attr("y2", lineY)
-            .attr("stroke", color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
-        svg.append("text").attr("class", "annotation")
-            .attr("x", margins.left + bbox.x + bbox.width / 2)
-            .attr("y", margins.top + bbox.y - 5)
-            .attr("text-anchor", "middle").attr("fill", color)
-            .attr("font-weight", "bold").text(value);
+        svg.append('line').attr('class', 'annotation')
+            .attr('x1', margins.left).attr('y1', lineY)
+            .attr('x2', margins.left + bbox.x + bbox.width / 2).attr('y2', lineY)
+            .attr('stroke', color).attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+        svg.append('text').attr('class', 'annotation')
+            .attr('x', margins.left + bbox.x + bbox.width / 2)
+            .attr('y', margins.top + bbox.y - 5)
+            .attr('text-anchor', 'middle').attr('fill', color)
+            .attr('font-weight', 'bold').text(value);
     };
 
     addCompareAnnotation(leftBar, lv, leftColor);
     addCompareAnnotation(rightBar, rv, rightColor);
 
-    const symbol = { "gt": ">", ">": ">", "gte": "≥", ">=": "≥", "lt": "<", "<": "<", "lte": "≤", "<=": "≤", "eq": "=", "==": "=" }[op.operator];
-    svg.append("text").attr("class", "compare-label")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
-        .attr("fill", ok ? "green" : "red").text(`${op.left} ${symbol} ${op.right} → ${ok}`);
+    const symbol = { 'gt': '>', '>': '>', 'gte': '≥', '>=': '≥', 'lt': '<', '<': '<', 'lte': '≤', '<=': '≤', 'eq': '=', '==': '=' }[op.operator];
+    svg.append('text').attr('class', 'compare-label')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', ok ? 'green' : 'red').text(`${op.targetA} ${symbol} ${op.targetB} → ${ok}`);
 
-    return data;
+    return new BoolValue('', !!ok);
 }
 
 export async function simpleBarSort(chartId, op, data) {

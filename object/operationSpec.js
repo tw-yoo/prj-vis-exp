@@ -55,14 +55,12 @@ export class CompareBoolSpec {
    * @param {string} targetA
    * @param {string} targetB
    * @param operator
-   * @param {string} [aggregate='sum']
    */
-  constructor(field, targetA, targetB, operator, aggregate = 'sum') {
+  constructor(field, targetA, targetB, operator) {
     this.field = field;
-    this.selectorA = targetA;
-    this.selectorB = targetB;
+    this.targetA = targetA;
+    this.targetB = targetB;
     this.operator = operator;
-    this.aggregate = aggregate;
   }
 }
 
