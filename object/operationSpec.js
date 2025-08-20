@@ -83,10 +83,9 @@ export class FindExtremumSpec {
    * @param {'max'|'min'} [which='max']
    * @param {string} [aggregate='sum']
    */
-  constructor(field, which = 'max', aggregate = 'sum') {
+  constructor(field, which = 'max') {
     this.field = field;
     this.which = which;
-    this.aggregate = aggregate;
   }
 }
 

@@ -199,24 +199,36 @@ export async function simpleBarFindExtremum(chartId, op, data) {
     const { svg, g, xField, yField, margins, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    if (!data || data.length === 0) {
+    if (!Array.isArray(data) || data.length === 0) {
         console.warn("findExtremum: No data to process.");
         return data;
     }
-    
-    const hlColor = "#a65dfb";
-    const valueField = op.field || (orientation === 'vertical' ? yField : xField);
 
-    const extremumValue = op.type === 'min' 
-        ? d3.min(data, d => +d[valueField]) 
-        : d3.max(data, d => +d[valueField]);
-    
+    const hlColor = "#a65dfb";
+
+    const valueAxisField = (orientation === 'vertical') ? yField : xField;
+    const measureName = data[0]?.measure;
+
+    const getVal = (d) => {
+        if (!d) return NaN;
+        if (d.value !== undefined) return +d.value; // DatumValue or plain object with 'value'
+        if (measureName && d[measureName] !== undefined) return +d[measureName]; // plain object: { [measureName]: number }
+        if (d[valueAxisField] !== undefined) return +d[valueAxisField]; // raw row fallback
+        return NaN;
+    };
+
+    const numericValues = data.map(getVal).filter(v => !Number.isNaN(v));
+    const extremumValue = (op?.which === 'min')
+        ? d3.min(numericValues)
+        : d3.max(numericValues);
+
+    if (extremumValue == null || Number.isNaN(extremumValue)) {
+        console.warn("findExtremum: Could not compute extremum value.");
+        return data;
+    }
+
     const target = g.selectAll("rect")
-        .filter(d => {
-            if (!d) return false;
-            const barValue = d.value !== undefined ? d.value : d[valueField];
-            return +barValue === extremumValue;
-        });
+        .filter(d => +getVal(d) === +extremumValue);
 
     if (target.empty()) {
         console.warn("findExtremum: target bar not found for value:", extremumValue);
@@ -231,7 +243,7 @@ export async function simpleBarFindExtremum(chartId, op, data) {
     if (node) {
         const barX = +node.getAttribute("x"), barY = +node.getAttribute("y"),
               barW = +node.getAttribute("width"), barH = +node.getAttribute("height");
-        
+
         const lineY = margins.top + (orientation === 'vertical' ? barY : barY + barH / 2);
         const finalX2 = margins.left + (orientation === 'vertical' ? barX + barW / 2 : barW);
 
@@ -243,7 +255,7 @@ export async function simpleBarFindExtremum(chartId, op, data) {
         await line.transition().duration(400).attr("x2", finalX2).end();
 
         const { x, y } = getCenter(node, orientation, margins);
-        const labelText = `${op.type === "min" ? "Min" : "Max"}: ${extremumValue}`;
+        const labelText = `${op?.which === 'min' ? 'Min' : 'Max'}: ${extremumValue}`;
 
         svg.append("text").attr("class", "annotation")
             .attr("x", x).attr("y", y)
@@ -254,8 +266,15 @@ export async function simpleBarFindExtremum(chartId, op, data) {
             .attr("opacity", 0)
             .transition().duration(400).attr("opacity", 1);
     }
-    
-    return data;
+
+    const targetValue = op.which === 'min'
+        ? d3.min(data, d => +d.value)
+        : d3.max(data, d => +d.value)
+    const returnDatumValue = data.find(d => +d.value === targetValue)
+    console.log(targetValue);
+    console.log(returnDatumValue);
+
+    return returnDatumValue;
 }
 
 export async function simpleBarDetermineRange(chartId, op, data) {
