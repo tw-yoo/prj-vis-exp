@@ -441,42 +441,109 @@ export async function simpleBarCompare(chartId, op, data) {
 }
 
 export async function simpleBarSort(chartId, op, data) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const sortField = op.field || yField;
-    
-    const sortedData = [...data].sort((a, b) => {
-        const valA = a.value !== undefined ? a.value : a[sortField];
-        const valB = b.value !== undefined ? b.value : b[sortField];
-        return op.order === "ascending" ? valA - valB : valB - valA;
-    });
+    if (!Array.isArray(data) || data.length === 0) return data;
 
-    const newXScale = d3.scaleBand()
-        .domain(sortedData.map(d => d.key || d[xField]))
-        .range([0, plot.w])
-        .padding(0.2);
+    const orderAsc = (op?.order ?? 'asc') === 'asc';
 
-    const keyFunction = d => d.key || d[xField];
-    const transitions = [];
-    
-    transitions.push(
-        g.selectAll("rect").data(sortedData, keyFunction)
-            .transition().duration(1000)
-            .attr("x", d => newXScale(d.key || d[xField]))
-            .attr("width", newXScale.bandwidth())
-            .end()
-    );
+    // Resolve semantic names from DatumValue
+    const categoryName = data[0]?.category || (orientation === 'vertical' ? xField : yField);
+    const measureName  = data[0]?.measure  || (orientation === 'vertical' ? yField : xField);
 
-    transitions.push(
-        g.select(".x-axis").transition().duration(1000)
-            .call(d3.axisBottom(newXScale))
-            .end()
-    );
-    await Promise.all(transitions);
+    // Accessors that work for both DatumValue and plain display objects
+    const getCategoryId = (d) => {
+        if (!d) return '';
+        if (d.target !== undefined) return String(d.target);
+        if (categoryName && d[categoryName] !== undefined) return String(d[categoryName]);
+        if (xField && d[xField] !== undefined) return String(d[xField]);
+        return '';
+    };
+    const getNumeric = (d) => {
+        if (!d) return NaN;
+        if (d.value !== undefined) return +d.value;
+        if (measureName && d[measureName] !== undefined) return +d[measureName];
+        if (yField && d[yField] !== undefined) return +d[yField];
+        if (xField && d[xField] !== undefined) return +d[xField];
+        return NaN;
+    };
 
-    const orderText = op.order === 'ascending' ? 'Ascending' : 'Descending';
-    const labelText = `Sorted by ${sortField} (${orderText})`;
+    // Determine whether to sort by label (category) or by measure/value
+    const isLabelField =
+        op.field === 'label' ||
+        op.field === 'target' ||
+        (categoryName && op.field === categoryName) ||
+        (orientation === 'vertical' ? op.field === xField : op.field === yField);
+
+    const comparator = (a, b) => {
+        if (isLabelField) {
+            const sa = getCategoryId(a);
+            const sb = getCategoryId(b);
+            const cmp = sa.localeCompare(sb, undefined, { numeric: true, sensitivity: 'base' });
+            return orderAsc ? cmp : -cmp;
+        } else {
+            const va = getNumeric(a);
+            const vb = getNumeric(b);
+            const cmp = (va - vb);
+            return orderAsc ? cmp : -cmp;
+        }
+    };
+
+    const sortedData = [...data].sort(comparator);
+
+    // Build the band scale for the category axis
+    if (orientation === 'vertical') {
+        const xScale = d3.scaleBand()
+            .domain(sortedData.map(d => getCategoryId(d)))
+            .range([0, plot.w])
+            .padding(0.2);
+
+        const bars = g.selectAll("rect");
+        const transitions = [];
+
+        transitions.push(
+            bars.transition().duration(1000)
+                .attr("x", d => xScale(getCategoryId(d)))
+                .attr("width", xScale.bandwidth())
+                .end()
+        );
+
+        transitions.push(
+            g.select(".x-axis").transition().duration(1000)
+                .call(d3.axisBottom(xScale))
+                .end()
+        );
+
+        await Promise.all(transitions);
+    } else {
+        const yScale = d3.scaleBand()
+            .domain(sortedData.map(d => getCategoryId(d)))
+            .range([0, plot.h])
+            .padding(0.2);
+
+        const bars = g.selectAll("rect");
+        const transitions = [];
+
+        transitions.push(
+            bars.transition().duration(1000)
+                .attr("y", d => yScale(getCategoryId(d)))
+                .attr("height", yScale.bandwidth())
+                .end()
+        );
+
+        transitions.push(
+            g.select(".y-axis").transition().duration(1000)
+                .call(d3.axisLeft(yScale))
+                .end()
+        );
+
+        await Promise.all(transitions);
+    }
+
+    const orderText = orderAsc ? 'Ascending' : 'Descending';
+    const label = isLabelField ? (categoryName || 'label') : (measureName || 'value');
+    const labelText = `Sorted by ${label} (${orderText})`;
     svg.append("text")
         .attr("class", "annotation")
         .attr("x", margins.left)

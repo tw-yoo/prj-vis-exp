@@ -92,12 +92,10 @@ export class SortSpec {
    * Sort categories or series by label or by a measure
    * @param {string} field
    * @param {'asc'|'desc'} [order='asc']
-   * @param {string} [aggregate='sum']
    */
-  constructor(field, order = 'asc', aggregate = 'sum') {
+  constructor(field, order = 'asc') {
     this.field = field;
     this.order = order;
-    this.aggregate = aggregate;
   }
 }
 
