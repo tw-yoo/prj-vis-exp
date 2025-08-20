@@ -57,7 +57,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
         
         const operation = opsSpec.ops[i];
 
-        switch (operation.op.toLowerCase()) {
+        switch (operation.op) {
             case OperationType.RETRIEVE_VALUE: currentData = await simpleLineRetrieveValue(chartId, operation, currentData, fullData); break;
             case OperationType.FILTER: currentData = await simpleLineFilter(chartId, operation, currentData, fullData); break;
             case OperationType.FIND_EXTREMUM: currentData = await simpleLineFindExtremum(chartId, operation, currentData, fullData); break;
@@ -68,7 +68,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
             default: console.warn(`Unsupported operation: ${operation.op}`);
         }
 
-        previousOpType = operation.op.toLowerCase();
+        previousOpType = operation.op;
 
         if (i < opsSpec.ops.length - 1) {
             await delay(2500);

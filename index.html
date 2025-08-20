@@ -37,26 +37,22 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "encoding": {
-    "x": {
-      "field": "month",
-      "type": "nominal",
-      "sort":null
-
-    },
-    "color": {
-      "field": "weather",
-      "type": "nominal"
-    },
     "y": {
-      "field": "count",
+      "field": "rating",
       "type": "quantitative"
+    },
+    "x": {
+      "field": "country",
+      "type": "nominal",
+      "sort": null
     }
   },
   "data": {
-    "url": "data/temp/data/stackedbar_nominal.csv"
+    "url": "data/temp/data/bar_nominal_quant.csv"
   },
   "mark": "bar"
-}   
+}
+
       </textarea>
 
       <div class="row-header">
@@ -84,9 +80,9 @@
   "ops": [
     {
       "op": "filter",
-      "field": "price",
-      "from": 100,
-      "to": 150
+      "field": "rating",
+      "operator": ">=",
+      "value": 70
     }
   ]
 }

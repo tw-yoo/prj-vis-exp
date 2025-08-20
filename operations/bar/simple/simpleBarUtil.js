@@ -8,7 +8,7 @@ import {
   simpleBarSort,
   simpleBarSum
 } from "./simpleBarFunctions.js";
-import {stackChartToTempTable} from "../../../util/util.js";
+import {convertToDatumValues, stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {};
 function clearAllAnnotations(svg) {
@@ -34,7 +34,7 @@ function getSvgAndSetup(chartId) {
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
-    const { svg, g } = getSvgAndSetup(chartId);
+    const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
 
     clearAllAnnotations(svg);
     const resetPromises = [];
@@ -54,12 +54,14 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
         return;
     }
     const fullData = [...chartDataStore[chartId]];
-    let currentData = [...fullData];
+    let data = convertToDatumValues(fullData, xField, yField, orientation);
+    let currentData = data;
+
 
     for (let i = 0; i < opsSpec.ops.length; i++) {
         const operation = opsSpec.ops[i];
 
-        switch (operation.op.toLowerCase()) {
+        switch (operation.op) {
             case OperationType.RETRIEVE_VALUE:
                 currentData = await simpleBarRetrieveValue(chartId, operation, currentData);
                 break;

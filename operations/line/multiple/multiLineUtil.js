@@ -66,7 +66,7 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
 
     for (let i = 0; i < opsSpec.ops.length; i++) {
         const operation = opsSpec.ops[i];
-        const opType = operation.op.toLowerCase();
+        const opType = operation.op;
 
         if (isTransformed) {
             switch (opType) {

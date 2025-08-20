@@ -1,3 +1,5 @@
+import {DatumValue} from "../../../object/valueType.js";
+
 export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const orientation = svg.attr("data-orientation") || "vertical";
@@ -35,7 +37,7 @@ export async function simpleBarRetrieveValue(chartId, op, data) {
     const { svg, g, xField, yField, orientation, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const targetId = String(op.key);
+    const targetId = String(op.target);
     const hlColor = "#ff6961";
     const baseColor = "#69b3a2";
 
@@ -44,9 +46,9 @@ export async function simpleBarRetrieveValue(chartId, op, data) {
     });
 
     if (target.empty()) {
-        console.warn("RetrieveValue: target bar not found for key:", op.key);
+        console.warn("RetrieveValue: target bar not found for key:", op.target);
         g.selectAll("rect").transition().duration(300).attr("fill", baseColor).attr("opacity", 1);
-        return data;
+        return null;
     }
 
     const otherBars = g.selectAll("rect").filter(function() {
@@ -85,11 +87,18 @@ export async function simpleBarRetrieveValue(chartId, op, data) {
         .attr("opacity", 0)
         .transition().duration(400).attr("opacity", 1);
 
-    return data;
+
+    const itemFromList = Array.isArray(data)
+        ? data.find(d => d && String(d.target) === op.target)
+        : undefined;
+    if (itemFromList instanceof DatumValue) {
+        return itemFromList;
+    }
+    return null
 }
 
 export async function simpleBarFilter(chartId, op, data) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     const matchColor = "#ffa500";
@@ -110,22 +119,22 @@ export async function simpleBarFilter(chartId, op, data) {
         }
 
         const allowedCategories = new Set(sortOrder.slice(fromIndex, toIndex + 1));
-        filteredData = data.filter(d => allowedCategories.has(d[xField]));
+        filteredData = data.filter(d => allowedCategories.has(d.target));
         
         labelText = `Filter: ${xField} in [${sortOrder.slice(fromIndex, toIndex + 1).join(', ')}]`;
 
     } else {
-        const filterField = op.field || yField;
-        const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
-        const satisfy = satisfyMap[op.satisfy] || (() => true);
-        const filterKey = isNaN(+op.key) ? op.key : +op.key;
+        const filterField = op.field;
+        const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a === b };
+        const satisfy = satisfyMap[op.operator] || (() => true);
+        const filterKey = isNaN(+op.value) ? op.value : +op.value;
         
         filteredData = data.filter(d => {
-            const value = isNaN(+d[filterField]) ? d[filterField] : +d[filterField];
+            const value = isNaN(+d.value) ? d.value : +d.value;
             return satisfy(value, filterKey);
         });
 
-        labelText = `Filter: ${filterField} ${op.satisfy} ${op.key}`;
+        labelText = `Filter: ${filterField} ${op.operator} ${op.value}`;
 
         if (filterField === yField && !isNaN(filterKey)) {
             const yScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
@@ -149,12 +158,19 @@ export async function simpleBarFilter(chartId, op, data) {
     }
 
     const xScaleFiltered = d3.scaleBand()
-        .domain(filteredData.map(d => d[xField]))
+        .domain(filteredData.map(d => d.target))
         .range([0, plot.w])
         .padding(0.2);
 
-    const keyFunction = d => d[xField];
-    const bars = g.selectAll("rect").data(filteredData, keyFunction);
+    const categoryKey = filteredData[0]?.category || xField;
+    const measureKey  = filteredData[0]?.measure  || yField;
+    const plainRows = filteredData.map(d => ({
+        [categoryKey]: d.target,
+        [measureKey]:  d.value,
+        group: d.group
+    }));
+    const keyFunction = d => String(d[categoryKey]);
+    const bars = g.selectAll("rect").data(plainRows, keyFunction);
 
     const updatePromises = [];
 
@@ -162,7 +178,7 @@ export async function simpleBarFilter(chartId, op, data) {
         .attr("opacity", 0).attr("height", 0).attr("y", plot.h).remove().end());
     
     updatePromises.push(bars.transition().duration(800)
-        .attr("x", d => xScaleFiltered(d[xField]))
+        .attr("x", d => xScaleFiltered(d[categoryKey]))
         .attr("width", xScaleFiltered.bandwidth())
         .attr("fill", matchColor).end());
 

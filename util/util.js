@@ -4,6 +4,7 @@ import {renderStackedBarChart} from "../operations/bar/stacked/stackedBarUtil.js
 import {renderGroupedBarChart} from "../operations/bar/grouped/groupedBarUtil.js";
 import {renderSimpleLineChart} from "../operations/line/simple/simpleLineUtil.js";
 import {renderMultipleLineChart} from "../operations/line/multiple/multiLineUtil.js";
+import {DatumValue} from "../object/valueType.js";
 
 export function getChartType(spec) {
   const mark      = spec.mark;
@@ -202,4 +203,14 @@ export async function renderChart(chartId, spec) {
             break;
     }
     ensureTempTableBelow(chartId, spec);
+}
+
+export function convertToDatumValues(fullData, xField, yField, orientation, group = null) {
+    return fullData.map(d => {
+        const categoryField = orientation === 'horizontal' ? yField : xField;
+        const measureField  = orientation === 'horizontal' ? xField : yField;
+        const target        = d[categoryField];
+        const value         = d[measureField];
+        return new DatumValue(categoryField, measureField, target, group, value);
+    });
 }

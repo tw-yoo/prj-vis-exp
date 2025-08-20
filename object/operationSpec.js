@@ -11,12 +11,10 @@ export class RetrieveValueSpec {
   /**
    * @param {string} field - Quantitative field to read (e.g., 'value')
    * @param {string} target - { category?, series?, x?, y?, index? }
-   * @param {string} [aggregate='sum'] - 'identity' | 'sum' | 'avg' | 'min' | 'max'
    */
-  constructor(field, target, aggregate = 'sum') {
+  constructor(field, target) {
     this.field = field;
-    this.target = target; // { category?, series?, x?, y?, index? }
-    this.aggregate = aggregate;
+    this.target = target;
   }
 }
 
