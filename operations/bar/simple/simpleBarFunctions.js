@@ -271,8 +271,8 @@ export async function simpleBarFindExtremum(chartId, op, data) {
         ? d3.min(data, d => +d.value)
         : d3.max(data, d => +d.value)
     const returnDatumValue = data.find(d => +d.value === targetValue)
-    console.log(targetValue);
-    console.log(returnDatumValue);
+
+    returnDatumValue.target = `${op.which} (${returnDatumValue.target})`;
 
     return returnDatumValue;
 }

@@ -5,6 +5,7 @@ import {renderGroupedBarChart} from "../operations/bar/grouped/groupedBarUtil.js
 import {renderSimpleLineChart} from "../operations/line/simple/simpleLineUtil.js";
 import {renderMultipleLineChart} from "../operations/line/multiple/multiLineUtil.js";
 import {DatumValue} from "../object/valueType.js";
+export const dataCache = {};
 
 export function getChartType(spec) {
   const mark      = spec.mark;
@@ -201,8 +202,61 @@ export async function renderChart(chartId, spec) {
         case ChartType.MULTI_LINE:
             await renderMultipleLineChart(chartId, spec);
             break;
+        default:
+            console.warn(`Unknown chartType type: ${chartType}`);
     }
     ensureTempTableBelow(chartId, spec);
+}
+
+export function buildSimpleBarSpec(dvList, opts = {}) {
+    if (!Array.isArray(dvList) || dvList.length === 0) {
+        throw new Error("dvList is empty");
+    }
+
+    const {
+        orientation = 'vertical',
+        width = 600,
+        height = 300,
+        title
+    } = opts;
+
+    // 모든 DatumValue가 동일한 category/measure 이름을 공유한다고 가정
+    const categoryField = dvList[0].category; // 예: 'country'
+    const measureField  = dvList[0].measure;  // 예: 'rating'
+
+    // Vega-Lite data values: [{ [categoryField]: target, [measureField]: value }, ...]
+    const values = dvList.map(d => ({
+        [categoryField]: d.target,
+        [measureField]: d.value
+    }));
+
+    const base = {
+        $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+        width,
+        height,
+        data: { values },
+        title: title ?? undefined,
+        mark: "bar"
+    };
+
+    if (orientation === 'vertical') {
+        return {
+            ...base,
+            encoding: {
+                x: { field: categoryField, type: "nominal", axis: { title: null } },
+                y: { field: measureField,  type: "quantitative", axis: { title: null } }
+            }
+        };
+    } else {
+        // horizontal: y: category, x: measure
+        return {
+            ...base,
+            encoding: {
+                y: { field: categoryField, type: "nominal", axis: { title: null } },
+                x: { field: measureField,  type: "quantitative", axis: { title: null } }
+            }
+        };
+    }
 }
 
 export function convertToDatumValues(fullData, xField, yField, orientation, group = null) {

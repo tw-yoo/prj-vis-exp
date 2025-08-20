@@ -1,5 +1,3 @@
-export const dataCache = [];
-
 export class DatumValue {
     constructor(category, measure, target, group, value) {
         this.category = category;
