@@ -178,9 +178,31 @@ export async function stackChartToTempTable(chartId, vlSpec) {
   return false;
 }
 
+function stripAxisTitles(canvas) {
+  if (!canvas) return;
+  // vega/vega-lite commonly uses these roles/classes for axis titles
+  const selectors = [
+    '.role-axis-title',
+    '.axis-title',
+    'text[aria-label*="title"]',
+    'text.vega-axis-title',
+  ];
+  selectors.forEach(sel => {
+    canvas.querySelectorAll(sel).forEach(el => {
+      // remove only axis titles; keep ticks/labels intact
+      try { el.remove(); } catch (_) {}
+    });
+  });
+}
+
 export async function renderChart(chartId, spec) {
-    ensureChartCanvas(chartId);
+    const canvas = ensureChartCanvas(chartId);
     remapIdsForRenderer(chartId);
+
+    // Clear previous chart output to avoid stale axis titles persisting across renders
+    if (canvas) {
+        while (canvas.firstChild) canvas.removeChild(canvas.firstChild);
+    }
 
     const chartType = await getChartType(spec);
     switch (chartType) {
@@ -205,6 +227,7 @@ export async function renderChart(chartId, spec) {
         default:
             console.warn(`Unknown chartType type: ${chartType}`);
     }
+    stripAxisTitles(canvas);
     ensureTempTableBelow(chartId, spec);
 }
 
@@ -236,7 +259,12 @@ export function buildSimpleBarSpec(dvList, opts = {}) {
         height,
         data: { values },
         title: title ?? undefined,
-        mark: "bar"
+        mark: "bar",
+        config: {
+            axis: { title: null, labels: null, domain: null, ticks: null },
+            axisX: { title: null },
+            axisY: { title: null }
+        }
     };
 
     if (orientation === 'vertical') {

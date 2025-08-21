@@ -16,6 +16,37 @@ import {
     stackChartToTempTable
 } from "../../../util/util.js";
 
+// -- helpers to reduce repetition --
+const OP_HANDLERS = {
+    [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
+    [OperationType.FILTER]:         simpleBarFilter,
+    [OperationType.FIND_EXTREMUM]:  simpleBarFindExtremum,
+    [OperationType.DETERMINE_RANGE]:simpleBarDetermineRange,
+    [OperationType.COMPARE]:        simpleBarCompare,
+    [OperationType.SORT]:           simpleBarSort,
+    [OperationType.SUM]:            simpleBarSum,
+};
+
+async function applyOperation(chartId, operation, currentData) {
+    const fn = OP_HANDLERS[operation.op];
+    if (!fn) {
+        console.warn(`Unsupported operation: ${operation.op}`);
+        return currentData;
+    }
+    return await fn(chartId, operation, currentData);
+}
+
+async function executeOpsList(chartId, opsList, currentData) {
+    for (let i = 0; i < opsList.length; i++) {
+        const operation = opsList[i];
+        currentData = await applyOperation(chartId, operation, currentData);
+        if (i < opsList.length - 1) {
+            await delay(1500);
+        }
+    }
+    return currentData;
+}
+
 const chartDataStore = {};
 function clearAllAnnotations(svg) {
     svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
@@ -47,9 +78,9 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
     g.selectAll("rect").each(function() {
         const rect = d3.select(this);
         const t = rect.transition().duration(400)
-            .attr("fill", "#69b3a2") 
-            .attr("opacity", 1)    
-            .attr("stroke", "none")  
+            .attr("fill", "#69b3a2")
+            .attr("opacity", 1)
+            .attr("stroke", "none")
             .end();
         resetPromises.push(t);
     });
@@ -75,72 +106,12 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
             const chartSpec = buildSimpleBarSpec(allDatumValues)
             await renderChart(chartId, chartSpec);
             const opsList = opsSpec[opKey];
-            for (let i = 0; i < opsList.length; i++) {
-                const operation = opsList[i];
-                switch (operation.op) {
-                    case OperationType.RETRIEVE_VALUE:
-                        currentData = await simpleBarRetrieveValue(chartId, operation, currentData);
-                        break;
-                    case OperationType.FILTER:
-                        currentData = await simpleBarFilter(chartId, operation, currentData);
-                        break;
-                    case OperationType.FIND_EXTREMUM:
-                        currentData = await simpleBarFindExtremum(chartId, operation, currentData);
-                        break;
-                    case OperationType.DETERMINE_RANGE:
-                        currentData = await simpleBarDetermineRange(chartId, operation, currentData);
-                        break;
-                    case OperationType.COMPARE:
-                        currentData = await simpleBarCompare(chartId, operation, currentData);
-                        break;
-                    case OperationType.SORT:
-                        currentData = await simpleBarSort(chartId, operation, currentData);
-                        break;
-                    case OperationType.SUM:
-                        currentData = await simpleBarSum(chartId, operation, currentData);
-                        break;
-                    default:
-                        console.warn(`Unsupported operation: ${operation.op}`);
-                }
-                if (i < opsSpec.ops.length - 1) {
-                    await delay(1500);
-                }
-            }
+            currentData = await executeOpsList(chartId, opsList, currentData);
         } else {
             const opsList = opsSpec[opKey];
-            for (let i = 0; i < opsList.length; i++) {
-                const operation = opsList[i];
-                switch (operation.op) {
-                    case OperationType.RETRIEVE_VALUE:
-                        currentData = await simpleBarRetrieveValue(chartId, operation, currentData);
-                        break;
-                    case OperationType.FILTER:
-                        currentData = await simpleBarFilter(chartId, operation, currentData);
-                        break;
-                    case OperationType.FIND_EXTREMUM:
-                        currentData = await simpleBarFindExtremum(chartId, operation, currentData);
-                        break;
-                    case OperationType.DETERMINE_RANGE:
-                        currentData = await simpleBarDetermineRange(chartId, operation, currentData);
-                        break;
-                    case OperationType.COMPARE:
-                        currentData = await simpleBarCompare(chartId, operation, currentData);
-                        break;
-                    case OperationType.SORT:
-                        currentData = await simpleBarSort(chartId, operation, currentData);
-                        break;
-                    case OperationType.SUM:
-                        currentData = await simpleBarSum(chartId, operation, currentData);
-                        break;
-                    default:
-                        console.warn(`Unsupported operation: ${operation.op}`);
-                }
-                if (i < opsSpec.ops.length - 1) {
-                    await delay(1500);
-                }
-            }
-            await stackChartToTempTable(chartId, vlSpec)
-            dataCache[opKey] = [currentData]
+            currentData = await executeOpsList(chartId, opsList, currentData);
+            await stackChartToTempTable(chartId, vlSpec);
+            dataCache[opKey] = [currentData];
         }
     }
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
@@ -155,7 +126,7 @@ export async function renderSimpleBarChart(chartId, spec) {
 
     let data;
     if (spec.data && Array.isArray(spec.data.values)) {
-        data = spec.data.values.map(d => ({ ...d }));
+        data = spec.data.values.map(d => ({...d}));
     } else if (spec.data && typeof spec.data.url === 'string') {
         if (spec.data.url.endsWith('.json')) {
             data = await d3.json(spec.data.url);
@@ -171,7 +142,7 @@ export async function renderSimpleBarChart(chartId, spec) {
         if (xType === 'quantitative') d[xField] = +d[xField];
         if (yType === 'quantitative') d[yField] = +d[yField];
     });
-    
+
     if (spec.transform) {
         spec.transform.forEach(t => {
             if (t.filter) {
@@ -201,7 +172,7 @@ export async function renderSimpleBarChart(chartId, spec) {
 
     chartDataStore[chartId] = data;
 
-    const margin = { top: 40, right: 20, bottom: 80, left: 60 };
+    const margin = {top: 40, right: 20, bottom: 80, left: 60};
     const width = 600;
     const height = 300;
     const plotW = width - margin.left - margin.right;
@@ -209,7 +180,7 @@ export async function renderSimpleBarChart(chartId, spec) {
 
     const host = d3.select(`#${chartId}`);
     host.selectAll("*").remove();
-    
+
     const svg = host.append("svg")
         .attr("viewBox", [0, 0, width, height])
         .style("overflow", "visible")
@@ -220,7 +191,7 @@ export async function renderSimpleBarChart(chartId, spec) {
         .attr("data-plot-h", plotH)
         .attr("data-x-field", xField)
         .attr("data-y-field", yField);
-    
+
     svg.attr("data-x-sort-order", spec.encoding.x.sort ? spec.encoding.x.sort.join(',') : null);
 
     const g = svg.append("g")
