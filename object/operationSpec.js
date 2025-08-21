@@ -56,11 +56,13 @@ export class CompareBoolSpec {
    * @param {string} targetB
    * @param operator
    */
-  constructor(field, targetA, targetB, operator) {
+  constructor(field, targetA, targetB, operator, idA = null, idB = null) {
     this.field = field;
     this.targetA = targetA;
     this.targetB = targetB;
     this.operator = operator;
+    this.idA = idA;
+    this.idB = idB;
   }
 }
 

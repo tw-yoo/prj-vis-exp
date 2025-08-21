@@ -33,7 +33,7 @@ export function getCenter(bar, orientation, margins) {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function simpleBarRetrieveValue(chartId, op, data) {
+export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, orientation, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -88,8 +88,12 @@ export async function simpleBarRetrieveValue(chartId, op, data) {
         .transition().duration(400).attr("opacity", 1);
 
 
-    const itemFromList = Array.isArray(data)
-        ? data.find(d => d && String(d.target) === op.target)
+   const itemFromList = Array.isArray(data)
+        ? data.find(d => (
+            isLast
+              ? (d && String(d.id) === String(op.target))
+              : (d && String(d.target) === String(op.target))
+          ))
         : undefined;
     if (itemFromList instanceof DatumValue) {
         return itemFromList;
@@ -357,7 +361,7 @@ export async function simpleBarDetermineRange(chartId, op, data) {
     return data;
 }
 
-export async function simpleBarCompare(chartId, op, data) {
+export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -375,11 +379,13 @@ export async function simpleBarCompare(chartId, op, data) {
 
     const finder = (selector) => (d) => String(getId(d)) === String(selector);
 
-    const leftBar  = g.selectAll('rect').filter(finder(op.targetA));
-    const rightBar = g.selectAll('rect').filter(finder(op.targetB));
+    const targetAValue = isLast ? op.idA : op.targetA;
+    const targetBValue = isLast ? op.idB : op.targetB;
+    const leftBar  = g.selectAll('rect').filter(finder(targetAValue))
+    const rightBar = g.selectAll('rect').filter(finder(targetBValue))
 
     if (leftBar.empty() || rightBar.empty()) {
-        console.warn('simpleBarCompare: one or both targets not found', op.targetA, op.targetB);
+        console.warn('simpleBarCompare: one or both targets not found', targetAValue, targetBValue);
         return new BoolValue('', false);
     }
 
@@ -435,7 +441,7 @@ export async function simpleBarCompare(chartId, op, data) {
     svg.append('text').attr('class', 'compare-label')
         .attr('x', margins.left).attr('y', margins.top - 10)
         .attr('font-size', 14).attr('font-weight', 'bold')
-        .attr('fill', ok ? 'green' : 'red').text(`${op.targetA} ${symbol} ${op.targetB} → ${ok}`);
+        .attr('fill', ok ? 'green' : 'red').text(`${targetAValue} ${symbol} ${targetBValue} → ${ok}`);
 
     return new BoolValue('', !!ok);
 }
@@ -554,7 +560,7 @@ export async function simpleBarSort(chartId, op, data) {
     return sortedData;
 }
 
-export async function simpleBarSum(chartId, op, currentData) {
+export async function simpleBarSum(chartId, op, currentData, isLast = false) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 

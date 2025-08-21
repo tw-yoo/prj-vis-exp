@@ -1,10 +1,11 @@
 export class DatumValue {
-    constructor(category, measure, target, group, value) {
+    constructor(category, measure, target, group, value, id) {
         this.category = category;
         this.measure = measure;
         this.target = target;
         this.group = group;
         this.value = value;
+        this.id = id;
     }
 }
 
