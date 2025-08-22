@@ -1,7 +1,7 @@
 import {OperationType} from "../../../object/operationType.js";
 import {
     simpleBarAverage,
-    simpleBarCompare,
+    simpleBarCompare, simpleBarCount,
     simpleBarDetermineRange,
     simpleBarDiff,
     simpleBarFilter,
@@ -14,7 +14,7 @@ import {
 import {
     buildSimpleBarSpec,
     convertToDatumValues,
-    dataCache,
+    dataCache, lastCategory, lastMeasure,
     renderChart,
     stackChartToTempTable
 } from "../../../util/util.js";
@@ -31,6 +31,7 @@ const OP_HANDLERS = {
     [OperationType.AVERAGE]:        simpleBarAverage,
     [OperationType.DIFF]:           simpleBarDiff,
     [OperationType.NTH]:            simpleBarNth,
+    [OperationType.COUNT]:          simpleBarCount,
 };
 
 async function applyOperation(chartId, operation, currentData, isLast = false) {
@@ -122,11 +123,9 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
 
             currentDataArray.forEach((datum, idx) => {
                 datum.id = `${opKey}_${idx}`;
+                datum.category = lastCategory;
+                datum.measure = lastMeasure;
             })
-
-            for (let i=0;i < currentDataArray.length; i++) {
-            }
-            console.log(currentDataArray);
 
             dataCache[opKey] = currentDataArray
             await stackChartToTempTable(chartId, vlSpec);

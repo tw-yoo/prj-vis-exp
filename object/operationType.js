@@ -9,6 +9,7 @@ export const OperationType = Object.freeze({
     SUM: "sum",
     AVERAGE: "average",
     DIFF: "diff",
-    NTH: "nth"
+    NTH: "nth",
+    COUNT: "count",
 });
 

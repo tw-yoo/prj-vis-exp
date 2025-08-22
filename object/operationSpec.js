@@ -101,13 +101,8 @@ export class SortSpec {
 
 export class CountSpec {
   /**
-   * @param {string} [field] - when counting distinct at row level
-   * @param {'row'|'category'|'series'} level
    */
-  constructor(level = 'row', field = undefined) {
-      this.field = field;
-      this.level = level;
-  }
+  constructor() {}
 }
 
 export class SumSpec {
@@ -148,30 +143,7 @@ export class NthSpec {
    * @param {number} n
    */
   constructor(field, n, from= 'left' ) {
-      this.field = field;
       this.from = from;
       this.n = n;
-  }
-}
-
-export class SelectOneSpec {
-  /**
-   * @param {string} field
-   * @param {string} target
-   */
-  constructor(field, target) {
-    this.field = field;
-    this.target = target;
-  }
-}
-
-export class SelectMultipleSpec {
-  /**
-   * @param {string} field
-   * @param {Object} targetList
-   */
-  constructor(field, targetList) {
-      this.field = field;
-      this.targetList = targetList;
   }
 }

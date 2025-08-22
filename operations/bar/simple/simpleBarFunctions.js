@@ -34,26 +34,24 @@ export function getCenter(bar, orientation, margins) {
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) {
-    const { svg, g, xField, yField, orientation, margins } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, orientation, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
-    const targetId = String(op.target);
     const hlColor = "#ff6961";
     const baseColor = "#69b3a2";
 
+    const targets = Array.isArray(op.target) ? op.target : [op.target];
     const target = g.selectAll("rect").filter(function() {
-        return d3.select(this).attr("data-id") === targetId;
+        return targets.includes(d3.select(this).attr("data-id"));
+    });
+    const otherBars = g.selectAll("rect").filter(function() {
+        return !targets.includes(d3.select(this).attr("data-id"));
     });
 
     if (target.empty()) {
-        console.warn("RetrieveValue: target bar not found for key:", op.target);
+        console.warn("RetrieveValue: target bar(s) not found for key(s):", op.target);
         g.selectAll("rect").transition().duration(300).attr("fill", baseColor).attr("opacity", 1);
         return null;
     }
-
-    const otherBars = g.selectAll("rect").filter(function() {
-        return d3.select(this).attr("data-id") !== targetId;
-    });
 
     await Promise.all([
         target.transition().duration(600)
@@ -62,43 +60,97 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
             .attr("fill", baseColor).attr("opacity", 0.3).end()
     ]);
 
-    const bar = target.node();
-    const val = bar.getAttribute("data-value");
+    let xScale, yScale;
+    if (orientation === 'vertical') {
+        xScale = d3.scaleBand()
+            .domain(data.map(d => d.target))
+            .range([0, plot.w])
+            .padding(0.2);
+        const yMax = d3.max(data, d => +d.value) || 0;
+        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    } else {
+        yScale = d3.scaleBand()
+            .domain(data.map(d => d.target))
+            .range([0, plot.h])
+            .padding(0.2);
+        const xMax = d3.max(data, d => +d.value) || 0;
+        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
+    }
 
-    const barX = +bar.getAttribute("x"), barY = +bar.getAttribute("y"),
-        barW = +bar.getAttribute("width"), barH = +bar.getAttribute("height");
+    const targetBars = data.filter(d => targets.includes(d.target));
 
-    const lineY = margins.top + (orientation === 'vertical' ? barY : barY + barH / 2);
-    const finalX2 = margins.left + (orientation === 'vertical' ? barX + barW / 2 : barW);
+    if (targetBars.length === 0) {
+        console.warn('simpleBarRetrieve: no matching bars found');
+        return data;
+    }
 
-    const line = svg.append("line").attr("class", "annotation")
-        .attr("stroke", hlColor).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4")
-        .attr("x1", margins.left).attr("y1", lineY)
-        .attr("x2", margins.left).attr("y2", lineY);
+    if (orientation === 'vertical') {
+        const lines = g.selectAll('.retrieve-line')
+            .data(targetBars, d => d.id || d.target);
 
-    await line.transition().duration(400).attr("x2", finalX2).end();
+        lines.enter()
+            .append('line')
+            .attr('class', 'retrieve-line')
+            .attr('x1', d => xScale(d.target) + xScale.bandwidth() / 2)
+            .attr('x2', 0)
+            .attr('y1', d => yScale(d.value))
+            .attr('y2', d => yScale(d.value))
+            .attr('stroke', 'red')
+            .attr('stroke-width', 2);
 
-    const { x, y } = getCenter(bar, orientation, margins);
-    svg.append("text").attr("class", "annotation")
-        .attr("x", x).attr("y", y).attr("text-anchor", "middle")
-        .attr("font-size", 12).attr("fill", hlColor)
-        .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-        .text(val)
-        .attr("opacity", 0)
-        .transition().duration(400).attr("opacity", 1);
+        lines.exit().remove();
+    } else {
+        const lines = g.selectAll('.retrieve-line')
+            .data(targetBars, d => d.id || d.target);
 
+        lines.enter()
+            .append('line')
+            .attr('class', 'retrieve-line')
+            .attr('y1', d => yScale(d.target) + yScale.bandwidth() / 2)
+            .attr('y2', 0)
+            .attr('x1', d => xScale(d.value))
+            .attr('x2', d => xScale(d.value))
+            .attr('stroke', 'red')
+            .attr('stroke-width', 2);
 
-   const itemFromList = Array.isArray(data)
+        lines.exit().remove();
+    }
+
+    target.each(function() {
+        const bar = this;
+        const val = bar.getAttribute("data-value");
+        const { x, y } = getCenter(bar, orientation, margins);
+        svg.append("text").attr("class", "annotation")
+            .attr("x", x).attr("y", y).attr("text-anchor", "middle")
+            .attr("font-size", 12).attr("fill", hlColor)
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(val)
+            .attr("opacity", 0)
+            .transition().duration(400).attr("opacity", 1);
+    });
+
+    targetBars.forEach(tb => {
+        g.append('text')
+            .attr('class', 'annotation retrieve-text')
+            .attr('x', xScale(tb.target) + xScale.bandwidth() / 2)
+            .attr('y', yScale(tb.value) - 5)
+            .attr('text-anchor', 'middle')
+            .attr('fill', 'red')
+            .attr('font-weight', 'bold')
+            .text(tb.value);
+    });
+
+    const itemFromList = Array.isArray(data)
         ? data.find(d => (
             isLast
-              ? (d && String(d.id) === String(op.target))
-              : (d && String(d.target) === String(op.target))
+                ? (d && targets.includes(String(d.id)))
+                : (d && targets.includes(String(d.target)))
           ))
         : undefined;
     if (itemFromList instanceof DatumValue) {
         return itemFromList;
     }
-    return null
+    return null;
 }
 
 export async function simpleBarFilter(chartId, op, data, isLast = false) {
@@ -106,53 +158,54 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
     clearAllAnnotations(svg);
 
     const matchColor = "#ffa500";
-    let filteredData;
+    let filteredData = [];
     let labelText = "";
 
-    const sortOrderStr = svg.attr("data-x-sort-order");
-    const sortOrder = sortOrderStr ? sortOrderStr.split(',') : [];
+    const sortOrderStr = svg.attr("data-x-sort-order") || "";
+    const sortOrder = sortOrderStr.split(',').filter(Boolean);
 
-    if (op.field === xField && (op.from || op.to) && sortOrder.length > 0) {
+    const toNumber = v => (v == null ? NaN : +v);
+    const getDatumValue = d => {
+        if (d && d.value !== undefined) return +d.value;
+        if (yField && d && d[yField] !== undefined) return +d[yField];
+        if (xField && d && d[xField] !== undefined) return +d[xField];
+        return NaN;
+    };
 
-        const fromIndex = op.from ? sortOrder.indexOf(op.from) : 0;
-        const toIndex = op.to ? sortOrder.indexOf(op.to) : sortOrder.length - 1;
+    const drawThreshold = (rawVal) => {
+        const v = toNumber(rawVal);
+        if (!Number.isFinite(v)) return;
+        const maxV = d3.max(data, getDatumValue) || 0;
+        const yScaleFull = d3.scaleLinear().domain([0, maxV]).nice().range([plot.h, 0]);
+        const yPos = yScaleFull(v);
+        svg.append("line").attr("class", "threshold-line")
+            .attr("x1", margins.left).attr("y1", margins.top + yPos)
+            .attr("x2", margins.left).attr("y2", margins.top + yPos)
+            .attr("stroke", "blue").attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
+            .transition().duration(800).attr("x2", margins.left + plot.w);
+        svg.append("text").attr("class", "threshold-label")
+            .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
+            .attr("dominant-baseline", "middle")
+            .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold")
+            .text(v);
+    };
 
-        if (fromIndex === -1 || toIndex === -1) {
-            console.warn("Invalid 'from' or 'to' value in sortOrder:", op);
-            return data;
-        }
-
-        const allowedCategories = new Set(sortOrder.slice(fromIndex, toIndex + 1));
-        filteredData = data.filter(d => allowedCategories.has(d.target));
-
-        labelText = `Filter: ${xField} in [${sortOrder.slice(fromIndex, toIndex + 1).join(', ')}]`;
-
+    if (op.field === xField && sortOrder.length > 0) {
+        const allowed = new Set(sortOrder);
+        filteredData = data.filter(d => allowed.has(d.target));
+        labelText = `Filter: ${xField} in [${sortOrder.join(', ')}]`;
     } else {
-        const filterField = op.field;
-        const satisfyMap = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a === b };
-        const satisfy = satisfyMap[op.operator] || (() => true);
-        const filterKey = isNaN(+op.value) ? op.value : +op.value;
+        const map = { ">": (a,b) => a > b, ">=": (a,b) => a >= b, "<": (a,b) => a < b, "<=": (a,b) => a <= b, "==": (a,b) => a === b };
+        const satisfy = map[op.operator] || (() => true);
+        const key = Number.isFinite(+op.value) ? +op.value : op.value;
 
         filteredData = data.filter(d => {
-            const value = isNaN(+d.value) ? d.value : +d.value;
-            return satisfy(value, filterKey);
+            const v = Number.isFinite(+d.value) ? +d.value : d.value;
+            return satisfy(v, key);
         });
 
-        labelText = `Filter: ${filterField} ${op.operator} ${op.value}`;
-
-        if (filterField === yField && !isNaN(filterKey)) {
-            const yScaleFull = d3.scaleLinear().domain([0, d3.max(data, d => +d[yField]) || 0]).nice().range([plot.h, 0]);
-            const yPos = yScaleFull(filterKey);
-            svg.append("line").attr("class", "threshold-line")
-                .attr("x1", margins.left).attr("y1", margins.top + yPos)
-                .attr("x2", margins.left + plot.w).attr("y2", margins.top + yPos)
-                .attr("stroke", "blue").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-            svg.append("text").attr("class", "threshold-label")
-                .attr("x", margins.left + plot.w + 5).attr("y", margins.top + yPos)
-                .attr("dominant-baseline", "middle")
-                .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold")
-                .text(filterKey);
-        }
+        labelText = `Filter: ${op.field} ${op.operator} ${op.value}`;
+        drawThreshold(key);
     }
 
     if (filteredData.length === 0) {
@@ -168,28 +221,25 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
 
     const categoryKey = filteredData[0]?.category || xField;
     const measureKey  = filteredData[0]?.measure  || yField;
+
     const plainRows = filteredData.map(d => ({
         [categoryKey]: d.target,
         [measureKey]:  d.value,
         group: d.group
     }));
-    const keyFunction = d => String(d[categoryKey]);
-    const bars = g.selectAll("rect").data(plainRows, keyFunction);
 
-    const updatePromises = [];
+    const bars = g.selectAll("rect").data(plainRows, d => String(d[categoryKey]));
 
-    updatePromises.push(bars.exit().transition().duration(800)
-        .attr("opacity", 0).attr("height", 0).attr("y", plot.h).remove().end());
-
-    updatePromises.push(bars.transition().duration(800)
-        .attr("x", d => xScaleFiltered(d[categoryKey]))
-        .attr("width", xScaleFiltered.bandwidth())
-        .attr("fill", matchColor).end());
-
-    updatePromises.push(g.select(".x-axis").transition().duration(800)
-        .call(d3.axisBottom(xScaleFiltered)).end());
-
-    await Promise.all(updatePromises);
+    await Promise.all([
+        bars.exit().transition().duration(800)
+            .attr("opacity", 0).attr("height", 0).attr("y", plot.h).remove().end(),
+        bars.transition().duration(800)
+            .attr("x", d => xScaleFiltered(d[categoryKey]))
+            .attr("width", xScaleFiltered.bandwidth())
+            .attr("fill", matchColor).end(),
+        g.select(".x-axis").transition().duration(800)
+            .call(d3.axisBottom(xScaleFiltered)).end()
+    ]);
 
     svg.append("text").attr("class", "filter-label")
         .attr("x", margins.left).attr("y", margins.top - 8)
@@ -215,9 +265,9 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
 
     const getVal = (d) => {
         if (!d) return NaN;
-        if (d.value !== undefined) return +d.value; // DatumValue or plain object with 'value'
-        if (measureName && d[measureName] !== undefined) return +d[measureName]; // plain object: { [measureName]: number }
-        if (d[valueAxisField] !== undefined) return +d[valueAxisField]; // raw row fallback
+        if (d.value !== undefined) return +d.value;
+        if (measureName && d[measureName] !== undefined) return +d[measureName];
+        if (d[valueAxisField] !== undefined) return +d[valueAxisField];
         return NaN;
     };
 
@@ -365,15 +415,12 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // Helper: resolve an element's category id (target) from bound datum
     const categoryName = data?.[0]?.category || (orientation === 'vertical' ? xField : yField);
     const measureName  = data?.[0]?.measure  || (orientation === 'vertical' ? yField : xField);
 
     const getId = (d) => {
         if (!d) return undefined;
         if (d[categoryName] !== undefined) return String(d[categoryName]);
-        // if (categoryName) return String(d.category);
-        // if (xField) return String(xField);
         return undefined;
     };
 
@@ -385,9 +432,6 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     if (isLast) {
         const targetAData = data.find(d => d.id === op.targetA);
         const targetBData = data.find(d => d.id === op.targetB);
-
-        console.log(targetAData);
-        console.log(targetBData);
 
         targetAValue = targetAData.target;
         targetBValue = targetBData.target;
@@ -405,16 +449,15 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         return new BoolValue('', false);
     }
 
-    // Helper: resolve numeric value according to op.field
     const valueAxisField = (orientation === 'vertical') ? yField : xField;
     const getVal = (d) => {
         if (!d) return NaN;
         if (op.field === 'value') return +d.value;
-        if (d.measure && op.field === d.measure) return +d.value;           // DatumValue case
+        if (d.measure && op.field === d.measure) return +d.value;
         if (measureName && op.field === measureName) return +(+d.value ?? +d[measureName]);
         if (op.field === valueAxisField) return +(+d.value ?? +d[valueAxisField]);
-        if (op.field in (d || {})) return +d[op.field];                      // plain object bound datum
-        return +d.value;                                                     // final fallback
+        if (op.field in (d || {})) return +d[op.field];
+        return +d.value;
     };
 
     const lv = leftBar.datum()[measureName];
@@ -470,11 +513,9 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
 
     const orderAsc = (op?.order ?? 'asc') === 'asc';
 
-    // Resolve semantic names from DatumValue
     const categoryName = data[0]?.category || (orientation === 'vertical' ? xField : yField);
     const measureName  = data[0]?.measure  || (orientation === 'vertical' ? yField : xField);
 
-    // Accessors that work for both DatumValue and plain display objects
     const getCategoryId = (d) => {
         if (!d) return '';
         if (d.target !== undefined) return String(d.target);
@@ -491,7 +532,6 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
         return NaN;
     };
 
-    // Determine whether to sort by label (category) or by measure/value
     const isLabelField =
         op.field === 'label' ||
         op.field === 'target' ||
@@ -514,7 +554,6 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
 
     const sortedData = [...data].sort(comparator);
 
-    // Build the band scale for the category axis
     if (orientation === 'vertical') {
         const xScale = d3.scaleBand()
             .domain(sortedData.map(d => getCategoryId(d)))
@@ -696,6 +735,155 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
     return data;
 }
 
-export async function simpleBarDiff(chartId, op, data, isLast = false) {}
+export async function simpleBarDiff(chartId, op, data, isLast = false) {} // 보류. compare와 어떻게 다르게 할지 고민중
 
-export async function simpleBarNth(chartId, op, data, isLast = false) {}
+export async function simpleBarNth(chartId, op, data, isLast = false) {
+    const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    if (!Array.isArray(data) || data.length === 0) {
+        console.warn('simpleBarNth: empty data');
+        return [];
+    }
+
+    const bars = g.selectAll('rect');
+    const nodeList = bars.nodes();
+    const total = nodeList.length;
+
+    let n = Number(op?.n ?? 0);
+    if (!Number.isFinite(n) || n <= 0) return [];
+    n = Math.min(n, total);
+
+    const items = nodeList.map((node) => {
+        const sel = d3.select(node);
+        const x = +node.getAttribute('x') || 0;
+        const y = +node.getAttribute('y') || 0;
+        const w = +node.getAttribute('width') || 0;
+        const h = +node.getAttribute('height') || 0;
+        const id = sel.attr('data-id');
+        const valueAttr = sel.attr('data-value');
+        const value = valueAttr != null ? +valueAttr : NaN;
+        return { node, x, y, w, h, id, value };
+    });
+
+    let ordered;
+    if (orientation === 'vertical') {
+        ordered = items.slice().sort((a, b) => a.x - b.x);
+    } else {
+        ordered = items.slice().sort((a, b) => a.value - b.value);
+    }
+
+    const from = String(op?.from || 'left').toLowerCase();
+    const picked = (from === 'right') ? ordered.slice(-n) : ordered.slice(0, n);
+    const pickedIds = new Set(picked.map(p => String(p.id)));
+
+    const hlColor = '#20c997';
+    const baseColor = '#69b3a2';
+
+    await Promise.all([
+        bars.filter(function() { return pickedIds.has(String(d3.select(this).attr('data-id'))); })
+            .transition().duration(600).attr('fill', hlColor).attr('opacity', 1).end(),
+        bars.filter(function() { return !pickedIds.has(String(d3.select(this).attr('data-id'))); })
+            .transition().duration(600).attr('fill', baseColor).attr('opacity', 0.3).end()
+    ]);
+
+    svg.append('text').attr('class', 'annotation')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 10)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .text(`Nth: ${from} ${n}`);
+
+    const selected = data.filter(d => pickedIds.has(String(d.target)));
+
+    const targetDatumValue = data[op.n-1]
+    const operationSpec = {
+        field: targetDatumValue.category,
+        target: targetDatumValue.target
+    }
+    await simpleBarRetrieveValue(chartId, operationSpec, data, isLast);
+
+    return selected;
+}
+
+export async function simpleBarCount(chartId, op, data, isLast = false) {
+    const { svg, g, orientation, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    if (!Array.isArray(data) || data.length === 0) {
+        console.warn('simpleBarCount: empty data');
+        return data;
+    }
+
+    const bars = g.selectAll('rect');
+    if (bars.empty()) {
+        console.warn('simpleBarCount: no bars on chart');
+        return data;
+    }
+
+    const baseColor = '#69b3a2';
+    const hlColor = '#20c997';
+
+    await bars.transition().duration(150).attr('fill', baseColor).attr('opacity', 0.3).end();
+
+    const nodes = bars.nodes();
+    const items = nodes.map((node) => {
+        const sel = d3.select(node);
+        const x = +node.getAttribute('x') || 0;
+        const y = +node.getAttribute('y') || 0;
+        const w = +node.getAttribute('width') || 0;
+        const h = +node.getAttribute('height') || 0;
+        const valueAttr = sel.attr('data-value');
+        const value = valueAttr != null ? +valueAttr : NaN;
+        return { node, x, y, w, h, value };
+    });
+
+    let ordered;
+    if (orientation === 'vertical') {
+        ordered = items.slice().sort((a, b) => a.x - b.x);
+    } else {
+        ordered = items.slice().sort((a, b) => a.value - b.value);
+    }
+
+    for (let i = 0; i < ordered.length; i++) {
+        const { node } = ordered[i];
+        const rect = d3.select(node);
+
+        await rect.transition().duration(150)
+            .attr('fill', hlColor)
+            .attr('opacity', 1)
+            .end();
+
+        const { x, y } = getCenter(node, orientation, margins);
+        svg.append('text')
+            .attr('class', 'annotation count-label')
+            .attr('x', x)
+            .attr('y', y)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 12)
+            .attr('font-weight', 'bold')
+            .attr('fill', hlColor)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 3)
+            .attr('paint-order', 'stroke')
+            .text(String(i + 1))
+            .attr('opacity', 0)
+            .transition().duration(125).attr('opacity', 1);
+
+        await delay(60);
+    }
+
+    svg.append('text')
+        .attr('class', 'annotation')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 10)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .text(`Count: ${ordered.length}`)
+        .attr('opacity', 0)
+        .transition().duration(200).attr('opacity', 1);
+
+    return data;
+}

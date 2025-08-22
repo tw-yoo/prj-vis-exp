@@ -6,6 +6,8 @@ import {renderSimpleLineChart} from "../operations/line/simple/simpleLineUtil.js
 import {renderMultipleLineChart} from "../operations/line/multiple/multiLineUtil.js";
 import {DatumValue} from "../object/valueType.js";
 export const dataCache = {};
+export const lastCategory = "x";
+export const lastMeasure = "y";
 
 export function getChartType(spec) {
   const mark      = spec.mark;
