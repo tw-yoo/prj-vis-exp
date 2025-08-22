@@ -56,13 +56,11 @@ export class CompareBoolSpec {
    * @param {string} targetB
    * @param operator
    */
-  constructor(field, targetA, targetB, operator, idA = null, idB = null) {
+  constructor(field, targetA, targetB, operator) {
     this.field = field;
     this.targetA = targetA;
     this.targetB = targetB;
     this.operator = operator;
-    this.idA = idA;
-    this.idB = idB;
   }
 }
 
@@ -115,22 +113,18 @@ export class CountSpec {
 export class SumSpec {
   /**
    * @param {string} field
-   * @param {('overall'|'byCategory'|'bySeries')} [group='overall']
    */
-  constructor(field, group = 'overall') {
+  constructor(field) {
     this.field = field;
-    this.group = group; // overall | byCategory | bySeries
   }
 }
 
 export class AverageSpec {
   /**
    * @param {string} field
-   * @param {('overall'|'byCategory'|'bySeries')} [group='overall']
    */
-  constructor(field, group = 'overall') {
+  constructor(field) {
     this.field = field;
-    this.group = group;
   }
 }
 
@@ -139,13 +133,11 @@ export class DiffSpec {
    * @param {string} field
    * @param {string} targetA
    * @param {string} targetB
-   * @param {string} [aggregate='sum']
    */
-  constructor(field, targetA, targetB, aggregate = 'sum') {
+  constructor(field, targetA, targetB) {
     this.field = field;
     this.targetA = targetA;
     this.targetB = targetB;
-    this.aggregate = aggregate;
   }
 }
 

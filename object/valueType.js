@@ -3,8 +3,8 @@ export class DatumValue {
         this.category = category;
         this.measure = measure;
         this.target = target;
-        this.group = group;
         this.value = value;
+        this.group = group;
         this.id = id;
     }
 }

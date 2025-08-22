@@ -101,7 +101,7 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     return null
 }
 
-export async function simpleBarFilter(chartId, op, data) {
+export async function simpleBarFilter(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -199,7 +199,7 @@ export async function simpleBarFilter(chartId, op, data) {
     return filteredData;
 }
 
-export async function simpleBarFindExtremum(chartId, op, data) {
+export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -281,7 +281,7 @@ export async function simpleBarFindExtremum(chartId, op, data) {
     return returnDatumValue;
 }
 
-export async function simpleBarDetermineRange(chartId, op, data) {
+export async function simpleBarDetermineRange(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -379,8 +379,24 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
 
     const finder = (selector) => (d) => String(getId(d)) === String(selector);
 
-    const targetAValue = isLast ? op.idA : op.targetA;
-    const targetBValue = isLast ? op.idB : op.targetB;
+    let targetAValue;
+    let targetBValue;
+
+    if (isLast) {
+        const targetAData = data.find(d => d.id === op.targetA);
+        const targetBData = data.find(d => d.id === op.targetB);
+
+        console.log(targetAData);
+        console.log(targetBData);
+
+        targetAValue = targetAData.target;
+        targetBValue = targetBData.target;
+    } else {
+        targetAValue = op.targetA;
+        targetBValue = op.targetB;
+    }
+
+
     const leftBar  = g.selectAll('rect').filter(finder(targetAValue))
     const rightBar = g.selectAll('rect').filter(finder(targetBValue))
 
@@ -446,7 +462,7 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     return new BoolValue('', !!ok);
 }
 
-export async function simpleBarSort(chartId, op, data) {
+export async function simpleBarSort(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -560,12 +576,10 @@ export async function simpleBarSort(chartId, op, data) {
     return sortedData;
 }
 
-export async function simpleBarSum(chartId, op, currentData, isLast = false) {
+export async function simpleBarSum(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
-    const sumField = op.field || yField;
-    const totalSum = d3.sum(currentData, d => d[sumField]);
+    const totalSum = d3.sum(data, d => d.value);
 
     const newYScale = d3.scaleLinear()
         .domain([0, totalSum]).nice()
@@ -582,8 +596,8 @@ export async function simpleBarSum(chartId, op, currentData, isLast = false) {
     let runningTotal = 0;
     const stackPromises = [];
 
-    bars.each(function(d) {
-        const value = d[sumField];
+    bars.each(function(d, i, nodes) {
+        const value = d[data[i].measure];
         const rect = d3.select(this);
         
         const t = rect.transition().duration(1200)
@@ -616,5 +630,72 @@ export async function simpleBarSum(chartId, op, currentData, isLast = false) {
         .attr("font-weight", "bold")
         .attr("text-anchor", "end") 
         .text(`Sum: ${totalSum.toLocaleString()}`);
-    return currentData; 
+    return data;
 }
+
+export async function simpleBarAverage(chartId, op, data, isLast = false) {
+    const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    if (!Array.isArray(data) || data.length === 0) {
+        console.warn("simpleBarAverage: empty data");
+        return data;
+    }
+
+    const numeric = data.map(d => +d.value).filter(v => !Number.isNaN(v));
+    if (!numeric.length) {
+        console.warn("simpleBarAverage: no numeric values in data");
+        return data;
+    }
+    const avg = d3.mean(numeric);
+
+    const fmt = (v) => Number.isInteger(v) ? String(v) : v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+    if (orientation === 'vertical') {
+        const yMax = d3.max(numeric) || 0;
+        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+        const yPos = margins.top + yScale(avg);
+
+        const line = svg.append("line").attr("class", "annotation avg-line")
+            .attr("x1", margins.left).attr("x2", margins.left)
+            .attr("y1", yPos).attr("y2", yPos)
+            .attr("stroke", "red").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+
+        await line.transition().duration(800).attr("x2", margins.left + plot.w).end();
+
+        svg.append("text").attr("class", "annotation avg-label")
+            .attr("x", margins.left + plot.w + 6)
+            .attr("y", yPos)
+            .attr("dominant-baseline", "middle")
+            .attr("fill", "red").attr("font-weight", "bold")
+            .text(`Avg: ${fmt(avg)}`)
+            .attr("opacity", 0)
+            .transition().duration(400).attr("opacity", 1);
+    } else {
+        const xMax = d3.max(numeric) || 0;
+        const xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
+        const xPos = margins.left + xScale(avg);
+
+        const line = svg.append("line").attr("class", "annotation avg-line")
+            .attr("x1", xPos).attr("x2", xPos)
+            .attr("y1", margins.top).attr("y2", margins.top)
+            .attr("stroke", "red").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+
+        await line.transition().duration(800).attr("y2", margins.top + plot.h).end();
+
+        svg.append("text").attr("class", "annotation avg-label")
+            .attr("x", xPos)
+            .attr("y", margins.top - 8)
+            .attr("text-anchor", "middle")
+            .attr("fill", "red").attr("font-weight", "bold")
+            .text(`Avg: ${fmt(avg)}`)
+            .attr("opacity", 0)
+            .transition().duration(400).attr("opacity", 1);
+    }
+
+    return data;
+}
+
+export async function simpleBarDiff(chartId, op, data, isLast = false) {}
+
+export async function simpleBarNth(chartId, op, data, isLast = false) {}

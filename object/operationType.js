@@ -6,6 +6,9 @@ export const OperationType = Object.freeze({
     COMPARE: "compare",
     SORT: "sort",
     STACK: "stack",
-    SUM: "sum"
+    SUM: "sum",
+    AVERAGE: "average",
+    DIFF: "diff",
+    NTH: "nth"
 });
 

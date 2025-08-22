@@ -1,12 +1,15 @@
-import { OperationType } from "../../../object/operationType.js";
+import {OperationType} from "../../../object/operationType.js";
 import {
-  simpleBarCompare,
-  simpleBarFindExtremum,
-  simpleBarFilter,
-  simpleBarRetrieveValue,
-  simpleBarDetermineRange,
-  simpleBarSort,
-  simpleBarSum
+    simpleBarAverage,
+    simpleBarCompare,
+    simpleBarDetermineRange,
+    simpleBarDiff,
+    simpleBarFilter,
+    simpleBarFindExtremum,
+    simpleBarNth,
+    simpleBarRetrieveValue,
+    simpleBarSort,
+    simpleBarSum
 } from "./simpleBarFunctions.js";
 import {
     buildSimpleBarSpec,
@@ -25,21 +28,24 @@ const OP_HANDLERS = {
     [OperationType.COMPARE]:        simpleBarCompare,
     [OperationType.SORT]:           simpleBarSort,
     [OperationType.SUM]:            simpleBarSum,
+    [OperationType.AVERAGE]:        simpleBarAverage,
+    [OperationType.DIFF]:           simpleBarDiff,
+    [OperationType.NTH]:            simpleBarNth,
 };
 
-async function applyOperation(chartId, operation, currentData) {
+async function applyOperation(chartId, operation, currentData, isLast = false) {
     const fn = OP_HANDLERS[operation.op];
     if (!fn) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
     }
-    return await fn(chartId, operation, currentData);
+    return await fn(chartId, operation, currentData, isLast);
 }
 
-async function executeOpsList(chartId, opsList, currentData) {
+async function executeOpsList(chartId, opsList, currentData, isLast = false) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
-        currentData = await applyOperation(chartId, operation, currentData);
+        currentData = await applyOperation(chartId, operation, currentData, isLast);
         if (i < opsList.length - 1) {
             await delay(1500);
         }
@@ -106,12 +112,24 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
             const chartSpec = buildSimpleBarSpec(allDatumValues)
             await renderChart(chartId, chartSpec);
             const opsList = opsSpec[opKey];
-            currentData = await executeOpsList(chartId, opsList, currentData);
+            currentData = await executeOpsList(chartId, opsList, allDatumValues, isLast);
         } else {
             const opsList = opsSpec[opKey];
-            currentData = await executeOpsList(chartId, opsList, currentData);
+            currentData = await executeOpsList(chartId, opsList, currentData, isLast);
+            const currentDataArray = Array.isArray(currentData)
+                ? currentData
+                : (currentData != null ? [currentData] : []);
+
+            currentDataArray.forEach((datum, idx) => {
+                datum.id = `${opKey}_${idx}`;
+            })
+
+            for (let i=0;i < currentDataArray.length; i++) {
+            }
+            console.log(currentDataArray);
+
+            dataCache[opKey] = currentDataArray
             await stackChartToTempTable(chartId, vlSpec);
-            dataCache[opKey] = [currentData];
         }
     }
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
