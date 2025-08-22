@@ -19,8 +19,7 @@ import {
     stackChartToTempTable
 } from "../../../util/util.js";
 
-// -- helpers to reduce repetition --
-const OP_HANDLERS = {
+const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
     [OperationType.FILTER]:         simpleBarFilter,
     [OperationType.FIND_EXTREMUM]:  simpleBarFindExtremum,
@@ -33,26 +32,6 @@ const OP_HANDLERS = {
     [OperationType.NTH]:            simpleBarNth,
     [OperationType.COUNT]:          simpleBarCount,
 };
-
-async function applyOperation(chartId, operation, currentData, isLast = false) {
-    const fn = OP_HANDLERS[operation.op];
-    if (!fn) {
-        console.warn(`Unsupported operation: ${operation.op}`);
-        return currentData;
-    }
-    return await fn(chartId, operation, currentData, isLast);
-}
-
-async function executeOpsList(chartId, opsList, currentData, isLast = false) {
-    for (let i = 0; i < opsList.length; i++) {
-        const operation = opsList[i];
-        currentData = await applyOperation(chartId, operation, currentData, isLast);
-        if (i < opsList.length - 1) {
-            await delay(1500);
-        }
-    }
-    return currentData;
-}
 
 const chartDataStore = {};
 function clearAllAnnotations(svg) {
@@ -76,6 +55,26 @@ function getSvgAndSetup(chartId) {
 }
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function applySimpleBarOperation(chartId, operation, currentData, isLast = false) {
+    const fn = SIMPLE_BAR_OP_HANDLERS[operation.op];
+    if (!fn) {
+        console.warn(`Unsupported operation: ${operation.op}`);
+        return currentData;
+    }
+    return await fn(chartId, operation, currentData, isLast);
+}
+
+async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = false) {
+    for (let i = 0; i < opsList.length; i++) {
+        const operation = opsList[i];
+        currentData = await applySimpleBarOperation(chartId, operation, currentData, isLast);
+        if (i < opsList.length - 1) {
+            await delay(1500);
+        }
+    }
+    return currentData;
+}
 
 export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
@@ -113,10 +112,10 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
             const chartSpec = buildSimpleBarSpec(allDatumValues)
             await renderChart(chartId, chartSpec);
             const opsList = opsSpec[opKey];
-            currentData = await executeOpsList(chartId, opsList, allDatumValues, isLast);
+            currentData = await executeSimpleBarOpsList(chartId, opsList, allDatumValues, isLast);
         } else {
             const opsList = opsSpec[opKey];
-            currentData = await executeOpsList(chartId, opsList, currentData, isLast);
+            currentData = await executeSimpleBarOpsList(chartId, opsList, currentData, isLast);
             const currentDataArray = Array.isArray(currentData)
                 ? currentData
                 : (currentData != null ? [currentData] : []);

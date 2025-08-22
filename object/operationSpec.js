@@ -11,10 +11,12 @@ export class RetrieveValueSpec {
   /**
    * @param {string} field - Quantitative field to read (e.g., 'value')
    * @param {string} target - { category?, series?, x?, y?, index? }
+   * @param group
    */
-  constructor(field, target) {
+  constructor(field, target, group = null) {
     this.field = field;
     this.target = target;
+    this.group = group;
   }
 }
 
@@ -79,11 +81,12 @@ export class FindExtremumSpec {
    * Find top/bottom-k categories or series by a measure
    * @param {string} field
    * @param {'max'|'min'} [which='max']
-   * @param {string} [aggregate='sum']
+   * @param group
    */
-  constructor(field, which = 'max') {
+  constructor(field, which = 'max', group = null) {
     this.field = field;
     this.which = which;
+    this.group = group;
   }
 }
 

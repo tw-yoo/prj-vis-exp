@@ -21,29 +21,33 @@ export function clearAllAnnotations(svg) {
 
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function stackedBarChangeToSimple(chartId, op, currentData, fullData) {
+export async function stackedBarToSimpleBar(chartId, op, data) {
     const { svg, xField, yField, colorField, plot, margins } = getSvgAndSetup(chartId);
     
-    let filteredData = [...fullData];
-    if (op.subgroupKey) {
-        filteredData = filteredData.filter(d => d[colorField] === op.subgroupKey);
+    let filteredData = [...data];
+    if (op.group) {
+        filteredData = filteredData.filter(d => d.group === op.group);
     }
-    if (op.key !== undefined && op.satisfy) {
-        const cmp = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
-        const satisfyFn = cmp[op.satisfy];
-        if (satisfyFn) {
-            filteredData = filteredData.filter(d => satisfyFn(d[yField], op.key));
-        }
-    }
-    
-    const targetIds = new Set(filteredData.map(d => `${d[xField]}-${d[colorField]}`));
+    // if (op.key !== undefined && op.satisfy) {
+    //     const cmp = { ">": (a, b) => a > b, ">=": (a, b) => a >= b, "<": (a, b) => a < b, "<=": (a, b) => a <= b, "==": (a, b) => a == b };
+    //     const satisfyFn = cmp[op.satisfy];
+    //     if (satisfyFn) {
+    //         filteredData = filteredData.filter(d => satisfyFn(d[yField], op.key));
+    //     }
+    // }
+
+    console.log(filteredData)
+    const targetIds = new Set(filteredData.map(d => `${d.target}-${d.group}-${d.value}`));
     const chartRects = svg.select(".plot-area").selectAll("rect");
+    console.log(targetIds);
+    console.log(chartRects);
 
     const highlightPromises = [];
     chartRects.each(function() {
         const rect = d3.select(this);
         const d = rect.datum();
-        const isTarget = d ? targetIds.has(`${d.key}-${d.subgroup}`) : false;
+        console.log(d)
+        const isTarget = d ? targetIds.has(`${d.key}-${d.subgroup}-${d.value}`) : false;
         const t = rect.transition().duration(800)
             .attr("opacity", isTarget ? 1.0 : 0.2)
             .attr("stroke", isTarget ? "black" : "none")
@@ -60,12 +64,12 @@ export async function stackedBarChangeToSimple(chartId, op, currentData, fullDat
     }
     
     const transformPromises = [];
-    const fadeOut = chartRects.filter(d => !targetIds.has(`${d.key}-${d.subgroup}`))
+    const fadeOut = chartRects.filter(d => !targetIds.has(`${d.key}-${d.subgroup}-${d.value}`))
         .transition().duration(500).attr("opacity", 0).remove().end();
     transformPromises.push(fadeOut);
     
-    const selectedRects = chartRects.filter(d => targetIds.has(`${d.key}-${d.subgroup}`));
-    const newYMax = d3.max(filteredData, d => d[yField]);
+    const selectedRects = chartRects.filter(d => targetIds.has(`${d.key}-${d.subgroup}-${d.value}`));
+    const newYMax = d3.max(filteredData, d => d.value);
     const newYScale = d3.scaleLinear().domain([0, newYMax || 1]).nice().range([plot.h, 0]);
 
     selectedRects.each(function() {
@@ -83,99 +87,125 @@ export async function stackedBarChangeToSimple(chartId, op, currentData, fullDat
     transformPromises.push(yAxisTransition);
     await Promise.all(transformPromises);
     
-    let labelText = "Filtered by: ";
-    const conditions = [];
-    if (op.subgroupKey) conditions.push(`'${op.subgroupKey}'`);
-    if (op.key !== undefined) conditions.push(`${op.field || yField} ${op.satisfy} ${op.key}`);
-    labelText += conditions.join(" & ");
-
-    svg.append("text").attr("class", "filter-label")
-      .attr("x", margins.left).attr("y", margins.top - 10)
-      .attr("font-size", 14).attr("font-weight", "bold")
-      .attr("fill", "#007bff").text(labelText);
+    // let labelText = "Filtered by: ";
+    // const conditions = [];
+    // if (op.group) conditions.push(`'${op.group}'`);
+    // if (op.key !== undefined) conditions.push(`${op.field || yField} ${op.satisfy} ${op.key}`);
+    // labelText += conditions.join(" & ");
+    //
+    // svg.append("text").attr("class", "filter-label")
+    //   .attr("x", margins.left).attr("y", margins.top - 10)
+    //   .attr("font-size", 14).attr("font-weight", "bold")
+    //   .attr("fill", "#007bff").text(labelText);
 
     return filteredData;
 }
 
-
-export async function stackedBarRetrieve(chartId, op, fullData) {
-    const { svg, g, xField } = getSvgAndSetup(chartId);
+export async function stackedBarRetrieveValue(chartId, op, data, isLast = false) {
+    const { svg, g, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
-    const allRects = g.selectAll("rect");
-    const targetX = op.x;
-    const targetG = op.g;
-
-    const hlColor = "#007bff";
-    const animationDuration = 600;
-
-    if (targetX != null && targetG != null) {
-
-        const stackRects = allRects.filter(d => d.key == targetX);
-        const otherRects = allRects.filter(d => d.key != targetX);
-        
-        if (stackRects.empty()) {
-            console.warn("Retrieve: Target stack not found for", op.x);
-            return;
+    const t = op?.target;
+    let categoryLabel = null;
+    if (t && typeof t === 'object') {
+        if (t.category != null) categoryLabel = String(t.category);
+        else if (orientation === 'vertical' && t.x != null) categoryLabel = String(t.x);
+        else if (orientation === 'horizontal' && t.y != null) categoryLabel = String(t.y);
+        else if (t.index != null) {
+            const order = Array.from(new Set(data.map(dv => String(dv.target))));
+            categoryLabel = order[t.index] != null ? String(order[t.index]) : null;
         }
-
-        await otherRects.transition().duration(animationDuration).attr("opacity", 0.2).end();
-
-        await delay(800);
-
-        const targetSegment = stackRects.filter(d => d.subgroup == targetG);
-        const otherSegmentsInStack = stackRects.filter(d => d.subgroup != targetG);
-
-        if (targetSegment.empty()) {
-            console.warn("Retrieve: Target segment not found for", op);
-            return;
-        }
-
-        await Promise.all([
-            otherSegmentsInStack.transition().duration(animationDuration).attr("opacity", 0.2).end(),
-            targetSegment.transition().duration(animationDuration).attr("stroke", hlColor).attr("stroke-width", 2).end()
-        ]);
-
-
-        const d = targetSegment.datum();
-        const x = +targetSegment.attr("x") + (+targetSegment.attr("width") / 2);
-        const y = +targetSegment.attr("y") + (+targetSegment.attr("height") / 2);
-
-        g.append("text").attr("class", "annotation value-tag")
-            .attr("x", x).attr("y", y).attr("text-anchor", "middle")
-            .attr("dominant-baseline", "middle").attr("fill", "white").attr("font-weight", "bold")
-            .attr("stroke", hlColor).attr("stroke-width", 0.5)
-            .text(d.value);
-
-    } else if (targetX != null) {
-
-        const targetRects = allRects.filter(d => d.key == targetX);
-        const otherRects = allRects.filter(d => d.key != targetX);
-
-        if (targetRects.empty()) {
-            console.warn("Retrieve: Target stack not found for", op.x);
-            return;
-        }
-        
-        await Promise.all([
-            otherRects.transition().duration(animationDuration).attr("opacity", 0.2).end(),
-            targetRects.transition().duration(animationDuration).attr("opacity", 1.0).end()
-        ]);
-
-        const total = d3.sum(fullData.filter(d => d[xField] == targetX), d => d.count);
-        const topRect = targetRects.filter((d, i, nodes) => i === nodes.length - 1).node();
-        
-        g.append("text").attr("class", "annotation value-tag")
-            .attr("x", +topRect.getAttribute("x") + (+topRect.getAttribute("width") / 2))
-            .attr("y", +topRect.getAttribute("y") - 10)
-            .attr("text-anchor", "middle").attr("font-weight", "bold")
-            .attr("fill", hlColor)
-            .text(`Total: ${total}`);
+    } else if (t != null) {
+        categoryLabel = String(t);
+        // Accept id form like "cat__sg" and extract category
+        if (categoryLabel.includes('__')) categoryLabel = categoryLabel.split('__')[0];
     }
+
+    if (!categoryLabel) {
+        console.warn('stackedBarRetrieveValue: missing target category');
+        return [];
+    }
+
+    const wantGroup = op?.group != null ? String(op.group) : null;
+
+    // Build set of pairs `${category}-${subgroup}` to highlight
+    const targetPairs = new Set();
+    if (wantGroup) {
+        targetPairs.add(`${categoryLabel}-${wantGroup}`);
+    } else {
+        const sgs = Array.from(new Set(data
+            .filter(dv => String(dv.target) === categoryLabel)
+            .map(dv => String(dv.group))));
+        sgs.forEach(sg => targetPairs.add(`${categoryLabel}-${sg}`));
+    }
+
+    // 2) Apply highlights to rects
+    const allRects = g.selectAll('rect');
+    const promises = [];
+    allRects.each(function() {
+        const rect = d3.select(this);
+        const rd = rect.datum(); // { key: category, subgroup, value, ... }
+        const isHit = rd && targetPairs.has(`${String(rd.key)}-${String(rd.subgroup)}`);
+        const p = rect.transition().duration(350)
+            .attr('opacity', isHit ? 1 : 0.25)
+            .attr('stroke', isHit ? 'black' : 'none')
+            .attr('stroke-width', isHit ? 1 : 0)
+            .end();
+        promises.push(p);
+    });
+    await Promise.all(promises);
+
+    // 3) Add value tag annotation (sum for whole bar, or segment value for single subgroup)
+    const matched = wantGroup
+        ? data.filter(dv => String(dv.target) === categoryLabel && String(dv.group) === wantGroup)
+        : data.filter(dv => String(dv.target) === categoryLabel);
+    console.log(matched);
+
+    if (matched.length > 0) {
+        const value = wantGroup
+            ? (matched[0]?.value ?? 0)
+            : matched.reduce((acc, dv) => acc + (+dv.value || 0), 0);
+
+        const nodes = [];
+        allRects.each(function() {
+            const rd = d3.select(this).datum();
+            if (rd && targetPairs.has(`${String(rd.key)}-${String(rd.subgroup)}`)) nodes.push(this);
+        });
+        if (nodes.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            nodes.forEach(n => {
+                const b = n.getBBox();
+                minX = Math.min(minX, b.x);
+                minY = Math.min(minY, b.y);
+                maxX = Math.max(maxX, b.x + b.width);
+                maxY = Math.max(maxY, b.y + b.height);
+            });
+
+            const cx = (minX + maxX) / 2;
+            const cy = (minY + maxY) / 2;
+            const labelX = orientation === 'vertical' ? cx : maxX + 6;
+            const labelY = orientation === 'vertical' ? Math.max(10, minY - 6) : cy;
+
+            g.append('text')
+                .attr('class', 'value-tag annotation')
+                .attr('x', labelX)
+                .attr('y', labelY)
+                .attr('text-anchor', orientation === 'vertical' ? 'middle' : 'start')
+                .attr('font-size', 12)
+                .attr('font-weight', 'bold')
+                .attr('fill', '#e03131')
+                .attr('stroke', 'white')
+                .attr('stroke-width', 3)
+                .attr('paint-order', 'stroke')
+                .text(String(value))
+                .attr('opacity', 0)
+                .transition().duration(200).attr('opacity', 1);
+        }
+    }
+
+    return matched;
 }
 
-
-export async function stackedBarFilter(chartId, op, currentData, fullData) {
+export async function stackedBarFilter(chartId, op, data, isLast = false) {
     const { g, xField } = getSvgAndSetup(chartId);
     const allRects = g.selectAll("rect");
 
@@ -183,11 +213,11 @@ export async function stackedBarFilter(chartId, op, currentData, fullData) {
     let passedKeys = new Set();
 
     if (op.g) {
-        passedData = currentData.filter(d => d.weather === op.g);
+        passedData = data.filter(d => d.weather === op.g);
         passedKeys = new Set(passedData.map(d => `${d.month}-${d.weather}`));
 
     } else if (op.y && op.y.satisfy) { 
-        const totals = d3.rollup(currentData, v => d3.sum(v, d => d.count), d => d[xField]);
+        const totals = d3.rollup(data, v => d3.sum(v, d => d.count), d => d.target);
         const cmp = { ">": (a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b };
         const satisfyFn = cmp[op.y.satisfy];
         const key = op.y.key;
@@ -196,19 +226,37 @@ export async function stackedBarFilter(chartId, op, currentData, fullData) {
         for (const [month, total] of totals) {
             if (satisfyFn(total, key)) { passedMonths.add(String(month)); }
         }
-        passedData = currentData.filter(d => passedMonths.has(String(d[xField])));
-        passedKeys = new Set(passedData.map(d => `${d.month}-${d.weather}`));
+        passedData = data.filter(d => passedMonths.has(String(d.target)));
+        passedKeys = new Set(passedData.map(d => `${d.target}-${d.group}-${d.value}`));
 
     } else if (op.x) { // by x
         const targetX = String(op.x);
-        passedData = currentData.filter(d => String(d[xField]) === targetX);
-        passedKeys = new Set(passedData.map(d => `${d.month}-${d.weather}`));
+        passedData = data.filter(d => String(d.target) === targetX);
+        passedKeys = new Set(passedData.map(d => `${d.target}-${d.group}-${d.value}`));
     }
     
     await allRects.transition().duration(800)
-        .attr("opacity", d => passedKeys.has(`${d.key}-${d.subgroup}`) ? 1.0 : 0.2)
+        .attr("opacity", d => passedKeys.has(`${d.key}-${d.subgroup}-${d.value}`) ? 1.0 : 0.2)
         .end();
 
     return passedData;
 }
+
+export async function stackedBarFindExtremum(chartId, op, data, isLast = false) {}
+
+export async function stackedBarDetermineRange(chartId, op, data, isLast = false) {}
+
+export async function stackedBarCompare(chartId, op, data, isLast = false) {}
+
+export async function stackedBarSort(chartId, op, data, isLast = false) {await stackedBarToSimpleBar(chartId, op, data);}
+
+export async function stackedBarSum(chartId, op, data, isLast = false) {}
+
+export async function stackedBarAverage(chartId, op, data, isLast = false) {}
+
+export async function stackedBarDiff(chartId, op, data, isLast = false) {}
+
+export async function stackedBarNth(chartId, op, data, isLast = false) {}
+
+export async function stackedBarCount(chartId, op, data, isLast = false) {}
 
