@@ -66,6 +66,24 @@ export async function multipleLineChangeToSimple(chartId, op, currentData, chart
     return filteredData;
 }
 
+export async function multipleLineRetrieveValue(chartId, op, data) {}
+
+export async function multipleLineFilter(chartId, op, data) {}
+
+export async function multipleLineFindExtremum(chartId, op, data) {}
+
+export async function multipleLineDetermineRange(chartId, op, data) {}
+
+export async function multipleLineCompare(chartId, op, data) {}
+
+export async function multipleLineSum(chartId, op, data) {}
+
+export async function multipleLineAverage(chartId, op, data) {}
+
+export async function multipleLineDiff(chartId, op, data) {}
+
+export async function multipleLineCount(chartId, op, data) {}
+
 export async function multiLineRetrieveByX(chartId, op, chartData) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     const { series, fullXScale, fullYScale, colorScale } = chartData;

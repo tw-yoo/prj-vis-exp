@@ -1,4 +1,4 @@
-
+import { DatumValue } from "../../../object/valueType.js";
 import {
 
     simpleLineCompare,
@@ -6,21 +6,54 @@ import {
     simpleLineFilter,
     simpleLineFindExtremum,
     simpleLineRetrieveValue,
-    simpleLineSort,
-
     clearAllAnnotations as simpleClearAllAnnotations,
-    delay
+    delay, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount
 } from '../simple/simpleLineFunctions.js';
 
 import {
     multipleLineChangeToSimple,
     multiLineRetrieveByX,
-    multiLineFilterByY
+    multiLineFilterByY, multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
+    multipleLineDetermineRange, multipleLineCompare, multipleLineSum, multipleLineAverage, multipleLineDiff,
+    multipleLineCount
 } from './multiLineFunctions.js';
 import {OperationType} from "../../../object/operationType.js";
-import {stackChartToTempTable} from "../../../util/util.js";
+import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
 
 const chartDataStore = {};
+
+const MULTIPLE_LINE_OP_HANDLERS = {
+    [OperationType.RETRIEVE_VALUE]: multipleLineRetrieveValue,
+    [OperationType.FILTER]:         multipleLineFilter,
+    [OperationType.FIND_EXTREMUM]:  multipleLineFindExtremum,
+    [OperationType.DETERMINE_RANGE]:multipleLineDetermineRange,
+    [OperationType.COMPARE]:        multipleLineCompare,
+    [OperationType.SUM]:            multipleLineSum,
+    [OperationType.AVERAGE]:        multipleLineAverage,
+    [OperationType.DIFF]:           multipleLineDiff,
+    [OperationType.COUNT]:          multipleLineCount,
+};
+
+
+async function applyMultipleLineOperation(chartId, operation, currentData) {
+    const fn = SIMPLE_LINE_OP_HANDLERS[operation.op];
+    if (!fn) {
+        console.warn(`Unsupported operation: ${operation.op}`);
+        return currentData;
+    }
+    return await fn(chartId, operation, currentData, isLast);
+}
+
+async function executeMultipleLineOpsList(chartId, opsList, currentData) {
+    for (let i = 0; i < opsList.length; i++) {
+        const operation = opsList[i];
+        currentData = await applyMultipleLineOperation(chartId, operation, currentData);
+        if (i < opsList.length - 1) {
+            await delay(1500);
+        }
+    }
+    return currentData;
+}
 
 async function fullChartReset(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
@@ -61,54 +94,77 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
         return;
     }
     
-    let currentData = [...chartInfo.data];
+    let fullData = [...chartInfo.data];
+    const { rows, datumValues, categoryLabel, measureLabel } =
+        multipleLineToDatumValues(fullData, vlSpec);
     let isTransformed = false;
 
-    for (let i = 0; i < opsSpec.ops.length; i++) {
-        const operation = opsSpec.ops[i];
-        const opType = operation.op;
+    const operationKeys = Object.keys(opsSpec);
+    for (const opKey of operationKeys) {
+        let currentData = datumValues;
+        const opsList = opsSpec[opKey];
+        currentData = await executeMultipleLineOpsList(chartId, opsList, currentData);
+        const currentDataArray = Array.isArray(currentData)
+            ? currentData
+            : (currentData != null ? [currentData] : []);
 
-        if (isTransformed) {
-            switch (opType) {
-                case 'retrievevalue': currentData = await simpleLineRetrieveValue(chartId, operation, currentData, chartInfo.data); break;
-                case 'filter':        currentData = await simpleLineFilter(chartId, operation, currentData, chartInfo.data); break;
-                case 'findextremum':  currentData = await simpleLineFindExtremum(chartId, operation, currentData, chartInfo.data); break;
-                case 'determinerange':currentData = await simpleLineDetermineRange(chartId, operation, currentData, chartInfo.data); break;
-                case 'compare':       currentData = await simpleLineCompare(chartId, operation, currentData, chartInfo.data); break;
-                case 'sort':          currentData = await simpleLineSort(chartId, operation, currentData, chartInfo.data); break;
-                default: console.warn(`Unsupported operation after transformation: ${operation.op}`);
-            }
-        } else {
+        currentDataArray.forEach((datum, idx) => {
+            datum.id = `${opKey}_${idx}`;
+            datum.category = lastCategory;
+            datum.measure = lastMeasure;
+        })
 
-            switch (opType) {
-                case 'changetosimple':
-                    currentData = await multipleLineChangeToSimple(chartId, operation, currentData, chartInfo);
-                    isTransformed = true;
-                    break;
-                
-                case 'retrievebyx':
-                    await multiLineRetrieveByX(chartId, operation, chartInfo);
-                    break;
-                case 'filterbyy': 
-                    await multiLineFilterByY(chartId, operation, chartInfo);
-                    break;
-                default:
-                    console.warn(`Invalid operation. Received: '${opType}'`);
-                    return;
-            }
-
-        }
-
-        if (i < opsSpec.ops.length - 1) {
-            await delay(2500);
-            if (isTransformed) {
-                 const svg = d3.select(`#${chartId} svg`);
-                 simpleClearAllAnnotations(svg);
-                 svg.selectAll("circle.datapoint").transition().duration(300).attr("r", 5).attr("opacity", 0);
-                 await delay(300);
-            }
-        }
+        dataCache[opKey] = currentDataArray
+        await stackChartToTempTable(chartId, vlSpec);
     }
+
+    Object.keys(dataCache).forEach(key => delete dataCache[key]);
+
+    // for (let i = 0; i < opsSpec.ops.length; i++) {
+    //     const operation = opsSpec.ops[i];
+    //     const opType = operation.op;
+    //
+    //     if (isTransformed) {
+    //         switch (opType) {
+    //             case 'retrievevalue': currentData = await simpleLineRetrieveValue(chartId, operation, currentData, chartInfo.data); break;
+    //             case 'filter':        currentData = await simpleLineFilter(chartId, operation, currentData, chartInfo.data); break;
+    //             case 'findextremum':  currentData = await simpleLineFindExtremum(chartId, operation, currentData, chartInfo.data); break;
+    //             case 'determinerange':currentData = await simpleLineDetermineRange(chartId, operation, currentData, chartInfo.data); break;
+    //             case 'compare':       currentData = await simpleLineCompare(chartId, operation, currentData, chartInfo.data); break;
+    //             case 'sort':          currentData = await simpleLineSort(chartId, operation, currentData, chartInfo.data); break;
+    //             default: console.warn(`Unsupported operation after transformation: ${operation.op}`);
+    //         }
+    //     } else {
+    //
+    //         switch (opType) {
+    //             case 'changetosimple':
+    //                 currentData = await multipleLineChangeToSimple(chartId, operation, currentData, chartInfo);
+    //                 isTransformed = true;
+    //                 break;
+    //
+    //             case 'retrievebyx':
+    //                 await multiLineRetrieveByX(chartId, operation, chartInfo);
+    //                 break;
+    //             case 'filterbyy':
+    //                 await multiLineFilterByY(chartId, operation, chartInfo);
+    //                 break;
+    //             default:
+    //                 console.warn(`Invalid operation. Received: '${opType}'`);
+    //                 return;
+    //         }
+    //
+    //     }
+    //
+    //     if (i < opsSpec.ops.length - 1) {
+    //         await delay(2500);
+    //         if (isTransformed) {
+    //              const svg = d3.select(`#${chartId} svg`);
+    //              simpleClearAllAnnotations(svg);
+    //              svg.selectAll("circle.datapoint").transition().duration(300).attr("r", 5).attr("opacity", 0);
+    //              await delay(300);
+    //         }
+    //     }
+    // }
 }
 
 
@@ -192,4 +248,43 @@ export async function renderMultipleLineChart(chartId, spec) {
         legendRow.append("rect").attr("width", 15).attr("height", 15).attr("fill", colorScale(s.key));
         legendRow.append("text").attr("x", 20).attr("y", 12).text(s.key).style("font-size", "12px");
     });
+}
+
+function multipleLineToDatumValues(rawData, spec) {
+  const xEnc = spec.encoding.x || {};
+  const yEnc = spec.encoding.y || {};
+  const colorEnc = spec.encoding.color || {};
+
+  const xField = xEnc.field;
+  const yField = yEnc.field;
+  const colorField = colorEnc.field;
+
+  const categoryLabel = (xEnc.axis && xEnc.axis.title) || xField || 'x';
+  const measureLabel = (yEnc.axis && yEnc.axis.title) || yField || 'y';
+
+  const rows = [];
+  const datumValues = [];
+
+  rawData.forEach(d => {
+    const categoryVal = d[xField];
+    const measureVal = +d[yField];
+    const groupVal = colorField ? d[colorField] : null;
+
+    rows.push({
+      [categoryLabel]: categoryVal,
+      [measureLabel]: measureVal,
+      group: groupVal
+    });
+
+    datumValues.push(new DatumValue(
+      xField,
+      yField,
+      categoryVal,
+      groupVal,
+      measureVal,
+      undefined
+    ));
+  });
+
+  return { rows, datumValues, categoryLabel, measureLabel };
 }

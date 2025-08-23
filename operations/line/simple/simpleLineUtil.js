@@ -1,18 +1,34 @@
-
 import {
     simpleLineCompare,
     simpleLineDetermineRange,
     simpleLineFilter,
     simpleLineFindExtremum,
     simpleLineRetrieveValue,
-    simpleLineSort,
     getSvgAndSetup,
     clearAllAnnotations,
     delay,
-    prepareForNextOperation
+    prepareForNextOperation, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount
 } from "./simpleLineFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
-import {stackChartToTempTable} from "../../../util/util.js";
+import {
+    buildSimpleBarSpec,
+    convertToDatumValues,
+    dataCache, lastCategory, lastMeasure,
+    renderChart,
+    stackChartToTempTable
+} from "../../../util/util.js";
+
+const SIMPLE_LINE_OP_HANDLERS = {
+    [OperationType.RETRIEVE_VALUE]: simpleLineRetrieveValue,
+    [OperationType.FILTER]:         simpleLineFilter,
+    [OperationType.FIND_EXTREMUM]:  simpleLineFindExtremum,
+    [OperationType.DETERMINE_RANGE]:simpleLineDetermineRange,
+    [OperationType.COMPARE]:        simpleLineCompare,
+    [OperationType.SUM]:            simpleLineSum,
+    [OperationType.AVERAGE]:        simpleLineAverage,
+    [OperationType.DIFF]:           simpleLineDiff,
+    [OperationType.COUNT]:          simpleLineCount,
+};
 
 const chartDataStore = {};
 async function fullChartReset(chartId) {
@@ -31,49 +47,61 @@ async function fullChartReset(chartId) {
     await Promise.all(resetPromises);
 }
 
+
+async function applySimpleLineOperation(chartId, operation, currentData) {
+    const fn = SIMPLE_LINE_OP_HANDLERS[operation.op];
+    if (!fn) {
+        console.warn(`Unsupported operation: ${operation.op}`);
+        return currentData;
+    }
+    return await fn(chartId, operation, currentData, isLast);
+}
+
+async function executeSimpleLineOpsList(chartId, opsList, currentData) {
+    for (let i = 0; i < opsList.length; i++) {
+        const operation = opsList[i];
+        currentData = await applySimpleLineOperation(chartId, operation, currentData);
+        if (i < opsList.length - 1) {
+            await delay(1500);
+        }
+    }
+    return currentData;
+}
+
 export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
     await fullChartReset(chartId);
+
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
 
     const fullData = chartDataStore[chartId];
     if (!fullData) {
         console.error("No data for chart:", chartId);
         return;
     }
-    let currentData = [...fullData];
-    let previousOpType = null; 
-    for (let i = 0; i < opsSpec.ops.length; i++) {
-      
-        if (previousOpType) {
-            if (previousOpType === 'filter') {
-                
-                const { svg } = getSvgAndSetup(chartId);
-                clearAllAnnotations(svg);
-                await delay(200);
-            } else {
-                
-                await fullChartReset(chartId);
-            }
-        }
-        
-        const operation = opsSpec.ops[i];
+    // let currentData = [...fullData];
+    let data = convertToDatumValues(fullData, xField, yField, "vertical");
+    let previousOpType = null;
 
-        switch (operation.op) {
-            case OperationType.RETRIEVE_VALUE: currentData = await simpleLineRetrieveValue(chartId, operation, currentData, fullData); break;
-            case OperationType.FILTER: currentData = await simpleLineFilter(chartId, operation, currentData, fullData); break;
-            case OperationType.FIND_EXTREMUM: currentData = await simpleLineFindExtremum(chartId, operation, currentData, fullData); break;
-            case OperationType.DETERMINE_RANGE: currentData = await simpleLineDetermineRange(chartId, operation, currentData, fullData); break;
-            case OperationType.COMPARE: currentData = await simpleLineCompare(chartId, operation, currentData, fullData); break;
-            case OperationType.SORT: currentData = await simpleLineSort(chartId, operation, currentData, fullData); break;
-            case OperationType.STACK: await stackChartToTempTable(chartId, vlSpec); break;
-            default: console.warn(`Unsupported operation: ${operation.op}`);
-        }
+    const operationKeys = Object.keys(opsSpec);
+    for (const opKey of operationKeys) {
+        let currentData = data;
+        const opsList = opsSpec[opKey];
+        currentData = await executeSimpleLineOpsList(chartId, opsList, currentData);
+        const currentDataArray = Array.isArray(currentData)
+            ? currentData
+            : (currentData != null ? [currentData] : []);
 
-        previousOpType = operation.op;
+        currentDataArray.forEach((datum, idx) => {
+            datum.id = `${opKey}_${idx}`;
+            datum.category = lastCategory;
+            datum.measure = lastMeasure;
+        })
 
-        if (i < opsSpec.ops.length - 1) {
-            await delay(2500);
-        }
+        dataCache[opKey] = currentDataArray
+        await stackChartToTempTable(chartId, vlSpec);
     }
+
+    Object.keys(dataCache).forEach(key => delete dataCache[key]);
 }
 
 export async function renderSimpleLineChart(chartId, spec) {

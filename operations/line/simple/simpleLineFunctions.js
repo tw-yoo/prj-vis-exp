@@ -82,7 +82,7 @@ function normalizeRange(from, to) {
   return { fromD, toD, fromLabel: fromD ? fmtISO(fromD) : String(from), toLabel: toD ? fmtISO(toD) : String(to) };
 }
 
-export async function simpleLineRetrieveValue(chartId, op, data, fullData) {
+export async function simpleLineRetrieveValue(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -150,7 +150,7 @@ export async function simpleLineRetrieveValue(chartId, op, data, fullData) {
     return data;
 }
 
-export async function simpleLineFilter(chartId, op, data, fullData) {
+export async function simpleLineFilter(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -161,7 +161,7 @@ export async function simpleLineFilter(chartId, op, data, fullData) {
     const filterField = op.field || xField;
 
     if (filterField === yField) {
-        const yMax = d3.max(fullData, d => d[yField]);
+        const yMax = d3.max(data, d => d[yField]);
         const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
         
         const fromValue = op.from !== undefined ? op.from : -Infinity;
@@ -216,17 +216,17 @@ export async function simpleLineFilter(chartId, op, data, fullData) {
 
     } else {
 
-        const temporal = isTemporal(fullData, xField);
+        const temporal = isTemporal(data, xField);
         let fromD, toD, fromLabel, toLabel;
         if (temporal) {
             const r = normalizeRange(op.from, op.to);
             ({ fromD, toD, fromLabel, toLabel } = r);
             if (!fromD || !toD) { console.warn("Filter: invalid from/to", op); return data; }
         }
-        const xExtent = temporal ? d3.extent(fullData, d => d[xField]) : null;
+        const xExtent = temporal ? d3.extent(data, d => d[xField]) : null;
         const xScale = temporal
             ? d3.scaleTime().domain(xExtent).range([0, plot.w])
-            : d3.scalePoint().domain(fullData.map(d => d[xField])).range([0, plot.w]);
+            : d3.scalePoint().domain(data.map(d => d[xField])).range([0, plot.w]);
 
         points.transition().duration(800).attr("opacity", 0);
         await baseLine.transition().duration(800).attr("stroke", "#d3d3d3").end();
@@ -266,7 +266,7 @@ export async function simpleLineFilter(chartId, op, data, fullData) {
     }
 }
 
-export async function simpleLineFindExtremum(chartId, op, data, fullData) {
+export async function simpleLineFindExtremum(chartId, op, data) {
   const { svg, g, yField, margins, plot } = getSvgAndSetup(chartId);
   clearAllAnnotations(svg);
 
@@ -316,7 +316,7 @@ export async function simpleLineFindExtremum(chartId, op, data, fullData) {
   return data;
 }
 
-export async function simpleLineDetermineRange(chartId, op, data, fullData) {
+export async function simpleLineDetermineRange(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -434,8 +434,7 @@ export async function simpleLineDetermineRange(chartId, op, data, fullData) {
     return data;
 }
 
-
-export async function simpleLineCompare(chartId, op, data, fullData) {
+export async function simpleLineCompare(chartId, op, data) {
   const { svg, g, margins, plot } = getSvgAndSetup(chartId);
   clearAllAnnotations(svg);
 
@@ -514,44 +513,10 @@ export async function simpleLineCompare(chartId, op, data, fullData) {
   return data;
 }
 
+export async function simpleLineSum(chartId, op, data) {}
 
-export async function simpleLineSort(chartId, op, data, fullData) {
-  const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
-  clearAllAnnotations(svg);
+export async function simpleLineAverage(chartId, op, data) {}
 
-  const baseLine = selectMainLine(g);
-  const points   = selectMainPoints(g);
+export async function simpleLineDiff(chartId, op, data) {}
 
-  const sorted = [...data].sort((a, b) =>
-    op.order === "ascending" ? a[yField] - b[yField] : b[yField] - a[yField]
-  );
-
-  const xNew = d3.scalePoint()
-    .domain(d3.range(sorted.length))
-    .range([0, plot.w]);
-
-  const yScale = d3.scaleLinear()
-    .domain(d3.extent(data, d => d[yField])).nice()
-    .range([plot.h, 0]);
-
-  const lineGen = d3.line()
-    .x((d, i) => xNew(i))
-    .y(d => yScale(d[yField]));
-
-  await g.select(".x-axis").transition().duration(1200)
-    .call(d3.axisBottom(xNew).tickFormat(() => "")) 
-    .end();
-
-  await points.data(sorted, d => d[xField])
-    .transition().duration(1200)
-    .attr("cx", (d, i) => xNew(i))
-    .attr("cy", d => yScale(d[yField]))
-    .end();
-
-  await baseLine.datum(sorted)
-    .transition().duration(1200)
-    .attr("d", lineGen)
-    .end();
-
-  return sorted;
-}
+export async function simpleLineCount(chartId, op, data) {}
