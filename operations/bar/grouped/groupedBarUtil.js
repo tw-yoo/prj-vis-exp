@@ -1,20 +1,52 @@
-import {
-  groupedBarFilter,
-  groupedBarRetrieveValue,
-  groupedBarFindExtremum,
-  groupedBarDetermineRange,
-  groupedBarCompare,
-  groupedBarSort,
-  groupedBarFocus,
-
-  getSvgAndSetup,
-  clearAllAnnotations,
-  delay
-} from "./groupedBarFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
-import {stackChartToTempTable} from "../../../util/util.js";
+import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
+import {
+    clearAllAnnotations,
+    delay,
+    groupedBarAverage,
+    groupedBarCompare, groupedBarCount,
+    groupedBarDetermineRange, groupedBarDiff,
+    groupedBarFilter,
+    groupedBarFindExtremum, groupedBarNth,
+    groupedBarRetrieveValue, groupedBarSort, groupedBarSum
+} from "./groupedBarFunctions.js";
+import { DatumValue } from "../../../object/valueType.js";
+
+const GROUPED_BAR_OP_HANDLES = {
+    [OperationType.RETRIEVE_VALUE]: groupedBarRetrieveValue,
+    [OperationType.FILTER]:         groupedBarFilter,
+    [OperationType.FIND_EXTREMUM]:  groupedBarFindExtremum,
+    [OperationType.DETERMINE_RANGE]:groupedBarDetermineRange,
+    [OperationType.COMPARE]:        groupedBarCompare,
+    [OperationType.SORT]:           groupedBarSort,
+    [OperationType.SUM]:            groupedBarSum,
+    [OperationType.AVERAGE]:        groupedBarAverage,
+    [OperationType.DIFF]:           groupedBarDiff,
+    [OperationType.NTH]:            groupedBarNth,
+    [OperationType.COUNT]:          groupedBarCount,
+}
 
 const chartDataStore = {};
+
+async function applyGroupedBarOperation(chartId, operation, currentData, isLast = false)  {
+    const fn = GROUPED_BAR_OP_HANDLES[operation.op];
+    if (!fn) {
+        console.warn(`Unsupported operation: ${operation.op}`);
+        return currentData;
+    }
+    return await fn(chartId, operation, currentData, isLast);
+}
+
+async function executeGroupedBarOpsList(chartId, opsList, currentData, isLast = false)  {
+    for (let i = 0; i < opsList.length; i++) {
+        const operation = opsList[i];
+        currentData = await applyGroupedBarOperation(chartId, operation, currentData, isLast);
+        if (i < opsList.length - 1) {
+            await delay(1500);
+        }
+    }
+    return currentData;
+}
 
 export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
   const svg = d3.select(`#${chartId}`).select("svg");
@@ -29,55 +61,30 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
     await renderGroupedBarChart(chartId, chartInfo.spec);
   }
 
-  const fullData = chartInfo.data;
-  let currentData = [...fullData];
-
-  for (let i = 0; i < (opsSpec?.ops?.length || 0); i++) {
-    const op = opsSpec.ops[i];
-    const opType = String(op.op || "").toLowerCase();
-
     clearAllAnnotations(d3.select(`#${chartId}`).select("svg"));
 
-    switch (opType) {
-        case OperationType.FILTER:
-            currentData = await groupedBarFilter(chartId, op, currentData, fullData);
-            break;
+  const fullData = chartInfo.data;
+    const { rows, datumValues, categoryLabel, measureLabel } = toGroupedDatumValues(fullData, vlSpec);
+    let currentData = datumValues;
+    const operationKeys = Object.keys(opsSpec);
 
-        case OperationType.RETRIEVE_VALUE:
-            currentData = await groupedBarRetrieveValue(chartId, op, currentData, fullData);
-            break;
+    for (const opKey of operationKeys) {
+        const opsList = opsSpec[opKey];
+        currentData = executeGroupedBarOpsList(chartId, opsList, currentData)
+        const currentDataArray = Array.isArray(currentData)
+            ? currentData
+            : (currentData != null ? [currentData] : []);
 
-        case OperationType.FIND_EXTREMUM:
-            currentData = await groupedBarFindExtremum(chartId, op, currentData, fullData);
-            break;
+        currentDataArray.forEach((datum, idx) => {
+            datum.id = `${opKey}_${idx}`;
+            datum.category = lastCategory;
+            datum.measure = lastMeasure;
+        })
 
-        case OperationType.DETERMINE_RANGE:
-            currentData = await groupedBarDetermineRange(chartId, op, currentData, fullData);
-            break;
-
-        case OperationType.COMPARE:
-            currentData = await groupedBarCompare(chartId, op, currentData, fullData);
-            break;
-
-        case OperationType.SORT:
-            currentData = await groupedBarSort(chartId, op, currentData, fullData);
-            break;
-        case OperationType.STACK:
-            await stackChartToTempTable(chartId, vlSpec);
-            break
-
-      case "focus":
-        currentData = await groupedBarFocus(chartId, op, currentData, fullData);
-        break;
-
-      default:
-        console.warn(`Unsupported operation: '${op.op}'.`);
+        dataCache[opKey] = currentDataArray
+        await stackChartToTempTable(chartId, vlSpec);
     }
 
-    if (i < opsSpec.ops.length - 1) {
-      await delay(1500);
-    }
-  }
 }
 export async function renderGroupedBarChart(chartId, spec) {
   const container = d3.select(`#${chartId}`);
@@ -173,4 +180,80 @@ export async function renderGroupedBarChart(chartId, spec) {
       .attr("x", 20).attr("y", 12.5)
       .text(value);
   });
+}
+
+export function toGroupedDatumValues(rawData, spec) {
+  const enc = spec?.encoding || {};
+  const xEnc = enc.x || {};
+  const yEnc = enc.y || {};
+  const colorEnc = enc.color || {};
+  const colEnc = enc.column || {};
+  const rowEnc = enc.row || {};
+
+  // Facet field is the high-level category for grouped bars
+  const facetField = colEnc.field || rowEnc.field || null;
+  if (!facetField) {
+    console.warn('toGroupedDatumValues: facet (column/row) field not found; falling back to raw x as category');
+  }
+
+  const xField = xEnc.field || null;
+  const yField = yEnc.field || null;
+  const colorField = colorEnc.field || null;
+  const xType = xEnc.type;
+  const yType = yEnc.type;
+  const xAgg = xEnc.aggregate || null;
+  const yAgg = yEnc.aggregate || null;
+
+  const isXQuant = xType === 'quantitative';
+  const valueField = isXQuant ? xField : yField; // may be null for count-only
+  const numericEnc = isXQuant ? xEnc : yEnc;
+  const measureLabel = (numericEnc.axis && numericEnc.axis.title) || (numericEnc.aggregate || numericEnc.field || 'value');
+
+  // Category label: prefer explicit facet title; else use facet field name
+  const facetLabel = (colEnc.axis && colEnc.axis.title) || (rowEnc.axis && rowEnc.axis.title) || (facetField || 'category');
+
+  // Determine subgroup dimension: prefer color; else use the non-quant axis (usually x)
+  let subgroupField = colorField || (isXQuant ? null : xField);
+  if (!subgroupField) subgroupField = colorField || xField || null;
+
+  // Helper
+  const toNum = v => { const n = +v; return Number.isFinite(n) ? n : 0; };
+
+  // Facets and subgroups
+  const facets = facetField ? Array.from(new Set(rawData.map(d => d[facetField]))) : [null];
+  const subgroups = subgroupField ? Array.from(new Set(rawData.map(d => d[subgroupField]))) : [null];
+
+  function aggregateFor(facetVal, subgroupVal) {
+    // rows matching this facet/subgroup
+    const rows = rawData.filter(r =>
+      (facetField ? r[facetField] === facetVal : true) &&
+      (subgroupField ? r[subgroupField] === subgroupVal : true)
+    );
+
+    // Choose aggregation
+    if (yAgg === 'count' || xAgg === 'count' || !valueField) return rows.length;
+
+    // Default: sum
+    const vals = valueField ? rows.map(r => toNum(r[valueField])) : [];
+    if (xAgg === 'mean' || yAgg === 'mean') return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
+    if (xAgg === 'min'  || yAgg === 'min')  return vals.length ? Math.min(...vals) : 0;
+    if (xAgg === 'max'  || yAgg === 'max')  return vals.length ? Math.max(...vals) : 0;
+    // sum (fallback)
+    return vals.reduce((a,b)=>a+b,0);
+  }
+
+  const rows = [];
+  const datumValues = [];
+
+  subgroups.forEach(sg => {
+    facets.forEach(fv => {
+      const v = aggregateFor(fv, sg);
+      const row = { [facetLabel]: fv, [measureLabel]: v, group: sg };
+      rows.push(row);
+      // id must be empty/undefined as requested
+      datumValues.push(new DatumValue(facetField || 'category', measureLabel, fv, sg, v, undefined));
+    });
+  });
+
+  return { rows, datumValues, categoryLabel: facetLabel, measureLabel };
 }

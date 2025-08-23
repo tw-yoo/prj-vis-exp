@@ -25,11 +25,13 @@ export class FilterSpec {
    * @param {string} field - Field to filter on
    * @param {string} operator - One of '==','!=','>','>=','<','<=','in','not-in','contains','startsWith','endsWith'
    * @param {*} value - Value or array of values for the op
+   * @param group
    */
-  constructor(field, operator, value) {
+  constructor(field, operator, value, group = null) {
     this.field = field;
     this.operator = operator;
     this.value = value;
+    this.group = group;
   }
 }
 
@@ -70,23 +72,51 @@ export class DetermineRangeSpec {
   /**
    * Determine [min, max] of a field after optional filters
    * @param {string} field - Field to compute range for (e.g., measure on y)
+   * @param group
    */
-  constructor(field) {
+  constructor(field, group = null) {
     this.field = field;
+    this.group = group;
   }
 }
 
 export class FindExtremumSpec {
   /**
-   * Find top/bottom-k categories or series by a measure
-   * @param {string} field
-   * @param {'max'|'min'} [which='max']
-   * @param group
+   * Find extremum (min/max) under various scopes.
+   * Backward compatible signature:
+   *   new FindExtremumSpec(field, which = 'max', group = null, options = {})
+   *
+   * @param {string} field               - Measure name (e.g., 'value' or y-field)
+   * @param {'max'|'min'} [which='max']  - Which extremum to find
+   * @param {string|null} [group=null]   - Legacy: subgroup key (kept for compatibility)
+   * @param {Object} [options={}]
+   * @param {'overall'|'perCategory'|'perGroup'} [options.scope='overall']
+   *        - 'overall'     : across all categories (stack totals)
+   *        - 'perCategory' : within a specific category, compare subgroups
+   *        - 'perGroup'    : for a specific subgroup, compare categories
+   * @param {string|null} [options.category=null] - Target category label (when scope='perCategory')
+   * @param {string|null} [options.group=null]    - Subgroup name (when scope='perGroup'); overrides legacy `group` if provided
+   * @param {'sum'|'mean'|'min'|'max'} [options.aggregate='sum'] - How to aggregate if needed
+   * @param {'first'|'all'} [options.ties='first'] - How to handle ties
    */
-  constructor(field, which = 'max', group = null) {
+  constructor(field, which = 'max', group = null, options = {}) {
     this.field = field;
     this.which = which;
+
+    // legacy param retained
     this.group = group;
+
+    // new options
+    this.scope = options.scope || 'overall';
+    this.category = options.category ?? null;
+    this.aggregate = options.aggregate || 'sum';
+    this.ties = options.ties || 'first';
+
+    // if options.group is explicitly provided, prefer it over legacy arg
+    if (options.group !== undefined) this.group = options.group;
+
+    // soft normalization: if legacy `group` given but no scope, interpret as perGroup
+    if (!options.scope && this.group != null) this.scope = 'perGroup';
   }
 }
 
@@ -95,10 +125,12 @@ export class SortSpec {
    * Sort categories or series by label or by a measure
    * @param {string} field
    * @param {'asc'|'desc'} [order='asc']
+   * @param group
    */
-  constructor(field, order = 'asc') {
+  constructor(field, order = 'asc', group = null) {
     this.field = field;
     this.order = order;
+    this.group = group;
   }
 }
 
@@ -120,9 +152,11 @@ export class SumSpec {
 export class AverageSpec {
   /**
    * @param {string} field
+   * @param group
    */
-  constructor(field) {
+  constructor(field, group = null) {
     this.field = field;
+    this.group = group;
   }
 }
 
