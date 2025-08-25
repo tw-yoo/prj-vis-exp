@@ -36,53 +36,18 @@
       <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Population Census for year 2000, grouped by age and gender",
-  "data": {
-    "url": "data/test/data/bar_grouped_ver.csv"
-  },
-  "mark": "bar",
+  "description": "Stock prices of 5 Tech Companies over Time.",
+  "data": {"url": "data/test/data/line_multiple.csv"},
+  "mark": "line",
   "encoding": {
-    "column": {
-      "field": "age",
-      "type": "ordinal",
-      "spacing": 5
-    },
-    "y": {
-      "aggregate": "sum",
-      "field": "people",
-      "type": "quantitative",
-      "axis": {
-        "title": "Population",
-        "grid": false
-      }
-    },
-    "x": {
-      "field": "gender",
-      "type": "nominal",
-      "scale": {
-        "rangeStep": 12
-      },
-      "axis": {
-        "title": ""
-      }
-    },
-    "color": {
-      "field": "gender",
-      "type": "nominal",
-      "scale": {
-        "range": ["#EA98D2", "#659CCA"]
-      }
-    }
-  },
-  "config": {
-    "view": {
-      "stroke": "transparent"
-    },
-    "axis": {
-      "domainWidth": 1
-    }
+    "x": {"field": "date", "type": "temporal"},
+    "y": {"field": "price", "type": "quantitative"},
+    "color": {"field": "symbol", "type": "nominal"}
   }
 }
+
+
+
 
       </textarea>
 
@@ -111,11 +76,12 @@
   "ops": [
     {
       "op": "retrieveValue",
-      "field": "date",
-      "target": "Jan"
+      "field": "country",
+      "target": "KOR"
     }
   ]
 }
+
 
    </textarea>
     </div>

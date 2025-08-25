@@ -234,7 +234,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         bars.exit().transition().duration(800)
             .attr("opacity", 0).attr("height", 0).attr("y", plot.h).remove().end(),
         bars.transition().duration(800)
-            .attr("x", d => {console.log(d); return xScaleFiltered(d[categoryKey])})
+            .attr("x", d => { return xScaleFiltered(d[categoryKey])})
             .attr("width", xScaleFiltered.bandwidth())
             .attr("fill", matchColor).end(),
 

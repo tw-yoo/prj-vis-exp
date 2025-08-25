@@ -54,7 +54,7 @@ async function applySimpleLineOperation(chartId, operation, currentData) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
     }
-    return await fn(chartId, operation, currentData, isLast);
+    return await fn(chartId, operation, currentData);
 }
 
 async function executeSimpleLineOpsList(chartId, opsList, currentData) {
@@ -84,6 +84,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
 
     const operationKeys = Object.keys(opsSpec);
     for (const opKey of operationKeys) {
+      console.log('before op:', opKey, currentData);
         let currentData = data;
         const opsList = opsSpec[opKey];
         currentData = await executeSimpleLineOpsList(chartId, opsList, currentData);
@@ -99,6 +100,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
 
         dataCache[opKey] = currentDataArray
         await stackChartToTempTable(chartId, vlSpec);
+        console.log('before op:', opKey, currentData);
     }
 
     Object.keys(dataCache).forEach(key => delete dataCache[key]);

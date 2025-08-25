@@ -69,6 +69,7 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
     const operationKeys = Object.keys(opsSpec);
 
     for (const opKey of operationKeys) {
+        console.log('before op:', opKey, currentData);
         const opsList = opsSpec[opKey];
         currentData = executeGroupedBarOpsList(chartId, opsList, currentData)
         const currentDataArray = Array.isArray(currentData)
@@ -83,6 +84,7 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
 
         dataCache[opKey] = currentDataArray
         await stackChartToTempTable(chartId, vlSpec);
+        console.log('after op:', opKey, currentData);
     }
 
 }

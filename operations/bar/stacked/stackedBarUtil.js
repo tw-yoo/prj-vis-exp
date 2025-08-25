@@ -93,7 +93,7 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
     const operationKeys = Object.keys(opsSpec);
 
     for (const opKey of operationKeys) {
-
+        console.log('before op:', opKey, currentData);
         // const isLast = operationKeys.indexOf(opKey) === operationKeys.length - 1;
         const isLast = opKey === "last";
         if (isLast) {
@@ -117,6 +117,7 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
 
             dataCache[opKey] = currentDataArray
             await stackChartToTempTable(chartId, vlSpec);
+        console.log('after op:', opKey, currentData);
         }
     }
     Object.keys(dataCache).forEach(key => delete dataCache[key]);

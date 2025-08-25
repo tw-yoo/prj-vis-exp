@@ -36,7 +36,8 @@ const MULTIPLE_LINE_OP_HANDLERS = {
 
 
 async function applyMultipleLineOperation(chartId, operation, currentData) {
-    const fn = SIMPLE_LINE_OP_HANDLERS[operation.op];
+    //const fn = SIMPLE_LINE_OP_HANDLERS[operation.op];
+    const fn = MULTIPLE_LINE_OP_HANDLERS[operation.op];
     if (!fn) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
@@ -101,6 +102,7 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
 
     const operationKeys = Object.keys(opsSpec);
     for (const opKey of operationKeys) {
+        console.log('before op:', opKey, currentData);
         let currentData = datumValues;
         const opsList = opsSpec[opKey];
         currentData = await executeMultipleLineOpsList(chartId, opsList, currentData);
@@ -116,6 +118,7 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
 
         dataCache[opKey] = currentDataArray
         await stackChartToTempTable(chartId, vlSpec);
+        console.log('after op:', opKey, currentData);
     }
 
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
