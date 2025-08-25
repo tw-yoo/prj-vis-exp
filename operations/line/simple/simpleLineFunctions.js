@@ -1,3 +1,5 @@
+import {DatumValue} from "../../../object/valueType.js";
+
 export function getSvgAndSetup(chartId) {
   const svg = d3.select(`#${chartId}`).select("svg");
   const g   = svg.select(".plot-area");
@@ -11,15 +13,6 @@ export function clearAllAnnotations(svg) {
   svg.selectAll(".annotation").remove();
 }
 export const delay = (ms) => new Promise(res => setTimeout(res, ms));
-
-
-function toISO(v) {
-  const d = new Date(v);
-  return isNaN(+d) ? null : fmtISO(d);
-}
-function normKey(v) {
-  return toISO(v) ?? String(v);
-}
 
 function selectMainLine(g) {
   const preferred = g.select("path.series-line.main-line, path.series-line[data-main='true']");
@@ -95,13 +88,13 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
 
     if (retrieveField === yField) {
 
-        const targetValue = String(op.key);
+        const targetValue = String(op.target);
         targetPoint = points.filter(function() {
             return d3.select(this).attr("data-value") === targetValue;
         });
     } else {
 
-        const candidates = toPointIdCandidates(op.key);
+        const candidates = toPointIdCandidates(op.target);
         for (const id of candidates) {
             const sel = points.filter(function() { return d3.select(this).attr("data-id") === id; });
             if (!sel.empty()) {
@@ -112,7 +105,7 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
     }
 
     if (targetPoint.empty()) {
-        console.warn("RetrieveValue: target not found for key:", op.key);
+        console.warn("RetrieveValue: target not found for key:", op.target);
         return data;
     }
 
@@ -145,9 +138,16 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
         .attr("x", margins.left + cx + 5).attr("y", margins.top + cy - 5)
         .attr("fill", hlColor).attr("font-weight", "bold")
         .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-        .text(labelText); 
+        .text(labelText);
 
-    return data;
+    const targets = Array.isArray(op.target) ? op.target : [op.target];
+    const itemFromList = Array.isArray(data)
+        ? data.find(d => ((d && targets.includes(String(d.target)))))
+        : undefined;
+    if (itemFromList instanceof DatumValue) {
+        return itemFromList;
+    }
+    return null;
 }
 
 export async function simpleLineFilter(chartId, op, data) {
@@ -155,115 +155,121 @@ export async function simpleLineFilter(chartId, op, data) {
     clearAllAnnotations(svg);
 
     const baseLine = selectMainLine(g);
-    const points = selectMainPoints(g);
-    const hlColor = "steelblue";
+    const points   = selectMainPoints(g);
+    const hlColor  = "steelblue";
 
-    const filterField = op.field || xField;
+    // 1) 공통 접근자 (DatumValue[] / raw 모두 대응)
+    const getX = (d) => (d && Object.prototype.hasOwnProperty.call(d, 'target')) ? d.target : d?.[xField];
+    const getY = (d) => (d && Object.prototype.hasOwnProperty.call(d, 'value'))  ? d.value  : d?.[yField];
+    const dataArray = Array.isArray(data) ? data : [];
+    if (dataArray.length === 0) return [];
 
-    if (filterField === yField) {
-        const yMax = d3.max(data, d => d[yField]);
-        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-        
-        const fromValue = op.from !== undefined ? op.from : -Infinity;
-        const toValue = op.to !== undefined ? op.to : Infinity;
-
-        [op.from, op.to].forEach(val => {
-            if (val === undefined) return;
-            const yPos = yScale(val);
-            svg.append("line").attr("class", "annotation threshold-line")
-                .attr("x1", margins.left).attr("x2", margins.left + plot.w)
-                .attr("y1", margins.top + yPos).attr("y2", margins.top + yPos)
-                .attr("stroke", hlColor).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
-        });
-
-        points.each(function(d) {
-            const point = d3.select(this);
-            const isMatch = d[yField] >= fromValue && d[yField] <= toValue;
-
-            point.transition().duration(800)
-                .attr("opacity", isMatch ? 1.0 : 0.2)
-                .attr("r", isMatch ? 7 : 4)
-                .attr("fill", isMatch ? hlColor : "#ccc");
-
-            if (isMatch) {
-                const cx = +point.attr("cx");
-                const cy = +point.attr("cy");
-
-                svg.append("line")
-                    .attr("class", "annotation value-v-line")
-                    .attr("x1", margins.left + cx)
-                    .attr("y1", margins.top + cy)
-                    .attr("x2", margins.left + cx)
-                    .attr("y2", margins.top + plot.h) 
-                    .attr("stroke", hlColor)
-                    .attr("stroke-width", 1)
-                    .attr("stroke-dasharray", "2 2")
-                    .attr("opacity", 0)
-                    .transition().delay(400) 
-                    .duration(400)
-                    .attr("opacity", 1);
-            }
-        });
-
-        
-        const labelText = `Filter: ${yField} in [${op.from || '...'} ~ ${op.to || '...'}]`;
-        svg.append("text").attr("class", "annotation filter-label")
-            .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
-            .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
-            .attr("fill", hlColor).text(labelText);
-        
-        return data.filter(d => d[yField] >= fromValue && d[yField] <= toValue);
-
-    } else {
-
-        const temporal = isTemporal(data, xField);
-        let fromD, toD, fromLabel, toLabel;
-        if (temporal) {
-            const r = normalizeRange(op.from, op.to);
-            ({ fromD, toD, fromLabel, toLabel } = r);
-            if (!fromD || !toD) { console.warn("Filter: invalid from/to", op); return data; }
+    // 2) filteredData 확보 (이미 만들었다면 그걸 사용; 없으면 카테고리 기준으로 생성)
+    let filteredData = Array.isArray(op?.filteredData) ? op.filteredData : null;
+    if (!filteredData) {
+        const optr = op?.operator || 'in';
+        const val  = op?.value;
+        const cmp  = { '==':(a,b)=>a==b, '!=':(a,b)=>a!=b, '>':(a,b)=>a>b, '>=':(a,b)=>a>=b, '<':(a,b)=>a<b, '<=':(a,b)=>a<=b };
+        if (optr === 'in' && Array.isArray(val)) {
+            const set = new Set(val.map(String));
+            filteredData = dataArray.filter(d => set.has(String(getX(d))));
+        } else if (cmp[optr]) {
+            filteredData = dataArray.filter(d => cmp[optr](getX(d), val));
+        } else {
+            filteredData = dataArray.slice();
         }
-        const xExtent = temporal ? d3.extent(data, d => d[xField]) : null;
-        const xScale = temporal
-            ? d3.scaleTime().domain(xExtent).range([0, plot.w])
-            : d3.scalePoint().domain(data.map(d => d[xField])).range([0, plot.w]);
-
-        points.transition().duration(800).attr("opacity", 0);
-        await baseLine.transition().duration(800).attr("stroke", "#d3d3d3").end();
-        const drawVLine = (d) => {
-            const xPos = xScale(d);
-            const L = svg.append("line").attr("class", "annotation")
-                .attr("x1", margins.left + xPos).attr("y1", margins.top)
-                .attr("x2", margins.left + xPos).attr("y2", margins.top)
-                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-            return L.transition().duration(800).attr("y2", margins.top + plot.h).end();
-        };
-        if (temporal) await Promise.all([drawVLine(fromD), drawVLine(toD)]);
-        const clipId = `${chartId}-clip-path`;
-        svg.select("defs").remove();
-        const defs = svg.append("defs");
-        defs.append("clipPath").attr("id", clipId)
-            .append("rect")
-            .attr("x", temporal ? xScale(fromD) : 0)
-            .attr("y", 0)
-            .attr("width", temporal ? Math.max(0, xScale(toD) - xScale(fromD)) : plot.w)
-            .attr("height", plot.h);
-        baseLine.clone(true)
-            .attr("class", "annotation highlighted-line")
-            .attr("stroke", hlColor).attr("stroke-width", 2.5)
-            .attr("clip-path", `url(#${clipId})`)
-            .attr("opacity", 0)
-            .transition().duration(500).attr("opacity", 1);
-        const label = temporal
-            ? `Filter Range: ${fromLabel} ~ ${toLabel}`
-            : `Filtered by ${xField}`;
-        svg.append("text").attr("class", "annotation filter-label")
-            .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
-            .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
-            .attr("fill", hlColor).text(label);
-        if (!temporal) return data;
-        return data.filter(d => d[xField] >= fromD && d[xField] <= toD);
     }
+    // DatumValue 강제화
+    filteredData = filteredData.map(d =>
+        (d instanceof DatumValue) ? d : new DatumValue(xField, yField, getX(d), null, getY(d), undefined)
+    );
+
+    // 3) 비어있으면 부드럽게 페이드아웃하고 종료
+    if (filteredData.length === 0) {
+        await Promise.all([
+            baseLine.transition().duration(500).attr('opacity', 0.15).end(),
+            points.transition().duration(500).attr('opacity', 0.1).attr('r', 3).end()
+        ]);
+        svg.append('text').attr('class','annotation filter-label')
+            .attr('x', margins.left + plot.w / 2).attr('y', margins.top - 10)
+            .attr('text-anchor','middle').attr('font-size', 12).attr('font-weight','bold')
+            .attr('fill', '#888').text('No results');
+        return [];
+    }
+
+    // 4) DOM 상의 포인트 매핑 (data-id ↔ target)
+    const nodeById = new Map();
+    points.each(function() {
+        const id = d3.select(this).attr('data-id');
+        if (id != null) nodeById.set(String(id), this);
+    });
+
+    // target → circle 노드 매칭 (왼→오 정렬)
+    const filteredNodes = [];
+    filteredData.forEach(d => {
+        const candidates = (function toPointIdCandidates(key) {
+            // 이미 파일 상단에 같은 함수가 있으면 그걸 사용. 없으면 간단 버전:
+            if (key instanceof Date) return [d3.timeFormat("%Y-%m-%d")(key), String(key.getFullYear())];
+            return [String(key)];
+        })(getX(d));
+        for (const id of candidates) {
+            if (nodeById.has(String(id))) { filteredNodes.push(nodeById.get(String(id))); break; }
+        }
+    });
+    if (filteredNodes.length === 0) {
+        console.warn('simpleLineFilter: filtered nodes not found in DOM');
+        return filteredData;
+    }
+    filteredNodes.sort((a,b) => (+d3.select(a).attr('cx')) - (+d3.select(b).attr('cx')));
+
+    // 5) 필터 라인 path(d) 생성 (plot-area 좌표계: cx,cy 그대로 사용)
+    const pathD = (() => {
+        let s = '';
+        filteredNodes.forEach((n,i) => {
+            const cx = +d3.select(n).attr('cx');
+            const cy = +d3.select(n).attr('cy');
+            s += (i === 0 ? 'M' : 'L') + cx + ',' + cy;
+        });
+        return s;
+    })();
+
+    // 6) 포인트 애니메이션 (남김/제거 자연스럽게)
+    const kept = new Set(filteredNodes);
+    await Promise.all([
+        baseLine.transition().duration(600).attr('stroke', '#d3d3d3').end(),
+        points.filter(function(){ return kept.has(this); })
+            .transition().duration(600).attr('opacity', 1).attr('r', 7).attr('fill', hlColor).end(),
+        points.filter(function(){ return !kept.has(this); })
+            .transition().duration(600).attr('opacity', 0.2).attr('r', 4).attr('fill', '#ccc').end()
+    ]);
+
+    // 7) 오버레이 라인 그린 뒤, dash로 “그려지듯” 애니메이션 → baseLine에 커밋
+    const overlay = g.append('path')
+        .attr('class', 'annotation filtered-line')
+        .attr('fill', 'none').attr('stroke', hlColor).attr('stroke-width', 2.5)
+        .attr('d', pathD);
+
+    const len = overlay.node().getTotalLength();
+    overlay
+        .attr('stroke-dasharray', `${len} ${len}`)
+        .attr('stroke-dashoffset', len)
+        .transition().duration(800).ease(d3.easeCubicInOut)
+        .attr('stroke-dashoffset', 0);
+
+    await delay(850);
+
+    // 커밋: 기존 라인을 필터 라인으로 교체하고 오버레이 제거
+    baseLine.attr('d', pathD).attr('stroke', hlColor).attr('opacity', 1);
+    overlay.remove();
+
+    // 라벨
+    svg.append('text').attr('class', 'annotation filter-label')
+        .attr('x', margins.left + plot.w / 2).attr('y', margins.top - 10)
+        .attr('text-anchor', 'middle').attr('font-size', 12).attr('font-weight', 'bold')
+        .attr('fill', hlColor).text(`Filtered (${filteredData.length})`);
+
+    // ✅ 다음 연산을 위해 필터된 DatumValue[] 반환
+    return filteredData;
 }
 
 export async function simpleLineFindExtremum(chartId, op, data) {
@@ -276,9 +282,9 @@ export async function simpleLineFindExtremum(chartId, op, data) {
   const points   = selectMainPoints(g);
   const hlColor  = "#a65dfb";
 
-  const targetVal = op.type === "min"
-    ? d3.min(data, d => d[yField])
-    : d3.max(data, d => d[yField]);
+  const targetVal = op.which === "min"
+    ? d3.min(data, d => d.value)
+    : d3.max(data, d => d.value);
 
   const targetPoint = points.filter(d => d && d[yField] === targetVal);
   if (targetPoint.empty()) return data;
@@ -305,7 +311,7 @@ export async function simpleLineFindExtremum(chartId, op, data) {
     h.transition().duration(500).attr("x2", margins.left).end()
   ]);
 
-  const label = `${op.type === "min" ? "Min" : "Max"}: ${targetVal.toLocaleString()}`;
+  const label = `${op.which === "min" ? "Min" : "Max"}: ${targetVal.toLocaleString()}`;
   svg.append("text").attr("class", "annotation")
     .attr("x", margins.left + cx).attr("y", margins.top + cy - 15)
     .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")

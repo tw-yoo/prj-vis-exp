@@ -54,7 +54,7 @@ async function applySimpleLineOperation(chartId, operation, currentData) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
     }
-    return await fn(chartId, operation, currentData, isLast);
+    return await fn(chartId, operation, currentData);
 }
 
 async function executeSimpleLineOpsList(chartId, opsList, currentData) {
