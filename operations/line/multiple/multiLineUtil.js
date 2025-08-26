@@ -1,6 +1,5 @@
 import { DatumValue } from "../../../object/valueType.js";
 import {
-
     simpleLineCompare,
     simpleLineDetermineRange,
     simpleLineFilter,
@@ -15,7 +14,7 @@ import {
     multiLineRetrieveByX,
     multiLineFilterByY, multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
     multipleLineDetermineRange, multipleLineCompare, multipleLineSum, multipleLineAverage, multipleLineDiff,
-    multipleLineCount
+    multipleLineCount, multipleLineNth
 } from './multiLineFunctions.js';
 import {OperationType} from "../../../object/operationType.js";
 import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
@@ -31,17 +30,18 @@ const MULTIPLE_LINE_OP_HANDLERS = {
     [OperationType.SUM]:            multipleLineSum,
     [OperationType.AVERAGE]:        multipleLineAverage,
     [OperationType.DIFF]:           multipleLineDiff,
+    [OperationType.NTH]:            multipleLineNth,
     [OperationType.COUNT]:          multipleLineCount,
 };
 
 
 async function applyMultipleLineOperation(chartId, operation, currentData) {
-    const fn = SIMPLE_LINE_OP_HANDLERS[operation.op];
+    const fn = MULTIPLE_LINE_OP_HANDLERS[operation.op];
     if (!fn) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
     }
-    return await fn(chartId, operation, currentData, isLast);
+    return await fn(chartId, operation, currentData);
 }
 
 async function executeMultipleLineOpsList(chartId, opsList, currentData) {
@@ -119,52 +119,6 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
     }
 
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
-
-    // for (let i = 0; i < opsSpec.ops.length; i++) {
-    //     const operation = opsSpec.ops[i];
-    //     const opType = operation.op;
-    //
-    //     if (isTransformed) {
-    //         switch (opType) {
-    //             case 'retrievevalue': currentData = await simpleLineRetrieveValue(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'filter':        currentData = await simpleLineFilter(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'findextremum':  currentData = await simpleLineFindExtremum(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'determinerange':currentData = await simpleLineDetermineRange(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'compare':       currentData = await simpleLineCompare(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'sort':          currentData = await simpleLineSort(chartId, operation, currentData, chartInfo.data); break;
-    //             default: console.warn(`Unsupported operation after transformation: ${operation.op}`);
-    //         }
-    //     } else {
-    //
-    //         switch (opType) {
-    //             case 'changetosimple':
-    //                 currentData = await multipleLineChangeToSimple(chartId, operation, currentData, chartInfo);
-    //                 isTransformed = true;
-    //                 break;
-    //
-    //             case 'retrievebyx':
-    //                 await multiLineRetrieveByX(chartId, operation, chartInfo);
-    //                 break;
-    //             case 'filterbyy':
-    //                 await multiLineFilterByY(chartId, operation, chartInfo);
-    //                 break;
-    //             default:
-    //                 console.warn(`Invalid operation. Received: '${opType}'`);
-    //                 return;
-    //         }
-    //
-    //     }
-    //
-    //     if (i < opsSpec.ops.length - 1) {
-    //         await delay(2500);
-    //         if (isTransformed) {
-    //              const svg = d3.select(`#${chartId} svg`);
-    //              simpleClearAllAnnotations(svg);
-    //              svg.selectAll("circle.datapoint").transition().duration(300).attr("r", 5).attr("opacity", 0);
-    //              await delay(300);
-    //         }
-    //     }
-    // }
 }
 
 

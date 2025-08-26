@@ -164,27 +164,15 @@ export async function simpleLineFilter(chartId, op, data) {
     const dataArray = Array.isArray(data) ? data : [];
     if (dataArray.length === 0) return [];
 
-    // 2) filteredData 확보 (이미 만들었다면 그걸 사용; 없으면 카테고리 기준으로 생성)
-    let filteredData = Array.isArray(op?.filteredData) ? op.filteredData : null;
-    if (!filteredData) {
-        const optr = op?.operator || 'in';
-        const val  = op?.value;
-        const cmp  = { '==':(a,b)=>a==b, '!=':(a,b)=>a!=b, '>':(a,b)=>a>b, '>=':(a,b)=>a>=b, '<':(a,b)=>a<b, '<=':(a,b)=>a<=b };
-        if (optr === 'in' && Array.isArray(val)) {
-            const set = new Set(val.map(String));
-            filteredData = dataArray.filter(d => set.has(String(getX(d))));
-        } else if (cmp[optr]) {
-            filteredData = dataArray.filter(d => cmp[optr](getX(d), val));
-        } else {
-            filteredData = dataArray.slice();
-        }
-    }
-    // DatumValue 강제화
-    filteredData = filteredData.map(d =>
-        (d instanceof DatumValue) ? d : new DatumValue(xField, yField, getX(d), null, getY(d), undefined)
-    );
+    const map = { ">": (a,b) => a > b, ">=": (a,b) => a >= b, "<": (a,b) => a < b, "<=": (a,b) => a <= b, "==": (a,b) => a === b };
+    const satisfy = map[op.operator] || (() => true);
+    const key = Number.isFinite(+op.value) ? +op.value : op.value;
 
-    // 3) 비어있으면 부드럽게 페이드아웃하고 종료
+    const filteredData = data.filter(d => {
+        const v = Number.isFinite(+d.value) ? +d.value : d.value;
+        return satisfy(v, key);
+    });
+
     if (filteredData.length === 0) {
         await Promise.all([
             baseLine.transition().duration(500).attr('opacity', 0.15).end(),
@@ -323,121 +311,179 @@ export async function simpleLineFindExtremum(chartId, op, data) {
 }
 
 export async function simpleLineDetermineRange(chartId, op, data) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg);
+  const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+  clearAllAnnotations(svg);
 
-    if (!data || !data.length) return data;
+  if (!Array.isArray(data) || data.length === 0) return data;
 
-    const baseLine = selectMainLine(g);
-    const points = selectMainPoints(g);
-    const hlColor = "#0d6efd";
-    
-    const rangeField = op.field || yField;
+  const baseLine = selectMainLine(g);
+  const points   = selectMainPoints(g);
+  const hlColor  = "#0d6efd";
 
-    if (rangeField === xField) {
+  // Accessors to support DatumValue[] or raw rows
+  const getX = (d) => (d && Object.prototype.hasOwnProperty.call(d, 'target')) ? d.target : d?.[xField];
+  const getY = (d) => (d && Object.prototype.hasOwnProperty.call(d, 'value'))  ? +d.value  : +(d?.[yField]);
 
-        const xExtent = d3.extent(fullData, d => d[xField]);
-        const xScale = d3.scaleTime().domain(xExtent).range([0, plot.w]);
+  // Choose which axis to determine range for (default = value axis like simpleBarDetermineRange)
+  const rangeField = op.field || yField;
 
-        const [minDate, maxDate] = d3.extent(data, d => d[xField]);
-        
-        const minP = points.filter(d => d && +d[xField] === +minDate);
-        const maxP = points.filter(d => d && +d[xField] === +maxDate);
+  const animations = [];
 
-        baseLine.transition().duration(600).attr("opacity", 0.3);
-        await Promise.all([
-            minP.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end(),
-            maxP.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end()
-        ]);
+  if (rangeField === xField) {
+    // ---- Category (x) range: earliest ~ latest ----
+    const [minX, maxX] = d3.extent(data, d => getX(d));
 
-        const fmt = d3.timeFormat("%Y-%m-%d");
+    const pickPointByX = (xVal) => {
+      const cands = toPointIdCandidates(xVal);
+      for (const id of cands) {
+        const sel = points.filter(function(){ return d3.select(this).attr("data-id") === String(id); });
+        if (!sel.empty()) return sel;
+      }
+      return d3.select(null);
+    };
 
-        const createSet = (pt, label) => {
-            const d = pt.datum();
-            const cx = +pt.attr("cx");
-            const cy = +pt.attr("cy");
+    const minP = pickPointByX(minX);
+    const maxP = pickPointByX(maxX);
 
-            svg.append("line").attr("class", "annotation")
-                .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
-                .attr("x2", margins.left + cx).attr("y2", margins.top + plot.h)
-                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+    await baseLine.transition().duration(600).attr("opacity", 0.3).end();
+    animations.push(
+      minP.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end(),
+      maxP.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end()
+    );
+    await Promise.all(animations);
 
-            svg.append("text").attr("class", "annotation")
-                .attr("x", margins.left + cx).attr("y", margins.top - 15)
-                .attr("text-anchor", "middle").attr("fill", hlColor)
-                .attr("font-weight", "bold").attr("font-size", 12)
-                .text(`${label}: ${fmt(d[xField])}`);
-        };
-        
-        createSet(minP, "Start");
-        createSet(maxP, "End");
+    const formatX = (v) => (v instanceof Date) ? fmtISO(v) : String(v);
 
-        const minCy = +minP.attr("cy");
+    const drawV = (pt, label, val) => {
+      if (pt.empty()) return;
+      const cx = +pt.attr("cx"), cy = +pt.attr("cy");
 
-        if (!isNaN(minCy)) {
-            svg.append("line").attr("class", "annotation")
-                .attr("x1", margins.left)
-                .attr("y1", margins.top + minCy)
-                .attr("x2", margins.left)
-                .attr("y2", margins.top + minCy)
-                .attr("stroke", hlColor)
-                .attr("stroke-width", 1.5)
-                .attr("stroke-dasharray", "4 4")
-                .transition().duration(800)
-                .attr("x2", margins.left + plot.w); 
-        }
+      // marker: create point with grow animation + pulse
+      const marker = g.append('circle')
+        .attr('class','annotation range-point')
+        .attr('cx', cx).attr('cy', cy)
+        .attr('r', 0).attr('fill', hlColor)
+        .attr('stroke','white').attr('stroke-width', 2);
+      marker.transition().duration(400).attr('r', 7);
+      const pulse = g.append('circle')
+        .attr('class','annotation range-pulse')
+        .attr('cx', cx).attr('cy', cy)
+        .attr('r', 7).attr('fill','none')
+        .attr('stroke', hlColor).attr('opacity', 0.5);
+      pulse.transition().duration(800).attr('r', 14).attr('opacity', 0).remove();
 
-        
-    } else {
+      // vertical guide with stroke-dash drawing
+      const v = svg.append("line").attr("class", "annotation")
+        .attr("x1", margins.left + cx).attr("y1", margins.top)
+        .attr("x2", margins.left + cx).attr("y2", margins.top + plot.h)
+        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+      const vlen = v.node().getTotalLength?.() ?? (plot.h);
+      v.attr('stroke-dasharray', `${vlen} ${vlen}`).attr('stroke-dashoffset', vlen)
+       .transition().duration(800).ease(d3.easeCubicInOut)
+       .attr('stroke-dashoffset', 0);
 
-        const minV = d3.min(data, d => d[yField]);
-        const maxV = d3.max(data, d => d[yField]);
-        const minP = points.filter(d => d && d[yField] === minV);
-        const maxP = points.filter(d => d && d[yField] === maxV);
+      svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left + cx).attr("y", margins.top - 12)
+        .attr("text-anchor", "middle").attr("fill", hlColor)
+        .attr("font-weight", "bold").attr("font-size", 12)
+        .text(`${label}: ${formatX(val)}`)
+        .attr('opacity', 0).transition().duration(300).attr('opacity', 1);
+    };
 
-        baseLine.transition().duration(600).attr("opacity", 0.3);
-        await Promise.all([
-            minP.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end(),
-            maxP.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end()
-        ]);
+    drawV(minP, "Start", minX);
+    drawV(maxP, "End",   maxX);
 
-        const createSet = (pt, label, value) => {
-            const cx = +pt.attr("cx");
-            const cy = +pt.attr("cy");
-            const v = svg.append("line").attr("class", "annotation")
-                .attr("x1", margins.left + cx).attr("y1", margins.top + cy)
-                .attr("x2", margins.left + cx).attr("y2", margins.top + cy)
-                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-            const h = svg.append("line").attr("class", "annotation")
-                .attr("x1", margins.left).attr("y1", margins.top + cy)
-                .attr("x2", margins.left).attr("y2", margins.top + cy)
-                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-            svg.append("text").attr("class", "annotation")
-                .attr("x", margins.left + cx).attr("y", margins.top + cy - 15)
-                .attr("text-anchor", "middle").attr("fill", hlColor)
-                .attr("font-weight", "bold").attr("font-size", 12)
-                .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-                .text(`${label}: ${value.toLocaleString()}`);
-            return [
-                v.transition().duration(800).attr("y2", margins.top + plot.h).end(),
-                h.transition().duration(800).attr("x2", margins.left + plot.w).end()
-            ];
-        };
-
-        await Promise.all([ ...createSet(minP, "MIN", minV), ...createSet(maxP, "MAX", maxV) ]);
-
-        const rangeText = svg.append("text").attr("class", "annotation")
-            .attr("x", margins.left + plot.w - 15).attr("y", margins.top + plot.h / 2)
-            .attr("text-anchor", "end").attr("font-size", 14).attr("font-weight", "bold")
-            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 4)
-            .attr("paint-order", "stroke");
-        rangeText.append("tspan").attr("x", margins.left + plot.w - 15).attr("dy", "-0.6em").text("값 범위:");
-        rangeText.append("tspan").attr("x", margins.left + plot.w - 15).attr("dy", "1.2em")
-            .text(`${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`);
-        await rangeText.transition().duration(400).attr("opacity", 1).end();
+    // Optional: top horizontal reference from the first point's y (with draw animation)
+    const minCy = !minP.empty() ? +minP.attr("cy") : NaN;
+    if (Number.isFinite(minCy)) {
+      const h = svg.append("line").attr("class", "annotation")
+        .attr("x1", margins.left).attr("y1", margins.top + minCy)
+        .attr("x2", margins.left + plot.w).attr("y2", margins.top + minCy)
+        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+      const hlen = h.node().getTotalLength?.() ?? (plot.w);
+      h.attr('stroke-dasharray', `${hlen} ${hlen}`).attr('stroke-dashoffset', hlen)
+       .transition().duration(800).ease(d3.easeCubicInOut)
+       .attr('stroke-dashoffset', 0);
     }
-    
-    return data;
+
+    svg.append("text").attr("class", "annotation")
+      .attr("x", margins.left).attr("y", margins.top - 10)
+      .attr("font-size", 14).attr("font-weight", "bold")
+      .attr("fill", hlColor)
+      .text(`Range: ${formatX(minX)} ~ ${formatX(maxX)}`)
+      .attr('opacity', 0).transition().duration(400).attr('opacity', 1);
+  } else {
+    // ---- Value (y) range: reuse simpleBarDetermineRange idea ----
+    const values = data.map(getY);
+    const minV = d3.min(values);
+    const maxV = d3.max(values);
+
+    const selByVal = (v) => points.filter(function(){ return +d3.select(this).attr("data-value") === +v; });
+    const minPts = selByVal(minV);
+    const maxPts = selByVal(maxV);
+
+    await baseLine.transition().duration(600).attr("opacity", 0.3).end();
+
+    // Create markers (grow + pulse) for all min/max points
+    const createMarkers = (ptSel) => {
+      const promises = [];
+      ptSel.each(function(){
+        const cx = +d3.select(this).attr('cx');
+        const cy = +d3.select(this).attr('cy');
+        const marker = g.append('circle')
+          .attr('class','annotation range-point')
+          .attr('cx', cx).attr('cy', cy)
+          .attr('r', 0).attr('fill', hlColor)
+          .attr('stroke','white').attr('stroke-width', 2);
+        promises.push(marker.transition().duration(400).attr('r', 7).end());
+        const pulse = g.append('circle')
+          .attr('class','annotation range-pulse')
+          .attr('cx', cx).attr('cy', cy)
+          .attr('r', 7).attr('fill','none')
+          .attr('stroke', hlColor).attr('opacity', 0.5);
+        pulse.transition().duration(800).attr('r', 14).attr('opacity', 0).remove();
+      });
+      return promises;
+    };
+
+    await Promise.all([
+      ...createMarkers(minPts),
+      ...createMarkers(maxPts)
+    ]);
+
+    const drawH = (pt, label, value) => {
+      if (pt.empty()) return;
+      const cy = +pt.attr("cy");
+      const line = svg.append("line").attr("class", "annotation")
+        .attr("x1", margins.left).attr("y1", margins.top + cy)
+        .attr("x2", margins.left + plot.w).attr("y2", margins.top + cy)
+        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+      const len = line.node().getTotalLength?.() ?? (plot.w);
+      line.attr('stroke-dasharray', `${len} ${len}`).attr('stroke-dashoffset', len)
+          .transition().duration(800).ease(d3.easeCubicInOut)
+          .attr('stroke-dashoffset', 0);
+
+      const text = svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left - 20).attr("y", margins.top + cy)
+        .attr("text-anchor", "end").attr("dominant-baseline", "middle")
+        .attr("fill", hlColor).attr("font-weight", "bold")
+        .text(`${label}: ${value.toLocaleString()}`)
+        .attr("opacity", 0);
+      text.transition().delay(400).duration(400).attr("opacity", 1);
+    };
+
+    drawH(minPts, "Min", minV);
+    drawH(maxPts, "Max", maxV);
+
+    svg.append("text").attr("class", "annotation")
+      .attr("x", margins.left).attr("y", margins.top - 10)
+      .attr("font-size", 14).attr("font-weight", "bold")
+      .attr("fill", hlColor)
+      .text(`Range: ${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`)
+      .attr('opacity', 0).transition().duration(400).attr('opacity', 1);
+  }
+
+  return data;
 }
 
 export async function simpleLineCompare(chartId, op, data) {
@@ -519,10 +565,278 @@ export async function simpleLineCompare(chartId, op, data) {
   return data;
 }
 
-export async function simpleLineSum(chartId, op, data) {}
+export async function simpleLineSum(chartId, op, data) {} // 필요하지 않을수도 있음.
 
-export async function simpleLineAverage(chartId, op, data) {}
+export async function simpleLineAverage(chartId, op, data) {
+  const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+  clearAllAnnotations(svg);
+
+  if (!Array.isArray(data) || data.length === 0) {
+    console.warn('[simpleLineAverage] empty data');
+    return data;
+  }
+
+  const baseLine = selectMainLine(g);
+  const points   = selectMainPoints(g);
+  const hlColor  = 'red'; // match simpleBarAverage visual
+
+  // 1) 평균 계산 (DatumValue[] 가정)
+  const values = data.map(d => +d.value).filter(Number.isFinite);
+  if (values.length === 0) {
+    console.warn('[simpleLineAverage] no finite values in data');
+    return data;
+  }
+  const avg = d3.mean(values);
+  const minV = d3.min(values);
+  const maxV = d3.max(values);
+
+  // 2) 평균의 y 픽셀(cyAvg) 계산
+  let cyAvg;
+  if (!points.empty()) {
+    const firstByVal = (v) => points.filter(function(){ return +d3.select(this).attr('data-value') === +v; }).node();
+    const minPt = firstByVal(minV);
+    const maxPt = firstByVal(maxV);
+
+    if (minPt && maxPt && maxV !== minV) {
+      const cyMin = +d3.select(minPt).attr('cy');
+      const cyMax = +d3.select(maxPt).attr('cy');
+      const t = (avg - minV) / (maxV - minV);
+      cyAvg = cyMin + (cyMax - cyMin) * t; // 값 보간 → 픽셀
+    } else {
+      const allCy = [];
+      points.each(function(){ const v = +d3.select(this).attr('data-value'); if (Number.isFinite(v)) allCy.push(+d3.select(this).attr('cy')); });
+      cyAvg = allCy.length ? d3.mean(allCy) : (plot.h / 2);
+    }
+  } else {
+    // 포인트가 없으면 간단 스케일 재구축 (0~max)
+    const yScale = d3.scaleLinear().domain([0, maxV || 0]).nice().range([plot.h, 0]);
+    cyAvg = yScale(avg);
+  }
+
+  if (!Number.isFinite(cyAvg)) {
+    console.warn('[simpleLineAverage] cyAvg is not finite; falling back to mid-height');
+    cyAvg = plot.h / 2;
+  }
+
+  // 3) 기본 라인 디임
+  await baseLine.transition().duration(600).attr('opacity', 0.3).end();
+
+  // 4) 바 차트 방식으로: SVG 좌표계에서 좌→우로 선을 그리며 x2만 애니메이션
+  const yPix = margins.top + cyAvg;
+
+  const line = svg.append('line')
+    .attr('class', 'annotation avg-line')
+    .attr('x1', margins.left).attr('x2', margins.left)
+    .attr('y1', yPix).attr('y2', yPix)
+    .attr('stroke', hlColor).attr('stroke-width', 2)
+    .attr('stroke-dasharray', '5 5');
+
+  await line.transition().duration(800).attr('x2', margins.left + plot.w).end();
+
+  // 5) 라벨
+  const label = svg.append('text').attr('class', 'annotation avg-label')
+    .attr('x', margins.left + plot.w + 6).attr('y', yPix)
+    .attr('dominant-baseline', 'middle')
+    .attr('fill', hlColor).attr('font-weight', 'bold')
+    .text(`Avg: ${Number.isInteger(avg) ? avg : avg.toLocaleString(undefined,{ maximumFractionDigits: 2 })}`)
+    .attr('opacity', 0);
+  label.transition().delay(400).duration(400).attr('opacity', 1);
+
+  return data;
+}
 
 export async function simpleLineDiff(chartId, op, data) {}
 
-export async function simpleLineCount(chartId, op, data) {}
+export async function simpleLineNth(chartId, op, data) {
+  const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+  clearAllAnnotations(svg);
+
+  if (!Array.isArray(data) || data.length === 0) {
+    console.warn('simpleLineNth: empty data');
+    return [];
+  }
+
+  const baseLine = selectMainLine(g);
+  const points   = selectMainPoints(g);
+  if (points.empty()) {
+    console.warn('simpleLineNth: no points on chart');
+    return [];
+  }
+
+  let n = Number(op?.n ?? 0);
+  const from = String(op?.from || 'left').toLowerCase();
+  if (!Number.isFinite(n) || n <= 0) return [];
+
+  const nodes = points.nodes();
+  const total = nodes.length;
+  if (n > total) n = total; // clamp
+
+  // Build item list with DOM coordinates (plot-area coords)
+  const items = nodes.map((node) => ({
+    node,
+    cx: +node.getAttribute('cx') || 0,
+    cy: +node.getAttribute('cy') || 0,
+    id: d3.select(node).attr('data-id'),
+    value: +(d3.select(node).attr('data-value') ?? NaN)
+  }));
+
+  // Order left → right by cx
+  const ordered = items.slice().sort((a, b) => a.cx - b.cx);
+
+  // Pick exactly the nth item from the chosen side
+  const idx = (from === 'right') ? (total - n) : (n - 1);
+  if (idx < 0 || idx >= total) {
+    console.warn('simpleLineNth: computed index out of range', { n, from, total, idx });
+    return [];
+  }
+  const picked = ordered[idx];
+
+  const hlColor  = '#20c997';
+  const baseColor = '#a9a9a9';
+
+  // Dim all, then highlight only the picked point
+  await Promise.all([
+    baseLine.transition().duration(250).attr('opacity', 0.3).end(),
+    points.transition().duration(250).attr('fill', baseColor).attr('opacity', 0.25).end()
+  ]);
+
+  const dp = d3.select(picked.node);
+  await dp.transition().duration(220)
+    .attr('fill', hlColor)
+    .attr('opacity', 1)
+    .attr('r', Math.max(7, +dp.attr('r') || 7))
+    .end();
+
+  // Guide lines (draw in SVG coords: add margins)
+  const cx = picked.cx, cy = picked.cy;
+  const vx = margins.left + cx, vy = margins.top + cy;
+
+  const vLine = svg.append('line').attr('class','annotation')
+    .attr('x1', vx).attr('y1', vy)
+    .attr('x2', vx).attr('y2', vy)
+    .attr('stroke', hlColor).attr('stroke-dasharray', '4 4');
+
+  const hLine = svg.append('line').attr('class','annotation')
+    .attr('x1', vx).attr('y1', vy)
+    .attr('x2', vx).attr('y2', vy)
+    .attr('stroke', hlColor).attr('stroke-dasharray', '4 4');
+
+  await Promise.all([
+    vLine.transition().duration(500).attr('y2', margins.top + plot.h).end(),
+    hLine.transition().duration(500).attr('x2', margins.left).end()
+  ]);
+
+  // Ordinal label above the picked point
+  g.append('text')
+    .attr('class', 'annotation nth-label')
+    .attr('x', cx)
+    .attr('y', cy - 10)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', 12)
+    .attr('font-weight', 'bold')
+    .attr('fill', hlColor)
+    .attr('stroke', 'white')
+    .attr('stroke-width', 3)
+    .attr('paint-order', 'stroke')
+    .text(String(n))
+    .attr('opacity', 0)
+    .transition().duration(180).attr('opacity', 1);
+
+  // Header annotation
+  svg.append('text')
+    .attr('class', 'annotation')
+    .attr('x', margins.left)
+    .attr('y', margins.top - 10)
+    .attr('font-size', 14)
+    .attr('font-weight', 'bold')
+    .attr('fill', hlColor)
+    .text(`Nth (from ${from}): ${n}`)
+    .attr('opacity', 0)
+    .transition().duration(200).attr('opacity', 1);
+
+  // Map back to DatumValue by matching target ↔ data-id
+  const pickedId = String(picked.id);
+  const selected = data.filter(d => {
+    const cands = toPointIdCandidates(d.target);
+    return cands.some(c => String(c) === pickedId);
+  });
+
+  return selected;
+}
+
+export async function simpleLineCount(chartId, op, data) {
+  const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+  clearAllAnnotations(svg);
+
+  if (!Array.isArray(data) || data.length === 0) {
+    console.warn('simpleLineCount: empty data');
+    return data;
+  }
+
+  const baseLine = selectMainLine(g);
+  const points   = selectMainPoints(g);
+  if (points.empty()) {
+    console.warn('simpleLineCount: no points on chart');
+    return data;
+  }
+
+  const baseColor = '#a9a9a9';
+  const hlColor   = '#20c997';
+
+  // Soften everything first
+  await Promise.all([
+    baseLine.transition().duration(150).attr('opacity', 0.3).end(),
+    points.transition().duration(150).attr('fill', baseColor).attr('opacity', 0.3).end()
+  ]);
+
+  // Collect DOM coords and order left → right
+  const nodes = points.nodes();
+  const items = nodes.map((node) => ({
+    node,
+    cx: +node.getAttribute('cx') || 0,
+    cy: +node.getAttribute('cy') || 0,
+  }));
+  const ordered = items.slice().sort((a, b) => a.cx - b.cx);
+
+  // Sequentially highlight and number
+  for (let i = 0; i < ordered.length; i++) {
+    const { node, cx, cy } = ordered[i];
+    const dp = d3.select(node);
+
+    await dp.transition().duration(150)
+      .attr('fill', hlColor)
+      .attr('opacity', 1)
+      .attr('r', Math.max(6, +dp.attr('r') || 6))
+      .end();
+
+    g.append('text')
+      .attr('class', 'annotation count-label')
+      .attr('x', cx)
+      .attr('y', cy - 10)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 12)
+      .attr('font-weight', 'bold')
+      .attr('fill', hlColor)
+      .attr('stroke', 'white')
+      .attr('stroke-width', 3)
+      .attr('paint-order', 'stroke')
+      .text(String(i + 1))
+      .attr('opacity', 0)
+      .transition().duration(125).attr('opacity', 1);
+
+    await delay(60);
+  }
+
+  svg.append('text')
+    .attr('class', 'annotation')
+    .attr('x', margins.left)
+    .attr('y', margins.top - 10)
+    .attr('font-size', 14)
+    .attr('font-weight', 'bold')
+    .attr('fill', hlColor)
+    .text(`Count: ${ordered.length}`)
+    .attr('opacity', 0)
+    .transition().duration(200).attr('opacity', 1);
+
+  return data;
+}

@@ -7,7 +7,7 @@ import {
     getSvgAndSetup,
     clearAllAnnotations,
     delay,
-    prepareForNextOperation, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount
+    prepareForNextOperation, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount, simpleLineNth
 } from "./simpleLineFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
 import {
@@ -27,6 +27,7 @@ const SIMPLE_LINE_OP_HANDLERS = {
     [OperationType.SUM]:            simpleLineSum,
     [OperationType.AVERAGE]:        simpleLineAverage,
     [OperationType.DIFF]:           simpleLineDiff,
+    [OperationType.NTH]:            simpleLineNth,
     [OperationType.COUNT]:          simpleLineCount,
 };
 
@@ -62,7 +63,7 @@ async function executeSimpleLineOpsList(chartId, opsList, currentData) {
         const operation = opsList[i];
         currentData = await applySimpleLineOperation(chartId, operation, currentData);
         if (i < opsList.length - 1) {
-            await delay(1500);
+            await delay(2000);
         }
     }
     return currentData;
