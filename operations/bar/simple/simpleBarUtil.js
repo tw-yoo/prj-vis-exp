@@ -70,9 +70,8 @@ async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = f
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applySimpleBarOperation(chartId, operation, currentData, isLast);
-        if (i < opsList.length - 1) {
-            await delay(1500);
-        }
+        await delay(1500);
+        
     }
     return currentData;
 }

@@ -41,9 +41,8 @@ async function executeGroupedBarOpsList(chartId, opsList, currentData, isLast = 
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applyGroupedBarOperation(chartId, operation, currentData, isLast);
-        if (i < opsList.length - 1) {
-            await delay(1500);
-        }
+
+        await delay(2000);
     }
     return currentData;
 }
