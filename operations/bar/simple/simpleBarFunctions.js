@@ -1,4 +1,4 @@
-import {DatumValue, BoolValue} from "../../../object/valueType.js";
+import {DatumValue, BoolValue, IntervalValue} from "../../../object/valueType.js";
 
 export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
@@ -332,84 +332,98 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     return returnDatumValue;
 }
 
+// simpleBarFunctions.js 파일의 다른 코드는 그대로 두고, 이 함수만 교체하세요.
+
 export async function simpleBarDetermineRange(chartId, op, data, isLast = false) {
-    const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg);
+    // getSvgAndSetup에서 orientation, xField, yField를 가져옵니다.
+    const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-    const hlColor = "#0d6efd";
-    const valueField = op.field || (orientation === 'vertical' ? yField : xField);
+    const hlColor = "#0d6efd";
+    // op.field는 범위를 계산할 '수치' 필드를 가리킵니다.
+    const valueField = op.field || (orientation === 'vertical' ? yField : xField);
 
-    const values = data.map(d => {
-        return d.value !== undefined ? +d.value : +d[valueField];
-    });
-    const minV = d3.min(values);
-    const maxV = d3.max(values);
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(data, d => (d.value !== undefined ? +d.value : +d[valueField])) || 0])
-        .nice()
-        .range([plot.h, 0]);
+    // [수정] 차트 방향에 따라 '카테고리' 축의 필드명을 결정합니다.
+    const categoryAxisName = orientation === 'vertical' ? xField : yField;
 
-    const animationPromises = [];
+    const values = data.map(d => {
+        return d.value !== undefined ? +d.value : +d[valueField];
+    }).filter(v => !isNaN(v));
 
-    const findBars = (val) => g.selectAll("rect").filter(d => {
-        if (!d) return false;
-        const barValue = d.value !== undefined ? d.value : d[valueField];
-        return +barValue === val;
-    });
+    if (values.length === 0) {
+        console.warn("DetermineRange: No valid data to determine range.");
+        return null;
+    }
 
-    const minBars = findBars(minV);
-    const maxBars = findBars(maxV);
+    const minV = d3.min(values);
+    const maxV = d3.max(values);
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(values) || 0])
+        .nice()
+        .range([plot.h, 0]);
 
-    animationPromises.push(
-        minBars.transition().duration(600).attr("fill", hlColor).end()
-    );
-    animationPromises.push(
-        maxBars.transition().duration(600).attr("fill", hlColor).end()
-    );
+    const animationPromises = [];
 
-    [
-        { value: minV, label: "Min" },
-        { value: maxV, label: "Max" }
-    ].forEach(item => {
-        if (item.value === undefined) return;
-        const yPos = margins.top + yScale(item.value);
-        const line = svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left).attr("x2", margins.left)
-            .attr("y1", yPos).attr("y2", yPos)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+    const findBars = (val) => g.selectAll("rect").filter(d => {
+        if (!d) return false;
+        const barValue = d.value !== undefined ? d.value : d[valueField];
+        return +barValue === val;
+    });
 
-        animationPromises.push(
-            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
-        );
+    const minBars = findBars(minV);
+    const maxBars = findBars(maxV);
 
-        const text = svg.append("text").attr("class", "annotation")
-            .attr("x", margins.left - 20).attr("y", yPos)
-            .attr("text-anchor", "end").attr("dominant-baseline", "middle")
-            .attr("fill", hlColor).attr("font-weight", "bold")
-            .text(`${item.label}: ${item.value}`)
-            .attr("opacity", 0);
+    animationPromises.push(
+        minBars.transition().duration(600).attr("fill", hlColor).end()
+    );
+    animationPromises.push(
+        maxBars.transition().duration(600).attr("fill", hlColor).end()
+    );
 
-        animationPromises.push(
-            text.transition().delay(400).duration(400).attr("opacity", 1).end()
-        );
-    });
+    [
+        { value: minV, label: "Min" },
+        { value: maxV, label: "Max" }
+    ].forEach(item => {
+        if (item.value === undefined) return;
+        const yPos = margins.top + yScale(item.value);
+        const line = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left).attr("x2", margins.left)
+            .attr("y1", yPos).attr("y2", yPos)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
 
-    if (minV !== undefined && maxV !== undefined) {
-        const rangeText = `Range: ${minV} ~ ${maxV}`;
-        const topLabel = svg.append("text").attr("class", "annotation")
-            .attr("x", margins.left).attr("y", margins.top - 10)
-            .attr("font-size", 14).attr("font-weight", "bold")
-            .attr("fill", hlColor).text(rangeText)
-            .attr("opacity", 0);
+        animationPromises.push(
+            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
+        );
 
-        animationPromises.push(
-            topLabel.transition().duration(600).attr("opacity", 1).end()
-        );
-    }
+        const text = svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left - 20).attr("y", yPos)
+            .attr("text-anchor", "end").attr("dominant-baseline", "middle")
+            .attr("fill", hlColor).attr("font-weight", "bold")
+            .text(`${item.label}: ${item.value}`)
+            .attr("opacity", 0);
 
-    await Promise.all(animationPromises);
+        animationPromises.push(
+            text.transition().delay(400).duration(400).attr("opacity", 1).end()
+        );
+    });
 
-    return data;
+    if (minV !== undefined && maxV !== undefined) {
+        const rangeText = `Range: ${minV} ~ ${maxV}`;
+        const topLabel = svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left).attr("y", margins.top - 10)
+            .attr("font-size", 14).attr("font-weight", "bold")
+            .attr("fill", hlColor).text(rangeText)
+            .attr("opacity", 0);
+
+        animationPromises.push(
+            topLabel.transition().duration(600).attr("opacity", 1).end()
+        );
+    }
+
+    await Promise.all(animationPromises);
+
+    // [수정] new IntervalValue의 첫 번째 인자로 '카테고리 축 이름'을 전달합니다.
+    return new IntervalValue(categoryAxisName, minV, maxV);
 }
 
 export async function simpleBarCompare(chartId, op, data, isLast = false) {

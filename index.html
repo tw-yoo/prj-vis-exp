@@ -35,17 +35,23 @@
       <div id="vl-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
       <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Stock prices of 5 Tech Companies over Time.",
-  "data": {"url": "data/test/data/line_multiple.csv"},
-  "mark": "line",
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "encoding": {
-    "x": {"field": "date", "type": "temporal"},
-    "y": {"field": "price", "type": "quantitative"},
-    "color": {"field": "symbol", "type": "nominal"}
-  }
+    "y": {
+      "field": "rating",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "country",
+      "type": "nominal",
+      "sort": null
+    }
+  },
+  "data": {
+    "url": "data/test/data/bar_simple_ver.csv"
+  },
+  "mark": "bar"
 }
-
 
 
 

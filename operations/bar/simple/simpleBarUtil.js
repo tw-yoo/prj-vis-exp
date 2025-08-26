@@ -1,4 +1,5 @@
 import {OperationType} from "../../../object/operationType.js";
+import { IntervalValue, DatumValue, BoolValue, ScalarValue } from "../../../object/valueType.js";
 import {
     simpleBarAverage,
     simpleBarCompare, simpleBarCount,
@@ -116,17 +117,20 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
         } else {
             const opsList = opsSpec[opKey];
             currentData = await executeSimpleBarOpsList(chartId, opsList, currentData, isLast);
-            const currentDataArray = Array.isArray(currentData)
-                ? currentData
-                : (currentData != null ? [currentData] : []);
+            if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
+                dataCache[opKey] = [currentData];
+            } else {
+                const currentDataArray = Array.isArray(currentData)
+                    ? currentData
+                    : (currentData != null ? [currentData] : []);
 
-            currentDataArray.forEach((datum, idx) => {
-                datum.id = `${opKey}_${idx}`;
-                datum.category = lastCategory;
-                datum.measure = lastMeasure;
-            })
-
-            dataCache[opKey] = currentDataArray
+                currentDataArray.forEach((datum, idx) => {
+                    if (datum instanceof DatumValue) {// DatumValue인지 한번 더 확인
+                        datum.id = `${opKey}_${idx}`;
+                    }
+                });
+                dataCache[opKey] = currentDataArray;
+            }
             await stackChartToTempTable(chartId, vlSpec);
         }
         console.log('after op:', opKey, currentData);
