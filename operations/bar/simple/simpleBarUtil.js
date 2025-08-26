@@ -126,6 +126,8 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
                 currentDataArray.forEach((datum, idx) => {
                     if (datum instanceof DatumValue) {// DatumValue인지 한번 더 확인
                         datum.id = `${opKey}_${idx}`;
+                        datum.category = lastCategory;
+                        datum.measure = lastMeasure;
                     }
                 });
                 dataCache[opKey] = currentDataArray;

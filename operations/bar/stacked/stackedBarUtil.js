@@ -112,6 +112,8 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
             currentDataArray.forEach((datum, idx) => {
                 if (datum instanceof DatumValue) {
                     datum.id = `${opKey}_${idx}`;
+                    datum.category = lastCategory;
+                    datum.measure = lastMeasure;
                 }
             });
 
