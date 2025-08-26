@@ -2,8 +2,13 @@ import {
     simpleBarAverage, simpleBarFilter, simpleBarFindExtremum, simpleBarSort, simpleBarDiff, simpleBarNth,
     simpleBarCount
 } from "../simple/simpleBarFunctions.js";
-import {IntervalValue} from "../../../object/valueType.js";
 
+
+import {DatumValue, BoolValue, IntervalValue} from "../../../object/valueType.js";
+
+const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
+function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
+function fmtNum(v){ return (v!=null && isFinite(v)) ? (+v).toLocaleString() : String(v); }
 export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const orientation = svg.attr("data-orientation");
@@ -103,50 +108,34 @@ export async function stackedBarToSimpleBar(chartId, op, data) {
 }
 
 export async function stackedBarRetrieveValue(chartId, op, data, isLast = false) {
-    const { svg, g, orientation } = getSvgAndSetup(chartId);
+    const { svg, g, orientation, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    const t = op?.target;
-    let categoryLabel = null;
-    if (t && typeof t === 'object') {
-        if (t.category != null) categoryLabel = String(t.category);
-        else if (orientation === 'vertical' && t.x != null) categoryLabel = String(t.x);
-        else if (orientation === 'horizontal' && t.y != null) categoryLabel = String(t.y);
-        else if (t.index != null) {
-            const order = Array.from(new Set(data.map(dv => String(dv.target))));
-            categoryLabel = order[t.index] != null ? String(order[t.index]) : null;
-        }
-    } else if (t != null) {
-        categoryLabel = String(t);
-        // Accept id form like "cat__sg" and extract category
-        if (categoryLabel.includes('__')) categoryLabel = categoryLabel.split('__')[0];
-    }
 
+    const categoryLabel = op.target != null ? String(op.target) : null;
     if (!categoryLabel) {
         console.warn('stackedBarRetrieveValue: missing target category');
-        return [];
+        return null;
     }
 
-    const wantGroup = op?.group != null ? String(op.group) : null;
-
-    // Build set of pairs `${category}-${subgroup}` to highlight
+    const seriesLabel = op.group != null ? String(op.group) : null;
     const targetPairs = new Set();
-    if (wantGroup) {
-        targetPairs.add(`${categoryLabel}-${wantGroup}`);
+    
+    if (seriesLabel) {
+        targetPairs.add(`${categoryLabel}-${seriesLabel}`);
     } else {
-        const sgs = Array.from(new Set(data
+        const seriesInCategroy = Array.from(new Set(data
             .filter(dv => String(dv.target) === categoryLabel)
             .map(dv => String(dv.group))));
-        sgs.forEach(sg => targetPairs.add(`${categoryLabel}-${sg}`));
+        seriesInCategroy.forEach(sg => targetPairs.add(`${categoryLabel}-${sg}`));
     }
 
-    // 2) Apply highlights to rects
     const allRects = g.selectAll('rect');
     const promises = [];
     allRects.each(function() {
         const rect = d3.select(this);
-        const rd = rect.datum(); // { key: category, subgroup, value, ... }
+        const rd = rect.datum();
         const isHit = rd && targetPairs.has(`${String(rd.key)}-${String(rd.subgroup)}`);
-        const p = rect.transition().duration(350)
+        const p = rect.transition().duration(400)
             .attr('opacity', isHit ? 1 : 0.25)
             .attr('stroke', isHit ? 'black' : 'none')
             .attr('stroke-width', isHit ? 1 : 0)
@@ -155,42 +144,43 @@ export async function stackedBarRetrieveValue(chartId, op, data, isLast = false)
     });
     await Promise.all(promises);
 
-    // 3) Add value tag annotation (sum for whole bar, or segment value for single subgroup)
-    const matched = wantGroup
-        ? data.filter(dv => String(dv.target) === categoryLabel && String(dv.group) === wantGroup)
-        : data.filter(dv => String(dv.target) === categoryLabel);
+    const matchedData = data.filter(dv => {
+        if (seriesLabel) {
+            return String(dv.target) === categoryLabel && String(dv.group) === seriesLabel;
+        }
+        return String(dv.target) === categoryLabel;
+    });
 
-    if (matched.length > 0) {
-        const value = wantGroup
-            ? (matched[0]?.value ?? 0)
-            : matched.reduce((acc, dv) => acc + (+dv.value || 0), 0);
+    if (matchedData.length > 0) {
+        const value = seriesLabel
+            ? (matchedData[0]?.value ?? 0)
+            : matchedData.reduce((acc, dv) => acc + (+dv.value || 0), 0);
 
-        const nodes = [];
+        const targetNodes = [];
         allRects.each(function() {
             const rd = d3.select(this).datum();
-            if (rd && targetPairs.has(`${String(rd.key)}-${String(rd.subgroup)}`)) nodes.push(this);
+            if (rd && targetPairs.has(`${String(rd.key)}-${String(rd.subgroup)}`)) {
+                targetNodes.push(this);
+            }
         });
-        if (nodes.length > 0) {
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            nodes.forEach(n => {
+
+        if (targetNodes.length > 0) {
+            let minY = Infinity, maxY = -Infinity;
+            targetNodes.forEach(n => {
                 const b = n.getBBox();
-                minX = Math.min(minX, b.x);
                 minY = Math.min(minY, b.y);
-                maxX = Math.max(maxX, b.x + b.width);
                 maxY = Math.max(maxY, b.y + b.height);
             });
-
-            const cx = (minX + maxX) / 2;
-            const cy = (minY + maxY) / 2;
-            const labelX = orientation === 'vertical' ? cx : maxX + 6;
-            const labelY = orientation === 'vertical' ? Math.max(10, minY - 6) : cy;
-
+            const lastNodeBBox = targetNodes[targetNodes.length-1].getBBox();
+            
+            const labelX = margins.left + lastNodeBBox.x + lastNodeBBox.width / 2;
+            const labelY = margins.top + (seriesLabel ? (minY + maxY) / 2 : Math.max(10, minY - 8));
+            
             g.append('text')
                 .attr('class', 'value-tag annotation')
                 .attr('x', labelX)
                 .attr('y', labelY)
-                .attr('text-anchor', orientation === 'vertical' ? 'middle' : 'start')
-                .attr('font-size', 12)
+                .attr('text-anchor', 'middle')
                 .attr('font-weight', 'bold')
                 .attr('fill', '#e03131')
                 .attr('stroke', 'white')
@@ -201,126 +191,108 @@ export async function stackedBarRetrieveValue(chartId, op, data, isLast = false)
                 .transition().duration(200).attr('opacity', 1);
         }
     }
-
-    return matched;
+    
+    return seriesLabel ? matchedData[0] || null : matchedData;
 }
 
 export async function stackedBarFilter(chartId, op, data, isLast = false) {
-    const { svg, g, orientation, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-    // Case A: subgroup requested → convert to simple bar then reuse simpleBarFilter
-    if (op?.group != null) {
-        const filteredData = await stackedBarToSimpleBar(chartId, op, data);
-        // Normalize existing rect datum so simpleBarFilter's key function (categoryKey) matches
-        const categoryKey = filteredData[0]?.category || xField; // fallback to xField
-        const gSel = d3.select(`#${chartId}`).select("svg").select(".plot-area");
-        gSel.selectAll("rect").each(function() {
-          const sel = d3.select(this);
-          const old = sel.datum() || {};
-          const id = sel.attr("data-id");
-          if (id != null && old[categoryKey] === undefined) {
-            old[categoryKey] = id; // make old datum compatible with upcoming data-join
+    // 1. 시리즈(group) 값으로 필터링하는 경우
+    if (op.group != null) {
+        const simpleBarData = await stackedBarToSimpleBar(chartId, op, data);
+        const { simpleBarFilter } = await import("../simple/simpleBarFunctions.js");
+
+        const gSel = d3.select(`#${chartId}`).select('svg').select('.plot-area');
+        gSel.selectAll('rect').each(function () {
+            const sel = d3.select(this);
+            const old = sel.datum() || {};
+            const id = sel.attr('data-id');
+            if (id != null) {
+                if (old[xField] === undefined) old[xField] = id;
+                if (old.target === undefined) old.target = id;
+            }
             sel.datum(old);
-          }
         });
-        return await simpleBarFilter(chartId, op, filteredData, isLast);
+        
+        return await simpleBarFilter(chartId, op, simpleBarData, isLast);
     }
 
-    // Helper: comparison operators
-    const cmp = {
-        ">": (a,b)=> a > b,
-        ">=": (a,b)=> a >= b,
-        "<": (a,b)=> a < b,
-        "<=": (a,b)=> a <= b,
-        "==": (a,b)=> a === b
-    };
+    // 2. 스택 총합 또는 카테고리 레이블로 필터링하는 경우
+    const categoryField = xField;
+    const measureField = yField;
+    let keepCategories = new Set();
 
-    // Compute stack totals per category
-    const sumsByCat = d3.rollup(
-        Array.isArray(data) ? data : [],
-        vs => d3.sum(vs, dv => +dv.value || 0),
-        dv => String(dv.target)
-    );
-    const entries = Array.from(sumsByCat, ([key, sum]) => ({ key, sum }));
-
-    // Case B: numeric threshold on stack totals (no group)
-    const hasNumericFilter = op && op.operator && (op.value !== undefined || Array.isArray(op.value));
-    if (hasNumericFilter) {
-        let keepCats = new Set();
-        if (op.operator === 'in' && Array.isArray(op.value)) {
-            op.value.forEach(v => keepCats.add(String(v)));
-        } else if (cmp[op.operator]) {
-            const keyVal = Number.isFinite(+op.value) ? +op.value : op.value;
-            entries.forEach(e => { if (cmp[op.operator](+e.sum, keyVal)) keepCats.add(String(e.key)); });
+    if (op.field === measureField) { // 스택 총합 기준
+        const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+        const cmp = cmpMap[op.operator];
+        if (cmp) {
+            sumsByCategory.forEach((sum, cat) => {
+                if (cmp(sum, op.value)) {
+                    keepCategories.add(String(cat));
+                }
+            });
         }
-
-        if (keepCats.size === 0) {
-            console.warn('stackedBarFilter: no categories matched filter');
-            // Fade all bars
-            await g.selectAll('rect').transition().duration(500).attr('opacity', 0.2).end();
-            return [];
-        }
-
-        // Visual highlight: all segments in kept categories
-        const allRects = g.selectAll('rect');
-        const promises = [];
-        allRects.each(function() {
-            const sel = d3.select(this);
-            const rd = sel.datum(); // { key, subgroup, value }
-            const hit = rd && keepCats.has(String(rd.key));
-            promises.push(sel.transition().duration(600)
-                .attr('opacity', hit ? 1 : 0.2)
-                .attr('stroke', hit ? 'black' : 'none')
-                .attr('stroke-width', hit ? 1 : 0)
-                .end());
-        });
-        await Promise.all(promises);
-
-        // Draw threshold line (vertical chart only) based on totals
-        const maxTotal = d3.max(entries, e => e.sum) || 0;
-        if (orientation === 'vertical' && Number.isFinite(+op.value) && (op.operator in cmp)) {
+        
+        // [추가] 기준선 그리기 로직
+        if (Number.isFinite(op.value)) {
+            const maxTotal = d3.max(sumsByCategory.values());
             const yScale = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
-            const yPos = margins.top + yScale(+op.value);
-            svg.append('line').attr('class', 'threshold-line')
+            const yPos = margins.top + yScale(op.value);
+            
+            svg.append('line').attr('class', 'annotation threshold-line')
                 .attr('x1', margins.left).attr('y1', yPos)
                 .attr('x2', margins.left).attr('y2', yPos)
                 .attr('stroke', 'blue').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5')
-                .transition().duration(600).attr('x2', margins.left + plot.w);
-            svg.append('text').attr('class', 'filter-label')
+                .transition().duration(700)
+                .attr('x2', margins.left + plot.w);
+                
+            svg.append('text').attr('class', 'annotation threshold-label')
                 .attr('x', margins.left + plot.w + 6).attr('y', yPos)
                 .attr('dominant-baseline', 'middle')
                 .attr('fill', 'blue').attr('font-weight', 'bold')
                 .text(`${op.operator} ${op.value}`)
-                .attr('opacity', 0).transition().duration(300).attr('opacity', 1);
+                .attr('opacity', 0).transition().delay(200).duration(400).attr('opacity', 1);
         }
 
-        // Return DatumValue[] for kept categories (all segments so 후속 op 체인 유지)
-        const out = data.filter(dv => keepCats.has(String(dv.target)));
-        return out;
+    } else if (op.field === categoryField) { // 카테고리 레이블 기준
+        const operator = op.operator;
+        const value = op.value;
+        if (operator === '==' || operator === 'eq') {
+            keepCategories.add(String(value));
+        } else if (operator === 'in' && Array.isArray(value)) {
+            value.forEach(v => keepCategories.add(String(v)));
+        } else if (operator === 'not-in' && Array.isArray(value)) {
+            const allCategories = new Set(data.map(d => String(d.target)));
+            const excludeSet = new Set(value.map(String));
+            keepCategories = new Set([...allCategories].filter(cat => !excludeSet.has(cat)));
+        }
     }
 
-    // Case C: label-based selection (category in list)
-    if (Array.isArray(op?.target) && op.target.length > 0) {
-        const keep = new Set(op.target.map(String));
-        const allRects = g.selectAll('rect');
-        const promises = [];
-        allRects.each(function() {
-            const sel = d3.select(this);
-            const rd = sel.datum();
-            const hit = rd && keep.has(String(rd.key));
-            promises.push(sel.transition().duration(600)
-                .attr('opacity', hit ? 1 : 0.2)
-                .attr('stroke', hit ? 'black' : 'none')
-                .attr('stroke-width', hit ? 1 : 0)
-                .end());
-        });
-        await Promise.all(promises);
-        return data.filter(dv => keep.has(String(dv.target)));
-    }
+    const allRects = g.selectAll('rect');
+    const promises = [];
+    allRects.each(function() {
+        const rect = d3.select(this);
+        const d = rect.datum();
+        const isTarget = d ? keepCategories.has(String(d.key)) : false;
+        
+        promises.push(rect.transition().duration(600)
+            .attr('opacity', isTarget ? 1 : 0.2)
+            .end());
+    });
+    
+    await Promise.all(promises);
 
-    // Default: no-op, return original
-    return data;
+    const labelText = `Filter: ${op.field} ${op.operator} ${op.value}`;
+    svg.append("text").attr("class", "annotation filter-label")
+        .attr("x", margins.left).attr("y", margins.top - 10)
+        .attr("font-size", 14).attr("font-weight", "bold")
+        .attr("fill", "#007bff").text(labelText);
+
+    return data.filter(d => keepCategories.has(String(d.target)));
 }
+
 
 export async function stackedBarFindExtremum(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
