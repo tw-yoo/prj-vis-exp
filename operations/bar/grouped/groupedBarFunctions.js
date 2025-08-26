@@ -1,3 +1,5 @@
+import {DatumValue, BoolValue, IntervalValue} from "../../../object/valueType.js";
+
 // ---------- 공통 셋업 ----------
 export function getSvgAndSetup(chartId) {
   const svg = d3.select(`#${chartId}`).select("svg");
@@ -36,31 +38,44 @@ function readGroupX(node) {
 }
 
 function buildPredicate(conds=[], logic="and") {
-  const L = (logic||"and").toLowerCase()==="or" ? "some" : "every";
-  const mk = (c)=> (row)=>{
-    const { field, satisfy, key, from, to, equals, in: arr, notIn } = c||{};
-    const v = row[field];
+    const L = (logic||"and").toLowerCase()==="or" ? "some" : "every";
+    
+    const mk = (c) => (row) => {
+        const { field, satisfy, key, equals, in: arr, notIn } = c||{};
 
-    if (from!=null || to!=null) {
-      const vn = v instanceof Date ? +v : (toNum(v) ?? v);
-      const fn = from instanceof Date ? +from : (toNum(from) ?? from);
-      const tn = to   instanceof Date ? +to   : (toNum(to)   ?? to);
-      if (from!=null && vn < fn) return false;
-      if (to!=null   && vn > tn) return false;
-      return true;
-    }
-    if (equals!=null) return String(v)===String(equals);
-    if (Array.isArray(arr))    return arr.map(String).includes(String(v));
-    if (Array.isArray(notIn))  return !notIn.map(String).includes(String(v));
-    if (satisfy && key!=null) {
-      const f = cmpMap[satisfy]; if (!f) return true;
-      const vn = toNum(v); const kn = toNum(key);
-      return f(vn ?? v, kn ?? key);
-    }
-    return true;
-  };
-  const ps = conds.map(mk);
-  return (row)=> ps[L](f=>f(row));
+        const isNumericOp = ['>', '>=', '<', '<='].includes(satisfy) || 
+                            typeof key === 'number' || 
+                            typeof equals === 'number';
+
+        if (isNumericOp) {
+            const v = row.value; 
+            const f = cmpMap[satisfy];
+            if (f && key != null) {
+                const vn = toNum(v);
+                const kn = toNum(key);
+                return f(vn, kn);
+            }
+        } else {
+            const v_target = String(row.target);
+            const v_group = String(row.group);
+            
+            if (equals != null) {
+                return v_target === String(equals) || v_group === String(equals);
+            }
+            if (Array.isArray(arr)) {
+                const strArr = arr.map(String);
+                return strArr.includes(v_target) || strArr.includes(v_group);
+            }
+            if (Array.isArray(notIn)) {
+                const strArr = notIn.map(String);
+                return !strArr.includes(v_target) && !strArr.includes(v_group);
+            }
+        }
+        return true; 
+    };
+
+    const ps = conds.map(mk);
+    return (row) => ps[L](f => f(row));
 }
 
 function describeFilter(conds, logic) {
@@ -165,55 +180,88 @@ function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
 }
 
 export async function groupedBarRetrieveValue(chartId, op, data) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, facetField, xField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const wantFacet = op.facet;
-    const wantKey   = op.x ?? op.key ?? op.label;
-    let targetSel = g.selectAll("rect");
-    if (wantFacet != null) targetSel = targetSel.filter(d => d && String(d.facet)===String(wantFacet));
-    if (wantKey   != null) targetSel = targetSel.filter(d => d && String(d.key)===String(wantKey));
+    const wantTarget = op.target;
+    const wantGroup = op.group;
 
-    if (targetSel.empty()) { console.warn("groupedBarRetrieveValue: 타깃을 찾지 못함", op); return data; }
+    let targetSel = g.selectAll("rect");
+
+    if (wantGroup != null) {
+        targetSel = targetSel.filter(d => d && String(d.facet) === String(wantGroup));
+    }
+    if (wantTarget != null) {
+        targetSel = targetSel.filter(d => d && String(d.key) === String(wantTarget));
+    }
+
+    if (targetSel.empty()) {
+        console.warn("groupedBarRetrieveValue: Target not found", { target: wantTarget, group: wantGroup });
+        return null;
+    }
 
     const node = targetSel.node();
-    const d = d3.select(node).datum();
+    const datum = d3.select(node).datum();
+    const hlColor = "#ff6961";
 
-    await targetSel.transition().duration(300).attr("stroke","#ff6961").attr("stroke-width",2).end();
+    await g.selectAll("rect").transition().duration(400).attr("opacity", 0.3).end();
+    await targetSel.transition().duration(400).attr("opacity", 1).attr("stroke", hlColor).attr("stroke-width", 2).end();
 
     const bbox = node.getBBox();
-    const cx = margins.left + readGroupX(node) + bbox.x + bbox.width/2;
+    const groupX = readGroupX(node);
+    const cx = margins.left + groupX + bbox.x + bbox.width / 2;
     const cy = margins.top + bbox.y;
 
-    svg.append("line").attr("class","annotation")
+    svg.append("line").attr("class", "annotation")
         .attr("x1", cx).attr("x2", cx).attr("y1", cy).attr("y2", cy)
-        .attr("stroke","#ff6961").attr("stroke-dasharray","4 4")
+        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
         .transition().duration(300).attr("y2", margins.top + plot.h);
 
-    svg.append("text").attr("class","annotation")
-        .attr("x", cx).attr("y", cy-6).attr("text-anchor","middle")
-        .attr("fill","#ff6961").attr("font-weight","bold")
-        .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-        .text(fmtNum(d.value));
+    svg.append("text").attr("class", "annotation")
+        .attr("x", cx).attr("y", cy - 6).attr("text-anchor", "middle")
+        .attr("fill", hlColor).attr("font-weight", "bold")
+        .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+        .text(fmtNum(datum.value));
 
-    return data;
+    const targetDatum = data.find(d => {
+        return String(d.target) === String(wantGroup) && String(d.group) === String(wantTarget);
+    });
+
+    return targetDatum || null;
 }
 
-export async function groupedBarFilter(chartId, op, data, fullData) {
-  const { yField } = getSvgAndSetup(chartId);
-  const conditions = Array.isArray(op.conditions) && op.conditions.length ? op.conditions : [op].filter(Boolean);
-  const { yConds, xConds } = splitCondsByAxis(conditions, yField);
+export async function groupedBarFilter(chartId, op, data, isLast = false) {
+    const { yField, facetField, xField } = getSvgAndSetup(chartId);
+    
+    const operatorMap = {
+        '==': 'equals',
+        'in': 'in',
+        'not-in': 'notIn',
+    };
 
-  if (yConds.length && xConds.length) {
-    const mid = { ...op, conditions: yConds };
-    data = await groupedBarFilterByY(chartId, mid, data, fullData);
-    const last = { ...op, conditions: xConds };
-    return await groupedBarFilterByX(chartId, last, data, fullData);
-  }
-  if (yConds.length) {
-    return await groupedBarFilterByY(chartId, { ...op, conditions: yConds }, data, fullData);
-  }
-  return await groupedBarFilterByX(chartId, { ...op, conditions: xConds }, data, fullData);
+    const condition = {
+        field: op.field,
+    };
+    
+    const mappedOp = operatorMap[op.operator];
+    if (mappedOp) {
+        condition[mappedOp] = op.value;
+    } else {
+        condition.satisfy = op.operator;
+        condition.key = op.value;
+    }
+
+    const filterOp = {
+        conditions: [condition],
+        logic: 'and',
+        rescaleY: true, 
+    };
+
+    if (op.field === yField) {
+        return await groupedBarFilterByY(chartId, filterOp, data, data);
+    } else {
+        return await groupedBarFilterByX(chartId, filterOp, data, data);
+    }
 }
 
 export async function groupedBarFindExtremum(chartId, op, data) {
@@ -503,208 +551,172 @@ export async function groupedBarNth(chartId, op, data) {}
 export async function groupedBarCount(chartId, op, data) {}
 
 export async function groupedBarFilterByY(chartId, op, currentData, fullData) {
-  const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
 
-  svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
+    svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
 
-  const mode      = (op.mode||"keep").toLowerCase();
-  const rescaleY  = (op.rescaleY !== false);
-  const logic     = op.logic || "and";
-  const style     = op.style || {};
-  const holdMs    = op.holdMs ?? 1200;                    
+    const mode = (op.mode || "keep").toLowerCase();
+    const rescaleY = (op.rescaleY !== false);
+    const logic = op.logic || "and";
+    const style = op.style || {};
 
-  const conditions = op.conditions || [];
-  const pass = buildPredicate(conditions, logic);
-  const allowedIds = new Set(fullData.filter(pass).map(r => idOf(r, facetField, xField)));
+    const conditions = op.conditions || [];
+    const pass = buildPredicate(conditions, logic);
+    
+    // [핵심 수정] DatumValue 객체(r)에서 직접 ID를 생성합니다.
+    const allowedIds = new Set(currentData.filter(pass).map(r => `${r.target}-${r.group}`));
 
-  const rects = g.selectAll("rect");
-  if (rects.empty()) return currentData;
+    const rects = g.selectAll("rect");
+    if (rects.empty()) return currentData;
 
+    const filteredData = currentData.filter(d => allowedIds.has(`${d.target}-${d.group}`));
+    const yMax = rescaleY ? d3.max(filteredData, r => r.value) : d3.max(currentData, r => r.value);
+    const yFinal = d3.scaleLinear().domain([0, yMax || 1]).nice().range([plot.h, 0]);
 
-  const rowsForScale =
-    mode === "keep"
-      ? fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)))
-      : currentData; 
-  const yMax = rescaleY ? d3.max(rowsForScale, r=>+r[yField]) : d3.max(currentData, r=>+r[yField]);
-  const yFinal = d3.scaleLinear().domain([0, yMax || 1]).nice().range([plot.h, 0]);
+    drawYThresholdsOnce(svg, margins, plot, yFinal, yField, conditions);
 
-  drawYThresholdsOnce(svg, margins, plot, yFinal, yField, conditions);
+    if (mode === "highlight" || mode === "hide") {
+        const dim = (mode === "hide") ? 0.08 : (style.otherOpacity ?? 0.25);
+        rects.transition().duration(650)
+            .attr("opacity", function() {
+                const d = d3.select(this).datum();
+                return allowedIds.has(idOfDatum(d)) ? 1.0 : dim;
+            });
+        
+        svg.append("text").attr("class", "filter-label")
+            .attr("x", margins.left).attr("y", margins.top - 10)
+            .attr("font-size", 14).attr("font-weight", "bold").attr("fill", "#0d6efd")
+            .text(describeFilter(conditions, logic));
+        
+        return filteredData;
+    }
 
+    const keepSel = rects.filter(function() { const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
+    const dropSel = rects.filter(function() { const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
 
-  if (holdMs > 0) await delay(holdMs);
+    await dropSel.transition().duration(500).attr("opacity", 0).attr("width", 0).remove().end();
 
-  if (mode==="highlight" || mode==="hide") {
-    const dim = (mode==="hide") ? 0.08 : (style.otherOpacity ?? 0.25);
-    const hit = [], miss = [];
-    rects.each(function(){ const d = d3.select(this).datum(); (allowedIds.has(idOfDatum(d)) ? hit : miss).push(this); });
+    const keptData = filteredData.map(d => ({ facet: d.target, key: d.group, value: d.value }));
+    if (!keptData.length) return [];
+    
+    const keptFacets = Array.from(new Set(keptData.map(d => d.facet)));
+    const keptKeys = Array.from(new Set(keptData.map(d => d.key)));
 
-    const t1 = d3.selectAll(hit).transition().duration(650)
-      .attr("opacity", 1)
-      .attr("stroke", style.matchStroke || "black")
-      .attr("stroke-width", style.matchStroke ? 1.5 : 1).end();
-    const t2 = d3.selectAll(miss).transition().duration(650)
-      .attr("opacity", dim).attr("stroke", "none").end();
+    const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
+    const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
 
-    if (style.matchFill) d3.selectAll(hit).attr("fill", style.matchFill);
-    if (style.otherFill) d3.selectAll(miss).attr("fill", style.otherFill);
+    const tasks = [];
+    g.selectAll('[class^="facet-group-"]').each(function() {
+        const cls = this.getAttribute("class") || "";
+        const fv = cls.replace(/^facet-group-/, "");
+        if (!keptFacets.map(String).includes(String(fv))) {
+            d3.select(this).transition().duration(450).attr("opacity", 0).remove();
+        } else {
+           tasks.push(d3.select(this).transition().duration(900).attr("transform", `translate(${x0(fv)},0)`).end());
+        }
+    });
 
-    await Promise.all([t1, t2]);
+    keepSel.transition().duration(900)
+        .attr("x", d => x1(d.key))
+        .attr("width", x1.bandwidth())
+        .attr("y", d => yFinal(d.value))
+        .attr("height", d => plot.h - yFinal(d.value));
 
-    svg.append("text").attr("class","filter-label")
-      .attr("x", margins.left).attr("y", margins.top - 10)
-      .attr("font-size", 14).attr("font-weight","bold").attr("fill","#0d6efd")
-      .text(describeFilter(conditions, logic));
+    tasks.push(g.select(".y-axis").transition().duration(900).call(d3.axisLeft(yFinal)).end());
+    const bottom = g.select(".x-axis-bottom-line");
+    tasks.push(bottom.transition().duration(900).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
+    
+    await Promise.all(tasks);
 
-    return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
-  }
-
-
-  const keepSel = rects.filter(function(){ const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
-  const dropSel = rects.filter(function(){ const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
-
-  await dropSel.transition().duration(500).attr("opacity",0).attr("width",0).remove().end();
-
-  const keptData = []; keepSel.each(function(){ keptData.push(d3.select(this).datum()); });
-  if (!keptData.length) return [];
-
-  const keptFacets = Array.from(new Set(keptData.map(d=>d.facet)));
-  const keptKeys   = Array.from(new Set(keptData.map(d=>d.key)));
-
-  const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
-  const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
-
-  const tasks = [];
-  keptFacets.forEach(fv => {
-    tasks.push(
-      g.select(`.facet-group-${cssEscape(String(fv))}`)
-        .transition().duration(900)
-        .attr("transform", `translate(${x0(fv)},0)`)
-        .attr("opacity", 1).end()
-    );
-  });
-  g.selectAll('[class^="facet-group-"]').each(function(){
-    const cls = this.getAttribute("class")||""; const fv  = cls.replace(/^facet-group-/, "");
-    if (!keptFacets.map(String).includes(String(fv))) d3.select(this).transition().duration(450).attr("opacity",0).remove();
-  });
-
-  keepSel.each(function(){
-    const R = d3.select(this), d = R.datum();
-    let sel = R.transition().duration(900)
-      .attr("x", x1(d.key)).attr("width", x1.bandwidth())
-      .attr("y", yFinal(d.value)).attr("height", plot.h - yFinal(d.value))
-      .attr("opacity", 1);
-    if (style.matchFill) sel.attr("fill", style.matchFill);
-  });
-
-  tasks.push(g.select(".y-axis").transition().duration(900).call(d3.axisLeft(yFinal)).end());
-  const bottom = g.select(".x-axis-bottom-line");
-  tasks.push(bottom.transition().duration(900).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
-  bottom.attr("transform", `translate(0,${plot.h})`);
-
-  await Promise.all(tasks);
-
-  svg.append("text").attr("class","filter-label")
-    .attr("x", margins.left).attr("y", margins.top - 10)
-    .attr("font-size",14).attr("font-weight","bold").attr("fill","#0d6efd")
-    .text(describeFilter(conditions, logic));
-
-  return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
+    svg.append("text").attr("class", "filter-label")
+        .attr("x", margins.left).attr("y", margins.top - 10)
+        .attr("font-size", 14).attr("font-weight", "bold").attr("fill", "#0d6efd")
+        .text(describeFilter(conditions, logic));
+    
+    return filteredData;
 }
 
 export async function groupedBarFilterByX(chartId, op, currentData, fullData) {
-  const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
+    svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
 
+    const mode = (op.mode || "keep").toLowerCase();
+    const rescaleY = (op.rescaleY !== false);
+    const logic = op.logic || "and";
+    const style = op.style || {};
 
-  svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
+    const conditions = op.conditions || [];
+    const pass = buildPredicate(conditions, logic);
+    
+    // [핵심 수정] DatumValue 객체(r)에서 직접 ID를 생성합니다.
+    const allowedIds = new Set(currentData.filter(pass).map(r => `${r.target}-${r.group}`));
 
-  const mode      = (op.mode||"keep").toLowerCase();
-  const rescaleY  = (op.rescaleY !== false);
-  const logic     = op.logic || "and";
-  const style     = op.style || {};
+    const rects = g.selectAll("rect");
+    if (rects.empty()) return currentData;
 
-  const conditions = op.conditions || [];
-  const pass = buildPredicate(conditions, logic);
-  const allowedIds = new Set(fullData.filter(pass).map(r => idOf(r, facetField, xField)));
+    const filteredData = currentData.filter(d => allowedIds.has(`${d.target}-${d.group}`));
 
-  const rects = g.selectAll("rect");
-  if (rects.empty()) return currentData;
+    if (mode === "highlight" || mode === "hide") {
+        const dim = (mode === "hide") ? 0.08 : (style.otherOpacity ?? 0.25);
+        rects.transition().duration(500)
+            .attr("opacity", function() {
+                const d = d3.select(this).datum();
+                return allowedIds.has(idOfDatum(d)) ? 1.0 : dim;
+            });
+        
+        svg.append("text").attr("class", "filter-label")
+            .attr("x", margins.left).attr("y", margins.top - 10)
+            .attr("font-size", 14).attr("font-weight", "bold").attr("fill", "#0d6efd")
+            .text(describeFilter(conditions, logic));
+        
+        return filteredData;
+    }
 
-  if (mode==="highlight" || mode==="hide") {
-    const dim = (mode==="hide") ? 0.08 : (style.otherOpacity ?? 0.25);
-    const hit = [], miss = [];
-    rects.each(function(){ const d = d3.select(this).datum(); (allowedIds.has(idOfDatum(d)) ? hit : miss).push(this); });
+    const keepSel = rects.filter(function() { const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
+    const dropSel = rects.filter(function() { const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
+    
+    await dropSel.transition().duration(450).attr("opacity", 0).attr("width", 0).remove().end();
 
-    const t1 = d3.selectAll(hit).transition().duration(500)
-      .attr("opacity", 1).attr("stroke", style.matchStroke || "black").attr("stroke-width", style.matchStroke ? 1.5 : 1).end();
-    const t2 = d3.selectAll(miss).transition().duration(500)
-      .attr("opacity", dim).attr("stroke", "none").end();
+    const keptData = filteredData.map(d => ({ facet: d.target, key: d.group, value: d.value }));
+    if (!keptData.length) return [];
+    
+    const keptFacets = Array.from(new Set(keptData.map(d => d.facet)));
+    const keptKeys = Array.from(new Set(keptData.map(d => d.key)));
 
-    if (style.matchFill) d3.selectAll(hit).attr("fill", style.matchFill);
-    if (style.otherFill) d3.selectAll(miss).attr("fill", style.otherFill);
+    const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
+    const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
+    const yMax = rescaleY ? d3.max(keptData, d => d.value) : d3.max(currentData, r => r.value);
+    const y = d3.scaleLinear().domain([0, (yMax || 1)]).nice().range([plot.h, 0]);
 
-    await Promise.all([t1, t2]);
+    const tasks = [];
+    g.selectAll('[class^="facet-group-"]').each(function() {
+        const cls = this.getAttribute("class") || "";
+        const fv = cls.replace(/^facet-group-/, "");
+        if (!keptFacets.map(String).includes(String(fv))) {
+            d3.select(this).transition().duration(400).attr("opacity", 0).remove();
+        } else {
+            tasks.push(d3.select(this).transition().duration(800).attr("transform", `translate(${x0(fv)},0)`).end());
+        }
+    });
 
-    svg.append("text").attr("class","filter-label")
-      .attr("x", margins.left).attr("y", margins.top - 10)
-      .attr("font-size", 14).attr("font-weight","bold").attr("fill","#0d6efd")
-      .text(describeFilter(conditions, logic));
+    keepSel.transition().duration(800)
+        .attr("x", d => x1(d.key))
+        .attr("width", x1.bandwidth())
+        .attr("y", d => y(d.value))
+        .attr("height", d => plot.h - y(d.value));
 
-    return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
-  }
-
-
-  const keepSel = rects.filter(function(){ const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
-  const dropSel = rects.filter(function(){ const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
-
-  await dropSel.transition().duration(450).attr("opacity",0).attr("width",0).remove().end();
-
-  const keptData = []; keepSel.each(function(){ keptData.push(d3.select(this).datum()); });
-  if (!keptData.length) return [];
-
-  const keptFacets = Array.from(new Set(keptData.map(d=>d.facet)));
-  const keptKeys   = Array.from(new Set(keptData.map(d=>d.key)));
-
-  const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
-  const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
-  const yMax = rescaleY ? d3.max(keptData, d=>d.value) : d3.max(currentData, r=>+r[yField]);
-  const y    = d3.scaleLinear().domain([0, (yMax||1)]).nice().range([plot.h, 0]);
-
-  const tasks = [];
-  keptFacets.forEach(fv => {
-    tasks.push(
-      g.select(`.facet-group-${cssEscape(String(fv))}`)
-        .transition().duration(800)
-        .attr("transform", `translate(${x0(fv)},0)`)
-        .attr("opacity", 1).end()
-    );
-  });
-  g.selectAll('[class^="facet-group-"]').each(function(){
-    const cls = this.getAttribute("class")||""; const fv  = cls.replace(/^facet-group-/, "");
-    if (!keptFacets.map(String).includes(String(fv))) d3.select(this).transition().duration(400).attr("opacity",0).remove();
-  });
-
-  keepSel.each(function(){
-    const R = d3.select(this), d = R.datum();
-    let sel = R.transition().duration(800)
-      .attr("x", x1(d.key)).attr("width", x1.bandwidth())
-      .attr("y", y(d.value)).attr("height", plot.h - y(d.value))
-      .attr("opacity", 1);
-    if (style.matchFill) sel.attr("fill", style.matchFill);
-  });
-
-  tasks.push(g.select(".y-axis").transition().duration(800).call(d3.axisLeft(y)).end());
-  const bottom = g.select(".x-axis-bottom-line");
-  tasks.push(bottom.transition().duration(800).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
-  bottom.attr("transform", `translate(0,${plot.h})`);
-
-  await Promise.all(tasks);
-
-  svg.append("text").attr("class","filter-label")
-    .attr("x", margins.left).attr("y", margins.top - 10)
-    .attr("font-size",14).attr("font-weight","bold").attr("fill","#0d6efd")
-    .text(describeFilter(conditions, logic));
-
-  return fullData.filter(r => allowedIds.has(idOf(r, facetField, xField)));
+    tasks.push(g.select(".y-axis").transition().duration(800).call(d3.axisLeft(y)).end());
+    const bottom = g.select(".x-axis-bottom-line");
+    tasks.push(bottom.transition().duration(800).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
+    
+    await Promise.all(tasks);
+    
+    svg.append("text").attr("class", "filter-label")
+        .attr("x", margins.left).attr("y", margins.top - 10)
+        .attr("font-size", 14).attr("font-weight", "bold").attr("fill", "#0d6efd")
+        .text(describeFilter(conditions, logic));
+        
+    return filteredData;
 }
 
 export async function groupedBarFocus(chartId, op, currentData, fullData) {
