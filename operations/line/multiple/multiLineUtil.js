@@ -11,8 +11,7 @@ import {
 
 import {
     multipleLineChangeToSimple,
-    multiLineRetrieveByX,
-    multiLineFilterByY, multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
+    multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
     multipleLineDetermineRange, multipleLineCompare, multipleLineSum, multipleLineAverage, multipleLineDiff,
     multipleLineCount, multipleLineNth
 } from './multiLineFunctions.js';
@@ -143,9 +142,24 @@ export async function renderMultipleLineChart(chartId, spec) {
 
     const series = d3.groups(data, d => d[colorField]).map(([key, values]) => ({ key, values }));
 
-    const xScale = (isTemporal ? d3.scaleTime() : d3.scalePoint())
-        .domain(d3.extent(data, d => d[xField]))
-        .range([0, width]);
+    // xScale
+    let xScale;
+    if (isTemporal) {
+        xScale = d3.scaleTime()
+            .domain(d3.extent(data, d => d[xField]))
+            .range([0, width]);
+    } else {
+        // Non-temporal: use unique ordered domain for scalePoint
+        const seen = new Set();
+        const domain = [];
+        for (const d of data) {
+            const k = String(d[xField]);
+            if (!seen.has(k)) { seen.add(k); domain.push(k); }
+        }
+        xScale = d3.scalePoint()
+            .domain(domain)
+            .range([0, width]);
+    }
 
     const yScale = d3.scaleLinear()
         .domain([0, d3.max(data, d => d[yField])]).nice()
@@ -176,23 +190,54 @@ export async function renderMultipleLineChart(chartId, spec) {
         .attr("class", "plot-area")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    g.append("g").attr("class", "x-axis")
-        .attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale));
-    g.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
+    g.append("g")
+        .attr("class", "x-axis")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(xScale));
+
+    g.append("g")
+        .attr("class", "y-axis")
+        .call(d3.axisLeft(yScale));
 
     const lineGen = d3.line()
         .x(d => xScale(d[xField]))
         .y(d => yScale(d[yField]));
 
+    // Draw series lines
     g.selectAll(".series-line")
-        .data(series)
+        .data(series, d => d.key)
         .join("path")
-        .attr("class", d => `series-line series-${d.key.replace(/\s+/g, '-')}`)
+        .attr("class", d => `series-line series-${String(d.key).replace(/\s+/g, '-')}`)
         .attr("fill", "none")
         .attr("stroke", d => colorScale(d.key))
         .attr("stroke-width", 2)
         .attr("d", d => lineGen(d.values));
 
+    // Draw datapoint circles for all series
+    const fmtISO = d3.timeFormat("%Y-%m-%d");
+    g.selectAll("circle.datapoint")
+        .data(
+            data,
+            d => {
+                const kx = isTemporal ? +d[xField] : String(d[xField]);
+                const ks = String(d[colorField]);
+                return `${kx}|${ks}`; // stable key per (x, series)
+            }
+        )
+        .join(
+            enter => enter.append("circle")
+                .attr("class", "datapoint")
+                .attr("cx", d => xScale(d[xField]))
+                .attr("cy", d => yScale(d[yField]))
+                .attr("r", 3.5)
+                .attr("fill", d => colorScale(d[colorField]))
+                .attr("opacity", 0)
+                .attr("data-id", d => isTemporal ? fmtISO(d[xField]) : String(d[xField]))
+                .attr("data-value", d => d[yField])
+                .attr("data-series", d => String(d[colorField]))
+        );
+
+    // Simple legend
     const legend = g.append("g")
         .attr("class", "legend")
         .attr("transform", `translate(${width + 20}, 0)`);

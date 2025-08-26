@@ -25,12 +25,14 @@ export class FilterSpec {
    * @param {string} field - Field to filter on
    * @param {string} operator - One of '==','!=','>','>=','<','<=','in','not-in','contains','startsWith','endsWith'
    * @param {*} value - Value or array of values for the op
+   * @param value2
    * @param group
    */
-  constructor(field, operator, value, group = null) {
+  constructor(field, operator, value, value2 = null, group = null) {
     this.field = field;
     this.operator = operator;
     this.value = value;
+    this.value2 = value2;
     this.group = group;
   }
 }

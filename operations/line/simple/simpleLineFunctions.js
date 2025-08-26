@@ -62,17 +62,8 @@ function parseDateWithGranularity(v) {
 
 function toPointIdCandidates(key) {
   const { date } = parseDateWithGranularity(key);
-  if (date) return [fmtISO(date), String(date.getFullYear())];
+  // if (date) return [fmtISO(date), String(date.getFullYear())];
   return [String(key)];
-}
-
-function normalizeRange(from, to) {
-  const F = parseDateWithGranularity(from);
-  const T = parseDateWithGranularity(to);
-  let fromD = F.date, toD = T.date;
-  if (F.granularity === "year" && fromD) fromD = new Date(fromD.getFullYear(), 0, 1);
-  if (T.granularity === "year" && toD)   toD   = new Date(toD.getFullYear(), 11, 31);
-  return { fromD, toD, fromLabel: fromD ? fmtISO(fromD) : String(from), toLabel: toD ? fmtISO(toD) : String(to) };
 }
 
 export async function simpleLineRetrieveValue(chartId, op, data) {
