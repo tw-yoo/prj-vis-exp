@@ -91,34 +91,13 @@ export class FindExtremumSpec {
    * @param {string} field               - Measure name (e.g., 'value' or y-field)
    * @param {'max'|'min'} [which='max']  - Which extremum to find
    * @param {string|null} [group=null]   - Legacy: subgroup key (kept for compatibility)
-   * @param {Object} [options={}]
-   * @param {'overall'|'perCategory'|'perGroup'} [options.scope='overall']
-   *        - 'overall'     : across all categories (stack totals)
-   *        - 'perCategory' : within a specific category, compare subgroups
-   *        - 'perGroup'    : for a specific subgroup, compare categories
-   * @param {string|null} [options.category=null] - Target category label (when scope='perCategory')
-   * @param {string|null} [options.group=null]    - Subgroup name (when scope='perGroup'); overrides legacy `group` if provided
-   * @param {'sum'|'mean'|'min'|'max'} [options.aggregate='sum'] - How to aggregate if needed
-   * @param {'first'|'all'} [options.ties='first'] - How to handle ties
    */
-  constructor(field, which = 'max', group = null, options = {}) {
+  constructor(field, which = 'max', group = null) {
     this.field = field;
     this.which = which;
 
     // legacy param retained
     this.group = group;
-
-    // new options
-    this.scope = options.scope || 'overall';
-    this.category = options.category ?? null;
-    this.aggregate = options.aggregate || 'sum';
-    this.ties = options.ties || 'first';
-
-    // if options.group is explicitly provided, prefer it over legacy arg
-    if (options.group !== undefined) this.group = options.group;
-
-    // soft normalization: if legacy `group` given but no scope, interpret as perGroup
-    if (!options.scope && this.group != null) this.scope = 'perGroup';
   }
 }
 
@@ -145,9 +124,11 @@ export class CountSpec {
 export class SumSpec {
   /**
    * @param {string} field
+   * @param group
    */
-  constructor(field) {
+  constructor(field, group = null) {
     this.field = field;
+    this.group = group;
   }
 }
 
