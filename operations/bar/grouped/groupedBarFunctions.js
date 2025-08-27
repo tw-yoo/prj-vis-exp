@@ -576,15 +576,376 @@ export async function groupedBarSort(chartId, op, data) {
     return sortedData;
 }
 
-export async function groupedBarSum(chartId, op, data) {}
 
-export async function groupedBarAverage(chartId, op, data) {}
+export async function groupedBarSum(chartId, op, data) {
+    const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-export async function groupedBarDiff(chartId, op, data) {}
+    // 현재 화면에 보이는 모든 막대를 선택합니다. (필터링된 상태 그대로)
+    const allRects = g.selectAll("rect");
 
-export async function groupedBarNth(chartId, op, data) {}
+    if (allRects.empty()) {
+        return new DatumValue('Aggregate', op.field, 'Sum', null, 0, null);
+    }
+    
+    const currentValues = [];
+    allRects.each(function() {
+        const d = d3.select(this).datum();
+        if (d && d.value != null) {
+            currentValues.push(d.value);
+        }
+    });
 
-export async function groupedBarCount(chartId, op, data) {}
+    if (currentValues.length === 0) {
+        return new DatumValue('Aggregate', op.field, 'Sum', null, 0, null);
+    }
+
+    const color = '#e83e8c';
+
+    // --- 1. 상태 저장 및 Y축 재설정 ---
+    const originalStates = [];
+    allRects.each(function() {
+        originalStates.push({
+            node: this,
+            datum: d3.select(this).datum(),
+            groupX: readGroupX(this), // 각 막대가 속한 그룹의 x위치 저장
+        });
+    });
+    
+    // 시각적 순서는 DOM 순서를 그대로 따르도록 수정 (이미 정렬되어 있음)
+    const sortedRects = d3.selectAll(originalStates.map(s => s.node));
+
+    const totalSum = d3.sum(currentValues);
+    const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
+
+    const yAxisTransition = svg.select(".y-axis").transition().duration(1200)
+        .call(d3.axisLeft(newYScale))
+        .end();
+
+    // --- 2. 탑 쌓기 애니메이션 ---
+    let runningTotal = 0;
+    const stackPromises = [];
+    const barWidth = allRects.size() > 0 ? +allRects.node().getAttribute('width') : 20;
+    const targetX = plot.w / 2 - barWidth / 2;
+
+    originalStates.forEach(state => {
+        const value = state.datum.value;
+        
+        // [핵심 수정]
+        // 막대가 속한 그룹의 x좌표(state.groupX)를 빼줘서
+        // 모든 막대가 동일한 중앙 x좌표(targetX)로 올 수 있도록 보정합니다.
+        const newX = targetX - state.groupX;
+
+        const t = d3.select(state.node)
+            .transition().duration(1500).ease(d3.easeCubicInOut)
+            .attr("x", newX) // 보정된 x값 적용
+            .attr("width", barWidth)
+            .attr("y", newYScale(runningTotal + value))
+            .attr("height", newYScale(0) - newYScale(value))
+            .end();
+            
+        stackPromises.push(t);
+        runningTotal += value;
+    });
+
+    await Promise.all([yAxisTransition, ...stackPromises]);
+    await delay(300);
+
+    // --- 3. 최종 합계 라인 및 텍스트 표시 ---
+    const yPos = margins.top + newYScale(totalSum);
+    svg.append("line").attr("class", "annotation sum-line")
+        .attr("x1", margins.left).attr("x2", margins.left + plot.w)
+        .attr("y1", yPos).attr("y2", yPos).attr("stroke", color).attr("stroke-width", 2.5);
+        
+    svg.append("text").attr("class", "annotation sum-label")
+        .attr("x", margins.left + plot.w - 10).attr("y", yPos - 15)
+        .attr("text-anchor", "end").attr("fill", color).attr("font-weight", "bold").attr("font-size", "14px")
+        .text(`Sum: ${fmtNum(totalSum)}`);
+
+    return new DatumValue('Aggregate', yField, 'Sum', null, totalSum, null);
+}
+
+export async function groupedBarAverage(chartId, op, data) {
+    const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    // 현재 화면에 보이는 모든 막대를 선택합니다. (필터링된 상태를 존중)
+    const allRects = g.selectAll("rect");
+
+    if (allRects.empty()) {
+        console.warn('groupedBarAverage: No bars on chart.');
+        return new DatumValue('Aggregate', op.field, 'Average', null, 0, null);
+    }
+    
+    // 현재 보이는 막대들의 데이터 값만 추출합니다.
+    const currentValues = [];
+    allRects.each(function() {
+        const d = d3.select(this).datum();
+        if (d && d.value != null) {
+            currentValues.push(d.value);
+        }
+    });
+
+    if (currentValues.length === 0) {
+        return new DatumValue('Aggregate', op.field, 'Average', null, 0, null);
+    }
+
+    const color = '#fd7e14'; // 평균 라인 및 라벨 색상 (주황색)
+    const avgValue = d3.mean(currentValues);
+
+    // 현재 보이는 막대들의 최댓값을 기준으로 Y축 스케일을 사용합니다.
+    const yMax = d3.max(currentValues);
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    const yPos = margins.top + yScale(avgValue);
+
+    // 평균 라인을 왼쪽에서 오른쪽으로 그리며 나타내는 애니메이션
+    const line = svg.append("line").attr("class", "annotation avg-line")
+        .attr("x1", margins.left).attr("x2", margins.left)
+        .attr("y1", yPos).attr("y2", yPos)
+        .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "6 6");
+
+    await line.transition().duration(800)
+        .attr("x2", margins.left + plot.w)
+        .end();
+
+    // 평균값 라벨을 부드럽게 표시
+    svg.append("text").attr("class", "annotation avg-label")
+        .attr("x", margins.left + plot.w - 10)
+        .attr("y", yPos - 10)
+        .attr("text-anchor", "end")
+        .attr("fill", color)
+        .attr("font-weight", "bold")
+        .text(`Avg: ${fmtNum(avgValue)}`)
+        .attr("opacity", 0)
+        .transition().duration(400)
+        .attr("opacity", 1);
+    
+    return new DatumValue('Aggregate', yField, 'Average', null, avgValue, null);
+}
+
+export async function groupedBarDiff(chartId, op, data) {
+    const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
+    const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
+
+    if (!nodeA || !nodeB) {
+        console.warn("groupedBarDiff: One or both targets not found", op);
+        return null;
+    }
+
+    const rectA = d3.select(nodeA), rectB = d3.select(nodeB);
+    const datumA = rectA.datum(), datumB = rectB.datum();
+    const valueA = datumA.value, valueB = datumB.value;
+    const diff = Math.abs(valueA - valueB);
+
+    const otherBars = g.selectAll("rect").filter(d => d !== datumA && d !== datumB);
+    const colorA = "#ffeb3b", colorB = "#2196f3", colorDiff = "#f44336";
+    
+    await Promise.all([
+        otherBars.transition().duration(500).attr("opacity", 0.2).end(),
+        rectA.transition().duration(500).attr("opacity", 1).attr('stroke', 'black').attr('stroke-width', 1).end(),
+        rectB.transition().duration(500).attr("opacity", 1).attr('stroke', 'black').attr('stroke-width', 1).end()
+    ]);
+
+    const yMax = d3.max(data, d => d.value);
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+
+    const yA = margins.top + yScale(valueA);
+    const yB = margins.top + yScale(valueB);
+
+    const drawLine = (y, color, value) => {
+        svg.append("line").attr("class", "annotation")
+           .attr("x1", margins.left).attr("y1", y)
+           .attr("x2", margins.left).attr("y2", y)
+           .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
+           .transition().duration(600).attr("x2", margins.left + plot.w);
+        svg.append("text").attr("class", "annotation")
+           .attr("x", margins.left + plot.w + 5).attr("y", y)
+           .attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold")
+           .text(fmtNum(value));
+    };
+    
+    drawLine(yA, colorA, valueA);
+    drawLine(yB, colorB, valueB);
+    
+    // 차이를 나타내는 수직선 추가
+    svg.append("line").attr("class", "annotation")
+        .attr("x1", margins.left - 8).attr("y1", yA)
+        .attr("x2", margins.left - 8).attr("y2", yB)
+        .attr("stroke", colorDiff).attr("stroke-width", 3);
+
+    svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left).attr("y", margins.top - 10)
+        .attr("font-size", 14).attr("font-weight", "bold").attr("fill", colorDiff)
+        .text(`Difference: ${fmtNum(diff)}`);
+
+    return new DatumValue('Difference', yField, `${op.targetA.category}-${op.targetB.category}`, null, diff, null);
+}
+
+export async function groupedBarNth(chartId, op, data) {
+    const { svg, g, margins } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    // 현재 화면에 보이는 모든 막대를 선택
+    const allRects = g.selectAll("rect");
+    if (allRects.empty()) {
+        console.warn('groupedBarNth: no bars found');
+        return null;
+    }
+
+    let n = Number(op?.n ?? 1);
+    const from = String(op?.from || 'left').toLowerCase();
+    const hlColor = '#20c997'; // Nth 하이라이트 색상
+    const total = allRects.size();
+    
+    n = Math.max(1, Math.min(n, total));
+
+    // 모든 막대를 시각적 순서(절대 x좌표)에 따라 정렬
+    const items = [];
+    allRects.each(function() {
+        items.push({
+            node: this,
+            globalX: readGroupX(this) + (+this.getAttribute('x')),
+        });
+    });
+    items.sort((a, b) => a.globalX - b.globalX);
+
+    // from(left/right)에 따라 순서를 결정
+    const sequence = from === 'right' ? items.slice().reverse() : items;
+    
+    // 최종 선택될 막대와 데이터 미리 찾아두기
+    const pickedItem = sequence[n - 1];
+    if (!pickedItem) return null;
+    const pickedDatum = d3.select(pickedItem.node).datum();
+
+    // 1. 모든 막대를 흐리게 처리
+    await allRects.transition().duration(300).attr("opacity", 0.2).end();
+
+    // 2. 1번부터 n번까지 순차적으로 카운트하며 하이라이트
+    for (let i = 0; i < n; i++) {
+        const { node } = sequence[i];
+        
+        await d3.select(node).transition().duration(150).attr('opacity', 1).end();
+
+        const { x, y } = absCenter(svg, node);
+        svg.append('text')
+            .attr('class', 'annotation count-label')
+            .attr('x', x).attr('y', y - 8)
+            .attr('text-anchor', 'middle').attr('font-weight', 'bold')
+            .attr('fill', hlColor).attr('stroke', 'white')
+            .attr('stroke-width', 3).attr('paint-order', 'stroke')
+            .text(String(i + 1));
+        
+        await delay(400);
+    }
+    
+    // 3. 최종 n번째 막대를 제외한 나머지 카운트된 막대들을 다시 흐리게 처리
+    const cleanupPromises = [];
+    for (let i = 0; i < n - 1; i++) {
+        const { node } = sequence[i];
+        cleanupPromises.push(
+            d3.select(node).transition().duration(300).attr('opacity', 0.2).end()
+        );
+    }
+    
+    // 4. 숫자 라벨들을 제거하고 최종 결과 텍스트를 표시
+    cleanupPromises.push(
+        svg.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end()
+    );
+    await Promise.all(cleanupPromises);
+    
+    svg.append('text').attr('class', 'annotation')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .text(`Nth: ${from} ${n}`);
+        
+    // 최종 선택된 N번째 막대에 해당하는 원본 데이터 객체를 찾아 반환
+    const originalDatum = data.find(d => 
+        String(d.target) === String(pickedDatum.facet) && 
+        String(d.group) === String(pickedDatum.key)
+    );
+
+    return originalDatum || null;
+}
+
+export async function groupedBarCount(chartId, op, data) {
+    const { svg, g, margins, xField, facetField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    if (!Array.isArray(data) || data.length === 0) {
+        console.warn('groupedBarCount: empty data');
+        return new DatumValue(facetField, xField, 'Count', null, 0, null);
+    }
+
+    const bars = g.selectAll('rect');
+    if (bars.empty()) {
+        console.warn('groupedBarCount: no bars on chart');
+        return new DatumValue(facetField, xField, 'Count', null, 0, null);
+    }
+
+    const baseColor = '#6c757d';
+    const hlColor = '#20c997';
+
+    await bars.transition().duration(200).attr('opacity', 0.3).end();
+
+    const nodes = bars.nodes();
+    const items = nodes.map(node => {
+        const groupX = readGroupX(node);
+        const barX = +node.getAttribute('x') || 0;
+        return { node, globalX: groupX + barX };
+    });
+
+    items.sort((a, b) => a.globalX - b.globalX);
+    
+    const totalCount = items.length;
+
+    for (let i = 0; i < totalCount; i++) {
+        const { node } = items[i];
+        const rect = d3.select(node);
+
+        await rect.transition().duration(150)
+            .attr('fill', hlColor)
+            .attr('opacity', 1)
+            .end();
+            
+        const { x, y } = absCenter(svg, node);
+
+        svg.append('text')
+            .attr('class', 'annotation count-label')
+            .attr('x', x)
+            // [수정] y 위치를 막대 상단에서 6px 위로 조정합니다.
+            .attr('y', y - 6) 
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 12)
+            .attr('font-weight', 'bold')
+            // [수정] 텍스트 색상을 하이라이트 색으로 하고, 흰색 테두리를 추가해 가독성을 높입니다.
+            .attr('fill', hlColor)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 3)
+            .attr('paint-order', 'stroke')
+            .text(String(i + 1))
+            .attr('opacity', 0)
+            .transition().duration(125).attr('opacity', 1);
+
+        await delay(100);
+    }
+
+    svg.append('text')
+        .attr('class', 'annotation')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 10)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .text(`Count: ${totalCount}`)
+        .attr('opacity', 0)
+        .transition().duration(200).attr('opacity', 1);
+
+    return new DatumValue(facetField, xField, 'Count', null, totalCount, null);
+}
 
 export async function groupedBarFilterByY(chartId, op, currentData, fullData) {
     const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);

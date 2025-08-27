@@ -95,9 +95,9 @@ export async function renderGroupedBarChart(chartId, spec) {
   const container = d3.select(`#${chartId}`);
   container.selectAll("*").remove();
 
-  const margin = { top: 50, right: 120, bottom: 60, left: 80 }; // bottom 여유 ↑
+  const margin = { top: 300, right: 120, bottom: 60, left: 80 }; // bottom 여유 ↑
   const width = 900 - margin.left - margin.right;
-  const height = 400 - margin.top - margin.bottom;
+  const height = 600 - margin.top - margin.bottom;
 
   const { column, x, y, color } = spec.encoding;
   const facetField = column.field;
