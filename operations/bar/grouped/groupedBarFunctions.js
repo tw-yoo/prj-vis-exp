@@ -727,6 +727,7 @@ export async function groupedBarDiff(chartId, op, data) {
     const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
+    // 1. 비교할 두 막대(node)를 찾습니다.
     const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
     const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
 
@@ -735,53 +736,91 @@ export async function groupedBarDiff(chartId, op, data) {
         return null;
     }
 
-    const rectA = d3.select(nodeA), rectB = d3.select(nodeB);
-    const datumA = rectA.datum(), datumB = rectB.datum();
-    const valueA = datumA.value, valueB = datumB.value;
+    const valueA = d3.select(nodeA).datum().value;
+    const valueB = d3.select(nodeB).datum().value;
     const diff = Math.abs(valueA - valueB);
 
-    const otherBars = g.selectAll("rect").filter(d => d !== datumA && d !== datumB);
-    const colorA = "#ffeb3b", colorB = "#2196f3", colorDiff = "#f44336";
+    const barA_sel = d3.select(nodeA);
+    const barB_sel = d3.select(nodeB);
     
-    await Promise.all([
-        otherBars.transition().duration(500).attr("opacity", 0.2).end(),
-        rectA.transition().duration(500).attr("opacity", 1).attr('stroke', 'black').attr('stroke-width', 1).end(),
-        rectB.transition().duration(500).attr("opacity", 1).attr('stroke', 'black').attr('stroke-width', 1).end()
-    ]);
+    const tallerBar = valueA >= valueB ? barA_sel : barB_sel;
+    const shorterBar = valueA < valueB ? barA_sel : barB_sel;
+    const shorterValue = Math.min(valueA, valueB);
 
-    const yMax = d3.max(data, d => d.value);
+    const otherBars = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
+    
+    const colorTaller = "#ffeb3b", colorShorter = "#2196f3", colorSubtract = "#f44336";
+    
+    // 2. [핵심] 애니메이션을 위해 두 막대의 원래 위치를 저장하고 메인 플롯(g)으로 이동시킵니다.
+    const tallerNode = tallerBar.node();
+    const shorterNode = shorterBar.node();
+    
+    const tallerGlobalX = readGroupX(tallerNode) + (+tallerNode.getAttribute('x'));
+    // [수정] 오타를 수정했습니다. (readGroup-X -> readGroupX)
+    const shorterGlobalX = readGroupX(shorterNode) + (+shorterNode.getAttribute('x'));
+
+    // 이동 후 원래 위치를 유지하도록 x좌표 설정
+    tallerBar.attr('x', tallerGlobalX);
+    shorterBar.attr('x', shorterGlobalX);
+    
+    g.node().appendChild(tallerNode);
+    g.node().appendChild(shorterNode);
+
+    const yMax = d3.max(data.map(d => d.value));
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
-    const yA = margins.top + yScale(valueA);
-    const yB = margins.top + yScale(valueB);
+    // 3. simpleBarDiff와 동일한 애니메이션 단계 실행
+    await Promise.all([
+        otherBars.transition().duration(500).attr("opacity", 0.2).end(),
+        tallerBar.transition().duration(500).attr("fill", colorTaller).end(),
+        shorterBar.transition().duration(500).attr("fill", colorShorter).end()
+    ]);
+    await delay(500);
 
-    const drawLine = (y, color, value) => {
-        svg.append("line").attr("class", "annotation")
-           .attr("x1", margins.left).attr("y1", y)
-           .attr("x2", margins.left).attr("y2", y)
-           .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
-           .transition().duration(600).attr("x2", margins.left + plot.w);
-        svg.append("text").attr("class", "annotation")
-           .attr("x", margins.left + plot.w + 5).attr("y", y)
-           .attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold")
-           .text(fmtNum(value));
-    };
+    // 더 작은 막대를 더 큰 막대 위로 이동
+    shorterBar.raise();
+    await shorterBar.transition().duration(800).attr("x", tallerBar.attr("x")).end();
+    await delay(500);
+
+    // 빼기 영역(subtractionRect) 표시
+    const subtractionRect = g.append("rect")
+        .attr("class", "annotation")
+        .attr("x", tallerBar.attr("x"))
+        .attr("y", yScale(shorterValue))
+        .attr("width", tallerBar.attr("width"))
+        .attr("height", plot.h - yScale(shorterValue))
+        .attr("fill", colorSubtract)
+        .attr("opacity", 0);
     
-    drawLine(yA, colorA, valueA);
-    drawLine(yB, colorB, valueB);
+    await subtractionRect.transition().duration(400).attr("opacity", 0.7).end();
+    await delay(600);
     
-    // 차이를 나타내는 수직선 추가
-    svg.append("line").attr("class", "annotation")
-        .attr("x1", margins.left - 8).attr("y1", yA)
-        .attr("x2", margins.left - 8).attr("y2", yB)
-        .attr("stroke", colorDiff).attr("stroke-width", 3);
+    // 최종 결과 표시 (더 큰 막대 크기 줄이기)
+    await Promise.all([
+        subtractionRect.transition().duration(600).attr("opacity", 0).remove().end(),
+        shorterBar.transition().duration(600).attr("opacity", 0).remove().end(),
+        tallerBar.transition().duration(800)
+            .attr("y", yScale(diff))
+            .attr("height", plot.h - yScale(diff))
+            .end()
+    ]);
+    
+    const finalX = +tallerBar.attr("x") + (+tallerBar.attr("width") / 2);
+    const finalY = yScale(diff); // 수정된 y 위치
 
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold").attr("fill", colorDiff)
-        .text(`Difference: ${fmtNum(diff)}`);
+    g.append("text").attr("class", "annotation")
+        .attr("x", finalX)
+        .attr("y", finalY - 8)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#333").attr("font-weight", "bold")
+        .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+        .text(`Difference: ${fmtNum(diff)}`)
+        .attr("opacity", 0).transition().delay(200).duration(400).attr("opacity", 1);
 
-    return new DatumValue('Difference', yField, `${op.targetA.category}-${op.targetB.category}`, null, diff, null);
+    const diffDatum = new DatumValue('Difference', yField, `${op.targetA.category}-${op.targetB.category}`, null, diff, null);
+    diffDatum.detail = {targetA: d3.select(nodeA).datum(), targetB: d3.select(nodeB).datum()};
+
+    return diffDatum;
 }
 
 export async function groupedBarNth(chartId, op, data) {

@@ -509,7 +509,100 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
 }
 
 
-export async function stackedBarCompare(chartId, op, data, isLast = false) {}
+export async function stackedBarCompare(chartId, op, data, isLast = false) {
+    const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    // --- 1. 분리(Isolate) 단계 ---
+    const targetA_key = op.targetA.category;
+    const targetA_series = op.targetA.series;
+    const targetB_key = op.targetB.category;
+    const targetB_series = op.targetB.series;
+
+    const allRects = g.selectAll("rect");
+    let rectA, rectB;
+
+    allRects.each(function() {
+        const d = d3.select(this).datum();
+        if (d && String(d.key) === targetA_key && String(d.subgroup) === targetA_series) rectA = d3.select(this);
+        if (d && String(d.key) === targetB_key && String(d.subgroup) === targetB_series) rectB = d3.select(this);
+    });
+
+    if (!rectA || !rectB) {
+        console.warn("stackedBarCompare: One or both targets not found", op);
+        return new BoolValue('', false);
+    }
+
+    const otherRects = allRects.filter(function() {
+        return this !== rectA.node() && this !== rectB.node();
+    });
+
+    // 요청대로 나머지 막대는 완전히 삭제
+    await otherRects.transition().duration(600).attr("opacity", 0).remove().end();
+    
+    // --- 2. 변환(Transform) 단계 ---
+    const valueA = rectA.datum().value;
+    const valueB = rectB.datum().value;
+
+    const tempXDomain = [`${targetA_key}(${targetA_series})`, `${targetB_key}(${targetB_series})`];
+    const tempXScale = d3.scaleBand().domain(tempXDomain).range([0, plot.w]).padding(0.4);
+    const newYMax = Math.max(valueA, valueB);
+    const newYScale = d3.scaleLinear().domain([0, newYMax]).nice().range([plot.h, 0]);
+
+    const transformPromises = [];
+    transformPromises.push(g.select(".y-axis").transition().duration(1000).call(d3.axisLeft(newYScale)).end());
+    transformPromises.push(g.select(".x-axis").transition().duration(1000).call(d3.axisBottom(tempXScale)).end());
+    transformPromises.push(rectA.transition().duration(1000)
+        .attr("x", tempXScale(tempXDomain[0]))
+        .attr("width", tempXScale.bandwidth())
+        .attr("y", newYScale(valueA))
+        .attr("height", plot.h - newYScale(valueA)).end());
+    transformPromises.push(rectB.transition().duration(1000)
+        .attr("x", tempXScale(tempXDomain[1]))
+        .attr("width", tempXScale.bandwidth())
+        .attr("y", newYScale(valueB))
+        .attr("height", plot.h - newYScale(valueB)).end());
+
+    await Promise.all(transformPromises);
+    await delay(500);
+
+    // --- 3. 비교(Compare) 및 주석 단계 ---
+    const ok = cmpMap[op.operator] ? cmpMap[op.operator](valueA, valueB) : false;
+    
+    const colorA = rectA.attr('fill');
+    const colorB = rectB.attr('fill');
+
+    const addAnnotation = (bar, value, color) => {
+        const bbox = bar.node().getBBox();
+        const xPos = margins.left + bbox.x + bbox.width / 2;
+        const yPos = margins.top + bbox.y;
+
+        svg.append('line').attr('class', 'annotation')
+            .attr('x1', margins.left).attr('y1', yPos)
+            .attr('x2', xPos).attr('y2', yPos)
+            .attr('stroke', color).attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+        svg.append('text').attr('class', 'annotation')
+            .attr('x', xPos).attr('y', yPos - 5)
+            .attr('text-anchor', 'middle').attr('fill', color).attr('font-weight', 'bold')
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(fmtNum(value));
+    };
+
+    addAnnotation(rectA, valueA, colorA);
+    addAnnotation(rectB, valueB, colorB);
+    
+    const symbol = { '>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ' }[op.operator] || ` ${op.operator} `;
+    const labelA = tempXDomain[0];
+    const labelB = tempXDomain[1];
+
+    svg.append('text').attr('class', 'compare-label annotation')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', ok ? 'green' : 'red')
+        .text(`${labelA}${symbol}${labelB} → ${ok}`);
+
+    return new BoolValue('', ok);
+}
 
 export async function stackedBarSort(chartId, op, data, isLast = false) {
     const { svg, g, xField, plot, margins } = getSvgAndSetup(chartId);
@@ -577,7 +670,80 @@ export async function stackedBarSort(chartId, op, data, isLast = false) {
 }
 
 export async function stackedBarSum(chartId, op, data, isLast = false) {
-    // 필요 없을수도?
+    const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    // 현재 화면에 보이는 모든 막대 조각을 선택합니다.
+    const allRects = g.selectAll("rect");
+    if (allRects.empty()) {
+        return new DatumValue('Aggregate', op.field, 'Sum', null, 0, null);
+    }
+    
+    // 현재 값들을 가져와 총합을 계산합니다.
+    const currentValues = [];
+    allRects.each(function() {
+        const d = d3.select(this).datum();
+        if (d && d.value != null) {
+            currentValues.push(d.value);
+        }
+    });
+    const totalSum = d3.sum(currentValues);
+
+    const color = '#e83e8c';
+
+    // --- 1. Y축 재설정 및 애니메이션 준비 ---
+    const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
+    const yAxisTransition = svg.select(".y-axis").transition().duration(1200)
+        .call(d3.axisLeft(newYScale))
+        .end();
+
+    // 일관된 순서로 쌓기 위해 막대들을 시각적 위치(x, y)에 따라 정렬합니다.
+    const originalStates = [];
+    allRects.each(function() {
+        originalStates.push({
+            node: this,
+            datum: d3.select(this).datum(),
+            x: +this.getAttribute('x'),
+            y: +this.getAttribute('y')
+        });
+    });
+    originalStates.sort((a, b) => a.x - b.x || b.y - a.y); // 왼쪽 스택부터, 아래 조각 먼저
+    const sortedRects = d3.selectAll(originalStates.map(s => s.node));
+
+    // --- 2. 탑 쌓기 애니메이션 ---
+    let runningTotal = 0;
+    const stackPromises = [];
+    const barWidth = allRects.size() > 0 ? +allRects.node().getAttribute('width') : 20;
+    const targetX = plot.w / 2 - barWidth / 2;
+
+    sortedRects.each(function() {
+        const value = d3.select(this).datum().value;
+        const t = d3.select(this)
+            .transition().duration(1500).ease(d3.easeCubicInOut)
+            .attr("x", targetX) // 그룹 좌표 보정이 필요 없어 더 간단합니다.
+            .attr("width", barWidth)
+            .attr("y", newYScale(runningTotal + value))
+            .attr("height", newYScale(0) - newYScale(value))
+            .end();
+        stackPromises.push(t);
+        runningTotal += value;
+    });
+
+    await Promise.all([yAxisTransition, ...stackPromises]);
+    await delay(300);
+
+    // --- 3. 최종 합계 라인 및 텍스트 표시 ---
+    const yPos = margins.top + newYScale(totalSum);
+    svg.append("line").attr("class", "annotation sum-line")
+        .attr("x1", margins.left).attr("x2", margins.left + plot.w)
+        .attr("y1", yPos).attr("y2", yPos).attr("stroke", color).attr("stroke-width", 2.5);
+        
+    svg.append("text").attr("class", "annotation sum-label")
+        .attr("x", margins.left + plot.w - 10).attr("y", yPos - 15)
+        .attr("text-anchor", "end").attr("fill", color).attr("font-weight", "bold").attr("font-size", "14px")
+        .text(`Sum: ${fmtNum(totalSum)}`);
+
+    return new DatumValue('Aggregate', yField, 'Sum', null, totalSum, null);
 }
 
 export async function stackedBarAverage(chartId, op, data, isLast = false) {
@@ -633,7 +799,106 @@ export async function stackedBarAverage(chartId, op, data, isLast = false) {
     }
 }
 
-export async function stackedBarDiff(chartId, op, data, isLast = false) {}
+export async function stackedBarDiff(chartId, op, data, isLast = false) {
+    const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const targetA_key = op.targetA.category;
+    const targetA_series = op.targetA.series;
+    const targetB_key = op.targetB.category;
+    const targetB_series = op.targetB.series;
+
+    const allRects = g.selectAll("rect");
+    let rectA, rectB;
+
+    // --- 1. 분리(Isolate) 단계 ---
+    allRects.each(function() {
+        const d = d3.select(this).datum();
+        if (d && String(d.key) === targetA_key && String(d.subgroup) === targetA_series) rectA = d3.select(this);
+        if (d && String(d.key) === targetB_key && String(d.subgroup) === targetB_series) rectB = d3.select(this);
+    });
+
+    if (!rectA || !rectB) {
+        console.warn("stackedBarDiff: One or both targets not found", op);
+        return null;
+    }
+
+    // 나머지 막대들을 fade out 후 완전히 삭제합니다.
+    const otherRects = allRects.filter(function() {
+        return this !== rectA.node() && this !== rectB.node();
+    });
+    await otherRects.transition().duration(600).attr("opacity", 0).remove().end();
+    
+    // --- 2. 변환(Transform) 단계 ---
+    const datumA = rectA.datum();
+    const datumB = rectB.datum();
+    const valueA = datumA.value;
+    const valueB = datumB.value;
+    const diff = Math.abs(valueA - valueB);
+
+    const tempXDomain = [`${targetA_key}(${targetA_series})`, `${targetB_key}(${targetB_series})`];
+    const tempXScale = d3.scaleBand().domain(tempXDomain).range([0, plot.w]).padding(0.4);
+    const newYMax = Math.max(valueA, valueB);
+    const newYScale = d3.scaleLinear().domain([0, newYMax]).nice().range([plot.h, 0]);
+
+    const transformPromises = [];
+    transformPromises.push(g.select(".y-axis").transition().duration(1000).call(d3.axisLeft(newYScale)).end());
+    transformPromises.push(g.select(".x-axis").transition().duration(1000).call(d3.axisBottom(tempXScale)).end());
+    transformPromises.push(rectA.transition().duration(1000)
+        .attr("x", tempXScale(tempXDomain[0]))
+        .attr("width", tempXScale.bandwidth())
+        .attr("y", newYScale(valueA))
+        .attr("height", plot.h - newYScale(valueA)).end());
+    transformPromises.push(rectB.transition().duration(1000)
+        .attr("x", tempXScale(tempXDomain[1]))
+        .attr("width", tempXScale.bandwidth())
+        .attr("y", newYScale(valueB))
+        .attr("height", plot.h - newYScale(valueB)).end());
+
+    await Promise.all(transformPromises);
+    await delay(500);
+
+    // --- 3. 차이 계산(Subtract) 애니메이션 단계 ---
+    const tallerBar = valueA >= valueB ? rectA : rectB;
+    const shorterBar = valueA < valueB ? rectA : rectB;
+    const shorterValue = Math.min(valueA, valueB);
+    
+    const colorTaller = "#ffeb3b", colorShorter = "#2196f3", colorSubtract = "#f44336";
+    await tallerBar.transition().duration(500).attr("fill", colorTaller).end();
+    await shorterBar.transition().duration(500).attr("fill", colorShorter).end();
+
+    // [수정] 짧은 막대를 맨 위로 올려 다른 막대에 가려지지 않도록 합니다.
+    shorterBar.raise(); 
+    await shorterBar.transition().duration(800).attr("x", tallerBar.attr("x")).end();
+    await delay(500);
+
+    const subtractionRect = g.append("rect").attr("class", "annotation")
+        .attr("x", tallerBar.attr("x")).attr("y", newYScale(shorterValue))
+        .attr("width", tallerBar.attr("width")).attr("height", plot.h - newYScale(shorterValue))
+        .attr("fill", colorSubtract).attr("opacity", 0);
+    
+    await subtractionRect.transition().duration(400).attr("opacity", 0.7).end();
+    await delay(600);
+    
+    await Promise.all([
+        subtractionRect.transition().duration(600).attr("opacity", 0).remove().end(),
+        shorterBar.transition().duration(600).attr("opacity", 0).remove().end(),
+        tallerBar.transition().duration(800)
+            .attr("y", newYScale(diff))
+            .attr("height", plot.h - newYScale(diff)).end()
+    ]);
+    
+    const finalX = +tallerBar.attr("x") + (+tallerBar.attr("width") / 2);
+    const finalY = newYScale(diff);
+
+    svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left + finalX).attr("y", margins.top + finalY - 8)
+        .attr("text-anchor", "middle").attr("fill", "#333").attr("font-weight", "bold")
+        .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+        .text(`Difference: ${fmtNum(diff)}`);
+
+    return new DatumValue('Difference', yField, `Diff`, null, diff, null);
+}
 
 export async function stackedBarNth(chartId, op, data, isLast = false) {
     const { svg, g, margins } = getSvgAndSetup(chartId);
