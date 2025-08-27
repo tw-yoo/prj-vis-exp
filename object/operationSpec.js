@@ -103,20 +103,19 @@ export class FindExtremumSpec {
     this.field = field;
     this.which = which;
 
-    // legacy param retained
     this.group = group;
 
     // new options
-    this.scope = options.scope || 'overall';
+    //this.scope = options.scope || 'overall';
     this.category = options.category ?? null;
-    this.aggregate = options.aggregate || 'sum';
-    this.ties = options.ties || 'first';
+    //this.aggregate = options.aggregate || 'sum';
+    //this.ties = options.ties || 'first';
 
     // if options.group is explicitly provided, prefer it over legacy arg
     if (options.group !== undefined) this.group = options.group;
 
     // soft normalization: if legacy `group` given but no scope, interpret as perGroup
-    if (!options.scope && this.group != null) this.scope = 'perGroup';
+    //if (!options.scope && this.group != null) this.scope = 'perGroup';
   }
 }
 
