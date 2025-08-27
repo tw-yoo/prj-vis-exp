@@ -1,5 +1,9 @@
 import {DatumValue, BoolValue, IntervalValue} from "../../../object/valueType.js";
 
+// 이 헬퍼 함수들을 simpleBarFunctions.js 파일 상단에 추가해주세요.
+function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
+function fmtNum(v){ return (v!=null && isFinite(v)) ? (+v).toLocaleString() : String(v); }
+
 export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const orientation = svg.attr("data-orientation") || "vertical";
@@ -756,7 +760,90 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
     return new DatumValue(categoryAxisName, measureAxisName, 'Average', null, avg, null);
 }
 
-export async function simpleBarDiff(chartId, op, data, isLast = false) {} // 보류. compare와 어떻게 다르게 할지 고민중
+export async function simpleBarDiff(chartId, op, data, isLast = false) {
+    const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const datumA = data.find(d => d.target === op.targetA);
+    const datumB = data.find(d => d.target === op.targetB);
+
+    if (!datumA || !datumB) {
+        console.warn("Diff: One or both targets not found.", op);
+        return null;
+    }
+
+    const valueA = datumA.value;
+    const valueB = datumB.value;
+    const diff = Math.abs(valueA - valueB);
+    const shorterValue = Math.min(valueA, valueB);
+
+    const barA_sel = g.selectAll("rect").filter(d => (d.target || d[xField]) === op.targetA);
+    const barB_sel = g.selectAll("rect").filter(d => (d.target || d[xField]) === op.targetB);
+    
+    const tallerBar = valueA >= valueB ? barA_sel : barB_sel;
+    const shorterBar = valueA < valueB ? barA_sel : barB_sel;
+
+    const otherBars = g.selectAll("rect").filter(d => (d.target || d[xField]) !== op.targetA && (d.target || d[xField]) !== op.targetB);
+    
+    const colorTaller = "#ffeb3b"; // 더 큰 막대: 노란색
+    const colorShorter = "#2196f3"; // 더 작은 막대: 파란색
+    const colorSubtract = "#f44336"; // 차감 효과: 빨간색
+    
+    const yMax = d3.max(data, d => d.value);
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+
+    await Promise.all([
+        otherBars.transition().duration(500).attr("opacity", 0.2).end(),
+        tallerBar.transition().duration(500).attr("fill", colorTaller).end(),
+        shorterBar.transition().duration(500).attr("fill", colorShorter).end()
+    ]).catch(err => console.log("Animation interrupted"));
+    await delay(500);
+
+    shorterBar.raise();
+    await shorterBar.transition().duration(800).attr("x", tallerBar.attr("x")).end();
+    await delay(500);
+
+    const subtractionRect = g.append("rect")
+        .attr("x", tallerBar.attr("x"))
+        .attr("y", yScale(shorterValue))
+        .attr("width", tallerBar.attr("width"))
+        .attr("height", plot.h - yScale(shorterValue))
+        .attr("fill", colorSubtract)
+        .attr("opacity", 0);
+    
+    await subtractionRect.transition().duration(400).attr("opacity", 0.7).end();
+    await delay(600);
+    
+    await Promise.all([
+        subtractionRect.transition().duration(600).attr("opacity", 0).remove().end(),
+        shorterBar.transition().duration(600).attr("opacity", 0).remove().end(),
+        tallerBar.transition().duration(800)
+            .attr("y", yScale(diff))
+            .attr("height", plot.h - yScale(diff))
+            .end()
+    ]).catch(err => console.log("Animation interrupted"));
+    
+    const finalX = +tallerBar.attr("x") + (+tallerBar.attr("width") / 2);
+    const finalY = +tallerBar.attr("y");
+
+    g.append("text").attr("class", "annotation")
+        .attr("x", finalX)
+        .attr("y", finalY - 8)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#333")
+        .attr("font-weight", "bold")
+        .attr("stroke", "white")
+        .attr("stroke-width", 3.5)
+        .attr("paint-order", "stroke")
+        .text(`Difference: ${fmtNum(diff)}`)
+        .attr("opacity", 0)
+        .transition().delay(200).duration(400).attr("opacity", 1);
+
+    const categoryAxisName = orientation === 'vertical' ? xField : yField;
+    const measureAxisName = orientation === 'vertical' ? yField : xField;
+
+    return new DatumValue(categoryAxisName, measureAxisName, `Diff(${op.targetA}, ${op.targetB})`, null, diff, null);
+}
 
 export async function simpleBarNth(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
