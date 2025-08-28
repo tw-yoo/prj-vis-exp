@@ -1,6 +1,5 @@
 import { DatumValue } from "../../../object/valueType.js";
 import {
-
     simpleLineCompare,
     simpleLineDetermineRange,
     simpleLineFilter,
@@ -12,10 +11,9 @@ import {
 
 import {
     multipleLineChangeToSimple,
-    multiLineRetrieveByX,
-    multiLineFilterByY, multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
+    multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
     multipleLineDetermineRange, multipleLineCompare, multipleLineSum, multipleLineAverage, multipleLineDiff,
-    multipleLineCount
+    multipleLineCount, multipleLineNth
 } from './multiLineFunctions.js';
 import {OperationType} from "../../../object/operationType.js";
 import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
@@ -31,18 +29,18 @@ const MULTIPLE_LINE_OP_HANDLERS = {
     [OperationType.SUM]:            multipleLineSum,
     [OperationType.AVERAGE]:        multipleLineAverage,
     [OperationType.DIFF]:           multipleLineDiff,
+    [OperationType.NTH]:            multipleLineNth,
     [OperationType.COUNT]:          multipleLineCount,
 };
 
 
 async function applyMultipleLineOperation(chartId, operation, currentData) {
-    //const fn = SIMPLE_LINE_OP_HANDLERS[operation.op];
     const fn = MULTIPLE_LINE_OP_HANDLERS[operation.op];
     if (!fn) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
     }
-    return await fn(chartId, operation, currentData, isLast);
+    return await fn(chartId, operation, currentData);
 }
 
 async function executeMultipleLineOpsList(chartId, opsList, currentData) {
@@ -102,8 +100,8 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
 
     const operationKeys = Object.keys(opsSpec);
     for (const opKey of operationKeys) {
-        console.log('before op:', opKey, currentData);
         let currentData = datumValues;
+        console.log('before op:', opKey, currentData);
         const opsList = opsSpec[opKey];
         currentData = await executeMultipleLineOpsList(chartId, opsList, currentData);
         const currentDataArray = Array.isArray(currentData)
@@ -118,56 +116,10 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
 
         dataCache[opKey] = currentDataArray
         await stackChartToTempTable(chartId, vlSpec);
-        console.log('after op:', opKey, currentData);
+        console.log('after op:', opKey, currentDataArray);
     }
 
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
-
-    // for (let i = 0; i < opsSpec.ops.length; i++) {
-    //     const operation = opsSpec.ops[i];
-    //     const opType = operation.op;
-    //
-    //     if (isTransformed) {
-    //         switch (opType) {
-    //             case 'retrievevalue': currentData = await simpleLineRetrieveValue(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'filter':        currentData = await simpleLineFilter(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'findextremum':  currentData = await simpleLineFindExtremum(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'determinerange':currentData = await simpleLineDetermineRange(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'compare':       currentData = await simpleLineCompare(chartId, operation, currentData, chartInfo.data); break;
-    //             case 'sort':          currentData = await simpleLineSort(chartId, operation, currentData, chartInfo.data); break;
-    //             default: console.warn(`Unsupported operation after transformation: ${operation.op}`);
-    //         }
-    //     } else {
-    //
-    //         switch (opType) {
-    //             case 'changetosimple':
-    //                 currentData = await multipleLineChangeToSimple(chartId, operation, currentData, chartInfo);
-    //                 isTransformed = true;
-    //                 break;
-    //
-    //             case 'retrievebyx':
-    //                 await multiLineRetrieveByX(chartId, operation, chartInfo);
-    //                 break;
-    //             case 'filterbyy':
-    //                 await multiLineFilterByY(chartId, operation, chartInfo);
-    //                 break;
-    //             default:
-    //                 console.warn(`Invalid operation. Received: '${opType}'`);
-    //                 return;
-    //         }
-    //
-    //     }
-    //
-    //     if (i < opsSpec.ops.length - 1) {
-    //         await delay(2500);
-    //         if (isTransformed) {
-    //              const svg = d3.select(`#${chartId} svg`);
-    //              simpleClearAllAnnotations(svg);
-    //              svg.selectAll("circle.datapoint").transition().duration(300).attr("r", 5).attr("opacity", 0);
-    //              await delay(300);
-    //         }
-    //     }
-    // }
 }
 
 
@@ -192,9 +144,24 @@ export async function renderMultipleLineChart(chartId, spec) {
 
     const series = d3.groups(data, d => d[colorField]).map(([key, values]) => ({ key, values }));
 
-    const xScale = (isTemporal ? d3.scaleTime() : d3.scalePoint())
-        .domain(d3.extent(data, d => d[xField]))
-        .range([0, width]);
+    // xScale
+    let xScale;
+    if (isTemporal) {
+        xScale = d3.scaleTime()
+            .domain(d3.extent(data, d => d[xField]))
+            .range([0, width]);
+    } else {
+        // Non-temporal: use unique ordered domain for scalePoint
+        const seen = new Set();
+        const domain = [];
+        for (const d of data) {
+            const k = String(d[xField]);
+            if (!seen.has(k)) { seen.add(k); domain.push(k); }
+        }
+        xScale = d3.scalePoint()
+            .domain(domain)
+            .range([0, width]);
+    }
 
     const yScale = d3.scaleLinear()
         .domain([0, d3.max(data, d => d[yField])]).nice()
@@ -225,23 +192,54 @@ export async function renderMultipleLineChart(chartId, spec) {
         .attr("class", "plot-area")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    g.append("g").attr("class", "x-axis")
-        .attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale));
-    g.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
+    g.append("g")
+        .attr("class", "x-axis")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(xScale));
+
+    g.append("g")
+        .attr("class", "y-axis")
+        .call(d3.axisLeft(yScale));
 
     const lineGen = d3.line()
         .x(d => xScale(d[xField]))
         .y(d => yScale(d[yField]));
 
+    // Draw series lines
     g.selectAll(".series-line")
-        .data(series)
+        .data(series, d => d.key)
         .join("path")
-        .attr("class", d => `series-line series-${d.key.replace(/\s+/g, '-')}`)
+        .attr("class", d => `series-line series-${String(d.key).replace(/\s+/g, '-')}`)
         .attr("fill", "none")
         .attr("stroke", d => colorScale(d.key))
         .attr("stroke-width", 2)
         .attr("d", d => lineGen(d.values));
 
+    // Draw datapoint circles for all series
+    const fmtISO = d3.timeFormat("%Y-%m-%d");
+    g.selectAll("circle.datapoint")
+        .data(
+            data,
+            d => {
+                const kx = isTemporal ? +d[xField] : String(d[xField]);
+                const ks = String(d[colorField]);
+                return `${kx}|${ks}`; // stable key per (x, series)
+            }
+        )
+        .join(
+            enter => enter.append("circle")
+                .attr("class", "datapoint")
+                .attr("cx", d => xScale(d[xField]))
+                .attr("cy", d => yScale(d[yField]))
+                .attr("r", 3.5)
+                .attr("fill", d => colorScale(d[colorField]))
+                .attr("opacity", 0)
+                .attr("data-id", d => isTemporal ? fmtISO(d[xField]) : String(d[xField]))
+                .attr("data-value", d => d[yField])
+                .attr("data-series", d => String(d[colorField]))
+        );
+
+    // Simple legend
     const legend = g.append("g")
         .attr("class", "legend")
         .attr("transform", `translate(${width + 20}, 0)`);
