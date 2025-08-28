@@ -1,5 +1,5 @@
 import { executeAtomicOps } from './router/router.js';
-import { updateAnswerFromBackend } from "./util/api.js";
+import { updateAnswerFromGemini } from "./util/api.js";
 import {renderChart} from "./util/util.js";
 
 var vlSpec = '';
@@ -39,8 +39,9 @@ document.getElementById('render-chart-button').addEventListener('click', async (
 
 document.getElementById('answer-button').addEventListener('click', async () => {
     const vlText  = vlEditor.getValue();
+    const vlSpec = JSON.parse(vlText);
     const questionText = questionEditor.getValue();
-    await updateAnswerFromBackend(vlText, questionText);
+    await updateAnswerFromGemini(vlSpec, questionText);
 });
 
 document.getElementById('run-ops-button').addEventListener('click', async () => {

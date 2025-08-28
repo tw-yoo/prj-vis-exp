@@ -1,10 +1,17 @@
 html, body { margin: 0; height: 100%; }
 #container { display: grid; grid-template-columns: 30% 5% 65%; height: 100%; }
+#left-panel, #right-panel, #container { position: relative; }
 #left-panel { display: grid; grid-template-rows: 2.5% 2.5% 30% 5% 10% 5% 20% 2.5% 2.5% 20%; padding: 10px; box-sizing: border-box; }
 #left-panel .label { font-weight: bold; }
 #left-panel textarea { width: 100%; height: 100%; box-sizing: border-box; }
 
-.CodeMirror { height: 100% !important; }
+/* Keep editors confined so they don't overlay buttons */
+.CodeMirror {
+    position: relative;
+    height: 260px !important; /* was 100% */
+    overflow: auto;
+    box-sizing: border-box;
+}
 
 #right-panel {
     display: grid;
@@ -45,6 +52,8 @@ html, body { margin: 0; height: 100%; }
     justify-content: space-between;
     align-items: center;
     margin-bottom: 4px;
+    position: relative;
+    z-index: 10;
 }
 
 #ops-info-box {
@@ -57,42 +66,42 @@ html, body { margin: 0; height: 100%; }
 }
 
 [data-host-for] {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 0;
-  margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    margin: 0;
 }
 
 .chart-canvas {
-  display: block;
-  flex: 0 0 auto;
-  align-self: stretch;
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  line-height: 0;
+    display: block;
+    flex: 0 0 auto;
+    align-self: stretch;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    line-height: 0;
 }
 
 .chart-canvas svg {
-  display: block;
-  margin-bottom: 0;
+    display: block;
+    margin-bottom: 0;
 }
 
 .temp-chart-table {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0;
-  align-items: stretch;
-  box-sizing: border-box;
-  flex: 0 0 auto;
-  margin-top: 0;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    align-items: stretch;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    margin-top: 0;
 }
 .temp-chart-cell { height: 100%; }
 .temp-chart-cell svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  pointer-events: none;
+    width: 100%;
+    height: 100%;
+    display: block;
+    pointer-events: none;
 }
