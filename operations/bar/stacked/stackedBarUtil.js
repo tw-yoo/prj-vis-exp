@@ -45,10 +45,11 @@ async function executeStackedBarOpsList(chartId, opsList, currentData, isLast = 
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applyStackedBarOperation(chartId, operation, currentData, isLast);
-        if (i < opsList.length - 1) {
-            await delay(3000)
-        }
+        
+            await delay(1500)
+        
     }
+    return currentData;
 }
 
 
@@ -61,7 +62,7 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
             return;
         }
         await renderStackedBarChart(chartId, vlSpec);
-  }
+    }
 
     const { colorField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -72,18 +73,18 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
 
     const resetPromises = [];
     chartRects.each(function () {
-    const rect = d3.select(this);
-    const d = rect.datum();
-    if (d && d.subgroup) {
-        const t = rect
-            .transition()
-            .duration(400)
-            .attr("opacity", 1)
-            .attr("stroke", "none")
-            .attr("fill", colorScale(d.subgroup))
-            .end();
-        resetPromises.push(t);
-    }
+        const rect = d3.select(this);
+        const d = rect.datum();
+        if (d && d.subgroup) {
+            const t = rect
+                .transition()
+                .duration(400)
+                .attr("opacity", 1)
+                .attr("stroke", "none")
+                .attr("fill", colorScale(d.subgroup))
+                .end();
+            resetPromises.push(t);
+        }
     });
     await Promise.all(resetPromises);
 
@@ -93,8 +94,7 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
     const operationKeys = Object.keys(opsSpec);
 
     for (const opKey of operationKeys) {
-
-        // const isLast = operationKeys.indexOf(opKey) === operationKeys.length - 1;
+        console.log('before op:', opKey, currentData);
         const isLast = opKey === "last";
         if (isLast) {
             const allDatumValues = Object.values(dataCache).flat();
@@ -110,17 +110,19 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
                 : (currentData != null ? [currentData] : []);
 
             currentDataArray.forEach((datum, idx) => {
-                datum.id = `${opKey}_${idx}`;
-                datum.category = lastCategory;
-                datum.measure = lastMeasure;
-            })
+                if (datum instanceof DatumValue) {
+                    datum.id = `${opKey}_${idx}`;
+                    datum.category = lastCategory;
+                    datum.measure = lastMeasure;
+                }
+            });
 
             dataCache[opKey] = currentDataArray
             await stackChartToTempTable(chartId, vlSpec);
+            console.log('after op:', opKey, currentData);
         }
     }
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
-
 }
 
 export async function renderStackedBarChart(chartId, spec) {

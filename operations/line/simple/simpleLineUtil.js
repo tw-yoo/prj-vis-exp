@@ -7,7 +7,7 @@ import {
     getSvgAndSetup,
     clearAllAnnotations,
     delay,
-    prepareForNextOperation, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount
+    prepareForNextOperation, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount, simpleLineNth
 } from "./simpleLineFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
 import {
@@ -27,6 +27,7 @@ const SIMPLE_LINE_OP_HANDLERS = {
     [OperationType.SUM]:            simpleLineSum,
     [OperationType.AVERAGE]:        simpleLineAverage,
     [OperationType.DIFF]:           simpleLineDiff,
+    [OperationType.NTH]:            simpleLineNth,
     [OperationType.COUNT]:          simpleLineCount,
 };
 
@@ -54,16 +55,16 @@ async function applySimpleLineOperation(chartId, operation, currentData) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
     }
-    return await fn(chartId, operation, currentData, isLast);
+    return await fn(chartId, operation, currentData);
 }
 
 async function executeSimpleLineOpsList(chartId, opsList, currentData) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applySimpleLineOperation(chartId, operation, currentData);
-        if (i < opsList.length - 1) {
-            await delay(1500);
-        }
+      
+            await delay(2000);
+        
     }
     return currentData;
 }
@@ -85,6 +86,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
     const operationKeys = Object.keys(opsSpec);
     for (const opKey of operationKeys) {
         let currentData = data;
+        console.log('before op:', opKey, currentData);
         const opsList = opsSpec[opKey];
         currentData = await executeSimpleLineOpsList(chartId, opsList, currentData);
         const currentDataArray = Array.isArray(currentData)
@@ -99,6 +101,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
 
         dataCache[opKey] = currentDataArray
         await stackChartToTempTable(chartId, vlSpec);
+        console.log('after op:', opKey, currentDataArray);
     }
 
     Object.keys(dataCache).forEach(key => delete dataCache[key]);

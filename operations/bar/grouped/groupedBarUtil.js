@@ -41,58 +41,63 @@ async function executeGroupedBarOpsList(chartId, opsList, currentData, isLast = 
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applyGroupedBarOperation(chartId, operation, currentData, isLast);
-        if (i < opsList.length - 1) {
-            await delay(1500);
-        }
+
+        await delay(2000);
     }
     return currentData;
 }
 
 export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  const chartInfo = chartDataStore[chartId];
+    const svg = d3.select(`#${chartId}`).select("svg");
+    const chartInfo = chartDataStore[chartId];
 
-  if (!chartInfo || !chartInfo.spec) {
-    console.error("Chart info/spec not found. Please render the chart first via renderGroupedBarChart(...).");
-    return;
-  }
+    if (!chartInfo || !chartInfo.spec) {
+        console.error("Chart info/spec not found. Please render the chart first via renderGroupedBarChart(...).");
+        return;
+    }
 
-  if (svg.select(".plot-area").empty()) {
-    await renderGroupedBarChart(chartId, chartInfo.spec);
-  }
+    if (svg.select(".plot-area").empty()) {
+        await renderGroupedBarChart(chartId, chartInfo.spec);
+    }
 
     clearAllAnnotations(d3.select(`#${chartId}`).select("svg"));
 
-  const fullData = chartInfo.data;
+    const fullData = chartInfo.data;
     const { rows, datumValues, categoryLabel, measureLabel } = toGroupedDatumValues(fullData, vlSpec);
     let currentData = datumValues;
     const operationKeys = Object.keys(opsSpec);
 
     for (const opKey of operationKeys) {
+        console.log('before op:', opKey, currentData);
         const opsList = opsSpec[opKey];
-        currentData = executeGroupedBarOpsList(chartId, opsList, currentData)
+        
+        currentData = await executeGroupedBarOpsList(chartId, opsList, currentData);
+        
         const currentDataArray = Array.isArray(currentData)
             ? currentData
             : (currentData != null ? [currentData] : []);
 
         currentDataArray.forEach((datum, idx) => {
-            datum.id = `${opKey}_${idx}`;
-            datum.category = lastCategory;
-            datum.measure = lastMeasure;
-        })
+            if (datum instanceof DatumValue) {
+                datum.id = `${opKey}_${idx}`;
+                datum.category = lastCategory;
+                datum.measure = lastMeasure;
+            }
+        });
 
-        dataCache[opKey] = currentDataArray
+        dataCache[opKey] = currentDataArray;
         await stackChartToTempTable(chartId, vlSpec);
+        console.log('after op:', opKey, currentData);
     }
-
 }
+
 export async function renderGroupedBarChart(chartId, spec) {
   const container = d3.select(`#${chartId}`);
   container.selectAll("*").remove();
 
-  const margin = { top: 50, right: 120, bottom: 60, left: 80 }; // bottom 여유 ↑
+  const margin = { top: 300, right: 120, bottom: 60, left: 80 }; // bottom 여유 ↑
   const width = 900 - margin.left - margin.right;
-  const height = 400 - margin.top - margin.bottom;
+  const height = 600 - margin.top - margin.bottom;
 
   const { column, x, y, color } = spec.encoding;
   const facetField = column.field;
