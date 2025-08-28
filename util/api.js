@@ -4,7 +4,7 @@ async function getKey() {
     return config.API_KEY;
 }
 
-function stringifyDataForPrompt(data, maxRows = 20) {
+function stringifyDataForPrompt(data, maxRows = 2000) {
     if (!data) return "[]";
 
     // 배열일 경우
@@ -72,8 +72,6 @@ export async function updateAnswerFromGemini(spec, question) {
         }
 
         const responseData = await response.json();
-        console.log("response for question")
-        console.log(responseData);
 
         const parsed = JSON.parse(responseData.candidates[0].content.parts[0].text);
         document.getElementById('explanation').value = `Answer: ${parsed.answer}\n\nExplanation: ${parsed.explanation}`;
@@ -177,12 +175,8 @@ async function updateSpecFromExplanation(vlSpec, data, question, answer, explana
             throw new Error(`HTTP error! status: ${res.status}`);
         }
 
-        console.log("NL to Spec Conversion")
         const dataJson = await res.json();
-        console.log("dataJson");
-        console.log(JSON.stringify(dataJson));
         let text = dataJson?.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
-        console.log(text);
         let parsed;
         try {
             parsed = JSON.parse(text);
@@ -190,10 +184,8 @@ async function updateSpecFromExplanation(vlSpec, data, question, answer, explana
             console.warn('LLM did not return strict JSON, using raw text.');
             parsed = { ops: [], notes: text };
         }
-        console.log('parsed');
-        console.log(JSON.stringify(parsed));
 
-        const updatedValue = JSON.stringify(parsed);
+        const updatedValue = JSON.stringify(parsed, null, 2);
 
         if (window.opsEditor && typeof window.opsEditor.setValue === 'function') {
             window.opsEditor.setValue(updatedValue);
