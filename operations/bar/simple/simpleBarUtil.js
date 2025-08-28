@@ -1,4 +1,5 @@
 import {OperationType} from "../../../object/operationType.js";
+import { IntervalValue, DatumValue, BoolValue, ScalarValue } from "../../../object/valueType.js";
 import {
     simpleBarAverage,
     simpleBarCompare, simpleBarCount,
@@ -69,9 +70,8 @@ async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = f
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applySimpleBarOperation(chartId, operation, currentData, isLast);
-        if (i < opsList.length - 1) {
-            await delay(1500);
-        }
+        await delay(1500);
+        
     }
     return currentData;
 }
@@ -104,7 +104,7 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
 
     for (const opKey of operationKeys) {
         let currentData = data;
-
+        console.log('before op:', opKey, currentData);
         // const isLast = operationKeys.indexOf(opKey) === operationKeys.length - 1;
         const isLast = opKey === "last";
         if (isLast) {
@@ -116,19 +116,25 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
         } else {
             const opsList = opsSpec[opKey];
             currentData = await executeSimpleBarOpsList(chartId, opsList, currentData, isLast);
-            const currentDataArray = Array.isArray(currentData)
-                ? currentData
-                : (currentData != null ? [currentData] : []);
+            if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
+                dataCache[opKey] = [currentData];
+            } else {
+                const currentDataArray = Array.isArray(currentData)
+                    ? currentData
+                    : (currentData != null ? [currentData] : []);
 
-            currentDataArray.forEach((datum, idx) => {
-                datum.id = `${opKey}_${idx}`;
-                datum.category = lastCategory;
-                datum.measure = lastMeasure;
-            })
-
-            dataCache[opKey] = currentDataArray
+                currentDataArray.forEach((datum, idx) => {
+                    if (datum instanceof DatumValue) {// DatumValue인지 한번 더 확인
+                        datum.id = `${opKey}_${idx}`;
+                        datum.category = lastCategory;
+                        datum.measure = lastMeasure;
+                    }
+                });
+                dataCache[opKey] = currentDataArray;
+            }
             await stackChartToTempTable(chartId, vlSpec);
         }
+        console.log('after op:', opKey, currentData);
     }
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
 }
