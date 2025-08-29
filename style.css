@@ -21,6 +21,9 @@ html, body { margin: 0; height: 100%; }
     align-items: start;
     padding: 10px;
     box-sizing: border-box;
+
+    max-height: 100vh;
+    overflow-y: auto;
 }
 #run-button { width: 80px; height: 30px; }
 #chart:not(.chart-canvas),

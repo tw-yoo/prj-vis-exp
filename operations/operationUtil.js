@@ -197,3 +197,22 @@ export function getFilteredData(op, data) {
         default: return [];
     }
 }
+
+export function addChildDiv(parentId, newDivId) {
+
+    const parent = document.getElementById(parentId);
+    if (!parent) {
+        console.error(`Parent div with id="${parentId}" not found.`);
+        return;
+    }
+
+    if (document.getElementById(newDivId)) {
+        console.warn(`Div with id="${newDivId}" already exists.`);
+        return;
+    }
+
+    const newDiv = document.createElement("div");
+    newDiv.id = newDivId;
+
+    parent.appendChild(newDiv);
+}
