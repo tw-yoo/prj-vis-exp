@@ -518,7 +518,87 @@ export async function simpleLineAverage(chartId, op, data) {
     return new DatumValue(xField, yField, 'Average', null, avg, null);
 }
 
-export async function simpleLineDiff(chartId, op, data) {}
+export async function simpleLineDiff(chartId, op, data) {
+    const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const baseLine = selectMainLine(g);
+    const points   = selectMainPoints(g);
+    const colorA   = "#ffb74d"; // 첫 번째 대상 색상
+    const colorB   = "#64b5f6"; // 두 번째 대상 색상
+    const hlColor  = "#fca103"; // 결과 강조 색상
+
+    const candidatesA = toPointIdCandidates(op.targetA);
+    const candidatesB = toPointIdCandidates(op.targetB);
+
+    const pick = (cands) => {
+        for (const id of cands) {
+            const sel = points.filter(function(){ return d3.select(this).attr("data-id") === id; });
+            if (!sel.empty()) return sel;
+        }
+        return d3.select(null);
+    };
+
+    const pointA = pick(candidatesA);
+    const pointB = pick(candidatesB);
+
+    if (pointA.empty() || pointB.empty()) {
+        console.warn("Diff: One or both points not found.", op.targetA, op.targetB);
+        return null; // 비교 대상이 없으면 null 반환
+    }
+
+    const valueA = +pointA.attr("data-value");
+    const valueB = +pointB.attr("data-value");
+
+    // 1. 차트의 다른 요소들을 흐리게 처리
+    baseLine.transition().duration(600).attr("opacity", 0.3);
+    
+    // 2. 두 비교 대상을 각자의 색상으로 강조
+    await Promise.all([
+        pointA.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorA).end(),
+        pointB.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorB).end()
+    ]);
+
+    // 3. 각 포인트에 대한 주석(가이드라인, 값) 추가
+    const annotate = (pt, color) => {
+        const cx = +pt.attr("cx"), cy = +pt.attr("cy");
+        
+        g.append("line").attr("class","annotation")
+            .attr("x1", 0).attr("y1", cy)
+            .attr("x2", cx).attr("y2", cy)
+            .attr("stroke", color).attr("stroke-dasharray","4 4");
+            
+        g.append("line").attr("class","annotation")
+            .attr("x1", cx).attr("y1", cy)
+            .attr("x2", cx).attr("y2", plot.h)
+            .attr("stroke", color).attr("stroke-dasharray","4 4");
+            
+        g.append("text").attr("class","annotation")
+            .attr("x", cx).attr("y", cy - 10)
+            .attr("text-anchor","middle").attr("fill",color)
+            .attr("font-weight","bold").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+            .text((+pt.attr("data-value")).toLocaleString());
+    };
+
+    annotate(pointA, colorA);
+    annotate(pointB, colorB);
+
+    // 4. 두 값의 차이를 계산
+    const largerValue = Math.max(valueA, valueB);
+    const smallerValue = Math.min(valueA, valueB);
+    const diff = largerValue - smallerValue;
+
+    // [수정됨] 계산 결과를 자연스러운 수식으로 표시
+    const summary = `Difference: ${largerValue.toLocaleString()} - ${smallerValue.toLocaleString()} = ${diff.toLocaleString()}`;
+
+    svg.append("text").attr("class","annotation")
+        .attr("x", margins.left + plot.w/2).attr("y", margins.top - 10)
+        .attr("text-anchor","middle").attr("font-size",16).attr("font-weight","bold")
+        .attr("fill", hlColor).text(summary);
+
+    // 6. 차이 값을 DatumValue 객체로 반환
+    return new DatumValue(xField, yField, 'Difference', op.targetA, diff, op.targetB);
+}
 
 export async function simpleLineNth(chartId, op, data) {
     const { svg, g, margins, plot, xField } = getSvgAndSetup(chartId);
