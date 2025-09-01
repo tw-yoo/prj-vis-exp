@@ -16,7 +16,74 @@ function findRectByTuple(g, t = {}) {
     }
     return sel.empty() ? null : sel.node();
 }
+async function animateSimpleToStacked(chartId, simpleData, fullData) {
+    const { svg, g, xField, yField, colorField, plot, margins } = getSvgAndSetup(chartId);
+    
+    // 1. 되돌아갈 카테고리 목록 확보
+    const keptCategories = new Set(simpleData.map(d => d.target));
+    if (keptCategories.size === 0) {
+        // 되돌아갈 데이터가 없으면 차트를 비움
+        await g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove().end();
+        return;
+    }
+    
+    // 2. 현재의 Simple Bar 막대들 제거
+    await g.selectAll("rect").transition().duration(500).attr("y", plot.h).attr("height", 0).remove().end();
 
+    // 3. 원래의 Stacked Bar 데이터를 필터링하여 재구성
+    const stackedDataToShow = fullData.filter(d => keptCategories.has(d.target));
+    
+    // 4. 새로운 스케일과 D3 스택 레이아웃 생성
+    const subgroups = Array.from(new Set(fullData.map(d => d.group)));
+    const colorScale = d3.scaleOrdinal(d3.schemeTableau10).domain(subgroups);
+    
+    const newXScale = d3.scaleBand().domain(Array.from(keptCategories)).range([0, plot.w]).padding(0.1);
+    const yMax = d3.max(Array.from(d3.rollup(stackedDataToShow, v => d3.sum(v, d => d.value), d => d.target).values()));
+    const newYScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+
+    const dataForStack = Array.from(keptCategories).map(cat => {
+        const obj = { [xField]: cat };
+        subgroups.forEach(sg => {
+            const datum = stackedDataToShow.find(d => d.target === cat && d.group === sg);
+            obj[sg] = datum ? datum.value : 0;
+        });
+        return obj;
+    });
+    
+    const stackedSeries = d3.stack().keys(subgroups)(dataForStack);
+
+    // 5. 축 업데이트 및 범례 다시 표시
+    g.select(".y-axis").transition().duration(800).call(d3.axisLeft(newYScale));
+    g.select(".x-axis").transition().duration(800).call(d3.axisBottom(newXScale));
+    svg.select(".legend").transition().duration(800).attr("opacity", 1);
+    
+    // 6. 필터링된 Stacked Bar 다시 그리기
+    g.append("g")
+      .selectAll("g")
+      .data(stackedSeries)
+      .join("g")
+        .attr("fill", d => colorScale(d.key))
+        .attr("class", d => `series-${d.key}`)
+      .selectAll("rect")
+      .data(d => d.map(seg => ({ ...seg, seriesKey: d.key })))
+      .join("rect")
+        .attr("x", d => newXScale(d.data[xField]))
+        .attr("width", newXScale.bandwidth())
+        .attr("y", d => newYScale(d[0]))
+        .attr("height", 0)
+        .datum(function (d) {
+            return {
+                key: d.data[xField],
+                subgroup: d.seriesKey,
+                value: d.data[d.seriesKey] || 0,
+                y0: d[0],
+                y1: d[1],
+            };
+        })
+      .transition().duration(800)
+        .attr("y", d => newYScale(d.y1))
+        .attr("height", d => newYScale(d.y0) - newYScale(d.y1));
+}
 function readGroupX(node) {
     const p = node?.parentNode?.parentNode; // rect -> series-g -> plot-area-g
     if (!p) return 0;
