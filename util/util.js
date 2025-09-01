@@ -298,3 +298,10 @@ export function convertToDatumValues(fullData, xField, yField, orientation, grou
         return new DatumValue(categoryField, measureField, target, group, value);
     });
 }
+
+export function addChartOpsText(chartOpsTextId, text = null) {
+    if (text != null || text !== undefined) {
+        const chartOpsTextDiv = document.getElementById(chartOpsTextId);
+        chartOpsTextDiv.innerHTML = text;
+    }
+}

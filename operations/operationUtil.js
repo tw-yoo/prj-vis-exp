@@ -198,21 +198,34 @@ export function getFilteredData(op, data) {
     }
 }
 
-export function addChildDiv(parentId, newDivId) {
-
+export function addChildDiv(parentId, newDivId, where = "append") {
     const parent = document.getElementById(parentId);
     if (!parent) {
         console.error(`Parent div with id="${parentId}" not found.`);
         return;
     }
-
     if (document.getElementById(newDivId)) {
         console.warn(`Div with id="${newDivId}" already exists.`);
         return;
     }
-
     const newDiv = document.createElement("div");
     newDiv.id = newDivId;
 
-    parent.appendChild(newDiv);
+    if (where === "prepend" && typeof parent.prepend === "function") {
+        parent.prepend(newDiv);
+    } else {
+        parent.appendChild(newDiv);
+    }
+}
+
+export function clearDivChildren(divId) {
+    const el = document.getElementById(divId);
+    if (!el) {
+        console.warn(`Div with id="${divId}" not found.`);
+        return;
+    }
+    // 모든 자식 요소 제거
+    while (el.firstChild) {
+        el.removeChild(el.firstChild);
+    }
 }

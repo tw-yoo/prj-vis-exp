@@ -34,7 +34,7 @@ function validateOpsSpec(text) {
 document.getElementById('render-chart-button').addEventListener('click', async () => {
     const vlText  = vlEditor.getValue();
     const vlSpec = JSON.parse(vlText);
-    await renderChart("chart", vlSpec);
+    await renderChart("chart-stack", vlSpec);
 });
 
 document.getElementById('answer-button').addEventListener('click', async () => {
@@ -47,7 +47,7 @@ document.getElementById('answer-button').addEventListener('click', async () => {
 document.getElementById('run-ops-button').addEventListener('click', async () => {
     const vlText  = vlEditor.getValue();
     const vlSpec = JSON.parse(vlText);
-    await renderChart("chart", vlSpec);
+    // await renderChart("chart", vlSpec);
     const opsText = opsEditor.getValue();
     const opsError = validateOpsSpec(opsText);
     document.getElementById('ops-error').innerText = '';
@@ -56,5 +56,5 @@ document.getElementById('run-ops-button').addEventListener('click', async () => 
         return;
     }
     const opsSpec = JSON.parse(opsText);
-    await executeAtomicOps("chart", vlSpec, opsSpec);
+    await executeAtomicOps("chart-stack", vlSpec, opsSpec);
 });

@@ -13,12 +13,14 @@ import {
     simpleBarSum
 } from "./simpleBarFunctions.js";
 import {
+    addChartOpsText,
     buildSimpleBarSpec,
     convertToDatumValues,
     dataCache, lastCategory, lastMeasure,
     renderChart,
     stackChartToTempTable
 } from "../../../util/util.js";
+import {addChildDiv, clearDivChildren} from "../../operationUtil.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -76,7 +78,7 @@ async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = f
     return currentData;
 }
 
-export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
+export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
 
     clearAllAnnotations(svg);
@@ -98,24 +100,34 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
     }
     const fullData = [...chartDataStore[chartId]];
     let data = convertToDatumValues(fullData, xField, yField, orientation);
-    // let currentData = data;
 
     const operationKeys = Object.keys(opsSpec);
 
+    // 기존 chartId 내부 컴포넌트 지우기
+    clearDivChildren(chartId);
+
     for (const opKey of operationKeys) {
+
+        // 새로운 chartId 만들어서 렌더링하기
+        let currentChartId = `${chartId}-${opKey}`;
+        let currentChartTextId = `${currentChartId}-text`;
+        addChildDiv("chart-stack", currentChartTextId, "append");
+        addChildDiv("chart-stack", currentChartId, "append");
+
+        addChartOpsText(currentChartTextId, textSpec[opKey]);
+        await renderChart(currentChartId, vlSpec);
+
         let currentData = data;
-        console.log('before op:', opKey, currentData);
-        // const isLast = operationKeys.indexOf(opKey) === operationKeys.length - 1;
         const isLast = opKey === "last";
         if (isLast) {
             const allDatumValues = Object.values(dataCache).flat();
             const chartSpec = buildSimpleBarSpec(allDatumValues)
-            await renderChart(chartId, chartSpec);
+            await renderChart(currentChartId, chartSpec);
             const opsList = opsSpec[opKey];
-            currentData = await executeSimpleBarOpsList(chartId, opsList, allDatumValues, isLast);
+            currentData = await executeSimpleBarOpsList(currentChartId, opsList, allDatumValues, isLast);
         } else {
             const opsList = opsSpec[opKey];
-            currentData = await executeSimpleBarOpsList(chartId, opsList, currentData, isLast);
+            currentData = await executeSimpleBarOpsList(currentChartId, opsList, currentData, isLast);
             if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
                 dataCache[opKey] = [currentData];
             } else {
@@ -124,7 +136,7 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
                     : (currentData != null ? [currentData] : []);
 
                 currentDataArray.forEach((datum, idx) => {
-                    if (datum instanceof DatumValue) {// DatumValue인지 한번 더 확인
+                    if (datum instanceof DatumValue) {
                         datum.id = `${opKey}_${idx}`;
                         datum.category = lastCategory;
                         datum.measure = lastMeasure;
@@ -132,9 +144,8 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec) {
                 });
                 dataCache[opKey] = currentDataArray;
             }
-            await stackChartToTempTable(chartId, vlSpec);
+            // await stackChartToTempTable(currentChartId, vlSpec);
         }
-        console.log('after op:', opKey, currentData);
     }
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
 }
