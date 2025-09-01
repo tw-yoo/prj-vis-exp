@@ -85,33 +85,39 @@ export async function updateAnswerFromGemini(spec, question) {
 }
 
 function getFormattedQuestion(vlSpec, data, question) {
-    const formattedQuestion = `
-  You are a data QA assistant. Answer the user's question by analyzing **only the values in Data**. The Vega-Lite spec is provided **only to disambiguate field names**; do not cite or reference it in your answer and do not base reasoning on encodings/axes/marks.
-  
-  RULES (STRICT):
-  - Use **Data only** for any calculations or comparisons. If Data lacks what's required, respond with "unknown".
-  - Do **not** mention or refer to: "Vega-Lite", "specification", "encoding", "axis", "mark", or other chart grammar terms.
-  - Do **not** include code blocks, backticks, or markdown in your output.
-  - Output must be valid JSON with **exactly**:
-    {"answer": <string|number>, "explanation": <string>}
-  - The explanation must describe the data-derived reasoning only (e.g., which rows/values determined the answer) without mentioning the spec or chart.
-  - If the spec and data conflict, **trust Data**.
-  
-  INPUTS
-  (0) Vega-Lite Spec (for disambiguation only; never reference this in the answer)
-  \`\`\`json
-  ${vlSpec}
-  \`\`\`
-  
-  (1) Data
-  \`\`\`json
-  ${data}
-  \`\`\`
-  
-  (2) Question
-  ${question}
-  `;
-    return formattedQuestion;
+    const specStr = typeof vlSpec === "string" ? vlSpec : JSON.stringify(vlSpec, null, 2);
+    const dataStr = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+
+    return `
+You are a data QA assistant. Answer the user's question by analyzing **only** the values in **Data**.
+The Vega-Lite spec is provided **solely to disambiguate field names or roles**; do not cite or reference it in your output.
+You may internally use the spec to infer which fields are labels vs. values, but **never** mention chart-grammar terms in the output.
+
+STRICT RULES:
+- Use **Data only** for any calculation or comparison. If Data is insufficient to answer, set "answer" to "unknown".
+- **Do not** mention or refer to: “Vega-Lite”, “specification”, “encoding”, “axis”, “mark”, or similar chart-grammar terms.
+- **Do not** include code blocks, backticks, Markdown, or any text outside the JSON object.
+- **Return ONLY this JSON object with EXACTLY these two keys** and nothing else:
+  {"answer": <string|number|boolean|array>, "explanation": <string>}
+- Numbers must be JSON numbers (not strings). Do not round unless the question explicitly requests it; otherwise preserve numeric precision present in Data.
+- If multiple items are equally valid (tie or multiple maxima/minima) and the question demands a single item, set "answer" to "tie" and list the tied items and their values in "explanation".
+- Ignore non-numeric entries when a numeric operation is required; state this if it affects the result.
+- If the spec and Data conflict, **trust Data**.
+
+INPUTS
+(0) Vega-Lite Spec (for disambiguation only; never reference this in the answer)
+\`\`\`json
+${specStr}
+\`\`\`
+
+(1) Data
+\`\`\`json
+${dataStr}
+\`\`\`
+
+(2) Question
+${question}
+`;
 }
 
 async function updateSpecFromExplanation(vlSpec, data, question, answer, explanation) {
@@ -139,7 +145,7 @@ async function updateSpecFromExplanation(vlSpec, data, question, answer, explana
     ${vlSpec}
     \`\`\`
     
-    ### Data (sample or full)
+    ### Data
     \`\`\`json
     ${data}
     \`\`\`

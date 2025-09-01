@@ -56,7 +56,7 @@ If unspecified or ambiguous in NL, **default**: category → `"target"`, measure
 - **`group`** — subgroup label (only for grouped/stacked charts). Omit or set `null` for simple charts.  
 - **`which`** — `"max"` or `"min"` (for `findExtremum`).  
 - **`order`** — `"asc"` or `"desc"` (for `sort`).  
-- **`operator`** — one of `">"`, `">="`, `"<"`, `"<="`, `"=="`, `"!="`, `"eq"`, `"in"`, `"not-in"`, `"contains"`, `"startsWith"`, `"endsWith"`.  
+- **`operator`** — one of `">"`, `">="`, `"<"`, `"<="`, `"=="`, `"!="`, `"eq"`, `"in"`, `"not-in"`, `"contains"`  
 - **`n` / `from`** — positional selection; `n` is 1-based; `from` is `"left"` or `"right"`.
 
 ---

@@ -198,7 +198,42 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         const allowed = new Set(sortOrder);
         filteredData = data.filter(d => allowed.has(d.target));
         labelText = `Filter: ${xField} in [${sortOrder.join(', ')}]`;
-    } else {
+    }
+
+    else if (op.operator === 'in' || op.operator === 'not-in' || op.operator === 'contains') {
+        // Normalize label accessor: prefer d.target (DatumValue target), fallback to axis field names if present
+        const labelOf = (d) => String(
+            (d && d.target !== undefined) ? d.target :
+            (xField && d && d[xField] !== undefined) ? d[xField] :
+            (yField && d && d[yField] !== undefined) ? d[yField] :
+            (d && d.category !== undefined) ? d.category :
+            ''
+        );
+
+        if (op.operator === 'in' || op.operator === 'not-in') {
+            // Membership filter over category labels
+            const values = Array.isArray(op.value) ? op.value : [op.value];
+            const allowed = new Set(values.map(v => String(v)));
+            filteredData = data.filter(d => {
+                const label = labelOf(d);
+                return op.operator === 'in' ? allowed.has(label) : !allowed.has(label);
+            });
+            labelText = `Filter: ${op.field} ${op.operator} [${values.join(', ')}]`;
+            // No numeric threshold line for membership filters
+        } else {
+            // contains: substring match on category label (case-insensitive)
+            const needles = Array.isArray(op.value) ? op.value : [op.value];
+            const needlesLC = needles.map(v => String(v).toLowerCase());
+            filteredData = data.filter(d => {
+                const s = labelOf(d).toLowerCase();
+                return needlesLC.some(n => s.includes(n));
+            });
+            labelText = (needles.length === 1)
+                ? `Filter: ${op.field} contains "${needles[0]}"`
+                : `Filter: ${op.field} contains any of [${needles.join(', ')}]`;
+        }
+    }
+    else {
         const map = { ">": (a,b) => a > b, ">=": (a,b) => a >= b, "<": (a,b) => a < b, "<=": (a,b) => a <= b, "==": (a,b) => a === b };
         const satisfy = map[op.operator] || (() => true);
         const key = Number.isFinite(+op.value) ? +op.value : op.value;
@@ -924,87 +959,86 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
 }
 
 export async function simpleBarCount(chartId, op, data, isLast = false) {
-    const { svg, g, xField, yField, orientation, margins, plot } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg);
+    const { svg, g, xField, yField, orientation, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
 
-    if (!Array.isArray(data) || data.length === 0) {
-        console.warn('simpleBarCount: empty data');
-        return data;
-    }
+    if (!Array.isArray(data) || data.length === 0) {
+        console.warn('simpleBarCount: empty data');
+        return data;
+    }
 
-    const bars = g.selectAll('rect');
-    if (bars.empty()) {
-        console.warn('simpleBarCount: no bars on chart');
-        return data;
-    }
+    const bars = g.selectAll('rect');
+    if (bars.empty()) {
+        console.warn('simpleBarCount: no bars on chart');
+        return data;
+    }
 
-    const baseColor = '#69b3a2';
-    const hlColor = '#20c997';
+    const baseColor = '#69b3a2';
+    const hlColor = '#20c997';
 
-    await bars.transition().duration(150).attr('fill', baseColor).attr('opacity', 0.3).end();
+    await bars.transition().duration(150).attr('fill', baseColor).attr('opacity', 0.3).end();
 
-    const nodes = bars.nodes();
-    const items = nodes.map((node) => {
-        const sel = d3.select(node);
-        const x = +node.getAttribute('x') || 0;
-        const y = +node.getAttribute('y') || 0;
-        const w = +node.getAttribute('width') || 0;
-        const h = +node.getAttribute('height') || 0;
-        const valueAttr = sel.attr('data-value');
-        const value = valueAttr != null ? +valueAttr : NaN;
-        return { node, x, y, w, h, value };
-    });
+    const nodes = bars.nodes();
+    const items = nodes.map((node) => {
+        const sel = d3.select(node);
+        const x = +node.getAttribute('x') || 0;
+        const y = +node.getAttribute('y') || 0;
+        const w = +node.getAttribute('width') || 0;
+        const h = +node.getAttribute('height') || 0;
+        const valueAttr = sel.attr('data-value');
+        const value = valueAttr != null ? +valueAttr : NaN;
+        return { node, x, y, w, h, value };
+    });
 
-    let ordered;
-    if (orientation === 'vertical') {
-        ordered = items.slice().sort((a, b) => a.x - b.x);
-    } else {
-        ordered = items.slice().sort((a, b) => a.value - b.value);
-    }
+    let ordered;
+    if (orientation === 'vertical') {
+        ordered = items.slice().sort((a, b) => a.x - b.x);
+    } else {
+        ordered = items.slice().sort((a, b) => a.value - b.value);
+    }
     
     const totalCount = ordered.length;
 
-    for (let i = 0; i < totalCount; i++) {
-        const { node } = ordered[i];
-        const rect = d3.select(node);
+    for (let i = 0; i < totalCount; i++) {
+        const { node } = ordered[i];
+        const rect = d3.select(node);
 
-        await rect.transition().duration(150)
-            .attr('fill', hlColor)
-            .attr('opacity', 1)
-            .end();
+        await rect.transition().duration(150)
+            .attr('fill', hlColor)
+            .attr('opacity', 1)
+            .end();
 
-        const { x, y } = getCenter(node, orientation, margins);
-        svg.append('text')
-            .attr('class', 'annotation count-label')
-            .attr('x', x)
-            .attr('y', y)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', 12)
-            .attr('font-weight', 'bold')
-            .attr('fill', hlColor)
-            .attr('stroke', 'white')
-            .attr('stroke-width', 3)
-            .attr('paint-order', 'stroke')
-            .text(String(i + 1))
-            .attr('opacity', 0)
-            .transition().duration(125).attr('opacity', 1);
+        const { x, y } = getCenter(node, orientation, margins);
+        svg.append('text')
+            .attr('class', 'annotation count-label')
+            .attr('x', x)
+            .attr('y', y)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 12)
+            .attr('font-weight', 'bold')
+            .attr('fill', hlColor)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 3)
+            .attr('paint-order', 'stroke')
+            .text(String(i + 1))
+            .attr('opacity', 0)
+            .transition().duration(125).attr('opacity', 1);
 
-        await delay(60);
-    }
+        await delay(60);
+    }
 
-    svg.append('text')
-        .attr('class', 'annotation')
-        .attr('x', margins.left)
-        .attr('y', margins.top - 10)
-        .attr('font-size', 14)
-        .attr('font-weight', 'bold')
-        .attr('fill', hlColor)
-        .text(`Count: ${totalCount}`)
-        .attr('opacity', 0)
-        .transition().duration(200).attr('opacity', 1);
+    svg.append('text')
+        .attr('class', 'annotation')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 10)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .text(`Count: ${totalCount}`)
+        .attr('opacity', 0)
+        .transition().duration(200).attr('opacity', 1);
 
     const categoryAxisName = orientation === 'vertical' ? xField : yField;
     const measureAxisName = orientation === 'vertical' ? yField : xField;
-
-    return new DatumValue(categoryAxisName, measureAxisName, 'Count', null, totalCount, null);
+    return new DatumValue(categoryAxisName, measureAxisName, 'Count', null, totalCount, null);
 }
