@@ -140,114 +140,125 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
     return itemFromList || null;
 }
 
-
 export async function simpleLineFilter(chartId, op, data) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const baseLine = selectMainLine(g);
-    const points   = selectMainPoints(g);
-    const hlColor  = "steelblue";
+    // 원본 데이터의 접근자 및 스케일 정의
+    const xAccessor = d => d ? d.target : undefined;
+    const yAccessor = d => d ? d.value : undefined;
+    const xScale = d3.scaleTime().domain(d3.extent(data, xAccessor)).range([0, plot.w]);
+    const yMax = d3.max(data, yAccessor);
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
-    // 1) 공통 접근자 (DatumValue[] / raw 모두 대응)
-    const getX = (d) => (d && Object.prototype.hasOwnProperty.call(d, 'target')) ? d.target : d?.[xField];
-    const getY = (d) => (d && Object.prototype.hasOwnProperty.call(d, 'value'))  ? d.value  : d?.[yField];
-    const dataArray = Array.isArray(data) ? data : [];
-    if (dataArray.length === 0) return [];
+    const originalLine = selectMainLine(g);
+    const originalPoints = selectMainPoints(g);
 
-    const map = { ">": (a,b) => a > b, ">=": (a,b) => a >= b, "<": (a,b) => a < b, "<=": (a,b) => a <= b, "==": (a,b) => a === b };
-    const satisfy = map[op.operator] || (() => true);
-    const key = Number.isFinite(+op.value) ? +op.value : op.value;
+    let filteredData;
+    const transitionDuration = 1000; // 애니메이션 지속 시간
 
-    const filteredData = data.filter(d => {
-        const v = Number.isFinite(+d.value) ? +d.value : d.value;
-        return satisfy(v, key);
-    });
+    // --- 1. 데이터 필터링 및 기준선/영역 표시 ---
+    if (op.field === yField) {
+        // ... (Y축 필터링 로직은 이전과 동일)
+        const threshold = op.value;
+        const satisfy = {
+            '>': (a, b) => a > b, '>=': (a, b) => a >= b,
+            '<': (a, b) => a < b, '<=': (a, b) => a <= b,
+        }[op.operator];
 
-    if (filteredData.length === 0) {
-        await Promise.all([
-            baseLine.transition().duration(500).attr('opacity', 0.15).end(),
-            points.transition().duration(500).attr('opacity', 0.1).attr('r', 3).end()
-        ]);
-        svg.append('text').attr('class','annotation filter-label')
-            .attr('x', margins.left + plot.w / 2).attr('y', margins.top - 10)
-            .attr('text-anchor','middle').attr('font-size', 12).attr('font-weight','bold')
-            .attr('fill', '#888').text('No results');
+        if (!satisfy) return data;
+        
+        filteredData = data.filter(d => {
+            const value = yAccessor(d);
+            return typeof value === 'number' && satisfy(value, threshold);
+        });
+        
+        const yPos = yScale(threshold);
+        if (isNaN(yPos)) return data;
+
+        g.append("line").attr("class", "annotation filter-line")
+            .attr("x1", 0).attr("y1", yPos).attr("x2", plot.w).attr("y2", yPos)
+            .attr("stroke", "red").attr("stroke-width", 2).attr("stroke-dasharray", "6 4")
+            .attr("opacity", 0).transition().duration(500).attr("opacity", 1);
+            
+    } else if (op.field === xField && op.operator === 'between') {
+        // ... (X축 'between' 필터링 로직은 이전과 동일)
+        const [startYear, endYear] = op.value.map(v => parseInt(String(v).substring(0, 4)));
+            
+        filteredData = data.filter(d => {
+            const dateVal = xAccessor(d);
+            if (!dateVal || !(dateVal instanceof Date)) return false;
+            const year = dateVal.getFullYear();
+            return year >= startYear && year <= endYear;
+        });
+        
+        const xStart = xScale(new Date(startYear, 0, 1));
+        const xEnd = xScale(new Date(endYear, 11, 31));
+
+        if(isNaN(xStart) || isNaN(xEnd)) return data;
+
+        g.append("rect").attr("class", "annotation filter-range")
+            .attr("x", xStart).attr("y", 0).attr("width", xEnd - xStart).attr("height", plot.h)
+            .attr("fill", "steelblue").attr("opacity", 0)
+            .transition().duration(500).attr("opacity", 0.2);
+    } else {
+        return data; // 지원하지 않는 필터는 원본 데이터 반환
+    }
+
+    await delay(800); // 기준선/영역을 인지할 시간
+
+    // --- 2. 필터링 애니메이션: 불필요한 요소들 제거 ---
+    const filteredDataIds = new Set(filteredData.map(d => d.id));
+
+    // 선택되지 않은 포인트들은 작아지며 사라짐
+    originalPoints.filter(function(d) {
+        return !filteredDataIds.has(d.id);
+    })
+    .transition().duration(500)
+    .attr("r", 0)
+    .remove();
+    
+    // 원래 라인은 흐려지며 사라짐
+    originalLine.transition().duration(500)
+        .attr("opacity", 0);
+
+    // 필터링된 데이터가 없는 경우
+    if (!filteredData || filteredData.length === 0) {
+        g.append("text").attr("class", "annotation empty-label")
+            .attr("x", plot.w / 2).attr("y", plot.h / 2)
+            .attr("text-anchor", "middle").attr("font-size", "16px").attr("font-weight", "bold")
+            .text("No data matches the filter.");
         return [];
     }
+    
+    // --- 3. 확대 및 이동 애니메이션 ---
+    await delay(1000); // **요청하신 1초 대기**
 
-    // 4) DOM 상의 포인트 매핑 (data-id ↔ target)
-    const nodeById = new Map();
-    points.each(function() {
-        const id = d3.select(this).attr('data-id');
-        if (id != null) nodeById.set(String(id), this);
-    });
+    // 필터링된 데이터를 기준으로 새로운 스케일 계산
+    const newXScale = d3.scaleTime().domain(d3.extent(filteredData, xAccessor)).range([0, plot.w]);
+    const newYScale = d3.scaleLinear().domain([0, d3.max(filteredData, yAccessor)]).nice().range([plot.h, 0]);
+    const newLineGen = d3.line().x(d => newXScale(xAccessor(d))).y(d => newYScale(yAccessor(d)));
 
-    // target → circle 노드 매칭 (왼→오 정렬)
-    const filteredNodes = [];
-    filteredData.forEach(d => {
-        const candidates = (function toPointIdCandidates(key) {
-            // 이미 파일 상단에 같은 함수가 있으면 그걸 사용. 없으면 간단 버전:
-            if (key instanceof Date) return [d3.timeFormat("%Y-%m-%d")(key), String(key.getFullYear())];
-            return [String(key)];
-        })(getX(d));
-        for (const id of candidates) {
-            if (nodeById.has(String(id))) { filteredNodes.push(nodeById.get(String(id))); break; }
-        }
-    });
-    if (filteredNodes.length === 0) {
-        console.warn('simpleLineFilter: filtered nodes not found in DOM');
-        return filteredData;
-    }
-    filteredNodes.sort((a,b) => (+d3.select(a).attr('cx')) - (+d3.select(b).attr('cx')));
+    // 축(Axis)을 새로운 스케일에 맞춰 부드럽게 전환
+    g.select(".x-axis").transition().duration(transitionDuration)
+        .call(d3.axisBottom(newXScale));
+    g.select(".y-axis").transition().duration(transitionDuration)
+        .call(d3.axisLeft(newYScale));
+    
+    // 사라졌던 라인을 필터링된 데이터로 다시 그리며 나타나게 함
+    originalLine.datum(filteredData)
+        .transition().duration(transitionDuration)
+        .attr("opacity", 1) // 다시 선명하게
+        .attr("d", newLineGen);
+        
+    // 선택되었던 포인트들을 새로운 위치로 이동
+    originalPoints.filter(function(d) {
+        return filteredDataIds.has(d.id);
+    })
+    .transition().duration(transitionDuration)
+    .attr("cx", d => newXScale(xAccessor(d)))
+    .attr("cy", d => newYScale(yAccessor(d)));
 
-    // 5) 필터 라인 path(d) 생성 (plot-area 좌표계: cx,cy 그대로 사용)
-    const pathD = (() => {
-        let s = '';
-        filteredNodes.forEach((n,i) => {
-            const cx = +d3.select(n).attr('cx');
-            const cy = +d3.select(n).attr('cy');
-            s += (i === 0 ? 'M' : 'L') + cx + ',' + cy;
-        });
-        return s;
-    })();
-
-    // 6) 포인트 애니메이션 (남김/제거 자연스럽게)
-    const kept = new Set(filteredNodes);
-    await Promise.all([
-        baseLine.transition().duration(600).attr('stroke', '#d3d3d3').end(),
-        points.filter(function(){ return kept.has(this); })
-            .transition().duration(600).attr('opacity', 1).attr('r', 7).attr('fill', hlColor).end(),
-        points.filter(function(){ return !kept.has(this); })
-            .transition().duration(600).attr('opacity', 0.2).attr('r', 4).attr('fill', '#ccc').end()
-    ]);
-
-    // 7) 오버레이 라인 그린 뒤, dash로 “그려지듯” 애니메이션 → baseLine에 커밋
-    const overlay = g.append('path')
-        .attr('class', 'annotation filtered-line')
-        .attr('fill', 'none').attr('stroke', hlColor).attr('stroke-width', 2.5)
-        .attr('d', pathD);
-
-    const len = overlay.node().getTotalLength();
-    overlay
-        .attr('stroke-dasharray', `${len} ${len}`)
-        .attr('stroke-dashoffset', len)
-        .transition().duration(800).ease(d3.easeCubicInOut)
-        .attr('stroke-dashoffset', 0);
-
-    await delay(850);
-
-    // 커밋: 기존 라인을 필터 라인으로 교체하고 오버레이 제거
-    baseLine.attr('d', pathD).attr('stroke', hlColor).attr('opacity', 1);
-    overlay.remove();
-
-    // 라벨
-    svg.append('text').attr('class', 'annotation filter-label')
-        .attr('x', margins.left + plot.w / 2).attr('y', margins.top - 10)
-        .attr('text-anchor', 'middle').attr('font-size', 12).attr('font-weight', 'bold')
-        .attr('fill', hlColor).text(`Filtered (${filteredData.length})`);
-
-    // ✅ 다음 연산을 위해 필터된 DatumValue[] 반환
     return filteredData;
 }
 
