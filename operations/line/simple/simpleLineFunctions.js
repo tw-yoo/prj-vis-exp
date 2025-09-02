@@ -335,84 +335,97 @@ export async function simpleLineDetermineRange(chartId, op, data) {
 
     if (!Array.isArray(data) || data.length === 0) return null;
 
-    const baseLine = selectMainLine(g);
-    const points   = selectMainPoints(g);
-    const hlColor  = "#0d6efd";
+    const points = selectMainPoints(g);
+    const hlColor = "#0d6efd";
 
-    const getX = (d) => (d && d.target instanceof Date) ? d.target : (d ? new Date(d[xField]) : null);
-    const getY = (d) => (d && typeof d.value === 'number') ? d.value : (d ? +d[yField] : NaN);
+    const getY = (d) => (d && typeof d.value === 'number') ? d.value : NaN;
+    const values = data.map(getY).filter(v => !isNaN(v));
     
-    const rangeField = op.field || yField;
+    if (values.length === 0) return null;
 
-    if (rangeField === xField) {
-        const [minX, maxX] = d3.extent(data, getX);
+    const minV = d3.min(values);
+    const maxV = d3.max(values);
+
+    const findPointsByValue = (v) => points.filter(function() {
+        return +d3.select(this).attr("data-value") === +v;
+    });
+
+    const minPts = findPointsByValue(minV);
+    const maxPts = findPointsByValue(maxV);
+
+    // 1. 최솟값/최댓값 포인트를 부드럽게 강조합니다.
+    const highlightTransition = (selection) => {
+        if (!selection.empty()) {
+            selection.transition().duration(800)
+                .attr("opacity", 1)
+                .attr("r", 8)
+                .attr("fill", hlColor)
+                .attr("stroke", "white")
+                .attr("stroke-width", 2);
+        }
+    };
+    highlightTransition(minPts);
+    highlightTransition(maxPts);
+    
+    // ⭐ [핵심 수정] 라벨을 포인트 위에 다는 새로운 함수
+    const annotateValuePoints = (value, label, pointsSelection) => {
+        if (value === undefined || pointsSelection.empty()) return;
         
-        const findPointByDate = (date) => {
-            const dateStr = fmtISO(date);
-            return points.filter(function() { return d3.select(this).attr("data-id") === dateStr; });
-        };
-        
-        const minP = findPointByDate(minX);
-        const maxP = findPointByDate(maxX);
+        const yScale = d3.scaleLinear().domain([0, d3.max(values)]).nice().range([plot.h, 0]);
+        const yPos = yScale(value);
 
-        await baseLine.transition().duration(600).attr("opacity", 0.3).end();
-        await Promise.all([
-            minP.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end(),
-            maxP.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end()
-        ]);
+        // 수평선이 왼쪽에서 오른쪽으로 그려지는 애니메이션은 그대로 유지
+        g.append("line").attr("class", "annotation")
+            .attr("x1", 0).attr("y1", yPos)
+            .attr("x2", 0).attr("y2", yPos)
+            .attr("stroke", hlColor)
+            .attr("stroke-dasharray", "4 4")
+            .transition().duration(1000)
+            .attr("x2", plot.w);
 
-        const drawVLine = (point, label, value) => {
-            if (point.empty()) return;
+        // 선택된 각 포인트 '바로 위'에 라벨을 추가
+        pointsSelection.each(function() {
+            const point = d3.select(this);
             const cx = +point.attr("cx");
-            g.append("line").attr("class", "annotation")
-                .attr("x1", cx).attr("y1", 0)
-                .attr("x2", cx).attr("y2", plot.h)
-                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-            g.append("text").attr("class", "annotation")
-                .attr("x", cx).attr("y", -12)
-                .attr("text-anchor", "middle").attr("fill", hlColor).attr("font-weight", "bold")
-                .text(`${label}: ${fmtISO(value)}`);
-        };
-        
-        drawVLine(minP, "Start", minX);
-        drawVLine(maxP, "End", maxX);
-        
-        return new IntervalValue(xField, minX, maxX);
-    } else {
-        const values = data.map(getY);
-        const minV = d3.min(values);
-        const maxV = d3.max(values);
+            const cy = +point.attr("cy");
 
-        const selByVal = (v) => points.filter(function(){ return +d3.select(this).attr("data-value") === +v; });
-        const minPts = selByVal(minV);
-        const maxPts = selByVal(maxV);
-
-        await baseLine.transition().duration(600).attr("opacity", 0.3).end();
-        
-        const highlightPromises = [];
-        minPts.each(function() { highlightPromises.push(d3.select(this).transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end()); });
-        maxPts.each(function() { highlightPromises.push(d3.select(this).transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", hlColor).end()); });
-        await Promise.all(highlightPromises);
-        
-        const drawHLine = (value, label) => {
-            if (value === undefined) return;
-            const yPos = d3.scaleLinear().domain([0, d3.max(values)]).nice().range([plot.h, 0])(value);
-            g.append("line").attr("class", "annotation")
-                .attr("x1", 0).attr("y1", yPos)
-                .attr("x2", plot.w).attr("y2", yPos)
-                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
             g.append("text").attr("class", "annotation")
-                .attr("x", -8).attr("y", yPos)
-                .attr("text-anchor", "end").attr("dominant-baseline", "middle")
-                .attr("fill", hlColor).attr("font-weight", "bold")
+                .attr("x", cx)
+                .attr("y", cy - 15) // 포인트의 y좌표보다 15px 위에 위치
+                .attr("text-anchor", "middle") // 텍스트를 포인트 중앙에 정렬
+                .attr("fill", hlColor)
+                .attr("font-weight", "bold")
+                .attr("stroke", "white")
+                .attr("stroke-width", 3.5)
+                .attr("paint-order", "stroke")
                 .text(`${label}: ${value.toLocaleString()}`);
-        };
-        
-        drawHLine(minV, "Min");
-        drawHLine(maxV, "Max");
+        });
+    };
+    
+    await delay(200); // 포인트 강조와 라인/라벨 애니메이션 사이의 미세한 딜레이
+    
+    // 2. 수정된 함수 호출
+    annotateValuePoints(minV, "Min", minPts);
+    annotateValuePoints(maxV, "Max", maxPts);
 
-        return new IntervalValue(yField, minV, maxV);
-    }
+    // 3. 차트 상단 최종 범위 라벨은 그대로 유지
+    const summaryText = `Range: ${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`;
+    svg.append("text")
+        .attr("class", "annotation")
+        .attr("x", margins.left)
+        .attr("y", margins.top - 12)
+        .attr("font-size", 16)
+        .attr("font-weight", "bold")
+        .attr("fill", hlColor)
+        .attr("stroke", "white")
+        .attr("stroke-width", 4)
+        .attr("paint-order", "stroke")
+        .attr("opacity", 0)
+        .text(summaryText)
+        .transition().duration(500).delay(500)
+        .attr("opacity", 1);
+
+    return new IntervalValue(yField, minV, maxV);
 }
 
 export async function simpleLineCompare(chartId, op, data) {
