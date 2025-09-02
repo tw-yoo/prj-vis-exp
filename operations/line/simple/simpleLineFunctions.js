@@ -641,7 +641,7 @@ export async function simpleLineNth(chartId, op, data) {
     if (!Array.isArray(data) || data.length === 0) return null;
 
     const baseLine = selectMainLine(g);
-    const points   = selectMainPoints(g);
+    const points = selectMainPoints(g);
     if (points.empty()) return null;
 
     let n = Number(op?.n ?? 1);
@@ -666,8 +666,8 @@ export async function simpleLineNth(chartId, op, data) {
     if (!picked) return null;
 
     await Promise.all([
-        baseLine.transition().duration(200).attr('opacity', 0.3).end(),
-        points.transition().duration(200).attr('opacity', 0.25).end()
+        baseLine.transition().duration(300).attr('opacity', 0.2).end(),
+        points.transition().duration(300).attr('opacity', 0.25).end()
     ]);
 
     const countedNodes = [];
@@ -676,18 +676,25 @@ export async function simpleLineNth(chartId, op, data) {
         countedNodes.push(currentItem.node);
         const dp = d3.select(currentItem.node);
         
-        await dp.transition().duration(100).attr('opacity', 1).attr('r', 7).end();
+        await dp.transition().duration(150).attr('opacity', 1).attr('r', 7).end();
 
-        g.append('text')
+        const countLabel = g.append('text')
             .attr('class', 'annotation count-label')
             .attr('x', currentItem.cx)
-            .attr('y', currentItem.cy - 12)
+            .attr('y', currentItem.cy - 15)
             .attr('text-anchor', 'middle')
             .attr('font-weight', 'bold')
             .attr('fill', hlColor)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 3)
+            .attr('paint-order', 'stroke')
             .text(String(i + 1));
         
-        await delay(200);
+        if (i === n - 1) {
+            countLabel.classed('final-count', true);
+        }
+        
+        await delay(250);
     }
     
     const finalTargetNode = countedNodes[n - 1];
@@ -695,32 +702,35 @@ export async function simpleLineNth(chartId, op, data) {
 
     await Promise.all([
         d3.selectAll(otherCountedNodes).transition().duration(300).attr('opacity', 0.25).attr('r', 5).end(),
-        g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end()
+        g.selectAll('.count-label:not(.final-count)').transition().duration(300).attr('opacity', 0).remove().end()
     ]);
     
-    d3.select(finalTargetNode).attr('fill', hlColor);
+    d3.select(finalTargetNode).transition().duration(300).attr('fill', hlColor);
 
     const cx = picked.cx;
     const cy = +d3.select(picked.node).attr('cy');
     
-    g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-    g.append("line").attr("class", "annotation")
-        .attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+    const pickedId = String(picked.id);
+    const targetDatum = data.find(d => {
+        const cands = toPointIdCandidates(d.target);
+        return cands.some(c => String(c) === pickedId);
+    });
+
+    if (targetDatum) {
+        g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", cy)
+            .attr("x2", cx).attr("y2", cy)
+            .attr("stroke", hlColor)
+            .attr("stroke-dasharray", "4 4")
+            .transition().duration(500)
+            .attr("y2", plot.h);
+    }
 
     svg.append('text').attr('class', 'annotation')
         .attr('x', margins.left).attr('y', margins.top - 10)
         .attr('font-size', 14).attr('font-weight', 'bold')
         .attr('fill', hlColor)
         .text(`Nth (from ${from}): ${n}`);
-
-    const pickedId = String(picked.id);
-    const targetDatum = data.find(d => {
-        const cands = toPointIdCandidates(d.target);
-        return cands.some(c => String(c) === pickedId);
-    });
 
     return targetDatum || null;
 }
