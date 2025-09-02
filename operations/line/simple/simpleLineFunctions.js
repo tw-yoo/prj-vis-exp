@@ -512,10 +512,9 @@ export async function simpleLineAverage(chartId, op, data) {
         return null;
     }
 
-    const baseLine = selectMainLine(g);
     const hlColor  = 'red';
 
-    const values = data.map(d => +d.value).filter(Number.isFinite);
+    const values = data.map(d => d ? d.value : NaN).filter(Number.isFinite);
     if (values.length === 0) {
         console.warn('[simpleLineAverage] no finite values in data');
         return null;
@@ -525,8 +524,6 @@ export async function simpleLineAverage(chartId, op, data) {
     const yMax = d3.max(values);
     const yScale = d3.scaleLinear().domain([0, yMax || 0]).nice().range([plot.h, 0]);
     const yPos = yScale(avg);
-
-    await baseLine.transition().duration(600).attr('opacity', 0.3).end();
 
     const line = g.append('line')
         .attr('class', 'annotation avg-line')
@@ -538,9 +535,15 @@ export async function simpleLineAverage(chartId, op, data) {
     await line.transition().duration(800).attr('x2', plot.w).end();
 
     const label = g.append('text').attr('class', 'annotation avg-label')
-        .attr('x', plot.w + 6).attr('y', yPos)
+        .attr('x', plot.w - 10)
+        .attr('y', yPos)
+        .attr('text-anchor', 'end')
         .attr('dominant-baseline', 'middle')
-        .attr('fill', hlColor).attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .attr('font-weight', 'bold')
+        .attr('stroke', 'white')
+        .attr('stroke-width', 3.5)
+        .attr('paint-order', 'stroke')
         .text(`Avg: ${Number.isInteger(avg) ? avg : avg.toLocaleString(undefined,{ maximumFractionDigits: 2 })}`)
         .attr('opacity', 0);
         
