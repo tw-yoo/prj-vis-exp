@@ -144,28 +144,24 @@ export async function simpleLineFilter(chartId, op, data) {
     const { svg, g, xField, yField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 원본 데이터의 접근자 및 스케일 정의
     const xAccessor = d => d ? d.target : undefined;
     const yAccessor = d => d ? d.value : undefined;
-    const xScale = d3.scaleTime().domain(d3.extent(data, xAccessor)).range([0, plot.w]);
-    const yMax = d3.max(data, yAccessor);
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    
+    // ★ 원본 스케일은 애니메이션 전반에 걸쳐 기준점으로 사용됩니다.
+    const originalXScale = d3.scaleTime().domain(d3.extent(data, xAccessor)).range([0, plot.w]);
+    const originalYMax = d3.max(data, yAccessor);
+    const originalYScale = d3.scaleLinear().domain([0, originalYMax]).nice().range([plot.h, 0]);
 
     const originalLine = selectMainLine(g);
     const originalPoints = selectMainPoints(g);
 
     let filteredData;
-    const transitionDuration = 1000; // 애니메이션 지속 시간
+    const transitionDuration = 1000;
 
-    // --- 1. 데이터 필터링 및 기준선/영역 표시 ---
+    // --- 1. 데이터 필터링 및 기준선/영역 표시 (이전과 동일) ---
     if (op.field === yField) {
-        // ... (Y축 필터링 로직은 이전과 동일)
         const threshold = op.value;
-        const satisfy = {
-            '>': (a, b) => a > b, '>=': (a, b) => a >= b,
-            '<': (a, b) => a < b, '<=': (a, b) => a <= b,
-        }[op.operator];
-
+        const satisfy = { '>': (a,b)=>a>b, '>=': (a,b)=>a>=b, '<': (a,b)=>a<b, '<=': (a,b)=>a<=b }[op.operator];
         if (!satisfy) return data;
         
         filteredData = data.filter(d => {
@@ -173,7 +169,7 @@ export async function simpleLineFilter(chartId, op, data) {
             return typeof value === 'number' && satisfy(value, threshold);
         });
         
-        const yPos = yScale(threshold);
+        const yPos = originalYScale(threshold);
         if (isNaN(yPos)) return data;
 
         g.append("line").attr("class", "annotation filter-line")
@@ -182,9 +178,7 @@ export async function simpleLineFilter(chartId, op, data) {
             .attr("opacity", 0).transition().duration(500).attr("opacity", 1);
             
     } else if (op.field === xField && op.operator === 'between') {
-        // ... (X축 'between' 필터링 로직은 이전과 동일)
         const [startYear, endYear] = op.value.map(v => parseInt(String(v).substring(0, 4)));
-            
         filteredData = data.filter(d => {
             const dateVal = xAccessor(d);
             if (!dateVal || !(dateVal instanceof Date)) return false;
@@ -192,9 +186,8 @@ export async function simpleLineFilter(chartId, op, data) {
             return year >= startYear && year <= endYear;
         });
         
-        const xStart = xScale(new Date(startYear, 0, 1));
-        const xEnd = xScale(new Date(endYear, 11, 31));
-
+        const xStart = originalXScale(new Date(startYear, 0, 1));
+        const xEnd = originalXScale(new Date(endYear, 11, 31));
         if(isNaN(xStart) || isNaN(xEnd)) return data;
 
         g.append("rect").attr("class", "annotation filter-range")
@@ -202,28 +195,15 @@ export async function simpleLineFilter(chartId, op, data) {
             .attr("fill", "steelblue").attr("opacity", 0)
             .transition().duration(500).attr("opacity", 0.2);
     } else {
-        return data; // 지원하지 않는 필터는 원본 데이터 반환
+        return data;
     }
 
-    await delay(800); // 기준선/영역을 인지할 시간
+    await delay(800);
 
-    // --- 2. 필터링 애니메이션: 불필요한 요소들 제거 ---
-    const filteredDataIds = new Set(filteredData.map(d => d.id));
-
-    // 선택되지 않은 포인트들은 작아지며 사라짐
-    originalPoints.filter(function(d) {
-        return !filteredDataIds.has(d.id);
-    })
-    .transition().duration(500)
-    .attr("r", 0)
-    .remove();
-    
-    // 원래 라인은 흐려지며 사라짐
-    originalLine.transition().duration(500)
-        .attr("opacity", 0);
-
-    // 필터링된 데이터가 없는 경우
+    // 필터링된 데이터가 없는 경우 처리
     if (!filteredData || filteredData.length === 0) {
+        originalLine.transition().duration(500).attr("opacity", 0.1);
+        originalPoints.transition().duration(500).attr("opacity", 0.1);
         g.append("text").attr("class", "annotation empty-label")
             .attr("x", plot.w / 2).attr("y", plot.h / 2)
             .attr("text-anchor", "middle").attr("font-size", "16px").attr("font-weight", "bold")
@@ -231,33 +211,60 @@ export async function simpleLineFilter(chartId, op, data) {
         return [];
     }
     
-    // --- 3. 확대 및 이동 애니메이션 ---
-    await delay(1000); // **요청하신 1초 대기**
+    // --- 2. [핵심 수정] 집중 애니메이션 ---
+    const filteredDataIds = new Set(filteredData.map(d => d.id));
 
-    // 필터링된 데이터를 기준으로 새로운 스케일 계산
+    // 1. 원본 라인은 '배경'처럼 흐려짐
+    originalLine.transition().duration(transitionDuration)
+        .attr("stroke", "#eee")
+        .attr("stroke-width", 1.5);
+    
+    // 2. 선택되지 않은 포인트들도 흐려짐
+    originalPoints.filter(d => !filteredDataIds.has(d.id))
+        .transition().duration(transitionDuration)
+        .attr("opacity", 0.2);
+    
+    // 3. ⭐ 필터링된 부분만 '강조 라인'으로 위에 덧그림
+    const highlightLineGenerator = d3.line()
+        .x(d => originalXScale(xAccessor(d)))
+        .y(d => originalYScale(yAccessor(d)));
+
+    const highlightLine = g.append("path")
+        .attr("class", "annotation highlight-line")
+        .datum(filteredData)
+        .attr("fill", "none")
+        .attr("stroke", "steelblue")
+        .attr("stroke-width", 2.5)
+        .attr("d", highlightLineGenerator);
+
+    // --- 3. 확대 및 이동 (Transform) 애니메이션 ---
+    await delay(1000); // 1초 대기
+
+    // 새 스케일 계산
     const newXScale = d3.scaleTime().domain(d3.extent(filteredData, xAccessor)).range([0, plot.w]);
     const newYScale = d3.scaleLinear().domain([0, d3.max(filteredData, yAccessor)]).nice().range([plot.h, 0]);
     const newLineGen = d3.line().x(d => newXScale(xAccessor(d))).y(d => newYScale(yAccessor(d)));
 
-    // 축(Axis)을 새로운 스케일에 맞춰 부드럽게 전환
+    // 축(Axis) 전환
     g.select(".x-axis").transition().duration(transitionDuration)
         .call(d3.axisBottom(newXScale));
     g.select(".y-axis").transition().duration(transitionDuration)
         .call(d3.axisLeft(newYScale));
-    
-    // 사라졌던 라인을 필터링된 데이터로 다시 그리며 나타나게 함
-    originalLine.datum(filteredData)
-        .transition().duration(transitionDuration)
-        .attr("opacity", 1) // 다시 선명하게
+
+    // '강조 라인'이 새로운 스케일에 맞춰 변신
+    highlightLine.transition().duration(transitionDuration)
         .attr("d", newLineGen);
-        
-    // 선택되었던 포인트들을 새로운 위치로 이동
-    originalPoints.filter(function(d) {
-        return filteredDataIds.has(d.id);
-    })
-    .transition().duration(transitionDuration)
-    .attr("cx", d => newXScale(xAccessor(d)))
-    .attr("cy", d => newYScale(yAccessor(d)));
+
+    // 선택된 포인트들도 새 위치로 이동
+    originalPoints.filter(d => filteredDataIds.has(d.id))
+        .transition().duration(transitionDuration)
+        .attr("cx", d => newXScale(xAccessor(d)))
+        .attr("cy", d => newYScale(yAccessor(d)));
+
+    // 변신이 시작되면 배경 요소들(원본 라인, 흐려진 점)은 완전히 사라짐
+    originalLine.transition().duration(transitionDuration).attr("opacity", 0).remove();
+    originalPoints.filter(d => !filteredDataIds.has(d.id))
+        .transition().duration(transitionDuration).attr("opacity", 0).remove();
 
     return filteredData;
 }
