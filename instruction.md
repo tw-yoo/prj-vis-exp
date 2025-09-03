@@ -50,7 +50,7 @@ If unspecified or ambiguous in NL, **default**: category → `"target"`, measure
 
 - **`field`** — target field. If a label/category, prefer the explicit name (e.g., `"country"`), else `"target"`. If a measure, prefer explicit name (e.g., `"rating"`), else `"value"`.  
 - **`target`** — a concrete **category value** (e.g., `"KOR"`, `"iPhone"`).  
-- **`targetA` / `targetB`** — two items to compare in `compareBool`.  
+- **`targetA` / `targetB`** — two items to compare in `compare` **or** `compareBool`.  
   - In **regular lists** (`ops`, `ops2`, …): category values.  
   - In **`last`**: **IDs** of earlier results (see §4).  
 - **`group`** — subgroup label (only for grouped/stacked charts). Omit or set `null` for simple charts.  
@@ -65,58 +65,57 @@ If unspecified or ambiguous in NL, **default**: category → `"target"`, measure
 
 Use **only** the following op names. Each list must **terminate** in a single `Datum` or `Boolean`.
 
-### 3.1 `retrieveValue`
-- **Purpose:** Return the single datum matching a category value (optionally within a group).  
-- **Params:** `{ "field": string, "target": string, "group"?: string }`  
-- **Returns:** `Datum`
+### 3.3 `compare`
+- **Purpose:** Select the **winning datum** between two targets by comparing their numeric values (optionally after aggregation). Use when the question asks *“Which is larger/smaller, A or B?”* and a **single winner** is expected.
+- **Params:** `{ "field": string, "targetA": string, "targetB": string, "aggregate"?: "sum"|"avg"|"min"|"max", "which"?: "max"|"min", "operator"?: ">"|">="|"<"|"<="|"=="|"eq" }`
+- **Returns:** `Datum` (the winning `DatumValue`).
+- **Notes:**
+  - In **regular lists** (`ops`, `ops2`, …), `targetA`/`targetB` are **category values** (e.g., labels like `"KOR"`).
+  - In **`last`**, `targetA`/`targetB` must be **IDs** of prior results (see §4).
+  - If a **tie** is possible on the chosen field and aggregation, prefer `compareBool` or first make the slice strictly ordered (e.g., `sort` + `nth`) to avoid non-determinism.
 
-### 3.2 `filter`
-- **Purpose:** Filter the current data by `field`, `operator`, and `value`.  
-- **Params:** `{ "field": string, "operator": "...", "value": any }`  
-- **Returns:** `Datum[]`
+### 3.4 `compareBool`
+- **Purpose:** Compare two items’ numeric values with a relational operator and return a **Boolean**.
+- **Params:** `{ "field": string, "targetA": string, "targetB": string, "operator": ">"|">="|"<"|"<="|"=="|"eq" }`
+- **Returns:** `Boolean` (`BoolValue` with `category: ""`).
+- **Note:** In `last`, `targetA`/`targetB` must be **IDs** (see §4). If equality is possible and you need a winner, do **not** use `compareBool`; use `compare` (with a strict ordering) instead.
 
-### 3.3 `compareBool`
-- **Purpose:** Compare two items’ numeric values with an operator.  
-- **Params:** `{ "field": string, "targetA": string, "targetB": string, "operator": ">"|">="|"<"|"<="|"=="|"eq" }`  
-- **Returns:** `Boolean` (`BoolValue` with `category: ""`)  
-- **Note:** In `last`, `targetA`/`targetB` must be **IDs** (see §4).
-
-### 3.4 `findExtremum`
+### 3.5 `findExtremum`
 - **Purpose:** Find the min/max datum by a measure.  
 - **Params:** `{ "field": string, "which": "max"|"min", "group"?: string }`  
 - **Returns:** `Datum`
 
-### 3.5 `sort`
+### 3.6 `sort`
 - **Purpose:** Sort by label (lexicographic) or by a measure (numeric).  
 - **Params:** `{ "field": string, "order": "asc"|"desc", "group"?: string }`  
 - **Returns:** `Datum[]`
 
-### 3.6 `determineRange`
+### 3.7 `determineRange`
 - **Purpose:** Compute `[min, max]` for a field (category or value).  
 - **Params:** `{ "field": string, "group"?: string }`  
 - **Returns:** `Interval` (not terminal)
 
-### 3.7 `count`
+### 3.8 `count`
 - **Purpose:** Count items in the current data slice.  
 - **Params:** `{}`  
 - **Returns:** `Datum` (single numeric count wrapped as a `DatumValue`)
 
-### 3.8 `sum`
+### 3.9 `sum`
 - **Purpose:** Sum numeric values across the current data slice (or field).  
 - **Params:** `{ "field": string, "group"?: string }`  
 - **Returns:** `Datum`
 
-### 3.9 `average`
+### 3.10 `average`
 - **Purpose:** Average numeric values across the current data slice (or field).  
 - **Params:** `{ "field": string, "group"?: string }`  
 - **Returns:** `Datum`
 
-### 3.10 `diff`
+### 3.11 `diff`
 - **Purpose:** Difference between two targets (optionally after aggregation).  
 - **Params:** `{ "field": string, "targetA": string, "targetB": string, "aggregate"?: "sum"|"avg"|"min"|"max" }`  
 - **Returns:** `Datum`
 
-### 3.11 `nth`
+### 3.12 `nth`
 - **Purpose:** Pick the n-th item by the current visual/ordering convention.  
 - **Params:** `{ "field"?: string, "n": number, "from"?: "left"|"right" }`  
 - **Returns:** `Datum`
@@ -132,7 +131,7 @@ Use **only** the following op names. Each list must **terminate** in a single `D
   id = <operationKey> + "_" + <0-based index>
   // e.g., "ops_0", "ops2_0", ...
   ```
-- **Referencing in `last`:** When combining earlier results, use these **IDs** (`"ops_0"`, `"ops2_0"`, …) in fields like `targetA`/`targetB`. **Do not** use category labels in `last`.  
+- **Referencing in `last`:** When combining earlier results (e.g., with `compare` or `compareBool`), use these **IDs** (`"ops_0"`, `"ops2_0"`, …) in fields like `targetA`/`targetB`. **Do not** use category labels in `last`.  
 - **`text` does not affect execution** and has no IDs; it is purely for **human readers**.
 
 ---
@@ -160,7 +159,9 @@ Examples 1–15 from your existing guide remain valid for the executable structu
 4. Emit **valid JSON only**; no prose outside the JSON.  
 5. Ensure numeric thresholds are numbers (not strings).  
 6. Normalize synonyms (e.g., “highest” → `which:"max"`).  
-7. **(New)** Provide a `text` object whose **values are plain strings** (no `summary`/`steps`). Make sure the keys **mirror** the operation lists present.
+7. **(New)** Provide a `text` object whose **values are plain strings** (no `summary`/`steps`). Make sure the keys **mirror** the operation lists present.  
+8. For **yes/no** questions, use `compareBool`. For **“which is larger/smaller?”** questions that require returning an item, use `compare`.  
+9. Avoid `compare` if a **tie** could occur on the chosen slice and aggregation; either refine the slice (e.g., additional `filter`) or use `sort` + `nth` to ensure a deterministic winner, or switch to `compareBool` if a boolean is acceptable.
 
 ---
 
@@ -213,6 +214,34 @@ Examples 1–15 from your existing guide remain valid for the executable structu
   }
 }
 ```
+
+---
+
+### Example D2 — Parallel lists + `last` compare (IDs) + `text` (returns a Datum)
+
+**Question:** “Between KOR and JPN, which has the higher rating?”
+**Short Answer:** `KOR`
+
+```json
+{
+  "ops": [
+    { "op": "retrieveValue", "field": "country", "target": "KOR" }
+  ],
+  "ops2": [
+    { "op": "retrieveValue", "field": "country", "target": "JPN" }
+  ],
+  "last": [
+    { "op": "compare", "field": "rating", "targetA": "ops_0", "targetB": "ops2_0", "which": "max" }
+  ],
+  "text": {
+    "ops": "Get KOR’s rating.",
+    "ops2": "Get JPN’s rating.",
+    "last": "Return whichever of KOR or JPN has the higher rating (max)."
+  }
+}
+```
+
+> **Note:** Use `compare` only when a single winner exists; if a tie is possible, refine the slice or use `compareBool`.
 
 ---
 
