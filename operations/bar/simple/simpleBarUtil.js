@@ -2,7 +2,9 @@ import {OperationType} from "../../../object/operationType.js";
 import { IntervalValue, DatumValue, BoolValue, ScalarValue } from "../../../object/valueType.js";
 import {
     simpleBarAverage,
-    simpleBarCompare, simpleBarCount,
+    simpleBarCompare,
+    simpleBarCompareBool,
+    simpleBarCount,
     simpleBarDetermineRange,
     simpleBarDiff,
     simpleBarFilter,
@@ -28,6 +30,7 @@ const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.FIND_EXTREMUM]:  simpleBarFindExtremum,
     [OperationType.DETERMINE_RANGE]:simpleBarDetermineRange,
     [OperationType.COMPARE]:        simpleBarCompare,
+    [OperationType.COMPARE_BOOL]:   simpleBarCompareBool,
     [OperationType.SORT]:           simpleBarSort,
     [OperationType.SUM]:            simpleBarSum,
     [OperationType.AVERAGE]:        simpleBarAverage,

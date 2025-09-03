@@ -4,6 +4,7 @@ export const OperationType = Object.freeze({
     FIND_EXTREMUM: "findExtremum",
     DETERMINE_RANGE: "determineRange",
     COMPARE: "compare",
+    COMPARE_BOOL: "compareBool",
     SORT: "sort",
     STACK: "stack",
     SUM: "sum",
