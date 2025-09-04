@@ -251,38 +251,27 @@ export async function multipleLineRetrieveValue(chartId, op, data) {
 export async function multipleLineFilter(chartId, op, data) {
     const { svg, g, xField, yField, colorField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    
+
     const { xScale: originalXScale, yScale: originalYScale } = buildScales(data, plot);
+    const allLines = g.selectAll("path.series-line");
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
 
-    let filteredData = data;
-    const satisfy = cmpMap[op.operator];
     const { field, operator, value } = op;
-
+    const satisfy = cmpMap[operator];
+    
+    let filteredData = data;
     if (field === colorField) {
-        if (Array.isArray(value)) {
-            const valueSet = new Set(value);
-            filteredData = data.filter(d => valueSet.has(d.group));
-        } else if (satisfy) {
-            filteredData = data.filter(d => satisfy(d.group, value));
+        const valueSet = new Set(Array.isArray(value) ? value : [value]);
+        filteredData = data.filter(d => valueSet.has(d.group));
+    } else if (field === xField && operator === 'between' && Array.isArray(value)) {
+        const [startDate, endDate] = value.map(d => parseDate(d));
+        if (startDate && endDate) {
+            filteredData = data.filter(d => d.target >= startDate && d.target <= endDate);
         }
-    } else if (field === xField) {
-        if (operator === 'between' && Array.isArray(value)) {
-            const [startDate, endDate] = value.map(d => parseDate(d));
-            if (startDate && endDate) {
-                filteredData = data.filter(d => d.target >= startDate && d.target <= endDate);
-            }
-        } else if (satisfy) {
-            const comparisonDate = parseDate(value);
-            if (comparisonDate) {
-                filteredData = data.filter(d => satisfy(d.target, comparisonDate));
-            }
-        }
-    } else if (field === yField) {
-        if (satisfy) {
-            filteredData = data.filter(d => satisfy(d.value, value));
-        }
+    } else if (field === yField && satisfy) {
+        filteredData = data.filter(d => satisfy(d.value, value));
     }
-
+    
     if (field === yField && satisfy) {
         const yPos = originalYScale(value);
         g.append("line").attr("class", "annotation")
@@ -290,75 +279,59 @@ export async function multipleLineFilter(chartId, op, data) {
             .attr("stroke", "red").attr("stroke-width", 2).attr("stroke-dasharray", "6 4");
     } else if (field === xField && operator === 'between' && Array.isArray(value)) {
         const [startDate, endDate] = value.map(d => parseDate(d));
-        if (startDate && endDate) {
+        if(startDate && endDate) {
             const xStart = originalXScale(startDate);
             const xEnd = originalXScale(endDate);
-            g.append("line").attr("class", "annotation").attr("x1", xStart).attr("y1", 0)
-                .attr("x2", xStart).attr("y2", plot.h).attr("stroke", "steelblue").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
-            g.append("line").attr("class", "annotation").attr("x1", xEnd).attr("y1", 0)
-                .attr("x2", xEnd).attr("y2", plot.h).attr("stroke", "steelblue").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+            g.append("line").attr("class", "annotation").attr("x1", xStart).attr("y1", 0).attr("x2", xStart).attr("y2", plot.h).attr("stroke", "steelblue").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+            g.append("line").attr("class", "annotation").attr("x1", xEnd).attr("y1", 0).attr("x2", xEnd).attr("y2", plot.h).attr("stroke", "steelblue").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
         }
-    } else if (field === colorField) {
-        const keptSeries = new Set(Array.isArray(value) ? value : [value]);
-        g.selectAll("path.series-line")
-            .filter(d => !keptSeries.has(d.key))
-            .transition().duration(800)
-            .attr("opacity", 0.1);
     }
-
-    await delay(1200);
-
-    if (!filteredData || filteredData.length === 0) {
-        g.selectAll(".annotation").transition().duration(300).attr("opacity", 0).remove();
-        await g.selectAll("path.series-line, circle.datapoint").transition().duration(500).attr("opacity", 0).remove().end();
+    
+    await delay(800);
+    
+    if (filteredData.length === 0) {
+        await g.selectAll(".annotation, path.series-line").transition().duration(500).attr("opacity", 0).remove().end();
         return [];
     }
+    
+    allLines.transition().duration(1000).attr("opacity", 0.1);
+    g.selectAll("circle.datapoint").transition().duration(1000).attr("opacity", 0).remove();
 
-    const allLines = g.selectAll("path.series-line");
-    const allPoints = g.selectAll("circle.datapoint");
-    const getDatumKey = d => {
-        if (!d) return null;
-        const date = d.target || d[xField];
-        const series = d.group || d[colorField];
-        if (date instanceof Date) {
-            return `${date.toISOString()}|${series}`;
-        }
-        return null;
-    };
+    const highlightLineGen = d3.line().x(d => originalXScale(d.target)).y(d => originalYScale(d.value));
+    const filteredSeries = d3.groups(filteredData, d => d.group);
 
-    const keptSeriesKeys = new Set(filteredData.map(d => d.group));
-    const keptPointKeys = new Set(filteredData.map(getDatumKey));
+    g.selectAll(".highlight-line")
+        .data(filteredSeries)
+        .join("path")
+        .attr("class", "annotation highlight-line")
+        .attr("fill", "none")
+        .attr("stroke", d => colorScale(d[0]))
+        .attr("stroke-width", 2.5)
+        .attr("opacity", 0)
+        .attr("d", d => highlightLineGen(d[1]))
+        .transition().duration(800)
+        .attr("opacity", 1);
+        
+    await delay(1200);
 
-    const linesToKeep = allLines.filter(d => keptSeriesKeys.has(d.key));
-    const pointsToKeep = allPoints.filter(d => keptPointKeys.has(getDatumKey(d)));
-    const linesToRemove = allLines.filter(d => !keptSeriesKeys.has(d.key));
-    const pointsToRemove = allPoints.filter(d => !keptPointKeys.has(getDatumKey(d)));
-
+    g.selectAll(".annotation:not(.highlight-line)").transition().duration(500).attr("opacity", 0).remove();
+    
     const { xScale: newXScale, yScale: newYScale } = buildScales(filteredData, plot);
-    const filteredSeriesMap = new Map(d3.groups(filteredData, d => d.group));
     const newLineGen = d3.line().x(d => newXScale(d.target)).y(d => newYScale(d.value));
-
-    g.selectAll(".annotation").transition().duration(500).attr("opacity", 0).remove();
 
     await Promise.all([
         g.select(".x-axis").transition().duration(1200).call(d3.axisBottom(newXScale)).end(),
         g.select(".y-axis").transition().duration(1200).call(d3.axisLeft(newYScale)).end(),
-        linesToRemove.transition().duration(900).attr("opacity", 0).remove().end(),
-        pointsToRemove.transition().duration(900).attr("opacity", 0).remove().end(),
-        linesToKeep
-            .attr("opacity", 1)
+        allLines.transition().duration(800).attr("opacity", 0).remove().end(),
+        g.selectAll(".highlight-line")
             .transition().duration(1200)
-            .attr("d", d => {
-                const seriesData = filteredSeriesMap.get(d.key);
-                return seriesData ? newLineGen(seriesData) : "";
-            })
-            .end(),
-        pointsToKeep.transition().duration(1200)
-            .attr("cx", d => newXScale(d[xField]))
-            .attr("cy", d => newYScale(d[yField]))
+            .attr("d", d => newLineGen(d[1]))
             .end()
     ]);
-
+    
+    g.selectAll("path.series-line").remove();
+    g.selectAll(".highlight-line").attr("class", "series-line");
+        
     return filteredData;
 }
 
