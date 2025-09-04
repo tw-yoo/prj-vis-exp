@@ -290,7 +290,7 @@ export async function multipleLineFilter(chartId, op, data) {
     await delay(800);
     
     if (filteredData.length === 0) {
-        await g.selectAll(".annotation, path.series-line").transition().duration(500).attr("opacity", 0).remove().end();
+        await g.selectAll(".annotation, path.series-line, circle.datapoint").transition().duration(500).attr("opacity", 0).remove().end();
         return [];
     }
     
@@ -331,10 +331,23 @@ export async function multipleLineFilter(chartId, op, data) {
     
     g.selectAll("path.series-line").remove();
     g.selectAll(".highlight-line").attr("class", "series-line");
+    
+    const getDatumKey = d => `${d.target.toISOString()}|${d.group}`;
+    g.selectAll("circle.datapoint")
+        .data(filteredData, getDatumKey)
+        .join("circle")
+        .attr("class", "datapoint")
+        .attr("r", 3.5)
+        .attr("fill", d => colorScale(d.group))
+        .attr("cx", d => newXScale(d.target))
+        .attr("cy", d => newYScale(d.value))
+        .attr("opacity", 0) // <--- 이 부분을 1에서 0으로 수정했습니다.
+        .attr("data-id", d => d.target instanceof Date ? fmtISO(d.target) : String(d.target))
+        .attr("data-value", d => d.value)
+        .attr("data-series", d => String(d.group));
         
     return filteredData;
 }
-
 
 export async function multipleLineFindExtremum(chartId, op, data) {
     const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
@@ -747,6 +760,7 @@ export async function multipleLineDiff(chartId, op, data) {
     return new DatumValue(xField, yField, `Diff`, null, diff, null);
 }
 
+
 export async function multipleLineNth(chartId, op, data) {
     const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -761,12 +775,10 @@ export async function multipleLineNth(chartId, op, data) {
     const from = String(op?.from || 'left').toLowerCase();
     const hlColor = '#20c997';
 
-    // 1. 모든 데이터 포인트를 X축 기준으로 정렬
     const pointsInOrder = allPoints.nodes().sort((a, b) => {
         return (+a.getAttribute('cx')) - (+b.getAttribute('cx'));
     });
     
-    // 2. 고유한 X축 위치(카테고리) 목록 생성
     const uniqueCategories = [];
     const categorySet = new Set();
     pointsInOrder.forEach(node => {
@@ -780,11 +792,9 @@ export async function multipleLineNth(chartId, op, data) {
     const total = uniqueCategories.length;
     if (!Number.isFinite(n) || n <= 0 || n > total) return [];
 
-    // 3. N번째 카테고리 결정
     const sequence = from === 'right' ? uniqueCategories.slice().reverse() : uniqueCategories;
     const pickedCategory = sequence[n - 1];
 
-    // 4. 카운팅 애니메이션
     await Promise.all([
         allLines.transition().duration(300).attr("opacity", 0.2).end(),
         allPoints.transition().duration(300).attr("opacity", 0.2).end()
@@ -816,29 +826,50 @@ export async function multipleLineNth(chartId, op, data) {
         }
     }
 
-    // 5. 최종 강조 및 주석
     await g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end();
     
-    const finalPoints = allPoints.filter(d => d[xField] instanceof Date ? fmtISO(d[xField]) === pickedCategory : d[xField] === pickedCategory);
-    const { xScale, yScale } = buildScales(data, plot);
-    const cx = xScale(parseDate(pickedCategory));
+    const finalPoints = allPoints.filter(function() {
+        return d3.select(this).attr('data-id') === pickedCategory;
+    });
+    
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
 
-    g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", 0).attr("x2", cx).attr("y2", plot.h)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+    finalPoints.each(function() {
+        const point = d3.select(this);
+        const datum = point.datum();
+        const cx = +point.attr("cx");
+        const cy = +point.attr("cy");
+        const color = colorScale(datum[colorField]);
+
+        g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h)
+            .attr("stroke", color).attr("stroke-dasharray", "4 4");
+
+        g.append("line").attr("class", "annotation")
+            .attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy)
+            .attr("stroke", color).attr("stroke-dasharray", "4 4");
+        
+        g.append("text").attr("class", "annotation")
+            .attr("x", cx + 8)
+            .attr("y", cy)
+            .attr("dominant-baseline", "middle")
+            .attr("fill", color).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+            .text(datum[yField].toLocaleString());
+    });
 
     svg.append('text').attr('class', 'annotation')
         .attr('x', margins.left).attr('y', margins.top - 10)
         .attr('font-size', 14).attr('font-weight', 'bold')
         .attr('fill', hlColor)
-        .text(`Nth (from ${from}): ${n}`);
+        .text(`Nth (from ${from}): ${n} (${pickedCategory})`);
 
-    // 6. N번째에 해당하는 모든 DatumValue 객체를 배열로 반환
     return data.filter(d => {
         const d_str = d.target instanceof Date ? fmtISO(d.target) : String(d.target);
         return d_str === pickedCategory;
     });
 }
+
 export async function multipleLineCount(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
