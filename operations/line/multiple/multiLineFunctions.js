@@ -355,182 +355,238 @@ export async function multipleLineFindExtremum(chartId, op, data) {
 
     if (!data || data.length === 0) return null;
     
-    const allPoints = g.selectAll("circle.datapoint");
-    if (allPoints.empty()) return null;
-
     const hlColor = "#a65dfb";
     const which = op.which || 'max';
     const extremumValue = which === 'min' 
         ? d3.min(data, d => d.value) 
         : d3.max(data, d => d.value);
 
-    if (extremumValue === undefined) {
-        return null;
-    }
-
-    const findPointsByValue = (v) => {
-        return allPoints.filter(function() {
-            const datum = d3.select(this).datum();
-            return datum && +datum[yField] === +v;
-        });
-    };
-    const extremumPts = findPointsByValue(extremumValue);
+    if (extremumValue === undefined) return null;
     
-    if (!extremumPts.empty()) {
-        extremumPts.transition().duration(800)
-            .attr("opacity", 1)
-            .attr("r", 8)
-            .attr("fill", hlColor)
-            .attr("stroke", "white")
-            .attr("stroke-width", 2);
-    }
+    const extremumDatums = data.filter(d => d.value === extremumValue);
+
+    //await g.selectAll("path.series-line").transition().duration(600).attr("opacity", 0.2).end();
+    await g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0).remove().end();
 
     const { xScale, yScale } = buildScales(data, plot);
+    const seriesColors = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
     const fmtDate = d3.timeFormat("%Y-%m-%d");
 
-    extremumPts.each(function() {
-        const point = d3.select(this);
-        const datum = point.datum();
-        const cx = +point.attr("cx");
-        const cy = +point.attr("cy");
+    extremumDatums.forEach(datum => {
+        const cx = xScale(datum.target);
+        const cy = yScale(datum.value);
+        const color = seriesColors(datum.group);
 
         g.append("line").attr("class", "annotation")
             .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
+            .attr("stroke", color).attr("stroke-dasharray", "4 4")
             .transition().duration(700).delay(200)
             .attr("y2", plot.h);
 
         g.append("line").attr("class", "annotation")
             .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
+            .attr("stroke", color).attr("stroke-dasharray", "4 4")
             .transition().duration(700).delay(200)
             .attr("x2", 0);
+            
+        g.append("circle").attr("class", "annotation")
+            .attr("cx", cx).attr("cy", cy).attr("r", 0)
+            .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
+            .transition().duration(500).delay(200)
+            .attr("r", 7);
 
         const valueText = `${which.charAt(0).toUpperCase() + which.slice(1)}: ${extremumValue.toLocaleString()}`;
-        const dateText = `(${fmtDate(datum[xField])})`;
-
+        const dateText = `(${fmtDate(datum.target)})`;
         const textLabel = g.append("text").attr("class", "annotation")
             .attr("x", cx).attr("y", cy - 20)
-            .attr("text-anchor", "middle").attr("fill", hlColor).attr("font-weight", "bold")
+            .attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold")
             .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke");
         
-        textLabel.append("tspan")
-            .attr("x", cx).attr("dy", "0em")
-            .text(valueText);
-            
-        textLabel.append("tspan")
-            .attr("x", cx).attr("dy", "1.2em")
-            .text(dateText);
+        textLabel.append("tspan").attr("x", cx).attr("dy", "0em").text(valueText);
+        textLabel.append("tspan").attr("x", cx).attr("dy", "1.2em").text(dateText);
     });
 
-    const targetDatum = data.find(d => d.value === extremumValue);
-    return targetDatum || null;
+    return extremumDatums[0] || null;
 }
-
-
 
 export async function multipleLineDetermineRange(chartId, op, data) {
     const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    if (!Array.isArray(data) || data.length === 0) {
-        return null;
-    }
-
-    const allPoints = g.selectAll("circle.datapoint");
-    if (allPoints.empty()) {
-        return null;
-    }
+    if (!Array.isArray(data) || data.length === 0) return null;
     
     const hlColor = "#0d6efd";
     const values = data.map(d => d.value);
     const minV = d3.min(values);
     const maxV = d3.max(values);
 
-    if (minV === undefined || maxV === undefined) {
-        return null;
-    }
+    if (minV === undefined || maxV === undefined) return null;
 
-    const findPointsByValue = (v) => {
-        return allPoints.filter(function() {
-            const datum = d3.select(this).datum();
-            return datum && +datum[yField] === +v;
-        });
-    };
-
-    const minPts = findPointsByValue(minV);
-    const maxPts = findPointsByValue(maxV);
-
-    const highlightTransition = (selection) => {
-        if (!selection.empty()) {
-            selection.transition().duration(800)
-                .attr("opacity", 1)
-                .attr("r", 8)
-                .attr("fill", hlColor)
-                .attr("stroke", "white")
-                .attr("stroke-width", 2);
-        }
-    };
-    highlightTransition(minPts);
-    highlightTransition(maxPts);
+    const minDatums = data.filter(d => d.value === minV);
+    const maxDatums = data.filter(d => d.value === maxV);
     
-    const annotateValuePoints = (value, label, pointsSelection) => {
-        if (value === undefined || pointsSelection.empty()) return;
-        
-        const { yScale } = buildScales(data, plot);
+    //await g.selectAll("path.series-line").transition().duration(600).attr("opacity", 0.2).end();
+    await g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0).remove().end();
+
+    const { xScale, yScale } = buildScales(data, plot);
+    const seriesColors = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
+
+    const annotateValue = (value, label, datums) => {
         const yPos = yScale(value);
 
         g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", yPos)
-            .attr("x2", 0).attr("y2", yPos)
-            .attr("stroke", hlColor)
-            .attr("stroke-dasharray", "4 4")
-            .transition().duration(1000)
-            .attr("x2", plot.w);
+            .attr("x1", 0).attr("y1", yPos).attr("x2", 0).attr("y2", yPos)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
+            .transition().duration(1000).attr("x2", plot.w);
+        
+        datums.forEach(datum => {
+            const cx = xScale(datum.target);
+            const color = seriesColors(datum.group);
 
-        pointsSelection.each(function() {
-            const point = d3.select(this);
-            const cx = +point.attr("cx");
-            const cy = +point.attr("cy");
-
+            g.append("circle").attr("class", "annotation")
+                .attr("cx", cx).attr("cy", yPos).attr("r", 0)
+                .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
+                .transition().duration(500).delay(200).attr("r", 7);
+            
             g.append("text").attr("class", "annotation")
-                .attr("x", cx)
-                .attr("y", cy - 15)
-                .attr("text-anchor", "middle")
-                .attr("fill", hlColor)
-                .attr("font-weight", "bold")
-                .attr("stroke", "white")
-                .attr("stroke-width", 3.5)
-                .attr("paint-order", "stroke")
-                .text(`${label}: ${value.toLocaleString()}`);
+                .attr("x", cx).attr("y", yPos - 12)
+                .attr("text-anchor", "middle").attr("font-weight", "bold").attr("fill", color)
+                .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+                .text(`${label}: ${value.toLocaleString()}`)
+                .attr("opacity", 0)
+                .transition().duration(400).delay(400).attr("opacity", 1);
         });
     };
-    
-    await delay(200);
-    
-    annotateValuePoints(minV, "Min", minPts);
-    annotateValuePoints(maxV, "Max", maxPts);
+
+    await Promise.all([
+        annotateValue(minV, "Min", minDatums),
+        annotateValue(maxV, "Max", maxDatums)
+    ]).catch(err => {});
 
     const summaryText = `Range: ${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`;
-    svg.append("text")
-        .attr("class", "annotation")
-        .attr("x", margins.left)
-        .attr("y", margins.top - 12)
-        .attr("font-size", 16)
-        .attr("font-weight", "bold")
-        .attr("fill", hlColor)
-        .attr("stroke", "white")
-        .attr("stroke-width", 4)
-        .attr("paint-order", "stroke")
-        .attr("opacity", 0)
+    svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left).attr("y", margins.top - 10)
+        .attr("font-size", 14).attr("font-weight", "bold").attr("fill", hlColor)
         .text(summaryText)
-        .transition().duration(500).delay(500)
-        .attr("opacity", 1);
+        .attr('opacity', 0)
+        .transition().duration(400).delay(800)
+        .attr('opacity', 1);
 
     return new IntervalValue(yField, minV, maxV);
 }
 
 
+export async function multipleLineNth(chartId, op, data) {
+    const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    if (!Array.isArray(data) || data.length === 0) return [];
+
+    const allLines = g.selectAll("path.series-line");
+    const allPoints = g.selectAll("circle.datapoint");
+    if (allPoints.empty()) return [];
+
+    let n = Number(op?.n ?? 1);
+    const from = String(op?.from || 'left').toLowerCase();
+    const hlColor = '#20c997';
+
+    const pointsInOrder = allPoints.nodes().sort((a, b) => {
+        return (+a.getAttribute('cx')) - (+b.getAttribute('cx'));
+    });
+    
+    const uniqueCategories = [];
+    const categorySet = new Set();
+    pointsInOrder.forEach(node => {
+        const id = d3.select(node).attr('data-id');
+        if (!categorySet.has(id)) {
+            categorySet.add(id);
+            uniqueCategories.push(id);
+        }
+    });
+
+    const total = uniqueCategories.length;
+    if (!Number.isFinite(n) || n <= 0 || n > total) return [];
+
+    const sequence = from === 'right' ? uniqueCategories.slice().reverse() : uniqueCategories;
+    const pickedCategory = sequence[n - 1];
+
+    await Promise.all([
+        allLines.transition().duration(300).attr("opacity", 0.2).end(),
+        allPoints.transition().duration(300).attr("opacity", 0.2).end()
+    ]);
+    await delay(300);
+
+    for (let i = 0; i < n; i++) {
+        const category = sequence[i];
+        const categoryPoints = allPoints.filter(function() {
+            return d3.select(this).attr('data-id') === category;
+        });
+        
+        await categoryPoints.transition().duration(150).attr('opacity', 1).attr('r', 6).end();
+
+        const cx = d3.select(categoryPoints.nodes()[0]).attr('cx');
+        g.append('text')
+            .attr('class', 'annotation count-label')
+            .attr('x', cx).attr('y', -5)
+            .attr('text-anchor', 'middle').attr('font-weight', 'bold')
+            .attr('fill', hlColor).text(String(i + 1));
+        
+        await delay(300);
+
+        if (i < n - 1) {
+            await categoryPoints.transition().duration(150).attr('opacity', 0.2).attr('r', 3.5).end();
+        }
+    }
+
+    await g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end();
+    
+    const finalPoints = allPoints.filter(function() {
+        return d3.select(this).attr('data-id') === pickedCategory;
+    });
+    
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
+
+    finalPoints.each(function() {
+        const point = d3.select(this);
+        const datum = point.datum();
+        const cx = +point.attr("cx");
+        const cy = +point.attr("cy");
+        const color = colorScale(datum[colorField]);
+        const value = datum.value || datum[yField];
+
+        g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
+            .attr("stroke", color).attr("stroke-dasharray", "4 4")
+            .transition().duration(500)
+            .attr("y2", plot.h);
+
+        g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
+            .attr("stroke", color).attr("stroke-dasharray", "4 4")
+            .transition().duration(500)
+            .attr("x2", 0);
+        
+        g.append("text").attr("class", "annotation")
+            .attr("x", cx + 8).attr("y", cy)
+            .attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+            .text(value.toLocaleString())
+            .attr("opacity", 0)
+            .transition().duration(400).delay(200)
+            .attr("opacity", 1);
+    });
+
+    svg.append('text').attr('class', 'annotation')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .text(`Nth (from ${from}): ${n} (${pickedCategory})`);
+
+    return data.filter(d => {
+        const d_str = d.target instanceof Date ? fmtISO(d.target) : String(d.target);
+        return d_str === pickedCategory;
+    });
+}
 
 export async function multipleLineCompare(chartId, op, data) {
     const { svg, g, plot, margins } = getSvgAndSetup(chartId);
@@ -761,114 +817,7 @@ export async function multipleLineDiff(chartId, op, data) {
 }
 
 
-export async function multipleLineNth(chartId, op, data) {
-    const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg);
 
-    if (!Array.isArray(data) || data.length === 0) return [];
-
-    const allLines = g.selectAll("path.series-line");
-    const allPoints = g.selectAll("circle.datapoint");
-    if (allPoints.empty()) return [];
-
-    let n = Number(op?.n ?? 1);
-    const from = String(op?.from || 'left').toLowerCase();
-    const hlColor = '#20c997';
-
-    const pointsInOrder = allPoints.nodes().sort((a, b) => {
-        return (+a.getAttribute('cx')) - (+b.getAttribute('cx'));
-    });
-    
-    const uniqueCategories = [];
-    const categorySet = new Set();
-    pointsInOrder.forEach(node => {
-        const id = d3.select(node).attr('data-id');
-        if (!categorySet.has(id)) {
-            categorySet.add(id);
-            uniqueCategories.push(id);
-        }
-    });
-
-    const total = uniqueCategories.length;
-    if (!Number.isFinite(n) || n <= 0 || n > total) return [];
-
-    const sequence = from === 'right' ? uniqueCategories.slice().reverse() : uniqueCategories;
-    const pickedCategory = sequence[n - 1];
-
-    await Promise.all([
-        allLines.transition().duration(300).attr("opacity", 0.2).end(),
-        allPoints.transition().duration(300).attr("opacity", 0.2).end()
-    ]);
-    await delay(300);
-
-    for (let i = 0; i < n; i++) {
-        const category = sequence[i];
-        const categoryPoints = allPoints.filter(function() {
-            return d3.select(this).attr('data-id') === category;
-        });
-        
-        await categoryPoints.transition().duration(150).attr('opacity', 1).attr('r', 6).end();
-
-        const cx = d3.select(categoryPoints.nodes()[0]).attr('cx');
-        g.append('text')
-            .attr('class', 'annotation count-label')
-            .attr('x', cx)
-            .attr('y', -5)
-            .attr('text-anchor', 'middle')
-            .attr('font-weight', 'bold')
-            .attr('fill', hlColor)
-            .text(String(i + 1));
-        
-        await delay(300);
-
-        if (i < n - 1) {
-            await categoryPoints.transition().duration(150).attr('opacity', 0.2).attr('r', 3.5).end();
-        }
-    }
-
-    await g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end();
-    
-    const finalPoints = allPoints.filter(function() {
-        return d3.select(this).attr('data-id') === pickedCategory;
-    });
-    
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
-
-    finalPoints.each(function() {
-        const point = d3.select(this);
-        const datum = point.datum();
-        const cx = +point.attr("cx");
-        const cy = +point.attr("cy");
-        const color = colorScale(datum[colorField]);
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4");
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4");
-        
-        g.append("text").attr("class", "annotation")
-            .attr("x", cx + 8)
-            .attr("y", cy)
-            .attr("dominant-baseline", "middle")
-            .attr("fill", color).attr("font-weight", "bold")
-            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
-            .text(datum[yField].toLocaleString());
-    });
-
-    svg.append('text').attr('class', 'annotation')
-        .attr('x', margins.left).attr('y', margins.top - 10)
-        .attr('font-size', 14).attr('font-weight', 'bold')
-        .attr('fill', hlColor)
-        .text(`Nth (from ${from}): ${n} (${pickedCategory})`);
-
-    return data.filter(d => {
-        const d_str = d.target instanceof Date ? fmtISO(d.target) : String(d.target);
-        return d_str === pickedCategory;
-    });
-}
 
 export async function multipleLineCount(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
@@ -939,3 +888,4 @@ export async function multipleLineCount(chartId, op, data) {
 
     return new DatumValue(xField, yField, 'Count', null, totalCount, null);
 }
+
