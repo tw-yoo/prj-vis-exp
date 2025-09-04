@@ -247,106 +247,121 @@ export async function multipleLineRetrieveValue(chartId, op, data) {
 
     return targetDatums;
 }
-export async function multipleLineFilter(chartId, op, data) {
-    const { svg, g, xField, colorField, plot } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg);
 
-    // ================================================================
-    //  1. 데이터 필터링
-    // ================================================================
+export async function multipleLineFilter(chartId, op, data) {
+    const { svg, g, xField, yField, colorField, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+    
+    const { xScale: originalXScale, yScale: originalYScale } = buildScales(data, plot);
+
     let filteredData = data;
     const satisfy = cmpMap[op.operator];
+    const { field, operator, value } = op;
 
-    if (op.field === colorField && satisfy) {
-        filteredData = data.filter(d => satisfy(d.group, op.value));
-    } else if (op.field === xField) {
-        if (op.operator === 'between' && Array.isArray(op.value)) {
-            const [startDate, endDate] = op.value.map(d => new Date(d));
-            filteredData = data.filter(d => d.target >= startDate && d.target <= endDate);
+    if (field === colorField) {
+        if (Array.isArray(value)) {
+            const valueSet = new Set(value);
+            filteredData = data.filter(d => valueSet.has(d.group));
         } else if (satisfy) {
-            const comparisonDate = new Date(op.value);
-            if (!isNaN(comparisonDate)) {
+            filteredData = data.filter(d => satisfy(d.group, value));
+        }
+    } else if (field === xField) {
+        if (operator === 'between' && Array.isArray(value)) {
+            const [startDate, endDate] = value.map(d => parseDate(d));
+            if (startDate && endDate) {
+                filteredData = data.filter(d => d.target >= startDate && d.target <= endDate);
+            }
+        } else if (satisfy) {
+            const comparisonDate = parseDate(value);
+            if (comparisonDate) {
                 filteredData = data.filter(d => satisfy(d.target, comparisonDate));
             }
         }
+    } else if (field === yField) {
+        if (satisfy) {
+            filteredData = data.filter(d => satisfy(d.value, value));
+        }
+    }
+
+    if (field === yField && satisfy) {
+        const yPos = originalYScale(value);
+        g.append("line").attr("class", "annotation")
+            .attr("x1", 0).attr("y1", yPos).attr("x2", plot.w).attr("y2", yPos)
+            .attr("stroke", "red").attr("stroke-width", 2).attr("stroke-dasharray", "6 4");
+    } else if (field === xField && operator === 'between' && Array.isArray(value)) {
+        const [startDate, endDate] = value.map(d => parseDate(d));
+        if (startDate && endDate) {
+            const xStart = originalXScale(startDate);
+            const xEnd = originalXScale(endDate);
+            g.append("line").attr("class", "annotation").attr("x1", xStart).attr("y1", 0)
+                .attr("x2", xStart).attr("y2", plot.h).attr("stroke", "steelblue").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+            g.append("line").attr("class", "annotation").attr("x1", xEnd).attr("y1", 0)
+                .attr("x2", xEnd).attr("y2", plot.h).attr("stroke", "steelblue").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+        }
+    } else if (field === colorField) {
+        const keptSeries = new Set(Array.isArray(value) ? value : [value]);
+        g.selectAll("path.series-line")
+            .filter(d => !keptSeries.has(d.key))
+            .transition().duration(800)
+            .attr("opacity", 0.1);
+    }
+
+    await delay(1200);
+
+    if (!filteredData || filteredData.length === 0) {
+        g.selectAll(".annotation").transition().duration(300).attr("opacity", 0).remove();
+        await g.selectAll("path.series-line, circle.datapoint").transition().duration(500).attr("opacity", 0).remove().end();
+        return [];
     }
 
     const allLines = g.selectAll("path.series-line");
     const allPoints = g.selectAll("circle.datapoint");
-    const getDatumKey = d => `${(d.target || d.date).toISOString()}|${d.group || d.symbol}`;
-
-    // ================================================================
-    //  2. 애니메이션 1단계: 집중 (Highlight)
-    // ================================================================
-    if (filteredData.length < data.length) {
-        if (op.field === colorField) {
-            const seriesKey = op.value;
-            await Promise.all([
-                allLines.filter(d => d.key !== seriesKey).transition().duration(500).attr("opacity", 0.15).end(),
-                allPoints.filter(d => (d.group || d[colorField]) !== seriesKey).transition().duration(500).attr("opacity", 0.1).attr("r", 2).end(),
-                allLines.filter(d => d.key === seriesKey).transition().duration(500).attr("stroke-width", 3.5).end(),
-            ]);
-        } else if (op.field === xField) {
-            const keptDataKeys = new Set(filteredData.map(getDatumKey));
-            const pointsToRemove = allPoints.filter(d => !keptDataKeys.has(getDatumKey(d)));
-            await pointsToRemove.transition().duration(500).attr("opacity", 0.1).attr("r", 2).end();
+    const getDatumKey = d => {
+        if (!d) return null;
+        const date = d.target || d[xField];
+        const series = d.group || d[colorField];
+        if (date instanceof Date) {
+            return `${date.toISOString()}|${series}`;
         }
-        await delay(400);
-    }
-    
-    // ================================================================
-    //  3. 애니메이션 2단계: 변환 (가장 안정적인 방식으로 재작성)
-    // ================================================================
-    if (filteredData.length === 0) {
-        await g.selectAll("path.series-line, circle.datapoint, .legend").transition().duration(500).attr("opacity", 0).remove().end();
-        return [];
-    }
+        return null;
+    };
 
-    const { xScale: newXScale, yScale: newYScale } = buildScales(filteredData, plot);
-    
-    const seriesData = d3.groups(filteredData, d => d.group);
-    const seriesMap = new Map(seriesData);
-    const keptSeriesKeys = new Set(seriesMap.keys());
+    const keptSeriesKeys = new Set(filteredData.map(d => d.group));
     const keptPointKeys = new Set(filteredData.map(getDatumKey));
 
-    // 3-1. 사라질 요소와 남을 요소를 명확하게 구분
+    const linesToKeep = allLines.filter(d => keptSeriesKeys.has(d.key));
+    const pointsToKeep = allPoints.filter(d => keptPointKeys.has(getDatumKey(d)));
     const linesToRemove = allLines.filter(d => !keptSeriesKeys.has(d.key));
     const pointsToRemove = allPoints.filter(d => !keptPointKeys.has(getDatumKey(d)));
-    const linesToUpdate = allLines.filter(d => keptSeriesKeys.has(d.key));
-    const pointsToUpdate = allPoints.filter(d => keptPointKeys.has(getDatumKey(d)));
-    
-    const lineGen = d3.line().x(p => newXScale(p.target)).y(p => newYScale(p.value));
 
-    // 3-2. 모든 애니메이션을 동시에 실행
+    const { xScale: newXScale, yScale: newYScale } = buildScales(filteredData, plot);
+    const filteredSeriesMap = new Map(d3.groups(filteredData, d => d.group));
+    const newLineGen = d3.line().x(d => newXScale(d.target)).y(d => newYScale(d.value));
+
+    g.selectAll(".annotation").transition().duration(500).attr("opacity", 0).remove();
+
     await Promise.all([
-        // 축 변환
-        g.select(".x-axis").transition().duration(1000).call(d3.axisBottom(newXScale)).end(),
-        g.select(".y-axis").transition().duration(1000).call(d3.axisLeft(newYScale)).end(),
-        
-        // 사라질 요소들 처리
-        linesToRemove.transition().duration(700).attr("opacity", 0).remove().end(),
-        pointsToRemove.transition().duration(700).attr("opacity", 0).remove().end(),
-        g.select(".legend").transition().duration(700).attr("opacity", 0).remove().end(),
-
-        // 남을 요소들 업데이트
-        linesToUpdate.transition().duration(1000)
-            .attr("stroke-width", 2.5)
-            .attr("d", function(d) {
-                const newPoints = seriesMap.get(d.key); // 맵에서 새 데이터 찾아 연결
-                return lineGen(newPoints);
+        g.select(".x-axis").transition().duration(1200).call(d3.axisBottom(newXScale)).end(),
+        g.select(".y-axis").transition().duration(1200).call(d3.axisLeft(newYScale)).end(),
+        linesToRemove.transition().duration(900).attr("opacity", 0).remove().end(),
+        pointsToRemove.transition().duration(900).attr("opacity", 0).remove().end(),
+        linesToKeep
+            .attr("opacity", 1)
+            .transition().duration(1200)
+            .attr("d", d => {
+                const seriesData = filteredSeriesMap.get(d.key);
+                return seriesData ? newLineGen(seriesData) : "";
             })
             .end(),
-
-        pointsToUpdate.data(filteredData, getDatumKey) // 업데이트할 점들에는 새 데이터 바인딩
-            .transition().duration(1000)
-            .attr("cx", d => newXScale(d.target))
-            .attr("cy", d => newYScale(d.value))
-            .attr("r", 3.5)
+        pointsToKeep.transition().duration(1200)
+            .attr("cx", d => newXScale(d[xField]))
+            .attr("cy", d => newYScale(d[yField]))
             .end()
     ]);
 
     return filteredData;
 }
+
 
 export async function multipleLineFindExtremum(chartId, op, data) {
     const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
