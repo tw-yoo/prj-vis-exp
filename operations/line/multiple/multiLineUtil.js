@@ -18,7 +18,7 @@ import {
 import {OperationType} from "../../../object/operationType.js";
 import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
 
-const chartDataStore = {};
+export const chartDataStore = {};
 
 const MULTIPLE_LINE_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: multipleLineRetrieveValue,
@@ -47,9 +47,9 @@ async function executeMultipleLineOpsList(chartId, opsList, currentData) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applyMultipleLineOperation(chartId, operation, currentData);
-        if (i < opsList.length - 1) {
+        
             await delay(1500);
-        }
+        
     }
     return currentData;
 }
@@ -59,29 +59,40 @@ async function fullChartReset(chartId) {
     if (svg.empty()) return;
 
     const g = svg.select(".plot-area");
-    const { colorScale } = chartDataStore[chartId];
+    const chartInfo = chartDataStore[chartId];
+    if (!chartInfo) return;
+
+    const { colorScale } = chartInfo;
 
     simpleClearAllAnnotations(svg);
-    g.selectAll(".datapoint").remove();
 
     const resetPromises = [];
 
-    resetPromises.push(g.selectAll("path.series-line")
-        .transition().duration(400)
-        .attr("opacity", 1)
-        .attr("stroke-width", 2)
-        .attr("stroke", d => colorScale(d.key))
-        .end()
+    // [수정] 점들을 삭제하는 대신, 투명하게 만들어 다음을 위해 남겨둡니다.
+    resetPromises.push(
+        g.selectAll("circle.datapoint")
+            .transition().duration(400)
+            .attr("opacity", 0)
+            .end()
     );
 
-
-    resetPromises.push(g.select(".legend")
-        .transition().duration(400)
-        .attr("opacity", 1)
-        .end()
+    resetPromises.push(
+        g.selectAll("path.series-line")
+            .transition().duration(400)
+            .attr("opacity", 1)
+            .attr("stroke-width", 2)
+            .attr("stroke", d => colorScale(d.key))
+            .end()
     );
 
-    await Promise.all(resetPromises);
+    resetPromises.push(
+        g.select(".legend")
+            .transition().duration(400)
+            .attr("opacity", 1)
+            .end()
+    );
+
+    await Promise.all(resetPromises).catch(err => {});
 }
 
 export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
