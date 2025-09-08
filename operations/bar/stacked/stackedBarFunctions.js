@@ -3,6 +3,19 @@ import {
     simpleBarCount
 } from "../simple/simpleBarFunctions.js";
 
+import {
+    retrieveValue,
+    filter as dataFilter,
+    findExtremum as dataFindExtremum,
+    sort as dataSort,
+    sum as dataSum,
+    average as dataAverage,
+    diff as dataDiff,
+    nth as dataNth,
+    compare as dataCompare,
+    compareBool as dataCompareBool,
+    count as dataCount
+} from "../../operationFunctions.js";
 
 import {DatumValue, BoolValue, IntervalValue} from "../../../object/valueType.js";
 function findRectByTuple(g, t = {}) {
