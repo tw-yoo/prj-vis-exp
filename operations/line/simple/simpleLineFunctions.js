@@ -226,7 +226,12 @@ export async function simpleLineCompare(chartId, op, data) {
     const newOp = { ...op, targetA: { target: datumA.target }, targetB: { target: datumB.target } };
     const winnerDatum = dataCompare(data, newOp, xField, yField);
 
-    if (!winnerDatum) {
+    const valueA = datumA.value;
+    const valueB = datumB.value;
+    const comparisonFunc = cmpMap[op.operator] || (() => false);
+    const result = comparisonFunc(valueA, valueB);
+
+    if (!winnerDatum && valueA !== valueB) {
         console.warn("Compare: Could not determine a winner.", op);
         return null;
     }
@@ -235,7 +240,7 @@ export async function simpleLineCompare(chartId, op, data) {
     const points = selectMainPoints(g);
     const colorA = "#ffb74d";
     const colorB = "#64b5f6";
-    const winnerColor = "#28a745";
+    const resultColor = result ? "green" : "red";
 
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
@@ -269,12 +274,13 @@ export async function simpleLineCompare(chartId, op, data) {
     annotate(pointA, colorA);
     annotate(pointB, colorB);
 
-    const summary = `Winner: ${winnerDatum.value.toLocaleString()}`;
+    const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
+    const summary = `${valueA.toLocaleString()}${symbol}${valueB.toLocaleString()} → ${result}`;
     
     svg.append("text").attr("class","annotation")
         .attr("x", margins.left + plot.w/2).attr("y", margins.top - 10)
         .attr("text-anchor","middle").attr("font-size",16).attr("font-weight","bold")
-        .attr("fill", winnerColor)
+        .attr("fill", resultColor)
         .text(summary);
 
     return winnerDatum;
