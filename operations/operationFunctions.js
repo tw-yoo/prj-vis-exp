@@ -1,5 +1,6 @@
 import {DatumValue, BoolValue} from "../object/valueType.js";
 
+
 export function retrieveValue(data, op) {
     if (!Array.isArray(data)) return [];
 

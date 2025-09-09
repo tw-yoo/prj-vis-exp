@@ -13,8 +13,6 @@ import {
     count as dataCount
 } from "../../operationFunctions.js";
 
-// --- 공통 헬퍼 함수들 ---
-
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 
 export function getSvgAndSetup(chartId) {
@@ -54,8 +52,6 @@ export async function prepareForNextOperation(chartId) {
     baseLine.transition().duration(400).attr("stroke", "#d3d3d3").attr("opacity", 1);
     await delay(400);
 }
-
-// --- 데이터 검색 관련 헬퍼 (차트 데이터 형식에 의존적) ---
 
 const fmtISO = d3.timeFormat("%Y-%m-%d");
 
@@ -97,9 +93,6 @@ function findDatumByKey(data, key) {
         return itemDate.getTime() === targetDateInfo.date.getTime();
     });
 }
-
-
-// --- 연산 + 시각화 함수들 (리팩토링됨) ---
 
 export async function simpleLineRetrieveValue(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
@@ -222,7 +215,16 @@ export async function simpleLineCompare(chartId, op, data) {
     const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const winnerDatum = dataCompare(data, op, xField, yField);
+    const datumA = findDatumByKey(data, op.targetA);
+    const datumB = findDatumByKey(data, op.targetB);
+
+    if (!datumA || !datumB) {
+        console.warn("Compare: Could not find data for comparison.", op);
+        return null;
+    }
+    
+    const newOp = { ...op, targetA: { target: datumA.target }, targetB: { target: datumB.target } };
+    const winnerDatum = dataCompare(data, newOp, xField, yField);
 
     if (!winnerDatum) {
         console.warn("Compare: Could not determine a winner.", op);
@@ -231,7 +233,9 @@ export async function simpleLineCompare(chartId, op, data) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const hlColor = "#28a745";
+    const colorA = "#ffb74d";
+    const colorB = "#64b5f6";
+    const winnerColor = "#28a745";
 
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
@@ -242,31 +246,36 @@ export async function simpleLineCompare(chartId, op, data) {
         return d3.select(null);
     };
 
-    const winnerPoint = pick(winnerDatum);
+    const pointA = pick(datumA);
+    const pointB = pick(datumB);
 
-    if (winnerPoint.empty()) {
+    if (pointA.empty() || pointB.empty()) {
         return winnerDatum;
     }
 
     baseLine.transition().duration(600).attr("opacity", 0.3);
-    await winnerPoint.transition().duration(600)
-        .attr("opacity", 1).attr("r", 8).attr("fill", hlColor)
-        .attr("stroke", "white").attr("stroke-width", 2).end();
+    await Promise.all([
+        pointA.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorA).end(),
+        pointB.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorB).end()
+    ]);
 
-    const cx = +winnerPoint.attr("cx");
-    const cy = +winnerPoint.attr("cy");
+    const annotate = (pt, color) => {
+        const cx = +pt.attr("cx"), cy = +pt.attr("cy");
+        g.append("line").attr("class","annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray","4 4");
+        g.append("line").attr("class","annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray","4 4");
+        g.append("text").attr("class","annotation").attr("x", cx).attr("y", cy - 10).attr("text-anchor","middle").attr("fill",color).attr("font-weight","bold").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke").text((+pt.attr("data-value")).toLocaleString());
+    };
 
-    g.append("line").attr("class","annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", hlColor).attr("stroke-dasharray","4 4");
-    g.append("line").attr("class","annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", hlColor).attr("stroke-dasharray","4 4");
+    annotate(pointA, colorA);
+    annotate(pointB, colorB);
+
+    const summary = `Winner: ${winnerDatum.value.toLocaleString()}`;
     
-    const labelText = `Winner: ${winnerDatum.value.toLocaleString()}`;
-    g.append("text").attr("class","annotation")
-        .attr("x", cx).attr("y", cy - 10)
-        .attr("text-anchor","middle").attr("fill",hlColor)
-        .attr("font-weight","bold")
-        .attr("stroke","white").attr("stroke-width",3)
-        .attr("paint-order","stroke")
-        .text(labelText);
+    svg.append("text").attr("class","annotation")
+        .attr("x", margins.left + plot.w/2).attr("y", margins.top - 10)
+        .attr("text-anchor","middle").attr("font-size",16).attr("font-weight","bold")
+        .attr("fill", winnerColor)
+        .text(summary);
 
     return winnerDatum;
 }
@@ -274,15 +283,20 @@ export async function simpleLineCompare(chartId, op, data) {
 export async function simpleLineCompareBool(chartId, op, data) {
     const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
-    const boolResult = dataCompareBool(data, op, xField, yField);
-
+    
     const datumA = findDatumByKey(data, op.targetA);
     const datumB = findDatumByKey(data, op.targetB);
+    
+    if (!datumA || !datumB) {
+        console.warn("Compare: Could not find data for comparison.", op);
+        return new BoolValue("Data not found", false);
+    }
+    
+    const newOp = { ...op, targetA: { target: datumA.target }, targetB: { target: datumB.target } };
+    const boolResult = dataCompareBool(data, newOp, xField, yField);
 
-    if (!boolResult || !datumA || !datumB) {
-        console.warn("Compare: Could not find data for comparison or compute result.", op);
-        return boolResult || new BoolValue("Data not found", false);
+    if (!boolResult) {
+        return new BoolValue("Computation failed", false);
     }
     
     const valueA = datumA.value;
@@ -341,20 +355,26 @@ export async function simpleLineDiff(chartId, op, data) {
     const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const diffResult = dataDiff(data, op, xField, yField);
-
     const datumA = findDatumByKey(data, op.targetA);
     const datumB = findDatumByKey(data, op.targetB);
 
-    if (!diffResult || !datumA || !datumB) {
-        console.warn("Diff: One or both data points not found or diff could not be computed.", op);
-        return diffResult;
+    if (!datumA || !datumB) {
+        console.warn("Diff: One or both data points not found.", op);
+        return null;
+    }
+
+    const newOp = { ...op, targetA: { target: datumA.target }, targetB: { target: datumB.target } };
+    const diffResult = dataDiff(data, newOp, xField, yField);
+
+    if (!diffResult) {
+        console.warn("Diff: Could not be computed.", op);
+        return null;
     }
     
     const valueA = datumA.value;
     const valueB = datumB.value;
     const diff = diffResult.value;
-
+    
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
     const colorA = "#ffb74d";
@@ -403,9 +423,6 @@ export async function simpleLineDiff(chartId, op, data) {
 
     return diffResult;
 }
-
-
-// --- 기존 함수들 (변경 없음) ---
 
 export async function simpleLineFilter(chartId, op, data) {
     const { svg, g, xField, yField, plot, margins } = getSvgAndSetup(chartId);
@@ -842,3 +859,4 @@ export async function simpleLineCount(chartId, op, data) {
 
     return result;
 }
+
