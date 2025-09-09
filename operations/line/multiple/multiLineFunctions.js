@@ -1,7 +1,19 @@
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
 import { chartDataStore } from "./multiLineUtil.js";
 // ---------- 헬퍼(Helper) 함수들 ----------
-
+import {
+    retrieveValue as dataRetrieveValue,
+    filter as dataFilter,
+    findExtremum as dataFindExtremum,
+    sort as dataSort,
+    sum as dataSum,
+    average as dataAverage,
+    diff as dataDiff,
+    nth as dataNth,
+    compare as dataCompare,
+    compareBool as dataCompareBool,
+    count as dataCount
+} from "../../operationFunctions.js";
 const fmtISO = d3.timeFormat("%Y-%m-%d");
 
 function getSvgAndSetup(chartId) {

@@ -349,16 +349,31 @@ export function diff(data, op, xField, yField, isLast = false) {
     return { category: categoryName, measure: measureName, target: `Diff`, group: null, value: diffVal };
 }
 
-export function nth(data, op, xField, yField, isLast = false) {
-    if (!Array.isArray(data) || data.length === 0) return null;
+export function nth(data, op) {
+    if (!Array.isArray(data) || data.length === 0) return [];
+
     let n = Number(op?.n ?? 1);
     const from = String(op?.from || 'left').toLowerCase();
     if (!Number.isFinite(n) || n <= 0) n = 1;
 
-    const total = data.length;
-    const idx = from === 'right' ? (total - n) : (n - 1);
-    if (idx < 0 || idx >= total) return null;
-    return data[idx] || null;
+    if (op.groupBy) {
+        const groupKey = op.groupBy;
+        const groupsInOrder = [...new Set(data.map(d => d[groupKey]))];
+        
+        const total = groupsInOrder.length;
+        const idx = from === 'right' ? (total - n) : (n - 1);
+        if (idx < 0 || idx >= total) return [];
+        
+        const pickedGroup = groupsInOrder[idx];
+        return data.filter(d => String(d[groupKey]) === String(pickedGroup));
+    } else {
+        const total = data.length;
+        const idx = from === 'right' ? (total - n) : (n - 1);
+        if (idx < 0 || idx >= total) return [];
+        
+        const item = data[idx];
+        return item ? [item] : [];
+    }
 }
 
 export function count(data, op, xField, yField, isLast = false) {
