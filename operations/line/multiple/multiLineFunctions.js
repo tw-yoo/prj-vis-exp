@@ -1,11 +1,10 @@
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
-import { chartDataStore } from "./multiLineUtil.js";
-// ---------- 헬퍼(Helper) 함수들 ----------
+
+// 연산 함수들을 operationFunctions.js에서 가져옵니다.
 import {
     retrieveValue as dataRetrieveValue,
     filter as dataFilter,
     findExtremum as dataFindExtremum,
-    sort as dataSort,
     sum as dataSum,
     average as dataAverage,
     diff as dataDiff,
@@ -14,8 +13,16 @@ import {
     compareBool as dataCompareBool,
     count as dataCount
 } from "../../operationFunctions.js";
+
+// ---------- 헬퍼(Helper) 함수들 (시각화에 필요) ----------
+
 const fmtISO = d3.timeFormat("%Y-%m-%d");
 
+/**
+ * 차트의 SVG와 기본 설정을 가져옵니다.
+ * @param {string} chartId - 차트의 ID
+ * @returns {object} SVG 요소 및 차트 설정 정보
+ */
 function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const g = svg.select(".plot-area");
@@ -27,107 +34,78 @@ function getSvgAndSetup(chartId) {
     return { svg, g, margins, plot, xField, yField, colorField };
 }
 
+/**
+ * 모든 어노테이션을 SVG에서 제거합니다.
+ * @param {d3.Selection} svg - d3 SVG selection
+ */
 function clearAllAnnotations(svg) {
     svg.selectAll(".annotation").remove();
 }
 
+/**
+ * 지정된 시간(ms)만큼 지연시킵니다.
+ * @param {number} ms - 지연 시간 (밀리초)
+ * @returns {Promise}
+ */
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
-const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
-
+/**
+ * 날짜 형식의 값을 Date 객체로 파싱합니다.
+ * @param {*} v - 파싱할 값
+ * @returns {Date|null}
+ */
 function parseDate(v) {
     if (v instanceof Date) return v;
+    if (v === null || v === undefined) return null;
     const d = new Date(v);
     if (!isNaN(+d)) return d;
     if (typeof v === "string" && /^\d{4}$/.test(v)) return new Date(+v, 0, 1);
     return null;
 }
 
-function toPointIdCandidates(key) {
-    const date = parseDate(key);
-    if (date) return [fmtISO(date), String(key)];
-    return [String(key)];
+/**
+ * 두 날짜가 연/월/일 기준으로 같은지 확인합니다.
+ * @param {Date} date1 
+ * @param {Date} date2 
+ * @returns {boolean}
+ */
+function isSameDate(date1, date2) {
+    if (!date1 || !date2) return false;
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
 }
 
+
+/**
+ * 차트의 X, Y축 스케일을 생성합니다.
+ * @param {Array<object>} data - 차트 데이터
+ * @param {object} plot - 플롯 영역 크기 정보
+ * @returns {{xScale: d3.Scale, yScale: d3.Scale}}
+ */
 function buildScales(data, plot) {
-    const xVals = data.map(d => d.target);
+    const xVals = data.map(d => d.target).filter(Boolean);
     const isTemporal = xVals.every(v => v instanceof Date);
+    
     const xScale = isTemporal
         ? d3.scaleTime().domain(d3.extent(xVals)).range([0, plot.w])
-        : d3.scalePoint().domain(xVals).range([0, plot.w]);
-    
+        : d3.scalePoint().domain([...new Set(xVals.map(String))]).range([0, plot.w]);
+
     const yValues = data.map(d => d.value).filter(v => Number.isFinite(v));
     const yMax = d3.max(yValues);
     const yMin = d3.min(yValues);
     const yScale = d3.scaleLinear().domain([yMin > 0 ? 0 : yMin, yMax]).nice().range([plot.h, 0]);
-    
+
     return { xScale, yScale };
 }
 
-async function animateToSimpleLine(chartId, seriesKey, data) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
-    
-    // [수정] chartDataStore 참조를 제거하고, data로부터 colorScale을 직접 생성합니다.
-    const allSeries = Array.from(new Set(data.map(d => d.group)));
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
-    const highlightColor = colorScale(seriesKey);
+// ---------- 오퍼레이션 함수들 (연산 + 시각화) ----------
 
-    const allLines = g.selectAll("path.series-line");
-    const targetLine = allLines.filter(d => d.key === seriesKey);
-    const otherLines = allLines.filter(d => d.key !== seriesKey);
-    
-    if (targetLine.empty()) {
-        console.warn(`Series with key '${seriesKey}' not found.`);
-        return data.filter(d => d.group === seriesKey);
-    }
-
-    await Promise.all([
-        otherLines.transition().duration(800).attr("opacity", 0).remove().end(),
-        targetLine.transition().duration(800).attr("stroke-width", 3.5).end(),
-        svg.select(".legend").transition().duration(800).attr("opacity", 0).remove().end()
-    ]).catch(err => {});
-    
-    const filteredData = data.filter(d => d.group === seriesKey);
-    const { xScale, yScale } = buildScales(filteredData, plot);
-
-    await Promise.all([
-        targetLine.transition().duration(1000).attr("d", d3.line()
-            .x(d => xScale(d.target))
-            .y(d => yScale(d.value))
-            (filteredData)
-        ).end(),
-        g.select(".y-axis").transition().duration(1000).call(d3.axisLeft(yScale)).end(),
-        g.select(".x-axis").transition().duration(1000).call(d3.axisBottom(xScale)).end()
-    ]).catch(err => {});
-
-    g.selectAll("circle.datapoint").remove();
-    g.selectAll("circle.datapoint")
-        .data(filteredData)
-        .join("circle")
-        .attr("class", "datapoint")
-        .attr("cx", d => xScale(d.target))
-        .attr("cy", d => yScale(d.value))
-        .attr("r", 5)
-        .attr("fill", highlightColor)
-        .attr("opacity", 0)
-        .transition().duration(500)
-        .attr("opacity", 1);
-        
-    svg.append("text")
-        .attr("class", "annotation")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
-        .attr("fill", highlightColor)
-        .text(`Filtered to: ${seriesKey}`);
-}
-// multiLineFunctions.js 파일의 다른 함수들 옆에 추가해주세요.
-
+/**
+ * 특정 그룹(시리즈)만 선택하여 심플 라인 차트처럼 보이게 변경합니다.
+ */
 export async function multipleLineChangeToSimple(chartId, op, data) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
-    const chartInfo = chartDataStore[chartId];
-    if (!chartInfo) return data;
-
-    const { colorScale } = chartInfo;
+    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     const targetSeriesKey = op.group;
 
     if (!targetSeriesKey) {
@@ -135,37 +113,29 @@ export async function multipleLineChangeToSimple(chartId, op, data) {
         return data;
     }
 
+    const filteredData = dataFilter(data, { field: 'group', operator: '==', value: targetSeriesKey });
+
+    if (filteredData.length === 0) {
+        console.warn(`Series with key '${targetSeriesKey}' not found.`);
+        return [];
+    }
+    
+    const allSeries = Array.from(new Set(data.map(d => d.group)));
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
+    const highlightColor = colorScale(targetSeriesKey);
+    
     const allLines = g.selectAll("path.series-line");
     const targetLine = allLines.filter(d => d.key === targetSeriesKey);
     const otherLines = allLines.filter(d => d.key !== targetSeriesKey);
-    const highlightColor = colorScale(targetSeriesKey);
 
-    if (targetLine.empty()) {
-        console.warn(`Series with key '${targetSeriesKey}' not found.`);
-        return data;
-    }
-    
-    // 애니메이션 실행
-    const animationPromises = [];
-    animationPromises.push(
-        otherLines.transition().duration(800).attr("opacity", 0.1).end()
-    );
-    animationPromises.push(
-        targetLine.transition().duration(800)
-            .attr("stroke-width", 3.5)
-            .attr("opacity", 1)
-            .end()
-    );
-    animationPromises.push(
+    await Promise.all([
+        otherLines.transition().duration(800).attr("opacity", 0.1).end(),
+        targetLine.transition().duration(800).attr("stroke-width", 3.5).attr("opacity", 1).end(),
         svg.select(".legend").transition().duration(800).attr("opacity", 0).remove().end()
-    );
+    ]).catch(err => console.log("Animation interrupted."));
 
-    await Promise.all(animationPromises).catch(err => console.log("Animation interrupted."));
-
-    // 데이터 포인트(원)들을 타겟 라인에만 표시
-    const filteredData = data.filter(d => d.group === targetSeriesKey);
     const { xScale, yScale } = buildScales(filteredData, plot);
-    
+
     g.selectAll("circle.datapoint").remove();
     g.selectAll("circle.datapoint")
         .data(filteredData)
@@ -189,715 +159,432 @@ export async function multipleLineChangeToSimple(chartId, op, data) {
     return filteredData;
 }
 
-
-
-// ---------- 오퍼레이션 함수들 ----------
-
+/**
+ * 특정 X축 값에 해당하는 모든 시리즈의 데이터 포인트를 조회하고 시각화합니다.
+ */
 export async function multipleLineRetrieveValue(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const targetKey = op.target;
-    if (targetKey == null) {
+    if (op.target == null) {
         console.warn("RetrieveValue: target key is missing.");
         return [];
     }
+    
+    const targetDate = parseDate(op.target);
+    if (!targetDate) {
+        console.warn(`RetrieveValue: invalid date format for target: ${op.target}`);
+        return [];
+    }
 
-    const targetDateStr = toPointIdCandidates(targetKey)[0];
-    const targetDatums = data.filter(d => {
-        const d_str = d.target instanceof Date ? fmtISO(d.target) : String(d.target);
-        return d_str === targetDateStr;
-    });
+    const targetDatums = data.filter(d => d.target && isSameDate(d.target, targetDate));
 
     if (targetDatums.length === 0) {
-        console.warn(`RetrieveValue: no data found for target: ${targetKey}`);
+        console.warn(`RetrieveValue: no data found for target: ${op.target}`);
         return [];
     }
 
     const { xScale, yScale } = buildScales(data, plot);
-    
     const allSeries = Array.from(new Set(data.map(d => d.group)));
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
-
     const cx = xScale(targetDatums[0].target);
 
     await g.selectAll("path.series-line").transition().duration(500)
-        .attr("opacity", 0.3)
-        .attr("stroke-width", 1.5)
-        .end().catch(err => {});
+        .attr("opacity", 0.3).attr("stroke-width", 1.5).end();
     
     g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", plot.h)
-        .attr("x2", cx).attr("y2", 0)
+        .attr("x1", cx).attr("y1", plot.h).attr("x2", cx).attr("y2", 0)
         .attr("stroke", "#333").attr("stroke-dasharray", "4 4");
 
     targetDatums.forEach(datum => {
         const cy = yScale(datum.value);
         const color = colorScale(datum.group);
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", cy)
-            .attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "2 2")
-            .attr("opacity", 0.7);
-
         g.append("circle").attr("class", "annotation")
             .attr("cx", cx).attr("cy", cy).attr("r", 0)
             .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
-            .transition().duration(400).delay(200)
-            .attr("r", 6);
-        
+            .transition().duration(400).delay(200).attr("r", 6);
         g.append("text").attr("class", "annotation")
             .attr("x", cx + 8).attr("y", cy)
-            .attr("dominant-baseline", "middle")
-            .attr("fill", color).attr("font-weight", "bold")
+            .attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold")
             .text(datum.value.toLocaleString())
-            .attr("opacity", 0)
-            .transition().duration(400).delay(300)
-            .attr("opacity", 1);
+            .attr("opacity", 0).transition().duration(400).delay(300).attr("opacity", 1);
     });
 
     return targetDatums;
 }
 
+/**
+ * 데이터를 필터링하고 필터링 결과를 시각적으로 표현합니다.
+ */
 export async function multipleLineFilter(chartId, op, data) {
     const { svg, g, xField, yField, colorField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
-    const { xScale: originalXScale, yScale: originalYScale } = buildScales(data, plot);
-    const allLines = g.selectAll("path.series-line");
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
-
-    const { field, operator, value } = op;
-    const satisfy = cmpMap[operator];
     
-    let filteredData = data;
-    if (field === colorField) {
-        const valueSet = new Set(Array.isArray(value) ? value : [value]);
-        filteredData = data.filter(d => valueSet.has(d.group));
-    } else if (field === xField && operator === 'between' && Array.isArray(value)) {
-        const [startDate, endDate] = value.map(d => parseDate(d));
-        if (startDate && endDate) {
-            filteredData = data.filter(d => d.target >= startDate && d.target <= endDate);
-        }
-    } else if (field === yField && satisfy) {
-        filteredData = data.filter(d => satisfy(d.value, value));
+    let correctedOp = { ...op };
+    if (op.field === xField) correctedOp.field = 'target';
+    if (op.field === yField) correctedOp.field = 'value';
+    if (op.field === colorField) correctedOp.field = 'group';
+    if (op.operator === '==' && Array.isArray(op.value)) {
+        correctedOp.operator = 'in';
     }
     
-    if (field === yField && satisfy) {
-        const yPos = originalYScale(value);
-        g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", yPos).attr("x2", plot.w).attr("y2", yPos)
-            .attr("stroke", "red").attr("stroke-width", 2).attr("stroke-dasharray", "6 4");
-    } else if (field === xField && operator === 'between' && Array.isArray(value)) {
-        const [startDate, endDate] = value.map(d => parseDate(d));
-        if(startDate && endDate) {
-            const xStart = originalXScale(startDate);
-            const xEnd = originalXScale(endDate);
-            g.append("line").attr("class", "annotation").attr("x1", xStart).attr("y1", 0).attr("x2", xStart).attr("y2", plot.h).attr("stroke", "steelblue").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
-            g.append("line").attr("class", "annotation").attr("x1", xEnd).attr("y1", 0).attr("x2", xEnd).attr("y2", plot.h).attr("stroke", "steelblue").attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
-        }
+    let filteredData;
+    if (correctedOp.field === 'target' && correctedOp.operator === 'between') {
+        const [startVal, endVal] = correctedOp.value;
+        const startDate = parseDate(startVal);
+        const endDate = parseDate(endVal);
+        const afterStart = dataFilter(data, { field: 'target', operator: '>=', value: startDate });
+        filteredData = dataFilter(afterStart, { field: 'target', operator: '<=', value: endDate });
+    } else {
+        filteredData = dataFilter(data, correctedOp);
     }
-    
-    await delay(800);
     
     if (filteredData.length === 0) {
-        await g.selectAll(".annotation, path.series-line, circle.datapoint").transition().duration(500).attr("opacity", 0).remove().end();
-        return [];
+        await g.selectAll(".series-line").transition().duration(500).attr("opacity", 0.1).end();
+        return []; // 반환값이 빈 배열이면 util에서 다음으로 넘어가지 않음
     }
-    
-    allLines.transition().duration(1000).attr("opacity", 0.1);
-    g.selectAll("circle.datapoint").transition().duration(1000).attr("opacity", 0).remove();
-
-    const highlightLineGen = d3.line().x(d => originalXScale(d.target)).y(d => originalYScale(d.value));
-    const filteredSeries = d3.groups(filteredData, d => d.group);
-
-    g.selectAll(".highlight-line")
-        .data(filteredSeries)
-        .join("path")
-        .attr("class", "annotation highlight-line")
-        .attr("fill", "none")
-        .attr("stroke", d => colorScale(d[0]))
-        .attr("stroke-width", 2.5)
-        .attr("opacity", 0)
-        .attr("d", d => highlightLineGen(d[1]))
-        .transition().duration(800)
-        .attr("opacity", 1);
-        
-    await delay(1200);
-
-    g.selectAll(".annotation:not(.highlight-line)").transition().duration(500).attr("opacity", 0).remove();
     
     const { xScale: newXScale, yScale: newYScale } = buildScales(filteredData, plot);
     const newLineGen = d3.line().x(d => newXScale(d.target)).y(d => newYScale(d.value));
+    const filteredSeries = d3.groups(filteredData, d => d.group).map(([key, values]) => ({ key, values }));
+    
+    const allLines = g.selectAll("path.series-line").data(filteredSeries, d => d.key);
 
     await Promise.all([
         g.select(".x-axis").transition().duration(1200).call(d3.axisBottom(newXScale)).end(),
         g.select(".y-axis").transition().duration(1200).call(d3.axisLeft(newYScale)).end(),
-        allLines.transition().duration(800).attr("opacity", 0).remove().end(),
-        g.selectAll(".highlight-line")
-            .transition().duration(1200)
-            .attr("d", d => newLineGen(d[1]))
-            .end()
+        allLines.join(
+            enter => enter.append("path")
+                .attr("class", d => `series-line series-${String(d.key).replace(/\s+/g, '-')}`)
+                .attr("fill", "none")
+                .attr("stroke", d => g.select(`.series-${String(d.key).replace(/\s+/g, '-')}`).attr('stroke') || 'black')
+                .attr("stroke-width", 2)
+                .attr("d", d => newLineGen(d.values))
+                .attr("opacity", 0)
+                .transition().duration(1200)
+                .attr("opacity", 1)
+                .end(),
+            update => update.transition().duration(1200)
+                .attr("d", d => newLineGen(d.values))
+                .attr("opacity", 1)
+                .end(),
+            exit => exit.transition().duration(1200)
+                .attr("opacity", 0)
+                .remove()
+                .end()
+        )
     ]);
-    
-    g.selectAll("path.series-line").remove();
-    g.selectAll(".highlight-line").attr("class", "series-line");
-    
-    const getDatumKey = d => `${d.target.toISOString()}|${d.group}`;
-    g.selectAll("circle.datapoint")
-        .data(filteredData, getDatumKey)
-        .join("circle")
-        .attr("class", "datapoint")
-        .attr("r", 3.5)
-        .attr("fill", d => colorScale(d.group))
-        .attr("cx", d => newXScale(d.target))
-        .attr("cy", d => newYScale(d.value))
-        .attr("opacity", 0) // <--- 이 부분을 1에서 0으로 수정했습니다.
-        .attr("data-id", d => d.target instanceof Date ? fmtISO(d.target) : String(d.target))
-        .attr("data-value", d => d.value)
-        .attr("data-series", d => String(d.group));
-        
+
     return filteredData;
 }
 
+
+/**
+ * 데이터셋에서 최대/최소값을 찾아 시각화합니다.
+ */
 export async function multipleLineFindExtremum(chartId, op, data) {
-    const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
     if (!data || data.length === 0) return null;
-    
-    const hlColor = "#a65dfb";
-    const which = op.which || 'max';
-    const extremumValue = which === 'min' 
-        ? d3.min(data, d => d.value) 
-        : d3.max(data, d => d.value);
 
-    if (extremumValue === undefined) return null;
-    
-    const extremumDatums = data.filter(d => d.value === extremumValue);
-
-    //await g.selectAll("path.series-line").transition().duration(600).attr("opacity", 0.2).end();
-    await g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0).remove().end();
+    const extremumDatum = dataFindExtremum(data, op);
+    if (!extremumDatum) return null;
+    const extremumDatums = dataFilter(data, { field: 'value', operator: '==', value: extremumDatum.value });
 
     const { xScale, yScale } = buildScales(data, plot);
     const seriesColors = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
-    const fmtDate = d3.timeFormat("%Y-%m-%d");
 
     extremumDatums.forEach(datum => {
         const cx = xScale(datum.target);
         const cy = yScale(datum.value);
         const color = seriesColors(datum.group);
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4")
-            .transition().duration(700).delay(200)
-            .attr("y2", plot.h);
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4")
-            .transition().duration(700).delay(200)
-            .attr("x2", 0);
-            
-        g.append("circle").attr("class", "annotation")
-            .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
-            .transition().duration(500).delay(200)
-            .attr("r", 7);
-
-        const valueText = `${which.charAt(0).toUpperCase() + which.slice(1)}: ${extremumValue.toLocaleString()}`;
-        const dateText = `(${fmtDate(datum.target)})`;
-        const textLabel = g.append("text").attr("class", "annotation")
-            .attr("x", cx).attr("y", cy - 20)
-            .attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold")
-            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke");
         
-        textLabel.append("tspan").attr("x", cx).attr("dy", "0em").text(valueText);
-        textLabel.append("tspan").attr("x", cx).attr("dy", "1.2em").text(dateText);
+        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4")
+            .transition().duration(700).attr("y2", plot.h);
+        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4")
+            .transition().duration(700).attr("x2", 0);
+
+        g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", cy).attr("r", 0)
+            .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
+            .transition().duration(500).delay(200).attr("r", 7);
+        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 15)
+            .attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+            .text(`${op.which || 'max'}: ${datum.value.toLocaleString()}`);
     });
 
     return extremumDatums[0] || null;
 }
 
+/**
+ * 데이터셋의 전체 값 범위를 찾아 시각화합니다.
+ */
 export async function multipleLineDetermineRange(chartId, op, data) {
-    const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    if (!data || data.length === 0) return null;
 
-    if (!Array.isArray(data) || data.length === 0) return null;
+    const minDatum = dataFindExtremum(data, { which: 'min' });
+    const maxDatum = dataFindExtremum(data, { which: 'max' });
+    if (!minDatum || !maxDatum) return null;
+
+    const minV = minDatum.value;
+    const maxV = maxDatum.value;
+    const minDatums = dataFilter(data, { field: 'value', operator: '==', value: minV });
+    const maxDatums = dataFilter(data, { field: 'value', operator: '==', value: maxV });
     
-    const hlColor = "#0d6efd";
-    const values = data.map(d => d.value);
-    const minV = d3.min(values);
-    const maxV = d3.max(values);
-
-    if (minV === undefined || maxV === undefined) return null;
-
-    const minDatums = data.filter(d => d.value === minV);
-    const maxDatums = data.filter(d => d.value === maxV);
-    
-    //await g.selectAll("path.series-line").transition().duration(600).attr("opacity", 0.2).end();
-    await g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0).remove().end();
+    await g.selectAll("path.series-line").transition().duration(600).attr("opacity", 0.2).end();
 
     const { xScale, yScale } = buildScales(data, plot);
     const seriesColors = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
+    const hlColor = "#0d6efd";
 
     const annotateValue = (value, label, datums) => {
         const yPos = yScale(value);
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", yPos).attr("x2", 0).attr("y2", yPos)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
+        g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", yPos).attr("x2", 0).attr("y2", yPos).attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
             .transition().duration(1000).attr("x2", plot.w);
         
         datums.forEach(datum => {
             const cx = xScale(datum.target);
             const color = seriesColors(datum.group);
-
-            g.append("circle").attr("class", "annotation")
-                .attr("cx", cx).attr("cy", yPos).attr("r", 0)
-                .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
-                .transition().duration(500).delay(200).attr("r", 7);
-            
-            g.append("text").attr("class", "annotation")
-                .attr("x", cx).attr("y", yPos - 12)
-                .attr("text-anchor", "middle").attr("font-weight", "bold").attr("fill", color)
-                .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
-                .text(`${label}: ${value.toLocaleString()}`)
-                .attr("opacity", 0)
-                .transition().duration(400).delay(400).attr("opacity", 1);
+            g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", yPos).attr("r", 7).attr("fill", color).attr("stroke", "white").attr("stroke-width", 2);
         });
+        
+        g.append("text").attr("class", "annotation").attr("x", 10).attr("y", yPos - 10)
+            .attr("fill", hlColor).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+            .text(`${label}: ${value.toLocaleString()}`);
     };
 
-    await Promise.all([
-        annotateValue(minV, "Min", minDatums),
-        annotateValue(maxV, "Max", maxDatums)
-    ]).catch(err => {});
+    annotateValue(minV, "Min", minDatums);
+    annotateValue(maxV, "Max", maxDatums);
 
-    const summaryText = `Range: ${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`;
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left).attr("y", margins.top - 10)
         .attr("font-size", 14).attr("font-weight", "bold").attr("fill", hlColor)
-        .text(summaryText)
-        .attr('opacity', 0)
-        .transition().duration(400).delay(800)
-        .attr('opacity', 1);
+        .text(`Range: ${minV.toLocaleString()} ~ ${maxV.toLocaleString()}`);
 
     return new IntervalValue(yField, minV, maxV);
 }
 
-
+/**
+ * N번째 데이터를 찾아 시각화합니다.
+ */
 export async function multipleLineNth(chartId, op, data) {
-    const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    if (!data || data.length === 0) return [];
+    
+    const resultData = dataNth(data, { ...op, groupBy: 'target' });
 
-    if (!Array.isArray(data) || data.length === 0) return [];
-
+    if (resultData.length === 0) {
+        console.warn('Nth: No data found for the given N');
+        return [];
+    }
+    
     const allLines = g.selectAll("path.series-line");
     const allPoints = g.selectAll("circle.datapoint");
-    if (allPoints.empty()) return [];
-
-    let n = Number(op?.n ?? 1);
-    const from = String(op?.from || 'left').toLowerCase();
-    const hlColor = '#20c997';
-
-    const pointsInOrder = allPoints.nodes().sort((a, b) => {
-        return (+a.getAttribute('cx')) - (+b.getAttribute('cx'));
-    });
-    
-    const uniqueCategories = [];
-    const categorySet = new Set();
-    pointsInOrder.forEach(node => {
-        const id = d3.select(node).attr('data-id');
-        if (!categorySet.has(id)) {
-            categorySet.add(id);
-            uniqueCategories.push(id);
-        }
-    });
-
-    const total = uniqueCategories.length;
-    if (!Number.isFinite(n) || n <= 0 || n > total) return [];
-
-    const sequence = from === 'right' ? uniqueCategories.slice().reverse() : uniqueCategories;
-    const pickedCategory = sequence[n - 1];
-
     await Promise.all([
         allLines.transition().duration(300).attr("opacity", 0.2).end(),
         allPoints.transition().duration(300).attr("opacity", 0.2).end()
     ]);
-    await delay(300);
-
-    for (let i = 0; i < n; i++) {
-        const category = sequence[i];
-        const categoryPoints = allPoints.filter(function() {
-            return d3.select(this).attr('data-id') === category;
-        });
-        
-        await categoryPoints.transition().duration(150).attr('opacity', 1).attr('r', 6).end();
-
-        const cx = d3.select(categoryPoints.nodes()[0]).attr('cx');
-        g.append('text')
-            .attr('class', 'annotation count-label')
-            .attr('x', cx).attr('y', -5)
-            .attr('text-anchor', 'middle').attr('font-weight', 'bold')
-            .attr('fill', hlColor).text(String(i + 1));
-        
-        await delay(300);
-
-        if (i < n - 1) {
-            await categoryPoints.transition().duration(150).attr('opacity', 0.2).attr('r', 3.5).end();
-        }
-    }
-
-    await g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end();
     
-    const finalPoints = allPoints.filter(function() {
-        return d3.select(this).attr('data-id') === pickedCategory;
-    });
+    const pickedCategoryDate = resultData[0].target;
+    // d3 data() returns the data bound to the selection.
+    const finalPoints = allPoints.filter(d => d && d.target instanceof Date && isSameDate(d.target, pickedCategoryDate));
+
+    if (finalPoints.empty()) return resultData;
+
+    await finalPoints.transition().duration(300).attr('opacity', 1).attr('r', 6).end();
     
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
+    const cx = d3.select(finalPoints.nodes()[0]).attr('cx');
+    g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", 0).attr("x2", cx).attr("y2", plot.h).attr("stroke", "#333").attr("stroke-dasharray", "4 4");
 
-    finalPoints.each(function() {
-        const point = d3.select(this);
-        const datum = point.datum();
-        const cx = +point.attr("cx");
-        const cy = +point.attr("cy");
-        const color = colorScale(datum[colorField]);
-        const value = datum.value || datum[yField];
+    svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold').attr('fill', '#20c997')
+        .text(`Nth (from ${op.from || 'left'}): ${op.n}`);
 
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4")
-            .transition().duration(500)
-            .attr("y2", plot.h);
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4")
-            .transition().duration(500)
-            .attr("x2", 0);
-        
-        g.append("text").attr("class", "annotation")
-            .attr("x", cx + 8).attr("y", cy)
-            .attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold")
-            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
-            .text(value.toLocaleString())
-            .attr("opacity", 0)
-            .transition().duration(400).delay(200)
-            .attr("opacity", 1);
-    });
-
-    svg.append('text').attr('class', 'annotation')
-        .attr('x', margins.left).attr('y', margins.top - 10)
-        .attr('font-size', 14).attr('font-weight', 'bold')
-        .attr('fill', hlColor)
-        .text(`Nth (from ${from}): ${n} (${pickedCategory})`);
-
-    return data.filter(d => {
-        const d_str = d.target instanceof Date ? fmtISO(d.target) : String(d.target);
-        return d_str === pickedCategory;
-    });
+    return resultData;
 }
 
+
+/**
+ * 두 데이터 포인트를 비교하고 결과를 시각화합니다.
+ */
 export async function multipleLineCompare(chartId, op, data) {
-    const { svg, g, plot, margins } = getSvgAndSetup(chartId);
+    const { svg, g, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const findDatum = (targetSpec) => {
-        const targetDate = parseDate(targetSpec.category);
-        if (!targetDate) return null;
-        const targetSeries = targetSpec.series;
-        
-        return data.find(d => {
-            const dDate = parseDate(d.target);
-            if (!dDate) return false;
-
-            const isSameDay = dDate.getFullYear() === targetDate.getFullYear() &&
-                                dDate.getMonth() === targetDate.getMonth() &&
-                                dDate.getDate() === targetDate.getDate();
-            
-            return isSameDay && d.group === targetSeries;
-        });
-    };
-
-    const datumA = findDatum(op.targetA);
-    const datumB = findDatum(op.targetB);
+    const targetADate = parseDate(op.targetA.category);
+    const targetBDate = parseDate(op.targetB.category);
+    
+    const datumA = data.find(d => d.target && isSameDate(d.target, targetADate) && d.group === op.targetA.series);
+    const datumB = data.find(d => d.target && isSameDate(d.target, targetBDate) && d.group === op.targetB.series);
     
     if (!datumA || !datumB) {
         console.warn("Compare: One or both points not found.", op);
         return new BoolValue("Points not found", false);
     }
-
-    const allSeries = Array.from(new Set(data.map(d => d.group)));
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
+    
+    const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "!=":(a,b)=>a!=b };
+    const comparisonFunc = cmpMap[op.operator] || (() => false);
+    const result = comparisonFunc(datumA.value, datumB.value);
+    
     const { xScale, yScale } = buildScales(data, plot);
-
-    const valueA = datumA.value;
-    const valueB = datumB.value;
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
     
-    const colorA = colorScale(datumA.group);
-    const colorB = colorScale(datumB.group);
-    
-    g.selectAll("path.series-line").transition().duration(600).attr("opacity", 0.1);
-    g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0);
-
     const animateAnnotation = (datum, color) => {
         const cx = xScale(datum.target);
         const cy = yScale(datum.value);
-        const promises = [];
-
-        const vLine = g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4");
-        promises.push(vLine.transition().duration(700).delay(200).attr("y2", plot.h).end());
-
-        const hLine = g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4");
-        promises.push(hLine.transition().duration(700).delay(200).attr("x2", 0).end());
-
-        const circle = g.append("circle").attr("class", "annotation")
-            .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2);
-        promises.push(circle.transition().duration(500).attr("r", 7).end());
-        
-        const text = g.append("text").attr("class", "annotation")
-            .attr("x", cx).attr("y", cy - 12)
-            .attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold")
-            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
-            .text(datum.value.toLocaleString())
-            .attr("opacity", 0);
-        promises.push(text.transition().duration(400).delay(400).attr("opacity", 1).end());
-
-        return Promise.all(promises);
+        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", plot.h).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4");
+        g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4");
+        g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", cy).attr("r", 7).attr("fill", color).attr("stroke", "white").attr("stroke-width", 2);
+        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 15).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").text(datum.value.toLocaleString());
     };
-    
-    await Promise.all([
-        animateAnnotation(datumA, colorA),
-        animateAnnotation(datumB, colorB)
-    ]).catch(err => {});
-    
-    const comparisonFunc = cmpMap[op.operator] || (() => false);
-    const result = comparisonFunc(valueA, valueB);
-    const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
-    const summary = `${valueA.toLocaleString()}${symbol}${valueB.toLocaleString()} → ${result}`;
-    
-    g.append("text").attr("class", "annotation")
-        .attr("x", plot.w / 2).attr("y", -10)
+
+    g.selectAll("path.series-line").transition().duration(600).attr("opacity", 0.1);
+    animateAnnotation(datumA, colorScale(datumA.group));
+    animateAnnotation(datumB, colorScale(datumB.group));
+
+    g.append("text").attr("class", "annotation").attr("x", plot.w / 2).attr("y", -10)
         .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
-        .attr("fill", result ? "green" : "red").text(summary);
+        .attr("fill", result ? "green" : "red")
+        .text(`${datumA.value.toLocaleString()} ${op.operator} ${datumB.value.toLocaleString()} → ${result}`);
 
     return new BoolValue('', result);
 }
 
+/**
+ * 데이터의 합계를 계산하고 표시합니다.
+ */
 export async function multipleLineSum(chartId, op, data) {
-    const { g, xField, yField, margins } = getSvgAndSetup(chartId);
+    const { svg, xField, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    const sum = d3.sum(data, d => d.value);
 
-    g.append("text").attr("class", "annotation")
+    const result = dataSum(data, op, xField, yField);
+    if (!result) return null;
+    
+    svg.append("text").attr("class", "annotation")
         .attr("x", 0).attr("y", -10)
         .attr("font-size", 14).attr("font-weight", "bold")
-        .text(`Total Sum: ${sum.toLocaleString()}`);
+        .text(`Total Sum: ${result.value.toLocaleString()}`);
 
-    return new DatumValue(xField, yField, 'Sum', null, sum, null);
+    return result;
 }
 
+/**
+ * 데이터의 평균을 계산하고 평균선을 시각화합니다.
+ */
 export async function multipleLineAverage(chartId, op, data) {
     const { svg, g, xField, yField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     if (!data || data.length === 0) return null;
 
-    const avg = d3.mean(data, d => d.value);
-    if (!Number.isFinite(avg)) return null;
+    const result = dataAverage(data, op, xField, yField);
+    if (!result) return null;
+    const avg = result.value;
 
     const { yScale } = buildScales(data, plot);
     const yPos = yScale(avg);
     const color = "red";
     
-    // 이전에 라인을 흐리게 만들던 코드를 삭제했습니다.
-
-    const line = g.append("line")
-        .attr("class", "annotation avg-line")
-        .attr("x1", 0).attr("y1", yPos)
-        .attr("x2", 0).attr("y2", yPos)
-        .attr("stroke", color).attr("stroke-width", 2)
-        .attr("stroke-dasharray", "5 5");
-
+    const line = g.append("line").attr("class", "annotation avg-line")
+        .attr("x1", 0).attr("y1", yPos).attr("x2", 0).attr("y2", yPos)
+        .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
     await line.transition().duration(800).attr("x2", plot.w).end();
-
+    
     g.append("text").attr("class", "annotation avg-label")
-        .attr("x", plot.w + 6).attr("y", yPos)
-        .attr("dominant-baseline", "middle")
+        .attr("x", plot.w - 10).attr("y", yPos - 10)
+        .attr("text-anchor", "end")
         .attr("fill", color).attr("font-weight", "bold")
-        .text(`Avg: ${avg.toLocaleString(undefined, {maximumFractionDigits: 2})}`)
-        .attr("opacity", 0)
-        .transition().delay(200).duration(400)
-        .attr("opacity", 1);
-
+        .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+        .text(`Avg: ${avg.toLocaleString(undefined, {maximumFractionDigits: 2})}`);
+    
     return new DatumValue(xField, yField, 'Average', null, avg, null);
 }
 
+/**
+ * 두 데이터 포인트의 차이를 계산하고 시각화합니다.
+ */
 export async function multipleLineDiff(chartId, op, data) {
-    const { svg, g, xField, yField, plot, margins } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const findDatum = (targetSpec) => {
-        const targetDate = parseDate(targetSpec.category);
-        if (!targetDate) return null;
-        const targetSeries = targetSpec.series;
-        
-        return data.find(d => {
-            const dDate = parseDate(d.target);
-            if (!dDate) return false;
-
-            const isSameDay = dDate.getFullYear() === targetDate.getFullYear() &&
-                                dDate.getMonth() === targetDate.getMonth() &&
-                                dDate.getDate() === targetDate.getDate();
-            
-            return isSameDay && d.group === targetSeries;
-        });
-    };
-
-    const datumA = findDatum(op.targetA);
-    const datumB = findDatum(op.targetB);
+    const targetADate = parseDate(op.targetA.category);
+    const targetBDate = parseDate(op.targetB.category);
     
-    if (!datumA || !datumB) {
-        console.warn("Diff: One or both points not found.", op);
-        return null;
-    }
+    const datumA = data.find(d => d.target && isSameDate(d.target, targetADate) && d.group === op.targetA.series);
+    const datumB = data.find(d => d.target && isSameDate(d.target, targetBDate) && d.group === op.targetB.series);
+    if (!datumA || !datumB) return null;
 
-    const allSeries = Array.from(new Set(data.map(d => d.group)));
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
+    const newOp = { ...op, targetA: datumA, targetB: datumB };
+    const diffResult = dataDiff(data, newOp, xField, yField);
+    if (!diffResult) return null;
+
     const { xScale, yScale } = buildScales(data, plot);
-
-    const valueA = datumA.value;
-    const valueB = datumB.value;
-    
-    const colorA = colorScale(datumA.group);
-    const colorB = colorScale(datumB.group);
-    
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
     g.selectAll("path.series-line").transition().duration(600).attr("opacity", 0.1);
-    g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0);
-
+    
     const animateAnnotation = (datum, color) => {
         const cx = xScale(datum.target);
         const cy = yScale(datum.value);
-        const promises = [];
-
-        const vLine = g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4");
-        promises.push(vLine.transition().duration(700).delay(200).attr("y2", plot.h).end());
-
-        const hLine = g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4");
-        promises.push(hLine.transition().duration(700).delay(200).attr("x2", 0).end());
-
-        const circle = g.append("circle").attr("class", "annotation")
-            .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2);
-        promises.push(circle.transition().duration(500).attr("r", 7).end());
-        
-        const text = g.append("text").attr("class", "annotation")
-            .attr("x", cx).attr("y", cy - 12)
-            .attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold")
-            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
-            .text(datum.value.toLocaleString())
-            .attr("opacity", 0);
-        promises.push(text.transition().duration(400).delay(400).attr("opacity", 1).end());
-
-        return Promise.all(promises);
+        g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", cy).attr("r", 7).attr("fill", color);
+        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 15).attr("text-anchor", "middle").attr("fill", color).text(datum.value.toLocaleString());
     };
-    
-    await Promise.all([
-        animateAnnotation(datumA, colorA),
-        animateAnnotation(datumB, colorB)
-    ]).catch(err => {});
-    
-    const diff = Math.abs(valueA - valueB);
-    const summary = `Difference (Δ): ${diff.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+    animateAnnotation(datumA, colorScale(datumA.group));
+    animateAnnotation(datumB, colorScale(datumB.group));
     
     g.append("text").attr("class", "annotation")
-        .attr("x", plot.w / 2).attr("y", -10)
-        .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
-        .attr("fill", "#333").text(summary);
+        .attr("x", plot.w / 2).attr("y", -10).attr("text-anchor", "middle")
+        .attr("font-size", 16).attr("font-weight", "bold")
+        .text(`Difference (Δ): ${diffResult.value.toLocaleString()}`);
 
-    return new DatumValue(xField, yField, `Diff`, null, diff, null);
+    return diffResult;
 }
 
-
-
-
+/**
+ * 데이터의 총 개수를 세고 시각화합니다.
+ */
 export async function multipleLineCount(chartId, op, data) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    
+    const result = dataCount(data, op, xField, yField);
+    const totalCount = result ? result.value : 0;
+    if (totalCount === 0) return result;
 
-    if (!Array.isArray(data) || data.length === 0) {
-        return new DatumValue(xField, yField, 'Count', null, 0, null);
-    }
-
-    const allLines = g.selectAll("path.series-line");
     const allPoints = g.selectAll("circle.datapoint");
-    if (allPoints.empty()) {
-        return new DatumValue(xField, yField, 'Count', null, 0, null);
-    }
-
-    const hlColor = '#20c997';
-
-    // 1. 모든 라인과 포인트를 흐리게 처리
-    await Promise.all([
-        allLines.transition().duration(200).attr('opacity', 0.2).end(),
-        allPoints.transition().duration(200).attr('opacity', 0.3).end()
-    ]);
-
-    // 2. DOM에서 포인트를 가져와 X축 기준으로 정렬
-    const pointsInOrder = allPoints.nodes().sort((a, b) => {
-        return (+a.getAttribute('cx')) - (+b.getAttribute('cx'));
-    });
-    const totalCount = pointsInOrder.length;
-
-    // 3. 순서대로 카운팅 애니메이션 실행
+    await g.selectAll("path.series-line").transition().duration(200).attr('opacity', 0.2).end();
+    
+    const pointsInOrder = allPoints.nodes().sort((a, b) => +a.getAttribute('cx') - +b.getAttribute('cx'));
+    
     for (let i = 0; i < totalCount; i++) {
         const node = pointsInOrder[i];
         const point = d3.select(node);
         const cx = +point.attr('cx');
         const cy = +point.attr('cy');
-        const color = point.attr('fill');
 
-        await point.transition().duration(100)
-            .attr('opacity', 1)
-            .attr('r', 6)
-            .end();
+        await point.transition().duration(50).attr('r', 6).attr('opacity', 1).end();
 
         g.append('text')
             .attr('class', 'annotation count-label')
             .attr('x', cx)
             .attr('y', cy - 10)
             .attr('text-anchor', 'middle')
-            .attr('font-size', 12)
             .attr('font-weight', 'bold')
-            .attr('fill', color)
+            .attr('fill', '#333')
             .attr('stroke', 'white')
-            .attr('stroke-width', 3)
+            .attr('stroke-width', 2)
             .attr('paint-order', 'stroke')
-            .text(String(i + 1));
-
+            .text(i + 1);
+        
         await delay(50);
     }
 
-    // 4. 최종 카운트 텍스트 표시
-    svg.append('text')
-        .attr('class', 'annotation')
-        .attr('x', margins.left)
-        .attr('y', margins.top - 10)
-        .attr('font-size', 14)
-        .attr('font-weight', 'bold')
-        .attr('fill', hlColor)
+    svg.append('text').attr('class', 'annotation')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
         .text(`Count: ${totalCount}`);
 
-    return new DatumValue(xField, yField, 'Count', null, totalCount, null);
+    return result;
 }
-
