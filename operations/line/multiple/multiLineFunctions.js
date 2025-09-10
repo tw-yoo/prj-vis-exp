@@ -464,20 +464,13 @@ export async function multipleLineDetermineRange(chartId, op, data) {
     return new IntervalValue(yField, minV, maxV);
 }
 
-/**
- * N번째 데이터를 찾아 순차적으로 카운팅하며 시각화합니다.
- */
+
 export async function multipleLineNth(chartId, op, data) {
     const { svg, g, xField, yField, colorField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    
-    // 1. 데이터 연산
-    const opWithGroupBy = { ...op, groupBy: xField };
-    const resultData = dataNth(data, opWithGroupBy);
-    
-    if (resultData.length === 0) return [];
-    
-    // 2. 시각화
+
+    if (!Array.isArray(data) || data.length === 0) return [];
+
     const allLines = g.selectAll("path.series-line");
     const allPoints = g.selectAll("circle.datapoint");
     if (allPoints.empty()) return [];
@@ -486,9 +479,20 @@ export async function multipleLineNth(chartId, op, data) {
     const from = String(op?.from || 'left').toLowerCase();
     const hlColor = '#20c997';
 
-    const sortedData = dataSort(data, { field: xField, order: 'asc' });
-    const uniqueCategories = [...new Set(sortedData.map(d => d.target instanceof Date ? fmtISO(d.target) : String(d.target)))];
+    const pointsInOrder = allPoints.nodes().sort((a, b) => {
+        return (+a.getAttribute('cx')) - (+b.getAttribute('cx'));
+    });
     
+    const uniqueCategories = [];
+    const categorySet = new Set();
+    pointsInOrder.forEach(node => {
+        const id = d3.select(node).attr('data-id');
+        if (!categorySet.has(id)) {
+            categorySet.add(id);
+            uniqueCategories.push(id);
+        }
+    });
+
     const total = uniqueCategories.length;
     if (!Number.isFinite(n) || n <= 0 || n > total) return [];
 
@@ -499,16 +503,22 @@ export async function multipleLineNth(chartId, op, data) {
         allLines.transition().duration(300).attr("opacity", 0.2).end(),
         allPoints.transition().duration(300).attr("opacity", 0.2).end()
     ]);
-    
+    await delay(300);
+
     for (let i = 0; i < n; i++) {
         const category = sequence[i];
-        const categoryPoints = allPoints.filter(function() { return d3.select(this).attr('data-id') === category; });
-        if(categoryPoints.empty()) continue;
-
+        const categoryPoints = allPoints.filter(function() {
+            return d3.select(this).attr('data-id') === category;
+        });
+        
         await categoryPoints.transition().duration(150).attr('opacity', 1).attr('r', 6).end();
 
         const cx = d3.select(categoryPoints.nodes()[0]).attr('cx');
-        g.append('text').attr('class', 'annotation count-label').attr('x', cx).attr('y', -5).attr('text-anchor', 'middle').attr('font-weight', 'bold').attr('fill', hlColor).text(String(i + 1));
+        g.append('text')
+            .attr('class', 'annotation count-label')
+            .attr('x', cx).attr('y', -5)
+            .attr('text-anchor', 'middle').attr('font-weight', 'bold')
+            .attr('fill', hlColor).text(String(i + 1));
         
         await delay(300);
 
@@ -519,7 +529,10 @@ export async function multipleLineNth(chartId, op, data) {
 
     await g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end();
     
-    const finalPoints = allPoints.filter(function() { return d3.select(this).attr('data-id') === pickedCategory; });
+    const finalPoints = allPoints.filter(function() {
+        return d3.select(this).attr('data-id') === pickedCategory;
+    });
+    
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
 
     finalPoints.each(function() {
@@ -530,14 +543,38 @@ export async function multipleLineNth(chartId, op, data) {
         const color = colorScale(datum[colorField]);
         const value = datum.value || datum[yField];
 
-        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4").transition().duration(500).attr("y2", plot.h);
-        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4").transition().duration(500).attr("x2", 0);
-        g.append("text").attr("class", "annotation").attr("x", cx + 8).attr("y", cy).attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(value.toLocaleString()).attr("opacity", 0).transition().duration(400).delay(200).attr("opacity", 1);
+        g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
+            .attr("stroke", color).attr("stroke-dasharray", "4 4")
+            .transition().duration(500)
+            .attr("y2", plot.h);
+
+        g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
+            .attr("stroke", color).attr("stroke-dasharray", "4 4")
+            .transition().duration(500)
+            .attr("x2", 0);
+        
+        g.append("text").attr("class", "annotation")
+            .attr("x", cx + 8).attr("y", cy)
+            .attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+            .text(value.toLocaleString())
+            .attr("opacity", 0)
+            .transition().duration(400).delay(200)
+            .attr("opacity", 1);
     });
 
-    svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', hlColor).text(`Nth (from ${from}): ${n} (${pickedCategory})`);
+    svg.append('text').attr('class', 'annotation')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .text(`Nth (from ${from}): ${n} (${pickedCategory})`);
 
-    return resultData;
+    return data.filter(d => {
+        const d_str = d.target instanceof Date ? fmtISO(d.target) : String(d.target);
+        return d_str === pickedCategory;
+    });
 }
 
 /**
@@ -646,38 +683,42 @@ export async function multipleLineAverage(chartId, op, data) {
     return result;
 }
 
-/**
- * 두 데이터 포인트의 차이를 계산하여 시각화합니다.
- */
 export async function multipleLineDiff(chartId, op, data) {
-    const { svg, g, xField, yField, plot } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, plot, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 데이터 연산
-    const datumA = findDatum(data, op.targetA);
-    const datumB = findDatum(data, op.targetB);
+    const findDatum = (targetSpec) => {
+        const targetDate = parseDate(targetSpec.category);
+        if (!targetDate) return null;
+        const targetSeries = targetSpec.series;
+        
+        return data.find(d => {
+            const dDate = parseDate(d.target);
+            if (!dDate) return false;
+
+            const isSameDay = dDate.getFullYear() === targetDate.getFullYear() &&
+                                dDate.getMonth() === targetDate.getMonth() &&
+                                dDate.getDate() === targetDate.getDate();
+            
+            return isSameDay && d.group === targetSeries;
+        });
+    };
+
+    const datumA = findDatum(op.targetA);
+    const datumB = findDatum(op.targetB);
     
     if (!datumA || !datumB) {
         console.warn("Diff: One or both points not found.", op);
         return null;
     }
-    
-    const diffOp = {
-        targetA: { target: fmtISO(datumA.target), group: datumA.group },
-        targetB: { target: fmtISO(datumB.target), group: datumB.group },
-        field: 'value'
-    };
-    const diffResult = dataDiff(data, diffOp, xField, yField);
-    if (!diffResult) return null;
-    const diff = diffResult.value;
 
-    // 2. 시각화
     const allSeries = Array.from(new Set(data.map(d => d.group)));
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
     const { xScale, yScale } = buildScales(data, plot);
 
     const valueA = datumA.value;
     const valueB = datumB.value;
+    
     const colorA = colorScale(datumA.group);
     const colorB = colorScale(datumB.group);
     
@@ -687,48 +728,82 @@ export async function multipleLineDiff(chartId, op, data) {
     const animateAnnotation = (datum, color) => {
         const cx = xScale(datum.target);
         const cy = yScale(datum.value);
-        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4").style("opacity", 0).transition().duration(700).style("opacity", 1);
-        g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4").style("opacity", 0).transition().duration(700).style("opacity", 1);
-        g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", cy).attr("r", 0).attr("fill", color).attr("stroke", "white").attr("stroke-width", 2).transition().duration(500).attr("r", 7);
-        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(datum.value.toLocaleString()).attr("opacity", 0).transition().duration(400).delay(400).attr("opacity", 1);
+        const promises = [];
+
+        const vLine = g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
+            .attr("stroke", color).attr("stroke-dasharray", "4 4");
+        promises.push(vLine.transition().duration(700).delay(200).attr("y2", plot.h).end());
+
+        const hLine = g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
+            .attr("stroke", color).attr("stroke-dasharray", "4 4");
+        promises.push(hLine.transition().duration(700).delay(200).attr("x2", 0).end());
+
+        const circle = g.append("circle").attr("class", "annotation")
+            .attr("cx", cx).attr("cy", cy).attr("r", 0)
+            .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2);
+        promises.push(circle.transition().duration(500).attr("r", 7).end());
+        
+        const text = g.append("text").attr("class", "annotation")
+            .attr("x", cx).attr("y", cy - 12)
+            .attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+            .text(datum.value.toLocaleString())
+            .attr("opacity", 0);
+        promises.push(text.transition().duration(400).delay(400).attr("opacity", 1).end());
+
+        return Promise.all(promises);
     };
     
-    animateAnnotation(datumA, colorA);
-    animateAnnotation(datumB, colorB);
+    await Promise.all([
+        animateAnnotation(datumA, colorA),
+        animateAnnotation(datumB, colorB)
+    ]).catch(err => {});
     
-    await delay(800);
+    const diff = Math.abs(valueA - valueB);
+    const summary = `Difference (Δ): ${diff.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
     
-    const summary = `Difference (Δ): ${Math.abs(diff).toLocaleString(undefined, {maximumFractionDigits: 2})}`;
-    
-    g.append("text").attr("class", "annotation").attr("x", plot.w / 2).attr("y", -10).attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold").attr("fill", "#333").text(summary);
+    g.append("text").attr("class", "annotation")
+        .attr("x", plot.w / 2).attr("y", -10)
+        .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
+        .attr("fill", "#333").text(summary);
 
-    return diffResult;
+    return new DatumValue(xField, yField, `Diff`, null, diff, null);
 }
 
-/**
- * 데이터의 개수를 순차적으로 카운팅하며 시각화합니다.
- */
+
+
+
 export async function multipleLineCount(chartId, op, data) {
-    const { svg, g, xField, yField, margins } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 데이터 연산
-    const result = dataCount(data, op, xField, yField);
-    const totalCount = result ? result.value : 0;
-    if (totalCount === 0) return result;
+    if (!Array.isArray(data) || data.length === 0) {
+        return new DatumValue(xField, yField, 'Count', null, 0, null);
+    }
 
-    // 2. 시각화
     const allLines = g.selectAll("path.series-line");
     const allPoints = g.selectAll("circle.datapoint");
+    if (allPoints.empty()) {
+        return new DatumValue(xField, yField, 'Count', null, 0, null);
+    }
+
     const hlColor = '#20c997';
 
+    // 1. 모든 라인과 포인트를 흐리게 처리
     await Promise.all([
         allLines.transition().duration(200).attr('opacity', 0.2).end(),
         allPoints.transition().duration(200).attr('opacity', 0.3).end()
     ]);
 
-    const pointsInOrder = allPoints.nodes().sort((a, b) => (+a.getAttribute('cx')) - (+b.getAttribute('cx')));
+    // 2. DOM에서 포인트를 가져와 X축 기준으로 정렬
+    const pointsInOrder = allPoints.nodes().sort((a, b) => {
+        return (+a.getAttribute('cx')) - (+b.getAttribute('cx'));
+    });
+    const totalCount = pointsInOrder.length;
 
+    // 3. 순서대로 카운팅 애니메이션 실행
     for (let i = 0; i < totalCount; i++) {
         const node = pointsInOrder[i];
         const point = d3.select(node);
@@ -736,13 +811,37 @@ export async function multipleLineCount(chartId, op, data) {
         const cy = +point.attr('cy');
         const color = point.attr('fill');
 
-        await point.transition().duration(100).attr('opacity', 1).attr('r', 6).end();
+        await point.transition().duration(100)
+            .attr('opacity', 1)
+            .attr('r', 6)
+            .end();
 
-        g.append('text').attr('class', 'annotation count-label').attr('x', cx).attr('y', cy - 10).attr('text-anchor', 'middle').attr('font-size', 12).attr('font-weight', 'bold').attr('fill', color).attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke').text(String(i + 1));
+        g.append('text')
+            .attr('class', 'annotation count-label')
+            .attr('x', cx)
+            .attr('y', cy - 10)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 12)
+            .attr('font-weight', 'bold')
+            .attr('fill', color)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 3)
+            .attr('paint-order', 'stroke')
+            .text(String(i + 1));
+
         await delay(50);
     }
 
-    svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', hlColor).text(`Count: ${totalCount}`);
+    // 4. 최종 카운트 텍스트 표시
+    svg.append('text')
+        .attr('class', 'annotation')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 10)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', hlColor)
+        .text(`Count: ${totalCount}`);
 
-    return result;
+    return new DatumValue(xField, yField, 'Count', null, totalCount, null);
 }
+
