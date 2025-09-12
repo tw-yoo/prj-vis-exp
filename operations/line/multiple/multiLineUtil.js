@@ -10,9 +10,8 @@ import {
 } from '../simple/simpleLineFunctions.js';
 
 import {
-    multipleLineChangeToSimple,
     multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
-    multipleLineDetermineRange, multipleLineCompare, multipleLineSum, multipleLineAverage, multipleLineDiff,
+    multipleLineDetermineRange, multipleLineCompare, multipleLineAverage, multipleLineDiff,
     multipleLineCount, multipleLineNth
 } from './multiLineFunctions.js';
 import {OperationType} from "../../../object/operationType.js";
@@ -26,7 +25,7 @@ const MULTIPLE_LINE_OP_HANDLERS = {
     [OperationType.FIND_EXTREMUM]:  multipleLineFindExtremum,
     [OperationType.DETERMINE_RANGE]:multipleLineDetermineRange,
     [OperationType.COMPARE]:        multipleLineCompare,
-    [OperationType.SUM]:            multipleLineSum,
+    //[OperationType.SUM]:            multipleLineSum,
     [OperationType.AVERAGE]:        multipleLineAverage,
     [OperationType.DIFF]:           multipleLineDiff,
     [OperationType.NTH]:            multipleLineNth,

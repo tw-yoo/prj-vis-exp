@@ -4,7 +4,7 @@
 
 ## 0) Purpose & IO Contract
 
-**Input provided to the LLM**
+**Input provided to the LM**
 
 1) **Data** (CSV or JSON format; conceptually, a list of `DatumValue`)  
 2) **Chart** (e.g., Vega-Lite spec)  
@@ -68,7 +68,7 @@ Use **only** the following op names. Each list must **terminate** in a single `D
 ### 3.3 `compare`
 - **Purpose:** Select the **winning datum** between two targets by comparing their numeric values (optionally after aggregation). Use when the question asks *“Which is larger/smaller, A or B?”* and a **single winner** is expected.
 - **Params:** `{ "field": string, "targetA": string, "targetB": string, "aggregate"?: "sum"|"avg"|"min"|"max", "which"?: "max"|"min", "operator"?: ">"|">="|"<"|"<="|"=="|"eq" }`
-- **Returns:** `Datum` (the winning `DatumValue`).
+- **Returns:** `Datum[]` (the winning `DatumValue`).
 - **Notes:**
   - In **regular lists** (`ops`, `ops2`, …), `targetA`/`targetB` are **category values** (e.g., labels like `"KOR"`).
   - In **`last`**, `targetA`/`targetB` must be **IDs** of prior results (see §4).
@@ -83,7 +83,7 @@ Use **only** the following op names. Each list must **terminate** in a single `D
 ### 3.5 `findExtremum`
 - **Purpose:** Find the min/max datum by a measure.  
 - **Params:** `{ "field": string, "which": "max"|"min", "group"?: string }`  
-- **Returns:** `Datum`
+- **Returns:** `Datum[]`
 
 ### 3.6 `sort`
 - **Purpose:** Sort by label (lexicographic) or by a measure (numeric).  
@@ -98,27 +98,27 @@ Use **only** the following op names. Each list must **terminate** in a single `D
 ### 3.8 `count`
 - **Purpose:** Count items in the current data slice.  
 - **Params:** `{}`  
-- **Returns:** `Datum` (single numeric count wrapped as a `DatumValue`)
+- **Returns:** `Datum[]` (single numeric count wrapped as a `DatumValue`)
 
 ### 3.9 `sum`
 - **Purpose:** Sum numeric values across the current data slice (or field).  
 - **Params:** `{ "field": string, "group"?: string }`  
-- **Returns:** `Datum`
+- **Returns:** `Datum[]`
 
 ### 3.10 `average`
 - **Purpose:** Average numeric values across the current data slice (or field).  
 - **Params:** `{ "field": string, "group"?: string }`  
-- **Returns:** `Datum`
+- **Returns:** `Datum[]`
 
 ### 3.11 `diff`
 - **Purpose:** Difference between two targets (optionally after aggregation).  
 - **Params:** `{ "field": string, "targetA": string, "targetB": string, "aggregate"?: "sum"|"avg"|"min"|"max" }`  
-- **Returns:** `Datum`
+- **Returns:** `Datum[]`
 
 ### 3.12 `nth`
 - **Purpose:** Pick the n-th item by the current visual/ordering convention.  
 - **Params:** `{ "field"?: string, "n": number, "from"?: "left"|"right" }`  
-- **Returns:** `Datum`
+- **Returns:** `Datum[]`
 
 ---
 
