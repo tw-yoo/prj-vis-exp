@@ -12,14 +12,8 @@ import {
 } from "../../lineChartOperationFunctions.js";
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
 
-
-// ---------- 시각화 헬퍼(Helper) 함수들 ----------
-
 const fmtISO = d3.timeFormat("%Y-%m-%d");
 
-/**
- * 차트의 SVG와 기본 설정 정보를 가져옵니다.
- */
 function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const g = svg.select(".plot-area");
@@ -31,21 +25,12 @@ function getSvgAndSetup(chartId) {
     return { svg, g, margins, plot, xField, yField, colorField };
 }
 
-/**
- * SVG 내의 모든 어노테이션을 제거합니다.
- */
 function clearAllAnnotations(svg) {
     svg.selectAll(".annotation").remove();
 }
 
-/**
- * 지정된 시간(ms)만큼 지연시키는 Promise를 반환합니다.
- */
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
-/**
- * 입력값을 Date 객체로 파싱합니다.
- */
 function parseDate(v) {
     if (v instanceof Date) return v;
     const d = new Date(v);
@@ -54,9 +39,6 @@ function parseDate(v) {
     return null;
 }
 
-/**
- * 두 값이 같은 날짜를 가리키는지 혹은 같은 값인지 비교합니다.
- */
 function isSameDateOrValue(val1, val2) {
     const d1 = parseDate(val1);
     const d2 = parseDate(val2);
@@ -66,10 +48,6 @@ function isSameDateOrValue(val1, val2) {
     return String(val1) === String(val2);
 }
 
-
-/**
- * 데이터와 플롯 크기를 기반으로 x, y 스케일을 생성합니다.
- */
 function buildScales(data, plot) {
     const xVals = data.map(d => d.target);
     const isTemporal = xVals.every(v => v instanceof Date);
@@ -85,25 +63,14 @@ function buildScales(data, plot) {
     return { xScale, yScale };
 }
 
-
-// ---------- 오퍼레이션 시각화 함수들 ----------
-
-/**
- * 특정 x축 값에 해당하는 모든 시리즈의 값을 찾아 시각화합니다.
- */
 export async function multipleLineRetrieveValue(chartId, op, data) {
     const { svg, g, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 데이터 연산
     const targetDatums = lineChartRetrieveValue(data, op);
 
-    if (targetDatums.length === 0) {
-        console.warn(`RetrieveValue: no data found for target: ${op.target}`);
-        return [];
-    }
+    if (targetDatums.length === 0) return [];
 
-    // 2. 시각화
     const { xScale, yScale } = buildScales(data, plot);
     const allSeries = Array.from(new Set(data.map(d => d.group)));
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
@@ -148,22 +115,16 @@ export async function multipleLineRetrieveValue(chartId, op, data) {
     return targetDatums;
 }
 
-/**
- * 데이터를 필터링하고 차트를 필터링된 데이터에 맞게 재구성합니다.
- */
 export async function multipleLineFilter(chartId, op, data) {
     const { svg, g, xField, yField, colorField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 데이터 연산
     const filteredData = lineChartFilter(data, op, xField, yField, colorField);
     
-    // 2. 시각화
     const { xScale: originalXScale, yScale: originalYScale } = buildScales(data, plot);
     const allLines = g.selectAll("path.series-line");
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(data.map(d => d.group));
 
-    // Stage 1: 필터 기준선 표시
     if (op.field === yField) {
         const yPos = originalYScale(op.value);
         g.append("line").attr("class", "annotation")
@@ -192,7 +153,6 @@ export async function multipleLineFilter(chartId, op, data) {
         return [];
     }
 
-    // Stage 2: 필터링된 데이터 하이라이트
     allLines.transition().duration(1000).attr("opacity", 0.1);
     g.selectAll("circle.datapoint").transition().duration(1000).attr("opacity", 0).remove();
 
@@ -213,7 +173,6 @@ export async function multipleLineFilter(chartId, op, data) {
 
     await delay(1200);
 
-    // Stage 3: 새로운 스케일로 전환
     g.selectAll(".annotation:not(.highlight-line)").transition().duration(500).attr("opacity", 0).remove();
     
     const { xScale: newXScale, yScale: newYScale } = buildScales(filteredData, plot);
@@ -234,20 +193,14 @@ export async function multipleLineFilter(chartId, op, data) {
     return filteredData;
 }
 
-
-/**
- * 데이터의 최소값 또는 최대값을 찾아 시각화합니다.
- */
 export async function multipleLineFindExtremum(chartId, op, data) {
     const { svg, g, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 데이터 연산
     const extremumDatums = lineChartFindExtremum(data, op);
 
     if (extremumDatums.length === 0) return null;
 
-    // 2. 시각화
     await g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0).end();
 
     const { xScale, yScale } = buildScales(data, plot);
@@ -276,20 +229,15 @@ export async function multipleLineFindExtremum(chartId, op, data) {
     return extremumDatums[0] || null;
 }
 
-/**
- * 데이터의 전체 범위를 찾아 시각화합니다.
- */
 export async function multipleLineDetermineRange(chartId, op, data) {
     const { svg, g, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 데이터 연산
     const rangeResult = lineChartDetermineRange(data, op, yField);
     if (!rangeResult) return null;
 
     const { minV, maxV, minDatums, maxDatums } = rangeResult;
     
-    // 2. 시각화
     await g.selectAll("circle.datapoint").transition().duration(600).attr("opacity", 0).remove().end();
 
     const { xScale, yScale } = buildScales(data, plot);
@@ -321,9 +269,6 @@ export async function multipleLineDetermineRange(chartId, op, data) {
     return rangeResult.interval;
 }
 
-/**
- * n번째 데이터를 찾아 시각화합니다.
- */
 export async function multipleLineNth(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -332,32 +277,31 @@ export async function multipleLineNth(chartId, op, data) {
     const allPoints = g.selectAll("circle.datapoint");
     if (allPoints.empty()) return [];
 
-    let n = Number(op?.n ?? 1);
-    const from = String(op?.from || 'left').toLowerCase();
-    
     const categoryMap = new Map();
-    allPoints.each(function(d) {
+    data.forEach(d => {
         if (!d || d.target === undefined) return;
         const categoryStr = d.target instanceof Date ? fmtISO(d.target) : String(d.target);
         if (!categoryMap.has(categoryStr)) {
-            categoryMap.set(categoryStr, +d3.select(this).attr('cx'));
+            categoryMap.set(categoryStr, d.target);
         }
     });
     
-    const sortedCategories = Array.from(categoryMap.entries())
-        .sort((a, b) => a[1] - b[1])
-        .map(entry => entry[0]);
+    const sortedCategories = Array.from(categoryMap.values())
+        .sort((a, b) => a - b) 
+        .map(date => fmtISO(date));
 
-    if (sortedCategories.length === 0) {
-        console.warn("Nth: Could not determine categories from data points.");
-        return [];
-    }
-
+    let n = Number(op?.n ?? 1);
+    const from = String(op?.from || 'left').toLowerCase();
+    
+    if (sortedCategories.length === 0) return [];
+    
     const total = sortedCategories.length;
     if (!Number.isFinite(n) || n <= 0 || n > total) return [];
 
     const sequence = from === 'right' ? sortedCategories.slice().reverse() : sortedCategories;
     const pickedCategory = sequence[n - 1];
+
+    const nthData = lineChartNth(data, { ...op, groupBy: 'target' });
 
     await Promise.all([
         allLines.transition().duration(300).attr("opacity", 0.2).end(),
@@ -408,11 +352,6 @@ export async function multipleLineNth(chartId, op, data) {
 
     await g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end();
     
-    const nthData = data.filter(d => {
-        const d_str = d.target instanceof Date ? fmtISO(d.target) : String(d.target);
-        return d_str === pickedCategory;
-    });
-
     const { xScale, yScale } = buildScales(data, plot);
     
     nthData.forEach(datum => {
@@ -433,25 +372,19 @@ export async function multipleLineNth(chartId, op, data) {
     return nthData;
 }
 
-
-/**
- * 두 데이터 포인트를 비교하여 결과를 시각화합니다.
- */
 export async function multipleLineCompare(chartId, op, data) {
     const { svg, g, plot, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 데이터 찾기 및 연산
     const datumA = data.find(d => isSameDateOrValue(d.target, op.targetA.category) && d.group === op.targetA.series);
     const datumB = data.find(d => isSameDateOrValue(d.target, op.targetB.category) && d.group === op.targetB.series);
     const boolResult = lineChartCompareBool(data, op);
 
     if (!datumA || !datumB || !boolResult) {
-        console.warn("Compare operation failed: one or both data points not found, or comparison failed.");
+        console.warn("Compare failed: points or boolResult not found.");
         return null;
     }
     
-    // 2. 시각화
     const { xScale, yScale } = buildScales(data, plot);
     const allSeries = Array.from(new Set(data.map(d => d.group)));
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
@@ -472,7 +405,6 @@ export async function multipleLineCompare(chartId, op, data) {
     
     await delay(800);
     
-    // 3. 결과 표시
     const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
     const valA = datumA.value;
     const valB = datumB.value;
@@ -491,20 +423,15 @@ export async function multipleLineCompare(chartId, op, data) {
     return boolResult;
 }
 
-/**
- * 데이터의 평균을 계산하여 시각화합니다.
- */
 export async function multipleLineAverage(chartId, op, data) {
     const { svg, g, yField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     if (!data || data.length === 0) return null;
 
-    // 1. 데이터 연산
     const result = lineChartAverage(data, op, yField);
     if (!result) return null;
     const avg = result.value;
     
-    // 2. 시각화
     const { yScale } = buildScales(data, plot);
     const yPos = yScale(avg);
     const color = "red";
@@ -523,14 +450,10 @@ export async function multipleLineAverage(chartId, op, data) {
     return result;
 }
 
-/**
- * 두 데이터 포인트의 차이를 시각화합니다.
- */
 export async function multipleLineDiff(chartId, op, data) {
     const { svg, g, yField, plot, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 데이터 연산
     const diffResult = lineChartDiff(data, op, yField);
     if (!diffResult) return null;
     
@@ -538,7 +461,6 @@ export async function multipleLineDiff(chartId, op, data) {
     const datumB = data.find(d => isSameDateOrValue(d.target, op.targetB.category) && d.group === op.targetB.series);
     if (!datumA || !datumB) return diffResult;
 
-    // 2. 시각화
     const { xScale, yScale } = buildScales(data, plot);
     const allSeries = Array.from(new Set(data.map(d => d.group)));
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
@@ -565,9 +487,6 @@ export async function multipleLineDiff(chartId, op, data) {
     return diffResult;
 }
 
-/**
- * 데이터의 총 개수를 세어 시각화합니다.
- */
 export async function multipleLineCount(chartId, op, data) {
     const { svg, g, yField, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -619,15 +538,10 @@ export async function multipleLineCount(chartId, op, data) {
     return countResult;
 }
 
-
-/**
- * 특정 시리즈 하나만 선택하여 심플 라인 차트처럼 변환합니다.
- */
 export async function multipleLineChangeToSimple(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     
-    // 1. 데이터 연산
     const targetSeriesKey = op.group;
     if (!targetSeriesKey) {
         console.warn("ChangeToSimple requires a 'group' property.");
@@ -640,7 +554,6 @@ export async function multipleLineChangeToSimple(chartId, op, data) {
         return [];
     }
 
-    // 2. 시각화
     const allSeries = Array.from(new Set(data.map(d => d.group)));
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
     const highlightColor = colorScale(targetSeriesKey);
@@ -655,14 +568,12 @@ export async function multipleLineChangeToSimple(chartId, op, data) {
         return filteredData;
     }
 
-    // Stage 1: 다른 라인과 범례 숨기기
     await Promise.all([
         otherLines.transition().duration(800).attr("opacity", 0).remove().end(),
         targetLine.transition().duration(800).attr("stroke-width", 3.5).end(),
         svg.select(".legend").transition().duration(800).attr("opacity", 0).remove().end()
     ]).catch(() => {});
 
-    // Stage 2: 선택된 시리즈에 맞춰 축과 라인 재조정
     const { xScale: newXScale, yScale: newYScale } = buildScales(filteredData, plot);
     const newLineGen = d3.line()
         .x(d => newXScale(d.target))
@@ -674,7 +585,6 @@ export async function multipleLineChangeToSimple(chartId, op, data) {
         g.select(".x-axis").transition().duration(1000).call(d3.axisBottom(newXScale)).end()
     ]).catch(() => {});
     
-    // Stage 3: 데이터 포인트 추가 및 제목 표시
     g.selectAll("circle.datapoint").remove(); 
     g.selectAll("circle.datapoint-highlight")
         .data(filteredData)
