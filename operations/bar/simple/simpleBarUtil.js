@@ -121,6 +121,7 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
         await renderChart(currentChartId, vlSpec);
 
         let currentData = data;
+        console.log('before op:', opKey, currentData);
         const isLast = opKey === "last";
         if (isLast) {
             const allDatumValues = Object.values(dataCache).flat();
@@ -147,6 +148,7 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
                 });
                 dataCache[opKey] = currentDataArray;
             }
+            console.log('after op:', opKey, currentData);
             // await stackChartToTempTable(currentChartId, vlSpec);
         }
     }
