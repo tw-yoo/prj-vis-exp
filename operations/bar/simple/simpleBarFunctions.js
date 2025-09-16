@@ -87,7 +87,7 @@ export function getCenter(bar, orientation, margins) {
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) {
-    const { svg, g, xField, yField, orientation, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, orientation, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const hlColor = "#ff6961";
     const baseColor = "#69b3a2";
@@ -99,18 +99,17 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     const target = bars.filter(function () {
         return selectedTargets.includes(getBarKeyFromNode(this));
     });
-    const otherBars = selectBarsExcept(g, selectedTargets);
+    // [수정] otherBars 변수는 더 이상 사용되지 않습니다.
+    // const otherBars = selectBarsExcept(g, selectedTargets); 
 
     if (target.empty()) {
         console.warn("RetrieveValue: target bar(s) not found for key(s):", op?.target);
         bars.transition().duration(300).attr("fill", baseColor).attr("opacity", 1);
-        return selected; // return data result even if no bars matched visually
+        return selected;
     }
 
-    await Promise.all([
-        target.transition().duration(600).attr("fill", hlColor).attr("opacity", 1).end(),
-        otherBars.transition().duration(600).attr("fill", baseColor).attr("opacity", 0.3).end()
-    ]);
+    // [수정] otherBars를 흐리게 만드는 코드를 제거하고, target에 대한 애니메이션만 남깁니다.
+    await target.transition().duration(600).attr("fill", hlColor).attr("opacity", 1).end();
 
     let xScale, yScale;
     if (orientation === 'vertical') {
@@ -123,7 +122,7 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
         xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
     }
 
-    const targetBars = selected; // already filtered data
+    const targetBars = selected;
     if (orientation === 'vertical') {
         const lines = g.selectAll('.retrieve-line').data(targetBars, d => d.id || d.target);
         lines.enter()
@@ -134,7 +133,8 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
             .attr('y1', d => yScale(d.value))
             .attr('y2', d => yScale(d.value))
             .attr('stroke', 'red')
-            .attr('stroke-width', 2);
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', '5,5');
         lines.exit().remove();
     } else {
         const lines = g.selectAll('.retrieve-line').data(targetBars, d => d.id || d.target);
@@ -146,7 +146,8 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
             .attr('x1', d => xScale(d.value))
             .attr('x2', d => xScale(d.value))
             .attr('stroke', 'red')
-            .attr('stroke-width', 2);
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', '5,5');
         lines.exit().remove();
     }
 
@@ -161,28 +162,6 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
             .text(String(val))
             .attr("opacity", 0)
             .transition().duration(400).attr("opacity", 1);
-    });
-
-    targetBars.forEach(tb => {
-        if (orientation === 'vertical') {
-            g.append('text')
-                .attr('class', 'annotation retrieve-text')
-                .attr('x', xScale(tb.target) + xScale.bandwidth() / 2)
-                .attr('y', yScale(tb.value) - 5)
-                .attr('text-anchor', 'middle')
-                .attr('fill', 'red')
-                .attr('font-weight', 'bold')
-                .text(tb.value);
-        } else {
-            g.append('text')
-                .attr('class', 'annotation retrieve-text')
-                .attr('x', xScale(tb.value))
-                .attr('y', yScale(tb.target) - 5)
-                .attr('text-anchor', 'middle')
-                .attr('fill', 'red')
-                .attr('font-weight', 'bold')
-                .text(tb.value);
-        }
     });
 
     return selected;
@@ -298,13 +277,13 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
 
     if (!Array.isArray(data) || data.length === 0) {
         console.warn("simpleBarFindExtremum: No data to process.");
-        return null;
+        return [];
     }
 
     const selected = dataFindExtremum(data, op, xField, yField, isLast);
     if (!selected) {
         console.warn("simpleBarFindExtremum: Could not compute extremum.");
-        return null;
+        return [];
     }
 
     const hlColor = "#a65dfb";
@@ -316,17 +295,13 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
 
     const bars = selectAllMarks(g);
     const targetBar = selectBarByKey(g, selId);
-    const otherBars = selectBarsExcept(g, [selId]);
 
     if (targetBar.empty()) {
         console.warn("simpleBarFindExtremum: target bar not found for id:", selId);
-        return selected; // Return the data result even if view match failed
+        return [selected];
     }
 
-    await Promise.all([
-        targetBar.transition().duration(600).attr("fill", hlColor).end(),
-        otherBars.transition().duration(600).attr("opacity", 0.4).end()
-    ]);
+    await targetBar.transition().duration(600).attr("fill", hlColor).end();
 
     let xScale, yScale;
     if (orientation === 'vertical') {
@@ -371,7 +346,7 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
             .transition().duration(400).attr("opacity", 1);
     }
 
-    return selected;
+    return [selected];
 }
 
 export async function simpleBarDetermineRange(chartId, op, data, isLast = false) {
@@ -724,7 +699,7 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
 
     const bars = selectAllMarks(g);
     const barWidth = +bars.attr('width');
-    const targetX = plot.w / 2 - barWidth / 2;
+    const targetX = plot.w / 2 - barWidth / 2;ㅁ
 
     let runningTotal = 0;
     const stackPromises = [];
@@ -970,7 +945,7 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
             .attr('font-weight', 'bold')
             .attr('fill', '#20c997')
             .text(`Count: ${totalCount}`);
-        return result;
+        return result ? [result] : [];
     }
 
     const baseColor = '#69b3a2';
@@ -1038,5 +1013,5 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
         .attr('opacity', 0)
         .transition().duration(200).attr('opacity', 1);
 
-    return result;
+    return result ? [result] : [];
 }

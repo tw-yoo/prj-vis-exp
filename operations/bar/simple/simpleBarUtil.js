@@ -114,13 +114,14 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
         // 새로운 chartId 만들어서 렌더링하기
         let currentChartId = `${chartId}-${opKey}`;
         let currentChartTextId = `${currentChartId}-text`;
-        addChildDiv("chart-stack", currentChartTextId, "append");
-        addChildDiv("chart-stack", currentChartId, "append");
+        addChildDiv("chart", currentChartTextId, "append");
+        addChildDiv("chart", currentChartId, "append");
 
         addChartOpsText(currentChartTextId, textSpec[opKey]);
         await renderChart(currentChartId, vlSpec);
 
         let currentData = data;
+        console.log('before op:', opKey, currentData);
         const isLast = opKey === "last";
         if (isLast) {
             const allDatumValues = Object.values(dataCache).flat();
@@ -147,6 +148,7 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
                 });
                 dataCache[opKey] = currentDataArray;
             }
+            console.log('after op:', opKey, currentData);
             // await stackChartToTempTable(currentChartId, vlSpec);
         }
     }
