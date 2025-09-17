@@ -37,18 +37,23 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "encoding": {
-    "y": {
-      "field": "rating",
-      "type": "quantitative"
-    },
     "x": {
-      "field": "country",
+      "field": "month",
       "type": "nominal",
-      "sort": null
+      "sort":null
+
+    },
+    "color": {
+      "field": "weather",
+      "type": "nominal"
+    },
+    "y": {
+      "field": "count",
+      "type": "quantitative"
     }
   },
   "data": {
-    "url": "data/test/data/bar_simple_ver.csv"
+    "url": "data/test/data/bar_stacked_ver.csv"
   },
   "mark": "bar"
 }
