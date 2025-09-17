@@ -12,7 +12,7 @@ import {
 import {
     multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
     multipleLineDetermineRange, multipleLineCompare, multipleLineAverage, multipleLineDiff,
-    multipleLineCount, multipleLineNth
+    multipleLineCount, multipleLineNth, multipleLineCompareBool
 } from './multiLineFunctions.js';
 import {OperationType} from "../../../object/operationType.js";
 import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
@@ -25,6 +25,7 @@ const MULTIPLE_LINE_OP_HANDLERS = {
     [OperationType.FIND_EXTREMUM]:  multipleLineFindExtremum,
     [OperationType.DETERMINE_RANGE]:multipleLineDetermineRange,
     [OperationType.COMPARE]:        multipleLineCompare,
+    [OperationType.COMPARE_BOOL]:   multipleLineCompareBool,
     //[OperationType.SUM]:            multipleLineSum,
     [OperationType.AVERAGE]:        multipleLineAverage,
     [OperationType.DIFF]:           multipleLineDiff,
@@ -111,7 +112,7 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
     const operationKeys = Object.keys(opsSpec);
     for (const opKey of operationKeys) {
         let currentData = datumValues;
-        console.log('before op:', opKey, currentData);
+        // console.log('before op:', opKey, currentData);
         const opsList = opsSpec[opKey];
         currentData = await executeMultipleLineOpsList(chartId, opsList, currentData);
         const currentDataArray = Array.isArray(currentData)
@@ -125,8 +126,8 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
         })
 
         dataCache[opKey] = currentDataArray
-        await stackChartToTempTable(chartId, vlSpec);
-        console.log('after op:', opKey, currentDataArray);
+        // await stackChartToTempTable(chartId, vlSpec);
+        // console.log('after op:', opKey, currentDataArray);
     }
 
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
@@ -147,7 +148,8 @@ export async function renderMultipleLineChart(chartId, spec) {
     const isTemporal = spec.encoding.x.type === 'temporal';
 
     const data = await d3.csv(spec.data.url, d => {
-        if (isTemporal) d[xField] = new Date(d[xField]);
+        // Keep xField as raw text even if it looks like a date; convert only at render time.
+        d[xField] = String(d[xField]);
         d[yField] = +d[yField];
         return d;
     });
@@ -158,7 +160,7 @@ export async function renderMultipleLineChart(chartId, spec) {
     let xScale;
     if (isTemporal) {
         xScale = d3.scaleTime()
-            .domain(d3.extent(data, d => d[xField]))
+            .domain(d3.extent(data, d => new Date(d[xField])))
             .range([0, width]);
     } else {
         // Non-temporal: use unique ordered domain for scalePoint
@@ -212,7 +214,7 @@ export async function renderMultipleLineChart(chartId, spec) {
         .call(d3.axisLeft(yScale));
 
     const lineGen = d3.line()
-        .x(d => xScale(d[xField]))
+        .x(d => isTemporal ? xScale(new Date(d[xField])) : xScale(d[xField]))
         .y(d => yScale(d[yField]));
 
     // Draw series lines
@@ -226,12 +228,11 @@ export async function renderMultipleLineChart(chartId, spec) {
         .attr("d", d => lineGen(d.values));
 
     // Draw datapoint circles for all series
-    const fmtISO = d3.timeFormat("%Y-%m-%d");
     g.selectAll("circle.datapoint")
         .data(
             data,
             d => {
-                const kx = isTemporal ? +d[xField] : String(d[xField]);
+                const kx = String(d[xField]);
                 const ks = String(d[colorField]);
                 return `${kx}|${ks}`; // stable key per (x, series)
             }
@@ -239,12 +240,12 @@ export async function renderMultipleLineChart(chartId, spec) {
         .join(
             enter => enter.append("circle")
                 .attr("class", "datapoint")
-                .attr("cx", d => xScale(d[xField]))
+                .attr("cx", d => isTemporal ? xScale(new Date(d[xField])) : xScale(d[xField]))
                 .attr("cy", d => yScale(d[yField]))
                 .attr("r", 3.5)
                 .attr("fill", d => colorScale(d[colorField]))
                 .attr("opacity", 0)
-                .attr("data-id", d => isTemporal ? fmtISO(d[xField]) : String(d[xField]))
+                .attr("data-id", d => String(d[xField]))
                 .attr("data-value", d => d[yField])
                 .attr("data-series", d => String(d[colorField]))
         );
@@ -277,7 +278,7 @@ function multipleLineToDatumValues(rawData, spec) {
   const datumValues = [];
 
   rawData.forEach(d => {
-    const categoryVal = d[xField];
+    const categoryVal = String(d[xField]);
     const measureVal = +d[yField];
     const groupVal = colorField ? d[colorField] : null;
 

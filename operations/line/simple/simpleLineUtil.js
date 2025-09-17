@@ -7,7 +7,8 @@ import {
     getSvgAndSetup,
     clearAllAnnotations,
     delay,
-    prepareForNextOperation, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount, simpleLineNth
+    prepareForNextOperation, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount, simpleLineNth,
+    simpleLineCompareBool
 } from "./simpleLineFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
 import {
@@ -24,6 +25,7 @@ const SIMPLE_LINE_OP_HANDLERS = {
     [OperationType.FIND_EXTREMUM]:  simpleLineFindExtremum,
     [OperationType.DETERMINE_RANGE]:simpleLineDetermineRange,
     [OperationType.COMPARE]:        simpleLineCompare,
+    [OperationType.COMPARE_BOOL]:   simpleLineCompareBool,
     [OperationType.SUM]:            simpleLineSum,
     [OperationType.AVERAGE]:        simpleLineAverage,
     [OperationType.DIFF]:           simpleLineDiff,
@@ -80,13 +82,26 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
         return;
     }
     // let currentData = [...fullData];
-    let data = convertToDatumValues(fullData, xField, yField, "vertical");
-    let previousOpType = null;
+    const data = raw.map(d => {
+      const o = { ...d };
+
+      o[yField] = +o[yField];
+
+      if (xType === 'temporal') {
+        // Keep as raw text even if it looks like a date
+        o[xField] = String(d[xField]);
+      } else if (xType === 'quantitative') {
+        o[xField] = +d[xField];
+      } else {
+        o[xField] = String(d[xField]);
+      }
+      return o;
+    });
 
     const operationKeys = Object.keys(opsSpec);
     for (const opKey of operationKeys) {
         let currentData = data;
-        console.log('before op:', opKey, currentData);
+        // console.log('before op:', opKey, currentData);
         const opsList = opsSpec[opKey];
         currentData = await executeSimpleLineOpsList(chartId, opsList, currentData);
         const currentDataArray = Array.isArray(currentData)
@@ -100,8 +115,8 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
         })
 
         dataCache[opKey] = currentDataArray
-        await stackChartToTempTable(chartId, vlSpec);
-        console.log('after op:', opKey, currentDataArray);
+        // await stackChartToTempTable(chartId, vlSpec); // 지금 당장은 stack 기능 필요하지 않음.
+        // console.log('after op:', opKey, currentDataArray);
     }
 
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
@@ -117,7 +132,7 @@ export async function renderSimpleLineChart(chartId, spec) {
 
   const xField = spec.encoding.x.field;
   const yField = spec.encoding.y.field;
-  const xType  = spec.encoding.x.type; 
+  const xType  = spec.encoding.x.type;
 
   const raw = await d3.csv(spec.data.url);
 
@@ -128,12 +143,12 @@ export async function renderSimpleLineChart(chartId, spec) {
     o[yField] = +o[yField];
 
     if (xType === 'temporal') {
-      if (/^\d{4}$/.test(d[xField])) o[xField] = new Date(+d[xField], 0, 1);
-      else                           o[xField] = new Date(d[xField]);
+      // Keep as raw text even if it looks like a date
+      o[xField] = String(d[xField]);
     } else if (xType === 'quantitative') {
       o[xField] = +d[xField];
     } else {
-      o[xField] = d[xField];
+      o[xField] = String(d[xField]);
     }
     return o;
   });
@@ -154,10 +169,10 @@ export async function renderSimpleLineChart(chartId, spec) {
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
   const xScale = (xType === 'temporal')
-    ? d3.scaleTime().domain(d3.extent(data, d => d[xField])).range([0, width])
+    ? d3.scaleTime().domain(d3.extent(data, d => new Date(d[xField]))).range([0, width])
     : (xType === 'quantitative'
         ? d3.scaleLinear().domain(d3.extent(data, d => d[xField])).nice().range([0, width])
-        : d3.scalePoint().domain(data.map(d => d[xField])).range([0, width]));
+        : d3.scalePoint().domain(data.map(d => String(d[xField]))).range([0, width]));
 
   const yMax = d3.max(data, d => d[yField]);
   const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([height, 0]);
@@ -167,7 +182,7 @@ export async function renderSimpleLineChart(chartId, spec) {
   g.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
 
   const lineGen = d3.line()
-    .x(d => xScale(d[xField]))
+    .x(d => xType === 'temporal' ? xScale(new Date(d[xField])) : xScale(d[xField]))
     .y(d => yScale(d[yField]));
 
   g.append("path")
@@ -178,21 +193,18 @@ export async function renderSimpleLineChart(chartId, spec) {
     .attr("stroke-width", 2)
     .attr("d", lineGen);
 
-  const fmtISO = d3.timeFormat("%Y-%m-%d");
   g.selectAll(".datapoint")
     .data(data)
     .join("circle")
     .attr("class", "datapoint")
-    .attr("cx", d => xScale(d[xField]))
+    .attr("cx", d => xType === 'temporal' ? xScale(new Date(d[xField])) : xScale(d[xField]))
     .attr("cy", d => yScale(d[yField]))
     .attr("r", 5)
     .attr("fill", "steelblue")
     .attr("opacity", 0)
-    .attr("data-id", d => (
-      d[xField] instanceof Date ? fmtISO(d[xField]) : String(d[xField])
-    ))
+    .attr("data-id", d => String(d[xField]))
     .attr("data-key-year", d => (
-      d[xField] instanceof Date ? d[xField].getFullYear() : null
+      xType === 'temporal' ? new Date(d[xField]).getFullYear() : null
     ))
     .attr("data-value", d => d[yField]);
 

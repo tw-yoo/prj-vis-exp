@@ -44,10 +44,11 @@
 /* Likert group */
 .likert-group {
     width: 50%;
-    border: none;
+    border: 1px solid black;
     /*padding-right: 50%;*/
     margin: 1rem 0;
     font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    flex: 1;
 }
 
 .likert-group .question {
@@ -62,6 +63,8 @@
     flex-direction: row;   /* 가로 배치 */
     gap: 20px;             /* 질문 사이 여백 */
     align-items: flex-start; /* 세로 정렬 옵션 */
+    flow-direction: row;
+    gap: 20px;
 }
 
 .options {
