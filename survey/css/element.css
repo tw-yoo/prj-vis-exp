@@ -45,9 +45,8 @@
 .likert-group {
     width: 50%;
     border: 1px solid black;
-    /*padding-right: 50%;*/
     margin: 1rem 0;
-    font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     flex: 1;
 }
 
@@ -57,14 +56,54 @@
     display: block;
 }
 
-/* Likert 질문들을 감싸는 부모 요소 */
+/* Likert 질문들을 감싸는 부모 요소 (기본: 두 개씩 가로 배치) */
 .likert-container {
     display: flex;
-    flex-direction: row;   /* 가로 배치 */
-    gap: 20px;             /* 질문 사이 여백 */
-    align-items: flex-start; /* 세로 정렬 옵션 */
-    flow-direction: row;
-    gap: 20px;
+    flex-direction: row;   /* two questions side-by-side */
+    align-items: flex-start;
+    gap: 20px;             /* space between questions */
+    position: relative;    /* for center divider */
+    flex-wrap: nowrap;
+}
+
+/* Center divider between the two Likert questions */
+.likert-container::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    border-left: 1px solid var(--divider-color);
+    pointer-events: none;
+}
+
+/* Stack on narrow screens and hide divider */
+@media (max-width: 720px) {
+    .likert-container::before { display: none; }
+    .likert-group { width: 100%; }
+}
+
+/* Block-summary: show Likert questions in 2 columns grid */
+.likert-container.block-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 20px; /* row-gap, column-gap */
+    align-items: start;
+    position: static; /* cancel relative positioning */
+}
+
+.likert-container.block-summary::before {
+    display: none; /* hide vertical divider */
+}
+
+.likert-container.block-summary .likert-group {
+    width: 100%;
+}
+
+@media (max-width: 720px) {
+    .likert-container.block-summary {
+        grid-template-columns: 1fr; /* stack on small screens */
+    }
 }
 
 .options {
@@ -139,7 +178,7 @@
 /* Text input (한 줄, 긴 텍스트는 자동 스크롤) */
 .text-input-wrapper {
     margin: 1rem 0;
-    font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .text-input-wrapper .question {
@@ -180,4 +219,91 @@
 .text-input::-webkit-scrollbar-thumb {
     background: rgba(0,0,0,0.15);
     border-radius: 3px;
+}
+
+/* Final-summary: show Likert questions in 2 columns grid */
+.likert-container.final-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 20px; /* row-gap, column-gap */
+    align-items: start;
+    position: static; /* cancel relative positioning */
+}
+
+.likert-container.final-summary::before {
+    display: none; /* hide vertical divider */
+}
+
+.likert-container.final-summary .likert-group {
+    width: 100%;
+}
+
+@media (max-width: 720px) {
+    .likert-container.final-summary {
+        grid-template-columns: 1fr; /* stack on small screens */
+    }
+}
+
+/* Ranking component (1–4 ordering) */
+.ranking-group {
+    width: 100%;
+    border: 1px solid black;
+    margin: 1rem 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.ranking-group .question {
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.rank-options {
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    flex-wrap: wrap; /* wrap if narrow */
+}
+
+.rank-option {
+    position: relative;
+    flex: 1 1 calc(25% - 9px); /* four per row when space allows */
+    min-width: 140px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 6px 8px 38px; /* 왼쪽에 여백 추가 */
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    user-select: none;
+    transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
+}
+
+.rank-option:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.rank-option:active { transform: translateY(1px); }
+
+.rank-option.has-rank { border-color: #2563eb; }
+
+.rank-badge {
+    position: absolute;
+    top: 6px; left: 6px; right: auto;
+    width: 22px; height: 22px;
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    border-radius: 50%;
+    background: #2563eb;
+    color: #fff;
+    font-size: 12px; font-weight: 700;
+    line-height: 1;
+}
+
+/* Ensure badge hidden when no rank */
+.rank-option:not(.has-rank) .rank-badge { background: transparent; color: transparent; box-shadow: none; border: none; }
+
+/* Mobile adjustments */
+@media (max-width: 720px) {
+    .rank-option { flex: 1 1 48%; }
 }

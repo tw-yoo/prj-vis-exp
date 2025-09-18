@@ -77,21 +77,43 @@ function toPointIdCandidates(key) {
 
 function findDatumByKey(data, key) {
     if (!Array.isArray(data)) return null;
+
+    const keyStr = String(key).trim();
+    const isYearOnly = /^\d{4}$/.test(keyStr);
+
+    // 도메인 데이터가 다양한 스키마를 가질 수 있으므로
+    // 후보 키들을 넓게 잡아서 문자열 비교로 매칭합니다.
+    const CANDIDATE_FIELDS = [
+        'target', 'year', 'date', 'x', 'time', 'timestamp'
+    ];
+
     return data.find(d => {
-        if (!d || d.target == null) return false;
+        if (!d) return false;
 
-        const itemDate = d.target;
-        const targetDateInfo = parseDateWithGranularity(key);
-
-        if (!targetDateInfo.date || !(itemDate instanceof Date)) {
-            return String(d.target) === String(key);
+        // 1) 명시적 후보 필드들을 우선 확인
+        for (const f of CANDIDATE_FIELDS) {
+            if (d[f] != null) {
+                const v = String(d[f]).trim();
+                if (v === keyStr) return true;
+                if (isYearOnly && v.slice(0, 4) === keyStr) return true;
+            }
         }
 
-        if (String(key).length === 4) {
-            return itemDate.getFullYear() === targetDateInfo.date.getFullYear();
+        // 2) 그 외에도 문자열 형태의 필드(예: year 같은 X축 필드)가 있을 수 있으니
+        //    객체의 모든 속성 중 문자열인 것들을 보조로 점검
+        for (const [_, val] of Object.entries(d)) {
+            if (val == null) continue;
+            const v = String(val).trim();
+
+            // 날짜처럼 생긴 문자열은 그대로 비교 (예: 1994-01-01)
+            // 숫자/카테고리도 문자열로 비교
+            if (v === keyStr) return true;
+
+            // key가 4자리 연도만 들어온 경우, "YYYY-..." 형식 앞 4자리 비교 허용
+            if (isYearOnly && v.length >= 4 && v.slice(0, 4) === keyStr) return true;
         }
 
-        return itemDate.getTime() === targetDateInfo.date.getTime();
+        return false;
     });
 }
 
@@ -105,8 +127,7 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
         console.warn("RetrieveValue: target not found for key:", op.target);
         return null;
     }
-
-    const results = dataRetrieveValue(data, { target: datumToFind.target });
+    const results = dataRetrieveValue(data, op);
     console.log("results");
     console.log(results);
     const targetDatum = results.length > 0 ? results[0] : null;

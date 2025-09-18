@@ -1,0 +1,101 @@
+<div class="page-content">
+    <div class="page-fixed-header">
+        <h3>Final Survey</h3>
+        <p>Now that you have experienced <strong>all four explanation methods</strong>, please answer the following questions comparing them.</p>
+    </div>
+
+    <section class="method-review">
+        <h4>Method1</h4>
+        <div data-component="chart" data-chart="exp1_text"></div>
+        <p class="baseline-explanation">[Method1]</p>
+    </section>
+
+    <section class="method-review">
+        <h4>Method2</h4>
+        <div data-component="chart" data-chart="exp1_llm_image"></div>
+        <p class="baseline-explanation">[Method2]</p>
+    </section>
+
+    <section class="method-review">
+        <h4>Method3</h4>
+        <div data-component="chart" data-chart="exp1_expert"></div>
+        <p class="baseline-explanation">[Method3]</p>
+    </section>
+
+    <section class="method-review">
+        <h4>Method4</h4>
+        <div data-component="chart" data-chart="exp1_scrolly"></div>
+        <p class="baseline-explanation">[Method4]</p>
+    </section>
+
+    <!-- Overall preference (Ranking 1–4) -->
+    <section class="likert-container final-summary">
+        <div data-component="ranking"
+             data-name="exp1_final_overall_ranking"
+             data-question="Please rank all explanation methods from 1 (most preferred) to 4 (least preferred). Click to assign numbers; click again to remove."
+             data-options="Method1|Method2|Method3|Method4"></div>
+    </section>
+
+    <!-- Criteria-based best method -->
+    <p><strong>For each of the following criteria, please select the method you think performed best:</strong></p>
+    <section class="likert-container final-summary">
+        <div class="likert-group"
+             data-component="likert"
+             data-name="exp1_final_best_accuracy"
+             data-question="Which method helped you achieve the most accurate answers?"
+             data-labels="Text-based|LLM-generated image|Expert-written|Our method (Scrolly)"></div>
+
+        <div class="likert-group"
+             data-component="likert"
+             data-name="exp1_final_best_speed"
+             data-question="Which method allowed you to verify answers most quickly?"
+             data-labels="Text-based|LLM-generated image|Expert-written|Our method (Scrolly)"></div>
+
+        <div class="likert-group"
+             data-component="likert"
+             data-name="exp1_final_best_clarity"
+             data-question="Which method provided the clearest justification?"
+             data-labels="Text-based|LLM-generated image|Expert-written|Our method (Scrolly)"></div>
+
+        <div class="likert-group"
+             data-component="likert"
+             data-name="exp1_final_best_trust"
+             data-question="Which method did you trust the most overall?"
+             data-labels="Text-based|LLM-generated image|Expert-written|Our method (Scrolly)"></div>
+
+        <div class="likert-group"
+             data-component="likert"
+             data-name="exp1_final_best_enjoyment"
+             data-question="Which method did you find most enjoyable to use?"
+             data-labels="Text-based|LLM-generated image|Expert-written|Our method (Scrolly)"></div>
+    </section>
+
+    <!-- Open-ended questions -->
+    <section class="open-ended-wrap">
+        <div data-component="open-ended"
+             data-id="exp1_final_pos"
+             data-labeltext="What did you like the most about your preferred method?"
+             data-placeholder="Please describe why you preferred it."
+             data-multiline="true"></div>
+
+        <div data-component="open-ended"
+             data-id="exp1_final_neg"
+             data-labeltext="What were the main drawbacks of your least preferred method?"
+             data-placeholder="Please describe why it was less helpful."
+             data-multiline="true"></div>
+
+        <div data-component="open-ended"
+             data-id="exp1_final_tradeoff"
+             data-labeltext="Were there any trade-offs between the methods (e.g., speed vs. clarity)?"
+             data-placeholder="Please describe any important trade-offs you noticed."
+             data-multiline="true"></div>
+
+        <div data-component="open-ended"
+             data-id="exp1_final_suggestions"
+             data-labeltext="Do you have any suggestions for improving the explanations?"
+             data-placeholder="Optional."
+             data-multiline="true"></div>
+    </section>
+
+    <p>Thank you for completing the study! Click <strong>Submit</strong> to finish.</p>
+</div>

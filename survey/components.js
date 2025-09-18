@@ -73,15 +73,14 @@ export async function createChart(cId) {
 
     // Find the target container by data attributes
     const container = document.querySelector(
-      `[data-component="chart"][data-chart="${cId}"]`
+        `[data-component="chart"][data-chart="${cId}"]`
     );
     if (!container) {
-      console.error(`Chart container for "${cId}" not found`);
-      return;
+        console.error(`Chart container for "${cId}" not found`);
+        return;
     }
     // Insert chart div
     container.appendChild(chartDiv);
-
 
     const vegaLiteSpec = await getVegaLiteSpec(cId);
     vegaLiteSpec.data.url = "../" + vegaLiteSpec.data.url;
@@ -116,6 +115,153 @@ export function createLikertQuestion({ name, questionText, labels }) {
     return f;
 }
 
+export function createRankingQuestion({ name, questionText, options }) {
+    // fieldset wrapper
+    const f = document.createElement('fieldset');
+    f.className = 'ranking-group';
+    f.setAttribute('aria-label', questionText);
+
+    // legend
+    const l = document.createElement('legend');
+    l.className = 'question';
+    l.textContent = questionText;
+    f.append(l);
+
+    // hidden input to store ordered values (CSV)
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = name;
+    hidden.value = '';
+    f.append(hidden);
+
+    // state
+    const order = []; // stores indices (0..n-1) in the order clicked
+
+    // container for options (4 methods)
+    const opts = document.createElement('div');
+    opts.className = 'rank-options';
+
+    // utility: update UI badges according to `order`
+    const updateBadges = () => {
+        // set rank numbers and classes
+        const children = Array.from(opts.querySelectorAll('.rank-option'));
+        children.forEach((btn) => {
+            const i = Number(btn.dataset.index);
+            const pos = order.indexOf(i);
+            const badge = btn.querySelector('.rank-badge');
+            if (pos === -1) {
+                btn.classList.remove('has-rank');
+                btn.setAttribute('aria-pressed', 'false');
+                if (badge) badge.textContent = '';
+            } else {
+                btn.classList.add('has-rank');
+                btn.setAttribute('aria-pressed', 'true');
+                if (badge) badge.textContent = String(pos + 1);
+            }
+        });
+        // update hidden input as CSV of option values
+        const orderedValues = order.map(i => String(options[i]));
+        hidden.value = orderedValues.join(',');
+        // dispatch survey-response event for the framework to capture
+        const responseEvent = new CustomEvent('survey-response', {
+            detail: { name, value: orderedValues }
+        });
+        document.dispatchEvent(responseEvent);
+    };
+
+    // click handler toggles membership; removing a middle rank reindexes others
+    const onToggle = (i) => {
+        const pos = order.indexOf(i);
+        if (pos === -1) {
+            // add to end (limit to options.length)
+            if (order.length < options.length) order.push(i);
+        } else {
+            // remove and reindex
+            order.splice(pos, 1);
+        }
+        updateBadges();
+    };
+
+    // build buttons
+    options.forEach((label, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'rank-option';
+        btn.dataset.index = String(i);
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('aria-label', `${label} ranking toggle`);
+
+        const badge = document.createElement('span');
+        badge.className = 'rank-badge';
+        badge.setAttribute('aria-hidden', 'true');
+
+        const text = document.createElement('span');
+        text.className = 'option-text';
+        text.textContent = label;
+
+        btn.append(badge, text);
+        btn.addEventListener('click', () => onToggle(i));
+        btn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onToggle(i);
+            }
+        });
+        opts.append(btn);
+    });
+
+    f.append(opts);
+    return f;
+}
+
+// --- Auto mount for data-component="ranking" placeholders ---
+(function initRankingAutobind(){
+    const SELECTOR = '[data-component="ranking"]';
+
+    const mountOne = (host) => {
+        if (!host || host.__ranking_mounted__) return;
+        host.__ranking_mounted__ = true; // guard against double-mount
+        const name = host.getAttribute('data-name') || host.dataset.name || '';
+        const questionText = host.getAttribute('data-question') || host.dataset.question || '';
+        const raw = host.getAttribute('data-options') || host.dataset.options || '';
+        const options = raw.split('|').map(s => s.trim()).filter(Boolean);
+        const node = createRankingQuestion({ name, questionText, options });
+        host.replaceWith(node);
+    };
+
+    const mountAll = (root = document) => {
+        const nodes = root.querySelectorAll ? root.querySelectorAll(SELECTOR) : [];
+        nodes.forEach(mountOne);
+    };
+
+    // Initial mount
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => mountAll());
+    } else {
+        mountAll();
+    }
+
+    // Observe dynamic injections (SPA route changes, async templates, etc.)
+    const mo = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            if (m.addedNodes && m.addedNodes.length) {
+                m.addedNodes.forEach((node) => {
+                    if (!(node instanceof Element)) return;
+                    if (node.matches && node.matches(SELECTOR)) {
+                        mountOne(node);
+                    } else {
+                        mountAll(node);
+                    }
+                });
+            }
+        }
+    });
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+
+    // Expose manual hook (optional): window.mountRanking(root?)
+    try { window.mountRanking = mountAll; } catch (_) {}
+})();
+
 export function createOpenEndedInput({ id, labelText, placeholder, multiline }) {
     const w = document.createElement('div'); w.className = 'text-input-wrapper';
     const l = document.createElement('label'); l.className = 'question'; l.setAttribute('for', id); l.textContent = labelText;
@@ -125,10 +271,10 @@ export function createOpenEndedInput({ id, labelText, placeholder, multiline }) 
     inp.name = id;
     // Dispatch a survey-response event when the input changes
     inp.addEventListener('input', e => {
-      const responseEvent = new CustomEvent('survey-response', {
-        detail: { name: id, value: e.target.value }
-      });
-      document.dispatchEvent(responseEvent);
+        const responseEvent = new CustomEvent('survey-response', {
+            detail: { name: id, value: e.target.value }
+        });
+        document.dispatchEvent(responseEvent);
     });
     w.append(l, inp); return w;
 }

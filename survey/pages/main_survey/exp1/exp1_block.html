@@ -1,0 +1,105 @@
+<div class="page-content">
+    <div class="page-fixed-header">
+        <h3>Block Summary Survey</h3>
+        <p>Please evaluate the <strong>explanation method</strong> you just used in this block.</p>
+    </div>
+
+    <p><strong>What you saw in this block:</strong> Below are four representative examples (chart + explanation) from this block. You can glance at them to refresh your memory before answering.</p>
+
+    <!-- Examples (4 columns × 1 row) -->
+    <section class="examples-grid" aria-label="Examples from this block">
+        <figure class="example-card" data-example="1">
+            <img src="images/examples/blockX_example1.png" alt="Example 1 from this block" loading="lazy" />
+            <figcaption>
+                <strong>Example 1</strong>
+                <span class="example-desc">Short caption of the explanation sample.</span>
+            </figcaption>
+        </figure>
+
+        <figure class="example-card" data-example="2">
+            <img src="images/examples/blockX_example2.png" alt="Example 2 from this block" loading="lazy" />
+            <figcaption>
+                <strong>Example 2</strong>
+                <span class="example-desc">Short caption of the explanation sample.</span>
+            </figcaption>
+        </figure>
+
+        <figure class="example-card" data-example="3">
+            <img src="images/examples/blockX_example3.png" alt="Example 3 from this block" loading="lazy" />
+            <figcaption>
+                <strong>Example 3</strong>
+                <span class="example-desc">Short caption of the explanation sample.</span>
+            </figcaption>
+        </figure>
+
+        <figure class="example-card" data-example="4">
+            <img src="images/examples/blockX_example4.png" alt="Example 4 from this block" loading="lazy" />
+            <figcaption>
+                <strong>Example 4</strong>
+                <span class="example-desc">Short caption of the explanation sample.</span>
+            </figcaption>
+        </figure>
+    </section>
+
+    <!-- Block-level Likert questions -->
+    <div class="likert-container block-summary">
+        <div data-component="likert"
+             data-name="exp1_block1_clarity"
+             data-question="The explanations in this block were clear and easy to understand."
+             data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>
+
+        <div data-component="likert"
+             data-name="exp1_block1_justification"
+             data-question="The explanations clearly justified why the given answers were correct."
+             data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>
+
+        <div data-component="likert"
+             data-name="exp1_block1_efficiency"
+             data-question="The explanations helped me verify answers quickly."
+             data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>
+
+        <div data-component="likert"
+             data-name="exp1_block1_trust"
+             data-question="I trusted the explanations provided in this block."
+             data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>
+
+        <div data-component="likert"
+             data-name="exp1_block1_load"
+             data-question="The amount of information felt appropriate (not too much, not too little)."
+             data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>
+
+        <div data-component="likert"
+             data-name="exp1_block1_preference"
+             data-question="I would prefer using this explanation method again for similar tasks."
+             data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>
+    </div>
+
+    <!-- Open-ended questions -->
+    <section class="open-ended-wrap">
+        <div data-component="open-ended"
+             data-id="exp1_block1_pos"
+             data-labeltext="What worked well for you with this explanation method?"
+             data-placeholder="Please describe what you liked or found helpful."
+             data-multiline="true"></div>
+
+        <div data-component="open-ended"
+             data-id="exp1_block1_neg"
+             data-labeltext="What could be improved?"
+             data-placeholder="Please describe anything confusing, frustrating, or missing."
+             data-multiline="true"></div>
+
+        <div data-component="open-ended"
+             data-id="exp1_block1_issues"
+             data-labeltext="Did you notice any errors or misleading parts?"
+             data-placeholder="If yes, please describe briefly."
+             data-multiline="true"></div>
+
+        <div data-component="open-ended"
+             data-id="exp1_block1_anything_else"
+             data-labeltext="Anything else you want to share?"
+             data-placeholder="Optional."
+             data-multiline="true"></div>
+    </section>
+
+    <p>When you are ready, click <strong>Next</strong> to continue.</p>
+</div>

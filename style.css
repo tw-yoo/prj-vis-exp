@@ -1,14 +1,41 @@
-html, body { margin: 0; height: 100%; }
-#container { display: grid; grid-template-columns: 30% 5% 65%; height: 100%; }
-#left-panel, #right-panel, #container { position: relative; }
-#left-panel { display: grid; grid-template-rows: 2.5% 2.5% 30% 5% 10% 5% 20% 2.5% 2.5% 20%; padding: 10px; box-sizing: border-box; }
-#left-panel .label { font-weight: bold; }
-#left-panel textarea { width: 100%; height: 100%; box-sizing: border-box; }
+/* style.css */
+
+html, body {
+    margin: 0;
+    height: 100%;
+}
+
+#container {
+    display: grid;
+    grid-template-columns: 30% 5% 65%;
+    height: 100%;
+}
+
+#left-panel, #right-panel, #container {
+    position: relative;
+}
+
+#left-panel {
+    display: grid;
+    grid-template-rows: 2.5% 2.5% 30% 5% 10% 5% 20% 2.5% 2.5% 20%;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+#left-panel .label {
+    font-weight: bold;
+}
+
+#left-panel textarea {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
 
 /* Keep editors confined so they don't overlay buttons */
 .CodeMirror {
     position: relative;
-    height: 260px !important; /* was 100% */
+    height: 260px !important;
     overflow: auto;
     box-sizing: border-box;
 }
@@ -17,48 +44,83 @@ html, body { margin: 0; height: 100%; }
     display: grid;
     grid-template-rows: 1fr auto;
     row-gap: 0;
-    justify-items: center;
+    /* 가운데 정렬을 없애고, 가로 폭을 꽉 채우게 */
+    justify-items: stretch;
     align-items: start;
     padding: 10px;
     box-sizing: border-box;
-
     max-height: 100vh;
     overflow-y: auto;
+    scroll-snap-type: y proximity;
+    overscroll-behavior: contain;
 }
 
-#chart-stack {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    overflow-y: auto;
-}
-
-#run-button { width: 80px; height: 30px; }
-#chart:not(.chart-canvas),
-#chart__host {
+#chart {
     width: 100%;
-    height: auto;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    overflow: visible;
-    line-height: 0;
-    padding: 0;
-    margin: 0;
-    gap: 0;
+    /* 높이 조정은 scrolly 레이아웃 안에서 graphic wrapper가 제어 */
 }
 
 #chart svg {
     display: block;
     width: 100% !important;
+    /* 높이를 자동에만 맡기지 말고 최소 높이를 보장 */
+    min-height: 420px;
     height: auto !important;
-    max-height: 100%;
+    max-height: 70vh;   /* 필요 시 튜닝 */
     margin: 0;
     padding: 0;
     transform: none;
 }
 
+/* Scrollytelling layout 추가 */
+#chart.scrolly {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+
+#chart .scrolly-graphic {
+    position: sticky;
+    top: 12px;
+    z-index: 5;
+    background: transparent;
+    /* ✅ 얇은 테두리 제거 */
+    border: none;
+    border-radius: 0;
+    /* 차트가 좁아지지 않도록 패딩도 제거 */
+    padding: 0;
+    /* 폭은 부모 가로 100% */
+    width: 100%;
+    box-sizing: border-box;
+}
+
+#chart .chart-canvas {
+    display: block;
+    width: 100%;
+    line-height: 0;
+}
+
+#chart .scrolly-steps {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    padding-bottom: 40vh; /* 마지막 스텝 여유 */
+}
+
+#chart .step {
+    scroll-snap-align: start;
+    min-height: 65vh;
+    border-top: 1px solid #e5e5e5;
+    padding: 12px 4px;
+}
+
+#chart .step.is-active {
+    outline: 1px dashed #bbb;
+}
+
+/* 기타 스타일 정돈 */
 .row-header {
     display: flex;
     justify-content: space-between;
@@ -110,10 +172,42 @@ html, body { margin: 0; height: 100%; }
     flex: 0 0 auto;
     margin-top: 0;
 }
-.temp-chart-cell { height: 100%; }
+
+.temp-chart-cell {
+    height: 100%;
+}
+
 .temp-chart-cell svg {
     width: 100%;
     height: 100%;
     display: block;
     pointer-events: none;
+}
+
+/* 모든 테두리/아웃라인/섀도 제거 (차트 컨테이너와 자식 전체) */
+#chart, #chart * {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+/* Vega/Vega-Lite가 그리는 프레임(테두리) 제거 */
+#chart .role-frame,
+#chart .role-frame > rect,
+#chart .mark-group.role-frame > rect,
+#chart .mark-group.role-frame > path {
+    stroke: none !important;
+    fill: transparent !important;
+}
+
+/* 포커스 링 방지 (마우스 클릭 후 생기는 1px 윤곽선) */
+#chart svg:focus,
+#chart .chart-canvas:focus,
+#chart .vega-embed:focus {
+    outline: none !important;
+}
+
+/* iOS 등 터치 하이라이트 제거 */
+#chart, #chart * {
+    -webkit-tap-highlight-color: transparent;
 }

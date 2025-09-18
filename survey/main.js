@@ -90,12 +90,14 @@ function restoreResponses() {
 }
 
 const pages = [
-  'pages/main.html',
-  'pages/tutorial/tutorial_intro.html',
-  'pages/tutorial/tutorial_overview.html',
-  'pages/tutorial/tutorial_question.html',
-  'pages/main_survey/main_intro.html',
+    'pages/main.html',
+    'pages/tutorial/tutorial_intro.html',
+    'pages/tutorial/tutorial_overview.html',
+    'pages/tutorial/tutorial_question.html',
+    'pages/main_survey/main_intro.html',
     'pages/main_survey/exp1/exp1_round1.html',
+    'pages/main_survey/exp1/exp1_block.html',
+    'pages/main_survey/main_last.html',
     'pages/completion.html'
 ];
 // Initialize page index from URL, defaulting to 0
