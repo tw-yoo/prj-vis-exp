@@ -30,9 +30,24 @@ export function filter(data, op, xField, yField, isLast = false) {
     const numericOps = new Set(['>', '>=', '<', '<=']);
 
     return data.filter(item => {
-        if (!item || item[field] === undefined) return false;
+        if (!item) return false;
         
-        const itemValue = item[field];
+        // --- 여기가 핵심 수정 부분 ---
+        // op.field와 DatumValue의 실제 속성(target, group, value)을 연결합니다.
+        let fieldToCheck = field;
+        if (item.measure && field.toLowerCase() === item.measure.toLowerCase()) {
+            fieldToCheck = 'value';
+        } else if (item.category && field.toLowerCase() === item.category.toLowerCase()) {
+            fieldToCheck = 'target';
+        } else if (xField && field.toLowerCase() === xField.toLowerCase()) {
+            fieldToCheck = 'group';
+        }
+        
+        // 변환된 fieldToCheck으로 item에 해당 속성이 있는지 확인합니다.
+        if (item[fieldToCheck] === undefined) return false;
+        
+        const itemValue = item[fieldToCheck];
+        // --- 수정 끝 ---
 
         if (operator === 'in' || operator === 'not-in') {
             const valueSet = new Set(asArray(value).map(String));

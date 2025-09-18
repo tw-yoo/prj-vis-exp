@@ -224,6 +224,7 @@ async function stackedBarToSimpleBar(chartId, filteredData) {
     transformPromises.push(yAxisTransition);
     await Promise.all(transformPromises);
 }
+
 export async function stackedBarFilter(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -253,6 +254,34 @@ export async function stackedBarFilter(chartId, op, data) {
         keepCategories = new Set(filteredByTarget.map(d => d.target));
     }
 
+    // 필터 조건 라벨 (차트 상단 왼쪽)
+    svg.append("text").attr("class", "filter-label")
+        .attr("x", margins.left).attr("y", margins.top - 8)
+        .attr("font-size", 12).attr("fill", "black").attr("font-weight", "bold")
+        .text(`Filter: ${op.field} ${op.operator} ${op.value}`);
+
+    if (op.field === measureField && Number.isFinite(op.value)) {
+        const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+        const maxTotal = d3.max(sumsByCategory.values());
+        const yScale = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
+        const yPos = yScale(op.value); // plot.h 기준이므로 margins.top 더하지 않음
+        
+        // 기준선 그리기
+        g.append('line').attr('class', 'annotation threshold-line')
+            .attr('x1', 0).attr('y1', yPos)
+            .attr('x2', plot.w).attr('y2', yPos)
+            .attr('stroke', 'blue').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
+            
+        // 기준선 라벨 (차트 내부, 선 위에)
+        g.append('text').attr('class', 'annotation threshold-label')
+            .attr('x', plot.w - 5).attr('y', yPos - 5)
+            .attr('text-anchor', 'end')
+            .attr('fill', 'blue').attr('font-size', 12).attr('font-weight', 'bold')
+            .text(`${op.value}`);
+        
+        await delay(800);
+    }
+
     const allRects = g.selectAll('rect');
     const keepSel = allRects.filter(d => keepCategories.has(String(d.key)));
     const dropSel = allRects.filter(d => !keepCategories.has(String(d.key)));
@@ -271,27 +300,10 @@ export async function stackedBarFilter(chartId, op, data) {
         .end();
 
     await Promise.all([rectTransition, axisTransition]);
-
-    if (op.field === measureField && Number.isFinite(op.value)) {
-        const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-        const maxTotal = d3.max(sumsByCategory.values());
-        const yScale = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
-        const yPos = margins.top + yScale(op.value);
-        
-        svg.append('line').attr('class', 'annotation threshold-line')
-            .attr('x1', margins.left).attr('y1', yPos)
-            .attr('x2', margins.left + plot.w).attr('y2', yPos)
-            .attr('stroke', 'blue').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
-            
-        svg.append('text').attr('class', 'annotation threshold-label')
-            .attr('x', margins.left + plot.w + 6).attr('y', yPos)
-            .attr('dominant-baseline', 'middle')
-            .attr('fill', 'blue').attr('font-weight', 'bold')
-            .text(`${op.operator} ${op.value}`);
-    }
-        
+    
     return data.filter(d => keepCategories.has(String(d.target)));
 }
+
 
 export async function stackedBarRetrieveValue(chartId, op, data) {
     const { svg, g, margins } = getSvgAndSetup(chartId);
@@ -305,7 +317,7 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
 
     if (matchedData.length === 0) {
         console.warn('stackedBarRetrieveValue: no matching data found for', op);
-        return null;
+        return [];
     }
 
     const targetPairs = new Set(matchedData.map(d => `${d.target}-${d.group}`));
@@ -332,16 +344,15 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
     }).nodes();
 
     if (targetNodes.length > 0) {
-        let minY = Infinity, maxY = -Infinity;
+        let minY = Infinity;
         targetNodes.forEach(n => {
             const b = n.getBBox();
             minY = Math.min(minY, b.y);
-            maxY = Math.max(maxY, b.y + b.height);
         });
         const lastNodeBBox = targetNodes[targetNodes.length - 1].getBBox();
 
-        const labelX = margins.left + lastNodeBBox.x + lastNodeBBox.width / 2;
-        const labelY = margins.top + (op.group ? (minY + maxY) / 2 : minY - 8);
+        const labelX = lastNodeBBox.x + lastNodeBBox.width / 2;
+        const labelY = minY - 8;
 
         g.append('text')
             .attr('class', 'value-tag annotation')
@@ -358,8 +369,9 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
             .transition().duration(200).attr('opacity', 1);
     }
 
-    return op.group ? matchedData[0] : matchedData;
+    return matchedData;
 }
+
 
 export async function stackedBarFindExtremum(chartId, op, data) {
     const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
@@ -392,22 +404,29 @@ export async function stackedBarFindExtremum(chartId, op, data) {
 
     if (!targetDatum) {
         console.warn('FindExtremum: No result found for', op);
-        return null;
+        return [];
     }
 
     const allRects = g.selectAll('rect');
-    const hlColor = '#a65dfb';
+    const hlColor = '#8A2BE2';
 
     if (scope === 'category') {
         const category = String(op.category);
         const targetRect = allRects.filter(d => String(d.key) === category && String(d.subgroup) === String(targetDatum.group));
         const categoryRects = allRects.filter(d => String(d.key) === category);
         const otherRects = allRects.filter(d => String(d.key) !== category);
+        const nonTargetInCategory = categoryRects.filter(function() {
+            return this !== targetRect.node();
+        });
+
+        await otherRects.transition().duration(600).attr("opacity", 0.2).end();
+        await delay(300);
+        
         await Promise.all([
-            otherRects.transition().duration(500).attr("opacity", 0.2).end(),
-            categoryRects.transition().duration(500).attr("opacity", 0.6).end(),
+            nonTargetInCategory.transition().duration(500).attr("opacity", 0.6).end(),
+            targetRect.transition().duration(500).attr("fill", hlColor).attr("stroke", "black").attr("stroke-width", 1).end()
         ]);
-        await targetRect.transition().duration(300).attr("opacity", 1).attr("fill", hlColor).end();
+
     } else if (scope === 'group') {
         const group = String(op.group);
         const groupRects = allRects.filter(d => String(d.subgroup) === group);
@@ -419,14 +438,18 @@ export async function stackedBarFindExtremum(chartId, op, data) {
         const extremumCategory = targetDatum.target;
         const targetStackRects = allRects.filter(d => String(d.key) === String(extremumCategory));
         await g.selectAll("rect").transition().duration(500).attr("opacity", 0.2).end();
-        await targetStackRects.transition().duration(500).attr("opacity", 1).end();
+        await targetStackRects.transition().duration(500).attr("opacity", 1).attr("stroke", "black").attr("stroke-width", 0.5).end();
 
         const yMax = d3.max(Array.from(d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target).values()));
         const y = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
         const yPos = margins.top + y(extremumValue);
 
         svg.append("line").attr("class", "annotation").attr("x1", margins.left).attr("y1", yPos).attr("x2", margins.left + plot.w).attr("y2", yPos).attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-        svg.append("text").attr("class", "annotation").attr("x", margins.left + plot.w - 8).attr("y", yPos - 8).attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold").text(`${op.which} Total: ${fmtNum(extremumValue)}`);
+        svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left + plot.w - 8).attr("y", yPos - 8)
+            .attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(`${op.which} Total: ${fmtNum(extremumValue)}`);
     }
 
     if (scope === 'category' || scope === 'group') {
@@ -435,18 +458,20 @@ export async function stackedBarFindExtremum(chartId, op, data) {
             const pos = absCenter(svg, node);
             svg.append("text").attr("class", "annotation")
                 .attr("x", pos.x).attr("y", pos.y + node.getBBox().height/2)
-                .attr("text-anchor", "middle").attr("dominant-baseline", "middle").attr("fill", "white").attr("font-weight", "bold")
+                .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
+                .attr("fill", "black").attr("font-weight", "bold")
+                .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
                 .text(fmtNum(extremumValue));
         }
     }
-    return targetDatum;
+    
+    return targetDatum ? [targetDatum] : [];
 }
 
 export async function stackedBarDetermineRange(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 특정 시리즈(group)의 범위 구하기
     if (op.group != null) {
         const subgroup = String(op.group);
         const subset = data.filter(dv => String(dv.group) === subgroup);
@@ -467,7 +492,6 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
         return new IntervalValue(subgroup, minV ?? 0, maxV ?? 0);
     }
 
-    // 2. 스택 총합의 범위 구하기
     const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
     const totals = Array.from(sumsByCategory.values());
     if (totals.length === 0) return null;
@@ -488,53 +512,56 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
     
     const hlColor = "#0d6efd";
     const y = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
+    const animationPromises = [];
 
-    // 최소값 막대 강조
-    await Promise.all([
-        otherRects.transition().duration(500).attr("opacity", 0.2).end(),
-        maxStackRects.transition().duration(500).attr("opacity", 0.2).end()
-    ]);
-    await minStackRects.transition().duration(500).attr("opacity", 1).end();
-    await delay(700);
+    animationPromises.push(
+        otherRects.transition().duration(600).attr("opacity", 0.2).end()
+    );
+    animationPromises.push(
+        minStackRects.transition().duration(600).attr("opacity", 1).end()
+    );
+    animationPromises.push(
+        maxStackRects.transition().duration(600).attr("opacity", 1).end()
+    );
+
+    [{ value: minTotal, label: "MIN" }, { value: maxTotal, label: "MAX" }].forEach(item => {
+        const yPos = margins.top + y(item.value);
+        const line = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left).attr("y1", yPos).attr("x2", margins.left).attr("y2", yPos)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+
+        animationPromises.push(
+            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
+        );
+
+        const text = svg.append("text").attr("class", "annotation")
+            .attr("x", margins.left + plot.w - 8)
+            .attr("y", yPos - 8)
+            .attr("text-anchor", "end")
+            .attr("fill", hlColor).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(`${item.label}: ${fmtNum(item.value)}`)
+            .attr("opacity", 0);
+
+        animationPromises.push(
+            text.transition().delay(400).duration(400).attr("opacity", 1).end()
+        );
+    });
     
-    // 최소값 라인 및 텍스트 표시
-    const yPosMin = margins.top + y(minTotal);
-    svg.append("line").attr("class", "annotation")
-        .attr("x1", margins.left).attr("y1", yPosMin).attr("x2", margins.left).attr("y2", yPosMin)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
-        .transition().duration(600).attr("x2", margins.left + plot.w);
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left - 8).attr("y", yPosMin).attr("text-anchor", "end")
-        .attr("dominant-baseline", "middle").attr("fill", hlColor).attr("font-weight", "bold")
-        .text(`MIN: ${fmtNum(minTotal)}`);
-
-    await delay(800);
-
-    // 최대값 막대 강조
-    await minStackRects.transition().duration(500).attr("opacity", 0.2).end();
-    await maxStackRects.transition().duration(500).attr("opacity", 1).end();
-    await delay(700);
-
-    // 최대값 라인 및 텍스트 표시
-    const yPosMax = margins.top + y(maxTotal);
-    svg.append("line").attr("class", "annotation")
-        .attr("x1", margins.left).attr("y1", yPosMax).attr("x2", margins.left).attr("y2", yPosMax)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
-        .transition().duration(600).attr("x2", margins.left + plot.w);
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left - 8).attr("y", yPosMax).attr("text-anchor", "end")
-        .attr("dominant-baseline", "middle").attr("fill", hlColor).attr("font-weight", "bold")
-        .text(`MAX: ${fmtNum(maxTotal)}`);
-
-    await delay(800);
-    
-    // 최종 결과 텍스트 표시
-    svg.append("text").attr("class", "annotation")
+    const rangeText = `Range of Stack Totals: ${fmtNum(minTotal)} ~ ${fmtNum(maxTotal)}`;
+    const topLabel = svg.append("text").attr("class", "annotation")
         .attr("x", margins.left).attr("y", margins.top - 10)
         .attr("font-size", 14).attr("font-weight", "bold")
         .attr("fill", hlColor)
-        .text(`Range of Stack Totals: ${fmtNum(minTotal)} ~ ${fmtNum(maxTotal)}`)
-        .attr("opacity", 0).transition().duration(400).attr("opacity", 1);
+        .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+        .text(rangeText)
+        .attr("opacity", 0);
+
+    animationPromises.push(
+        topLabel.transition().delay(200).duration(600).attr("opacity", 1).end()
+    );
+
+    await Promise.all(animationPromises);
 
     return new IntervalValue('Stack Totals', minTotal, maxTotal);
 }
@@ -546,17 +573,127 @@ export async function stackedBarCompare(chartId, op, data) {
     const opForCompare = {
         targetA: { target: op.targetA.category, group: op.targetA.series },
         targetB: { target: op.targetB.category, group: op.targetB.series },
+        operator: op.operator,
+        which: op.which
+    };
+    const winner = dataCompare(data, opForCompare);
+    
+    if (winner === undefined) {
+        console.warn("stackedBarCompare: Comparison failed, data not found.", op);
+        return [];
+    }
+    
+    const datumA = data.find(d => String(d.target) === op.targetA.category && String(d.group) === op.targetA.series);
+    const datumB = data.find(d => String(d.target) === op.targetB.category && String(d.group) === op.targetB.series);
+    
+    if (!datumA || !datumB) {
+        console.warn("stackedBarCompare: One or both data points not found.", op);
+        return [];
+    }
+    const valueA = datumA.value;
+    const valueB = datumB.value;
+
+    const allRects = g.selectAll("rect");
+    let rectA, rectB;
+
+    allRects.each(function() {
+        const d = d3.select(this).datum();
+        if (d && String(d.key) === op.targetA.category && String(d.subgroup) === op.targetA.series) rectA = d3.select(this);
+        if (d && String(d.key) === op.targetB.category && String(d.subgroup) === op.targetB.series) rectB = d3.select(this);
+    });
+
+    if (!rectA || !rectB) {
+        return winner ? [winner] : [];
+    }
+
+    const otherRects = allRects.filter(function() {
+        return this !== rectA.node() && this !== rectB.node();
+    });
+
+    await otherRects.transition().duration(600).attr("opacity", 0).remove().end();
+    
+    const tempXDomain = [`${op.targetA.category}(${op.targetA.series})`, `${op.targetB.category}(${op.targetB.series})`];
+    const tempXScale = d3.scaleBand().domain(tempXDomain).range([0, plot.w]).padding(0.4);
+    const newYMax = Math.max(valueA, valueB);
+    const newYScale = d3.scaleLinear().domain([0, newYMax]).nice().range([plot.h, 0]);
+
+    const transformPromises = [];
+    transformPromises.push(g.select(".y-axis").transition().duration(1000).call(d3.axisLeft(newYScale)).end());
+    transformPromises.push(g.select(".x-axis").transition().duration(1000).call(d3.axisBottom(tempXScale)).end());
+    transformPromises.push(rectA.transition().duration(1000)
+        .attr("x", tempXScale(tempXDomain[0]))
+        .attr("width", tempXScale.bandwidth())
+        .attr("y", newYScale(valueA))
+        .attr("height", plot.h - newYScale(valueA)).end());
+    transformPromises.push(rectB.transition().duration(1000)
+        .attr("x", tempXScale(tempXDomain[1]))
+        .attr("width", tempXScale.bandwidth())
+        .attr("y", newYScale(valueB))
+        .attr("height", plot.h - newYScale(valueB)).end());
+
+    await Promise.all(transformPromises);
+    await delay(500);
+    
+    const colorA = rectA.attr('fill');
+    const colorB = rectB.attr('fill');
+
+    const addAnnotation = (bar, value, color) => {
+        const bbox = bar.node().getBBox();
+        const xPos = margins.left + bbox.x + bbox.width / 2;
+        const yPos = margins.top + bbox.y;
+
+        svg.append('line').attr('class', 'annotation')
+            .attr('x1', margins.left).attr('y1', yPos)
+            .attr('x2', margins.left + plot.w).attr('y2', yPos)
+            .attr('stroke', color).attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+        svg.append('text').attr('class', 'annotation')
+            .attr('x', xPos).attr('y', yPos - 5)
+            .attr('text-anchor', 'middle').attr('fill', color).attr('font-weight', 'bold')
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(fmtNum(value));
+    };
+
+    addAnnotation(rectA, valueA, colorA);
+    addAnnotation(rectB, valueB, colorB);
+    
+    const labelA = tempXDomain[0];
+    const labelB = tempXDomain[1];
+
+    const resultText = `${labelA}: ${fmtNum(valueA)} vs ${labelB}: ${fmtNum(valueB)}`;
+    svg.append('text').attr('class', 'compare-label annotation')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', '#333')
+        .text(resultText);
+
+    return winner ? [winner] : [];
+}
+
+export async function stackedBarCompareBool(chartId, op, data) {
+    const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const opForCompare = {
+        targetA: { target: op.targetA.category, group: op.targetA.series },
+        targetB: { target: op.targetB.category, group: op.targetB.series },
         operator: op.operator
     };
     const compareResult = dataCompareBool(data, opForCompare);
     
     if (compareResult === null) {
-        console.warn("stackedBarCompare: Comparison failed, data not found.", op);
+        console.warn("stackedBarCompareBool: Comparison failed, data not found.", op);
         return new BoolValue('', false);
     }
+    
     const result = compareResult.bool;
     const datumA = data.find(d => String(d.target) === op.targetA.category && String(d.group) === op.targetA.series);
     const datumB = data.find(d => String(d.target) === op.targetB.category && String(d.group) === op.targetB.series);
+    
+    if (!datumA || !datumB) {
+        console.warn("stackedBarCompareBool: One or both data points not found", op);
+        return compareResult;
+    }
+
     const valueA = datumA.value;
     const valueB = datumB.value;
 
@@ -611,7 +748,7 @@ export async function stackedBarCompare(chartId, op, data) {
 
         svg.append('line').attr('class', 'annotation')
             .attr('x1', margins.left).attr('y1', yPos)
-            .attr('x2', xPos).attr('y2', yPos)
+            .attr('x2', margins.left + plot.w).attr('y2', yPos) // 전체 너비로 수정
             .attr('stroke', color).attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
         svg.append('text').attr('class', 'annotation')
             .attr('x', xPos).attr('y', yPos - 5)
@@ -626,7 +763,7 @@ export async function stackedBarCompare(chartId, op, data) {
     const symbol = { '>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ' }[op.operator] || ` ${op.operator} `;
     const labelA = tempXDomain[0];
     const labelB = tempXDomain[1];
-
+    
     svg.append('text').attr('class', 'compare-label annotation')
         .attr('x', margins.left).attr('y', margins.top - 10)
         .attr('font-size', 14).attr('font-weight', 'bold')
@@ -635,6 +772,8 @@ export async function stackedBarCompare(chartId, op, data) {
 
     return compareResult;
 }
+
+
 export async function stackedBarSort(chartId, op, data) {
     const { svg, g, xField, yField, plot, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -736,7 +875,6 @@ export async function stackedBarSum(chartId, op, data) {
 
     return result;
 }
-
 export async function stackedBarAverage(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -747,13 +885,18 @@ export async function stackedBarAverage(chartId, op, data) {
         
         if (!result) {
             console.warn('stackedBarAverage: Could not compute average for group:', op.group);
-            return null;
+            return [];
         }
         
+        const avgDatum = new DatumValue(
+            result.category, result.measure, result.target,
+            result.group, result.value, result.id
+        );
+
         const simpleBarData = seriesData.map(d => ({ target: d.target, value: d.value }));
         await animateStackToTotalsBar(chartId, simpleBarData);
         
-        const avgValue = result.value;
+        const avgValue = avgDatum.value;
         const yMax = d3.max(simpleBarData, d => d.value);
         const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
         const yPos = margins.top + yScale(avgValue);
@@ -765,20 +908,21 @@ export async function stackedBarAverage(chartId, op, data) {
             .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
 
         svg.append("text").attr("class", "annotation avg-label")
-            .attr("x", margins.left + plot.w + 6).attr("y", yPos)
-            .attr("dominant-baseline", "middle")
+            .attr("x", margins.left + plot.w - 8).attr("y", yPos - 8)
+            .attr("text-anchor", "end")
             .attr("fill", hlColor).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(`Avg: ${fmtNum(avgValue)}`);
             
-        return result;
+        return [avgDatum];
 
     } else {
         const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
         const totals = Array.from(sumsByCategory.values());
         const avgTotal = d3.mean(totals);
-        const result = new DatumValue(xField, yField, 'Average of Totals', null, avgTotal, null);
+        const resultDatum = new DatumValue(xField, yField, 'Average of Totals', null, avgTotal, null);
         
-        if (!Number.isFinite(avgTotal)) return null;
+        if (!Number.isFinite(avgTotal)) return [];
 
         const maxTotal = d3.max(totals);
         const yScale = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
@@ -793,14 +937,15 @@ export async function stackedBarAverage(chartId, op, data) {
             .attr("x2", margins.left + plot.w);
 
         svg.append("text").attr("class", "annotation avg-label")
-            .attr("x", margins.left + plot.w + 6).attr("y", yPos)
-            .attr("dominant-baseline", "middle")
+            .attr("x", margins.left + plot.w - 8).attr("y", yPos - 8)
+            .attr("text-anchor", "end")
             .attr("fill", hlColor).attr("font-weight", "bold")
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(`Avg: ${fmtNum(avgTotal)}`)
             .attr("opacity", 0)
             .transition().delay(200).duration(400).attr("opacity", 1);
 
-        return result;
+        return [resultDatum];
     }
 }
 
@@ -816,15 +961,20 @@ export async function stackedBarDiff(chartId, op, data) {
 
     if (!diffResult) {
         console.warn("stackedBarDiff: Could not compute difference.", op);
-        return null;
+        return [];
     }
     
+    const diffDatum = new DatumValue(
+        diffResult.category, diffResult.measure, diffResult.target,
+        diffResult.group, Math.abs(diffResult.value), diffResult.id
+    );
+
     const datumA = data.find(d => String(d.target) === op.targetA.category && String(d.group) === op.targetA.series);
     const datumB = data.find(d => String(d.target) === op.targetB.category && String(d.group) === op.targetB.series);
     
     if (!datumA || !datumB) {
         console.warn("stackedBarDiff: One or both data points not found", op);
-        return null;
+        return [];
     }
 
     const valueA = datumA.value;
@@ -841,7 +991,7 @@ export async function stackedBarDiff(chartId, op, data) {
     });
 
     if (!rectA || !rectB) {
-        return diffResult;
+        return [diffDatum];
     }
 
     const otherRects = allRects.filter(function() {
@@ -870,49 +1020,42 @@ export async function stackedBarDiff(chartId, op, data) {
 
     await Promise.all(transformPromises);
     await delay(500);
-
-    const tallerBar = valueA >= valueB ? rectA : rectB;
-    const shorterBar = valueA < valueB ? rectA : rectB;
-    const shorterValue = Math.min(valueA, valueB);
     
-    const colorTaller = "#ffeb3b", colorShorter = "#2196f3", colorSubtract = "#f44336";
-    await tallerBar.transition().duration(500).attr("fill", colorTaller).end();
-    await shorterBar.transition().duration(500).attr("fill", colorShorter).end();
+    const colorA = rectA.attr('fill');
+    const colorB = rectB.attr('fill');
 
-    shorterBar.raise(); 
-    await shorterBar.transition().duration(800).attr("x", tallerBar.attr("x")).end();
-    await delay(500);
+    const addAnnotation = (bar, value, color) => {
+        const bbox = bar.node().getBBox();
+        const xPos = margins.left + bbox.x + bbox.width / 2;
+        const yPos = margins.top + bbox.y;
 
-    const subtractionRect = g.append("rect").attr("class", "annotation")
-        .attr("x", tallerBar.attr("x")).attr("y", newYScale(shorterValue))
-        .attr("width", tallerBar.attr("width")).attr("height", plot.h - newYScale(shorterValue))
-        .attr("fill", colorSubtract).attr("opacity", 0);
+        svg.append('line').attr('class', 'annotation')
+            .attr('x1', margins.left).attr('y1', yPos)
+            .attr('x2', margins.left + plot.w).attr('y2', yPos)
+            .attr('stroke', color).attr('stroke-width', 1.5).attr('stroke-dasharray', '4 4');
+        svg.append('text').attr('class', 'annotation')
+            .attr('x', xPos).attr('y', yPos - 5)
+            .attr('text-anchor', 'middle').attr('fill', color).attr('font-weight', 'bold')
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(fmtNum(value));
+    };
+
+    addAnnotation(rectA, valueA, colorA);
+    addAnnotation(rectB, valueB, colorB);
     
-    await subtractionRect.transition().duration(400).attr("opacity", 0.7).end();
-    await delay(600);
-    
-    await Promise.all([
-        subtractionRect.transition().duration(600).attr("opacity", 0).remove().end(),
-        shorterBar.transition().duration(600).attr("opacity", 0).remove().end(),
-        tallerBar.transition().duration(800)
-            .attr("y", newYScale(diff))
-            .attr("height", plot.h - newYScale(diff)).end()
-    ]);
-    
-    const finalX = +tallerBar.attr("x") + (+tallerBar.attr("width") / 2);
-    const finalY = newYScale(diff);
+    const resultText = `Difference: ${fmtNum(diff)}`;
+    svg.append('text').attr('class', 'annotation')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', '#333')
+        .text(resultText);
 
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left + finalX).attr("y", margins.top + finalY - 8)
-        .attr("text-anchor", "middle").attr("fill", "#333").attr("font-weight", "bold")
-        .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
-        .text(`Difference: ${fmtNum(diff)}`);
-
-    return diffResult;
+    return [diffDatum];
 }
 
 export async function stackedBarNth(chartId, op, data) {
-    const { svg, g, margins } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     const nthOp = { ...op, groupBy: 'target' };
@@ -925,7 +1068,7 @@ export async function stackedBarNth(chartId, op, data) {
 
     let n = Number(op?.n ?? 1);
     const from = String(op?.from || 'left').toLowerCase();
-    const hlColor = '#20c997';
+    const hlColor = '#ff6961';
 
     const allRects = g.selectAll('rect');
     const categoriesInOrder = [...new Set(data.map(d => d.target))];
@@ -941,7 +1084,7 @@ export async function stackedBarNth(chartId, op, data) {
         const categoryRects = allRects.filter(d => d.key === category);
         countedRects.push(categoryRects);
         
-        await categoryRects.transition().duration(150).attr('opacity', 1).end();
+        await categoryRects.transition().duration(100).attr('opacity', 1).end();
 
         const nodes = categoryRects.nodes();
         if (nodes.length > 0) {
@@ -966,7 +1109,7 @@ export async function stackedBarNth(chartId, op, data) {
                 .attr('paint-order', 'stroke')
                 .text(String(i + 1));
         }
-        await delay(250);
+        await delay(150);
     }
     
     const finalPromises = [];
@@ -981,6 +1124,44 @@ export async function stackedBarNth(chartId, op, data) {
     );
     await Promise.all(finalPromises);
     
+    const targetCategory = sequence[n - 1];
+    const targetData = data.filter(d => d.target === targetCategory);
+    const totalSum = d3.sum(targetData, d => d.value);
+
+    const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+    const maxTotal = d3.max(sumsByCategory.values());
+    const yScale = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
+    const yPosForLine = margins.top + yScale(totalSum);
+
+    svg.append('line').attr('class', 'annotation')
+       .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4')
+       .attr('x1', margins.left).attr('y1', yPosForLine)
+       .attr('x2', margins.left + plot.w).attr('y2', yPosForLine);
+
+    const finalStackSelection = countedRects[n - 1];
+    const finalNodes = finalStackSelection.nodes();
+    if (finalNodes.length > 0) {
+        let minY = Infinity, maxX = -Infinity, minX = Infinity;
+        finalNodes.forEach(node => {
+            const b = node.getBBox();
+            minX = Math.min(minX, b.x);
+            maxX = Math.max(maxX, b.x + b.width);
+            minY = Math.min(minY, b.y);
+        });
+        const cx = minX + (maxX - minX) / 2;
+        g.append('text')
+            .attr('class', 'annotation value-tag')
+            .attr('x', cx)
+            .attr('y', minY - 8)
+            .attr('text-anchor', 'middle')
+            .attr('font-weight', 'bold')
+            .attr('fill', hlColor)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 3.5)
+            .attr('paint-order', 'stroke')
+            .text(fmtNum(totalSum));
+    }
+
     svg.append('text').attr('class', 'annotation')
         .attr('x', margins.left)
         .attr('y', margins.top - 10)
@@ -992,7 +1173,7 @@ export async function stackedBarNth(chartId, op, data) {
     return resultData;
 }
 
-//기존 연산 함수는 막대 조각을 세기 때문에 연산 부분 분리 안함..
+
 export async function stackedBarCount(chartId, op, data) {
     const { svg, g, xField, yField, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -1003,7 +1184,7 @@ export async function stackedBarCount(chartId, op, data) {
 
     if (totalCount === 0) {
         console.warn('stackedBarCount: empty data');
-        return result;
+        return [result];
     }
 
     const allRects = g.selectAll('rect');
@@ -1044,7 +1225,7 @@ export async function stackedBarCount(chartId, op, data) {
                 .text(String(i + 1));
         }
         
-        await delay(250);
+        await delay(50);
     }
     
     svg.append('text')
@@ -1056,5 +1237,5 @@ export async function stackedBarCount(chartId, op, data) {
         .attr('fill', hlColor)
         .text(`Count: ${totalCount} categories`);
 
-    return result;
+    return [result];
 }
