@@ -24,9 +24,6 @@ import {
 } from "../../../util/util.js";
 import { addChildDiv, clearDivChildren } from "../../operationUtil.js";
 
-// 새로 가져온 유틸
-import { createScrollyLayout, observeSteps, findScrollRoot, prefersReducedMotion } from "../../../router/routerUtil.js"
-
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
     [OperationType.FILTER]:         simpleBarFilter,
@@ -76,7 +73,7 @@ async function applySimpleBarOperation(chartId, operation, currentData, isLast =
     return await fn(chartId, operation, currentData, isLast);
 }
 
-async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = false, delayMs = 1500) {
+async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = false, delayMs = 0) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applySimpleBarOperation(chartId, operation, currentData, isLast);
@@ -87,10 +84,102 @@ async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = f
     return currentData;
 }
 
-export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
-    const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+/**
+ * 네비게이션 버튼 UI 생성 (SVG 내부에 배치)
+ */
+function createNavigationControls(chartId) {
+    const svg = d3.select(`#${chartId}`).select("svg");
+    
+    if (svg.empty()) {
+        console.error("createNavigationControls: SVG not found for chartId:", chartId);
+        return { nextButton: null, stepIndicator: null };
+    }
+    
+    // 기존 네비게이션 그룹 제거
+    svg.select(".nav-controls-group").remove();
+    
+    // 네비게이션 그룹 생성 (SVG 내부, 좌상단)
+    const navGroup = svg.append("g")
+        .attr("class", "nav-controls-group")
+        .attr("transform", "translate(15, 15)");
 
+    // 배경 박스
+    const bgRect = navGroup.append("rect")
+        .attr("class", "nav-bg")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 130)
+        .attr("height", 35)
+        .attr("rx", 5)
+        .attr("ry", 5)
+        .attr("fill", "rgba(255, 255, 255, 0.9)")
+        .attr("stroke", "#ccc")
+        .attr("stroke-width", 1);
+
+    // 다음 버튼
+    const nextButton = navGroup.append("g")
+        .attr("class", "nav-btn next-btn")
+        .attr("transform", "translate(5, 5)")
+        .style("cursor", "pointer");
+
+    nextButton.append("rect")
+        .attr("width", 60)
+        .attr("height", 25)
+        .attr("rx", 3)
+        .attr("fill", "#007bff")
+        .attr("stroke", "#0056b3")
+        .attr("stroke-width", 1);
+
+    nextButton.append("text")
+        .attr("x", 30)
+        .attr("y", 17)
+        .attr("text-anchor", "middle")
+        .attr("fill", "white")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold")
+        .text("Next →");
+
+    // 단계 표시기
+    const stepIndicator = navGroup.append("text")
+        .attr("class", "step-indicator")
+        .attr("x", 95)
+        .attr("y", 22)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#333")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold");
+
+    console.log("Navigation controls created successfully for:", chartId);
+    
+    return { nextButton, stepIndicator };
+}
+
+/**
+ * 버튼 상태 업데이트
+ */
+function updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps) {
+    // 다음 버튼 상태
+    if (currentStep === totalSteps - 1) {
+        nextButton.select("rect").attr("fill", "#6c757d").attr("opacity", 0.5);
+        nextButton.select("text").text("Done");
+        nextButton.style("cursor", "not-allowed");
+    } else {
+        nextButton.select("rect").attr("fill", "#007bff").attr("opacity", 1);
+        nextButton.select("text").text("Next →");
+        nextButton.style("cursor", "pointer");
+    }
+
+    // 단계 표시기 업데이트
+    stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
+}
+
+/**
+ * 차트 리셋
+ */
+async function fullChartReset(chartId) {
+    const { svg, g } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    
     const resetPromises = [];
     g.selectAll("rect").each(function() {
         const rect = d3.select(this);
@@ -102,85 +191,100 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
         resetPromises.push(t);
     });
     await Promise.all(resetPromises);
+}
 
+export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
+    // 차트가 먼저 렌더링되었는지 확인
+    const svg = d3.select(`#${chartId}`).select("svg");
+    if (svg.empty()) {
+        console.error("runSimpleBarOps: SVG not found. Please render the chart first.");
+        return;
+    }
+    
     if (!chartDataStore[chartId]) {
         console.error("runSimpleBarOps: No data in store. Please render the chart first.");
         return;
     }
+    
     const fullData = [...chartDataStore[chartId]];
-    let data = convertToDatumValues(fullData, xField, yField, orientation);
-
-    const operationKeys = Object.keys(opsSpec);
-
-    // 여기부터 Scrolly telling 모드
-    // chartId host를 scrolly 레이아웃으로 변경
-    const { hostEl, rootEl, graphicEl, graphicId, stepsEl } = createScrollyLayout(chartId, { stickyTop: 12 });
-
-    // textSpec에 있는 각 opKey에 대한 설명 텍스트 step으로 만들기
-    for (const opKey of operationKeys) {
-        const step = document.createElement('section');
-        step.className = 'step';
-        step.dataset.op = opKey;
-
-        const textDiv = document.createElement('div');
-        const textId = `${graphicId}-${opKey}-text`;
-        textDiv.id = textId;
-        step.appendChild(textDiv);
-        stepsEl.appendChild(step);
-
-        // 기존에 제공하던 설명 붙이기
-        addChartOpsText(textId, textSpec[opKey]);
-    }
-
-    // 기본 차트 한 번 렌더
-    await renderChart(graphicId, vlSpec);
-
+    const { orientation, xField, yField } = getSvgAndSetup(chartId);
     const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
+
+    const keys = Object.keys(opsSpec);
+    if (keys.length === 0) return;
+
+    let currentStep = 0;
+    const totalSteps = keys.length;
+    const zeroDelay = 0;
+
+    // 네비게이션 컨트롤 생성 (한 번만) - SVG 존재 확인 후
+    const controls = createNavigationControls(chartId);
+    
+    if (!controls.nextButton || !controls.stepIndicator) {
+        console.error("Failed to create navigation controls");
+        return;
+    }
+    
+    const { nextButton, stepIndicator } = controls;
 
     // dataCache 초기화
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
 
-    const zeroDelay = prefersReducedMotion() ? 0 : 0;  // study 환경에서는 애니메이션 지양
+    // 각 스텝을 실행하는 공통 루틴
+    const runStep = async (stepIndex) => {
+        const opKey = keys[stepIndex];
+        
+        // 차트 리셋
+        await fullChartReset(chartId);
 
-    observeSteps({
-        rootEl: rootEl,
-        stepsEl: stepsEl,
-        onEnter: async (opKey, stepEl, idx) => {
-            // 활성 step 시 그래픽 리셋
-            clearAllAnnotations(d3.select(`#${graphicId}`));
-            await renderChart(graphicId, vlSpec);  // base 상태
+        const opsList = opsSpec[opKey] || [];
+        let currentData = baseDatumValues.slice(); // 베이스 복사
 
-            const opsList = opsSpec[opKey] || [];
-            if (opKey === 'last') {
-                // 마지막 단계일 경우에는 누적 혹은 특수 처리
-                const allDatumValues = Object.values(dataCache).flat();
-                const allSpec = buildSimpleBarSpec(allDatumValues);
-                await renderChart(graphicId, allSpec);
-                await executeSimpleBarOpsList(graphicId, opsList, allDatumValues, true, zeroDelay);
+        if (opKey === 'last') {
+            // 마지막 단계일 경우에는 누적 혹은 특수 처리
+            const allDatumValues = Object.values(dataCache).flat();
+            const allSpec = buildSimpleBarSpec(allDatumValues);
+            await renderChart(chartId, allSpec);
+            await executeSimpleBarOpsList(chartId, opsList, allDatumValues, true, zeroDelay);
+        } else {
+            currentData = await executeSimpleBarOpsList(chartId, opsList, currentData, false, zeroDelay);
+            
+            // cache 저장
+            if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
+                dataCache[opKey] = [currentData];
             } else {
-                let currentData2 = baseDatumValues;
-                await executeSimpleBarOpsList(graphicId, opsList, currentData2, false, zeroDelay);
-                // cache 저장
-                if (currentData2 instanceof IntervalValue || currentData2 instanceof BoolValue || currentData2 instanceof ScalarValue) {
-                    dataCache[opKey] = [currentData2];
-                } else {
-                    const arr = Array.isArray(currentData2) ? currentData2 : (currentData2 != null ? [currentData2] : []);
-                    arr.forEach((datum, idx) => {
-                        if (datum instanceof DatumValue) {
-                            datum.id = `${opKey}_${idx}`;
-                            datum.category = lastCategory;
-                            datum.measure = lastMeasure;
-                        }
-                    });
-                    dataCache[opKey] = arr;
-                }
+                const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);
+                arr.forEach((datum, idx) => {
+                    if (datum instanceof DatumValue) {
+                        datum.id = `${opKey}_${idx}`;
+                        datum.category = lastCategory ?? xField;
+                        datum.measure = lastMeasure ?? yField;
+                    }
+                });
+                dataCache[opKey] = arr;
             }
-        },
-        threshold: 0.6
+        }
+    };
+
+    // 버튼 이벤트 핸들러
+    const updateStep = async (newStep) => {
+        if (newStep < 0 || newStep >= totalSteps) return;
+        
+        currentStep = newStep;
+        await runStep(currentStep);
+        updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps);
+    };
+
+    // 이벤트 리스너 등록 (한 번만)
+    nextButton.on("click", () => {
+        if (currentStep < totalSteps - 1) {
+            updateStep(currentStep + 1);
+        }
     });
 
-    // cleanup: 데이터 캐시 비워둠
-    // (선택적으로 이전 상태들 삭제)
+    // 초기: 첫 번째 키 실행
+    await runStep(0);
+    updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps);
 }
 
 export async function renderSimpleBarChart(chartId, spec) {
@@ -238,7 +342,7 @@ export async function renderSimpleBarChart(chartId, spec) {
 
     chartDataStore[chartId] = data;
 
-    const margin = {top: 40, right: 20, bottom: 80, left: 60};
+    const margin = {top: 60, right: 20, bottom: 80, left: 60}; // top 마진 증가
     const width = 600;
     const height = 300;
     const plotW = width - margin.left - margin.right;
