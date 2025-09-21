@@ -22,10 +22,7 @@ import {
     renderChart,
     stackChartToTempTable
 } from "../../../util/util.js";
-import { addChildDiv, clearDivChildren } from "../../operationUtil.js";
-
-// 새로 가져온 유틸
-import { createScrollyLayout, observeSteps, findScrollRoot, prefersReducedMotion } from "../../../router/routerUtil.js"
+import {addChildDiv, clearDivChildren} from "../../operationUtil.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -43,11 +40,9 @@ const SIMPLE_BAR_OP_HANDLERS = {
 };
 
 const chartDataStore = {};
-
 function clearAllAnnotations(svg) {
     svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
 }
-
 function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const orientation = svg.attr("data-orientation") || "vertical";
@@ -76,13 +71,12 @@ async function applySimpleBarOperation(chartId, operation, currentData, isLast =
     return await fn(chartId, operation, currentData, isLast);
 }
 
-async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = false, delayMs = 1500) {
+async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = false) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applySimpleBarOperation(chartId, operation, currentData, isLast);
-        if (delayMs > 0) {
-            await delay(delayMs);
-        }
+        await delay(1500);
+
     }
     return currentData;
 }
@@ -91,17 +85,11 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
 
     clearAllAnnotations(svg);
-    const resetPromises = [];
-    g.selectAll("rect").each(function() {
-        const rect = d3.select(this);
-        const t = rect.transition().duration(400)
-            .attr("fill", "#69b3a2")
-            .attr("opacity", 1)
-            .attr("stroke", "none")
-            .end();
-        resetPromises.push(t);
-    });
-    await Promise.all(resetPromises);
+    g.selectAll("rect")
+      .interrupt()
+      .attr("fill", "#69b3a2")
+      .attr("opacity", 1)
+      .attr("stroke", "none");
 
     if (!chartDataStore[chartId]) {
         console.error("runSimpleBarOps: No data in store. Please render the chart first.");
@@ -112,75 +100,53 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
 
     const operationKeys = Object.keys(opsSpec);
 
-    // 여기부터 Scrolly telling 모드
-    // chartId host를 scrolly 레이아웃으로 변경
-    const { hostEl, rootEl, graphicEl, graphicId, stepsEl } = createScrollyLayout(chartId, { stickyTop: 12 });
+    // 기존 chartId 내부 컴포넌트 지우기
+    clearDivChildren(chartId);
 
-    // textSpec에 있는 각 opKey에 대한 설명 텍스트 step으로 만들기
     for (const opKey of operationKeys) {
-        const step = document.createElement('section');
-        step.className = 'step';
-        step.dataset.op = opKey;
 
-        const textDiv = document.createElement('div');
-        const textId = `${graphicId}-${opKey}-text`;
-        textDiv.id = textId;
-        step.appendChild(textDiv);
-        stepsEl.appendChild(step);
+        // 새로운 chartId 만들어서 렌더링하기
+        let currentChartId = `${chartId}-${opKey}`;
+        let currentChartTextId = `${currentChartId}-text`;
+        addChildDiv(chartId, currentChartTextId, "append");
+        addChildDiv(chartId, currentChartId, "append");
 
-        // 기존에 제공하던 설명 붙이기
-        addChartOpsText(textId, textSpec[opKey]);
-    }
+        addChartOpsText(currentChartTextId, textSpec[opKey]);
+        await renderChart(currentChartId, vlSpec);
 
-    // 기본 차트 한 번 렌더
-    await renderChart(graphicId, vlSpec);
-
-    const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
-
-    // dataCache 초기화
-    Object.keys(dataCache).forEach(key => delete dataCache[key]);
-
-    const zeroDelay = prefersReducedMotion() ? 0 : 0;  // study 환경에서는 애니메이션 지양
-
-    observeSteps({
-        rootEl: rootEl,
-        stepsEl: stepsEl,
-        onEnter: async (opKey, stepEl, idx) => {
-            // 활성 step 시 그래픽 리셋
-            clearAllAnnotations(d3.select(`#${graphicId}`));
-            await renderChart(graphicId, vlSpec);  // base 상태
-
-            const opsList = opsSpec[opKey] || [];
-            if (opKey === 'last') {
-                // 마지막 단계일 경우에는 누적 혹은 특수 처리
-                const allDatumValues = Object.values(dataCache).flat();
-                const allSpec = buildSimpleBarSpec(allDatumValues);
-                await renderChart(graphicId, allSpec);
-                await executeSimpleBarOpsList(graphicId, opsList, allDatumValues, true, zeroDelay);
+        let currentData = data;
+        console.log('before op:', opKey, currentData);
+        const isLast = opKey === "last";
+        if (isLast) {
+            const allDatumValues = Object.values(dataCache).flat();
+            const chartSpec = buildSimpleBarSpec(allDatumValues)
+            await renderChart(currentChartId, chartSpec);
+            const opsList = opsSpec[opKey];
+            currentData = await executeSimpleBarOpsList(currentChartId, opsList, allDatumValues, isLast);
+        } else {
+            const opsList = opsSpec[opKey];
+            currentData = await executeSimpleBarOpsList(currentChartId, opsList, currentData, isLast);
+            if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
+                dataCache[opKey] = [currentData];
             } else {
-                let currentData2 = baseDatumValues;
-                await executeSimpleBarOpsList(graphicId, opsList, currentData2, false, zeroDelay);
-                // cache 저장
-                if (currentData2 instanceof IntervalValue || currentData2 instanceof BoolValue || currentData2 instanceof ScalarValue) {
-                    dataCache[opKey] = [currentData2];
-                } else {
-                    const arr = Array.isArray(currentData2) ? currentData2 : (currentData2 != null ? [currentData2] : []);
-                    arr.forEach((datum, idx) => {
-                        if (datum instanceof DatumValue) {
-                            datum.id = `${opKey}_${idx}`;
-                            datum.category = lastCategory;
-                            datum.measure = lastMeasure;
-                        }
-                    });
-                    dataCache[opKey] = arr;
-                }
-            }
-        },
-        threshold: 0.6
-    });
+                const currentDataArray = Array.isArray(currentData)
+                    ? currentData
+                    : (currentData != null ? [currentData] : []);
 
-    // cleanup: 데이터 캐시 비워둠
-    // (선택적으로 이전 상태들 삭제)
+                currentDataArray.forEach((datum, idx) => {
+                    if (datum instanceof DatumValue) {
+                        datum.id = `${opKey}_${idx}`;
+                        datum.category = lastCategory;
+                        datum.measure = lastMeasure;
+                    }
+                });
+                dataCache[opKey] = currentDataArray;
+            }
+            console.log('after op:', opKey, currentData);
+            // await stackChartToTempTable(currentChartId, vlSpec);
+        }
+    }
+    Object.keys(dataCache).forEach(key => delete dataCache[key]);
 }
 
 export async function renderSimpleBarChart(chartId, spec) {

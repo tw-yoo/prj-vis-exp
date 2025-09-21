@@ -1,5 +1,14 @@
 import {DatumValue, BoolValue} from "../object/valueType.js";
 
+// Resolve a selection key/object for `last`: if an ID match exists in `data`, use { id: key }, otherwise fall back to { target: key }.
+function _resolveLastQuery(data, keyOrObj, isLast) {
+  if (keyOrObj && typeof keyOrObj === 'object') return keyOrObj;
+  const k = String(keyOrObj);
+  if (isLast && Array.isArray(data) && data.some(d => String(d?.id) === k)) {
+    return { id: k };
+  }
+  return { target: k };
+}
 
 export function retrieveValue(data, op) {
     if (!Array.isArray(data)) return [];
@@ -31,7 +40,7 @@ export function filter(data, op, xField, yField, isLast = false) {
 
     return data.filter(item => {
         if (!item) return false;
-        
+
         // --- 여기가 핵심 수정 부분 ---
         // op.field와 DatumValue의 실제 속성(target, group, value)을 연결합니다.
         let fieldToCheck = field;
@@ -42,10 +51,10 @@ export function filter(data, op, xField, yField, isLast = false) {
         } else if (xField && field.toLowerCase() === xField.toLowerCase()) {
             fieldToCheck = 'group';
         }
-        
+
         // 변환된 fieldToCheck으로 item에 해당 속성이 있는지 확인합니다.
         if (item[fieldToCheck] === undefined) return false;
-        
+
         const itemValue = item[fieldToCheck];
         // --- 수정 끝 ---
 
@@ -65,7 +74,7 @@ export function filter(data, op, xField, yField, isLast = false) {
             const numItemValue = +itemValue;
             const numValue = +value;
             if (isNaN(numItemValue) || isNaN(numValue)) return false;
-            
+
             switch (operator) {
                 case '>':  return numItemValue >  numValue;
                 case '>=': return numItemValue >= numValue;
@@ -98,13 +107,13 @@ export function findExtremum(data, op, xField, yField, isLast = false) {
 
     // Numeric accessor with fallbacks
     const getNumeric = (d) => {
-      if (!d) return NaN;
-      if (op?.field && d[op.field] !== undefined) return +d[op.field];
-      if (d.value !== undefined) return +d.value;
-      if (measureName && d[measureName] !== undefined) return +d[measureName];
-      if (yField && d[yField] !== undefined) return +d[yField];
-      if (xField && d[xField] !== undefined) return +d[xField];
-      return NaN;
+        if (!d) return NaN;
+        if (op?.field && d[op.field] !== undefined) return +d[op.field];
+        if (d.value !== undefined) return +d.value;
+        if (measureName && d[measureName] !== undefined) return +d[measureName];
+        if (yField && d[yField] !== undefined) return +d[yField];
+        if (xField && d[xField] !== undefined) return +d[xField];
+        return NaN;
     };
 
     // Build candidate pool with valid numeric values (respecting group)
@@ -112,13 +121,13 @@ export function findExtremum(data, op, xField, yField, isLast = false) {
     let bestVal = (which === 'min') ? Infinity : -Infinity;
 
     for (const d of data) {
-      if (!inGroup(d)) continue;
-      const v = getNumeric(d);
-      if (!Number.isFinite(v)) continue;
-      if ((which === 'min' && v < bestVal) || (which === 'max' && v > bestVal)) {
-        bestVal = v;
-        best = d;
-      }
+        if (!inGroup(d)) continue;
+        const v = getNumeric(d);
+        if (!Number.isFinite(v)) continue;
+        if ((which === 'min' && v < bestVal) || (which === 'max' && v > bestVal)) {
+            bestVal = v;
+            best = d;
+        }
     }
 
     return best || null;
@@ -143,8 +152,8 @@ export function compare(data, op, xField, yField, isLast = false) {
         return NaN;
     };
 
-    const A = retrieveValue(data, typeof op.targetA === 'object' ? op.targetA : { target: op.targetA });
-    const B = retrieveValue(data, typeof op.targetB === 'object' ? op.targetB : { target: op.targetB });
+    const A = retrieveValue(data, _resolveLastQuery(data, op.targetA, isLast));
+    const B = retrieveValue(data, _resolveLastQuery(data, op.targetB, isLast));
 
     if (!A.length || !B.length) return null;
 
@@ -180,12 +189,12 @@ export function compare(data, op, xField, yField, isLast = false) {
 
 export function compareBool(data, op, xField, yField, isLast = false) {
     if (!Array.isArray(data) || data.length === 0) return null;
-    
-    const A = retrieveValue(data, typeof op.targetA === 'object' ? op.targetA : { target: op.targetA });
-    const B = retrieveValue(data, typeof op.targetB === 'object' ? op.targetB : { target: op.targetB });
+
+    const A = retrieveValue(data, _resolveLastQuery(data, op.targetA, isLast));
+    const B = retrieveValue(data, _resolveLastQuery(data, op.targetB, isLast));
 
     if (!A.length || !B.length) return null;
-    
+
     const sample = data[0] || {};
     const measureName  = sample.measure  || 'value';
     const getNumeric = (d) => {
@@ -197,7 +206,7 @@ export function compareBool(data, op, xField, yField, isLast = false) {
         if (xField && d[xField] !== undefined) return +d[xField];
         return NaN;
     };
-    
+
     const aggregate = (items) => {
         const vals = items.map(getNumeric).filter(Number.isFinite);
         if (vals.length === 0) return NaN;
@@ -335,8 +344,8 @@ export function average(data, op, xField, yField, isLast = false) {
 export function diff(data, op, xField, yField, isLast = false) {
     if (!Array.isArray(data) || data.length === 0) return null;
 
-    const A = retrieveValue(data, typeof op.targetA === 'object' ? op.targetA : { target: op.targetA });
-    const B = retrieveValue(data, typeof op.targetB === 'object' ? op.targetB : { target: op.targetB });
+    const A = retrieveValue(data, _resolveLastQuery(data, op.targetA, isLast));
+    const B = retrieveValue(data, _resolveLastQuery(data, op.targetB, isLast));
 
     if (!A.length || !B.length) return null;
 
@@ -361,7 +370,7 @@ export function diff(data, op, xField, yField, isLast = false) {
 
     const diffVal = aVal - bVal;
     const categoryName = sample.category || 'target';
-    
+
     return { category: categoryName, measure: measureName, target: `Diff`, group: null, value: diffVal };
 }
 
@@ -375,18 +384,18 @@ export function nth(data, op) {
     if (op.groupBy) {
         const groupKey = op.groupBy;
         const groupsInOrder = [...new Set(data.map(d => d[groupKey]))];
-        
+
         const total = groupsInOrder.length;
         const idx = from === 'right' ? (total - n) : (n - 1);
         if (idx < 0 || idx >= total) return [];
-        
+
         const pickedGroup = groupsInOrder[idx];
         return data.filter(d => String(d[groupKey]) === String(pickedGroup));
     } else {
         const total = data.length;
         const idx = from === 'right' ? (total - n) : (n - 1);
         if (idx < 0 || idx >= total) return [];
-        
+
         const item = data[idx];
         return item ? [item] : [];
     }

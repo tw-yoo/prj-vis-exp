@@ -41,11 +41,9 @@ class ScalarValue   { constructor(value: number) {} }
 class BoolValue     { constructor(category: string, bool: boolean) {} }
 ```
 
-**Important:** Real datasets can mix different `category`/`measure` names across `DatumValue`s.  
-If unspecified or ambiguous in NL, **default**: category → `"target"`, measure → `"value"`.
+**Defaults:** If field names are ambiguous, use: category → `"target"`, measure → `"value"`.
 
-**Clarification — Group label values**  
-In multi-line, grouped-bar, and stacked-bar charts, the `group` value always denotes a **concrete subgroup label value** (e.g., `MSFT`, `AMZN`, `2024`) identifying which line/series/stack you are operating on. It is **not** the field name (e.g., `series`, `brand`, `year`); the runtime infers the group **field** from the chart’s encoding.
+**Group label values:** In multi-line, grouped-bar, stacked-bar charts, the `group` value is always a **concrete subgroup label value** (e.g., `MSFT`, `2024`), not the field name. The runtime infers the group field from the chart encoding.
 
 ---
 
@@ -143,6 +141,31 @@ Use **only** the following op names. Each list must **terminate** in a single `D
 - **Referencing in `last`:** When combining earlier results (e.g., with `compare` or `compareBool`), use these **IDs** (`"ops_0"`, `"ops2_0"`, …) in fields like `targetA`/`targetB`. **Do not** use category labels in `last`.  
 - **`text` does not affect execution** and has no IDs; it is purely for **human readers**.
 
+### Clarification — `last` Usage
+
+- **Allowed operations in `last`:**  
+  `compare` and `compareBool` are the most common. `diff` is also valid. Other operations are rare and should only be used if their semantics clearly combine prior results into a single `Datum` or `Boolean`.
+
+- **Mandatory ID referencing:**  
+  In `last`, always use IDs from earlier lists (e.g., `"ops_0"`, `"ops2_0"`).  
+  ❌ Do not use category labels like `"KOR"` here.  
+  ✅ Correct: `{ "targetA": "ops_0", "targetB": "ops2_0" }`.
+
+- **Termination requirement:**  
+  Just like other lists, `last` must end in exactly one `Datum` or one `Boolean`.
+
+- **Multiple results:**  
+  If more than two prior results must be combined, chain pairwise operations.  
+  Example: compare `ops_0` vs `ops2_0`, then compare the winner to `ops3_0`.
+
+- **Human-readable `text`:**  
+  The `text.last` entry must describe the final comparison/combination in plain language, including the operator if used (e.g., “Check whether A is greater than B”).
+
+- **Pitfalls to avoid:**  
+  - Do not skip IDs and reference raw labels.  
+  - Do not produce multiple outputs in `last`; ensure the final step is singular.  
+  - Do not invent unsupported operations in `last`.
+
 ---
 
 ## 5) Normalization & Synonyms
@@ -206,6 +229,54 @@ Examples 1–15 from your existing guide remain valid for the executable structu
 ---
 
 ## 9) Examples with Plain `text`
+
+### Example Z — Bad vs Good `last` usage
+
+**Bad (incorrect):**
+
+```json
+{
+  "ops": [
+    { "op": "retrieveValue", "field": "country", "target": "KOR" }
+  ],
+  "ops2": [
+    { "op": "retrieveValue", "field": "country", "target": "JPN" }
+  ],
+  "last": [
+    { "op": "compare", "field": "rating", "targetA": "KOR", "targetB": "JPN", "which": "max" }
+  ],
+  "text": {
+    "ops": "Get KOR’s rating.",
+    "ops2": "Get JPN’s rating.",
+    "last": "Compare KOR vs JPN by rating."
+  }
+}
+```
+
+> ❌ Wrong because `last` is using category labels (`"KOR"`, `"JPN"`) instead of IDs.
+
+**Good (correct):**
+
+```json
+{
+  "ops": [
+    { "op": "retrieveValue", "field": "country", "target": "KOR" }
+  ],
+  "ops2": [
+    { "op": "retrieveValue", "field": "country", "target": "JPN" }
+  ],
+  "last": [
+    { "op": "compare", "field": "rating", "targetA": "ops_0", "targetB": "ops2_0", "which": "max" }
+  ],
+  "text": {
+    "ops": "Get KOR’s rating.",
+    "ops2": "Get JPN’s rating.",
+    "last": "Return whichever of KOR or JPN has the higher rating."
+  }
+}
+```
+
+> ✅ Correct because `last` uses IDs (`ops_0`, `ops2_0`) instead of labels, ensuring deterministic referencing.
 
 ### Example A — Simple retrieval + `text`
 

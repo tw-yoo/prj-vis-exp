@@ -45,9 +45,7 @@ async function executeStackedBarOpsList(chartId, opsList, currentData, isLast = 
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applyStackedBarOperation(chartId, operation, currentData, isLast);
-        
-            await delay(1500)
-        
+        await delay(1500)
     }
     return currentData;
 }

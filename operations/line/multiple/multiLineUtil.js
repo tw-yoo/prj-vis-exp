@@ -47,9 +47,7 @@ async function executeMultipleLineOpsList(chartId, opsList, currentData) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applyMultipleLineOperation(chartId, operation, currentData);
-        
-            await delay(1500);
-        
+        await delay(1500);
     }
     return currentData;
 }
@@ -97,13 +95,13 @@ async function fullChartReset(chartId) {
 
 export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
     await fullChartReset(chartId);
-    
+
     const chartInfo = chartDataStore[chartId];
     if (!chartInfo) {
         console.error(`runMultipleLineOps: No data in store for chartId '${chartId}'.`);
         return;
     }
-    
+
     let fullData = [...chartInfo.data];
     const { rows, datumValues, categoryLabel, measureLabel } =
         multipleLineToDatumValues(fullData, vlSpec);
@@ -263,40 +261,40 @@ export async function renderMultipleLineChart(chartId, spec) {
 }
 
 function multipleLineToDatumValues(rawData, spec) {
-  const xEnc = spec.encoding.x || {};
-  const yEnc = spec.encoding.y || {};
-  const colorEnc = spec.encoding.color || {};
+    const xEnc = spec.encoding.x || {};
+    const yEnc = spec.encoding.y || {};
+    const colorEnc = spec.encoding.color || {};
 
-  const xField = xEnc.field;
-  const yField = yEnc.field;
-  const colorField = colorEnc.field;
+    const xField = xEnc.field;
+    const yField = yEnc.field;
+    const colorField = colorEnc.field;
 
-  const categoryLabel = (xEnc.axis && xEnc.axis.title) || xField || 'x';
-  const measureLabel = (yEnc.axis && yEnc.axis.title) || yField || 'y';
+    const categoryLabel = (xEnc.axis && xEnc.axis.title) || xField || 'x';
+    const measureLabel = (yEnc.axis && yEnc.axis.title) || yField || 'y';
 
-  const rows = [];
-  const datumValues = [];
+    const rows = [];
+    const datumValues = [];
 
-  rawData.forEach(d => {
-    const categoryVal = String(d[xField]);
-    const measureVal = +d[yField];
-    const groupVal = colorField ? d[colorField] : null;
+    rawData.forEach(d => {
+        const categoryVal = String(d[xField]);
+        const measureVal = +d[yField];
+        const groupVal = colorField ? d[colorField] : null;
 
-    rows.push({
-      [categoryLabel]: categoryVal,
-      [measureLabel]: measureVal,
-      group: groupVal
+        rows.push({
+            [categoryLabel]: categoryVal,
+            [measureLabel]: measureVal,
+            group: groupVal
+        });
+
+        datumValues.push(new DatumValue(
+            xField,
+            yField,
+            categoryVal,
+            groupVal,
+            measureVal,
+            undefined
+        ));
     });
 
-    datumValues.push(new DatumValue(
-      xField,
-      yField,
-      categoryVal,
-      groupVal,
-      measureVal,
-      undefined
-    ));
-  });
-
-  return { rows, datumValues, categoryLabel, measureLabel };
+    return { rows, datumValues, categoryLabel, measureLabel };
 }

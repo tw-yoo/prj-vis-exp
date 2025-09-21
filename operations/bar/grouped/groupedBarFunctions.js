@@ -16,21 +16,21 @@ import {
 
 // ---------- 공통 셋업 ----------
 export function getSvgAndSetup(chartId) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  const g = svg.select(".plot-area");
-  const margins = { left: +svg.attr("data-m-left") || 0, top: +svg.attr("data-m-top") || 0 };
-  const plot = { w: +svg.attr("data-plot-w") || 0, h: +svg.attr("data-plot-h") || 0 };
-  const xField = svg.attr("data-x-field");
-  const yField = svg.attr("data-y-field");
-  const facetField = svg.attr("data-facet-field");
-  const colorField = svg.attr("data-color-field");
-  return { svg, g, margins, plot, xField, yField, facetField, colorField };
+    const svg = d3.select(`#${chartId}`).select("svg");
+    const g = svg.select(".plot-area");
+    const margins = { left: +svg.attr("data-m-left") || 0, top: +svg.attr("data-m-top") || 0 };
+    const plot = { w: +svg.attr("data-plot-w") || 0, h: +svg.attr("data-plot-h") || 0 };
+    const xField = svg.attr("data-x-field");
+    const yField = svg.attr("data-y-field");
+    const facetField = svg.attr("data-facet-field");
+    const colorField = svg.attr("data-color-field");
+    return { svg, g, margins, plot, xField, yField, facetField, colorField };
 }
 
 export function clearAllAnnotations(svg) {
-  svg.selectAll(
-    ".annotation, .filter-label, .compare-label, .range-line, .extremum-label, .value-tag, .threshold-line, .threshold-label"
-  ).remove();
+    svg.selectAll(
+        ".annotation, .filter-label, .compare-label, .range-line, .extremum-label, .value-tag, .threshold-line, .threshold-label"
+    ).remove();
 }
 
 export const delay = (ms) => new Promise(r => setTimeout(r, ms));
@@ -43,26 +43,26 @@ function idOf(row, facetField, xField) { return `${row[facetField]}-${row[xField
 function idOfDatum(d) { return `${d.facet}-${d.key}`; }
 
 function readGroupX(node) {
-  const p = node?.parentNode;
-  if (!p) return 0;
-  const t = p.getAttribute && p.getAttribute("transform");
-  if (!t) return 0;
-  const m = /translate\(([-\d.]+)/.exec(t);
-  return m ? +m[1] : 0;
+    const p = node?.parentNode;
+    if (!p) return 0;
+    const t = p.getAttribute && p.getAttribute("transform");
+    if (!t) return 0;
+    const m = /translate\(([-\d.]+)/.exec(t);
+    return m ? +m[1] : 0;
 }
 
 function buildPredicate(conds=[], logic="and") {
     const L = (logic||"and").toLowerCase()==="or" ? "some" : "every";
-    
+
     const mk = (c) => (row) => {
         const { field, satisfy, key, equals, in: arr, notIn } = c||{};
 
-        const isNumericOp = ['>', '>=', '<', '<='].includes(satisfy) || 
-                            typeof key === 'number' || 
-                            typeof equals === 'number';
+        const isNumericOp = ['>', '>=', '<', '<='].includes(satisfy) ||
+            typeof key === 'number' ||
+            typeof equals === 'number';
 
         if (isNumericOp) {
-            const v = row.value; 
+            const v = row.value;
             const f = cmpMap[satisfy];
             if (f && key != null) {
                 const vn = toNum(v);
@@ -72,7 +72,7 @@ function buildPredicate(conds=[], logic="and") {
         } else {
             const v_target = String(row.target);
             const v_group = String(row.group);
-            
+
             if (equals != null) {
                 return v_target === String(equals) || v_group === String(equals);
             }
@@ -85,7 +85,7 @@ function buildPredicate(conds=[], logic="and") {
                 return !strArr.includes(v_target) && !strArr.includes(v_group);
             }
         }
-        return true; 
+        return true;
     };
 
     const ps = conds.map(mk);
@@ -94,7 +94,7 @@ function buildPredicate(conds=[], logic="and") {
 
 function describeFilter(op) {
     if (!op || !op.field) return "Filter";
-    
+
     if (op.operator === 'in' || op.operator === 'not-in') {
         const arr = Array.isArray(op.value) ? op.value : [op.value];
         const symbol = op.operator === 'in' ? '∈' : '∉';
@@ -104,36 +104,36 @@ function describeFilter(op) {
 }
 
 function xOfFacet(g, facet) {
-  const node = g.select(`.facet-group-${cssEscape(facet)}`).node();
-  if (!node) return 0;
-  const t = node.getAttribute("transform") || "";
-  const m = /translate\(([-\d.]+)/.exec(t);
-  return m ? +m[1] : 0;
+    const node = g.select(`.facet-group-${cssEscape(facet)}`).node();
+    if (!node) return 0;
+    const t = node.getAttribute("transform") || "";
+    const m = /translate\(([-\d.]+)/.exec(t);
+    return m ? +m[1] : 0;
 }
 function widthOfFacet(g) {
-  const one = g.select(`[class^="facet-group-"]`).node();
-  return one ? one.getBBox().width : 0;
+    const one = g.select(`[class^="facet-group-"]`).node();
+    return one ? one.getBBox().width : 0;
 }
 function absCenter(svg, node) {
-  const margins = { left:+svg.attr("data-m-left")||0, top:+svg.attr("data-m-top")||0 };
-  const r = node.getBBox();
-  const groupX = readGroupX(node);
-  return { x: margins.left + groupX + r.x + r.width/2, y: margins.top + r.y };
+    const margins = { left:+svg.attr("data-m-left")||0, top:+svg.attr("data-m-top")||0 };
+    const r = node.getBBox();
+    const groupX = readGroupX(node);
+    return { x: margins.left + groupX + r.x + r.width/2, y: margins.top + r.y };
 }
 function findRectByTuple(g, t={}) {
-  const { facet, x, key } = t;
-  let sel = g.selectAll("rect");
-  if (facet!=null) sel = sel.filter(d => d && String(d.facet)===String(facet));
-  const wantKey = x ?? key;
-  if (wantKey!=null) sel = sel.filter(d => d && String(d.key)===String(wantKey));
-  return sel.empty() ? null : sel.node();
+    const { facet, x, key } = t;
+    let sel = g.selectAll("rect");
+    if (facet!=null) sel = sel.filter(d => d && String(d.facet)===String(facet));
+    const wantKey = x ?? key;
+    if (wantKey!=null) sel = sel.filter(d => d && String(d.key)===String(wantKey));
+    return sel.empty() ? null : sel.node();
 }
 
 function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
     const yConds = (conditions || []).filter(c =>
         c.field === yField && (['>', '>=', '<', '<='].includes(c.operator))
     );
-    
+
     svg.selectAll(".threshold-line, .threshold-label").remove();
 
     yConds.forEach(c => {
@@ -209,7 +209,7 @@ export async function groupedBarRetrieveValue(chartId, op, data) {
 
 export async function groupedBarFilter(chartId, op, data) {
     const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
-    
+
     await g.selectAll("rect").transition().duration(200)
         .attr("opacity", 1)
         .attr("stroke", "none")
@@ -250,7 +250,7 @@ export async function groupedBarFilter(chartId, op, data) {
         await drawYThresholdsOnce(svg, margins, plot, fullYScale, yField, [op]);
         await delay(300);
     }
-    
+
     if (filteredData.length === 0) {
         g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove();
         svg.append("text").attr("class", "filter-label")
@@ -258,7 +258,7 @@ export async function groupedBarFilter(chartId, op, data) {
             .text("No data matches the filter.");
         return [];
     }
-    
+
     const allowedIds = new Set(filteredData.map(d => `${d.target}-${d.group}`));
     const keepSel = g.selectAll("rect").filter(d => allowedIds.has(`${d.facet}-${d.key}`));
     const dropSel = g.selectAll("rect").filter(d => !allowedIds.has(`${d.facet}-${d.key}`));
@@ -296,15 +296,15 @@ export async function groupedBarFilter(chartId, op, data) {
 
     tasks.push(g.select(".y-axis").transition().duration(800).call(d3.axisLeft(y)).end());
     tasks.push(g.select(".x-axis-bottom-line").transition().duration(800).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
-    
+
     await Promise.all(tasks);
-    
+
     svg.append("text").attr("class", "filter-label")
         .attr("x", margins.left).attr("y", margins.top - 10)
         .attr("font-size", 14).attr("font-weight", "bold")
         .attr("fill", "#0d6efd")
         .text(describeFilter(op));
-        
+
     return filteredData;
 }
 
@@ -313,7 +313,7 @@ export async function groupedBarFilter(chartId, op, data) {
 
 export async function groupedBarFindExtremum(chartId, op, data) {
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
-    
+
     const targetDatum = dataFindExtremum(data, op, facetField, yField);
 
     clearAllAnnotations(svg);
@@ -347,27 +347,27 @@ export async function groupedBarFindExtremum(chartId, op, data) {
         otherRects.transition().duration(500).attr("opacity", 0.2).end(),
         targetRect.transition().duration(500).attr("opacity", 1).attr("fill", hlColor).end()
     ]);
-    
+
     await delay(500);
 
     const yMax = d3.max(data, d => d.value);
     const y = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
     const yPos = margins.top + y(extremumValue);
-    
+
     svg.append("line").attr("class", "annotation")
         .attr("x1", margins.left).attr("y1", yPos)
         .attr("x2", margins.left).attr("y2", yPos)
         .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
         .transition().duration(600)
         .attr("x2", margins.left + plot.w);
-    
+
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left + plot.w - 8).attr("y", yPos - 8)
         .attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold")
         .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
         .text(`${op.which || 'max'}: ${fmtNum(extremumValue)}`)
         .attr("opacity", 0).transition().delay(200).duration(400).attr("opacity", 1);
-        
+
     return [targetDatum];
 }
 export async function groupedBarDetermineRange(chartId, op, data) {
@@ -376,7 +376,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
 
     const isGlobalScope = op.group == null;
     const targetData = isGlobalScope ? data : data.filter(d => String(d.target) === String(op.group));
-    
+
     if (targetData.length === 0) {
         console.warn("DetermineRange: No data to process for the scope.", op);
         return null;
@@ -391,7 +391,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
     const y = d3.scaleLinear().domain([0, yMaxGlobal]).nice().range([plot.h, 0]);
     const hlColor = "#0d6efd";
     const animationPromises = [];
-    
+
     if (isGlobalScope) {
         const minRects = g.selectAll("rect").filter(d => d.value === minV);
         const maxRects = g.selectAll("rect").filter(d => d.value === maxV);
@@ -408,7 +408,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
                 .attr("x2", margins.left).attr("y2", yPos)
                 .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
             animationPromises.push(line.transition().duration(700).attr("x2", margins.left + plot.w).end());
-            
+
             const text = svg.append("text").attr("class", "annotation")
                 .attr("x", margins.left + plot.w - 8).attr("y", yPos - 8)
                 .attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold")
@@ -416,7 +416,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
                 .text(`${item.label}: ${fmtNum(item.value)}`).attr("opacity", 0);
             animationPromises.push(text.transition().delay(200).duration(500).attr("opacity", 1).end());
         });
-        
+
         const topLabel = svg.append("text").attr("class", "annotation")
             .attr("x", margins.left).attr("y", margins.top - 10)
             .attr("font-size", 14).attr("font-weight", "bold")
@@ -435,10 +435,10 @@ export async function groupedBarDetermineRange(chartId, op, data) {
         animationPromises.push(otherRects.transition().duration(600).attr("opacity", 0.2).end());
         animationPromises.push(minRectInGroup.transition().duration(600).attr("opacity", 1).attr("stroke", "black").attr("stroke-width", 1.5).end());
         animationPromises.push(maxRectInGroup.transition().duration(600).attr("opacity", 1).attr("stroke", "black").attr("stroke-width", 1.5).end());
-        
+
         const x0 = xOfFacet(g, targetGroup);
         const w = widthOfFacet(g);
-        
+
         [{ value: minV, label: "MIN" }, { value: maxV, label: "MAX" }].forEach(item => {
             const yPos = margins.top + y(item.value);
             const line = svg.append("line").attr("class", "annotation range-line")
@@ -446,7 +446,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
                 .attr("x2", margins.left + x0).attr("y2", yPos)
                 .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
             animationPromises.push(line.transition().duration(700).attr("x2", margins.left + x0 + w).end());
-            
+
             const text = svg.append("text").attr("class", "annotation")
                 .attr("x", margins.left + x0 + w - 8).attr("y", yPos - 8)
                 .attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold")
@@ -454,7 +454,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
                 .text(`${item.label}: ${fmtNum(item.value)}`).attr("opacity", 0);
             animationPromises.push(text.transition().delay(200).duration(500).attr("opacity", 1).end());
         });
-        
+
         const topLabel = svg.append("text").attr("class", "annotation")
             .attr("x", margins.left).attr("y", margins.top - 10)
             .attr("font-size", 14).attr("font-weight", "bold")
@@ -462,7 +462,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
             .text(`Range for ${targetGroup}: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`).attr("opacity", 0);
         animationPromises.push(topLabel.transition().duration(400).attr("opacity", 1).end());
     }
-    
+
     await Promise.all(animationPromises);
     return result;
 }
@@ -478,10 +478,10 @@ export async function groupedBarCompare(chartId, op, data) {
         which: op.which
     };
     const winner = dataCompare(data, opForCompare);
-    
+
     const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
     const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
-    
+
     if (!nodeA || !nodeB) {
         console.warn("groupedBarCompare: One or both DOM elements not found", op);
         return winner ? [winner] : [];
@@ -517,7 +517,7 @@ export async function groupedBarCompare(chartId, op, data) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(fmtNum(datum.value));
     };
-    
+
     drawAnnotation(nodeA, datumA, colorA);
     drawAnnotation(nodeB, datumB, colorB);
 
@@ -530,7 +530,7 @@ export async function groupedBarCompare(chartId, op, data) {
         const labelB = `${op.targetB.category}(${op.targetB.series})`;
         summary = `${labelA}: ${fmtNum(datumA.value)} vs ${labelB}: ${fmtNum(datumB.value)} (Tie)`;
     }
-    
+
     svg.append("text").attr("class", "annotation compare-summary")
         .attr("x", margins.left).attr("y", margins.top - 28)
         .attr("font-size", 14).attr("font-weight", "bold")
@@ -552,7 +552,7 @@ export async function groupedBarCompareBool(chartId, op, data) {
         operator: op.operator
     };
     const compareResult = dataCompareBool(data, opForCompare);
-    
+
     if (compareResult === null) {
         console.warn("groupedBarCompare: Comparison failed, likely data not found.", op);
         return null;
@@ -561,7 +561,7 @@ export async function groupedBarCompareBool(chartId, op, data) {
 
     const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
     const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
-    
+
     if (!nodeA || !nodeB) {
         console.warn("groupedBarCompare: One or both DOM elements not found", op);
         return compareResult;
@@ -597,13 +597,13 @@ export async function groupedBarCompareBool(chartId, op, data) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(fmtNum(datum.value));
     };
-    
+
     drawAnnotation(nodeA, datumA, colorA);
     drawAnnotation(nodeB, datumB, colorB);
 
     const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
     const summary = `${fmtNum(datumA.value)}${symbol}${fmtNum(datumB.value)} → ${result}`;
-    
+
     svg.append("text").attr("class", "annotation compare-summary")
         .attr("x", margins.left).attr("y", margins.top - 28)
         .attr("font-size", 14).attr("font-weight", "bold")
@@ -626,7 +626,7 @@ export async function groupedBarSort(chartId, op, data) {
 
     const sortedFacets = [...new Set(sortedData.map(d => d.target))];
     const x0 = d3.scaleBand().domain(sortedFacets).range([0, plot.w]).paddingInner(0.2);
-    
+
     const tasks = [];
     sortedFacets.forEach(facet => {
         const groupSelection = g.select(`.facet-group-${cssEscape(String(facet))}`);
@@ -665,7 +665,7 @@ export async function groupedBarSum(chartId, op, data) {
         console.warn("Sum could not be calculated.");
         return [];
     }
-    
+
     const sumDatum = new DatumValue(
         result.category, result.measure, result.target,
         result.group, result.value, result.id
@@ -740,7 +740,7 @@ export async function groupedBarAverage(chartId, op, data) {
         console.warn('groupedBarAverage: Could not compute average.');
         return [];
     }
-    
+
     const avgDatum = new DatumValue(
         result.category, result.measure, result.target,
         result.group, result.value, result.id
@@ -790,7 +790,7 @@ export async function groupedBarDiff(chartId, op, data) {
         console.warn("groupedBarDiff: Could not compute difference.", op);
         return [];
     }
-    
+
     const diffDatum = new DatumValue(
         diffResult.category, diffResult.measure, diffResult.target,
         diffResult.group, Math.abs(diffResult.value), diffResult.id
@@ -798,7 +798,7 @@ export async function groupedBarDiff(chartId, op, data) {
 
     const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
     const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
-    
+
     if (!nodeA || !nodeB) {
         console.warn("groupedBarDiff: One or both DOM elements not found", op);
         return [diffDatum];
@@ -834,12 +834,12 @@ export async function groupedBarDiff(chartId, op, data) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(fmtNum(datum.value));
     };
-    
+
     drawAnnotation(nodeA, datumA, colorA);
     drawAnnotation(nodeB, datumB, colorB);
-    
+
     const summary = `Difference: ${fmtNum(diffDatum.value)}`;
-    
+
     svg.append("text").attr("class", "annotation compare-summary")
         .attr("x", margins.left).attr("y", margins.top - 28)
         .attr("font-size", 14).attr("font-weight", "bold")
@@ -885,7 +885,7 @@ export async function groupedBarNth(chartId, op, data) {
 
     for (let i = 0; i < n; i++) {
         const { node } = sequence[i];
-        
+
         await d3.select(node).transition().duration(100).attr('opacity', 1).end();
 
         const { x, y } = absCenter(svg, node);
@@ -896,10 +896,10 @@ export async function groupedBarNth(chartId, op, data) {
             .attr('fill', hlColor).attr('stroke', 'white')
             .attr('stroke-width', 3).attr('paint-order', 'stroke')
             .text(String(i + 1));
-        
+
         await delay(150);
     }
-    
+
     const cleanupPromises = [];
     for (let i = 0; i < n - 1; i++) {
         const { node } = sequence[i];
@@ -907,16 +907,16 @@ export async function groupedBarNth(chartId, op, data) {
             d3.select(node).transition().duration(200).attr('opacity', 0.2).end()
         );
     }
-    
+
     cleanupPromises.push(
         svg.selectAll('.count-label').transition().duration(200).attr('opacity', 0).remove().end()
     );
     await Promise.all(cleanupPromises);
-    
+
     const pickedNode = pickedItem.node;
     const pickedDatum = d3.select(pickedNode).datum();
-    const originalDatum = data.find(d => 
-        String(d.target) === String(pickedDatum.facet) && 
+    const originalDatum = data.find(d =>
+        String(d.target) === String(pickedDatum.facet) &&
         String(d.group) === String(pickedDatum.key)
     );
 
@@ -940,7 +940,7 @@ export async function groupedBarNth(chartId, op, data) {
         .attr('font-size', 14).attr('font-weight', 'bold')
         .attr('fill', hlColor)
         .text(`Nth: ${from} ${n}`);
-        
+
     return originalDatum ? [originalDatum] : [];
 }
 
@@ -954,7 +954,7 @@ export async function groupedBarCount(chartId, op, data) {
         console.warn('groupedBarCount: could not compute count');
         return [];
     }
-    
+
     const countDatum = new DatumValue(
         result.category, result.measure, result.target,
         result.group, result.value, result.id
@@ -1050,23 +1050,23 @@ export async function groupedBarFilterByX(chartId, op, currentData, fullData) {
                 const d = d3.select(this).datum();
                 return allowedIds.has(idOfDatum(d)) ? 1.0 : dim;
             });
-        
+
         svg.append("text").attr("class", "filter-label")
             .attr("x", margins.left).attr("y", margins.top - 10)
             .attr("font-size", 14).attr("font-weight", "bold").attr("fill", "#0d6efd")
             .text(describeFilter(conditions, logic));
-        
+
         return filteredData;
     }
 
     const keepSel = rects.filter(function() { const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
     const dropSel = rects.filter(function() { const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
-    
+
     await dropSel.transition().duration(450).attr("opacity", 0).attr("width", 0).remove().end();
 
     const keptData = filteredData.map(d => ({ facet: d.target, key: d.group, value: d.value }));
     if (!keptData.length) return [];
-    
+
     const keptFacets = Array.from(new Set(keptData.map(d => d.facet)));
     const keptKeys = Array.from(new Set(keptData.map(d => d.key)));
 
@@ -1095,25 +1095,25 @@ export async function groupedBarFilterByX(chartId, op, currentData, fullData) {
     tasks.push(g.select(".y-axis").transition().duration(800).call(d3.axisLeft(y)).end());
     const bottom = g.select(".x-axis-bottom-line");
     tasks.push(bottom.transition().duration(800).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
-    
+
     await Promise.all(tasks);
-    
+
     svg.append("text").attr("class", "filter-label")
         .attr("x", margins.left).attr("y", margins.top - 10)
         .attr("font-size", 14).attr("font-weight", "bold").attr("fill", "#0d6efd")
         .text(describeFilter(conditions, logic));
-        
+
     return filteredData;
 }
 
 export async function groupedBarFocus(chartId, op, currentData, fullData) {
-  const key = op.x ?? op.key ?? op.label;
-  if (key==null) { console.warn("groupedBarFocus: key(x) 필요"); return currentData; }
-  const spec = {
-    op: "filter",
-    mode: "keep",
-    logic: "and",
-    conditions: [{ field: (getSvgAndSetup(chartId).xField), equals: key }]
-  };
-  return await groupedBarFilter(chartId, spec, currentData, fullData);
+    const key = op.x ?? op.key ?? op.label;
+    if (key==null) { console.warn("groupedBarFocus: key(x) 필요"); return currentData; }
+    const spec = {
+        op: "filter",
+        mode: "keep",
+        logic: "and",
+        conditions: [{ field: (getSvgAndSetup(chartId).xField), equals: key }]
+    };
+    return await groupedBarFilter(chartId, spec, currentData, fullData);
 }

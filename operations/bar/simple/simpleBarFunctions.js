@@ -63,7 +63,7 @@ export function clearAllAnnotations(svg) {
 }
 export function getCenter(bar, orientation, margins) {
     const x0 = +bar.getAttribute("x"), y0 = +bar.getAttribute("y"),
-          w = +bar.getAttribute("width"), h = +bar.getAttribute("height");
+        w = +bar.getAttribute("width"), h = +bar.getAttribute("height");
     if (orientation === "horizontal") {
         return { x: x0 + w + 4 + margins.left, y: y0 + h / 2 + margins.top };
     } else {
@@ -72,10 +72,6 @@ export function getCenter(bar, orientation, margins) {
 }
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-
-// ##################################################
-// ## Operation Functions (Return Values Modified) ##
-// ##################################################
 
 export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, orientation, margins, plot } = getSvgAndSetup(chartId);
@@ -90,10 +86,13 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     });
     if (target.empty()) {
         console.warn("RetrieveValue: target bar(s) not found for key(s):", op?.target);
-        bars.transition().duration(300).attr("fill", baseColor).attr("opacity", 1);
+        // Removed: await bars.transition().duration(300).attr("fill", baseColor).attr("opacity", 1);
         return selected;
     }
-    await target.transition().duration(600).attr("fill", hlColor).attr("opacity", 1).end();
+    const animPromises = [];
+    animPromises.push(
+      target.transition().duration(600).attr("fill", hlColor).attr("opacity", 1).end()
+    );
     let xScale, yScale;
     if (orientation === 'vertical') {
         xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
@@ -107,19 +106,70 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     const targetBars = selected;
     if (orientation === 'vertical') {
         const lines = g.selectAll('.retrieve-line').data(targetBars, d => d.id || d.target);
-        lines.enter().append('line').attr('class', 'retrieve-line').attr('x1', d => xScale(d.target) + xScale.bandwidth() / 2).attr('x2', 0).attr('y1', d => yScale(d.value)).attr('y2', d => yScale(d.value)).attr('stroke', 'red').attr('stroke-width', 2).attr('stroke-dasharray', '5,5');
+        const entered = lines.enter().append('line')
+          .attr('class', 'retrieve-line')
+          // Start as a zero-length segment anchored at the target bar's center
+          .attr('x1', d => xScale(d.target) + xScale.bandwidth() / 2)
+          .attr('x2', d => xScale(d.target) + xScale.bandwidth() / 2)
+          .attr('y1', d => yScale(d.value))
+          .attr('y2', d => yScale(d.value))
+          .attr('stroke', 'red')
+          .attr('stroke-width', 2)
+          .attr('stroke-dasharray', '5,5')
+          .attr('opacity', 0);
         lines.exit().remove();
+        animPromises.push(
+          entered.transition().duration(400)
+            // Reveal toward the RIGHT edge of the plot (g-local coordinates)
+            .attr('x2', plot.w)
+            .attr('opacity', 1)
+            .end()
+        );
     } else {
         const lines = g.selectAll('.retrieve-line').data(targetBars, d => d.id || d.target);
-        lines.enter().append('line').attr('class', 'retrieve-line').attr('y1', d => yScale(d.target) + yScale.bandwidth() / 2).attr('y2', 0).attr('x1', d => xScale(d.value)).attr('x2', d => xScale(d.value)).attr('stroke', 'red').attr('stroke-width', 2).attr('stroke-dasharray', '5,5');
+        const entered = lines.enter().append('line')
+          .attr('class', 'retrieve-line')
+          // Start as a zero-length segment anchored at the target bar's center (y-axis)
+          .attr('x1', d => xScale(d.value))
+          .attr('x2', d => xScale(d.value))
+          .attr('y1', d => yScale(d.target) + yScale.bandwidth() / 2)
+          .attr('y2', d => yScale(d.target) + yScale.bandwidth() / 2)
+          .attr('stroke', 'red')
+          .attr('stroke-width', 2)
+          .attr('stroke-dasharray', '5,5')
+          .attr('opacity', 0);
         lines.exit().remove();
+        animPromises.push(
+          entered.transition().duration(400)
+            // Reveal toward the TOP edge of the plot (g-local coordinates)
+            .attr('y2', 0)
+            .attr('opacity', 1)
+            .end()
+        );
     }
     target.each(function () {
         const bar = this;
         const val = getMarkValue(bar);
         const { x, y } = getCenter(bar, orientation, margins);
-        svg.append("text").attr("class", "annotation").attr("x", x).attr("y", y).attr("text-anchor", "middle").attr("font-size", 12).attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke").text(String(val)).attr("opacity", 0).transition().duration(400).attr("opacity", 1);
+        const p = svg.append("text").attr("class", "annotation")
+          .attr("x", x).attr("y", y)
+          .attr("text-anchor", "middle")
+          .attr("font-size", 12)
+          .attr("fill", hlColor)
+          .attr("stroke", "white")
+          .attr("stroke-width", 3)
+          .attr("paint-order", "stroke")
+          .text(String(val))
+          .attr("opacity", 0)
+          .transition().duration(400).attr("opacity", 1)
+          .end();
+        animPromises.push(p);
     });
+    await Promise.all(animPromises);
+    if (isLast) {
+      const first = selected[0];
+      return first ? [new DatumValue(first.category, first.measure, first.target, first.group, first.value, first.id)] : [];
+    }
     return selected;
 }
 
@@ -161,9 +211,9 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
             .attr("x1", margins.left).attr("y1", margins.top + yPos)
             .attr("x2", margins.left).attr("y2", margins.top + yPos)
             .attr("stroke", "blue").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-        
+
         await line.transition().duration(800).attr("x2", margins.left + plot.w).end();
-        
+
         svg.append("text").attr("class", "threshold-label")
             .attr("x", margins.left + plot.w - 5).attr("y", margins.top + yPos - 5)
             .attr("text-anchor", "end")
@@ -186,12 +236,15 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
     if (!filteredData || filteredData.length === 0) {
         console.warn("Filter resulted in empty data.");
         g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove();
+        if (isLast) {
+            return [new DatumValue('filter', 'count', 'result', null, 0, 'last_filter')];
+        }
         return [];
     }
-    
+
     const categoryKey = filteredData[0]?.category || xField;
     const plainRows = filteredData.map(d => ({ [categoryKey]: d.target, value: d.value, group: d.group }));
-    
+
     const bars = selectAllMarks(g).data(plainRows, d => String(d[categoryKey]));
 
     await Promise.all([
@@ -202,7 +255,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
     await delay(250);
 
     const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.target)).range([0, plot.w]).padding(0.2);
-    
+
     await Promise.all([
         bars.transition().duration(800)
             .attr("x", d => xScaleFiltered(d[categoryKey]))
@@ -212,7 +265,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
             .call(d3.axisBottom(xScaleFiltered))
             .end()
     ]);
-    
+
     bars.each(function(d) {
         const bar = d3.select(this);
         const yMax = d3.max(data, datum => +datum.value) || 0;
@@ -231,8 +284,10 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         .attr("x", margins.left).attr("y", margins.top - 8)
         .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
         .text(labelText);
-        
-    return filteredData;
+
+    return isLast
+      ? [new DatumValue('filter', 'count', 'result', null, Array.isArray(filteredData) ? filteredData.length : 0, 'last_filter')]
+      : filteredData;
 }
 
 export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
@@ -276,10 +331,26 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
         }
     }
     const node = targetBar.node();
+    const anim = [];
     if (node) {
         const { x, y } = getCenter(node, orientation, margins);
         const labelText = `${op?.which === 'min' ? 'Min' : 'Max'}: ${selVal}`;
-        svg.append("text").attr("class", "annotation").attr("x", x).attr("y", y).attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold").attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke").text(labelText).attr("opacity", 0).transition().duration(400).attr("opacity", 1);
+        const tp = svg.append("text").attr("class", "annotation")
+            .attr("x", x).attr("y", y)
+            .attr("text-anchor", "middle")
+            .attr("font-size", 12).attr("font-weight", "bold")
+            .attr("fill", hlColor)
+            .attr("stroke", "white").attr("stroke-width", 3)
+            .attr("paint-order", "stroke")
+            .text(labelText)
+            .attr("opacity", 0)
+            .transition().duration(400).attr("opacity", 1)
+            .end();
+        anim.push(tp);
+    }
+    await Promise.all(anim);
+    if (isLast) {
+        return [new DatumValue(selected.category, selected.measure, selected.target, selected.group, selected.value, selected.id)];
     }
     return [selected];
 }
@@ -328,8 +399,8 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
     );
 
     [
-        { value: minV, label: "Min" },
-        { value: maxV, label: "Max" }
+        { value: minV, label: "Min", bars: minBars },
+        { value: maxV, label: "Max", bars: maxBars }
     ].forEach(item => {
         if (item.value === undefined) return;
         const yPos = margins.top + yScale(item.value);
@@ -342,16 +413,23 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
             line.transition().duration(800).attr("x2", margins.left + plot.w).end()
         );
 
-        const text = svg.append("text").attr("class", "annotation")
-            .attr("x", margins.left - 20).attr("y", yPos)
-            .attr("text-anchor", "end").attr("dominant-baseline", "middle")
-            .attr("fill", hlColor).attr("font-weight", "bold")
-            .text(`${item.label}: ${item.value}`)
-            .attr("opacity", 0);
+        // Add label on top of each matching bar (same style as findExtremum)
+        item.bars.each(function() {
+            const { x, y } = getCenter(this, orientation, margins);
+            const text = svg.append("text").attr("class", "annotation")
+                .attr("x", x).attr("y", y)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 12).attr("font-weight", "bold")
+                .attr("fill", hlColor)
+                .attr("stroke", "white").attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`${item.label}: ${item.value}`)
+                .attr("opacity", 0);
 
-        animationPromises.push(
-            text.transition().delay(400).duration(400).attr("opacity", 1).end()
-        );
+            animationPromises.push(
+                text.transition().delay(400).duration(400).attr("opacity", 1).end()
+            );
+        });
     });
 
     if (minV !== undefined && maxV !== undefined) {
@@ -369,10 +447,10 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
 
     await Promise.all(animationPromises);
 
-    // 단일 IntervalValue 객체 반환
-    return new IntervalValue(categoryAxisName, minV, maxV);
+    // 단일 IntervalValue 객체 반환 (last 여부와 무관하게 동일 객체 반환)
+    const intervalResult = new IntervalValue(categoryAxisName, minV, maxV);
+    return isLast ? intervalResult : intervalResult;
 }
-
 
 export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
@@ -384,9 +462,19 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);
 
-    const barA = selectBarByKey(g, keyA);
-    const barB = selectBarByKey(g, keyB);
-    
+    // If this is `last`, resolve IDs like "ops_0" to the underlying category id (target)
+    const resolveKey = (k) => {
+        if (!isLast || !Array.isArray(data)) return k;
+        // Try match by id first, then fall back to direct category match
+        const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
+        return found ? String(found.target ?? k) : k;
+    };
+    const visKeyA = resolveKey(keyA);
+    const visKeyB = resolveKey(keyB);
+
+    const barA = selectBarByKey(g, visKeyA);
+    const barB = selectBarByKey(g, visKeyB);
+
     if (barA.empty() || barB.empty()) {
         console.warn("simpleBarCompare: target bars not found for", keyA, keyB);
         return winner ? [winner] : [];
@@ -416,7 +504,7 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
-    
+
     const targets = [
         { bar: barA, key: keyA, value: valueA, color: colorA },
         { bar: barB, key: keyB, value: valueB, color: colorB }
@@ -461,7 +549,6 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     return winner ? [winner] : [];
 }
 
-
 export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -472,8 +559,17 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);
 
-    const barA = selectBarByKey(g, keyA);
-    const barB = selectBarByKey(g, keyB);
+    // If this is `last`, resolve IDs like "ops_0" to the underlying category id (target)
+    const resolveKey = (k) => {
+        if (!isLast || !Array.isArray(data)) return k;
+        const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
+        return found ? String(found.target ?? k) : k;
+    };
+    const visKeyA = resolveKey(keyA);
+    const visKeyB = resolveKey(keyB);
+
+    const barA = selectBarByKey(g, visKeyA);
+    const barB = selectBarByKey(g, visKeyB);
 
     if (barA.empty() || barB.empty()) {
         console.warn("simpleBarCompareBool: target bars not found for", keyA, keyB);
@@ -506,7 +602,7 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
         xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
-    
+
     const targets = [
         { bar: barA, key: keyA, value: valueA, color: colorA },
         { bar: barB, key: keyB, value: valueB, color: colorB }
@@ -542,7 +638,7 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     const header = `${keyA} ${opSymbol} ${keyB} ?`;
     const answer = (isTrue === null) ? "unknown" : String(isTrue);
     const answerColor = isTrue ? "#2ca02c" : (isTrue === false ? "#d62728" : "#333");
-    
+
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left).attr("y", margins.top - 28)
         .attr("font-size", 12).attr("fill", "#666")
@@ -553,13 +649,11 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
         .attr("font-size", 14).attr("font-weight", "bold")
         .attr("fill", answerColor)
         .text(answer);
-    
+
     await Promise.all(animationPromises).catch(() => {});
 
     return verdict;
 }
-
-
 
 export async function simpleBarSort(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
@@ -597,6 +691,11 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
     const label = isLabelField ? (categoryName || 'label') : (measureName || 'value');
     const labelText = `Sorted by ${label} (${orderText})`;
     svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', '#6f42c1').text(labelText);
+    if (isLast) {
+        const first = sortedData && sortedData[0];
+        if (!first) return [];
+        return [new DatumValue(first.category, first.measure, first.target, first.group, first.value, first.id)];
+    }
     return sortedData;
 }
 
@@ -656,7 +755,7 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
         .attr('fill', 'red').attr('font-weight', 'bold')
         .attr('text-anchor', 'end').text(`Sum: ${totalSum.toLocaleString()}`);
 
-    return [sumDatum];
+    return isLast ? [sumDatum] : [sumDatum];
 }
 
 export async function simpleBarAverage(chartId, op, data, isLast = false) {
@@ -683,7 +782,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
         const errorDatum = new DatumValue(result.category, result.measure, result.target, result.group, result.value, result.id);
         return [errorDatum];
     }
-    
+
     const averageDatum = new DatumValue(
         result.category,
         result.measure,
@@ -702,7 +801,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
             .attr('x1', margins.left).attr('x2', margins.left)
             .attr('y1', yPos).attr('y2', yPos)
             .attr('stroke', 'red').attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
-        
+
         await line.transition().duration(800).attr('x2', margins.left + plot.w).end();
 
         svg.append('text').attr('class', 'annotation avg-label')
@@ -723,7 +822,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
             .attr('x1', xPos).attr('x2', xPos)
             .attr('y1', margins.top).attr('y2', margins.top)
             .attr('stroke', 'red').attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
-            
+
         await line.transition().duration(800).attr('y2', margins.top + plot.h).end();
 
         svg.append('text').attr('class', 'annotation avg-label')
@@ -736,7 +835,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
             .transition().duration(400).attr('opacity', 1);
     }
 
-    return [averageDatum];
+    return isLast ? [averageDatum] : [averageDatum];
 }
 
 export async function simpleBarDiff(chartId, op, data, isLast = false) {
@@ -748,17 +847,26 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         console.warn('simpleBarDiff: unable to compute diff', op);
         return [];
     }
-    
+
     const diffDatum = new DatumValue(
-        result.category, result.measure, result.target, 
+        result.category, result.measure, result.target,
         result.group, Math.abs(result.value), result.id
     );
 
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);
 
-    const barA = selectBarByKey(g, keyA);
-    const barB = selectBarByKey(g, keyB);
+    // If `last`, resolve IDs (e.g., "ops_0") to concrete category keys for DOM selection
+    const resolveKey = (k) => {
+        if (!isLast || !Array.isArray(data)) return k;
+        const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
+        return found ? String(found.target ?? k) : k;
+    };
+    const visKeyA = resolveKey(keyA);
+    const visKeyB = resolveKey(keyB);
+
+    const barA = selectBarByKey(g, visKeyA);
+    const barB = selectBarByKey(g, visKeyB);
 
     if (barA.empty() || barB.empty()) {
         console.warn('simpleBarDiff: One or both targets not found.');
@@ -779,7 +887,7 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
     animationPromises.push(
         barB.transition().duration(600).attr("fill", colorB).end()
     );
-    
+
     let xScale, yScale;
     if (orientation === "vertical") {
         const yMax = d3.max(data, d => +d.value) || 0;
@@ -790,7 +898,7 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
-    
+
     const targets = [
         { bar: barA, key: keyA, value: valueA, color: colorA },
         { bar: barB, key: keyB, value: valueB, color: colorB }
@@ -801,16 +909,22 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
 
         if (orientation === "vertical") {
             const yPos = margins.top + yScale(t.value);
-            svg.append("line").attr("class", "annotation")
+            const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", margins.left).attr("y1", yPos)
-                .attr("x2", margins.left + plot.w).attr("y2", yPos)
+                .attr("x2", margins.left).attr("y2", yPos)
                 .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            animationPromises.push(
+                line.transition().duration(400).attr("x2", margins.left + plot.w).end()
+            );
         } else {
             const xPos = margins.left + xScale(t.value);
-            svg.append("line").attr("class", "annotation")
+            const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", xPos).attr("y1", margins.top)
-                .attr("x2", xPos).attr("y2", margins.top + plot.h)
+                .attr("x2", xPos).attr("y2", margins.top)
                 .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            animationPromises.push(
+                line.transition().duration(400).attr("y2", margins.top + plot.h).end()
+            );
         }
 
         const { x, y } = getCenter(t.bar.node(), orientation, margins);
@@ -823,7 +937,8 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
     });
 
     const resultText = `Difference (${keyA} vs ${keyB}): ${fmtNum(Math.abs(diffValue))}`;
-    svg.append("text").attr("class", "annotation")
+    svg.append("text")
+        .attr("class", "annotation")
         .attr("x", margins.left)
         .attr("y", margins.top - 10)
         .attr("font-size", 14).attr("font-weight", "bold")
@@ -845,14 +960,14 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
         console.warn('simpleBarNth: selection failed, dataNth returned empty.');
         return [];
     }
-    
+
     const selected = resultArray[0];
     const pickedId = String(selected.target);
     const hlColor = '#ff6961';
 
     const bars = selectAllMarks(g);
     const targetBar = selectBarByKey(g, pickedId);
-    
+
     if (targetBar.empty()) {
         console.warn(`simpleBarNth: Target bar with id "${pickedId}" not found in the chart.`);
         return resultArray;
@@ -865,14 +980,14 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
         xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
         const yMax = d3.max(data, d => +d.value) || 0;
         yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-        
+
         const yPos = margins.top + yScale(selected.value);
         svg.append('line').attr('class', 'annotation')
-           .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4')
-           .attr('x1', margins.left).attr('y1', yPos)
-           .attr('x2', margins.left).attr('y2', yPos)
-           .transition().duration(500)
-           .attr('x2', margins.left + xScale(selected.target) + xScale.bandwidth() / 2);
+            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4')
+            .attr('x1', margins.left).attr('y1', yPos)
+            .attr('x2', margins.left).attr('y2', yPos)
+            .transition().duration(500)
+            .attr('x2', margins.left + xScale(selected.target) + xScale.bandwidth() / 2);
 
     } else {
         const xMax = d3.max(data, d => +d.value) || 0;
@@ -881,22 +996,22 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
 
         const xPos = margins.left + xScale(selected.value);
         svg.append('line').attr('class', 'annotation')
-           .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4')
-           .attr('x1', xPos).attr('y1', margins.top + plot.h)
-           .attr('x2', xPos).attr('y2', margins.top + plot.h)
-           .transition().duration(500)
-           .attr('y2', margins.top + yScale(selected.target) + yScale.bandwidth() / 2);
+            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4')
+            .attr('x1', xPos).attr('y1', margins.top + plot.h)
+            .attr('x2', xPos).attr('y2', margins.top + plot.h)
+            .transition().duration(500)
+            .attr('y2', margins.top + yScale(selected.target) + yScale.bandwidth() / 2);
     }
 
     const val = getMarkValue(targetBar.node());
     const { x, y } = getCenter(targetBar.node(), orientation, margins);
-    
+
     svg.append('text').attr('class', 'annotation')
         .attr('x', x).attr('y', y).attr('text-anchor', 'middle')
         .attr('font-size', 12).attr('fill', hlColor)
         .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
         .text(String(val));
-    
+
     svg.append('text').attr('class', 'annotation')
         .attr('x', margins.left)
         .attr('y', margins.top - 10)
@@ -904,10 +1019,9 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
         .attr('font-weight', 'bold')
         .attr('fill', hlColor)
         .text(`Nth: ${String(op?.from || 'left')} ${String(op?.n || 1)}`);
-    
-    return resultArray;
-}
 
+    return isLast ? [selected] : resultArray;
+}
 
 export async function simpleBarCount(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, orientation, margins, plot } = getSvgAndSetup(chartId);
@@ -949,5 +1063,5 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
         await delay(60);
     }
     svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', hlColor).text(`Count: ${totalCount}`).attr('opacity', 0).transition().duration(200).attr('opacity', 1);
-    return result ? [result] : [];
+    return isLast ? (result ? [result] : []) : (result ? [result] : []);
 }
