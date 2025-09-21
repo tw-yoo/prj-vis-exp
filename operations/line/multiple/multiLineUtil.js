@@ -43,13 +43,14 @@ async function applyMultipleLineOperation(chartId, operation, currentData) {
     return await fn(chartId, operation, currentData);
 }
 
-async function executeMultipleLineOpsList(chartId, opsList, currentData) {
+async function executeMultipleLineOpsList(chartId, opsList, currentData, delayMs = 0) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applyMultipleLineOperation(chartId, operation, currentData);
         
-            await delay(1500);
-        
+        if (delayMs > 0) {
+            await delay(delayMs);
+        }
     }
     return currentData;
 }
@@ -95,9 +96,89 @@ async function fullChartReset(chartId) {
     await Promise.all(resetPromises).catch(err => {});
 }
 
-export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
-    await fullChartReset(chartId);
+/**
+ * 네비게이션 버튼 UI 생성 (SVG 내부에 배치)
+ */
+function createNavigationControls(chartId) {
+    const svg = d3.select(`#${chartId}`).select("svg");
     
+    // 기존 네비게이션 그룹 제거
+    svg.select(".nav-controls-group").remove();
+    
+    // 네비게이션 그룹 생성 (SVG 내부, 좌상단)
+    const navGroup = svg.append("g")
+        .attr("class", "nav-controls-group")
+        .attr("transform", "translate(15, 15)");
+
+    // 배경 박스
+    const bgRect = navGroup.append("rect")
+        .attr("class", "nav-bg")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 130)
+        .attr("height", 35)
+        .attr("rx", 5)
+        .attr("ry", 5)
+        .attr("fill", "rgba(255, 255, 255, 0.9)")
+        .attr("stroke", "#ccc")
+        .attr("stroke-width", 1);
+
+    // 다음 버튼
+    const nextButton = navGroup.append("g")
+        .attr("class", "nav-btn next-btn")
+        .attr("transform", "translate(5, 5)")
+        .style("cursor", "pointer");
+
+    nextButton.append("rect")
+        .attr("width", 60)
+        .attr("height", 25)
+        .attr("rx", 3)
+        .attr("fill", "#007bff")
+        .attr("stroke", "#0056b3")
+        .attr("stroke-width", 1);
+
+    nextButton.append("text")
+        .attr("x", 30)
+        .attr("y", 17)
+        .attr("text-anchor", "middle")
+        .attr("fill", "white")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold")
+        .text("Next →");
+
+    // 단계 표시기
+    const stepIndicator = navGroup.append("text")
+        .attr("class", "step-indicator")
+        .attr("x", 95)
+        .attr("y", 22)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#333")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold");
+
+    return { nextButton, stepIndicator };
+}
+
+/**
+ * 버튼 상태 업데이트
+ */
+function updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps) {
+    // 다음 버튼 상태
+    if (currentStep === totalSteps - 1) {
+        nextButton.select("rect").attr("fill", "#6c757d").attr("opacity", 0.5);
+        nextButton.select("text").text("Done");
+        nextButton.style("cursor", "not-allowed");
+    } else {
+        nextButton.select("rect").attr("fill", "#007bff").attr("opacity", 1);
+        nextButton.select("text").text("Next →");
+        nextButton.style("cursor", "pointer");
+    }
+
+    // 단계 표시기 업데이트
+    stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
+}
+
+export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
     const chartInfo = chartDataStore[chartId];
     if (!chartInfo) {
         console.error(`runMultipleLineOps: No data in store for chartId '${chartId}'.`);
@@ -107,30 +188,66 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec) {
     let fullData = [...chartInfo.data];
     const { rows, datumValues, categoryLabel, measureLabel } =
         multipleLineToDatumValues(fullData, vlSpec);
-    let isTransformed = false;
 
-    const operationKeys = Object.keys(opsSpec);
-    for (const opKey of operationKeys) {
-        let currentData = datumValues;
-        // console.log('before op:', opKey, currentData);
-        const opsList = opsSpec[opKey];
-        currentData = await executeMultipleLineOpsList(chartId, opsList, currentData);
+    const keys = Object.keys(opsSpec);
+    if (keys.length === 0) return;
+
+    let currentStep = 0;
+    const totalSteps = keys.length;
+    const zeroDelay = 0; // 애니메이션 딜레이 제거
+
+    // 네비게이션 컨트롤 생성 (한 번만)
+    const { nextButton, stepIndicator } = createNavigationControls(chartId);
+
+    // 각 스텝을 실행하는 공통 루틴
+    const runStep = async (stepIndex) => {
+        const opKey = keys[stepIndex];
+        
+        // 차트 리셋
+        await fullChartReset(chartId);
+
+        // ops 실행
+        const opsList = opsSpec[opKey] || [];
+        let currentData = datumValues.slice(); // 베이스 복사
+        currentData = await executeMultipleLineOpsList(chartId, opsList, currentData, zeroDelay);
+
+        // 캐시 저장
         const currentDataArray = Array.isArray(currentData)
             ? currentData
             : (currentData != null ? [currentData] : []);
 
         currentDataArray.forEach((datum, idx) => {
-            datum.id = `${opKey}_${idx}`;
-            datum.category = lastCategory;
-            datum.measure = lastMeasure;
-        })
+            if (datum && typeof datum === "object") {
+                datum.id = `${opKey}_${idx}`;
+                datum.category = lastCategory ?? categoryLabel;
+                datum.measure = lastMeasure ?? measureLabel;
+            }
+        });
 
-        dataCache[opKey] = currentDataArray
-        // await stackChartToTempTable(chartId, vlSpec);
-        // console.log('after op:', opKey, currentDataArray);
-    }
+        dataCache[opKey] = currentDataArray;
+    };
 
-    Object.keys(dataCache).forEach(key => delete dataCache[key]);
+    // 버튼 이벤트 핸들러
+    const updateStep = async (newStep) => {
+        if (newStep < 0 || newStep >= totalSteps) return;
+        
+        currentStep = newStep;
+        await runStep(currentStep);
+        updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps);
+    };
+
+    // 이벤트 리스너 등록 (한 번만)
+    nextButton.on("click", () => {
+        if (currentStep < totalSteps - 1) {
+            updateStep(currentStep + 1);
+        }
+    });
+
+    // 초기: 첫 번째 키 실행
+    await runStep(0);
+    updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps);
+
+    // 마지막에 dataCache 정리는 하지 않음 (데이터 손상 방지)
 }
 
 
@@ -138,7 +255,7 @@ export async function renderMultipleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 40, right: 120, bottom: 50, left: 60 };
+    const margin = { top: 60, right: 120, bottom: 50, left: 60 }; // top 마진 증가
     const width = 800 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
 
