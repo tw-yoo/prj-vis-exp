@@ -22,9 +22,6 @@ import {
     lastMeasure
 } from "../../../util/util.js";
 
-// 🔹 Scrollytelling 헬퍼
-import { createScrollyLayout, observeSteps, prefersReducedMotion } from "../../../router/routerUtil.js";
-
 /** 내부 사용: 라인 차트 데이터 저장 (renderSimpleLineChart에서 적재) */
 const chartDataStore = {};
 
@@ -119,45 +116,122 @@ function simpleLineToDatumValues(rawData, spec) {
 }
 
 /**
+ * 네비게이션 버튼 UI 생성 (SVG 내부에 배치)
+ */
+function createNavigationControls(chartId) {
+    const svg = d3.select(`#${chartId}`).select("svg");
+    
+    // 기존 네비게이션 그룹 제거
+    svg.select(".nav-controls-group").remove();
+    
+    // 네비게이션 그룹 생성 (SVG 내부, 좌상단)
+    const navGroup = svg.append("g")
+        .attr("class", "nav-controls-group")
+        .attr("transform", "translate(15, 15)");
+
+    // 배경 박스
+    const bgRect = navGroup.append("rect")
+        .attr("class", "nav-bg")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 130)
+        .attr("height", 35)
+        .attr("rx", 5)
+        .attr("ry", 5)
+        .attr("fill", "rgba(255, 255, 255, 0.9)")
+        .attr("stroke", "#ccc")
+        .attr("stroke-width", 1);
+
+    // 다음 버튼
+    const nextButton = navGroup.append("g")
+        .attr("class", "nav-btn next-btn")
+        .attr("transform", "translate(5, 5)")
+        .style("cursor", "pointer");
+
+    nextButton.append("rect")
+        .attr("width", 60)
+        .attr("height", 25)
+        .attr("rx", 3)
+        .attr("fill", "#007bff")
+        .attr("stroke", "#0056b3")
+        .attr("stroke-width", 1);
+
+    nextButton.append("text")
+        .attr("x", 30)
+        .attr("y", 17)
+        .attr("text-anchor", "middle")
+        .attr("fill", "white")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold")
+        .text("Next →");
+
+    // 단계 표시기
+    const stepIndicator = navGroup.append("text")
+        .attr("class", "step-indicator")
+        .attr("x", 95)
+        .attr("y", 22)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#333")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold");
+
+    return { nextButton, stepIndicator };
+}
+
+/**
+ * 버튼 상태 업데이트
+ */
+function updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps) {
+    // 다음 버튼 상태
+    if (currentStep === totalSteps - 1) {
+        nextButton.select("rect").attr("fill", "#6c757d").attr("opacity", 0.5);
+        nextButton.select("text").text("Done");
+        nextButton.style("cursor", "not-allowed");
+    } else {
+        nextButton.select("rect").attr("fill", "#007bff").attr("opacity", 1);
+        nextButton.select("text").text("Next →");
+        nextButton.style("cursor", "pointer");
+    }
+
+    // 단계 표시기 업데이트
+    stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
+}
+
+/**
  * ✅ 요구사항 반영:
- * - 첫 번째 키(예: "ops")만 즉시 실행
- * - 이후 스크롤로 다음 스텝이 활성화될 때만 다음 세트(예: "ops2") 실행
+ * - 버튼 기반 네비게이션으로 각 단계 제어
+ * - 차트 내부 좌상단에 이전/다음 버튼 배치
  * - 🔸 모든 연산은 DatumValue[] (정규화 데이터) 기준으로 수행
  */
 export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
-    // #chart 컨테이너를 scrolly 구조로 재구성 (sticky 그래픽 + 스텝)
-    const { rootEl, graphicId, stepsEl } = createScrollyLayout(chartId, { stickyTop: 12 });
+    // 기본 차트 렌더 (D3 라인 차트)
+    await renderSimpleLineChart(chartId, vlSpec);
 
-    // 스텝 생성 (opsSpec의 키 순서 유지)
+    // 데이터 준비 (renderSimpleLineChart가 chartDataStore[chartId]에 원본 저장)
+    const raw = chartDataStore[chartId] || [];
+    const { datumValues, categoryLabel, measureLabel } = simpleLineToDatumValues(raw, vlSpec);
+
     const keys = Object.keys(opsSpec);
     if (keys.length === 0) return;
 
-    keys.forEach((k) => {
-        const step = document.createElement("section");
-        step.className = "step";
-        step.dataset.op = k;
-        stepsEl.appendChild(step);
-    });
+    let currentStep = 0;
+    const totalSteps = keys.length;
+    const zeroDelay = 0;
 
-    // 기본 차트 렌더 (D3 라인 차트)
-    await renderSimpleLineChart(graphicId, vlSpec);
+    // 네비게이션 컨트롤 생성 (한 번만)
+    const { nextButton, stepIndicator } = createNavigationControls(chartId);
 
-    // 데이터 준비 (renderSimpleLineChart가 chartDataStore[graphicId]에 원본 저장)
-    const raw = chartDataStore[graphicId] || [];
-    const { datumValues, categoryLabel, measureLabel } = simpleLineToDatumValues(raw, vlSpec);
-
-    const zeroDelay = prefersReducedMotion() ? 0 : 0;
-    const executed = new Set(); // 이미 실행된 스텝 기록
-
-    // 각 스텝을 실행하는 공통 루틴 (항상 베이스부터 다시 그림)
-    const runStep = async (opKey) => {
-        await renderSimpleLineChart(graphicId, vlSpec);
-        await fullChartReset(graphicId);
+    // 각 스텝을 실행하는 공통 루틴
+    const runStep = async (stepIndex) => {
+        const opKey = keys[stepIndex];
+        
+        // 차트 리셋만 하고 재렌더링하지 않음
+        await fullChartReset(chartId);
 
         // ops 실행 (항상 DatumValue[] 기준)
         const opsList = opsSpec[opKey] || [];
         let currentData = datumValues.slice(); // 베이스 복사
-        currentData = await executeSimpleLineOpsList(graphicId, opsList, currentData, zeroDelay);
+        currentData = await executeSimpleLineOpsList(chartId, opsList, currentData, zeroDelay);
 
         // 캐시 저장 (형식 통일: 배열화 + 메타 필드)
         const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);
@@ -170,22 +244,27 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
             }
         });
         dataCache[opKey] = arr;
-        executed.add(opKey);
     };
 
-    // 🔸 초기: 첫 번째 키만 즉시 실행 (예: "ops")
-    await runStep(keys[0]);
+    // 버튼 이벤트 핸들러
+    const updateStep = async (newStep) => {
+        if (newStep < 0 || newStep >= totalSteps) return;
+        
+        currentStep = newStep;
+        await runStep(currentStep);
+        updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps);
+    };
 
-    // 🔸 이후: 스크롤로 다음 스텝이 활성화될 때만 실행
-    observeSteps({
-        rootEl,
-        stepsEl,
-        threshold: 0.6,
-        onEnter: async (opKey) => {
-            if (executed.has(opKey)) return; // 이미 실행했다면 무시
-            await runStep(opKey);
+    // 이벤트 리스너 등록 (한 번만)
+    nextButton.on("click", () => {
+        if (currentStep < totalSteps - 1) {
+            updateStep(currentStep + 1);
         }
     });
+
+    // 🔸 초기: 첫 번째 키 실행 (예: "ops")
+    await runStep(0);
+    updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps);
 }
 
 /**
@@ -195,7 +274,7 @@ export async function renderSimpleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 40, right: 60, bottom: 50, left: 80 };
+    const margin = { top: 60, right: 60, bottom: 50, left: 80 }; // top 마진을 늘려서 버튼 공간 확보
     const width = 800 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
 
