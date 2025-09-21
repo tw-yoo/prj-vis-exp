@@ -309,16 +309,31 @@ export async function renderStackedBarChart(chartId, spec) {
         data.forEach(d => { d[valueField] = +d[valueField]; });
     }
 
-    // 5) timeUnit on categorical axis (support 'month')
-    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    // 5) timeUnit 처리 - 동적으로 처리하여 다양한 데이터 지원
     function timeUnitKey(dateStr, tu) {
+        if (!dateStr || !tu) return dateStr;
+        
         const dt = new Date(dateStr);
-        if (!(dt instanceof Date) || isNaN(dt)) return null;
-        if (tu === "month") return monthNames[dt.getMonth()];
-        return dateStr;
+        if (!(dt instanceof Date) || isNaN(dt)) return dateStr;
+        
+        switch(tu) {
+            case "month":
+                return dt.toLocaleString('default', { month: 'short' }); // 로케일에 맞는 월 이름
+            case "year":
+                return dt.getFullYear().toString();
+            case "day":
+                return dt.toISOString().split('T')[0]; // YYYY-MM-DD
+            case "quarter":
+                return `Q${Math.floor(dt.getMonth() / 3) + 1}`;
+            default:
+                return dateStr;
+        }
     }
+    
     const categoryTimeUnit = (categoryField === xField ? xTimeUnit : yTimeUnit) || null;
-    data.forEach(d => { d.__cat = categoryTimeUnit ? timeUnitKey(d[categoryField], categoryTimeUnit) : d[categoryField]; });
+    data.forEach(d => { 
+        d.__cat = categoryTimeUnit ? timeUnitKey(d[categoryField], categoryTimeUnit) : d[categoryField]; 
+    });
 
     // 6) Color scale (respect spec domain/range)
     const colorScaleSpec = spec.encoding.color?.scale;
@@ -332,10 +347,18 @@ export async function renderStackedBarChart(chartId, spec) {
         color = d3.scaleOrdinal(d3.schemeTableau10).domain(subgroups);
     }
 
-    // 7) Groups (categorical axis domain)
-    const groups = categoryTimeUnit === "month"
-        ? monthNames.slice()
-        : Array.from(new Set(data.map(d => d.__cat)));
+    // 7) Groups (categorical axis domain) - 동적으로 데이터에서 추출
+    const groups = Array.from(new Set(data.map(d => d.__cat))).sort((a, b) => {
+        // 시간 관련 데이터면 시간순으로 정렬, 아니면 원본 순서 유지
+        if (categoryTimeUnit) {
+            const dateA = new Date(a);
+            const dateB = new Date(b);
+            if (!isNaN(dateA) && !isNaN(dateB)) {
+                return dateA - dateB;
+            }
+        }
+        return String(a).localeCompare(String(b));
+    });
 
     // 8) Build stacked input rows: { [categoryField]: group, [sg1]: number, ... }
     const dataForStack = groups.map(group => {
@@ -528,13 +551,26 @@ export function toStackedDatumValues(rawData, spec) {
     const measureLabel = (numericEnc.axis && numericEnc.axis.title) || (numericEnc.aggregate || numericEnc.field || 'value');
     const categoryLabel = (categoryEnc.axis && categoryEnc.axis.title) || (categoryEnc.field || 'category');
 
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    // 개선된 timeUnit 처리 - 다양한 형식 지원
     const categoryTimeUnit = (categoryField === xField ? xTimeUnit : yTimeUnit) || null;
     function timeUnitKey(v, tu) {
+        if (!v || !tu) return v;
+        
         const dt = new Date(v);
-        if (!v || isNaN(dt)) return v;
-        if (tu === 'month') return monthNames[dt.getMonth()];
-        return v;
+        if (isNaN(dt)) return v; // 날짜가 아니면 원본 반환
+        
+        switch(tu) {
+            case 'month':
+                return dt.toLocaleString('default', { month: 'short' });
+            case 'year':
+                return dt.getFullYear().toString();
+            case 'day':
+                return dt.toISOString().split('T')[0];
+            case 'quarter':
+                return `Q${Math.floor(dt.getMonth() / 3) + 1}`;
+            default:
+                return v;
+        }
     }
 
     let subgroups;
@@ -543,7 +579,19 @@ export function toStackedDatumValues(rawData, spec) {
     else subgroups = [null];
 
     const withCat = rawData.map(d => ({ ...d, __cat: categoryTimeUnit ? timeUnitKey(d[categoryField], categoryTimeUnit) : d[categoryField] }));
-    const groups = categoryTimeUnit === 'month' ? monthNames.slice() : Array.from(new Set(withCat.map(d => d.__cat)));
+    
+    // 동적으로 그룹 생성 및 정렬
+    const groups = Array.from(new Set(withCat.map(d => d.__cat))).sort((a, b) => {
+        // 시간 관련 데이터면 시간순으로 정렬
+        if (categoryTimeUnit) {
+            const dateA = new Date(a);
+            const dateB = new Date(b);
+            if (!isNaN(dateA) && !isNaN(dateB)) {
+                return dateA - dateB;
+            }
+        }
+        return String(a).localeCompare(String(b));
+    });
 
     function num(v) { const n = +v; return Number.isFinite(n) ? n : 0; }
     function aggFor(group, sg) {
