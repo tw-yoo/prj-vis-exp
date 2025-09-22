@@ -79,7 +79,7 @@ export async function executeAtomicOps(chartId, vlSpec, opsSpecWithText) {
                 await runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec);
                 break;
             case ChartType.STACKED_BAR:
-                await runStackedBarOps(chartId, vlSpec, opsSpec);
+                await runStackedBarOps(chartId, vlSpec, opsSpec, textSpec);
                 break;
             case ChartType.GROUPED_BAR:
                 await runGroupedBarOps(chartId, vlSpec, opsSpec);
@@ -105,7 +105,7 @@ export async function executeAtomicOps(chartId, vlSpec, opsSpecWithText) {
                 await runSimpleBarOps(chartId, vlSpec, pre, textSpec);
                 break;
             case ChartType.STACKED_BAR:
-                await runStackedBarOps(chartId, vlSpec, pre);
+                await runStackedBarOps(chartId, vlSpec, pre, textSpec);
                 break;
             case ChartType.GROUPED_BAR:
                 await runGroupedBarOps(chartId, vlSpec, pre);

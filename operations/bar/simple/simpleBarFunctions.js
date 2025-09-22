@@ -544,14 +544,6 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
             .text(t.value);
     });
 
-    const resultText = `${visKeyA}: ${fmtNum(valueA)} vs ${visKeyB}: ${fmtNum(valueB)}`;
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left)
-        .attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
-        .attr("fill", "#333")
-        .text(resultText);
-
     await Promise.all(animationPromises).catch(() => {});
 
     return winner ? [winner] : [];
@@ -647,16 +639,16 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     const answer = (isTrue === null) ? "unknown" : String(isTrue);
     const answerColor = isTrue ? "#2ca02c" : (isTrue === false ? "#d62728" : "#333");
 
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left).attr("y", margins.top - 28)
-        .attr("font-size", 12).attr("fill", "#666")
-        .text(header);
-
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
-        .attr("fill", answerColor)
-        .text(answer);
+    // svg.append("text").attr("class", "annotation")
+    //     .attr("x", margins.left).attr("y", margins.top - 28)
+    //     .attr("font-size", 12).attr("fill", "#666")
+    //     .text(header);
+    //
+    // svg.append("text").attr("class", "annotation")
+    //     .attr("x", margins.left).attr("y", margins.top - 10)
+    //     .attr("font-size", 14).attr("font-weight", "bold")
+    //     .attr("fill", answerColor)
+    //     .text(answer);
 
     await Promise.all(animationPromises).catch(() => {});
 
@@ -697,8 +689,8 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
     const orderText = orderAsc ? 'Ascending' : 'Descending';
     const isLabelField = (op.field === 'label' || op.field === 'target' || (categoryName && op.field === categoryName) || (orientation === 'vertical' ? op.field === xField : op.field === yField));
     const label = isLabelField ? (categoryName || 'label') : (measureName || 'value');
-    const labelText = `Sorted by ${label} (${orderText})`;
-    svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', '#6f42c1').text(labelText);
+    // const labelText = `Sorted by ${label} (${orderText})`;
+    // svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', '#6f42c1').text(labelText);
     if (isLast) {
         const first = sortedData && sortedData[0];
         if (!first) return [];
@@ -944,14 +936,14 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
             .text(t.value);
     });
 
-    const resultText = `Difference (${visKeyA} vs ${visKeyB}): ${fmtNum(Math.abs(diffValue))}`;
-    svg.append("text")
-        .attr("class", "annotation")
-        .attr("x", margins.left)
-        .attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
-        .attr("fill", "#333")
-        .text(resultText);
+    // const resultText = `Difference (${visKeyA} vs ${visKeyB}): ${fmtNum(Math.abs(diffValue))}`;
+    // svg.append("text")
+    //     .attr("class", "annotation")
+    //     .attr("x", margins.left)
+    //     .attr("y", margins.top - 10)
+    //     .attr("font-size", 14).attr("font-weight", "bold")
+    //     .attr("fill", "#333")
+    //     .text(resultText);
 
     await Promise.all(animationPromises).catch(() => {});
 
@@ -1020,13 +1012,13 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
         .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
         .text(String(val));
 
-    svg.append('text').attr('class', 'annotation')
-        .attr('x', margins.left)
-        .attr('y', margins.top - 10)
-        .attr('font-size', 14)
-        .attr('font-weight', 'bold')
-        .attr('fill', hlColor)
-        .text(`Nth: ${String(op?.from || 'left')} ${String(op?.n || 1)}`);
+    // svg.append('text').attr('class', 'annotation')
+    //     .attr('x', margins.left)
+    //     .attr('y', margins.top - 10)
+    //     .attr('font-size', 14)
+    //     .attr('font-weight', 'bold')
+    //     .attr('fill', hlColor)
+    //     .text(`Nth: ${String(op?.from || 'left')} ${String(op?.n || 1)}`);
 
     return isLast ? [selected] : resultArray;
 }
@@ -1038,7 +1030,7 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
     const totalCount = result ? Number(result.value) : 0;
     const bars = selectAllMarks(g);
     if (bars.empty()) {
-        svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', '#20c997').text(`Count: ${totalCount}`);
+        // svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', '#20c997').text(`Count: ${totalCount}`);
         return result ? [result] : [];
     }
     const baseColor = '#69b3a2';
@@ -1070,6 +1062,6 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
         svg.append('text').attr('class', 'annotation count-label').attr('x', x).attr('y', y).attr('text-anchor', 'middle').attr('font-size', 12).attr('font-weight', 'bold').attr('fill', hlColor).attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke').text(String(i + 1)).attr('opacity', 0).transition().duration(125).attr('opacity', 1);
         await delay(60);
     }
-    svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', hlColor).text(`Count: ${totalCount}`).attr('opacity', 0).transition().duration(200).attr('opacity', 1);
+    // svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', hlColor).text(`Count: ${totalCount}`).attr('opacity', 0).transition().duration(200).attr('opacity', 1);
     return isLast ? (result ? [result] : []) : (result ? [result] : []);
 }

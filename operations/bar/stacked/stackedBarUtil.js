@@ -4,6 +4,32 @@ import {
     stackedBarDetermineRange, stackedBarCompare, stackedBarSort,
     stackedBarSum, stackedBarAverage, stackedBarDiff, stackedBarNth, stackedBarCount, stackedBarCompareBool,
 } from "./stackedBarFunctions.js";
+// Helper to show/update an operation caption under the SVG
+function updateOpCaption(chartId, text) {
+    try {
+        if (!text) return;
+        const svg = d3.select(`#${chartId}`).select("svg");
+        if (svg.empty()) return;
+        const mTop = +svg.attr("data-m-top") || 40;
+        const plotH = +svg.attr("data-plot-h") || 300;
+        const y = mTop + plotH + 30; // place below plot area
+
+        // remove previous caption
+        svg.selectAll(".op-caption").remove();
+
+        // draw caption text
+        svg.append("text")
+            .attr("class", "op-caption")
+            .attr("x", 10)
+            .attr("y", y)
+            .attr("text-anchor", "start")
+            .style("font-size", "12px")
+            .style("fill", "#444")
+            .text(text);
+    } catch (e) {
+        console.warn("updateOpCaption failed", e);
+    }
+}
 import {OperationType} from "../../../object/operationType.js";
 import {
     buildSimpleBarSpec,
@@ -42,16 +68,18 @@ async function applyStackedBarOperation(chartId, operation, currentData, isLast 
     return await fn(chartId, operation, currentData, isLast);
 }
 
-async function executeStackedBarOpsList(chartId, opsList, currentData, isLast = false)  {
+async function executeStackedBarOpsList(chartId, opsList, currentData, isLast = false, textSpec = {})  {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
+        const caption = (textSpec && textSpec.ops) ? String(textSpec.ops) : null;
+        updateOpCaption(chartId, caption);
         currentData = await applyStackedBarOperation(chartId, operation, currentData, isLast);
         await delay(1500)
     }
     return currentData;
 }
 
-export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
+export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
     const svg = d3.select(`#${chartId}`).select("svg");
 
     if (svg.select(".plot-area").empty()) {
@@ -99,10 +127,10 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
             const chartSpec = buildSimpleBarSpec(allDatumValues)
             await renderChart(chartId, chartSpec);
             const opsList = opsSpec[opKey];
-            currentData = await executeStackedBarOpsList(chartId, opsList, allDatumValues, isLast);
+            currentData = await executeStackedBarOpsList(chartId, opsList, allDatumValues, isLast, textSpec);
         } else {
             const opsList = opsSpec[opKey];
-            currentData = await executeStackedBarOpsList(chartId, opsList, currentData, isLast);
+            currentData = await executeStackedBarOpsList(chartId, opsList, currentData, isLast, textSpec);
             const currentDataArray = Array.isArray(currentData)
                 ? currentData
                 : (currentData != null ? [currentData] : []);

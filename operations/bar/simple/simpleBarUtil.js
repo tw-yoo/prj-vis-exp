@@ -60,6 +60,30 @@ function getSvgAndSetup(chartId) {
     return { svg, g, orientation, xField, yField, margins, plot };
 }
 
+function updateOpCaption(chartId, text) {
+    try {
+        if (!text) return;
+        const svg = d3.select(`#${chartId}`).select("svg");
+        if (svg.empty()) return;
+        const mTop = +svg.attr("data-m-top") || 40;
+        const plotH = +svg.attr("data-plot-h") || 300;
+        const y = mTop + plotH + 30;
+
+        svg.selectAll(".op-caption").remove();
+
+        svg.append("text")
+            .attr("class", "op-caption")
+            .attr("x", svg.attr("width") ? +svg.attr("width") / 2 : 300) // center horizontally
+            .attr("y", y + 40) // further down below the chart
+            .attr("text-anchor", "middle")
+            .style("font-size", "16px") // larger font
+            .style("fill", "#444")
+            .text(text);
+    } catch (e) {
+        console.warn("updateOpCaption failed", e);
+    }
+}
+
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function applySimpleBarOperation(chartId, operation, currentData, isLast = false) {
@@ -113,6 +137,7 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
 
         addChartOpsText(currentChartTextId, textSpec[opKey]);
         await renderChart(currentChartId, vlSpec);
+        updateOpCaption(currentChartId, textSpec[opKey]);
 
         let currentData = data;
         console.log('before op:', opKey, currentData);
@@ -121,6 +146,7 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
             const allDatumValues = Object.values(dataCache).flat();
             const chartSpec = buildSimpleBarSpec(allDatumValues)
             await renderChart(currentChartId, chartSpec);
+            updateOpCaption(currentChartId, textSpec[opKey]);
             const opsList = opsSpec[opKey];
             currentData = await executeSimpleBarOpsList(currentChartId, opsList, allDatumValues, isLast);
         } else {
