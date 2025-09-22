@@ -55,7 +55,9 @@ export function getSvgAndSetup(chartId) {
     const yField = svg.attr("data-y-field");
     const margins = { left: +svg.attr("data-m-left") || 0, top: +svg.attr("data-m-top") || 0 };
     const plot = { w: +svg.attr("data-plot-w") || 0, h: +svg.attr("data-plot-h") || 0 };
-    const g = svg.select("g");
+    // Prefer the dedicated plot-area group; fall back to the first <g>
+    let g = svg.select(".plot-area");
+    if (g.empty()) g = svg.select("g");
     return { svg, g, orientation, xField, yField, margins, plot };
 }
 export function clearAllAnnotations(svg) {
@@ -79,10 +81,15 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     const hlColor = "#ff6961";
     const baseColor = "#69b3a2";
     const selected = retrieveValue(data, op, isLast) || [];
-    const selectedTargets = selected.map(d => getBarKeyFromDatum(d));
     const bars = selectAllMarks(g);
+    // For `last`, each datum carries a stable synthetic id (e.g., ops_0). Prefer that for DOM matching.
+    const selectedKeys = selected.map(d => {
+        return isLast ? String(d?.id ?? d?.target ?? getBarKeyFromDatum(d))
+                      : getBarKeyFromDatum(d);
+    });
     const target = bars.filter(function () {
-        return selectedTargets.includes(getBarKeyFromNode(this));
+        const nodeKey = getBarKeyFromNode(this); // checks data-id, data-key, data-target in order
+        return selectedKeys.includes(String(nodeKey));
     });
     if (target.empty()) {
         console.warn("RetrieveValue: target bar(s) not found for key(s):", op?.target);
@@ -105,23 +112,24 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     }
     const targetBars = selected;
     if (orientation === 'vertical') {
-        const lines = g.selectAll('.retrieve-line').data(targetBars, d => d.id || d.target);
-        const entered = lines.enter().append('line')
-          .attr('class', 'retrieve-line')
-          // Start as a zero-length segment anchored at the target bar's center
-          .attr('x1', d => xScale(d.target) + xScale.bandwidth() / 2)
-          .attr('x2', d => xScale(d.target) + xScale.bandwidth() / 2)
-          .attr('y1', d => yScale(d.value))
-          .attr('y2', d => yScale(d.value))
+        const targetBars = selected;
+        const sel = svg.selectAll('.retrieve-line').data(targetBars, d => d.id || d.target);
+        sel.exit().remove();
+        const entered = sel.enter().append('line')
+          .attr('class', 'retrieve-line annotation')
+          // Start at the BAR CENTER (absolute coords)
+          .attr('x1', d => margins.left + xScale(d.target) + xScale.bandwidth() / 2)
+          .attr('x2', d => margins.left + xScale(d.target) + xScale.bandwidth() / 2)
+          .attr('y1', d => margins.top + yScale(d.value))
+          .attr('y2', d => margins.top + yScale(d.value))
           .attr('stroke', 'red')
           .attr('stroke-width', 2)
           .attr('stroke-dasharray', '5,5')
           .attr('opacity', 0);
-        lines.exit().remove();
         animPromises.push(
           entered.transition().duration(400)
-            // Reveal toward the RIGHT edge of the plot (g-local coordinates)
-            .attr('x2', plot.w)
+            // Grow LEFT to the y-axis
+            .attr('x2', margins.left)
             .attr('opacity', 1)
             .end()
         );
@@ -536,7 +544,7 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
             .text(t.value);
     });
 
-    const resultText = `${keyA}: ${fmtNum(valueA)} vs ${keyB}: ${fmtNum(valueB)}`;
+    const resultText = `${visKeyA}: ${fmtNum(valueA)} vs ${visKeyB}: ${fmtNum(valueB)}`;
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left)
         .attr("y", margins.top - 10)
@@ -635,7 +643,7 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     });
 
     const opSymbol = op?.operator || (op?.which ? (op.which === "max" ? ">" : "<") : ">");
-    const header = `${keyA} ${opSymbol} ${keyB} ?`;
+    const header = `${visKeyA} ${opSymbol} ${visKeyB} ?`;
     const answer = (isTrue === null) ? "unknown" : String(isTrue);
     const answerColor = isTrue ? "#2ca02c" : (isTrue === false ? "#d62728" : "#333");
 
@@ -936,7 +944,7 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
             .text(t.value);
     });
 
-    const resultText = `Difference (${keyA} vs ${keyB}): ${fmtNum(Math.abs(diffValue))}`;
+    const resultText = `Difference (${visKeyA} vs ${visKeyB}): ${fmtNum(Math.abs(diffValue))}`;
     svg.append("text")
         .attr("class", "annotation")
         .attr("x", margins.left)

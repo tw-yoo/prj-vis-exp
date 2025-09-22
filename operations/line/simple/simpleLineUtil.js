@@ -1,23 +1,21 @@
 import {
-    simpleLineCompare,
-    simpleLineDetermineRange,
-    simpleLineFilter,
-    simpleLineFindExtremum,
-    simpleLineRetrieveValue,
-    getSvgAndSetup,
     clearAllAnnotations,
     delay,
-    prepareForNextOperation, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount, simpleLineNth,
-    simpleLineCompareBool
+    getSvgAndSetup,
+    simpleLineAverage,
+    simpleLineCompare,
+    simpleLineCompareBool,
+    simpleLineCount,
+    simpleLineDetermineRange,
+    simpleLineDiff,
+    simpleLineFilter,
+    simpleLineFindExtremum,
+    simpleLineNth,
+    simpleLineRetrieveValue, simpleLineSort,
+    simpleLineSum
 } from "./simpleLineFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
-import {
-    buildSimpleBarSpec,
-    convertToDatumValues,
-    dataCache, lastCategory, lastMeasure,
-    renderChart,
-    stackChartToTempTable
-} from "../../../util/util.js";
+import {convertToDatumValues, dataCache, lastCategory, lastMeasure} from "../../../util/util.js";
 
 const SIMPLE_LINE_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleLineRetrieveValue,
@@ -26,6 +24,7 @@ const SIMPLE_LINE_OP_HANDLERS = {
     [OperationType.DETERMINE_RANGE]:simpleLineDetermineRange,
     [OperationType.COMPARE]:        simpleLineCompare,
     [OperationType.COMPARE_BOOL]:   simpleLineCompareBool,
+    [OperationType.SORT]:           simpleLineSort,
     [OperationType.SUM]:            simpleLineSum,
     [OperationType.AVERAGE]:        simpleLineAverage,
     [OperationType.DIFF]:           simpleLineDiff,
@@ -74,29 +73,14 @@ async function executeSimpleLineOpsList(chartId, opsList, currentData) {
 export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
     await fullChartReset(chartId);
 
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
 
     const fullData = chartDataStore[chartId];
     if (!fullData) {
         console.error("No data for chart:", chartId);
         return;
     }
-    // let currentData = [...fullData];
-    const data = raw.map(d => {
-        const o = { ...d };
-
-        o[yField] = +o[yField];
-
-        if (xType === 'temporal') {
-            // Keep as raw text even if it looks like a date
-            o[xField] = String(d[xField]);
-        } else if (xType === 'quantitative') {
-            o[xField] = +d[xField];
-        } else {
-            o[xField] = String(d[xField]);
-        }
-        return o;
-    });
+    const data = convertToDatumValues(fullData, xField, yField, orientation);
 
     const operationKeys = Object.keys(opsSpec);
     for (const opKey of operationKeys) {
@@ -118,8 +102,6 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec) {
         // await stackChartToTempTable(chartId, vlSpec); // 지금 당장은 stack 기능 필요하지 않음.
         // console.log('after op:', opKey, currentDataArray);
     }
-
-    Object.keys(dataCache).forEach(key => delete dataCache[key]);
 }
 
 export async function renderSimpleLineChart(chartId, spec) {

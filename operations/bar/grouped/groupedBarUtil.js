@@ -4,7 +4,7 @@ import {
     clearAllAnnotations,
     delay,
     groupedBarAverage,
-    groupedBarCompare, groupedBarCount,
+    groupedBarCompare, groupedBarCompareBool, groupedBarCount,
     groupedBarDetermineRange, groupedBarDiff,
     groupedBarFilter,
     groupedBarFindExtremum, groupedBarNth,
@@ -18,6 +18,7 @@ const GROUPED_BAR_OP_HANDLES = {
     [OperationType.FIND_EXTREMUM]:  groupedBarFindExtremum,
     [OperationType.DETERMINE_RANGE]:groupedBarDetermineRange,
     [OperationType.COMPARE]:        groupedBarCompare,
+    [OperationType.COMPARE_BOOL]:   groupedBarCompareBool,
     [OperationType.SORT]:           groupedBarSort,
     [OperationType.SUM]:            groupedBarSum,
     [OperationType.AVERAGE]:        groupedBarAverage,
@@ -68,7 +69,7 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
     const operationKeys = Object.keys(opsSpec);
 
     for (const opKey of operationKeys) {
-        console.log('before op:', opKey, currentData);
+        // console.log('before op:', opKey, currentData);
         const opsList = opsSpec[opKey];
 
         currentData = await executeGroupedBarOpsList(chartId, opsList, currentData);
@@ -86,8 +87,8 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec) {
         });
 
         dataCache[opKey] = currentDataArray;
-        await stackChartToTempTable(chartId, vlSpec);
-        console.log('after op:', opKey, currentData);
+        // await stackChartToTempTable(chartId, vlSpec);
+        // console.log('after op:', opKey, currentData);
     }
 }
 

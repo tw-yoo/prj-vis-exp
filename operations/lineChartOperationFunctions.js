@@ -24,6 +24,8 @@
 // Utilities
 // ---------------------------
 
+import {BoolValue} from "../object/valueType.js";
+
 /** Defensive clone to avoid mutating the caller's array */
 function cloneData(data) {
     return Array.isArray(data) ? data.slice() : [];
@@ -219,9 +221,11 @@ export function filterData(data, op) {
 /** 3.3 compare — returns the winning datum (array of one) */
 export function compareOp(data, op) {
     const arr = cloneData(data);
-    const { field, targetA, targetB, group, aggregate: agg, which = "max" } = op;
-    const sA = sliceForTarget(arr, field, targetA, group);
-    const sB = sliceForTarget(arr, field, targetB, group);
+    const { field, targetA, targetB, groupA, groupB, aggregate: agg, which = "max" } = op;
+    const gA = groupA ?? op.group; // backward-compat: fall back to single `group` if provided
+    const gB = groupB ?? op.group;
+    const sA = sliceForTarget(arr, field, targetA, gA);
+    const sB = sliceForTarget(arr, field, targetB, gB);
     if (sA.length === 0 || sB.length === 0) {
         throw new Error("compare: targetA/targetB not found in data slice");
     }
@@ -232,19 +236,22 @@ export function compareOp(data, op) {
     return [chosen];
 }
 
-/** 3.4 compareBool — returns Boolean (true/false) */
+/** 3.4 compareBool — returns BoolValue object */
 export function compareBoolOp(data, op) {
     const arr = cloneData(data);
-    const { field, targetA, targetB, group, operator } = op;
-    const sA = sliceForTarget(arr, field, targetA, group);
-    const sB = sliceForTarget(arr, field, targetB, group);
+    const { field, targetA, targetB, groupA, groupB, operator } = op;
+    const gA = groupA ?? op.group; // backward-compat
+    const gB = groupB ?? op.group;
+    const sA = sliceForTarget(arr, field, targetA, gA);
+    const sB = sliceForTarget(arr, field, targetB, gB);
     if (sA.length === 0 || sB.length === 0) {
         throw new Error("compareBool: targetA/targetB not found in data slice");
     }
     // If multiple per target, compare deterministic aggregate-last
     const vA = aggregate(sA.map((d) => d.value));
     const vB = aggregate(sB.map((d) => d.value));
-    return evalOperator(operator, vA, vB);
+    const boolResult = evalOperator(operator, vA, vB);
+    return new BoolValue(field || "value", boolResult);
 }
 
 /** 3.5 findExtremum */
@@ -337,9 +344,11 @@ export function averageData(data, op) {
 /** 3.11 diff — returns a single numeric DatumValue (signed if op.signed) */
 export function diffData(data, op) {
     const arr = cloneData(data);
-    const { field, targetA, targetB, group, aggregate: agg, signed = true } = op;
-    const sA = sliceForTarget(arr, field, targetA, group);
-    const sB = sliceForTarget(arr, field, targetB, group);
+    const { field, targetA, targetB, groupA, groupB, aggregate: agg, signed = true } = op;
+    const gA = groupA ?? op.group; // backward-compat
+    const gB = groupB ?? op.group;
+    const sA = sliceForTarget(arr, field, targetA, gA);
+    const sB = sliceForTarget(arr, field, targetB, gB);
     if (sA.length === 0 || sB.length === 0) {
         throw new Error("diff: targetA/targetB not found in data slice");
     }

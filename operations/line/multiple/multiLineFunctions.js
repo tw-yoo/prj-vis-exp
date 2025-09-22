@@ -12,12 +12,33 @@ import {
     compareOp as dataCompare,
     compareBoolOp as dataCompareBool,
     // compareDual as dataCompareDual,
-    // compareBoolDual as dataCompareBoolDual
+    // compareBoolDual as dataCompareBoolDual,
+    countData as dataCount
 } from "../../lineChartOperationFunctions.js";
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
+import {
+    simpleLineRetrieveValue,
+    simpleLineFilter,
+    simpleLineFindExtremum,
+    simpleLineDetermineRange,
+    simpleLineNth,
+    simpleLineCompareBool,
+    simpleLineCompare,
+    simpleLineAverage,
+    simpleLineSum,
+    simpleLineDiff,
+    simpleLineCount,
+    simpleLineSort
+} from "../simple/simpleLineFunctions.js";
 
 // -------------------- Helpers --------------------
 const fmtISO = d3.timeFormat("%Y-%m-%d");
+
+// --- Util: Normalize a target value to id string
+function toTargetId(v){
+    const d = parseDate(v);
+    return d ? fmtISO(d) : String(v);
+}
 
 function parseDate(v) {
     if (v instanceof Date) return v;
@@ -84,10 +105,44 @@ function selectAllPoints(g) {
     return g.selectAll("circle.datapoint");
 }
 
+
+
+// Helper: delegate to simple-line if op.group is present, with optional onlyTargets whitelist for points
+async function delegateToSimpleIfGrouped(chartId, op, data, simpleFn, requirePoints = false) {
+    if (op && op.group != null) {
+        let onlyTargets = null;
+        const name = op.op || op.type || '';
+        // Whitelist for point-based ops so we don't draw all points
+        if (requirePoints) {
+            if (name === 'compare' || name === 'compareBool' || name === 'diff') {
+                // single-group shape
+                const tA = op?.targetA?.category ?? op?.targetA;
+                const tB = op?.targetB?.category ?? op?.targetB;
+                if (tA != null && tB != null) {
+                    onlyTargets = [toTargetId(tA), toTargetId(tB)];
+                }
+            } else if (name === 'retrieveValue') {
+                const t = op?.target?.category ?? op?.target;
+                if (t != null) onlyTargets = [toTargetId(t)];
+            }
+            // findExtremum/min/max는 대상 값이 데이터 계산 후에 정해지므로 여기서는 전체 미생성 유지(onlyTargets=null)로 두되,
+            // simple 함수 내부 폴백/주석 렌더링을 사용.
+        }
+        const opts = { drawPoints: !!requirePoints, preserveStroke: true, onlyTargets };
+        const filtered = await multipleLineChangeToSimple(chartId, { group: op.group }, data, opts);
+        const op2 = { ...op };
+        delete op2.group;
+        return await simpleFn(chartId, op2, filtered);
+    }
+    return null; // no delegation
+}
+
 // -------------------- Operations (Data+Visual separation) --------------------
 export async function multipleLineRetrieveValue(chartId, op, data) {
     const { svg, g, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineRetrieveValue, true);
+    if (delegated !== null) return delegated;
 
     // Data
     const targetDatums = dataRetrieveValue(data, op); // op: {target, group?}
@@ -138,6 +193,8 @@ export async function multipleLineRetrieveValue(chartId, op, data) {
 export async function multipleLineFilter(chartId, op, data) {
     const { svg, g, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineFilter);
+    if (delegated !== null) return delegated;
 
     // Data
     const filteredData = dataFilter(data, op); // op: {field, operator, value, group?}
@@ -219,6 +276,8 @@ export async function multipleLineFilter(chartId, op, data) {
 export async function multipleLineFindExtremum(chartId, op, data) {
     const { svg, g, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineFindExtremum, true);
+    if (delegated !== null) return delegated;
 
     // Data
     const extremumDatums = dataFindExtremum(data, op); // op: {which, field?, group?}
@@ -269,6 +328,8 @@ export async function multipleLineFindExtremum(chartId, op, data) {
 export async function multipleLineDetermineRange(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineDetermineRange);
+    if (delegated !== null) return delegated;
 
     // Data
     const rangeResult = dataDetermineRange(data, op); // expected: { category, min, max }
@@ -356,6 +417,8 @@ export async function multipleLineDetermineRange(chartId, op, data) {
 export async function multipleLineNth(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineNth, true);
+    if (delegated !== null) return delegated;
 
     // Data
     const nthData = dataNth(data, op); // op: {n, from?, group?}
@@ -395,6 +458,8 @@ export async function multipleLineNth(chartId, op, data) {
 export async function multipleLineCompareBool(chartId, op, data) {
     const { svg, g, plot, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineCompareBool, true);
+    if (delegated !== null) return delegated;
 
     // Detect shape: dual-group ({targetA:{category,series}, targetB:{category,series}}) or same-group ({targetA, targetB, group})
     let boolResult = null;
@@ -455,6 +520,8 @@ export async function multipleLineCompareBool(chartId, op, data) {
 export async function multipleLineCompare(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineCompare, true);
+    if (delegated !== null) return delegated;
 
     let winners = [];
     let datumA = null, datumB = null;
@@ -517,6 +584,8 @@ export async function multipleLineCompare(chartId, op, data) {
 export async function multipleLineAverage(chartId, op, data) {
     const { svg, g, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineAverage);
+    if (delegated !== null) return delegated;
     if (!data || data.length === 0) return null;
 
     // Data
@@ -545,6 +614,8 @@ export async function multipleLineAverage(chartId, op, data) {
 export async function multipleLineSum(chartId, op, data) {
     const { svg, g } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineSum);
+    if (delegated !== null) return delegated;
 
     // Data
     const result = dataSum(data, op);
@@ -571,6 +642,8 @@ export async function multipleLineSum(chartId, op, data) {
 export async function multipleLineDiff(chartId, op, data) {
     const { svg, g, plot, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineDiff, true);
+    if (delegated !== null) return delegated;
 
     // op can be same-group or dual-group. Normalize and call proper op.
     let diffResult = null;
@@ -628,6 +701,8 @@ export async function multipleLineDiff(chartId, op, data) {
 export async function multipleLineCount(chartId, op, data) {
     const { svg, g, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineCount, true);
+    if (delegated !== null) return delegated;
 
     // Data
     const countResult = dataCount(data, op);
@@ -668,6 +743,8 @@ export async function multipleLineCount(chartId, op, data) {
 export async function multipleLineSort(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineSort);
+    if (delegated !== null) return delegated;
 
     // Data
     const sorted = dataSort(data, op); // op: {field, order?, group?}
@@ -717,7 +794,7 @@ export async function multipleLineSort(chartId, op, data) {
     return sorted;
 }
 
-export async function multipleLineChangeToSimple(chartId, op, data) {
+export async function multipleLineChangeToSimple(chartId, op, data, opts = { drawPoints: false, preserveStroke: true }) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -726,60 +803,112 @@ export async function multipleLineChangeToSimple(chartId, op, data) {
         console.warn("ChangeToSimple requires a 'group' property.");
         return data;
     }
+
     const filteredData = data.filter(d => String(d.group) === String(targetSeriesKey));
     if (filteredData.length === 0) {
-        console.warn(`Series with key '${targetSeriesKey}' not found.`);
+        console.warn(`Series with key '${targetSeriesKey}' not found in data.`);
         return [];
     }
 
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
     const highlightColor = colorScale(targetSeriesKey);
 
+    // --- find target line robustly
     const allLines = selectAllLines(g);
-    const targetLine = allLines.filter(d => d && d[0] === targetSeriesKey);
-    const otherLines = allLines.filter(d => !d || d[0] !== targetSeriesKey);
+    const getKey = (d, node) => {
+        if (d == null && node) return node.getAttribute("data-series");
+        if (Array.isArray(d)) return d[0]; // [key, values]
+        if (typeof d === 'object') {
+            if ('key' in d) return d.key;
+            if ('group' in d) return d.group;
+            if ('series' in d) return d.series;
+            if ('name' in d) return d.name;
+        }
+        return null;
+    };
 
-    if (targetLine.empty()) {
-        console.warn(`Visual element for series '${targetSeriesKey}' not found.`);
-        // 계속 진행: 데이터 기반으로 점 찍기
-    }
+    let targetLine = allLines.filter(function(d){
+        const k = getKey(d, this);
+        return String(k) === String(targetSeriesKey);
+    });
+    const otherLines = allLines.filter(function(d){
+        const k = getKey(d, this);
+        return String(k) !== String(targetSeriesKey);
+    });
 
+    // fade out other lines; preserve stroke of target if requested
     await Promise.all([
         otherLines.transition().duration(800).attr("opacity", 0).remove().end().catch(()=>{}),
-        targetLine.transition().duration(800).attr("stroke-width", 3.5).end().catch(()=>{}),
+        (!targetLine.empty() && !opts.preserveStroke)
+            ? targetLine.transition().duration(800).attr("stroke-width", 3.5).end().catch(()=>{})
+            : Promise.resolve(),
         svg.select(".legend").transition().duration(800).attr("opacity", 0).remove().end().catch(()=>{})
-    ]).catch(() => {});
+    ]).catch(()=>{});
 
-    const { xScale: newXScale, yScale: newYScale } = buildScales(filteredData, plot);
-    const newLineGen = d3.line().x(d => newXScale(d.target)).y(d => newYScale(d.value));
+    // build scales and line generator for single series
+    const { xScale: xScaleNew, yScale: yScaleNew } = buildScales(filteredData, plot);
+    const lineGen = d3.line().x(d => xScaleNew(d.target)).y(d => yScaleNew(d.value));
 
+    // If target path not found, create one bound to filteredData
+    if (targetLine.empty()) {
+        targetLine = g.append("path")
+            .datum(filteredData)
+            .attr("class", "series-line")
+            .attr("fill", "none")
+            .attr("stroke", highlightColor)
+            .attr("stroke-width", 3.0)
+            .attr("opacity", 0);
+        targetLine.transition().duration(300).attr("opacity", 1).catch(()=>{});
+    } else {
+        // Ensure it is bound to filteredData so downstream updates are consistent
+        targetLine.datum(filteredData);
+    }
+
+    await targetLine.transition().duration(1000).attr("d", lineGen(filteredData)).end().catch(()=>{});
+
+    // axes update if present
+    const xAxisSel = g.select(".x-axis");
+    const yAxisSel = g.select(".y-axis");
     await Promise.all([
-        targetLine.transition().duration(1000).attr("d", d => newLineGen(d[1])).end().catch(()=>{}),
-        g.select(".y-axis").transition().duration(1000).call(d3.axisLeft(newYScale)).end().catch(()=>{}),
-        g.select(".x-axis").transition().duration(1000).call(d3.axisBottom(newXScale)).end().catch(()=>{})
-    ]).catch(() => {});
+        !xAxisSel.empty() ? xAxisSel.transition().duration(1000).call(d3.axisBottom(xScaleNew)).end().catch(()=>{}) : Promise.resolve(),
+        !yAxisSel.empty() ? yAxisSel.transition().duration(1000).call(d3.axisLeft(yScaleNew)).end().catch(()=>{}) : Promise.resolve()
+    ]).catch(()=>{});
 
-    g.selectAll("circle.datapoint").remove();
-    g.selectAll("circle.datapoint-highlight")
-        .data(filteredData)
-        .join("circle")
-        .attr("class", "annotation datapoint-highlight")
-        .attr("cx", d => newXScale(d.target))
-        .attr("cy", d => newYScale(d.value))
-        .attr("r", 0)
-        .attr("fill", highlightColor)
-        .transition().duration(500).delay((d, i) => i * 20)
-        .attr("r", 5);
+    // remove existing points, optionally draw compact compatible points
+    g.selectAll("circle.datapoint, circle.datapoint-highlight, circle.main-dp").remove();
+    if (opts.drawPoints === true) {
+        const toId = (t) => (t instanceof Date ? fmtISO(t) : String(t));
+        const allow = Array.isArray(opts.onlyTargets) && opts.onlyTargets.length > 0
+            ? new Set(opts.onlyTargets.map(String))
+            : null;
+        const pointData = allow ? filteredData.filter(d => allow.has(toId(d.target))) : filteredData;
+        g.selectAll("circle.main-dp")
+            .data(pointData, d => `${toId(d.target)}__${d.group}`)
+            .join("circle")
+            .attr("class", "datapoint main-dp")
+            .attr("data-id", d => toId(d.target))
+            .attr("data-target", d => toId(d.target))
+            .attr("data-value", d => d.value)
+            .attr("cx", d => xScaleNew(d.target))
+            .attr("cy", d => yScaleNew(d.value))
+            .attr("r", 0)
+            .attr("fill", highlightColor)
+            .attr("stroke", "white")
+            .attr("stroke-width", 1.5)
+            .transition().duration(400).delay((d,i)=>i*12).attr("r", 5);
+    }
 
+    // header note
     svg.append("text")
         .attr("class", "annotation")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
+        .attr("x", margins.left)
+        .attr("y", margins.top - 10)
+        .attr("font-size", 14)
+        .attr("font-weight", "bold")
         .attr("fill", highlightColor)
         .attr("opacity", 0)
         .text(`Displaying Series: ${targetSeriesKey}`)
-        .transition().duration(500).delay(200)
-        .attr("opacity", 1);
+        .transition().duration(500).delay(200).attr("opacity", 1);
 
     return filteredData;
 }

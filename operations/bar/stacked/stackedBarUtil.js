@@ -2,7 +2,7 @@ import {
     clearAllAnnotations, getSvgAndSetup,
     stackedBarRetrieveValue, stackedBarFilter, stackedBarFindExtremum,
     stackedBarDetermineRange, stackedBarCompare, stackedBarSort,
-    stackedBarSum, stackedBarAverage, stackedBarDiff, stackedBarNth, stackedBarCount,
+    stackedBarSum, stackedBarAverage, stackedBarDiff, stackedBarNth, stackedBarCount, stackedBarCompareBool,
 } from "./stackedBarFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
 import {
@@ -21,6 +21,7 @@ const STACKED_BAR_OP_HANDLERS = {
     [OperationType.FIND_EXTREMUM]:  stackedBarFindExtremum,
     [OperationType.DETERMINE_RANGE]:stackedBarDetermineRange,
     [OperationType.COMPARE]:        stackedBarCompare,
+    [OperationType.COMPARE_BOOL]:   stackedBarCompareBool,
     [OperationType.SORT]:           stackedBarSort,
     [OperationType.SUM]:            stackedBarSum,
     [OperationType.AVERAGE]:        stackedBarAverage,
@@ -49,7 +50,6 @@ async function executeStackedBarOpsList(chartId, opsList, currentData, isLast = 
     }
     return currentData;
 }
-
 
 export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
     const svg = d3.select(`#${chartId}`).select("svg");
@@ -92,7 +92,7 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
     const operationKeys = Object.keys(opsSpec);
 
     for (const opKey of operationKeys) {
-        console.log('before op:', opKey, currentData);
+        // console.log('before op:', opKey, currentData);
         const isLast = opKey === "last";
         if (isLast) {
             const allDatumValues = Object.values(dataCache).flat();
@@ -116,8 +116,8 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec) {
             });
 
             dataCache[opKey] = currentDataArray
-            await stackChartToTempTable(chartId, vlSpec);
-            console.log('after op:', opKey, currentData);
+            // await stackChartToTempTable(chartId, vlSpec);
+            // console.log('after op:', opKey, currentData);
         }
     }
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
