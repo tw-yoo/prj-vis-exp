@@ -229,3 +229,175 @@ export function clearDivChildren(divId) {
         el.removeChild(el.firstChild);
     }
 }
+// =============================
+// Shared UI + Caption + Sequencing
+// =============================
+
+export function updateOpCaption(chartId, text, opts = {}) {
+    try {
+        if (!text) return;
+        const svg = d3.select(`#${chartId}`).select("svg");
+        if (svg.empty()) return;
+        const mLeft = +svg.attr("data-m-left") || 0;
+        const mTop  = +svg.attr("data-m-top")  || 40;
+        const plotW = +svg.attr("data-plot-w") || 300;
+        const plotH = +svg.attr("data-plot-h") || 300;
+
+        const align    = opts.align || 'center'; // 'start' | 'center' | 'end'
+        const offsetY  = (typeof opts.offset === 'number' ? opts.offset : 40);
+        const fontSize = (opts.fontSize || 16);
+        const x = align === 'start' ? (mLeft + 10)
+              : align === 'end'   ? (mLeft + plotW - 10)
+                                  : (mLeft + plotW / 2);
+        const y = mTop + plotH + offsetY;
+
+        svg.selectAll(".op-caption").remove();
+        svg.append("text")
+            .attr("class", "op-caption")
+            .attr("x", x)
+            .attr("y", y)
+            .attr("text-anchor", align === 'start' ? 'start' : (align === 'end' ? 'end' : 'middle'))
+            .style("font-size", `${fontSize}px`)
+            .style("fill", "#444")
+            .text(String(text));
+    } catch (e) {
+        console.warn("updateOpCaption failed", e);
+    }
+}
+
+export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
+    const svg = d3.select(`#${chartId}`).select("svg");
+    if (svg.empty()) {
+        console.error("attachOpNavigator: SVG not found for chartId:", chartId);
+        return { group: null, nextButton: null, stepIndicator: null };
+    }
+    svg.select(".nav-controls-group").remove();
+
+    const navGroup = svg.append("g")
+        .attr("class", "nav-controls-group")
+        .attr("transform", `translate(${x}, ${y})`);
+
+    navGroup.append("rect")
+        .attr("class", "nav-bg")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", 130)
+        .attr("height", 35)
+        .attr("rx", 5)
+        .attr("ry", 5)
+        .attr("fill", "rgba(255, 255, 255, 0.9)")
+        .attr("stroke", "#ccc")
+        .attr("stroke-width", 1);
+
+    const nextButton = navGroup.append("g")
+        .attr("class", "nav-btn next-btn")
+        .attr("transform", "translate(5, 5)")
+        .style("cursor", "pointer");
+
+    nextButton.append("rect")
+        .attr("width", 60)
+        .attr("height", 25)
+        .attr("rx", 3)
+        .attr("fill", "#007bff")
+        .attr("stroke", "#0056b3")
+        .attr("stroke-width", 1);
+
+    nextButton.append("text")
+        .attr("x", 30)
+        .attr("y", 17)
+        .attr("text-anchor", "middle")
+        .attr("fill", "white")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold")
+        .text("Next →");
+
+    const stepIndicator = navGroup.append("text")
+        .attr("class", "step-indicator")
+        .attr("x", 95)
+        .attr("y", 22)
+        .attr("text-anchor", "middle")
+        .attr("fill", "black")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold");
+
+    return { group: navGroup, nextButton, stepIndicator };
+}
+
+export function updateNavigatorStates(ctrl, currentStep, totalSteps) {
+    if (!ctrl || !ctrl.nextButton || !ctrl.stepIndicator) return;
+    const { nextButton, stepIndicator } = ctrl;
+
+    if (currentStep === totalSteps - 1) {
+        nextButton.select("rect").attr("fill", "#6c757d").attr("opacity", 0.5);
+        nextButton.select("text").text("Done");
+        nextButton.style("cursor", "not-allowed");
+    } else {
+        nextButton.select("rect").attr("fill", "#007bff").attr("opacity", 1);
+        nextButton.select("text").text("Next →");
+        nextButton.style("cursor", "pointer");
+    }
+    stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
+}
+
+export async function runOpsSequence({
+    chartId,
+    opsSpec,
+    textSpec = {},
+    onReset,
+    onRunOpsList,
+    onCache,
+    isLastKey = (k) => k === 'last',
+    delayMs = 0,
+    navOpts = { x: 15, y: 15 },
+}) {
+    const svg = d3.select(`#${chartId}`).select("svg");
+    if (svg.empty()) {
+        console.error("runOpsSequence: SVG not found. Please render the chart first.");
+        return;
+    }
+    const keys = Object.keys(opsSpec || {});
+    if (keys.length === 0) return;
+
+    const ctrl = attachOpNavigator(chartId, navOpts);
+    if (!ctrl.nextButton || !ctrl.stepIndicator) {
+        console.error("runOpsSequence: failed to attach navigator");
+        return;
+    }
+
+    let currentStep = 0;
+    const totalSteps = keys.length;
+
+    async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    const runStep = async (i) => {
+        const opKey = keys[i];
+        const opsList = opsSpec[opKey] || [];
+        const isLast = !!isLastKey(opKey);
+
+        if (typeof onReset === 'function') await onReset();
+
+        let result = null;
+        if (typeof onRunOpsList === 'function') {
+            result = await onRunOpsList(opsList, isLast);
+        }
+
+        if (!isLast && typeof onCache === 'function') {
+            try { onCache(opKey, result); } catch (e) { console.warn('runOpsSequence:onCache failed', e); }
+        }
+
+        const captionText = (textSpec && (textSpec[opKey] || textSpec.ops)) ? (textSpec[opKey] || textSpec.ops) : null;
+        if (captionText) updateOpCaption(chartId, captionText, { align: 'center', offset: 40, fontSize: 16 });
+
+        updateNavigatorStates(ctrl, i, totalSteps);
+        if (delayMs > 0) await delay(delayMs);
+        return result;
+    };
+
+    ctrl.nextButton.on('click', async () => {
+        if (currentStep >= totalSteps - 1) return;
+        currentStep += 1;
+        await runStep(currentStep);
+    });
+
+    await runStep(0);
+}

@@ -40,17 +40,15 @@ export class FilterSpec {
 export class CompareSpec {
   /**
    * @param {string} field - Quantitative field to compare
+   * @param group
    * @param {string} targetA - { category?, series?, x?, y?, index? }
    * @param {string} targetB - { category?, series?, x?, y?, index? }
-   * @param {string} [mode='larger'] - 'larger' | 'smaller' | 'equal' | 'notEqual'
-   * @param {string} [aggregate='sum'] - Aggregation to apply before compare: 'sum'|'avg'|'min'|'max'
    */
-  constructor(field, targetA, targetB, mode = 'larger', aggregate = 'sum') {
+  constructor(field, group, targetA, targetB) {
     this.field = field;
+    this.group = group;
     this.targetA = targetA;
     this.targetB = targetB;
-    this.mode = mode;
-    this.aggregate = aggregate;
   }
 }
 
@@ -58,12 +56,14 @@ export class CompareBoolSpec {
   /**
    * Boolean comparison (e.g., is A > B?)
    * @param {string} field
+   * @param group
    * @param {string} targetA
    * @param {string} targetB
    * @param operator
    */
-  constructor(field, targetA, targetB, operator) {
+  constructor(field, group, targetA, targetB, operator) {
     this.field = field;
+    this.group = group;
     this.targetA = targetA;
     this.targetB = targetB;
     this.operator = operator;
@@ -146,11 +146,13 @@ export class AverageSpec {
 export class DiffSpec {
   /**
    * @param {string} field
+   * @param group
    * @param {string} targetA
    * @param {string} targetB
    */
-  constructor(field, targetA, targetB) {
+  constructor(field, group, targetA, targetB) {
     this.field = field;
+    this.group = group;
     this.targetA = targetA;
     this.targetB = targetB;
   }

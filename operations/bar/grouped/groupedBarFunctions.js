@@ -13,27 +13,52 @@ import {
     count as dataCount
 } from "../../operationFunctions.js";
 
+// simple-bar 연출 재사용 (group 분기 시)
+import {
+    simpleBarFilter,
+    simpleBarSort,
+    simpleBarSum,
+    simpleBarAverage,
+    simpleBarFindExtremum,
+    simpleBarDetermineRange,
+    simpleBarDiff,
+    simpleBarCompare,
+    simpleBarCompareBool,
+    simpleBarNth,
+    simpleBarCount
+} from "../simple/simpleBarFunctions.js";
+
 
 // ---------- 공통 셋업 ----------
 export function getSvgAndSetup(chartId) {
-  const svg = d3.select(`#${chartId}`).select("svg");
-  const g = svg.select(".plot-area");
-  const margins = { left: +svg.attr("data-m-left") || 0, top: +svg.attr("data-m-top") || 0 };
-  const plot = { w: +svg.attr("data-plot-w") || 0, h: +svg.attr("data-plot-h") || 0 };
-  const xField = svg.attr("data-x-field");
-  const yField = svg.attr("data-y-field");
-  const facetField = svg.attr("data-facet-field");
-  const colorField = svg.attr("data-color-field");
-  return { svg, g, margins, plot, xField, yField, facetField, colorField };
+    const svg = d3.select(`#${chartId}`).select("svg");
+    const g = svg.select(".plot-area");
+    const margins = { left: +svg.attr("data-m-left") || 0, top: +svg.attr("data-m-top") || 0 };
+    const plot = { w: +svg.attr("data-plot-w") || 0, h: +svg.attr("data-plot-h") || 0 };
+    const xField = svg.attr("data-x-field");
+    const yField = svg.attr("data-y-field");
+    const facetField = svg.attr("data-facet-field");
+    const colorField = svg.attr("data-color-field");
+    return { svg, g, margins, plot, xField, yField, facetField, colorField };
 }
 
 export function clearAllAnnotations(svg) {
-  svg.selectAll(
-    ".annotation, .filter-label, .compare-label, .range-line, .extremum-label, .value-tag, .threshold-line, .threshold-label"
-  ).remove();
+    svg.selectAll(
+        ".annotation, .filter-label, .compare-label, .range-line, .extremum-label, .value-tag, .threshold-line, .threshold-label"
+    ).remove();
 }
 
+
 export const delay = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Helper to coordinate operation ordering by waiting for filtering attr to clear
+async function waitForAttrClear(svg, attr = 'data-filtering', timeout = 6000, interval = 50) {
+    const start = Date.now();
+    while (svg && svg.attr && svg.attr(attr)) {
+        if (Date.now() - start > timeout) break;
+        await delay(interval);
+    }
+}
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
@@ -42,59 +67,41 @@ function cssEscape(x){ try{ return CSS.escape(String(x)); } catch { return Strin
 function idOf(row, facetField, xField) { return `${row[facetField]}-${row[xField]}`; }
 function idOfDatum(d) { return `${d.facet}-${d.key}`; }
 
+
 function readGroupX(node) {
-  const p = node?.parentNode;
-  if (!p) return 0;
-  const t = p.getAttribute && p.getAttribute("transform");
-  if (!t) return 0;
-  const m = /translate\(([-\d.]+)/.exec(t);
-  return m ? +m[1] : 0;
+    const p = node?.parentNode;
+    if (!p) return 0;
+    const t = p.getAttribute && p.getAttribute("transform");
+    if (!t) return 0;
+    const m = /translate\(([-\d.]+)/.exec(t);
+    return m ? +m[1] : 0;
 }
 
-function buildPredicate(conds=[], logic="and") {
-    const L = (logic||"and").toLowerCase()==="or" ? "some" : "every";
-    
-    const mk = (c) => (row) => {
-        const { field, satisfy, key, equals, in: arr, notIn } = c||{};
+// Estimate the typical width of a facet group (average of existing facet-group bboxes)
+function widthOfFacet(g) {
+    const groups = g.selectAll('[class^="facet-group-"]');
+    if (groups.empty()) return 0;
+    let total = 0, count = 0;
+    groups.each(function() {
+        try {
+            const bb = this.getBBox();
+            if (bb && isFinite(bb.width)) { total += bb.width; count++; }
+        } catch (_) { /* ignore */ }
+    });
+    return count ? (total / count) : 0;
+}
 
-        const isNumericOp = ['>', '>=', '<', '<='].includes(satisfy) || 
-                            typeof key === 'number' || 
-                            typeof equals === 'number';
-
-        if (isNumericOp) {
-            const v = row.value; 
-            const f = cmpMap[satisfy];
-            if (f && key != null) {
-                const vn = toNum(v);
-                const kn = toNum(key);
-                return f(vn, kn);
-            }
-        } else {
-            const v_target = String(row.target);
-            const v_group = String(row.group);
-            
-            if (equals != null) {
-                return v_target === String(equals) || v_group === String(equals);
-            }
-            if (Array.isArray(arr)) {
-                const strArr = arr.map(String);
-                return strArr.includes(v_target) || strArr.includes(v_group);
-            }
-            if (Array.isArray(notIn)) {
-                const strArr = notIn.map(String);
-                return !strArr.includes(v_target) && !strArr.includes(v_group);
-            }
-        }
-        return true; 
-    };
-
-    const ps = conds.map(mk);
-    return (row) => ps[L](f => f(row));
+// Helper to reset all bars to visible and no stroke, before animation
+function resetBarsVisible(g) {
+    const bars = g.selectAll('rect');
+    if (bars.empty()) return;
+    bars.interrupt();
+    bars.attr('opacity', 1).attr('stroke', 'none');
 }
 
 function describeFilter(op) {
     if (!op || !op.field) return "Filter";
-    
+
     if (op.operator === 'in' || op.operator === 'not-in') {
         const arr = Array.isArray(op.value) ? op.value : [op.value];
         const symbol = op.operator === 'in' ? '∈' : '∉';
@@ -103,37 +110,26 @@ function describeFilter(op) {
     return `Filter: ${op.field} ${op.operator} ${op.value}`;
 }
 
-function xOfFacet(g, facet) {
-  const node = g.select(`.facet-group-${cssEscape(facet)}`).node();
-  if (!node) return 0;
-  const t = node.getAttribute("transform") || "";
-  const m = /translate\(([-\d.]+)/.exec(t);
-  return m ? +m[1] : 0;
-}
-function widthOfFacet(g) {
-  const one = g.select(`[class^="facet-group-"]`).node();
-  return one ? one.getBBox().width : 0;
-}
 function absCenter(svg, node) {
-  const margins = { left:+svg.attr("data-m-left")||0, top:+svg.attr("data-m-top")||0 };
-  const r = node.getBBox();
-  const groupX = readGroupX(node);
-  return { x: margins.left + groupX + r.x + r.width/2, y: margins.top + r.y };
+    const margins = { left:+svg.attr("data-m-left")||0, top:+svg.attr("data-m-top")||0 };
+    const r = node.getBBox();
+    const groupX = readGroupX(node);
+    return { x: margins.left + groupX + r.x + r.width/2, y: margins.top + r.y };
 }
 function findRectByTuple(g, t={}) {
-  const { facet, x, key } = t;
-  let sel = g.selectAll("rect");
-  if (facet!=null) sel = sel.filter(d => d && String(d.facet)===String(facet));
-  const wantKey = x ?? key;
-  if (wantKey!=null) sel = sel.filter(d => d && String(d.key)===String(wantKey));
-  return sel.empty() ? null : sel.node();
+    const { facet, x, key } = t;
+    let sel = g.selectAll("rect");
+    if (facet!=null) sel = sel.filter(d => d && String(d.facet)===String(facet));
+    const wantKey = x ?? key;
+    if (wantKey!=null) sel = sel.filter(d => d && String(d.key)===String(wantKey));
+    return sel.empty() ? null : sel.node();
 }
 
 function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
     const yConds = (conditions || []).filter(c =>
         c.field === yField && (['>', '>=', '<', '<='].includes(c.operator))
     );
-    
+
     svg.selectAll(".threshold-line, .threshold-label").remove();
 
     yConds.forEach(c => {
@@ -155,351 +151,731 @@ function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
     });
 }
 
-
-export async function groupedBarRetrieveValue(chartId, op, data) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+// --- Simple-ize helpers for Grouped Bar ---
+// (1) Keep only a chosen facet (target), and lay its series keys as a simple bar across the full plot width
+export async function groupedBarToSimpleByTarget(chartId, targetFacet, data) {
+    const { svg, g, margins, plot, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
 
-    const filterOp = {
-        target: op.group,
-        group: op.target
-    };
-
-    const selectedData = retrieveValue(data, filterOp);
-
-    if (!selectedData || selectedData.length === 0) {
-        console.warn("RetrieveValue: Target not found for op:", op);
+    const facet = String(targetFacet);
+    const subset = Array.isArray(data) ? data.filter(d => String(d.target) === facet) : [];
+    if (subset.length === 0) {
+        console.warn('groupedBarToSimpleByTarget: no data for facet', facet);
         return [];
     }
-    const targetDatum = selectedData[0];
 
-    const targetNode = findRectByTuple(g, { facet: targetDatum.target, key: targetDatum.group });
+    const DUR_FADE = 1200; // slower fade of other facets
+    const DUR_GEOM = 2000; // slower expansion/re-layout of selected facet
+    const EASE = d3.easeCubicOut;
 
-    if (!targetNode) {
-        console.warn("RetrieveValue: DOM element not found for datum:", targetDatum);
-        return selectedData;
-    }
+    // Pre-fade: slowly fade the entire current chart so the disappearance is perceivable
+    const preFade = g.selectAll('rect')
+        .transition().duration(800).ease(EASE)
+        .attr('opacity', 1.0)
+        .end();
+    await preFade;
 
-    const targetSel = d3.select(targetNode);
-    const hlColor = "#ff6961";
+    // 1) Fade out & remove other facet groups
+    const selGroup = g.select(`.facet-group-${cssEscape(facet)}`);
+    const otherGroups = g.selectAll('[class^="facet-group-"]').filter(function() { return this !== selGroup.node(); });
+    const fadeP = otherGroups.transition().duration(DUR_FADE).ease(EASE).attr('opacity', 0).end()
+        .then(() => { otherGroups.remove(); });
 
-    await g.selectAll("rect").transition().duration(400).attr("opacity", 0.3).end();
-    await targetSel.transition().duration(400).attr("opacity", 1).attr("stroke", hlColor).attr("stroke-width", 2).end();
+    // 2) Normalize datum of bars in the selected facet so they look like a simple bar: target := series key
+    const keys = [...new Set(subset.map(d => String(d.group)))]
+        .filter(k => k != null);
+    const yMax = d3.max(subset, d => +d.value) || 0;
+    const x1 = d3.scaleBand().domain(keys).range([0, plot.w]).padding(0.2);
+    const y  = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
-    const bbox = targetNode.getBBox();
-    const groupX = readGroupX(targetNode);
-    const cx = margins.left + groupX + bbox.x + bbox.width / 2;
-    const cy = margins.top + bbox.y;
+    const bars = selGroup.selectAll('rect').filter(d => d && String(d.facet) === facet);
+    bars.each(function() {
+        const rect = d3.select(this);
+        const d = rect.datum();
+        const k = String(d.key); // series key
+        // Normalize to simple bar schema: category => series key
+        const norm = { ...d, target: k, group: k, key: k, value: +d.value };
+        rect.datum(norm).attr('data-target', k).attr('data-id', k);
+    });
 
-    svg.append("line").attr("class", "annotation")
-        .attr("x1", margins.left).attr("y1", cy)
-        .attr("x2", cx).attr("y2", cy)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+    // 3) Animate: center the facet group at x=0 and lay bars across the whole plot width
+    const moveGroupP = selGroup.transition().duration(DUR_GEOM).ease(EASE)
+        .attr('transform', 'translate(0,0)')
+        .end();
 
-    svg.append("text").attr("class", "annotation")
-        .attr("x", cx).attr("y", cy - 6)
-        .attr("text-anchor", "middle")
-        .attr("fill", hlColor).attr("font-weight", "bold")
-        .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-        .text(fmtNum(targetDatum.value));
+    const geomP = bars.transition().duration(DUR_GEOM).ease(EASE)
+        .attr('x', d => x1(String(d.key)))
+        .attr('width', x1.bandwidth())
+        .attr('y', d => y(+d.value))
+        .attr('height', d => (plot.h - y(+d.value)))
+        // Removed .attr('opacity', 1) here to prevent slow fade-in
+        .end();
 
-    return selectedData;
+    // 4) Update bottom axis to the series keys (simple bar x-domain) and show selected target label
+    const axisP = g.select('.x-axis-bottom-line')
+        .transition().duration(DUR_GEOM).ease(EASE)
+        .call(d3.axisBottom(x1).tickSizeOuter(0))
+        .end();
+
+    // show which facet(target) is selected (e.g., age: 30)
+    svg.selectAll('.target-caption').remove();
+    svg.append('text')
+        .attr('class', 'annotation target-caption')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 16)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', '#666')
+        .text(`${facetField || 'target'}: ${facet}`);
+
+    await fadeP;
+    await Promise.all([moveGroupP, geomP, axisP]);
+    // Quick brighten: reveal the new simple layout promptly (do not make fade-in feel slow)
+    await selGroup.selectAll('rect')
+        .transition().duration(300)
+        .attr('opacity', 1)
+        .end();
+    return subset;
 }
 
+// (2) Keep only a chosen series (group), and center one bar in each facet so the chart behaves like a simple bar over facets
+export async function groupedBarToSimpleByGroup(chartId, groupName, data) {
+    const { svg, g } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+
+    const series = String(groupName);
+    const subset = Array.isArray(data) ? data.filter(d => String(d.group) === series) : [];
+    if (subset.length === 0) {
+        console.warn('groupedBarToSimpleByGroup: no data for group', series);
+        return [];
+    }
+
+    const DUR_FADE = 1500; // slower fade of non-selected series
+    const DUR_GEOM = 2000; // slower centering/re-layout of kept bars
+    const EASE = d3.easeCubicOut;
+
+    // Pre-fade: slowly fade the entire current chart before removing other series
+    const preFade = g.selectAll('rect')
+        .transition().duration(500).ease(EASE)
+        .attr('opacity', 1.0)
+        .end();
+    await preFade;
+
+    // 1) Fade out & remove other series bars
+    const allRects = g.selectAll('rect');
+    const keepRects = allRects.filter(d => d && String(d.key) === series);
+    const dropRects = allRects.filter(d => !(d && String(d.key) === series));
+
+    const fadeP = dropRects.transition().duration(DUR_FADE).ease(EASE).attr('opacity', 0).end()
+        .then(() => { dropRects.remove(); });
+
+    // 2) Normalize datum: category => facet value
+    keepRects.each(function() {
+        const rect = d3.select(this);
+        const d = rect.datum();
+        const cat = String(d.facet);
+        const norm = { ...d, target: cat, value: +d.value, group: series };
+        rect.datum(norm)
+            .attr('data-target', cat)
+            .attr('data-group', series)
+            .attr('data-id', cat);
+    });
+
+    // 3) Geometry: center the remaining bar within each facet group
+    const facetW = widthOfFacet(g) || 0;
+    const barW = keepRects.size() > 0 ? (+keepRects.node().getAttribute('width') || 0) : 0;
+    const newX = Math.max(0, (facetW - barW) / 2);
+
+    const geomP = keepRects.transition().duration(DUR_GEOM).ease(EASE)
+        .attr('x', newX)
+        // Removed .attr('opacity', 1) here to prevent slow fade-in
+        .end();
+
+    await fadeP;
+    await geomP;
+    await keepRects.transition().duration(300)
+        .attr('opacity', 1)
+        .end();
+    return subset;
+}
+
+export async function groupedBarRetrieveValue(chartId, op, data) {
+    const { svg, g, margins } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+
+    resetBarsVisible(g);
+
+    // Block other value-highlighting ops until simple-ize finishes
+    svg.attr('data-filtering', '1');
+
+    const hasGroup = op.group != null && op.group !== '';
+
+    // 1) 선택 대상 계산 (데이터 기준)
+    const filterOp = hasGroup ? { target: op.target, group: op.group } : { target: op.target };
+    const selected = retrieveValue(data, filterOp) || [];
+    if (!selected || selected.length === 0) {
+        console.warn('RetrieveValue: Target not found for op:', op);
+        svg.attr('data-filtering', null);
+        return [];
+    }
+
+    // 2) 먼저 simple-bar로 변환 (필터/단순화 먼저)
+    try {
+        if (hasGroup) {
+            await groupedBarToSimpleByGroup(chartId, op.group, data);
+        } else {
+            await groupedBarToSimpleByTarget(chartId, op.target, data);
+        }
+    } catch (e) {
+        console.warn('groupedBarRetrieveValue: simple-ize step failed', e);
+    }
+
+    // 변환 중 제거된 주석 정리 후, 변환이 끝난 상태에서 하이라이트만 수행
+    clearAllAnnotations(svg);
+
+    await g.selectAll('rect')
+        .transition().duration(800)
+        .attr('opacity', 0.5)
+        .attr('stroke', 'none')
+        .end();
+
+    const hlColor = '#ff6961';
+    const anims = [];
+
+    selected.forEach(datum => {
+        // 변환 후에도 facet는 원본(예: age), key는 series로 유지되도록 groupedBarToSimple* 에서 정규화됨
+        const node = findRectByTuple(g, { facet: datum.target, key: datum.group });
+        if (!node) return;
+
+        const sel = d3.select(node);
+        anims.push(
+            sel.transition().duration(600)
+                .attr('opacity', 1)
+                .attr('stroke', hlColor)
+                .attr('stroke-width', 2)
+                .end()
+        );
+
+        const bbox = node.getBBox();
+        const groupX = readGroupX(node);
+        const cx = margins.left + groupX + bbox.x + bbox.width / 2;
+        const cy = margins.top + bbox.y;
+
+        // dashed guide: bar center → 왼쪽 y축
+        const guide = svg.append('line')
+            .attr('class', 'annotation retrieve-line')
+            .attr('x1', cx).attr('y1', cy)
+            .attr('x2', cx).attr('y2', cy)
+            .attr('stroke', hlColor).attr('stroke-dasharray', '4 4');
+        anims.push(
+            guide.transition().duration(600)
+                .attr('x1', margins.left)
+                .end()
+        );
+
+        svg.append('text')
+            .attr('class', 'annotation')
+            .attr('x', cx).attr('y', cy - 6)
+            .attr('text-anchor', 'middle')
+            .attr('fill', hlColor).attr('font-weight', 'bold')
+            .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
+            .text(fmtNum(datum.value))
+            .attr('opacity', 0)
+            .transition().duration(450)
+            .attr('opacity', 1);
+    });
+
+    await Promise.all(anims);
+
+    svg.attr('data-filtering', null);
+    return selected;
+}
 
 export async function groupedBarFilter(chartId, op, data) {
     const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
-    
-    await g.selectAll("rect").transition().duration(200)
-        .attr("opacity", 1)
-        .attr("stroke", "none")
-        .end();
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+    svg.attr('data-filtering', '1');
+
+    if (op && op.group != null) {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        if (subset.length === 0) {
+            console.warn('groupedBarFilter: no data for group', subgroup);
+            svg.attr('data-filtering', null);
+            return [];
+        }
+
+        // 0) Simple-ize first so we are in a simple-bar layout for the given series
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+
+        // 1) Draw animated threshold line (numeric filters only)
+        const numericOps = new Set(['>', '>=', '<', '<=']);
+        const yMaxAll = d3.max(subset, d => d.value) || 0;
+        const yScale = d3.scaleLinear().domain([0, yMaxAll]).nice().range([plot.h, 0]);
+        if (numericOps.has(op.operator)) {
+            svg.selectAll('.threshold-line, .threshold-label').remove();
+            const yVal = +op.value;
+            const yPix = margins.top + yScale(yVal);
+            const thLine = svg.append('line')
+                .attr('class', 'threshold-line')
+                .attr('x1', margins.left).attr('x2', margins.left)
+                .attr('y1', yPix).attr('y2', yPix)
+                .attr('stroke', '#0d6efd').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
+            const thText = svg.append('text')
+                .attr('class', 'threshold-label')
+                .attr('x', margins.left + plot.w + 6).attr('y', yPix)
+                .attr('dominant-baseline', 'middle').attr('fill', '#0d6efd')
+                .attr('font-size', 12).attr('font-weight', 'bold')
+                .attr('opacity', 0)
+                .text(`${op.operator} ${fmtNum(yVal)}`);
+            await thLine.transition().duration(1200).ease(d3.easeCubicInOut)
+                .attr('x2', margins.left + plot.w).end();
+            await thText.transition().duration(500).attr('opacity', 1).end();
+        }
+
+        // 2) Compute filtered subset strictly within the chosen group, by VALUE
+        const cmp = cmpMap[op.operator];
+        let filteredSubset = subset.slice();
+        if (cmp) {
+            filteredSubset = subset.filter(d => cmp(+d.value, +op.value));
+        } else if (op.operator === 'in' || op.operator === 'not-in') {
+            const set = new Set((Array.isArray(op.value) ? op.value : [op.value]).map(String));
+            const keep = (v) => set.has(String(v));
+            filteredSubset = (op.operator === 'in') ? subset.filter(d => keep(d.target)) : subset.filter(d => !keep(d.target));
+        } else if (op.operator === 'contains') {
+            const needles = (Array.isArray(op.value) ? op.value : [op.value]).map(v => String(v).toLowerCase());
+            filteredSubset = subset.filter(d => needles.some(n => String(d.target).toLowerCase().includes(n)));
+        }
+
+        // 3) Empty guard: if nothing matches, keep layout but show note
+        if (filteredSubset.length === 0) {
+            console.warn('groupedBarFilter[group]: empty after filter', op);
+            svg.append('text').attr('class', 'filter-label')
+                .attr('x', margins.left).attr('y', margins.top - 10)
+                .attr('font-size', 14).attr('font-weight', 'bold')
+                .attr('fill', '#0d6efd')
+                .text('No data matches the filter.');
+            svg.attr('data-filtering', null);
+            return [];
+        }
+
+        // 4) Build keep/drop sets (bars and facet-groups)
+        const allowed = new Set(filteredSubset.map(d => `${String(d.target)}-${subgroup}`));
+        const bars = g.selectAll('rect');
+        const keepSel = bars.filter(function(d) {
+            const t = (d && d.target != null) ? String(d.target) : this.getAttribute('data-target');
+            const gval = (d && d.group  != null) ? String(d.group)  : this.getAttribute('data-group');
+            return allowed.has(`${t}-${subgroup}`) || allowed.has(`${t}-${gval}`);
+        });
+        const keepNodes = new Set(keepSel.nodes());
+        const dropSel = bars.filter(function() { return !keepNodes.has(this); });
+
+        const keptTargets = [...new Set(filteredSubset.map(d => String(d.target)))];
+        const allFacetGroups = g.selectAll('[class^="facet-group-"]');
+        const dropGroups = allFacetGroups.filter(function() {
+            const cls = this.getAttribute('class') || '';
+            const fv = cls.replace(/^facet-group-/, '');
+            return !keptTargets.includes(String(fv));
+        });
+
+        // 5) Slow fade-out for bars and facet groups that are not kept
+        await Promise.all([
+            dropSel.transition().duration(1200).ease(d3.easeCubicInOut).attr('opacity', 0).remove().end(),
+            dropGroups.transition().duration(1200).ease(d3.easeCubicInOut).attr('opacity', 0).remove().end()
+        ]);
+
+        // 6) Relayout remaining facet-groups across full plot width
+        const x0 = d3.scaleBand().domain(keptTargets).range([0, plot.w]).paddingInner(0.2);
+
+        const moveFacetPromises = [];
+        keptTargets.forEach(fv => {
+            const groupSel = g.select(`.facet-group-${cssEscape(String(fv))}`);
+            if (!groupSel.empty()) {
+                moveFacetPromises.push(
+                    groupSel.transition().duration(900).ease(d3.easeCubicInOut)
+                        .attr('transform', `translate(${x0(fv)},0)`).end()
+                );
+            }
+        });
+
+        // Each kept facet-group has exactly one bar (simple-ized by group).
+        // Set bar width to a fraction of the group bandwidth and center it inside the group.
+        const barW = Math.max(1, x0.bandwidth() * 0.6);
+        const geomP = keepSel.transition().duration(900).ease(d3.easeCubicInOut)
+            .attr('x', (d) => (x0.bandwidth() - barW) / 2)
+            .attr('width', barW)
+            .attr('y', d => yScale(+d.value))
+            .attr('height', d => plot.h - yScale(+d.value))
+            .end();
+
+        const xAxisP = g.select('.x-axis-bottom-line').transition().duration(900)
+            .call(d3.axisBottom(x0).tickSizeOuter(0)).end();
+        const yAxisP = g.select('.y-axis').transition().duration(900)
+            .call(d3.axisLeft(yScale)).end();
+
+        await Promise.all([...moveFacetPromises, geomP, xAxisP, yAxisP]);
+
+        svg.attr('data-filtering', null);
+        return filteredSubset;
+    }
+
     clearAllAnnotations(svg);
 
+    const matchColor = "#ffa500";
     let filteredData = [];
     const numericOps = new Set(['>', '>=', '<', '<=']);
 
-    // 필터링 방식 결정: op.field가 yField와 같으면 '총합' 기준, 다르면 '개별' 기준
+    // --- Decide filtering path ---
     if (op.field === yField && numericOps.has(op.operator)) {
-        // 숫자 값 필터 (그룹 총합 기준)
-        const sumsByFacet = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+        // Numeric filter on measure (sum-by-facet, optionally per group)
+        const inGroup = (d) => (op.group == null) ? true : (String(d.group) === String(op.group));
+        const sumsByFacet = d3.rollup(
+            data.filter(inGroup),
+            v => d3.sum(v, d => d.value),
+            d => d.target
+        );
         const facetsToKeep = new Set();
         const cmp = cmpMap[op.operator];
         if (cmp) {
             sumsByFacet.forEach((sum, facet) => {
-                if (cmp(sum, op.value)) {
-                    facetsToKeep.add(facet);
-                }
+                if (cmp(sum, op.value)) facetsToKeep.add(facet);
             });
         }
-        filteredData = data.filter(d => facetsToKeep.has(d.target));
+        filteredData = data.filter(d => facetsToKeep.has(d.target) && inGroup(d));
     } else {
-        // 카테고리/개별 값 필터 (simpleBarFilter의 어댑터 방식)
-        const correctedOp = { ...op };
+        // Categorical/element-wise filter (adapter to simple semantics)
+        const effectiveOp = { ...op };
         if (data.length > 0) {
             const sample = data[0];
-            if (op.field === sample.category) correctedOp.field = 'target';
-            else if (op.field === xField) correctedOp.field = 'group';
-            // 'people'과 같은 추가 필드는 DatumValue에 없으므로, 이 로직에서는 처리 불가
+            if (op.field === sample.category) effectiveOp.field = 'target';
+            else if (op.field === xField)     effectiveOp.field = 'group';
         }
-        filteredData = dataFilter(data, correctedOp);
+        filteredData = dataFilter(data, effectiveOp);
     }
 
+    // --- 1) Draw threshold line first (animated, if numeric) ---
     if (numericOps.has(op.operator)) {
-        const fullYScale = d3.scaleLinear().domain([0, d3.max(data, d => d.value)]).nice().range([plot.h, 0]);
-        await drawYThresholdsOnce(svg, margins, plot, fullYScale, yField, [op]);
-        await delay(300);
+        const fullYScale = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d.value)])
+            .nice().range([plot.h, 0]);
+
+        // Remove any existing thresholds and animate a fresh one
+        svg.selectAll('.threshold-line, .threshold-label').remove();
+        const yVal = +op.value;
+        const yPix = margins.top + fullYScale(yVal);
+
+        const thLine = svg.append('line')
+            .attr('class', 'threshold-line')
+            .attr('x1', margins.left).attr('x2', margins.left)
+            .attr('y1', yPix).attr('y2', yPix)
+            .attr('stroke', '#0d6efd').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
+
+        const thText = svg.append('text')
+            .attr('class', 'threshold-label')
+            .attr('x', margins.left + plot.w + 6).attr('y', yPix)
+            .attr('dominant-baseline', 'middle').attr('fill', '#0d6efd')
+            .attr('font-size', 12).attr('font-weight', 'bold')
+            .attr('opacity', 0)
+            .text(`${op.operator} ${fmtNum(yVal)}`);
+
+        await thLine.transition().duration(1200).ease(d3.easeCubicInOut)
+            .attr('x2', margins.left + plot.w).end();
+        await thText.transition().duration(500).attr('opacity', 1).end();
     }
-    
+
+    // --- Empty result guard ---
     if (filteredData.length === 0) {
-        g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove();
-        svg.append("text").attr("class", "filter-label")
-            .attr("x", margins.left).attr("y", margins.top - 10)
-            .text("No data matches the filter.");
+        await g.selectAll('rect').transition().duration(400).attr('opacity', 0).remove().end();
+        await svg.append('text').attr('class', 'filter-label')
+            .attr('x', margins.left).attr('y', margins.top - 10)
+            .text('No data matches the filter.');
+        svg.attr('data-filtering', null);
         return [];
     }
-    
-    const allowedIds = new Set(filteredData.map(d => `${d.target}-${d.group}`));
-    const keepSel = g.selectAll("rect").filter(d => allowedIds.has(`${d.facet}-${d.key}`));
-    const dropSel = g.selectAll("rect").filter(d => !allowedIds.has(`${d.facet}-${d.key}`));
 
-    await dropSel.transition().duration(800).attr("opacity", 0).remove().end();
-    await delay(250);
+    // --- Build keep/drop sets ---
+    const allowedIds = new Set(filteredData.map(d => `${d.target}-${d.group}`));
+    const keepSel = g.selectAll('rect').filter(d => allowedIds.has(`${d.facet}-${d.key}`));
+    const dropSel = g.selectAll('rect').filter(d => !allowedIds.has(`${d.facet}-${d.key}`));
 
     const keptFacets = [...new Set(filteredData.map(d => d.target))];
-    const keptKeys = [...new Set(filteredData.map(d => d.group))];
-    const yMax = d3.max(filteredData, d => d.value);
+    const keptKeys   = [...new Set(filteredData.map(d => d.group))];
 
+    // --- 2) Quick fade-out of non-matching bars & facet-groups ---
+    const allFacetGroups = g.selectAll('[class^="facet-group-"]');
+    const dropGroups = allFacetGroups.filter(function() {
+        const cls = this.getAttribute('class') || '';
+        const fv = cls.replace(/^facet-group-/, '');
+        return !keptFacets.includes(String(fv));
+    });
+
+    await Promise.all([
+        dropSel.transition().duration(1200).ease(d3.easeCubicInOut).attr('opacity', 0).remove().end(),
+        dropGroups.transition().duration(1200).ease(d3.easeCubicInOut).attr('opacity', 0).remove().end()
+    ]);
+
+    // --- 3) Layout the remaining bars (move/resize) & update axes ---
+    const yMax = d3.max(filteredData, d => d.value) || 1;
     const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
     const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
-    const y = d3.scaleLinear().domain([0, yMax || 1]).nice().range([plot.h, 0]);
+    const y  = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
-    const tasks = [];
-    g.selectAll('[class^="facet-group-"]').each(function() {
-        const cls = this.getAttribute("class") || "";
-        const fv = cls.replace(/^facet-group-/, "");
-        if (!keptFacets.includes(String(fv))) {
-            d3.select(this).transition().duration(400).attr("opacity", 0).remove();
-        } else {
-            tasks.push(d3.select(this).transition().duration(800).attr("transform", `translate(${x0(fv)},0)`).end());
+    const moveFacetPromises = [];
+    keptFacets.forEach(fv => {
+        const groupSel = g.select(`.facet-group-${cssEscape(String(fv))}`);
+        if (!groupSel.empty()) {
+            moveFacetPromises.push(
+                groupSel.transition().duration(900).ease(d3.easeCubicInOut)
+                    .attr('transform', `translate(${x0(fv)},0)`).end()
+            );
         }
     });
 
-    tasks.push(
-        keepSel.transition().duration(800)
-            .attr("x", d => x1(d.key))
-            .attr("width", x1.bandwidth())
-            .attr("y", d => y(d.value))
-            .attr("height", d => plot.h - y(d.value))
-            .end()
-    );
+    const geomP = keepSel.transition().duration(900).ease(d3.easeCubicInOut)
+        .attr('x', d => x1(d.key))
+        .attr('width', x1.bandwidth())
+        .attr('y', d => y(d.value))
+        .attr('height', d => plot.h - y(d.value))
+        .end();
 
-    tasks.push(g.select(".y-axis").transition().duration(800).call(d3.axisLeft(y)).end());
-    tasks.push(g.select(".x-axis-bottom-line").transition().duration(800).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
-    
-    await Promise.all(tasks);
-    
-    svg.append("text").attr("class", "filter-label")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
-        .attr("fill", "#0d6efd")
-        .text(describeFilter(op));
-        
+    const yAxisP = g.select('.y-axis').transition().duration(900).call(d3.axisLeft(y)).end();
+    const xAxisP = g.select('.x-axis-bottom-line').transition().duration(900).call(d3.axisBottom(x0).tickSizeOuter(0)).end();
+
+    await Promise.all([...moveFacetPromises, geomP, yAxisP, xAxisP]);
+
+    // --- Caption ---
+    const labelText = (() => {
+        if (op.operator === 'in' || op.operator === 'not-in') {
+            const arr = Array.isArray(op.value) ? op.value : [op.value];
+            return `Filter: ${op.field} ${op.operator} [${arr.join(', ')}]`;
+        }
+        return `Filter: ${op.field} ${op.operator} ${op.value}`;
+    })();
+
+    svg.append('text').attr('class', 'filter-label')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', '#0d6efd')
+        .text(labelText);
+
+    svg.attr('data-filtering', null);
     return filteredData;
 }
 
-
-
-
 export async function groupedBarFindExtremum(chartId, op, data) {
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
-    
-    const targetDatum = dataFindExtremum(data, op, facetField, yField);
+
+    // 0) Wait if a previous filtering/simple-ize is in progress, then block new ones
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+    svg.attr('data-filtering', '1');
+
+    // 1) If a specific group(series) is provided, transform to that series FIRST (simple-ize)
+    let workingData = data;
+    if (op && op.group != null && op.group !== '') {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        if (subset.length === 0) {
+            console.warn('FindExtremum: no data for group', subgroup);
+            svg.attr('data-filtering', null);
+            return [];
+        }
+        // Perform the actual visual transformation before any highlighting
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+        workingData = subset;
+    }
+
+    // 2) Compute extremum over the current scope (overall or the chosen group)
+    const targetDatum = dataFindExtremum(workingData, op, facetField, yField);
 
     clearAllAnnotations(svg);
     const hlColor = "#a65dfb";
 
-    // 1. 모든 막대를 선명한 초기 상태로 리셋
+    // Reset bars to a clear initial state AFTER the simple-ize has completed
     await g.selectAll("rect")
-        .transition().duration(200)
+        .transition().duration(300)
         .attr("opacity", 1)
         .attr("stroke", "none")
         .end();
 
     if (!targetDatum) {
         console.warn("FindExtremum: Could not find target datum for:", op);
+        svg.attr('data-filtering', null);
         return [];
     }
 
-    const extremumValue = targetDatum.value;
+    // 3) Find the DOM node for the extremum in the current (possibly simple-ized) view
     const targetNode = findRectByTuple(g, { facet: targetDatum.target, key: targetDatum.group });
-
     if (!targetNode) {
         console.warn("FindExtremum: Target DOM element not found for datum:", targetDatum);
+        svg.attr('data-filtering', null);
         return [targetDatum];
     }
 
+    const extremumValue = targetDatum.value;
     const targetRect = d3.select(targetNode);
     const otherRects = g.selectAll("rect").filter(function() { return this !== targetNode; });
 
-    // 2. 리셋 후, 다른 막대들을 흐리게 하고 목표 막대를 강조
+    // 4) Dim others and emphasize the target (after transform)
     await Promise.all([
-        otherRects.transition().duration(500).attr("opacity", 0.2).end(),
-        targetRect.transition().duration(500).attr("opacity", 1).attr("fill", hlColor).end()
+        otherRects.transition().duration(800).attr("opacity", 0.2).end(),
+        targetRect.transition().duration(800).attr("opacity", 1).attr("fill", hlColor).end()
     ]);
-    
-    await delay(500);
 
+    // 5) Guide line & label — use current chart axis (global y) to align with ticks
     const yMax = d3.max(data, d => d.value);
     const y = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
     const yPos = margins.top + y(extremumValue);
-    
+
     svg.append("line").attr("class", "annotation")
         .attr("x1", margins.left).attr("y1", yPos)
         .attr("x2", margins.left).attr("y2", yPos)
         .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
-        .transition().duration(600)
+        .transition().duration(1000)
         .attr("x2", margins.left + plot.w);
-    
+
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left + plot.w - 8).attr("y", yPos - 8)
         .attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold")
         .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
         .text(`${op.which || 'max'}: ${fmtNum(extremumValue)}`)
-        .attr("opacity", 0).transition().delay(200).duration(400).attr("opacity", 1);
-        
+        .attr("opacity", 0).transition().delay(300).duration(700).attr("opacity", 1);
+
+    svg.attr('data-filtering', null);
     return [targetDatum];
 }
+
 export async function groupedBarDetermineRange(chartId, op, data) {
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    // Ensure we start from a visible, non-highlighted state (avoid initial blank flash)
+    resetBarsVisible(g);
 
-    const isGlobalScope = op.group == null;
-    const targetData = isGlobalScope ? data : data.filter(d => String(d.target) === String(op.group));
-    
-    if (targetData.length === 0) {
-        console.warn("DetermineRange: No data to process for the scope.", op);
-        return null;
+    // --- (0) If group is specified, FIRST simple-ize to that series (visual filtering) ---
+    let workingData = data;
+    const hasGroup = op.group != null && op.group !== '';
+    if (hasGroup) {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        if (subset.length === 0) {
+            console.warn('DetermineRange: No data for group', subgroup);
+            return null;
+        }
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+        workingData = subset;
+        // After transform, reset any opacity/stroke leftovers so we animate from the visible layout
+        resetBarsVisible(g);
     }
 
-    const values = targetData.map(d => d.value);
+    // --- (1) Compute min/max on the current scope (overall or chosen group) ---
+    const values = workingData.map(d => d.value);
     const minV = d3.min(values);
     const maxV = d3.max(values);
-    const result = new IntervalValue(isGlobalScope ? facetField : op.group, minV, maxV);
+    const result = new IntervalValue(hasGroup ? op.group : facetField, minV, maxV);
 
+    // Use current/global y-scale so guidelines align with tick marks
     const yMaxGlobal = d3.max(data, r => r.value);
     const y = d3.scaleLinear().domain([0, yMaxGlobal]).nice().range([plot.h, 0]);
-    const hlColor = "#0d6efd";
-    const animationPromises = [];
-    
-    if (isGlobalScope) {
-        const minRects = g.selectAll("rect").filter(d => d.value === minV);
-        const maxRects = g.selectAll("rect").filter(d => d.value === maxV);
-        const otherRects = g.selectAll("rect").filter(d => d.value !== minV && d.value !== maxV);
 
-        animationPromises.push(otherRects.transition().duration(600).attr("opacity", 0.2).end());
-        animationPromises.push(minRects.transition().duration(600).attr("opacity", 1).attr("fill", hlColor).end());
-        animationPromises.push(maxRects.transition().duration(600).attr("opacity", 1).attr("fill", hlColor).end());
+    // --- (2) Highlight/dim bars FIRST (no fill change) ---
+    const hlColor = '#0d6efd';
+    const DIM = 0.3;
+    const HI  = 1.0;
 
-        [{ value: minV, label: "MIN" }, { value: maxV, label: "MAX" }].forEach(item => {
-            const yPos = margins.top + y(item.value);
-            const line = svg.append("line").attr("class", "annotation range-line")
-                .attr("x1", margins.left).attr("y1", yPos)
-                .attr("x2", margins.left).attr("y2", yPos)
-                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-            animationPromises.push(line.transition().duration(700).attr("x2", margins.left + plot.w).end());
-            
-            const text = svg.append("text").attr("class", "annotation")
-                .attr("x", margins.left + plot.w - 8).attr("y", yPos - 8)
-                .attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold")
-                .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-                .text(`${item.label}: ${fmtNum(item.value)}`).attr("opacity", 0);
-            animationPromises.push(text.transition().delay(200).duration(500).attr("opacity", 1).end());
-        });
-        
-        const topLabel = svg.append("text").attr("class", "annotation")
-            .attr("x", margins.left).attr("y", margins.top - 10)
-            .attr("font-size", 14).attr("font-weight", "bold")
-            .attr("fill", hlColor)
-            .text(`Overall Range: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`).attr("opacity", 0);
-        animationPromises.push(topLabel.transition().duration(400).attr("opacity", 1).end());
+    if (!hasGroup) {
+        const minRects   = g.selectAll('rect').filter(d => d && d.value === minV);
+        const maxRects   = g.selectAll('rect').filter(d => d && d.value === maxV);
+        const otherRects = g.selectAll('rect').filter(d => d && d.value !== minV && d.value !== maxV);
 
-    } else { // op.group is specified
-        const targetGroup = op.group;
-        const groupRects = g.selectAll("rect").filter(d => String(d.facet) === String(targetGroup));
-        const otherRects = g.selectAll("rect").filter(d => String(d.facet) !== String(targetGroup));
+        await Promise.all([
+            otherRects.transition().duration(700).attr('opacity', DIM).end(),
+            minRects  .transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
+            maxRects  .transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
+        ]);
+    } else {
+        // In simple-ized view, some bars may have datum.group or datum.key. Be robust to both.
+        const groupAccessor = (d, node) => {
+            if (d && d.group != null) return String(d.group);
+            if (d && d.key   != null) return String(d.key);
+            return node.getAttribute('data-group');
+        };
+        const groupRects = g.selectAll('rect').filter(function(d){ return String(groupAccessor(d, this)) === String(op.group); });
+        const otherRects = g.selectAll('rect').filter(function(d){ return String(groupAccessor(d, this)) !== String(op.group); });
+        const minRectInGroup = groupRects.filter(d => d && d.value === minV);
+        const maxRectInGroup = groupRects.filter(d => d && d.value === maxV);
 
-        const minRectInGroup = groupRects.filter(d => d.value === minV);
-        const maxRectInGroup = groupRects.filter(d => d.value === maxV);
-
-        animationPromises.push(otherRects.transition().duration(600).attr("opacity", 0.2).end());
-        animationPromises.push(minRectInGroup.transition().duration(600).attr("opacity", 1).attr("stroke", "black").attr("stroke-width", 1.5).end());
-        animationPromises.push(maxRectInGroup.transition().duration(600).attr("opacity", 1).attr("stroke", "black").attr("stroke-width", 1.5).end());
-        
-        const x0 = xOfFacet(g, targetGroup);
-        const w = widthOfFacet(g);
-        
-        [{ value: minV, label: "MIN" }, { value: maxV, label: "MAX" }].forEach(item => {
-            const yPos = margins.top + y(item.value);
-            const line = svg.append("line").attr("class", "annotation range-line")
-                .attr("x1", margins.left + x0).attr("y1", yPos)
-                .attr("x2", margins.left + x0).attr("y2", yPos)
-                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-            animationPromises.push(line.transition().duration(700).attr("x2", margins.left + x0 + w).end());
-            
-            const text = svg.append("text").attr("class", "annotation")
-                .attr("x", margins.left + x0 + w - 8).attr("y", yPos - 8)
-                .attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold")
-                .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-                .text(`${item.label}: ${fmtNum(item.value)}`).attr("opacity", 0);
-            animationPromises.push(text.transition().delay(200).duration(500).attr("opacity", 1).end());
-        });
-        
-        const topLabel = svg.append("text").attr("class", "annotation")
-            .attr("x", margins.left).attr("y", margins.top - 10)
-            .attr("font-size", 14).attr("font-weight", "bold")
-            .attr("fill", hlColor)
-            .text(`Range for ${targetGroup}: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`).attr("opacity", 0);
-        animationPromises.push(topLabel.transition().duration(400).attr("opacity", 1).end());
+        await Promise.all([
+            otherRects.transition().duration(700).attr('opacity', DIM).end(),
+            minRectInGroup.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
+            maxRectInGroup.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
+        ]);
     }
-    
-    await Promise.all(animationPromises);
+
+    // --- (3) Draw range LINES (animated) ---
+    const linePromises = [];
+    [{ value: minV, label: 'MIN' }, { value: maxV, label: 'MAX' }].forEach(item => {
+        const yPos = margins.top + y(item.value);
+        const line = svg.append('line').attr('class', 'annotation range-line')
+            .attr('x1', margins.left).attr('y1', yPos)
+            .attr('x2', margins.left).attr('y2', yPos)
+            .attr('stroke', hlColor).attr('stroke-dasharray', '4 4');
+        linePromises.push(
+            line.transition().duration(1000).attr('x2', margins.left + plot.w).end()
+        );
+    });
+    await Promise.all(linePromises);
+
+    // --- (4) Fade-in labels AFTER lines ---
+    const labelPromises = [];
+    [{ value: minV, label: 'MIN' }, { value: maxV, label: 'MAX' }].forEach(item => {
+        const yPos = margins.top + y(item.value);
+        const text = svg.append('text').attr('class', 'annotation')
+            .attr('x', margins.left + plot.w - 8).attr('y', yPos - 8)
+            .attr('text-anchor', 'end').attr('fill', hlColor).attr('font-weight', 'bold')
+            .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
+            .text(`${item.label}: ${fmtNum(item.value)}`)
+            .attr('opacity', 0);
+        labelPromises.push(text.transition().duration(700).attr('opacity', 1).end());
+    });
+    await Promise.all(labelPromises);
+
+    // Caption
+    const topText = hasGroup
+        ? `Range for ${op.group}: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`
+        : `Overall Range: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`;
+    await svg.append('text').attr('class', 'annotation')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('fill', hlColor).attr('opacity', 0)
+        .text(topText)
+        .transition().duration(700).attr('opacity', 1).end();
+
     return result;
 }
 
 export async function groupedBarCompare(chartId, op, data) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+    svg.attr('data-filtering', '1');
 
-    const opForCompare = {
-        targetA: { target: op.targetA.category, group: op.targetA.series },
-        targetB: { target: op.targetB.category, group: op.targetB.series },
-        operator: op.operator,
-        which: op.which
-    };
-    const winner = dataCompare(data, opForCompare);
-    
-    const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
-    const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
-    
-    if (!nodeA || !nodeB) {
-        console.warn("groupedBarCompare: One or both DOM elements not found", op);
-        return winner ? [winner] : [];
-    }
+    // Normalize op into either point-compare (category+series) or facet-sum compare (primitive targets)
+    const isObjA = op && typeof op.targetA === 'object' && op.targetA !== null;
+    const isObjB = op && typeof op.targetB === 'object' && op.targetB !== null;
 
-    const datumA = d3.select(nodeA).datum();
-    const datumB = d3.select(nodeB).datum();
-    const otherBars = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
     const colorA = "#ffb74d";
     const colorB = "#64b5f6";
 
-    await Promise.all([
-        otherBars.transition().duration(500).attr("opacity", 0.2).end(),
-        d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
-        d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end(),
-    ]);
-
-    const drawAnnotation = (node, datum, color) => {
+    // Helper: annotate one bar node
+    const drawAnnotation = (node, value, color) => {
         const pos = absCenter(svg, node);
         const y = pos.y;
         svg.append("line")
@@ -515,55 +891,222 @@ export async function groupedBarCompare(chartId, op, data) {
             .attr("text-anchor", "middle")
             .attr("fill", color).attr("font-weight", "bold")
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(fmtNum(datum.value));
+            .text(fmtNum(value));
     };
-    
-    drawAnnotation(nodeA, datumA, colorA);
-    drawAnnotation(nodeB, datumB, colorB);
 
-    let summary;
-    if (winner) {
-        const winnerLabel = `${winner.target}(${winner.group})`;
-        summary = `${op.which === 'min' ? 'Min' : 'Max'}: ${winnerLabel} (${fmtNum(winner.value)})`;
-    } else {
-        const labelA = `${op.targetA.category}(${op.targetA.series})`;
-        const labelB = `${op.targetB.category}(${op.targetB.series})`;
-        summary = `${labelA}: ${fmtNum(datumA.value)} vs ${labelB}: ${fmtNum(datumB.value)} (Tie)`;
+    // --- Case: primitive targets + group (facet-level compare within one series) ---
+    if (!isObjA && !isObjB && op && op.group != null && op.group !== '') {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        if (subset.length === 0) {
+            console.warn('groupedBarCompare[group]: no data for group', subgroup);
+            svg.attr('data-filtering', null);
+            return [];
+        }
+
+        // Simple-ize to the selected series first
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+
+        const AFacet = String(op.targetA);
+        const BFacet = String(op.targetB);
+
+        const nodeA = findRectByTuple(g, { facet: AFacet, key: subgroup });
+        const nodeB = findRectByTuple(g, { facet: BFacet, key: subgroup });
+
+        if (!nodeA || !nodeB) {
+            console.warn('groupedBarCompare[group]: One or both DOM elements not found', { AFacet, BFacet, subgroup });
+            svg.attr('data-filtering', null);
+            return [];
+        }
+
+        const datumA = d3.select(nodeA).datum();
+        const datumB = d3.select(nodeB).datum();
+
+        const otherBars = g.selectAll('rect').filter(function(){ return this !== nodeA && this !== nodeB; });
+        await Promise.all([
+            otherBars.transition().duration(500).attr('opacity', 0.2).end(),
+            d3.select(nodeA).transition().duration(500).attr('opacity', 1).attr('stroke', colorA).attr('stroke-width', 2).end(),
+            d3.select(nodeB).transition().duration(500).attr('opacity', 1).attr('stroke', colorB).attr('stroke-width', 2).end(),
+        ]);
+
+        drawAnnotation(nodeA, datumA.value, colorA);
+        drawAnnotation(nodeB, datumB.value, colorB);
+
+        const wantMax = (op.which || 'max') === 'max';
+        const winnerFacet = (wantMax ? (datumA.value >= datumB.value) : (datumA.value <= datumB.value)) ? AFacet : BFacet;
+        const winnerValue = winnerFacet === AFacet ? datumA.value : datumB.value;
+
+        const summary = `${wantMax ? 'Max' : 'Min'} within ${subgroup}: ${winnerFacet} (${fmtNum(winnerValue)})`;
+        svg.append('text').attr('class', 'annotation compare-summary')
+            .attr('x', margins.left).attr('y', margins.top - 28)
+            .attr('font-size', 14).attr('font-weight', 'bold')
+            .attr('fill', '#333')
+            .text(summary);
+
+        const winnerDatum = new DatumValue(
+            facetField, yField, winnerFacet, subgroup, winnerValue, `${winnerFacet}-${subgroup}`
+        );
+
+        svg.attr('data-filtering', null);
+        return [winnerDatum];
     }
-    
+
+    // --- Case A: fully specified points (category + series) ---
+    if (isObjA && isObjB && ('category' in op.targetA) && ('series' in op.targetA) && ('category' in op.targetB) && ('series' in op.targetB)) {
+        const opForCompare = {
+            targetA: { target: op.targetA.category, group: op.targetA.series },
+            targetB: { target: op.targetB.category, group: op.targetB.series },
+            operator: op.operator,
+            which: op.which
+        };
+        const winner = dataCompare(data, opForCompare);
+
+        const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
+        const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
+
+        if (!nodeA || !nodeB) {
+            console.warn("groupedBarCompare: One or both DOM elements not found", op);
+            svg.attr('data-filtering', null);
+            return winner ? [winner] : [];
+        }
+
+        const datumA = d3.select(nodeA).datum();
+        const datumB = d3.select(nodeB).datum();
+        const otherBars = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
+
+        await Promise.all([
+            otherBars.transition().duration(500).attr("opacity", 0.2).end(),
+            d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
+            d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end(),
+        ]);
+
+        drawAnnotation(nodeA, datumA.value, colorA);
+        drawAnnotation(nodeB, datumB.value, colorB);
+
+        let summary;
+        if (winner) {
+            const winnerLabel = `${winner.target}(${winner.group})`;
+            summary = `${op.which === 'min' ? 'Min' : 'Max'}: ${winnerLabel} (${fmtNum(winner.value)})`;
+        } else {
+            const labelA = `${op.targetA.category}(${op.targetA.series})`;
+            const labelB = `${op.targetB.category}(${op.targetB.series})`;
+            summary = `${labelA}: ${fmtNum(datumA.value)} vs ${labelB}: ${fmtNum(datumB.value)} (Tie)`;
+        }
+
+        svg.append("text").attr("class", "annotation compare-summary")
+            .attr("x", margins.left).attr("y", margins.top - 28)
+            .attr("font-size", 14).attr("font-weight", "bold")
+            .attr("fill", "#333")
+            .text(summary);
+
+        svg.attr('data-filtering', null);
+        return winner ? [winner] : [];
+    }
+
+    // --- Case B: primitive targets (facet-level compare across all series) ---
+    const AFacet = String(op.targetA);
+    const BFacet = String(op.targetB);
+
+    const sumByFacet = d3.rollup(
+        data,
+        v => d3.sum(v, d => +d.value),
+        d => String(d.target)
+    );
+
+    const sumA = sumByFacet.get(AFacet);
+    const sumB = sumByFacet.get(BFacet);
+
+    if (sumA == null || sumB == null) {
+        console.warn('compare(facet-level): one or both facets not found', { AFacet, BFacet, sums:[sumA,sumB] });
+        svg.attr('data-filtering', null);
+        return [];
+    }
+
+    const wantMax = (op.which || 'max') === 'max';
+    const winnerFacet = (wantMax ? (sumA >= sumB) : (sumA <= sumB)) ? AFacet : BFacet;
+    const winnerSum = winnerFacet === AFacet ? sumA : sumB;
+
+    const bars = g.selectAll('rect');
+    const barsA = bars.filter(d => d && String(d.facet) === AFacet);
+    const barsB = bars.filter(d => d && String(d.facet) === BFacet);
+    const others = bars.filter(function() {
+        const d = d3.select(this).datum();
+        const f = d && d.facet != null ? String(d.facet) : null;
+        return f !== AFacet && f !== BFacet;
+    });
+
+    await Promise.all([
+        others.transition().duration(500).attr('opacity', 0.2).end(),
+        barsA.transition().duration(500).attr('opacity', 1).attr('stroke', colorA).attr('stroke-width', 2).end(),
+        barsB.transition().duration(500).attr('opacity', 1).attr('stroke', colorB).attr('stroke-width', 2).end(),
+    ]);
+
+    barsA.each(function() { const d = d3.select(this).datum(); drawAnnotation(this, d.value, colorA); });
+    barsB.each(function() { const d = d3.select(this).datum(); drawAnnotation(this, d.value, colorB); });
+
+    const summary = `${wantMax ? 'Max' : 'Min'}: ${winnerFacet} (A=${fmtNum(sumA)} vs B=${fmtNum(sumB)})`;
     svg.append("text").attr("class", "annotation compare-summary")
         .attr("x", margins.left).attr("y", margins.top - 28)
         .attr("font-size", 14).attr("font-weight", "bold")
         .attr("fill", "#333")
         .text(summary);
 
-    return winner ? [winner] : [];
+    const winnerDatum = new DatumValue(
+        facetField, yField, winnerFacet, null, winnerSum, `${winnerFacet}-sum`
+    );
+    svg.attr('data-filtering', null);
+    return [winnerDatum];
 }
-
-
 
 export async function groupedBarCompareBool(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+    svg.attr('data-filtering', '1');
 
-    const opForCompare = {
-        targetA: { target: op.targetA.category, group: op.targetA.series },
-        targetB: { target: op.targetB.category, group: op.targetB.series },
-        operator: op.operator
-    };
+    let opForCompare;
+    let nodeA, nodeB;
+
+    // Case 1: primitive targets (e.g., 70 vs 75)
+    if (typeof op.targetA !== 'object' && typeof op.targetB !== 'object') {
+        opForCompare = {
+            targetA: { target: String(op.targetA), group: op.group || null },
+            targetB: { target: String(op.targetB), group: op.group || null },
+            operator: op.operator
+        };
+
+        if (op.group) {
+            await groupedBarToSimpleByGroup(chartId, op.group, data);
+        }
+
+        nodeA = findRectByTuple(g, { facet: String(op.targetA), key: op.group });
+        nodeB = findRectByTuple(g, { facet: String(op.targetB), key: op.group });
+    }
+    // Case 2: object form (category + series)
+    else {
+        opForCompare = {
+            targetA: { target: op.targetA.category, group: op.targetA.series },
+            targetB: { target: op.targetB.category, group: op.targetB.series },
+            operator: op.operator
+        };
+
+        nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
+        nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
+    }
+
     const compareResult = dataCompareBool(data, opForCompare);
-    
+
     if (compareResult === null) {
-        console.warn("groupedBarCompare: Comparison failed, likely data not found.", op);
+        console.warn("groupedBarCompareBool: Comparison failed", op);
+        svg.attr('data-filtering', null);
         return null;
     }
     const result = compareResult.bool;
 
-    const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
-    const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
-    
     if (!nodeA || !nodeB) {
-        console.warn("groupedBarCompare: One or both DOM elements not found", op);
+        console.warn("groupedBarCompareBool: One or both DOM elements not found", op);
+        svg.attr('data-filtering', null);
         return compareResult;
     }
 
@@ -597,26 +1140,69 @@ export async function groupedBarCompareBool(chartId, op, data) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(fmtNum(datum.value));
     };
-    
+
     drawAnnotation(nodeA, datumA, colorA);
     drawAnnotation(nodeB, datumB, colorB);
 
     const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
     const summary = `${fmtNum(datumA.value)}${symbol}${fmtNum(datumB.value)} → ${result}`;
-    
+
     svg.append("text").attr("class", "annotation compare-summary")
         .attr("x", margins.left).attr("y", margins.top - 28)
         .attr("font-size", 14).attr("font-weight", "bold")
         .attr("fill", result ? "green" : "red")
         .text(summary);
 
+    svg.attr('data-filtering', null);
     return compareResult;
 }
 
-// groupedBarFunctions.js
 export async function groupedBarSort(chartId, op, data) {
     const { svg, g, plot, facetField, yField, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+
+    // group 지정 시: 해당 series만 남겨 simple-bar 경로로 정렬(연출 일치)
+    if (op && op.group != null) {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        if (subset.length === 0) {
+            console.warn('groupedBarSort: no data for group', subgroup);
+            return [];
+        }
+
+        // 1) Visually reduce to the selected series first (each facet has exactly one bar)
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+
+        // 2) FLATTEN facet-group transforms so bars are in the same coordinate system that simpleBar expects.
+        //    This prevents double-application of translate(x) (group) + x(attr) (bar) during sort.
+        g.selectAll("[class^='facet-group-']").each(function() {
+            const grp = d3.select(this);
+            const tx = readGroupX(this) || 0; // current group translate X
+            if (tx !== 0) {
+                grp.selectAll('rect').each(function() {
+                    const r = d3.select(this);
+                    const x = +r.attr('x') || 0;
+                    r.attr('x', x + tx); // bake group translate into bar x
+                });
+                grp.attr('transform', 'translate(0,0)');
+            }
+        });
+
+        // 3) Ensure the x-axis selection used by simpleBarSort exists
+        //    If only `.x-axis-bottom-line` exists, alias it to `.x-axis` as well.
+        const xAxisSel = g.select('.x-axis');
+        if (xAxisSel.empty()) {
+            const bottom = g.select('.x-axis-bottom-line');
+            if (!bottom.empty()) bottom.classed('x-axis', true);
+        }
+
+        // 4) Delegate to simpleBarSort for the actual animation & labeling
+        const op2 = { ...op };
+        delete op2.group;
+        return await simpleBarSort(chartId, op2, subset, false);
+    }
 
     const sortOp = { ...op };
     if (op.field === yField) {
@@ -626,7 +1212,7 @@ export async function groupedBarSort(chartId, op, data) {
 
     const sortedFacets = [...new Set(sortedData.map(d => d.target))];
     const x0 = d3.scaleBand().domain(sortedFacets).range([0, plot.w]).paddingInner(0.2);
-    
+
     const tasks = [];
     sortedFacets.forEach(facet => {
         const groupSelection = g.select(`.facet-group-${cssEscape(String(facet))}`);
@@ -659,13 +1245,116 @@ export async function groupedBarSort(chartId, op, data) {
 export async function groupedBarSum(chartId, op, data) {
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+
+    // group 지정 시: 해당 series만 simple-bar로 합계 연출
+    if (op && op.group != null) {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        if (subset.length === 0) {
+            console.warn('groupedBarSum: no data for group', subgroup);
+            return [];
+        }
+        // Step 1) visually reduce to the chosen series (each facet has exactly one bar)
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+
+        // Step 2) FLATTEN facet-group transforms so bars are in the same coordinate system that simpleBar expects.
+        //         Use class token check instead of CSS ^ selector because nodes may have multiple classes
+        //         (e.g., "facet-group facet-group-30").
+        g.selectAll('g').each(function() {
+            const cls = (this.getAttribute('class') || '').split(/\s+/);
+            const isFacetGroup = cls.some(c => c.indexOf('facet-group-') === 0);
+            if (!isFacetGroup) return;
+            const grp = d3.select(this);
+            const tx = readGroupX(this) || 0; // current group translate X
+            if (tx !== 0) {
+                grp.selectAll('rect').each(function() {
+                    const r = d3.select(this);
+                    const x = +r.attr('x') || 0;
+                    r.attr('x', x + tx); // bake group translate into bar x
+                });
+                grp.attr('transform', 'translate(0,0)');
+            }
+        });
+
+        // Step 3) Ensure simpleBarSum can find the Y axis selection
+        if (svg.select('.y-axis').empty()) {
+            const cand = svg.select('.y-axis-left-line');
+            if (!cand.empty()) cand.classed('y-axis', true);
+        }
+
+        // === SimpleBarSum-identical logic (inline) ===
+        const op2 = { ...op };
+        delete op2.group;
+
+        const result = dataSum(subset, op2, facetField, yField);
+        if (!result) {
+            console.warn('groupedBarSum[group]: dataSum returned empty for', subgroup);
+            return [];
+        }
+
+        const sumDatum = new DatumValue(
+            result.category, result.measure, result.target,
+            result.group, result.value, result.id
+        );
+
+        const totalSum = +sumDatum.value;
+        if (!Number.isFinite(totalSum)) {
+            // Return datum but skip animation if invalid
+            return [sumDatum];
+        }
+
+        // y-scale and axis update identical to simpleBarSum
+        const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
+        const yAxisTransition = svg.select('.y-axis')
+            .transition().duration(1000)
+            .call(d3.axisLeft(newYScale))
+            .end();
+
+        // Bars selection and stacking animation identical to simpleBarSum
+        const bars = g.selectAll('rect');
+        const barWidth = bars.empty() ? 0 : +(bars.node().getAttribute('width') || 0);
+        const targetX = plot.w / 2 - barWidth / 2;
+        let runningTotal = 0;
+        const stackPromises = [];
+
+        bars.each(function() {
+            const rect = d3.select(this);
+            const d = rect.datum();
+            const value = (d && Number.isFinite(+d.value)) ? +d.value : 0;
+            const t = rect.transition().duration(1200)
+                .attr('x', targetX)
+                .attr('y', newYScale(runningTotal + value))
+                .attr('height', plot.h - newYScale(value))
+                .end();
+            stackPromises.push(t);
+            runningTotal += value;
+        });
+
+        await Promise.all([yAxisTransition, ...stackPromises]);
+        await delay(200);
+
+        const finalY = newYScale(totalSum);
+        svg.append('line').attr('class', 'annotation value-line')
+            .attr('x1', margins.left).attr('y1', margins.top + finalY)
+            .attr('x2', margins.left + plot.w).attr('y2', margins.top + finalY)
+            .attr('stroke', 'red').attr('stroke-width', 2);
+
+        svg.append('text').attr('class', 'annotation value-tag')
+            .attr('x', margins.left + plot.w - 10).attr('y', margins.top + finalY - 10)
+            .attr('fill', 'red').attr('font-weight', 'bold')
+            .attr('text-anchor', 'end').text(`Sum: ${totalSum.toLocaleString()}`);
+
+        return [sumDatum];
+    }
 
     const result = dataSum(data, op, facetField, yField);
     if (!result) {
         console.warn("Sum could not be calculated.");
         return [];
     }
-    
+
     const sumDatum = new DatumValue(
         result.category, result.measure, result.target,
         result.group, result.value, result.id
@@ -733,6 +1422,22 @@ export async function groupedBarSum(chartId, op, data) {
 export async function groupedBarAverage(chartId, op, data) {
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+
+    // group 지정 시: series 슬라이스 → simple-bar 평균 연출
+    if (op && op.group != null) {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        if (subset.length === 0) {
+            console.warn('groupedBarAverage: no data for group', subgroup);
+            return [];
+        }
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+        const op2 = { ...op, field: 'value' };
+        delete op2.group;
+        return await simpleBarAverage(chartId, op2, subset, false);
+    }
 
     const result = dataAverage(data, op, facetField, yField);
 
@@ -740,7 +1445,7 @@ export async function groupedBarAverage(chartId, op, data) {
         console.warn('groupedBarAverage: Could not compute average.');
         return [];
     }
-    
+
     const avgDatum = new DatumValue(
         result.category, result.measure, result.target,
         result.group, result.value, result.id
@@ -758,7 +1463,7 @@ export async function groupedBarAverage(chartId, op, data) {
         .attr("y1", yPos).attr("y2", yPos)
         .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "6 6");
 
-    await line.transition().duration(800)
+    await line.transition().duration(1200)
         .attr("x2", margins.left + plot.w)
         .end();
 
@@ -771,190 +1476,349 @@ export async function groupedBarAverage(chartId, op, data) {
         .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
         .text(`Avg: ${fmtNum(avgValue)}`)
         .attr("opacity", 0)
-        .transition().duration(400)
+        .transition().duration(700)
         .attr("opacity", 1);
 
     return [avgDatum];
 }
-export async function groupedBarDiff(chartId, op, data) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg);
-
-    const opForDiff = {
-        targetA: { target: op.targetA.category, group: op.targetA.series },
-        targetB: { target: op.targetB.category, group: op.targetB.series }
-    };
-    const diffResult = dataDiff(data, opForDiff);
-
-    if (!diffResult) {
-        console.warn("groupedBarDiff: Could not compute difference.", op);
-        return [];
-    }
-    
-    const diffDatum = new DatumValue(
-        diffResult.category, diffResult.measure, diffResult.target,
-        diffResult.group, Math.abs(diffResult.value), diffResult.id
-    );
-
-    const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
-    const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
-    
-    if (!nodeA || !nodeB) {
-        console.warn("groupedBarDiff: One or both DOM elements not found", op);
-        return [diffDatum];
-    }
-
-    const datumA = d3.select(nodeA).datum();
-    const datumB = d3.select(nodeB).datum();
-    const otherBars = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
-    const colorA = "#ffb74d";
-    const colorB = "#64b5f6";
-
-    await Promise.all([
-        otherBars.transition().duration(500).attr("opacity", 0.2).end(),
-        d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
-        d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end(),
-    ]);
-
-    const drawAnnotation = (node, datum, color) => {
-        const pos = absCenter(svg, node);
-        const y = pos.y;
-        svg.append("line")
-            .attr("class", "annotation compare-hline")
-            .attr("x1", margins.left).attr("y1", y)
-            .attr("x2", margins.left).attr("y2", y)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4")
-            .transition().duration(450)
-            .attr("x2", margins.left + plot.w);
-        svg.append("text")
-            .attr("class", "annotation compare-value")
-            .attr("x", pos.x).attr("y", y - 8)
-            .attr("text-anchor", "middle")
-            .attr("fill", color).attr("font-weight", "bold")
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(fmtNum(datum.value));
-    };
-    
-    drawAnnotation(nodeA, datumA, colorA);
-    drawAnnotation(nodeB, datumB, colorB);
-    
-    const summary = `Difference: ${fmtNum(diffDatum.value)}`;
-    
-    svg.append("text").attr("class", "annotation compare-summary")
-        .attr("x", margins.left).attr("y", margins.top - 28)
-        .attr("font-size", 14).attr("font-weight", "bold")
-        .attr("fill", "#333")
-        .text(summary);
-
-    return [diffDatum];
-}
-
-
 
 export async function groupedBarNth(chartId, op, data) {
-    const { svg, g, margins } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
 
+    // Params
     let n = Number(op?.n ?? 1);
-    const from = String(op?.from || 'left').toLowerCase();
+    const from = String(op?.from || 'left').toLowerCase(); // 'left' | 'right'
     const hlColor = '#20c997';
 
-    const allRects = g.selectAll("rect");
+    // 1) Collect facet groups (each x-bin, e.g., age group). We consider any <g> whose class has a token starting with 'facet-group-'
+    const facetGroups = [];
+    g.selectAll('g').each(function() {
+        const cls = (this.getAttribute('class') || '').split(/\s+/);
+        const facetToken = cls.find(c => c.indexOf('facet-group-') === 0);
+        if (!facetToken) return;
+        const facet = facetToken.slice('facet-group-'.length);
+        const tx = readGroupX(this) || 0; // left position of this facet-bin
+        facetGroups.push({ node: this, facet, x: tx });
+    });
+
+    if (facetGroups.length === 0) {
+        console.warn('groupedBarNth: no facet groups found');
+        return [];
+    }
+
+    // 2) Order facets visually and pick the nth group
+    facetGroups.sort((a, b) => a.x - b.x);
+    const ordered = (from === 'right') ? facetGroups.slice().reverse() : facetGroups;
+    const boundedN = Math.max(1, Math.min(n, ordered.length));
+    const picked = ordered[boundedN - 1];
+    if (!picked) {
+        console.warn('groupedBarNth: nth facet out of range', { n, from, len: ordered.length });
+        return [];
+    }
+
+    // 3) Highlight all bars inside the picked facet; fade others
+    const allRects = g.selectAll('rect');
     if (allRects.empty()) {
         console.warn('groupedBarNth: no bars found');
         return [];
     }
 
-    const total = allRects.size();
-    n = Math.max(1, Math.min(n, total));
+    const facetSelector = `.facet-group-${cssEscape(String(picked.facet))}`;
+    const pickedGroup = g.select(facetSelector);
+    const pickedRects = pickedGroup.selectAll('rect');
 
-    const items = [];
-    allRects.each(function() {
-        items.push({
-            node: this,
-            globalX: readGroupX(this) + (+this.getAttribute('x')),
-        });
-    });
-    items.sort((a, b) => a.globalX - b.globalX);
+    await allRects.transition().duration(200).attr('opacity', 0.2).end();
+    await pickedRects.transition().duration(350)
+        .attr('opacity', 1)
+        .attr('stroke', hlColor)
+        .attr('stroke-width', 2)
+        .end();
 
-    const sequence = from === 'right' ? items.slice().reverse() : items;
-    const pickedItem = sequence[n - 1];
-    if (!pickedItem) return [];
+    // 4) Draw simpleBarNth-like guide: a dashed line from y-axis to each picked bar's center and a value label
+    const anims = [];
+    pickedRects.each(function() {
+        const bar = this;
+        const d = d3.select(bar).datum() || {};
+        const bbox = bar.getBBox();
+        const tx = readGroupX(bar) || 0; // inner bars may return 0; we compose with group translate via absCenter
+        const { x, y } = absCenter(svg, bar);
 
-    await allRects.transition().duration(200).attr("opacity", 0.2).end();
-
-    for (let i = 0; i < n; i++) {
-        const { node } = sequence[i];
-        
-        await d3.select(node).transition().duration(100).attr('opacity', 1).end();
-
-        const { x, y } = absCenter(svg, node);
-        svg.append('text')
-            .attr('class', 'annotation count-label')
-            .attr('x', x).attr('y', y - 8)
-            .attr('text-anchor', 'middle').attr('font-weight', 'bold')
-            .attr('fill', hlColor).attr('stroke', 'white')
-            .attr('stroke-width', 3).attr('paint-order', 'stroke')
-            .text(String(i + 1));
-        
-        await delay(150);
-    }
-    
-    const cleanupPromises = [];
-    for (let i = 0; i < n - 1; i++) {
-        const { node } = sequence[i];
-        cleanupPromises.push(
-            d3.select(node).transition().duration(200).attr('opacity', 0.2).end()
-        );
-    }
-    
-    cleanupPromises.push(
-        svg.selectAll('.count-label').transition().duration(200).attr('opacity', 0).remove().end()
-    );
-    await Promise.all(cleanupPromises);
-    
-    const pickedNode = pickedItem.node;
-    const pickedDatum = d3.select(pickedNode).datum();
-    const originalDatum = data.find(d => 
-        String(d.target) === String(pickedDatum.facet) && 
-        String(d.group) === String(pickedDatum.key)
-    );
-
-    if (originalDatum) {
-        const { x, y } = absCenter(svg, pickedNode);
-        svg.append('line').attr('class', 'annotation')
+        // horizontal guideline from y-axis to center of the picked bar
+        const guide = svg.append('line')
+            .attr('class', 'annotation nth-line')
             .attr('x1', margins.left).attr('y1', y)
-            .attr('x2', x).attr('y2', y)
-            .attr('stroke', hlColor).attr('stroke-dasharray', '4 4');
+            .attr('x2', margins.left).attr('y2', y)
+            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4');
+        anims.push(guide.transition().duration(450).attr('x2', x).end());
 
-        svg.append('text').attr('class', 'annotation value-tag')
-            .attr('x', x).attr('y', y - 8)
-            .attr('text-anchor', 'middle').attr('font-weight', 'bold')
-            .attr('fill', hlColor).attr('stroke', 'white')
-            .attr('stroke-width', 3).attr('paint-order', 'stroke')
-            .text(fmtNum(originalDatum.value));
-    }
+        const val = Number.isFinite(+d.value) ? +d.value : NaN;
+        if (Number.isFinite(val)) {
+            const t = svg.append('text')
+                .attr('class', 'annotation nth-value')
+                .attr('x', x).attr('y', y - 10)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', 12).attr('font-weight', 'bold')
+                .attr('fill', hlColor)
+                .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
+                .text(fmtNum(val))
+                .attr('opacity', 0)
+                .transition().duration(350).attr('opacity', 1).end();
+            anims.push(t);
+        }
+    });
 
-    svg.append('text').attr('class', 'annotation')
-        .attr('x', margins.left).attr('y', margins.top - 10)
-        .attr('font-size', 14).attr('font-weight', 'bold')
+    await Promise.all(anims).catch(()=>{});
+
+    // 5) Top caption
+    const caption = `Nth facet (${from}, n=${boundedN}): ${picked.facet}`;
+    svg.append('text')
+        .attr('class', 'annotation nth-caption')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 10)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
         .attr('fill', hlColor)
-        .text(`Nth: ${from} ${n}`);
-        
-    return originalDatum ? [originalDatum] : [];
+        .text(caption);
+
+    // 6) Return original rows for this facet (all series under the picked x-bin)
+    const facetVal = String(picked.facet);
+    const results = Array.isArray(data)
+        ? data.filter(d => String(d.target ?? d.facet ?? d.age ?? '') === facetVal)
+        : [];
+
+    return results;
 }
 
+export async function groupedBarDiff(chartId, op, data) {
+    const {svg, g, margins, plot, yField, facetField} = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
+    svg.attr('data-filtering', '1');
+
+    const isObjA = typeof op.targetA === 'object' && op.targetA !== null;
+    const isObjB = typeof op.targetB === 'object' && op.targetB !== null;
+
+    const colorA = "#ffb74d";
+    const colorB = "#64b5f6";
+    const diffColor = "#d32f2f";
+
+    // Helper: draw diff line + label
+    const drawDiffLine = (nodeA, nodeB, diffVal) => {
+        const bboxA = nodeA.getBBox();
+        const bboxB = nodeB.getBBox();
+        const groupXA = readGroupX(nodeA);
+        const groupXB = readGroupX(nodeB);
+
+        const cxA = margins.left + groupXA + bboxA.x + bboxA.width / 2;
+        const cyA = margins.top + bboxA.y;
+        const cxB = margins.left + groupXB + bboxB.x + bboxB.width / 2;
+        const cyB = margins.top + bboxB.y;
+
+        const midX = (cxA + cxB) / 2;
+        const minY = Math.min(cyA, cyB);
+
+        const line = svg.append("line")
+            .attr("class", "annotation diff-line")
+            .attr("x1", cxA).attr("y1", minY - 10)
+            .attr("x2", cxA).attr("y2", minY - 10)
+            .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+
+        line.transition().duration(1000).ease(d3.easeCubicInOut)
+            .attr("x2", cxB);
+
+        svg.append("text")
+            .attr("class", "annotation diff-label")
+            .attr("x", midX).attr("y", minY - 14)
+            .attr("text-anchor", "middle")
+            .attr("fill", diffColor)
+            .attr("font-weight", "bold")
+            .text(`Diff: ${fmtNum(diffVal)}`)
+            .attr("opacity", 0)
+            .transition().delay(500).duration(600)
+            .attr("opacity", 1);
+    };
+
+    // --- Case 1: primitive targets + group ---
+    if (!isObjA && !isObjB && op.group) {
+        const subgroup = String(op.group);
+        const subset = data.filter(d => String(d.group) === subgroup);
+        if (!subset.length) {
+            console.warn("groupedBarDiff[group]: no data", subgroup);
+            svg.attr('data-filtering', null);
+            return [];
+        }
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+
+        const AFacet = String(op.targetA);
+        const BFacet = String(op.targetB);
+
+        const opForDiff = { targetA: { target: AFacet, group: subgroup }, targetB: { target: BFacet, group: subgroup } };
+        const diffResult = dataDiff(data, opForDiff);
+        if (!diffResult) {
+            console.warn("groupedBarDiff[group]: dataDiff empty", { opForDiff });
+            svg.attr('data-filtering', null);
+            return [];
+        }
+
+        const nodeA = findRectByTuple(g, { facet: AFacet, key: subgroup });
+        const nodeB = findRectByTuple(g, { facet: BFacet, key: subgroup });
+
+        if (nodeA && nodeB) {
+            const datumA = d3.select(nodeA).datum();
+            const datumB = d3.select(nodeB).datum();
+            const others = g.selectAll("rect").filter(function(){ return this !== nodeA && this !== nodeB; });
+            await Promise.all([
+                others.transition().duration(500).attr("opacity",0.2).end(),
+                d3.select(nodeA).transition().duration(500).attr("opacity",1).attr("stroke",colorA).attr("stroke-width",2).end(),
+                d3.select(nodeB).transition().duration(500).attr("opacity",1).attr("stroke",colorB).attr("stroke-width",2).end()
+            ]);
+
+            // --- Draw diff line + label ---
+            drawDiffLine(nodeA, nodeB, diffResult.value);
+        }
+
+        svg.attr('data-filtering', null);
+        return [ new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value)) ];
+    }
+
+    // --- Case 2: fully specified objects ---
+    if (isObjA && isObjB && op.targetA.category && op.targetA.series && op.targetB.category && op.targetB.series) {
+        const opForDiff = {
+            targetA: { target: op.targetA.category, group: op.targetA.series },
+            targetB: { target: op.targetB.category, group: op.targetB.series }
+        };
+        const diffResult = dataDiff(data, opForDiff);
+        if (!diffResult) {
+            console.warn("groupedBarDiff: diff fail", op);
+            svg.attr('data-filtering', null);
+            return [];
+        }
+
+        const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
+        const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
+
+        if (nodeA && nodeB) {
+            const datumA = d3.select(nodeA).datum();
+            const datumB = d3.select(nodeB).datum();
+            const others = g.selectAll("rect").filter(function(){ return this !== nodeA && this !== nodeB; });
+            await Promise.all([
+                others.transition().duration(500).attr("opacity",0.2).end(),
+                d3.select(nodeA).transition().duration(500).attr("opacity",1).attr("stroke",colorA).attr("stroke-width",2).end(),
+                d3.select(nodeB).transition().duration(500).attr("opacity",1).attr("stroke",colorB).attr("stroke-width",2).end()
+            ]);
+
+            drawDiffLine(nodeA, nodeB, diffResult.value);
+        }
+
+        svg.attr('data-filtering', null);
+        return [ new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value)) ];
+    }
+
+    // --- Case 3: primitive targets without explicit group (sum across series) ---
+    if (!isObjA && !isObjB) {
+        const AFacet = String(op.targetA);
+        const BFacet = String(op.targetB);
+        const inGroup = (d) => (op.group) ? String(d.group) === String(op.group) : true;
+        const aVal = d3.sum(data.filter(d => inGroup(d) && String(d.target) === AFacet), d => +d.value);
+        const bVal = d3.sum(data.filter(d => inGroup(d) && String(d.target) === BFacet), d => +d.value);
+        const diffVal = aVal - bVal;
+
+        svg.attr('data-filtering', null);
+        return [ new DatumValue(facetField, yField, "Diff", op.group ?? null, Math.abs(diffVal), `${AFacet}-${BFacet}-diff`) ];
+    }
+
+    console.warn("groupedBarDiff: unsupported targets", op);
+    svg.attr('data-filtering', null);
+    return [];
+}
 
 export async function groupedBarCount(chartId, op, data) {
-    const { svg, g, margins, xField, facetField } = getSvgAndSetup(chartId);
+    const { svg, g, margins, xField, facetField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+    await waitForAttrClear(svg);
+    resetBarsVisible(g);
 
+    // group 지정 시: 해당 series만 남기는 simple화 → simpleBarCount와 같은 연출을 직접 수행
+    if (op && op.group != null) {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        if (subset.length === 0) {
+            console.warn('groupedBarCount: no data for group', subgroup);
+            const zero = new DatumValue(null, null, 'Category Count', subgroup, 0, null);
+            return [zero];
+        }
+
+        // 1) 선택한 series만 보이도록 시각 단순화 (각 facet에 막대 1개)
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+
+        // 2) subset에 대해 count 계산 (facet 기준)
+        const op2 = { ...op };
+        delete op2.group;
+        const result = dataCount(subset, op2, facetField, xField);
+        const totalCount = result ? Number(result.value) : 0;
+
+        // 3) 막대 수집 및 전역 X 좌표 계산 (group translate + local x)
+        const bars = g.selectAll('rect');
+        if (bars.empty()) {
+            console.warn('groupedBarCount[group]: no bars on chart after simple-ize');
+            return result ? [new DatumValue(result.category, result.measure, result.target, subgroup, totalCount, result.id)] : [];
+        }
+
+        const baseColor = '#69b3a2';
+        const hlColor = '#20c997';
+        await bars.transition().duration(150).attr('fill', baseColor).attr('opacity', 0.3).end();
+
+        const items = bars.nodes().map(node => {
+            const localX = +node.getAttribute('x') || 0;
+            const globalX = (readGroupX(node) || 0) + localX;
+            return { node, globalX };
+        }).sort((a,b) => a.globalX - b.globalX);
+
+        const N = Math.min(totalCount, items.length);
+        for (let i = 0; i < N; i++) {
+            const { node } = items[i];
+            const rect = d3.select(node);
+            await rect.transition().duration(150).attr('fill', hlColor).attr('opacity', 1).end();
+            const { x, y } = absCenter(svg, node);
+            svg.append('text')
+                .attr('class', 'annotation count-label')
+                .attr('x', x).attr('y', y)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', 12).attr('font-weight', 'bold')
+                .attr('fill', hlColor).attr('stroke', 'white')
+                .attr('stroke-width', 3).attr('paint-order', 'stroke')
+                .text(String(i + 1))
+                .attr('opacity', 0)
+                .transition().duration(125).attr('opacity', 1);
+            await delay(60);
+        }
+
+        svg.append('text')
+            .attr('class', 'annotation')
+            .attr('x', margins.left).attr('y', margins.top - 10)
+            .attr('font-size', 14).attr('font-weight', 'bold')
+            .attr('fill', hlColor)
+            .text(`Count: ${totalCount}`)
+            .attr('opacity', 0)
+            .transition().duration(200).attr('opacity', 1);
+
+        const countDatum = result
+            ? new DatumValue(result.category, result.measure, result.target, subgroup, totalCount, result.id)
+            : new DatumValue(null, null, 'Category Count', subgroup, totalCount, null);
+        return [countDatum];
+    }
+
+    // 전체 카테고리 수 계산 (facet × series 구조에서 facet 기준)
     const result = dataCount(data, op, facetField, xField);
     if (!result) {
         console.warn('groupedBarCount: could not compute count');
         return [];
     }
-    
+
     const countDatum = new DatumValue(
         result.category, result.measure, result.target,
         result.group, result.value, result.id
@@ -975,18 +1839,19 @@ export async function groupedBarCount(chartId, op, data) {
     const hlColor = '#20c997';
     await bars.transition().duration(150).attr('opacity', 0.3).end();
 
+    // 좌→우 순서로 막대 정렬 후, totalCount개 표시
     const nodes = bars.nodes();
     const items = nodes.map(node => {
         const groupX = readGroupX(node);
         const barX = +node.getAttribute('x') || 0;
         return { node, globalX: groupX + barX };
     });
-
     items.sort((a, b) => a.globalX - b.globalX);
 
-    for (let i = 0; i < totalCount; i++) {
+    const N = Math.min(totalCount, items.length);
+    for (let i = 0; i < N; i++) {
         const { node } = items[i];
-        await d3.select(node).transition().duration(100)
+        await d3.select(node).transition().duration(120)
             .attr('fill', hlColor)
             .attr('opacity', 1)
             .end();
@@ -1005,9 +1870,9 @@ export async function groupedBarCount(chartId, op, data) {
             .attr('paint-order', 'stroke')
             .text(String(i + 1))
             .attr('opacity', 0)
-            .transition().duration(100).attr('opacity', 1);
+            .transition().duration(120).attr('opacity', 1);
 
-        await delay(50);
+        await delay(60);
     }
 
     svg.append('text')
@@ -1022,98 +1887,4 @@ export async function groupedBarCount(chartId, op, data) {
         .transition().duration(200).attr('opacity', 1);
 
     return [countDatum];
-}
-
-export async function groupedBarFilterByX(chartId, op, currentData, fullData) {
-    const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
-    svg.selectAll(".annotation, .filter-label, .compare-label, .extremum-label, .value-tag").remove();
-
-    const mode = (op.mode || "keep").toLowerCase();
-    const rescaleY = (op.rescaleY !== false);
-    const logic = op.logic || "and";
-    const style = op.style || {};
-
-    const conditions = op.conditions || [];
-    const pass = buildPredicate(conditions, logic);
-
-    const allowedIds = new Set(currentData.filter(pass).map(r => `${r.target}-${r.group}`));
-
-    const rects = g.selectAll("rect");
-    if (rects.empty()) return currentData;
-
-    const filteredData = currentData.filter(d => allowedIds.has(`${d.target}-${d.group}`));
-
-    if (mode === "highlight" || mode === "hide") {
-        const dim = (mode === "hide") ? 0.08 : (style.otherOpacity ?? 0.25);
-        rects.transition().duration(500)
-            .attr("opacity", function() {
-                const d = d3.select(this).datum();
-                return allowedIds.has(idOfDatum(d)) ? 1.0 : dim;
-            });
-        
-        svg.append("text").attr("class", "filter-label")
-            .attr("x", margins.left).attr("y", margins.top - 10)
-            .attr("font-size", 14).attr("font-weight", "bold").attr("fill", "#0d6efd")
-            .text(describeFilter(conditions, logic));
-        
-        return filteredData;
-    }
-
-    const keepSel = rects.filter(function() { const d = d3.select(this).datum(); return allowedIds.has(idOfDatum(d)); });
-    const dropSel = rects.filter(function() { const d = d3.select(this).datum(); return !allowedIds.has(idOfDatum(d)); });
-    
-    await dropSel.transition().duration(450).attr("opacity", 0).attr("width", 0).remove().end();
-
-    const keptData = filteredData.map(d => ({ facet: d.target, key: d.group, value: d.value }));
-    if (!keptData.length) return [];
-    
-    const keptFacets = Array.from(new Set(keptData.map(d => d.facet)));
-    const keptKeys = Array.from(new Set(keptData.map(d => d.key)));
-
-    const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
-    const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
-    const yMax = rescaleY ? d3.max(keptData, d => d.value) : d3.max(currentData, r => r.value);
-    const y = d3.scaleLinear().domain([0, (yMax || 1)]).nice().range([plot.h, 0]);
-
-    const tasks = [];
-    g.selectAll('[class^="facet-group-"]').each(function() {
-        const cls = this.getAttribute("class") || "";
-        const fv = cls.replace(/^facet-group-/, "");
-        if (!keptFacets.map(String).includes(String(fv))) {
-            d3.select(this).transition().duration(400).attr("opacity", 0).remove();
-        } else {
-            tasks.push(d3.select(this).transition().duration(800).attr("transform", `translate(${x0(fv)},0)`).end());
-        }
-    });
-
-    keepSel.transition().duration(800)
-        .attr("x", d => x1(d.key))
-        .attr("width", x1.bandwidth())
-        .attr("y", d => y(d.value))
-        .attr("height", d => plot.h - y(d.value));
-
-    tasks.push(g.select(".y-axis").transition().duration(800).call(d3.axisLeft(y)).end());
-    const bottom = g.select(".x-axis-bottom-line");
-    tasks.push(bottom.transition().duration(800).call(d3.axisBottom(x0).tickSizeOuter(0)).end());
-    
-    await Promise.all(tasks);
-    
-    svg.append("text").attr("class", "filter-label")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold").attr("fill", "#0d6efd")
-        .text(describeFilter(conditions, logic));
-        
-    return filteredData;
-}
-
-export async function groupedBarFocus(chartId, op, currentData, fullData) {
-  const key = op.x ?? op.key ?? op.label;
-  if (key==null) { console.warn("groupedBarFocus: key(x) 필요"); return currentData; }
-  const spec = {
-    op: "filter",
-    mode: "keep",
-    logic: "and",
-    conditions: [{ field: (getSvgAndSetup(chartId).xField), equals: key }]
-  };
-  return await groupedBarFilter(chartId, spec, currentData, fullData);
 }

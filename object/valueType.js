@@ -10,22 +10,25 @@ export class DatumValue {
 }
 
 export class IntervalValue{
-    constructor(category, min, max) {
+    constructor(category, min, max, id) {
         this.category = category;
         this.min = min;
         this.max = max;
+        this.id = id;
     }
 }
 
 export class ScalarValue{
-    constructor(value) {
+    constructor(value, id) {
         this.value = value;
+        this.id = id;
     }
 }
 
 export class BoolValue{
-    constructor(category, bool) {
+    constructor(category, bool, id) {
         this.category = category;
         this.bool = bool;
+        this.id = id;
     }
 }

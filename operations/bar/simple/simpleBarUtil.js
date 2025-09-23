@@ -22,7 +22,7 @@ import {
     renderChart,
     stackChartToTempTable
 } from "../../../util/util.js";
-import { addChildDiv, clearDivChildren } from "../../operationUtil.js";
+import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -40,11 +40,9 @@ const SIMPLE_BAR_OP_HANDLERS = {
 };
 
 const chartDataStore = {};
-
 function clearAllAnnotations(svg) {
     svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
 }
-
 function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const orientation = svg.attr("data-orientation") || "vertical";
@@ -62,6 +60,7 @@ function getSvgAndSetup(chartId) {
     return { svg, g, orientation, xField, yField, margins, plot };
 }
 
+
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function applySimpleBarOperation(chartId, operation, currentData, isLast = false) {
@@ -77,101 +76,12 @@ async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = f
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applySimpleBarOperation(chartId, operation, currentData, isLast);
-        if (delayMs > 0) {
-            await delay(delayMs);
-        }
+        await delay(1500);
+
     }
     return currentData;
 }
 
-/**
- * 네비게이션 버튼 UI 생성 (SVG 내부에 배치)
- */
-function createNavigationControls(chartId) {
-    const svg = d3.select(`#${chartId}`).select("svg");
-    
-    if (svg.empty()) {
-        console.error("createNavigationControls: SVG not found for chartId:", chartId);
-        return { nextButton: null, stepIndicator: null };
-    }
-    
-    // 기존 네비게이션 그룹 제거
-    svg.select(".nav-controls-group").remove();
-    
-    // 네비게이션 그룹 생성 (SVG 내부, 좌상단)
-    const navGroup = svg.append("g")
-        .attr("class", "nav-controls-group")
-        .attr("transform", "translate(15, 15)");
-
-    // 배경 박스
-    const bgRect = navGroup.append("rect")
-        .attr("class", "nav-bg")
-        .attr("x", 0)
-        .attr("y", 0)
-        .attr("width", 130)
-        .attr("height", 35)
-        .attr("rx", 5)
-        .attr("ry", 5)
-        .attr("fill", "rgba(255, 255, 255, 0.9)")
-        .attr("stroke", "#ccc")
-        .attr("stroke-width", 1);
-
-    // 다음 버튼
-    const nextButton = navGroup.append("g")
-        .attr("class", "nav-btn next-btn")
-        .attr("transform", "translate(5, 5)")
-        .style("cursor", "pointer");
-
-    nextButton.append("rect")
-        .attr("width", 60)
-        .attr("height", 25)
-        .attr("rx", 3)
-        .attr("fill", "#007bff")
-        .attr("stroke", "#0056b3")
-        .attr("stroke-width", 1);
-
-    nextButton.append("text")
-        .attr("x", 30)
-        .attr("y", 17)
-        .attr("text-anchor", "middle")
-        .attr("fill", "white")
-        .attr("font-size", "12px")
-        .attr("font-weight", "bold")
-        .text("Next →");
-
-    // 단계 표시기
-    const stepIndicator = navGroup.append("text")
-        .attr("class", "step-indicator")
-        .attr("x", 95)
-        .attr("y", 22)
-        .attr("text-anchor", "middle")
-        .attr("fill", "#333")
-        .attr("font-size", "12px")
-        .attr("font-weight", "bold");
-
-    console.log("Navigation controls created successfully for:", chartId);
-    
-    return { nextButton, stepIndicator };
-}
-
-/**
- * 버튼 상태 업데이트
- */
-function updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps) {
-    // 다음 버튼 상태
-    if (currentStep === totalSteps - 1) {
-        nextButton.select("rect").attr("fill", "#6c757d").attr("opacity", 0.5);
-        nextButton.select("text").text("Done");
-        nextButton.style("cursor", "not-allowed");
-    } else {
-        nextButton.select("rect").attr("fill", "#007bff").attr("opacity", 1);
-        nextButton.select("text").text("Next →");
-        nextButton.style("cursor", "pointer");
-    }
-
-    // 단계 표시기 업데이트
-    stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
-}
 
 /**
  * 차트 리셋
@@ -179,7 +89,7 @@ function updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps) 
 async function fullChartReset(chartId) {
     const { svg, g } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    
+
     const resetPromises = [];
     g.selectAll("rect").each(function() {
         const rect = d3.select(this);
@@ -194,62 +104,40 @@ async function fullChartReset(chartId) {
 }
 
 export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
-    // 차트가 먼저 렌더링되었는지 확인
     const svg = d3.select(`#${chartId}`).select("svg");
     if (svg.empty()) {
         console.error("runSimpleBarOps: SVG not found. Please render the chart first.");
         return;
     }
-    
     if (!chartDataStore[chartId]) {
         console.error("runSimpleBarOps: No data in store. Please render the chart first.");
         return;
     }
-    
+
     const fullData = [...chartDataStore[chartId]];
     const { orientation, xField, yField } = getSvgAndSetup(chartId);
     const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
 
-    const keys = Object.keys(opsSpec);
-    if (keys.length === 0) return;
-
-    let currentStep = 0;
-    const totalSteps = keys.length;
-    const zeroDelay = 0;
-
-    // 네비게이션 컨트롤 생성 (한 번만) - SVG 존재 확인 후
-    const controls = createNavigationControls(chartId);
-    
-    if (!controls.nextButton || !controls.stepIndicator) {
-        console.error("Failed to create navigation controls");
-        return;
-    }
-    
-    const { nextButton, stepIndicator } = controls;
-
-    // dataCache 초기화
+    // reset cache
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
 
-    // 각 스텝을 실행하는 공통 루틴
-    const runStep = async (stepIndex) => {
-        const opKey = keys[stepIndex];
-        
-        // 차트 리셋
-        await fullChartReset(chartId);
-
-        const opsList = opsSpec[opKey] || [];
-        let currentData = baseDatumValues.slice(); // 베이스 복사
-
-        if (opKey === 'last') {
-            // 마지막 단계일 경우에는 누적 혹은 특수 처리
-            const allDatumValues = Object.values(dataCache).flat();
-            const allSpec = buildSimpleBarSpec(allDatumValues);
-            await renderChart(chartId, allSpec);
-            await executeSimpleBarOpsList(chartId, opsList, allDatumValues, true, zeroDelay);
-        } else {
-            currentData = await executeSimpleBarOpsList(chartId, opsList, currentData, false, zeroDelay);
-            
-            // cache 저장
+    await runOpsSequence({
+        chartId,
+        opsSpec,
+        textSpec,
+        onReset: async () => { await fullChartReset(chartId); },
+        onRunOpsList: async (opsList, isLast) => {
+            if (isLast) {
+                const allDatumValues = Object.values(dataCache).flat();
+                const allSpec = buildSimpleBarSpec(allDatumValues);
+                await renderChart(chartId, allSpec);
+                return await executeSimpleBarOpsList(chartId, opsList, allDatumValues, true, 0);
+            } else {
+                const currentData = await executeSimpleBarOpsList(chartId, opsList, baseDatumValues.slice(), false, 0);
+                return currentData;
+            }
+        },
+        onCache: (opKey, currentData) => {
             if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
                 dataCache[opKey] = [currentData];
             } else {
@@ -258,33 +146,16 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
                     if (datum instanceof DatumValue) {
                         datum.id = `${opKey}_${idx}`;
                         datum.category = lastCategory ?? xField;
-                        datum.measure = lastMeasure ?? yField;
+                        datum.measure  = lastMeasure  ?? yField;
                     }
                 });
                 dataCache[opKey] = arr;
             }
-        }
-    };
-
-    // 버튼 이벤트 핸들러
-    const updateStep = async (newStep) => {
-        if (newStep < 0 || newStep >= totalSteps) return;
-        
-        currentStep = newStep;
-        await runStep(currentStep);
-        updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps);
-    };
-
-    // 이벤트 리스너 등록 (한 번만)
-    nextButton.on("click", () => {
-        if (currentStep < totalSteps - 1) {
-            updateStep(currentStep + 1);
-        }
+        },
+        isLastKey: (k) => k === 'last',
+        delayMs: 0,
+        navOpts: { x: 15, y: 15 }
     });
-
-    // 초기: 첫 번째 키 실행
-    await runStep(0);
-    updateButtonStates(nextButton, stepIndicator, currentStep, totalSteps);
 }
 
 export async function renderSimpleBarChart(chartId, spec) {
