@@ -175,11 +175,6 @@ export async function stackedBarFilter(chartId, op, data) {
         keepCategories = new Set(filteredByTarget.map(d => d.target));
     }
 
-    // 필터 조건 라벨 (차트 상단 왼쪽)
-    svg.append("text").attr("class", "filter-label")
-        .attr("x", margins.left).attr("y", margins.top - 8)
-        .attr("font-size", 12).attr("fill", "black").attr("font-weight", "bold")
-        .text(`Filter: ${op.field} ${op.operator} ${op.value}`);
 
     if (op.field === measureField && Number.isFinite(op.value)) {
         const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
