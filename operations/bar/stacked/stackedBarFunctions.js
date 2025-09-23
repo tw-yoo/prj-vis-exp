@@ -567,7 +567,7 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // If a group is specified, convert to simple bar and reuse simpleBar animations
+    // If a group is specified, convert to simple bar and apply custom animation
     if (op.group != null) {
         const subgroup = String(op.group);
         const subset = data.filter(dv => String(dv.group) === subgroup);
@@ -576,8 +576,80 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
             return new IntervalValue(op.group, NaN, NaN);
         }
         await stackedBarToSimpleBar(chartId, subset);
-        // Reuse simple-bar animation style, which already implements the desired labeling
-        return await simpleBarDetermineRange(chartId, { field: op.field || yField }, subset, isLast);
+        
+        // --- Custom animation for the now-simple bar chart ---
+        const values = subset.map(d => d.value);
+        const minV = d3.min(values);
+        const maxV = d3.max(values);
+        const result = new IntervalValue(op.group, minV, maxV);
+
+        const allRects = g.selectAll('rect');
+        const minBars = allRects.filter(function() { const d = d3.select(this).datum(); return d && +d.value === minV; });
+        const maxBars = allRects.filter(function() { const d = d3.select(this).datum(); return d && +d.value === maxV; });
+        const otherRects = allRects.filter(function() { const d = d3.select(this).datum(); return d && +d.value !== minV && +d.value !== maxV; });
+
+        const hlColor = '#0d6efd';
+        const yMax = d3.max(values) || 0;
+        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+        const animationPromises = [];
+
+        animationPromises.push(
+            otherRects.transition().duration(600).attr('opacity', 0.2).end()
+        );
+        animationPromises.push(
+            minBars.transition().duration(600).attr('opacity', 1).end()
+        );
+        animationPromises.push(
+            maxBars.transition().duration(600).attr('opacity', 1).end()
+        );
+
+        const getBarCenterTop = (barNode) => {
+            if (!barNode) return null;
+            const b = barNode.getBBox();
+            return {
+                x: b.x + b.width / 2,
+                y: b.y - 8 // 8px above the top
+            };
+        };
+
+        [
+            { value: minV, label: "Min", bars: minBars },
+            { value: maxV, label: "Max", bars: maxBars }
+        ].forEach(item => {
+            if (item.value === undefined) return;
+            const yPos = margins.top + yScale(item.value);
+            const line = svg.append("line").attr("class", "annotation")
+                .attr("x1", margins.left).attr("x2", margins.left)
+                .attr("y1", yPos).attr("y2", yPos)
+                .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+
+            animationPromises.push(
+                line.transition().duration(800).attr("x2", margins.left + plot.w).end()
+            );
+
+            item.bars.each(function() {
+                const pos = getBarCenterTop(this);
+                if (pos) {
+                    const text = g.append("text").attr("class", "annotation")
+                        .attr("x", pos.x)
+                        .attr("y", pos.y)
+                        .attr("text-anchor", "middle")
+                        .attr("font-size", "14px").attr("font-weight", "bold")
+                        .attr("fill", hlColor)
+                        .attr("stroke", "white").attr("stroke-width", 4)
+                        .attr("paint-order", "stroke")
+                        .text(`${item.label}: ${fmtNum(item.value)}`)
+                        .attr("opacity", 0);
+                    
+                    animationPromises.push(
+                        text.transition().delay(400).duration(400).attr("opacity", 1).end()
+                    );
+                }
+            });
+        });
+        
+        await Promise.all(animationPromises);
+        return result;
     }
 
     // No subgroup: operate on stack totals
@@ -617,8 +689,6 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
         maxStackRects.transition().duration(600).attr('opacity', 1).end()
     );
 
-    // --- 수정된 부분 시작 ---
-    // Helper to get the center-top position of a stack of bars
     const getStackCenterTop = (rectSelection) => {
         if (rectSelection.empty()) return null;
         const nodes = rectSelection.nodes();
@@ -650,16 +720,15 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
             line.transition().duration(800).attr("x2", margins.left + plot.w).end()
         );
 
-        // Position label above the center of the stack
         const pos = getStackCenterTop(item.bars);
         if (pos) {
              const text = g.append("text").attr("class", "annotation")
                 .attr("x", pos.x)
                 .attr("y", pos.y)
                 .attr("text-anchor", "middle")
-                .attr("font-size", 12).attr("font-weight", "bold")
+                .attr("font-size", "14px").attr("font-weight", "bold")
                 .attr("fill", hlColor)
-                .attr("stroke", "white").attr("stroke-width", 3)
+                .attr("stroke", "white").attr("stroke-width", 4)
                 .attr("paint-order", "stroke")
                 .text(`${item.label}: ${fmtNum(item.value)}`)
                 .attr("opacity", 0);
@@ -670,8 +739,6 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
         }
     });
     
-    // 상단 Range 텍스트 라벨 생성 코드 제거
-
     await Promise.all(animationPromises);
 
     return result;
