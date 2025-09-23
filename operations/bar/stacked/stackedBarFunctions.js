@@ -920,7 +920,7 @@ export async function stackedBarAverage(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // Case A) group가 지정된 경우: 해당 subgroup만 남겨 simple bar로 변환 후 simpleBarAverage 재사용
+    // Case A) group이 지정된 경우: 해당 subgroup만 남겨 simple bar로 변환 후 simpleBarAverage 재사용 (기존 로직 유지)
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
@@ -936,18 +936,65 @@ export async function stackedBarAverage(chartId, op, data) {
         return await simpleBarAverage(chartId, op2, subset, false);
     }
 
-    // Case B) group 미지정: 카테고리 합계(totals)로 변환하여 평균 표시
+    // --- 수정된 부분 시작 ---
+    // Case B) group 미지정: 차트를 다시 그리지 않고 원본 차트 위에 평균선 오버레이
+
+    // 1. 각 카테고리(막대)의 합계를 계산합니다.
     const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const totalsData = Array.from(sumsByCategory, ([target, value]) => ({ target, value }));
+    const totalsData = Array.from(sumsByCategory.values());
     if (totalsData.length === 0) {
         console.warn('stackedBarAverage: no data to aggregate for totals');
         return [];
     }
+    
+    // 2. 합계 데이터의 평균을 계산합니다.
+    const averageValue = d3.mean(totalsData);
+    if (!Number.isFinite(averageValue)) {
+        console.warn('stackedBarAverage: average could not be computed.');
+        return [];
+    }
+    const resultDatum = dataAverage(data, op, xField, yField);
 
-    // 스택 → 합계 simple bar 전환 후 simpleBarAverage 재사용 (애니메이션 일치)
-    await animateStackToTotalsBar(chartId, totalsData);
-    const op2 = { ...op, field: 'value' };
-    return await simpleBarAverage(chartId, op2, totalsData, false);
+    // 3. 현재 차트의 y축 스케일을 가져와 평균선 위치를 계산합니다.
+    const yMax = d3.max(Array.from(sumsByCategory.values()));
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    const yPos = yScale(averageValue);
+
+    const hlColor = '#d62728'; // 평균선을 강조할 색상
+
+    // 4. 평균선을 그립니다. (x좌표를 0에서 plot.w까지 애니메이션)
+    const line = g.append('line')
+        .attr('class', 'annotation avg-line')
+        .attr('x1', 0)
+        .attr('x2', 0) // 시작은 너비 0
+        .attr('y1', yPos)
+        .attr('y2', yPos)
+        .attr('stroke', hlColor)
+        .attr('stroke-width', 2.5)
+        .attr('stroke-dasharray', '6 4');
+        
+    await line.transition().duration(800)
+        .attr('x2', plot.w) // 끝까지 선을 그림
+        .end();
+
+    // 5. 평균값 라벨을 추가하고 fade-in 시킵니다.
+    g.append('text')
+        .attr('class', 'annotation avg-label')
+        .attr('x', plot.w - 10)
+        .attr('y', yPos - 10)
+        .attr('text-anchor', 'end')
+        .attr('fill', hlColor)
+        .attr('font-weight', 'bold')
+        .attr('stroke', 'white')
+        .attr('stroke-width', 3.5)
+        .attr('paint-order', 'stroke')
+        .text(`Avg: ${averageValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+        .attr('opacity', 0)
+        .transition().delay(200).duration(400)
+        .attr('opacity', 1);
+
+    return resultDatum;
+    // --- 수정된 부분 끝 ---
 }
 
 export async function stackedBarDiff(chartId, op, data) {
