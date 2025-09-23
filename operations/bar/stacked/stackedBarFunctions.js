@@ -570,34 +570,29 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1) Use core data computation
-    let interval = dataDetermineRange(data, op, xField, yField, isLast);
-
-    // 2) If a subgroup is specified, convert to simple bar and reuse simpleBar animations
+    // If a group is specified, convert to simple bar and reuse simpleBar animations
     if (op.group != null) {
         const subgroup = String(op.group);
         const subset = data.filter(dv => String(dv.group) === subgroup);
         if (subset.length === 0) {
             console.warn('stackedBarDetermineRange: no data for group', subgroup);
-            return interval; // null or IntervalValue
+            return new IntervalValue(op.group, NaN, NaN);
         }
-
-        // Stacked → Simple using only the subgroup (fix: pass subset, not op)
         await stackedBarToSimpleBar(chartId, subset);
-
-        // Reuse simple-bar animation style
-        await simpleBarDetermineRange(chartId, { field: op.field || yField }, subset, isLast);
-
-        return interval; // Prefer the canonical result from operationFunctions
+        // Reuse simple-bar animation style, which already implements the desired labeling
+        return await simpleBarDetermineRange(chartId, { field: op.field || yField }, subset, isLast);
     }
 
-    // 3) No subgroup: operate on stack totals (visual stays stacked)
+    // No subgroup: operate on stack totals
     const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
     const totals = Array.from(sumsByCategory.values());
-    if (totals.length === 0) return interval;
+    if (totals.length === 0) {
+        return new IntervalValue('Stack Totals', NaN, NaN);
+    }
 
     const minTotal = d3.min(totals);
     const maxTotal = d3.max(totals);
+    const result = new IntervalValue('Stack Totals', minTotal, maxTotal);
 
     let minCategory, maxCategory;
     sumsByCategory.forEach((sum, cat) => {
@@ -611,7 +606,8 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
     const otherRects = allRects.filter(d => String(d.key) !== String(minCategory) && String(d.key) !== String(maxCategory));
 
     const hlColor = '#0d6efd';
-    const y = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
+    const yMax = d3.max(totals) || 0;
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
     const animationPromises = [];
 
     animationPromises.push(
@@ -624,44 +620,64 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
         maxStackRects.transition().duration(600).attr('opacity', 1).end()
     );
 
-    [{ value: minTotal, label: 'MIN' }, { value: maxTotal, label: 'MAX' }].forEach(item => {
-        const yPos = margins.top + y(item.value);
-        const line = svg.append('line').attr('class', 'annotation')
-            .attr('x1', margins.left).attr('y1', yPos)
-            .attr('x2', margins.left).attr('y2', yPos)
-            .attr('stroke', hlColor).attr('stroke-dasharray', '4 4');
+    // --- 수정된 부분 시작 ---
+    // Helper to get the center-top position of a stack of bars
+    const getStackCenterTop = (rectSelection) => {
+        if (rectSelection.empty()) return null;
+        const nodes = rectSelection.nodes();
+        let minY = Infinity, maxX = -Infinity, minX = Infinity;
+        nodes.forEach(node => {
+            const b = node.getBBox();
+            minX = Math.min(minX, b.x);
+            maxX = Math.max(maxX, b.x + b.width);
+            minY = Math.min(minY, b.y);
+        });
+        return {
+            x: minX + (maxX - minX) / 2,
+            y: minY - 8 // 8px above the top of the stack
+        };
+    };
+
+    [
+        { value: minTotal, label: "Min", bars: minStackRects },
+        { value: maxTotal, label: "Max", bars: maxStackRects }
+    ].forEach(item => {
+        if (item.value === undefined) return;
+        const yPos = margins.top + yScale(item.value);
+        const line = svg.append("line").attr("class", "annotation")
+            .attr("x1", margins.left).attr("x2", margins.left)
+            .attr("y1", yPos).attr("y2", yPos)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+
         animationPromises.push(
-            line.transition().duration(800).attr('x2', margins.left + plot.w).end()
+            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
         );
 
-        const text = svg.append('text').attr('class', 'annotation')
-            .attr('x', margins.left + plot.w - 8)
-            .attr('y', yPos - 8)
-            .attr('text-anchor', 'end')
-            .attr('fill', hlColor).attr('font-weight', 'bold')
-            .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
-            .text(`${item.label}: ${fmtNum(item.value)}`)
-            .attr('opacity', 0);
-        animationPromises.push(
-            text.transition().delay(400).duration(400).attr('opacity', 1).end()
-        );
+        // Position label above the center of the stack
+        const pos = getStackCenterTop(item.bars);
+        if (pos) {
+             const text = g.append("text").attr("class", "annotation")
+                .attr("x", pos.x)
+                .attr("y", pos.y)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 12).attr("font-weight", "bold")
+                .attr("fill", hlColor)
+                .attr("stroke", "white").attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`${item.label}: ${fmtNum(item.value)}`)
+                .attr("opacity", 0);
+            
+            animationPromises.push(
+                text.transition().delay(400).duration(400).attr("opacity", 1).end()
+            );
+        }
     });
-
-    const rangeText = `Range of Stack Totals: ${fmtNum(minTotal)} ~ ${fmtNum(maxTotal)}`;
-    const topLabel = svg.append('text').attr('class', 'annotation')
-        .attr('x', margins.left).attr('y', margins.top - 10)
-        .attr('font-size', 14).attr('font-weight', 'bold')
-        .attr('fill', hlColor)
-        .attr('stroke', 'white').attr('stroke-width', 3.5).attr('paint-order', 'stroke')
-        .text(rangeText)
-        .attr('opacity', 0);
-    animationPromises.push(
-        topLabel.transition().delay(200).duration(600).attr('opacity', 1).end()
-    );
+    
+    // 상단 Range 텍스트 라벨 생성 코드 제거
 
     await Promise.all(animationPromises);
 
-    return interval || new IntervalValue('Stack Totals', minTotal, maxTotal);
+    return result;
 }
 
 export async function stackedBarCompare(chartId, op, data) {
