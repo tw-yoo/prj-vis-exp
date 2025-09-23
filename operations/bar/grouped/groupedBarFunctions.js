@@ -1,6 +1,7 @@
+
 import {DatumValue, BoolValue, IntervalValue} from "../../../object/valueType.js";
 import {
-    retrieveValue,
+    retrieveValue as dataRetrieveValue,
     filter as dataFilter,
     findExtremum as dataFindExtremum,
     sort as dataSort,
@@ -10,9 +11,9 @@ import {
     nth as dataNth,
     compare as dataCompare,
     compareBool as dataCompareBool,
-    count as dataCount
+    count as dataCount,
+    determineRange as dataDetermineRange
 } from "../../operationFunctions.js";
-
 // simple-bar 연출 재사용 (group 분기 시)
 import {
     simpleBarFilter,
@@ -302,98 +303,79 @@ export async function groupedBarToSimpleByGroup(chartId, groupName, data) {
         .end();
     return subset;
 }
+// operations/bar/grouped/groupedBarFunctions.js 파일에 붙여넣으세요.
 
 export async function groupedBarRetrieveValue(chartId, op, data) {
-    const { svg, g, margins } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    await waitForAttrClear(svg);
 
-    resetBarsVisible(g);
-
-    // Block other value-highlighting ops until simple-ize finishes
-    svg.attr('data-filtering', '1');
-
-    const hasGroup = op.group != null && op.group !== '';
-
-    // 1) 선택 대상 계산 (데이터 기준)
-    const filterOp = hasGroup ? { target: op.target, group: op.group } : { target: op.target };
-    const selected = retrieveValue(data, filterOp) || [];
-    if (!selected || selected.length === 0) {
+    // 1. 찾으려는 데이터 조각(datum) 식별
+    const filterOp = { target: op.target };
+    if (op.group != null) {
+        filterOp.group = op.group;
+    }
+    const selectedData = dataRetrieveValue(data, filterOp);
+    if (!selectedData || selectedData.length === 0) {
         console.warn('RetrieveValue: Target not found for op:', op);
-        svg.attr('data-filtering', null);
         return [];
     }
+    const targetIds = new Set(selectedData.map(d => `${d.target}-${d.group}`));
 
-    // 2) 먼저 simple-bar로 변환 (필터/단순화 먼저)
-    try {
-        if (hasGroup) {
-            await groupedBarToSimpleByGroup(chartId, op.group, data);
-        } else {
-            await groupedBarToSimpleByTarget(chartId, op.target, data);
-        }
-    } catch (e) {
-        console.warn('groupedBarRetrieveValue: simple-ize step failed', e);
-    }
-
-    // 변환 중 제거된 주석 정리 후, 변환이 끝난 상태에서 하이라이트만 수행
-    clearAllAnnotations(svg);
-
-    await g.selectAll('rect')
-        .transition().duration(800)
-        .attr('opacity', 0.5)
-        .attr('stroke', 'none')
-        .end();
-
-    const hlColor = '#ff6961';
-    const anims = [];
-
-    selected.forEach(datum => {
-        // 변환 후에도 facet는 원본(예: age), key는 series로 유지되도록 groupedBarToSimple* 에서 정규화됨
-        const node = findRectByTuple(g, { facet: datum.target, key: datum.group });
-        if (!node) return;
-
-        const sel = d3.select(node);
-        anims.push(
-            sel.transition().duration(600)
-                .attr('opacity', 1)
-                .attr('stroke', hlColor)
-                .attr('stroke-width', 2)
-                .end()
-        );
-
-        const bbox = node.getBBox();
-        const groupX = readGroupX(node);
-        const cx = margins.left + groupX + bbox.x + bbox.width / 2;
-        const cy = margins.top + bbox.y;
-
-        // dashed guide: bar center → 왼쪽 y축
-        const guide = svg.append('line')
-            .attr('class', 'annotation retrieve-line')
-            .attr('x1', cx).attr('y1', cy)
-            .attr('x2', cx).attr('y2', cy)
-            .attr('stroke', hlColor).attr('stroke-dasharray', '4 4');
-        anims.push(
-            guide.transition().duration(600)
-                .attr('x1', margins.left)
-                .end()
-        );
-
-        svg.append('text')
-            .attr('class', 'annotation')
-            .attr('x', cx).attr('y', cy - 6)
-            .attr('text-anchor', 'middle')
-            .attr('fill', hlColor).attr('font-weight', 'bold')
-            .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
-            .text(fmtNum(datum.value))
-            .attr('opacity', 0)
-            .transition().duration(450)
-            .attr('opacity', 1);
+    // 2. DOM에서 해당 막대 찾기
+    const allRects = g.selectAll("rect");
+    const targetRects = allRects.filter(d => d && targetIds.has(`${d.facet}-${d.key}`));
+    const otherRects = allRects.filter(function() {
+        return !targetRects.nodes().includes(this);
     });
 
-    await Promise.all(anims);
+    if (targetRects.empty()) {
+        console.warn('RetrieveValue: Target DOM element not found for', op);
+        return selectedData;
+    }
 
-    svg.attr('data-filtering', null);
-    return selected;
+    // 3. 다른 막대는 흐리게, 대상 막대는 강조 (빠른 애니메이션)
+    const hlColor = '#ff6961';
+    await Promise.all([
+        otherRects.transition().duration(300).attr("opacity", 0.2).end(),
+        targetRects.transition().duration(300).attr("opacity", 1).attr("stroke", hlColor).attr("stroke-width", 2).end()
+    ]);
+
+    // 4. ✨ 수평선 가이드와 라벨 추가 ✨
+    const yMax = d3.max(data, d => +d.value) || 0;
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+
+    targetRects.each(function() {
+        const d = d3.select(this).datum();
+        const value = d ? d.value : null;
+        if (value === null) return;
+        
+        const pos = absCenter(svg, this); // absCenter 헬퍼 함수
+        const yPos = margins.top + yScale(value);
+
+        // 수평선 그리기
+        svg.append("line")
+            .attr("class", "annotation retrieve-line")
+            .attr("x1", margins.left).attr("y1", yPos)
+            .attr("x2", margins.left).attr("y2", yPos)
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
+            .transition().duration(450)
+            .attr("x2", pos.x);
+
+        // 값 라벨 표시
+        svg.append("text")
+            .attr("class", "annotation value-tag")
+            .attr("x", pos.x)
+            .attr("y", pos.y - 8)
+            .attr("text-anchor", "middle")
+            .attr("fill", hlColor)
+            .attr("font-weight", "bold")
+            .attr("stroke", "white")
+            .attr("stroke-width", 3)
+            .attr("paint-order", "stroke")
+            .text(fmtNum(value)); // fmtNum 헬퍼 함수
+    });
+
+    return selectedData;
 }
 
 export async function groupedBarFilter(chartId, op, data) {
@@ -1058,55 +1040,31 @@ export async function groupedBarCompare(chartId, op, data) {
     return [winnerDatum];
 }
 
+// operations/bar/grouped/groupedBarFunctions.js 파일에 붙여넣기 또는 수정
+
 export async function groupedBarCompareBool(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    await waitForAttrClear(svg);
-    resetBarsVisible(g);
-    svg.attr('data-filtering', '1');
 
-    let opForCompare;
-    let nodeA, nodeB;
-
-    // Case 1: primitive targets (e.g., 70 vs 75)
-    if (typeof op.targetA !== 'object' && typeof op.targetB !== 'object') {
-        opForCompare = {
-            targetA: { target: String(op.targetA), group: op.group || null },
-            targetB: { target: String(op.targetB), group: op.group || null },
-            operator: op.operator
-        };
-
-        if (op.group) {
-            await groupedBarToSimpleByGroup(chartId, op.group, data);
-        }
-
-        nodeA = findRectByTuple(g, { facet: String(op.targetA), key: op.group });
-        nodeB = findRectByTuple(g, { facet: String(op.targetB), key: op.group });
-    }
-    // Case 2: object form (category + series)
-    else {
-        opForCompare = {
-            targetA: { target: op.targetA.category, group: op.targetA.series },
-            targetB: { target: op.targetB.category, group: op.targetB.series },
-            operator: op.operator
-        };
-
-        nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
-        nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
-    }
-
+    // 1. 비교할 두 대상(A, B)의 데이터 찾기
+    const opForCompare = {
+        targetA: (typeof op.targetA === 'object') ? { target: op.targetA.category, group: op.targetA.series } : { target: String(op.targetA), group: op.group || null },
+        targetB: (typeof op.targetB === 'object') ? { target: op.targetB.category, group: op.targetB.series } : { target: String(op.targetB), group: op.group || null },
+        operator: op.operator
+    };
     const compareResult = dataCompareBool(data, opForCompare);
-
     if (compareResult === null) {
         console.warn("groupedBarCompareBool: Comparison failed", op);
-        svg.attr('data-filtering', null);
         return null;
     }
     const result = compareResult.bool;
 
+    // 2. DOM에서 해당 막대 찾기
+    const nodeA = findRectByTuple(g, { facet: opForCompare.targetA.target, key: opForCompare.targetA.group });
+    const nodeB = findRectByTuple(g, { facet: opForCompare.targetB.target, key: opForCompare.targetB.group });
+
     if (!nodeA || !nodeB) {
         console.warn("groupedBarCompareBool: One or both DOM elements not found", op);
-        svg.attr('data-filtering', null);
         return compareResult;
     }
 
@@ -1116,13 +1074,15 @@ export async function groupedBarCompareBool(chartId, op, data) {
     const colorA = "#ffb74d";
     const colorB = "#64b5f6";
 
+    // 3. 다른 막대는 흐리게, 대상 막대는 강조 (빠른 애니메이션)
     await Promise.all([
-        otherBars.transition().duration(500).attr("opacity", 0.2).end(),
-        d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
-        d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end(),
+        otherBars.transition().duration(300).attr("opacity", 0.2).end(),
+        d3.select(nodeA).transition().duration(300).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
+        d3.select(nodeB).transition().duration(300).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
     ]);
 
-    const drawAnnotation = (node, datum, color) => {
+    // 4. ✨ 수평선 가이드와 라벨 추가 ✨
+    const drawAnnotation = (node, value, color) => {
         const pos = absCenter(svg, node);
         const y = pos.y;
         svg.append("line")
@@ -1138,22 +1098,22 @@ export async function groupedBarCompareBool(chartId, op, data) {
             .attr("text-anchor", "middle")
             .attr("fill", color).attr("font-weight", "bold")
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(fmtNum(datum.value));
+            .text(fmtNum(value));
     };
 
-    drawAnnotation(nodeA, datumA, colorA);
-    drawAnnotation(nodeB, datumB, colorB);
+    drawAnnotation(nodeA, datumA.value, colorA);
+    drawAnnotation(nodeB, datumB.value, colorB);
 
+    // 5. 최종 결과 텍스트 표시
     const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
     const summary = `${fmtNum(datumA.value)}${symbol}${fmtNum(datumB.value)} → ${result}`;
 
     svg.append("text").attr("class", "annotation compare-summary")
-        .attr("x", margins.left).attr("y", margins.top - 28)
-        .attr("font-size", 14).attr("font-weight", "bold")
+        .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
+        .attr("text-anchor", "middle").attr("font-size", 14).attr("font-weight", "bold")
         .attr("fill", result ? "green" : "red")
         .text(summary);
 
-    svg.attr('data-filtering', null);
     return compareResult;
 }
 
