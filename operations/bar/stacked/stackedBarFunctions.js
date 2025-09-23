@@ -844,10 +844,6 @@ export async function stackedBarSort(chartId, op, data) {
 
     await Promise.all([rectTransition, axisTransition]);
 
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
-        .text(`Sorted by Total Value (${op.order})`);
 
     return sortedData;
 }
