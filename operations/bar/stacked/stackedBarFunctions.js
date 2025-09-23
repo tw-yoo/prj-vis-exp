@@ -175,12 +175,14 @@ export async function stackedBarFilter(chartId, op, data) {
         keepCategories = new Set(filteredByTarget.map(d => d.target));
     }
 
+    // --- 수정된 부분: 차트 상단 텍스트 라벨 생성 코드 제거 ---
+    // svg.append("text").attr("class", "filter-label") ... (이 블록 전체 삭제)
 
     if (op.field === measureField && Number.isFinite(op.value)) {
         const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
         const maxTotal = d3.max(sumsByCategory.values());
-        const yScale = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
-        const yPos = yScale(op.value); // plot.h 기준이므로 margins.top 더하지 않음
+        const yScale = d3.scaleLinear().domain([0, maxTotal || 1]).nice().range([plot.h, 0]);
+        const yPos = yScale(op.value);
 
         // 기준선 그리기
         g.append('line').attr('class', 'annotation threshold-line')
@@ -188,7 +190,7 @@ export async function stackedBarFilter(chartId, op, data) {
             .attr('x2', plot.w).attr('y2', yPos)
             .attr('stroke', 'blue').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
 
-        // 기준선 라벨 (차트 내부, 선 위에)
+        // 기준선 라벨
         g.append('text').attr('class', 'annotation threshold-label')
             .attr('x', plot.w - 5).attr('y', yPos - 5)
             .attr('text-anchor', 'end')
