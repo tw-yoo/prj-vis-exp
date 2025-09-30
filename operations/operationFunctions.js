@@ -274,41 +274,48 @@ export function compare(data, op, xField, yField, isLast = false) {
     return winnerIsA ? A[0] : B[0];
 }
 
+
 export function compareBool(data, op, xField, yField, isLast = false) {
     if (!Array.isArray(data) || data.length === 0) return new BoolValue('', false);
 
-    // 1) 기본 쿼리 (last이면 id 우선)
-    const qA = _buildQueryFor(data, op.targetA, op.group, isLast);
-    const qB = _buildQueryFor(data, op.targetB, op.group, isLast);
-    // sanitize null/undefined fields before passing to retrieveValue
-    const sanitize = (q) => Object.fromEntries(Object.entries(q).filter(([k,v]) => v !== null && v !== undefined));
-    const qA2 = sanitize(qA);
-    const qB2 = sanitize(qB);
-    let A = retrieveValue(data, qA2);
-    let B = retrieveValue(data, qB2);
+    let A, B;
 
-    // 2) 폴백: 카테고리 키 추론 + group 제한 반영
-    if (!Array.isArray(A) || A.length === 0 || !Array.isArray(B) || B.length === 0) {
+    // isLast가 true일 경우, data는 dataCache의 모든 DatumValue를 담고 있음
+    // targetA와 targetB는 "ops_0", "ops2_0" 같은 ID 문자열임
+    if (isLast) {
+        A = data.filter(d => d && String(d.id) === String(op.targetA));
+        B = data.filter(d => d && String(d.id) === String(op.targetB));
+    } else {
+        // 기존 로직 (isLast가 아닐 때)
+        const qA = _buildQueryFor(data, op.targetA, op.group, isLast);
+        const qB = _buildQueryFor(data, op.targetB, op.group, isLast);
+        const sanitize = (q) => Object.fromEntries(Object.entries(q).filter(([k, v]) => v !== null && v !== undefined));
+        A = retrieveValue(data, sanitize(qA));
+        B = retrieveValue(data, sanitize(qB));
+    }
+    
+    // 폴백 로직: ID로 못찾았거나 isLast가 아닐 때, 카테고리/그룹으로 다시 시도
+    if (!A || A.length === 0 || !B || B.length === 0) {
         const inGroup = (d) => (op?.group == null) ? true : (d && String(d.group) === String(op.group));
         const getCat = (d) => {
             if (!d) return undefined;
-            if (d.target !== undefined) return d.target; // canonical
+            if (d.target !== undefined) return d.target;
             if (typeof d.category === 'string' && d[d.category] !== undefined) return d[d.category];
             if (xField && d[xField] !== undefined) return d[xField];
             if (yField && d[yField] !== undefined) return d[yField];
             return undefined;
         };
         const pick = (k) => data.filter(d => inGroup(d) && String(getCat(d)) === String(k));
-        if (!Array.isArray(A) || A.length === 0) A = pick(op.targetA);
-        if (!Array.isArray(B) || B.length === 0) B = pick(op.targetB);
+        if (!A || A.length === 0) A = pick(op.targetA);
+        if (!B || B.length === 0) B = pick(op.targetB);
     }
 
+
     if (!Array.isArray(A) || A.length === 0 || !Array.isArray(B) || B.length === 0) {
-        console.warn('compareBool: one or both targets not found', { op, qA, qB });
+        console.warn('compareBool: one or both targets not found', { op, targetA_query: op.targetA, targetB_query: op.targetB });
         return new BoolValue('', false);
     }
 
-    // 3) 값 집계
     const sample = data[0] || {};
     const measureName  = sample.measure  || 'value';
     const getNumeric = (d) => {
@@ -336,7 +343,6 @@ export function compareBool(data, op, xField, yField, isLast = false) {
     const bVal = aggregate(B);
     if (!Number.isFinite(aVal) || !Number.isFinite(bVal)) return new BoolValue('', false);
 
-    // 4) 비교
     const opSymbol = op?.operator || '>';
     let result;
     switch (opSymbol) {

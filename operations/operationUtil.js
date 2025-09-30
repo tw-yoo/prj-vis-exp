@@ -233,6 +233,8 @@ export function clearDivChildren(divId) {
 // Shared UI + Caption + Sequencing
 // =============================
 
+// operations/operationUtil.js 파일에서 이 함수를 찾아 교체하세요.
+
 export function updateOpCaption(chartId, text, opts = {}) {
     try {
         if (!text) return;
@@ -243,8 +245,8 @@ export function updateOpCaption(chartId, text, opts = {}) {
         const plotW = +svg.attr("data-plot-w") || 300;
         const plotH = +svg.attr("data-plot-h") || 300;
 
-        const align    = opts.align || 'center'; // 'start' | 'center' | 'end'
-        const offsetY  = (typeof opts.offset === 'number' ? opts.offset : 40);
+        const align    = opts.align || 'center'; 
+        const offsetY  = (typeof opts.offset === 'number' ? opts.offset : 70); // ✨ Y 위치 오프셋을 40에서 70으로 늘렸습니다.
         const fontSize = (opts.fontSize || 16);
         const x = align === 'start' ? (mLeft + 10)
               : align === 'end'   ? (mLeft + plotW - 10)
@@ -339,6 +341,8 @@ export function updateNavigatorStates(ctrl, currentStep, totalSteps) {
     stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
 }
 
+// operations/operationUtil.js 파일에서 이 함수를 찾아 교체하세요.
+
 export async function runOpsSequence({
     chartId,
     opsSpec,
@@ -348,7 +352,7 @@ export async function runOpsSequence({
     onCache,
     isLastKey = (k) => k === 'last',
     delayMs = 0,
-    navOpts = { x: 15, y: 15 },
+    navOpts: initialNavOpts = { x: 15, y: 15 },
 }) {
     const svg = d3.select(`#${chartId}`).select("svg");
     if (svg.empty()) {
@@ -357,8 +361,21 @@ export async function runOpsSequence({
     }
     const keys = Object.keys(opsSpec || {});
     if (keys.length === 0) return;
+    
+    // ✨ 버튼 위치를 동적으로 계산하는 로직 추가 ✨
+    const mLeft = +svg.attr("data-m-left") || 0;
+    const mTop  = +svg.attr("data-m-top")  || 0;
+    const plotW = +svg.attr("data-plot-w") || 0;
+    const plotH = +svg.attr("data-plot-h") || 0;
 
-    const ctrl = attachOpNavigator(chartId, navOpts);
+    const captionYOffset = 70; // 위 updateOpCaption과 동일한 값
+    const navWidth = 130; // 네비게이터 그룹의 너비
+    const navX = mLeft + (plotW / 2) - (navWidth / 2); // X축 중앙 정렬
+    const navY = mTop + plotH + captionYOffset + 20; // 캡션보다 20px 아래
+
+    const ctrl = attachOpNavigator(chartId, { x: navX, y: navY });
+    // ✨ 여기까지 수정 ✨
+
     if (!ctrl.nextButton || !ctrl.stepIndicator) {
         console.error("runOpsSequence: failed to attach navigator");
         return;
@@ -386,7 +403,7 @@ export async function runOpsSequence({
         }
 
         const captionText = (textSpec && (textSpec[opKey] || textSpec.ops)) ? (textSpec[opKey] || textSpec.ops) : null;
-        if (captionText) updateOpCaption(chartId, captionText, { align: 'center', offset: 40, fontSize: 16 });
+        if (captionText) updateOpCaption(chartId, captionText, { align: 'center', offset: captionYOffset, fontSize: 16 });
 
         updateNavigatorStates(ctrl, i, totalSteps);
         if (delayMs > 0) await delay(delayMs);

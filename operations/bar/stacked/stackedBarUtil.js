@@ -1,22 +1,20 @@
-import {
-    clearAllAnnotations, getSvgAndSetup,
-    stackedBarRetrieveValue, stackedBarFilter, stackedBarFindExtremum,
-    stackedBarDetermineRange, stackedBarCompare, stackedBarSort,
-    stackedBarSum, stackedBarAverage, stackedBarDiff, stackedBarNth, stackedBarCount, stackedBarCompareBool,
-} from "./stackedBarFunctions.js";
-import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
 import {OperationType} from "../../../object/operationType.js";
+import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
 import {
-    buildSimpleBarSpec,
-    dataCache,
-    lastCategory,
-    lastMeasure,
-    renderChart,
-    stackChartToTempTable
-} from "../../../util/util.js";
-import {DatumValue} from "../../../object/valueType.js";
+    getSvgAndSetup,
+    clearAllAnnotations,
+    delay,
+    stackedBarAverage,
+    stackedBarCompare, stackedBarCompareBool, stackedBarCount,
+    stackedBarDetermineRange, stackedBarDiff,
+    stackedBarFilter,
+    stackedBarFindExtremum, stackedBarNth,
+    stackedBarRetrieveValue, stackedBarSort, stackedBarSum
+} from "./stackedBarFunctions.js";
+import { DatumValue } from "../../../object/valueType.js";
+import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
 
-const STACKED_BAR_OP_HANDLERS = {
+const GROUPED_BAR_OP_HANDLES = {
     [OperationType.RETRIEVE_VALUE]: stackedBarRetrieveValue,
     [OperationType.FILTER]:         stackedBarFilter,
     [OperationType.FIND_EXTREMUM]:  stackedBarFindExtremum,
@@ -29,13 +27,12 @@ const STACKED_BAR_OP_HANDLERS = {
     [OperationType.DIFF]:           stackedBarDiff,
     [OperationType.NTH]:            stackedBarNth,
     [OperationType.COUNT]:          stackedBarCount,
-};
+}
 
 const chartDataStore = {};
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function applyStackedBarOperation(chartId, operation, currentData, isLast = false)  {
-    const fn = STACKED_BAR_OP_HANDLERS[operation.op];
+    const fn = GROUPED_BAR_OP_HANDLES[operation.op];
     if (!fn) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
@@ -47,6 +44,7 @@ async function executeStackedBarOpsList(chartId, opsList, currentData, isLast = 
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
         currentData = await applyStackedBarOperation(chartId, operation, currentData, isLast);
+
         if (delayMs > 0) {
             await delay(delayMs);
         }
@@ -156,8 +154,8 @@ export async function renderStackedBarChart(chartId, spec) {
 
     // 2) Infer axes & orientation
     const isXQuant = xType === "quantitative";
-    const valueField = isXQuant ? xField : yField;     // may be null when aggregate only
-    const categoryField = isXQuant ? yField : xField;  // band axis
+    const valueField = isXQuant ? xField : yField;
+    const categoryField = isXQuant ? yField : xField;
     const orientation = isXQuant ? "horizontal" : "vertical";
 
     // 3) Load data
@@ -177,34 +175,28 @@ export async function renderStackedBarChart(chartId, spec) {
     if (valueField && ((valueField === xField && xType === "quantitative") || (valueField === yField && yType === "quantitative"))) {
         data.forEach(d => { d[valueField] = +d[valueField]; });
     }
-
-    // 5) timeUnit 처리 - 동적으로 처리하여 다양한 데이터 지원
+    
+    // 5) timeUnitKey function definition (moved here for scope)
     function timeUnitKey(dateStr, tu) {
         if (!dateStr || !tu) return dateStr;
-        
         const dt = new Date(dateStr);
         if (!(dt instanceof Date) || isNaN(dt)) return dateStr;
-        
         switch(tu) {
-            case "month":
-                return dt.toLocaleString('default', { month: 'short' }); // 로케일에 맞는 월 이름
-            case "year":
-                return dt.getFullYear().toString();
-            case "day":
-                return dt.toISOString().split('T')[0]; // YYYY-MM-DD
-            case "quarter":
-                return `Q${Math.floor(dt.getMonth() / 3) + 1}`;
-            default:
-                return dateStr;
+            case "month": return dt.toLocaleString('default', { month: 'short' });
+            case "year": return dt.getFullYear().toString();
+            case "day": return dt.toISOString().split('T')[0];
+            case "quarter": return `Q${Math.floor(dt.getMonth() / 3) + 1}`;
+            default: return dateStr;
         }
     }
-    
+
+    // Handle timeUnit transformation
     const categoryTimeUnit = (categoryField === xField ? xTimeUnit : yTimeUnit) || null;
-    data.forEach(d => { 
-        d.__cat = categoryTimeUnit ? timeUnitKey(d[categoryField], categoryTimeUnit) : d[categoryField]; 
+    data.forEach(d => {
+        d.__cat = categoryTimeUnit ? timeUnitKey(d[categoryField], categoryTimeUnit) : d[categoryField];
     });
 
-    // 6) Color scale (respect spec domain/range)
+    // 6) Color scale
     const colorScaleSpec = spec.encoding.color?.scale;
     const subgroupsFromData = Array.from(new Set(data.map(d => d[colorField])));
     let subgroups = subgroupsFromData;
@@ -216,20 +208,17 @@ export async function renderStackedBarChart(chartId, spec) {
         color = d3.scaleOrdinal(d3.schemeTableau10).domain(subgroups);
     }
 
-    // 7) Groups (categorical axis domain) - 동적으로 데이터에서 추출
-    const groups = Array.from(new Set(data.map(d => d.__cat))).sort((a, b) => {
-        // 시간 관련 데이터면 시간순으로 정렬, 아니면 원본 순서 유지
-        if (categoryTimeUnit) {
-            const dateA = new Date(a);
-            const dateB = new Date(b);
-            if (!isNaN(dateA) && !isNaN(dateB)) {
-                return dateA - dateB;
-            }
+    // 7) --- 수정된 부분: 데이터 원본 순서를 유지하며 카테고리(groups) 생성 ---
+    const groups = [];
+    const seenGroups = new Set();
+    data.forEach(d => {
+        if (!seenGroups.has(d.__cat)) {
+            seenGroups.add(d.__cat);
+            groups.push(d.__cat);
         }
-        return String(a).localeCompare(String(b));
     });
 
-    // 8) Build stacked input rows: { [categoryField]: group, [sg1]: number, ... }
+    // 8) Build stacked input rows
     const dataForStack = groups.map(group => {
         const values = data.filter(row => row.__cat === group);
         const obj = { [categoryField]: group };
@@ -238,10 +227,9 @@ export async function renderStackedBarChart(chartId, spec) {
             if (aggregate === "count" || !valueField) {
                 v = values.filter(vv => vv[colorField] === sg).length;
             } else if (aggregate === "sum" || !aggregate) {
-                v = d3.sum(values.filter(vv => vv[colorField] === sg).map(vv => +vv[valueField]));
+                v = d3.sum(values.filter(vv => vv[colorField] === sg), vv => +vv[valueField]);
             } else {
-                // fallback: sum
-                v = d3.sum(values.filter(vv => vv[colorField] === sg).map(vv => +vv[valueField]));
+                v = d3.sum(values.filter(vv => vv[colorField] === sg), vv => +vv[valueField]);
             }
             if (!Number.isFinite(v)) v = 0;
             obj[sg] = v;
@@ -255,7 +243,7 @@ export async function renderStackedBarChart(chartId, spec) {
     chartDataStore[chartId] = {data: data};
 
     // 9) Layout
-    const margin = { top: 60, right: 140, bottom: 50, left: 60 }; // top 마진 증가
+    const margin = { top: 60, right: 140, bottom: 50, left: 60 };
     const width = 700;
     const height = 420;
     const plotW = width - margin.left - margin.right;
@@ -316,7 +304,7 @@ export async function renderStackedBarChart(chartId, spec) {
             .attr("data-id", function () { return d3.select(this).datum().key; })
             .attr("data-value", function () { return d3.select(this).datum().value; });
 
-    } else {
+    } else { // Horizontal
         const yScale = d3.scaleBand().domain(groups).range([0, plotH]).padding(0.1);
         let maxVal = d3.max(stackedData, layer => d3.max(layer, d => d[1]));
         if (!Number.isFinite(maxVal)) maxVal = d3.max(dataForStack, row => d3.sum(subgroups, k => +row[k] || 0)) || 0;
@@ -354,7 +342,7 @@ export async function renderStackedBarChart(chartId, spec) {
             .attr("data-value", function () { return d3.select(this).datum().value; });
     }
 
-    // 11) Axis labels (prefer explicit titles)
+    // 11) Axis labels
     const xLabel = (spec.encoding.x.axis && spec.encoding.x.axis.title) || (xTimeUnit ? `${xField || ""} (${xTimeUnit})` : (xField || ""));
     const yLabel = (spec.encoding.y.axis && spec.encoding.y.axis.title) || (aggregate || yField || "");
 
@@ -412,7 +400,7 @@ export function toStackedDatumValues(rawData, spec) {
     const yTimeUnit = yEnc.timeUnit || null;
 
     const isXQuant = xType === 'quantitative';
-    const valueField = isXQuant ? xField : yField; // may be null for count-only
+    const valueField = isXQuant ? xField : yField;
     const categoryField = isXQuant ? yField : xField;
 
     const numericEnc = isXQuant ? xEnc : yEnc;
@@ -420,25 +408,17 @@ export function toStackedDatumValues(rawData, spec) {
     const measureLabel = (numericEnc.axis && numericEnc.axis.title) || (numericEnc.aggregate || numericEnc.field || 'value');
     const categoryLabel = (categoryEnc.axis && categoryEnc.axis.title) || (categoryEnc.field || 'category');
 
-    // 개선된 timeUnit 처리 - 다양한 형식 지원
     const categoryTimeUnit = (categoryField === xField ? xTimeUnit : yTimeUnit) || null;
     function timeUnitKey(v, tu) {
         if (!v || !tu) return v;
-        
         const dt = new Date(v);
-        if (isNaN(dt)) return v; // 날짜가 아니면 원본 반환
-        
+        if (isNaN(dt)) return v;
         switch(tu) {
-            case 'month':
-                return dt.toLocaleString('default', { month: 'short' });
-            case 'year':
-                return dt.getFullYear().toString();
-            case 'day':
-                return dt.toISOString().split('T')[0];
-            case 'quarter':
-                return `Q${Math.floor(dt.getMonth() / 3) + 1}`;
-            default:
-                return v;
+            case 'month': return dt.toLocaleString('default', { month: 'short' });
+            case 'year': return dt.getFullYear().toString();
+            case 'day': return dt.toISOString().split('T')[0];
+            case 'quarter': return `Q${Math.floor(dt.getMonth() / 3) + 1}`;
+            default: return v;
         }
     }
 
@@ -449,17 +429,14 @@ export function toStackedDatumValues(rawData, spec) {
 
     const withCat = rawData.map(d => ({ ...d, __cat: categoryTimeUnit ? timeUnitKey(d[categoryField], categoryTimeUnit) : d[categoryField] }));
     
-    // 동적으로 그룹 생성 및 정렬
-    const groups = Array.from(new Set(withCat.map(d => d.__cat))).sort((a, b) => {
-        // 시간 관련 데이터면 시간순으로 정렬
-        if (categoryTimeUnit) {
-            const dateA = new Date(a);
-            const dateB = new Date(b);
-            if (!isNaN(dateA) && !isNaN(dateB)) {
-                return dateA - dateB;
-            }
+    // --- 수정된 부분: 데이터 원본 순서 유지 ---
+    const groups = [];
+    const seenGroups = new Set();
+    withCat.forEach(d => {
+        if (!seenGroups.has(d.__cat)) {
+            seenGroups.add(d.__cat);
+            groups.push(d.__cat);
         }
-        return String(a).localeCompare(String(b));
     });
 
     function num(v) { const n = +v; return Number.isFinite(n) ? n : 0; }
@@ -471,7 +448,6 @@ export function toStackedDatumValues(rawData, spec) {
         if (xAgg === 'mean' || yAgg === 'mean') return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
         if (xAgg === 'min' || yAgg === 'min') return vals.length ? Math.min(...vals) : 0;
         if (xAgg === 'max' || yAgg === 'max') return vals.length ? Math.max(...vals) : 0;
-        // default fallback
         return vals.reduce((a,b)=>a+b,0);
     }
 
@@ -489,3 +465,4 @@ export function toStackedDatumValues(rawData, spec) {
 
     return { rows, datumValues, categoryLabel, measureLabel };
 }
+
