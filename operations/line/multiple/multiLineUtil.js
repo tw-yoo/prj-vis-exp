@@ -141,9 +141,10 @@ export async function renderMultipleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 60, right: 120, bottom: 50, left: 60 }; // top 마진 증가
+    const margin = { top: 60, right: 120, bottom: 50, left: 60 };
     const width = 800 - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
+    const height = 600; // 🔥 수정: SVG 높이를 늘려 버튼 공간 확보
+    const plotH = 400 - margin.top - margin.bottom; // 차트 플롯 영역 높이는 유지
 
     const xField = spec.encoding.x.field;
     const yField = spec.encoding.y.field;
@@ -151,7 +152,6 @@ export async function renderMultipleLineChart(chartId, spec) {
     const isTemporal = spec.encoding.x.type === 'temporal';
 
     const data = await d3.csv(spec.data.url, d => {
-        // Keep xField as raw text even if it looks like a date; convert only at render time.
         d[xField] = String(d[xField]);
         d[yField] = +d[yField];
         return d;
@@ -159,14 +159,12 @@ export async function renderMultipleLineChart(chartId, spec) {
 
     const series = d3.groups(data, d => d[colorField]).map(([key, values]) => ({ key, values }));
 
-    // xScale
     let xScale;
     if (isTemporal) {
         xScale = d3.scaleTime()
             .domain(d3.extent(data, d => new Date(d[xField])))
             .range([0, width]);
     } else {
-        // Non-temporal: use unique ordered domain for scalePoint
         const seen = new Set();
         const domain = [];
         for (const d of data) {
@@ -180,7 +178,7 @@ export async function renderMultipleLineChart(chartId, spec) {
 
     const yScale = d3.scaleLinear()
         .domain([0, d3.max(data, d => d[yField])]).nice()
-        .range([height, 0]);
+        .range([plotH, 0]);
 
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
         .domain(series.map(s => s.key));
@@ -194,14 +192,14 @@ export async function renderMultipleLineChart(chartId, spec) {
     };
 
     const svg = container.append("svg")
-        .attr("viewBox", [0, 0, width + margin.left + margin.right, height + margin.top + margin.bottom])
+        .attr("viewBox", [0, 0, width + margin.left + margin.right, height])
         .attr("data-x-field", xField)
         .attr("data-y-field", yField)
         .attr("data-color-field", colorField)
         .attr("data-m-left", margin.left)
         .attr("data-m-top", margin.top)
         .attr("data-plot-w", width)
-        .attr("data-plot-h", height);
+        .attr("data-plot-h", plotH);
 
     const g = svg.append("g")
         .attr("class", "plot-area")
@@ -209,7 +207,7 @@ export async function renderMultipleLineChart(chartId, spec) {
 
     g.append("g")
         .attr("class", "x-axis")
-        .attr("transform", `translate(0,${height})`)
+        .attr("transform", `translate(0,${plotH})`)
         .call(d3.axisBottom(xScale));
 
     g.append("g")
@@ -220,7 +218,6 @@ export async function renderMultipleLineChart(chartId, spec) {
         .x(d => isTemporal ? xScale(new Date(d[xField])) : xScale(d[xField]))
         .y(d => yScale(d[yField]));
 
-    // Draw series lines
     g.selectAll(".series-line")
         .data(series, d => d.key)
         .join("path")
@@ -230,14 +227,13 @@ export async function renderMultipleLineChart(chartId, spec) {
         .attr("stroke-width", 2)
         .attr("d", d => lineGen(d.values));
 
-    // Draw datapoint circles for all series
     g.selectAll("circle.datapoint")
         .data(
             data,
             d => {
                 const kx = String(d[xField]);
                 const ks = String(d[colorField]);
-                return `${kx}|${ks}`; // stable key per (x, series)
+                return `${kx}|${ks}`;
             }
         )
         .join(
@@ -253,7 +249,6 @@ export async function renderMultipleLineChart(chartId, spec) {
                 .attr("data-series", d => String(d[colorField]))
         );
 
-    // Simple legend
     const legend = g.append("g")
         .attr("class", "legend")
         .attr("transform", `translate(${width + 20}, 0)`);

@@ -124,10 +124,10 @@ export async function renderGroupedBarChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-  // *** 수정된 부분 2: 상단 여백(margin.top)을 줄여 불필요한 공간을 제거하고 레이아웃을 개선합니다. ***
   const margin = { top: 80, right: 120, bottom: 60, left: 80 };
   const width = 900 - margin.left - margin.right;
-  const height = 400 - margin.top - margin.bottom;
+  const height = 600; // 🔥 수정: SVG 높이를 400에서 600으로 늘림
+  const plotH = 400 - margin.top - margin.bottom; // 플롯 영역 높이는 유지
 
     const { column, x, y, color } = spec.encoding;
     const facetField = column.field;
@@ -144,7 +144,7 @@ export async function renderGroupedBarChart(chartId, spec) {
     const data = rawData;
 
     const svg = container.append("svg")
-        .attr("viewBox", [0, 0, width + margin.left + margin.right, height + margin.top + margin.bottom])
+        .attr("viewBox", [0, 0, width + margin.left + margin.right, height]) // 🔥 수정: 높이 변수 적용
         .attr("data-x-field", xField)
         .attr("data-y-field", yField)
         .attr("data-facet-field", facetField)
@@ -152,7 +152,7 @@ export async function renderGroupedBarChart(chartId, spec) {
         .attr("data-m-left", margin.left)
         .attr("data-m-top", margin.top)
         .attr("data-plot-w", width)
-        .attr("data-plot-h", height);
+        .attr("data-plot-h", plotH);
 
     const g = svg.append("g")
         .attr("class", "plot-area")
@@ -164,7 +164,7 @@ export async function renderGroupedBarChart(chartId, spec) {
     const x0 = d3.scaleBand().domain(facets).range([0, width]).paddingInner(0.2);
     const x1 = d3.scaleBand().domain(xDomain).range([0, x0.bandwidth()]).padding(0.05);
     const yMax = d3.max(data, d => d[yField]);
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([height, 0]);
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plotH, 0]);
 
     const defaultPalette = ["#0072B2", "#E69F00"];
     const palette = (spec.encoding?.color?.scale?.range) ?? defaultPalette;
@@ -183,7 +183,7 @@ export async function renderGroupedBarChart(chartId, spec) {
             .attr("x", d => x1(d[xField]))
             .attr("y", d => yScale(d[yField]))
             .attr("width", x1.bandwidth())
-            .attr("height", d => height - yScale(d[yField]))
+            .attr("height", d => plotH - yScale(d[yField]))
             .attr("fill", d => colorScale(d[colorField]))
             .datum(d => ({
                 facet: d[facetField],
@@ -196,7 +196,7 @@ export async function renderGroupedBarChart(chartId, spec) {
 
     g.append("g")
         .attr("class", "x-axis-bottom-line")
-        .attr("transform", `translate(0,${height})`)
+        .attr("transform", `translate(0,${plotH})`)
         .call(d3.axisBottom(x0).tickSizeOuter(0).tickPadding(6));
 
     g.append("g").attr("class", "y-axis")
