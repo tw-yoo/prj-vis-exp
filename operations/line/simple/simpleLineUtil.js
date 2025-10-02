@@ -159,7 +159,9 @@ export async function renderSimpleLineChart(chartId, spec) {
 
     const margin = { top: 60, right: 60, bottom: 50, left: 80 }; // top 마진을 늘려서 버튼 공간 확보
     const width = 800 - margin.left - margin.right;
-    const height = 400 - margin.top - margin.bottom;
+    const height = 600; // 🔥 수정: SVG 높이를 늘려 버튼 공간 확보
+    const plotH = 400 - margin.top - margin.bottom; // 차트 플롯 영역 높이는 유지
+
 
     const xField = spec.encoding.x.field;
     const yField = spec.encoding.y.field;
@@ -187,13 +189,13 @@ export async function renderSimpleLineChart(chartId, spec) {
     chartDataStore[chartId] = data;
 
     const svg = container.append("svg")
-        .attr("viewBox", [0, 0, width + margin.left + margin.right, height + margin.top + margin.bottom])
+        .attr("viewBox", [0, 0, width + margin.left + margin.right, height])
         .attr("data-x-field", xField)
         .attr("data-y-field", yField)
         .attr("data-m-left", margin.left)
         .attr("data-m-top", margin.top)
         .attr("data-plot-w", width)
-        .attr("data-plot-h", height);
+        .attr("data-plot-h", plotH);
 
     const g = svg.append("g")
         .attr("class", "plot-area")
@@ -206,10 +208,10 @@ export async function renderSimpleLineChart(chartId, spec) {
             : d3.scalePoint().domain(data.map(d => String(d[xField]))).range([0, width]));
 
     const yMax = d3.max(data, d => d[yField]);
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([height, 0]);
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plotH, 0]);
 
     g.append("g").attr("class", "x-axis")
-        .attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale));
+        .attr("transform", `translate(0,${plotH})`).call(d3.axisBottom(xScale));
     g.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
 
     const lineGen = d3.line()
@@ -240,10 +242,10 @@ export async function renderSimpleLineChart(chartId, spec) {
         .attr("data-value", d => d[yField]);
 
     svg.append("text").attr("class", "x-axis-label")
-        .attr("x", margin.left + width / 2).attr("y", height + margin.top + margin.bottom - 10)
+        .attr("x", margin.left + width / 2).attr("y", plotH + margin.top + margin.bottom - 10)
         .attr("text-anchor", "middle").text(xField);
     svg.append("text").attr("class", "y-axis-label")
         .attr("transform", "rotate(-90)")
-        .attr("x", -(margin.top + height / 2)).attr("y", margin.left - 60)
+        .attr("x", -(margin.top + plotH / 2)).attr("y", margin.left - 60)
         .attr("text-anchor", "middle").text(yField);
 }
