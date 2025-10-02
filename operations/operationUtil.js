@@ -233,8 +233,6 @@ export function clearDivChildren(divId) {
 // Shared UI + Caption + Sequencing
 // =============================
 
-// operations/operationUtil.js 파일에서 이 함수를 찾아 교체하세요.
-
 export function updateOpCaption(chartId, text, opts = {}) {
     try {
         if (!text) return;
@@ -245,8 +243,9 @@ export function updateOpCaption(chartId, text, opts = {}) {
         const plotW = +svg.attr("data-plot-w") || 300;
         const plotH = +svg.attr("data-plot-h") || 300;
 
-        const align    = opts.align || 'center'; 
-        const offsetY  = (typeof opts.offset === 'number' ? opts.offset : 70); // ✨ Y 위치 오프셋을 40에서 70으로 늘렸습니다.
+        const align    = opts.align || 'center';
+        // 🔥 수정: offsetY 기본값을 40으로 변경하여 캡션을 차트 바로 아래에 위치시킵니다.
+        const offsetY  = (typeof opts.offset === 'number' ? opts.offset : 40);
         const fontSize = (opts.fontSize || 16);
         const x = align === 'start' ? (mLeft + 10)
               : align === 'end'   ? (mLeft + plotW - 10)
@@ -277,7 +276,8 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
 
     const navGroup = svg.append("g")
         .attr("class", "nav-controls-group")
-        .attr("transform", `translate(${x}, ${y})`);
+        .attr("transform", `translate(${x}, ${y})`)
+        .style("pointer-events", "all");
 
     navGroup.append("rect")
         .attr("class", "nav-bg")
@@ -311,6 +311,7 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
         .attr("fill", "white")
         .attr("font-size", "12px")
         .attr("font-weight", "bold")
+        .style("pointer-events", "none")
         .text("Next →");
 
     const stepIndicator = navGroup.append("text")
@@ -320,7 +321,8 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
         .attr("text-anchor", "middle")
         .attr("fill", "black")
         .attr("font-size", "12px")
-        .attr("font-weight", "bold");
+        .attr("font-weight", "bold")
+        .style("pointer-events", "none");
 
     return { group: navGroup, nextButton, stepIndicator };
 }
@@ -341,8 +343,6 @@ export function updateNavigatorStates(ctrl, currentStep, totalSteps) {
     stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
 }
 
-// operations/operationUtil.js 파일에서 이 함수를 찾아 교체하세요.
-
 export async function runOpsSequence({
     chartId,
     opsSpec,
@@ -362,19 +362,19 @@ export async function runOpsSequence({
     const keys = Object.keys(opsSpec || {});
     if (keys.length === 0) return;
     
-    // ✨ 버튼 위치를 동적으로 계산하는 로직 추가 ✨
+    // 🔥 수정된 부분 시작:
     const mLeft = +svg.attr("data-m-left") || 0;
     const mTop  = +svg.attr("data-m-top")  || 0;
     const plotW = +svg.attr("data-plot-w") || 0;
     const plotH = +svg.attr("data-plot-h") || 0;
 
-    const captionYOffset = 70; // 위 updateOpCaption과 동일한 값
-    const navWidth = 130; // 네비게이터 그룹의 너비
-    const navX = mLeft + (plotW / 2) - (navWidth / 2); // X축 중앙 정렬
+    const captionYOffset = 40; // 캡션 Y 위치 조정
+    const navWidth = 130;
+    const navX = mLeft + (plotW / 2) - (navWidth / 2); // X축 중앙
     const navY = mTop + plotH + captionYOffset + 20; // 캡션보다 20px 아래
 
     const ctrl = attachOpNavigator(chartId, { x: navX, y: navY });
-    // ✨ 여기까지 수정 ✨
+    // 🔥 수정된 부분 끝
 
     if (!ctrl.nextButton || !ctrl.stepIndicator) {
         console.error("runOpsSequence: failed to attach navigator");
@@ -383,6 +383,7 @@ export async function runOpsSequence({
 
     let currentStep = 0;
     const totalSteps = keys.length;
+    let isRunning = false;
 
     async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -410,10 +411,19 @@ export async function runOpsSequence({
         return result;
     };
 
-    ctrl.nextButton.on('click', async () => {
-        if (currentStep >= totalSteps - 1) return;
+    ctrl.nextButton.on('click.nav', async function() {
+        if (isRunning || currentStep >= totalSteps - 1) return;
+        
+        isRunning = true;
         currentStep += 1;
-        await runStep(currentStep);
+        
+        try {
+            await runStep(currentStep);
+        } catch (e) {
+            console.error("Error during step execution:", e);
+        } finally {
+            isRunning = false;
+        }
     });
 
     await runStep(0);

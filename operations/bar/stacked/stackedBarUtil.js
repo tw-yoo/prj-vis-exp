@@ -135,7 +135,6 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         navOpts: { x: 15, y: 15 }
     });
 }
-
 export async function renderStackedBarChart(chartId, spec) {
     const host = d3.select(`#${chartId}`);
     host.selectAll("*").remove();
@@ -245,9 +244,9 @@ export async function renderStackedBarChart(chartId, spec) {
     // 9) Layout
     const margin = { top: 60, right: 140, bottom: 50, left: 60 };
     const width = 700;
-    const height = 420;
+    const height = 600; 
     const plotW = width - margin.left - margin.right;
-    const plotH = height - margin.top - margin.bottom;
+    const plotH = 420 - margin.top - margin.bottom;
 
     const svg = host
         .append("svg")
@@ -348,7 +347,7 @@ export async function renderStackedBarChart(chartId, spec) {
 
     svg.append("text")
         .attr("x", margin.left + plotW / 2)
-        .attr("y", height - 5)
+        .attr("y", margin.top + plotH + 40) // 🔥 수정: y 좌표를 전체 높이가 아닌 플롯 영역 기준으로 변경
         .attr("text-anchor", "middle")
         .style("font-size", "14px")
         .style("font-weight", "bold")
@@ -465,4 +464,3 @@ export function toStackedDatumValues(rawData, spec) {
 
     return { rows, datumValues, categoryLabel, measureLabel };
 }
-
