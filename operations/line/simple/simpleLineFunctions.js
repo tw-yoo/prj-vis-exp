@@ -13,6 +13,7 @@ import {
     compareBoolOp as dataCompareBool,
     countData as dataCount
 } from "../../lineChartOperationFunctions.js";
+import { OP_COLORS } from "../../../../object/colorPalette.js";
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 
@@ -126,19 +127,17 @@ function findDatumByKey(data, key) {
     });
 }
 
+
 export async function simpleLineRetrieveValue(chartId, op, data) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     const datumToFind = findDatumByKey(data, op.target);
-
     if (!datumToFind) {
         console.warn("RetrieveValue: target not found for key:", op.target);
         return null;
     }
     const results = dataRetrieveValue(data, op);
-    console.log("results");
-    console.log(results);
     const targetDatum = results.length > 0 ? results[0] : null;
 
     if (!targetDatum) {
@@ -147,7 +146,7 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const hlColor = "#ff6961";
+    const hlColor = OP_COLORS.RETRIEVE_VALUE;
 
     const candidates = toPointIdCandidates(targetDatum.target);
     let targetPoint = d3.select(null);
@@ -160,13 +159,11 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
     }
 
     if (targetPoint.empty()) {
-        // Fallback: there are no point nodes to pick (e.g., delegated with drawPoints:false).
-        // Build local scales to compute the target coordinate and render the annotation directly.
         const xVals = (Array.isArray(data) ? data.map(d => d?.target) : []);
         const isTemporal = xVals.every(v => v instanceof Date);
-        const xScale = isTemporal
-            ? d3.scaleTime().domain(d3.extent(xVals)).range([0, plot.w])
-            : d3.scalePoint().domain(xVals.map(v => String(v))).range([0, plot.w]);
+        const xScale = isTemporal ?
+            d3.scaleTime().domain(d3.extent(xVals)).range([0, plot.w]) :
+            d3.scalePoint().domain(xVals.map(v => String(v))).range([0, plot.w]);
 
         const yValues = (Array.isArray(data) ? data.map(d => Number(d?.value)) : []).filter(Number.isFinite);
         const yMax = d3.max(yValues) || 0;
@@ -179,10 +176,8 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
         const cx = xScale(targetDatum.target);
         const cy = yScale(targetDatum.value);
 
-        // Dim the base line for emphasis
         baseLine.transition().duration(600).attr("opacity", 0.3);
 
-        // Draw crosshair and point
         g.append("line").attr("class", "annotation")
             .attr("x1", cx).attr("y1", cy)
             .attr("x2", cx).attr("y2", plot.h)
@@ -214,7 +209,8 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
         .attr("opacity", 1).attr("r", 8).attr("fill", hlColor)
         .attr("stroke", "white").attr("stroke-width", 2).end();
 
-    const cx = +targetPoint.attr("cx"), cy = +targetPoint.attr("cy");
+    const cx = +targetPoint.attr("cx"),
+        cy = +targetPoint.attr("cy");
     g.append("line").attr("class", "annotation")
         .attr("x1", cx).attr("y1", cy)
         .attr("x2", cx).attr("y2", plot.h)
@@ -250,7 +246,7 @@ export async function simpleLineFindExtremum(chartId, op, data) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const hlColor = "#a65dfb";
+    const hlColor = OP_COLORS.EXTREMUM;
     const targetVal = targetDatum.value;
 
     const targetPoint = points.filter(function() {
@@ -259,12 +255,11 @@ export async function simpleLineFindExtremum(chartId, op, data) {
     });
 
     if (targetPoint.empty()) {
-        // 포인트 노드가 없을 때, 로컬 스케일로 직접 주석을 그린다.
         const xVals = (Array.isArray(data) ? data.map(d => d?.target) : []);
         const isTemporal = xVals.every(v => v instanceof Date);
-        const xScale = isTemporal
-            ? d3.scaleTime().domain(d3.extent(xVals)).range([0, plot.w])
-            : d3.scalePoint().domain(xVals.map(v => String(v))).range([0, plot.w]);
+        const xScale = isTemporal ?
+            d3.scaleTime().domain(d3.extent(xVals)).range([0, plot.w]) :
+            d3.scalePoint().domain(xVals.map(v => String(v))).range([0, plot.w]);
 
         const yValues = (Array.isArray(data) ? data.map(d => Number(d?.value)) : []).filter(Number.isFinite);
         const yMax = d3.max(yValues) || 0;
@@ -347,14 +342,14 @@ export async function simpleLineCompare(chartId, op, data) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const colorA = "#ffb74d";
-    const colorB = "#64b5f6";
-    const winColor = "#2e7d32";
+    const colorA = OP_COLORS.COMPARE_A;
+    const colorB = OP_COLORS.COMPARE_B;
+    const winColor = OP_COLORS.COMPARE_WINNER;
 
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
         for (const id of candidates) {
-            const sel = points.filter(function(){ return d3.select(this).attr("data-id") === id; });
+            const sel = points.filter(function() { return d3.select(this).attr("data-id") === id; });
             if (!sel.empty()) return sel;
         }
         return d3.select(null);
@@ -366,8 +361,8 @@ export async function simpleLineCompare(chartId, op, data) {
 
     baseLine.transition().duration(600).attr("opacity", 0.3);
     await Promise.all([
-        pointA.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorA).end(),
-        pointB.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorB).end()
+        pointA.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorA).end(),
+        pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB).end()
     ]);
 
     const sameTarget = (a, b) => {
@@ -378,14 +373,15 @@ export async function simpleLineCompare(chartId, op, data) {
     };
     const isWinner = (d) => winners.some(w => sameTarget(w.target, d.target));
 
-    const annotate = (pt, color, star=false) => {
-        const cx = +pt.attr("cx"), cy = +pt.attr("cy");
-        g.append("line").attr("class","annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray","4 4");
-        g.append("line").attr("class","annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray","4 4");
-        g.append("text").attr("class","annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor","middle").attr("fill",color).attr("font-weight","bold").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+    const annotate = (pt, color, star = false) => {
+        const cx = +pt.attr("cx"),
+            cy = +pt.attr("cy");
+        g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4");
+        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4");
+        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text((+pt.attr("data-value")).toLocaleString());
         if (star) {
-            g.append("text").attr("class","annotation").attr("x", cx).attr("y", cy - 30).attr("text-anchor","middle").attr("fill", winColor).attr("font-weight","bold").text("★");
+            g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 30).attr("text-anchor", "middle").attr("fill", winColor).attr("font-weight", "bold").text("★");
         }
     };
 
@@ -393,9 +389,9 @@ export async function simpleLineCompare(chartId, op, data) {
     annotate(pointB, colorB, isWinner(datumB));
 
     const summary = `${(op.which || 'max').toUpperCase()} chosen`;
-    svg.append("text").attr("class","annotation")
-        .attr("x", margins.left + plot.w/2).attr("y", margins.top - 10)
-        .attr("text-anchor","middle").attr("font-size",16).attr("font-weight","bold")
+    svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
+        .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
         .attr("fill", winColor).text(summary);
 
     return winners;
@@ -426,13 +422,13 @@ export async function simpleLineCompareBool(chartId, op, data) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const colorA = "#ffb74d";
-    const colorB = "#64b5f6";
+    const colorA = OP_COLORS.COMPARE_A;
+    const colorB = OP_COLORS.COMPARE_B;
 
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
         for (const id of candidates) {
-            const sel = points.filter(function(){ return d3.select(this).attr("data-id") === id; });
+            const sel = points.filter(function() { return d3.select(this).attr("data-id") === id; });
             if (!sel.empty()) return sel;
         }
         return d3.select(null);
@@ -447,27 +443,28 @@ export async function simpleLineCompareBool(chartId, op, data) {
 
     baseLine.transition().duration(600).attr("opacity", 0.3);
     await Promise.all([
-        pointA.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorA).end(),
-        pointB.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorB).end()
+        pointA.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorA).end(),
+        pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB).end()
     ]);
 
     const annotate = (pt, color) => {
-        const cx = +pt.attr("cx"), cy = +pt.attr("cy");
-        g.append("line").attr("class","annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray","4 4");
-        g.append("line").attr("class","annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray","4 4");
-        g.append("text").attr("class","annotation").attr("x", cx).attr("y", cy - 10).attr("text-anchor","middle").attr("fill",color).attr("font-weight","bold").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke").text((+pt.attr("data-value")).toLocaleString());
+        const cx = +pt.attr("cx"),
+            cy = +pt.attr("cy");
+        g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4");
+        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4");
+        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 10).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke").text((+pt.attr("data-value")).toLocaleString());
     };
 
     annotate(pointA, colorA);
     annotate(pointB, colorB);
 
-    const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
+    const symbol = { '>': ' > ', '>=': ' >= ', '<': ' < ', '<=': ' <= ', '==': ' == ', '!=': ' != ' }[op.operator] || ` ${op.operator} `;
     const summary = `${valueA.toLocaleString()}${symbol}${valueB.toLocaleString()} → ${result}`;
 
-    svg.append("text").attr("class","annotation")
-        .attr("x", margins.left + plot.w/2).attr("y", margins.top - 10)
-        .attr("text-anchor","middle").attr("font-size",16).attr("font-weight","bold")
-        .attr("fill", result ? "green" : "red").text(summary);
+    svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
+        .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
+        .attr("fill", result ? OP_COLORS.TRUE : OP_COLORS.FALSE).text(summary);
 
     return boolResult;
 }
@@ -476,7 +473,6 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // (1) Emphasize points briefly, fade/dim base line, then remove line
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
 
@@ -485,10 +481,8 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         points.transition().duration(250).attr("opacity", 0.95).attr("fill", "#a9a9a9").end().catch(()=>{})
     ]).catch(()=>{});
 
-    // Remove the line; we will operate on bars from now
     baseLine.remove();
 
-    // (2) Build bars from each point (DatumValue-like -> bars)
     const items = (Array.isArray(data) ? data : []).map(d => ({
         id: String(d?.id ?? d?.target ?? ''),
         target: String(d?.target ?? ''),
@@ -503,13 +497,11 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         return [];
     }
 
-    // Initial band/linear scales based on the current (unsorted) domain
     const initDomain = items.map(d => d.target);
     const xBand = d3.scaleBand().domain(initDomain).range([0, plot.w]).padding(0.2);
     const yMax = d3.max(items, d => d.value) || 0;
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
-    // Clear any previous temp bars and create new ones
     g.selectAll('rect.temp-line-bar').remove();
 
     const bars = g.selectAll('rect.temp-line-bar')
@@ -528,11 +520,8 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         .attr('fill', '#69b3a2')
         .attr('opacity', 0.85);
 
-    // Fade the original points now that bars exist
     await points.transition().duration(150).attr('opacity', 0.2).end().catch(()=>{});
 
-    // (3) Sort using line operation functions (mirror of simpleBarSort logic)
-    // Map op.field to internal keys if needed (value/target)
     const effectiveOp = { ...op };
     if (op?.field) {
         if (op.field === (items[0]?.measure || yField)) effectiveOp.field = 'value';
@@ -548,7 +537,6 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
     const getKeyFromDatum = (d) => String(d?.target ?? d?.id ?? '');
     const sortedIds = sorted.map(getKeyFromDatum);
 
-    // Animate bars + axis to new order (same durations as simpleBarSort)
     if (orientation === 'vertical') {
         const xSorted = d3.scaleBand().domain(sortedIds).range([0, plot.w]).padding(0.2);
         const allBars = g.selectAll('rect.temp-line-bar');
@@ -577,7 +565,6 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
 
         await Promise.all([moveTr, axisTr]).catch(()=>{});
     } else {
-        // horizontal (rare for simple line, but keep parity)
         const ySorted = d3.scaleBand().domain(sortedIds).range([0, plot.h]).padding(0.2);
         const allBars = g.selectAll('rect.temp-line-bar');
 
@@ -591,18 +578,6 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
             .end().catch(()=>{});
 
         const axisSel = svg.select('.y-axis');
-        // Optionally rotate y-axis labels, but typically not needed. If desired, uncomment below.
-        // const axisTr = !axisSel.empty()
-        //     ? axisSel.transition().duration(1000)
-        //         .call(d3.axisLeft(ySorted))
-        //         .selection()
-        //         .selectAll("text")
-        //             .style("text-anchor", "end")
-        //             .attr("dx", "-0.8em")
-        //             .attr("dy", "0.15em")
-        //             .attr("transform", "rotate(-45)")
-        //         .end().catch(()=>{})
-        //     : Promise.resolve();
         const axisTr = !axisSel.empty()
             ? axisSel.transition().duration(1000).call(d3.axisLeft(ySorted)).end().catch(()=>{})
             : Promise.resolve();
@@ -610,7 +585,6 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         await Promise.all([moveTr, axisTr]).catch(()=>{});
     }
 
-    // Header label, following simpleBarSort semantics
     const orderAsc = (effectiveOp?.order ?? 'asc') === 'asc';
     const categoryName = items[0]?.category || (orientation === 'vertical' ? xField : yField);
     const measureName  = items[0]?.measure  || (orientation === 'vertical' ? yField : xField);
@@ -633,7 +607,6 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         .attr('fill', '#6f42c1')
         .text(labelText);
 
-    // Return `last` semantics like simpleBarSort: first of sorted
     if (isLast) {
         const first = sorted && sorted[0];
         if (!first) return [];
@@ -668,9 +641,9 @@ export async function simpleLineDiff(chartId, op, data) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const colorA = "#ffb74d";
-    const colorB = "#64b5f6";
-    const hlColor = "#fca103";
+    const colorA = OP_COLORS.DIFF_A;
+    const colorB = OP_COLORS.DIFF_B;
+    const hlColor = OP_COLORS.DIFF_LINE;
 
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
@@ -719,7 +692,6 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // (1) Briefly emphasize the original points, then remove the line path
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
 
@@ -728,11 +700,8 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         points.transition().duration(200).attr("opacity", 0.95).attr("fill", "#a9a9a9").end().catch(()=>{})
     ]).catch(()=>{});
 
-    // Remove the line (we're switching to bars)
     baseLine.remove();
 
-    // (2) Build a temporary bar chart from each point
-    // Map the incoming data (DatumValue-like) to a flat array the bar logic can bind to.
     const items = (Array.isArray(data) ? data : []).map(d => ({
         id: String(d?.id ?? d?.target ?? ''),
         target: String(d?.target ?? ''),
@@ -742,7 +711,6 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         measure: yField || 'value'
     })).filter(d => Number.isFinite(d.value));
 
-    // Guard: nothing to show
     if (items.length === 0) {
         console.warn('[simpleLineFilter] no finite input values');
         if (isLast) {
@@ -751,12 +719,10 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         return [];
     }
 
-    // Create bars within plot area (g-coordinates)
     const xScale = d3.scaleBand().domain(items.map(d => d.target)).range([0, plot.w]).padding(0.2);
     const yMax = d3.max(items, d => d.value) || 0;
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
-    // Remove any previous temp bars and create fresh ones
     g.selectAll('rect.temp-line-bar').remove();
 
     const bars = g.selectAll('rect.temp-line-bar')
@@ -774,14 +740,11 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         .attr('fill', '#69b3a2')
         .attr('opacity', 0.85);
 
-    // Fade points now that bars are present
     await points.transition().duration(150).attr('opacity', 0.15).end().catch(()=>{});
 
-    // (3) Apply filter visualization akin to simpleBarFilter
-    const matchColor = "#ffa500";
+    const matchColor = OP_COLORS.FILTER_MATCH;
     const toNumber = v => (v == null ? NaN : +v);
 
-    // Map op.field to internal keys if user specified x/y names
     const effectiveOp = { ...op };
     const sample = items[0];
     if (op.field === sample.measure) {
@@ -790,10 +753,8 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         effectiveOp.field = 'target';
     }
 
-    // Compute filtered subset using the line operation function set
     let filteredData = dataFilter(items, effectiveOp, xField, yField, isLast);
 
-    // Draw threshold/range guides if applicable (use full domain scales)
     const drawThreshold = async (rawVal) => {
         const v = toNumber(rawVal);
         if (!Number.isFinite(v)) return;
@@ -801,16 +762,15 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         const line = svg.append("line").attr("class", "threshold-line")
             .attr("x1", margins.left).attr("y1", margins.top + yPos)
             .attr("x2", margins.left).attr("y2", margins.top + yPos)
-            .attr("stroke", "blue").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+            .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
         await line.transition().duration(800).attr("x2", margins.left + plot.w).end().catch(()=>{});
         svg.append("text").attr("class", "threshold-label")
             .attr("x", margins.left + plot.w - 5).attr("y", margins.top + yPos - 5)
             .attr("text-anchor", "end")
-            .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold")
+            .attr("fill", OP_COLORS.FILTER_THRESHOLD).attr("font-size", 12).attr("font-weight", "bold")
             .text(v);
     };
 
-    // Label text for the filter header
     let labelText = "";
     if (effectiveOp.operator === 'in' || effectiveOp.operator === 'not-in') {
         const arr = Array.isArray(effectiveOp.value) ? effectiveOp.value : [effectiveOp.value];
@@ -824,10 +784,8 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         await drawThreshold(effectiveOp.value);
         await delay(200);
     } else if (effectiveOp.operator === 'between' && Array.isArray(effectiveOp.value)) {
-        // Shade range for between
         const start = parseDateWithGranularity(effectiveOp.value[0]).date;
         const end = parseDateWithGranularity(effectiveOp.value[1]).date;
-        // When filtering by target (date), we can overlay a band across the x positions
         if (effectiveOp.field === 'target' && start && end) {
             const fmt = d3.timeFormat('%Y-%m-%d');
             const domain = items.map(d => d.target);
@@ -840,15 +798,13 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
                 const x1 = xScale(t1) + xScale.bandwidth();
                 g.append("rect").attr("class", "annotation filter-range")
                     .attr("x", x0).attr("y", 0).attr("width", Math.max(0, x1 - x0)).attr("height", plot.h)
-                    .attr("fill", "steelblue").attr("opacity", 0)
+                    .attr("fill", OP_COLORS.RANGE).attr("opacity", 0)
                     .transition().duration(500).attr("opacity", 0.2);
             }
         }
     }
 
-    // Handle empty result
     if (!filteredData || filteredData.length === 0) {
-        // Fade out all bars
         g.selectAll('rect.temp-line-bar').transition().duration(500).attr('opacity', 0.1);
         g.append("text").attr("class", "annotation empty-label")
             .attr("x", plot.w / 2).attr("y", plot.h / 2)
@@ -859,7 +815,6 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
             : [];
     }
 
-    // Highlight matches and re-layout to the filtered domain (same as bar)
     const filteredIds = new Set(filteredData.map(d => String(d.id ?? d.target)));
     const allBars = g.selectAll('rect.temp-line-bar');
 
@@ -876,7 +831,6 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
 
     await delay(250);
 
-    // Update X domain to only filtered targets and animate bars + axis
     const filteredTargets = filteredData.map(d => String(d.target));
     const xScaleFiltered = d3.scaleBand().domain(filteredTargets).range([0, plot.w]).padding(0.2);
 
@@ -889,14 +843,13 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         .attr('x', function() {
             const key = this.getAttribute('data-target') || '';
             const x = xScaleFiltered(key);
-            return (x != null ? x : -9999); // off-canvas if not in filtered
+            return (x != null ? x : -9999);
         })
         .attr('width', xScaleFiltered.bandwidth())
         .end().catch(()=>{});
 
     await Promise.all([axisTr, moveTr]).catch(()=>{});
 
-    // Value labels on filtered bars
     allBars.each(function() {
         const key = this.getAttribute('data-target') || '';
         if (!filteredTargets.includes(key)) return;
@@ -913,13 +866,11 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
             .text(Number.isFinite(vVal) ? vVal : '');
     });
 
-    // Header label like bar version
     svg.append("text").attr("class", "filter-label")
         .attr("x", margins.left).attr("y", margins.top - 8)
         .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
         .text(labelText);
 
-    // Return count DatumValue when last, or the filtered DatumValue array otherwise
     return isLast
         ? [new DatumValue('filter', 'count', 'result', null, Array.isArray(filteredData) ? filteredData.length : 0, 'last_filter')]
         : filteredData;
@@ -932,13 +883,11 @@ export async function simpleLineDetermineRange(chartId, op, data) {
     const result = dataDetermineRange(data, op);
     if (!result) return null;
 
-    // Normalize result shape: support both {minV,maxV,minDatums,maxDatums} and {min,max}
     let minV = (result.minV !== undefined ? result.minV : result.min);
     let maxV = (result.maxV !== undefined ? result.maxV : result.max);
     let minDatums = result.minDatums;
     let maxDatums = result.maxDatums;
 
-    // Fallbacks if datums are not provided
     const values = (Array.isArray(data) ? data.map(d => d ? d.value : NaN) : []).filter(Number.isFinite);
     if (minV === undefined || minV === null) minV = d3.min(values);
     if (maxV === undefined || maxV === null) maxV = d3.max(values);
@@ -946,11 +895,14 @@ export async function simpleLineDetermineRange(chartId, op, data) {
     if (!Array.isArray(minDatums)) {
         minDatums = Array.isArray(data) ? data.filter(d => Number.isFinite(d?.value) && d.value === minV) : [];
         if (minDatums.length === 0 && Number.isFinite(minV)) {
-            // pick closest
-            let best = null, bd = Infinity;
+            let best = null,
+                bd = Infinity;
             (data || []).forEach(d => {
                 const diff = Math.abs((+d?.value) - minV);
-                if (Number.isFinite(diff) && diff < bd) { best = d; bd = diff; }
+                if (Number.isFinite(diff) && diff < bd) {
+                    best = d;
+                    bd = diff;
+                }
             });
             if (best) minDatums = [best];
         }
@@ -958,16 +910,20 @@ export async function simpleLineDetermineRange(chartId, op, data) {
     if (!Array.isArray(maxDatums)) {
         maxDatums = Array.isArray(data) ? data.filter(d => Number.isFinite(d?.value) && d.value === maxV) : [];
         if (maxDatums.length === 0 && Number.isFinite(maxV)) {
-            let best = null, bd = Infinity;
+            let best = null,
+                bd = Infinity;
             (data || []).forEach(d => {
                 const diff = Math.abs((+d?.value) - maxV);
-                if (Number.isFinite(diff) && diff < bd) { best = d; bd = diff; }
+                if (Number.isFinite(diff) && diff < bd) {
+                    best = d;
+                    bd = diff;
+                }
             });
             if (best) maxDatums = [best];
         }
     }
 
-    const hlColor = "#0d6efd";
+    const hlColor = OP_COLORS.RANGE;
     const yMax = d3.max(values) || 0;
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
@@ -976,24 +932,23 @@ export async function simpleLineDetermineRange(chartId, op, data) {
         const vNum = Number(value);
         if (!Number.isFinite(vNum)) return;
         const yPos = yScale(vNum);
-        // full-width guide
         g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", yPos)
             .attr("x2", 0).attr("y2", yPos)
             .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
             .transition().duration(800).attr("x2", plot.w);
 
-        // try to place labels near closest points
         const points = selectMainPoints(g);
         list.forEach(datum => {
             const candidates = toPointIdCandidates(datum?.target);
-            const near = points.filter(function(){ return candidates.includes(d3.select(this).attr("data-id")); });
+            const near = points.filter(function() { return candidates.includes(d3.select(this).attr("data-id")); });
             if (!near.empty()) {
-                const cx = +near.attr("cx"), cy = +near.attr("cy");
-                g.append("text").attr("class","annotation")
+                const cx = +near.attr("cx"),
+                    cy = +near.attr("cy");
+                g.append("text").attr("class", "annotation")
                     .attr("x", cx).attr("y", cy - 15)
-                    .attr("text-anchor","middle").attr("fill", hlColor)
-                    .attr("font-weight","bold").attr("stroke","white").attr("stroke-width",3.5).attr("paint-order","stroke")
+                    .attr("text-anchor", "middle").attr("fill", hlColor)
+                    .attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
                     .text(`${label}: ${vNum.toLocaleString()}`);
             }
         });
@@ -1019,7 +974,6 @@ export async function simpleLineDetermineRange(chartId, op, data) {
         .text(summaryText)
         .transition().duration(500).delay(400).attr("opacity", 1);
 
-    // Return a consistent IntervalValue for downstream consumers
     try {
         return new IntervalValue('value', minV, maxV);
     } catch (e) {
@@ -1031,10 +985,9 @@ export async function simpleLineSum(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1) Compute SUM robustly
     const calc = dataSum(data, op);
     const values = (Array.isArray(data) ? data.map(d => d ? +d.value : NaN) : []).filter(Number.isFinite);
-    const total = calc && Number.isFinite(+calc.value) ? +calc.value : values.reduce((a,b)=>a+b,0);
+    const total = calc && Number.isFinite(+calc.value) ? +calc.value : values.reduce((a, b) => a + b, 0);
     if (!Number.isFinite(total)) {
         console.warn('[simpleLineSum] total is not finite');
         return null;
@@ -1042,17 +995,15 @@ export async function simpleLineSum(chartId, op, data) {
 
     const totalText = total.toLocaleString();
     const baseColor = '#69b3a2';
-    const hlColor = '#f77f00';
+    const hlColor = OP_COLORS.SUM;
 
-    // 2) Keep points visible, fade base line
     const baseLine = selectMainLine(g);
     const pointsSel = selectMainPoints(g);
     await Promise.all([
         baseLine.transition().duration(300).attr('opacity', 0.25).end(),
         pointsSel.transition().duration(200).attr('opacity', 0.9).attr('fill', '#a9a9a9').end()
-    ]).catch(()=>{});
+    ]).catch(() => {});
 
-    // 3) Build a temporary bar chart from each point (like simpleBar)
     const items = (Array.isArray(data) ? data : []).map(d => ({
         id: String(d?.id ?? d?.target ?? ''),
         target: String(d?.target ?? ''),
@@ -1064,12 +1015,10 @@ export async function simpleLineSum(chartId, op, data) {
         return { category: 'value', target: 'sum', value: total };
     }
 
-    // Create bars within the plot area (g)
     const xScale = d3.scaleBand().domain(items.map(d => d.target)).range([0, plot.w]).padding(0.2);
     const yMax = d3.max(items, d => d.value) || 0;
     const yScaleInitial = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
-    // Remove any previous temp bars
     g.selectAll('rect.temp-line-bar').remove();
 
     const bars = g.selectAll('rect.temp-line-bar')
@@ -1087,16 +1036,12 @@ export async function simpleLineSum(chartId, op, data) {
         .attr('fill', baseColor)
         .attr('opacity', 0.75);
 
-    // 4) Apply the exact same stacking animation as simpleBarSum
-    //    - change Y axis domain to [0, total]
     const newYScale = d3.scaleLinear().domain([0, total]).nice().range([plot.h, 0]);
     const yAxisTr = svg.select('.y-axis').transition().duration(1000).call(d3.axisLeft(newYScale)).end();
 
-    //    - move all bars to a single x (center) and stack by cumulative height
     const barWidth = xScale.bandwidth();
     const targetX = plot.w / 2 - barWidth / 2;
 
-    // Order bars by current screen x so it matches what the user sees
     const nodes = bars.nodes().map(node => {
         const sel = d3.select(node);
         return {
@@ -1125,24 +1070,22 @@ export async function simpleLineSum(chartId, op, data) {
         runningTotal += v;
     }
 
-    await Promise.all([yAxisTr, ...stackPromises]).catch(()=>{});
+    await Promise.all([yAxisTr, ...stackPromises]).catch(() => {});
     await delay(200);
 
-    // 5) Draw final value line and label (same as simpleBarSum)
     const finalY = newYScale(total);
 
     svg.append('line').attr('class', 'annotation value-line')
         .attr('x1', margins.left).attr('y1', margins.top + finalY)
         .attr('x2', margins.left + plot.w).attr('y2', margins.top + finalY)
-        .attr('stroke', 'red').attr('stroke-width', 2);
+        .attr('stroke', OP_COLORS.SUM).attr('stroke-width', 2);
 
     svg.append('text').attr('class', 'annotation value-tag')
         .attr('x', margins.left + plot.w - 10).attr('y', margins.top + finalY - 10)
-        .attr('fill', 'red').attr('font-weight', 'bold')
+        .attr('fill', OP_COLORS.SUM).attr('font-weight', 'bold')
         .attr('text-anchor', 'end')
         .text(`Sum: ${totalText}`);
 
-    // Return a Scalar-like object
     return { category: 'value', target: 'sum', value: total };
 }
 
@@ -1150,13 +1093,11 @@ export async function simpleLineAverage(chartId, op, data) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 0) Data presence check
     if (!Array.isArray(data) || data.length === 0) {
         console.warn('[simpleLineAverage] empty data');
         return null;
     }
 
-    // 1) Compute average robustly
     const result = dataAverage(data, op);
     const avgRaw = result ? result[0].value : undefined;
     const avg = Number(avgRaw);
@@ -1165,7 +1106,6 @@ export async function simpleLineAverage(chartId, op, data) {
         return result || null;
     }
 
-    // 2) Build y-scale that surely includes the average
     const values = data.map(d => d ? Number(d.value) : NaN).filter(Number.isFinite);
     const ymaxData = d3.max(values);
     const yMax = d3.max([ymaxData || 0, avg]);
@@ -1176,9 +1116,8 @@ export async function simpleLineAverage(chartId, op, data) {
         return result;
     }
 
-    const hlColor = 'red';
+    const hlColor = OP_COLORS.AVERAGE;
 
-    // 3) Draw animated average guide line
     const line = g.append('line')
         .attr('class', 'annotation avg-line')
         .attr('x1', 0).attr('x2', 0)
@@ -1186,10 +1125,9 @@ export async function simpleLineAverage(chartId, op, data) {
         .attr('stroke', hlColor).attr('stroke-width', 2)
         .attr('stroke-dasharray', '5 5');
 
-    await line.transition().duration(800).attr('x2', plot.w).end().catch(()=>{});
+    await line.transition().duration(800).attr('x2', plot.w).end().catch(() => {});
 
-    // 4) Label (safe formatting)
-    const fmtAvg = Number.isInteger(avg) ? avg.toString() : avg.toLocaleString(undefined,{ maximumFractionDigits: 2 });
+    const fmtAvg = Number.isInteger(avg) ? avg.toString() : avg.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
     g.append('text').attr('class', 'annotation avg-label')
         .attr('x', plot.w - 10)
@@ -1223,7 +1161,7 @@ export async function simpleLineNth(chartId, op, data) {
     const points = selectMainPoints(g);
     const n = op.n || 1;
     const from = op.from || 'left';
-    const hlColor = '#20c997';
+    const hlColor = OP_COLORS.NTH;
 
     await Promise.all([
         baseLine.transition().duration(300).attr('opacity', 0.2).end(),
@@ -1325,7 +1263,7 @@ export async function simpleLineCount(chartId, op, data) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const hlColor = '#20c997';
+    const hlColor = OP_COLORS.COUNT;
 
     await Promise.all([
         baseLine.transition().duration(150).attr('opacity', 0.3).end(),

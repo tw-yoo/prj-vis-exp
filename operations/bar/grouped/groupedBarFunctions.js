@@ -28,6 +28,7 @@ import {
     simpleBarNth,
     simpleBarCount
 } from "../simple/simpleBarFunctions.js";
+import { OP_COLORS } from "../../../../object/colorPalette.js";
 
 
 // ---------- 공통 셋업 ----------
@@ -334,7 +335,7 @@ export async function groupedBarRetrieveValue(chartId, op, data) {
     }
 
     // 3. 다른 막대는 흐리게, 대상 막대는 강조 (빠른 애니메이션)
-    const hlColor = '#ff6961';
+    const hlColor = OP_COLORS.RETRIEVE_VALUE;
     await Promise.all([
         otherRects.transition().duration(300).attr("opacity", 0.2).end(),
         targetRects.transition().duration(300).attr("opacity", 1).attr("stroke", hlColor).attr("stroke-width", 2).end()
@@ -393,10 +394,8 @@ export async function groupedBarFilter(chartId, op, data) {
             return [];
         }
 
-        // 0) Simple-ize first so we are in a simple-bar layout for the given series
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
 
-        // 1) Draw animated threshold line (numeric filters only)
         const numericOps = new Set(['>', '>=', '<', '<=']);
         const yMaxAll = d3.max(subset, d => d.value) || 0;
         const yScale = d3.scaleLinear().domain([0, yMaxAll]).nice().range([plot.h, 0]);
@@ -408,11 +407,11 @@ export async function groupedBarFilter(chartId, op, data) {
                 .attr('class', 'threshold-line')
                 .attr('x1', margins.left).attr('x2', margins.left)
                 .attr('y1', yPix).attr('y2', yPix)
-                .attr('stroke', '#0d6efd').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
+                .attr('stroke', OP_COLORS.FILTER_THRESHOLD).attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
             const thText = svg.append('text')
                 .attr('class', 'threshold-label')
                 .attr('x', margins.left + plot.w + 6).attr('y', yPix)
-                .attr('dominant-baseline', 'middle').attr('fill', '#0d6efd')
+                .attr('dominant-baseline', 'middle').attr('fill', OP_COLORS.FILTER_THRESHOLD)
                 .attr('font-size', 12).attr('font-weight', 'bold')
                 .attr('opacity', 0)
                 .text(`${op.operator} ${fmtNum(yVal)}`);
@@ -421,7 +420,6 @@ export async function groupedBarFilter(chartId, op, data) {
             await thText.transition().duration(500).attr('opacity', 1).end();
         }
 
-        // 2) Compute filtered subset strictly within the chosen group, by VALUE
         const cmp = cmpMap[op.operator];
         let filteredSubset = subset.slice();
         if (cmp) {
@@ -435,19 +433,17 @@ export async function groupedBarFilter(chartId, op, data) {
             filteredSubset = subset.filter(d => needles.some(n => String(d.target).toLowerCase().includes(n)));
         }
 
-        // 3) Empty guard: if nothing matches, keep layout but show note
         if (filteredSubset.length === 0) {
             console.warn('groupedBarFilter[group]: empty after filter', op);
             svg.append('text').attr('class', 'filter-label')
                 .attr('x', margins.left).attr('y', margins.top - 10)
                 .attr('font-size', 14).attr('font-weight', 'bold')
-                .attr('fill', '#0d6efd')
+                .attr('fill', OP_COLORS.FILTER_THRESHOLD)
                 .text('No data matches the filter.');
             svg.attr('data-filtering', null);
             return [];
         }
 
-        // 4) Build keep/drop sets (bars and facet-groups)
         const allowed = new Set(filteredSubset.map(d => `${String(d.target)}-${subgroup}`));
         const bars = g.selectAll('rect');
         const keepSel = bars.filter(function(d) {
@@ -466,13 +462,11 @@ export async function groupedBarFilter(chartId, op, data) {
             return !keptTargets.includes(String(fv));
         });
 
-        // 5) Slow fade-out for bars and facet groups that are not kept
         await Promise.all([
             dropSel.transition().duration(1200).ease(d3.easeCubicInOut).attr('opacity', 0).remove().end(),
             dropGroups.transition().duration(1200).ease(d3.easeCubicInOut).attr('opacity', 0).remove().end()
         ]);
 
-        // 6) Relayout remaining facet-groups across full plot width
         const x0 = d3.scaleBand().domain(keptTargets).range([0, plot.w]).paddingInner(0.2);
 
         const moveFacetPromises = [];
@@ -486,8 +480,6 @@ export async function groupedBarFilter(chartId, op, data) {
             }
         });
 
-        // Each kept facet-group has exactly one bar (simple-ized by group).
-        // Set bar width to a fraction of the group bandwidth and center it inside the group.
         const barW = Math.max(1, x0.bandwidth() * 0.6);
         const geomP = keepSel.transition().duration(900).ease(d3.easeCubicInOut)
             .attr('x', (d) => (x0.bandwidth() - barW) / 2)
@@ -509,13 +501,11 @@ export async function groupedBarFilter(chartId, op, data) {
 
     clearAllAnnotations(svg);
 
-    const matchColor = "#ffa500";
+    const matchColor = OP_COLORS.FILTER_MATCH;
     let filteredData = [];
     const numericOps = new Set(['>', '>=', '<', '<=']);
 
-    // --- Decide filtering path ---
     if (op.field === yField && numericOps.has(op.operator)) {
-        // Numeric filter on measure (sum-by-facet, optionally per group)
         const inGroup = (d) => (op.group == null) ? true : (String(d.group) === String(op.group));
         const sumsByFacet = d3.rollup(
             data.filter(inGroup),
@@ -531,7 +521,6 @@ export async function groupedBarFilter(chartId, op, data) {
         }
         filteredData = data.filter(d => facetsToKeep.has(d.target) && inGroup(d));
     } else {
-        // Categorical/element-wise filter (adapter to simple semantics)
         const effectiveOp = { ...op };
         if (data.length > 0) {
             const sample = data[0];
@@ -541,13 +530,11 @@ export async function groupedBarFilter(chartId, op, data) {
         filteredData = dataFilter(data, effectiveOp);
     }
 
-    // --- 1) Draw threshold line first (animated, if numeric) ---
     if (numericOps.has(op.operator)) {
         const fullYScale = d3.scaleLinear()
             .domain([0, d3.max(data, d => d.value)])
             .nice().range([plot.h, 0]);
 
-        // Remove any existing thresholds and animate a fresh one
         svg.selectAll('.threshold-line, .threshold-label').remove();
         const yVal = +op.value;
         const yPix = margins.top + fullYScale(yVal);
@@ -556,12 +543,12 @@ export async function groupedBarFilter(chartId, op, data) {
             .attr('class', 'threshold-line')
             .attr('x1', margins.left).attr('x2', margins.left)
             .attr('y1', yPix).attr('y2', yPix)
-            .attr('stroke', '#0d6efd').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
+            .attr('stroke', OP_COLORS.FILTER_THRESHOLD).attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
 
         const thText = svg.append('text')
             .attr('class', 'threshold-label')
             .attr('x', margins.left + plot.w + 6).attr('y', yPix)
-            .attr('dominant-baseline', 'middle').attr('fill', '#0d6efd')
+            .attr('dominant-baseline', 'middle').attr('fill', OP_COLORS.FILTER_THRESHOLD)
             .attr('font-size', 12).attr('font-weight', 'bold')
             .attr('opacity', 0)
             .text(`${op.operator} ${fmtNum(yVal)}`);
@@ -571,7 +558,6 @@ export async function groupedBarFilter(chartId, op, data) {
         await thText.transition().duration(500).attr('opacity', 1).end();
     }
 
-    // --- Empty result guard ---
     if (filteredData.length === 0) {
         await g.selectAll('rect').transition().duration(400).attr('opacity', 0).remove().end();
         await svg.append('text').attr('class', 'filter-label')
@@ -581,7 +567,6 @@ export async function groupedBarFilter(chartId, op, data) {
         return [];
     }
 
-    // --- Build keep/drop sets ---
     const allowedIds = new Set(filteredData.map(d => `${d.target}-${d.group}`));
     const keepSel = g.selectAll('rect').filter(d => allowedIds.has(`${d.facet}-${d.key}`));
     const dropSel = g.selectAll('rect').filter(d => !allowedIds.has(`${d.facet}-${d.key}`));
@@ -589,7 +574,6 @@ export async function groupedBarFilter(chartId, op, data) {
     const keptFacets = [...new Set(filteredData.map(d => d.target))];
     const keptKeys   = [...new Set(filteredData.map(d => d.group))];
 
-    // --- 2) Quick fade-out of non-matching bars & facet-groups ---
     const allFacetGroups = g.selectAll('[class^="facet-group-"]');
     const dropGroups = allFacetGroups.filter(function() {
         const cls = this.getAttribute('class') || '';
@@ -602,7 +586,6 @@ export async function groupedBarFilter(chartId, op, data) {
         dropGroups.transition().duration(1200).ease(d3.easeCubicInOut).attr('opacity', 0).remove().end()
     ]);
 
-    // --- 3) Layout the remaining bars (move/resize) & update axes ---
     const yMax = d3.max(filteredData, d => d.value) || 1;
     const x0 = d3.scaleBand().domain(keptFacets).range([0, plot.w]).paddingInner(0.2);
     const x1 = d3.scaleBand().domain(keptKeys).range([0, x0.bandwidth()]).padding(0.05);
@@ -631,7 +614,6 @@ export async function groupedBarFilter(chartId, op, data) {
 
     await Promise.all([...moveFacetPromises, geomP, yAxisP, xAxisP]);
 
-    // --- Caption ---
     const labelText = (() => {
         if (op.operator === 'in' || op.operator === 'not-in') {
             const arr = Array.isArray(op.value) ? op.value : [op.value];
@@ -643,22 +625,20 @@ export async function groupedBarFilter(chartId, op, data) {
     svg.append('text').attr('class', 'filter-label')
         .attr('x', margins.left).attr('y', margins.top - 10)
         .attr('font-size', 14).attr('font-weight', 'bold')
-        .attr('fill', '#0d6efd')
+        .attr('fill', OP_COLORS.FILTER_THRESHOLD)
         .text(labelText);
 
     svg.attr('data-filtering', null);
     return filteredData;
 }
 
+
 export async function groupedBarFindExtremum(chartId, op, data) {
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
-
-    // 0) Wait if a previous filtering/simple-ize is in progress, then block new ones
     await waitForAttrClear(svg);
     resetBarsVisible(g);
     svg.attr('data-filtering', '1');
 
-    // 1) If a specific group(series) is provided, transform to that series FIRST (simple-ize)
     let workingData = data;
     if (op && op.group != null && op.group !== '') {
         const subgroup = String(op.group);
@@ -668,18 +648,14 @@ export async function groupedBarFindExtremum(chartId, op, data) {
             svg.attr('data-filtering', null);
             return [];
         }
-        // Perform the actual visual transformation before any highlighting
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
         workingData = subset;
     }
 
-    // 2) Compute extremum over the current scope (overall or the chosen group)
     const targetDatum = dataFindExtremum(workingData, op, facetField, yField);
-
     clearAllAnnotations(svg);
-    const hlColor = "#a65dfb";
+    const hlColor = OP_COLORS.EXTREMUM;
 
-    // Reset bars to a clear initial state AFTER the simple-ize has completed
     await g.selectAll("rect")
         .transition().duration(300)
         .attr("opacity", 1)
@@ -692,7 +668,6 @@ export async function groupedBarFindExtremum(chartId, op, data) {
         return [];
     }
 
-    // 3) Find the DOM node for the extremum in the current (possibly simple-ized) view
     const targetNode = findRectByTuple(g, { facet: targetDatum.target, key: targetDatum.group });
     if (!targetNode) {
         console.warn("FindExtremum: Target DOM element not found for datum:", targetDatum);
@@ -704,13 +679,11 @@ export async function groupedBarFindExtremum(chartId, op, data) {
     const targetRect = d3.select(targetNode);
     const otherRects = g.selectAll("rect").filter(function() { return this !== targetNode; });
 
-    // 4) Dim others and emphasize the target (after transform)
     await Promise.all([
         otherRects.transition().duration(800).attr("opacity", 0.2).end(),
         targetRect.transition().duration(800).attr("opacity", 1).attr("fill", hlColor).end()
     ]);
 
-    // 5) Guide line & label — use current chart axis (global y) to align with ticks
     const yMax = d3.max(data, d => d.value);
     const y = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
     const yPos = margins.top + y(extremumValue);
@@ -737,10 +710,8 @@ export async function groupedBarDetermineRange(chartId, op, data) {
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
-    // Ensure we start from a visible, non-highlighted state (avoid initial blank flash)
     resetBarsVisible(g);
 
-    // --- (0) If group is specified, FIRST simple-ize to that series (visual filtering) ---
     let workingData = data;
     const hasGroup = op.group != null && op.group !== '';
     if (hasGroup) {
@@ -752,44 +723,38 @@ export async function groupedBarDetermineRange(chartId, op, data) {
         }
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
         workingData = subset;
-        // After transform, reset any opacity/stroke leftovers so we animate from the visible layout
         resetBarsVisible(g);
     }
 
-    // --- (1) Compute min/max on the current scope (overall or chosen group) ---
     const values = workingData.map(d => d.value);
     const minV = d3.min(values);
     const maxV = d3.max(values);
     const result = new IntervalValue(hasGroup ? op.group : facetField, minV, maxV);
 
-    // Use current/global y-scale so guidelines align with tick marks
     const yMaxGlobal = d3.max(data, r => r.value);
     const y = d3.scaleLinear().domain([0, yMaxGlobal]).nice().range([plot.h, 0]);
-
-    // --- (2) Highlight/dim bars FIRST (no fill change) ---
-    const hlColor = '#0d6efd';
+    const hlColor = OP_COLORS.RANGE;
     const DIM = 0.3;
-    const HI  = 1.0;
+    const HI = 1.0;
 
     if (!hasGroup) {
-        const minRects   = g.selectAll('rect').filter(d => d && d.value === minV);
-        const maxRects   = g.selectAll('rect').filter(d => d && d.value === maxV);
+        const minRects = g.selectAll('rect').filter(d => d && d.value === minV);
+        const maxRects = g.selectAll('rect').filter(d => d && d.value === maxV);
         const otherRects = g.selectAll('rect').filter(d => d && d.value !== minV && d.value !== maxV);
 
         await Promise.all([
             otherRects.transition().duration(700).attr('opacity', DIM).end(),
-            minRects  .transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
-            maxRects  .transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
+            minRects.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
+            maxRects.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
         ]);
     } else {
-        // In simple-ized view, some bars may have datum.group or datum.key. Be robust to both.
         const groupAccessor = (d, node) => {
             if (d && d.group != null) return String(d.group);
-            if (d && d.key   != null) return String(d.key);
+            if (d && d.key != null) return String(d.key);
             return node.getAttribute('data-group');
         };
-        const groupRects = g.selectAll('rect').filter(function(d){ return String(groupAccessor(d, this)) === String(op.group); });
-        const otherRects = g.selectAll('rect').filter(function(d){ return String(groupAccessor(d, this)) !== String(op.group); });
+        const groupRects = g.selectAll('rect').filter(function(d) { return String(groupAccessor(d, this)) === String(op.group); });
+        const otherRects = g.selectAll('rect').filter(function(d) { return String(groupAccessor(d, this)) !== String(op.group); });
         const minRectInGroup = groupRects.filter(d => d && d.value === minV);
         const maxRectInGroup = groupRects.filter(d => d && d.value === maxV);
 
@@ -800,7 +765,6 @@ export async function groupedBarDetermineRange(chartId, op, data) {
         ]);
     }
 
-    // --- (3) Draw range LINES (animated) ---
     const linePromises = [];
     [{ value: minV, label: 'MIN' }, { value: maxV, label: 'MAX' }].forEach(item => {
         const yPos = margins.top + y(item.value);
@@ -814,7 +778,6 @@ export async function groupedBarDetermineRange(chartId, op, data) {
     });
     await Promise.all(linePromises);
 
-    // --- (4) Fade-in labels AFTER lines ---
     const labelPromises = [];
     [{ value: minV, label: 'MIN' }, { value: maxV, label: 'MAX' }].forEach(item => {
         const yPos = margins.top + y(item.value);
@@ -828,7 +791,6 @@ export async function groupedBarDetermineRange(chartId, op, data) {
     });
     await Promise.all(labelPromises);
 
-    // Caption
     const topText = hasGroup
         ? `Range for ${op.group}: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`
         : `Overall Range: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`;
@@ -849,14 +811,12 @@ export async function groupedBarCompare(chartId, op, data) {
     resetBarsVisible(g);
     svg.attr('data-filtering', '1');
 
-    // Normalize op into either point-compare (category+series) or facet-sum compare (primitive targets)
     const isObjA = op && typeof op.targetA === 'object' && op.targetA !== null;
     const isObjB = op && typeof op.targetB === 'object' && op.targetB !== null;
 
-    const colorA = "#ffb74d";
-    const colorB = "#64b5f6";
+    const colorA = OP_COLORS.COMPARE_A;
+    const colorB = OP_COLORS.COMPARE_B;
 
-    // Helper: annotate one bar node
     const drawAnnotation = (node, value, color) => {
         const pos = absCenter(svg, node);
         const y = pos.y;
@@ -876,7 +836,6 @@ export async function groupedBarCompare(chartId, op, data) {
             .text(fmtNum(value));
     };
 
-    // --- Case: primitive targets + group (facet-level compare within one series) ---
     if (!isObjA && !isObjB && op && op.group != null && op.group !== '') {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
@@ -886,7 +845,6 @@ export async function groupedBarCompare(chartId, op, data) {
             return [];
         }
 
-        // Simple-ize to the selected series first
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
 
         const AFacet = String(op.targetA);
@@ -904,7 +862,7 @@ export async function groupedBarCompare(chartId, op, data) {
         const datumA = d3.select(nodeA).datum();
         const datumB = d3.select(nodeB).datum();
 
-        const otherBars = g.selectAll('rect').filter(function(){ return this !== nodeA && this !== nodeB; });
+        const otherBars = g.selectAll('rect').filter(function() { return this !== nodeA && this !== nodeB; });
         await Promise.all([
             otherBars.transition().duration(500).attr('opacity', 0.2).end(),
             d3.select(nodeA).transition().duration(500).attr('opacity', 1).attr('stroke', colorA).attr('stroke-width', 2).end(),
@@ -933,7 +891,6 @@ export async function groupedBarCompare(chartId, op, data) {
         return [winnerDatum];
     }
 
-    // --- Case A: fully specified points (category + series) ---
     if (isObjA && isObjB && ('category' in op.targetA) && ('series' in op.targetA) && ('category' in op.targetB) && ('series' in op.targetB)) {
         const opForCompare = {
             targetA: { target: op.targetA.category, group: op.targetA.series },
@@ -985,7 +942,6 @@ export async function groupedBarCompare(chartId, op, data) {
         return winner ? [winner] : [];
     }
 
-    // --- Case B: primitive targets (facet-level compare across all series) ---
     const AFacet = String(op.targetA);
     const BFacet = String(op.targetB);
 
@@ -999,7 +955,7 @@ export async function groupedBarCompare(chartId, op, data) {
     const sumB = sumByFacet.get(BFacet);
 
     if (sumA == null || sumB == null) {
-        console.warn('compare(facet-level): one or both facets not found', { AFacet, BFacet, sums:[sumA,sumB] });
+        console.warn('compare(facet-level): one or both facets not found', { AFacet, BFacet, sums: [sumA, sumB] });
         svg.attr('data-filtering', null);
         return [];
     }
@@ -1040,13 +996,10 @@ export async function groupedBarCompare(chartId, op, data) {
     return [winnerDatum];
 }
 
-// operations/bar/grouped/groupedBarFunctions.js 파일에 붙여넣기 또는 수정
-
 export async function groupedBarCompareBool(chartId, op, data) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    // 1. 비교할 두 대상(A, B)의 데이터 찾기
     const opForCompare = {
         targetA: (typeof op.targetA === 'object') ? { target: op.targetA.category, group: op.targetA.series } : { target: String(op.targetA), group: op.group || null },
         targetB: (typeof op.targetB === 'object') ? { target: op.targetB.category, group: op.targetB.series } : { target: String(op.targetB), group: op.group || null },
@@ -1059,7 +1012,6 @@ export async function groupedBarCompareBool(chartId, op, data) {
     }
     const result = compareResult.bool;
 
-    // 2. DOM에서 해당 막대 찾기
     const nodeA = findRectByTuple(g, { facet: opForCompare.targetA.target, key: opForCompare.targetA.group });
     const nodeB = findRectByTuple(g, { facet: opForCompare.targetB.target, key: opForCompare.targetB.group });
 
@@ -1071,17 +1023,15 @@ export async function groupedBarCompareBool(chartId, op, data) {
     const datumA = d3.select(nodeA).datum();
     const datumB = d3.select(nodeB).datum();
     const otherBars = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
-    const colorA = "#ffb74d";
-    const colorB = "#64b5f6";
+    const colorA = OP_COLORS.COMPARE_A;
+    const colorB = OP_COLORS.COMPARE_B;
 
-    // 3. 다른 막대는 흐리게, 대상 막대는 강조 (빠른 애니메이션)
     await Promise.all([
         otherBars.transition().duration(300).attr("opacity", 0.2).end(),
         d3.select(nodeA).transition().duration(300).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
         d3.select(nodeB).transition().duration(300).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
     ]);
 
-    // 4. ✨ 수평선 가이드와 라벨 추가 ✨
     const drawAnnotation = (node, value, color) => {
         const pos = absCenter(svg, node);
         const y = pos.y;
@@ -1104,14 +1054,13 @@ export async function groupedBarCompareBool(chartId, op, data) {
     drawAnnotation(nodeA, datumA.value, colorA);
     drawAnnotation(nodeB, datumB.value, colorB);
 
-    // 5. 최종 결과 텍스트 표시
-    const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
+    const symbol = { '>': ' > ', '>=': ' >= ', '<': ' < ', '<=': ' <= ', '==': ' == ', '!=': ' != ' }[op.operator] || ` ${op.operator} `;
     const summary = `${fmtNum(datumA.value)}${symbol}${fmtNum(datumB.value)} → ${result}`;
 
     svg.append("text").attr("class", "annotation compare-summary")
         .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
         .attr("text-anchor", "middle").attr("font-size", 14).attr("font-weight", "bold")
-        .attr("fill", result ? "green" : "red")
+        .attr("fill", result ? OP_COLORS.TRUE : OP_COLORS.FALSE)
         .text(summary);
 
     return compareResult;
@@ -1123,7 +1072,6 @@ export async function groupedBarSort(chartId, op, data) {
     await waitForAttrClear(svg);
     resetBarsVisible(g);
 
-    // group 지정 시: 해당 series만 남겨 simple-bar 경로로 정렬(연출 일치)
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
@@ -1132,33 +1080,27 @@ export async function groupedBarSort(chartId, op, data) {
             return [];
         }
 
-        // 1) Visually reduce to the selected series first (each facet has exactly one bar)
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
 
-        // 2) FLATTEN facet-group transforms so bars are in the same coordinate system that simpleBar expects.
-        //    This prevents double-application of translate(x) (group) + x(attr) (bar) during sort.
         g.selectAll("[class^='facet-group-']").each(function() {
             const grp = d3.select(this);
-            const tx = readGroupX(this) || 0; // current group translate X
+            const tx = readGroupX(this) || 0;
             if (tx !== 0) {
                 grp.selectAll('rect').each(function() {
                     const r = d3.select(this);
                     const x = +r.attr('x') || 0;
-                    r.attr('x', x + tx); // bake group translate into bar x
+                    r.attr('x', x + tx);
                 });
                 grp.attr('transform', 'translate(0,0)');
             }
         });
 
-        // 3) Ensure the x-axis selection used by simpleBarSort exists
-        //    If only `.x-axis-bottom-line` exists, alias it to `.x-axis` as well.
         const xAxisSel = g.select('.x-axis');
         if (xAxisSel.empty()) {
             const bottom = g.select('.x-axis-bottom-line');
             if (!bottom.empty()) bottom.classed('x-axis', true);
         }
 
-        // 4) Delegate to simpleBarSort for the actual animation & labeling
         const op2 = { ...op };
         delete op2.group;
         return await simpleBarSort(chartId, op2, subset, false);
@@ -1179,8 +1121,8 @@ export async function groupedBarSort(chartId, op, data) {
         if (!groupSelection.empty()) {
             tasks.push(
                 groupSelection.transition().duration(800).ease(d3.easeCubicInOut)
-                    .attr("transform", `translate(${x0(facet)},0)`)
-                    .end()
+                .attr("transform", `translate(${x0(facet)},0)`)
+                .end()
             );
         }
     });
@@ -1188,8 +1130,8 @@ export async function groupedBarSort(chartId, op, data) {
     const bottomAxis = g.select(".x-axis-bottom-line");
     tasks.push(
         bottomAxis.transition().duration(800)
-            .call(d3.axisBottom(x0).tickSizeOuter(0))
-            .end()
+        .call(d3.axisBottom(x0).tickSizeOuter(0))
+        .end()
     );
 
     await Promise.all(tasks);
@@ -1208,7 +1150,6 @@ export async function groupedBarSum(chartId, op, data) {
     await waitForAttrClear(svg);
     resetBarsVisible(g);
 
-    // group 지정 시: 해당 series만 simple-bar로 합계 연출
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
@@ -1216,35 +1157,29 @@ export async function groupedBarSum(chartId, op, data) {
             console.warn('groupedBarSum: no data for group', subgroup);
             return [];
         }
-        // Step 1) visually reduce to the chosen series (each facet has exactly one bar)
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
 
-        // Step 2) FLATTEN facet-group transforms so bars are in the same coordinate system that simpleBar expects.
-        //         Use class token check instead of CSS ^ selector because nodes may have multiple classes
-        //         (e.g., "facet-group facet-group-30").
         g.selectAll('g').each(function() {
             const cls = (this.getAttribute('class') || '').split(/\s+/);
             const isFacetGroup = cls.some(c => c.indexOf('facet-group-') === 0);
             if (!isFacetGroup) return;
             const grp = d3.select(this);
-            const tx = readGroupX(this) || 0; // current group translate X
+            const tx = readGroupX(this) || 0;
             if (tx !== 0) {
                 grp.selectAll('rect').each(function() {
                     const r = d3.select(this);
                     const x = +r.attr('x') || 0;
-                    r.attr('x', x + tx); // bake group translate into bar x
+                    r.attr('x', x + tx);
                 });
                 grp.attr('transform', 'translate(0,0)');
             }
         });
 
-        // Step 3) Ensure simpleBarSum can find the Y axis selection
         if (svg.select('.y-axis').empty()) {
             const cand = svg.select('.y-axis-left-line');
             if (!cand.empty()) cand.classed('y-axis', true);
         }
 
-        // === SimpleBarSum-identical logic (inline) ===
         const op2 = { ...op };
         delete op2.group;
 
@@ -1261,18 +1196,15 @@ export async function groupedBarSum(chartId, op, data) {
 
         const totalSum = +sumDatum.value;
         if (!Number.isFinite(totalSum)) {
-            // Return datum but skip animation if invalid
             return [sumDatum];
         }
 
-        // y-scale and axis update identical to simpleBarSum
         const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
         const yAxisTransition = svg.select('.y-axis')
             .transition().duration(1000)
             .call(d3.axisLeft(newYScale))
             .end();
 
-        // Bars selection and stacking animation identical to simpleBarSum
         const bars = g.selectAll('rect');
         const barWidth = bars.empty() ? 0 : +(bars.node().getAttribute('width') || 0);
         const targetX = plot.w / 2 - barWidth / 2;
@@ -1299,11 +1231,11 @@ export async function groupedBarSum(chartId, op, data) {
         svg.append('line').attr('class', 'annotation value-line')
             .attr('x1', margins.left).attr('y1', margins.top + finalY)
             .attr('x2', margins.left + plot.w).attr('y2', margins.top + finalY)
-            .attr('stroke', 'red').attr('stroke-width', 2);
+            .attr('stroke', OP_COLORS.SUM).attr('stroke-width', 2);
 
         svg.append('text').attr('class', 'annotation value-tag')
             .attr('x', margins.left + plot.w - 10).attr('y', margins.top + finalY - 10)
-            .attr('fill', 'red').attr('font-weight', 'bold')
+            .attr('fill', OP_COLORS.SUM).attr('font-weight', 'bold')
             .attr('text-anchor', 'end').text(`Sum: ${totalSum.toLocaleString()}`);
 
         return [sumDatum];
@@ -1327,7 +1259,7 @@ export async function groupedBarSum(chartId, op, data) {
     }
 
     const allRects = g.selectAll("rect");
-    const color = '#e83e8c';
+    const color = OP_COLORS.SUM;
 
     const originalStates = [];
     allRects.each(function() {
@@ -1379,13 +1311,13 @@ export async function groupedBarSum(chartId, op, data) {
     return [sumDatum];
 }
 
+
 export async function groupedBarAverage(chartId, op, data) {
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
     resetBarsVisible(g);
 
-    // group 지정 시: series 슬라이스 → simple-bar 평균 연출
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
@@ -1412,7 +1344,7 @@ export async function groupedBarAverage(chartId, op, data) {
     );
     const avgValue = avgDatum.value;
 
-    const color = '#fd7e14';
+    const color = OP_COLORS.AVERAGE;
 
     const yMax = d3.max(data, d => d.value);
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
@@ -1448,19 +1380,17 @@ export async function groupedBarNth(chartId, op, data) {
     await waitForAttrClear(svg);
     resetBarsVisible(g);
 
-    // Params
     let n = Number(op?.n ?? 1);
-    const from = String(op?.from || 'left').toLowerCase(); // 'left' | 'right'
-    const hlColor = '#20c997';
+    const from = String(op?.from || 'left').toLowerCase();
+    const hlColor = OP_COLORS.NTH;
 
-    // 1) Collect facet groups (each x-bin, e.g., age group). We consider any <g> whose class has a token starting with 'facet-group-'
     const facetGroups = [];
     g.selectAll('g').each(function() {
         const cls = (this.getAttribute('class') || '').split(/\s+/);
         const facetToken = cls.find(c => c.indexOf('facet-group-') === 0);
         if (!facetToken) return;
         const facet = facetToken.slice('facet-group-'.length);
-        const tx = readGroupX(this) || 0; // left position of this facet-bin
+        const tx = readGroupX(this) || 0;
         facetGroups.push({ node: this, facet, x: tx });
     });
 
@@ -1469,7 +1399,6 @@ export async function groupedBarNth(chartId, op, data) {
         return [];
     }
 
-    // 2) Order facets visually and pick the nth group
     facetGroups.sort((a, b) => a.x - b.x);
     const ordered = (from === 'right') ? facetGroups.slice().reverse() : facetGroups;
     const boundedN = Math.max(1, Math.min(n, ordered.length));
@@ -1479,7 +1408,6 @@ export async function groupedBarNth(chartId, op, data) {
         return [];
     }
 
-    // 3) Highlight all bars inside the picked facet; fade others
     const allRects = g.selectAll('rect');
     if (allRects.empty()) {
         console.warn('groupedBarNth: no bars found');
@@ -1497,16 +1425,12 @@ export async function groupedBarNth(chartId, op, data) {
         .attr('stroke-width', 2)
         .end();
 
-    // 4) Draw simpleBarNth-like guide: a dashed line from y-axis to each picked bar's center and a value label
     const anims = [];
     pickedRects.each(function() {
         const bar = this;
         const d = d3.select(bar).datum() || {};
-        const bbox = bar.getBBox();
-        const tx = readGroupX(bar) || 0; // inner bars may return 0; we compose with group translate via absCenter
         const { x, y } = absCenter(svg, bar);
 
-        // horizontal guideline from y-axis to center of the picked bar
         const guide = svg.append('line')
             .attr('class', 'annotation nth-line')
             .attr('x1', margins.left).attr('y1', y)
@@ -1530,9 +1454,8 @@ export async function groupedBarNth(chartId, op, data) {
         }
     });
 
-    await Promise.all(anims).catch(()=>{});
+    await Promise.all(anims).catch(() => {});
 
-    // 5) Top caption
     const caption = `Nth facet (${from}, n=${boundedN}): ${picked.facet}`;
     svg.append('text')
         .attr('class', 'annotation nth-caption')
@@ -1543,17 +1466,16 @@ export async function groupedBarNth(chartId, op, data) {
         .attr('fill', hlColor)
         .text(caption);
 
-    // 6) Return original rows for this facet (all series under the picked x-bin)
     const facetVal = String(picked.facet);
-    const results = Array.isArray(data)
-        ? data.filter(d => String(d.target ?? d.facet ?? d.age ?? '') === facetVal)
-        : [];
+    const results = Array.isArray(data) ?
+        data.filter(d => String(d.target ?? d.facet ?? d.age ?? '') === facetVal) :
+        [];
 
     return results;
 }
 
 export async function groupedBarDiff(chartId, op, data) {
-    const {svg, g, margins, plot, yField, facetField} = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
     resetBarsVisible(g);
@@ -1562,11 +1484,10 @@ export async function groupedBarDiff(chartId, op, data) {
     const isObjA = typeof op.targetA === 'object' && op.targetA !== null;
     const isObjB = typeof op.targetB === 'object' && op.targetB !== null;
 
-    const colorA = "#ffb74d";
-    const colorB = "#64b5f6";
-    const diffColor = "#d32f2f";
+    const colorA = OP_COLORS.DIFF_A;
+    const colorB = OP_COLORS.DIFF_B;
+    const diffColor = OP_COLORS.DIFF_LINE;
 
-    // Helper: draw diff line + label
     const drawDiffLine = (nodeA, nodeB, diffVal) => {
         const bboxA = nodeA.getBBox();
         const bboxB = nodeB.getBBox();
@@ -1602,7 +1523,6 @@ export async function groupedBarDiff(chartId, op, data) {
             .attr("opacity", 1);
     };
 
-    // --- Case 1: primitive targets + group ---
     if (!isObjA && !isObjB && op.group) {
         const subgroup = String(op.group);
         const subset = data.filter(d => String(d.group) === subgroup);
@@ -1628,24 +1548,19 @@ export async function groupedBarDiff(chartId, op, data) {
         const nodeB = findRectByTuple(g, { facet: BFacet, key: subgroup });
 
         if (nodeA && nodeB) {
-            const datumA = d3.select(nodeA).datum();
-            const datumB = d3.select(nodeB).datum();
-            const others = g.selectAll("rect").filter(function(){ return this !== nodeA && this !== nodeB; });
+            const others = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
             await Promise.all([
-                others.transition().duration(500).attr("opacity",0.2).end(),
-                d3.select(nodeA).transition().duration(500).attr("opacity",1).attr("stroke",colorA).attr("stroke-width",2).end(),
-                d3.select(nodeB).transition().duration(500).attr("opacity",1).attr("stroke",colorB).attr("stroke-width",2).end()
+                others.transition().duration(500).attr("opacity", 0.2).end(),
+                d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
+                d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
             ]);
-
-            // --- Draw diff line + label ---
             drawDiffLine(nodeA, nodeB, diffResult.value);
         }
 
         svg.attr('data-filtering', null);
-        return [ new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value)) ];
+        return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
     }
 
-    // --- Case 2: fully specified objects ---
     if (isObjA && isObjB && op.targetA.category && op.targetA.series && op.targetB.category && op.targetB.series) {
         const opForDiff = {
             targetA: { target: op.targetA.category, group: op.targetA.series },
@@ -1662,23 +1577,19 @@ export async function groupedBarDiff(chartId, op, data) {
         const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
 
         if (nodeA && nodeB) {
-            const datumA = d3.select(nodeA).datum();
-            const datumB = d3.select(nodeB).datum();
-            const others = g.selectAll("rect").filter(function(){ return this !== nodeA && this !== nodeB; });
+            const others = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
             await Promise.all([
-                others.transition().duration(500).attr("opacity",0.2).end(),
-                d3.select(nodeA).transition().duration(500).attr("opacity",1).attr("stroke",colorA).attr("stroke-width",2).end(),
-                d3.select(nodeB).transition().duration(500).attr("opacity",1).attr("stroke",colorB).attr("stroke-width",2).end()
+                others.transition().duration(500).attr("opacity", 0.2).end(),
+                d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
+                d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
             ]);
-
             drawDiffLine(nodeA, nodeB, diffResult.value);
         }
 
         svg.attr('data-filtering', null);
-        return [ new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value)) ];
+        return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
     }
 
-    // --- Case 3: primitive targets without explicit group (sum across series) ---
     if (!isObjA && !isObjB) {
         const AFacet = String(op.targetA);
         const BFacet = String(op.targetB);
@@ -1688,7 +1599,7 @@ export async function groupedBarDiff(chartId, op, data) {
         const diffVal = aVal - bVal;
 
         svg.attr('data-filtering', null);
-        return [ new DatumValue(facetField, yField, "Diff", op.group ?? null, Math.abs(diffVal), `${AFacet}-${BFacet}-diff`) ];
+        return [new DatumValue(facetField, yField, "Diff", op.group ?? null, Math.abs(diffVal), `${AFacet}-${BFacet}-diff`)];
     }
 
     console.warn("groupedBarDiff: unsupported targets", op);
@@ -1702,7 +1613,6 @@ export async function groupedBarCount(chartId, op, data) {
     await waitForAttrClear(svg);
     resetBarsVisible(g);
 
-    // group 지정 시: 해당 series만 남기는 simple화 → simpleBarCount와 같은 연출을 직접 수행
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
@@ -1712,31 +1622,28 @@ export async function groupedBarCount(chartId, op, data) {
             return [zero];
         }
 
-        // 1) 선택한 series만 보이도록 시각 단순화 (각 facet에 막대 1개)
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
 
-        // 2) subset에 대해 count 계산 (facet 기준)
         const op2 = { ...op };
         delete op2.group;
         const result = dataCount(subset, op2, facetField, xField);
         const totalCount = result ? Number(result.value) : 0;
 
-        // 3) 막대 수집 및 전역 X 좌표 계산 (group translate + local x)
         const bars = g.selectAll('rect');
         if (bars.empty()) {
             console.warn('groupedBarCount[group]: no bars on chart after simple-ize');
             return result ? [new DatumValue(result.category, result.measure, result.target, subgroup, totalCount, result.id)] : [];
         }
 
-        const baseColor = '#69b3a2';
-        const hlColor = '#20c997';
+        const baseColor = '#69b3a2'; // This color is not in the palette, kept for visual effect.
+        const hlColor = OP_COLORS.COUNT;
         await bars.transition().duration(150).attr('fill', baseColor).attr('opacity', 0.3).end();
 
         const items = bars.nodes().map(node => {
             const localX = +node.getAttribute('x') || 0;
             const globalX = (readGroupX(node) || 0) + localX;
             return { node, globalX };
-        }).sort((a,b) => a.globalX - b.globalX);
+        }).sort((a, b) => a.globalX - b.globalX);
 
         const N = Math.min(totalCount, items.length);
         for (let i = 0; i < N; i++) {
@@ -1766,13 +1673,12 @@ export async function groupedBarCount(chartId, op, data) {
             .attr('opacity', 0)
             .transition().duration(200).attr('opacity', 1);
 
-        const countDatum = result
-            ? new DatumValue(result.category, result.measure, result.target, subgroup, totalCount, result.id)
-            : new DatumValue(null, null, 'Category Count', subgroup, totalCount, null);
+        const countDatum = result ?
+            new DatumValue(result.category, result.measure, result.target, subgroup, totalCount, result.id) :
+            new DatumValue(null, null, 'Category Count', subgroup, totalCount, null);
         return [countDatum];
     }
 
-    // 전체 카테고리 수 계산 (facet × series 구조에서 facet 기준)
     const result = dataCount(data, op, facetField, xField);
     if (!result) {
         console.warn('groupedBarCount: could not compute count');
@@ -1796,10 +1702,9 @@ export async function groupedBarCount(chartId, op, data) {
         return [countDatum];
     }
 
-    const hlColor = '#20c997';
+    const hlColor = OP_COLORS.COUNT;
     await bars.transition().duration(150).attr('opacity', 0.3).end();
 
-    // 좌→우 순서로 막대 정렬 후, totalCount개 표시
     const nodes = bars.nodes();
     const items = nodes.map(node => {
         const groupX = readGroupX(node);
