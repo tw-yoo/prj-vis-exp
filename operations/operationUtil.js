@@ -263,6 +263,108 @@ export function updateOpCaption(chartId, text, opts = {}) {
     } catch (e) {
         console.warn("updateOpCaption failed", e);
     }
+
+}
+
+// =============================
+// Ops Explain Overlay helpers
+// =============================
+
+function buildOpsExplainTokens(opKeys, textSpec = {}) {
+    if (!Array.isArray(opKeys)) return [];
+    return opKeys.map(k => {
+        if (textSpec && typeof textSpec === 'object') {
+            if (textSpec[k] != null) return String(textSpec[k]);
+            if (textSpec.text && textSpec.text[k] != null) return String(textSpec.text[k]);
+        }
+        return `(${k})`;
+    });
+}
+
+function attachOrUpdateOpsExplainOverlay(chartId, tokens, activeIndex = -1, opts = {}) {
+    const host = document.getElementById(chartId);
+    if (!host) return { el: null, height: 0, top: undefined };
+    const svg = host.querySelector('svg');
+    if (!svg || !svg.getBoundingClientRect) return { el: null, height: 0, top: undefined };
+
+    const hostStyle = window.getComputedStyle(host);
+    if (hostStyle.position === 'static' || !hostStyle.position) host.style.position = 'relative';
+
+    let overlay = host.querySelector(':scope > .ops-explain-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'ops-explain-overlay';
+        host.appendChild(overlay);
+    }
+
+    const svgRect = svg.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    const centerLeft = (svgRect.left - hostRect.left) + (svgRect.width / 2);
+    overlay.style.position = 'absolute';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.left = `${centerLeft}px`;
+    overlay.style.transform = 'translate(-50%, 0)';
+    overlay.style.textAlign = 'center';
+    overlay.style.lineHeight = '1.35';
+    overlay.style.fontSize = (opts.fontSize ? `${opts.fontSize}px` : '20px'); // default 20px
+    overlay.style.maxWidth = `${Math.max(1, Math.round(svgRect.width * 0.8))}px`; // 80% of chart width
+    overlay.style.whiteSpace = 'normal';
+    overlay.style.wordBreak = 'break-word';
+    overlay.style.margin = '0';
+    overlay.style.padding = '0';
+
+    // Build content
+    overlay.innerHTML = '';
+    const container = document.createElement('div');
+    tokens.forEach((tok, idx) => {
+        const span = document.createElement('span');
+        span.className = 'ops-token';
+        span.textContent = String(tok);
+        span.style.color = (activeIndex === idx ? '#111' : '#aaa');
+        span.style.fontWeight = (activeIndex === idx ? '700' : '400');
+        span.style.marginRight = '6px';
+        container.appendChild(span);
+    });
+    overlay.appendChild(container);
+
+    // Now measure overlay height to compute top position
+    const h = overlay.getBoundingClientRect ? (overlay.getBoundingClientRect().height || 0) : 0;
+    // Compute top position with clamping: always above navigator, never overlapping
+    const chartBottom = (svgRect.bottom - hostRect.top);
+    const gapTop = (typeof opts.gapTop === 'number') ? opts.gapTop : ((typeof opts.gap === 'number') ? opts.gap : 8);
+    const gapBottom = (typeof opts.gapBottom === 'number') ? opts.gapBottom : ((typeof opts.gap === 'number') ? opts.gap : 8);
+    const bias = (typeof opts.positionBias === 'number') ? Math.min(1, Math.max(0, opts.positionBias)) : 0.25; // 0=stick to chart, 0.5=center
+    let topPx;
+    if (typeof opts.navTopPx === 'number') {
+        const space = Math.max(0, opts.navTopPx - chartBottom);
+        const minTop = chartBottom + gapTop;            // keep a small gap from chart
+        const maxTop = opts.navTopPx - h - gapBottom;   // keep a small gap from nav
+        if (maxTop <= minTop) {
+            topPx = minTop; // not enough room; nav will be pushed down by caller if needed
+        } else {
+            const free = Math.max(0, (space - h) - (gapTop + gapBottom));
+            topPx = minTop + free * bias;               // bias towards chart (compact)
+            topPx = Math.min(Math.max(minTop, topPx), maxTop);
+        }
+    } else {
+        // Fallback: just below the chart with a gap
+        topPx = chartBottom + gapTop;
+    }
+    overlay.style.top = `${topPx}px`;
+    return { el: overlay, height: h, top: topPx };
+}
+
+function updateOpsExplainActive(chartId, activeIndex) {
+    try {
+        const host = document.getElementById(chartId);
+        if (!host) return;
+        const tokens = host.querySelectorAll(':scope > .ops-explain-overlay .ops-token');
+        tokens.forEach((el, idx) => {
+            const active = (activeIndex === idx);
+            el.style.color = active ? '#111' : '#aaa';
+            el.style.fontWeight = active ? '700' : '400';
+        });
+    } catch (_) {}
 }
 
 export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
@@ -406,6 +508,27 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
     return { group: navGroup, prevButton, nextButton, stepIndicator, htmlStepIndicator };
 }
 
+// Helper: reposition nav-overlay to center on nav group
+function repositionNavStepOverlay(chartId, ctrl) {
+    try {
+        const host = document.getElementById(chartId);
+        if (!host || !ctrl || !ctrl.group) return;
+        const overlay = host.querySelector(':scope > .nav-overlay');
+        if (!overlay) return;
+        const hostRect = host.getBoundingClientRect ? host.getBoundingClientRect() : null;
+        const node = ctrl.group.node ? ctrl.group.node() : null;
+        if (!hostRect || !node || !node.getBoundingClientRect) return;
+        const groupRect = node.getBoundingClientRect();
+        const centerLeft = (groupRect.left - hostRect.left) + (groupRect.width / 2);
+        const centerTop  = (groupRect.top  - hostRect.top ) + (groupRect.height / 2);
+        overlay.style.left = `${centerLeft}px`;
+        overlay.style.top  = `${centerTop}px`;
+        overlay.style.transform = 'translate(-50%, -50%)';
+    } catch (e) {
+        console.warn('repositionNavStepOverlay failed', e);
+    }
+}
+
 
 export function updateNavigatorStates(ctrl, currentStep, totalSteps, displayTotalOps = null) {
     if (!ctrl || !ctrl.prevButton || !ctrl.nextButton || !ctrl.stepIndicator) return;
@@ -503,11 +626,42 @@ export async function runOpsSequence({
 
         // After reset, the SVG DOM is replaced; re-attach navigator and handlers
         const { navX: nx, navY: ny } = getLayout();
+
+        // Attach navigator first (NO extra shift)
         ctrl = attachOpNavigator(chartId, { x: nx, y: ny });
         ctrl.nextButton.on('click.nav', nextHandler);
         ctrl.prevButton.on('click.nav', prevHandler);
         // Immediately update navigator state for the new step BEFORE any ops run
         updateNavigatorStates(ctrl, i, totalSteps, opsCount);
+        repositionNavStepOverlay(chartId, ctrl);
+
+        // --- Overlay & Navigator placement logic ---
+        // Compute navTopPx from nav group bounding rect
+        const navRect0 = ctrl.group && ctrl.group.node ? ctrl.group.node().getBoundingClientRect() : null;
+        let navTopPx0 = navRect0 ? navRect0.top : undefined;
+        const tokens = buildOpsExplainTokens(opKeys, textSpec || {});
+        const activeIdx = (i > 0) ? (i - 1) : -1;
+        const gapTopPx = 4;      // tighter gap to chart
+        const gapBottomPx = 8;   // keep good spacing to buttons
+        const bias = 0.12;       // stronger pull toward chart
+
+        // Pass 1: place overlay using current nav top, measure placement
+        const pass1 = attachOrUpdateOpsExplainOverlay(chartId, tokens, activeIdx, { fontSize: 20, navTopPx: navTopPx0, gapTop: gapTopPx, gapBottom: gapBottomPx, positionBias: bias });
+
+        // If there isn't enough vertical space between chart bottom and nav top to fit overlay + gaps, push nav down
+        if (typeof navTopPx0 === 'number' && pass1 && typeof pass1.top === 'number') {
+            const overlayBottom = pass1.top + (pass1.height || 0);
+            const needed = (overlayBottom + gapBottomPx) - navTopPx0;
+            if (needed > 0) {
+                // push navigator down by the shortfall
+                ctrl.group.attr('transform', `translate(${nx}, ${ny + Math.ceil(needed)})`);
+                // recompute nav top and re-place overlay centered in the new space
+                const navRect1 = ctrl.group && ctrl.group.node ? ctrl.group.node().getBoundingClientRect() : null;
+                const navTopPx1 = navRect1 ? navRect1.top : undefined;
+                attachOrUpdateOpsExplainOverlay(chartId, tokens, activeIdx, { fontSize: 20, navTopPx: navTopPx1, gapTop: gapTopPx, gapBottom: gapBottomPx, positionBias: bias });
+                repositionNavStepOverlay(chartId, ctrl);
+            }
+        }
 
         let result = null;
         if (i > 0) {
@@ -522,13 +676,10 @@ export async function runOpsSequence({
             if (!isLast && typeof onCache === 'function') {
                 try { onCache(opKey, result); } catch (e) { console.warn('runOpsSequence:onCache failed', e); }
             }
-
-            const captionText = (textSpec && (textSpec[opKey] || textSpec.ops)) ? (textSpec[opKey] || textSpec.ops) : null;
-            if (captionText) updateOpCaption(chartId, captionText, { align: 'center', offset: 40, fontSize: 16 });
+            // (Removed updateOpCaption for opKey step)
         } else {
             // step 0: optional global caption (e.g., intro)
-            const captionText = (textSpec && (textSpec.intro || textSpec.ops)) ? (textSpec.intro || textSpec.ops) : null;
-            if (captionText) updateOpCaption(chartId, captionText, { align: 'center', offset: 40, fontSize: 16 });
+            // (Removed updateOpCaption for step 0)
         }
 
         // (No updateNavigatorStates here; already updated above)
@@ -540,6 +691,8 @@ export async function runOpsSequence({
         if (isRunning || currentStep >= totalSteps - 1) return;
         // Instant text update before asynchronous reset
         const target = currentStep + 1;
+        // Synchronous highlight update (optimistic)
+        updateOpsExplainActive(chartId, (target > 0) ? (target - 1) : -1);
         updateNavigatorStates(ctrl, target, totalSteps, opsCount);
         currentStep = target;
         isRunning = true;
@@ -557,6 +710,8 @@ export async function runOpsSequence({
         if (isRunning || currentStep <= 0) return;
         // Instant text update before asynchronous reset
         const target = currentStep - 1;
+        // Synchronous highlight update (optimistic)
+        updateOpsExplainActive(chartId, (target > 0) ? (target - 1) : -1);
         updateNavigatorStates(ctrl, target, totalSteps, opsCount);
         currentStep = target;
         isRunning = true;
