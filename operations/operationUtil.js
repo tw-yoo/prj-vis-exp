@@ -269,7 +269,7 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
     const svg = d3.select(`#${chartId}`).select("svg");
     if (svg.empty()) {
         console.error("attachOpNavigator: SVG not found for chartId:", chartId);
-        return { group: null, prevButton: null, nextButton: null, stepIndicator: null };
+        return { group: null, prevButton: null, nextButton: null, stepIndicator: null, htmlStepIndicator: null };
     }
     svg.select(".nav-controls-group").remove();
 
@@ -282,15 +282,15 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
         .attr("class", "nav-bg")
         .attr("x", 0)
         .attr("y", 0)
-        .attr("width", 170) // 🔥 수정: 너비 증가
+        .attr("width", 170)
         .attr("height", 35)
         .attr("rx", 5)
         .attr("ry", 5)
         .attr("fill", "rgba(255, 255, 255, 0.9)")
         .attr("stroke", "#ccc")
         .attr("stroke-width", 1);
-        
-    // 🔥 추가: 이전 버튼 생성
+
+    // 이전 버튼 생성
     const prevButton = navGroup.append("g")
         .attr("class", "nav-btn prev-btn")
         .attr("transform", "translate(5, 5)")
@@ -314,10 +314,10 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
         .style("pointer-events", "none")
         .text("← Prev");
 
-    // 🔥 수정: 다음 버튼 위치 조정
+    // 다음 버튼
     const nextButton = navGroup.append("g")
         .attr("class", "nav-btn next-btn")
-        .attr("transform", "translate(115, 5)") // X 위치 변경
+        .attr("transform", "translate(115, 5)")
         .style("cursor", "pointer");
 
     nextButton.append("rect")
@@ -338,24 +338,78 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
         .style("pointer-events", "none")
         .text("Next →");
 
-    // 🔥 수정: 스텝 인디케이터 위치 조정
+    // 스텝 인디케이터 (SVG, 숨김)
     const stepIndicator = navGroup.append("text")
         .attr("class", "step-indicator")
-        .attr("x", 85) // X 위치 변경
+        .attr("x", 85)
         .attr("y", 22)
         .attr("text-anchor", "middle")
         .attr("fill", "black")
         .attr("font-size", "12px")
         .attr("font-weight", "bold")
-        .style("pointer-events", "none");
+        .style("pointer-events", "none")
+        .style("opacity", 0);
 
-    return { group: navGroup, prevButton, nextButton, stepIndicator };
+    // Persistent HTML overlay for step indicator
+    let htmlStepIndicator = null;
+    try {
+        const host = document.getElementById(chartId);
+        if (host) {
+            // Ensure host container is position: relative
+            const hostStyle = window.getComputedStyle(host);
+            if (hostStyle.position === "static" || !hostStyle.position) {
+                host.style.position = "relative";
+            }
+            // Find or create nav-overlay
+            let overlay = host.querySelector(".nav-overlay");
+            if (!overlay) {
+                overlay = document.createElement("div");
+                overlay.className = "nav-overlay";
+                host.appendChild(overlay);
+            }
+            overlay.style.position = "absolute";
+            overlay.style.pointerEvents = "none";
+            // Compute overlay position based on actual rendered nav group bounds
+            const hostRect = host.getBoundingClientRect();
+            const groupNode = navGroup.node();
+            let groupRect = null;
+            try { groupRect = groupNode.getBoundingClientRect(); } catch (_) { groupRect = null; }
+            if (groupRect) {
+                const centerLeft = (groupRect.left - hostRect.left) + (groupRect.width / 2);
+                const centerTop  = (groupRect.top  - hostRect.top ) + (groupRect.height / 2);
+                overlay.style.left = `${centerLeft}px`;
+                overlay.style.top  = `${centerTop}px`;
+                overlay.style.transform = 'translate(-50%, -50%)';
+            } else {
+                overlay.style.left = `${x}px`;
+                overlay.style.top  = `${y}px`;
+                overlay.style.transform = 'translate(85px, 18px)'; // fallback approximates group center
+            }
+            // Find or create nav-step-text inside overlay
+            let stepText = overlay.querySelector(".nav-step-text");
+            if (!stepText) {
+                stepText = document.createElement("div");
+                stepText.className = "nav-step-text";
+                overlay.appendChild(stepText);
+            }
+            stepText.style.fontSize = '16px';
+            stepText.style.fontWeight = 'bold';
+            stepText.style.textAlign = 'center';
+            stepText.style.whiteSpace = 'nowrap';
+            htmlStepIndicator = stepText;
+        }
+    } catch (e) {
+        // Fail gracefully
+        htmlStepIndicator = null;
+    }
+
+    return { group: navGroup, prevButton, nextButton, stepIndicator, htmlStepIndicator };
 }
 
 
-export function updateNavigatorStates(ctrl, currentStep, totalSteps) {
+export function updateNavigatorStates(ctrl, currentStep, totalSteps, displayTotalOps = null) {
     if (!ctrl || !ctrl.prevButton || !ctrl.nextButton || !ctrl.stepIndicator) return;
-    const { prevButton, nextButton, stepIndicator } = ctrl;
+    const { prevButton, nextButton, stepIndicator, htmlStepIndicator } = ctrl;
 
     // 이전 버튼 상태 업데이트
     if (currentStep === 0) {
@@ -378,7 +432,14 @@ export function updateNavigatorStates(ctrl, currentStep, totalSteps) {
     }
 
     // 스텝 인디케이터 업데이트
-    stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
+    const denom = (displayTotalOps != null) ? displayTotalOps : totalSteps;
+    // zero-based display when displayTotalOps is provided (e.g., 0/N .. N/N)
+    const numerator = (displayTotalOps != null) ? currentStep : (currentStep + 1);
+    stepIndicator.text(`${numerator}/${denom}`);
+    // HTML persistent overlay update
+    if (htmlStepIndicator) {
+        htmlStepIndicator.textContent = `${numerator}/${denom}`;
+    }
 }
 
 export async function runOpsSequence({
@@ -393,110 +454,96 @@ export async function runOpsSequence({
     delayMs = 0,
     navOpts: initialNavOpts = { x: 15, y: 15 },
 }) {
-    const svg = d3.select(`#${chartId}`).select("svg");
-    if (svg.empty()) {
+    const host = d3.select(`#${chartId}`);
+    const svgInitial = host.select("svg");
+    if (svgInitial.empty()) {
         console.error("runOpsSequence: SVG not found. Please render the chart first.");
         return;
     }
-    const keys = Object.keys(opsSpec || {});
-    if (keys.length === 0) return;
-    
-    const mLeft = +svg.attr("data-m-left") || 0;
-    const mTop  = +svg.attr("data-m-top")  || 0;
-    const plotW = +svg.attr("data-plot-w") || 0;
-    const plotH = +svg.attr("data-plot-h") || 0;
 
-    const captionYOffset = 40;
-    const navWidth = 170;
-    const navX = mLeft + (plotW / 2) - (navWidth / 2);
-    const navY = mTop + plotH + captionYOffset + 20;
+    // Ops and steps: introduce a zero-th step (render-only)
+    const opKeys = Object.keys(opsSpec || {});
+    const opsCount = opKeys.length;          // denominator in 0/opsCount .. opsCount/opsCount
+    const totalSteps = opsCount + 1;         // 0..opsCount inclusive
+    if (totalSteps === 1) return;            // nothing to do
 
+    // Pull layout hints from the current svg (recomputed after each reset)
+    const getLayout = () => {
+        const svg = d3.select(`#${chartId}`).select("svg");
+        const mLeft = +svg.attr("data-m-left") || 0;
+        const mTop  = +svg.attr("data-m-top")  || 0;
+        const plotW = +svg.attr("data-plot-w") || 0;
+        const plotH = +svg.attr("data-plot-h") || 0;
+        const captionYOffset = 40;
+        const navWidth = 170;
+        const navX = mLeft + (plotW / 2) - (navWidth / 2);
+        const navY = mTop + plotH + captionYOffset + 20;
+        return { navX, navY, captionYOffset };
+    };
+
+    const { navX, navY, captionYOffset } = getLayout();
+
+    // Attach navigator once; we will reattach after each reset as DOM is re-rendered
     let ctrl = attachOpNavigator(chartId, { x: navX, y: navY });
-
     if (!ctrl.nextButton || !ctrl.prevButton || !ctrl.stepIndicator) {
         console.error("runOpsSequence: failed to attach navigator");
         return;
     }
 
-    let currentStep = 0;
-    const totalSteps = keys.length;
+    let currentStep = 0; // 0-based; 0 means render-only
     let isRunning = false;
-    
-    // 🔥 추가: 각 단계의 결과를 저장하는 캐시
-    const stepResultsCache = {};
 
     async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    const runStep = async (i, fromDirection = 'forward') => {
-        const opKey = keys[i];
-        const opsList = opsSpec[opKey] || [];
-        const isLast = !!isLastKey(opKey);
-        const prevKey = i > 0 ? keys[i - 1] : null;
-        const wasLastStep = prevKey && isLastKey(prevKey);
-
-        // 🔥 수정: last 단계에서 돌아올 때만 차트 리셋
-        if (wasLastStep && fromDirection === 'backward') {
-            console.log('Resetting chart after last step...');
-            
-            // renderSimpleLineChart 동적 import 및 호출
-            try {
-                const module = await import('./chart/simpleLine/simpleLineRenderer.js');
-                const { renderSimpleLineChart } = module;
-                await renderSimpleLineChart(chartId, vlSpec);
-                
-                // 네비게이터 다시 부착
-                ctrl = attachOpNavigator(chartId, { x: navX, y: navY });
-                
-                // 이벤트 핸들러 다시 등록
-                ctrl.nextButton.on('click.nav', nextHandler);
-                ctrl.prevButton.on('click.nav', prevHandler);
-            } catch (error) {
-                console.error('Failed to reset chart:', error);
-            }
+    async function runStep(i, fromDirection = 'forward') {
+        // Always fully reset the chart to the initial render state
+        if (typeof onReset === 'function') {
+            await onReset();
         }
 
-        if (typeof onReset === 'function') await onReset();
+        // After reset, the SVG DOM is replaced; re-attach navigator and handlers
+        const { navX: nx, navY: ny } = getLayout();
+        ctrl = attachOpNavigator(chartId, { x: nx, y: ny });
+        ctrl.nextButton.on('click.nav', nextHandler);
+        ctrl.prevButton.on('click.nav', prevHandler);
+        // Immediately update navigator state for the new step BEFORE any ops run
+        updateNavigatorStates(ctrl, i, totalSteps, opsCount);
 
         let result = null;
-        
-        // 🔥 추가: 캐시된 결과가 있고, backward 방향이면 캐시 사용
-        if (fromDirection === 'backward' && stepResultsCache[opKey]) {
-            console.log(`Using cached result for step: ${opKey}`);
-            result = stepResultsCache[opKey];
-            
-            // 캐시된 결과로 onCache 재실행 (dataCache 복원)
-            if (!isLast && typeof onCache === 'function') {
-                try { onCache(opKey, result); } catch (e) { console.warn('Failed to restore cache', e); }
-            }
-        } else {
-            // 새로 실행
+        if (i > 0) {
+            const opKey = opKeys[i - 1];
+            const opsList = opsSpec[opKey] || [];
+            const isLast = !!isLastKey(opKey);
+
             if (typeof onRunOpsList === 'function') {
                 result = await onRunOpsList(opsList, isLast);
             }
 
-            // 🔥 추가: 결과를 stepResultsCache에 저장
-            stepResultsCache[opKey] = result;
-
             if (!isLast && typeof onCache === 'function') {
                 try { onCache(opKey, result); } catch (e) { console.warn('runOpsSequence:onCache failed', e); }
             }
+
+            const captionText = (textSpec && (textSpec[opKey] || textSpec.ops)) ? (textSpec[opKey] || textSpec.ops) : null;
+            if (captionText) updateOpCaption(chartId, captionText, { align: 'center', offset: 40, fontSize: 16 });
+        } else {
+            // step 0: optional global caption (e.g., intro)
+            const captionText = (textSpec && (textSpec.intro || textSpec.ops)) ? (textSpec.intro || textSpec.ops) : null;
+            if (captionText) updateOpCaption(chartId, captionText, { align: 'center', offset: 40, fontSize: 16 });
         }
 
-        const captionText = (textSpec && (textSpec[opKey] || textSpec.ops)) ? (textSpec[opKey] || textSpec.ops) : null;
-        if (captionText) updateOpCaption(chartId, captionText, { align: 'center', offset: captionYOffset, fontSize: 16 });
-
-        updateNavigatorStates(ctrl, i, totalSteps);
+        // (No updateNavigatorStates here; already updated above)
         if (delayMs > 0) await delay(delayMs);
         return result;
-    };
+    }
 
-    const nextHandler = async function() {
+    async function nextHandler() {
         if (isRunning || currentStep >= totalSteps - 1) return;
-        
+        // Instant text update before asynchronous reset
+        const target = currentStep + 1;
+        updateNavigatorStates(ctrl, target, totalSteps, opsCount);
+        currentStep = target;
         isRunning = true;
-        
         try {
-            currentStep += 1;
             await runStep(currentStep, 'forward');
         } catch (e) {
             console.error("Error during next step execution:", e);
@@ -504,26 +551,28 @@ export async function runOpsSequence({
         } finally {
             isRunning = false;
         }
-    };
+    }
 
-    const prevHandler = async function() {
+    async function prevHandler() {
         if (isRunning || currentStep <= 0) return;
-
+        // Instant text update before asynchronous reset
+        const target = currentStep - 1;
+        updateNavigatorStates(ctrl, target, totalSteps, opsCount);
+        currentStep = target;
         isRunning = true;
-        
         try {
-            currentStep -= 1;
-            await runStep(currentStep, 'backward'); // 🔥 backward 표시
+            await runStep(currentStep, 'backward');
         } catch (e) {
             console.error("Error during prev step execution:", e);
             currentStep += 1;
         } finally {
             isRunning = false;
         }
-    };
+    }
 
     ctrl.nextButton.on('click.nav', nextHandler);
     ctrl.prevButton.on('click.nav', prevHandler);
 
+    // Start at 0/N (render-only)
     await runStep(0, 'forward');
 }
