@@ -233,8 +233,6 @@ export function clearDivChildren(divId) {
 // Shared UI + Caption + Sequencing
 // =============================
 
-// operations/operationUtil.js 파일에서 이 함수를 찾아 교체하세요.
-
 export function updateOpCaption(chartId, text, opts = {}) {
     try {
         if (!text) return;
@@ -245,8 +243,8 @@ export function updateOpCaption(chartId, text, opts = {}) {
         const plotW = +svg.attr("data-plot-w") || 300;
         const plotH = +svg.attr("data-plot-h") || 300;
 
-        const align    = opts.align || 'center'; 
-        const offsetY  = (typeof opts.offset === 'number' ? opts.offset : 70); // ✨ Y 위치 오프셋을 40에서 70으로 늘렸습니다.
+        const align    = opts.align || 'center';
+        const offsetY  = (typeof opts.offset === 'number' ? opts.offset : 40);
         const fontSize = (opts.fontSize || 16);
         const x = align === 'start' ? (mLeft + 10)
               : align === 'end'   ? (mLeft + plotW - 10)
@@ -271,33 +269,59 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
     const svg = d3.select(`#${chartId}`).select("svg");
     if (svg.empty()) {
         console.error("attachOpNavigator: SVG not found for chartId:", chartId);
-        return { group: null, nextButton: null, stepIndicator: null };
+        return { group: null, prevButton: null, nextButton: null, stepIndicator: null };
     }
     svg.select(".nav-controls-group").remove();
 
     const navGroup = svg.append("g")
         .attr("class", "nav-controls-group")
-        .attr("transform", `translate(${x}, ${y})`);
+        .attr("transform", `translate(${x}, ${y})`)
+        .style("pointer-events", "all");
 
     navGroup.append("rect")
         .attr("class", "nav-bg")
         .attr("x", 0)
         .attr("y", 0)
-        .attr("width", 130)
+        .attr("width", 170) // 🔥 수정: 너비 증가
         .attr("height", 35)
         .attr("rx", 5)
         .attr("ry", 5)
         .attr("fill", "rgba(255, 255, 255, 0.9)")
         .attr("stroke", "#ccc")
         .attr("stroke-width", 1);
-
-    const nextButton = navGroup.append("g")
-        .attr("class", "nav-btn next-btn")
+        
+    // 🔥 추가: 이전 버튼 생성
+    const prevButton = navGroup.append("g")
+        .attr("class", "nav-btn prev-btn")
         .attr("transform", "translate(5, 5)")
         .style("cursor", "pointer");
 
+    prevButton.append("rect")
+        .attr("width", 50)
+        .attr("height", 25)
+        .attr("rx", 3)
+        .attr("fill", "#6c757d")
+        .attr("stroke", "#5a6268")
+        .attr("stroke-width", 1);
+
+    prevButton.append("text")
+        .attr("x", 25)
+        .attr("y", 17)
+        .attr("text-anchor", "middle")
+        .attr("fill", "white")
+        .attr("font-size", "12px")
+        .attr("font-weight", "bold")
+        .style("pointer-events", "none")
+        .text("← Prev");
+
+    // 🔥 수정: 다음 버튼 위치 조정
+    const nextButton = navGroup.append("g")
+        .attr("class", "nav-btn next-btn")
+        .attr("transform", "translate(115, 5)") // X 위치 변경
+        .style("cursor", "pointer");
+
     nextButton.append("rect")
-        .attr("width", 60)
+        .attr("width", 50)
         .attr("height", 25)
         .attr("rx", 3)
         .attr("fill", "#007bff")
@@ -305,31 +329,45 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
         .attr("stroke-width", 1);
 
     nextButton.append("text")
-        .attr("x", 30)
+        .attr("x", 25)
         .attr("y", 17)
         .attr("text-anchor", "middle")
         .attr("fill", "white")
         .attr("font-size", "12px")
         .attr("font-weight", "bold")
+        .style("pointer-events", "none")
         .text("Next →");
 
+    // 🔥 수정: 스텝 인디케이터 위치 조정
     const stepIndicator = navGroup.append("text")
         .attr("class", "step-indicator")
-        .attr("x", 95)
+        .attr("x", 85) // X 위치 변경
         .attr("y", 22)
         .attr("text-anchor", "middle")
         .attr("fill", "black")
         .attr("font-size", "12px")
-        .attr("font-weight", "bold");
+        .attr("font-weight", "bold")
+        .style("pointer-events", "none");
 
-    return { group: navGroup, nextButton, stepIndicator };
+    return { group: navGroup, prevButton, nextButton, stepIndicator };
 }
 
-export function updateNavigatorStates(ctrl, currentStep, totalSteps) {
-    if (!ctrl || !ctrl.nextButton || !ctrl.stepIndicator) return;
-    const { nextButton, stepIndicator } = ctrl;
 
-    if (currentStep === totalSteps - 1) {
+export function updateNavigatorStates(ctrl, currentStep, totalSteps) {
+    if (!ctrl || !ctrl.prevButton || !ctrl.nextButton || !ctrl.stepIndicator) return;
+    const { prevButton, nextButton, stepIndicator } = ctrl;
+
+    // 이전 버튼 상태 업데이트
+    if (currentStep === 0) {
+        prevButton.select("rect").attr("fill", "#6c757d").attr("opacity", 0.5);
+        prevButton.style("cursor", "not-allowed");
+    } else {
+        prevButton.select("rect").attr("fill", "#007bff").attr("opacity", 1);
+        prevButton.style("cursor", "pointer");
+    }
+
+    // 다음 버튼 상태 업데이트
+    if (currentStep >= totalSteps - 1) {
         nextButton.select("rect").attr("fill", "#6c757d").attr("opacity", 0.5);
         nextButton.select("text").text("Done");
         nextButton.style("cursor", "not-allowed");
@@ -338,13 +376,14 @@ export function updateNavigatorStates(ctrl, currentStep, totalSteps) {
         nextButton.select("text").text("Next →");
         nextButton.style("cursor", "pointer");
     }
+
+    // 스텝 인디케이터 업데이트
     stepIndicator.text(`${currentStep + 1}/${totalSteps}`);
 }
 
-// operations/operationUtil.js 파일에서 이 함수를 찾아 교체하세요.
-
 export async function runOpsSequence({
     chartId,
+    vlSpec,
     opsSpec,
     textSpec = {},
     onReset,
@@ -362,44 +401,85 @@ export async function runOpsSequence({
     const keys = Object.keys(opsSpec || {});
     if (keys.length === 0) return;
     
-    // ✨ 버튼 위치를 동적으로 계산하는 로직 추가 ✨
     const mLeft = +svg.attr("data-m-left") || 0;
     const mTop  = +svg.attr("data-m-top")  || 0;
     const plotW = +svg.attr("data-plot-w") || 0;
     const plotH = +svg.attr("data-plot-h") || 0;
 
-    const captionYOffset = 70; // 위 updateOpCaption과 동일한 값
-    const navWidth = 130; // 네비게이터 그룹의 너비
-    const navX = mLeft + (plotW / 2) - (navWidth / 2); // X축 중앙 정렬
-    const navY = mTop + plotH + captionYOffset + 20; // 캡션보다 20px 아래
+    const captionYOffset = 40;
+    const navWidth = 170;
+    const navX = mLeft + (plotW / 2) - (navWidth / 2);
+    const navY = mTop + plotH + captionYOffset + 20;
 
-    const ctrl = attachOpNavigator(chartId, { x: navX, y: navY });
-    // ✨ 여기까지 수정 ✨
+    let ctrl = attachOpNavigator(chartId, { x: navX, y: navY });
 
-    if (!ctrl.nextButton || !ctrl.stepIndicator) {
+    if (!ctrl.nextButton || !ctrl.prevButton || !ctrl.stepIndicator) {
         console.error("runOpsSequence: failed to attach navigator");
         return;
     }
 
     let currentStep = 0;
     const totalSteps = keys.length;
+    let isRunning = false;
+    
+    // 🔥 추가: 각 단계의 결과를 저장하는 캐시
+    const stepResultsCache = {};
 
     async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    const runStep = async (i) => {
+    const runStep = async (i, fromDirection = 'forward') => {
         const opKey = keys[i];
         const opsList = opsSpec[opKey] || [];
         const isLast = !!isLastKey(opKey);
+        const prevKey = i > 0 ? keys[i - 1] : null;
+        const wasLastStep = prevKey && isLastKey(prevKey);
+
+        // 🔥 수정: last 단계에서 돌아올 때만 차트 리셋
+        if (wasLastStep && fromDirection === 'backward') {
+            console.log('Resetting chart after last step...');
+            
+            // renderSimpleLineChart 동적 import 및 호출
+            try {
+                const module = await import('./chart/simpleLine/simpleLineRenderer.js');
+                const { renderSimpleLineChart } = module;
+                await renderSimpleLineChart(chartId, vlSpec);
+                
+                // 네비게이터 다시 부착
+                ctrl = attachOpNavigator(chartId, { x: navX, y: navY });
+                
+                // 이벤트 핸들러 다시 등록
+                ctrl.nextButton.on('click.nav', nextHandler);
+                ctrl.prevButton.on('click.nav', prevHandler);
+            } catch (error) {
+                console.error('Failed to reset chart:', error);
+            }
+        }
 
         if (typeof onReset === 'function') await onReset();
 
         let result = null;
-        if (typeof onRunOpsList === 'function') {
-            result = await onRunOpsList(opsList, isLast);
-        }
+        
+        // 🔥 추가: 캐시된 결과가 있고, backward 방향이면 캐시 사용
+        if (fromDirection === 'backward' && stepResultsCache[opKey]) {
+            console.log(`Using cached result for step: ${opKey}`);
+            result = stepResultsCache[opKey];
+            
+            // 캐시된 결과로 onCache 재실행 (dataCache 복원)
+            if (!isLast && typeof onCache === 'function') {
+                try { onCache(opKey, result); } catch (e) { console.warn('Failed to restore cache', e); }
+            }
+        } else {
+            // 새로 실행
+            if (typeof onRunOpsList === 'function') {
+                result = await onRunOpsList(opsList, isLast);
+            }
 
-        if (!isLast && typeof onCache === 'function') {
-            try { onCache(opKey, result); } catch (e) { console.warn('runOpsSequence:onCache failed', e); }
+            // 🔥 추가: 결과를 stepResultsCache에 저장
+            stepResultsCache[opKey] = result;
+
+            if (!isLast && typeof onCache === 'function') {
+                try { onCache(opKey, result); } catch (e) { console.warn('runOpsSequence:onCache failed', e); }
+            }
         }
 
         const captionText = (textSpec && (textSpec[opKey] || textSpec.ops)) ? (textSpec[opKey] || textSpec.ops) : null;
@@ -410,11 +490,40 @@ export async function runOpsSequence({
         return result;
     };
 
-    ctrl.nextButton.on('click', async () => {
-        if (currentStep >= totalSteps - 1) return;
-        currentStep += 1;
-        await runStep(currentStep);
-    });
+    const nextHandler = async function() {
+        if (isRunning || currentStep >= totalSteps - 1) return;
+        
+        isRunning = true;
+        
+        try {
+            currentStep += 1;
+            await runStep(currentStep, 'forward');
+        } catch (e) {
+            console.error("Error during next step execution:", e);
+            currentStep -= 1;
+        } finally {
+            isRunning = false;
+        }
+    };
 
-    await runStep(0);
+    const prevHandler = async function() {
+        if (isRunning || currentStep <= 0) return;
+
+        isRunning = true;
+        
+        try {
+            currentStep -= 1;
+            await runStep(currentStep, 'backward'); // 🔥 backward 표시
+        } catch (e) {
+            console.error("Error during prev step execution:", e);
+            currentStep += 1;
+        } finally {
+            isRunning = false;
+        }
+    };
+
+    ctrl.nextButton.on('click.nav', nextHandler);
+    ctrl.prevButton.on('click.nav', prevHandler);
+
+    await runStep(0, 'forward');
 }
