@@ -12,6 +12,8 @@ import {
     compareBool as dataCompareBool,
     count as dataCount
 } from "../../operationFunctions.js";
+// 기존 import 아래에 추가
+import { OP_COLORS } from "../../../../object/colorPalette.js";
 
 // Helper functions (unchanged)
 function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
@@ -78,7 +80,7 @@ export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, orientation, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    const hlColor = "#ff6961";
+    const hlColor = OP_COLORS.RETRIEVE_VALUE;
     const baseColor = "#69b3a2";
     const selected = retrieveValue(data, op, isLast) || [];
     const bars = selectAllMarks(g);
@@ -122,7 +124,7 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
           .attr('x2', d => margins.left + xScale(d.target) + xScale.bandwidth() / 2)
           .attr('y1', d => margins.top + yScale(d.value))
           .attr('y2', d => margins.top + yScale(d.value))
-          .attr('stroke', 'red')
+          .attr('stroke', hlColor)
           .attr('stroke-width', 2)
           .attr('stroke-dasharray', '5,5')
           .attr('opacity', 0);
@@ -142,7 +144,7 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
           .attr('x2', d => xScale(d.value))
           .attr('y1', d => yScale(d.target) + yScale.bandwidth() / 2)
           .attr('y2', d => yScale(d.target) + yScale.bandwidth() / 2)
-          .attr('stroke', 'red')
+          .attr('stroke', hlColor)
           .attr('stroke-width', 2)
           .attr('stroke-dasharray', '5,5')
           .attr('opacity', 0);

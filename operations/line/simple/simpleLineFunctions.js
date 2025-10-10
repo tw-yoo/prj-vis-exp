@@ -13,6 +13,7 @@ import {
     compareBoolOp as dataCompareBool,
     countData as dataCount
 } from "../../lineChartOperationFunctions.js";
+import { OP_COLORS } from "../../../../object/colorPalette.js";
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 
@@ -147,7 +148,7 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const hlColor = "#ff6961";
+    const hlColor = OP_COLORS.RETRIEVE_VALUE; 
 
     const candidates = toPointIdCandidates(targetDatum.target);
     let targetPoint = d3.select(null);

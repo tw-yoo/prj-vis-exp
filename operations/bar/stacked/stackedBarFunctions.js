@@ -19,6 +19,7 @@ import {
 } from "../../operationFunctions.js";
 
 import {DatumValue, BoolValue, IntervalValue} from "../../../object/valueType.js";
+import { OP_COLORS } from "../../../../object/colorPalette.js";
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
@@ -243,7 +244,7 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
         const selectedTargets = selected.map(d => String(d.target));
 
         // 3) Highlight target bars
-        const hlColor = '#ff6961';
+        const hlColor = OP_COLORS.RETRIEVE_VALUE; // ✅ 이미 적용됨
         const bars = g.selectAll('rect');
         const target = bars.filter(function () {
             const d = d3.select(this).datum();
@@ -284,7 +285,7 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
                 .attr('x2', d => margins.left + xScale(d.value))
                 .attr('y1', d => margins.top + yScale(String(d.target)) + yScale.bandwidth() / 2)
                 .attr('y2', d => margins.top + yScale(String(d.target)) + yScale.bandwidth() / 2)
-                .attr('stroke', 'red')
+                .attr('stroke', hlColor) // ✅ 'red' → hlColor로 변경
                 .attr('stroke-width', 2)
                 .attr('stroke-dasharray', '5,5')
                 .attr('opacity', 0);
@@ -303,7 +304,7 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
                 .attr('x2', d => margins.left + xScale(String(d.target)) + xScale.bandwidth() / 2)
                 .attr('y1', d => margins.top + yScale(d.value))
                 .attr('y2', d => margins.top + yScale(d.value))
-                .attr('stroke', 'red')
+                .attr('stroke', hlColor) // ✅ 'red' → hlColor로 변경
                 .attr('stroke-width', 2)
                 .attr('stroke-dasharray', '5,5')
                 .attr('opacity', 0);
@@ -348,6 +349,8 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
     }
 
     // --- No group: Highlight the entire stack and show the total ---
+    const hlColor = OP_COLORS.RETRIEVE_VALUE; // ✅ 여기에도 추가!
+    
     const matchedData = dataRetrieveValue(data, { target: op.target }) || [];
     if (matchedData.length === 0) {
         console.warn('stackedBarRetrieveValue: no matching data found for', op);
@@ -388,7 +391,7 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
             .attr('y', labelY)
             .attr('text-anchor', 'middle')
             .attr('font-weight', 'bold')
-            .attr('fill', '#e03131')
+            .attr('fill', hlColor) // ✅ '#e03131' → hlColor로 변경
             .attr('stroke', 'white')
             .attr('stroke-width', 3)
             .attr('paint-order', 'stroke')
@@ -408,7 +411,7 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
             .attr('x2', margins.left + labelX)
             .attr('y1', yPos)
             .attr('y2', yPos)
-            .attr('stroke', 'red')
+            .attr('stroke', hlColor) // ✅ 'red' → hlColor로 변경
             .attr('stroke-width', 2)
             .attr('stroke-dasharray', '5,5')
             .attr('opacity', 0)
@@ -421,7 +424,6 @@ export async function stackedBarRetrieveValue(chartId, op, data) {
     const firstMatch = matchedData[0];
     return [new DatumValue(firstMatch.category, firstMatch.measure, firstMatch.target, null, totalValue, `${targetStackId}-total`)];
 }
-
 export async function stackedBarFindExtremum(chartId, op, data) {
     const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);

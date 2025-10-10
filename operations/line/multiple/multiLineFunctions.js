@@ -30,6 +30,7 @@ import {
     simpleLineCount,
     simpleLineSort
 } from "../simple/simpleLineFunctions.js";
+import { OP_COLORS } from "../../../../object/colorPalette.js";
 
 // -------------------- Helpers --------------------
 const fmtISO = d3.timeFormat("%Y-%m-%d");
