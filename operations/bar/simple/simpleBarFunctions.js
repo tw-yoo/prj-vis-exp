@@ -12,6 +12,8 @@ import {
     compareBool as dataCompareBool,
     count as dataCount
 } from "../../operationFunctions.js";
+// 기존 import 아래에 추가
+import { OP_COLORS } from "../../../../object/colorPalette.js";
 
 // Helper functions (unchanged)
 function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
@@ -78,7 +80,7 @@ export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, orientation, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    const hlColor = "#ff6961";
+    const hlColor = OP_COLORS.RETRIEVE_VALUE;
     const baseColor = "#69b3a2";
     const selected = retrieveValue(data, op, isLast) || [];
     const bars = selectAllMarks(g);
@@ -122,7 +124,7 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
           .attr('x2', d => margins.left + xScale(d.target) + xScale.bandwidth() / 2)
           .attr('y1', d => margins.top + yScale(d.value))
           .attr('y2', d => margins.top + yScale(d.value))
-          .attr('stroke', 'red')
+          .attr('stroke', hlColor)
           .attr('stroke-width', 2)
           .attr('stroke-dasharray', '5,5')
           .attr('opacity', 0);
@@ -142,7 +144,7 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
           .attr('x2', d => xScale(d.value))
           .attr('y1', d => yScale(d.target) + yScale.bandwidth() / 2)
           .attr('y2', d => yScale(d.target) + yScale.bandwidth() / 2)
-          .attr('stroke', 'red')
+          .attr('stroke', hlColor)
           .attr('stroke-width', 2)
           .attr('stroke-dasharray', '5,5')
           .attr('opacity', 0);
@@ -181,11 +183,12 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     return selected;
 }
 
+
 export async function simpleBarFilter(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const matchColor = "#ffa500";
+    const matchColor = OP_COLORS.FILTER_MATCH;
     let filteredData = [];
     let labelText = "";
 
@@ -218,14 +221,14 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         const line = svg.append("line").attr("class", "threshold-line")
             .attr("x1", margins.left).attr("y1", margins.top + yPos)
             .attr("x2", margins.left).attr("y2", margins.top + yPos)
-            .attr("stroke", "blue").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+            .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
 
         await line.transition().duration(800).attr("x2", margins.left + plot.w).end();
 
         svg.append("text").attr("class", "threshold-label")
             .attr("x", margins.left + plot.w - 5).attr("y", margins.top + yPos - 5)
             .attr("text-anchor", "end")
-            .attr("fill", "blue").attr("font-size", 12).attr("font-weight", "bold").text(v);
+            .attr("fill", OP_COLORS.FILTER_THRESHOLD).attr("font-size", 12).attr("font-weight", "bold").text(v);
     };
 
     if (op.operator === 'in' || op.operator === 'not-in') {
@@ -308,7 +311,7 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     if (!selected) {
         return [];
     }
-    const hlColor = "#a65dfb";
+    const hlColor = OP_COLORS.EXTREMUM;
     const selId = String(selected.target);
     const selVal = +(selected.value !== undefined ? selected.value : (selected[yField] !== undefined ? selected[yField] : selected[xField]));
     const bars = selectAllMarks(g);
@@ -367,7 +370,7 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const hlColor = "#0d6efd";
+    const hlColor = OP_COLORS.RANGE;
     const valueField = op.field || (orientation === 'vertical' ? yField : xField);
 
     const categoryAxisName = orientation === 'vertical' ? xField : yField;
@@ -377,7 +380,7 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
 
     if (values.length === 0) {
         console.warn("DetermineRange: No valid data to determine range.");
-        return null; // 단일 객체 반환 (결과 없음)
+        return null;
     }
 
     const minV = d3.min(values);
@@ -421,7 +424,6 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
             line.transition().duration(800).attr("x2", margins.left + plot.w).end()
         );
 
-        // Add label on top of each matching bar (same style as findExtremum)
         item.bars.each(function() {
             const { x, y } = getCenter(this, orientation, margins);
             const text = svg.append("text").attr("class", "annotation")
@@ -455,10 +457,10 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
 
     await Promise.all(animationPromises);
 
-    // 단일 IntervalValue 객체 반환 (last 여부와 무관하게 동일 객체 반환)
     const intervalResult = new IntervalValue(categoryAxisName, minV, maxV);
     return isLast ? intervalResult : intervalResult;
 }
+
 
 export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
@@ -470,10 +472,8 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);
 
-    // If this is `last`, resolve IDs like "ops_0" to the underlying category id (target)
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        // Try match by id first, then fall back to direct category match
         const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
         return found ? String(found.target ?? k) : k;
     };
@@ -491,8 +491,8 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const valueA = getMarkValue(barA.node());
     const valueB = getMarkValue(barB.node());
 
-    const colorA = "#1f77b4";
-    const colorB = "#ff7f0e";
+    const colorA = OP_COLORS.COMPARE_A;
+    const colorB = OP_COLORS.COMPARE_B;
     const animationPromises = [];
 
     animationPromises.push(
@@ -559,7 +559,6 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);
 
-    // If this is `last`, resolve IDs like "ops_0" to the underlying category id (target)
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
         const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
@@ -581,7 +580,7 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
 
     const isTrue = verdict ? !!verdict.bool : null;
 
-    const colorA = isTrue ? "#2ca02c" : "#d62728"; // True면 초록, False면 빨강
+    const colorA = isTrue ? OP_COLORS.TRUE : OP_COLORS.FALSE;
     const colorB = colorA;
     const animationPromises = [];
 
@@ -634,22 +633,6 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
             .text(t.value);
     });
 
-    const opSymbol = op?.operator || (op?.which ? (op.which === "max" ? ">" : "<") : ">");
-    const header = `${visKeyA} ${opSymbol} ${visKeyB} ?`;
-    const answer = (isTrue === null) ? "unknown" : String(isTrue);
-    const answerColor = isTrue ? "#2ca02c" : (isTrue === false ? "#d62728" : "#333");
-
-    // svg.append("text").attr("class", "annotation")
-    //     .attr("x", margins.left).attr("y", margins.top - 28)
-    //     .attr("font-size", 12).attr("fill", "#666")
-    //     .text(header);
-    //
-    // svg.append("text").attr("class", "annotation")
-    //     .attr("x", margins.left).attr("y", margins.top - 10)
-    //     .attr("font-size", 14).attr("font-weight", "bold")
-    //     .attr("fill", answerColor)
-    //     .text(answer);
-
     await Promise.all(animationPromises).catch(() => {});
 
     return verdict;
@@ -661,7 +644,7 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
     if (!Array.isArray(data) || data.length === 0) return data;
     const orderAsc = (op?.order ?? 'asc') === 'asc';
     const categoryName = data[0]?.category || (orientation === 'vertical' ? xField : yField);
-    const measureName  = data[0]?.measure  || (orientation === 'vertical' ? yField : xField);
+    const measureName = data[0]?.measure || (orientation === 'vertical' ? yField : xField);
     const getCategoryIdFromData = (d) => {
         if (!d) return '';
         if (d.target !== undefined) return String(d.target);
@@ -686,11 +669,7 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
         transitions.push(g.select('.y-axis').transition().duration(1000).call(d3.axisLeft(yScale)).end());
         await Promise.all(transitions);
     }
-    const orderText = orderAsc ? 'Ascending' : 'Descending';
-    const isLabelField = (op.field === 'label' || op.field === 'target' || (categoryName && op.field === categoryName) || (orientation === 'vertical' ? op.field === xField : op.field === yField));
-    const label = isLabelField ? (categoryName || 'label') : (measureName || 'value');
-    // const labelText = `Sorted by ${label} (${orderText})`;
-    // svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', '#6f42c1').text(labelText);
+
     if (isLast) {
         const first = sortedData && sortedData[0];
         if (!first) return [];
@@ -748,11 +727,11 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
     svg.append('line').attr('class', 'annotation value-line')
         .attr('x1', margins.left).attr('y1', margins.top + finalY)
         .attr('x2', margins.left + plot.w).attr('y2', margins.top + finalY)
-        .attr('stroke', 'red').attr('stroke-width', 2);
+        .attr('stroke', OP_COLORS.SUM).attr('stroke-width', 2);
 
     svg.append('text').attr('class', 'annotation value-tag')
         .attr('x', margins.left + plot.w - 10).attr('y', margins.top + finalY - 10)
-        .attr('fill', 'red').attr('font-weight', 'bold')
+        .attr('fill', OP_COLORS.SUM).attr('font-weight', 'bold')
         .attr('text-anchor', 'end').text(`Sum: ${totalSum.toLocaleString()}`);
 
     return isLast ? [sumDatum] : [sumDatum];
@@ -800,7 +779,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
         const line = svg.append('line').attr('class', 'annotation avg-line')
             .attr('x1', margins.left).attr('x2', margins.left)
             .attr('y1', yPos).attr('y2', yPos)
-            .attr('stroke', 'red').attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
+            .attr('stroke', OP_COLORS.AVERAGE).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
 
         await line.transition().duration(800).attr('x2', margins.left + plot.w).end();
 
@@ -808,7 +787,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
             .attr('x', margins.left + plot.w - 10)
             .attr('y', yPos - 5)
             .attr('text-anchor', 'end')
-            .attr('fill', 'red').attr('font-weight', 'bold')
+            .attr('fill', OP_COLORS.AVERAGE).attr('font-weight', 'bold')
             .text(`Avg: ${avg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
             .attr('opacity', 0)
             .transition().duration(400).attr('opacity', 1);
@@ -821,7 +800,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
         const line = svg.append('line').attr('class', 'annotation avg-line')
             .attr('x1', xPos).attr('x2', xPos)
             .attr('y1', margins.top).attr('y2', margins.top)
-            .attr('stroke', 'red').attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
+            .attr('stroke', OP_COLORS.AVERAGE).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
 
         await line.transition().duration(800).attr('y2', margins.top + plot.h).end();
 
@@ -829,7 +808,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
             .attr('x', xPos)
             .attr('y', margins.top + 15)
             .attr('text-anchor', 'middle')
-            .attr('fill', 'red').attr('font-weight', 'bold')
+            .attr('fill', OP_COLORS.AVERAGE).attr('font-weight', 'bold')
             .text(`Avg: ${avg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
             .attr('opacity', 0)
             .transition().duration(400).attr('opacity', 1);
@@ -856,7 +835,6 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);
 
-    // If `last`, resolve IDs (e.g., "ops_0") to concrete category keys for DOM selection
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
         const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
@@ -875,10 +853,9 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
 
     const valueA = getMarkValue(barA.node());
     const valueB = getMarkValue(barB.node());
-    const diffValue = result.value;
 
-    const colorA = "#1f77b4";
-    const colorB = "#ff7f0e";
+    const colorA = OP_COLORS.DIFF_A;
+    const colorB = OP_COLORS.DIFF_B;
     const animationPromises = [];
 
     animationPromises.push(
@@ -936,15 +913,6 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
             .text(t.value);
     });
 
-    // const resultText = `Difference (${visKeyA} vs ${visKeyB}): ${fmtNum(Math.abs(diffValue))}`;
-    // svg.append("text")
-    //     .attr("class", "annotation")
-    //     .attr("x", margins.left)
-    //     .attr("y", margins.top - 10)
-    //     .attr("font-size", 14).attr("font-weight", "bold")
-    //     .attr("fill", "#333")
-    //     .text(resultText);
-
     await Promise.all(animationPromises).catch(() => {});
 
     return [diffDatum];
@@ -963,9 +931,8 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
 
     const selected = resultArray[0];
     const pickedId = String(selected.target);
-    const hlColor = '#ff6961';
+    const hlColor = OP_COLORS.NTH;
 
-    const bars = selectAllMarks(g);
     const targetBar = selectBarByKey(g, pickedId);
 
     if (targetBar.empty()) {
@@ -1012,14 +979,6 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
         .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
         .text(String(val));
 
-    // svg.append('text').attr('class', 'annotation')
-    //     .attr('x', margins.left)
-    //     .attr('y', margins.top - 10)
-    //     .attr('font-size', 14)
-    //     .attr('font-weight', 'bold')
-    //     .attr('fill', hlColor)
-    //     .text(`Nth: ${String(op?.from || 'left')} ${String(op?.n || 1)}`);
-
     return isLast ? [selected] : resultArray;
 }
 
@@ -1030,15 +989,13 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
     const totalCount = result ? Number(result.value) : 0;
     const bars = selectAllMarks(g);
     if (bars.empty()) {
-        // svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', '#20c997').text(`Count: ${totalCount}`);
         return result ? [result] : [];
     }
-    const baseColor = '#69b3a2';
-    const hlColor = '#20c997';
+    const baseColor = '#69b3a2'; // This color is not in the palette, kept for visual effect.
+    const hlColor = OP_COLORS.COUNT;
     await bars.transition().duration(150).attr('fill', baseColor).attr('opacity', 0.3).end();
     const nodes = bars.nodes();
     const items = nodes.map((node) => {
-        const sel = d3.select(node);
         const x = +node.getAttribute('x') || 0;
         const y = +node.getAttribute('y') || 0;
         const w = +node.getAttribute('width') || 0;
@@ -1062,6 +1019,6 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
         svg.append('text').attr('class', 'annotation count-label').attr('x', x).attr('y', y).attr('text-anchor', 'middle').attr('font-size', 12).attr('font-weight', 'bold').attr('fill', hlColor).attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke').text(String(i + 1)).attr('opacity', 0).transition().duration(125).attr('opacity', 1);
         await delay(60);
     }
-    // svg.append('text').attr('class', 'annotation').attr('x', margins.left).attr('y', margins.top - 10).attr('font-size', 14).attr('font-weight', 'bold').attr('fill', hlColor).text(`Count: ${totalCount}`).attr('opacity', 0).transition().duration(200).attr('opacity', 1);
+
     return isLast ? (result ? [result] : []) : (result ? [result] : []);
 }
