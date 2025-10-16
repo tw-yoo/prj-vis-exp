@@ -21,7 +21,7 @@ export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const g = svg.select(".plot-area");
 
-    // fields set by renderer
+    // fields set by ren`derer
     const xField = svg.attr("data-x-field");
     const yField = svg.attr("data-y-field");
 
