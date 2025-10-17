@@ -230,7 +230,7 @@ export async function renderChart(chartId, spec) {
             console.warn(`Unknown chartType type: ${chartType}`);
     }
     stripAxisTitles(canvas);
-    ensureTempTableBelow(chartId, spec);
+    // ensureTempTableBelow(chartId, spec);
 }
 
 export function buildSimpleBarSpec(dvList, opts = {}) {

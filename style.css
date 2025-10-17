@@ -211,3 +211,44 @@ html, body {
 #chart, #chart * {
     -webkit-tap-highlight-color: transparent;
 }
+
+/* 차트 아래 텍스트 */
+.ops-explain-block {
+    text-align: center;
+    line-height: 1.35;
+    font-size: 20px;
+    max-width: 80%;
+    word-break: break-word;
+}
+/* 차트 아래 UI 스택: 차트 다음 형제 */
+.chart-ui-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;       /* 텍스트-버튼 간격 */
+    margin-top: 16px;
+}
+
+/* 텍스트 */
+.chart-ui-stack .ops-explain-block {
+    text-align: center;
+    line-height: 1.35;
+    font-size: 20px;
+    max-width: 80%;
+    word-break: break-word;
+}
+
+/* 버튼 박스 */
+.chart-ui-stack .nav-overlay {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 8px;
+    background: rgba(255,255,255,0.95);
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.chart-ui-stack .nav-overlay .nav-btn { appearance: none; border: 0; padding: 6px 10px; border-radius: 4px; background: #f1f5f9; cursor: pointer; }
+.chart-ui-stack .nav-overlay .nav-btn:disabled { opacity: .5; cursor: not-allowed; }
+.chart-ui-stack .nav-overlay .nav-step-text { font-weight: 700; min-width: 48px; text-align: center; }

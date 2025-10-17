@@ -1,5 +1,12 @@
 import {OperationType} from "../../../object/operationType.js";
-import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
+import {
+    buildSimpleBarSpec,
+    dataCache,
+    lastCategory,
+    lastMeasure,
+    renderChart,
+    stackChartToTempTable
+} from "../../../util/util.js";
 import {
     getSvgAndSetup,
     clearAllAnnotations,

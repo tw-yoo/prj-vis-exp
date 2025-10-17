@@ -496,10 +496,10 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const animationPromises = [];
 
     animationPromises.push(
-        barA.transition().duration(600).attr("fill", colorA).end()
+        await barA.transition().duration(600).attr("fill", colorA).end()
     );
     animationPromises.push(
-        barB.transition().duration(600).attr("fill", colorB).end()
+        await barB.transition().duration(600).attr("fill", colorB).end()
     );
 
     let xScale, yScale;

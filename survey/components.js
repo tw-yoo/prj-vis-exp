@@ -127,90 +127,186 @@ export function createRankingQuestion({ name, questionText, options }) {
     l.textContent = questionText;
     f.append(l);
 
-    // hidden input to store ordered values (CSV)
+    // hidden input to store ordered values (CSV; length === options.length)
     const hidden = document.createElement('input');
     hidden.type = 'hidden';
     hidden.name = name;
     hidden.value = '';
     f.append(hidden);
 
-    // state
-    const order = []; // stores indices (0..n-1) in the order clicked
+    // help text
+    const help = document.createElement('p');
+    help.className = 'ranking-help';
+    help.textContent = 'Assign each option to a rank: drag an option to a number above, or click an option and then click a rank.';
+    f.append(help);
 
-    // container for options (4 methods)
-    const opts = document.createElement('div');
-    opts.className = 'rank-options';
+    // state: assignments[rankIndex] = optionIndex | null
+    const assignments = new Array(options.length).fill(null);
+    let selectedOption = null; // index of currently selected option button
 
-    // utility: update UI badges according to `order`
-    const updateBadges = () => {
-        // set rank numbers and classes
-        const children = Array.from(opts.querySelectorAll('.rank-option'));
-        children.forEach((btn) => {
-            const i = Number(btn.dataset.index);
-            const pos = order.indexOf(i);
-            const badge = btn.querySelector('.rank-badge');
-            if (pos === -1) {
-                btn.classList.remove('has-rank');
-                btn.setAttribute('aria-pressed', 'false');
-                if (badge) badge.textContent = '';
-            } else {
-                btn.classList.add('has-rank');
-                btn.setAttribute('aria-pressed', 'true');
-                if (badge) badge.textContent = String(pos + 1);
-            }
-        });
-        // update hidden input as CSV of option values
-        const orderedValues = order.map(i => String(options[i]));
+    // ---------- utilities ----------
+    const dispatchResponse = () => {
+        const orderedValues = assignments.map(idx => (idx === null ? '' : String(options[idx])));
         hidden.value = orderedValues.join(',');
-        // dispatch survey-response event for the framework to capture
         const responseEvent = new CustomEvent('survey-response', {
             detail: { name, value: orderedValues }
         });
         document.dispatchEvent(responseEvent);
     };
 
-    // click handler toggles membership; removing a middle rank reindexes others
-    const onToggle = (i) => {
-        const pos = order.indexOf(i);
-        if (pos === -1) {
-            // add to end (limit to options.length)
-            if (order.length < options.length) order.push(i);
-        } else {
-            // remove and reindex
-            order.splice(pos, 1);
-        }
-        updateBadges();
+    const ranks = [];     // DOM buttons for rank slots
+    const optBtns = [];   // DOM buttons for options
+
+    const updateUI = () => {
+        // Update rank slots: show number and (if assigned) the option label
+        ranks.forEach((slot, r) => {
+            const assignedIdx = assignments[r];
+            if (assignedIdx === null) {
+                slot.textContent = String(r + 1);
+                slot.classList.remove('has-assignment');
+                slot.removeAttribute('data-option-index');
+                slot.setAttribute('aria-label', `Rank ${r + 1} (empty)`);
+            } else {
+                const label = String(options[assignedIdx]);
+                slot.textContent = `${r + 1}. ${label}`;
+                slot.classList.add('has-assignment');
+                slot.dataset.optionIndex = String(assignedIdx);
+                slot.setAttribute('aria-label', `Rank ${r + 1}: ${label}`);
+            }
+        });
+
+        // Update option buttons: badge shows assigned rank (if any), selected styling
+        optBtns.forEach((btn, i) => {
+            const badge = btn.querySelector('.rank-badge');
+            const pos = assignments.indexOf(i);
+            const hasRank = pos !== -1;
+
+            btn.classList.toggle('has-rank', hasRank);
+            btn.classList.toggle('is-selected', selectedOption === i);
+            btn.setAttribute('aria-pressed', selectedOption === i ? 'true' : 'false');
+
+            if (badge) badge.textContent = hasRank ? String(pos + 1) : '';
+        });
     };
 
-    // build buttons
+    const assign = (optionIndex, rankIndex) => {
+        // Remove existing placement of this option
+        for (let r = 0; r < assignments.length; r++) {
+            if (assignments[r] === optionIndex) assignments[r] = null;
+        }
+        // Replace whatever was in the target slot
+        assignments[rankIndex] = optionIndex;
+
+        // After assignment, clear selection for faster multiple placements
+        selectedOption = null;
+
+        dispatchResponse();
+        updateUI();
+    };
+
+    const clearRank = (rankIndex) => {
+        assignments[rankIndex] = null;
+        dispatchResponse();
+        updateUI();
+    };
+
+    // ---------- UI: rank slots (top row) ----------
+    const rankRow = document.createElement('div');
+    rankRow.className = 'rank-grid';
+    for (let r = 0; r < options.length; r++) {
+        const slot = document.createElement('button');
+        slot.type = 'button';
+        slot.className = 'rank-slot';
+        slot.dataset.rank = String(r);
+        slot.textContent = String(r + 1);
+        slot.setAttribute('aria-pressed', 'false');
+        slot.setAttribute('aria-label', `Rank ${r + 1} (empty)`);
+
+        // Click-to-assign: if an option is selected, assign it here;
+        // if none selected and slot occupied, clicking clears it.
+        slot.addEventListener('click', () => {
+            if (selectedOption !== null) {
+                assign(selectedOption, r);
+            } else if (assignments[r] !== null) {
+                clearRank(r);
+            }
+        });
+
+        // Drag target
+        slot.addEventListener('dragover', (e) => {
+            e.preventDefault(); // allow drop
+        });
+        slot.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const data = e.dataTransfer.getData('text/plain');
+            const i = Number(data);
+            if (!Number.isNaN(i) && i >= 0 && i < options.length) {
+                assign(i, r);
+            }
+        });
+
+        ranks.push(slot);
+        rankRow.append(slot);
+    }
+    f.append(rankRow);
+
+    // ---------- UI: option pool (bottom row) ----------
+    const pool = document.createElement('div');
+    pool.className = 'option-pool';
+
     options.forEach((label, i) => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'rank-option';
         btn.dataset.index = String(i);
         btn.setAttribute('aria-pressed', 'false');
-        btn.setAttribute('aria-label', `${label} ranking toggle`);
+        btn.setAttribute('aria-label', `${label} (select, then click a rank)`);
 
-        const badge = document.createElement('span');
-        badge.className = 'rank-badge';
-        badge.setAttribute('aria-hidden', 'true');
+        // Draggable assignment
+        btn.draggable = true;
+        btn.addEventListener('dragstart', (e) => {
+            try {
+                e.dataTransfer.setData('text/plain', String(i));
+                e.dataTransfer.effectAllowed = 'move';
+            } catch (_) {}
+        });
+
+        // Click to select / deselect
+        btn.addEventListener('click', () => {
+            selectedOption = (selectedOption === i) ? null : i;
+            updateUI();
+        });
+
+        // Keyboard: Space/Enter to select; numbers 1..N to assign directly
+        btn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                selectedOption = (selectedOption === i) ? null : i;
+                updateUI();
+                return;
+            }
+            const digit = Number(e.key);
+            if (Number.isInteger(digit) && digit >= 1 && digit <= options.length) {
+                e.preventDefault();
+                assign(i, digit - 1);
+            }
+        });
 
         const text = document.createElement('span');
         text.className = 'option-text';
         text.textContent = label;
 
-        btn.append(badge, text);
-        btn.addEventListener('click', () => onToggle(i));
-        btn.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onToggle(i);
-            }
-        });
-        opts.append(btn);
+        btn.append(text);
+        pool.append(btn);
+        optBtns.push(btn);
     });
 
-    f.append(opts);
+    f.append(pool);
+
+    // Initialize
+    dispatchResponse();
+    updateUI();
+
     return f;
 }
 
