@@ -138,19 +138,17 @@ await runOpsSequence({
             }
 
             const compareData = allCachedResults.map((datum, idx) => {
-                const regionLabel = datum.id === 'ops_0' ? 'North America' 
-                                  : datum.id === 'ops2_0' ? 'Europe'
-                                  : datum.id || `Region ${idx}`;
-                
-                return new DatumValue(
-                    'region',        
-                    datum.measure,      
-                    regionLabel,      
-                    null,              
-                    datum.value,       
-                    datum.id            
-                );
-            });
+    let regionLabel = `Result ${idx + 1}`;
+    
+    return new DatumValue(
+        'region',        
+        datum.measure,      
+        regionLabel,      
+        null,              
+        datum.value,       
+        datum.id            
+    );
+});
 
             const compareSpec = buildSimpleBarSpec(compareData);
             await renderChart(chartId, compareSpec);
