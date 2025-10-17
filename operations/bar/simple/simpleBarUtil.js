@@ -123,6 +123,7 @@ await runOpsSequence({
         await renderSimpleBarChart(chartId, vlSpec);
     },
     onRunOpsList: async (opsList, isLast) => {
+
         const { orientation, xField, yField } = getSvgAndSetup(chartId);
         const fullData = [...chartDataStore[chartId]];
         const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
@@ -158,6 +159,8 @@ await runOpsSequence({
             return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
             
         } else {
+                await renderSimpleBarChart(chartId, vlSpec);
+                await delay(500); // 렌더링 대기
             return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0);
         }
     },
