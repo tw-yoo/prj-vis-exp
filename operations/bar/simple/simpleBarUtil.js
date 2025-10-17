@@ -128,10 +128,35 @@ await runOpsSequence({
         const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
         
         if (isLast) {
-            const allDatumValues = Object.values(dataCache).flat();
-            const allSpec = buildSimpleBarSpec(allDatumValues);
-            await renderChart(chartId, allSpec);
-            return await executeSimpleBarOpsList(chartId, opsList, allDatumValues, true, 0);
+
+            const allCachedResults = Object.values(dataCache).flat();
+            
+            if (allCachedResults.length === 0) {
+                console.warn('last stage: no cached data');
+                return [];
+            }
+
+            const compareData = allCachedResults.map((datum, idx) => {
+                const regionLabel = datum.id === 'ops_0' ? 'North America' 
+                                  : datum.id === 'ops2_0' ? 'Europe'
+                                  : datum.id || `Region ${idx}`;
+                
+                return new DatumValue(
+                    'region',        
+                    datum.measure,      
+                    regionLabel,      
+                    null,              
+                    datum.value,       
+                    datum.id            
+                );
+            });
+
+            const compareSpec = buildSimpleBarSpec(compareData);
+            await renderChart(chartId, compareSpec);
+            
+
+            return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
+            
         } else {
             return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0);
         }

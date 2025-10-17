@@ -256,15 +256,40 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
     const categoryKey = filteredData[0]?.category || xField;
     const plainRows = filteredData.map(d => ({ [categoryKey]: d.target, value: d.value, group: d.group }));
 
-    const bars = selectAllMarks(g).data(plainRows, d => String(d[categoryKey]));
+    // ✅ 핵심 수정: 필터링 전에 먼저 하이라이트 애니메이션
+    const filteredKeys = new Set(filteredData.map(d => String(d.target)));
+    const allBars = selectAllMarks(g);
+    
+    // 1단계: 필터된 막대는 하이라이트, 나머지는 흐리게
+    const matchedBars = allBars.filter(function() {
+        const d = d3.select(this).datum();
+        return d && filteredKeys.has(String(d.target || d[categoryKey]));
+    });
+    const unmatchedBars = allBars.filter(function() {
+        const d = d3.select(this).datum();
+        return !d || !filteredKeys.has(String(d.target || d[categoryKey]));
+    });
 
     await Promise.all([
-        bars.transition().duration(800).attr("fill", matchColor).end(),
-        bars.exit().transition().duration(800).attr("opacity", 0).remove().end()
+        matchedBars.transition().duration(600)
+            .attr("fill", matchColor)
+            .attr("opacity", 1)
+            .end(),
+        unmatchedBars.transition().duration(600)
+            .attr("opacity", 0.2)
+            .end()
     ]);
+
+    await delay(300);
+
+    // 2단계: 이제 데이터 바인딩 변경 (필터된 것만 남김)
+    const bars = selectAllMarks(g).data(plainRows, d => String(d[categoryKey]));
+
+    await bars.exit().transition().duration(600).attr("opacity", 0).remove().end();
 
     await delay(250);
 
+    // 3단계: 재배치
     const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.target)).range([0, plot.w]).padding(0.2);
 
     await Promise.all([
@@ -277,6 +302,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
             .end()
     ]);
 
+    // 4단계: 값 라벨
     bars.each(function(d) {
         const bar = d3.select(this);
         const yMax = d3.max(data, datum => +datum.value) || 0;
@@ -300,6 +326,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
       ? [new DatumValue('filter', 'count', 'result', null, Array.isArray(filteredData) ? filteredData.length : 0, 'last_filter')]
       : filteredData;
 }
+
 
 export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, orientation, plot } = getSvgAndSetup(chartId);
