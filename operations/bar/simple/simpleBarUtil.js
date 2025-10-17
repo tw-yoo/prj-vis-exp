@@ -104,39 +104,64 @@ async function fullChartReset(chartId) {
 }
 
 export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
-    const svg = d3.select(`#${chartId}`).select("svg");
-    if (svg.empty()) {
-        console.error("runSimpleBarOps: SVG not found. Please render the chart first.");
-        return;
-    }
-    if (!chartDataStore[chartId]) {
-        console.error("runSimpleBarOps: No data in store. Please render the chart first.");
-        return;
-    }
+    await renderSimpleBarChart(chartId, vlSpec);
 
-    const fullData = [...chartDataStore[chartId]];
+    const raw = chartDataStore[chartId] || [];
+
     const { orientation, xField, yField } = getSvgAndSetup(chartId);
-    const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
+    const baseDatumValues = convertToDatumValues(raw, xField, yField, orientation);
+    const ORIGINAL_DATA = baseDatumValues.slice();
 
-    // reset cache
+
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
 
-    await runOpsSequence({
-        chartId,
-        opsSpec,
-        textSpec,
-        onReset: async () => { await fullChartReset(chartId); },
-        onRunOpsList: async (opsList, isLast) => {
-            if (isLast) {
-                const allDatumValues = Object.values(dataCache).flat();
-                const allSpec = buildSimpleBarSpec(allDatumValues);
-                await renderChart(chartId, allSpec);
-                return await executeSimpleBarOpsList(chartId, opsList, allDatumValues, true, 0);
-            } else {
-                const currentData = await executeSimpleBarOpsList(chartId, opsList, baseDatumValues.slice(), false, 0);
-                return currentData;
+await runOpsSequence({
+    chartId,
+    opsSpec,
+    textSpec,
+    onReset: async () => { 
+        await renderSimpleBarChart(chartId, vlSpec);
+    },
+    onRunOpsList: async (opsList, isLast) => {
+
+        const { orientation, xField, yField } = getSvgAndSetup(chartId);
+        const fullData = [...chartDataStore[chartId]];
+        const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
+        
+        if (isLast) {
+
+            const allCachedResults = Object.values(dataCache).flat();
+            
+            if (allCachedResults.length === 0) {
+                console.warn('last stage: no cached data');
+                return [];
             }
-        },
+
+            const compareData = allCachedResults.map((datum, idx) => {
+    let regionLabel = `Result ${idx + 1}`;
+    
+    return new DatumValue(
+        'region',        
+        datum.measure,      
+        regionLabel,      
+        null,              
+        datum.value,       
+        datum.id            
+    );
+});
+
+            const compareSpec = buildSimpleBarSpec(compareData);
+            await renderChart(chartId, compareSpec);
+            
+
+            return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
+            
+        } else {
+                await renderSimpleBarChart(chartId, vlSpec);
+                await delay(500); // 렌더링 대기
+            return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0);
+        }
+    },
         onCache: (opKey, currentData) => {
             if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
                 dataCache[opKey] = [currentData];
