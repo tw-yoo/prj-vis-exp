@@ -1,6 +1,7 @@
 import {renderChart} from "../util/util.js";
 import {executeAtomicOps} from "../router/router.js";
 import {getVegaLiteSpec, getOperationSpec} from "./util.js"
+import { runOpsSequence } from "../operations/operationUtil.js";
 
 export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = null, submitFormId = null, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null }) {
     const w = document.createElement('div');
@@ -86,14 +87,48 @@ export async function createChart(cId) {
     vegaLiteSpec.data.url = "../" + vegaLiteSpec.data.url;
     await renderChart(chartId, vegaLiteSpec);
 
-    const operationSpec = await getOperationSpec(cId);
+    // Enable interactive operation sequence only when opspec is declared on the chart placeholder
+    const rawOpSpec = (container.getAttribute('data-opspec') || container.dataset.opspec || '').trim();
+    if (rawOpSpec) {
+        // Resolve path: allow full path (*.json) or a logical key mapping to specs/ops/<key>.json
+        const opSpecPath = (/\.json$/i.test(rawOpSpec) || rawOpSpec.includes('/'))
+            ? rawOpSpec
+            : `specs/ops/${rawOpSpec}.json`;
 
-    if (operationSpec) {
-        for (let i = 0; i < 10; i ++) {
-            await renderChart(chartId, vegaLiteSpec);
-            await sleep(3000)
-            await executeAtomicOps(chartId, vegaLiteSpec, operationSpec);
-            await sleep(3000)
+        let operationSpec = null;
+        try {
+            const resp = await fetch(opSpecPath, { cache: 'no-store' });
+            if (!resp.ok) throw new Error(`Failed to load opspec: ${resp.status}`);
+            operationSpec = await resp.json();
+        } catch (e) {
+            console.error('Failed to fetch operation spec', e);
+        }
+
+        if (operationSpec) {
+            // Optional mapping for captions if provided inside the spec
+            const textSpec = (operationSpec.text || operationSpec.caption || null) || {};
+
+            // Minimal adapter: run a list of ops sequentially
+            async function applyOpsList(list) {
+                if (!Array.isArray(list)) return;
+                for (const op of list) {
+                    // If your router supports grouped execution, replace with one call using { ops: list }
+                    await executeAtomicOps(chartId, vegaLiteSpec, { ops: [op] });
+                }
+            }
+
+            await runOpsSequence({
+                chartId,
+                vlSpec: vegaLiteSpec,
+                opsSpec: operationSpec.ops || operationSpec, // supports either {ops: {...}} or a plain map
+                textSpec,
+                onReset: async () => { await renderChart(chartId, vegaLiteSpec); },
+                onRunOpsList: async (opsList /*, isLast */) => { await applyOpsList(opsList); },
+                onCache: null,
+                isLastKey: (k) => k === 'last' || /(^|[_-])last$/i.test(k),
+                delayMs: 0,
+                navOpts: { x: 15, y: 15 }
+            });
         }
     }
 }

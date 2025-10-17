@@ -45,7 +45,7 @@ function renderComponents() {
 
   document.querySelectorAll('[data-component="chart"]').forEach(async el  => {
     const { chart } = el.dataset;
-    await createChart(chart);
+    await createChart(chart, el);
   });
 
   document.querySelectorAll('[data-component="likert"]').forEach(el => {
