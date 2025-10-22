@@ -1,5 +1,5 @@
 import {OperationType} from "../../../object/operationType.js";
-import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
+import {dataCache, lastCategory, lastMeasure, buildSimpleBarSpec, renderChart} from "../../../util/util.js";
 import {
     clearAllAnnotations,
     delay,
@@ -99,7 +99,35 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         textSpec,
         onReset: async () => { await fullChartReset(chartId); },
         onRunOpsList: async (opsList, isLast) => {
-            // groupedBar는 last에서 simple bar로 합치지 않음 (필요하다면 동일 패턴 적용 가능)
+            if (isLast) {
+                const cached = Object.values(dataCache).flat().filter(Boolean);
+                const datumOnly = cached.filter(d => d instanceof DatumValue);
+                if (datumOnly.length === 0) {
+                    console.warn('groupedBar last stage: no cached datum values');
+                    return [];
+                }
+
+                const normalized = datumOnly.map((d, idx) => {
+                    const category = d.category ?? categoryLabel ?? lastCategory ?? 'category';
+                    const measure  = d.measure  ?? measureLabel  ?? lastMeasure  ?? 'value';
+                    const baseTarget = String(d.target ?? `Result ${idx + 1}`);
+                    const groupLabel = d.group != null ? String(d.group) : null;
+                    const displayTarget = groupLabel ? `${baseTarget} · ${groupLabel}` : baseTarget;
+                    const id = d.id ?? `last_${idx}`;
+                    return new DatumValue(category, measure, displayTarget, d.group ?? null, d.value, id);
+                });
+
+                const specOpts = {};
+                const allCats = new Set(normalized.map(d => d.category).filter(Boolean));
+                const allMeasures = new Set(normalized.map(d => d.measure).filter(Boolean));
+                if (allCats.size !== 1) specOpts.axisLabels = { ...(specOpts.axisLabels || {}), x: null };
+                if (allMeasures.size !== 1) specOpts.axisLabels = { ...(specOpts.axisLabels || {}), y: null };
+
+                const simpleSpec = buildSimpleBarSpec(normalized, specOpts);
+                await renderChart(chartId, simpleSpec);
+                return await executeGroupedBarOpsList(chartId, opsList, normalized, true, 0);
+            }
+
             const base = datumValues.slice();
             return await executeGroupedBarOpsList(chartId, opsList, base, false, 0);
         },
@@ -108,8 +136,8 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
             arr.forEach((datum, idx) => {
                 if (datum instanceof DatumValue) {
                     datum.id = `${opKey}_${idx}`;
-                    datum.category = lastCategory ?? categoryLabel;
-                    datum.measure  = lastMeasure  ?? measureLabel;
+                    if (!datum.category || datum.category === 'x') datum.category = categoryLabel ?? lastCategory;
+                    if (!datum.measure || datum.measure === 'y') datum.measure  = measureLabel  ?? lastMeasure;
                 }
             });
             dataCache[opKey] = arr;
@@ -185,12 +213,16 @@ export async function renderGroupedBarChart(chartId, spec) {
             .attr("width", x1.bandwidth())
             .attr("height", d => plotH - yScale(d[yField]))
             .attr("fill", d => colorScale(d[colorField]))
-            .datum(d => ({
+            .datum((d, idx) => ({
                 facet: d[facetField],
                 key: d[xField],
-                value: d[yField]
+                group: d[colorField],
+                value: d[yField],
+                id: `${d[facetField]}-${d[xField]}-${idx}`
             }))
-            .attr("data-id", d => `${d.facet}-${d.key}`)
+            .attr("data-id", d => d.id)
+            .attr("data-target", d => d.facet)
+            .attr("data-group", d => d.key)
             .attr("data-value", d => d.value);
     });
 
@@ -276,7 +308,8 @@ export function toGroupedDatumValues(rawData, spec) {
       const v = aggregateFor(fv, sg);
       const row = { [facetLabel]: fv, [measureLabel]: v, group: sg };
       rows.push(row);
-      datumValues.push(new DatumValue(facetField || 'category', measureLabel, fv, sg, v, undefined));
+      const id = `${fv ?? 'facet'}-${sg ?? 'group'}`;
+      datumValues.push(new DatumValue(facetField || 'category', measureLabel, fv, sg, v, id));
     });
   });
 

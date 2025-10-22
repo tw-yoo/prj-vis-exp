@@ -72,14 +72,34 @@ async function applySimpleBarOperation(chartId, operation, currentData, isLast =
     return await fn(chartId, operation, currentData, isLast);
 }
 
-async function executeSimpleBarOpsList(chartId, opsList, currentData, isLast = false, delayMs = 0) {
-    for (let i = 0; i < opsList.length; i++) {
-        const operation = opsList[i];
-        currentData = await applySimpleBarOperation(chartId, operation, currentData, isLast);
-        await delay(1500);
+async function executeSimpleBarOpsList(chartId, opsList, initialData, isLast = false, delayMs = 0) {
+    const list = Array.isArray(opsList) ? opsList : [];
+    let workingData = initialData;
+    let lastResult = initialData;
+    const pauseMs = delayMs > 0 ? delayMs : 1500;
 
+    for (let i = 0; i < list.length; i++) {
+        const operation = list[i];
+        const inputData = workingData;
+        const result = await applySimpleBarOperation(chartId, operation, inputData, isLast);
+        lastResult = result;
+
+        const shouldPreserveInput = !!(result && result.__keepInput);
+        if (!shouldPreserveInput) {
+            if (Array.isArray(result)) {
+                workingData = result;
+            } else if (result instanceof IntervalValue || result instanceof BoolValue || result instanceof ScalarValue || result == null) {
+                // keep workingData as-is for scalar/bool/interval or null results
+            } else {
+                workingData = result;
+            }
+        }
+
+        if (pauseMs > 0) {
+            await delay(pauseMs);
+        }
     }
-    return currentData;
+    return lastResult;
 }
 
 
@@ -129,33 +149,71 @@ await runOpsSequence({
         const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
         
         if (isLast) {
-
-            const allCachedResults = Object.values(dataCache).flat();
-            
+            const allCachedResults = Object.values(dataCache).flat().filter(d => d != null);
             if (allCachedResults.length === 0) {
                 console.warn('last stage: no cached data');
                 return [];
             }
 
-            const compareData = allCachedResults.map((datum, idx) => {
-    let regionLabel = `Result ${idx + 1}`;
-    
-    return new DatumValue(
-        'region',        
-        datum.measure,      
-        regionLabel,      
-        null,              
-        datum.value,       
-        datum.id            
-    );
-});
+            const datumResults = allCachedResults.filter(d => d instanceof DatumValue);
+            if (datumResults.length === 0) {
+                console.warn('last stage: no DatumValue results to visualize');
+                return [];
+            }
+            if (datumResults.length !== allCachedResults.length) {
+                console.warn('last stage: skipping non-DatumValue cached results');
+            }
 
-            const compareSpec = buildSimpleBarSpec(compareData);
+            const categories = new Set();
+            const measures = new Set();
+            const sanitizedDatumResults = datumResults.map(d => {
+                const categoryName = (typeof d.category === 'string') ? d.category.trim() : '';
+                if (categoryName) categories.add(categoryName);
+                const measureName = (typeof d.measure === 'string') ? d.measure.trim() : '';
+                if (measureName) measures.add(measureName);
+                return d;
+            });
+
+            const firstCategory = categories.size > 0 ? categories.values().next().value : '';
+            const firstMeasure = measures.size > 0 ? measures.values().next().value : '';
+            const canonicalCategory = (categories.size === 1 && firstCategory) ? firstCategory : 'result';
+            const canonicalMeasure = (measures.size === 1 && firstMeasure) ? firstMeasure : 'value';
+
+            const axisLabelOverrides = {};
+            if (!(categories.size === 1 && firstCategory)) {
+                axisLabelOverrides.x = null;
+            }
+            if (!(measures.size === 1 && firstMeasure)) {
+                axisLabelOverrides.y = null;
+            }
+
+            const compareData = sanitizedDatumResults.map((datum, idx) => {
+                const targetLabel = (() => {
+                    if (datum && datum.target != null) {
+                        const t = String(datum.target).trim();
+                        if (t.length > 0) return t;
+                    }
+                    return `Result ${idx + 1}`;
+                })();
+                return new DatumValue(
+                    canonicalCategory,
+                    canonicalMeasure,
+                    targetLabel,
+                    datum.group ?? null,
+                    datum.value,
+                    datum.id
+                );
+            });
+
+            const specOpts = {};
+            if (Object.keys(axisLabelOverrides).length > 0) {
+                specOpts.axisLabels = axisLabelOverrides;
+            }
+
+            const compareSpec = buildSimpleBarSpec(compareData, specOpts);
             await renderChart(chartId, compareSpec);
-            
 
             return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
-            
         } else {
                 await renderSimpleBarChart(chartId, vlSpec);
                 await delay(500); // 렌더링 대기
@@ -169,9 +227,17 @@ await runOpsSequence({
                 const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);
                 arr.forEach((datum, idx) => {
                     if (datum instanceof DatumValue) {
-                        datum.id = `${opKey}_${idx}`;
-                        datum.category = lastCategory ?? xField;
-                        datum.measure  = lastMeasure  ?? yField;
+                        if (!datum.id) {
+                            datum.id = `${opKey}_${idx}`;
+                        }
+                        const hasCategory = typeof datum.category === 'string' && datum.category.trim().length > 0;
+                        const hasMeasure = typeof datum.measure === 'string' && datum.measure.trim().length > 0;
+                        if (!hasCategory) {
+                            datum.category = xField;
+                        }
+                        if (!hasMeasure) {
+                            datum.measure = yField;
+                        }
                     }
                 });
                 dataCache[opKey] = arr;
@@ -189,6 +255,17 @@ export async function renderSimpleBarChart(chartId, spec) {
     const xType = spec.encoding.x.type;
     const yType = spec.encoding.y.type;
     const isHorizontal = xType === 'quantitative' && yType !== 'quantitative';
+    const axisLabelsMeta = spec?.meta?.axisLabels ?? {};
+    const normalizeOptionalLabel = (value) => {
+        if (value === undefined) return undefined;
+        if (value === null) return null;
+        const str = String(value).trim();
+        return str.length > 0 ? str : null;
+    };
+    const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x);
+    const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y);
+    const resolvedXAxisLabel = xAxisLabelOverride === undefined ? xField : xAxisLabelOverride;
+    const resolvedYAxisLabel = yAxisLabelOverride === undefined ? yField : yAxisLabelOverride;
 
     let data;
     if (spec.data && Array.isArray(spec.data.values)) {
@@ -288,7 +365,7 @@ export async function renderSimpleBarChart(chartId, spec) {
             .attr("width", d => xScale(d[xField]))
             .attr("height", yScale.bandwidth())
             .attr("fill", "#69b3a2")
-            .attr("data-id", d => d[yField])
+            .attr("data-id", d => d.id ?? d[yField])
             .attr("data-value", d => d[xField]);
     } else {
         const xDomain = spec.encoding.x.sort || data.map(d => d[xField]);
@@ -320,24 +397,28 @@ export async function renderSimpleBarChart(chartId, spec) {
             .attr("width", xScale.bandwidth())
             .attr("height", d => plotH - yScale(d[yField]))
             .attr("fill", "#69b3a2")
-            .attr("data-id", d => d[xField])
+            .attr("data-id", d => d.id ?? d[xField])
             .attr("data-value", d => d[yField]);
     }
 
-    svg.append("text")
-        .attr("class", "x-axis-label")
-        .attr("x", margin.left + plotW / 2)
-        .attr("y", height - margin.bottom + 40)
-        .attr("text-anchor", "middle")
-        .attr("font-size", 14)
-        .text(xField);
+    if (resolvedXAxisLabel) {
+        svg.append("text")
+            .attr("class", "x-axis-label")
+            .attr("x", margin.left + plotW / 2)
+            .attr("y", height - margin.bottom + 40)
+            .attr("text-anchor", "middle")
+            .attr("font-size", 14)
+            .text(resolvedXAxisLabel);
+    }
 
-    svg.append("text")
-        .attr("class", "y-axis-label")
-        .attr("transform", "rotate(-90)")
-        .attr("x", -(margin.top + plotH / 2))
-        .attr("y", margin.left - 45)
-        .attr("text-anchor", "middle")
-        .attr("font-size", 14)
-        .text(yField);
+    if (resolvedYAxisLabel) {
+        svg.append("text")
+            .attr("class", "y-axis-label")
+            .attr("transform", "rotate(-90)")
+            .attr("x", -(margin.top + plotH / 2))
+            .attr("y", margin.left - 45)
+            .attr("text-anchor", "middle")
+            .attr("font-size", 14)
+            .text(resolvedYAxisLabel);
+    }
 }

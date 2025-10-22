@@ -1,8 +1,0 @@
-{
-  "ops": [
-    { "op": "retrieveValue", "field": "country", "target": "USA" }
-  ],
-  "ops2": [
-    { "op": "retrieveValue", "field": "country", "target": "JPN" }
-  ]
-}

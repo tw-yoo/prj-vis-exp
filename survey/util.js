@@ -1,15 +1,14 @@
 export async function getVegaLiteSpec(chartId) {
-    let vegaLiteSpec;
-
-    await fetch(`specs/charts/ch_${chartId}.json`)
-        .then((r) => vegaLiteSpec = r.json())
-
-    return vegaLiteSpec;
+    const res = await fetch(`specs/charts/ch_${chartId}.json`, { cache: 'no-store' });
+    if (!res.ok) {
+        throw new Error(`Failed to load chart spec ch_${chartId}.json (HTTP ${res.status})`);
+    }
+    return await res.json();
 }
 
 export async function getOperationSpec(questionName) {
     try {
-        const res = await fetch(`specs/operations/op_${questionName}.json`);
+        const res = await fetch(`specs/ops/${questionName}.json`, { cache: 'no-store' });
         if (res.status === 404) return null;
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return await res.json();

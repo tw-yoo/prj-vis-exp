@@ -50,6 +50,17 @@ function selectBarsExcept(g, keys) {
     const set = new Set((keys || []).map(k => String(k)));
     return g.selectAll('rect').filter(function () { return !set.has(getBarKeyFromNode(this)); });
 }
+function markKeepInput(arr) {
+    if (!Array.isArray(arr)) return arr;
+    if (!Object.prototype.hasOwnProperty.call(arr, '__keepInput')) {
+        Object.defineProperty(arr, '__keepInput', {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
+    }
+    return arr;
+}
 export function getSvgAndSetup(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     const orientation = svg.attr("data-orientation") || "vertical";
@@ -81,7 +92,6 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     const { svg, g, orientation, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const hlColor = OP_COLORS.RETRIEVE_VALUE;
-    const baseColor = "#69b3a2";
     const selected = retrieveValue(data, op, isLast) || [];
     const bars = selectAllMarks(g);
     // For `last`, each datum carries a stable synthetic id (e.g., ops_0). Prefer that for DOM matching.
@@ -95,13 +105,12 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     });
     if (target.empty()) {
         console.warn("RetrieveValue: target bar(s) not found for key(s):", op?.target);
-        // Removed: await bars.transition().duration(300).attr("fill", baseColor).attr("opacity", 1);
-        return selected;
+        // Removed: await bars.transition().duration(300).attr("fill", "#69b3a2").attr("opacity", 1);
+        return markKeepInput(selected);
     }
+    target.interrupt();
+    target.attr("fill", hlColor).attr("opacity", 1);
     const animPromises = [];
-    animPromises.push(
-      target.transition().duration(600).attr("fill", hlColor).attr("opacity", 1).end()
-    );
     let xScale, yScale;
     if (orientation === 'vertical') {
         xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
@@ -178,11 +187,11 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
     await Promise.all(animPromises);
     if (isLast) {
       const first = selected[0];
-      return first ? [new DatumValue(first.category, first.measure, first.target, first.group, first.value, first.id)] : [];
+      const lastResult = first ? [new DatumValue(first.category, first.measure, first.target, first.group, first.value, first.id)] : [];
+      return markKeepInput(lastResult);
     }
-    return selected;
+    return markKeepInput(selected);
 }
-
 
 export async function simpleBarFilter(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
@@ -231,12 +240,12 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
             .attr("fill", OP_COLORS.FILTER_THRESHOLD).attr("font-size", 12).attr("font-weight", "bold").text(v);
     };
 
-    if (op.operator === 'in' || op.operator === 'not-in') {
-        const arr = Array.isArray(op.value) ? op.value : [op.value];
-        labelText = `Filter: ${op.field} ${op.operator} [${arr.join(', ')}]`;
-    } else {
-        labelText = `Filter: ${op.field} ${op.operator} ${op.value}`;
-    }
+    // if (op.operator === 'in' || op.operator === 'not-in') {
+    //     const arr = Array.isArray(op.value) ? op.value : [op.value];
+    //     labelText = `Filter: ${op.field} ${op.operator} [${arr.join(', ')}]`;
+    // } else {
+    //     labelText = `Filter: ${op.field} ${op.operator} ${op.value}`;
+    // }
 
     const numericOps = new Set(['>','>=','<','<=','==','eq']);
     if (numericOps.has(op.operator) && Number.isFinite(toNumber(op.value))) {
@@ -442,25 +451,24 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
         });
     });
 
-    if (minV !== undefined && maxV !== undefined) {
-        const rangeText = `Range: ${minV} ~ ${maxV}`;
-        const topLabel = svg.append("text").attr("class", "annotation")
-            .attr("x", margins.left).attr("y", margins.top - 10)
-            .attr("font-size", 14).attr("font-weight", "bold")
-            .attr("fill", hlColor).text(rangeText)
-            .attr("opacity", 0);
-
-        animationPromises.push(
-            topLabel.transition().duration(600).attr("opacity", 1).end()
-        );
-    }
+    // if (minV !== undefined && maxV !== undefined) {
+    //     const rangeText = `Range: ${minV} ~ ${maxV}`;
+    //     const topLabel = svg.append("text").attr("class", "annotation")
+    //         .attr("x", margins.left).attr("y", margins.top - 10)
+    //         .attr("font-size", 14).attr("font-weight", "bold")
+    //         .attr("fill", hlColor).text(rangeText)
+    //         .attr("opacity", 0);
+    //
+    //     animationPromises.push(
+    //         topLabel.transition().duration(600).attr("opacity", 1).end()
+    //     );
+    // }
 
     await Promise.all(animationPromises);
 
     const intervalResult = new IntervalValue(categoryAxisName, minV, maxV);
     return isLast ? intervalResult : intervalResult;
 }
-
 
 export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
@@ -474,8 +482,10 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
-        return found ? String(found.target ?? k) : k;
+        const foundById = data.find(d => String(d?.id) === k);
+        if (foundById) return String(foundById.id);
+        const foundByTarget = data.find(d => String(d?.target) === k);
+        return foundByTarget ? String(foundByTarget.target) : k;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);
@@ -517,6 +527,7 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         { bar: barA, key: keyA, value: valueA, color: colorA },
         { bar: barB, key: keyB, value: valueB, color: colorB }
     ];
+    const diffValue = (Number.isFinite(valueA) && Number.isFinite(valueB)) ? Math.abs(valueA - valueB) : null;
 
     targets.forEach(t => {
         if (!Number.isFinite(t.value)) return;
@@ -544,6 +555,78 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
             .text(t.value);
     });
 
+    if (orientation === "vertical" && Number.isFinite(diffValue)) {
+        const yA = margins.top + yScale(valueA);
+        const yB = margins.top + yScale(valueB);
+        if (Number.isFinite(yA) && Number.isFinite(yB)) {
+            const minY = Math.min(yA, yB);
+            const maxY = Math.max(yA, yB);
+            const diffX = margins.left + plot.w - 8;
+            const bridge = svg.append("line").attr("class", "annotation diff-line")
+                .attr("x1", diffX).attr("x2", diffX)
+                .attr("y1", minY).attr("y2", minY)
+                .attr("stroke", OP_COLORS.DIFF_LINE)
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5 5");
+            animationPromises.push(
+                bridge.transition().duration(400).attr("y2", maxY).end()
+            );
+
+            const labelY = (minY + maxY) / 2;
+            const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                .attr("x", diffX - 6)
+                .attr("y", labelY)
+                .attr("text-anchor", "end")
+                .attr("font-size", 12)
+                .attr("font-weight", "bold")
+                .attr("fill", OP_COLORS.DIFF_LINE)
+                .attr("stroke", "white")
+                .attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`Diff: ${diffValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                .attr("opacity", 0);
+            animationPromises.push(
+                diffLabel.transition().duration(400).attr("opacity", 1).end()
+            );
+        }
+    }
+
+    if (orientation === "horizontal" && Number.isFinite(diffValue)) {
+        const xA = margins.left + xScale(valueA);
+        const xB = margins.left + xScale(valueB);
+        if (Number.isFinite(xA) && Number.isFinite(xB)) {
+            const minX = Math.min(xA, xB);
+            const maxX = Math.max(xA, xB);
+            const diffY = margins.top + plot.h - 8;
+            const bridge = svg.append("line").attr("class", "annotation diff-line")
+                .attr("x1", minX).attr("x2", minX)
+                .attr("y1", diffY).attr("y2", diffY)
+                .attr("stroke", OP_COLORS.DIFF_LINE)
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5 5");
+            animationPromises.push(
+                bridge.transition().duration(400).attr("x2", maxX).end()
+            );
+
+            const labelX = (minX + maxX) / 2;
+            const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                .attr("x", labelX)
+                .attr("y", diffY + 16)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 12)
+                .attr("font-weight", "bold")
+                .attr("fill", OP_COLORS.DIFF_LINE)
+                .attr("stroke", "white")
+                .attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`Diff: ${diffValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                .attr("opacity", 0);
+            animationPromises.push(
+                diffLabel.transition().duration(400).attr("opacity", 1).end()
+            );
+        }
+    }
+
     await Promise.all(animationPromises).catch(() => {});
 
     return winner ? [winner] : [];
@@ -561,8 +644,10 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
-        return found ? String(found.target ?? k) : k;
+        const foundById = data.find(d => String(d?.id) === k);
+        if (foundById) return String(foundById.id);
+        const foundByTarget = data.find(d => String(d?.target) === k);
+        return foundByTarget ? String(foundByTarget.target) : k;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);
@@ -727,12 +812,29 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
     svg.append('line').attr('class', 'annotation value-line')
         .attr('x1', margins.left).attr('y1', margins.top + finalY)
         .attr('x2', margins.left + plot.w).attr('y2', margins.top + finalY)
-        .attr('stroke', OP_COLORS.SUM).attr('stroke-width', 2);
+        .attr('stroke', OP_COLORS.SUM)
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 5');
+
+    const centerX = margins.left + plot.w / 2;
+    const centerY = margins.top + finalY - 10;
+    const textAnchor = 'middle';
 
     svg.append('text').attr('class', 'annotation value-tag')
-        .attr('x', margins.left + plot.w - 10).attr('y', margins.top + finalY - 10)
-        .attr('fill', OP_COLORS.SUM).attr('font-weight', 'bold')
-        .attr('text-anchor', 'end').text(`Sum: ${totalSum.toLocaleString()}`);
+        .attr('x', centerX)
+        .attr('y', centerY)
+        .attr('text-anchor', textAnchor)
+        .attr('font-size', 12)
+        .attr('font-weight', 'bold')
+        .attr('fill', OP_COLORS.SUM)
+        .attr('stroke', 'white')
+        .attr('stroke-width', 3)
+        .attr('paint-order', 'stroke')
+        .text(`Sum: ${totalSum.toLocaleString()}`)
+        .attr('opacity', 0)
+        .transition()
+        .duration(400)
+        .attr('opacity', 1);
 
     return isLast ? [sumDatum] : [sumDatum];
 }
@@ -784,10 +886,15 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
         await line.transition().duration(800).attr('x2', margins.left + plot.w).end();
 
         svg.append('text').attr('class', 'annotation avg-label')
-            .attr('x', margins.left + plot.w - 10)
-            .attr('y', yPos - 5)
-            .attr('text-anchor', 'end')
-            .attr('fill', OP_COLORS.AVERAGE).attr('font-weight', 'bold')
+            .attr('x', margins.left + plot.w / 2)
+            .attr('y', yPos - 10)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 12)
+            .attr('font-weight', 'bold')
+            .attr('fill', OP_COLORS.AVERAGE)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 3)
+            .attr('paint-order', 'stroke')
             .text(`Avg: ${avg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
             .attr('opacity', 0)
             .transition().duration(400).attr('opacity', 1);
@@ -806,9 +913,14 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
 
         svg.append('text').attr('class', 'annotation avg-label')
             .attr('x', xPos)
-            .attr('y', margins.top + 15)
+            .attr('y', margins.top + plot.h / 2)
             .attr('text-anchor', 'middle')
-            .attr('fill', OP_COLORS.AVERAGE).attr('font-weight', 'bold')
+            .attr('font-size', 12)
+            .attr('font-weight', 'bold')
+            .attr('fill', OP_COLORS.AVERAGE)
+            .attr('stroke', 'white')
+            .attr('stroke-width', 3)
+            .attr('paint-order', 'stroke')
             .text(`Avg: ${avg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
             .attr('opacity', 0)
             .transition().duration(400).attr('opacity', 1);
@@ -837,8 +949,10 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const found = data.find(d => String(d?.id) === k) || data.find(d => String(d?.target) === k);
-        return found ? String(found.target ?? k) : k;
+        const foundById = data.find(d => String(d?.id) === k);
+        if (foundById) return String(foundById.id);
+        const foundByTarget = data.find(d => String(d?.target) === k);
+        return foundByTarget ? String(foundByTarget.target) : k;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);
@@ -880,12 +994,14 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         { bar: barA, key: keyA, value: valueA, color: colorA },
         { bar: barB, key: keyB, value: valueB, color: colorB }
     ];
+    const guidePositions = [];
 
     targets.forEach(t => {
         if (!Number.isFinite(t.value)) return;
 
         if (orientation === "vertical") {
             const yPos = margins.top + yScale(t.value);
+            guidePositions.push(yPos);
             const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", margins.left).attr("y1", yPos)
                 .attr("x2", margins.left).attr("y2", yPos)
@@ -895,6 +1011,7 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
             );
         } else {
             const xPos = margins.left + xScale(t.value);
+            guidePositions.push(xPos);
             const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", xPos).attr("y1", margins.top)
                 .attr("x2", xPos).attr("y2", margins.top)
@@ -912,6 +1029,80 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(t.value);
     });
+
+    const diffMagnitude = Number.isFinite(result?.value)
+        ? Math.abs(result.value)
+        : (Number.isFinite(valueA) && Number.isFinite(valueB) ? Math.abs(valueA - valueB) : null);
+
+    if (orientation === "vertical" && guidePositions.length === 2 && Number.isFinite(diffMagnitude)) {
+        const [posA, posB] = guidePositions;
+        if (Number.isFinite(posA) && Number.isFinite(posB)) {
+            const minY = Math.min(posA, posB);
+            const maxY = Math.max(posA, posB);
+            const diffX = margins.left + plot.w - 8;
+            const bridge = svg.append("line").attr("class", "annotation diff-line")
+                .attr("x1", diffX).attr("x2", diffX)
+                .attr("y1", minY).attr("y2", minY)
+                .attr("stroke", OP_COLORS.DIFF_LINE)
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5 5");
+            animationPromises.push(
+                bridge.transition().duration(400).attr("y2", maxY).end()
+            );
+
+            const labelY = (minY + maxY) / 2;
+            const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                .attr("x", diffX - 6)
+                .attr("y", labelY)
+                .attr("text-anchor", "end")
+                .attr("font-size", 12)
+                .attr("font-weight", "bold")
+                .attr("fill", OP_COLORS.DIFF_LINE)
+                .attr("stroke", "white")
+                .attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                .attr("opacity", 0);
+            animationPromises.push(
+                diffLabel.transition().duration(400).attr("opacity", 1).end()
+            );
+        }
+    }
+
+    if (orientation === "horizontal" && guidePositions.length === 2 && Number.isFinite(diffMagnitude)) {
+        const [posA, posB] = guidePositions;
+        if (Number.isFinite(posA) && Number.isFinite(posB)) {
+            const minX = Math.min(posA, posB);
+            const maxX = Math.max(posA, posB);
+            const diffY = margins.top + plot.h - 8;
+            const bridge = svg.append("line").attr("class", "annotation diff-line")
+                .attr("x1", minX).attr("x2", minX)
+                .attr("y1", diffY).attr("y2", diffY)
+                .attr("stroke", OP_COLORS.DIFF_LINE)
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5 5");
+            animationPromises.push(
+                bridge.transition().duration(400).attr("x2", maxX).end()
+            );
+
+            const labelX = (minX + maxX) / 2;
+            const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                .attr("x", labelX)
+                .attr("y", diffY + 16)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 12)
+                .attr("font-weight", "bold")
+                .attr("fill", OP_COLORS.DIFF_LINE)
+                .attr("stroke", "white")
+                .attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                .attr("opacity", 0);
+            animationPromises.push(
+                diffLabel.transition().duration(400).attr("opacity", 1).end()
+            );
+        }
+    }
 
     await Promise.all(animationPromises).catch(() => {});
 

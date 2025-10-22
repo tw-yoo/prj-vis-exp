@@ -1,0 +1,25 @@
+{
+  "ops": [
+    {
+      "op": "retrieveValue",
+      "field": "month",
+      "target": "7"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "retrieveValue",
+      "field": "month",
+      "target": "8"
+    }
+  ],
+  "last": [
+    {
+      "op": "compareBool",
+      "field": "count",
+      "targetA": "ops_0",
+      "targetB": "ops2_0",
+      "operator": ">"
+    }
+  ]
+}

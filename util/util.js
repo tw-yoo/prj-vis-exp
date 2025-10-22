@@ -242,7 +242,8 @@ export function buildSimpleBarSpec(dvList, opts = {}) {
         orientation = 'vertical',
         width = 600,
         height = 300,
-        title
+        title,
+        axisLabels = null
     } = opts;
 
     // 모든 DatumValue가 동일한 category/measure 이름을 공유한다고 가정
@@ -252,7 +253,9 @@ export function buildSimpleBarSpec(dvList, opts = {}) {
     // Vega-Lite data values: [{ [categoryField]: target, [measureField]: value }, ...]
     const values = dvList.map(d => ({
         [categoryField]: d.target,
-        [measureField]: d.value
+        [measureField]: d.value,
+        id: d.id ?? null,
+        group: d.group ?? null
     }));
 
     const base = {
@@ -269,24 +272,30 @@ export function buildSimpleBarSpec(dvList, opts = {}) {
         }
     };
 
-    if (orientation === 'vertical') {
-        return {
+    const spec = (orientation === 'vertical')
+        ? {
             ...base,
             encoding: {
                 x: { field: categoryField, type: "nominal", axis: { title: null } },
                 y: { field: measureField,  type: "quantitative", axis: { title: null } }
             }
-        };
-    } else {
-        // horizontal: y: category, x: measure
-        return {
+        }
+        : {
             ...base,
             encoding: {
                 y: { field: categoryField, type: "nominal", axis: { title: null } },
                 x: { field: measureField,  type: "quantitative", axis: { title: null } }
             }
         };
+
+    if (axisLabels && (Object.prototype.hasOwnProperty.call(axisLabels, 'x') || Object.prototype.hasOwnProperty.call(axisLabels, 'y'))) {
+        spec.meta = {
+            ...(spec.meta || {}),
+            axisLabels: { ...axisLabels }
+        };
     }
+
+    return spec;
 }
 
 export function convertToDatumValues(fullData, xField, yField, orientation, group = null) {

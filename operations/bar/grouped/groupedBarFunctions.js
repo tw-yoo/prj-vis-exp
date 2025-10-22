@@ -26,7 +26,8 @@ import {
     simpleBarCompare,
     simpleBarCompareBool,
     simpleBarNth,
-    simpleBarCount
+    simpleBarCount,
+    simpleBarRetrieveValue
 } from "../simple/simpleBarFunctions.js";
 import { OP_COLORS } from "../../../../object/colorPalette.js";
 
@@ -68,6 +69,31 @@ function fmtNum(v){ return (v!=null && isFinite(v)) ? (+v).toLocaleString() : St
 function cssEscape(x){ try{ return CSS.escape(String(x)); } catch { return String(x).replace(/[^\w-]/g,'_'); } }
 function idOf(row, facetField, xField) { return `${row[facetField]}-${row[xField]}`; }
 function idOfDatum(d) { return `${d.facet}-${d.key}`; }
+function getDatumCategoryKey(d, fallback='') {
+    if (!d) return String(fallback);
+    return String(d.key ?? d.target ?? d.category ?? d.id ?? fallback);
+}
+function asDatumValues(list, opts = {}) {
+    const {
+        categoryField = 'target',
+        measureField = 'value',
+        groupField = 'group',
+        idPrefix = 'dv'
+    } = opts;
+    return (list || []).map((item, idx) => {
+        if (item instanceof DatumValue) {
+            if (!item.id) item.id = `${idPrefix}_${idx}`;
+            return item;
+        }
+        const target = item?.target ?? item?.[categoryField];
+        const value = Number(item?.value ?? item?.[measureField] ?? 0);
+        const group = item?.group ?? item?.[groupField] ?? null;
+        const category = item?.category ?? categoryField;
+        const measure = item?.measure ?? measureField;
+        const id = item?.id ?? `${idPrefix}_${idx}`;
+        return new DatumValue(category, measure, target, group, value, id);
+    });
+}
 
 
 function readGroupX(node) {
@@ -143,7 +169,7 @@ function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
             .attr("class", "threshold-line")
             .attr("x1", margins.left).attr("x2", margins.left + plot.w)
             .attr("y1", yPix).attr("y2", yPix)
-            .attr("stroke", "#0d6efd").attr("stroke-width", 1.5).attr("stroke-dasharray", "5 5");
+            .attr("stroke", "#0d6efd").attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
         svg.append("text")
             .attr("class", "threshold-label")
             .attr("x", margins.left + plot.w + 6).attr("y", yPix)
@@ -198,8 +224,8 @@ export async function groupedBarToSimpleByTarget(chartId, targetFacet, data) {
         const d = rect.datum();
         const k = String(d.key); // series key
         // Normalize to simple bar schema: category => series key
-        const norm = { ...d, target: k, group: k, key: k, value: +d.value };
-        rect.datum(norm).attr('data-target', k).attr('data-id', k);
+        const norm = { ...d, target: k, group: k, key: k, value: +d.value, id: `${facet}-${k}` };
+        rect.datum(norm).attr('data-target', k).attr('data-group', k).attr('data-id', norm.id);
     });
 
     // 3) Animate: center the facet group at x=0 and lay bars across the whole plot width
@@ -227,7 +253,7 @@ export async function groupedBarToSimpleByTarget(chartId, targetFacet, data) {
         .attr('class', 'annotation target-caption')
         .attr('x', margins.left)
         .attr('y', margins.top - 16)
-        .attr('font-size', 14)
+        .attr('font-size', 12)
         .attr('font-weight', 'bold')
         .attr('fill', '#666')
         .text(`${facetField || 'target'}: ${facet}`);
@@ -280,11 +306,11 @@ export async function groupedBarToSimpleByGroup(chartId, groupName, data) {
         const rect = d3.select(this);
         const d = rect.datum();
         const cat = String(d.facet);
-        const norm = { ...d, target: cat, value: +d.value, group: series };
+        const norm = { ...d, target: cat, value: +d.value, group: series, id: `${cat}-${series}` };
         rect.datum(norm)
             .attr('data-target', cat)
             .attr('data-group', series)
-            .attr('data-id', cat);
+            .attr('data-id', norm.id);
     });
 
     // 3) Geometry: center the remaining bar within each facet group
@@ -306,7 +332,10 @@ export async function groupedBarToSimpleByGroup(chartId, groupName, data) {
 }
 // operations/bar/grouped/groupedBarFunctions.js 파일에 붙여넣으세요.
 
-export async function groupedBarRetrieveValue(chartId, op, data) {
+export async function groupedBarRetrieveValue(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarRetrieveValue(chartId, op, data, true);
+    }
     const { svg, g, margins, plot, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -320,11 +349,16 @@ export async function groupedBarRetrieveValue(chartId, op, data) {
         console.warn('RetrieveValue: Target not found for op:', op);
         return [];
     }
-    const targetIds = new Set(selectedData.map(d => `${d.target}-${d.group}`));
+    const targetIds = new Set(selectedData.map(d => `${String(d.target)}::${String(d.group ?? '')}`));
 
     // 2. DOM에서 해당 막대 찾기
     const allRects = g.selectAll("rect");
-    const targetRects = allRects.filter(d => d && targetIds.has(`${d.facet}-${d.key}`));
+    const targetRects = allRects.filter(function(d){
+        const datum = d || d3.select(this).datum();
+        const target = String(datum?.facet ?? datum?.target ?? this.getAttribute('data-target') ?? '');
+        const group  = String(datum?.group ?? datum?.key ?? this.getAttribute('data-group') ?? '');
+        return targetIds.has(`${target}::${group}`);
+    });
     const otherRects = allRects.filter(function() {
         return !targetRects.nodes().includes(this);
     });
@@ -358,28 +392,35 @@ export async function groupedBarRetrieveValue(chartId, op, data) {
             .attr("class", "annotation retrieve-line")
             .attr("x1", margins.left).attr("y1", yPos)
             .attr("x2", margins.left).attr("y2", yPos)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
+            .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
             .transition().duration(450)
             .attr("x2", pos.x);
 
-        // 값 라벨 표시
         svg.append("text")
             .attr("class", "annotation value-tag")
             .attr("x", pos.x)
             .attr("y", pos.y - 8)
             .attr("text-anchor", "middle")
-            .attr("fill", hlColor)
+            .attr("font-size", 12)
             .attr("font-weight", "bold")
+            .attr("fill", hlColor)
             .attr("stroke", "white")
             .attr("stroke-width", 3)
             .attr("paint-order", "stroke")
-            .text(fmtNum(value)); // fmtNum 헬퍼 함수
+            .text(fmtNum(value));
     });
 
-    return selectedData;
+    return asDatumValues(selectedData, {
+        categoryField: 'target',
+        measureField: yField || 'value',
+        idPrefix: 'retrieve'
+    });
 }
 
-export async function groupedBarFilter(chartId, op, data) {
+export async function groupedBarFilter(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarFilter(chartId, op, data, true);
+    }
     const { svg, g, margins, plot, xField, yField, facetField } = getSvgAndSetup(chartId);
     await waitForAttrClear(svg);
     resetBarsVisible(g);
@@ -407,7 +448,7 @@ export async function groupedBarFilter(chartId, op, data) {
                 .attr('class', 'threshold-line')
                 .attr('x1', margins.left).attr('x2', margins.left)
                 .attr('y1', yPix).attr('y2', yPix)
-                .attr('stroke', OP_COLORS.FILTER_THRESHOLD).attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
+                .attr('stroke', OP_COLORS.FILTER_THRESHOLD).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
             const thText = svg.append('text')
                 .attr('class', 'threshold-label')
                 .attr('x', margins.left + plot.w + 6).attr('y', yPix)
@@ -437,7 +478,7 @@ export async function groupedBarFilter(chartId, op, data) {
             console.warn('groupedBarFilter[group]: empty after filter', op);
             svg.append('text').attr('class', 'filter-label')
                 .attr('x', margins.left).attr('y', margins.top - 10)
-                .attr('font-size', 14).attr('font-weight', 'bold')
+                .attr('font-size', 12).attr('font-weight', 'bold')
                 .attr('fill', OP_COLORS.FILTER_THRESHOLD)
                 .text('No data matches the filter.');
             svg.attr('data-filtering', null);
@@ -496,7 +537,7 @@ export async function groupedBarFilter(chartId, op, data) {
         await Promise.all([...moveFacetPromises, geomP, xAxisP, yAxisP]);
 
         svg.attr('data-filtering', null);
-        return filteredSubset;
+        return asDatumValues(filteredSubset, { categoryField: facetField || 'target', measureField: yField || 'value', idPrefix: 'filter' });
     }
 
     clearAllAnnotations(svg);
@@ -543,7 +584,7 @@ export async function groupedBarFilter(chartId, op, data) {
             .attr('class', 'threshold-line')
             .attr('x1', margins.left).attr('x2', margins.left)
             .attr('y1', yPix).attr('y2', yPix)
-            .attr('stroke', OP_COLORS.FILTER_THRESHOLD).attr('stroke-width', 1.5).attr('stroke-dasharray', '5 5');
+            .attr('stroke', OP_COLORS.FILTER_THRESHOLD).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
 
         const thText = svg.append('text')
             .attr('class', 'threshold-label')
@@ -624,16 +665,19 @@ export async function groupedBarFilter(chartId, op, data) {
 
     svg.append('text').attr('class', 'filter-label')
         .attr('x', margins.left).attr('y', margins.top - 10)
-        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('font-size', 12).attr('font-weight', 'bold')
         .attr('fill', OP_COLORS.FILTER_THRESHOLD)
         .text(labelText);
 
     svg.attr('data-filtering', null);
-    return filteredData;
+    return asDatumValues(filteredData, { categoryField: facetField || 'target', measureField: yField || 'value', idPrefix: 'filter' });
 }
 
 
-export async function groupedBarFindExtremum(chartId, op, data) {
+export async function groupedBarFindExtremum(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarFindExtremum(chartId, op, data, true);
+    }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     await waitForAttrClear(svg);
     resetBarsVisible(g);
@@ -691,7 +735,7 @@ export async function groupedBarFindExtremum(chartId, op, data) {
     svg.append("line").attr("class", "annotation")
         .attr("x1", margins.left).attr("y1", yPos)
         .attr("x2", margins.left).attr("y2", yPos)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
+        .attr("stroke", hlColor).attr("stroke-dasharray", "5 5")
         .transition().duration(1000)
         .attr("x2", margins.left + plot.w);
 
@@ -703,10 +747,13 @@ export async function groupedBarFindExtremum(chartId, op, data) {
         .attr("opacity", 0).transition().delay(300).duration(700).attr("opacity", 1);
 
     svg.attr('data-filtering', null);
-    return [targetDatum];
+    return asDatumValues([targetDatum], { categoryField: facetField || 'target', measureField: yField || 'value', idPrefix: 'extremum' });
 }
 
-export async function groupedBarDetermineRange(chartId, op, data) {
+export async function groupedBarDetermineRange(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarDetermineRange(chartId, op, data, true);
+    }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
@@ -771,7 +818,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
         const line = svg.append('line').attr('class', 'annotation range-line')
             .attr('x1', margins.left).attr('y1', yPos)
             .attr('x2', margins.left).attr('y2', yPos)
-            .attr('stroke', hlColor).attr('stroke-dasharray', '4 4');
+            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
         linePromises.push(
             line.transition().duration(1000).attr('x2', margins.left + plot.w).end()
         );
@@ -796,7 +843,7 @@ export async function groupedBarDetermineRange(chartId, op, data) {
         : `Overall Range: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`;
     await svg.append('text').attr('class', 'annotation')
         .attr('x', margins.left).attr('y', margins.top - 10)
-        .attr('font-size', 14).attr('font-weight', 'bold')
+        .attr('font-size', 12).attr('font-weight', 'bold')
         .attr('fill', hlColor).attr('opacity', 0)
         .text(topText)
         .transition().duration(700).attr('opacity', 1).end();
@@ -804,7 +851,10 @@ export async function groupedBarDetermineRange(chartId, op, data) {
     return result;
 }
 
-export async function groupedBarCompare(chartId, op, data) {
+export async function groupedBarCompare(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarCompare(chartId, op, data, true);
+    }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
@@ -824,7 +874,7 @@ export async function groupedBarCompare(chartId, op, data) {
             .attr("class", "annotation compare-hline")
             .attr("x1", margins.left).attr("y1", y)
             .attr("x2", margins.left).attr("y2", y)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4")
+            .attr("stroke", color).attr("stroke-dasharray", "5 5")
             .transition().duration(450)
             .attr("x2", margins.left + plot.w);
         svg.append("text")
@@ -879,7 +929,7 @@ export async function groupedBarCompare(chartId, op, data) {
         const summary = `${wantMax ? 'Max' : 'Min'} within ${subgroup}: ${winnerFacet} (${fmtNum(winnerValue)})`;
         svg.append('text').attr('class', 'annotation compare-summary')
             .attr('x', margins.left).attr('y', margins.top - 28)
-            .attr('font-size', 14).attr('font-weight', 'bold')
+            .attr('font-size', 12).attr('font-weight', 'bold')
             .attr('fill', '#333')
             .text(summary);
 
@@ -934,7 +984,7 @@ export async function groupedBarCompare(chartId, op, data) {
 
         svg.append("text").attr("class", "annotation compare-summary")
             .attr("x", margins.left).attr("y", margins.top - 28)
-            .attr("font-size", 14).attr("font-weight", "bold")
+            .attr("font-size", 12).attr("font-weight", "bold")
             .attr("fill", "#333")
             .text(summary);
 
@@ -985,7 +1035,7 @@ export async function groupedBarCompare(chartId, op, data) {
     const summary = `${wantMax ? 'Max' : 'Min'}: ${winnerFacet} (A=${fmtNum(sumA)} vs B=${fmtNum(sumB)})`;
     svg.append("text").attr("class", "annotation compare-summary")
         .attr("x", margins.left).attr("y", margins.top - 28)
-        .attr("font-size", 14).attr("font-weight", "bold")
+        .attr("font-size", 12).attr("font-weight", "bold")
         .attr("fill", "#333")
         .text(summary);
 
@@ -996,7 +1046,10 @@ export async function groupedBarCompare(chartId, op, data) {
     return [winnerDatum];
 }
 
-export async function groupedBarCompareBool(chartId, op, data) {
+export async function groupedBarCompareBool(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarCompareBool(chartId, op, data, true);
+    }
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -1039,7 +1092,7 @@ export async function groupedBarCompareBool(chartId, op, data) {
             .attr("class", "annotation compare-hline")
             .attr("x1", margins.left).attr("y1", y)
             .attr("x2", margins.left).attr("y2", y)
-            .attr("stroke", color).attr("stroke-dasharray", "4 4")
+            .attr("stroke", color).attr("stroke-dasharray", "5 5")
             .transition().duration(450)
             .attr("x2", margins.left + plot.w);
         svg.append("text")
@@ -1059,14 +1112,19 @@ export async function groupedBarCompareBool(chartId, op, data) {
 
     svg.append("text").attr("class", "annotation compare-summary")
         .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
-        .attr("text-anchor", "middle").attr("font-size", 14).attr("font-weight", "bold")
+        .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
         .attr("fill", result ? OP_COLORS.TRUE : OP_COLORS.FALSE)
         .text(summary);
 
-    return compareResult;
+    const boolLabel = op.field || compareResult?.category || 'value';
+    const boolDatum = new BoolValue(boolLabel, result, compareResult?.id ?? null);
+    return [boolDatum];
 }
 
-export async function groupedBarSort(chartId, op, data) {
+export async function groupedBarSort(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarSort(chartId, op, data, true);
+    }
     const { svg, g, plot, facetField, yField, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
@@ -1138,13 +1196,16 @@ export async function groupedBarSort(chartId, op, data) {
 
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 14).attr("font-weight", "bold")
+        .attr("font-size", 12).attr("font-weight", "bold")
         .text(`Sorted by ${op.field} (${op.order})`);
 
     return sortedData;
 }
 
-export async function groupedBarSum(chartId, op, data) {
+export async function groupedBarSum(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarSum(chartId, op, data, true);
+    }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
@@ -1231,12 +1292,14 @@ export async function groupedBarSum(chartId, op, data) {
         svg.append('line').attr('class', 'annotation value-line')
             .attr('x1', margins.left).attr('y1', margins.top + finalY)
             .attr('x2', margins.left + plot.w).attr('y2', margins.top + finalY)
-            .attr('stroke', OP_COLORS.SUM).attr('stroke-width', 2);
+            .attr('stroke', OP_COLORS.SUM).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
 
         svg.append('text').attr('class', 'annotation value-tag')
-            .attr('x', margins.left + plot.w - 10).attr('y', margins.top + finalY - 10)
+            .attr('x', margins.left + plot.w / 2).attr('y', margins.top + finalY - 8)
+            .attr('text-anchor', 'middle').attr('font-size', 12)
             .attr('fill', OP_COLORS.SUM).attr('font-weight', 'bold')
-            .attr('text-anchor', 'end').text(`Sum: ${totalSum.toLocaleString()}`);
+            .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
+            .text(`Sum: ${fmtNum(totalSum)}`);
 
         return [sumDatum];
     }
@@ -1301,18 +1364,22 @@ export async function groupedBarSum(chartId, op, data) {
     const yPos = margins.top + newYScale(totalSum);
     svg.append("line").attr("class", "annotation sum-line")
         .attr("x1", margins.left).attr("x2", margins.left + plot.w)
-        .attr("y1", yPos).attr("y2", yPos).attr("stroke", color).attr("stroke-width", 2.5);
+        .attr("y1", yPos).attr("y2", yPos).attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
 
     svg.append("text").attr("class", "annotation sum-label")
-        .attr("x", margins.left + plot.w - 10).attr("y", yPos - 15)
-        .attr("text-anchor", "end").attr("fill", color).attr("font-weight", "bold").attr("font-size", "14px")
+        .attr("x", margins.left + plot.w / 2).attr("y", yPos - 8)
+        .attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("font-size", 12)
+        .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
         .text(`Sum: ${fmtNum(totalSum)}`);
 
     return [sumDatum];
 }
 
 
-export async function groupedBarAverage(chartId, op, data) {
+export async function groupedBarAverage(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarAverage(chartId, op, data, true);
+    }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
@@ -1353,16 +1420,17 @@ export async function groupedBarAverage(chartId, op, data) {
     const line = svg.append("line").attr("class", "annotation avg-line")
         .attr("x1", margins.left).attr("x2", margins.left)
         .attr("y1", yPos).attr("y2", yPos)
-        .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "6 6");
+        .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
 
     await line.transition().duration(1200)
         .attr("x2", margins.left + plot.w)
         .end();
 
     svg.append("text").attr("class", "annotation avg-label")
-        .attr("x", margins.left + plot.w - 10)
-        .attr("y", yPos - 10)
-        .attr("text-anchor", "end")
+        .attr("x", margins.left + plot.w / 2)
+        .attr("y", yPos - 8)
+        .attr("text-anchor", "middle")
+        .attr("font-size", 12)
         .attr("fill", color)
         .attr("font-weight", "bold")
         .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
@@ -1374,7 +1442,10 @@ export async function groupedBarAverage(chartId, op, data) {
     return [avgDatum];
 }
 
-export async function groupedBarNth(chartId, op, data) {
+export async function groupedBarNth(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarNth(chartId, op, data, true);
+    }
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
@@ -1435,7 +1506,7 @@ export async function groupedBarNth(chartId, op, data) {
             .attr('class', 'annotation nth-line')
             .attr('x1', margins.left).attr('y1', y)
             .attr('x2', margins.left).attr('y2', y)
-            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4');
+            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
         anims.push(guide.transition().duration(450).attr('x2', x).end());
 
         const val = Number.isFinite(+d.value) ? +d.value : NaN;
@@ -1461,7 +1532,7 @@ export async function groupedBarNth(chartId, op, data) {
         .attr('class', 'annotation nth-caption')
         .attr('x', margins.left)
         .attr('y', margins.top - 10)
-        .attr('font-size', 14)
+        .attr('font-size', 12)
         .attr('font-weight', 'bold')
         .attr('fill', hlColor)
         .text(caption);
@@ -1474,7 +1545,10 @@ export async function groupedBarNth(chartId, op, data) {
     return results;
 }
 
-export async function groupedBarDiff(chartId, op, data) {
+export async function groupedBarDiff(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarDiff(chartId, op, data, true);
+    }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
@@ -1506,7 +1580,7 @@ export async function groupedBarDiff(chartId, op, data) {
             .attr("class", "annotation diff-line")
             .attr("x1", cxA).attr("y1", minY - 10)
             .attr("x2", cxA).attr("y2", minY - 10)
-            .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+            .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
 
         line.transition().duration(1000).ease(d3.easeCubicInOut)
             .attr("x2", cxB);
@@ -1607,7 +1681,10 @@ export async function groupedBarDiff(chartId, op, data) {
     return [];
 }
 
-export async function groupedBarCount(chartId, op, data) {
+export async function groupedBarCount(chartId, op, data, isLast = false) {
+    if (isLast) {
+        return await simpleBarCount(chartId, op, data, true);
+    }
     const { svg, g, margins, xField, facetField, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
@@ -1667,7 +1744,7 @@ export async function groupedBarCount(chartId, op, data) {
         svg.append('text')
             .attr('class', 'annotation')
             .attr('x', margins.left).attr('y', margins.top - 10)
-            .attr('font-size', 14).attr('font-weight', 'bold')
+            .attr('font-size', 12).attr('font-weight', 'bold')
             .attr('fill', hlColor)
             .text(`Count: ${totalCount}`)
             .attr('opacity', 0)
@@ -1744,7 +1821,7 @@ export async function groupedBarCount(chartId, op, data) {
         .attr('class', 'annotation')
         .attr('x', margins.left)
         .attr('y', margins.top - 10)
-        .attr('font-size', 14)
+        .attr('font-size', 12)
         .attr('font-weight', 'bold')
         .attr('fill', hlColor)
         .text(`Count: ${totalCount}`)

@@ -93,7 +93,7 @@ export async function createChart(cId) {
         // Resolve path: allow full path (*.json) or a logical key mapping to specs/ops/<key>.json
         const opSpecPath = (/\.json$/i.test(rawOpSpec) || rawOpSpec.includes('/'))
             ? rawOpSpec
-            : `specs/ops/${rawOpSpec}.json`;
+            : `specs/ops/op_${rawOpSpec}.json`;
 
         let operationSpec = null;
         try {
@@ -122,7 +122,8 @@ export async function createChart(cId) {
                 vlSpec: vegaLiteSpec,
                 opsSpec: operationSpec.ops || operationSpec, // supports either {ops: {...}} or a plain map
                 textSpec,
-                onReset: async () => { await renderChart(chartId, vegaLiteSpec); },
+                // onReset: async () => { await renderChart(chartId, vegaLiteSpec); },
+                onReset: async () => {},
                 onRunOpsList: async (opsList /*, isLast */) => { await applyOpsList(opsList); },
                 onCache: null,
                 isLastKey: (k) => k === 'last' || /(^|[_-])last$/i.test(k),

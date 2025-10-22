@@ -413,6 +413,18 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
 
 function repositionNavStepOverlay(chartId, ctrl) { return; }
 
+function setNavBusyState(ctrl, busy) {
+  if (!ctrl) return;
+  const buttons = [ctrl.prevButton, ctrl.nextButton];
+  buttons.forEach(btn => {
+    if (!btn) return;
+    btn.dataset.busy = busy ? '1' : '0';
+    btn.style.pointerEvents = busy ? 'none' : 'auto';
+    btn.style.cursor = busy ? 'progress' : (btn.disabled ? 'not-allowed' : 'pointer');
+    btn.style.opacity = busy ? '0.5' : (btn.disabled ? '0.5' : '1');
+  });
+}
+
 
 export function updateNavigatorStates(ctrl, currentStep, totalSteps, displayTotalOps = null) {
   if (!ctrl || !ctrl.prevButton || !ctrl.nextButton || !ctrl.stepIndicator) return;
@@ -422,16 +434,20 @@ export function updateNavigatorStates(ctrl, currentStep, totalSteps, displayTota
 
   // Prev state
   const isAtStart = (currentStep === 0);
+  const prevBusy = prevBtn.dataset.busy === '1';
   prevBtn.disabled = isAtStart;
-  prevBtn.style.opacity = isAtStart ? '0.5' : '1';
-  prevBtn.style.cursor  = isAtStart ? 'not-allowed' : 'pointer';
+  prevBtn.style.opacity = (isAtStart || prevBusy) ? '0.5' : '1';
+  prevBtn.style.cursor  = prevBusy ? 'progress' : (isAtStart ? 'not-allowed' : 'pointer');
+  prevBtn.style.pointerEvents = (isAtStart || prevBusy) ? 'none' : 'auto';
 
   // Next state
   const isAtLast  = (currentStep >= totalSteps - 1);
+  const nextBusy = nextBtn.dataset.busy === '1';
   nextBtn.disabled = isAtLast;
   nextBtn.textContent = isAtLast ? 'Done' : 'Next →';
-  nextBtn.style.opacity = isAtLast ? '0.5' : '1';
-  nextBtn.style.cursor  = isAtLast ? 'not-allowed' : 'pointer';
+  nextBtn.style.opacity = (isAtLast || nextBusy) ? '0.5' : '1';
+  nextBtn.style.cursor  = nextBusy ? 'progress' : (isAtLast ? 'not-allowed' : 'pointer');
+  nextBtn.style.pointerEvents = (isAtLast || nextBusy) ? 'none' : 'auto';
 
   // Step indicator
   const denom = (displayTotalOps != null) ? displayTotalOps : totalSteps;
@@ -489,9 +505,16 @@ export async function runOpsSequence({
     function bindNavHandlers() {
         const overlayEl = ctrl && ctrl.overlay;
         if (!overlayEl) return;
-        if (overlayEl.dataset.bound === '1') return; // avoid duplicate listeners
-        ctrl.nextButton.addEventListener('click', nextHandler);
-        ctrl.prevButton.addEventListener('click', prevHandler);
+        const nextBtn = ctrl.nextButton;
+        const prevBtn = ctrl.prevButton;
+        if (nextBtn && !nextBtn.dataset.bound) {
+            nextBtn.addEventListener('click', nextHandler);
+            nextBtn.dataset.bound = '1';
+        }
+        if (prevBtn && !prevBtn.dataset.bound) {
+            prevBtn.addEventListener('click', prevHandler);
+            prevBtn.dataset.bound = '1';
+        }
         overlayEl.dataset.bound = '1';
     }
 
@@ -512,6 +535,7 @@ export async function runOpsSequence({
         // Attach navigator first
         ctrl = attachOpNavigator(chartId, { x: nx, y: ny });
         bindNavHandlers();
+        setNavBusyState(ctrl, true);
         // Immediately update navigator state for the new step BEFORE any ops run
         updateNavigatorStates(ctrl, i, totalSteps, opsCount);
 
@@ -527,7 +551,13 @@ export async function runOpsSequence({
             const isLast = !!isLastKey(opKey);
 
             if (typeof onRunOpsList === 'function') {
-                result = await onRunOpsList(opsList, isLast);
+                try {
+                    result = await onRunOpsList(opsList, isLast);
+                } finally {
+                    setNavBusyState(ctrl, false);
+                }
+            } else {
+                setNavBusyState(ctrl, false);
             }
 
             if (!isLast && typeof onCache === 'function') {
@@ -549,8 +579,10 @@ export async function runOpsSequence({
                 bindNavHandlers();
             }
             updateNavigatorStates(ctrl, i, totalSteps, opsCount);
+            setNavBusyState(ctrl, false);
         } catch (e) {
             console.warn('runOpsSequence: failed to ensure navigator after ops', e);
+            setNavBusyState(ctrl, false);
         }
         // Re-attach/raise ops-explain overlay after potential SVG re-render (e.g., last op)
         try {
@@ -573,6 +605,7 @@ export async function runOpsSequence({
         updateNavigatorStates(ctrl, target, totalSteps, opsCount);
         currentStep = target;
         isRunning = true;
+        setNavBusyState(ctrl, true);
         try {
             await runStep(currentStep, 'forward');
         } catch (e) {
@@ -580,6 +613,7 @@ export async function runOpsSequence({
             currentStep -= 1;
         } finally {
             isRunning = false;
+            setNavBusyState(ctrl, false);
         }
     }
 
@@ -592,6 +626,7 @@ export async function runOpsSequence({
         updateNavigatorStates(ctrl, target, totalSteps, opsCount);
         currentStep = target;
         isRunning = true;
+        setNavBusyState(ctrl, true);
         try {
             await runStep(currentStep, 'backward');
         } catch (e) {
@@ -599,6 +634,7 @@ export async function runOpsSequence({
             currentStep += 1;
         } finally {
             isRunning = false;
+            setNavBusyState(ctrl, false);
         }
     }
 

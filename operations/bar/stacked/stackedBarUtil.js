@@ -130,12 +130,17 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
             arr.forEach((datum, idx) => {
                 if (datum instanceof DatumValue) {
                     datum.id = `${opKey}_${idx}`;
-                    datum.category = lastCategory ?? categoryLabel;
-                    datum.measure  = lastMeasure  ?? measureLabel;
+                    const hasCategory = typeof datum.category === 'string' && datum.category.trim().length > 0;
+                    const hasMeasure = typeof datum.measure === 'string' && datum.measure.trim().length > 0;
+                    if (!hasCategory) {
+                        datum.category = categoryLabel ?? lastCategory;
+                    }
+                    if (!hasMeasure) {
+                        datum.measure = measureLabel ?? lastMeasure;
+                    }
                 }
             });
             dataCache[opKey] = arr;
-            console.log(dataCache);
         },
         isLastKey: (k) => k === 'last',
         delayMs: 0,
