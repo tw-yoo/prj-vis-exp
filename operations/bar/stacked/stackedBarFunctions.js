@@ -18,11 +18,16 @@ import {
     determineRange as dataDetermineRange
 } from "../../operationFunctions.js";
 
-import {DatumValue, BoolValue, IntervalValue} from "../../../object/valueType.js";
+import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
 import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { getPrimarySvgElement } from "../../operationUtil.js";
 
+// ---- small helpers ---------------------------------------------------------
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
-function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
+export const delay = (ms) => new Promise(r => setTimeout(r, ms));
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+async function waitFrames(n = 1){ for (let i=0;i<n;i++) await nextFrame(); }
+
 function fmtNum(v){ return (v!=null && isFinite(v)) ? (+v).toLocaleString() : String(v); }
 function getDatumCategoryKey(d) {
     if (!d) return '';
@@ -30,9 +35,9 @@ function getDatumCategoryKey(d) {
 }
 function evalComparison(op, a, b) {
     switch ((op || '').toLowerCase()) {
-        case '<':  return a < b;
+        case '<':  return a <  b;
         case '<=': return a <= b;
-        case '>':  return a > b;
+        case '>':  return a >  b;
         case '>=': return a >= b;
         case '==':
         case '=':
@@ -51,137 +56,94 @@ function resolveStackedDatum(data, key, sumsMap) {
     }
     if (!datum) return { datum: null, category: str, value: undefined };
     let numeric = Number(datum.value);
-    if (!Number.isFinite(numeric) && datum.measure && datum[datum.measure] !== undefined) {
-        numeric = Number(datum[datum.measure]);
-    }
-    if (!Number.isFinite(numeric) && datum.count !== undefined) {
-        numeric = Number(datum.count);
-    }
+    if (!Number.isFinite(numeric) && datum.measure && datum[datum.measure] !== undefined) numeric = Number(datum[datum.measure]);
+    if (!Number.isFinite(numeric) && datum.count   !== undefined) numeric = Number(datum.count);
     if (!Number.isFinite(numeric) && sumsMap) {
         const catKey = String(datum.target ?? datum.key ?? str);
-        if (sumsMap.has(catKey)) {
-            numeric = Number(sumsMap.get(catKey));
-        }
+        if (sumsMap.has(catKey)) numeric = Number(sumsMap.get(catKey));
     }
     const category = String(datum.target ?? datum.key ?? str);
     const group = datum.group ?? null;
     return { datum, category, group, value: Number.isFinite(numeric) ? numeric : undefined };
 }
+
 export function getSvgAndSetup(chartId) {
-    const svg = d3.select(`#${chartId}`).select("svg");
-    const orientation = svg.attr("data-orientation");
-    const xField = svg.attr("data-x-field");
-    const yField = svg.attr("data-y-field");
-    const colorField = svg.attr("data-color-field");
-    const margins = {
-        left: +svg.attr("data-m-left"), top: +svg.attr("data-m-top")
-    };
-    const plot = {
-        w: +svg.attr("data-plot-w"), h: +svg.attr("data-plot-h")
-    };
+    const svgNode = getPrimarySvgElement(chartId);
+    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
+    const orientation = svgNode?.getAttribute("data-orientation");
+    const xField = svgNode?.getAttribute("data-x-field");
+    const yField = svgNode?.getAttribute("data-y-field");
+    const colorField = svgNode?.getAttribute("data-color-field");
+    const margins = { left:+(svgNode?.getAttribute("data-m-left") || 0), top:+(svgNode?.getAttribute("data-m-top") || 0) };
+    const plot = { w:+(svgNode?.getAttribute("data-plot-w") || 0), h:+(svgNode?.getAttribute("data-plot-h") || 0) };
     const g = svg.select(".plot-area");
     return { svg, g, orientation, xField, yField, colorField, margins, plot };
 }
-
-async function animateStackToTotalsBar(chartId, totalsData) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
-
-    const oldRects = g.selectAll("rect");
-    const oldSeries = g.selectAll("[class^='series-']");
-
-    await oldRects.transition().duration(500).attr("opacity", 0).remove().end();
-    oldSeries.remove();
-
-    const newXScale = d3.scaleBand().domain(totalsData.map(d => d.target)).range([0, plot.w]).padding(0.1);
-    const newYMax = d3.max(totalsData, d => d.value);
-    const newYScale = d3.scaleLinear().domain([0, newYMax || 1]).nice().range([plot.h, 0]);
-
-    g.select(".y-axis").transition().duration(800).call(d3.axisLeft(newYScale));
-    g.select(".x-axis").transition().duration(800).call(d3.axisBottom(newXScale));
-
-    const newBars = g.selectAll(".total-bar")
-        .data(totalsData, d => d.target)
-        .join("rect")
-        .attr("class", "total-bar")
-        .attr("x", d => newXScale(d.target))
-        .attr("width", newXScale.bandwidth())
-        .attr("y", plot.h)
-        .attr("height", 0)
-        .attr("fill", "#69b3a2")
-        .attr("data-id", d => d.target)
-        .attr("data-value", d => d.value);
-
-    await newBars.transition().duration(800)
-        .attr("y", d => newYScale(d.value))
-        .attr("height", d => plot.h - newYScale(d.value))
-        .end();
-}
-
 export function clearAllAnnotations(svg) {
     svg.selectAll(".annotation, .value-line, .value-tag, .filter-label, .threshold-line, .extremum-highlight, .compare-label").remove();
 }
 
-export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function stackedBarToSimpleBar(chartId, filteredData) {
-    const { svg, plot, margins, xField } = getSvgAndSetup(chartId);
-
+    const { svg, g, plot, xField } = getSvgAndSetup(chartId);
     if (!Array.isArray(filteredData)) return [];
 
     const targetIds = new Set(filteredData.map(d => `${d.target}-${d.group}-${d.value}`));
-    const chartRects = svg.select(".plot-area").selectAll("rect");
+    const chartRects = g.selectAll("rect");
 
-    const highlightPromises = [];
-    chartRects.each(function() {
-        const rect = d3.select(this);
-        const d = rect.datum();
+    // 강조/디밍
+    const hi = [];
+    chartRects.each(function(){
+        const sel = d3.select(this);
+        const d = sel.datum();
         const isTarget = d ? targetIds.has(`${d.key}-${d.subgroup}-${d.value}`) : false;
-        const t = rect.transition().duration(400)
-            .attr("opacity", isTarget ? 1.0 : 0.2)
+        hi.push(sel.transition().duration(400)
+            .attr("opacity", isTarget ? 1 : 0.2)
             .attr("stroke", isTarget ? "black" : "none")
-            .attr("stroke-width", 1).end();
-        highlightPromises.push(t);
+            .attr("stroke-width", 1)
+            .end());
     });
-    await Promise.all(highlightPromises);
-    await delay(300);
+    await Promise.all(hi);
+    await waitFrames(1);
 
     if (filteredData.length === 0) {
-        console.warn("Filter resulted in no matching bars.");
-        chartRects.transition().duration(500).attr("opacity", 0).remove();
-        return;
+        await chartRects.transition().duration(300).attr("opacity", 0).remove().end();
+        return [];
     }
 
-    const transformPromises = [];
-    const fadeOut = chartRects.filter(d => !targetIds.has(`${d.key}-${d.subgroup}-${d.value}`))
-        .transition().duration(350).attr("opacity", 0).remove().end();
-    transformPromises.push(fadeOut);
+    const toRemove = chartRects.filter(d => {
+        const dd = d || {};
+        return !targetIds.has(`${dd.key}-${dd.subgroup}-${dd.value}`);
+    }).transition().duration(300).attr("opacity", 0).remove().end();
 
-    const selectedRects = chartRects.filter(d => targetIds.has(`${d.key}-${d.subgroup}-${d.value}`));
-    const newYMax = d3.max(filteredData, d => d.value);
-    const newYScale = d3.scaleLinear().domain([0, newYMax || 1]).nice().range([plot.h, 0]);
+    const newYMax = d3.max(filteredData, d => d.value) || 0;
+    const y = d3.scaleLinear().domain([0, newYMax]).nice().range([plot.h, 0]);
 
-    selectedRects.each(function() {
+    const stay = chartRects.filter(d => {
+        const dd = d || {};
+        return targetIds.has(`${dd.key}-${dd.subgroup}-${dd.value}`);
+    });
+    const geom = [];
+    stay.each(function(){
         const rect = d3.select(this);
         const d = rect.datum();
-        // Normalize datum for simple-bar key join: inject category field and target
-        if (xField) {
-            rect.datum({ ...d, [xField]: d.key, target: d.key, value: d.value });
-        } else {
-            rect.datum({ ...d, target: d.key, value: d.value });
-        }
-        // Also expose a stable target attribute for downstream selectors
-        rect.attr("data-target", d.key).attr("data-id", d.key);
-        const t = rect.transition().duration(600)
-            .attr("y", newYScale(d.value))
-            .attr("height", plot.h - newYScale(d.value))
-            .attr("stroke-width", 0.5).end();
-        transformPromises.push(t);
+        const targetKey = d.key;
+        // simple-bar 스키마로 정규화
+        const norm = (xField)
+            ? { ...d, [xField]: targetKey, target: targetKey, value: d.value }
+            : { ...d, target: targetKey, value: d.value };
+        rect.datum(norm).attr("data-target", targetKey).attr("data-id", targetKey);
+        geom.push(rect.transition().duration(550)
+            .attr("y", y(d.value))
+            .attr("height", plot.h - y(d.value))
+            .attr("stroke-width", 0.5).end());
     });
 
-    const yAxisTransition = svg.select(".y-axis").transition().duration(600)
-        .call(d3.axisLeft(newYScale)).end();
-    transformPromises.push(yAxisTransition);
-    await Promise.all(transformPromises);
+    const axis = g.select(".y-axis").transition().duration(550).call(d3.axisLeft(y)).end();
+
+    await Promise.all([toRemove, ...geom, axis].filter(Boolean));
+    await waitFrames(1);
+    return filteredData;
 }
 
 export async function stackedBarFilter(chartId, op, data, isLast = false) {
@@ -192,11 +154,11 @@ export async function stackedBarFilter(chartId, op, data, isLast = false) {
         const subgroup = String(op.group);
         const seriesData = dataFilter(data, { field: 'group', operator: '==', value: subgroup }, xField, yField, isLast);
         await stackedBarToSimpleBar(chartId, seriesData);
-        const op2 = { ...op };
-        delete op2.group;
+        const op2 = { ...op }; delete op2.group;
         return await simpleBarFilter(chartId, op2, seriesData, isLast);
     }
 
+    // 스택 합 기준 필터(측정값)에 대응
     let keepCategories = new Set();
     const categoryField = xField;
     const measureField = yField;
@@ -205,11 +167,7 @@ export async function stackedBarFilter(chartId, op, data, isLast = false) {
         const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
         const cmp = cmpMap[op.operator];
         if (cmp) {
-            sumsByCategory.forEach((sum, cat) => {
-                if (cmp(sum, op.value)) {
-                    keepCategories.add(String(cat));
-                }
-            });
+            sumsByCategory.forEach((sum, cat) => { if (cmp(sum, op.value)) keepCategories.add(String(cat)); });
         }
     } else if (op.field === categoryField) {
         const filteredByTarget = dataFilter(data, { field: 'target', operator: op.operator, value: op.value }, xField, yField, isLast);
@@ -218,42 +176,38 @@ export async function stackedBarFilter(chartId, op, data, isLast = false) {
 
     if (op.field === measureField && Number.isFinite(op.value)) {
         const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-        const maxTotal = d3.max(sumsByCategory.values());
-        const yScale = d3.scaleLinear().domain([0, maxTotal || 1]).nice().range([plot.h, 0]);
-        const yPos = yScale(op.value);
+        const maxTotal = d3.max(sumsByCategory.values()) || 0;
+        const y = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
+        const yPos = y(op.value);
 
-        g.append('line').attr('class', 'annotation threshold-line')
-            .attr('x1', 0).attr('y1', yPos)
-            .attr('x2', plot.w).attr('y2', yPos)
-            .attr('stroke', OP_COLORS.FILTER_THRESHOLD).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
+        const line = g.append('line').attr('class','annotation threshold-line')
+            .attr('x1',0).attr('y1',yPos).attr('x2',0).attr('y2',yPos)
+            .attr('stroke', OP_COLORS.FILTER_THRESHOLD).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
+            .transition().duration(600).attr('x2', plot.w).end();
 
-        g.append('text').attr('class', 'annotation threshold-label')
-            .attr('x', plot.w - 5).attr('y', yPos - 5)
-            .attr('text-anchor', 'end')
-            .attr('fill', OP_COLORS.FILTER_THRESHOLD).attr('font-size', 12).attr('font-weight', 'bold')
-            .text(`${op.value}`);
+        const text = g.append('text').attr('class','annotation threshold-label')
+            .attr('x', plot.w - 5).attr('y', yPos - 6).attr('text-anchor','end')
+            .attr('fill', OP_COLORS.FILTER_THRESHOLD).attr('font-size', 12).attr('font-weight','bold')
+            .attr('opacity', 0).text(`${op.value}`)
+            .transition().duration(400).attr('opacity', 1).end();
 
-        await delay(800);
+        await Promise.all([line, text]);
     }
 
     const allRects = g.selectAll('rect');
     const keepSel = allRects.filter(d => keepCategories.has(getDatumCategoryKey(d)));
     const dropSel = allRects.filter(d => !keepCategories.has(getDatumCategoryKey(d)));
 
-    await dropSel.transition().duration(500).attr("opacity", 0).remove().end();
+    await dropSel.transition().duration(400).attr("opacity", 0).remove().end();
 
-    const newXScale = d3.scaleBand().domain(Array.from(keepCategories)).range([0, plot.w]).padding(0.1);
+    const newX = d3.scaleBand().domain(Array.from(keepCategories)).range([0, plot.w]).padding(0.1);
+    const rectT = keepSel.transition().duration(650)
+        .attr("x", d => newX(getDatumCategoryKey(d)))
+        .attr("width", newX.bandwidth()).end();
+    const axisT = g.select(".x-axis").transition().duration(650).call(d3.axisBottom(newX)).end();
 
-    const rectTransition = keepSel.transition().duration(800)
-        .attr("x", d => newXScale(getDatumCategoryKey(d)))
-        .attr("width", newXScale.bandwidth())
-        .end();
-
-    const axisTransition = g.select(".x-axis").transition().duration(800)
-        .call(d3.axisBottom(newXScale))
-        .end();
-
-    await Promise.all([rectTransition, axisTransition]);
+    await Promise.all([rectT, axisT]);
+    await waitFrames(1);
 
     return data.filter(d => keepCategories.has(String(d?.target ?? getDatumCategoryKey(d))));
 }
@@ -265,360 +219,249 @@ export async function stackedBarRetrieveValue(chartId, op, data, isLast = false)
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('stackedBarRetrieveValue: no data for group', subgroup);
-            return [];
-        }
-
+        if (!subset.length) return [];
         await stackedBarToSimpleBar(chartId, subset);
 
         const selected = dataRetrieveValue(subset, op, isLast) || [];
-        const selectedTargets = selected.map(d => String(d.target));
+        const targets = new Set(selected.map(d => String(d.target)));
+        const color = OP_COLORS.RETRIEVE_VALUE;
 
-        const hlColor = OP_COLORS.RETRIEVE_VALUE;
         const bars = g.selectAll('rect');
-        const target = bars.filter(function () {
-            const key = getDatumCategoryKey(d3.select(this).datum());
-            return key && selectedTargets.includes(String(key));
-        });
-        if (target.empty()) {
-            console.warn('stackedBarRetrieveValue(group): target bars not found for', op?.target);
-            return selected;
-        }
+        const target = bars.filter(d => targets.has(getDatumCategoryKey(d)));
+        const others = bars.filter(d => !targets.has(getDatumCategoryKey(d)));
 
-        const animPromises = [];
-        animPromises.push(
-            target.transition().duration(600).attr('fill', hlColor).attr('opacity', 1).end()
-        );
+        await Promise.all([
+            others.transition().duration(300).attr('opacity', 0.25).end(),
+            target.transition().duration(300).attr('opacity', 1).attr('stroke', color).attr('stroke-width', 2).end()
+        ]);
 
         let xScale, yScale;
         if (orientation === 'horizontal') {
-            yScale = d3.scaleBand().domain(subset.map(d => String(d.target))).range([0, plot.h]).padding(0.2);
+            yScale = d3.scaleBand().domain(subset.map(d=>String(d.target))).range([0, plot.h]).padding(0.2);
             const xMax = d3.max(subset, d => +d.value) || 0;
             xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
         } else {
-            xScale = d3.scaleBand().domain(subset.map(d => String(d.target))).range([0, plot.w]).padding(0.2);
+            xScale = d3.scaleBand().domain(subset.map(d=>String(d.target))).range([0, plot.w]).padding(0.2);
             const yMax = d3.max(subset, d => +d.value) || 0;
             yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
         }
 
-        const lineData = selected;
+        const lineIns = [];
         if (orientation === 'horizontal') {
-            const sel = svg.selectAll('.retrieve-line').data(lineData, d => d.id || d.target);
-            sel.exit().remove();
-            const entered = sel.enter().append('line')
-                .attr('class', 'retrieve-line annotation')
-                .attr('x1', d => margins.left + xScale(d.value))
-                .attr('x2', d => margins.left + xScale(d.value))
-                .attr('y1', d => margins.top + yScale(String(d.target)) + yScale.bandwidth() / 2)
-                .attr('y2', d => margins.top + yScale(String(d.target)) + yScale.bandwidth() / 2)
-                .attr('stroke', hlColor)
-                .attr('stroke-width', 2)
-                .attr('stroke-dasharray', '5 5')
-                .attr('opacity', 0);
-            animPromises.push(
-                entered.transition().duration(400)
-                    .attr('y2', margins.top)
-                    .attr('opacity', 1)
-                    .end()
-            );
-        } else { // vertical
-            const sel = svg.selectAll('.retrieve-line').data(lineData, d => d.id || d.target);
-            sel.exit().remove();
-            const entered = sel.enter().append('line')
-                .attr('class', 'retrieve-line annotation')
-                .attr('x1', d => margins.left + xScale(String(d.target)) + xScale.bandwidth() / 2)
-                .attr('x2', d => margins.left + xScale(String(d.target)) + xScale.bandwidth() / 2)
-                .attr('y1', d => margins.top + yScale(d.value))
-                .attr('y2', d => margins.top + yScale(d.value))
-                .attr('stroke', hlColor)
-                .attr('stroke-width', 2)
-                .attr('stroke-dasharray', '5 5')
-                .attr('opacity', 0);
-            animPromises.push(
-                entered.transition().duration(400)
-                    .attr('x2', margins.left)
-                    .attr('opacity', 1)
-                    .end()
-            );
+            selected.forEach(dv => {
+                const y = margins.top + yScale(String(dv.target)) + yScale.bandwidth()/2;
+                const x = margins.left + xScale(dv.value);
+                const l = svg.append('line').attr('class','annotation retrieve-line')
+                    .attr('x1', x).attr('y1', y).attr('x2', x).attr('y2', y)
+                    .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+                    .transition().duration(350).attr('y2', margins.top).end();
+                lineIns.push(l);
+            });
+        } else {
+            selected.forEach(dv => {
+                const x = margins.left + xScale(String(dv.target)) + xScale.bandwidth()/2;
+                const y = margins.top + yScale(dv.value);
+                const l = svg.append('line').attr('class','annotation retrieve-line')
+                    .attr('x1', x).attr('y1', y).attr('x2', x).attr('y2', y)
+                    .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+                    .transition().duration(350).attr('x2', margins.left).end();
+                lineIns.push(l);
+            });
         }
+        await Promise.all(lineIns);
 
-        target.each(function () {
-            const sel = d3.select(this);
-            const dd = sel.datum();
-            const val = Number.isFinite(+dd?.value) ? +dd.value : null;
-            const bbox = this.getBBox();
-            const labelX = bbox.x + bbox.width / 2;
-            const labelY = bbox.y - 6;
-            if (val != null) {
-                const p = g.append('text')
-                    .attr('class', 'value-tag annotation')
-                    .attr('x', labelX)
-                    .attr('y', labelY)
-                    .attr('text-anchor', 'middle')
-                    .attr('font-size', 12)
-                    .attr('font-weight', 'bold')
-                    .attr('fill', hlColor)
-                    .attr('stroke', 'white')
-                    .attr('stroke-width', 3)
-                    .attr('paint-order', 'stroke')
-                    .text(fmtNum(val))
-                    .attr('opacity', 0)
-                    .transition().duration(400).attr('opacity', 1)
-                    .end();
-                animPromises.push(p);
+        const tagIns = [];
+        target.each(function(){
+            const b = this.getBBox();
+            const x = b.x + b.width/2, y = Math.min(b.y, b.y + b.height) - 6;
+            const val = +d3.select(this).datum()?.value;
+            if (Number.isFinite(val)) {
+                tagIns.push(
+                    g.append('text').attr('class','annotation value-tag')
+                        .attr('x', x).attr('y', y).attr('text-anchor','middle')
+                        .attr('font-size', 12).attr('font-weight','bold')
+                        .attr('fill', color).attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+                        .text(fmtNum(val)).attr('opacity', 0)
+                        .transition().duration(300).attr('opacity', 1).end()
+                );
             }
         });
-
-        await Promise.all(animPromises);
+        await Promise.all(tagIns);
+        await waitFrames(1);
         return selected;
     }
 
-    const hlColor = OP_COLORS.RETRIEVE_VALUE;
-    
-    const retrieveSpec = isLast ? { ...op } : { target: op.target };
-    const matchedData = dataRetrieveValue(data, retrieveSpec, isLast) || [];
-    if (matchedData.length === 0) {
-        console.warn('stackedBarRetrieveValue: no matching data found for', op);
-        return [];
-    }
-    
-    const totalValue = d3.sum(matchedData, d => d.value);
-    const targetCategoryKey = String(matchedData[0]?.target ?? matchedData[0]?.category ?? matchedData[0]?.key ?? op.target);
-    const targetStackId = targetCategoryKey;
-    const targetRects = g.selectAll('rect').filter(d => getDatumCategoryKey(d) === targetCategoryKey);
-    const otherRects = g.selectAll('rect').filter(d => getDatumCategoryKey(d) !== targetCategoryKey);
+    const color = OP_COLORS.RETRIEVE_VALUE;
+    const matched = dataRetrieveValue(data, isLast ? { ...op } : { target: op.target }, isLast) || [];
+    if (!matched.length) return [];
 
-    await otherRects.transition().duration(400).attr('opacity', 0.25).end();
-    await targetRects.transition().duration(400)
-        .attr('opacity', 1)
-        .attr('stroke', 'black')
-        .attr('stroke-width', 1)
-        .end();
-    
-    const targetNodes = targetRects.nodes();
-    if (targetNodes.length > 0) {
-        let minY = Infinity;
-        let lastNodeBBox;
-        targetNodes.forEach(n => { 
-            const b = n.getBBox(); 
-            minY = Math.min(minY, b.y);
-            lastNodeBBox = b;
-        });
-        
-        const labelX = lastNodeBBox.x + lastNodeBBox.width / 2;
+    const total = d3.sum(matched, d => d.value);
+    const targetKey = String(matched[0]?.target ?? matched[0]?.category ?? matched[0]?.key ?? op.target);
+
+    const targetRects = g.selectAll('rect').filter(d => getDatumCategoryKey(d) === targetKey);
+    const others = g.selectAll('rect').filter(d => getDatumCategoryKey(d) !== targetKey);
+
+    await Promise.all([
+        others.transition().duration(300).attr('opacity', 0.25).end(),
+        targetRects.transition().duration(300).attr('opacity', 1).attr('stroke','black').attr('stroke-width',1).end()
+    ]);
+
+    if (!targetRects.empty()) {
+        let minY = Infinity, last;
+        targetRects.nodes().forEach(n => { const bb = n.getBBox(); minY = Math.min(minY, bb.y); last = bb; });
+        const labelX = last.x + last.width/2;
         const labelY = minY - 8;
-        
-        g.append('text')
-            .attr('class', 'value-tag annotation')
-            .attr('x', labelX)
-            .attr('y', labelY)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', 12)
-            .attr('font-weight', 'bold')
-            .attr('fill', hlColor)
-            .attr('stroke', 'white')
-            .attr('stroke-width', 3)
-            .attr('paint-order', 'stroke')
-            .text(fmtNum(totalValue))
-            .attr('opacity', 0)
-            .transition().duration(200).attr('opacity', 1);
-            
-        const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-        const maxTotal = d3.max(Array.from(sumsByCategory.values()));
-        const yScale = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
-        const yPos = margins.top + yScale(totalValue);
 
-        svg.append('line')
-            .attr('class', 'retrieve-line annotation')
-            .attr('x1', margins.left + labelX)
-            .attr('x2', margins.left + labelX)
-            .attr('y1', yPos)
-            .attr('y2', yPos)
-            .attr('stroke', hlColor)
-            .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '5 5')
-            .attr('opacity', 0)
-            .transition().duration(400)
-            .attr('x1', margins.left)
-            .attr('opacity', 1);
+        const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+        const yMax = d3.max(sums.values()) || 0;
+        const y = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+        const yPos = y(total);
+
+        const t = g.append('text').attr('class','annotation value-tag')
+            .attr('x', labelX).attr('y', labelY).attr('text-anchor','middle')
+            .attr('font-size', 12).attr('font-weight','bold')
+            .attr('fill', color).attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+            .text(fmtNum(total)).attr('opacity', 0).transition().duration(250).attr('opacity', 1).end();
+
+        const l = svg.append('line').attr('class','annotation retrieve-line')
+            .attr('x1', margins.left + labelX).attr('x2', margins.left + labelX)
+            .attr('y1', margins.top + yPos).attr('y2', margins.top + yPos)
+            .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+            .attr('opacity', 0).transition().duration(350).attr('x1', margins.left).attr('opacity', 1).end();
+
+        await Promise.all([t, l]);
     }
-    
-    const firstMatch = matchedData[0];
-    return [new DatumValue(firstMatch.category, firstMatch.measure, firstMatch.target, null, totalValue, `${targetStackId}-total`)];
+
+    const first = matched[0];
+    return [new DatumValue(first.category, first.measure, first.target, null, total, `${targetKey}-total`)];
 }
 
 export async function stackedBarFindExtremum(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot, yField, xField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const hlColor = OP_COLORS.EXTREMUM;
+    const color = OP_COLORS.EXTREMUM;
 
     const drawGuideAt = async (val, domainMax) => {
         if (!Number.isFinite(val)) return;
         const y = d3.scaleLinear().domain([0, domainMax || 0]).nice().range([plot.h, 0]);
         const yPos = margins.top + y(val);
-        const line = svg.append('line')
-            .attr('class', 'annotation')
-            .attr('x1', margins.left)
-            .attr('y1', yPos)
-            .attr('x2', margins.left)
-            .attr('y2', yPos)
-            .attr('stroke', hlColor)
-            .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '5 5');
-        await line.transition().duration(400).attr('x2', margins.left + plot.w).end();
+        const line = svg.append('line').attr('class','annotation')
+            .attr('x1', margins.left).attr('y1', yPos).attr('x2', margins.left).attr('y2', yPos)
+            .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+            .transition().duration(450).attr('x2', margins.left + plot.w).end();
+        await line;
     };
 
     const labelBar = (node, text) => {
         if (!node) return;
-        const bbox = node.getBBox();
-        const x = margins.left + bbox.x + bbox.width / 2;
-        const y = margins.top + bbox.y - 6;
-        svg.append('text')
-            .attr('class', 'annotation')
-            .attr('x', x).attr('y', y)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', 12).attr('font-weight', 'bold')
-            .attr('fill', hlColor)
-            .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
-            .text(text)
-            .attr('opacity', 0)
-            .transition().duration(400).attr('opacity', 1);
+        const bb = node.getBBox();
+        const x = margins.left + bb.x + bb.width/2;
+        const y = margins.top + bb.y - 6;
+        return svg.append('text').attr('class','annotation')
+            .attr('x', x).attr('y', y).attr('text-anchor','middle')
+            .attr('font-size', 12).attr('font-weight','bold')
+            .attr('fill', color).attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+            .text(text).attr('opacity',0).transition().duration(350).attr('opacity',1).end();
     };
 
     if (op.group != null) {
         const subgroup = String(op.group);
-        const subset = data.filter(dv => String(dv.group) === subgroup);
-        if (subset.length === 0) {
-            console.warn('stackedBarFindExtremum: no data for group', subgroup);
-            return [];
-        }
-
+        const subset = data.filter(d => String(d.group) === subgroup);
+        if (!subset.length) return [];
         await stackedBarToSimpleBar(chartId, subset);
 
-        const targetDatum = dataFindExtremum(subset, op, xField, yField, isLast);
-        if (!targetDatum) {
-            console.warn('FindExtremum(group): No result for', op);
-            return [];
-        }
+        const target = dataFindExtremum(subset, op, xField, yField, isLast);
+        if (!target) return [];
+        const maxV = d3.max(subset, d => +d.value) || 0;
+        await drawGuideAt(+target.value, maxV);
 
-        const extremumValue = +targetDatum.value;
-        const yMax = d3.max(subset, d => +d.value) || 0;
-        await drawGuideAt(extremumValue, yMax);
+        const sel = g.selectAll('rect').filter(d => getDatumCategoryKey(d) === String(target.target));
+        const others = g.selectAll('rect').filter(d => getDatumCategoryKey(d) !== String(target.target));
 
-        const targetRect = g.selectAll('rect').filter(d => getDatumCategoryKey(d) === String(targetDatum.target));
-        if (!targetRect.empty()) {
-            await targetRect.transition().duration(500).attr('fill', hlColor).attr('stroke', 'black').attr('stroke-width', 1).end();
-            const labelText = `${op?.which === 'min' ? 'Min' : 'Max'}: ${fmtNum(extremumValue)}`;
-            labelBar(targetRect.node(), labelText);
-        }
-        return [targetDatum];
+        await Promise.all([
+            others.transition().duration(400).attr('opacity', 0.2).end(),
+            sel.transition().duration(400).attr('fill', color).attr('stroke','black').attr('stroke-width',1).end()
+        ]);
+        await labelBar(sel.node(), `${op?.which==='min'?'Min':'Max'}: ${fmtNum(+target.value)}`);
+        return [target];
     }
 
     if (op.category != null) {
-        const category = String(op.category);
-        const subset = data.filter(d => String(d.target) === category);
-        const targetDatum = dataFindExtremum(subset, op, xField, yField, isLast);
-        if (!targetDatum) {
-            console.warn('FindExtremum(category): No result for', op);
-            return [];
-        }
-        const extremumValue = +targetDatum.value;
-
+        const cat = String(op.category);
+        const subset = data.filter(d => String(d.target) === cat);
+        const target = dataFindExtremum(subset, op, xField, yField, isLast);
+        if (!target) return [];
         const globalMax = d3.max(data, d => +d.value) || 0;
-        await drawGuideAt(extremumValue, globalMax);
+        await drawGuideAt(+target.value, globalMax);
 
-        const allRects = g.selectAll('rect');
-        const targetRect = allRects.filter(d => getDatumCategoryKey(d) === category && String(d.subgroup) === String(targetDatum.group));
-        const otherInCategory = allRects.filter(d => getDatumCategoryKey(d) === category && String(d.subgroup) !== String(targetDatum.group));
-        const others = allRects.filter(d => getDatumCategoryKey(d) !== category);
+        const all = g.selectAll('rect');
+        const hit = all.filter(d => getDatumCategoryKey(d) === cat && String(d.subgroup) === String(target.group));
+        const othersInCat = all.filter(d => getDatumCategoryKey(d) === cat && String(d.subgroup) !== String(target.group));
+        const rest = all.filter(d => getDatumCategoryKey(d) !== cat);
 
-        await others.transition().duration(500).attr('opacity', 0.2).end();
-        await otherInCategory.transition().duration(500).attr('opacity', 0.6).end();
-        await targetRect.transition().duration(500).attr('fill', hlColor).attr('stroke', 'black').attr('stroke-width', 1).end();
-
-        const labelText = `${op?.which === 'min' ? 'Min' : 'Max'}: ${fmtNum(extremumValue)}`;
-        labelBar(targetRect.node(), labelText);
-        return [targetDatum];
+        await Promise.all([
+            rest.transition().duration(400).attr('opacity', 0.2).end(),
+            othersInCat.transition().duration(400).attr('opacity', 0.6).end(),
+            hit.transition().duration(400).attr('fill', color).attr('stroke','black').attr('stroke-width',1).end()
+        ]);
+        await labelBar(hit.node(), `${op?.which==='min'?'Min':'Max'}: ${fmtNum(+target.value)}`);
+        return [target];
     }
 
-    const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const totals = Array.from(sumsByCategory.entries(), ([key, value]) => ({ target: key, value }));
+    const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+    const totals = Array.from(sums.entries(), ([key, value]) => ({ target: key, value }));
     const extremumTotal = dataFindExtremum(totals, op, xField, yField, isLast);
-    if (!extremumTotal) {
-        console.warn('FindExtremum(total): No result for', op);
-        return [];
-    }
-
-    const extremumValue = +extremumTotal.value;
-    const extremumCategory = extremumTotal.target;
+    if (!extremumTotal) return [];
 
     const yMaxTotal = d3.max(totals, d => d.value) || 0;
-    await drawGuideAt(extremumValue, yMaxTotal);
+    await drawGuideAt(+extremumTotal.value, yMaxTotal);
 
     const allRects = g.selectAll('rect');
-    const targetStackRects = allRects.filter(d => getDatumCategoryKey(d) === String(extremumCategory));
-    const others = allRects.filter(d => getDatumCategoryKey(d) !== String(extremumCategory));
+    const targetRects = allRects.filter(d => getDatumCategoryKey(d) === String(extremumTotal.target));
+    const others = allRects.filter(d => getDatumCategoryKey(d) !== String(extremumTotal.target));
 
-    await others.transition().duration(500).attr('opacity', 0.2).end();
-    await targetStackRects.transition().duration(500).attr('opacity', 1).attr('stroke', 'black').attr('stroke-width', 0.5).end();
+    await Promise.all([
+        others.transition().duration(400).attr('opacity', 0.2).end(),
+        targetRects.transition().duration(400).attr('opacity', 1).attr('stroke','black').attr('stroke-width',0.5).end()
+    ]);
 
-    svg.append('text')
-        .attr('class', 'annotation')
-        .attr('x', margins.left)
-        .attr('y', margins.top - 10)
-        .attr('font-size', 12)
-        .attr('font-weight', 'bold')
-        .attr('fill', hlColor)
-        .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
-        .text(`${op.which} Total: ${fmtNum(extremumValue)}`)
-        .attr('opacity', 0)
-        .transition().duration(400).attr('opacity', 1);
+    await svg.append('text').attr('class','annotation')
+        .attr('x', margins.left).attr('y', margins.top - 10)
+        .attr('font-size', 12).attr('font-weight','bold').attr('fill', color)
+        .attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+        .text(`${op.which} Total: ${fmtNum(+extremumTotal.value)}`)
+        .attr('opacity',0).transition().duration(350).attr('opacity',1).end();
 
-    return [data.find(d => String(d.target) === String(extremumCategory)) || extremumTotal];
+    return [data.find(d => String(d.target) === String(extremumTotal.target)) || extremumTotal];
 }
-export async function stackedBarSort(chartId, op, data, isLast = false) {
-    const { svg, g, xField, yField, plot, margins } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg);
 
-    if (!Array.isArray(data) || data.length === 0) {
-        console.warn("Sort operation received no data.");
-        return data;
-    }
+export async function stackedBarSort(chartId, op, data, isLast = false) {
+    const { g, xField, yField, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(d3.select(`#${chartId}`).select("svg"));
+
+    if (!Array.isArray(data) || !data.length) return data;
 
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = data.filter(d => String(d.group) === subgroup);
-        if (subset.length === 0) {
-            console.warn('stackedBarSort: no data for group', subgroup);
-            return [];
-        }
+        if (!subset.length) return [];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { ...op };
-        delete op2.group;
+        const op2 = { ...op }; delete op2.group;
         return await simpleBarSort(chartId, op2, subset, isLast);
     }
 
-    const sortOp = { ...op, aggregate: 'sum' };
-    const sortedData = dataSort(data, sortOp, xField, yField);
+    const sorted = dataSort(data, { ...op, aggregate: 'sum' }, xField, yField);
+    const domain = [...new Set(sorted.map(d => d.target))];
+    const x = d3.scaleBand().domain(domain).range([0, plot.w]).padding(0.1);
 
-    const sortedCategories = [...new Set(sortedData.map(d => d.target))];
-    const xScale = d3.scaleBand().domain(sortedCategories).range([0, plot.w]).padding(0.1);
+    const rectT = g.selectAll("rect").transition().duration(800)
+        .attr("x", d => x(d.key)).attr("width", x.bandwidth()).end();
+    const axisT = g.select(".x-axis").transition().duration(800).call(d3.axisBottom(x)).end();
 
-    const rectTransition = g.selectAll("rect")
-        .transition().duration(1000)
-        .attr("x", function(d) { return xScale(d.key); })
-        .attr("width", xScale.bandwidth())
-        .end();
-
-    const axisTransition = g.select(".x-axis").transition().duration(1000)
-        .call(d3.axisBottom(xScale))
-        .end();
-
-    await Promise.all([rectTransition, axisTransition]);
-
-    return sortedData;
+    await Promise.all([rectT, axisT]);
+    await waitFrames(1);
+    return sorted;
 }
 
 export async function stackedBarSum(chartId, op, data, isLast = false) {
@@ -628,87 +471,61 @@ export async function stackedBarSum(chartId, op, data, isLast = false) {
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('stackedBarSum: no data for group', subgroup);
-            return [];
-        }
+        if (!subset.length) return [];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { ...op };
-        delete op2.group;
+        const op2 = { ...op }; delete op2.group;
         return await simpleBarSum(chartId, op2, subset, isLast);
     }
 
     const result = dataSum(data, op, xField, yField, isLast);
-    const totalSum = result ? result.value : 0;
+    const total = result ? result.value : 0;
+    if (!Number.isFinite(total) || total === 0) return result;
 
-    if (totalSum === 0) {
-        console.warn("Sum is 0 or could not be calculated.");
-        return result;
-    }
+    const all = g.selectAll("rect");
+    const y = d3.scaleLinear().domain([0, total]).nice().range([plot.h, 0]);
 
-    const allRects = g.selectAll("rect");
-    const color = OP_COLORS.SUM;
+    const yAxisT = svg.select(".y-axis").transition().duration(1000).call(d3.axisLeft(y)).end();
 
-    const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
-    const yAxisTransition = svg.select(".y-axis").transition().duration(1200)
-        .call(d3.axisLeft(newYScale))
-        .end();
-
-    const originalStates = [];
-    allRects.each(function() {
-        originalStates.push({
-            node: this,
-            x: +this.getAttribute('x'),
-            y: +this.getAttribute('y'),
-            datum: d3.select(this).datum()
-        });
+    // 현재 좌표 기록 후, 가운데로 스택 쌓기
+    const states = [];
+    all.each(function(){
+        states.push({ node:this, x:+this.getAttribute('x'), y:+this.getAttribute('y'), d:d3.select(this).datum() });
     });
-    originalStates.sort((a, b) => a.x - b.x || b.y - a.y);
-    
-    const barWidth = allRects.size() > 0 ? +allRects.node().getAttribute('width') : 20;
-    const targetX = plot.w / 2 - barWidth / 2;
-    
-    let runningTotal = 0;
-    const stackPromises = [];
+    states.sort((a,b)=> a.x - b.x || b.y - a.y);
 
-    originalStates.forEach(state => {
-        const value = state.datum.value;
-        const t = d3.select(state.node)
-            .transition().duration(1500).ease(d3.easeCubicInOut)
-            .attr("x", targetX)
-            .attr("width", barWidth)
-            .attr("y", newYScale(runningTotal + value))
-            .attr("height", newYScale(0) - newYScale(value))
+    const bw = all.size() ? +all.node().getAttribute('width') : 20;
+    const targetX = plot.w/2 - bw/2;
+    let running = 0;
+
+    const moves = states.map(s => {
+        const v = +s.d.value || 0;
+        const t = d3.select(s.node).transition().duration(1200).ease(d3.easeCubicInOut)
+            .attr('x', targetX).attr('width', bw)
+            .attr('y', y(running + v))
+            .attr('height', y(0) - y(v))
             .end();
-        stackPromises.push(t);
-        runningTotal += value;
+        running += v;
+        return t;
     });
 
-    await Promise.all([yAxisTransition, ...stackPromises]);
-    await delay(300);
+    await Promise.all([yAxisT, ...moves]);
+    await delay(250);
 
-    const yPos = margins.top + newYScale(totalSum);
-    svg.append("line").attr("class", "annotation sum-line")
-        .attr("x1", margins.left)
-        .attr("x2", margins.left + plot.w)
-        .attr("y1", yPos)
-        .attr("y2", yPos)
-        .attr("stroke", color)
-        .attr("stroke-width", 2)
-        .attr("stroke-dasharray", "5 5");
+    const yPos = margins.top + y(total);
+    await svg.append("line").attr("class","annotation sum-line")
+        .attr("x1", margins.left).attr("x2", margins.left)
+        .attr("y1", yPos).attr("y2", yPos)
+        .attr("stroke", OP_COLORS.SUM).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+        .transition().duration(500).attr("x2", margins.left + plot.w).end();
 
-    svg.append("text").attr("class", "annotation sum-label")
-        .attr("x", margins.left + plot.w / 2)
-        .attr("y", yPos - 10)
-        .attr("text-anchor", "middle")
-        .attr("font-size", 12)
-        .attr("font-weight", "bold")
-        .attr("fill", color)
-        .attr("stroke", "white")
-        .attr("stroke-width", 3)
-        .attr("paint-order", "stroke")
-        .text(`Sum: ${fmtNum(totalSum)}`);
+    await svg.append("text").attr("class","annotation sum-label")
+        .attr("x", margins.left + plot.w/2).attr("y", yPos - 10).attr("text-anchor","middle")
+        .attr("font-size", 12).attr("font-weight","bold").attr("fill", OP_COLORS.SUM)
+        .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+        .text(`Sum: ${fmtNum(total)}`).attr('opacity',0)
+        .transition().duration(350).attr('opacity',1).end();
 
+    await waitFrames(1);
     return result;
 }
 
@@ -719,67 +536,40 @@ export async function stackedBarAverage(chartId, op, data, isLast = false) {
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('stackedBarAverage: no data for group', subgroup);
-            return [];
-        }
+        if (!subset.length) return [];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { ...op, field: 'value' };
-        delete op2.group;
+        const op2 = { ...op, field: 'value' }; delete op2.group;
         return await simpleBarAverage(chartId, op2, subset, isLast);
     }
 
-    const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const totalsData = Array.from(sumsByCategory.values());
-    if (totalsData.length === 0) {
-        console.warn('stackedBarAverage: no data to aggregate for totals');
-        return [];
-    }
-    
-    const averageValue = d3.mean(totalsData);
-    if (!Number.isFinite(averageValue)) {
-        console.warn('stackedBarAverage: average could not be computed.');
-        return [];
-    }
-    const resultDatum = dataAverage(data, op, xField, yField, isLast);
+    const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+    const totals = Array.from(sums.values());
+    if (!totals.length) return [];
 
-    const yMax = d3.max(Array.from(sumsByCategory.values()));
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-    const yPos = yScale(averageValue);
+    const avg = d3.mean(totals);
+    if (!Number.isFinite(avg)) return [];
 
-    const hlColor = OP_COLORS.AVERAGE;
+    const result = dataAverage(data, op, xField, yField, isLast);
 
-    const line = g.append('line')
-        .attr('class', 'annotation avg-line')
-        .attr('x1', 0)
-        .attr('x2', 0)
-        .attr('y1', yPos)
-        .attr('y2', yPos)
-        .attr('stroke', hlColor)
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', '5 5');
-        
-    await line.transition().duration(800)
-        .attr('x2', plot.w)
-        .end();
+    const y = d3.scaleLinear().domain([0, d3.max(totals) || 0]).nice().range([plot.h, 0]);
+    const yPos = y(avg);
+    const color = OP_COLORS.AVERAGE;
 
-    g.append('text')
-        .attr('class', 'annotation avg-label')
-        .attr('x', plot.w / 2)
-        .attr('y', yPos - 10)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', 12)
-        .attr('font-weight', 'bold')
-        .attr('fill', hlColor)
-        .attr('stroke', 'white')
-        .attr('stroke-width', 3)
-        .attr('paint-order', 'stroke')
-        .text(`Avg: ${averageValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
-        .attr('opacity', 0)
-        .transition().delay(200).duration(400)
-        .attr('opacity', 1);
+    const line = g.append('line').attr('class','annotation avg-line')
+        .attr('x1', 0).attr('x2', 0).attr('y1', yPos).attr('y2', yPos)
+        .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
+        .transition().duration(700).attr('x2', plot.w).end();
 
-    return resultDatum;
+    const text = g.append('text').attr('class','annotation avg-label')
+        .attr('x', plot.w/2).attr('y', yPos - 10).attr('text-anchor','middle')
+        .attr('font-size', 12).attr('font-weight','bold')
+        .attr('fill', color).attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+        .text(`Avg: ${avg.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+        .attr('opacity', 0).transition().delay(150).duration(400).attr('opacity', 1).end();
+
+    await Promise.all([line, text]);
+    await waitFrames(1);
+    return result;
 }
 
 export async function stackedBarDetermineRange(chartId, op, data, isLast = false) {
@@ -788,180 +578,75 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
 
     if (op.group != null) {
         const subgroup = String(op.group);
-        const subset = data.filter(dv => String(dv.group) === subgroup);
-        if (subset.length === 0) {
-            console.warn('stackedBarDetermineRange: no data for group', subgroup);
-            return new IntervalValue(op.group, NaN, NaN);
-        }
+        const subset = data.filter(d => String(d.group) === subgroup);
+        if (!subset.length) return new IntervalValue(op.group, NaN, NaN);
         await stackedBarToSimpleBar(chartId, subset);
-        
-        const values = subset.map(d => d.value);
-        const minV = d3.min(values);
-        const maxV = d3.max(values);
+
+        const values = subset.map(d => +d.value);
+        const minV = d3.min(values), maxV = d3.max(values);
         const result = new IntervalValue(op.group, minV, maxV);
 
-        const allRects = g.selectAll('rect');
-        const minBars = allRects.filter(function() { const d = d3.select(this).datum(); return d && +d.value === minV; });
-        const maxBars = allRects.filter(function() { const d = d3.select(this).datum(); return d && +d.value === maxV; });
-        const otherRects = allRects.filter(function() { const d = d3.select(this).datum(); return d && +d.value !== minV && +d.value !== maxV; });
+        const all = g.selectAll('rect');
+        const minBars = all.filter(d => +d.value === minV);
+        const maxBars = all.filter(d => +d.value === maxV);
+        const others  = all.filter(d => +d.value !== minV && +d.value !== maxV);
 
-        const hlColor = OP_COLORS.RANGE;
-        const yMax = d3.max(values) || 0;
-        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-        const animationPromises = [];
+        const color = OP_COLORS.RANGE;
+        const y = d3.scaleLinear().domain([0, d3.max(values)||0]).nice().range([plot.h, 0]);
 
-        animationPromises.push(
-            otherRects.transition().duration(600).attr('opacity', 0.2).end()
+        await Promise.all([
+            others.transition().duration(500).attr('opacity', 0.2).end(),
+            minBars.transition().duration(500).attr('opacity', 1).end(),
+            maxBars.transition().duration(500).attr('opacity', 1).end()
+        ]);
+
+        const lines = [minV, maxV].map(v =>
+            svg.append('line').attr('class','annotation')
+                .attr('x1', margins.left).attr('y1', margins.top + y(v))
+                .attr('x2', margins.left).attr('y2', margins.top + y(v))
+                .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+                .transition().duration(700).attr('x2', margins.left + plot.w).end()
         );
-        animationPromises.push(
-            minBars.transition().duration(600).attr('opacity', 1).end()
-        );
-        animationPromises.push(
-            maxBars.transition().duration(600).attr('opacity', 1).end()
-        );
-
-        const getBarCenterTop = (barNode) => {
-            if (!barNode) return null;
-            const b = barNode.getBBox();
-            return {
-                x: b.x + b.width / 2,
-                y: b.y - 8
-            };
-        };
-
-        [
-            { value: minV, label: "Min", bars: minBars },
-            { value: maxV, label: "Max", bars: maxBars }
-        ].forEach(item => {
-            if (item.value === undefined) return;
-            const yPos = margins.top + yScale(item.value);
-            const line = svg.append("line").attr("class", "annotation")
-                .attr("x1", margins.left).attr("x2", margins.left)
-                .attr("y1", yPos).attr("y2", yPos)
-                .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-
-            animationPromises.push(
-                line.transition().duration(800).attr("x2", margins.left + plot.w).end()
-            );
-
-            item.bars.each(function() {
-                const pos = getBarCenterTop(this);
-                if (pos) {
-                    const datum = d3.select(this).datum() || {};
-                    const catLabel = String(datum.key ?? datum.target ?? '');
-                    const text = g.append("text").attr("class", "annotation")
-                        .attr("x", pos.x)
-                        .attr("y", pos.y)
-                        .attr("text-anchor", "middle")
-                        .attr("font-size", 12).attr("font-weight", "bold")
-                        .attr("fill", hlColor)
-                        .attr("stroke", "white").attr("stroke-width", 3)
-                        .attr("paint-order", "stroke")
-                        .text(catLabel ? `${item.label}: ${catLabel} (${fmtNum(item.value)})` : `${item.label}: ${fmtNum(item.value)}`)
-                        .attr("opacity", 0);
-                    
-                    animationPromises.push(
-                        text.transition().delay(400).duration(400).attr("opacity", 1).end()
-                    );
-                }
-            });
-        });
-        
-        await Promise.all(animationPromises);
+        await Promise.all(lines);
         return result;
     }
 
-    const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const totals = Array.from(sumsByCategory.values());
-    if (totals.length === 0) {
-        return new IntervalValue('Stack Totals', NaN, NaN);
-    }
+    const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+    const totals = Array.from(sums.values());
+    if (!totals.length) return new IntervalValue('Stack Totals', NaN, NaN);
 
-    const minTotal = d3.min(totals);
-    const maxTotal = d3.max(totals);
+    const minTotal = d3.min(totals), maxTotal = d3.max(totals);
     const result = new IntervalValue('Stack Totals', minTotal, maxTotal);
 
-    let minCategory, maxCategory;
-    sumsByCategory.forEach((sum, cat) => {
-        if (sum === minTotal) minCategory = cat;
-        if (sum === maxTotal) maxCategory = cat;
+    // 강조
+    const all = g.selectAll('rect');
+    let minCat, maxCat;
+    sums.forEach((sum, cat) => { if (sum === minTotal) minCat = cat; if (sum === maxTotal) maxCat = cat; });
+
+    const minSel = all.filter(d => getDatumCategoryKey(d) === String(minCat));
+    const maxSel = all.filter(d => getDatumCategoryKey(d) === String(maxCat));
+    const others = all.filter(d => {
+        const k = getDatumCategoryKey(d);
+        return k !== String(minCat) && k !== String(maxCat);
     });
 
-    const allRects = g.selectAll('rect');
-    const minStackRects = allRects.filter(d => getDatumCategoryKey(d) === String(minCategory));
-    const maxStackRects = allRects.filter(d => getDatumCategoryKey(d) === String(maxCategory));
-    const otherRects = allRects.filter(d => {
-        const key = getDatumCategoryKey(d);
-        return key !== String(minCategory) && key !== String(maxCategory);
-    });
+    const color = OP_COLORS.RANGE;
+    const y = d3.scaleLinear().domain([0, d3.max(totals)||0]).nice().range([plot.h, 0]);
 
-    const hlColor = OP_COLORS.RANGE;
-    const yMax = d3.max(totals) || 0;
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-    const animationPromises = [];
+    await Promise.all([
+        others.transition().duration(500).attr('opacity', 0.2).end(),
+        minSel.transition().duration(500).attr('opacity', 1).end(),
+        maxSel.transition().duration(500).attr('opacity', 1).end()
+    ]);
 
-    animationPromises.push(
-        otherRects.transition().duration(600).attr('opacity', 0.2).end()
+    const lines = [minTotal, maxTotal].map(v =>
+        svg.append('line').attr('class','annotation')
+            .attr('x1', margins.left).attr('y1', margins.top + y(v))
+            .attr('x2', margins.left).attr('y2', margins.top + y(v))
+            .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+            .transition().duration(700).attr('x2', margins.left + plot.w).end()
     );
-    animationPromises.push(
-        minStackRects.transition().duration(600).attr('opacity', 1).end()
-    );
-    animationPromises.push(
-        maxStackRects.transition().duration(600).attr('opacity', 1).end()
-    );
-
-    const getStackCenterTop = (rectSelection) => {
-        if (rectSelection.empty()) return null;
-        const nodes = rectSelection.nodes();
-        let minY = Infinity, maxX = -Infinity, minX = Infinity;
-        nodes.forEach(node => {
-            const b = node.getBBox();
-            minX = Math.min(minX, b.x);
-            maxX = Math.max(maxX, b.x + b.width);
-            minY = Math.min(minY, b.y);
-        });
-        return {
-            x: minX + (maxX - minX) / 2,
-            y: minY - 8
-        };
-    };
-
-    [
-        { value: minTotal, label: "Min", bars: minStackRects, category: minCategory },
-        { value: maxTotal, label: "Max", bars: maxStackRects, category: maxCategory }
-    ].forEach(item => {
-        if (item.value === undefined) return;
-        const yPos = margins.top + yScale(item.value);
-        const line = svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left).attr("x2", margins.left)
-            .attr("y1", yPos).attr("y2", yPos)
-            .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-
-        animationPromises.push(
-            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
-        );
-
-        const pos = getStackCenterTop(item.bars);
-        if (pos) {
-             const text = g.append("text").attr("class", "annotation")
-                .attr("x", pos.x)
-                .attr("y", pos.y)
-                .attr("text-anchor", "middle")
-                .attr("font-size", 12).attr("font-weight", "bold")
-                .attr("fill", hlColor)
-                .attr("stroke", "white").attr("stroke-width", 3)
-                .attr("paint-order", "stroke")
-                .text(item.category ? `${item.label}: ${item.category} (${fmtNum(item.value)})` : `${item.label}: ${fmtNum(item.value)}`)
-                .attr("opacity", 0);
-            
-            animationPromises.push(
-                text.transition().delay(400).duration(400).attr("opacity", 1).end()
-            );
-        }
-    });
-    
-    await Promise.all(animationPromises);
-
+    await Promise.all(lines);
     return result;
 }
 
@@ -969,124 +654,72 @@ export async function stackedBarCompare(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const opForCompare = {
-        targetA: op.targetA,
-        targetB: op.targetB,
-        group: op.group ?? null,
-        operator: op.operator,
-        which: op.which,
-        field: op.field || yField || 'value'
-    };
-    
-    let winner = dataCompare(data, opForCompare, xField, yField, isLast);
+    const opFor = { targetA: op.targetA, targetB: op.targetB, group: op.group ?? null, operator: op.operator, which: op.which, field: op.field || yField || 'value' };
+    let winner = dataCompare(data, opFor, xField, yField, isLast);
 
     if (op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('stackedBarCompare: no data for group', subgroup);
-            return winner ? [winner] : [];
-        }
+        if (!subset.length) return winner ? [winner] : [];
         await stackedBarToSimpleBar(chartId, subset);
         const op2 = { targetA: op.targetA, targetB: op.targetB, operator: op.operator, which: op.which, field: 'value' };
         return await simpleBarCompare(chartId, op2, subset, isLast);
     }
-    
-    const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const resolvedA = resolveStackedDatum(data, op.targetA, sumsByCategory);
-    const resolvedB = resolveStackedDatum(data, op.targetB, sumsByCategory);
 
-    if (!Number.isFinite(resolvedA.value) || !Number.isFinite(resolvedB.value)) {
-        console.warn('stackedBarCompare: one or both targets not found for summing', op);
-        return winner ? [winner] : [];
-    }
-    const sumA = resolvedA.value;
-    const sumB = resolvedB.value;
+    const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+    const A = resolveStackedDatum(data, op.targetA, sums);
+    const B = resolveStackedDatum(data, op.targetB, sums);
+    if (!Number.isFinite(A.value) || !Number.isFinite(B.value)) return winner ? [winner] : [];
 
-    const allRects = g.selectAll('rect');
-    const barsA = allRects.filter(d => getDatumCategoryKey(d) === String(resolvedA.category));
-    const barsB = allRects.filter(d => getDatumCategoryKey(d) === String(resolvedB.category));
-    const otherRects = allRects.filter(d => {
-        const key = getDatumCategoryKey(d);
-        return key !== String(resolvedA.category) && key !== String(resolvedB.category);
+    const all = g.selectAll('rect');
+    const barsA = all.filter(d => getDatumCategoryKey(d) === String(A.category));
+    const barsB = all.filter(d => getDatumCategoryKey(d) === String(B.category));
+    const others = all.filter(d => {
+        const k = getDatumCategoryKey(d);
+        return k !== String(A.category) && k !== String(B.category);
     });
 
-    const colorA = OP_COLORS.COMPARE_A;
-    const colorB = OP_COLORS.COMPARE_B;
-    const animationPromises = [];
+    const colorA = OP_COLORS.COMPARE_A, colorB = OP_COLORS.COMPARE_B;
+    await Promise.all([
+        others.transition().duration(500).attr('opacity', 0.2).end(),
+        barsA.transition().duration(500).attr('opacity', 1).attr('fill', colorA).end(),
+        barsB.transition().duration(500).attr('opacity', 1).attr('fill', colorB).end()
+    ]);
 
-    animationPromises.push(
-        otherRects.transition().duration(600).attr('opacity', 0.2).end()
-    );
-    animationPromises.push(
-        barsA.transition().duration(600).attr('opacity', 1).attr('fill', colorA).end()
-    );
-    animationPromises.push(
-        barsB.transition().duration(600).attr('opacity', 1).attr('fill', colorB).end()
-    );
-
-    const yMax = d3.max(Array.from(sumsByCategory.values())) || 0;
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-
-    const getStackCenterTop = (rectSelection) => {
-        if (rectSelection.empty()) return null;
-        const nodes = rectSelection.nodes();
-        let minY = Infinity, maxX = -Infinity, minX = Infinity;
-        nodes.forEach(node => {
-            const b = node.getBBox();
-            minX = Math.min(minX, b.x);
-            maxX = Math.max(maxX, b.x + b.width);
-            minY = Math.min(minY, b.y);
-        });
-        return { x: minX + (maxX - minX) / 2, y: minY - 8 };
+    const y = d3.scaleLinear().domain([0, d3.max(Array.from(sums.values())) || 0]).nice().range([plot.h, 0]);
+    const annotate = (sel, total, color) => {
+        const nodes = sel.nodes(); if (!nodes.length) return [];
+        let minY = Infinity, minX = Infinity, maxX = -Infinity;
+        nodes.forEach(n => { const b = n.getBBox(); minY = Math.min(minY, b.y); minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x + b.width); });
+        const cx = minX + (maxX - minX)/2;
+        const line = svg.append("line").attr("class","annotation")
+            .attr("x1", margins.left).attr("y1", margins.top + y(total))
+            .attr("x2", margins.left).attr("y2", margins.top + y(total))
+            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(700).attr("x2", margins.left + plot.w).end();
+        const text = g.append("text").attr("class","annotation")
+            .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+            .attr("font-size", 12).attr("font-weight","bold").attr("fill", color)
+            .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+            .text(fmtNum(total)).attr("opacity",0).transition().delay(200).duration(400).attr("opacity",1).end();
+        return [line, text];
     };
-
-    const annotateStack = (stackSelection, totalValue, color) => {
-        const pos = getStackCenterTop(stackSelection);
-        if (!pos) return;
-
-        const yPos = margins.top + yScale(totalValue);
-        const line = svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left).attr("x2", margins.left)
-            .attr("y1", yPos).attr("y2", yPos)
-            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-
-        animationPromises.push(
-            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
-        );
-
-        const text = g.append("text").attr("class", "annotation")
-            .attr("x", pos.x).attr("y", pos.y)
-            .attr("text-anchor", "middle")
-            .attr("font-size", 12).attr("font-weight", "bold")
-            .attr("fill", color)
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(fmtNum(totalValue))
-            .attr("opacity", 0);
-        
-        animationPromises.push(
-            text.transition().delay(400).duration(400).attr("opacity", 1).end()
-        );
-    };
-
-    annotateStack(barsA, sumA, colorA);
-    annotateStack(barsB, sumB, colorB);
-
-    await Promise.all(animationPromises);
+    const tasks = [...annotate(barsA, A.value, colorA), ...annotate(barsB, B.value, colorB)];
+    await Promise.all(tasks);
 
     if (winner) {
-        const winnerKey = winner?.id ?? winner?.target ?? (sumA >= sumB ? op.targetA : op.targetB);
-        const resolvedWinner = resolveStackedDatum(data, winnerKey, sumsByCategory);
-        const winnerSum = Number.isFinite(resolvedWinner.value) ? resolvedWinner.value : (winner?.value ?? (sumA >= sumB ? sumA : sumB));
-        const winnerDatum = new DatumValue(
-            winner.category ?? resolvedWinner.datum?.category ?? xField,
-            winner.measure ?? resolvedWinner.datum?.measure ?? yField,
-            resolvedWinner.category ?? winner.target,
-            winner.group ?? resolvedWinner.group ?? null,
-            winnerSum,
-            winner.id ?? resolvedWinner.datum?.id ?? undefined
+        const winnerKey = winner?.id ?? winner?.target ?? (A.value >= B.value ? op.targetA : op.targetB);
+        const resolved = resolveStackedDatum(data, winnerKey, sums);
+        const wVal = Number.isFinite(resolved.value) ? resolved.value : (winner?.value ?? Math.max(A.value, B.value));
+        const datum = new DatumValue(
+            winner.category ?? resolved.datum?.category ?? xField,
+            winner.measure ?? resolved.datum?.measure ?? yField,
+            resolved.category ?? winner.target,
+            winner.group ?? resolved.group ?? null,
+            wVal,
+            winner.id ?? resolved.datum?.id ?? undefined
         );
-        return [winnerDatum];
+        return [datum];
     }
     return [];
 }
@@ -1099,136 +732,73 @@ export async function stackedBarCompareBool(chartId, op, data, isLast = false) {
         const simpleVerdict = await simpleBarCompareBool(chartId, op, data, true);
         if (Array.isArray(simpleVerdict)) return simpleVerdict;
         if (simpleVerdict instanceof BoolValue) return [simpleVerdict];
-
         const findValue = (key) => {
             const str = String(key);
             const hit = data.find(d => String(d?.id) === str) || data.find(d => String(d?.target) === str);
             return hit ? Number(hit.value) : NaN;
         };
-        const sumA = findValue(op.targetA);
-        const sumB = findValue(op.targetB);
-        const boolResult = evalComparison(op.operator, sumA, sumB);
+        const a = findValue(op.targetA), b = findValue(op.targetB);
+        const res = evalComparison(op.operator, a, b);
         const label = op.field || (simpleVerdict && simpleVerdict.category) || yField || 'value';
-        return [new BoolValue(label, boolResult)];
+        return [new BoolValue(label, res)];
     }
 
-    const opFor = {
-        targetA: op.targetA,
-        targetB: op.targetB,
-        group: op.group ?? null,
-        operator: op.operator,
-        field: op.field || yField || 'value'
-    };
-
+    const opFor = { targetA: op.targetA, targetB: op.targetB, group: op.group ?? null, operator: op.operator, field: op.field || yField || 'value' };
     const verdict = isLast ? null : dataCompareBool(data, opFor, xField, yField, isLast);
 
     if (op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('stackedBarCompareBool: no data for group', subgroup);
-            if (verdict instanceof BoolValue) return [verdict];
-            return [new BoolValue(op.field || yField || 'value', false)];
-        }
+        if (!subset.length) return [new BoolValue(op.field || yField || 'value', false)];
         await stackedBarToSimpleBar(chartId, subset);
         const op2 = { targetA: op.targetA, targetB: op.targetB, operator: op.operator, field: 'value' };
-        const visVerdict = await simpleBarCompareBool(chartId, op2, subset, isLast);
-        if (visVerdict) return Array.isArray(visVerdict) ? visVerdict : [visVerdict];
-        if (verdict instanceof BoolValue) return [verdict];
-        return [new BoolValue(op.field || yField || 'value', false)];
+        const vis = await simpleBarCompareBool(chartId, op2, subset, isLast);
+        return Array.isArray(vis) ? vis : [vis];
     }
-    
-    const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const resolvedA = resolveStackedDatum(data, op.targetA, sumsByCategory);
-    const resolvedB = resolveStackedDatum(data, op.targetB, sumsByCategory);
 
-    if (!Number.isFinite(resolvedA.value) || !Number.isFinite(resolvedB.value)) {
-        console.warn('stackedBarCompareBool: one or both targets not found for summing', op);
-        if (verdict instanceof BoolValue) return [verdict];
-        return [new BoolValue(op.field || yField || 'value', false)];
-    }
-    const sumA = resolvedA.value;
-    const sumB = resolvedB.value;
+    const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+    const A = resolveStackedDatum(data, op.targetA, sums);
+    const B = resolveStackedDatum(data, op.targetB, sums);
+    if (!Number.isFinite(A.value) || !Number.isFinite(B.value)) return [new BoolValue(op.field || yField || 'value', false)];
 
-    const allRects = g.selectAll('rect');
-    const barsA = allRects.filter(d => getDatumCategoryKey(d) === String(resolvedA.category));
-    const barsB = allRects.filter(d => getDatumCategoryKey(d) === String(resolvedB.category));
-    const otherRects = allRects.filter(d => {
-        const key = getDatumCategoryKey(d);
-        return key !== String(resolvedA.category) && key !== String(resolvedB.category);
+    const all = g.selectAll('rect');
+    const barsA = all.filter(d => getDatumCategoryKey(d) === String(A.category));
+    const barsB = all.filter(d => getDatumCategoryKey(d) === String(B.category));
+    const others = all.filter(d => {
+        const k = getDatumCategoryKey(d);
+        return k !== String(A.category) && k !== String(B.category);
     });
 
-    const boolResult = (verdict && typeof verdict.bool === 'boolean')
-        ? verdict.bool
-        : evalComparison(op.operator, sumA, sumB);
-    const colorA = boolResult ? OP_COLORS.TRUE : OP_COLORS.FALSE;
-    const colorB = colorA;
-    const animationPromises = [];
+    const bool = (verdict && typeof verdict.bool === 'boolean') ? verdict.bool : evalComparison(op.operator, A.value, B.value);
+    const color = bool ? OP_COLORS.TRUE : OP_COLORS.FALSE;
 
-    animationPromises.push(
-        otherRects.transition().duration(600).attr('opacity', 0.2).end()
-    );
-    animationPromises.push(
-        barsA.transition().duration(600).attr('opacity', 1).attr('fill', colorA).end()
-    );
-    animationPromises.push(
-        barsB.transition().duration(600).attr('opacity', 1).attr('fill', colorB).end()
-    );
+    await Promise.all([
+        others.transition().duration(500).attr('opacity', 0.2).end(),
+        barsA.transition().duration(500).attr('opacity', 1).attr('fill', color).end(),
+        barsB.transition().duration(500).attr('opacity', 1).attr('fill', color).end()
+    ]);
 
-    const yMax = d3.max(Array.from(sumsByCategory.values())) || 0;
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-
-    const getStackCenterTop = (rectSelection) => {
-        if (rectSelection.empty()) return null;
-        const nodes = rectSelection.nodes();
-        let minY = Infinity, maxX = -Infinity, minX = Infinity;
-        nodes.forEach(node => {
-            const b = node.getBBox();
-            minX = Math.min(minX, b.x);
-            maxX = Math.max(maxX, b.x + b.width);
-            minY = Math.min(minY, b.y);
-        });
-        return { x: minX + (maxX - minX) / 2, y: minY - 8 };
+    const y = d3.scaleLinear().domain([0, d3.max(Array.from(sums.values())) || 0]).nice().range([plot.h, 0]);
+    const annotate = (sel, total) => {
+        const nodes = sel.nodes(); if (!nodes.length) return [];
+        let minY = Infinity, minX = Infinity, maxX = -Infinity;
+        nodes.forEach(n => { const b = n.getBBox(); minY = Math.min(minY, b.y); minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x + b.width); });
+        const cx = minX + (maxX - minX)/2;
+        const line = svg.append("line").attr("class","annotation")
+            .attr("x1", margins.left).attr("y1", margins.top + y(total))
+            .attr("x2", margins.left).attr("y2", margins.top + y(total))
+            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(700).attr("x2", margins.left + plot.w).end();
+        const text = g.append("text").attr("class","annotation")
+            .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+            .attr("font-size", 12).attr("font-weight","bold").attr("fill", color)
+            .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+            .text(fmtNum(total)).attr("opacity",0).transition().delay(200).duration(400).attr("opacity",1).end();
+        return [line, text];
     };
-
-    const annotateStack = (stackSelection, totalValue, color) => {
-        const pos = getStackCenterTop(stackSelection);
-        if (!pos) return;
-
-        const yPos = margins.top + yScale(totalValue);
-        const line = svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left).attr("x2", margins.left)
-            .attr("y1", yPos).attr("y2", yPos)
-            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-
-        animationPromises.push(
-            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
-        );
-
-        const text = g.append("text").attr("class", "annotation")
-            .attr("x", pos.x).attr("y", pos.y)
-            .attr("text-anchor", "middle")
-            .attr("font-size", 12).attr("font-weight", "bold")
-            .attr("fill", color)
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(fmtNum(totalValue))
-            .attr("opacity", 0);
-        
-        animationPromises.push(
-            text.transition().delay(400).duration(400).attr("opacity", 1).end()
-        );
-    };
-
-    annotateStack(barsA, sumA, colorA);
-    annotateStack(barsB, sumB, colorB);
-
-    await Promise.all(animationPromises);
-
-    const boolLabel = op.field || verdict?.category || yField || 'value';
-    const boolValue = new BoolValue(boolLabel, boolResult, verdict?.id ?? null);
-    return [boolValue];
+    await Promise.all([...annotate(barsA, A.value), ...annotate(barsB, B.value)]);
+    return [new BoolValue(op.field || verdict?.category || yField || 'value', bool, verdict?.id ?? null)];
 }
-
 
 export async function stackedBarDiff(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
@@ -1239,10 +809,7 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
     if (op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('stackedBarDiff: no data for group', subgroup);
-            return semantic ? [new DatumValue(semantic.category, semantic.measure, semantic.target, subgroup, Math.abs(semantic.value), null)] : [];
-        }
+        if (!subset.length) return semantic ? [new DatumValue(semantic.category, semantic.measure, semantic.target, subgroup, Math.abs(semantic.value), null)] : [];
         await stackedBarToSimpleBar(chartId, subset);
         const op2 = { targetA: op.targetA, targetB: op.targetB, field: 'value', signed: op.signed };
         const vis = await simpleBarDiff(chartId, op2, subset, isLast);
@@ -1250,126 +817,74 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
     }
 
     const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const resolvedA = resolveStackedDatum(data, op.targetA, sums);
-    const resolvedB = resolveStackedDatum(data, op.targetB, sums);
-
-    if (!Number.isFinite(resolvedA.value) || !Number.isFinite(resolvedB.value)) {
-        console.warn('stackedBarDiff: one or both targets not found for summing', op);
+    const A = resolveStackedDatum(data, op.targetA, sums);
+    const B = resolveStackedDatum(data, op.targetB, sums);
+    if (!Number.isFinite(A.value) || !Number.isFinite(B.value)) {
         if (semantic) {
-            const semanticValue = op.signed ? semantic.value : Math.abs(semantic.value);
-            return [new DatumValue(semantic.category, semantic.measure, semantic.target, semantic.group ?? null, semanticValue, semantic.id)];
+            const v = op.signed ? semantic.value : Math.abs(semantic.value);
+            return [new DatumValue(semantic.category, semantic.measure, semantic.target, semantic.group ?? null, v, semantic.id)];
         }
         return [];
     }
 
-    const sumA = resolvedA.value;
-    const sumB = resolvedB.value;
-    const diffValue = op.signed ? sumA - sumB : Math.abs(sumA - sumB);
-    const diffDatum = new DatumValue(xField, yField, "Diff", null, diffValue);
+    const sumA = A.value, sumB = B.value;
+    const diff = op.signed ? (sumA - sumB) : Math.abs(sumA - sumB);
+    const diffDatum = new DatumValue(xField, yField, "Diff", null, diff);
 
-    const allRects = g.selectAll('rect');
-    const barsA = allRects.filter(d => getDatumCategoryKey(d) === String(resolvedA.category));
-    const barsB = allRects.filter(d => getDatumCategoryKey(d) === String(resolvedB.category));
-    const otherRects = allRects.filter(d => {
-        const key = getDatumCategoryKey(d);
-        return key !== String(resolvedA.category) && key !== String(resolvedB.category);
+    const all = g.selectAll('rect');
+    const barsA = all.filter(d => getDatumCategoryKey(d) === String(A.category));
+    const barsB = all.filter(d => getDatumCategoryKey(d) === String(B.category));
+    const others = all.filter(d => {
+        const k = getDatumCategoryKey(d);
+        return k !== String(A.category) && k !== String(B.category);
     });
-    
-    const colorA = OP_COLORS.DIFF_A;
-    const colorB = OP_COLORS.DIFF_B;
-    const diffColor = OP_COLORS.DIFF_LINE;
-    const animationPromises = [];
 
-    animationPromises.push(
-        otherRects.transition().duration(600).attr('opacity', 0.2).end()
-    );
-    animationPromises.push(
-        barsA.transition().duration(600).attr('opacity', 1).attr('fill', colorA).end()
-    );
-    animationPromises.push(
-        barsB.transition().duration(600).attr('opacity', 1).attr('fill', colorB).end()
-    );
+    const colorA = OP_COLORS.DIFF_A, colorB = OP_COLORS.DIFF_B, diffColor = OP_COLORS.DIFF_LINE;
 
-    const yMax = d3.max(Array.from(sums.values())) || 0;
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    await Promise.all([
+        others.transition().duration(500).attr('opacity', 0.2).end(),
+        barsA.transition().duration(500).attr('opacity', 1).attr('fill', colorA).end(),
+        barsB.transition().duration(500).attr('opacity', 1).attr('fill', colorB).end()
+    ]);
 
-    const getStackCenterTop = (rectSelection) => {
-        if (rectSelection.empty()) return null;
-        const nodes = rectSelection.nodes();
-        let minY = Infinity, maxX = -Infinity, minX = Infinity;
-        nodes.forEach(node => {
-            const b = node.getBBox();
-            minX = Math.min(minX, b.x);
-            maxX = Math.max(maxX, b.x + b.width);
-            minY = Math.min(minY, b.y);
-        });
-        return { x: minX + (maxX - minX) / 2, y: minY };
+    const y = d3.scaleLinear().domain([0, d3.max(Array.from(sums.values())) || 0]).nice().range([plot.h, 0]);
+
+    // 각 스택 합 주석
+    const annotate = (sel, total, color) => {
+        const nodes = sel.nodes(); if (!nodes.length) return [];
+        let minY = Infinity, minX = Infinity, maxX = -Infinity;
+        nodes.forEach(n => { const b = n.getBBox(); minY = Math.min(minY, b.y); minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x + b.width); });
+        const cx = minX + (maxX - minX)/2;
+        const line = svg.append("line").attr("class","annotation")
+            .attr("x1", margins.left).attr("y1", margins.top + y(total))
+            .attr("x2", margins.left).attr("y2", margins.top + y(total))
+            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(700).attr("x2", margins.left + plot.w).end();
+        const text = g.append("text").attr("class","annotation")
+            .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+            .attr("font-size", 12).attr("font-weight","bold").attr("fill", color)
+            .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+            .text(fmtNum(total)).attr("opacity",0).transition().delay(200).duration(400).attr("opacity",1).end();
+        return [line, text];
     };
-    
-    const annotateStack = (stackSelection, totalValue, color) => {
-        const pos = getStackCenterTop(stackSelection);
-        if (!pos) return;
+    await Promise.all([...annotate(barsA, sumA, colorA), ...annotate(barsB, sumB, colorB)]);
 
-        const yPos = margins.top + yScale(totalValue);
-        const line = svg.append("line").attr("class", "annotation")
-            .attr("x1", margins.left).attr("x2", margins.left)
-            .attr("y1", yPos).attr("y2", yPos)
-            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+    // 차이 라인
+    const yA = margins.top + y(sumA), yB = margins.top + y(sumB);
+    const line = svg.append("line").attr("class","annotation diff-line")
+        .attr("x1", margins.left + plot.w - 20).attr("x2", margins.left + plot.w - 20)
+        .attr("y1", yA).attr("y2", yA)
+        .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+        .transition().duration(700).attr("y2", yB).end();
 
-        animationPromises.push(
-            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
-        );
+    const text = svg.append("text").attr("class","annotation diff-label")
+        .attr("x", margins.left + plot.w - 12).attr("y", (yA + yB)/2).attr("text-anchor","start")
+        .attr("dominant-baseline","middle").attr("fill", diffColor).attr("font-weight","bold").attr("font-size", 12)
+        .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+        .text(`Diff: ${fmtNum(diff)}`).attr("opacity",0)
+        .transition().delay(250).duration(400).attr("opacity",1).end();
 
-        const text = g.append("text").attr("class", "annotation")
-            .attr("x", pos.x).attr("y", pos.y - 8)
-            .attr("text-anchor", "middle")
-            .attr("font-size", 12).attr("font-weight", "bold")
-            .attr("fill", color)
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(fmtNum(totalValue))
-            .attr("opacity", 0);
-        
-        animationPromises.push(
-            text.transition().delay(400).duration(400).attr("opacity", 1).end()
-        );
-    };
-
-    annotateStack(barsA, sumA, colorA);
-    annotateStack(barsB, sumB, colorB);
-    
-    const posA = getStackCenterTop(barsA);
-    const posB = getStackCenterTop(barsB);
-
-    if (posA && posB) {
-        const yA = margins.top + yScale(sumA);
-        const yB = margins.top + yScale(sumB);
-        const midY = (yA + yB) / 2;
-        
-        const lineX = margins.left + plot.w - 20;
-        const textX = lineX + 8;
-
-        const line = svg.append("line").attr("class", "annotation diff-line")
-            .attr("x1", lineX).attr("y1", yA)
-            .attr("x2", lineX).attr("y2", yB)
-            .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-
-        const text = svg.append("text").attr("class", "annotation diff-label")
-            .attr("x", textX)
-            .attr("y", midY)
-            .attr("text-anchor", "start")
-            .attr("dominant-baseline", "middle")
-            .attr("fill", diffColor)
-            .attr("font-weight", "bold")
-            .attr("font-size", 12)
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(`Diff: ${fmtNum(diffValue)}`)
-            .attr("opacity", 0);
-        
-        animationPromises.push(line.transition().duration(800).end());
-        animationPromises.push(text.transition().delay(400).duration(400).attr("opacity", 1).end());
-    }
-
-    await Promise.all(animationPromises);
+    await Promise.all([line, text]);
     return [diffDatum];
 }
 
@@ -1380,192 +895,122 @@ export async function stackedBarNth(chartId, op, data, isLast = false) {
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('stackedBarNth: no data for group', subgroup);
-            return [];
-        }
+        if (!subset.length) return [];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { ...op };
-        delete op2.group;
+        const op2 = { ...op }; delete op2.group;
         return await simpleBarNth(chartId, op2, subset, isLast);
     }
 
     const nthOp = { ...op, groupBy: 'target' };
-    const resultData = dataNth(data, nthOp);
-
-    if (!resultData || resultData.length === 0) {
-        console.warn("Nth: No result found for", op);
-        return [];
-    }
+    const result = dataNth(data, nthOp);
+    if (!result || !result.length) return [];
 
     let n = Number(op?.n ?? 1);
     const from = String(op?.from || 'left').toLowerCase();
-    const hlColor = OP_COLORS.NTH;
+    const color = OP_COLORS.NTH;
 
-    const allRects = g.selectAll('rect');
-    const categoriesInOrder = [...new Set(data.map(d => d.target))];
-    const sequence = from === 'right' ? categoriesInOrder.slice().reverse() : categoriesInOrder;
+    const all = g.selectAll('rect');
+    const cats = [...new Set(data.map(d => d.target))];
+    const seq = from === 'right' ? cats.slice().reverse() : cats;
+    n = Math.min(n, cats.length);
 
-    n = Math.min(n, categoriesInOrder.length);
+    await all.transition().duration(250).attr("opacity", 0.2).end();
 
-    await allRects.transition().duration(300).attr("opacity", 0.2).end();
+    const counted = [];
+    for (let i=0;i<n;i++){
+        const c = seq[i];
+        const sel = all.filter(d => getDatumCategoryKey(d) === c);
+        counted.push(sel);
+        await sel.transition().duration(120).attr('opacity', 1).end();
 
-    const countedRects = [];
-    for (let i = 0; i < n; i++) {
-        const category = sequence[i];
-        const categoryRects = allRects.filter(d => getDatumCategoryKey(d) === category);
-        countedRects.push(categoryRects);
-
-        await categoryRects.transition().duration(100).attr('opacity', 1).end();
-
-        const nodes = categoryRects.nodes();
-        if (nodes.length > 0) {
-            let minY = Infinity, maxX = -Infinity, minX = Infinity;
-            nodes.forEach(node => {
-                const b = node.getBBox();
-                minX = Math.min(minX, b.x);
-                maxX = Math.max(maxX, b.x + b.width);
-                minY = Math.min(minY, b.y);
-            });
-            const cx = minX + (maxX - minX) / 2;
-
-            g.append('text')
-                .attr('class', 'annotation count-label')
-                .attr('x', cx)
-                .attr('y', minY - 8)
-                .attr('text-anchor', 'middle')
-                .attr('font-size', 12)
-                .attr('font-weight', 'bold')
-                .attr('fill', hlColor)
-                .attr('stroke', 'white')
-                .attr('stroke-width', 3)
-                .attr('paint-order', 'stroke')
-                .text(String(i + 1));
+        const nodes = sel.nodes(); if (nodes.length){
+            let minY=Infinity,minX=Infinity,maxX=-Infinity;
+            nodes.forEach(nod => { const b = nod.getBBox(); minY = Math.min(minY,b.y); minX = Math.min(minX,b.x); maxX = Math.max(maxX,b.x+b.width); });
+            const cx = minX + (maxX-minX)/2;
+            await g.append('text').attr('class','annotation count-label')
+                .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
+                .attr('font-size', 12).attr('font-weight','bold').attr('fill', color)
+                .attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+                .text(String(i+1)).attr('opacity',0).transition().duration(120).attr('opacity',1).end();
         }
-        await delay(150);
+        await delay(60);
     }
 
-    const finalPromises = [];
-    countedRects.forEach((rectSelection, i) => {
-        if (i < n - 1) {
-            finalPromises.push(rectSelection.transition().duration(300).attr('opacity', 0.2).end());
-        }
-    });
+    const finals = [];
+    counted.forEach((sel,i)=>{ if (i<n-1) finals.push(sel.transition().duration(250).attr('opacity',0.2).end()); });
+    finals.push(g.selectAll('.count-label').transition().duration(250).attr('opacity',0).remove().end());
+    await Promise.all(finals);
 
-    finalPromises.push(
-        g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end()
-    );
-    await Promise.all(finalPromises);
+    const targetCat = seq[n-1];
+    const targetData = data.filter(d => d.target === targetCat);
+    const sum = d3.sum(targetData, d => d.value);
 
-    const targetCategory = sequence[n - 1];
-    const targetData = data.filter(d => d.target === targetCategory);
-    const totalSum = d3.sum(targetData, d => d.value);
+    const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
+    const y = d3.scaleLinear().domain([0, d3.max(sums.values()) || 0]).nice().range([plot.h, 0]);
+    const yPos = margins.top + y(sum);
 
-    const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const maxTotal = d3.max(sumsByCategory.values());
-    const yScale = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
-    const yPosForLine = margins.top + yScale(totalSum);
+    await svg.append('line').attr('class','annotation')
+        .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+        .attr('x1', margins.left).attr('y1', yPos).attr('x2', margins.left).attr('y2', yPos)
+        .transition().duration(500).attr('x2', margins.left + plot.w).end();
 
-    svg.append('line').attr('class', 'annotation')
-        .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
-        .attr('x1', margins.left).attr('y1', yPosForLine)
-        .attr('x2', margins.left + plot.w).attr('y2', yPosForLine);
-
-    const finalStackSelection = countedRects[n - 1];
-    const finalNodes = finalStackSelection.nodes();
-    if (finalNodes.length > 0) {
-        let minY = Infinity, maxX = -Infinity, minX = Infinity;
-        finalNodes.forEach(node => {
-            const b = node.getBBox();
-            minX = Math.min(minX, b.x);
-            maxX = Math.max(maxX, b.x + b.width);
-            minY = Math.min(minY, b.y);
-        });
-        const cx = minX + (maxX - minX) / 2;
-        g.append('text')
-            .attr('class', 'annotation value-tag')
-            .attr('x', cx)
-            .attr('y', minY - 8)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', 12)
-            .attr('font-weight', 'bold')
-            .attr('fill', hlColor)
-            .attr('stroke', 'white')
-            .attr('stroke-width', 3)
-            .attr('paint-order', 'stroke')
-            .text(fmtNum(totalSum));
+    const nodes = counted[n-1].nodes();
+    if (nodes.length){
+        let minY=Infinity,minX=Infinity,maxX=-Infinity;
+        nodes.forEach(nd=>{ const b = nd.getBBox(); minY = Math.min(minY,b.y); minX = Math.min(minX,b.x); maxX = Math.max(maxX,b.x+b.width); });
+        const cx = minX + (maxX-minX)/2;
+        await g.append('text').attr('class','annotation value-tag')
+            .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
+            .attr('font-size', 12).attr('font-weight','bold').attr('fill', color)
+            .attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+            .text(fmtNum(sum)).attr('opacity',0).transition().duration(250).attr('opacity',1).end();
     }
 
-    return resultData;
+    return result;
 }
 
 export async function stackedBarCount(chartId, op, data, isLast = false) {
-    const { svg, g, xField, yField, margins } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('stackedBarCount: no data for group', subgroup);
-            const zero = new DatumValue(xField, yField, 'Category Count', subgroup, 0, null);
-            return [zero];
-        }
+        if (!subset.length) return [new DatumValue(xField, yField, 'Category Count', subgroup, 0, null)];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { ...op };
-        delete op2.group;
+        const op2 = { ...op }; delete op2.group;
         return await simpleBarCount(chartId, op2, subset, isLast);
     }
 
-    const categories = [...new Set(data.map(d => d.target))];
-    const totalCount = categories.length;
-    const result = new DatumValue(xField, yField, 'Category Count', null, totalCount, null);
+    const cats = [...new Set(data.map(d => d.target))];
+    const total = cats.length;
+    const result = new DatumValue(xField, yField, 'Category Count', null, total, null);
+    if (total === 0) return [result];
 
-    if (totalCount === 0) {
-        console.warn('stackedBarCount: empty data');
-        return [result];
-    }
+    const all = g.selectAll('rect');
+    const color = OP_COLORS.COUNT;
 
-    const allRects = g.selectAll('rect');
-    const hlColor = OP_COLORS.COUNT;
+    await all.transition().duration(250).attr("opacity", 0.2).end();
+    await delay(250);
 
-    await allRects.transition().duration(300).attr("opacity", 0.2).end();
-    await delay(300);
+    for (let i=0;i<total;i++){
+        const c = cats[i];
+        const sel = all.filter(d => getDatumCategoryKey(d) === c);
+        await sel.transition().duration(150).attr('opacity', 1).end();
 
-    for (let i = 0; i < totalCount; i++) {
-        const category = categories[i];
-        const categoryRects = allRects.filter(d => getDatumCategoryKey(d) === category);
-
-        await categoryRects.transition().duration(200)
-            .attr('opacity', 1)
-            .end();
-
-        const nodes = categoryRects.nodes();
-        if (nodes.length > 0) {
-            let minY = Infinity, maxX = -Infinity, minX = Infinity;
-            nodes.forEach(n => {
-                const b = n.getBBox();
-                minX = Math.min(minX, b.x);
-                maxX = Math.max(maxX, b.x + b.width);
-                minY = Math.min(minY, b.y);
-            });
-            const cx = minX + (maxX - minX) / 2;
-
-            g.append('text')
-                .attr('class', 'annotation count-label')
-                .attr('x', cx)
-                .attr('y', minY - 8)
-                .attr('text-anchor', 'middle')
-                .attr('font-size', 12)
-                .attr('font-weight', 'bold')
-                .attr('fill', hlColor)
-                .attr('stroke', 'white')
-                .attr('stroke-width', 3)
-                .attr('paint-order', 'stroke')
-                .text(String(i + 1));
+        const nodes = sel.nodes();
+        if (nodes.length){
+            let minY=Infinity,minX=Infinity,maxX=-Infinity;
+            nodes.forEach(n=>{ const b = n.getBBox(); minY=Math.min(minY,b.y); minX=Math.min(minX,b.x); maxX=Math.max(maxX,b.x+b.width); });
+            const cx = minX + (maxX-minX)/2;
+            await g.append('text').attr('class','annotation count-label')
+                .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
+                .attr('font-size', 12).attr('font-weight','bold').attr('fill', color)
+                .attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+                .text(String(i+1)).attr('opacity',0).transition().duration(120).attr('opacity',1).end();
         }
-        await delay(50);
+        await delay(60);
     }
-    
+
     return [result];
 }

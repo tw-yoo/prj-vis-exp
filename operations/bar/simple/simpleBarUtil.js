@@ -22,7 +22,7 @@ import {
     renderChart,
     stackChartToTempTable
 } from "../../../util/util.js";
-import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
+import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence, getPrimarySvgElement } from "../../operationUtil.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -44,24 +44,57 @@ function clearAllAnnotations(svg) {
     svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
 }
 function getSvgAndSetup(chartId) {
-    const svg = d3.select(`#${chartId}`).select("svg");
-    const orientation = svg.attr("data-orientation") || "vertical";
-    const xField = svg.attr("data-x-field");
-    const yField = svg.attr("data-y-field");
+    const svgNode = getPrimarySvgElement(chartId);
+    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
+    const orientation = svgNode?.getAttribute("data-orientation") || "vertical";
+    const xField = svgNode?.getAttribute("data-x-field");
+    const yField = svgNode?.getAttribute("data-y-field");
     const margins = {
-        left: +svg.attr("data-m-left") || 0,
-        top: +svg.attr("data-m-top") || 0,
+        left: +(svgNode?.getAttribute("data-m-left") || 0),
+        top: +(svgNode?.getAttribute("data-m-top") || 0),
     };
     const plot = {
-        w: +svg.attr("data-plot-w") || 0,
-        h: +svg.attr("data-plot-h") || 0,
+        w: +(svgNode?.getAttribute("data-plot-w") || 0),
+        h: +(svgNode?.getAttribute("data-plot-h") || 0),
     };
-    const g = svg.select("g");
+    const g = svg.select('.plot-area').empty() ? svg.select('g') : svg.select('.plot-area');
     return { svg, g, orientation, xField, yField, margins, plot };
 }
 
+async function renderChartWithFade(chartId, spec, duration = 400) {
+    const host = d3.select(`#${chartId}`);
+    const currentSvg = host.select("svg");
+    if (!currentSvg.empty()) {
+        currentSvg.interrupt();
+        try {
+            await currentSvg.transition().duration(duration).style("opacity", 0).end();
+        } catch (_) {
+            currentSvg.style("opacity", 0);
+        }
+    }
+
+    await renderChart(chartId, spec);
+
+    const newSvg = d3.select(`#${chartId}`).select("svg");
+    if (!newSvg.empty()) {
+        newSvg.style("opacity", 0);
+        try {
+            await newSvg.transition().duration(duration).style("opacity", 1).end();
+        } catch (_) {
+            newSvg.style("opacity", 1);
+        }
+    }
+}
+
+
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Wait for a few animation frames to allow DOM/layout/transition to settle
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+async function waitFrames(n = 2) {
+  for (let i = 0; i < n; i++) await nextFrame();
+}
 
 async function applySimpleBarOperation(chartId, operation, currentData, isLast = false) {
     const fn = SIMPLE_BAR_OP_HANDLERS[operation.op];
@@ -132,94 +165,92 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
     const baseDatumValues = convertToDatumValues(raw, xField, yField, orientation);
     const ORIGINAL_DATA = baseDatumValues.slice();
 
-
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
 
-await runOpsSequence({
-    chartId,
-    opsSpec,
-    textSpec,
-    onReset: async () => { 
-        await renderSimpleBarChart(chartId, vlSpec);
-    },
-    onRunOpsList: async (opsList, isLast) => {
+    await runOpsSequence({
+        chartId,
+        opsSpec,
+        textSpec,
+        onReset: async () => {
+            await renderSimpleBarChart(chartId, vlSpec);
+        },
+        onRunOpsList: async (opsList, isLast) => {
+            const { orientation, xField, yField } = getSvgAndSetup(chartId);
+            const fullData = [...chartDataStore[chartId]];
+            const baseDatumValues = await convertToDatumValues(fullData, xField, yField, orientation);
 
-        const { orientation, xField, yField } = getSvgAndSetup(chartId);
-        const fullData = [...chartDataStore[chartId]];
-        const baseDatumValues = convertToDatumValues(fullData, xField, yField, orientation);
-        
-        if (isLast) {
-            const allCachedResults = Object.values(dataCache).flat().filter(d => d != null);
-            if (allCachedResults.length === 0) {
-                console.warn('last stage: no cached data');
-                return [];
-            }
+            if (isLast) {
+                const allCachedResults = Object.values(dataCache).flat().filter(d => d != null);
+                if (allCachedResults.length === 0) {
+                    console.warn('last stage: no cached data');
+                    return [];
+                }
 
-            const datumResults = allCachedResults.filter(d => d instanceof DatumValue);
-            if (datumResults.length === 0) {
-                console.warn('last stage: no DatumValue results to visualize');
-                return [];
-            }
-            if (datumResults.length !== allCachedResults.length) {
-                console.warn('last stage: skipping non-DatumValue cached results');
-            }
+                const datumResults = allCachedResults.filter(d => d instanceof DatumValue);
+                if (datumResults.length === 0) {
+                    console.warn('last stage: no DatumValue results to visualize');
+                    return [];
+                }
+                if (datumResults.length !== allCachedResults.length) {
+                    console.warn('last stage: skipping non-DatumValue cached results');
+                }
 
-            const categories = new Set();
-            const measures = new Set();
-            const sanitizedDatumResults = datumResults.map(d => {
-                const categoryName = (typeof d.category === 'string') ? d.category.trim() : '';
-                if (categoryName) categories.add(categoryName);
-                const measureName = (typeof d.measure === 'string') ? d.measure.trim() : '';
-                if (measureName) measures.add(measureName);
-                return d;
-            });
+                const categories = new Set();
+                const measures = new Set();
+                const sanitizedDatumResults = datumResults.map(d => {
+                    const categoryName = (typeof d.category === 'string') ? d.category.trim() : '';
+                    if (categoryName) categories.add(categoryName);
+                    const measureName = (typeof d.measure === 'string') ? d.measure.trim() : '';
+                    if (measureName) measures.add(measureName);
+                    return d;
+                });
 
-            const firstCategory = categories.size > 0 ? categories.values().next().value : '';
-            const firstMeasure = measures.size > 0 ? measures.values().next().value : '';
-            const canonicalCategory = (categories.size === 1 && firstCategory) ? firstCategory : 'result';
-            const canonicalMeasure = (measures.size === 1 && firstMeasure) ? firstMeasure : 'value';
+                const firstCategory = categories.size > 0 ? categories.values().next().value : '';
+                const firstMeasure = measures.size > 0 ? measures.values().next().value : '';
+                const canonicalCategory = (categories.size === 1 && firstCategory) ? firstCategory : 'result';
+                const canonicalMeasure = (measures.size === 1 && firstMeasure) ? firstMeasure : 'value';
 
-            const axisLabelOverrides = {};
-            if (!(categories.size === 1 && firstCategory)) {
-                axisLabelOverrides.x = null;
-            }
-            if (!(measures.size === 1 && firstMeasure)) {
-                axisLabelOverrides.y = null;
-            }
+                const axisLabelOverrides = {};
+                if (!(categories.size === 1 && firstCategory)) {
+                    axisLabelOverrides.x = null;
+                }
+                if (!(measures.size === 1 && firstMeasure)) {
+                    axisLabelOverrides.y = null;
+                }
 
-            const compareData = sanitizedDatumResults.map((datum, idx) => {
-                const targetLabel = (() => {
-                    if (datum && datum.target != null) {
-                        const t = String(datum.target).trim();
-                        if (t.length > 0) return t;
-                    }
-                    return `Result ${idx + 1}`;
-                })();
-                return new DatumValue(
-                    canonicalCategory,
-                    canonicalMeasure,
-                    targetLabel,
-                    datum.group ?? null,
-                    datum.value,
-                    datum.id
-                );
-            });
+                const compareData = sanitizedDatumResults.map((datum, idx) => {
+                    const targetLabel = (() => {
+                        if (datum && datum.target != null) {
+                            const t = String(datum.target).trim();
+                            if (t.length > 0) return t;
+                        }
+                        return `Result ${idx + 1}`;
+                    })();
+                    return new DatumValue(
+                        canonicalCategory,
+                        canonicalMeasure,
+                        targetLabel,
+                        datum.group ?? null,
+                        datum.value,
+                        datum.id
+                    );
+                });
 
-            const specOpts = {};
-            if (Object.keys(axisLabelOverrides).length > 0) {
-                specOpts.axisLabels = axisLabelOverrides;
-            }
+                const specOpts = {};
+                if (Object.keys(axisLabelOverrides).length > 0) {
+                    specOpts.axisLabels = axisLabelOverrides;
+                }
 
-            const compareSpec = buildSimpleBarSpec(compareData, specOpts);
-            await renderChart(chartId, compareSpec);
+                const compareSpec = buildSimpleBarSpec(compareData, specOpts);
+                await renderChartWithFade(chartId, compareSpec, 450);
 
-            return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
-        } else {
+                return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
+            } else {
                 await renderSimpleBarChart(chartId, vlSpec);
                 await delay(500); // 렌더링 대기
-            return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0);
-        }
-    },
+                return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0);
+            }
+        },
         onCache: (opKey, currentData) => {
             if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
                 dataCache[opKey] = [currentData];
@@ -247,6 +278,12 @@ await runOpsSequence({
         delayMs: 0,
         navOpts: { x: 15, y: 15 }
     });
+
+    // Allow any trailing transitions/layout to flush, then signal completion
+    await waitFrames(2);
+    await delay(50);
+    document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId } }));
+    return { ok: true };
 }
 
 export async function renderSimpleBarChart(chartId, spec) {

@@ -105,31 +105,9 @@ export async function createChart(cId) {
         }
 
         if (operationSpec) {
-            // Optional mapping for captions if provided inside the spec
-            const textSpec = (operationSpec.text || operationSpec.caption || null) || {};
-
-            // Minimal adapter: run a list of ops sequentially
-            async function applyOpsList(list) {
-                if (!Array.isArray(list)) return;
-                for (const op of list) {
-                    // If your router supports grouped execution, replace with one call using { ops: list }
-                    await executeAtomicOps(chartId, vegaLiteSpec, { ops: [op] });
-                }
-            }
-
-            await runOpsSequence({
-                chartId,
-                vlSpec: vegaLiteSpec,
-                opsSpec: operationSpec.ops || operationSpec, // supports either {ops: {...}} or a plain map
-                textSpec,
-                // onReset: async () => { await renderChart(chartId, vegaLiteSpec); },
-                onReset: async () => {},
-                onRunOpsList: async (opsList /*, isLast */) => { await applyOpsList(opsList); },
-                onCache: null,
-                isLastKey: (k) => k === 'last' || /(^|[_-])last$/i.test(k),
-                delayMs: 0,
-                navOpts: { x: 15, y: 15 }
-            });
+            // Hand off the full multi-key spec (including text/ops/ops2/last) to the router.
+            // The router will delegate to the chart-type-specific runner, which manages sequencing/UI.
+            await executeAtomicOps(chartId, vegaLiteSpec, operationSpec);
         }
     }
 }

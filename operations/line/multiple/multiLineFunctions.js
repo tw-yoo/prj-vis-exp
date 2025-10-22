@@ -16,6 +16,7 @@ import {
     countData as dataCount
 } from "../../lineChartOperationFunctions.js";
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
+import { getPrimarySvgElement } from "../../operationUtil.js";
 import {
     simpleLineRetrieveValue,
     simpleLineFilter,
@@ -31,6 +32,23 @@ import {
     simpleLineSort
 } from "../simple/simpleLineFunctions.js";
 import { OP_COLORS } from "../../../../object/colorPalette.js";
+
+/**
+ * 작업 완료 신호를 DOM 이벤트로 방출합니다.
+ * window.addEventListener('viz:op:done', e => { ... })
+ */
+function emitOpDone(svg, chartId, opName, detail = {}) {
+    try {
+        const ev = new CustomEvent('viz:op:done', {
+            detail: { chartId, op: opName, ...detail },
+            bubbles: true,
+            composed: true,
+            cancelable: false
+        });
+        const node = svg && typeof svg.node === 'function' ? svg.node() : null;
+        (node || document).dispatchEvent(ev);
+    } catch (e) { /* noop */ }
+}
 
 // -------------------- Helpers --------------------
 const fmtISO = d3.timeFormat("%Y-%m-%d");
@@ -68,13 +86,14 @@ function mapFieldName(field) {
 }
 
 function getSvgAndSetup(chartId) {
-    const svg = d3.select(`#${chartId}`).select("svg");
+    const svgNode = getPrimarySvgElement(chartId);
+    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
     const g = svg.select(".plot-area");
-    const margins = { left: +svg.attr("data-m-left") || 0, top: +svg.attr("data-m-top") || 0 };
-    const plot = { w: +svg.attr("data-plot-w") || 0, h: +svg.attr("data-plot-h") || 0 };
-    const xField = svg.attr("data-x-field");
-    const yField = svg.attr("data-y-field");
-    const colorField = svg.attr("data-color-field");
+    const margins = { left: +(svgNode?.getAttribute("data-m-left") || 0), top: +(svgNode?.getAttribute("data-m-top") || 0) };
+    const plot = { w: +(svgNode?.getAttribute("data-plot-w") || 0), h: +(svgNode?.getAttribute("data-plot-h") || 0) };
+    const xField = svgNode?.getAttribute("data-x-field");
+    const yField = svgNode?.getAttribute("data-y-field");
+    const colorField = svgNode?.getAttribute("data-color-field");
     return { svg, g, margins, plot, xField, yField, colorField };
 }
 
@@ -164,29 +183,36 @@ export async function multipleLineRetrieveValue(chartId, op, data) {
         .attr("x2", cx).attr("y2", 0)
         .attr("stroke", OP_COLORS.RETRIEVE_VALUE).attr("stroke-dasharray", "4 4");
 
+    const pending = [];
     targetDatums.forEach(datum => {
         const cy = yScale(datum.value);
         const color = colorScale(datum.group);
 
-        g.append("line").attr("class", "annotation")
+        const hLineT = g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", cy)
             .attr("x2", cx).attr("y2", cy)
-            .attr("stroke", color).attr("stroke-dasharray", "2 2").attr("opacity", 0.7);
+            .attr("stroke", color).attr("stroke-dasharray", "2 2").attr("opacity", 0.7)
+            .transition().duration(0);
+        pending.push(hLineT.end().catch(()=>{}));
 
-        g.append("circle").attr("class", "annotation")
+        const cT = g.append("circle").attr("class", "annotation")
             .attr("cx", cx).attr("cy", cy).attr("r", 0)
             .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
             .transition().duration(400).delay(200).attr("r", 6);
+        pending.push(cT.end().catch(()=>{}));
 
-        g.append("text").attr("class", "annotation")
+        const txtT = g.append("text").attr("class", "annotation")
             .attr("x", cx + 8).attr("y", cy)
             .attr("dominant-baseline", "middle")
             .attr("fill", color).attr("font-weight", "bold")
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(datum.value.toLocaleString())
             .attr("opacity", 0).transition().duration(400).delay(300).attr("opacity", 1);
+        pending.push(txtT.end().catch(()=>{}));
     });
 
+    await Promise.all(pending).catch(()=>{});
+    emitOpDone(svg, chartId, 'multipleLineRetrieveValue', { count: targetDatums.length });
     return targetDatums;
 }
 
@@ -265,6 +291,7 @@ export async function multipleLineFilter(chartId, op, data) {
         g.selectAll(".highlight-line").attr("class", "series-line").classed("annotation", false);
     }
 
+    emitOpDone(svg, chartId, 'multipleLineFilter', { count: filteredData.length });
     return filteredData;
 }
 
@@ -286,24 +313,30 @@ export async function multipleLineFindExtremum(chartId, op, data) {
     await selectAllPoints(g).transition().duration(600).attr("opacity", 0).end().catch(() => {});
     const { xScale, yScale } = buildScales(data, plot);
     const which = op.which || 'max';
+    const pending = [];
 
     extremumDatums.forEach(datum => {
         const cx = xScale(datum.target);
         const cy = yScale(datum.value);
         const color = OP_COLORS.EXTREMUM;
 
-        g.append("line").attr("class", "annotation")
+        const vT = g.append("line").attr("class", "annotation")
             .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
             .attr("stroke", color).attr("stroke-dasharray", "4 4")
             .transition().duration(700).delay(200).attr("y2", plot.h);
-        g.append("line").attr("class", "annotation")
+        pending.push(vT.end().catch(()=>{}));
+
+        const hT = g.append("line").attr("class", "annotation")
             .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
             .attr("stroke", color).attr("stroke-dasharray", "4 4")
             .transition().duration(700).delay(200).attr("x2", 0);
-        g.append("circle").attr("class", "annotation")
+        pending.push(hT.end().catch(()=>{}));
+
+        const cT = g.append("circle").attr("class", "annotation")
             .attr("cx", cx).attr("cy", cy).attr("r", 0)
             .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
             .transition().duration(500).delay(200).attr("r", 7);
+        pending.push(cT.end().catch(()=>{}));
 
         const text = g.append("text").attr("class", "annotation")
             .attr("x", cx).attr("y", cy - 20).attr("text-anchor", "middle")
@@ -313,6 +346,8 @@ export async function multipleLineFindExtremum(chartId, op, data) {
         text.append("tspan").attr("x", cx).attr("dy", "1.2em").text(`(${formatTarget(datum.target)})`);
     });
 
+    await Promise.all(pending).catch(()=>{});
+    emitOpDone(svg, chartId, 'multipleLineFindExtremum', { which });
     return extremumDatums[0] || null;
 }
 
@@ -333,6 +368,7 @@ export async function multipleLineDetermineRange(chartId, op, data) {
     const { xScale, yScale } = buildScales(data, plot);
     const seriesColors = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
     const hlColor = OP_COLORS.RANGE;
+    const pending = [];
 
     const formatValue = (v) => {
         const n = Number(v);
@@ -346,35 +382,39 @@ export async function multipleLineDetermineRange(chartId, op, data) {
     const annotateValue = (value, label, datumsArr) => {
         if (!Number.isFinite(value)) return;
         const yPos = yScale(value);
-        g.append("line").attr("class", "annotation")
+        const lineT = g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", yPos).attr("x2", 0).attr("y2", yPos)
             .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
             .transition().duration(1000).attr("x2", plot.w);
+        pending.push(lineT.end().catch(()=>{}));
 
         const arr = Array.isArray(datumsArr) ? datumsArr : [];
         arr.forEach(datum => {
             const cx = xScale(datum.target);
             const color = seriesColors(datum.group);
-            g.append("circle").attr("class", "annotation")
+            const cT = g.append("circle").attr("class", "annotation")
                 .attr("cx", cx).attr("cy", yPos).attr("r", 0)
                 .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
                 .transition().duration(500).delay(200).attr("r", 7);
-            g.append("text").attr("class", "annotation")
+            pending.push(cT.end().catch(()=>{}));
+            const tT = g.append("text").attr("class", "annotation")
                 .attr("x", cx).attr("y", yPos - 12).attr("text-anchor", "middle")
                 .attr("font-weight", "bold").attr("fill", color)
                 .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
                 .text(`${label}: ${formatValue(value)}`)
                 .attr("opacity", 0).transition().duration(400).delay(400).attr("opacity", 1);
+            pending.push(tT.end().catch(()=>{}));
         });
 
         if (arr.length === 0) {
-            g.append("text").attr("class", "annotation")
+            const fbT = g.append("text").attr("class", "annotation")
                 .attr("x", plot.w - 6).attr("y", yPos - 6)
                 .attr("text-anchor", "end")
                 .attr("font-weight", "bold").attr("fill", hlColor)
                 .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
                 .text(`${label}: ${formatValue(value)}`)
                 .attr("opacity", 0).transition().duration(400).delay(400).attr("opacity", 1);
+            pending.push(fbT.end().catch(()=>{}));
         }
     };
 
@@ -383,11 +423,12 @@ export async function multipleLineDetermineRange(chartId, op, data) {
         annotateValue(maxV, "Max", maxDatumsComputed);
 
         await delay(400);
-        svg.append("text").attr("class", "annotation")
+        const sumT = svg.append("text").attr("class", "annotation")
             .attr("x", margins.left).attr("y", margins.top - 10)
             .attr("font-size", 14).attr("font-weight", "bold")
             .attr("fill", hlColor).text(`Range: ${formatValue(minV)} ~ ${formatValue(maxV)}`)
             .attr("opacity", 0).transition().duration(400).delay(600).attr("opacity", 1);
+        pending.push(sumT.end().catch(()=>{}));
     } else {
         svg.append("text").attr("class", "annotation")
             .attr("x", margins.left).attr("y", margins.top - 10)
@@ -397,6 +438,8 @@ export async function multipleLineDetermineRange(chartId, op, data) {
             .attr("opacity", 0).transition().duration(400).delay(600).attr("opacity", 1);
     }
 
+    await Promise.all(pending).catch(()=>{});
+    emitOpDone(svg, chartId, 'multipleLineDetermineRange', { min: minV, max: maxV });
     return rangeResult;
 }
 
@@ -439,6 +482,7 @@ export async function multipleLineNth(chartId, op, data) {
         .attr('fill', OP_COLORS.NTH)
         .text(`Nth (from ${op.from || 'left'}): ${op.n} (${pickedCategory})`);
 
+    emitOpDone(svg, chartId, 'multipleLineNth', { n: op.n, from: op.from || 'left', target: pickedCategory });
     return nthData;
 }
 
@@ -476,16 +520,21 @@ export async function multipleLineCompareBool(chartId, op, data) {
     const allSeries = Array.from(new Set(data.map(d => d.group)));
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
 
-    selectAllLines(g).transition().duration(600).attr("opacity", 0.1);
-    selectAllPoints(g).transition().duration(600).attr("opacity", 0.1);
+    const pending = [];
+    pending.push(selectAllLines(g).transition().duration(600).attr("opacity", 0.1).end().catch(()=>{}));
+    pending.push(selectAllPoints(g).transition().duration(600).attr("opacity", 0.1).end().catch(()=>{}));
 
     const annotate = (datum, color) => {
         const cx = xScale(datum.target);
         const cy = yScale(datum.value);
-        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4").style("opacity", 0).transition().duration(700).style("opacity", 1);
-        g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4").style("opacity", 0).transition().duration(700).style("opacity", 1);
-        g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", cy).attr("r", 0).attr("fill", color).attr("stroke", "white").attr("stroke-width", 2).transition().duration(500).attr("r", 7);
-        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(datum.value.toLocaleString()).attr("opacity", 0).transition().duration(400).delay(400).attr("opacity", 1);
+        const vT = g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4").style("opacity", 0).transition().duration(700).style("opacity", 1);
+        pending.push(vT.end().catch(()=>{}));
+        const hT = g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4").style("opacity", 0).transition().duration(700).style("opacity", 1);
+        pending.push(hT.end().catch(()=>{}));
+        const cT = g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", cy).attr("r", 0).attr("fill", color).attr("stroke", "white").attr("stroke-width", 2).transition().duration(500).attr("r", 7);
+        pending.push(cT.end().catch(()=>{}));
+        const tT = g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(datum.value.toLocaleString()).attr("opacity", 0).transition().duration(400).delay(400).attr("opacity", 1);
+        pending.push(tT.end().catch(()=>{}));
     };
 
     annotate(datumA, colorScale(datumA.group));
@@ -499,6 +548,8 @@ export async function multipleLineCompareBool(chartId, op, data) {
         .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
         .attr("fill", color).text(summary);
 
+    await Promise.all(pending).catch(()=>{});
+    emitOpDone(svg, chartId, 'multipleLineCompareBool', { result: !!boolResult?.value });
     return boolResult;
 }
 
@@ -551,17 +602,16 @@ export async function multipleLineCompare(chartId, op, data) {
 
     const isWinner = (d) => winners.some(w => isSameDateOrValue(w.target, d.target) && String(w.group) === String(d.group));
 
-    selectAllLines(g).transition().duration(600).attr("opacity", 0.3);
-    await Promise.all([
-        (async ()=>annotate(datumA, isWinner(datumA)))(),
-        (async ()=>annotate(datumB, isWinner(datumB)))()
-    ]);
+    await selectAllLines(g).transition().duration(600).attr("opacity", 0.3).end().catch(()=>{});
+    annotate(datumA, isWinner(datumA));
+    annotate(datumB, isWinner(datumB));
 
     svg.append("text").attr("class","annotation")
         .attr("x", margins.left + plot.w/2).attr("y", margins.top - 10)
         .attr("text-anchor","middle").attr("font-size",16).attr("font-weight","bold")
         .attr("fill", winColor).text(`${(op.which || 'max').toUpperCase()} chosen`);
 
+    emitOpDone(svg, chartId, 'multipleLineCompare', { which: op.which || 'max', winners: winners?.length || 0 });
     return winners;
 }
 
@@ -583,13 +633,14 @@ export async function multipleLineAverage(chartId, op, data) {
         .attr("x1", 0).attr("y1", yPos).attr("x2", 0).attr("y2", yPos)
         .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
     await line.transition().duration(800).attr("x2", plot.w).end().catch(()=>{});
-    g.append("text").attr("class", "annotation avg-label")
+    const avgTextT = g.append("text").attr("class", "annotation avg-label")
         .attr("x", plot.w - 10).attr("y", yPos - 5).attr("text-anchor", "end")
         .attr("fill", color).attr("font-weight", "bold")
         .attr("stroke","white").attr("stroke-width",3.5).attr("paint-order","stroke")
         .text(`Avg: ${avg.toLocaleString(undefined, {maximumFractionDigits: 2})}`)
         .attr("opacity", 0).transition().delay(200).duration(400).attr("opacity", 1);
-
+    await avgTextT.end().catch(()=>{});
+    emitOpDone(svg, chartId, 'multipleLineAverage', { value: avg });
     return result;
 }
 
@@ -605,16 +656,18 @@ export async function multipleLineSum(chartId, op, data) {
     const hlColor = OP_COLORS.SUM;
 
     await selectAllLines(g).transition().duration(300).attr("opacity", 0.4).end().catch(()=>{});
-    g.append("rect").attr("class", "annotation")
+    const boxT = g.append("rect").attr("class", "annotation")
         .attr("x", 6).attr("y", 6).attr("rx", 6).attr("ry", 6)
         .attr("width", 0).attr("height", 26)
         .attr("fill", hlColor).attr("opacity", 0.12)
         .transition().duration(500).attr("width", 220);
-    g.append("text").attr("class", "annotation")
+    const txtT = g.append("text").attr("class", "annotation")
         .attr("x", 14).attr("y", 24).attr("fill", hlColor).attr("font-weight", "bold")
         .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
         .text(`Sum${op.group ? ` (${op.group})` : ''}: ${total.toLocaleString()}`)
         .attr("opacity", 0).transition().duration(500).attr("opacity", 1);
+    await Promise.all([boxT.end().catch(()=>{}), txtT.end().catch(()=>{})]);
+    emitOpDone(svg, chartId, 'multipleLineSum', { value: total });
 
     return result;
 }
@@ -652,7 +705,7 @@ export async function multipleLineDiff(chartId, op, data) {
 
     const { xScale, yScale } = buildScales(data, plot);
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
-    selectAllLines(g).transition().duration(600).attr("opacity", 0.1);
+    await selectAllLines(g).transition().duration(600).attr("opacity", 0.1).end().catch(()=>{});
 
     const annotate = (datum) => {
         const cx = xScale(datum.target);
@@ -673,6 +726,7 @@ export async function multipleLineDiff(chartId, op, data) {
         .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
         .attr("fill", "#333").text(summary);
 
+    emitOpDone(svg, chartId, 'multipleLineDiff', { value: diffResult.value });
     return diffResult;
 }
 
@@ -714,6 +768,7 @@ export async function multipleLineCount(chartId, op, data) {
         .attr('fill', OP_COLORS.COUNT)
         .text(`Count${op.group ? ` (${op.group})` : ''}: ${countResult?.value ?? 0}`);
 
+    emitOpDone(svg, chartId, 'multipleLineCount', { value: countResult?.value ?? 0 });
     return countResult;
 }
 
@@ -755,17 +810,19 @@ export async function multipleLineSort(chartId, op, data) {
     }).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y));
 
     const overlay = d3.line().x(d => d.x).y(d => d.y);
-    g.append("path").attr("class", "annotation")
+    const overlayT = g.append("path").attr("class", "annotation")
         .datum(sortedCoords)
         .attr("fill", "none").attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "3 5").attr("opacity", 0)
         .attr("d", overlay)
         .transition().duration(600).attr("opacity", 0.7);
+    await overlayT.end().catch(()=>{});
 
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left).attr("y", margins.top - 10)
         .attr("font-size", 14).attr("font-weight", "bold")
         .attr("fill", hlColor).text(`Sorted by ${op.field} (${op.order || 'asc'})${op.group ? ` in ${op.group}` : ''}`);
 
+    emitOpDone(svg, chartId, 'multipleLineSort', { field: op.field, order: op.order || 'asc' });
     return sorted;
 }
 
@@ -813,8 +870,8 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
     await Promise.all([
         otherLines.transition().duration(800).attr("opacity", 0).remove().end().catch(() => {}),
         (!targetLine.empty() && !opts.preserveStroke) ?
-        targetLine.transition().duration(800).attr("stroke-width", 3.5).end().catch(() => {}) :
-        Promise.resolve(),
+            targetLine.transition().duration(800).attr("stroke-width", 3.5).end().catch(() => {}) :
+            Promise.resolve(),
         svg.select(".legend").transition().duration(800).attr("opacity", 0).remove().end().catch(() => {})
     ]).catch(() => {});
 
@@ -877,5 +934,6 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
         .text(`Displaying Series: ${targetSeriesKey}`)
         .transition().duration(500).delay(200).attr("opacity", 1);
 
+    emitOpDone(svg, chartId, 'multipleLineChangeToSimple', { group: targetSeriesKey, count: filteredData.length });
     return filteredData;
 }

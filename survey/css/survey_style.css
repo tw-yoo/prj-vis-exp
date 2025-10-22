@@ -95,6 +95,72 @@ h1, h2, h3 {
     padding: 10px;
 }
 
+.chart-ui-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.chart-ui-stack > .ops-explain-block {
+    line-height: 1.35;
+    font-size: 15px;
+    max-width: 80%;
+    word-break: break-word;
+    align-self: flex-start;
+}
+
+.chart-ui-stack > .ops-explain-block,
+.chart-ui-stack > .ops-explain-block[style],
+.chart-ui-stack > .ops-explain-block > div,
+.chart-ui-stack > .ops-explain-block [style*="text-align"],
+.chart-ui-stack > .ops-explain-block *[style*="text-align"] {
+    text-align: left !important;
+}
+
+.chart-ui-stack > .ops-explain-block .ops-token {
+    text-align: left;
+}
+
+.chart-ui-stack .nav-overlay {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 8px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    align-self: center !important;
+    justify-content: center !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: max-content;
+    min-width: 0;
+}
+
+.chart-ui-stack .nav-overlay .nav-btn {
+    display: flex;
+    appearance: none;
+    border: 0;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: #f1f5f9;
+    cursor: pointer;
+}
+
+.chart-ui-stack .nav-overlay .nav-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.chart-ui-stack .nav-overlay .nav-step-text {
+    font-weight: 700;
+    min-width: 48px;
+    text-align: center;
+}
+
 .panel-guide {
     border: 1px solid;
     display: flex;

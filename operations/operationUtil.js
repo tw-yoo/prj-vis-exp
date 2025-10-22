@@ -361,6 +361,7 @@ function updateOpsExplainActive(chartId, activeIndex) {
             const active = (activeIndex === idx);
             el.style.color = active ? '#111' : '#aaa';
             el.style.fontWeight = active ? '700' : '400';
+            el.style.textAlign = 'center';
         });
     } catch (_) {}
 }
@@ -533,31 +534,31 @@ export async function runOpsSequence({
         const { navX: nx, navY: ny } = getLayout();
 
         // Attach navigator first
-        ctrl = attachOpNavigator(chartId, { x: nx, y: ny });
-        bindNavHandlers();
-        setNavBusyState(ctrl, true);
+        ctrl = await attachOpNavigator(chartId, { x: nx, y: ny });
+        await bindNavHandlers();
+        await setNavBusyState(ctrl, true);
         // Immediately update navigator state for the new step BEFORE any ops run
-        updateNavigatorStates(ctrl, i, totalSteps, opsCount);
+        await updateNavigatorStates(ctrl, i, totalSteps, opsCount);
 
         // Overlay logic (now only one call, no position shifting)
         const tokens = buildOpsExplainTokens(opKeys, textSpec || {});
         const activeIdx = (i > 0) ? (i - 1) : -1;
-        attachOrUpdateOpsExplainOverlay(chartId, tokens, activeIdx, { fontSize: 20 });
+        await attachOrUpdateOpsExplainOverlay(chartId, tokens, activeIdx, { fontSize: 20 });
 
         let result = null;
         if (i > 0) {
             const opKey = opKeys[i - 1];
-            const opsList = opsSpec[opKey] || [];
+            const opsList = opsSpec[opKey] || []; // 여기 opsList에 있는 애들이 순차적으로 수행되어야 함.
             const isLast = !!isLastKey(opKey);
 
             if (typeof onRunOpsList === 'function') {
                 try {
                     result = await onRunOpsList(opsList, isLast);
                 } finally {
-                    setNavBusyState(ctrl, false);
+                    await setNavBusyState(ctrl, false);
                 }
             } else {
-                setNavBusyState(ctrl, false);
+                await setNavBusyState(ctrl, false);
             }
 
             if (!isLast && typeof onCache === 'function') {
@@ -571,22 +572,22 @@ export async function runOpsSequence({
 
         // --- Ensure navigator persists if onRunOpsList replaced the SVG ---
         try {
-            const host = document.getElementById(chartId);
+            const host = await document.getElementById(chartId);
             let overlay = host ? host.querySelector(':scope > .nav-overlay') : null;
             if (!overlay) {
                 const { navX: nx2, navY: ny2 } = getLayout();
-                ctrl = attachOpNavigator(chartId, { x: nx2, y: ny2 });
-                bindNavHandlers();
+                ctrl = await attachOpNavigator(chartId, { x: nx2, y: ny2 });
+                await bindNavHandlers();
             }
-            updateNavigatorStates(ctrl, i, totalSteps, opsCount);
-            setNavBusyState(ctrl, false);
+            await updateNavigatorStates(ctrl, i, totalSteps, opsCount);
+            await setNavBusyState(ctrl, false);
         } catch (e) {
             console.warn('runOpsSequence: failed to ensure navigator after ops', e);
-            setNavBusyState(ctrl, false);
+            await setNavBusyState(ctrl, false);
         }
         // Re-attach/raise ops-explain overlay after potential SVG re-render (e.g., last op)
         try {
-            attachOrUpdateOpsExplainOverlay(chartId, tokens, activeIdx, { fontSize: 20 });
+            await attachOrUpdateOpsExplainOverlay(chartId, tokens, activeIdx, { fontSize: 20 });
         } catch (e) {
             console.warn('runOpsSequence: failed to reattach ops-explain overlay after ops', e);
         }
@@ -638,8 +639,15 @@ export async function runOpsSequence({
         }
     }
 
-    bindNavHandlers();
+    await bindNavHandlers();
 
     // Start at 0/N (render-only)
     await runStep(0, 'forward');
+}
+export function getPrimarySvgElement(chartId) {
+    const host = document.getElementById(chartId);
+    if (!host) return null;
+    return host.querySelector(':scope > .chart-canvas > svg')
+        || host.querySelector(':scope > svg')
+        || host.querySelector('svg');
 }

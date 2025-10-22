@@ -48,82 +48,57 @@ function toSimpleBarSpec(vlSpec) {
     return base;
 }
 
-export async function executeAtomicOps(chartId, vlSpec, opsSpecWithText) {
+export function executeAtomicOps(chartId, vlSpec, opsSpecWithText) {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // await renderChart(chartId, vlSpec);
 
-    await renderChart(chartId, vlSpec);
+            let opsSpec = {};
+            let textSpec = {};
+            if (Object.keys(opsSpecWithText).includes("text")) {
+                textSpec = opsSpecWithText.text;
+                delete opsSpecWithText.text;
+                opsSpec = opsSpecWithText;
+            } else {
+                opsSpec = opsSpecWithText;
+            }
 
-    let opsSpec = {};
-    let textSpec = {};
-    if (Object.keys(opsSpecWithText).includes("text")) {
-        textSpec = opsSpecWithText.text;
-        delete opsSpecWithText.text;
-        opsSpec = opsSpecWithText;
-    } else {
-        opsSpec = opsSpecWithText;
-    }
+            const validationError = validateAtomicOpsSpec(opsSpec);
+            if (validationError) {
+                console.error('Atomic-Ops Spec Error:', validationError);
+                // Resolve (not hang) to keep callsites from stalling
+                document.dispatchEvent(new CustomEvent('cqa-op-done', { detail: { chartId, error: 'validation' } }));
+                return resolve({ ok: false, error: 'validation', detail: validationError });
+            }
 
-    const validationError = validateAtomicOpsSpec(opsSpec);
-    if (validationError) {
-        console.error('Atomic-Ops Spec Error:', validationError);
-        return;
-    }
+            const chartType = getChartType(vlSpec);
+            switch (chartType) {
+                case ChartType.SIMPLE_BAR:
+                    await runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec);
+                    break;
+                case ChartType.STACKED_BAR:
+                    await runStackedBarOps(chartId, vlSpec, opsSpec, textSpec);
+                    break;
+                case ChartType.GROUPED_BAR:
+                    await runGroupedBarOps(chartId, vlSpec, opsSpec);
+                    break;
+                case ChartType.MULTIPLE_BAR:
+                    await runGroupedBarOps(chartId, vlSpec, opsSpec);
+                    break;
+                case ChartType.SIMPLE_LINE:
+                    await runSimpleLineOps(chartId, vlSpec, opsSpec);
+                    break;
+                case ChartType.MULTI_LINE:
+                    await runMultipleLineOps(chartId, vlSpec, opsSpec);
+                    break;
+            }
 
-    const chartType = getChartType(vlSpec);
-
-    const { pre, last } = splitOpsByLast(opsSpec);
-
-    if (!last) {
-        // No 'last' → original behavior
-        switch (chartType) {
-            case ChartType.SIMPLE_BAR:
-                await runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec);
-                break;
-            case ChartType.STACKED_BAR:
-                await runStackedBarOps(chartId, vlSpec, opsSpec, textSpec);
-                break;
-            case ChartType.GROUPED_BAR:
-                await runGroupedBarOps(chartId, vlSpec, opsSpec);
-                break;
-            case ChartType.MULTIPLE_BAR:
-                await runGroupedBarOps(chartId, vlSpec, opsSpec);
-                break;
-            case ChartType.SIMPLE_LINE:
-                await runSimpleLineOps(chartId, vlSpec, opsSpec);
-                break;
-            case ChartType.MULTI_LINE:
-                await runMultipleLineOps(chartId, vlSpec, opsSpec);
-                break;
+            document.dispatchEvent(new CustomEvent('cqa-op-done', { detail: { chartId } }));
+            return resolve({ ok: true });
+        } catch (err) {
+            console.error('executeAtomicOps failed', err);
+            document.dispatchEvent(new CustomEvent('cqa-op-done', { detail: { chartId, error: 'exception' } }));
+            return reject(err);
         }
-        return;
-    }
-
-    // There is a 'last' op → two-phase execution
-    // Phase 1: run everything before 'last' on the original chart
-    if (pre && (Array.isArray(pre.ops) ? pre.ops.length : Array.isArray(pre) ? pre.length : false)) {
-        switch (chartType) {
-            case ChartType.SIMPLE_BAR:
-                await runSimpleBarOps(chartId, vlSpec, pre, textSpec);
-                break;
-            case ChartType.STACKED_BAR:
-                await runStackedBarOps(chartId, vlSpec, pre, textSpec);
-                break;
-            case ChartType.GROUPED_BAR:
-                await runGroupedBarOps(chartId, vlSpec, pre);
-                break;
-            case ChartType.MULTIPLE_BAR:
-                await runGroupedBarOps(chartId, vlSpec, pre);
-                break;
-            case ChartType.SIMPLE_LINE:
-                await runSimpleLineOps(chartId, vlSpec, pre);
-                break;
-            case ChartType.MULTI_LINE:
-                await runMultipleLineOps(chartId, vlSpec, pre);
-                break;
-        }
-    }
-
-    // Phase 2: force a simple bar view for the 'last' op and run it under simple-bar ops
-    const simpleSpec = toSimpleBarSpec(vlSpec);
-    await renderChart(chartId, simpleSpec);
-    await runSimpleBarOps(chartId, simpleSpec, last, textSpec);
+    });
 }

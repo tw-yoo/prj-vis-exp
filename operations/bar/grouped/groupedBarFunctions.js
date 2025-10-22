@@ -30,18 +30,20 @@ import {
     simpleBarRetrieveValue
 } from "../simple/simpleBarFunctions.js";
 import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { getPrimarySvgElement } from "../../operationUtil.js";
 
 
 // ---------- 공통 셋업 ----------
 export function getSvgAndSetup(chartId) {
-    const svg = d3.select(`#${chartId}`).select("svg");
+    const svgNode = getPrimarySvgElement(chartId);
+    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
     const g = svg.select(".plot-area");
-    const margins = { left: +svg.attr("data-m-left") || 0, top: +svg.attr("data-m-top") || 0 };
-    const plot = { w: +svg.attr("data-plot-w") || 0, h: +svg.attr("data-plot-h") || 0 };
-    const xField = svg.attr("data-x-field");
-    const yField = svg.attr("data-y-field");
-    const facetField = svg.attr("data-facet-field");
-    const colorField = svg.attr("data-color-field");
+    const margins = { left: +(svgNode?.getAttribute("data-m-left") || 0), top: +(svgNode?.getAttribute("data-m-top") || 0) };
+    const plot = { w: +(svgNode?.getAttribute("data-plot-w") || 0), h: +(svgNode?.getAttribute("data-plot-h") || 0) };
+    const xField = svgNode?.getAttribute("data-x-field");
+    const yField = svgNode?.getAttribute("data-y-field");
+    const facetField = svgNode?.getAttribute("data-facet-field");
+    const colorField = svgNode?.getAttribute("data-color-field");
     return { svg, g, margins, plot, xField, yField, facetField, colorField };
 }
 
@@ -341,9 +343,8 @@ export async function groupedBarRetrieveValue(chartId, op, data, isLast = false)
 
     // 1. 찾으려는 데이터 조각(datum) 식별
     const filterOp = { target: op.target };
-    if (op.group != null) {
-        filterOp.group = op.group;
-    }
+    if (op.group != null) filterOp.group = op.group;
+
     const selectedData = dataRetrieveValue(data, filterOp);
     if (!selectedData || selectedData.length === 0) {
         console.warn('RetrieveValue: Target not found for op:', op);
@@ -375,26 +376,29 @@ export async function groupedBarRetrieveValue(chartId, op, data, isLast = false)
         targetRects.transition().duration(300).attr("opacity", 1).attr("stroke", hlColor).attr("stroke-width", 2).end()
     ]);
 
-    // 4. ✨ 수평선 가이드와 라벨 추가 ✨
+    // 4. 수평선 가이드와 라벨 추가 (라인 transition 완료까지 대기)
     const yMax = d3.max(data, d => +d.value) || 0;
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    const anims = [];
 
     targetRects.each(function() {
         const d = d3.select(this).datum();
         const value = d ? d.value : null;
-        if (value === null) return;
-        
-        const pos = absCenter(svg, this); // absCenter 헬퍼 함수
+        if (value == null) return;
+
+        const pos = absCenter(svg, this);
         const yPos = margins.top + yScale(value);
 
-        // 수평선 그리기
-        svg.append("line")
+        const lineP = svg.append("line")
             .attr("class", "annotation retrieve-line")
             .attr("x1", margins.left).attr("y1", yPos)
             .attr("x2", margins.left).attr("y2", yPos)
             .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
             .transition().duration(450)
-            .attr("x2", pos.x);
+            .attr("x2", pos.x)
+            .end();
+
+        anims.push(lineP);
 
         svg.append("text")
             .attr("class", "annotation value-tag")
@@ -409,6 +413,9 @@ export async function groupedBarRetrieveValue(chartId, op, data, isLast = false)
             .attr("paint-order", "stroke")
             .text(fmtNum(value));
     });
+
+    // 라인 그려지기 완료 보장
+    await Promise.all(anims);
 
     return asDatumValues(selectedData, {
         categoryField: 'target',
@@ -673,7 +680,6 @@ export async function groupedBarFilter(chartId, op, data, isLast = false) {
     return asDatumValues(filteredData, { categoryField: facetField || 'target', measureField: yField || 'value', idPrefix: 'filter' });
 }
 
-
 export async function groupedBarFindExtremum(chartId, op, data, isLast = false) {
     if (isLast) {
         return await simpleBarFindExtremum(chartId, op, data, true);
@@ -732,19 +738,23 @@ export async function groupedBarFindExtremum(chartId, op, data, isLast = false) 
     const y = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
     const yPos = margins.top + y(extremumValue);
 
-    svg.append("line").attr("class", "annotation")
+    const lineP = svg.append("line").attr("class", "annotation")
         .attr("x1", margins.left).attr("y1", yPos)
         .attr("x2", margins.left).attr("y2", yPos)
         .attr("stroke", hlColor).attr("stroke-dasharray", "5 5")
         .transition().duration(1000)
-        .attr("x2", margins.left + plot.w);
+        .attr("x2", margins.left + plot.w)
+        .end();
 
-    svg.append("text").attr("class", "annotation")
+    const textP = svg.append("text").attr("class", "annotation")
         .attr("x", margins.left + plot.w - 8).attr("y", yPos - 8)
         .attr("text-anchor", "end").attr("fill", hlColor).attr("font-weight", "bold")
         .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
         .text(`${op.which || 'max'}: ${fmtNum(extremumValue)}`)
-        .attr("opacity", 0).transition().delay(300).duration(700).attr("opacity", 1);
+        .attr("opacity", 0).transition().delay(300).duration(700).attr("opacity", 1)
+        .end();
+
+    await Promise.all([lineP, textP]);
 
     svg.attr('data-filtering', null);
     return asDatumValues([targetDatum], { categoryField: facetField || 'target', measureField: yField || 'value', idPrefix: 'extremum' });
@@ -870,20 +880,25 @@ export async function groupedBarCompare(chartId, op, data, isLast = false) {
     const drawAnnotation = (node, value, color) => {
         const pos = absCenter(svg, node);
         const y = pos.y;
-        svg.append("line")
+        const p1 = svg.append("line")
             .attr("class", "annotation compare-hline")
             .attr("x1", margins.left).attr("y1", y)
             .attr("x2", margins.left).attr("y2", y)
             .attr("stroke", color).attr("stroke-dasharray", "5 5")
             .transition().duration(450)
-            .attr("x2", margins.left + plot.w);
-        svg.append("text")
+            .attr("x2", margins.left + plot.w)
+            .end();
+        const p2 = svg.append("text")
             .attr("class", "annotation compare-value")
             .attr("x", pos.x).attr("y", y - 8)
             .attr("text-anchor", "middle")
             .attr("fill", color).attr("font-weight", "bold")
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(fmtNum(value));
+            .text(fmtNum(value))
+            .attr("opacity", 0)
+            .transition().duration(350).attr("opacity", 1)
+            .end();
+        return [p1, p2];
     };
 
     if (!isObjA && !isObjB && op && op.group != null && op.group !== '') {
@@ -919,8 +934,10 @@ export async function groupedBarCompare(chartId, op, data, isLast = false) {
             d3.select(nodeB).transition().duration(500).attr('opacity', 1).attr('stroke', colorB).attr('stroke-width', 2).end(),
         ]);
 
-        drawAnnotation(nodeA, datumA.value, colorA);
-        drawAnnotation(nodeB, datumB.value, colorB);
+        const ann = [];
+        ann.push(...drawAnnotation(nodeA, datumA.value, colorA));
+        ann.push(...drawAnnotation(nodeB, datumB.value, colorB));
+        await Promise.all(ann);
 
         const wantMax = (op.which || 'max') === 'max';
         const winnerFacet = (wantMax ? (datumA.value >= datumB.value) : (datumA.value <= datumB.value)) ? AFacet : BFacet;
@@ -969,8 +986,10 @@ export async function groupedBarCompare(chartId, op, data, isLast = false) {
             d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end(),
         ]);
 
-        drawAnnotation(nodeA, datumA.value, colorA);
-        drawAnnotation(nodeB, datumB.value, colorB);
+        const ann = [];
+        ann.push(...drawAnnotation(nodeA, datumA.value, colorA));
+        ann.push(...drawAnnotation(nodeB, datumB.value, colorB));
+        await Promise.all(ann);
 
         let summary;
         if (winner) {
@@ -1029,8 +1048,10 @@ export async function groupedBarCompare(chartId, op, data, isLast = false) {
         barsB.transition().duration(500).attr('opacity', 1).attr('stroke', colorB).attr('stroke-width', 2).end(),
     ]);
 
-    barsA.each(function() { const d = d3.select(this).datum(); drawAnnotation(this, d.value, colorA); });
-    barsB.each(function() { const d = d3.select(this).datum(); drawAnnotation(this, d.value, colorB); });
+    const ann = [];
+    barsA.each(function() { const d = d3.select(this).datum(); ann.push(...drawAnnotation(this, d.value, colorA)); });
+    barsB.each(function() { const d = d3.select(this).datum(); ann.push(...drawAnnotation(this, d.value, colorB)); });
+    await Promise.all(ann);
 
     const summary = `${wantMax ? 'Max' : 'Min'}: ${winnerFacet} (A=${fmtNum(sumA)} vs B=${fmtNum(sumB)})`;
     svg.append("text").attr("class", "annotation compare-summary")
@@ -1088,24 +1109,31 @@ export async function groupedBarCompareBool(chartId, op, data, isLast = false) {
     const drawAnnotation = (node, value, color) => {
         const pos = absCenter(svg, node);
         const y = pos.y;
-        svg.append("line")
+        const p1 = svg.append("line")
             .attr("class", "annotation compare-hline")
             .attr("x1", margins.left).attr("y1", y)
             .attr("x2", margins.left).attr("y2", y)
             .attr("stroke", color).attr("stroke-dasharray", "5 5")
             .transition().duration(450)
-            .attr("x2", margins.left + plot.w);
-        svg.append("text")
+            .attr("x2", margins.left + plot.w)
+            .end();
+        const p2 = svg.append("text")
             .attr("class", "annotation compare-value")
             .attr("x", pos.x).attr("y", y - 8)
             .attr("text-anchor", "middle")
             .attr("fill", color).attr("font-weight", "bold")
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(fmtNum(value));
+            .text(fmtNum(value))
+            .attr("opacity", 0)
+            .transition().duration(350).attr("opacity", 1)
+            .end();
+        return [p1, p2];
     };
 
-    drawAnnotation(nodeA, datumA.value, colorA);
-    drawAnnotation(nodeB, datumB.value, colorB);
+    const ann = [];
+    ann.push(...drawAnnotation(nodeA, datumA.value, colorA));
+    ann.push(...drawAnnotation(nodeB, datumB.value, colorB));
+    await Promise.all(ann);
 
     const symbol = { '>': ' > ', '>=': ' >= ', '<': ' < ', '<=': ' <= ', '==': ' == ', '!=': ' != ' }[op.operator] || ` ${op.operator} `;
     const summary = `${fmtNum(datumA.value)}${symbol}${fmtNum(datumB.value)} → ${result}`;
@@ -1123,83 +1151,141 @@ export async function groupedBarCompareBool(chartId, op, data, isLast = false) {
 
 export async function groupedBarSort(chartId, op, data, isLast = false) {
     if (isLast) {
-        return await simpleBarSort(chartId, op, data, true);
+        return await simpleBarDiff(chartId, op, data, true);
     }
-    const { svg, g, plot, facetField, yField, margins } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
     resetBarsVisible(g);
+    svg.attr('data-filtering', '1');
 
-    if (op && op.group != null) {
+    const isObjA = typeof op.targetA === 'object' && op.targetA !== null;
+    const isObjB = typeof op.targetB === 'object' && op.targetB !== null;
+
+    const colorA = OP_COLORS.DIFF_A;
+    const colorB = OP_COLORS.DIFF_B;
+    const diffColor = OP_COLORS.DIFF_LINE;
+
+    const drawDiffLine = (nodeA, nodeB, diffVal) => {
+        const bboxA = nodeA.getBBox();
+        const bboxB = nodeB.getBBox();
+        const groupXA = readGroupX(nodeA);
+        const groupXB = readGroupX(nodeB);
+
+        const cxA = margins.left + groupXA + bboxA.x + bboxA.width / 2;
+        const cyA = margins.top + bboxA.y;
+        const cxB = margins.left + groupXB + bboxB.x + bboxB.width / 2;
+        const cyB = margins.top + bboxB.y;
+
+        const midX = (cxA + cxB) / 2;
+        const minY = Math.min(cyA, cyB);
+
+        const p1 = svg.append("line")
+            .attr("class", "annotation diff-line")
+            .attr("x1", cxA).attr("y1", minY - 10)
+            .attr("x2", cxA).attr("y2", minY - 10)
+            .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
+            .transition().duration(1000).ease(d3.easeCubicInOut)
+            .attr("x2", cxB)
+            .end();
+
+        const p2 = svg.append("text")
+            .attr("class", "annotation diff-label")
+            .attr("x", midX).attr("y", minY - 14)
+            .attr("text-anchor", "middle")
+            .attr("fill", diffColor)
+            .attr("font-weight", "bold")
+            .text(`Diff: ${fmtNum(diffVal)}`)
+            .attr("opacity", 0)
+            .transition().delay(500).duration(600)
+            .attr("opacity", 1)
+            .end();
+
+        return Promise.all([p1, p2]);
+    };
+
+    if (!isObjA && !isObjB && op.group) {
         const subgroup = String(op.group);
-        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (subset.length === 0) {
-            console.warn('groupedBarSort: no data for group', subgroup);
+        const subset = data.filter(d => String(d.group) === subgroup);
+        if (!subset.length) {
+            console.warn("groupedBarDiff[group]: no data", subgroup);
+            svg.attr('data-filtering', null);
+            return [];
+        }
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+
+        const AFacet = String(op.targetA);
+        const BFacet = String(op.targetB);
+
+        const opForDiff = { targetA: { target: AFacet, group: subgroup }, targetB: { target: BFacet, group: subgroup } };
+        const diffResult = dataDiff(data, opForDiff);
+        if (!diffResult) {
+            console.warn("groupedBarDiff[group]: dataDiff empty", { opForDiff });
+            svg.attr('data-filtering', null);
             return [];
         }
 
-        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+        const nodeA = findRectByTuple(g, { facet: AFacet, key: subgroup });
+        const nodeB = findRectByTuple(g, { facet: BFacet, key: subgroup });
 
-        g.selectAll("[class^='facet-group-']").each(function() {
-            const grp = d3.select(this);
-            const tx = readGroupX(this) || 0;
-            if (tx !== 0) {
-                grp.selectAll('rect').each(function() {
-                    const r = d3.select(this);
-                    const x = +r.attr('x') || 0;
-                    r.attr('x', x + tx);
-                });
-                grp.attr('transform', 'translate(0,0)');
-            }
-        });
-
-        const xAxisSel = g.select('.x-axis');
-        if (xAxisSel.empty()) {
-            const bottom = g.select('.x-axis-bottom-line');
-            if (!bottom.empty()) bottom.classed('x-axis', true);
+        if (nodeA && nodeB) {
+            const others = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
+            await Promise.all([
+                others.transition().duration(500).attr("opacity", 0.2).end(),
+                d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
+                d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
+            ]);
+            await drawDiffLine(nodeA, nodeB, diffResult.value);
         }
 
-        const op2 = { ...op };
-        delete op2.group;
-        return await simpleBarSort(chartId, op2, subset, false);
+        svg.attr('data-filtering', null);
+        return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
     }
 
-    const sortOp = { ...op };
-    if (op.field === yField) {
-        sortOp.aggregate = 'sum';
-    }
-    const sortedData = dataSort(data, sortOp, facetField, yField);
-
-    const sortedFacets = [...new Set(sortedData.map(d => d.target))];
-    const x0 = d3.scaleBand().domain(sortedFacets).range([0, plot.w]).paddingInner(0.2);
-
-    const tasks = [];
-    sortedFacets.forEach(facet => {
-        const groupSelection = g.select(`.facet-group-${cssEscape(String(facet))}`);
-        if (!groupSelection.empty()) {
-            tasks.push(
-                groupSelection.transition().duration(800).ease(d3.easeCubicInOut)
-                .attr("transform", `translate(${x0(facet)},0)`)
-                .end()
-            );
+    if (isObjA && isObjB && op.targetA.category && op.targetA.series && op.targetB.category && op.targetB.series) {
+        const opForDiff = {
+            targetA: { target: op.targetA.category, group: op.targetA.series },
+            targetB: { target: op.targetB.category, group: op.targetB.series }
+        };
+        const diffResult = dataDiff(data, opForDiff);
+        if (!diffResult) {
+            console.warn("groupedBarDiff: diff fail", op);
+            svg.attr('data-filtering', null);
+            return [];
         }
-    });
 
-    const bottomAxis = g.select(".x-axis-bottom-line");
-    tasks.push(
-        bottomAxis.transition().duration(800)
-        .call(d3.axisBottom(x0).tickSizeOuter(0))
-        .end()
-    );
+        const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
+        const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
 
-    await Promise.all(tasks);
+        if (nodeA && nodeB) {
+            const others = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
+            await Promise.all([
+                others.transition().duration(500).attr("opacity", 0.2).end(),
+                d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
+                d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
+            ]);
+            await drawDiffLine(nodeA, nodeB, diffResult.value);
+        }
 
-    svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left).attr("y", margins.top - 10)
-        .attr("font-size", 12).attr("font-weight", "bold")
-        .text(`Sorted by ${op.field} (${op.order})`);
+        svg.attr('data-filtering', null);
+        return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
+    }
 
-    return sortedData;
+    if (!isObjA && !isObjB) {
+        const AFacet = String(op.targetA);
+        const BFacet = String(op.targetB);
+        const inGroup = (d) => (op.group) ? String(d.group) === String(op.group) : true;
+        const aVal = d3.sum(data.filter(d => inGroup(d) && String(d.target) === AFacet), d => +d.value);
+        const bVal = d3.sum(data.filter(d => inGroup(d) && String(d.target) === BFacet), d => +d.value);
+        const diffVal = aVal - bVal;
+
+        svg.attr('data-filtering', null);
+        return [new DatumValue(facetField, yField, "Diff", op.group ?? null, Math.abs(diffVal), `${AFacet}-${BFacet}-diff`)];
+    }
+
+    console.warn("groupedBarDiff: unsupported targets", op);
+    svg.attr('data-filtering', null);
+    return [];
 }
 
 export async function groupedBarSum(chartId, op, data, isLast = false) {
@@ -1375,7 +1461,6 @@ export async function groupedBarSum(chartId, op, data, isLast = false) {
     return [sumDatum];
 }
 
-
 export async function groupedBarAverage(chartId, op, data, isLast = false) {
     if (isLast) {
         return await simpleBarAverage(chartId, op, data, true);
@@ -1399,7 +1484,6 @@ export async function groupedBarAverage(chartId, op, data, isLast = false) {
     }
 
     const result = dataAverage(data, op, facetField, yField);
-
     if (!result) {
         console.warn('groupedBarAverage: Could not compute average.');
         return [];
@@ -1410,7 +1494,6 @@ export async function groupedBarAverage(chartId, op, data, isLast = false) {
         result.group, result.value, result.id
     );
     const avgValue = avgDatum.value;
-
     const color = OP_COLORS.AVERAGE;
 
     const yMax = d3.max(data, d => d.value);
@@ -1426,7 +1509,7 @@ export async function groupedBarAverage(chartId, op, data, isLast = false) {
         .attr("x2", margins.left + plot.w)
         .end();
 
-    svg.append("text").attr("class", "annotation avg-label")
+    const labelP = svg.append("text").attr("class", "annotation avg-label")
         .attr("x", margins.left + plot.w / 2)
         .attr("y", yPos - 8)
         .attr("text-anchor", "middle")
@@ -1437,8 +1520,10 @@ export async function groupedBarAverage(chartId, op, data, isLast = false) {
         .text(`Avg: ${fmtNum(avgValue)}`)
         .attr("opacity", 0)
         .transition().duration(700)
-        .attr("opacity", 1);
+        .attr("opacity", 1)
+        .end();
 
+    await labelP;
     return [avgDatum];
 }
 

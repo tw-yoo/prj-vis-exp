@@ -14,23 +14,28 @@ import {
     countData as dataCount
 } from "../../lineChartOperationFunctions.js";
 import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { getPrimarySvgElement } from "../../operationUtil.js";
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 
 export function getSvgAndSetup(chartId) {
-    const svg = d3.select(`#${chartId}`).select("svg");
+    const svgNode = getPrimarySvgElement(chartId);
+    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
     const g = svg.select(".plot-area");
 
-    // fields set by ren`derer
-    const xField = svg.attr("data-x-field");
-    const yField = svg.attr("data-y-field");
+    // fields set by renderer
+    const xField = svgNode?.getAttribute("data-x-field");
+    const yField = svgNode?.getAttribute("data-y-field");
 
     // margins & plot box
-    const margins = { left: +svg.attr("data-m-left"), top: +svg.attr("data-m-top") };
-    const plot = { w: +svg.attr("data-plot-w"), h: +svg.attr("data-plot-h") };
+    const margins = { left: +(svgNode?.getAttribute("data-m-left") || 0), top: +(svgNode?.getAttribute("data-m-top") || 0) };
+    const plot = { w: +(svgNode?.getAttribute("data-plot-w") || 0), h: +(svgNode?.getAttribute("data-plot-h") || 0) };
 
     // orientation: read from common attribute names; fallback to 'vertical'
-    const rawOrient = (svg.attr("data-orientation") || svg.attr("data-orient") || svg.attr("data-layout") || "").toLowerCase();
+    const rawOrient = (svgNode?.getAttribute("data-orientation")
+        || svgNode?.getAttribute("data-orient")
+        || svgNode?.getAttribute("data-layout")
+        || "").toLowerCase();
     const orientation = (rawOrient === "horizontal" || rawOrient === "h") ? "horizontal" : "vertical";
 
     return { svg, g, orientation, xField, yField, margins, plot };
@@ -128,7 +133,7 @@ function findDatumByKey(data, key) {
 }
 
 
-export async function simpleLineRetrieveValue(chartId, op, data) {
+export async function simpleLineRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -137,7 +142,7 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
         console.warn("RetrieveValue: target not found for key:", op.target);
         return null;
     }
-    const results = dataRetrieveValue(data, op);
+    const results = dataRetrieveValue(data, op, isLast);
     const targetDatum = results.length > 0 ? results[0] : null;
 
     if (!targetDatum) {
@@ -176,7 +181,7 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
         const cx = xScale(targetDatum.target);
         const cy = yScale(targetDatum.value);
 
-        baseLine.transition().duration(600).attr("opacity", 0.3);
+        const baseTr = baseLine.transition().duration(600).attr("opacity", 0.3).end();
 
         g.append("line").attr("class", "annotation")
             .attr("x1", cx).attr("y1", cy)
@@ -188,10 +193,10 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
             .attr("x2", cx).attr("y2", cy)
             .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
 
-        g.append("circle").attr("class", "annotation")
+        const circle = g.append("circle").attr("class", "annotation")
             .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 2)
-            .transition().duration(400).delay(200).attr("r", 6);
+            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 2);
+        const circleTr = circle.transition().duration(400).delay(200).attr("r", 6).end();
 
         const labelText = Number(targetDatum.value).toLocaleString();
 
@@ -201,6 +206,7 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(labelText);
 
+        await Promise.all([baseTr, circleTr]).catch(()=>{});
         return targetDatum;
     }
 
@@ -232,11 +238,11 @@ export async function simpleLineRetrieveValue(chartId, op, data) {
     return targetDatum;
 }
 
-export async function simpleLineFindExtremum(chartId, op, data) {
+export async function simpleLineFindExtremum(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const results = dataFindExtremum(data, op);
+    const results = dataFindExtremum(data, op, isLast);
     const targetDatum = Array.isArray(results) && results.length > 0 ? results[0] : null;
 
     if (!targetDatum) {
@@ -272,7 +278,7 @@ export async function simpleLineFindExtremum(chartId, op, data) {
         const cx = xScale(targetDatum.target);
         const cy = yScale(targetVal);
 
-        baseLine.transition().duration(600).attr("opacity", 0.3);
+        const baseTr = baseLine.transition().duration(600).attr("opacity", 0.3).end();
 
         g.append("line").attr("class", "annotation")
             .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h)
@@ -280,10 +286,10 @@ export async function simpleLineFindExtremum(chartId, op, data) {
         g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy)
             .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-        g.append("circle").attr("class", "annotation")
+        const circle = g.append("circle").attr("class", "annotation")
             .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 2)
-            .transition().duration(400).delay(150).attr("r", 7);
+            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 2);
+        const circleTr = circle.transition().duration(400).delay(150).attr("r", 7).end();
 
         const label = `${op.which === "min" ? "Min" : "Max"}: ${targetVal.toLocaleString()}`;
         g.append("text").attr("class", "annotation")
@@ -293,6 +299,7 @@ export async function simpleLineFindExtremum(chartId, op, data) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(label);
 
+        await Promise.all([baseTr, circleTr]).catch(()=>{});
         return targetDatum;
     }
 
@@ -327,7 +334,7 @@ export async function simpleLineFindExtremum(chartId, op, data) {
     return targetDatum;
 }
 
-export async function simpleLineCompare(chartId, op, data) {
+export async function simpleLineCompare(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -338,7 +345,7 @@ export async function simpleLineCompare(chartId, op, data) {
         return [];
     }
 
-    const winners = dataCompare(data, { which: op.which || 'max', targetA: datumA.target, targetB: datumB.target }) || [];
+    const winners = dataCompare(data, { which: op.which || 'max', targetA: datumA.target, targetB: datumB.target }, isLast) || [];
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
@@ -397,7 +404,7 @@ export async function simpleLineCompare(chartId, op, data) {
     return winners;
 }
 
-export async function simpleLineCompareBool(chartId, op, data) {
+export async function simpleLineCompareBool(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -410,7 +417,7 @@ export async function simpleLineCompareBool(chartId, op, data) {
     }
 
     const newOp = { ...op, targetA: datumA.target, targetB: datumB.target };
-    const boolResult = dataCompareBool(data, newOp);
+    const boolResult = dataCompareBool(data, newOp, isLast);
 
     if (!boolResult) {
         return new BoolValue("Computation failed", false);
@@ -615,7 +622,7 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
     return sorted;
 }
 
-export async function simpleLineDiff(chartId, op, data) {
+export async function simpleLineDiff(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -628,7 +635,7 @@ export async function simpleLineDiff(chartId, op, data) {
     }
 
     const newOp = { ...op, targetA: datumA.target, targetB: datumB.target };
-    const diffResult = dataDiff(data, newOp);
+    const diffResult = dataDiff(data, newOp, isLast);
 
     if (!diffResult) {
         console.warn("Diff: Could not be computed.", op);
@@ -876,11 +883,11 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         : filteredData;
 }
 
-export async function simpleLineDetermineRange(chartId, op, data) {
+export async function simpleLineDetermineRange(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const result = dataDetermineRange(data, op);
+    const result = dataDetermineRange(data, op, isLast);
     if (!result) return null;
 
     let minV = (result.minV !== undefined ? result.minV : result.min);
@@ -930,21 +937,20 @@ export async function simpleLineDetermineRange(chartId, op, data) {
     const annotateValue = (value, datums, label) => {
         const list = Array.isArray(datums) ? datums : (datums ? [datums] : []);
         const vNum = Number(value);
-        if (!Number.isFinite(vNum)) return;
+        if (!Number.isFinite(vNum)) return Promise.resolve();
         const yPos = yScale(vNum);
-        g.append("line").attr("class", "annotation")
+        const line = g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", yPos)
             .attr("x2", 0).attr("y2", yPos)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
-            .transition().duration(800).attr("x2", plot.w);
+            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+        const lineTr = line.transition().duration(800).attr("x2", plot.w).end().catch(()=>{});
 
         const points = selectMainPoints(g);
         list.forEach(datum => {
             const candidates = toPointIdCandidates(datum?.target);
             const near = points.filter(function() { return candidates.includes(d3.select(this).attr("data-id")); });
             if (!near.empty()) {
-                const cx = +near.attr("cx"),
-                    cy = +near.attr("cy");
+                const cx = +near.attr("cx"), cy = +near.attr("cy");
                 g.append("text").attr("class", "annotation")
                     .attr("x", cx).attr("y", cy - 15)
                     .attr("text-anchor", "middle").attr("fill", hlColor)
@@ -952,11 +958,13 @@ export async function simpleLineDetermineRange(chartId, op, data) {
                     .text(`${label}: ${vNum.toLocaleString()}`);
             }
         });
+        return lineTr;
     };
 
     await delay(150);
-    annotateValue(minV, minDatums, "Min");
-    annotateValue(maxV, maxDatums, "Max");
+    const pMin = annotateValue(minV, minDatums, "Min");
+    const pMax = annotateValue(maxV, maxDatums, "Max");
+    await Promise.all([pMin, pMax]).catch(()=>{});
 
     const fmtVal = (v) => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString() : '—'; };
     const summaryText = `Range: ${fmtVal(minV)} ~ ${fmtVal(maxV)}`;
@@ -981,11 +989,11 @@ export async function simpleLineDetermineRange(chartId, op, data) {
     }
 }
 
-export async function simpleLineSum(chartId, op, data) {
+export async function simpleLineSum(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const calc = dataSum(data, op);
+    const calc = dataSum(data, op, isLast);
     const values = (Array.isArray(data) ? data.map(d => d ? +d.value : NaN) : []).filter(Number.isFinite);
     const total = calc && Number.isFinite(+calc.value) ? +calc.value : values.reduce((a, b) => a + b, 0);
     if (!Number.isFinite(total)) {
@@ -1089,7 +1097,7 @@ export async function simpleLineSum(chartId, op, data) {
     return { category: 'value', target: 'sum', value: total };
 }
 
-export async function simpleLineAverage(chartId, op, data) {
+export async function simpleLineAverage(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -1098,7 +1106,7 @@ export async function simpleLineAverage(chartId, op, data) {
         return null;
     }
 
-    const result = dataAverage(data, op);
+    const result = dataAverage(data, op, isLast);
     const avgRaw = result ? result[0].value : undefined;
     const avg = Number(avgRaw);
     if (!Number.isFinite(avg)) {
@@ -1129,7 +1137,7 @@ export async function simpleLineAverage(chartId, op, data) {
 
     const fmtAvg = Number.isInteger(avg) ? avg.toString() : avg.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-    g.append('text').attr('class', 'annotation avg-label')
+    const avgLabel = g.append('text').attr('class', 'annotation avg-label')
         .attr('x', plot.w - 10)
         .attr('y', Math.max(12, yPos - 10))
         .attr('text-anchor', 'end')
@@ -1140,17 +1148,17 @@ export async function simpleLineAverage(chartId, op, data) {
         .attr('stroke-width', 3.5)
         .attr('paint-order', 'stroke')
         .text(`Avg: ${fmtAvg}`)
-        .attr('opacity', 0)
-        .transition().delay(200).duration(400).attr('opacity', 1);
+        .attr('opacity', 0);
+    await avgLabel.transition().delay(200).duration(400).attr('opacity', 1).end().catch(()=>{});
 
     return result;
 }
 
-export async function simpleLineNth(chartId, op, data) {
+export async function simpleLineNth(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const resultData = dataNth(data, op);
+    const resultData = dataNth(data, op, isLast);
     const targetDatum = resultData.length > 0 ? resultData[0] : null;
 
     if (!targetDatum) {
@@ -1250,11 +1258,11 @@ export async function simpleLineNth(chartId, op, data) {
     return targetDatum;
 }
 
-export async function simpleLineCount(chartId, op, data) {
+export async function simpleLineCount(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const result = dataCount(data, op);
+    const result = dataCount(data, op, isLast);
     const totalCount = result ? result[0].value : 0;
 
     if (totalCount === 0) {
@@ -1285,7 +1293,7 @@ export async function simpleLineCount(chartId, op, data) {
                 .attr('r', Math.max(6, +pointSel.attr('r') || 6))
                 .end();
 
-            g.append('text')
+            const lbl = g.append('text')
                 .attr('class', 'annotation count-label')
                 .attr('x', pointSel.attr('cx'))
                 .attr('y', +pointSel.attr('cy') - 10)
@@ -1296,9 +1304,8 @@ export async function simpleLineCount(chartId, op, data) {
                 .attr('stroke-width', 3)
                 .attr('paint-order', 'stroke')
                 .text(String(i + 1))
-                .attr('opacity', 0)
-                .transition().duration(125).attr('opacity', 1);
-
+                .attr('opacity', 0);
+            await lbl.transition().duration(125).attr('opacity', 1).end().catch(()=>{});
             await delay(60);
         }
     }

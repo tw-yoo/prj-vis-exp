@@ -18,7 +18,12 @@ import {OperationType} from "../../../object/operationType.js";
 import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
 import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
 
+
 export const chartDataStore = {};
+// Ensure layout/paint settles between ops (fallbacks to a short delay if rAF is unavailable)
+const settleFrame = () => (typeof requestAnimationFrame === 'function'
+    ? new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)))
+    : delay(50));
 
 const MULTIPLE_LINE_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: multipleLineRetrieveValue,
@@ -35,23 +40,23 @@ const MULTIPLE_LINE_OP_HANDLERS = {
 };
 
 
-async function applyMultipleLineOperation(chartId, operation, currentData) {
+async function applyMultipleLineOperation(chartId, operation, currentData, isLast = false) {
     const fn = MULTIPLE_LINE_OP_HANDLERS[operation.op];
     if (!fn) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
     }
-    return await fn(chartId, operation, currentData);
+    const next = await Promise.resolve(fn(chartId, operation, currentData, isLast));
+    return (next === undefined ? currentData : next);
 }
 
-async function executeMultipleLineOpsList(chartId, opsList, currentData, delayMs = 0) {
+async function executeMultipleLineOpsList(chartId, opsList, currentData, isLastList = false) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
-        currentData = await applyMultipleLineOperation(chartId, operation, currentData);
-
-        if (delayMs > 0) {
-            await delay(delayMs);
-        }
+        const isLast = isLastList && (i === opsList.length - 1);
+        currentData = await applyMultipleLineOperation(chartId, operation, currentData, isLast);
+        // Ensure browser paints/settles before moving on
+        await settleFrame();
     }
     return currentData;
 }
@@ -95,6 +100,7 @@ async function fullChartReset(chartId) {
     );
 
     await Promise.all(resetPromises).catch(err => {});
+    await settleFrame();
 }
 
 export async function runMultipleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) {
@@ -117,7 +123,7 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec, textSpec = {}
         onReset: async () => { await fullChartReset(chartId); },
         onRunOpsList: async (opsList, isLast) => {
             const base = datumValues.slice();
-            return await executeMultipleLineOpsList(chartId, opsList, base, 0);
+            return await executeMultipleLineOpsList(chartId, opsList, base, isLast);
         },
         onCache: (opKey, currentData) => {
             const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);

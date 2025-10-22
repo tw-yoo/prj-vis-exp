@@ -14,6 +14,7 @@ import {
 } from "../../operationFunctions.js";
 // 기존 import 아래에 추가
 import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { getPrimarySvgElement } from "../../operationUtil.js";
 
 // Helper functions (unchanged)
 function toNum(v){ const n=+v; return Number.isNaN(n) ? null : n; }
@@ -62,12 +63,13 @@ function markKeepInput(arr) {
     return arr;
 }
 export function getSvgAndSetup(chartId) {
-    const svg = d3.select(`#${chartId}`).select("svg");
-    const orientation = svg.attr("data-orientation") || "vertical";
-    const xField = svg.attr("data-x-field");
-    const yField = svg.attr("data-y-field");
-    const margins = { left: +svg.attr("data-m-left") || 0, top: +svg.attr("data-m-top") || 0 };
-    const plot = { w: +svg.attr("data-plot-w") || 0, h: +svg.attr("data-plot-h") || 0 };
+    const svgNode = getPrimarySvgElement(chartId);
+    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
+    const orientation = svgNode?.getAttribute("data-orientation") || "vertical";
+    const xField = svgNode?.getAttribute("data-x-field");
+    const yField = svgNode?.getAttribute("data-y-field");
+    const margins = { left: +(svgNode?.getAttribute("data-m-left") || 0), top: +(svgNode?.getAttribute("data-m-top") || 0) };
+    const plot = { w: +(svgNode?.getAttribute("data-plot-w") || 0), h: +(svgNode?.getAttribute("data-plot-h") || 0) };
     // Prefer the dedicated plot-area group; fall back to the first <g>
     let g = svg.select(".plot-area");
     if (g.empty()) g = svg.select("g");
@@ -85,7 +87,13 @@ export function getCenter(bar, orientation, margins) {
         return { x: x0 + w / 2 + margins.left, y: y0 - 6 + margins.top };
     }
 }
+
 export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Helper to signal completion of an operation's animation
+function signalOpDone(chartId, opName) {
+  document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId, op: opName } }));
+}
 
 
 export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) {
@@ -185,6 +193,8 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
         animPromises.push(p);
     });
     await Promise.all(animPromises);
+    await delay(30);
+    document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId, op: 'retrieveValue' } }));
     if (isLast) {
       const first = selected[0];
       const lastResult = first ? [new DatumValue(first.category, first.measure, first.target, first.group, first.value, first.id)] : [];
@@ -221,12 +231,20 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
 
     filteredData = dataFilter(data, effectiveOp, xField, yField, isLast);
 
-    const drawThreshold = async (rawVal) => {
+    const sampleDatum = data[0] || {};
+    const measureFieldName = sampleDatum.measure || yField;
+    const categoryFieldName = sampleDatum.category || xField;
+    const isMeasureField = effectiveOp.field === 'value' || effectiveOp.field === yField || effectiveOp.field === measureFieldName;
+    const isCategoryField = effectiveOp.field === 'target' || effectiveOp.field === xField || effectiveOp.field === categoryFieldName;
+
+    const drawMeasureThreshold = async (rawVal) => {
         const v = toNumber(rawVal);
         if (!Number.isFinite(v)) return;
         const maxV = d3.max(data, getDatumValue) || 0;
         const yScaleFull = d3.scaleLinear().domain([0, maxV]).nice().range([plot.h, 0]);
-        const yPos = yScaleFull(v);
+        const domain = yScaleFull.domain();
+        const clamped = Math.max(domain[0], Math.min(domain[domain.length - 1], v));
+        const yPos = yScaleFull(clamped);
         const line = svg.append("line").attr("class", "threshold-line")
             .attr("x1", margins.left).attr("y1", margins.top + yPos)
             .attr("x2", margins.left).attr("y2", margins.top + yPos)
@@ -240,6 +258,74 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
             .attr("fill", OP_COLORS.FILTER_THRESHOLD).attr("font-size", 12).attr("font-weight", "bold").text(v);
     };
 
+    const drawCategoryThreshold = async (rawVal) => {
+        const domainTargets = data.map(d => String(d.target));
+        if (domainTargets.length === 0) return;
+
+        const bandScale = (orientation === 'vertical')
+            ? d3.scaleBand().domain(domainTargets).range([0, plot.w]).padding(0.2)
+            : d3.scaleBand().domain(domainTargets).range([0, plot.h]).padding(0.2);
+
+        const strVal = String(rawVal);
+        const numericVal = Number(rawVal);
+        let targetLabel = null;
+        const numericDomain = domainTargets.map((label, idx) => ({
+            label,
+            idx,
+            num: Number(label)
+        }));
+
+        if (domainTargets.includes(strVal)) {
+            targetLabel = strVal;
+        } else if (Number.isFinite(numericVal)) {
+            const usable = numericDomain.filter(entry => Number.isFinite(entry.num));
+            if (usable.length) {
+                const sorted = usable.sort((a, b) => a.num - b.num);
+                if (op.operator === '>' || op.operator === '>=') {
+                    const found = sorted.find(entry => op.operator === '>' ? entry.num > numericVal : entry.num >= numericVal);
+                    targetLabel = found ? found.label : sorted[sorted.length - 1].label;
+                } else if (op.operator === '<' || op.operator === '<=') {
+                    const found = sorted.find(entry => entry.num >= numericVal);
+                    if (!found) {
+                        targetLabel = sorted[sorted.length - 1].label;
+                    } else {
+                        const idx = domainTargets.indexOf(found.label);
+                        const priorIdx = (op.operator === '<=') ? idx : idx - 1;
+                        targetLabel = domainTargets[Math.max(0, priorIdx)];
+                    }
+                } else if (op.operator === '==' || op.operator === 'eq') {
+                    const found = sorted.find(entry => entry.num === numericVal);
+                    targetLabel = (found ? found.label : sorted[0].label);
+                }
+            }
+        }
+
+        if (!targetLabel) {
+            targetLabel = domainTargets[0];
+        }
+
+        const bandPos = bandScale(targetLabel);
+        if (bandPos == null) return;
+
+        if (orientation === 'vertical') {
+            const xPos = margins.left + bandPos + bandScale.bandwidth() / 2;
+            const line = svg.append("line").attr("class", "threshold-line")
+                .attr("x1", xPos).attr("y1", margins.top + plot.h)
+                .attr("x2", xPos).attr("y2", margins.top + plot.h)
+                .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+
+            await line.transition().duration(650).attr("y1", margins.top).end();
+        } else {
+            const yPos = margins.top + bandPos + bandScale.bandwidth() / 2;
+            const line = svg.append("line").attr("class", "threshold-line")
+                .attr("x1", margins.left).attr("y1", yPos)
+                .attr("x2", margins.left).attr("y2", yPos)
+                .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+
+            await line.transition().duration(650).attr("x2", margins.left + plot.w).end();
+        }
+    };
+
     // if (op.operator === 'in' || op.operator === 'not-in') {
     //     const arr = Array.isArray(op.value) ? op.value : [op.value];
     //     labelText = `Filter: ${op.field} ${op.operator} [${arr.join(', ')}]`;
@@ -248,17 +334,22 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
     // }
 
     const numericOps = new Set(['>','>=','<','<=','==','eq']);
-    if (numericOps.has(op.operator) && Number.isFinite(toNumber(op.value))) {
-        await drawThreshold(op.value);
+    if (numericOps.has(op.operator) && Number.isFinite(toNumber(op.value)) && isMeasureField) {
+        await drawMeasureThreshold(op.value);
         await delay(200);
+    } else if (numericOps.has(op.operator) && isCategoryField) {
+        await drawCategoryThreshold(op.value);
+        await delay(150);
     }
 
     if (!filteredData || filteredData.length === 0) {
         console.warn("Filter resulted in empty data.");
         g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove();
         if (isLast) {
+            signalOpDone(chartId, 'filter');
             return [new DatumValue('filter', 'count', 'result', null, 0, 'last_filter')];
         }
+        signalOpDone(chartId, 'filter');
         return [];
     }
 
@@ -305,6 +396,8 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
         .text(labelText);
 
+    await delay(30);
+    signalOpDone(chartId, 'filter');
     return isLast
       ? [new DatumValue('filter', 'count', 'result', null, Array.isArray(filteredData) ? filteredData.length : 0, 'last_filter')]
       : filteredData;
@@ -314,10 +407,12 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, orientation, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     if (!Array.isArray(data) || data.length === 0) {
+        signalOpDone(chartId, 'findExtremum');
         return [];
     }
     const selected = dataFindExtremum(data, op, xField, yField, isLast);
     if (!selected) {
+        signalOpDone(chartId, 'findExtremum');
         return [];
     }
     const hlColor = OP_COLORS.EXTREMUM;
@@ -326,6 +421,7 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     const bars = selectAllMarks(g);
     const targetBar = selectBarByKey(g, selId);
     if (targetBar.empty()) {
+        signalOpDone(chartId, 'findExtremum');
         return [selected];
     }
     await targetBar.transition().duration(600).attr("fill", hlColor).end();
@@ -369,6 +465,8 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
         anim.push(tp);
     }
     await Promise.all(anim);
+    await delay(30);
+    signalOpDone(chartId, 'findExtremum');
     if (isLast) {
         return [new DatumValue(selected.category, selected.measure, selected.target, selected.group, selected.value, selected.id)];
     }
@@ -389,6 +487,7 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
 
     if (values.length === 0) {
         console.warn("DetermineRange: No valid data to determine range.");
+        signalOpDone(chartId, 'determineRange');
         return null;
     }
 
@@ -465,7 +564,8 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
     // }
 
     await Promise.all(animationPromises);
-
+    await delay(30);
+    signalOpDone(chartId, 'determineRange');
     const intervalResult = new IntervalValue(categoryAxisName, minV, maxV);
     return isLast ? intervalResult : intervalResult;
 }
@@ -474,7 +574,10 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    if (!Array.isArray(data) || data.length === 0) return [];
+    if (!Array.isArray(data) || data.length === 0) {
+        signalOpDone(chartId, 'compare');
+        return [];
+    }
 
     const winner = dataCompare(data, op, xField, yField, isLast);
     const keyA = String(op.targetA);
@@ -495,6 +598,7 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
 
     if (barA.empty() || barB.empty()) {
         console.warn("simpleBarCompare: target bars not found for", keyA, keyB);
+        signalOpDone(chartId, 'compare');
         return winner ? [winner] : [];
     }
 
@@ -628,7 +732,8 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     }
 
     await Promise.all(animationPromises).catch(() => {});
-
+    await delay(30);
+    signalOpDone(chartId, 'compare');
     return winner ? [winner] : [];
 }
 
@@ -636,7 +741,10 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    if (!Array.isArray(data) || data.length === 0) return null;
+    if (!Array.isArray(data) || data.length === 0) {
+        signalOpDone(chartId, 'compareBool');
+        return null;
+    }
 
     const verdict = dataCompareBool(data, op, xField, yField, isLast);
     const keyA = String(op.targetA);
@@ -657,6 +765,7 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
 
     if (barA.empty() || barB.empty()) {
         console.warn("simpleBarCompareBool: target bars not found for", keyA, keyB);
+        signalOpDone(chartId, 'compareBool');
         return verdict;
     }
 
@@ -719,14 +828,15 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     });
 
     await Promise.all(animationPromises).catch(() => {});
-
+    await delay(30);
+    signalOpDone(chartId, 'compareBool');
     return verdict;
 }
 
 export async function simpleBarSort(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    if (!Array.isArray(data) || data.length === 0) return data;
+    if (!Array.isArray(data) || data.length === 0) { signalOpDone(chartId, 'sort'); return data; }
     const orderAsc = (op?.order ?? 'asc') === 'asc';
     const categoryName = data[0]?.category || (orientation === 'vertical' ? xField : yField);
     const measureName = data[0]?.measure || (orientation === 'vertical' ? yField : xField);
@@ -746,6 +856,8 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
         transitions.push(bars.transition().duration(1000).attr('x', function() { return xScale(getBarKeyFromNode(this)); }).attr('width', xScale.bandwidth()).end());
         transitions.push(g.select('.x-axis').transition().duration(1000).call(d3.axisBottom(xScale)).end());
         await Promise.all(transitions);
+        await delay(30);
+        signalOpDone(chartId, 'sort');
     } else {
         const yScale = d3.scaleBand().domain(sortedIds).range([0, plot.h]).padding(0.2);
         const bars = selectAllMarks(g);
@@ -753,6 +865,8 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
         transitions.push(bars.transition().duration(1000).attr('y', function() { return yScale(getBarKeyFromNode(this)); }).attr('height', yScale.bandwidth()).end());
         transitions.push(g.select('.y-axis').transition().duration(1000).call(d3.axisLeft(yScale)).end());
         await Promise.all(transitions);
+        await delay(30);
+        signalOpDone(chartId, 'sort');
     }
 
     if (isLast) {
@@ -769,12 +883,14 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
 
     const result = dataSum(data, op, xField, yField, isLast);
     if (!result) {
+        signalOpDone(chartId, 'sum');
         return [];
     }
 
     const totalSum = +result.value;
     if (!Number.isFinite(totalSum)) {
         const errorDatum = new DatumValue(result.category, result.measure, result.target, result.group, result.value, result.id);
+        signalOpDone(chartId, 'sum');
         return [errorDatum];
     }
 
@@ -836,6 +952,8 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
         .duration(400)
         .attr('opacity', 1);
 
+    await delay(30);
+    signalOpDone(chartId, 'sum');
     return isLast ? [sumDatum] : [sumDatum];
 }
 
@@ -847,12 +965,14 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
 
     if (numeric.length === 0) {
         console.warn('simpleBarAverage: Input data is empty or contains no numeric values.');
+        signalOpDone(chartId, 'average');
         return [];
     }
 
     const result = dataAverage(data, op, xField, yField, isLast);
     if (!result) {
         console.warn('simpleBarAverage: unable to compute average');
+        signalOpDone(chartId, 'average');
         return [];
     }
 
@@ -861,6 +981,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
     if (!Number.isFinite(avg)) {
         console.error('simpleBarAverage: Average value is not a finite number.', { result });
         const errorDatum = new DatumValue(result.category, result.measure, result.target, result.group, result.value, result.id);
+        signalOpDone(chartId, 'average');
         return [errorDatum];
     }
 
@@ -926,6 +1047,8 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
             .transition().duration(400).attr('opacity', 1);
     }
 
+    await delay(30);
+    signalOpDone(chartId, 'average');
     return isLast ? [averageDatum] : [averageDatum];
 }
 
@@ -936,6 +1059,7 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
     const result = dataDiff(data, op, xField, yField, isLast);
     if (!result) {
         console.warn('simpleBarDiff: unable to compute diff', op);
+        signalOpDone(chartId, 'diff');
         return [];
     }
 
@@ -962,6 +1086,7 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
 
     if (barA.empty() || barB.empty()) {
         console.warn('simpleBarDiff: One or both targets not found.');
+        signalOpDone(chartId, 'diff');
         return [diffDatum];
     }
 
@@ -1105,7 +1230,8 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
     }
 
     await Promise.all(animationPromises).catch(() => {});
-
+    await delay(30);
+    signalOpDone(chartId, 'diff');
     return [diffDatum];
 }
 
@@ -1117,6 +1243,7 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
 
     if (!resultArray || resultArray.length === 0) {
         console.warn('simpleBarNth: selection failed, dataNth returned empty.');
+        signalOpDone(chartId, 'nth');
         return [];
     }
 
@@ -1128,6 +1255,7 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
 
     if (targetBar.empty()) {
         console.warn(`simpleBarNth: Target bar with id "${pickedId}" not found in the chart.`);
+        signalOpDone(chartId, 'nth');
         return resultArray;
     }
 
@@ -1170,6 +1298,8 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
         .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
         .text(String(val));
 
+    await delay(30);
+    signalOpDone(chartId, 'nth');
     return isLast ? [selected] : resultArray;
 }
 
@@ -1180,6 +1310,7 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
     const totalCount = result ? Number(result.value) : 0;
     const bars = selectAllMarks(g);
     if (bars.empty()) {
+        signalOpDone(chartId, 'count');
         return result ? [result] : [];
     }
     const baseColor = '#69b3a2'; // This color is not in the palette, kept for visual effect.
@@ -1211,5 +1342,7 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
         await delay(60);
     }
 
+    await delay(30);
+    signalOpDone(chartId, 'count');
     return isLast ? (result ? [result] : []) : (result ? [result] : []);
 }

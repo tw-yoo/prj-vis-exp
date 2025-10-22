@@ -214,7 +214,7 @@ html, body {
 
 /* 차트 아래 텍스트 */
 .ops-explain-block {
-    text-align: center;
+    text-align: left;
     line-height: 1.35;
     font-size: 20px;
     max-width: 80%;
@@ -231,11 +231,22 @@ html, body {
 
 /* 텍스트 */
 .chart-ui-stack .ops-explain-block {
-    text-align: center;
     line-height: 1.35;
-    font-size: 20px;
+    font-size: 15px;
     max-width: 80%;
     word-break: break-word;
+    align-self: flex-start;
+}
+.chart-ui-stack > .ops-explain-block,
+.chart-ui-stack > .ops-explain-block[style],
+.chart-ui-stack > .ops-explain-block > div,
+.chart-ui-stack > .ops-explain-block [style*="text-align"],
+.chart-ui-stack > .ops-explain-block *[style*="text-align"] {
+    text-align: left !important;
+}
+
+.chart-ui-stack .ops-explain-block .ops-token {
+    text-align: left;
 }
 
 /* 버튼 박스 */
@@ -248,7 +259,14 @@ html, body {
     border: 1px solid #ccc;
     border-radius: 6px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    align-self: center;
+    justify-content: center !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: max-content;
+    min-width: 0;
+    align-self: center !important;
 }
-.chart-ui-stack .nav-overlay .nav-btn { appearance: none; border: 0; padding: 6px 10px; border-radius: 4px; background: #f1f5f9; cursor: pointer; }
+.chart-ui-stack .nav-overlay .nav-btn { display:flex; appearance: none; border: 0; padding: 6px 10px; border-radius: 4px; background: #f1f5f9; cursor: pointer; }
 .chart-ui-stack .nav-overlay .nav-btn:disabled { opacity: .5; cursor: not-allowed; }
 .chart-ui-stack .nav-overlay .nav-step-text { font-weight: 700; min-width: 48px; text-align: center; }

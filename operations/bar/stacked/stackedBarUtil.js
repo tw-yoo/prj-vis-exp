@@ -21,6 +21,10 @@ import {
 import { DatumValue } from "../../../object/valueType.js";
 import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
 
+// --- settle helpers (match groupedBar pattern) ---
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+async function waitFrames(n = 2) { for (let i = 0; i < n; i++) await nextFrame(); }
+
 const GROUPED_BAR_OP_HANDLES = {
     [OperationType.RETRIEVE_VALUE]: stackedBarRetrieveValue,
     [OperationType.FILTER]:         stackedBarFilter,
@@ -98,7 +102,9 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
     if (svg.empty() || svg.select(".plot-area").empty()) {
         if (!vlSpec) {
             console.error("Chart not found and vlSpec not provided.");
-            return;
+            // Signal completion anyway so upstream awaiters don't hang
+            document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId, error: 'no-spec' } }));
+            return { ok: false };
         }
         await renderStackedBarChart(chartId, vlSpec);
     }
@@ -146,6 +152,12 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         delayMs: 0,
         navOpts: { x: 15, y: 15 }
     });
+
+    // Settle any trailing transitions/layout and signal completion
+    await waitFrames(2);
+    await delay(50);
+    document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId } }));
+    return { ok: true };
 }
 export async function renderStackedBarChart(chartId, spec) {
     const host = d3.select(`#${chartId}`);

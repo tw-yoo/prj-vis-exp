@@ -13,6 +13,12 @@ import {
 import { DatumValue } from "../../../object/valueType.js";
 import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
 
+// Wait for a few animation frames to allow DOM/layout/transition to settle
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+async function waitFrames(n = 2) {
+  for (let i = 0; i < n; i++) await nextFrame();
+}
+
 const GROUPED_BAR_OP_HANDLES = {
     [OperationType.RETRIEVE_VALUE]: groupedBarRetrieveValue,
     [OperationType.FILTER]:         groupedBarFilter,
@@ -80,7 +86,8 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
 
     if (!chartInfo || !chartInfo.spec) {
         console.error("Chart info/spec not found. Please render the chart first via renderGroupedBarChart(...).");
-        return;
+        document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId, error: 'no-spec' } }));
+        return { ok: false };
     }
 
     if (svg.empty() || svg.select(".plot-area").empty()) {
@@ -146,6 +153,12 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         delayMs: 0,
         navOpts: { x: 15, y: 15 }
     });
+
+    // Allow any trailing transitions/layout to flush, then signal completion
+    await waitFrames(2);
+    await delay(50);
+    document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId } }));
+    return { ok: true };
 }
 
 export async function renderGroupedBarChart(chartId, spec) {

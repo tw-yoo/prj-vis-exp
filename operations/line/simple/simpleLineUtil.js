@@ -54,23 +54,30 @@ async function fullChartReset(chartId) {
     await Promise.all(resetPromises);
 }
 
+// Ensure layout/paint settles between ops (fallbacks to a short delay if rAF is unavailable)
+const settleFrame = () => (typeof requestAnimationFrame === 'function'
+    ? new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)))
+    : delay(50));
 
-async function applySimpleLineOperation(chartId, operation, currentData) {
+async function applySimpleLineOperation(chartId, operation, currentData, isLast = false) {
     const fn = SIMPLE_LINE_OP_HANDLERS[operation.op];
     if (!fn) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
     }
-    return await fn(chartId, operation, currentData);
+    // Some handlers may return a plain value; Promise.resolve normalizes to a Promise
+    const next = await Promise.resolve(fn(chartId, operation, currentData, isLast));
+    return (next === undefined ? currentData : next);
 }
 
 async function executeSimpleLineOpsList(chartId, opsList, currentData) {
     for (let i = 0; i < opsList.length; i++) {
         const operation = opsList[i];
-        currentData = await applySimpleLineOperation(chartId, operation, currentData);
-
-        await delay(2000);
-
+        const isLast = (i === opsList.length - 1);
+        // 각 연산이 자신의 transition을 모두 끝낼 때까지 대기
+        currentData = await applySimpleLineOperation(chartId, operation, currentData, isLast);
+        // 렌더/레이아웃이 한 프레임 이상 안정화된 뒤 다음 연산으로 이동
+        await settleFrame();
     }
     return currentData;
 }
