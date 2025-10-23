@@ -109,6 +109,7 @@ h1, h2, h3 {
     max-width: 80%;
     word-break: break-word;
     align-self: flex-start;
+    align-items: center;
 }
 
 .chart-ui-stack > .ops-explain-block,

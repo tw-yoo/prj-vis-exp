@@ -468,15 +468,8 @@ export function diff(data, op, xField, yField, isLast = false) {
     // A/B 셀렉터 정규화: 문자열/숫자/객체({category,series} 또는 {target,group} 또는 {facet,key})
     const normalizeSelector = (t) => {
         if (t && typeof t === 'object') {
-            const target = (t.category != null)
-                ? t.category
-                : (t.target != null)
-                    ? t.target
-                    : (t.facet != null)
-                        ? t.facet
-                        : (t.id != null)
-                            ? t.id
-                            : String(t);
+            const normalized = {};
+            if (t.id != null) normalized.id = String(t.id);
 
             const group = (t.series != null)
                 ? t.series
@@ -486,9 +479,19 @@ export function diff(data, op, xField, yField, isLast = false) {
                         ? t.key
                         : (op?.group ?? null);
 
-            const sel = { target: String(target) };
-            if (group != null) sel.group = String(group);
-            return sel;
+            if (group != null) normalized.group = String(group);
+
+            if (!normalized.id) {
+                const target = (t.category != null)
+                    ? t.category
+                    : (t.target != null)
+                        ? t.target
+                        : (t.facet != null)
+                            ? t.facet
+                            : String(t);
+                normalized.target = String(target);
+            }
+            return normalized;
         }
         return _buildQueryFor(data, t, op?.group, isLast);
     };
@@ -500,8 +503,8 @@ export function diff(data, op, xField, yField, isLast = false) {
     const qA2 = sanitize(qA);
     const qB2 = sanitize(qB);
 
-    let A = retrieveValue(data, qA2);
-    let B = retrieveValue(data, qB2);
+    let A = retrieveValue(data, qA2, isLast);
+    let B = retrieveValue(data, qB2, isLast);
 
     const pickWith = (k, g) => {
         const inGroup = (d) => (g == null) ? true : (d && String(d.group) === String(g));
@@ -514,7 +517,10 @@ export function diff(data, op, xField, yField, isLast = false) {
             if (yField && d[yField] !== undefined) return d[yField];
             return undefined;
         };
-        return data.filter(d => inGroup(d) && String(getCat(d)) === String(k));
+        const keyStr = String(k);
+        return data.filter(d => inGroup(d) && (
+            String(getCat(d)) === keyStr || (d?.id != null && String(d.id) === keyStr)
+        ));
     };
 
     if (!A || A.length === 0) A = pickWith(qA2?.target ?? op.targetA, qA2?.group ?? op?.group ?? null);

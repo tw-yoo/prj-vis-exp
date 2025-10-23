@@ -4,8 +4,7 @@ import {
     dataCache,
     lastCategory,
     lastMeasure,
-    renderChart,
-    stackChartToTempTable
+    renderChart
 } from "../../../util/util.js";
 import {
     getSvgAndSetup,
@@ -19,7 +18,7 @@ import {
     stackedBarRetrieveValue, stackedBarSort, stackedBarSum
 } from "./stackedBarFunctions.js";
 import { DatumValue } from "../../../object/valueType.js";
-import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
+import { runOpsSequence } from "../../operationUtil.js";
 
 // --- settle helpers (match groupedBar pattern) ---
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -63,10 +62,6 @@ async function executeStackedBarOpsList(chartId, opsList, currentData, isLast = 
     return currentData;
 }
 
-
-/**
- * 차트 리셋
- */
 async function fullChartReset(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     if (svg.empty()) return;
@@ -74,21 +69,27 @@ async function fullChartReset(chartId) {
     const { colorField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const chartRects = svg.select(".plot-area").selectAll("rect");
-    const originalData = chartDataStore[chartId].data;
+    const originalData = chartDataStore[chartId]?.data || [];
     const subgroups = Array.from(new Set(originalData.map((d) => d[colorField])));
-    const colorScale = d3.scaleOrdinal(d3.schemeTableau10).domain(subgroups);
+    const colorScale = colorField
+        ? d3.scaleOrdinal(d3.schemeTableau10).domain(subgroups)
+        : null;
 
     const resetPromises = [];
     chartRects.each(function () {
         const rect = d3.select(this);
         const d = rect.datum();
-        if (d && d.subgroup) {
+        if (d && (d.subgroup || d.seriesKey || d.group || d.key || d.target)) {
+            const subgroup = d.subgroup ?? d.seriesKey ?? d.group ?? null;
+            const fill = (colorScale && subgroup != null)
+                ? colorScale(subgroup)
+                : rect.attr('data-fill') || rect.attr('fill') || '#69b3a2';
             const t = rect
                 .transition()
                 .duration(400)
                 .attr("opacity", 1)
                 .attr("stroke", "none")
-                .attr("fill", colorScale(d.subgroup))
+                .attr("fill", fill)
                 .end();
             resetPromises.push(t);
         }
@@ -96,6 +97,21 @@ async function fullChartReset(chartId) {
     await Promise.all(resetPromises);
 }
 
+async function resetStackedBarChart(chartId, vlSpec, ctx = {}) {
+    if (ctx?.stepIndex === 0) {
+        return;
+    }
+    if (ctx?.isLast) {
+        return;
+    }
+    await renderStackedBarChart(chartId, vlSpec);
+    await waitFrames(2);
+}
+
+
+/**
+ * 차트 리셋
+ */
 export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
     const svg = d3.select(`#${chartId}`).select("svg");
 
@@ -119,17 +135,61 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         chartId,
         opsSpec,
         textSpec,
-        onReset: async () => { await fullChartReset(chartId); },
+        onReset: async (ctx = {}) => { await resetStackedBarChart(chartId, vlSpec, ctx); },
         onRunOpsList: async (opsList, isLast) => {
             if (isLast) {
-                const allDatumValues = Object.values(dataCache).flat();
-                const chartSpec = buildSimpleBarSpec(allDatumValues);
+                const cachedValues = Object.values(dataCache).flat().filter(Boolean);
+                const datumResults = cachedValues.filter(v => v instanceof DatumValue);
+                if (datumResults.length === 0) {
+                    console.warn('last stage: no DatumValue results to visualize');
+                    return [];
+                }
+
+                const categories = new Set();
+                const measures = new Set();
+                const normalized = datumResults.map((datum, idx) => {
+                    const categoryName = typeof datum.category === 'string' && datum.category.trim().length > 0
+                        ? datum.category
+                        : (categoryLabel ?? lastCategory ?? 'category');
+                    const measureName = typeof datum.measure === 'string' && datum.measure.trim().length > 0
+                        ? datum.measure
+                        : (measureLabel ?? lastMeasure ?? 'value');
+                    categories.add(categoryName);
+                    measures.add(measureName);
+
+                    const baseLabel = (() => {
+                        if (datum.target != null) {
+                            const t = String(datum.target).trim();
+                            if (t.length > 0) return t;
+                        }
+                        return `Result ${idx + 1}`;
+                    })();
+                    const groupSuffix = datum.group != null ? ` · ${String(datum.group)}` : '';
+                    const idHint = (typeof datum.id === 'string' && datum.id.includes('_'))
+                        ? ` (${datum.id.split('_')[0]})`
+                        : '';
+                    const targetLabel = `${baseLabel}${groupSuffix}${idHint}`;
+
+                    const id = datum.id ?? `last_${idx}`;
+                    return new DatumValue(categoryName, measureName, targetLabel, datum.group ?? null, datum.value, id);
+                });
+
+                const axisLabelOverrides = {};
+                if (categories.size !== 1) axisLabelOverrides.x = null;
+                if (measures.size !== 1) axisLabelOverrides.y = null;
+
+                const specOpts = {};
+                if (Object.keys(axisLabelOverrides).length > 0) {
+                    specOpts.axisLabels = axisLabelOverrides;
+                }
+
+                const chartSpec = buildSimpleBarSpec(normalized, specOpts);
                 await renderChart(chartId, chartSpec);
-                return await executeStackedBarOpsList(chartId, opsList, allDatumValues, true, 0);
-            } else {
-                const base = datumValues.slice();
-                return await executeStackedBarOpsList(chartId, opsList, base, false, 0);
+                return await executeStackedBarOpsList(chartId, opsList, normalized, true, 0);
             }
+
+            const base = datumValues.slice();
+            return await executeStackedBarOpsList(chartId, opsList, base, false, 0);
         },
         onCache: (opKey, currentData) => {
             const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);

@@ -15,9 +15,9 @@ import {
     simpleLineSum
 } from "./simpleLineFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
-import {convertToDatumValues, dataCache, lastCategory, lastMeasure} from "../../../util/util.js";
+import {dataCache, lastCategory, lastMeasure} from "../../../util/util.js";
 import {DatumValue} from "../../../object/valueType.js";
-import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
+import { runOpsSequence } from "../../operationUtil.js";
 
 /** 내부 사용: 라인 차트 데이터 저장 (renderSimpleLineChart에서 적재) */
 const chartDataStore = {};
@@ -40,18 +40,44 @@ const SIMPLE_LINE_OP_HANDLERS = {
 
 async function fullChartReset(chartId) {
     const { svg, g } = getSvgAndSetup(chartId);
+    if (!svg || svg.empty()) return;
+
     g.selectAll(".highlighted-line").remove();
     clearAllAnnotations(svg);
 
     const resetPromises = [];
+    const mainLine = g.select("path.series-line");
+    if (!mainLine.empty()) {
+        resetPromises.push(
+            mainLine.transition().duration(400)
+                .attr("stroke", "steelblue")
+                .attr("opacity", 1)
+                .end()
+        );
+    }
 
-    resetPromises.push(g.select("path.series-line").transition().duration(400)
-        .attr("stroke", "steelblue").attr("opacity", 1).end());
-
-    resetPromises.push(g.selectAll("circle.datapoint").transition().duration(400)
-        .attr("opacity", 0).end());
+    resetPromises.push(
+        g.selectAll("circle.datapoint")
+            .transition().duration(400)
+            .attr("opacity", 0)
+            .end()
+    );
 
     await Promise.all(resetPromises);
+}
+
+async function resetSimpleLineChart(chartId, vlSpec, ctx = {}) {
+    if (ctx?.stepIndex === 0) {
+        return;
+    }
+    const svg = d3.select(`#${chartId}`).select("svg");
+    const hasSeries = !svg.empty() && !svg.select("path.series-line").empty();
+    if (!hasSeries || !ctx || !ctx.isLast) {
+        await renderSimpleLineChart(chartId, vlSpec);
+        await settleFrame();
+    } else {
+        await fullChartReset(chartId);
+    }
 }
 
 // Ensure layout/paint settles between ops (fallbacks to a short delay if rAF is unavailable)
@@ -138,7 +164,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         chartId,
         opsSpec,
         textSpec,
-        onReset: async () => { await fullChartReset(chartId); },
+        onReset: async (ctx = {}) => { await resetSimpleLineChart(chartId, vlSpec, ctx); },
         onRunOpsList: async (opsList, isLast) => {
             const base = datumValues.slice();
             return await executeSimpleLineOpsList(chartId, opsList, base);

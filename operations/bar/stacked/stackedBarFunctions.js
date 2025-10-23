@@ -477,9 +477,22 @@ export async function stackedBarSum(chartId, op, data, isLast = false) {
         return await simpleBarSum(chartId, op2, subset, isLast);
     }
 
-    const result = dataSum(data, op, xField, yField, isLast);
-    const total = result ? result.value : 0;
-    if (!Number.isFinite(total) || total === 0) return result;
+    const rawResult = dataSum(data, op, xField, yField, isLast);
+    const total = rawResult ? rawResult.value : 0;
+    if (!rawResult) return [];
+
+    const datumResult = new DatumValue(
+        rawResult.category ?? (yField || 'value'),
+        rawResult.measure ?? (yField || 'value'),
+        rawResult.target ?? 'Sum',
+        rawResult.group ?? null,
+        rawResult.value,
+        rawResult.id
+    );
+
+    if (!Number.isFinite(total) || total === 0) {
+        return [datumResult];
+    }
 
     const all = g.selectAll("rect");
     const y = d3.scaleLinear().domain([0, total]).nice().range([plot.h, 0]);
@@ -526,7 +539,7 @@ export async function stackedBarSum(chartId, op, data, isLast = false) {
         .transition().duration(350).attr('opacity',1).end();
 
     await waitFrames(1);
-    return result;
+    return [datumResult];
 }
 
 export async function stackedBarAverage(chartId, op, data, isLast = false) {

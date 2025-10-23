@@ -62,6 +62,7 @@ function getSvgAndSetup(chartId) {
 }
 
 async function renderChartWithFade(chartId, spec, duration = 400) {
+    console.log("renderChartWithFade");
     const host = d3.select(`#${chartId}`);
     const currentSvg = host.select("svg");
     if (!currentSvg.empty()) {
@@ -140,6 +141,7 @@ async function executeSimpleBarOpsList(chartId, opsList, initialData, isLast = f
  * 차트 리셋
  */
 async function fullChartReset(chartId) {
+    console.log("fullChartReset");
     const { svg, g } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
@@ -157,7 +159,6 @@ async function fullChartReset(chartId) {
 }
 
 export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
-    await renderSimpleBarChart(chartId, vlSpec);
 
     const raw = chartDataStore[chartId] || [];
 
@@ -171,7 +172,14 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
         chartId,
         opsSpec,
         textSpec,
-        onReset: async () => {
+        onReset: async (ctx = {}) => {
+            if (ctx?.stepIndex === 0) {
+                return;
+            }
+            if (ctx?.isLast) {
+                // Skip restoring the original chart when transitioning to `last`.
+                return;
+            }
             await renderSimpleBarChart(chartId, vlSpec);
         },
         onRunOpsList: async (opsList, isLast) => {
@@ -219,13 +227,18 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
                 }
 
                 const compareData = sanitizedDatumResults.map((datum, idx) => {
-                    const targetLabel = (() => {
+                    const baseLabel = (() => {
                         if (datum && datum.target != null) {
                             const t = String(datum.target).trim();
                             if (t.length > 0) return t;
                         }
                         return `Result ${idx + 1}`;
                     })();
+                    const groupLabel = datum.group != null ? ` · ${String(datum.group)}` : '';
+                    const idHint = (typeof datum.id === 'string' && datum.id.includes('_'))
+                        ? ` (${datum.id.split('_')[0]})`
+                        : '';
+                    const targetLabel = `${baseLabel}${groupLabel}${idHint}`;
                     return new DatumValue(
                         canonicalCategory,
                         canonicalMeasure,
@@ -245,11 +258,9 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
                 await renderChartWithFade(chartId, compareSpec, 450);
 
                 return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
-            } else {
-                await renderSimpleBarChart(chartId, vlSpec);
-                await delay(500); // 렌더링 대기
-                return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0);
             }
+
+            return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0);
         },
         onCache: (opKey, currentData) => {
             if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {

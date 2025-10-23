@@ -11,7 +11,7 @@ import {
     groupedBarRetrieveValue, groupedBarSort, groupedBarSum
 } from "./groupedBarFunctions.js";
 import { DatumValue } from "../../../object/valueType.js";
-import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
+import { runOpsSequence } from "../../operationUtil.js";
 
 // Wait for a few animation frames to allow DOM/layout/transition to settle
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -58,16 +58,12 @@ async function executeGroupedBarOpsList(chartId, opsList, currentData, isLast = 
 }
 
 
-/**
- * 차트 리셋
- */
 async function fullChartReset(chartId) {
     const svg = d3.select(`#${chartId}`).select("svg");
     if (svg.empty()) return;
 
     clearAllAnnotations(svg);
 
-    // 모든 막대를 기본 상태로 리셋
     const resetPromises = [];
     svg.selectAll("rect[data-id]").each(function() {
         const rect = d3.select(this);
@@ -78,6 +74,23 @@ async function fullChartReset(chartId) {
         resetPromises.push(t);
     });
     await Promise.all(resetPromises);
+}
+
+async function resetGroupedBarChart(chartId, vlSpec, ctx = {}) {
+    if (ctx?.stepIndex === 0) {
+        return;
+    }
+    if (ctx?.isLast) {
+        return;
+    }
+    const info = chartDataStore[chartId];
+    const specForReset = info?.spec ?? vlSpec;
+    if (specForReset) {
+        await renderGroupedBarChart(chartId, specForReset);
+        await waitFrames(2);
+    } else {
+        await fullChartReset(chartId);
+    }
 }
 
 export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
@@ -104,7 +117,7 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         chartId,
         opsSpec,
         textSpec,
-        onReset: async () => { await fullChartReset(chartId); },
+        onReset: async (ctx = {}) => { await resetGroupedBarChart(chartId, vlSpec, ctx); },
         onRunOpsList: async (opsList, isLast) => {
             if (isLast) {
                 const cached = Object.values(dataCache).flat().filter(Boolean);
@@ -118,8 +131,11 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
                     const category = d.category ?? categoryLabel ?? lastCategory ?? 'category';
                     const measure  = d.measure  ?? measureLabel  ?? lastMeasure  ?? 'value';
                     const baseTarget = String(d.target ?? `Result ${idx + 1}`);
-                    const groupLabel = d.group != null ? String(d.group) : null;
-                    const displayTarget = groupLabel ? `${baseTarget} · ${groupLabel}` : baseTarget;
+                    const groupLabel = d.group != null ? ` · ${String(d.group)}` : '';
+                    const idHint = (typeof d.id === 'string' && d.id.includes('_'))
+                        ? ` (${d.id.split('_')[0]})`
+                        : '';
+                    const displayTarget = `${baseTarget}${groupLabel}${idHint}`;
                     const id = d.id ?? `last_${idx}`;
                     return new DatumValue(category, measure, displayTarget, d.group ?? null, d.value, id);
                 });

@@ -200,7 +200,6 @@ function stripAxisTitles(canvas) {
 export async function renderChart(chartId, spec) {
     const canvas = ensureChartCanvas(chartId);
     remapIdsForRenderer(chartId);
-    console.log("renderChart", chartId);
 
     // Clear previous chart output to avoid stale axis titles persisting across renders
     if (canvas) {

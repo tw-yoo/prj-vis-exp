@@ -1,13 +1,5 @@
 import { DatumValue } from "../../../object/valueType.js";
-import {
-    simpleLineCompare,
-    simpleLineDetermineRange,
-    simpleLineFilter,
-    simpleLineFindExtremum,
-    simpleLineRetrieveValue,
-    clearAllAnnotations as simpleClearAllAnnotations,
-    delay, simpleLineSum, simpleLineAverage, simpleLineDiff, simpleLineCount
-} from '../simple/simpleLineFunctions.js';
+import { clearAllAnnotations as simpleClearAllAnnotations, delay } from '../simple/simpleLineFunctions.js';
 
 import {
     multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
@@ -15,8 +7,8 @@ import {
     multipleLineCount, multipleLineNth, multipleLineCompareBool
 } from './multiLineFunctions.js';
 import {OperationType} from "../../../object/operationType.js";
-import {dataCache, lastCategory, lastMeasure, stackChartToTempTable} from "../../../util/util.js";
-import { updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence } from "../../operationUtil.js";
+import {dataCache, lastCategory, lastMeasure} from "../../../util/util.js";
+import { runOpsSequence } from "../../operationUtil.js";
 
 
 export const chartDataStore = {};
@@ -74,8 +66,6 @@ async function fullChartReset(chartId) {
     simpleClearAllAnnotations(svg);
 
     const resetPromises = [];
-
-    // [수정] 점들을 삭제하는 대신, 투명하게 만들어 다음을 위해 남겨둡니다.
     resetPromises.push(
         g.selectAll("circle.datapoint")
             .transition().duration(400)
@@ -88,7 +78,7 @@ async function fullChartReset(chartId) {
             .transition().duration(400)
             .attr("opacity", 1)
             .attr("stroke-width", 2)
-            .attr("stroke", d => colorScale(d.key))
+            .attr("stroke", d => colorScale ? colorScale(d.key) : d3.schemeCategory10[0])
             .end()
     );
 
@@ -99,8 +89,22 @@ async function fullChartReset(chartId) {
             .end()
     );
 
-    await Promise.all(resetPromises).catch(err => {});
+    await Promise.all(resetPromises).catch(() => {});
     await settleFrame();
+}
+
+async function resetMultipleLineChart(chartId, vlSpec, ctx = {}) {
+    if (ctx?.stepIndex === 0) {
+        return;
+    }
+    const svg = d3.select(`#${chartId}`).select("svg");
+    const hasLines = !svg.empty() && !svg.selectAll("path.series-line").empty();
+    if (!hasLines || !ctx || !ctx.isLast) {
+        await renderMultipleLineChart(chartId, vlSpec);
+        await settleFrame();
+    } else {
+        await fullChartReset(chartId);
+    }
 }
 
 export async function runMultipleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) {
@@ -120,7 +124,7 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec, textSpec = {}
         chartId,
         opsSpec,
         textSpec,
-        onReset: async () => { await fullChartReset(chartId); },
+        onReset: async (ctx = {}) => { await resetMultipleLineChart(chartId, vlSpec, ctx); },
         onRunOpsList: async (opsList, isLast) => {
             const base = datumValues.slice();
             return await executeMultipleLineOpsList(chartId, opsList, base, isLast);

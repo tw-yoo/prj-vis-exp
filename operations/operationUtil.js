@@ -244,7 +244,11 @@ function ensureUiStack(chartId) {
   const parent = host.parentNode;
   if (!parent) return { host, stack: null, text: null, nav: null };
 
-  let stack = parent.querySelector(`:scope > .chart-ui-stack[data-owner="${chartId}"]`);
+  const stacks = Array.from(parent.querySelectorAll(`:scope > .chart-ui-stack[data-owner="${chartId}"]`));
+  stacks.slice(1).forEach(node => {
+    try { node.remove(); } catch (_) {}
+  });
+  let stack = stacks[0];
   if (!stack) {
     stack = document.createElement('div');
     stack.className = 'chart-ui-stack';
@@ -252,13 +256,21 @@ function ensureUiStack(chartId) {
     if (host.nextSibling) parent.insertBefore(stack, host.nextSibling); else parent.appendChild(stack);
   }
 
-  let text = stack.querySelector(':scope > .ops-explain-block');
+  const textBlocks = Array.from(stack.querySelectorAll(':scope > .ops-explain-block'));
+  textBlocks.slice(1).forEach(node => {
+    try { node.remove(); } catch (_) {}
+  });
+  let text = textBlocks[0];
   if (!text) {
     text = document.createElement('div');
     text.className = 'ops-explain-block';
     stack.appendChild(text);
   }
-  let nav = stack.querySelector(':scope > .nav-overlay');
+  const navNodes = Array.from(stack.querySelectorAll(':scope > .nav-overlay'));
+  navNodes.slice(1).forEach(node => {
+    try { node.remove(); } catch (_) {}
+  });
+  let nav = navNodes[0];
   if (!nav) {
     nav = document.createElement('div');
     nav.className = 'nav-overlay';
@@ -466,6 +478,7 @@ export async function runOpsSequence({
     onCache,
     isLastKey = (k) => k === 'last',
     delayMs = 0,
+    preOpsDelayMs = 400,
     navOpts: initialNavOpts = { x: 15, y: 15 },
 }) {
     const host = d3.select(`#${chartId}`);
@@ -525,9 +538,12 @@ export async function runOpsSequence({
     async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     async function runStep(i, fromDirection = 'forward') {
+        const upcomingKey = (i > 0) ? opKeys[i - 1] : null;
+        const upcomingIsLast = upcomingKey != null ? !!isLastKey(upcomingKey) : false;
+
         // Always fully reset the chart to the initial render state
         if (typeof onReset === 'function') {
-            await onReset();
+            await onReset({ stepIndex: i, opKey: upcomingKey, isLast: upcomingIsLast });
         }
 
         // After reset, the SVG DOM is replaced; re-attach navigator and handlers
@@ -550,6 +566,10 @@ export async function runOpsSequence({
             const opKey = opKeys[i - 1];
             const opsList = opsSpec[opKey] || []; // 여기 opsList에 있는 애들이 순차적으로 수행되어야 함.
             const isLast = !!isLastKey(opKey);
+
+            if (!isLast && preOpsDelayMs > 0 && opsList.length > 0) {
+                await delay(preOpsDelayMs);
+            }
 
             if (typeof onRunOpsList === 'function') {
                 try {
