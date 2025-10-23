@@ -1,4 +1,10 @@
 // main.js
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('reset') === 'true') {
+    localStorage.clear();
+    window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 import {getRandomCompletionCode} from "./util.js";
 import {
   createNavButtons,
@@ -13,10 +19,90 @@ const responses = {
 };
 
 const STORAGE_KEY = 'formResponses';
+const TIMING_KEY = 'pageTiming';
+
 // Load any saved responses on initial load
 const saved = localStorage.getItem(STORAGE_KEY);
 if (saved) {
   Object.assign(responses, JSON.parse(saved));
+}
+
+// 페이지 타이밍 관리
+let pageStartTime = null;
+let timerInterval = null;
+let timerElement = null;
+let accumulatedTime = 0; // 누적 시간
+
+function formatTime(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  if (hrs > 0) {
+    return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function createTimer() {
+  const timer = document.createElement('div');
+  timer.className = 'page-timer';
+  timer.innerHTML = `
+    <div class="timer-label">Time on page</div>
+    <div class="timer-display">0:00</div>
+  `;
+  document.body.appendChild(timer);
+  return timer.querySelector('.timer-display');
+}
+
+function startTimer(pageIndex) {
+  pageStartTime = Date.now();
+  
+  // 이전에 저장된 시간 불러오기
+  const timingData = JSON.parse(localStorage.getItem(TIMING_KEY) || '{}');
+  accumulatedTime = timingData[`page_${pageIndex}`] || 0;
+  
+  if (!timerElement) {
+    timerElement = createTimer();
+  }
+  
+  // Clear any existing interval
+  if (timerInterval) {
+    clearInterval(timerInterval);
+  }
+  
+  // Update timer every second
+  timerInterval = setInterval(() => {
+    const currentSession = Math.floor((Date.now() - pageStartTime) / 1000);
+    const totalTime = accumulatedTime + currentSession;
+    if (timerElement) {
+      timerElement.textContent = formatTime(totalTime);
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  
+  if (pageStartTime) {
+    const currentSession = Math.floor((Date.now() - pageStartTime) / 1000);
+    const totalTime = accumulatedTime + currentSession;
+    return totalTime;
+  }
+  return accumulatedTime;
+}
+
+function savePageTiming(pageIndex, timeSpent) {
+  const timingData = JSON.parse(localStorage.getItem(TIMING_KEY) || '{}');
+  timingData[`page_${pageIndex}`] = timeSpent;
+  localStorage.setItem(TIMING_KEY, JSON.stringify(timingData));
+  
+  // Also add to responses
+  responses[`page_${pageIndex}_time`] = timeSpent;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(responses));
 }
 
 // Persist responses on input change
@@ -38,6 +124,14 @@ window.addEventListener('popstate', event => {
   const state = event.state;
   if (state && typeof state.pageIndex === 'number') {
     loadPage(state.pageIndex, false);
+  }
+});
+
+// Save timing when leaving page
+window.addEventListener('beforeunload', () => {
+  if (pageStartTime) {
+    const timeSpent = stopTimer();
+    savePageTiming(idx, timeSpent);
   }
 });
 
@@ -91,6 +185,11 @@ function restoreResponses() {
 
 // 페이지 검증 함수
 function validatePage() {
+  // completion 페이지는 검증 스킵
+  if (idx === pages.length - 1) {
+    return true;
+  }
+  
   // 1. Likert 질문 검증
   const likertGroups = document.querySelectorAll('.likert-group[data-required="true"]');
   for (const group of likertGroups) {
@@ -163,7 +262,15 @@ function updateButtons() {
 
 async function loadPage(i, pushHistory = true) {
   if (i < 0 || i >= pages.length) return;
+  
+  // Stop timer for current page and save timing
+  if (pageStartTime) {
+    const timeSpent = stopTimer();
+    savePageTiming(idx, timeSpent);
+  }
+  
   idx = i;
+  
   // Reflect current page in the URL without reloading
   if (pushHistory) {
     history.pushState({ pageIndex: i }, '', `?page=${i}`);
@@ -207,11 +314,23 @@ async function loadPage(i, pushHistory = true) {
       isAvailable: true,
       totalPages: pages.length,
       currentPage: idx + 1,
-      onSubmit: () => {
+      onSubmit: async () => {
         if (!validatePage()) {
           return;
         }
-        console.log("submit");
+        
+        // 마지막 타이밍 저장
+        if (pageStartTime) {
+          const timeSpent = stopTimer();
+          savePageTiming(idx, timeSpent);
+        }
+        
+        // 모든 데이터 출력
+        console.log("=== Survey Completed ===");
+        console.log("Responses:", responses);
+        console.log("Timing Data:", JSON.parse(localStorage.getItem(TIMING_KEY) || '{}'));
+        
+        alert('설문이 제출되었습니다!');
       },
       submitFormId: "survey-form"
     });
@@ -220,6 +339,9 @@ async function loadPage(i, pushHistory = true) {
     scrollEl.innerHTML = `<div class="error">Error: ${e.message}</div>`;
   }
   updateButtons();
+  
+  // Start timer for new page (이전 시간부터 이어서)
+  startTimer(idx);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

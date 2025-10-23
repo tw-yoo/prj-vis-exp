@@ -8,6 +8,8 @@ h1, h2, h3 {
     margin: 0;
 }
 
+
+
 :root {
   --divider-color: rgba(0, 0, 0, 0.12);
 }
@@ -180,4 +182,37 @@ h1, h2, h3 {
     z-index: 100;
     padding: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 기존 코드 뒤에 추가 */
+
+/* 고정 타이머 */
+.page-timer {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #2563eb;
+    border-radius: 8px;
+    padding: 12px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    backdrop-filter: blur(10px);
+}
+
+.page-timer .timer-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.page-timer .timer-display {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2563eb;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
 }
