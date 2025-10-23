@@ -41,14 +41,39 @@
     margin: 1rem 0;
 }
 
+/* 필수 질문 표시 - 기본적으로 모든 .question에 적용 */
+.question::after {
+    content: " *";
+    color: #dc2626;
+    font-weight: bold;
+}
+
+/* Optional 질문은 별표 제거 */
+.question.optional-question::after {
+    content: "";
+}
+
+/* data-required가 없는 wrapper의 question도 별표 제거 */
+.text-input-wrapper:not([data-required="true"]) .question::after {
+    content: "";
+}
+
+.ranking-help::after {
+    content: " *";
+    color: #dc2626;
+    font-weight: bold;
+}
+
 /* Likert group */
 .likert-group {
-    width: 50%;
-    border: 1px solid black;
-    /*padding-right: 50%;*/
+    width: 100%;
+    max-width: 500px;
+    border: 1px solid #e5e7eb;
+    padding: 16px;
     margin: 1rem 0;
     font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
-    flex: 1;
+    border-radius: 8px;
+    background: #fafafa;
 }
 
 .likert-group .question {
@@ -57,14 +82,26 @@
     display: block;
 }
 
-/* Likert 질문들을 감싸는 부모 요소 */
+/* Likert 질문들을 감싸는 부모 요소 - 여러 열로 배치 */
 .likert-container {
     display: flex;
-    flex-direction: row;   /* 가로 배치 */
-    gap: 20px;             /* 질문 사이 여백 */
-    align-items: flex-start; /* 세로 정렬 옵션 */
-    flow-direction: row;
+    flex-direction: row;
+    flex-wrap: wrap; /* 줄바꿈 허용 */
     gap: 20px;
+    align-items: flex-start;
+    margin: 1rem 0;
+}
+
+/* block-summary와 final-summary는 세로 배치 */
+.likert-container.block-summary,
+.likert-container.final-summary {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.likert-container.block-summary .likert-group,
+.likert-container.final-summary .likert-group {
+    max-width: 100%;
 }
 
 .options {
@@ -291,6 +328,15 @@
     line-height: 1.15;
     max-width: 100%;
 }
+
+/* open-ended-wrap 섹션 스타일 */
+.open-ended-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
 /* Responsive tweaks: slightly reduce sizes on very narrow screens */
 @media (max-width: 420px) {
     .ranking-group {

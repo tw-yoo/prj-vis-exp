@@ -89,6 +89,47 @@ function restoreResponses() {
   }
 }
 
+// 페이지 검증 함수
+function validatePage() {
+  // 1. Likert 질문 검증
+  const likertGroups = document.querySelectorAll('.likert-group[data-required="true"]');
+  for (const group of likertGroups) {
+    const inputName = group.getAttribute('data-input-name');
+    const checked = document.querySelector(`input[name="${inputName}"]:checked`);
+    if (!checked) {
+      alert('모든 필수 질문에 답해주세요.');
+      return false;
+    }
+  }
+  
+  // 2. 텍스트 입력 검증
+  const textWrappers = document.querySelectorAll('.text-input-wrapper[data-required="true"]');
+  for (const wrapper of textWrappers) {
+    const input = wrapper.querySelector('input, textarea');
+    if (input && input.value.trim() === '') {
+      alert('모든 필수 질문에 답해주세요.');
+      return false;
+    }
+  }
+  
+  // 3. Ranking 질문 검증
+  const rankingGroups = document.querySelectorAll('.ranking-group[data-required="true"]');
+  for (const group of rankingGroups) {
+    const inputName = group.getAttribute('data-input-name');
+    const hiddenInput = document.querySelector(`input[type="hidden"][name="${inputName}"]`);
+    if (hiddenInput) {
+      const values = hiddenInput.value.split(',').filter(v => v.trim() !== '');
+      const expectedLength = group.querySelectorAll('.rank-slot').length;
+      if (values.length !== expectedLength) {
+        alert('모든 필수 질문에 답해주세요.');
+        return false;
+      }
+    }
+  }
+  
+  return true;
+}
+
 const pages = [
     // 'pages/main.html',
     // 'pages/tutorial/tutorial_intro.html',
@@ -155,12 +196,23 @@ async function loadPage(i, pushHistory = true) {
       prevId: `prev_${idx}`,
       nextId: `next_${idx}`,
       onPrev: () => loadPage(idx - 1),
-      onNext: () => loadPage(idx + 1),
+      onNext: () => {
+        // 페이지 검증 추가
+        if (!validatePage()) {
+          return; // 검증 실패 시 페이지 이동 중단
+        }
+        loadPage(idx + 1);
+      },
       isLastPage,
       isAvailable: true,
       totalPages: pages.length,
       currentPage: idx + 1,
-      onSubmit: () => {console.log("submit")},
+      onSubmit: () => {
+        if (!validatePage()) {
+          return;
+        }
+        console.log("submit");
+      },
       submitFormId: "survey-form"
     });
     scrollEl.appendChild(nav);
