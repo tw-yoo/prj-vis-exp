@@ -65,14 +65,14 @@
 
 /* Likert group */
 .likert-group {
-    width: calc(50% - 10px);
-    border: 1px solid #e5e7eb;
-    padding: 16px;
-    margin: 0.5rem 0;
-    font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
-    border-radius: 8px;
-    background: #fafafa;
+    width: 100%;
     box-sizing: border-box;
+    min-height: var(--likert-group-min-h, 120px); /* up to ~3 lines without resizing */
+    display: flex;
+    flex-direction: column; /* question above, options below */
+    border: 1px solid black;
+    margin: 1rem 0;
+    font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
 }
 
 .likert-group .question {
@@ -83,22 +83,31 @@
 
 /* Likert 질문들을 감싸는 부모 요소 */
 .likert-container {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 20px;
-    align-items: flex-start;
-}
+/*<<<<<<< HEAD*/
+/*    display: flex;*/
+/*    flex-direction: row;*/
+/*    flex-wrap: wrap;*/
+/*    gap: 20px;*/
+/*    align-items: flex-start;*/
+/*}*/
 
-/* block-summary와 final-summary는 세로 배치 */
-.likert-container.block-summary,
-.likert-container.final-summary {
-    flex-direction: column;
-}
+/*!* block-summary와 final-summary는 세로 배치 *!*/
+/*.likert-container.block-summary,*/
+/*.likert-container.final-summary {*/
+/*    flex-direction: column;*/
+/*}*/
 
-.likert-container.block-summary .likert-group,
-.likert-container.final-summary .likert-group {
-    width: 100%;
+/*.likert-container.block-summary .likert-group,*/
+/*.likert-container.final-summary .likert-group {*/
+/*    width: 100%;*/
+/*=======*/
+    display: grid;
+    grid-template-columns: 45% 45%; /* two columns per row */
+    column-gap: 10%;                /* fixed middle gap */
+    row-gap: 20px;                  /* vertical gap between rows */
+    align-items: stretch;           /* equalize box heights in a row */
+    grid-auto-rows: minmax(var(--likert-group-min-h, 120px), auto); /* row height ≥ 180px */
+/*>>>>>>> survey-update*/
 }
 
 .options {
@@ -170,7 +179,47 @@
     white-space: nowrap;
 }
 
-/* Text input */
+/*<<<<<<< HEAD*/
+/*!* Text input *!*/
+/*=======*/
+.pane,
+.split-container > .left,
+.split-container > .right {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+}
+
+.pane-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #fff;
+}
+
+.pane-body {
+    flex: 1 1 auto;
+    overflow: auto;
+}
+
+.pane-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.96);
+    border-top: 1px solid #eee;
+    display: flex;
+    justify-content: center;
+    padding: 12px 8px;
+}
+
+.pane-footer .nav-overlay {
+    position: static;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* Text input (한 줄, 긴 텍스트는 자동 스크롤) */
+/*>>>>>>> survey-update*/
 .text-input-wrapper {
     margin: 1rem 0;
     font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
