@@ -1,7 +1,7 @@
 import {renderChart} from "../util/util.js";
 import {executeAtomicOps} from "../router/router.js";
 import {getVegaLiteSpec, getOperationSpec} from "./util.js"
-import { runOpsSequence } from "../operations/operationUtil.js";
+import { runOpsSequence, attachOpNavigator, updateNavigatorStates } from "../operations/operationUtil.js";
 
 export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = null, submitFormId = null, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null }) {
     const w = document.createElement('div');
@@ -86,6 +86,8 @@ export async function createChart(cId) {
     const vegaLiteSpec = await getVegaLiteSpec(cId);
     vegaLiteSpec.data.url = "../" + vegaLiteSpec.data.url;
     await renderChart(chartId, vegaLiteSpec);
+    const ctrl = attachOpNavigator(chartId, { mount: 'footer' });
+    updateNavigatorStates(ctrl, 0, 1);
 
     // Enable interactive operation sequence only when opspec is declared on the chart placeholder
     const rawOpSpec = (container.getAttribute('data-opspec') || container.dataset.opspec || '').trim();
@@ -408,3 +410,156 @@ export function createCompletionCode(completionCode) {
     w.append(label, strong);
     return w;
 }
+
+export async function createChartExp(chartDir) {
+    // Locate host container
+    const host = document.querySelector(`[data-component="chart-exp"][data-chart="${chartDir}"]`);
+    if (!host) {
+        console.error(`chart-exp host for "${chartDir}" not found`);
+        return;
+    }
+
+    // Create an inner container for rendering and a nav area
+    const wrapper = document.createElement('div');
+    wrapper.className = 'chart-exp-wrapper';
+
+    const chartHolder = document.createElement('div');
+    chartHolder.className = 'd3chart-container';
+    const chartId = `chart-exp-${chartDir.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    // Remove ad-hoc nav area and use navigator overlay
+    wrapper.append(chartHolder);
+    host.append(wrapper);
+
+    // --- helpers ---
+    const join = (base, seg) => {
+        if (!base) return seg || '';
+        if (!seg) return base;
+        const b = base.endsWith('/') ? base.slice(0, -1) : base;
+        const s = seg.startsWith('/') ? seg.slice(1) : seg;
+        return `${b}/${s}`;
+    };
+
+    const resolveBase = (dir) => dir.endsWith('/') ? dir : `${dir}/`;
+
+    async function fetchJSON(url) {
+        try { const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) return null; return await r.json(); } catch (_) { return null; }
+    }
+
+    async function resolveFileList(dir, hostEl) {
+        // Priority 0: explicit list provided via data-files="a.json|b.json"
+        const explicit = (hostEl.getAttribute('data-files') || '').trim();
+        if (explicit) {
+            const parts = explicit.split('|').map(s => s.trim()).filter(Boolean);
+            return parts.map(p => p.includes('/') ? p : join(resolveBase(dir), p));
+        }
+        const base = resolveBase(dir);
+        // Priority 1: manifest files
+        for (const m of ['manifest.json', 'index.json', '_manifest.json']) {
+            const url = join(base, m);
+            const data = await fetchJSON(url);
+            if (Array.isArray(data) && data.length) {
+                return data.map(p => p.includes('/') ? p : join(base, p));
+            }
+        }
+        // Priority 2: numeric sequence 1.json, 2.json, ... (stop at first miss, cap 50)
+        const out = [];
+        for (let i = 1; i <= 50; i++) {
+            const url = join(base, `${i}.json`);
+            const spec = await fetchJSON(url);
+            if (!spec) break;
+            out.push(url);
+        }
+        return out;
+    }
+
+    const files = await resolveFileList(chartDir, host);
+    if (!files || files.length === 0) {
+        console.error(`chart-exp: no specs found under ${chartDir}. Provide data-files or a manifest.json.`);
+        host.insertAdjacentHTML('beforeend', `<div class="error">No charts found in <code>${chartDir}</code></div>`);
+        return;
+    }
+
+    let idx = 0;
+    // --- navigator helpers ---
+    let ctrl = null;
+    function bindNav() {
+      if (!ctrl) return;
+      const prevBtn = ctrl.prevButton;
+      const nextBtn = ctrl.nextButton;
+      if (prevBtn && !prevBtn.dataset.bound) {
+        prevBtn.addEventListener('click', () => { if (idx > 0) renderAt(idx - 1); });
+        prevBtn.dataset.bound = '1';
+      }
+      if (nextBtn && !nextBtn.dataset.bound) {
+        nextBtn.addEventListener('click', () => { if (idx < files.length - 1) renderAt(idx + 1); });
+        nextBtn.dataset.bound = '1';
+      }
+    }
+
+    async function renderAt(i) {
+        idx = i;
+        const file = files[i];
+        const spec = await fetchJSON(file);
+        if (!spec) {
+            chartHolder.innerHTML = `<div class="error">Failed to load ${file}</div>`;
+            return;
+        }
+        // Make data URL work with our folder layout (match createChart behavior)
+        if (spec && spec.data && typeof spec.data.url === 'string') {
+            spec.data.url = spec.data.url.startsWith('../') ? spec.data.url : `../${spec.data.url}`;
+        }
+        // Reset inner chart node with a stable id
+        chartHolder.innerHTML = '';
+        const inner = document.createElement('div');
+        inner.id = chartId;
+        inner.className = 'd3chart-container';
+        chartHolder.appendChild(inner);
+        await renderChart(chartId, spec);
+        // Attach/update the shared navigator overlay for this chartId
+        ctrl = attachOpNavigator(chartId, { mount: 'footer' });
+        bindNav();
+        updateNavigatorStates(ctrl, idx, files.length);
+    }
+
+    await renderAt(0);
+}
+
+// --- Auto mount for data-component="chart-exp" placeholders ---
+(function initChartExpAutobind(){
+    const SELECTOR = '[data-component="chart-exp"]';
+
+    const mountOne = async (host) => {
+        if (!host || host.__chart_exp_mounted__) return;
+        host.__chart_exp_mounted__ = true;
+        const dir = host.getAttribute('data-chart') || host.dataset.chart || '';
+        if (!dir) return;
+        await createChartExp(dir);
+    };
+
+    const mountAll = (root = document) => {
+        const nodes = root.querySelectorAll ? root.querySelectorAll(SELECTOR) : [];
+        nodes.forEach(mountOne);
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => mountAll());
+    } else {
+        mountAll();
+    }
+
+    const mo = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            if (m.addedNodes && m.addedNodes.length) {
+                m.addedNodes.forEach((node) => {
+                    if (!(node instanceof Element)) return;
+                    if (node.matches && node.matches(SELECTOR)) {
+                        mountOne(node);
+                    } else {
+                        mountAll(node);
+                    }
+                });
+            }
+        }
+    });
+    try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}
+})();

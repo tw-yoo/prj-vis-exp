@@ -272,9 +272,18 @@ function ensureUiStack(chartId) {
   });
   let nav = navNodes[0];
   if (!nav) {
+    nav = document.querySelector(`.nav-overlay[data-owner="${chartId}"]`) || null;
+  }
+  if (!nav) {
     nav = document.createElement('div');
     nav.className = 'nav-overlay';
+    nav.setAttribute('data-owner', chartId);
     stack.appendChild(nav);
+  } else {
+    if (!nav.dataset.owner) nav.setAttribute('data-owner', chartId);
+    if (nav.dataset.mount !== 'footer' && nav.parentElement !== stack) {
+      stack.appendChild(nav);
+    }
   }
   return { host, stack, text, nav };
 }
@@ -378,14 +387,70 @@ function updateOpsExplainActive(chartId, activeIndex) {
     } catch (_) {}
 }
 
-export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
+function findNearestPaneElement(host) {
+  if (!host || !(host instanceof HTMLElement)) return null;
+  const pane = host.closest('.pane');
+  if (pane) return pane;
+  const paneBody = host.closest('.pane-body');
+  if (paneBody && paneBody.parentElement) return paneBody.parentElement;
+  const splitPane = host.closest('.split-container > div');
+  return splitPane || null;
+}
+
+function ensurePaneFooter(paneEl) {
+  if (!paneEl) return null;
+  if (paneEl.classList.contains('left') && !paneEl.classList.contains('pane')) {
+    return null;
+  }
+  let footer = paneEl.querySelector(':scope > .pane-footer');
+  if (footer) return footer;
+  footer = document.createElement('div');
+  footer.className = 'pane-footer';
+  const body = paneEl.querySelector(':scope > .pane-body');
+  if (body) {
+    const next = body.nextSibling;
+    if (next) {
+      paneEl.insertBefore(footer, next);
+    } else {
+      paneEl.appendChild(footer);
+    }
+  } else {
+    paneEl.appendChild(footer);
+  }
+  return footer;
+}
+
+export function attachOpNavigator(chartId, options = {}) {
+  const { x = 15, y = 15, mount = 'stack' } = options || {};
   const { host, stack, nav } = ensureUiStack(chartId);
   if (!host || !stack || !nav) {
     console.error('attachOpNavigator: host/stack/nav not found for chartId:', chartId);
     return { overlay: null, prevButton: null, nextButton: null, stepIndicator: null };
   }
+  nav.setAttribute('data-owner', chartId);
 
-  nav.style.position = '';
+  let resolvedMount = mount;
+  if ((mount === 'stack' || mount == null) && nav.dataset.mount === 'footer') {
+    resolvedMount = 'auto';
+  }
+  if (resolvedMount === 'auto' || resolvedMount === 'footer') {
+    const pane = findNearestPaneElement(host);
+    const footer = ensurePaneFooter(pane);
+    if (footer) {
+      if (nav.parentElement !== footer) footer.appendChild(nav);
+      resolvedMount = 'footer';
+    } else if (resolvedMount === 'auto') {
+      resolvedMount = 'stack';
+    } else {
+      console.warn(`attachOpNavigator: footer mount requested but pane footer not found for chartId ${chartId}`);
+    }
+  }
+
+  if (resolvedMount === 'stack') {
+    if (nav.parentElement !== stack) stack.appendChild(nav);
+  }
+
+  nav.dataset.mount = resolvedMount;
   nav.style.pointerEvents = 'auto';
   nav.style.display = 'flex';
   nav.style.alignItems = 'center';
@@ -395,6 +460,13 @@ export function attachOpNavigator(chartId, { x = 15, y = 15 } = {}) {
   nav.style.border = '1px solid #ccc';
   nav.style.borderRadius = '6px';
   nav.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+  nav.style.margin = resolvedMount === 'footer' ? '0 auto' : '';
+  nav.style.position = resolvedMount === 'footer' ? 'static' : '';
+  nav.style.left = '';
+  nav.style.right = '';
+  nav.style.bottom = '';
+  nav.style.top = '';
+  nav.style.transform = '';
 
   let prevBtn = nav.querySelector(':scope > .nav-btn.prev');
   let nextBtn = nav.querySelector(':scope > .nav-btn.next');
