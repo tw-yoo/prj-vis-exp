@@ -74,7 +74,7 @@ function validatePage() {
         const inputName = group.getAttribute('data-input-name');
         const checked = document.querySelector(`input[name="${inputName}"]:checked`);
         if (!checked) {
-            alert('모든 필수 질문에 답해주세요.');
+            alert('Please answer all of the questions');
             return false;
         }
     }
@@ -84,7 +84,7 @@ function validatePage() {
     for (const wrapper of textWrappers) {
         const input = wrapper.querySelector('input, textarea');
         if (input && input.value.trim() === '') {
-            alert('모든 필수 질문에 답해주세요.');
+            alert('Please answer all of the questions');
             return false;
         }
     }
@@ -98,7 +98,7 @@ function validatePage() {
             const values = hiddenInput.value.split(',').filter(v => v.trim() !== '');
             const expectedLength = group.querySelectorAll('.rank-slot').length;
             if (values.length !== expectedLength) {
-                alert('모든 필수 질문에 답해주세요.');
+                alert('Please answer all of the questions');
                 return false;
             }
         }

@@ -17,7 +17,8 @@ export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = nu
     n.textContent = isLastPage ? 'Submit' : 'Next';
 
     const shouldSubmit = isLastPage && (typeof onSubmit === 'function' || !!submitFormId);
-    // n.type = shouldSubmit ? 'submit' : 'button';
+    n.type = 'button';
+    n.dataset.isSubmit = shouldSubmit ? 'true' : 'false';
     if (shouldSubmit && typeof onSubmit === 'function') {
         n.addEventListener('click', onSubmit);
     } else {
@@ -64,16 +65,24 @@ export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = nu
     return w;
 }
 
-export async function createChart(cId) {
-    const chartId = `chart-${cId}`;
+const chartInstanceCounts = new Map();
+
+function nextChartDomId(baseId) {
+    const current = chartInstanceCounts.get(baseId) || 0;
+    const next = current + 1;
+    chartInstanceCounts.set(baseId, next);
+    return `chart-${baseId}-${next}`;
+}
+
+export async function createChart(cId, host = null) {
+    const chartDomId = nextChartDomId(cId);
 
     const chartDiv = document.createElement('div');
-    chartDiv.id = chartId;
+    chartDiv.id = chartDomId;
     chartDiv.className = 'd3chart-container';
     chartDiv.style.margine = "0 auto";
 
-    // Find the target container by data attributes
-    const container = document.querySelector(
+    const container = host || document.querySelector(
         `[data-component="chart"][data-chart="${cId}"]`
     );
     if (!container) {
@@ -85,9 +94,13 @@ export async function createChart(cId) {
 
     const vegaLiteSpec = await getVegaLiteSpec(cId);
     vegaLiteSpec.data.url = "../" + vegaLiteSpec.data.url;
-    await renderChart(chartId, vegaLiteSpec);
-    const ctrl = attachOpNavigator(chartId, { mount: 'footer' });
-    updateNavigatorStates(ctrl, 0, 1);
+    await renderChart(chartDomId, vegaLiteSpec);
+    const disableNavigator = container.getAttribute('data-disable-navigator') === 'true';
+    let ctrl = null;
+    if (!disableNavigator) {
+        ctrl = attachOpNavigator(chartDomId, { mount: 'footer' });
+        updateNavigatorStates(ctrl, 0, 1);
+    }
 
     // Enable interactive operation sequence only when opspec is declared on the chart placeholder
     const rawOpSpec = (container.getAttribute('data-opspec') || container.dataset.opspec || '').trim();
@@ -109,7 +122,7 @@ export async function createChart(cId) {
         if (operationSpec) {
             // Hand off the full multi-key spec (including text/ops/ops2/last) to the router.
             // The router will delegate to the chart-type-specific runner, which manages sequencing/UI.
-            await executeAtomicOps(chartId, vegaLiteSpec, operationSpec);
+            await executeAtomicOps(chartDomId, vegaLiteSpec, operationSpec);
         }
     }
 }
@@ -120,6 +133,8 @@ export function createLikertQuestion({ name, questionText, labels }) {
     f.setAttribute('aria-label', questionText);
     f.setAttribute('data-required', 'true');
     f.setAttribute('data-input-name', name);
+    f.dataset.name = name;
+    f.setAttribute('data-name', name);
     
     const l = document.createElement('legend'); 
     l.className = 'question'; 
@@ -155,6 +170,8 @@ export function createRankingQuestion({ name, questionText, options }) {
     f.setAttribute('aria-label', questionText);
     f.setAttribute('data-required', 'true');
     f.setAttribute('data-input-name', name);
+    f.dataset.name = name;
+    f.setAttribute('data-name', name);
 
     // legend
     const l = document.createElement('legend');
@@ -396,6 +413,8 @@ export function createRankingQuestion({ name, questionText, options }) {
 export function createOpenEndedInput({ id, labelText, placeholder, multiline }) {
     const w = document.createElement('div'); 
     w.className = 'text-input-wrapper';
+    w.dataset.name = id;
+    w.setAttribute('data-name', id);
     
     // "Optional"이 포함되어 있으면 필수가 아님
     const isOptional = labelText.toLowerCase().includes('optional') || 
@@ -463,7 +482,7 @@ export function createCompletionCode(completionCode) {
 
 export async function createChartExp(chartDir) {
     // Locate host container
-    const host = document.querySelector(`[data-component="chart-exp"][data-chart="${chartDir}"]`);
+    const host = document.querySelector(`[data-component="chart-exp"][data-chart-exp="${chartDir}"]`);
     if (!host) {
         console.error(`chart-exp host for "${chartDir}" not found`);
         return;
