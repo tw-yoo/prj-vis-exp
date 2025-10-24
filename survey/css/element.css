@@ -41,14 +41,38 @@
     margin: 1rem 0;
 }
 
+/* 필수 질문 표시 */
+.question::after {
+    content: " *";
+    color: #dc2626;
+    font-weight: bold;
+}
+
+/* Optional 질문은 별표 제거 */
+.question.optional-question::after {
+    content: "";
+}
+
+.text-input-wrapper:not([data-required="true"]) .question::after {
+    content: "";
+}
+
+.ranking-help::after {
+    content: " *";
+    color: #dc2626;
+    font-weight: bold;
+}
+
 /* Likert group */
 .likert-group {
-    width: 50%;
-    border: 1px solid black;
-    /*padding-right: 50%;*/
-    margin: 1rem 0;
+    width: calc(50% - 10px);
+    border: 1px solid #e5e7eb;
+    padding: 16px;
+    margin: 0.5rem 0;
     font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
-    flex: 1;
+    border-radius: 8px;
+    background: #fafafa;
+    box-sizing: border-box;
 }
 
 .likert-group .question {
@@ -60,11 +84,21 @@
 /* Likert 질문들을 감싸는 부모 요소 */
 .likert-container {
     display: flex;
-    flex-direction: row;   /* 가로 배치 */
-    gap: 20px;             /* 질문 사이 여백 */
-    align-items: flex-start; /* 세로 정렬 옵션 */
-    flow-direction: row;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 20px;
+    align-items: flex-start;
+}
+
+/* block-summary와 final-summary는 세로 배치 */
+.likert-container.block-summary,
+.likert-container.final-summary {
+    flex-direction: column;
+}
+
+.likert-container.block-summary .likert-group,
+.likert-container.final-summary .likert-group {
+    width: 100%;
 }
 
 .options {
@@ -136,7 +170,7 @@
     white-space: nowrap;
 }
 
-/* Text input (한 줄, 긴 텍스트는 자동 스크롤) */
+/* Text input */
 .text-input-wrapper {
     margin: 1rem 0;
     font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
@@ -158,10 +192,10 @@
     outline: none;
     box-sizing: border-box;
     background: #ffffff;
-    resize: vertical; /* user can adjust height */
+    resize: vertical;
     overflow: auto;
     line-height: 1.4;
-    white-space: pre-wrap; /* preserve line breaks and wrap long lines */
+    white-space: pre-wrap;
     word-wrap: break-word;
     min-height: 3em;
     max-height: 300px;
@@ -172,7 +206,6 @@
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
-/* 보조: 스크롤바를 살짝 다듬는 경우 (선택적) */
 .text-input::-webkit-scrollbar {
     height: 6px;
 }
@@ -182,19 +215,16 @@
     border-radius: 3px;
 }
 
-/* =========================
- * Ranking (1..N) & Options
- * ========================= */
+/* Ranking */
 .ranking-group {
-    /* Tunable sizing tokens (can be overridden inline per instance) */
-    --rank-slot-width: 120px;   /* wider number slots */
-    --rank-slot-height: 56px;   /* slightly taller */
-    --rank-gap: 24px;           /* wider gap between number slots */
-    --opt-min-width: 170px;     /* wider draggable buttons */
-    --opt-height: 52px;         /* slightly taller options */
-    --opt-gap: 16px;            /* gap between option buttons */
-    --corner-radius: 10px;
-    --border: 1.5px solid #d1d5db;
+    --rank-slot-width: 80px;
+    --rank-slot-height: 40px;
+    --rank-gap: 12px;
+    --opt-min-width: 100px;
+    --opt-height: 36px;
+    --opt-gap: 10px;
+    --corner-radius: 6px;
+    --border: 1px solid #d1d5db;
     --bg: #ffffff;
     --bg-muted: #f9fafb;
     --bg-selected: #eff6ff;
@@ -203,12 +233,13 @@
     margin: 1rem 0;
     font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
 }
+
 .ranking-help {
     margin: 0 0 .5rem 0;
     color: #6b7280;
-    font-size: .9rem;
+    font-size: .85rem;
 }
-/* Top row: number slots (1..N) */
+
 .rank-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(var(--rank-slot-width), 1fr));
@@ -216,14 +247,15 @@
     align-items: stretch;
     margin-bottom: 12px;
 }
+
 .rank-slot {
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: var(--rank-slot-height);
-    padding: 10px 12px;
-    font-weight: 700;
-    font-size: 1rem;
+    padding: 6px 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
     background: var(--bg-muted);
     border: var(--border);
     border-radius: var(--corner-radius);
@@ -232,31 +264,35 @@
     transition: background .2s, border-color .2s, box-shadow .2s, transform .05s;
     text-align: center;
 }
+
 .rank-slot:hover {
     background: #f3f4f6;
 }
+
 .rank-slot.has-assignment {
     background: var(--bg-assigned);
     border-color: #c7d2fe;
 }
+
 .rank-slot:focus-visible {
     outline: none;
     box-shadow: var(--ring);
 }
-/* Bottom row: option pool (draggable buttons) */
+
 .option-pool {
     display: flex;
     flex-wrap: wrap;
     gap: var(--opt-gap);
 }
+
 .rank-option {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     min-height: var(--opt-height);
     min-width: var(--opt-min-width);
-    padding: 10px 14px;
+    padding: 6px 10px;
     background: var(--bg);
     border: var(--border);
     border-radius: var(--corner-radius);
@@ -264,19 +300,23 @@
     user-select: none;
     transition: background .2s, border-color .2s, box-shadow .2s, transform .05s;
     white-space: nowrap;
+    font-size: 0.85rem;
 }
+
 .rank-option:active {
     cursor: grabbing;
     transform: scale(0.99);
 }
+
 .rank-option.is-selected {
     border-color: #2563eb;
     background: var(--bg-selected);
     box-shadow: var(--ring);
 }
+
 .rank-option.has-rank {
-    background: #e5e7eb; /* darker grey to indicate placed */
-    border-color: #9ca3af; /* slightly darker border */
+    background: #e5e7eb;
+    border-color: #9ca3af;
 }
 
 .rank-option.has-rank.is-selected {
@@ -284,6 +324,7 @@
     border-color: #2563eb;
     box-shadow: var(--ring);
 }
+
 .option-text {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -291,14 +332,26 @@
     line-height: 1.15;
     max-width: 100%;
 }
-/* Responsive tweaks: slightly reduce sizes on very narrow screens */
+
+.open-ended-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .likert-group {
+        width: 100%;
+    }
+}
+
 @media (max-width: 420px) {
     .ranking-group {
-        --rank-slot-width: 110px;
-        --rank-slot-height: 52px;
-        --opt-min-width: 150px;
-        --opt-height: 48px;
-        --rank-gap: 20px;
-        --opt-gap: 12px;
+        --rank-slot-width: 70px;
+        --rank-slot-height: 36px;
+        --opt-min-width: 90px;
+        --opt-height: 32px;
     }
 }

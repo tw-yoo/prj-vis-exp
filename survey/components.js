@@ -113,15 +113,32 @@ export async function createChart(cId) {
 }
 
 export function createLikertQuestion({ name, questionText, labels }) {
-    const f = document.createElement('fieldset'); f.className = 'likert-group'; f.setAttribute('aria-label', questionText);
-    const l = document.createElement('legend'); l.className = 'question'; l.textContent = questionText; f.append(l);
-    const opts = document.createElement('div'); opts.className = 'options';
+    const f = document.createElement('fieldset'); 
+    f.className = 'likert-group'; 
+    f.setAttribute('aria-label', questionText);
+    f.setAttribute('data-required', 'true');
+    f.setAttribute('data-input-name', name);
+    
+    const l = document.createElement('legend'); 
+    l.className = 'question'; 
+    l.textContent = questionText; 
+    f.append(l);
+    
+    const opts = document.createElement('div'); 
+    opts.className = 'options';
     labels.forEach((txt, i) => {
-        const lab = document.createElement('label'); lab.className = 'likert-option';
-        const inp = document.createElement('input'); inp.type = 'radio'; inp.name = name; inp.value = (i+1)+'';
+        const lab = document.createElement('label'); 
+        lab.className = 'likert-option';
+        const inp = document.createElement('input'); 
+        inp.type = 'radio'; 
+        inp.name = name; 
+        inp.value = (i+1)+'';
         inp.id = `${name}-opt-${i+1}`;
-        const dot = document.createElement('span'); dot.className = 'custom-radio';
-        const txtSpan = document.createElement('span'); txtSpan.className = 'option-text'; txtSpan.textContent = txt;
+        const dot = document.createElement('span'); 
+        dot.className = 'custom-radio';
+        const txtSpan = document.createElement('span'); 
+        txtSpan.className = 'option-text'; 
+        txtSpan.textContent = txt;
         lab.append(inp, dot, txtSpan);
         opts.append(lab);
     });
@@ -134,6 +151,8 @@ export function createRankingQuestion({ name, questionText, options }) {
     const f = document.createElement('fieldset');
     f.className = 'ranking-group';
     f.setAttribute('aria-label', questionText);
+    f.setAttribute('data-required', 'true');
+    f.setAttribute('data-input-name', name);
 
     // legend
     const l = document.createElement('legend');
@@ -373,11 +392,41 @@ export function createRankingQuestion({ name, questionText, options }) {
 })();
 
 export function createOpenEndedInput({ id, labelText, placeholder, multiline }) {
-    const w = document.createElement('div'); w.className = 'text-input-wrapper';
-    const l = document.createElement('label'); l.className = 'question'; l.setAttribute('for', id); l.textContent = labelText;
+    const w = document.createElement('div'); 
+    w.className = 'text-input-wrapper';
+    
+    // "Optional"이 포함되어 있으면 필수가 아님
+    const isOptional = labelText.toLowerCase().includes('optional') || 
+                       placeholder.toLowerCase().includes('optional');
+    
+    if (!isOptional) {
+        w.setAttribute('data-required', 'true');
+    }
+    
+    const l = document.createElement('label'); 
+    l.className = 'question';
+    
+    // Optional인 경우 클래스 추가
+    if (isOptional) {
+        l.classList.add('optional-question');
+    }
+    
+    l.setAttribute('for', id); 
+    l.textContent = labelText;
+    
     const inp = multiline
-        ? Object.assign(document.createElement('textarea'), { id, placeholder, rows: 3, className: 'text-input', style: 'resize:vertical;' })
-        : Object.assign(document.createElement('input'), { type:'text', id, placeholder, className:'text-input' });
+        ? Object.assign(document.createElement('textarea'), { 
+            id, placeholder, rows: 3, className: 'text-input', 
+            style: 'resize:vertical;'
+        })
+        : Object.assign(document.createElement('input'), { 
+            type:'text', id, placeholder, className:'text-input'
+        });
+    
+    if (!isOptional) {
+        inp.required = true;
+    }
+    
     inp.name = id;
     // Dispatch a survey-response event when the input changes
     inp.addEventListener('input', e => {
@@ -386,7 +435,8 @@ export function createOpenEndedInput({ id, labelText, placeholder, multiline }) 
         });
         document.dispatchEvent(responseEvent);
     });
-    w.append(l, inp); return w;
+    w.append(l, inp); 
+    return w;
 }
 
 export function createCompletionCode(completionCode) {
