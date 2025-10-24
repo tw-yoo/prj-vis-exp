@@ -8,7 +8,7 @@ import {
 } from './multiLineFunctions.js';
 import {OperationType} from "../../../object/operationType.js";
 import {dataCache, lastCategory, lastMeasure} from "../../../util/util.js";
-import { runOpsSequence } from "../../operationUtil.js";
+import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 
 
 export const chartDataStore = {};
@@ -151,10 +151,11 @@ export async function renderMultipleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 60, right: 120, bottom: 50, left: 60 };
-    const width = 800 - margin.left - margin.right;
-    const height = 600; // 🔥 수정: SVG 높이를 늘려 버튼 공간 확보
-    const plotH = 400 - margin.top - margin.bottom; // 차트 플롯 영역 높이는 유지
+    const margin = { top: 48, right: 96, bottom: 48, left: 64 };
+    const innerWidth = (spec?.width ?? 600);
+    const innerHeight = (spec?.height ?? 320);
+    const totalWidth = innerWidth + margin.left + margin.right;
+    const totalHeight = innerHeight + margin.top + margin.bottom;
 
     const xField = spec.encoding.x.field;
     const yField = spec.encoding.y.field;
@@ -173,7 +174,7 @@ export async function renderMultipleLineChart(chartId, spec) {
     if (isTemporal) {
         xScale = d3.scaleTime()
             .domain(d3.extent(data, d => new Date(d[xField])))
-            .range([0, width]);
+            .range([0, innerWidth]);
     } else {
         const seen = new Set();
         const domain = [];
@@ -183,12 +184,12 @@ export async function renderMultipleLineChart(chartId, spec) {
         }
         xScale = d3.scalePoint()
             .domain(domain)
-            .range([0, width]);
+            .range([0, innerWidth]);
     }
 
     const yScale = d3.scaleLinear()
         .domain([0, d3.max(data, d => d[yField])]).nice()
-        .range([plotH, 0]);
+        .range([innerHeight, 0]);
 
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
         .domain(series.map(s => s.key));
@@ -202,14 +203,14 @@ export async function renderMultipleLineChart(chartId, spec) {
     };
 
     const svg = container.append("svg")
-        .attr("viewBox", [0, 0, width + margin.left + margin.right, height])
+        .attr("viewBox", [0, 0, totalWidth, totalHeight])
         .attr("data-x-field", xField)
         .attr("data-y-field", yField)
         .attr("data-color-field", colorField)
         .attr("data-m-left", margin.left)
         .attr("data-m-top", margin.top)
-        .attr("data-plot-w", width)
-        .attr("data-plot-h", plotH);
+        .attr("data-plot-w", innerWidth)
+        .attr("data-plot-h", innerHeight);
 
     const g = svg.append("g")
         .attr("class", "plot-area")
@@ -217,7 +218,7 @@ export async function renderMultipleLineChart(chartId, spec) {
 
     g.append("g")
         .attr("class", "x-axis")
-        .attr("transform", `translate(0,${plotH})`)
+        .attr("transform", `translate(0,${innerHeight})`)
         .call(d3.axisBottom(xScale));
 
     g.append("g")
@@ -261,13 +262,29 @@ export async function renderMultipleLineChart(chartId, spec) {
 
     const legend = g.append("g")
         .attr("class", "legend")
-        .attr("transform", `translate(${width + 20}, 0)`);
+        .attr("transform", `translate(${innerWidth + 20}, 0)`);
 
     series.forEach((s, i) => {
         const legendRow = legend.append("g").attr("transform", `translate(0, ${i * 20})`);
         legendRow.append("rect").attr("width", 15).attr("height", 15).attr("fill", colorScale(s.key));
         legendRow.append("text").attr("x", 20).attr("y", 12).text(s.key).style("font-size", "12px");
     });
+    svg.append("text")
+        .attr("class", "x-axis-label")
+        .attr("x", margin.left + innerWidth / 2)
+        .attr("y", margin.top + innerHeight + 24)
+        .attr("text-anchor", "middle")
+        .text(xField);
+
+    svg.append("text")
+        .attr("class", "y-axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -(margin.top + innerHeight / 2))
+        .attr("y", margin.left - 48)
+        .attr("text-anchor", "middle")
+        .text(yField);
+
+    shrinkSvgViewBox(svg, 6);
 }
 
 function multipleLineToDatumValues(rawData, spec) {

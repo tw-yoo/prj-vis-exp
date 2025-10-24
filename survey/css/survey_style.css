@@ -100,9 +100,14 @@ h1, h2, h3 {
 .chart-ui-stack {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    margin-top: 16px;
+    align-items: flex-start;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.chart-ui-stack:empty {
+    display: none;
+    margin: 0;
 }
 
 .chart-ui-stack > .ops-explain-block {
@@ -112,6 +117,10 @@ h1, h2, h3 {
     word-break: break-word;
     align-self: flex-start;
     align-items: center;
+}
+
+.chart-ui-stack > .ops-explain-block:empty {
+    display: none;
 }
 
 .chart-ui-stack > .ops-explain-block,
@@ -129,10 +138,10 @@ h1, h2, h3 {
 .chart-ui-stack .nav-overlay {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 5px 8px;
+    gap: 8px;
+    padding: 4px 6px;
     background: rgba(255, 255, 255, 0.95);
-    border: 1px solid #ccc;
+    border: 1px solid #d7dce2;
     border-radius: 6px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     align-self: center !important;

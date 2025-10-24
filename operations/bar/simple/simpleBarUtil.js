@@ -22,7 +22,7 @@ import {
     renderChart,
     stackChartToTempTable
 } from "../../../util/util.js";
-import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence, getPrimarySvgElement } from "../../operationUtil.js";
+import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence, getPrimarySvgElement, shrinkSvgViewBox } from "../../operationUtil.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -469,4 +469,6 @@ export async function renderSimpleBarChart(chartId, spec) {
             .attr("font-size", 14)
             .text(resolvedYAxisLabel);
     }
+
+    shrinkSvgViewBox(svg, 6);
 }

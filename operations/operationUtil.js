@@ -387,6 +387,26 @@ function updateOpsExplainActive(chartId, activeIndex) {
     } catch (_) {}
 }
 
+export function shrinkSvgViewBox(svgSelection, padding = 4) {
+    if (!svgSelection || typeof svgSelection.node !== 'function') return;
+    const node = svgSelection.node();
+    if (!node || typeof node.getBBox !== 'function') return;
+    try {
+        const bbox = node.getBBox();
+        if (!bbox || !Number.isFinite(bbox.width) || !Number.isFinite(bbox.height) || bbox.width <= 0 || bbox.height <= 0) {
+            return;
+        }
+        const pad = Math.max(0, padding);
+        const minX = bbox.x - pad;
+        const minY = bbox.y - pad;
+        const width = bbox.width + pad * 2;
+        const height = bbox.height + pad * 2;
+        svgSelection.attr('viewBox', `${minX} ${minY} ${width} ${height}`);
+    } catch (err) {
+        console.warn('shrinkSvgViewBox failed', err);
+    }
+}
+
 function findNearestPaneElement(host) {
   if (!host || !(host instanceof HTMLElement)) return null;
   const pane = host.closest('.pane');

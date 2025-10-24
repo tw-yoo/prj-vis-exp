@@ -11,7 +11,7 @@ import {
     groupedBarRetrieveValue, groupedBarSort, groupedBarSum
 } from "./groupedBarFunctions.js";
 import { DatumValue } from "../../../object/valueType.js";
-import { runOpsSequence } from "../../operationUtil.js";
+import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 
 // Wait for a few animation frames to allow DOM/layout/transition to settle
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -276,6 +276,8 @@ export async function renderGroupedBarChart(chartId, spec) {
             .attr("x", 20).attr("y", 12.5)
             .text(value);
     });
+
+    shrinkSvgViewBox(svg, 6);
 }
 
 export function toGroupedDatumValues(rawData, spec) {

@@ -18,7 +18,7 @@ import {
     stackedBarRetrieveValue, stackedBarSort, stackedBarSum
 } from "./stackedBarFunctions.js";
 import { DatumValue } from "../../../object/valueType.js";
-import { runOpsSequence } from "../../operationUtil.js";
+import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 
 // --- settle helpers (match groupedBar pattern) ---
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -464,6 +464,8 @@ export async function renderStackedBarChart(chartId, spec) {
             .style("font-size", "12px")
             .text(subgroup);
     });
+
+    shrinkSvgViewBox(svg, 6);
 }
 
 export function toStackedDatumValues(rawData, spec) {

@@ -224,9 +224,14 @@ html, body {
 .chart-ui-stack {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 8px;       /* 텍스트-버튼 간격 */
-    margin-top: 16px;
+    align-items: flex-start;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.chart-ui-stack:empty {
+    display: none;
+    margin: 0;
 }
 
 /* 텍스트 */
@@ -236,6 +241,10 @@ html, body {
     max-width: 80%;
     word-break: break-word;
     align-self: flex-start;
+}
+
+.chart-ui-stack .ops-explain-block:empty {
+    display: none;
 }
 .chart-ui-stack > .ops-explain-block,
 .chart-ui-stack > .ops-explain-block[style],
@@ -254,9 +263,9 @@ html, body {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 5px 8px;
+    padding: 4px 6px;
     background: rgba(255,255,255,0.95);
-    border: 1px solid #ccc;
+    border: 1px solid #d7dce2;
     border-radius: 6px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.06);
     align-self: center;

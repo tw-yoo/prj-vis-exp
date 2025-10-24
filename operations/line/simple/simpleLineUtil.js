@@ -17,7 +17,7 @@ import {
 import {OperationType} from "../../../object/operationType.js";
 import {dataCache, lastCategory, lastMeasure} from "../../../util/util.js";
 import {DatumValue} from "../../../object/valueType.js";
-import { runOpsSequence } from "../../operationUtil.js";
+import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 
 /** 내부 사용: 라인 차트 데이터 저장 (renderSimpleLineChart에서 적재) */
 const chartDataStore = {};
@@ -190,10 +190,11 @@ export async function renderSimpleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 60, right: 60, bottom: 50, left: 80 }; // top 마진을 늘려서 버튼 공간 확보
-    const width = 800 - margin.left - margin.right;
-    const height = 600; // 🔥 수정: SVG 높이를 늘려 버튼 공간 확보
-    const plotH = 400 - margin.top - margin.bottom; // 차트 플롯 영역 높이는 유지
+    const margin = { top: 48, right: 48, bottom: 48, left: 64 };
+    const innerWidth = (spec?.width ?? 560);
+    const innerHeight = (spec?.height ?? 320);
+    const totalWidth = innerWidth + margin.left + margin.right;
+    const totalHeight = innerHeight + margin.top + margin.bottom;
 
 
     const xField = spec.encoding.x.field;
@@ -222,29 +223,29 @@ export async function renderSimpleLineChart(chartId, spec) {
     chartDataStore[chartId] = data;
 
     const svg = container.append("svg")
-        .attr("viewBox", [0, 0, width + margin.left + margin.right, height])
+        .attr("viewBox", [0, 0, totalWidth, totalHeight])
         .attr("data-x-field", xField)
         .attr("data-y-field", yField)
         .attr("data-m-left", margin.left)
         .attr("data-m-top", margin.top)
-        .attr("data-plot-w", width)
-        .attr("data-plot-h", plotH);
+        .attr("data-plot-w", innerWidth)
+        .attr("data-plot-h", innerHeight);
 
     const g = svg.append("g")
         .attr("class", "plot-area")
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const xScale = (xType === 'temporal')
-        ? d3.scaleTime().domain(d3.extent(data, d => new Date(d[xField]))).range([0, width])
+        ? d3.scaleTime().domain(d3.extent(data, d => new Date(d[xField]))).range([0, innerWidth])
         : (xType === 'quantitative'
-            ? d3.scaleLinear().domain(d3.extent(data, d => d[xField])).nice().range([0, width])
-            : d3.scalePoint().domain(data.map(d => String(d[xField]))).range([0, width]));
+            ? d3.scaleLinear().domain(d3.extent(data, d => d[xField])).nice().range([0, innerWidth])
+            : d3.scalePoint().domain(data.map(d => String(d[xField]))).range([0, innerWidth]));
 
     const yMax = d3.max(data, d => d[yField]);
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plotH, 0]);
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([innerHeight, 0]);
 
     g.append("g").attr("class", "x-axis")
-        .attr("transform", `translate(0,${plotH})`).call(d3.axisBottom(xScale));
+        .attr("transform", `translate(0,${innerHeight})`).call(d3.axisBottom(xScale));
     g.append("g").attr("class", "y-axis").call(d3.axisLeft(yScale));
 
     const lineGen = d3.line()
@@ -274,11 +275,14 @@ export async function renderSimpleLineChart(chartId, spec) {
         ))
         .attr("data-value", d => d[yField]);
 
+    const xLabelY = margin.top + innerHeight + 24;
     svg.append("text").attr("class", "x-axis-label")
-        .attr("x", margin.left + width / 2).attr("y", plotH + margin.top + margin.bottom - 10)
+        .attr("x", margin.left + innerWidth / 2).attr("y", xLabelY)
         .attr("text-anchor", "middle").text(xField);
     svg.append("text").attr("class", "y-axis-label")
         .attr("transform", "rotate(-90)")
-        .attr("x", -(margin.top + plotH / 2)).attr("y", margin.left - 60)
+        .attr("x", -(margin.top + innerHeight / 2)).attr("y", margin.left - 48)
         .attr("text-anchor", "middle").text(yField);
+
+    shrinkSvgViewBox(svg, 6);
 }
