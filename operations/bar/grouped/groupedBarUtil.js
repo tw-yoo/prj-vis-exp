@@ -77,10 +77,11 @@ async function fullChartReset(chartId) {
 }
 
 async function resetGroupedBarChart(chartId, vlSpec, ctx = {}) {
-    if (ctx?.stepIndex === 0) {
+    const forceInitial = ctx?.forceInitialReset === true;
+    if (ctx?.stepIndex === 0 && !forceInitial) {
         return;
     }
-    if (ctx?.isLast) {
+    if (ctx?.isLast && !forceInitial) {
         return;
     }
     const info = chartDataStore[chartId];

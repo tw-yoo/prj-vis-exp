@@ -100,21 +100,24 @@
             lineNumbers: true,
             autoCloseBrackets: true,
             matchBrackets: true,
-            indentUnit: 2
+            indentUnit: 2,
+            lineWrapping: true
         });
         window.questionEditor = CodeMirror.fromTextArea(document.getElementById("question"), {
             mode: { name: "javascript", json: false },
             lineNumbers: true,
             autoCloseBrackets: true,
             matchBrackets: true,
-            indentUnit: 2
+            indentUnit: 2,
+            lineWrapping: true
         });
         window.opsEditor = CodeMirror.fromTextArea(document.getElementById("ops-spec"), {
             mode: { name: "javascript", json: true },
             lineNumbers: true,
             autoCloseBrackets: true,
             matchBrackets: true,
-            indentUnit: 2
+            indentUnit: 2,
+            lineWrapping: true
         });
     });
 </script>

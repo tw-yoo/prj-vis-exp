@@ -94,12 +94,13 @@ async function fullChartReset(chartId) {
 }
 
 async function resetMultipleLineChart(chartId, vlSpec, ctx = {}) {
-    if (ctx?.stepIndex === 0) {
+    const forceInitial = ctx?.forceInitialReset === true;
+    if (ctx?.stepIndex === 0 && !forceInitial) {
         return;
     }
     const svg = d3.select(`#${chartId}`).select("svg");
     const hasLines = !svg.empty() && !svg.selectAll("path.series-line").empty();
-    if (!hasLines || !ctx || !ctx.isLast) {
+    if (!hasLines || !ctx || !ctx.isLast || forceInitial) {
         await renderMultipleLineChart(chartId, vlSpec);
         await settleFrame();
     } else {

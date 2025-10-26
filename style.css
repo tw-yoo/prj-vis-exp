@@ -17,9 +17,15 @@ html, body {
 
 #left-panel {
     display: grid;
-    grid-template-rows: 2.5% 2.5% 30% 5% 10% 5% 20% 2.5% 2.5% 20%;
+    grid-auto-rows: minmax(min-content, max-content);
+    row-gap: 8px;
     padding: 10px;
     box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
+    align-content: start;
+    min-height: 0;
+    min-width: 0;
 }
 
 #left-panel .label {
@@ -28,16 +34,54 @@ html, body {
 
 #left-panel textarea {
     width: 100%;
-    height: 100%;
     box-sizing: border-box;
+    height: auto;
+    min-height: 120px;
+    resize: vertical;
+    overflow-x: hidden;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+#explanation {
+    min-height: 100px;
 }
 
 /* Keep editors confined so they don't overlay buttons */
 .CodeMirror {
     position: relative;
     height: 260px !important;
-    overflow: auto;
+    overflow: hidden;
     box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.CodeMirror-scroll {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-width: 0;
+}
+
+.CodeMirror pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.CodeMirror-wrap pre.CodeMirror-line,
+.CodeMirror-wrap pre.CodeMirror-line-like {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.CodeMirror-lines,
+.CodeMirror-sizer {
+    min-width: 0 !important;
 }
 
 #right-panel {
@@ -279,3 +323,26 @@ html, body {
 .chart-ui-stack .nav-overlay .nav-btn { display:flex; appearance: none; border: 0; padding: 6px 10px; border-radius: 4px; background: #f1f5f9; cursor: pointer; }
 .chart-ui-stack .nav-overlay .nav-btn:disabled { opacity: .5; cursor: not-allowed; }
 .chart-ui-stack .nav-overlay .nav-step-text { font-weight: 700; min-width: 48px; text-align: center; }
+
+/* ===== Fix: wrap long text in the Question editor & prevent left-panel overflow ===== */
+/* Allow grid children to actually shrink within the left panel */
+#left-panel > * { min-width: 0; }
+
+/* Keep CodeMirror boxes from expanding the grid column horizontally */
+#left-panel .CodeMirror { width: 100%; min-width: 0; }
+#left-panel .CodeMirror-scroll { overflow-x: hidden !important; }
+
+/* Force wrapping even for very long tokens without spaces (e.g., long IDs) */
+#left-panel .CodeMirror pre,
+#left-panel .CodeMirror pre * {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;   /* break long words at reasonable points */
+  overflow-wrap: anywhere !important;   /* and if needed, break anywhere */
+}
+
+/* Fallback: if CodeMirror fails to mount, make sure the native textarea also wraps hard tokens */
+#left-panel textarea#question {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}

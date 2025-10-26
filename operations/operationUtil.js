@@ -348,18 +348,28 @@ function attachOrUpdateOpsExplainOverlay(chartId, tokens, activeIndex = -1, opts
   text.style.maxWidth = '80%';
   text.style.wordBreak = 'break-word';
 
-  // Build content
+  // Cache tokens so we can reuse them when the active step changes.
+  try {
+    text.dataset.tokens = JSON.stringify(tokens ?? []);
+  } catch (_) {
+    text.dataset.tokens = '[]';
+  }
+
+  const shouldShow = Array.isArray(tokens) && tokens.length > 0 && Number.isInteger(activeIndex) && activeIndex >= 0;
+  const clampedIdx = shouldShow
+    ? Math.max(0, Math.min(tokens.length - 1, activeIndex))
+    : -1;
+  const activeText = shouldShow ? String(tokens[clampedIdx] ?? '') : '';
+
   text.innerHTML = '';
   const container = document.createElement('div');
-  tokens.forEach((tok, idx) => {
-    const span = document.createElement('span');
-    span.className = 'ops-token';
-    span.textContent = String(tok);
-    span.style.color = (activeIndex === idx ? '#111' : '#aaa');
-    span.style.fontWeight = (activeIndex === idx ? '700' : '400');
-    span.style.marginRight = '6px';
-    container.appendChild(span);
-  });
+  const span = document.createElement('span');
+  span.className = 'ops-token';
+  span.textContent = activeText;
+  span.style.color = '#111';
+  span.style.fontWeight = '700';
+  span.style.visibility = activeText ? 'visible' : 'hidden';
+  container.appendChild(span);
   text.appendChild(container);
 
   const h = text.getBoundingClientRect ? (text.getBoundingClientRect().height || 0) : 0;
@@ -377,13 +387,32 @@ function updateOpsExplainActive(chartId, activeIndex) {
         if (!parent) return;
         const stack = parent.querySelector(`:scope > .chart-ui-stack[data-owner="${chartId}"]`);
         if (!stack) return;
-        const tokens = stack.querySelectorAll('.ops-explain-block .ops-token');
-        tokens.forEach((el, idx) => {
-            const active = (activeIndex === idx);
-            el.style.color = active ? '#111' : '#aaa';
-            el.style.fontWeight = active ? '700' : '400';
-            el.style.textAlign = 'center';
-        });
+        const block = stack.querySelector('.ops-explain-block');
+        if (!block) return;
+
+        let tokens = [];
+        try {
+            tokens = JSON.parse(block.dataset.tokens || '[]');
+        } catch (_) {
+            tokens = [];
+        }
+
+        const tokenEl = block.querySelector('.ops-token');
+        if (!tokenEl) return;
+
+        const shouldShow = Array.isArray(tokens) && tokens.length > 0 && Number.isInteger(activeIndex) && activeIndex >= 0;
+        if (!shouldShow) {
+            tokenEl.textContent = '';
+            tokenEl.style.visibility = 'hidden';
+            return;
+        }
+
+        const clampedIdx = Math.max(0, Math.min(tokens.length - 1, activeIndex));
+        tokenEl.textContent = String(tokens[clampedIdx] ?? '');
+        tokenEl.style.color = '#111';
+        tokenEl.style.fontWeight = '700';
+        tokenEl.style.textAlign = 'center';
+        tokenEl.style.visibility = tokenEl.textContent ? 'visible' : 'hidden';
     } catch (_) {}
 }
 
@@ -632,10 +661,18 @@ export async function runOpsSequence({
     async function runStep(i, fromDirection = 'forward') {
         const upcomingKey = (i > 0) ? opKeys[i - 1] : null;
         const upcomingIsLast = upcomingKey != null ? !!isLastKey(upcomingKey) : false;
+        const direction = fromDirection;
+        const forceInitialReset = (i === 0 && direction === 'backward');
 
         // Always fully reset the chart to the initial render state
         if (typeof onReset === 'function') {
-            await onReset({ stepIndex: i, opKey: upcomingKey, isLast: upcomingIsLast });
+            await onReset({
+                stepIndex: i,
+                opKey: upcomingKey,
+                isLast: upcomingIsLast,
+                direction,
+                forceInitialReset,
+            });
         }
 
         // After reset, the SVG DOM is replaced; re-attach navigator and handlers

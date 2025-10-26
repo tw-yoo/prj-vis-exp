@@ -173,10 +173,11 @@ export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
         opsSpec,
         textSpec,
         onReset: async (ctx = {}) => {
-            if (ctx?.stepIndex === 0) {
+            const forceInitial = ctx?.forceInitialReset === true;
+            if (ctx?.stepIndex === 0 && !forceInitial) {
                 return;
             }
-            if (ctx?.isLast) {
+            if (ctx?.isLast && !forceInitial) {
                 // Skip restoring the original chart when transitioning to `last`.
                 return;
             }

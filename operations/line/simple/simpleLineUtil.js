@@ -67,12 +67,13 @@ async function fullChartReset(chartId) {
 }
 
 async function resetSimpleLineChart(chartId, vlSpec, ctx = {}) {
-    if (ctx?.stepIndex === 0) {
+    const forceInitial = ctx?.forceInitialReset === true;
+    if (ctx?.stepIndex === 0 && !forceInitial) {
         return;
     }
     const svg = d3.select(`#${chartId}`).select("svg");
     const hasSeries = !svg.empty() && !svg.select("path.series-line").empty();
-    if (!hasSeries || !ctx || !ctx.isLast) {
+    if (!hasSeries || !ctx || !ctx.isLast || forceInitial) {
         await renderSimpleLineChart(chartId, vlSpec);
         await settleFrame();
     } else {
