@@ -56,20 +56,21 @@ h1, h2, h3 {
 
 .split-container {
     display: flex;
-    height: 600px;
-    overflow: hidden;
+    height: auto; /* 자동 높이 */
+    min-height: 0; /* 최소 높이 제거 */
+    overflow: visible;
     position: relative;
     --split-left: 50%;
     border: 1px solid;
 }
 .split-container .left,
 .split-container .right {
-    overflow-y: auto;
     padding: 10px;
     display: flex;
     flex-direction: column;
-    /*height: 600px; !* ensure container height stays *!*/
     box-sizing: border-box;
+    overflow: visible; /* 스크롤 완전 제거 */
+    height: auto;
 }
 .split-container .left {
     flex: 0 0 var(--split-left);
@@ -89,12 +90,63 @@ h1, h2, h3 {
     padding: 8px;
     background: #ffffff;
 }
+
 .split-container .pane-body {
     flex: 1 1 auto;
-    overflow-y: auto;
-    scrollbar-gutter: stable both-edges;
-    overflow-y: scroll;
+    overflow: visible; /* 스크롤 완전 제거 */
     padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: auto;
+}
+
+/* 차트 컨테이너 */
+.split-container .pane-body [data-component="chart"],
+.split-container .pane-body .d3chart-container {
+    flex: 0 0 auto;
+    overflow: visible !important;
+}
+
+/* 차트 내부 요소들 */
+.split-container .pane-body [data-component="chart"] > *,
+.split-container .pane-body .d3chart-container > * {
+    overflow: visible !important;
+}
+
+/* SVG 차트 */
+.split-container .pane-body svg {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none; /* 최대 높이 제한 제거 */
+}
+
+/* 차트 캔버스 */
+.split-container .pane-body .chart-canvas {
+    overflow: visible !important;
+}
+
+/* 차트 설명 */
+.split-container .pane-body .chart-ui-stack {
+    flex: 0 0 auto;
+    overflow: visible !important;
+}
+
+.split-container .pane-body .ops-explain-block {
+    overflow: visible !important;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+/* 차트 내비게이터 */
+.split-container .pane-body .nav-overlay {
+    flex: 0 0 auto;
+    overflow: visible !important;
+}
+
+/* 일반 텍스트 요소들 */
+.split-container .pane-body > p {
+    overflow: visible !important;
 }
 
 .chart-ui-stack {
@@ -168,9 +220,7 @@ h1, h2, h3 {
 }
 
 .chart-ui-stack .nav-overlay .nav-step-text {
-    font-weight: 700;
-    min-width: 48px;
-    text-align: center;
+    display: none; /* 0/3 표시 숨김 */
 }
 
 .panel-guide {
