@@ -207,7 +207,6 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const matchColor = OP_COLORS.FILTER_MATCH;
     let filteredData = [];
     let labelText = "";
 
@@ -250,12 +249,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
             .attr("x2", margins.left).attr("y2", margins.top + yPos)
             .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
 
-        await line.transition().duration(800).attr("x2", margins.left + plot.w).end();
-
-        svg.append("text").attr("class", "threshold-label")
-            .attr("x", margins.left + plot.w - 5).attr("y", margins.top + yPos - 5)
-            .attr("text-anchor", "end")
-            .attr("fill", OP_COLORS.FILTER_THRESHOLD).attr("font-size", 12).attr("font-weight", "bold").text(v);
+        await line.transition().duration(400).attr("x2", margins.left + plot.w).end();
     };
 
     const drawCategoryThreshold = async (rawVal) => {
@@ -314,7 +308,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
                 .attr("x2", xPos).attr("y2", margins.top + plot.h)
                 .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
 
-            await line.transition().duration(650).attr("y1", margins.top).end();
+            await line.transition().duration(400).attr("y1", margins.top).end();
         } else {
             const yPos = margins.top + bandPos + bandScale.bandwidth() / 2;
             const line = svg.append("line").attr("class", "threshold-line")
@@ -322,24 +316,15 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
                 .attr("x2", margins.left).attr("y2", yPos)
                 .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
 
-            await line.transition().duration(650).attr("x2", margins.left + plot.w).end();
+            await line.transition().duration(400).attr("x2", margins.left + plot.w).end();
         }
     };
-
-    // if (op.operator === 'in' || op.operator === 'not-in') {
-    //     const arr = Array.isArray(op.value) ? op.value : [op.value];
-    //     labelText = `Filter: ${op.field} ${op.operator} [${arr.join(', ')}]`;
-    // } else {
-    //     labelText = `Filter: ${op.field} ${op.operator} ${op.value}`;
-    // }
 
     const numericOps = new Set(['>','>=','<','<=','==','eq']);
     if (numericOps.has(op.operator) && Number.isFinite(toNumber(op.value)) && isMeasureField) {
         await drawMeasureThreshold(op.value);
-        await delay(200);
     } else if (numericOps.has(op.operator) && isCategoryField) {
         await drawCategoryThreshold(op.value);
-        await delay(150);
     }
 
     if (!filteredData || filteredData.length === 0) {
@@ -356,45 +341,41 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
     const categoryKey = filteredData[0]?.category || xField;
     const plainRows = filteredData.map(d => ({ [categoryKey]: d.target, value: d.value, group: d.group }));
 
-    const bars = selectAllMarks(g).data(plainRows, d => String(d[categoryKey]));
+    const filteredBars = selectAllMarks(g).data(plainRows, d => String(d[categoryKey]));
 
+    // 🔥 fill 속성을 건드리지 않음! opacity만 조정!
     await Promise.all([
-        bars.transition().duration(800).attr("fill", matchColor).end(),
-        bars.exit().transition().duration(800).attr("opacity", 0).remove().end()
+        filteredBars.transition().duration(400)
+            .attr("opacity", 1)  // 🔥 fill 제거!
+            .end(),
+        filteredBars.exit().transition().duration(400).attr("opacity", 0).remove().end()
     ]);
-
-    await delay(250);
 
     const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.target)).range([0, plot.w]).padding(0.2);
 
     await Promise.all([
-        bars.transition().duration(800)
+        filteredBars.transition().duration(400)
             .attr("x", d => xScaleFiltered(d[categoryKey]))
             .attr("width", xScaleFiltered.bandwidth())
             .end(),
-        g.select(".x-axis").transition().duration(800)
+        g.select(".x-axis").transition().duration(400)
             .call(d3.axisBottom(xScaleFiltered))
             .end()
     ]);
 
-    bars.each(function(d) {
+    filteredBars.each(function(d) {
         const bar = d3.select(this);
         const yMax = d3.max(data, datum => +datum.value) || 0;
         const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
         g.append("text").attr("class", "annotation value-tag")
-            .attr("x", +bar.attr("x") + bar.attr("width") / 2)
+            .attr("x", +bar.attr("x") + +bar.attr("width") / 2)
             .attr("y", yScale(d.value) - 5)
             .attr("text-anchor", "middle")
             .attr("font-size", 12).attr("font-weight", "bold")
             .attr("fill", "black")
             .text(d.value);
     });
-
-    svg.append("text").attr("class", "filter-label")
-        .attr("x", margins.left).attr("y", margins.top - 8)
-        .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
-        .text(labelText);
 
     await delay(1000);
     signalOpDone(chartId, 'filter');
