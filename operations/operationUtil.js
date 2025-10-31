@@ -520,12 +520,15 @@ export function attachOpNavigator(chartId, options = {}) {
   let prevBtn = nav.querySelector(':scope > .nav-btn.prev');
   let nextBtn = nav.querySelector(':scope > .nav-btn.next');
   let stepText = nav.querySelector(':scope > .nav-step-text');
+  
   if (!prevBtn) {
     prevBtn = document.createElement('button');
     prevBtn.className = 'nav-btn prev';
-    prevBtn.textContent = '← Prev';
+    prevBtn.textContent = 'Prev';
     nav.appendChild(prevBtn);
   }
+  
+  // stepText 요소는 유지하되 숨김 처리
   if (!stepText) {
     stepText = document.createElement('div');
     stepText.className = 'nav-step-text';
@@ -533,12 +536,16 @@ export function attachOpNavigator(chartId, options = {}) {
     stepText.style.fontWeight = 'bold';
     stepText.style.minWidth = '48px';
     stepText.style.textAlign = 'center';
+    stepText.style.display = 'none';  // 숨김 처리
     nav.appendChild(stepText);
+  } else {
+    stepText.style.display = 'none';  // 기존 요소도 숨김 처리
   }
+  
   if (!nextBtn) {
     nextBtn = document.createElement('button');
     nextBtn.className = 'nav-btn next';
-    nextBtn.textContent = 'Next →';
+    nextBtn.textContent = 'Next';
     nav.appendChild(nextBtn);
   }
 
@@ -553,40 +560,61 @@ function setNavBusyState(ctrl, busy) {
   buttons.forEach(btn => {
     if (!btn) return;
     btn.dataset.busy = busy ? '1' : '0';
-    btn.style.pointerEvents = busy ? 'none' : 'auto';
-    btn.style.cursor = busy ? 'progress' : (btn.disabled ? 'not-allowed' : 'pointer');
-    btn.style.opacity = busy ? '0.5' : (btn.disabled ? '0.5' : '1');
+    // busy 상태에서도 버튼 활성화 (애니메이션 중에도 클릭 가능)
+    btn.style.pointerEvents = 'auto';  // 'none' 제거
+    btn.style.cursor = btn.disabled ? 'not-allowed' : 'pointer';  // busy 상태 제거
+    btn.style.opacity = btn.disabled ? '0.5' : '1';  // busy 상태 제거
   });
 }
-
 
 export function updateNavigatorStates(ctrl, currentStep, totalSteps, displayTotalOps = null) {
   if (!ctrl || !ctrl.prevButton || !ctrl.nextButton || !ctrl.stepIndicator) return;
   const prevBtn = ctrl.prevButton;
   const nextBtn = ctrl.nextButton;
-  const stepEl  = ctrl.stepIndicator;
+  const stepEl = ctrl.stepIndicator;
 
-  // Prev state
-  const isAtStart = (currentStep === 0);
-  const prevBusy = prevBtn.dataset.busy === '1';
-  prevBtn.disabled = isAtStart;
-  prevBtn.style.opacity = (isAtStart || prevBusy) ? '0.5' : '1';
-  prevBtn.style.cursor  = prevBusy ? 'progress' : (isAtStart ? 'not-allowed' : 'pointer');
-  prevBtn.style.pointerEvents = (isAtStart || prevBusy) ? 'none' : 'auto';
+  // stepEl은 항상 숨김 처리
+  stepEl.style.display = 'none';
 
-  // Next state
-  const isAtLast  = (currentStep >= totalSteps - 1);
-  const nextBusy = nextBtn.dataset.busy === '1';
-  nextBtn.disabled = isAtLast;
-  nextBtn.textContent = isAtLast ? 'Done' : 'Next →';
-  nextBtn.style.opacity = (isAtLast || nextBusy) ? '0.5' : '1';
-  nextBtn.style.cursor  = nextBusy ? 'progress' : (isAtLast ? 'not-allowed' : 'pointer');
-  nextBtn.style.pointerEvents = (isAtLast || nextBusy) ? 'none' : 'auto';
-
-  // Step indicator
-  const denom = (displayTotalOps != null) ? displayTotalOps : totalSteps;
-  const numerator = (displayTotalOps != null) ? currentStep : (currentStep + 1);
-  stepEl.textContent = `${numerator}/${denom}`;
+  // 첫 번째 스텝 (0)
+  if (currentStep === 0) {
+    prevBtn.style.display = 'none';
+    nextBtn.textContent = 'Start';
+    nextBtn.disabled = false;
+    nextBtn.style.opacity = '1';
+    nextBtn.style.cursor = 'pointer';
+    nextBtn.style.pointerEvents = 'auto';
+  }
+  // 마지막 스텝
+  else if (currentStep >= totalSteps - 1) {
+    prevBtn.style.display = 'inline-flex';
+    prevBtn.textContent = 'Prev';
+    prevBtn.disabled = false;
+    prevBtn.style.opacity = '1';
+    prevBtn.style.cursor = 'pointer';
+    prevBtn.style.pointerEvents = 'auto';
+    
+    nextBtn.textContent = 'End';
+    nextBtn.disabled = true;
+    nextBtn.style.opacity = '0.5';
+    nextBtn.style.cursor = 'not-allowed';
+    nextBtn.style.pointerEvents = 'none';
+  }
+  // 중간 스텝들
+  else {
+    prevBtn.style.display = 'inline-flex';
+    prevBtn.textContent = 'Prev';
+    prevBtn.disabled = false;
+    prevBtn.style.opacity = '1';
+    prevBtn.style.cursor = 'pointer';
+    prevBtn.style.pointerEvents = 'auto';
+    
+    nextBtn.textContent = 'Next';
+    nextBtn.disabled = false;
+    nextBtn.style.opacity = '1';
+    nextBtn.style.cursor = 'pointer';
+    nextBtn.style.pointerEvents = 'auto';
+  }
 }
 
 export async function runOpsSequence({

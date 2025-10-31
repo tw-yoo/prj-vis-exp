@@ -852,52 +852,85 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
         return k !== String(A.category) && k !== String(B.category);
     });
 
-    const colorA = OP_COLORS.DIFF_A, colorB = OP_COLORS.DIFF_B, diffColor = OP_COLORS.DIFF_LINE;
+    const colorA = OP_COLORS.DIFF_A;
+    const colorB = OP_COLORS.DIFF_B;
+    const diffColor = OP_COLORS.DIFF_LINE;
 
+    // 🔥 정해진 색깔(노란색/파란색)로 칠하기
     await Promise.all([
-        others.transition().duration(500).attr('opacity', 0.2).end(),
-        barsA.transition().duration(500).attr('opacity', 1).attr('fill', colorA).end(),
-        barsB.transition().duration(500).attr('opacity', 1).attr('fill', colorB).end()
+        others.transition().duration(400).attr('opacity', 0.2).end(),
+        barsA.transition().duration(400).attr('opacity', 1).attr('fill', colorA).end(),
+        barsB.transition().duration(400).attr('opacity', 1).attr('fill', colorB).end()
     ]);
 
     const y = d3.scaleLinear().domain([0, d3.max(Array.from(sums.values())) || 0]).nice().range([plot.h, 0]);
 
-    // 각 스택 합 주석
+    // 🔥 1단계: 각 막대 위에 값 표시
     const annotate = (sel, total, color) => {
-        const nodes = sel.nodes(); if (!nodes.length) return [];
+        const nodes = sel.nodes(); 
+        if (!nodes.length) return [];
         let minY = Infinity, minX = Infinity, maxX = -Infinity;
-        nodes.forEach(n => { const b = n.getBBox(); minY = Math.min(minY, b.y); minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x + b.width); });
+        nodes.forEach(n => { 
+            const b = n.getBBox(); 
+            minY = Math.min(minY, b.y); 
+            minX = Math.min(minX, b.x); 
+            maxX = Math.max(maxX, b.x + b.width); 
+        });
         const cx = minX + (maxX - minX)/2;
-        const line = svg.append("line").attr("class","annotation")
-            .attr("x1", margins.left).attr("y1", margins.top + y(total))
-            .attr("x2", margins.left).attr("y2", margins.top + y(total))
-            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
-            .transition().duration(700).attr("x2", margins.left + plot.w).end();
+        
         const text = g.append("text").attr("class","annotation")
             .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
-            .attr("font-size", 12).attr("font-weight","bold").attr("fill", color)
+            .attr("font-size", 14).attr("font-weight","bold").attr("fill", color)
             .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-            .text(fmtNum(total)).attr("opacity",0).transition().delay(200).duration(400).attr("opacity",1).end();
-        return [line, text];
+            .text(fmtNum(total));
+        
+        return [text];
     };
+    
     await Promise.all([...annotate(barsA, sumA, colorA), ...annotate(barsB, sumB, colorB)]);
+    await delay(300);
 
-    // 차이 라인
-    const yA = margins.top + y(sumA), yB = margins.top + y(sumB);
-    const line = svg.append("line").attr("class","annotation diff-line")
-        .attr("x1", margins.left + plot.w - 20).attr("x2", margins.left + plot.w - 20)
-        .attr("y1", yA).attr("y2", yA)
-        .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
-        .transition().duration(700).attr("y2", yB).end();
+    // 🔥 2단계: 각 막대 높이에 수평 점선 (전체 너비)
+    const yA = margins.top + y(sumA);
+    const yB = margins.top + y(sumB);
+    
+    const lineA = svg.append("line").attr("class","annotation horizontal-guide")
+        .attr("x1", margins.left).attr("y1", yA)
+        .attr("x2", margins.left).attr("y2", yA)
+        .attr("stroke", colorA).attr("stroke-width", 2).attr("stroke-dasharray","5 5");
+    
+    await lineA.transition().duration(500).attr("x2", margins.left + plot.w).end();
+    
+    const lineB = svg.append("line").attr("class","annotation horizontal-guide")
+        .attr("x1", margins.left).attr("y1", yB)
+        .attr("x2", margins.left).attr("y2", yB)
+        .attr("stroke", colorB).attr("stroke-width", 2).attr("stroke-dasharray","5 5");
+    
+    await lineB.transition().duration(500).attr("x2", margins.left + plot.w).end();
+    await delay(300);
 
-    const text = svg.append("text").attr("class","annotation diff-label")
-        .attr("x", margins.left + plot.w - 12).attr("y", (yA + yB)/2).attr("text-anchor","start")
-        .attr("dominant-baseline","middle").attr("fill", diffColor).attr("font-weight","bold").attr("font-size", 12)
+    // 🔥 3단계: 두 수평선 사이를 연결하는 수직선 (중간)
+    const minY = Math.min(yA, yB);
+    const maxY = Math.max(yA, yB);
+    const diffX = margins.left + plot.w / 2; // 중간
+    
+    const verticalLine = svg.append("line").attr("class","annotation diff-vertical")
+        .attr("x1", diffX).attr("x2", diffX)
+        .attr("y1", minY).attr("y2", minY)
+        .attr("stroke", diffColor).attr("stroke-width", 3);
+    
+    await verticalLine.transition().duration(600).attr("y2", maxY).end();
+
+    // 🔥 4단계: 수직선 옆에 Diff 값
+    const diffText = svg.append("text").attr("class","annotation diff-label")
+        .attr("x", diffX + 10).attr("y", (minY + maxY)/2)
+        .attr("text-anchor","start")
+        .attr("dominant-baseline","middle").attr("fill", diffColor)
+        .attr("font-weight","bold").attr("font-size", 16)
         .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-        .text(`Diff: ${fmtNum(diff)}`).attr("opacity",0)
-        .transition().delay(250).duration(400).attr("opacity",1).end();
+        .text(`Diff: ${fmtNum(diff)}`);
 
-    await Promise.all([line, text]);
+    await delay(300);
     return [diffDatum];
 }
 
