@@ -275,3 +275,81 @@ h1, h2, h3 {
     font-variant-numeric: tabular-nums;
     letter-spacing: 1px;
 }
+
+/* 네비게이터 오버레이 스타일 개선 */
+.nav-overlay {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 네비게이터 버튼 스타일 */
+.nav-overlay .nav-btn {
+    appearance: none;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    background: #2563eb;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 100px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.nav-overlay .nav-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+.nav-overlay .nav-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+
+.nav-overlay .nav-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Prev 버튼 */
+.nav-overlay .nav-btn.prev {
+    background: #2563eb;
+}
+
+.nav-overlay .nav-btn.prev:hover:not(:disabled) {
+    background: #1d4ed8;
+    box-shadow: 0 2px 6px rgba(75, 85, 99, 0.3);
+}
+
+/* Next/Start/End 버튼 */
+.nav-overlay .nav-btn.next {
+    background: #2563eb;
+}
+
+.nav-overlay .nav-btn.next:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+/* 스텝 텍스트 (숨김 처리) */
+.nav-overlay .nav-step-text {
+    display: none !important;
+}
+
+/* Pane Footer 내의 네비게이터 */
+.pane-footer .nav-overlay {
+    margin: 0 auto;
+    width: max-content;
+}
