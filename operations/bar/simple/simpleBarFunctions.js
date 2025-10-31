@@ -396,7 +396,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
         .text(labelText);
 
-    await delay(30);
+    await delay(1000);
     signalOpDone(chartId, 'filter');
     return isLast
       ? [new DatumValue('filter', 'count', 'result', null, Array.isArray(filteredData) ? filteredData.length : 0, 'last_filter')]
