@@ -236,6 +236,7 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
     const isMeasureField = effectiveOp.field === 'value' || effectiveOp.field === yField || effectiveOp.field === measureFieldName;
     const isCategoryField = effectiveOp.field === 'target' || effectiveOp.field === xField || effectiveOp.field === categoryFieldName;
 
+    // (A-1) 수량 기준 필터 (가로 점선) - 이 로직은 변경 없습니다.
     const drawMeasureThreshold = async (rawVal) => {
         const v = toNumber(rawVal);
         if (!Number.isFinite(v)) return;
@@ -252,81 +253,6 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         await line.transition().duration(400).attr("x2", margins.left + plot.w).end();
     };
 
-    const drawCategoryThreshold = async (rawVal) => {
-        const domainTargets = data.map(d => String(d.target));
-        if (domainTargets.length === 0) return;
-
-        const bandScale = (orientation === 'vertical')
-            ? d3.scaleBand().domain(domainTargets).range([0, plot.w]).padding(0.2)
-            : d3.scaleBand().domain(domainTargets).range([0, plot.h]).padding(0.2);
-
-        const strVal = String(rawVal);
-        const numericVal = Number(rawVal);
-        let targetLabel = null;
-        const numericDomain = domainTargets.map((label, idx) => ({
-            label,
-            idx,
-            num: Number(label)
-        }));
-
-        if (domainTargets.includes(strVal)) {
-            targetLabel = strVal;
-        } else if (Number.isFinite(numericVal)) {
-            const usable = numericDomain.filter(entry => Number.isFinite(entry.num));
-            if (usable.length) {
-                const sorted = usable.sort((a, b) => a.num - b.num);
-                if (op.operator === '>' || op.operator === '>=') {
-                    const found = sorted.find(entry => op.operator === '>' ? entry.num > numericVal : entry.num >= numericVal);
-                    targetLabel = found ? found.label : sorted[sorted.length - 1].label;
-                } else if (op.operator === '<' || op.operator === '<=') {
-                    const found = sorted.find(entry => entry.num >= numericVal);
-                    if (!found) {
-                        targetLabel = sorted[sorted.length - 1].label;
-                    } else {
-                        const idx = domainTargets.indexOf(found.label);
-                        const priorIdx = (op.operator === '<=') ? idx : idx - 1;
-                        targetLabel = domainTargets[Math.max(0, priorIdx)];
-                    }
-                } else if (op.operator === '==' || op.operator === 'eq') {
-                    const found = sorted.find(entry => entry.num === numericVal);
-                    targetLabel = (found ? found.label : sorted[0].label);
-                }
-            }
-        }
-
-        if (!targetLabel) {
-            targetLabel = domainTargets[0];
-        }
-
-        const bandPos = bandScale(targetLabel);
-        if (bandPos == null) return;
-
-        if (orientation === 'vertical') {
-            const xPos = margins.left + bandPos + bandScale.bandwidth() / 2;
-            const line = svg.append("line").attr("class", "threshold-line")
-                .attr("x1", xPos).attr("y1", margins.top + plot.h)
-                .attr("x2", xPos).attr("y2", margins.top + plot.h)
-                .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-
-            await line.transition().duration(400).attr("y1", margins.top).end();
-        } else {
-            const yPos = margins.top + bandPos + bandScale.bandwidth() / 2;
-            const line = svg.append("line").attr("class", "threshold-line")
-                .attr("x1", margins.left).attr("y1", yPos)
-                .attr("x2", margins.left).attr("y2", yPos)
-                .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
-
-            await line.transition().duration(400).attr("x2", margins.left + plot.w).end();
-        }
-    };
-
-    const numericOps = new Set(['>','>=','<','<=','==','eq']);
-    if (numericOps.has(op.operator) && Number.isFinite(toNumber(op.value)) && isMeasureField) {
-        await drawMeasureThreshold(op.value);
-    } else if (numericOps.has(op.operator) && isCategoryField) {
-        await drawCategoryThreshold(op.value);
-    }
-
     if (!filteredData || filteredData.length === 0) {
         console.warn("Filter resulted in empty data.");
         g.selectAll("rect").transition().duration(500).attr("opacity", 0).remove();
@@ -338,50 +264,145 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         return [];
     }
 
+    // [수정됨] 이 두 변수는 if/else 양쪽에서 사용하므로 위로 이동합니다.
     const categoryKey = filteredData[0]?.category || xField;
     const plainRows = filteredData.map(d => ({ [categoryKey]: d.target, value: d.value, group: d.group }));
 
-    const filteredBars = selectAllMarks(g).data(plainRows, d => String(d[categoryKey]));
+    const numericOps = new Set(['>','>=','<','<=','==','eq']);
+    const isNumericMeasureFilter = numericOps.has(op.operator) && Number.isFinite(toNumber(op.value)) && isMeasureField;
 
-    // 🔥 fill 속성을 건드리지 않음! opacity만 조정!
-    await Promise.all([
-        filteredBars.transition().duration(400)
-            .attr("opacity", 1)  // 🔥 fill 제거!
-            .end(),
-        filteredBars.exit().transition().duration(400).attr("opacity", 0).remove().end()
-    ]);
+    if (isNumericMeasureFilter) {
+        // --- A-1: 수량 기준 필터 (가로 점선 + 기존 애니메이션) ---
+        await drawMeasureThreshold(op.value);
+        
+        // 데이터 바인딩
+        const filteredBars = selectAllMarks(g).data(plainRows, d => String(d[categoryKey]));
 
-    const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.target)).range([0, plot.w]).padding(0.2);
+        // [원본 애니메이션] 막대가 바로 사라지고 재정렬됩니다.
+        await Promise.all([
+            filteredBars.transition().duration(400)
+                .attr("opacity", 1)
+                .end(),
+            filteredBars.exit().transition().duration(400)
+                .attr("opacity", 0)
+                .remove()
+                .end()
+        ]);
 
-    await Promise.all([
-        filteredBars.transition().duration(400)
-            .attr("x", d => xScaleFiltered(d[categoryKey]))
-            .attr("width", xScaleFiltered.bandwidth())
-            .end(),
-        g.select(".x-axis").transition().duration(400)
-            .call(d3.axisBottom(xScaleFiltered))
-            .end()
-    ]);
+        const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.target)).range([0, plot.w]).padding(0.2);
 
-    filteredBars.each(function(d) {
-        const bar = d3.select(this);
-        const yMax = d3.max(data, datum => +datum.value) || 0;
-        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+        await Promise.all([
+            filteredBars.transition().duration(400)
+                .attr("x", d => xScaleFiltered(d[categoryKey]))
+                .attr("width", xScaleFiltered.bandwidth())
+                .end(),
+            g.select(".x-axis").transition().duration(400)
+                .call(d3.axisBottom(xScaleFiltered))
+                .end()
+        ]);
 
-        g.append("text").attr("class", "annotation value-tag")
-            .attr("x", +bar.attr("x") + +bar.attr("width") / 2)
-            .attr("y", yScale(d.value) - 5)
-            .attr("text-anchor", "middle")
-            .attr("font-size", 12).attr("font-weight", "bold")
-            .attr("fill", "black")
-            .text(d.value);
-    });
+    } else {
+        // --- A-2: 항목(연도 등) 기준 필터 (새 '흐리게 하기' 애니메이션) ---
+        
+        // [수정됨] 1단계: '제외될 막대'만 찾아서 흐리게 만듭니다.
+        
+        // 1-1. 현재 화면의 모든 막대를 선택합니다. (데이터 바인딩 *전*)
+        const allBars = selectAllMarks(g);
+        
+        // 1-2. '유지될' 데이터의 키(예: '2021', '2022') 목록을 Set으로 만듭니다.
+        const keptTargets = new Set(plainRows.map(d => String(d[categoryKey])));
+        
+        // 1-3. 모든 막대(allBars)를 필터링하여,
+        //      현재 막대의 데이터(d)가 '유지될 키' 목록에 없는(!keptTargets.has(...)) 것들만 선택합니다.
+        const barsToDim = allBars.filter(d => {
+            if (!d) return false;
+            return !keptTargets.has(String(d[categoryKey]));
+        });
 
+        // 1-4. 이렇게 '골라낸 막대들'(barsToDim)만 흐리게 만듭니다.
+        //      '남을 막대'는 아예 건드리지 않으므로 '깜빡임'이나 '여백'이 발생하지 않습니다.
+        await barsToDim.transition().duration(400)
+            .attr("opacity", 0.2)
+            .end();
+
+        // [수정됨] 2단계: 잠시 대기
+        await delay(700);
+
+        // [수정됨] 3단계: 이제서야 데이터를 바인딩하고 재정렬/제거합니다.
+        
+        // 3-1. *이제* '유지될 데이터'(plainRows)를 바인딩합니다.
+        //      allBars 셀렉션에 바인딩하면, D3가 알아서 update/exit을 구분합니다.
+        const filteredBars = allBars.data(plainRows, d => String(d[categoryKey]));
+        
+        // 3-2. 새 X축 스케일을 정의합니다.
+        const xScaleFiltered = d3.scaleBand().domain(filteredData.map(d => d.target)).range([0, plot.w]).padding(0.2);
+
+        // 3-3. '남을 막대'(update)는 새 위치로 옮기고, '흐려진 막대'(exit)는 마저 제거합니다.
+        await Promise.all([
+            // '남을 막대'들을 새 위치로 이동
+            filteredBars.transition().duration(400)
+                .attr("x", d => xScaleFiltered(d[categoryKey]))
+                .attr("width", xScaleFiltered.bandwidth())
+                .end(),
+            
+            // '흐려진 막대'들(opacity 0.2)을 0으로 만들며 제거
+            filteredBars.exit().transition().duration(300)
+                .attr("opacity", 0) 
+                .remove()
+                .end(),
+
+            // X축(x-axis)을 새 스케일로 업데이트
+            g.select(".x-axis").transition().duration(400)
+                .call(d3.axisBottom(xScaleFiltered))
+                .end()
+        ]);
+        
+        // [수정됨] 값 태그 추가는 '남은 막대'(filteredBars)에만 적용해야 하므로
+        // if/else 블록 안으로 이동시킵니다.
+        filteredBars.each(function(d) {
+            const bar = d3.select(this);
+            const yMax = d3.max(data, datum => +datum.value) || 0;
+            const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+
+            g.append("text").attr("class", "annotation value-tag")
+                .attr("x", +bar.attr("x") + +bar.attr("width") / 2)
+                .attr("y", yScale(d.value) - 5)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 12).attr("font-weight", "bold")
+                .attr("fill", "black")
+                .text(d.value);
+        });
+    }
+
+    // [수정됨] 값 태그 추가 로직이 if/else 안으로 이동했으므로,
+    // (A-1) 수량 필터 쪽에도 값 태그 로직을 추가해줍니다.
+    if (isNumericMeasureFilter) {
+        // 'filteredBars' 변수는 if (isNumericMeasureFilter) 블록 내에서
+        // 재정의되었으므로, 여기서 사용 가능합니다.
+        const filteredBars = selectAllMarks(g).data(plainRows, d => String(d[categoryKey]));
+        
+        filteredBars.each(function(d) {
+            const bar = d3.select(this);
+            const yMax = d3.max(data, datum => +datum.value) || 0;
+            const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+
+            g.append("text").attr("class", "annotation value-tag")
+                .attr("x", +bar.attr("x") + +bar.attr("width") / 2)
+                .attr("y", yScale(d.value) - 5)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 12).attr("font-weight", "bold")
+                .attr("fill", "black")
+                .text(d.value);
+        });
+    }
+
+
+    // 마무리
     await delay(1000);
     signalOpDone(chartId, 'filter');
     return isLast
-      ? [new DatumValue('filter', 'count', 'result', null, Array.isArray(filteredData) ? filteredData.length : 0, 'last_filter')]
-      : filteredData;
+        ? [new DatumValue('filter', 'count', 'result', null, Array.isArray(filteredData) ? filteredData.length : 0, 'last_filter')]
+        : filteredData;
 }
 
 export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
