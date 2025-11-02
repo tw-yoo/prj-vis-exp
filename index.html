@@ -35,22 +35,53 @@
         <div id="vl-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
         <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Population Census for year 2000, grouped by age and gender",
+  "data": {
+    "url": "data/test/data/bar_grouped_ver.csv"
+  },
+  "mark": "bar",
   "encoding": {
+    "column": {
+      "field": "age",
+      "type": "ordinal",
+      "spacing": 5
+    },
     "y": {
-      "field": "rating",
-      "type": "quantitative"
+      "aggregate": "sum",
+      "field": "people",
+      "type": "quantitative",
+      "axis": {
+        "title": "Population",
+        "grid": false
+      }
     },
     "x": {
-      "field": "country",
+      "field": "gender",
       "type": "nominal",
-      "sort": null
+      "scale": {
+        "rangeStep": 12
+      },
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "gender",
+      "type": "nominal",
+      "scale": {
+        "range": ["#659CCA","#EA98D2"]
+      }
     }
   },
-  "data": {
-    "url": "data/test/data/bar_simple_ver.csv"
-  },
-  "mark": "bar"
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
 }
       </textarea>
 
