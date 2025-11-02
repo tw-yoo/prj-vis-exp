@@ -613,6 +613,7 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
             maxBars.transition().duration(500).attr('opacity', 1).end()
         ]);
 
+        // 🔥 1단계: 수평선 먼저 그리기
         const lines = [minV, maxV].map(v =>
             svg.append('line').attr('class','annotation')
                 .attr('x1', margins.left).attr('y1', margins.top + y(v))
@@ -621,6 +622,55 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
                 .transition().duration(700).attr('x2', margins.left + plot.w).end()
         );
         await Promise.all(lines);
+
+        // 🔥 2단계: Min과 Max 값 레이블 동시에 표시
+        const labelTasks = [];
+
+        // Min 막대 위에 값 표시
+        const minNodes = minBars.nodes();
+        if (minNodes.length) {
+            let minY = Infinity, minX = Infinity, maxX = -Infinity;
+            minNodes.forEach(n => { 
+                const b = n.getBBox(); 
+                minY = Math.min(minY, b.y); 
+                minX = Math.min(minX, b.x); 
+                maxX = Math.max(maxX, b.x + b.width); 
+            });
+            const cx = minX + (maxX - minX)/2;
+            
+            labelTasks.push(
+                g.append('text').attr('class','annotation value-label')
+                    .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
+                    .attr('font-size', 12).attr('font-weight','bold')
+                    .attr('fill', color).attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+                    .text(`Min: ${fmtNum(minV)}`).attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 1).end()
+            );
+        }
+
+        // Max 막대 위에 값 표시
+        const maxNodes = maxBars.nodes();
+        if (maxNodes.length) {
+            let minY = Infinity, minX = Infinity, maxX = -Infinity;
+            maxNodes.forEach(n => { 
+                const b = n.getBBox(); 
+                minY = Math.min(minY, b.y); 
+                minX = Math.min(minX, b.x); 
+                maxX = Math.max(maxX, b.x + b.width); 
+            });
+            const cx = minX + (maxX - minX)/2;
+            
+            labelTasks.push(
+                g.append('text').attr('class','annotation value-label')
+                    .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
+                    .attr('font-size', 12).attr('font-weight','bold')
+                    .attr('fill', color).attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+                    .text(`Max: ${fmtNum(maxV)}`).attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 1).end()
+            );
+        }
+
+        await Promise.all(labelTasks);
         return result;
     }
 
@@ -634,7 +684,10 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
     // 강조
     const all = g.selectAll('rect');
     let minCat, maxCat;
-    sums.forEach((sum, cat) => { if (sum === minTotal) minCat = cat; if (sum === maxTotal) maxCat = cat; });
+    sums.forEach((sum, cat) => { 
+        if (sum === minTotal) minCat = cat; 
+        if (sum === maxTotal) maxCat = cat; 
+    });
 
     const minSel = all.filter(d => getDatumCategoryKey(d) === String(minCat));
     const maxSel = all.filter(d => getDatumCategoryKey(d) === String(maxCat));
@@ -652,6 +705,7 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
         maxSel.transition().duration(500).attr('opacity', 1).end()
     ]);
 
+    // 🔥 1단계: 수평선 먼저 그리기
     const lines = [minTotal, maxTotal].map(v =>
         svg.append('line').attr('class','annotation')
             .attr('x1', margins.left).attr('y1', margins.top + y(v))
@@ -660,6 +714,55 @@ export async function stackedBarDetermineRange(chartId, op, data, isLast = false
             .transition().duration(700).attr('x2', margins.left + plot.w).end()
     );
     await Promise.all(lines);
+
+    // 🔥 2단계: Min과 Max 값 레이블 동시에 표시
+    const labelTasks = [];
+
+    // Min 막대 스택 위에 값 표시
+    const minNodes = minSel.nodes();
+    if (minNodes.length) {
+        let minY = Infinity, minX = Infinity, maxX = -Infinity;
+        minNodes.forEach(n => { 
+            const b = n.getBBox(); 
+            minY = Math.min(minY, b.y); 
+            minX = Math.min(minX, b.x); 
+            maxX = Math.max(maxX, b.x + b.width); 
+        });
+        const cx = minX + (maxX - minX)/2;
+        
+        labelTasks.push(
+            g.append('text').attr('class','annotation value-label')
+                .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
+                .attr('font-size', 12).attr('font-weight','bold')
+                .attr('fill', color).attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+                .text(`Min: ${fmtNum(minTotal)}`).attr('opacity', 0)
+                .transition().duration(400).attr('opacity', 1).end()
+        );
+    }
+
+    // Max 막대 스택 위에 값 표시
+    const maxNodes = maxSel.nodes();
+    if (maxNodes.length) {
+        let minY = Infinity, minX = Infinity, maxX = -Infinity;
+        maxNodes.forEach(n => { 
+            const b = n.getBBox(); 
+            minY = Math.min(minY, b.y); 
+            minX = Math.min(minX, b.x); 
+            maxX = Math.max(maxX, b.x + b.width); 
+        });
+        const cx = minX + (maxX - minX)/2;
+        
+        labelTasks.push(
+            g.append('text').attr('class','annotation value-label')
+                .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
+                .attr('font-size', 12).attr('font-weight','bold')
+                .attr('fill', color).attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
+                .text(`Max: ${fmtNum(maxTotal)}`).attr('opacity', 0)
+                .transition().duration(400).attr('opacity', 1).end()
+        );
+    }
+
+    await Promise.all(labelTasks);
     return result;
 }
 
@@ -675,62 +778,200 @@ export async function stackedBarCompare(chartId, op, data, isLast = false) {
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
         if (!subset.length) return winner ? [winner] : [];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { targetA: op.targetA, targetB: op.targetB, operator: op.operator, which: op.which, field: 'value' };
-        return await simpleBarCompare(chartId, op2, subset, isLast);
+
+        // 🔥 group이 있을 때도 스택 차트와 동일한 애니메이션 적용
+        const values = subset.map(d => ({ target: d.target, value: +d.value }));
+        const A = values.find(v => String(v.target) === String(op.targetA));
+        const B = values.find(v => String(v.target) === String(op.targetB));
+        
+        if (!A || !B || !Number.isFinite(A.value) || !Number.isFinite(B.value)) {
+            return winner ? [winner] : [];
+        }
+
+        const all = g.selectAll('rect');
+        const barsA = all.filter(d => String(d.target) === String(op.targetA));
+        const barsB = all.filter(d => String(d.target) === String(op.targetB));
+        const others = all.filter(d => {
+            const t = String(d.target);
+            return t !== String(op.targetA) && t !== String(op.targetB);
+        });
+
+        const colorA = OP_COLORS.COMPARE_A, colorB = OP_COLORS.COMPARE_B;
+        
+        // 1단계: 막대 강조
+        await Promise.all([
+            others.transition().duration(500).attr('opacity', 0.2).end(),
+            barsA.transition().duration(500).attr('opacity', 1).attr('fill', colorA).end(),
+            barsB.transition().duration(500).attr('opacity', 1).attr('fill', colorB).end()
+        ]);
+
+        const maxVal = d3.max(subset, d => +d.value) || 0;
+        const y = d3.scaleLinear().domain([0, maxVal]).nice().range([plot.h, 0]);
+
+        // 2단계: 수평선 그리기
+        const lineA = svg.append("line").attr("class","annotation")
+            .attr("x1", margins.left).attr("y1", margins.top + y(A.value))
+            .attr("x2", margins.left).attr("y2", margins.top + y(A.value))
+            .attr("stroke", colorA).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(700).attr("x2", margins.left + plot.w).end();
+        
+        const lineB = svg.append("line").attr("class","annotation")
+            .attr("x1", margins.left).attr("y1", margins.top + y(B.value))
+            .attr("x2", margins.left).attr("y2", margins.top + y(B.value))
+            .attr("stroke", colorB).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(700).attr("x2", margins.left + plot.w).end();
+        
+        await Promise.all([lineA, lineB]);
+
+        // 3단계: 값 레이블 표시
+        const labelTasks = [];
+        const nodesA = barsA.nodes();
+        if (nodesA.length) {
+            const bb = nodesA[0].getBBox();
+            const cx = bb.x + bb.width/2;
+            labelTasks.push(
+                g.append("text").attr("class","annotation")
+                    .attr("x", cx).attr("y", bb.y - 8).attr("text-anchor","middle")
+                    .attr("font-size", 12).attr("font-weight","bold").attr("fill", colorA)
+                    .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                    .text(fmtNum(A.value)).attr("opacity",0)
+                    .transition().duration(400).attr("opacity",1).end()
+            );
+        }
+
+        const nodesB = barsB.nodes();
+        if (nodesB.length) {
+            const bb = nodesB[0].getBBox();
+            const cx = bb.x + bb.width/2;
+            labelTasks.push(
+                g.append("text").attr("class","annotation")
+                    .attr("x", cx).attr("y", bb.y - 8).attr("text-anchor","middle")
+                    .attr("font-size", 12).attr("font-weight","bold").attr("fill", colorB)
+                    .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                    .text(fmtNum(B.value)).attr("opacity",0)
+                    .transition().duration(400).attr("opacity",1).end()
+            );
+        }
+
+        await Promise.all(labelTasks);
+
+        if (winner) {
+            return [new DatumValue(
+                winner.category ?? xField,
+                winner.measure ?? yField,
+                winner.target ?? (A.value >= B.value ? op.targetA : op.targetB),
+                subgroup,
+                winner.value ?? (A.value >= B.value ? A.value : B.value),
+                winner.id
+            )];
+        }
+        return [];
     }
 
+    // 🔥 스택 전체 합계를 직접 계산
     const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const A = resolveStackedDatum(data, op.targetA, sums);
-    const B = resolveStackedDatum(data, op.targetB, sums);
-    if (!Number.isFinite(A.value) || !Number.isFinite(B.value)) return winner ? [winner] : [];
+    
+    const sumA = sums.get(String(op.targetA));
+    const sumB = sums.get(String(op.targetB));
+    
+    if (!Number.isFinite(sumA) || !Number.isFinite(sumB)) {
+        console.warn('Compare: could not find sum for targetA or targetB', op.targetA, op.targetB, sums);
+        return winner ? [winner] : [];
+    }
 
     const all = g.selectAll('rect');
-    const barsA = all.filter(d => getDatumCategoryKey(d) === String(A.category));
-    const barsB = all.filter(d => getDatumCategoryKey(d) === String(B.category));
+    const barsA = all.filter(d => getDatumCategoryKey(d) === String(op.targetA));
+    const barsB = all.filter(d => getDatumCategoryKey(d) === String(op.targetB));
     const others = all.filter(d => {
         const k = getDatumCategoryKey(d);
-        return k !== String(A.category) && k !== String(B.category);
+        return k !== String(op.targetA) && k !== String(op.targetB);
     });
 
     const colorA = OP_COLORS.COMPARE_A, colorB = OP_COLORS.COMPARE_B;
+    
+    // 🔥 1단계: 막대 강조 (색상 변경)
     await Promise.all([
         others.transition().duration(500).attr('opacity', 0.2).end(),
         barsA.transition().duration(500).attr('opacity', 1).attr('fill', colorA).end(),
         barsB.transition().duration(500).attr('opacity', 1).attr('fill', colorB).end()
     ]);
 
-    const y = d3.scaleLinear().domain([0, d3.max(Array.from(sums.values())) || 0]).nice().range([plot.h, 0]);
-    const annotate = (sel, total, color) => {
-        const nodes = sel.nodes(); if (!nodes.length) return [];
+    // 🔥 y 스케일: 스택 전체 합계를 기준으로
+    const maxStackTotal = d3.max(Array.from(sums.values())) || 0;
+    const y = d3.scaleLinear().domain([0, maxStackTotal]).nice().range([plot.h, 0]);
+    
+    // 🔥 2단계: 수평선 그리기 (동시에)
+    const lineA = svg.append("line").attr("class","annotation")
+        .attr("x1", margins.left).attr("y1", margins.top + y(sumA))
+        .attr("x2", margins.left).attr("y2", margins.top + y(sumA))
+        .attr("stroke", colorA).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+        .transition().duration(700).attr("x2", margins.left + plot.w).end();
+    
+    const lineB = svg.append("line").attr("class","annotation")
+        .attr("x1", margins.left).attr("y1", margins.top + y(sumB))
+        .attr("x2", margins.left).attr("y2", margins.top + y(sumB))
+        .attr("stroke", colorB).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+        .transition().duration(700).attr("x2", margins.left + plot.w).end();
+    
+    await Promise.all([lineA, lineB]);
+
+    // 🔥 3단계: 값 레이블 표시 (동시에)
+    const labelTasks = [];
+
+    const nodesA = barsA.nodes();
+    if (nodesA.length) {
         let minY = Infinity, minX = Infinity, maxX = -Infinity;
-        nodes.forEach(n => { const b = n.getBBox(); minY = Math.min(minY, b.y); minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x + b.width); });
+        nodesA.forEach(n => { 
+            const b = n.getBBox(); 
+            minY = Math.min(minY, b.y); 
+            minX = Math.min(minX, b.x); 
+            maxX = Math.max(maxX, b.x + b.width); 
+        });
         const cx = minX + (maxX - minX)/2;
-        const line = svg.append("line").attr("class","annotation")
-            .attr("x1", margins.left).attr("y1", margins.top + y(total))
-            .attr("x2", margins.left).attr("y2", margins.top + y(total))
-            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
-            .transition().duration(700).attr("x2", margins.left + plot.w).end();
-        const text = g.append("text").attr("class","annotation")
-            .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
-            .attr("font-size", 12).attr("font-weight","bold").attr("fill", color)
-            .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-            .text(fmtNum(total)).attr("opacity",0).transition().delay(200).duration(400).attr("opacity",1).end();
-        return [line, text];
-    };
-    const tasks = [...annotate(barsA, A.value, colorA), ...annotate(barsB, B.value, colorB)];
-    await Promise.all(tasks);
+        
+        labelTasks.push(
+            g.append("text").attr("class","annotation")
+                .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+                .attr("font-size", 12).attr("font-weight","bold").attr("fill", colorA)
+                .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                .text(fmtNum(sumA)).attr("opacity",0)
+                .transition().duration(400).attr("opacity",1).end()
+        );
+    }
+
+    const nodesB = barsB.nodes();
+    if (nodesB.length) {
+        let minY = Infinity, minX = Infinity, maxX = -Infinity;
+        nodesB.forEach(n => { 
+            const b = n.getBBox(); 
+            minY = Math.min(minY, b.y); 
+            minX = Math.min(minX, b.x); 
+            maxX = Math.max(maxX, b.x + b.width); 
+        });
+        const cx = minX + (maxX - minX)/2;
+        
+        labelTasks.push(
+            g.append("text").attr("class","annotation")
+                .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+                .attr("font-size", 12).attr("font-weight","bold").attr("fill", colorB)
+                .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                .text(fmtNum(sumB)).attr("opacity",0)
+                .transition().duration(400).attr("opacity",1).end()
+        );
+    }
+
+    await Promise.all(labelTasks);
 
     if (winner) {
-        const winnerKey = winner?.id ?? winner?.target ?? (A.value >= B.value ? op.targetA : op.targetB);
-        const resolved = resolveStackedDatum(data, winnerKey, sums);
-        const wVal = Number.isFinite(resolved.value) ? resolved.value : (winner?.value ?? Math.max(A.value, B.value));
+        const winnerKey = winner?.target ?? (sumA >= sumB ? op.targetA : op.targetB);
+        const winnerValue = sumA >= sumB ? sumA : sumB;
         const datum = new DatumValue(
-            winner.category ?? resolved.datum?.category ?? xField,
-            winner.measure ?? resolved.datum?.measure ?? yField,
-            resolved.category ?? winner.target,
-            winner.group ?? resolved.group ?? null,
-            wVal,
-            winner.id ?? resolved.datum?.id ?? undefined
+            winner.category ?? xField,
+            winner.measure ?? yField,
+            String(winnerKey),
+            winner.group ?? null,
+            winnerValue,
+            winner.id ?? undefined
         );
         return [datum];
     }
@@ -764,52 +1005,183 @@ export async function stackedBarCompareBool(chartId, op, data, isLast = false) {
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
         if (!subset.length) return [new BoolValue(op.field || yField || 'value', false)];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { targetA: op.targetA, targetB: op.targetB, operator: op.operator, field: 'value' };
-        const vis = await simpleBarCompareBool(chartId, op2, subset, isLast);
-        return Array.isArray(vis) ? vis : [vis];
+
+        // 🔥 group이 있을 때도 compare와 동일한 애니메이션 적용
+        const values = subset.map(d => ({ target: d.target, value: +d.value }));
+        const A = values.find(v => String(v.target) === String(op.targetA));
+        const B = values.find(v => String(v.target) === String(op.targetB));
+        
+        if (!A || !B || !Number.isFinite(A.value) || !Number.isFinite(B.value)) {
+            return [new BoolValue(op.field || yField || 'value', false)];
+        }
+
+        const bool = evalComparison(op.operator, A.value, B.value);
+        const colorA = OP_COLORS.COMPARE_A;
+        const colorB = OP_COLORS.COMPARE_B;
+
+        const all = g.selectAll('rect');
+        const barsA = all.filter(d => String(d.target) === String(op.targetA));
+        const barsB = all.filter(d => String(d.target) === String(op.targetB));
+        const others = all.filter(d => {
+            const t = String(d.target);
+            return t !== String(op.targetA) && t !== String(op.targetB);
+        });
+        
+        // 1단계: 막대 강조
+        await Promise.all([
+            others.transition().duration(500).attr('opacity', 0.2).end(),
+            barsA.transition().duration(500).attr('opacity', 1).attr('fill', colorA).end(),
+            barsB.transition().duration(500).attr('opacity', 1).attr('fill', colorB).end()
+        ]);
+
+        const maxVal = d3.max(subset, d => +d.value) || 0;
+        const y = d3.scaleLinear().domain([0, maxVal]).nice().range([plot.h, 0]);
+
+        // 2단계: 수평선 그리기
+        const lineA = svg.append("line").attr("class","annotation")
+            .attr("x1", margins.left).attr("y1", margins.top + y(A.value))
+            .attr("x2", margins.left).attr("y2", margins.top + y(A.value))
+            .attr("stroke", colorA).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(700).attr("x2", margins.left + plot.w).end();
+        
+        const lineB = svg.append("line").attr("class","annotation")
+            .attr("x1", margins.left).attr("y1", margins.top + y(B.value))
+            .attr("x2", margins.left).attr("y2", margins.top + y(B.value))
+            .attr("stroke", colorB).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(700).attr("x2", margins.left + plot.w).end();
+        
+        await Promise.all([lineA, lineB]);
+
+        // 3단계: 값 레이블 표시
+        const labelTasks = [];
+        const nodesA = barsA.nodes();
+        if (nodesA.length) {
+            const bb = nodesA[0].getBBox();
+            const cx = bb.x + bb.width/2;
+            labelTasks.push(
+                g.append("text").attr("class","annotation")
+                    .attr("x", cx).attr("y", bb.y - 8).attr("text-anchor","middle")
+                    .attr("font-size", 12).attr("font-weight","bold").attr("fill", colorA)
+                    .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                    .text(fmtNum(A.value)).attr("opacity",0)
+                    .transition().duration(400).attr("opacity",1).end()
+            );
+        }
+
+        const nodesB = barsB.nodes();
+        if (nodesB.length) {
+            const bb = nodesB[0].getBBox();
+            const cx = bb.x + bb.width/2;
+            labelTasks.push(
+                g.append("text").attr("class","annotation")
+                    .attr("x", cx).attr("y", bb.y - 8).attr("text-anchor","middle")
+                    .attr("font-size", 12).attr("font-weight","bold").attr("fill", colorB)
+                    .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                    .text(fmtNum(B.value)).attr("opacity",0)
+                    .transition().duration(400).attr("opacity",1).end()
+            );
+        }
+
+        await Promise.all(labelTasks);
+
+        return [new BoolValue(op.field || yField || 'value', bool, verdict?.id ?? null)];
     }
 
+    // 🔥 스택 전체 합계를 직접 계산
     const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const A = resolveStackedDatum(data, op.targetA, sums);
-    const B = resolveStackedDatum(data, op.targetB, sums);
-    if (!Number.isFinite(A.value) || !Number.isFinite(B.value)) return [new BoolValue(op.field || yField || 'value', false)];
+    
+    const sumA = sums.get(String(op.targetA));
+    const sumB = sums.get(String(op.targetB));
+    
+    if (!Number.isFinite(sumA) || !Number.isFinite(sumB)) {
+        return [new BoolValue(op.field || yField || 'value', false)];
+    }
+
+    const bool = (verdict && typeof verdict.bool === 'boolean') ? verdict.bool : evalComparison(op.operator, sumA, sumB);
+    const colorA = OP_COLORS.COMPARE_A;
+    const colorB = OP_COLORS.COMPARE_B;
 
     const all = g.selectAll('rect');
-    const barsA = all.filter(d => getDatumCategoryKey(d) === String(A.category));
-    const barsB = all.filter(d => getDatumCategoryKey(d) === String(B.category));
+    const barsA = all.filter(d => getDatumCategoryKey(d) === String(op.targetA));
+    const barsB = all.filter(d => getDatumCategoryKey(d) === String(op.targetB));
     const others = all.filter(d => {
         const k = getDatumCategoryKey(d);
-        return k !== String(A.category) && k !== String(B.category);
+        return k !== String(op.targetA) && k !== String(op.targetB);
     });
-
-    const bool = (verdict && typeof verdict.bool === 'boolean') ? verdict.bool : evalComparison(op.operator, A.value, B.value);
-    const color = bool ? OP_COLORS.TRUE : OP_COLORS.FALSE;
-
+    
+    // 🔥 1단계: 막대 강조
     await Promise.all([
         others.transition().duration(500).attr('opacity', 0.2).end(),
-        barsA.transition().duration(500).attr('opacity', 1).attr('fill', color).end(),
-        barsB.transition().duration(500).attr('opacity', 1).attr('fill', color).end()
+        barsA.transition().duration(500).attr('opacity', 1).attr('fill', colorA).end(),
+        barsB.transition().duration(500).attr('opacity', 1).attr('fill', colorB).end()
     ]);
 
-    const y = d3.scaleLinear().domain([0, d3.max(Array.from(sums.values())) || 0]).nice().range([plot.h, 0]);
-    const annotate = (sel, total) => {
-        const nodes = sel.nodes(); if (!nodes.length) return [];
+    // 🔥 y 스케일: 스택 전체 합계를 기준으로
+    const maxStackTotal = d3.max(Array.from(sums.values())) || 0;
+    const y = d3.scaleLinear().domain([0, maxStackTotal]).nice().range([plot.h, 0]);
+    
+    // 🔥 2단계: 수평선 그리기 (동시에)
+    const lineA = svg.append("line").attr("class","annotation")
+        .attr("x1", margins.left).attr("y1", margins.top + y(sumA))
+        .attr("x2", margins.left).attr("y2", margins.top + y(sumA))
+        .attr("stroke", colorA).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+        .transition().duration(700).attr("x2", margins.left + plot.w).end();
+    
+    const lineB = svg.append("line").attr("class","annotation")
+        .attr("x1", margins.left).attr("y1", margins.top + y(sumB))
+        .attr("x2", margins.left).attr("y2", margins.top + y(sumB))
+        .attr("stroke", colorB).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+        .transition().duration(700).attr("x2", margins.left + plot.w).end();
+    
+    await Promise.all([lineA, lineB]);
+
+    // 🔥 3단계: 값 레이블 표시 (동시에)
+    const labelTasks = [];
+
+    const nodesA = barsA.nodes();
+    if (nodesA.length) {
         let minY = Infinity, minX = Infinity, maxX = -Infinity;
-        nodes.forEach(n => { const b = n.getBBox(); minY = Math.min(minY, b.y); minX = Math.min(minX, b.x); maxX = Math.max(maxX, b.x + b.width); });
+        nodesA.forEach(n => { 
+            const b = n.getBBox(); 
+            minY = Math.min(minY, b.y); 
+            minX = Math.min(minX, b.x); 
+            maxX = Math.max(maxX, b.x + b.width); 
+        });
         const cx = minX + (maxX - minX)/2;
-        const line = svg.append("line").attr("class","annotation")
-            .attr("x1", margins.left).attr("y1", margins.top + y(total))
-            .attr("x2", margins.left).attr("y2", margins.top + y(total))
-            .attr("stroke", color).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
-            .transition().duration(700).attr("x2", margins.left + plot.w).end();
-        const text = g.append("text").attr("class","annotation")
-            .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
-            .attr("font-size", 12).attr("font-weight","bold").attr("fill", color)
-            .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-            .text(fmtNum(total)).attr("opacity",0).transition().delay(200).duration(400).attr("opacity",1).end();
-        return [line, text];
-    };
-    await Promise.all([...annotate(barsA, A.value), ...annotate(barsB, B.value)]);
+        
+        labelTasks.push(
+            g.append("text").attr("class","annotation")
+                .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+                .attr("font-size", 12).attr("font-weight","bold").attr("fill", colorA)
+                .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                .text(fmtNum(sumA)).attr("opacity",0)
+                .transition().duration(400).attr("opacity",1).end()
+        );
+    }
+
+    const nodesB = barsB.nodes();
+    if (nodesB.length) {
+        let minY = Infinity, minX = Infinity, maxX = -Infinity;
+        nodesB.forEach(n => { 
+            const b = n.getBBox(); 
+            minY = Math.min(minY, b.y); 
+            minX = Math.min(minX, b.x); 
+            maxX = Math.max(maxX, b.x + b.width); 
+        });
+        const cx = minX + (maxX - minX)/2;
+        
+        labelTasks.push(
+            g.append("text").attr("class","annotation")
+                .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+                .attr("font-size", 12).attr("font-weight","bold").attr("fill", colorB)
+                .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                .text(fmtNum(sumB)).attr("opacity",0)
+                .transition().duration(400).attr("opacity",1).end()
+        );
+    }
+
+    await Promise.all(labelTasks);
+
     return [new BoolValue(op.field || verdict?.category || yField || 'value', bool, verdict?.id ?? null)];
 }
 
@@ -824,15 +1196,127 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
         if (!subset.length) return semantic ? [new DatumValue(semantic.category, semantic.measure, semantic.target, subgroup, Math.abs(semantic.value), null)] : [];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { targetA: op.targetA, targetB: op.targetB, field: 'value', signed: op.signed };
-        const vis = await simpleBarDiff(chartId, op2, subset, isLast);
-        return (vis && vis.length) ? vis : (semantic ? [new DatumValue(semantic.category, semantic.measure, semantic.target, subgroup, Math.abs(semantic.value), null)] : []);
+
+        // 🔥 group이 있을 때도 compare와 동일한 애니메이션 적용
+        const values = subset.map(d => ({ target: d.target, value: +d.value }));
+        const A = values.find(v => String(v.target) === String(op.targetA));
+        const B = values.find(v => String(v.target) === String(op.targetB));
+        
+        if (!A || !B || !Number.isFinite(A.value) || !Number.isFinite(B.value)) {
+            if (semantic) {
+                const v = op.signed ? semantic.value : Math.abs(semantic.value);
+                return [new DatumValue(semantic.category, semantic.measure, semantic.target, semantic.group ?? null, v, semantic.id)];
+            }
+            return [];
+        }
+
+        const all = g.selectAll('rect');
+        const barsA = all.filter(d => String(d.target) === String(op.targetA));
+        const barsB = all.filter(d => String(d.target) === String(op.targetB));
+        const others = all.filter(d => {
+            const t = String(d.target);
+            return t !== String(op.targetA) && t !== String(op.targetB);
+        });
+
+        const colorA = OP_COLORS.DIFF_A;
+        const colorB = OP_COLORS.DIFF_B;
+        
+        // 🔥 1단계: 막대 강조 (색상 변경)
+        await Promise.all([
+            others.transition().duration(400).attr('opacity', 0.2).end(),
+            barsA.transition().duration(400).attr('opacity', 1).attr('fill', colorA).end(),
+            barsB.transition().duration(400).attr('opacity', 1).attr('fill', colorB).end()
+        ]);
+
+        const maxVal = d3.max(subset, d => +d.value) || 0;
+        const y = d3.scaleLinear().domain([0, maxVal]).nice().range([plot.h, 0]);
+
+        // 🔥 2단계: 수평선 그리기 (동시에)
+        const lineA = svg.append("line").attr("class","annotation horizontal-guide")
+            .attr("x1", margins.left).attr("y1", margins.top + y(A.value))
+            .attr("x2", margins.left).attr("y2", margins.top + y(A.value))
+            .attr("stroke", colorA).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(500).attr("x2", margins.left + plot.w).end();
+        
+        const lineB = svg.append("line").attr("class","annotation horizontal-guide")
+            .attr("x1", margins.left).attr("y1", margins.top + y(B.value))
+            .attr("x2", margins.left).attr("y2", margins.top + y(B.value))
+            .attr("stroke", colorB).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+            .transition().duration(500).attr("x2", margins.left + plot.w).end();
+        
+        await Promise.all([lineA, lineB]);
+        await delay(300);
+
+        // 🔥 3단계: 값 레이블 표시 (동시에)
+        const labelTasks = [];
+        const nodesA = barsA.nodes();
+        if (nodesA.length) {
+            const bb = nodesA[0].getBBox();
+            const cx = bb.x + bb.width/2;
+            labelTasks.push(
+                g.append("text").attr("class","annotation")
+                    .attr("x", cx).attr("y", bb.y - 8).attr("text-anchor","middle")
+                    .attr("font-size", 14).attr("font-weight","bold").attr("fill", colorA)
+                    .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                    .text(fmtNum(A.value)).attr("opacity",0)
+                    .transition().duration(400).attr("opacity",1).end()
+            );
+        }
+
+        const nodesB = barsB.nodes();
+        if (nodesB.length) {
+            const bb = nodesB[0].getBBox();
+            const cx = bb.x + bb.width/2;
+            labelTasks.push(
+                g.append("text").attr("class","annotation")
+                    .attr("x", cx).attr("y", bb.y - 8).attr("text-anchor","middle")
+                    .attr("font-size", 14).attr("font-weight","bold").attr("fill", colorB)
+                    .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                    .text(fmtNum(B.value)).attr("opacity",0)
+                    .transition().duration(400).attr("opacity",1).end()
+            );
+        }
+
+        await Promise.all(labelTasks);
+        await delay(300);
+
+        // 🔥 4단계: 수직선으로 Diff 표시
+        const diff = op.signed ? (A.value - B.value) : Math.abs(A.value - B.value);
+        const yA = margins.top + y(A.value);
+        const yB = margins.top + y(B.value);
+        const minY = Math.min(yA, yB);
+        const maxY = Math.max(yA, yB);
+        const diffX = margins.left + plot.w / 2;
+        const diffColor = OP_COLORS.DIFF_LINE;
+
+        const verticalLine = svg.append("line").attr("class","annotation diff-vertical")
+            .attr("x1", diffX).attr("x2", diffX)
+            .attr("y1", minY).attr("y2", minY)
+            .attr("stroke", diffColor).attr("stroke-width", 3);
+        
+        await verticalLine.transition().duration(600).attr("y2", maxY).end();
+
+        await svg.append("text").attr("class","annotation diff-label")
+            .attr("x", diffX + 10).attr("y", (minY + maxY)/2)
+            .attr("text-anchor","start").attr("dominant-baseline","middle")
+            .attr("fill", diffColor).attr("font-weight","bold").attr("font-size", 16)
+            .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+            .text(`Diff: ${fmtNum(diff)}`).attr("opacity",0)
+            .transition().duration(400).attr("opacity",1).end();
+
+        await delay(300);
+
+        const diffDatum = new DatumValue(xField, yField, "Diff", subgroup, diff);
+        return [diffDatum];
     }
 
+    // 🔥 스택 전체 합계를 직접 계산
     const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
-    const A = resolveStackedDatum(data, op.targetA, sums);
-    const B = resolveStackedDatum(data, op.targetB, sums);
-    if (!Number.isFinite(A.value) || !Number.isFinite(B.value)) {
+    
+    const sumA = sums.get(String(op.targetA));
+    const sumB = sums.get(String(op.targetB));
+    
+    if (!Number.isFinite(sumA) || !Number.isFinite(sumB)) {
         if (semantic) {
             const v = op.signed ? semantic.value : Math.abs(semantic.value);
             return [new DatumValue(semantic.category, semantic.measure, semantic.target, semantic.group ?? null, v, semantic.id)];
@@ -840,23 +1324,22 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
         return [];
     }
 
-    const sumA = A.value, sumB = B.value;
     const diff = op.signed ? (sumA - sumB) : Math.abs(sumA - sumB);
     const diffDatum = new DatumValue(xField, yField, "Diff", null, diff);
 
     const all = g.selectAll('rect');
-    const barsA = all.filter(d => getDatumCategoryKey(d) === String(A.category));
-    const barsB = all.filter(d => getDatumCategoryKey(d) === String(B.category));
+    const barsA = all.filter(d => getDatumCategoryKey(d) === String(op.targetA));
+    const barsB = all.filter(d => getDatumCategoryKey(d) === String(op.targetB));
     const others = all.filter(d => {
         const k = getDatumCategoryKey(d);
-        return k !== String(A.category) && k !== String(B.category);
+        return k !== String(op.targetA) && k !== String(op.targetB);
     });
 
     const colorA = OP_COLORS.DIFF_A;
     const colorB = OP_COLORS.DIFF_B;
     const diffColor = OP_COLORS.DIFF_LINE;
 
-    // 🔥 정해진 색깔(노란색/파란색)로 칠하기
+    // 🔥 1단계: 막대 강조 (노란색/파란색으로 칠하기)
     await Promise.all([
         others.transition().duration(400).attr('opacity', 0.2).end(),
         barsA.transition().duration(400).attr('opacity', 1).attr('fill', colorA).end(),
@@ -865,12 +1348,32 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
 
     const y = d3.scaleLinear().domain([0, d3.max(Array.from(sums.values())) || 0]).nice().range([plot.h, 0]);
 
-    // 🔥 1단계: 각 막대 위에 값 표시
-    const annotate = (sel, total, color) => {
-        const nodes = sel.nodes(); 
-        if (!nodes.length) return [];
+    // 🔥 2단계: 각 막대 높이에 수평 점선 (전체 너비) - 동시에!
+    const yA = margins.top + y(sumA);
+    const yB = margins.top + y(sumB);
+    
+    const lineA = svg.append("line").attr("class","annotation horizontal-guide")
+        .attr("x1", margins.left).attr("y1", yA)
+        .attr("x2", margins.left).attr("y2", yA)
+        .attr("stroke", colorA).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+        .transition().duration(500).attr("x2", margins.left + plot.w).end();
+    
+    const lineB = svg.append("line").attr("class","annotation horizontal-guide")
+        .attr("x1", margins.left).attr("y1", yB)
+        .attr("x2", margins.left).attr("y2", yB)
+        .attr("stroke", colorB).attr("stroke-width", 2).attr("stroke-dasharray","5 5")
+        .transition().duration(500).attr("x2", margins.left + plot.w).end();
+    
+    await Promise.all([lineA, lineB]);
+    await delay(300);
+
+    // 🔥 3단계: 각 막대 위에 값 표시 (동시에)
+    const labelTasks = [];
+
+    const nodesA = barsA.nodes();
+    if (nodesA.length) {
         let minY = Infinity, minX = Infinity, maxX = -Infinity;
-        nodes.forEach(n => { 
+        nodesA.forEach(n => { 
             const b = n.getBBox(); 
             minY = Math.min(minY, b.y); 
             minX = Math.min(minX, b.x); 
@@ -878,38 +1381,41 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
         });
         const cx = minX + (maxX - minX)/2;
         
-        const text = g.append("text").attr("class","annotation")
-            .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
-            .attr("font-size", 14).attr("font-weight","bold").attr("fill", color)
-            .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-            .text(fmtNum(total));
+        labelTasks.push(
+            g.append("text").attr("class","annotation")
+                .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+                .attr("font-size", 14).attr("font-weight","bold").attr("fill", colorA)
+                .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                .text(fmtNum(sumA)).attr("opacity",0)
+                .transition().duration(400).attr("opacity",1).end()
+        );
+    }
+
+    const nodesB = barsB.nodes();
+    if (nodesB.length) {
+        let minY = Infinity, minX = Infinity, maxX = -Infinity;
+        nodesB.forEach(n => { 
+            const b = n.getBBox(); 
+            minY = Math.min(minY, b.y); 
+            minX = Math.min(minX, b.x); 
+            maxX = Math.max(maxX, b.x + b.width); 
+        });
+        const cx = minX + (maxX - minX)/2;
         
-        return [text];
-    };
-    
-    await Promise.all([...annotate(barsA, sumA, colorA), ...annotate(barsB, sumB, colorB)]);
+        labelTasks.push(
+            g.append("text").attr("class","annotation")
+                .attr("x", cx).attr("y", minY - 8).attr("text-anchor","middle")
+                .attr("font-size", 14).attr("font-weight","bold").attr("fill", colorB)
+                .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
+                .text(fmtNum(sumB)).attr("opacity",0)
+                .transition().duration(400).attr("opacity",1).end()
+        );
+    }
+
+    await Promise.all(labelTasks);
     await delay(300);
 
-    // 🔥 2단계: 각 막대 높이에 수평 점선 (전체 너비)
-    const yA = margins.top + y(sumA);
-    const yB = margins.top + y(sumB);
-    
-    const lineA = svg.append("line").attr("class","annotation horizontal-guide")
-        .attr("x1", margins.left).attr("y1", yA)
-        .attr("x2", margins.left).attr("y2", yA)
-        .attr("stroke", colorA).attr("stroke-width", 2).attr("stroke-dasharray","5 5");
-    
-    await lineA.transition().duration(500).attr("x2", margins.left + plot.w).end();
-    
-    const lineB = svg.append("line").attr("class","annotation horizontal-guide")
-        .attr("x1", margins.left).attr("y1", yB)
-        .attr("x2", margins.left).attr("y2", yB)
-        .attr("stroke", colorB).attr("stroke-width", 2).attr("stroke-dasharray","5 5");
-    
-    await lineB.transition().duration(500).attr("x2", margins.left + plot.w).end();
-    await delay(300);
-
-    // 🔥 3단계: 두 수평선 사이를 연결하는 수직선 (중간)
+    // 🔥 4단계: 두 수평선 사이를 연결하는 수직선 (중간)
     const minY = Math.min(yA, yB);
     const maxY = Math.max(yA, yB);
     const diffX = margins.left + plot.w / 2; // 중간
@@ -921,98 +1427,331 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
     
     await verticalLine.transition().duration(600).attr("y2", maxY).end();
 
-    // 🔥 4단계: 수직선 옆에 Diff 값
-    const diffText = svg.append("text").attr("class","annotation diff-label")
+    // 🔥 5단계: 수직선 옆에 Diff 값
+    await svg.append("text").attr("class","annotation diff-label")
         .attr("x", diffX + 10).attr("y", (minY + maxY)/2)
-        .attr("text-anchor","start")
-        .attr("dominant-baseline","middle").attr("fill", diffColor)
-        .attr("font-weight","bold").attr("font-size", 16)
+        .attr("text-anchor","start").attr("dominant-baseline","middle")
+        .attr("fill", diffColor).attr("font-weight","bold").attr("font-size", 16)
         .attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke")
-        .text(`Diff: ${fmtNum(diff)}`);
+        .text(`Diff: ${fmtNum(diff)}`).attr("opacity",0)
+        .transition().duration(400).attr("opacity",1).end();
 
     await delay(300);
     return [diffDatum];
 }
 
 export async function stackedBarNth(chartId, op, data, isLast = false) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, xField, yField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
+
+    // 🔥 서수 변환 함수
+    const getOrdinal = (n) => {
+        const s = ['th', 'st', 'nd', 'rd'];
+        const v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    };
 
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
         if (!subset.length) return [];
         await stackedBarToSimpleBar(chartId, subset);
-        const op2 = { ...op }; delete op2.group;
-        return await simpleBarNth(chartId, op2, subset, isLast);
+
+        // 🔥 group이 있을 때도 동일한 애니메이션
+        const nValues = Array.isArray(op.n) ? op.n : [op.n];
+        const from = String(op?.from || 'left').toLowerCase();
+        const color = OP_COLORS.NTH;
+
+        const all = g.selectAll('rect');
+        const cats = [...new Set(subset.map(d => String(d.target)))];
+        const seq = from === 'right' ? cats.slice().reverse() : cats;
+
+        // 모든 막대 흐리게
+        await all.transition().duration(250).attr("opacity", 0.2).end();
+
+        const maxVal = d3.max(subset, d => +d.value) || 0;
+        const y = d3.scaleLinear().domain([0, maxVal]).nice().range([plot.h, 0]);
+
+        // 🔥 1단계: 카운팅 애니메이션
+        const countedBars = [];
+        const maxN = Math.max(...nValues);
+        const countLimit = Math.min(maxN, cats.length);
+
+        for (let i = 0; i < countLimit; i++) {
+            const c = seq[i];
+            const sel = all.filter(d => String(d.target) === c);
+            const targetData = subset.find(d => String(d.target) === c);
+            countedBars.push({ index: i + 1, category: c, selection: sel, value: targetData?.value || 0 });
+            
+            await sel.transition().duration(150).attr('opacity', 1).end();
+
+            const nodes = sel.nodes();
+            if (nodes.length) {
+                const bb = nodes[0].getBBox();
+                const cx = bb.x + bb.width / 2;
+                
+                await g.append('text').attr('class', 'annotation count-label')
+                    .attr('x', cx).attr('y', bb.y - 8).attr('text-anchor', 'middle')
+                    .attr('font-size', 14).attr('font-weight', 'bold').attr('fill', color)
+                    .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
+                    .text(String(i + 1)).attr('opacity', 0)
+                    .transition().duration(150).attr('opacity', 1).end();
+            }
+            
+            await delay(100);
+        }
+
+        // 🔥 2단계: 선택되지 않은 것들 페이드아웃
+        const selectedIndices = new Set(nValues.filter(n => n <= countLimit));
+        const finals = [];
+        
+        countedBars.forEach((item) => {
+            if (!selectedIndices.has(item.index)) {
+                finals.push(item.selection.transition().duration(300).attr('opacity', 0.2).end());
+            }
+        });
+        finals.push(g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end());
+        await Promise.all(finals);
+
+        // 🔥 3단계: 선택된 것들 강조 + 수평선 + 값 표시 (동시에)
+        const highlightTasks = [];
+        const lineTasks = [];
+        const labelTasks = [];
+
+        nValues.forEach(n => {
+            if (n > countLimit) return;
+            
+            const item = countedBars.find(cb => cb.index === n);
+            if (!item) return;
+
+            // 강조
+            highlightTasks.push(
+                item.selection.transition().duration(400).attr('opacity', 1).end()
+            );
+
+            // 수평선
+            const yPos = margins.top + y(item.value);
+            
+            lineTasks.push(
+                svg.append('line').attr('class', 'annotation nth-line')
+                    .attr('x1', margins.left).attr('y1', yPos)
+                    .attr('x2', margins.left).attr('y2', yPos)
+                    .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
+                    .transition().duration(500).attr('x2', margins.left + plot.w).end()
+            );
+
+            // 값 표시 (서수 + 값)
+            const nodes = item.selection.nodes();
+            if (nodes.length) {
+                const bb = nodes[0].getBBox();
+                const cx = bb.x + bb.width / 2;
+                
+                // 🔥 서수 배경
+                const ordinalText = getOrdinal(n);
+                labelTasks.push(
+                    g.append('rect').attr('class', 'annotation label-bg')
+                        .attr('x', cx - 15).attr('y', bb.y - 30)
+                        .attr('width', 30).attr('height', 14)
+                        .attr('fill', 'white').attr('rx', 3)
+                        .attr('opacity', 0)
+                        .transition().duration(400).attr('opacity', 0.9).end()
+                );
+                
+                // 서수 표시 (위쪽)
+                labelTasks.push(
+                    g.append('text').attr('class', 'annotation value-tag')
+                        .attr('x', cx).attr('y', bb.y - 20).attr('text-anchor', 'middle')
+                        .attr('font-size', 11).attr('font-weight', 'bold').attr('fill', color)
+                        .text(ordinalText).attr('opacity', 0)
+                        .transition().duration(400).attr('opacity', 1).end()
+                );
+                
+                // 🔥 값 배경
+                const valueText = fmtNum(item.value);
+                const valueWidth = Math.max(30, valueText.length * 7);
+                labelTasks.push(
+                    g.append('rect').attr('class', 'annotation label-bg')
+                        .attr('x', cx - valueWidth/2).attr('y', bb.y - 16)
+                        .attr('width', valueWidth).attr('height', 14)
+                        .attr('fill', 'white').attr('rx', 3)
+                        .attr('opacity', 0)
+                        .transition().duration(400).attr('opacity', 0.9).end()
+                );
+                
+                // 값 표시 (아래쪽)
+                labelTasks.push(
+                    g.append('text').attr('class', 'annotation value-tag')
+                        .attr('x', cx).attr('y', bb.y - 6).attr('text-anchor', 'middle')
+                        .attr('font-size', 12).attr('font-weight', 'bold').attr('fill', color)
+                        .text(valueText).attr('opacity', 0)
+                        .transition().duration(400).attr('opacity', 1).end()
+                );
+            }
+        });
+
+        await Promise.all([...highlightTasks]);
+        await Promise.all([...lineTasks]);
+        await Promise.all([...labelTasks]);
+
+        const nthOp = { ...op };
+        delete nthOp.group;
+        const result = dataNth(subset, nthOp);
+        return result || [];
     }
 
-    const nthOp = { ...op, groupBy: 'target' };
-    const result = dataNth(data, nthOp);
-    if (!result || !result.length) return [];
-
-    let n = Number(op?.n ?? 1);
+    // 🔥 n을 배열로 처리 (단일 값이면 배열로 변환)
+    const nValues = Array.isArray(op.n) ? op.n : [op.n];
     const from = String(op?.from || 'left').toLowerCase();
     const color = OP_COLORS.NTH;
 
     const all = g.selectAll('rect');
     const cats = [...new Set(data.map(d => d.target))];
     const seq = from === 'right' ? cats.slice().reverse() : cats;
-    n = Math.min(n, cats.length);
 
+    // 모든 막대 흐리게
     await all.transition().duration(250).attr("opacity", 0.2).end();
-
-    const counted = [];
-    for (let i=0;i<n;i++){
-        const c = seq[i];
-        const sel = all.filter(d => getDatumCategoryKey(d) === c);
-        counted.push(sel);
-        await sel.transition().duration(120).attr('opacity', 1).end();
-
-        const nodes = sel.nodes(); if (nodes.length){
-            let minY=Infinity,minX=Infinity,maxX=-Infinity;
-            nodes.forEach(nod => { const b = nod.getBBox(); minY = Math.min(minY,b.y); minX = Math.min(minX,b.x); maxX = Math.max(maxX,b.x+b.width); });
-            const cx = minX + (maxX-minX)/2;
-            await g.append('text').attr('class','annotation count-label')
-                .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
-                .attr('font-size', 12).attr('font-weight','bold').attr('fill', color)
-                .attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
-                .text(String(i+1)).attr('opacity',0).transition().duration(120).attr('opacity',1).end();
-        }
-        await delay(60);
-    }
-
-    const finals = [];
-    counted.forEach((sel,i)=>{ if (i<n-1) finals.push(sel.transition().duration(250).attr('opacity',0.2).end()); });
-    finals.push(g.selectAll('.count-label').transition().duration(250).attr('opacity',0).remove().end());
-    await Promise.all(finals);
-
-    const targetCat = seq[n-1];
-    const targetData = data.filter(d => d.target === targetCat);
-    const sum = d3.sum(targetData, d => d.value);
 
     const sums = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
     const y = d3.scaleLinear().domain([0, d3.max(sums.values()) || 0]).nice().range([plot.h, 0]);
-    const yPos = margins.top + y(sum);
 
-    await svg.append('line').attr('class','annotation')
-        .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
-        .attr('x1', margins.left).attr('y1', yPos).attr('x2', margins.left).attr('y2', yPos)
-        .transition().duration(500).attr('x2', margins.left + plot.w).end();
+    // 🔥 1단계: 카운팅 애니메이션 (템포 느리게)
+    const countedStacks = [];
+    const maxN = Math.max(...nValues);
+    const countLimit = Math.min(maxN, cats.length);
 
-    const nodes = counted[n-1].nodes();
-    if (nodes.length){
-        let minY=Infinity,minX=Infinity,maxX=-Infinity;
-        nodes.forEach(nd=>{ const b = nd.getBBox(); minY = Math.min(minY,b.y); minX = Math.min(minX,b.x); maxX = Math.max(maxX,b.x+b.width); });
-        const cx = minX + (maxX-minX)/2;
-        await g.append('text').attr('class','annotation value-tag')
-            .attr('x', cx).attr('y', minY - 8).attr('text-anchor','middle')
-            .attr('font-size', 12).attr('font-weight','bold').attr('fill', color)
-            .attr('stroke','white').attr('stroke-width',3).attr('paint-order','stroke')
-            .text(fmtNum(sum)).attr('opacity',0).transition().duration(250).attr('opacity',1).end();
+    for (let i = 0; i < countLimit; i++) {
+        const c = seq[i];
+        const sel = all.filter(d => getDatumCategoryKey(d) === c);
+        countedStacks.push({ index: i + 1, category: c, selection: sel });
+        
+        await sel.transition().duration(150).attr('opacity', 1).end();
+
+        const nodes = sel.nodes();
+        if (nodes.length) {
+            let minY = Infinity, minX = Infinity, maxX = -Infinity;
+            nodes.forEach(nod => {
+                const b = nod.getBBox();
+                minY = Math.min(minY, b.y);
+                minX = Math.min(minX, b.x);
+                maxX = Math.max(maxX, b.x + b.width);
+            });
+            const cx = minX + (maxX - minX) / 2;
+            
+            await g.append('text').attr('class', 'annotation count-label')
+                .attr('x', cx).attr('y', minY - 8).attr('text-anchor', 'middle')
+                .attr('font-size', 14).attr('font-weight', 'bold').attr('fill', color)
+                .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
+                .text(String(i + 1)).attr('opacity', 0)
+                .transition().duration(100).attr('opacity', 1).end();
+        }
+        
+        await delay(100);
     }
 
-    return result;
+    // 🔥 2단계: 선택되지 않은 것들 페이드아웃
+    const selectedIndices = new Set(nValues.filter(n => n <= countLimit));
+    const finals = [];
+    
+    countedStacks.forEach((item) => {
+        if (!selectedIndices.has(item.index)) {
+            finals.push(item.selection.transition().duration(300).attr('opacity', 0.2).end());
+        }
+    });
+    finals.push(g.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end());
+    await Promise.all(finals);
+
+    // 🔥 3단계: 선택된 것들 강조 + 수평선 + 값 표시 (동시에)
+    const highlightTasks = [];
+    const lineTasks = [];
+    const labelTasks = [];
+
+    nValues.forEach(n => {
+        if (n > countLimit) return;
+        
+        const item = countedStacks.find(cs => cs.index === n);
+        if (!item) return;
+
+        // 강조
+        highlightTasks.push(
+            item.selection.transition().duration(400).attr('opacity', 1).end()
+        );
+
+        // 수평선
+        const targetData = data.filter(d => d.target === item.category);
+        const sum = d3.sum(targetData, d => d.value);
+        const yPos = margins.top + y(sum);
+        
+        lineTasks.push(
+            svg.append('line').attr('class', 'annotation nth-line')
+                .attr('x1', margins.left).attr('y1', yPos)
+                .attr('x2', margins.left).attr('y2', yPos)
+                .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
+                .transition().duration(500).attr('x2', margins.left + plot.w).end()
+        );
+
+        // 값 표시 (서수 + 값)
+        const nodes = item.selection.nodes();
+        if (nodes.length) {
+            let minY = Infinity, minX = Infinity, maxX = -Infinity;
+            nodes.forEach(nd => {
+                const b = nd.getBBox();
+                minY = Math.min(minY, b.y);
+                minX = Math.min(minX, b.x);
+                maxX = Math.max(maxX, b.x + b.width);
+            });
+            const cx = minX + (maxX - minX) / 2;
+            
+            // 🔥 서수 배경
+            const ordinalText = getOrdinal(n);
+            labelTasks.push(
+                g.append('rect').attr('class', 'annotation label-bg')
+                    .attr('x', cx - 15).attr('y', minY - 30)
+                    .attr('width', 30).attr('height', 14)
+                    .attr('fill', 'white').attr('rx', 3)
+                    .attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 0.9).end()
+            );
+            
+            // 서수 표시 (위쪽)
+            labelTasks.push(
+                g.append('text').attr('class', 'annotation value-tag')
+                    .attr('x', cx).attr('y', minY - 20).attr('text-anchor', 'middle')
+                    .attr('font-size', 11).attr('font-weight', 'bold').attr('fill', color)
+                    .text(ordinalText).attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 1).end()
+            );
+            
+            // 🔥 값 배경
+            const valueText = fmtNum(sum);
+            const valueWidth = Math.max(30, valueText.length * 7);
+            labelTasks.push(
+                g.append('rect').attr('class', 'annotation label-bg')
+                    .attr('x', cx - valueWidth/2).attr('y', minY - 16)
+                    .attr('width', valueWidth).attr('height', 14)
+                    .attr('fill', 'white').attr('rx', 3)
+                    .attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 0.9).end()
+            );
+            
+            // 값 표시 (아래쪽)
+            labelTasks.push(
+                g.append('text').attr('class', 'annotation value-tag')
+                    .attr('x', cx).attr('y', minY - 6).attr('text-anchor', 'middle')
+                    .attr('font-size', 12).attr('font-weight', 'bold').attr('fill', color)
+                    .text(valueText).attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 1).end()
+            );
+        }
+    });
+
+    await Promise.all([...highlightTasks]);
+    await Promise.all([...lineTasks]);
+    await Promise.all([...labelTasks]);
+
+    // 결과 반환
+    const nthOp = { ...op, groupBy: 'target' };
+    const result = dataNth(data, nthOp);
+    return result || [];
 }
 
 export async function stackedBarCount(chartId, op, data, isLast = false) {
