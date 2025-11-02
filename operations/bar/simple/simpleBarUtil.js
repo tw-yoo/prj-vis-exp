@@ -159,7 +159,7 @@ async function fullChartReset(chartId) {
 }
 
 export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
-
+await renderSimpleBarChart(chartId, vlSpec);
     const raw = chartDataStore[chartId] || [];
 
     const { orientation, xField, yField } = getSvgAndSetup(chartId);

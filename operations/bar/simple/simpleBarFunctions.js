@@ -591,10 +591,10 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const animationPromises = [];
 
     animationPromises.push(
-        await barA.transition().duration(600).attr("fill", colorA).end()
+        barA.transition().duration(600).attr("fill", colorA).end()
     );
     animationPromises.push(
-        await barB.transition().duration(600).attr("fill", colorB).end()
+        barB.transition().duration(600).attr("fill", colorB).end()
     );
 
     let xScale, yScale;
@@ -612,23 +612,28 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         { bar: barA, key: keyA, value: valueA, color: colorA },
         { bar: barB, key: keyB, value: valueB, color: colorB }
     ];
-    const diffValue = (Number.isFinite(valueA) && Number.isFinite(valueB)) ? Math.abs(valueA - valueB) : null;
 
     targets.forEach(t => {
         if (!Number.isFinite(t.value)) return;
 
         if (orientation === "vertical") {
             const yPos = margins.top + yScale(t.value);
-            svg.append("line").attr("class", "annotation")
+            const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", margins.left).attr("y1", yPos)
-                .attr("x2", margins.left + plot.w).attr("y2", yPos)
+                .attr("x2", margins.left).attr("y2", yPos)
                 .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            animationPromises.push(
+                line.transition().duration(400).attr("x2", margins.left + plot.w).end()
+            );
         } else {
             const xPos = margins.left + xScale(t.value);
-            svg.append("line").attr("class", "annotation")
+            const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", xPos).attr("y1", margins.top)
-                .attr("x2", xPos).attr("y2", margins.top + plot.h)
+                .attr("x2", xPos).attr("y2", margins.top)
                 .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            animationPromises.push(
+                line.transition().duration(400).attr("y2", margins.top + plot.h).end()
+            );
         }
 
         const { x, y } = getCenter(t.bar.node(), orientation, margins);
@@ -639,78 +644,6 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
             .text(t.value);
     });
-
-    if (orientation === "vertical" && Number.isFinite(diffValue)) {
-        const yA = margins.top + yScale(valueA);
-        const yB = margins.top + yScale(valueB);
-        if (Number.isFinite(yA) && Number.isFinite(yB)) {
-            const minY = Math.min(yA, yB);
-            const maxY = Math.max(yA, yB);
-            const diffX = margins.left + plot.w - 8;
-            const bridge = svg.append("line").attr("class", "annotation diff-line")
-                .attr("x1", diffX).attr("x2", diffX)
-                .attr("y1", minY).attr("y2", minY)
-                .attr("stroke", OP_COLORS.DIFF_LINE)
-                .attr("stroke-width", 2)
-                .attr("stroke-dasharray", "5 5");
-            animationPromises.push(
-                bridge.transition().duration(400).attr("y2", maxY).end()
-            );
-
-            const labelY = (minY + maxY) / 2;
-            const diffLabel = svg.append("text").attr("class", "annotation diff-label")
-                .attr("x", diffX - 6)
-                .attr("y", labelY)
-                .attr("text-anchor", "end")
-                .attr("font-size", 12)
-                .attr("font-weight", "bold")
-                .attr("fill", OP_COLORS.DIFF_LINE)
-                .attr("stroke", "white")
-                .attr("stroke-width", 3)
-                .attr("paint-order", "stroke")
-                .text(`Diff: ${diffValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
-                .attr("opacity", 0);
-            animationPromises.push(
-                diffLabel.transition().duration(400).attr("opacity", 1).end()
-            );
-        }
-    }
-
-    if (orientation === "horizontal" && Number.isFinite(diffValue)) {
-        const xA = margins.left + xScale(valueA);
-        const xB = margins.left + xScale(valueB);
-        if (Number.isFinite(xA) && Number.isFinite(xB)) {
-            const minX = Math.min(xA, xB);
-            const maxX = Math.max(xA, xB);
-            const diffY = margins.top + plot.h - 8;
-            const bridge = svg.append("line").attr("class", "annotation diff-line")
-                .attr("x1", minX).attr("x2", minX)
-                .attr("y1", diffY).attr("y2", diffY)
-                .attr("stroke", OP_COLORS.DIFF_LINE)
-                .attr("stroke-width", 2)
-                .attr("stroke-dasharray", "5 5");
-            animationPromises.push(
-                bridge.transition().duration(400).attr("x2", maxX).end()
-            );
-
-            const labelX = (minX + maxX) / 2;
-            const diffLabel = svg.append("text").attr("class", "annotation diff-label")
-                .attr("x", labelX)
-                .attr("y", diffY + 16)
-                .attr("text-anchor", "middle")
-                .attr("font-size", 12)
-                .attr("font-weight", "bold")
-                .attr("fill", OP_COLORS.DIFF_LINE)
-                .attr("stroke", "white")
-                .attr("stroke-width", 3)
-                .attr("paint-order", "stroke")
-                .text(`Diff: ${diffValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
-                .attr("opacity", 0);
-            animationPromises.push(
-                diffLabel.transition().duration(400).attr("opacity", 1).end()
-            );
-        }
-    }
 
     await Promise.all(animationPromises).catch(() => {});
     await delay(30);
@@ -753,10 +686,8 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     const valueA = getMarkValue(barA.node());
     const valueB = getMarkValue(barB.node());
 
-    const isTrue = verdict ? !!verdict.bool : null;
-
-    const colorA = isTrue ? OP_COLORS.TRUE : OP_COLORS.FALSE;
-    const colorB = colorA;
+    const colorA = OP_COLORS.COMPARE_A;
+    const colorB = OP_COLORS.COMPARE_B;
     const animationPromises = [];
 
     animationPromises.push(
@@ -787,16 +718,22 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
 
         if (orientation === "vertical") {
             const yPos = margins.top + yScale(t.value);
-            svg.append("line").attr("class", "annotation")
+            const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", margins.left).attr("y1", yPos)
-                .attr("x2", margins.left + plot.w).attr("y2", yPos)
+                .attr("x2", margins.left).attr("y2", yPos)
                 .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            animationPromises.push(
+                line.transition().duration(400).attr("x2", margins.left + plot.w).end()
+            );
         } else {
             const xPos = margins.left + xScale(t.value);
-            svg.append("line").attr("class", "annotation")
+            const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", xPos).attr("y1", margins.top)
-                .attr("x2", xPos).attr("y2", margins.top + plot.h)
+                .attr("x2", xPos).attr("y2", margins.top)
                 .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            animationPromises.push(
+                line.transition().duration(400).attr("y2", margins.top + plot.h).end()
+            );
         }
 
         const { x, y } = getCenter(t.bar.node(), orientation, margins);
@@ -1220,6 +1157,13 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
+    // 🔥 서수 변환 함수
+    const getOrdinal = (n) => {
+        const s = ['th', 'st', 'nd', 'rd'];
+        const v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    };
+
     const resultArray = dataNth(data, op, xField, yField, isLast);
 
     if (!resultArray || resultArray.length === 0) {
@@ -1228,60 +1172,175 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
         return [];
     }
 
-    const selected = resultArray[0];
-    const pickedId = String(selected.target);
-    const hlColor = OP_COLORS.NTH;
+    // 🔥 n을 배열로 처리 (단일 값이면 배열로 변환)
+    const nValues = Array.isArray(op.n) ? op.n : [op.n];
+    const from = String(op?.from || 'left').toLowerCase();
+    const color = OP_COLORS.NTH;
 
-    const targetBar = selectBarByKey(g, pickedId);
+    const all = g.selectAll('rect');
+    const cats = data.map(d => String(d.target));
+    const seq = from === 'right' ? cats.slice().reverse() : cats;
 
-    if (targetBar.empty()) {
-        console.warn(`simpleBarNth: Target bar with id "${pickedId}" not found in the chart.`);
-        signalOpDone(chartId, 'nth');
-        return resultArray;
-    }
-
-    await targetBar.transition().duration(600).attr('fill', hlColor).end();
+    // 모든 막대 흐리게
+    await all.transition().duration(250).attr("opacity", 0.2).end();
 
     let xScale, yScale;
     if (orientation === 'vertical') {
         xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
         const yMax = d3.max(data, d => +d.value) || 0;
         yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-
-        const yPos = margins.top + yScale(selected.value);
-        svg.append('line').attr('class', 'annotation')
-            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4')
-            .attr('x1', margins.left).attr('y1', yPos)
-            .attr('x2', margins.left).attr('y2', yPos)
-            .transition().duration(500)
-            .attr('x2', margins.left + xScale(selected.target) + xScale.bandwidth() / 2);
-
     } else {
         const xMax = d3.max(data, d => +d.value) || 0;
         xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
-
-        const xPos = margins.left + xScale(selected.value);
-        svg.append('line').attr('class', 'annotation')
-            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '4,4')
-            .attr('x1', xPos).attr('y1', margins.top + plot.h)
-            .attr('x2', xPos).attr('y2', margins.top + plot.h)
-            .transition().duration(500)
-            .attr('y2', margins.top + yScale(selected.target) + yScale.bandwidth() / 2);
     }
 
-    const val = getMarkValue(targetBar.node());
-    const { x, y } = getCenter(targetBar.node(), orientation, margins);
+    // 🔥 1단계: 카운팅 애니메이션
+    const countedBars = [];
+    const maxN = Math.max(...nValues);
+    const countLimit = Math.min(maxN, cats.length);
 
-    svg.append('text').attr('class', 'annotation')
-        .attr('x', x).attr('y', y).attr('text-anchor', 'middle')
-        .attr('font-size', 12).attr('fill', hlColor)
-        .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
-        .text(String(val));
+    for (let i = 0; i < countLimit; i++) {
+        const c = seq[i];
+        const sel = all.filter(function() { return getBarKeyFromNode(this) === c; });
+        const targetData = data.find(d => String(d.target) === c);
+        countedBars.push({ 
+            index: i + 1, 
+            category: c, 
+            selection: sel, 
+            value: targetData?.value || 0 
+        });
+        
+        await sel.transition().duration(150).attr('opacity', 1).end();
+
+        const nodes = sel.nodes();
+        if (nodes.length) {
+            const bar = nodes[0];
+            const { x, y } = getCenter(bar, orientation, margins);
+            
+            await svg.append('text').attr('class', 'annotation count-label')
+                .attr('x', x)
+                .attr('y', y)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', 14)
+                .attr('font-weight', 'bold')
+                .attr('fill', color)
+                .attr('stroke', 'white')
+                .attr('stroke-width', 3)
+                .attr('paint-order', 'stroke')
+                .text(String(i + 1))
+                .attr('opacity', 0)
+                .transition().duration(150).attr('opacity', 1).end();
+        }
+        
+        await delay(100);
+    }
+
+    // 🔥 2단계: 선택되지 않은 것들 페이드아웃
+    const selectedIndices = new Set(nValues.filter(n => n <= countLimit));
+    const finals = [];
+    
+    countedBars.forEach((item) => {
+        if (!selectedIndices.has(item.index)) {
+            finals.push(item.selection.transition().duration(300).attr('opacity', 0.2).end());
+        }
+    });
+    finals.push(svg.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end());
+    await Promise.all(finals);
+
+    // 🔥 3단계: 선택된 것들 강조 + 수평선 + 값 표시 (동시에)
+    const highlightTasks = [];
+    const lineTasks = [];
+    const labelTasks = [];
+
+    nValues.forEach(n => {
+        if (n > countLimit) return;
+        
+        const item = countedBars.find(cb => cb.index === n);
+        if (!item) return;
+
+        // 강조
+        highlightTasks.push(
+            item.selection.transition().duration(400).attr('fill', color).attr('opacity', 1).end()
+        );
+
+        // 수평선
+        if (orientation === 'vertical') {
+            const yPos = margins.top + yScale(item.value);
+            lineTasks.push(
+                svg.append('line').attr('class', 'annotation nth-line')
+                    .attr('x1', margins.left).attr('y1', yPos)
+                    .attr('x2', margins.left).attr('y2', yPos)
+                    .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
+                    .transition().duration(500).attr('x2', margins.left + plot.w).end()
+            );
+        } else {
+            const xPos = margins.left + xScale(item.value);
+            lineTasks.push(
+                svg.append('line').attr('class', 'annotation nth-line')
+                    .attr('x1', xPos).attr('y1', margins.top)
+                    .attr('x2', xPos).attr('y2', margins.top)
+                    .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
+                    .transition().duration(500).attr('y2', margins.top + plot.h).end()
+            );
+        }
+
+        // 값 표시 (서수 + 값)
+        const nodes = item.selection.nodes();
+        if (nodes.length) {
+            const bar = nodes[0];
+            const { x, y } = getCenter(bar, orientation, margins);
+            
+            // 🔥 서수 배경
+            const ordinalText = getOrdinal(n);
+            labelTasks.push(
+                svg.append('rect').attr('class', 'annotation label-bg')
+                    .attr('x', x - 15).attr('y', y - 25)
+                    .attr('width', 30).attr('height', 14)
+                    .attr('fill', 'white').attr('rx', 3)
+                    .attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 0.9).end()
+            );
+            
+            // 서수 표시 (위쪽)
+            labelTasks.push(
+                svg.append('text').attr('class', 'annotation value-tag')
+                    .attr('x', x).attr('y', y - 15).attr('text-anchor', 'middle')
+                    .attr('font-size', 11).attr('font-weight', 'bold').attr('fill', color)
+                    .text(ordinalText).attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 1).end()
+            );
+            
+            // 🔥 값 배경
+            const valueText = fmtNum(item.value);
+            const valueWidth = Math.max(30, valueText.length * 7);
+            labelTasks.push(
+                svg.append('rect').attr('class', 'annotation label-bg')
+                    .attr('x', x - valueWidth/2).attr('y', y - 11)
+                    .attr('width', valueWidth).attr('height', 14)
+                    .attr('fill', 'white').attr('rx', 3)
+                    .attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 0.9).end()
+            );
+            
+            // 값 표시 (아래쪽)
+            labelTasks.push(
+                svg.append('text').attr('class', 'annotation value-tag')
+                    .attr('x', x).attr('y', y - 1).attr('text-anchor', 'middle')
+                    .attr('font-size', 12).attr('font-weight', 'bold').attr('fill', color)
+                    .text(valueText).attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 1).end()
+            );
+        }
+    });
+
+    await Promise.all([...highlightTasks]);
+    await Promise.all([...lineTasks]);
+    await Promise.all([...labelTasks]);
 
     await delay(30);
     signalOpDone(chartId, 'nth');
-    return isLast ? [selected] : resultArray;
+    return isLast ? [resultArray[0]] : resultArray;
 }
 
 export async function simpleBarCount(chartId, op, data, isLast = false) {
