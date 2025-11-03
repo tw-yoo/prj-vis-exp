@@ -1,4 +1,4 @@
-const CONFIG_URL = '../config.json';
+const CONFIG_URL = '/config.json';
 const FIRESTORE_HOST = 'https://firestore.googleapis.com/v1';
 
 let cachedSettings = null;
@@ -124,14 +124,32 @@ async function patchDocument(pathSegments, fields) {
     await requestFirestore(pathSegments, { method: 'PATCH', body });
 }
 
-async function listCollectionIds(pathSegments) {
-    const res = await requestFirestore(pathSegments, {
-        method: 'POST',
-        isCollectionIds: true,
-        body: { pageSize: 200 }
+// Client apps must NOT call Firestore's :listCollectionIds (admin/IAM-only).
+// Keep a stub to avoid accidental use.
+async function listCollectionIds() {
+  return [];
+}
+
+export async function recordPreRegistration(payload = {}) {
+    if (!payload || typeof payload.email !== 'string' || !payload.email.trim()) {
+        throw new Error('Email is required for pre-registration');
+    }
+    const normalizedEmail = payload.email.trim().toLowerCase();
+    const docId = normalizedEmail.replace(/[^a-z0-9]/gi, '_');
+    const path = ['pre-registration', docId];
+    const existing = await getDocument(path);
+    const fields = {
+        email: normalizedEmail,
+        updatedAt: new Date()
+    };
+    Object.entries(payload).forEach(([key, value]) => {
+        if (key === 'email') return;
+        fields[key] = value;
     });
-    if (!res) return [];
-    return Array.isArray(res.collectionIds) ? res.collectionIds : [];
+    if (!existing) {
+        fields.createdAt = new Date();
+    }
+    await patchDocument(path, fields);
 }
 
 export async function validateSurveyCode(code) {
@@ -154,46 +172,75 @@ export async function ensureSurveyDocument(code) {
 }
 
 export async function saveSurveyResponse(code, questionKey, value) {
-    const payload = {
-        value: value == null ? '' : String(value),
-        updatedAt: new Date()
-    };
-    await patchDocument(['survey', code, questionKey, 'response'], payload);
+  // keep legacy per-question write (backward compatibility)
+  const payload = {
+    value: value == null ? '' : String(value),
+    updatedAt: new Date()
+  };
+  await patchDocument(['survey', code, questionKey, 'response'], payload);
+
+  // update aggregate state snapshot to avoid collection enumeration
+  const statePath = ['survey', code, 'state', 'snapshot'];
+  const existing = await getDocument(statePath);
+  const prev = (existing && existing.fields) ? existing.fields : {};
+
+  const merged = {
+    ...prev,
+    responses: {
+      ...(prev.responses || {}),
+      [questionKey]: value == null ? '' : String(value)
+    },
+    updatedAt: new Date()
+  };
+
+  await patchDocument(statePath, merged);
 }
 
 export async function saveSurveyTiming(code, pageKey, seconds, extra = {}) {
-    const payload = {
-        seconds: Number.isFinite(seconds) ? Number(seconds) : 0,
-        updatedAt: new Date(),
-        ...extra
+  // keep legacy per-page timing write
+  const answerEntries = (extra && typeof extra.answers === 'object' && extra.answers !== null)
+    ? Object.entries(extra.answers).slice(0, 200)
+    : [];
+  const hasAnswers = answerEntries.length > 0;
+  const answers = hasAnswers ? Object.fromEntries(answerEntries) : null;
+  const payload = {
+    seconds: Number.isFinite(seconds) ? Number(seconds) : 0,
+    updatedAt: new Date()
+  };
+  if (hasAnswers) {
+    payload.answers = answers;
+  }
+  await patchDocument(['survey', code, pageKey, 'time'], payload);
+
+  // update aggregate state snapshot
+  const statePath = ['survey', code, 'state', 'snapshot'];
+  const existing = await getDocument(statePath);
+  const prev = (existing && existing.fields) ? existing.fields : {};
+
+  const merged = {
+    ...prev,
+    timings: {
+      ...(prev.timings || {}),
+      [pageKey]: Number.isFinite(seconds) ? Number(seconds) : 0
+    },
+    updatedAt: new Date()
+  };
+  if (hasAnswers) {
+    merged.pageAnswers = {
+      ...(prev.pageAnswers || {}),
+      [pageKey]: answers
     };
-    await patchDocument(['survey', code, pageKey, 'time'], payload);
+  }
+
+  await patchDocument(statePath, merged);
 }
 
 export async function fetchSurveyState(code) {
-    const exists = await getDocument(['survey', code]);
-    if (!exists) return { responses: {}, timings: {}, pageAnswers: {} };
-    const collections = await listCollectionIds(['survey', code]);
-    const responses = {};
-    const timings = {};
-    const pageAnswers = {};
-
-    for (const col of collections) {
-        const responseDoc = await getDocument(['survey', code, col, 'response']);
-        if (responseDoc && responseDoc.fields && typeof responseDoc.fields.value !== 'undefined') {
-            responses[col] = responseDoc.fields.value;
-            continue;
-        }
-        const timeDoc = await getDocument(['survey', code, col, 'time']);
-        if (timeDoc && timeDoc.fields) {
-            if (typeof timeDoc.fields.seconds !== 'undefined') {
-                timings[col] = Number(timeDoc.fields.seconds) || 0;
-            }
-            if (timeDoc.fields.answers && typeof timeDoc.fields.answers === 'object') {
-                pageAnswers[col] = timeDoc.fields.answers;
-            }
-        }
-    }
-
-    return { responses, timings, pageAnswers };
+  const stateDoc = await getDocument(['survey', code, 'state', 'snapshot']);
+  const fields = stateDoc && stateDoc.fields ? stateDoc.fields : {};
+  return {
+    responses: fields.responses || {},
+    timings: fields.timings || {},
+    pageAnswers: fields.pageAnswers || {}
+  };
 }

@@ -74,6 +74,36 @@ function nextChartDomId(baseId) {
     return `chart-${baseId}-${next}`;
 }
 
+async function fetchSpecFromPath(path) {
+    try {
+        const res = await fetch(path, { cache: 'no-store' });
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        const spec = await res.json();
+        Object.defineProperty(spec, '__resolvedFrom', {
+            value: path,
+            configurable: true,
+            enumerable: false
+        });
+        return spec;
+    } catch (err) {
+        console.error(`Failed to load chart spec from ${path}`, err);
+        throw err;
+    }
+}
+
+function normalizeDataUrl(url) {
+    if (typeof url !== 'string') return url;
+    if (url.startsWith('../') || url.startsWith('./') || url.startsWith('/')) {
+        return url;
+    }
+    if (/^[a-z][a-z0-9+\-.]*:/i.test(url)) {
+        return url;
+    }
+    return `../${url}`;
+}
+
 export async function createChart(cId, host = null) {
     const chartDomId = nextChartDomId(cId);
 
@@ -92,8 +122,30 @@ export async function createChart(cId, host = null) {
     // Insert chart div
     container.appendChild(chartDiv);
 
-    const vegaLiteSpec = await getVegaLiteSpec(cId);
-    vegaLiteSpec.data.url = "../" + vegaLiteSpec.data.url;
+    const explicitSpecPath = (container.getAttribute('data-spec-path') || container.dataset.specPath || '').trim();
+    let vegaLiteSpec = null;
+    try {
+        if (explicitSpecPath) {
+            vegaLiteSpec = await fetchSpecFromPath(explicitSpecPath);
+        } else {
+            vegaLiteSpec = await getVegaLiteSpec(cId);
+        }
+    } catch (err) {
+        chartDiv.innerHTML = `<div class="error">Failed to load chart specification.</div>`;
+        return;
+    }
+
+    if (!vegaLiteSpec) {
+        chartDiv.innerHTML = '<div class="error">Chart specification is empty.</div>';
+        return;
+    }
+
+    if (vegaLiteSpec.data && typeof vegaLiteSpec.data.url === 'string') {
+        vegaLiteSpec.data.url = normalizeDataUrl(vegaLiteSpec.data.url);
+    }
+    if (Object.prototype.hasOwnProperty.call(vegaLiteSpec, '__resolvedFrom')) {
+        delete vegaLiteSpec.__resolvedFrom;
+    }
     await renderChart(chartDomId, vegaLiteSpec);
     const disableNavigator = container.getAttribute('data-disable-navigator') === 'true';
     let ctrl = null;
@@ -128,33 +180,33 @@ export async function createChart(cId, host = null) {
 }
 
 export function createLikertQuestion({ name, questionText, labels }) {
-    const f = document.createElement('fieldset'); 
-    f.className = 'likert-group'; 
+    const f = document.createElement('fieldset');
+    f.className = 'likert-group';
     f.setAttribute('aria-label', questionText);
     f.setAttribute('data-required', 'true');
     f.setAttribute('data-input-name', name);
     f.dataset.name = name;
     f.setAttribute('data-name', name);
-    
-    const l = document.createElement('legend'); 
-    l.className = 'question'; 
-    l.textContent = questionText; 
+
+    const l = document.createElement('legend');
+    l.className = 'question';
+    l.textContent = questionText;
     f.append(l);
-    
-    const opts = document.createElement('div'); 
+
+    const opts = document.createElement('div');
     opts.className = 'options';
     labels.forEach((txt, i) => {
-        const lab = document.createElement('label'); 
+        const lab = document.createElement('label');
         lab.className = 'likert-option';
-        const inp = document.createElement('input'); 
-        inp.type = 'radio'; 
-        inp.name = name; 
+        const inp = document.createElement('input');
+        inp.type = 'radio';
+        inp.name = name;
         inp.value = (i+1)+'';
         inp.id = `${name}-opt-${i+1}`;
-        const dot = document.createElement('span'); 
+        const dot = document.createElement('span');
         dot.className = 'custom-radio';
-        const txtSpan = document.createElement('span'); 
-        txtSpan.className = 'option-text'; 
+        const txtSpan = document.createElement('span');
+        txtSpan.className = 'option-text';
         txtSpan.textContent = txt;
         lab.append(inp, dot, txtSpan);
         opts.append(lab);
@@ -186,15 +238,16 @@ export function createRankingQuestion({ name, questionText, options }) {
     hidden.value = '';
     f.append(hidden);
 
-    // help text
-    const help = document.createElement('p');
-    help.className = 'ranking-help';
-    help.textContent = 'Assign each option to a rank: drag an option to a number above, or click an option and then click a rank.';
-    f.append(help);
+    // live region for screen readers (accessibility)
+    const live = document.createElement('div');
+    live.className = 'sr-only';
+    live.setAttribute('aria-live', 'polite');
+    f.append(live);
 
     // state: assignments[rankIndex] = optionIndex | null
     const assignments = new Array(options.length).fill(null);
     let selectedOption = null; // index of currently selected option button
+
 
     // ---------- utilities ----------
     const dispatchResponse = () => {
@@ -210,24 +263,26 @@ export function createRankingQuestion({ name, questionText, options }) {
     const optBtns = [];   // DOM buttons for options
 
     const updateUI = () => {
-        // Update rank slots: show number and (if assigned) the option label
+        // Update rank slots: number/label, state classes, ARIA label
         ranks.forEach((slot, r) => {
             const assignedIdx = assignments[r];
             if (assignedIdx === null) {
                 slot.textContent = String(r + 1);
+                slot.classList.add('is-empty');
                 slot.classList.remove('has-assignment');
                 slot.removeAttribute('data-option-index');
                 slot.setAttribute('aria-label', `Rank ${r + 1} (empty)`);
             } else {
                 const label = String(options[assignedIdx]);
                 slot.textContent = `${r + 1}. ${label}`;
+                slot.classList.remove('is-empty');
                 slot.classList.add('has-assignment');
                 slot.dataset.optionIndex = String(assignedIdx);
                 slot.setAttribute('aria-label', `Rank ${r + 1}: ${label}`);
             }
         });
 
-        // Update option buttons: badge shows assigned rank (if any), selected styling
+        // Update option buttons: badge shows assigned rank, selected styling
         optBtns.forEach((btn, i) => {
             const badge = btn.querySelector('.rank-badge');
             const pos = assignments.indexOf(i);
@@ -254,28 +309,36 @@ export function createRankingQuestion({ name, questionText, options }) {
 
         dispatchResponse();
         updateUI();
+        try { live.textContent = `"${String(options[optionIndex])}" placed at rank ${String(rankIndex + 1)}.`; } catch (e) {}
     };
 
     const clearRank = (rankIndex) => {
         assignments[rankIndex] = null;
         dispatchResponse();
         updateUI();
+        try { live.textContent = `Rank ${String(rankIndex + 1)} cleared.`; } catch (e) {}
     };
 
+    // Microcopy above rank grid (EN)
+    const gridHelp = document.createElement('p');
+    gridHelp.className = 'ranking-help';
+    gridHelp.textContent = 'Place selected options here: click a number or drop a button onto a slot.';
+    f.append(gridHelp);
+
     // ---------- UI: rank slots (top row) ----------
-    const rankRow = document.createElement('div');
-    rankRow.className = 'rank-grid';
+    const grid = document.createElement('div');
+    grid.className = 'rank-grid';
+    grid.setAttribute('aria-label', 'Ranked order');
+
     for (let r = 0; r < options.length; r++) {
         const slot = document.createElement('button');
         slot.type = 'button';
-        slot.className = 'rank-slot';
+        slot.className = 'rank-slot is-empty';
         slot.dataset.rank = String(r);
-        slot.textContent = String(r + 1);
-        slot.setAttribute('aria-pressed', 'false');
         slot.setAttribute('aria-label', `Rank ${r + 1} (empty)`);
+        slot.textContent = String(r + 1);
 
-        // Click-to-assign: if an option is selected, assign it here;
-        // if none selected and slot occupied, clicking clears it.
+        // Click: place selected option, or clear if already assigned
         slot.addEventListener('click', () => {
             if (selectedOption !== null) {
                 assign(selectedOption, r);
@@ -284,12 +347,19 @@ export function createRankingQuestion({ name, questionText, options }) {
             }
         });
 
-        // Drag target
+        // Drag & Drop
         slot.addEventListener('dragover', (e) => {
-            e.preventDefault(); // allow drop
+            e.preventDefault();
+            slot.classList.add('drag-over');
         });
+
+        slot.addEventListener('dragleave', () => {
+            slot.classList.remove('drag-over');
+        });
+
         slot.addEventListener('drop', (e) => {
             e.preventDefault();
+            slot.classList.remove('drag-over');
             const data = e.dataTransfer.getData('text/plain');
             const i = Number(data);
             if (!Number.isNaN(i) && i >= 0 && i < options.length) {
@@ -297,14 +367,32 @@ export function createRankingQuestion({ name, questionText, options }) {
             }
         });
 
-        ranks.push(slot);
-        rankRow.append(slot);
-    }
-    f.append(rankRow);
+        // Keyboard: Enter/Space to place/clear
+        slot.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+                e.preventDefault();
+                if (selectedOption !== null) {
+                    assign(selectedOption, r);
+                } else if (assignments[r] !== null) {
+                    clearRank(r);
+                }
+            }
+        });
 
-    // ---------- UI: option pool (bottom row) ----------
+        grid.append(slot);
+        ranks.push(slot);
+    }
+    f.append(grid);
+
+    // ---------- UI: option pool (bottom) ----------
     const pool = document.createElement('div');
     pool.className = 'option-pool';
+
+    // Microcopy above option pool (EN)
+    const poolHelp = document.createElement('p');
+    poolHelp.className = 'ranking-help';
+    poolHelp.textContent = 'Drag these buttons onto the numbered slots above, or click a button then a number.';
+    f.append(poolHelp);
 
     options.forEach((label, i) => {
         const btn = document.createElement('button');
@@ -312,7 +400,7 @@ export function createRankingQuestion({ name, questionText, options }) {
         btn.className = 'rank-option';
         btn.dataset.index = String(i);
         btn.setAttribute('aria-pressed', 'false');
-        btn.setAttribute('aria-label', `${label} (select, then click a rank)`);
+        btn.setAttribute('aria-label', `${label} (Click to select, then click a rank above. Press 1…${options.length} to place.)`);
 
         // Draggable assignment
         btn.draggable = true;
@@ -348,7 +436,12 @@ export function createRankingQuestion({ name, questionText, options }) {
         text.className = 'option-text';
         text.textContent = label;
 
-        btn.append(text);
+        // rank badge (shows current rank if assigned)
+        const badge = document.createElement('span');
+        badge.className = 'rank-badge';
+        badge.setAttribute('aria-hidden', 'true');
+
+        btn.append(text, badge);
         pool.append(btn);
         optBtns.push(btn);
     });
@@ -404,50 +497,47 @@ export function createRankingQuestion({ name, questionText, options }) {
             }
         }
     });
-    mo.observe(document.documentElement, { childList: true, subtree: true });
-
-    // Expose manual hook (optional): window.mountRanking(root?)
-    try { window.mountRanking = mountAll; } catch (_) {}
+    try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}
 })();
 
 export function createOpenEndedInput({ id, labelText, placeholder, multiline }) {
-    const w = document.createElement('div'); 
+    const w = document.createElement('div');
     w.className = 'text-input-wrapper';
     w.dataset.name = id;
     w.setAttribute('data-name', id);
-    
+
     // "Optional"이 포함되어 있으면 필수가 아님
-    const isOptional = labelText.toLowerCase().includes('optional') || 
-                       placeholder.toLowerCase().includes('optional');
-    
+    const isOptional = labelText.toLowerCase().includes('optional') ||
+        placeholder.toLowerCase().includes('optional');
+
     if (!isOptional) {
         w.setAttribute('data-required', 'true');
     }
-    
-    const l = document.createElement('label'); 
+
+    const l = document.createElement('label');
     l.className = 'question';
-    
+
     // Optional인 경우 클래스 추가
     if (isOptional) {
         l.classList.add('optional-question');
     }
-    
-    l.setAttribute('for', id); 
+
+    l.setAttribute('for', id);
     l.textContent = labelText;
-    
+
     const inp = multiline
-        ? Object.assign(document.createElement('textarea'), { 
-            id, placeholder, rows: 3, className: 'text-input', 
+        ? Object.assign(document.createElement('textarea'), {
+            id, placeholder, rows: 3, className: 'text-input',
             style: 'resize:vertical;'
         })
-        : Object.assign(document.createElement('input'), { 
+        : Object.assign(document.createElement('input'), {
             type:'text', id, placeholder, className:'text-input'
         });
-    
+
     if (!isOptional) {
         inp.required = true;
     }
-    
+
     inp.name = id;
     // Dispatch a survey-response event when the input changes
     inp.addEventListener('input', e => {
@@ -456,7 +546,7 @@ export function createOpenEndedInput({ id, labelText, placeholder, multiline }) 
         });
         document.dispatchEvent(responseEvent);
     });
-    w.append(l, inp); 
+    w.append(l, inp);
     return w;
 }
 
@@ -552,17 +642,17 @@ export async function createChartExp(chartDir) {
     // --- navigator helpers ---
     let ctrl = null;
     function bindNav() {
-      if (!ctrl) return;
-      const prevBtn = ctrl.prevButton;
-      const nextBtn = ctrl.nextButton;
-      if (prevBtn && !prevBtn.dataset.bound) {
-        prevBtn.addEventListener('click', () => { if (idx > 0) renderAt(idx - 1); });
-        prevBtn.dataset.bound = '1';
-      }
-      if (nextBtn && !nextBtn.dataset.bound) {
-        nextBtn.addEventListener('click', () => { if (idx < files.length - 1) renderAt(idx + 1); });
-        nextBtn.dataset.bound = '1';
-      }
+        if (!ctrl) return;
+        const prevBtn = ctrl.prevButton;
+        const nextBtn = ctrl.nextButton;
+        if (prevBtn && !prevBtn.dataset.bound) {
+            prevBtn.addEventListener('click', () => { if (idx > 0) renderAt(idx - 1); });
+            prevBtn.dataset.bound = '1';
+        }
+        if (nextBtn && !nextBtn.dataset.bound) {
+            nextBtn.addEventListener('click', () => { if (idx < files.length - 1) renderAt(idx + 1); });
+            nextBtn.dataset.bound = '1';
+        }
     }
 
     async function renderAt(i) {
