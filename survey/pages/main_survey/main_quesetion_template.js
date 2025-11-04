@@ -119,6 +119,41 @@ function deriveOperationPaths(identifier) {
     };
 }
 
+function resolveExpertExplanationFolder(identifier) {
+    const input = normalizeSpecInput(identifier);
+    if (!input) return '';
+    if (input.includes('://')) return input.replace(/\/+$/, '');
+    if (input.startsWith('../') || input.startsWith('pages/')) {
+        return input.replace(/\/+$/, '');
+    }
+
+    let relative = input;
+    if (relative.startsWith('specs/')) {
+        relative = relative.slice('specs/'.length);
+    }
+    const marker = 'ops/';
+    const idx = relative.indexOf(marker);
+    if (idx >= 0) {
+        relative = relative.slice(idx + marker.length);
+    }
+    relative = relative.replace(/^\//, '').replace(/\/+$/, '');
+    if (!relative) return QUESTION_OP_SPEC_ROOT;
+    return `${QUESTION_OP_SPEC_ROOT}/${relative}`.replace(/\/+$/, '');
+}
+
+function deriveExpertSequencePrefix(folderPath = '', fallback = '') {
+    if (folderPath.includes('://')) {
+        const trimmed = folderPath.replace(/\/+$/, '');
+        const segments = trimmed.split('/').filter(Boolean);
+        return segments.pop() || fallback || '';
+    }
+    const normalized = (folderPath || '').replace(/\/+$/, '');
+    const segments = normalized.split('/').filter(Boolean);
+    if (segments.length === 0) return fallback || '';
+    const prefixCandidate = segments[segments.length - 1];
+    return prefixCandidate || fallback || '';
+}
+
 function normalizeSurveyQuestions(rawList) {
     if (!rawList) return [];
     if (rawList instanceof SurveyQuestion) return [rawList];
@@ -217,12 +252,16 @@ export class MainQuestion {
         this.chartQuestionText = ensureStringValue(chartQuestionText);
         this.chartQuestionAnswer = ensureStringValue(chartQuestionAnswer);
         this.surveyQuestions = normalizeSurveyQuestions(surveyQuestions);
-        this.expertExpPath = expertExpPath || '';
+        const defaultExpertKey = `op_${this.questionId}`;
+        const resolvedExpertKey = isNonEmptyString(expertExpPath) ? expertExpPath : defaultExpertKey;
+        this.expertExpPath = resolvedExpertKey;
         this.templatePath = templatePath || DEFAULT_TEMPLATE_PATH;
         this.chartSpecPath = resolveChartSpecPath(chartSpecId || this.questionId);
         this.operationPaths = deriveOperationPaths(operationId || this.questionId);
         this.internalPageId = isNonEmptyString(pageId) ? pageId : this.questionId;
         this.slugValue = isNonEmptyString(slug) ? slug : this.internalPageId;
+        this.expertAssetFolder = resolveExpertExplanationFolder(this.expertExpPath);
+        this.expertSequencePrefix = deriveExpertSequencePrefix(this.expertAssetFolder, resolvedExpertKey);
     }
 
     get pageId() {
@@ -275,6 +314,21 @@ export class MainQuestion {
 
         const explanationContainer = template.content.querySelector('[data-role="explanation-chart"]');
         if (!explanationContainer) return;
+
+        if (this.explanationType === ExplanationType.EXPERT) {
+            explanationContainer.setAttribute('data-component', 'chart-exp');
+            const folder = this.expertAssetFolder;
+            if (folder) {
+                explanationContainer.setAttribute('data-chart', folder);
+                explanationContainer.setAttribute('data-expert-prefix', this.expertSequencePrefix);
+            } else {
+                explanationContainer.innerHTML = '<div class="expert-explanation-missing">Expert assets unavailable.</div>';
+            }
+            explanationContainer.removeAttribute('data-opspec');
+            explanationContainer.removeAttribute('data-spec-path');
+            explanationContainer.removeAttribute('data-disable-navigator');
+            return;
+        }
 
         if (this.explanationType === ExplanationType.BASELINE) {
             explanationContainer.removeAttribute('data-component');

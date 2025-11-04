@@ -200,7 +200,7 @@ if (saved) {
 let pageStartTime = null;
 let timerInterval = null;
 let timerElement = null;
-let accumulatedTime = 0; // 누적 시간
+let accumulatedTime = 0; // 세션 시간 (표시용)
 
 function formatTime(seconds) {
   const hrs = Math.floor(seconds / 3600);
@@ -224,15 +224,28 @@ function createTimer() {
   return timer.querySelector('.timer-display');
 }
 
+function removeTimer() {
+  if (!timerElement) return;
+  const wrapper = timerElement.closest('.page-timer');
+  if (wrapper && wrapper.parentNode) {
+    wrapper.parentNode.removeChild(wrapper);
+  }
+  timerElement = null;
+}
+
 function startTimer(pageIndex) {
   pageStartTime = Date.now();
+  accumulatedTime = 0;
   
-  // 이전에 저장된 시간 불러오기
-  const timingData = JSON.parse(localStorage.getItem(TIMING_KEY) || '{}');
-  accumulatedTime = timingData[`page_${pageIndex}`] || 0;
-  
-  if (!timerElement) {
-    timerElement = createTimer();
+  if (TEST_MODE) {
+    if (!timerElement) {
+      timerElement = createTimer();
+    }
+    if (timerElement) {
+      timerElement.textContent = formatTime(0);
+    }
+  } else {
+    removeTimer();
   }
   
   // Clear any existing interval
@@ -243,7 +256,7 @@ function startTimer(pageIndex) {
   // Update timer every second
   timerInterval = setInterval(() => {
     const currentSession = Math.floor((Date.now() - pageStartTime) / 1000);
-    const totalTime = accumulatedTime + currentSession;
+    const totalTime = currentSession;
     if (timerElement) {
       timerElement.textContent = formatTime(totalTime);
     }
@@ -258,20 +271,36 @@ function stopTimer() {
   
   if (pageStartTime) {
     const currentSession = Math.floor((Date.now() - pageStartTime) / 1000);
-    const totalTime = accumulatedTime + currentSession;
     pageStartTime = null;
-    accumulatedTime = totalTime;
-    return totalTime;
+    accumulatedTime = 0;
+    return currentSession;
   }
   pageStartTime = null;
-  return accumulatedTime;
+  return 0;
 }
 
 async function savePageTiming(pageIndex, timeSpent, snapshot = null) {
+  if (!Number.isFinite(timeSpent) || timeSpent <= 0) {
+    return;
+  }
+
+  const pageKey = `page_${pageIndex}`;
   const timingData = readJSONFromStorage(TIMING_KEY);
-  timingData[`page_${pageIndex}`] = timeSpent;
+  let sessions = timingData[pageKey];
+  if (Array.isArray(sessions)) {
+    sessions = sessions
+      .map(v => Number.isFinite(Number(v)) ? Number(v) : null)
+      .filter(v => v !== null);
+  } else if (Number.isFinite(Number(sessions))) {
+    sessions = [Number(sessions)];
+  } else {
+    sessions = [];
+  }
+
+  sessions.push(timeSpent);
+  timingData[pageKey] = sessions;
   writeJSONToStorage(TIMING_KEY, timingData);
-  responses[`page_${pageIndex}_time`] = timeSpent;
+  responses[`${pageKey}_time`] = sessions;
   writeJSONToStorage(STORAGE_KEY, responses);
   const pageDocId = getPageDocId(pageIndex);
   let answers = snapshot?.answers;
@@ -286,7 +315,10 @@ async function savePageTiming(pageIndex, timeSpent, snapshot = null) {
     const extra = {
       pageIndex,
       pageId: descriptor?.id || '',
-      pageSlug: descriptor?.slug || ''
+      pageSlug: descriptor?.slug || '',
+      visitIndex: sessions.length - 1,
+      totalVisits: sessions.length,
+      sessions: sessions.slice()
     };
     if (answers && Object.keys(answers).length) {
       extra.answers = answers;
@@ -311,9 +343,7 @@ function resetSurveyState() {
   }
   pageStartTime = null;
   accumulatedTime = 0;
-  if (timerElement) {
-    timerElement.textContent = formatTime(0);
-  }
+  removeTimer();
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(TIMING_KEY);
@@ -738,12 +768,29 @@ async function hydrateFromFirestore(code) {
     let pageResponsesDirty = false;
     const pageResponsesStore = readPageResponses();
 
-    for (const [slug, seconds] of Object.entries(remoteTimings)) {
+    for (const [slug, value] of Object.entries(remoteTimings)) {
       const index = slugToPageIndex.get(slug);
       if (typeof index !== 'number') continue;
-      if (timingData[`page_${index}`] === seconds) continue;
-      timingData[`page_${index}`] = seconds;
-      responses[`page_${index}_time`] = seconds;
+      const key = `page_${index}`;
+      let sessions = [];
+      if (Array.isArray(value)) {
+        sessions = value.map(v => Number(v)).filter(v => Number.isFinite(v) && v >= 0);
+      } else if (value && typeof value === 'object') {
+        if (Array.isArray(value.sessions)) {
+          sessions = value.sessions.map(v => Number(v)).filter(v => Number.isFinite(v) && v >= 0);
+        } else if (Number.isFinite(value.seconds)) {
+          sessions = [Number(value.seconds)];
+        }
+      } else if (Number.isFinite(Number(value))) {
+        sessions = [Number(value)];
+      }
+      if (!sessions.length) continue;
+      const existingSessions = Array.isArray(timingData[key]) ? timingData[key] : (Number.isFinite(Number(timingData[key])) ? [Number(timingData[key])] : []);
+      const sameLength = existingSessions.length === sessions.length;
+      const sameValues = sameLength && existingSessions.every((v, idx) => v === sessions[idx]);
+      if (sameValues) continue;
+      timingData[key] = sessions;
+      responses[`${key}_time`] = sessions;
       timingsDirty = true;
     }
 
@@ -989,9 +1036,7 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
   } else {
     stopTimer();
     accumulatedTime = 0;
-    if (timerElement) {
-      timerElement.textContent = formatTime(0);
-    }
+    removeTimer();
   }
 }
 

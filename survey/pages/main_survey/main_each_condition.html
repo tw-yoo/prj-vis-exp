@@ -12,9 +12,9 @@
         <li><strong>Respond below:</strong> After reviewing everything, answer two questions at the bottom of the page to indicate whether the answer is correct and how clear both the answer and the explanation are.</li>
     </ol>
 
-    <p><strong>Note:</strong> There’s a question below the box. The time elapsed from when you enter the page until you answer the questions and proceed to the next page will be recorded.
+    <p><strong>Note:</strong> There is a question below the box. The time from when you enter the page until you answer <strong>Q1</strong> will be recorded.
 
-    <div class="split-container" data-role="main-question-root">
+    <div class="split-container">
         <style>
         </style>
         <div class="left">
@@ -23,11 +23,11 @@
             </div>
             <div class="pane-body">
                 <div data-component="chart"
-                     data-role="primary-chart"
+                     data-chart="exp1_round2"
                      data-disable-navigator="true"
                 ></div>
-                <p><strong>Question:</strong> <span data-field="chart-question-text"></span></p>
-                <p><strong>Answer:</strong> <span data-field="chart-question-answer"></span></p>
+                <p><strong>Question:</strong> Which two years since 2005 had the highest number of cases, and what were their values?</p>
+                <p><strong>Answer:</strong>1049.94</p>
             </div>
         </div>
         <div class="right">
@@ -36,16 +36,26 @@
             </div>
             <div class="pane-body">
                 <div data-component="chart"
-                     data-role="explanation-chart"></div>
+                     data-chart="exp1_round2"
+                     data-opspec="exp1_round2"></div>
             </div>
         </div>
     </div>
     <div class="panel-guide">
         You can scroll through each panel independently to view all the information.
     </div>
-    <p></p>
-    <h2>Please answer all of the questions below.</h2>
-    <div class="likert-container" data-field="survey-question-container"></div>
+
+    <div class="likert-container">
+        <div data-component="likert"
+             data-name="exp1_r2_p1_q1"
+             data-question="The provided answer is correct."
+             data-labels="Yes|No"></div>
+
+        <!--        <div data-component="likert"-->
+        <!--             data-name="exp1_r1_q2"-->
+        <!--             data-question="The explanation correctly justifies why the answer is correct."-->
+        <!--             data-labels="Strongly disagree|Disagree|Neutral|Agree|Strongly agree"></div>-->
+    </div>
 
     <p>When you are ready, click <strong>Next</strong> to continue.</p>
 </div>

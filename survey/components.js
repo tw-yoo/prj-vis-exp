@@ -1,6 +1,6 @@
 import {renderChart} from "../util/util.js";
 import {executeAtomicOps} from "../router/router.js";
-import {getVegaLiteSpec, getOperationSpec} from "./util.js"
+import {getVegaLiteSpec, getOperationSpec} from "./util.js";
 import { runOpsSequence, attachOpNavigator, updateNavigatorStates } from "../operations/operationUtil.js";
 
 export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = null, submitFormId = null, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null }) {
@@ -570,117 +570,317 @@ export function createCompletionCode(completionCode) {
     return w;
 }
 
-export async function createChartExp(chartDir) {
-    // Locate host container
-    const host = document.querySelector(`[data-component="chart-exp"][data-chart-exp="${chartDir}"]`);
-    if (!host) {
-        console.error(`chart-exp host for "${chartDir}" not found`);
+export async function createChartExp(host) {
+    if (!host) return;
+
+    if (typeof host.__expertCleanup__ === 'function') {
+        try { host.__expertCleanup__(); } catch (_) {}
+    }
+
+    const rawFolder = (host.getAttribute('data-chart') || host.dataset.chart || '').trim();
+    const rawPrefix = (host.getAttribute('data-expert-prefix') || host.dataset.expertPrefix || '').trim();
+    const rawMax = (host.getAttribute('data-expert-max') || host.dataset.expertMax || '').trim();
+
+    const normalizeFolder = (value) => value ? value.replace(/\/+$/, '') : '';
+    const folder = normalizeFolder(rawFolder);
+    if (!folder) {
+        host.innerHTML = '<div class="error">Expert explanation folder not configured.</div>';
         return;
     }
 
-    // Create an inner container for rendering and a nav area
+    const fallbackPrefix = (() => {
+        const segments = folder.split('/').filter(Boolean);
+        return segments.length ? segments[segments.length - 1] : 'expert';
+    })();
+    const sequencePrefix = rawPrefix || fallbackPrefix || 'expert';
+    const maxSteps = Number.parseInt(rawMax, 10);
+    const explicitLimit = Number.isFinite(maxSteps) && maxSteps > 0 ? maxSteps : Infinity;
+
+    const chartId = `expert-exp-${sequencePrefix.replace(/[^a-zA-Z0-9_-]/g, '_')}-${Math.floor(Date.now() % 1e7)}`;
+
+    host.innerHTML = '';
     const wrapper = document.createElement('div');
     wrapper.className = 'chart-exp-wrapper';
+    const stage = document.createElement('div');
+    stage.className = 'chart-exp-stage';
+    wrapper.appendChild(stage);
+    host.appendChild(wrapper);
 
-    const chartHolder = document.createElement('div');
-    chartHolder.className = 'd3chart-container';
-    const chartId = `chart-exp-${chartDir.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-    // Remove ad-hoc nav area and use navigator overlay
-    wrapper.append(chartHolder);
-    host.append(wrapper);
+    host.__expertCleanup__ = () => {};
+    let cleanupBound = false;
 
-    // --- helpers ---
-    const join = (base, seg) => {
-        if (!base) return seg || '';
-        if (!seg) return base;
-        const b = base.endsWith('/') ? base.slice(0, -1) : base;
-        const s = seg.startsWith('/') ? seg.slice(1) : seg;
-        return `${b}/${s}`;
+    const ensureChartHost = (options = {}) => {
+        const { reuse = false } = options || {};
+        const existingStack = stage.querySelector(`:scope > .chart-ui-stack[data-owner="${chartId}"]`);
+        let container = stage.querySelector(`:scope > .d3chart-container#${chartId}`) || stage.querySelector(':scope > .d3chart-container');
+
+        if (!reuse && container) {
+            try { container.remove(); } catch (_) {}
+            container = null;
+        }
+
+        if (!container) {
+            container = document.createElement('div');
+            container.id = chartId;
+            container.className = 'd3chart-container';
+            container.setAttribute('data-chart-id', chartId);
+            if (existingStack && existingStack.parentElement === stage) {
+                stage.insertBefore(container, existingStack);
+            } else {
+                stage.appendChild(container);
+            }
+        } else {
+            container.innerHTML = '';
+        }
+
+        if (existingStack && existingStack.parentElement !== stage) {
+            stage.appendChild(existingStack);
+        }
+
+        return container;
     };
 
-    const resolveBase = (dir) => dir.endsWith('/') ? dir : `${dir}/`;
+    const joinPath = (base, part = '') => {
+        if (!base) return part;
+        if (/^[a-z]+:\/\//i.test(part)) return part;
+        const trimmedBase = base.replace(/\/+$/, '');
+        const trimmedPart = part.replace(/^\//, '');
+        if (!trimmedPart) return `${trimmedBase}/`;
+        return `${trimmedBase}/${trimmedPart}`;
+    };
 
-    async function fetchJSON(url) {
-        try { const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) return null; return await r.json(); } catch (_) { return null; }
+    const escapeRegExp = (input) => input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    async function tryFetchJSON(url) {
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (_) {
+            return null;
+        }
     }
 
-    async function resolveFileList(dir, hostEl) {
-        // Priority 0: explicit list provided via data-files="a.json|b.json"
-        const explicit = (hostEl.getAttribute('data-files') || '').trim();
-        if (explicit) {
-            const parts = explicit.split('|').map(s => s.trim()).filter(Boolean);
-            return parts.map(p => p.includes('/') ? p : join(resolveBase(dir), p));
+    async function tryFetchImage(url) {
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) return null;
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const cleanup = () => {
+                try { URL.revokeObjectURL(objectUrl); } catch (_) {}
+            };
+            return { url: objectUrl, cleanup };
+        } catch (_) {
+            return null;
         }
-        const base = resolveBase(dir);
-        // Priority 1: manifest files
-        for (const m of ['manifest.json', 'index.json', '_manifest.json']) {
-            const url = join(base, m);
-            const data = await fetchJSON(url);
-            if (Array.isArray(data) && data.length) {
-                return data.map(p => p.includes('/') ? p : join(base, p));
+    }
+
+    async function listFolderEntries(baseDir) {
+        const dirUrl = joinPath(baseDir, '');
+        try {
+            const res = await fetch(dirUrl, { cache: 'no-store' });
+            if (!res.ok) return null;
+            const html = await res.text();
+            const hrefRegex = /href="([^"]+)"/gi;
+            const fileRegex = new RegExp(`^${escapeRegExp(sequencePrefix)}_(\\d+)\\.(json|png|jpg|jpeg)$`, 'i');
+            const acc = [];
+            let match;
+            while ((match = hrefRegex.exec(html)) !== null) {
+                const href = decodeURIComponent(match[1] || '');
+                if (!href) continue;
+                const normalized = href.split('?')[0].split('#')[0];
+                const fileName = normalized.replace(/.*\//, '');
+                const fileMatch = fileName.match(fileRegex);
+                if (!fileMatch) continue;
+                const index = Number.parseInt(fileMatch[1], 10);
+                if (!Number.isFinite(index)) continue;
+                const ext = fileMatch[2].toLowerCase();
+                acc.push({ fileName, index, ext });
+            }
+            acc.sort((a, b) => a.index - b.index);
+            const seen = new Set();
+            return acc.filter(entry => {
+                if (seen.has(entry.index)) return false;
+                seen.add(entry.index);
+                return true;
+            });
+        } catch (_) {
+            return null;
+        }
+    }
+
+    async function collectAssets() {
+        const items = [];
+        if (!sequencePrefix) return items;
+
+        const listing = await listFolderEntries(folder);
+        const candidates = Array.isArray(listing) && listing.length ? listing : null;
+
+        const processEntry = async (index, ext, fileName) => {
+            const fullPath = joinPath(folder, fileName);
+            if (ext === 'json') {
+                const jsonSpec = await tryFetchJSON(fullPath);
+                if (!jsonSpec) return false;
+                const specClone = JSON.parse(JSON.stringify(jsonSpec));
+                if (specClone && specClone.data && typeof specClone.data.url === 'string') {
+                    specClone.data.url = normalizeDataUrl(specClone.data.url);
+                }
+                if (Object.prototype.hasOwnProperty.call(specClone, '__resolvedFrom')) {
+                    delete specClone.__resolvedFrom;
+                }
+                items.push({ type: 'vega', spec: specClone, source: fullPath });
+                return true;
+            }
+            const imageResult = await tryFetchImage(fullPath);
+            if (!imageResult) return false;
+            items.push({ type: 'image', url: imageResult.url, cleanup: imageResult.cleanup, source: fullPath });
+            return true;
+        };
+
+        if (candidates) {
+            for (const entry of candidates) {
+                await processEntry(entry.index, entry.ext, entry.fileName);
+            }
+            return items;
+        }
+
+        const FALLBACK_CAP = Number.isFinite(explicitLimit) ? explicitLimit : 500;
+        for (let idx = 1; idx <= FALLBACK_CAP; idx++) {
+            const baseName = `${sequencePrefix}_${idx}`;
+            const jsonHandled = await processEntry(idx, 'json', `${baseName}.json`);
+            if (jsonHandled) continue;
+
+            let imageFound = false;
+            for (const ext of ['png', 'jpg', 'jpeg']) {
+                const imageHandled = await processEntry(idx, ext, `${baseName}.${ext}`);
+                if (imageHandled) {
+                    imageFound = true;
+                    break;
+                }
+            }
+            if (!imageFound) {
+                break;
             }
         }
-        // Priority 2: numeric sequence 1.json, 2.json, ... (stop at first miss, cap 50)
-        const out = [];
-        for (let i = 1; i <= 50; i++) {
-            const url = join(base, `${i}.json`);
-            const spec = await fetchJSON(url);
-            if (!spec) break;
-            out.push(url);
-        }
-        return out;
+
+        return items;
     }
 
-    const files = await resolveFileList(chartDir, host);
-    if (!files || files.length === 0) {
-        console.error(`chart-exp: no specs found under ${chartDir}. Provide data-files or a manifest.json.`);
-        host.insertAdjacentHTML('beforeend', `<div class="error">No charts found in <code>${chartDir}</code></div>`);
+    const assets = await collectAssets();
+    if (!assets.length) {
+        const container = ensureChartHost();
+        container.innerHTML = `<div class="error">No expert explanation assets found in <code>${folder}</code>.</div>`;
         return;
     }
 
-    let idx = 0;
-    // --- navigator helpers ---
+    let currentStep = 0;
+    const totalSteps = assets.length + 1;
     let ctrl = null;
-    function bindNav() {
+    let isTransitioning = false;
+
+    function renderPlaceholder() {
+        const container = ensureChartHost({ reuse: Boolean(stage.querySelector(':scope > .d3chart-container')) });
+        const canvas = document.createElement('div');
+        canvas.className = 'chart-canvas expert-placeholder';
+        canvas.style.display = 'flex';
+        canvas.style.alignItems = 'center';
+        canvas.style.justifyContent = 'center';
+        canvas.style.minHeight = '360px';
+        const message = document.createElement('p');
+        message.className = 'expert-placeholder-message';
+        message.textContent = 'Click Start to view the expert explanation.';
+        message.style.margin = '0';
+        message.style.fontWeight = '600';
+        canvas.appendChild(message);
+        container.appendChild(canvas);
+    }
+
+    async function renderAsset(asset) {
+        const shouldReuse = asset.type !== 'vega' && Boolean(stage.querySelector(':scope > .d3chart-container'));
+        const container = ensureChartHost({ reuse: shouldReuse });
+        if (asset.type === 'vega') {
+            const specClone = JSON.parse(JSON.stringify(asset.spec || {}));
+            await renderChart(chartId, specClone);
+        } else if (asset.type === 'image') {
+            const canvas = document.createElement('div');
+            canvas.className = 'chart-canvas expert-image-canvas';
+            canvas.style.display = 'flex';
+            canvas.style.alignItems = 'center';
+            canvas.style.justifyContent = 'center';
+            canvas.style.minHeight = '360px';
+            const img = document.createElement('img');
+            img.src = asset.url;
+            img.alt = '';
+            img.style.display = 'block';
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '100%';
+            img.style.objectFit = 'contain';
+            canvas.appendChild(img);
+            container.appendChild(canvas);
+        } else {
+            container.innerHTML = '<div class="error">Unsupported expert asset type.</div>';
+        }
+    }
+
+    async function goTo(step) {
+        if (isTransitioning) return;
+        if (step < 0 || step >= totalSteps) return;
+        isTransitioning = true;
+        try {
+            if (step === 0) {
+                renderPlaceholder();
+            } else {
+                const asset = assets[step - 1];
+                await renderAsset(asset);
+            }
+            ctrl = attachOpNavigator(chartId, { mount: 'footer' });
+            bindNavigatorHandlers();
+            updateNavigatorStates(ctrl, step, totalSteps);
+            currentStep = step;
+        } finally {
+            isTransitioning = false;
+        }
+    }
+
+    if (!cleanupBound) {
+        host.__expertCleanup__ = () => {
+            assets.forEach(asset => {
+                if (asset.cleanup) {
+                    try { asset.cleanup(); } catch (_) {}
+                    asset.cleanup = null;
+                }
+            });
+            stage.innerHTML = '';
+        };
+        cleanupBound = true;
+    }
+
+    async function handleNext() {
+        if (currentStep >= totalSteps - 1) return;
+        await goTo(currentStep + 1);
+    }
+
+    async function handlePrev() {
+        if (currentStep <= 0) return;
+        await goTo(currentStep - 1);
+    }
+
+    function bindNavigatorHandlers() {
         if (!ctrl) return;
         const prevBtn = ctrl.prevButton;
         const nextBtn = ctrl.nextButton;
-        if (prevBtn && !prevBtn.dataset.bound) {
-            prevBtn.addEventListener('click', () => { if (idx > 0) renderAt(idx - 1); });
-            prevBtn.dataset.bound = '1';
+        if (prevBtn && !prevBtn.dataset.expertBound) {
+            prevBtn.addEventListener('click', handlePrev);
+            prevBtn.dataset.expertBound = chartId;
         }
-        if (nextBtn && !nextBtn.dataset.bound) {
-            nextBtn.addEventListener('click', () => { if (idx < files.length - 1) renderAt(idx + 1); });
-            nextBtn.dataset.bound = '1';
+        if (nextBtn && !nextBtn.dataset.expertBound) {
+            nextBtn.addEventListener('click', handleNext);
+            nextBtn.dataset.expertBound = chartId;
         }
     }
 
-    async function renderAt(i) {
-        idx = i;
-        const file = files[i];
-        const spec = await fetchJSON(file);
-        if (!spec) {
-            chartHolder.innerHTML = `<div class="error">Failed to load ${file}</div>`;
-            return;
-        }
-        // Make data URL work with our folder layout (match createChart behavior)
-        if (spec && spec.data && typeof spec.data.url === 'string') {
-            spec.data.url = spec.data.url.startsWith('../') ? spec.data.url : `../${spec.data.url}`;
-        }
-        // Reset inner chart node with a stable id
-        chartHolder.innerHTML = '';
-        const inner = document.createElement('div');
-        inner.id = chartId;
-        inner.className = 'd3chart-container';
-        chartHolder.appendChild(inner);
-        await renderChart(chartId, spec);
-        // Attach/update the shared navigator overlay for this chartId
-        ctrl = attachOpNavigator(chartId, { mount: 'footer' });
-        bindNav();
-        updateNavigatorStates(ctrl, idx, files.length);
-    }
-
-    await renderAt(0);
+    await goTo(0);
 }
 
 // --- Auto mount for data-component="chart-exp" placeholders ---
@@ -690,9 +890,7 @@ export async function createChartExp(chartDir) {
     const mountOne = async (host) => {
         if (!host || host.__chart_exp_mounted__) return;
         host.__chart_exp_mounted__ = true;
-        const dir = host.getAttribute('data-chart') || host.dataset.chart || '';
-        if (!dir) return;
-        await createChartExp(dir);
+        await createChartExp(host);
     };
 
     const mountAll = (root = document) => {

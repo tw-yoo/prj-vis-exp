@@ -38,6 +38,13 @@ function encodeSegment(seg) {
 }
 
 function encodeValue(value) {
+    if (Array.isArray(value)) {
+        return {
+            arrayValue: {
+                values: value.map(item => encodeValue(item))
+            }
+        };
+    }
     if (typeof value === 'number' && Number.isFinite(value)) {
         if (Number.isInteger(value)) {
             return { integerValue: String(value) };
@@ -198,11 +205,25 @@ export async function saveSurveyResponse(code, questionKey, value) {
 
 export async function saveSurveyTiming(code, pageKey, seconds, extra = {}) {
   // keep legacy per-page timing write
-  const answerEntries = (extra && typeof extra.answers === 'object' && extra.answers !== null)
+  const {
+    answers: answersMap,
+    sessions: rawSessions,
+    totalVisits,
+    visitIndex,
+    ...meta
+  } = extra || {};
+  const answerEntries = (answersMap && typeof answersMap === 'object' && answersMap !== null)
     ? Object.entries(extra.answers).slice(0, 200)
     : [];
   const hasAnswers = answerEntries.length > 0;
   const answers = hasAnswers ? Object.fromEntries(answerEntries) : null;
+  const sessions = Array.isArray(rawSessions)
+    ? rawSessions
+        .map(value => Number(value))
+        .filter(value => Number.isFinite(value) && value >= 0)
+    : null;
+  const normalizedTotalVisits = Number.isFinite(totalVisits) ? Number(totalVisits) : (sessions ? sessions.length : null);
+  const normalizedVisitIndex = Number.isFinite(visitIndex) ? Number(visitIndex) : null;
   const payload = {
     seconds: Number.isFinite(seconds) ? Number(seconds) : 0,
     updatedAt: new Date()
@@ -210,6 +231,21 @@ export async function saveSurveyTiming(code, pageKey, seconds, extra = {}) {
   if (hasAnswers) {
     payload.answers = answers;
   }
+  if (sessions && sessions.length) {
+    payload.sessions = sessions;
+  }
+  if (normalizedTotalVisits !== null) {
+    payload.totalVisits = normalizedTotalVisits;
+  }
+  if (normalizedVisitIndex !== null) {
+    payload.visitIndex = normalizedVisitIndex;
+  }
+  Object.entries(meta || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    if (key === 'pageIndex' || key === 'pageId' || key === 'pageSlug') {
+      payload[key] = value;
+    }
+  });
   await patchDocument(['survey', code, pageKey, 'time'], payload);
 
   // update aggregate state snapshot
@@ -221,7 +257,9 @@ export async function saveSurveyTiming(code, pageKey, seconds, extra = {}) {
     ...prev,
     timings: {
       ...(prev.timings || {}),
-      [pageKey]: Number.isFinite(seconds) ? Number(seconds) : 0
+      [pageKey]: sessions && sessions.length
+        ? sessions
+        : (Number.isFinite(seconds) ? Number(seconds) : 0)
     },
     updatedAt: new Date()
   };
@@ -229,6 +267,18 @@ export async function saveSurveyTiming(code, pageKey, seconds, extra = {}) {
     merged.pageAnswers = {
       ...(prev.pageAnswers || {}),
       [pageKey]: answers
+    };
+  }
+  if (normalizedTotalVisits !== null) {
+    merged.totalVisits = {
+      ...(prev.totalVisits || {}),
+      [pageKey]: normalizedTotalVisits
+    };
+  }
+  if (normalizedVisitIndex !== null) {
+    merged.lastVisitIndex = {
+      ...(prev.lastVisitIndex || {}),
+      [pageKey]: normalizedVisitIndex
     };
   }
 
