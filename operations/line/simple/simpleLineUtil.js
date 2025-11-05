@@ -144,12 +144,6 @@ function simpleLineToDatumValues(rawData, spec) {
     return { rows, datumValues, categoryLabel, measureLabel };
 }
 
-/**
- * ✅ 요구사항 반영:
- * - 버튼 기반 네비게이션으로 각 단계 제어
- * - 차트 내부 좌상단에 이전/다음 버튼 배치
- * - 🔸 모든 연산은 DatumValue[] (정규화 데이터) 기준으로 수행
- */
 export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) {
     // 기본 차트 렌더 (D3 라인 차트)
     await renderSimpleLineChart(chartId, vlSpec);
@@ -160,6 +154,13 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
 
     // reset cache
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
+
+    // 🔍 디버깅 로그 추가
+    console.log('=== DEBUG textSpec ===');
+    console.log('textSpec:', textSpec);
+    console.log('textSpec.text:', textSpec.text);
+    console.log('opsSpec keys:', Object.keys(opsSpec));
+    console.log('======================');
 
     await runOpsSequence({
         chartId,
@@ -276,7 +277,7 @@ export async function renderSimpleLineChart(chartId, spec) {
         ))
         .attr("data-value", d => d[yField]);
 
-    const xLabelY = margin.top + innerHeight + 24;
+    const xLabelY = margin.top + innerHeight + 40;
     svg.append("text").attr("class", "x-axis-label")
         .attr("x", margin.left + innerWidth / 2).attr("y", xLabelY)
         .attr("text-anchor", "middle").text(xField);

@@ -132,7 +132,6 @@ function findDatumByKey(data, key) {
     });
 }
 
-
 export async function simpleLineRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -181,59 +180,79 @@ export async function simpleLineRetrieveValue(chartId, op, data, isLast = false)
         const cx = xScale(targetDatum.target);
         const cy = yScale(targetDatum.value);
 
-        const baseTr = baseLine.transition().duration(600).attr("opacity", 0.3).end();
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy)
-            .attr("x2", cx).attr("y2", plot.h)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-
-        g.append("line").attr("class", "annotation")
+        // 1. 수평선 + 수직선 동시 애니메이션
+        const hLine = g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", cy)
-            .attr("x2", cx).attr("y2", cy)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+            .attr("x2", 0).attr("y2", cy)
+            .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+        
+        const vLine = g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", plot.h)
+            .attr("x2", cx).attr("y2", plot.h)
+            .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+        
+        await Promise.all([
+            hLine.transition().duration(400).attr("x2", cx).end().catch(()=>{}),
+            vLine.transition().duration(400).attr("y2", cy).end().catch(()=>{})
+        ]);
 
+        // 2. 원 애니메이션
         const circle = g.append("circle").attr("class", "annotation")
             .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 2);
-        const circleTr = circle.transition().duration(400).delay(200).attr("r", 6).end();
+            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 3);
+        await circle.transition().duration(400).attr("r", 8).end().catch(()=>{});
 
+        // 3. 레이블 표시
         const labelText = Number(targetDatum.value).toLocaleString();
-
         g.append("text").attr("class", "annotation")
-            .attr("x", cx + 5).attr("y", cy - 5)
-            .attr("fill", hlColor).attr("font-weight", "bold")
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(labelText);
+            .attr("x", cx + 10).attr("y", cy - 10)
+            .attr("fill", hlColor).attr("font-weight", "bold").attr("font-size", "14px")
+            .attr("stroke", "white").attr("stroke-width", 4).attr("paint-order", "stroke")
+            .text(labelText)
+            .attr("opacity", 0)
+            .transition().duration(300).attr("opacity", 1);
 
-        await Promise.all([baseTr, circleTr]).catch(()=>{});
         return targetDatum;
     }
 
-    baseLine.transition().duration(600).attr("opacity", 0.3);
-    await targetPoint.transition().duration(600)
-        .attr("opacity", 1).attr("r", 8).attr("fill", hlColor)
-        .attr("stroke", "white").attr("stroke-width", 2).end();
+    // 포인트가 존재하는 경우
+    const cx = +targetPoint.attr("cx");
+    const cy = +targetPoint.attr("cy");
 
-    const cx = +targetPoint.attr("cx"),
-        cy = +targetPoint.attr("cy");
-    g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", cy)
-        .attr("x2", cx).attr("y2", plot.h)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-
-    g.append("line").attr("class", "annotation")
+    // 1. 수평선 + 수직선 동시 애니메이션
+    const hLine = g.append("line").attr("class", "annotation")
         .attr("x1", 0).attr("y1", cy)
-        .attr("x2", cx).attr("y2", cy)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+        .attr("x2", 0).attr("y2", cy)
+        .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+    
+    const vLine = g.append("line").attr("class", "annotation")
+        .attr("x1", cx).attr("y1", plot.h)
+        .attr("x2", cx).attr("y2", plot.h)
+        .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+    
+    await Promise.all([
+        hLine.transition().duration(400).attr("x2", cx).end().catch(()=>{}),
+        vLine.transition().duration(400).attr("y2", cy).end().catch(()=>{})
+    ]);
 
+    // 2. 타겟 포인트 강조
+    await targetPoint.transition().duration(400)
+        .attr("opacity", 1)
+        .attr("r", 10)
+        .attr("fill", hlColor)
+        .attr("stroke", "white")
+        .attr("stroke-width", 3)
+        .end().catch(()=>{});
+
+    // 3. 레이블 표시
     const labelText = Number(targetPoint.attr("data-value")).toLocaleString();
-
     g.append("text").attr("class", "annotation")
-        .attr("x", cx + 5).attr("y", cy - 5)
-        .attr("fill", hlColor).attr("font-weight", "bold")
-        .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-        .text(labelText);
+        .attr("x", cx + 10).attr("y", cy - 10)
+        .attr("fill", hlColor).attr("font-weight", "bold").attr("font-size", "14px")
+        .attr("stroke", "white").attr("stroke-width", 4).attr("paint-order", "stroke")
+        .text(labelText)
+        .attr("opacity", 0)
+        .transition().duration(300).attr("opacity", 1);
 
     return targetDatum;
 }
