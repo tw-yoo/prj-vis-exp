@@ -57,11 +57,8 @@
     content: "";
 }
 
-.ranking-help::after {
-    content: " *";
-    color: #dc2626;
-    font-weight: bold;
-}
+/* Help text is informative; do not mark as required */
+.ranking-help::after { content: ""; }
 
 /* Likert group */
 .likert-group {
@@ -83,31 +80,12 @@
 
 /* Likert 질문들을 감싸는 부모 요소 */
 .likert-container {
-/*<<<<<<< HEAD*/
-/*    display: flex;*/
-/*    flex-direction: row;*/
-/*    flex-wrap: wrap;*/
-/*    gap: 20px;*/
-/*    align-items: flex-start;*/
-/*}*/
-
-/*!* block-summary와 final-summary는 세로 배치 *!*/
-/*.likert-container.block-summary,*/
-/*.likert-container.final-summary {*/
-/*    flex-direction: column;*/
-/*}*/
-
-/*.likert-container.block-summary .likert-group,*/
-/*.likert-container.final-summary .likert-group {*/
-/*    width: 100%;*/
-/*=======*/
     display: grid;
     grid-template-columns: 45% 45%; /* two columns per row */
     column-gap: 10%;                /* fixed middle gap */
     row-gap: 20px;                  /* vertical gap between rows */
     align-items: stretch;           /* equalize box heights in a row */
     grid-auto-rows: minmax(var(--likert-group-min-h, 120px), auto); /* row height ≥ 180px */
-/*>>>>>>> survey-update*/
 }
 
 .options {
@@ -179,9 +157,6 @@
     white-space: nowrap;
 }
 
-/*<<<<<<< HEAD*/
-/*!* Text input *!*/
-/*=======*/
 .pane,
 .split-container > .left,
 .split-container > .right {
@@ -219,7 +194,6 @@
 }
 
 /* Text input (한 줄, 긴 텍스트는 자동 스크롤) */
-/*>>>>>>> survey-update*/
 .text-input-wrapper {
     margin: 1rem 0;
     font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
@@ -289,6 +263,19 @@
     font-size: .85rem;
 }
 
+/* Screen reader only */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
 .rank-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(var(--rank-slot-width), 1fr));
@@ -314,6 +301,17 @@
     text-align: center;
 }
 
+/* Empty & drag-over states for clearer affordances */
+.rank-slot.is-empty {
+    border-style: dashed;
+    color: #6b7280;
+    background: var(--bg-muted);
+}
+.rank-slot.drag-over {
+    box-shadow: var(--ring);
+    background: #f0f9ff;
+}
+
 .rank-slot:hover {
     background: #f3f4f6;
 }
@@ -335,6 +333,7 @@
 }
 
 .rank-option {
+    position: relative; /* for rank badge */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -364,8 +363,13 @@
 }
 
 .rank-option.has-rank {
-    background: #e5e7eb;
-    border-color: #9ca3af;
+  background: #d1d5db;
+  border-color: #6b7280;
+  color: #111827;
+}
+
+.rank-option.has-rank:hover {
+  background: #d1d5db;
 }
 
 .rank-option.has-rank.is-selected {
@@ -374,13 +378,23 @@
     box-shadow: var(--ring);
 }
 
-.option-text {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    line-height: 1.15;
-    max-width: 100%;
+/* Rank badge on options */
+.rank-option .rank-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 12px;
+    line-height: 18px;
+    text-align: center;
+    pointer-events: none;
 }
+
 
 .open-ended-wrap {
     display: flex;

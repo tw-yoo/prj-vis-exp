@@ -18,6 +18,8 @@ import {
   saveSurveyTiming,
   fetchSurveyState
 } from './firestore.js';
+import {MAIN_SURVEY_QUESTIONS} from "./pages/main_survey/main_questions/index.js";
+import {TUTORIAL_QUESTIONS} from "./pages/tutorial/tutorial_questions.js";
 
 const TEST_MODE = (() => {
   const flag = urlParams.get('test');
@@ -44,6 +46,9 @@ let participantCode = null;
 let codeValidated = false;
 let navigationInProgress = false;
 let activePageQuestionKeys = [];
+let submissionLocked = false;
+let submissionLockMap = {};
+const SUBMISSION_LOCK_KEY = 'survey_submission_locked';
 
 const storedParticipantCode = (() => {
   try {
@@ -52,6 +57,84 @@ const storedParticipantCode = (() => {
     return '';
   }
 })();
+
+function readSubmissionLockMap() {
+  try {
+    const raw = localStorage.getItem(SUBMISSION_LOCK_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (_) {
+    console.warn('Unable to read submission lock state');
+  }
+  return {};
+}
+
+function writeSubmissionLockMap(map) {
+  try {
+    localStorage.setItem(SUBMISSION_LOCK_KEY, JSON.stringify(map));
+  } catch (_) {
+    console.warn('Unable to persist submission lock state');
+  }
+}
+
+function getCurrentParticipantCode() {
+  if (participantCode) return participantCode.toUpperCase();
+  try {
+    const cached = localStorage.getItem('participant_code');
+    if (cached) return cached.toUpperCase();
+  } catch (_) {
+    // ignore
+  }
+  return '';
+}
+
+function shouldBypassSubmissionLock() {
+  const code = getCurrentParticipantCode();
+  return TEST_MODE && code === 'AAAAAA';
+}
+
+function refreshSubmissionLockState() {
+  submissionLockMap = readSubmissionLockMap();
+  const code = getCurrentParticipantCode();
+  if (!code) {
+    submissionLocked = false;
+    updateButtons();
+    return;
+  }
+  submissionLocked = Boolean(submissionLockMap[code]);
+  if (shouldBypassSubmissionLock()) {
+    submissionLocked = false;
+  }
+  updateButtons();
+}
+
+function setSubmissionLock() {
+  if (shouldBypassSubmissionLock()) {
+    const code = getCurrentParticipantCode();
+    if (code) {
+      delete submissionLockMap[code];
+      writeSubmissionLockMap(submissionLockMap);
+    }
+    submissionLocked = false;
+    return;
+  }
+  const code = getCurrentParticipantCode();
+  if (!code) {
+    submissionLocked = true;
+    return;
+  }
+  submissionLockMap[code] = true;
+  writeSubmissionLockMap(submissionLockMap);
+  submissionLocked = true;
+  updateButtons();
+}
+
+function isSubmissionLocked() {
+  return submissionLocked && !shouldBypassSubmissionLock();
+}
 
 function escapeSelector(value) {
   if (typeof value !== 'string') return '';
@@ -117,7 +200,7 @@ if (saved) {
 let pageStartTime = null;
 let timerInterval = null;
 let timerElement = null;
-let accumulatedTime = 0; // 누적 시간
+let accumulatedTime = 0; // 세션 시간 (표시용)
 
 function formatTime(seconds) {
   const hrs = Math.floor(seconds / 3600);
@@ -141,15 +224,28 @@ function createTimer() {
   return timer.querySelector('.timer-display');
 }
 
+function removeTimer() {
+  if (!timerElement) return;
+  const wrapper = timerElement.closest('.page-timer');
+  if (wrapper && wrapper.parentNode) {
+    wrapper.parentNode.removeChild(wrapper);
+  }
+  timerElement = null;
+}
+
 function startTimer(pageIndex) {
   pageStartTime = Date.now();
+  accumulatedTime = 0;
   
-  // 이전에 저장된 시간 불러오기
-  const timingData = JSON.parse(localStorage.getItem(TIMING_KEY) || '{}');
-  accumulatedTime = timingData[`page_${pageIndex}`] || 0;
-  
-  if (!timerElement) {
-    timerElement = createTimer();
+  if (TEST_MODE) {
+    if (!timerElement) {
+      timerElement = createTimer();
+    }
+    if (timerElement) {
+      timerElement.textContent = formatTime(0);
+    }
+  } else {
+    removeTimer();
   }
   
   // Clear any existing interval
@@ -160,7 +256,7 @@ function startTimer(pageIndex) {
   // Update timer every second
   timerInterval = setInterval(() => {
     const currentSession = Math.floor((Date.now() - pageStartTime) / 1000);
-    const totalTime = accumulatedTime + currentSession;
+    const totalTime = currentSession;
     if (timerElement) {
       timerElement.textContent = formatTime(totalTime);
     }
@@ -175,17 +271,36 @@ function stopTimer() {
   
   if (pageStartTime) {
     const currentSession = Math.floor((Date.now() - pageStartTime) / 1000);
-    const totalTime = accumulatedTime + currentSession;
-    return totalTime;
+    pageStartTime = null;
+    accumulatedTime = 0;
+    return currentSession;
   }
-  return accumulatedTime;
+  pageStartTime = null;
+  return 0;
 }
 
 async function savePageTiming(pageIndex, timeSpent, snapshot = null) {
+  if (!Number.isFinite(timeSpent) || timeSpent <= 0) {
+    return;
+  }
+
+  const pageKey = `page_${pageIndex}`;
   const timingData = readJSONFromStorage(TIMING_KEY);
-  timingData[`page_${pageIndex}`] = timeSpent;
+  let sessions = timingData[pageKey];
+  if (Array.isArray(sessions)) {
+    sessions = sessions
+      .map(v => Number.isFinite(Number(v)) ? Number(v) : null)
+      .filter(v => v !== null);
+  } else if (Number.isFinite(Number(sessions))) {
+    sessions = [Number(sessions)];
+  } else {
+    sessions = [];
+  }
+
+  sessions.push(timeSpent);
+  timingData[pageKey] = sessions;
   writeJSONToStorage(TIMING_KEY, timingData);
-  responses[`page_${pageIndex}_time`] = timeSpent;
+  responses[`${pageKey}_time`] = sessions;
   writeJSONToStorage(STORAGE_KEY, responses);
   const pageDocId = getPageDocId(pageIndex);
   let answers = snapshot?.answers;
@@ -196,9 +311,14 @@ async function savePageTiming(pageIndex, timeSpent, snapshot = null) {
   if (FIRESTORE_DISABLED) return;
   if (!participantCode || !codeValidated) return;
   try {
+    const descriptor = pageDescriptors[pageIndex];
     const extra = {
       pageIndex,
-      path: pages[pageIndex] || ''
+      pageId: descriptor?.id || '',
+      pageSlug: descriptor?.slug || '',
+      visitIndex: sessions.length - 1,
+      totalVisits: sessions.length,
+      sessions: sessions.slice()
     };
     if (answers && Object.keys(answers).length) {
       extra.answers = answers;
@@ -223,9 +343,7 @@ function resetSurveyState() {
   }
   pageStartTime = null;
   accumulatedTime = 0;
-  if (timerElement) {
-    timerElement.textContent = formatTime(0);
-  }
+  removeTimer();
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(TIMING_KEY);
@@ -245,6 +363,8 @@ function resetSurveyState() {
   } catch (_) {
     console.warn('Failed to update completion code cache');
   }
+  refreshSubmissionLockState();
+  updateButtons();
 }
 
 // Persist responses on input change
@@ -356,7 +476,7 @@ function validatePage() {
     return true;
   }
   // completion 페이지는 검증 스킵
-  if (idx === pages.length - 1) {
+  if (idx === pageDescriptors.length - 1) {
     return true;
   }
   
@@ -399,29 +519,122 @@ function validatePage() {
   return true;
 }
 
-const pages = [
-    'pages/main.html',
-    // 'pages/tutorial/tutorial_intro.html',
-    // 'pages/tutorial/tutorial_overview.html',
-    // 'pages/tutorial/tutorial_question.html',
-    'pages/main_survey/main_intro.html',
-    // 'pages/main_survey/exp1/exp1_round1.html',
-    'pages/main_survey/exp1/exp1_round2_p1.html',
-    'pages/main_survey/exp1/exp1_round2_p2.html',
-    'pages/main_survey/exp1/exp1_round3_p1.html',
-    'pages/main_survey/exp1/exp1_round3_p2.html',
-    'pages/main_survey/exp1/exp1_round4_p1.html',
-    'pages/main_survey/exp1/exp1_round4_p2.html',
-    // 'pages/main_survey/exp1/exp1_round2.html',
-    // 'pages/main_survey/exp1/exp1_block.html',
-    'pages/main_survey/main_last.html',
-    'pages/completion.html'
-];
+function normalizePagePath(path) {
+  if (typeof path !== 'string') return '';
+  const trimmed = path.trim();
+  if (!trimmed) return '';
+  return trimmed.startsWith('pages/') ? trimmed : `pages/${trimmed}`;
+}
+
+function createStaticPageDescriptor(path, options = {}) {
+  const { trackTime = true, slug: explicitSlug } = options;
+  const normalized = normalizePagePath(path);
+  if (!normalized) {
+    throw new Error(`Invalid page path: ${path}`);
+  }
+  return {
+    id: normalized,
+    slug: explicitSlug || getPageSlug(normalized),
+    kind: 'static',
+    trackTime,
+    async load() {
+      const res = await fetch(normalized, { cache: 'no-store' });
+      if (!res.ok) throw new Error(res.status);
+      return res.text();
+    }
+  };
+}
+
+function createTemplatePageDescriptor(id, loader, { slug, trackTime = true } = {}) {
+  const effectiveId = isNaN(id) ? String(id) : `page_${id}`;
+  const descriptorSlug = slug || effectiveId;
+  return {
+    id: effectiveId,
+    slug: descriptorSlug,
+    kind: 'dynamic',
+    trackTime,
+    async load() {
+      const result = await loader();
+      if (typeof result === 'string') {
+        return result;
+      }
+      if (typeof Node !== 'undefined' && result instanceof Node) {
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(result.cloneNode(true));
+        return wrapper.innerHTML;
+      }
+      if (typeof DocumentFragment !== 'undefined' && result instanceof DocumentFragment) {
+        const wrapper = document.createElement('div');
+        wrapper.appendChild(result.cloneNode(true));
+        return wrapper.innerHTML;
+      }
+      return result == null ? '' : String(result);
+    }
+  };
+}
+
+function loadMainPages() {
+  return [
+    createStaticPageDescriptor('main.html')
+  ];
+}
+
+function loadTutorialPages() {
+  const introPages = [
+    createStaticPageDescriptor('tutorial/tutorial_intro.html', { trackTime: false }),
+    createStaticPageDescriptor('tutorial/tutorial_overview.html', { trackTime: false })
+  ];
+  const questionPages = TUTORIAL_QUESTIONS.map(question => createTemplatePageDescriptor(
+    question.pageId,
+    () => question.render(),
+    { slug: question.slug, trackTime: false }
+  ));
+  return [
+    ...introPages,
+    ...questionPages
+  ];
+}
+
+function loadMainSurveyPages() {
+  const introPages = [
+    createStaticPageDescriptor('main_survey/main_intro.html')
+  ];
+  const questionPages = MAIN_SURVEY_QUESTIONS.map(question => createTemplatePageDescriptor(
+    question.pageId,
+    () => question.render(),
+    { slug: question.slug }
+  ));
+  const closingPages = [
+    createStaticPageDescriptor('main_survey/main_last.html')
+  ];
+  return [
+    ...introPages,
+    ...questionPages,
+    ...closingPages
+  ];
+}
+
+function loadFinalQuestionPages() {
+  return [
+    createStaticPageDescriptor('completion.html')
+  ];
+}
+
+function buildPageDescriptors() {
+  return [
+    ...loadMainPages(),
+    ...loadTutorialPages(),
+    ...loadMainSurveyPages(),
+    ...loadFinalQuestionPages()
+  ];
+}
+
+const pageDescriptors = buildPageDescriptors();
 
 const CODE_PAGE_PATH = 'pages/main.html';
-const requiresAccessCode = pages.includes(CODE_PAGE_PATH);
-const codePageIndex = requiresAccessCode ? pages.indexOf(CODE_PAGE_PATH) : -1;
-const pageSlugByIndex = pages.map(getPageSlug);
+const requiresAccessCode = pageDescriptors.some(desc => desc.id === CODE_PAGE_PATH);
+const codePageIndex = requiresAccessCode ? pageDescriptors.findIndex(desc => desc.id === CODE_PAGE_PATH) : -1;
+const pageSlugByIndex = pageDescriptors.map(desc => desc.slug);
 const slugToPageIndex = new Map();
 pageSlugByIndex.forEach((slug, index) => {
   if (!slugToPageIndex.has(slug)) {
@@ -555,12 +768,29 @@ async function hydrateFromFirestore(code) {
     let pageResponsesDirty = false;
     const pageResponsesStore = readPageResponses();
 
-    for (const [slug, seconds] of Object.entries(remoteTimings)) {
+    for (const [slug, value] of Object.entries(remoteTimings)) {
       const index = slugToPageIndex.get(slug);
       if (typeof index !== 'number') continue;
-      if (timingData[`page_${index}`] === seconds) continue;
-      timingData[`page_${index}`] = seconds;
-      responses[`page_${index}_time`] = seconds;
+      const key = `page_${index}`;
+      let sessions = [];
+      if (Array.isArray(value)) {
+        sessions = value.map(v => Number(v)).filter(v => Number.isFinite(v) && v >= 0);
+      } else if (value && typeof value === 'object') {
+        if (Array.isArray(value.sessions)) {
+          sessions = value.sessions.map(v => Number(v)).filter(v => Number.isFinite(v) && v >= 0);
+        } else if (Number.isFinite(value.seconds)) {
+          sessions = [Number(value.seconds)];
+        }
+      } else if (Number.isFinite(Number(value))) {
+        sessions = [Number(value)];
+      }
+      if (!sessions.length) continue;
+      const existingSessions = Array.isArray(timingData[key]) ? timingData[key] : (Number.isFinite(Number(timingData[key])) ? [Number(timingData[key])] : []);
+      const sameLength = existingSessions.length === sessions.length;
+      const sameValues = sameLength && existingSessions.every((v, idx) => v === sessions[idx]);
+      if (sameValues) continue;
+      timingData[key] = sessions;
+      responses[`${key}_time`] = sessions;
       timingsDirty = true;
     }
 
@@ -597,6 +827,7 @@ async function initializeParticipantSession(code, { ensureDoc = true } = {}) {
   if (participantCode === normalizedCode && codeValidated) return true;
   const previousCode = participantCode;
   participantCode = normalizedCode;
+  refreshSubmissionLockState();
   if (previousCode && previousCode !== normalizedCode) {
     clearResponsesCache();
   }
@@ -666,7 +897,7 @@ async function handleCodePageNext() {
 // Initialize page index from URL, defaulting to 0
 const params = new URLSearchParams(window.location.search);
 let idx = parseInt(params.get('page'), 10);
-if (isNaN(idx) || idx < 0 || idx >= pages.length) {
+if (isNaN(idx) || idx < 0 || idx >= pageDescriptors.length) {
   idx = 0;
 }
 
@@ -685,16 +916,20 @@ function updateButtons() {
       const isSubmit = next.dataset?.isSubmit === 'true';
       if (navigationInProgress) {
         next.disabled = true;
-      } else if (!isSubmit && idx === pages.length - 1) {
+      } else if (isSubmit && isSubmissionLocked()) {
+        next.disabled = true;
+      } else if (!isSubmit && idx === pageDescriptors.length - 1) {
         next.disabled = true;
       } else {
         next.disabled = false;
       }
     }
 }
+refreshSubmissionLockState();
+
 
 async function loadPage(i, pushHistory = true, previousSnapshot = null) {
-  if (i < 0 || i >= pages.length) return;
+  if (i < 0 || i >= pageDescriptors.length) return;
   
   // Stop timer for current page and save timing
   if (pageStartTime) {
@@ -720,11 +955,14 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
   activePageQuestionKeys = [];
   // Reset content placeholder
   scrollEl.innerHTML = '<div id="dynamic-insert"></div>';
+  let descriptor = null;
   try {
-    const isLastPage = idx === pages.length - 1;
-    const res = await fetch(pages[idx], { cache: 'no-store' });
-    if (!res.ok) throw new Error(res.status);
-    const frag = await res.text();
+    descriptor = pageDescriptors[idx];
+    if (!descriptor) {
+      throw new Error(`Missing page descriptor for index ${idx}`);
+    }
+    const isLastPage = idx === pageDescriptors.length - 1;
+    const frag = await descriptor.load();
     const placeholder = scrollEl.querySelector('#dynamic-insert');
     if (placeholder) placeholder.insertAdjacentHTML('afterend', frag);
     // Instantiate components declared in fragment
@@ -756,10 +994,14 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
       }),
       isLastPage,
       isAvailable: true,
-      totalPages: pages.length,
+      totalPages: pageDescriptors.length,
       currentPage: idx + 1,
       onSubmit: () => guardedNavigate(async () => {
         if (!validatePage()) {
+          return;
+        }
+        if (isSubmissionLocked()) {
+          alert('You have already submitted your response. Thank you!');
           return;
         }
         const snapshot = await persistCurrentPageResponses();
@@ -772,6 +1014,7 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
         console.log("Timing Data:", readJSONFromStorage(TIMING_KEY));
 
         alert('Your response has been successfully submitted!');
+        setSubmissionLock();
         resetSurveyState();
         if (!requiresAccessCode) {
           await initializeParticipantSession('aaaaaa', { ensureDoc: true });
@@ -782,12 +1025,19 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
     });
     scrollEl.appendChild(nav);
   } catch (e) {
+    descriptor = null;
     scrollEl.innerHTML = `<div class="error">Error: ${e.message}</div>`;
   }
   updateButtons();
   
   // Start timer for new page (이전 시간부터 이어서)
-  startTimer(idx);
+  if (descriptor && descriptor.trackTime !== false) {
+    startTimer(idx);
+  } else {
+    stopTimer();
+    accumulatedTime = 0;
+    removeTimer();
+  }
 }
 
 async function bootstrapParticipantSession() {
