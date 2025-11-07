@@ -68,19 +68,23 @@ async function fullChartReset(chartId) {
 
 async function resetSimpleLineChart(chartId, vlSpec, ctx = {}) {
     const forceInitial = ctx?.forceInitialReset === true;
+    
+    // 🔸 첫 단계(stepIndex === 0)에서는 리셋하지 않음
     if (ctx?.stepIndex === 0 && !forceInitial) {
         return;
     }
+    
     const svg = d3.select(`#${chartId}`).select("svg");
     const hasSeries = !svg.empty() && !svg.select("path.series-line").empty();
-    if (!hasSeries || !ctx || !ctx.isLast || forceInitial) {
+    
+    // 🔸 마지막 단계이거나 강제 리셋이 아니면 fullChartReset만 호출
+    if (!ctx || !ctx.isLast || forceInitial) {
         await renderSimpleLineChart(chartId, vlSpec);
         await settleFrame();
     } else {
         await fullChartReset(chartId);
     }
 }
-
 // Ensure layout/paint settles between ops (fallbacks to a short delay if rAF is unavailable)
 const settleFrame = () => (typeof requestAnimationFrame === 'function'
     ? new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)))
@@ -144,12 +148,6 @@ function simpleLineToDatumValues(rawData, spec) {
     return { rows, datumValues, categoryLabel, measureLabel };
 }
 
-/**
- * ✅ 요구사항 반영:
- * - 버튼 기반 네비게이션으로 각 단계 제어
- * - 차트 내부 좌상단에 이전/다음 버튼 배치
- * - 🔸 모든 연산은 DatumValue[] (정규화 데이터) 기준으로 수행
- */
 export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) {
     // 기본 차트 렌더 (D3 라인 차트)
     await renderSimpleLineChart(chartId, vlSpec);
@@ -160,6 +158,13 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
 
     // reset cache
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
+
+    // 🔍 디버깅 로그 추가
+    console.log('=== DEBUG textSpec ===');
+    console.log('textSpec:', textSpec);
+    console.log('textSpec.text:', textSpec.text);
+    console.log('opsSpec keys:', Object.keys(opsSpec));
+    console.log('======================');
 
     await runOpsSequence({
         chartId,
@@ -191,27 +196,27 @@ export async function renderSimpleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
+<<<<<<< HEAD
     const margin = { top: 48, right: 48, bottom: 48, left: 84 };
+=======
+    const margin = { top: 80, right: 48, bottom: 48, left: 64 };  // ✅ top을 120으로 크게 증가
+>>>>>>> 34ffe1bdb94c5b9141cfd85a8f105451cfc1ea1e
     const innerWidth = (spec?.width ?? 560);
     const innerHeight = (spec?.height ?? 320);
     const totalWidth = innerWidth + margin.left + margin.right;
-    const totalHeight = innerHeight + margin.top + margin.bottom;
-
+    const totalHeight = innerHeight + margin.top + margin.bottom;  // ✅ totalHeight가 자동으로 증가함
 
     const xField = spec.encoding.x.field;
     const yField = spec.encoding.y.field;
     const xType  = spec.encoding.x.type;
+    
 
     const raw = await d3.csv(spec.data.url);
 
-
     const data = raw.map(d => {
         const o = { ...d };
-
         o[yField] = +o[yField];
-
         if (xType === 'temporal') {
-            // Keep as raw text even if it looks like a date
             o[xField] = String(d[xField]);
         } else if (xType === 'quantitative') {
             o[xField] = +d[xField];
@@ -224,7 +229,7 @@ export async function renderSimpleLineChart(chartId, spec) {
     chartDataStore[chartId] = data;
 
     const svg = container.append("svg")
-        .attr("viewBox", [0, 0, totalWidth, totalHeight])
+        .attr("viewBox", [0, 0, totalWidth, totalHeight])  // ✅ viewBox도 totalHeight 사용
         .attr("data-x-field", xField)
         .attr("data-y-field", yField)
         .attr("data-m-left", margin.left)
@@ -234,7 +239,7 @@ export async function renderSimpleLineChart(chartId, spec) {
 
     const g = svg.append("g")
         .attr("class", "plot-area")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
+        .attr("transform", `translate(${margin.left},${margin.top})`);  // ✅ margin.top 적용
 
     const xScale = (xType === 'temporal')
         ? d3.scaleTime().domain(d3.extent(data, d => new Date(d[xField]))).range([0, innerWidth])
@@ -259,6 +264,7 @@ export async function renderSimpleLineChart(chartId, spec) {
         .attr("fill", "none")
         .attr("stroke", "steelblue")
         .attr("stroke-width", 2)
+        .attr("opacity", 1)
         .attr("d", lineGen);
 
     g.selectAll(".datapoint")
@@ -276,7 +282,7 @@ export async function renderSimpleLineChart(chartId, spec) {
         ))
         .attr("data-value", d => d[yField]);
 
-    const xLabelY = margin.top + innerHeight + 24;
+    const xLabelY = margin.top + innerHeight + 40;
     svg.append("text").attr("class", "x-axis-label")
         .attr("x", margin.left + innerWidth / 2).attr("y", xLabelY)
         .attr("text-anchor", "middle").text(xField);
@@ -285,5 +291,10 @@ export async function renderSimpleLineChart(chartId, spec) {
         .attr("x", -(margin.top + innerHeight / 2)).attr("y", margin.left - 48)
         .attr("text-anchor", "middle").text(yField);
 
+<<<<<<< HEAD
     shrinkSvgViewBox(svg, 12);
 }
+=======
+    //shrinkSvgViewBox(svg, 6);
+}
+>>>>>>> 34ffe1bdb94c5b9141cfd85a8f105451cfc1ea1e

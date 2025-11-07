@@ -277,6 +277,7 @@ export async function renderMultipleLineChart(chartId, spec) {
         .attr("fill", "none")
         .attr("stroke", d => colorScale(d.key))
         .attr("stroke-width", 2)
+        .attr("opacity", 1)
         .attr("d", d => lineGen(d.values));
 
     g.selectAll("circle.datapoint")
@@ -313,7 +314,7 @@ export async function renderMultipleLineChart(chartId, spec) {
     svg.append("text")
         .attr("class", "x-axis-label")
         .attr("x", margin.left + innerWidth / 2)
-        .attr("y", margin.top + innerHeight + 24)
+        .attr("y", margin.top + innerHeight + 40)
         .attr("text-anchor", "middle")
         .text(xField);
 
@@ -326,6 +327,7 @@ export async function renderMultipleLineChart(chartId, spec) {
         .text(yField);
 
     shrinkSvgViewBox(svg, 12);
+    // shrinkSvgViewBox(svg, 6);
 }
 
 function multipleLineToDatumValues(rawData, spec) {

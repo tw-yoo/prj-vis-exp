@@ -53,14 +53,27 @@ export function clearAllAnnotations(svg) {
     ).remove();
 }
 
+// groupedBarFunctions.js 상단에 추가/수정
+function isSimplifiedData(data) {
+    if (!Array.isArray(data) || data.length === 0) return false;
+    
+    // 🔥 수정: simple bar는 모든 데이터가 같은 group 값을 가짐
+    const groups = new Set(data.map(d => String(d.group)).filter(Boolean));
+    
+    // group이 1개만 있고, 모든 row에 target이 있으면 simplified
+    return groups.size === 1 && data.every(d => d.target != null);
+}
 
 export const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
 // Helper to coordinate operation ordering by waiting for filtering attr to clear
-async function waitForAttrClear(svg, attr = 'data-filtering', timeout = 6000, interval = 50) {
+async function waitForAttrClear(svg, attr = 'data-filtering', timeout = 1000, interval = 50) {
     const start = Date.now();
     while (svg && svg.attr && svg.attr(attr)) {
-        if (Date.now() - start > timeout) break;
+        if (Date.now() - start > timeout) {
+            console.warn(`waitForAttrClear timeout after ${timeout}ms`);
+            break;
+        }
         await delay(interval);
     }
 }
@@ -181,12 +194,10 @@ function drawYThresholdsOnce(svg, margins, plot, yScale, yField, conditions) {
     });
 }
 
-// --- Simple-ize helpers for Grouped Bar ---
-// (1) Keep only a chosen facet (target), and lay its series keys as a simple bar across the full plot width
 export async function groupedBarToSimpleByTarget(chartId, targetFacet, data) {
     const { svg, g, margins, plot, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    await waitForAttrClear(svg);
+    // 🔥 삭제: await waitForAttrClear(svg);
     resetBarsVisible(g);
 
     const facet = String(targetFacet);
@@ -196,16 +207,9 @@ export async function groupedBarToSimpleByTarget(chartId, targetFacet, data) {
         return [];
     }
 
-    const DUR_FADE = 1200; // slower fade of other facets
-    const DUR_GEOM = 2000; // slower expansion/re-layout of selected facet
+    const DUR_FADE = 400;
+    const DUR_GEOM = 600;
     const EASE = d3.easeCubicOut;
-
-    // Pre-fade: slowly fade the entire current chart so the disappearance is perceivable
-    const preFade = g.selectAll('rect')
-        .transition().duration(800).ease(EASE)
-        .attr('opacity', 1.0)
-        .end();
-    await preFade;
 
     // 1) Fade out & remove other facet groups
     const selGroup = g.select(`.facet-group-${cssEscape(facet)}`);
@@ -240,7 +244,6 @@ export async function groupedBarToSimpleByTarget(chartId, targetFacet, data) {
         .attr('width', x1.bandwidth())
         .attr('y', d => y(+d.value))
         .attr('height', d => (plot.h - y(+d.value)))
-        // Removed .attr('opacity', 1) here to prevent slow fade-in
         .end();
 
     // 4) Update bottom axis to the series keys (simple bar x-domain) and show selected target label
@@ -260,21 +263,19 @@ export async function groupedBarToSimpleByTarget(chartId, targetFacet, data) {
         .attr('fill', '#666')
         .text(`${facetField || 'target'}: ${facet}`);
 
-    await fadeP;
-    await Promise.all([moveGroupP, geomP, axisP]);
-    // Quick brighten: reveal the new simple layout promptly (do not make fade-in feel slow)
+    await Promise.all([fadeP, moveGroupP, geomP, axisP]);
     await selGroup.selectAll('rect')
-        .transition().duration(300)
+        .transition().duration(200)
         .attr('opacity', 1)
         .end();
     return subset;
 }
 
-// (2) Keep only a chosen series (group), and center one bar in each facet so the chart behaves like a simple bar over facets
+
 export async function groupedBarToSimpleByGroup(chartId, groupName, data) {
     const { svg, g } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-    await waitForAttrClear(svg);
+    // 🔥 삭제: await waitForAttrClear(svg);
     resetBarsVisible(g);
 
     const series = String(groupName);
@@ -284,16 +285,9 @@ export async function groupedBarToSimpleByGroup(chartId, groupName, data) {
         return [];
     }
 
-    const DUR_FADE = 1500; // slower fade of non-selected series
-    const DUR_GEOM = 2000; // slower centering/re-layout of kept bars
+    const DUR_FADE = 500;
+    const DUR_GEOM = 800;
     const EASE = d3.easeCubicOut;
-
-    // Pre-fade: slowly fade the entire current chart before removing other series
-    const preFade = g.selectAll('rect')
-        .transition().duration(500).ease(EASE)
-        .attr('opacity', 1.0)
-        .end();
-    await preFade;
 
     // 1) Fade out & remove other series bars
     const allRects = g.selectAll('rect');
@@ -322,17 +316,14 @@ export async function groupedBarToSimpleByGroup(chartId, groupName, data) {
 
     const geomP = keepRects.transition().duration(DUR_GEOM).ease(EASE)
         .attr('x', newX)
-        // Removed .attr('opacity', 1) here to prevent slow fade-in
         .end();
 
-    await fadeP;
-    await geomP;
-    await keepRects.transition().duration(300)
+    await Promise.all([fadeP, geomP]);
+    await keepRects.transition().duration(200)
         .attr('opacity', 1)
         .end();
     return subset;
 }
-// operations/bar/grouped/groupedBarFunctions.js 파일에 붙여넣으세요.
 
 export async function groupedBarRetrieveValue(chartId, op, data, isLast = false) {
     if (isLast) {
@@ -684,6 +675,10 @@ export async function groupedBarFindExtremum(chartId, op, data, isLast = false) 
     if (isLast) {
         return await simpleBarFindExtremum(chartId, op, data, true);
     }
+        if (isSimplifiedData(data)) {
+        console.log('Data is already simplified, delegating to simpleBarFindExtremum');
+        return await simpleBarFindExtremum(chartId, op, data, false);
+    }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     await waitForAttrClear(svg);
     resetBarsVisible(g);
@@ -791,72 +786,82 @@ export async function groupedBarDetermineRange(chartId, op, data, isLast = false
     const yMaxGlobal = d3.max(data, r => r.value);
     const y = d3.scaleLinear().domain([0, yMaxGlobal]).nice().range([plot.h, 0]);
     const hlColor = OP_COLORS.RANGE;
-    const DIM = 0.3;
-    const HI = 1.0;
+    const DIM = 0.3;  // 🔥 추가: 흐리게 할 opacity
+    const HI = 1.0;   // 🔥 추가: 강조할 opacity
 
-    if (!hasGroup) {
-        const minRects = g.selectAll('rect').filter(d => d && d.value === minV);
-        const maxRects = g.selectAll('rect').filter(d => d && d.value === maxV);
-        const otherRects = g.selectAll('rect').filter(d => d && d.value !== minV && d.value !== maxV);
+    const animationPromises = [];
 
-        await Promise.all([
-            otherRects.transition().duration(700).attr('opacity', DIM).end(),
-            minRects.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
-            maxRects.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
-        ]);
-    } else {
-        const groupAccessor = (d, node) => {
-            if (d && d.group != null) return String(d.group);
-            if (d && d.key != null) return String(d.key);
-            return node.getAttribute('data-group');
-        };
-        const groupRects = g.selectAll('rect').filter(function(d) { return String(groupAccessor(d, this)) === String(op.group); });
-        const otherRects = g.selectAll('rect').filter(function(d) { return String(groupAccessor(d, this)) !== String(op.group); });
-        const minRectInGroup = groupRects.filter(d => d && d.value === minV);
-        const maxRectInGroup = groupRects.filter(d => d && d.value === maxV);
+    // 🔥 simpleBar와 동일: min/max 막대 찾기
+    const findBars = (val) => g.selectAll('rect').filter(d => {
+        if (!d) return false;
+        return +d.value === val;
+    });
 
-        await Promise.all([
-            otherRects.transition().duration(700).attr('opacity', DIM).end(),
-            minRectInGroup.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
-            maxRectInGroup.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end(),
-        ]);
-    }
+    const minBars = findBars(minV);
+    const maxBars = findBars(maxV);
 
-    const linePromises = [];
-    [{ value: minV, label: 'MIN' }, { value: maxV, label: 'MAX' }].forEach(item => {
+    // 🔥 추가: 다른 막대들 찾기
+    const otherBars = g.selectAll('rect').filter(d => {
+        if (!d) return false;
+        return d.value !== minV && d.value !== maxV;
+    });
+
+    // 🔥 추가: 다른 막대들 흐리게 (700ms)
+    animationPromises.push(
+        otherBars.transition().duration(700).attr('opacity', DIM).end()
+    );
+
+    // 🔥 simpleBar와 동일: 막대 색상 변경 + 강조 (600ms → 700ms로 통일)
+    animationPromises.push(
+        minBars.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end()
+    );
+    animationPromises.push(
+        maxBars.transition().duration(700).attr('opacity', HI).attr('stroke', hlColor).attr('stroke-width', 2).end()
+    );
+
+    // 🔥 simpleBar와 동일: 수평선 그리기 (800ms)
+    [
+        { value: minV, label: "Min", bars: minBars },
+        { value: maxV, label: "Max", bars: maxBars }
+    ].forEach(item => {
+        if (item.value === undefined) return;
         const yPos = margins.top + y(item.value);
-        const line = svg.append('line').attr('class', 'annotation range-line')
-            .attr('x1', margins.left).attr('y1', yPos)
-            .attr('x2', margins.left).attr('y2', yPos)
-            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
-        linePromises.push(
-            line.transition().duration(1000).attr('x2', margins.left + plot.w).end()
+        
+        const line = svg.append("line").attr("class", "annotation range-line")
+            .attr("x1", margins.left).attr("x2", margins.left)
+            .attr("y1", yPos).attr("y2", yPos)
+            .attr("stroke", hlColor)
+            .attr("stroke-width", 2)
+            .attr("stroke-dasharray", "5 5");
+
+        animationPromises.push(
+            line.transition().duration(800).attr("x2", margins.left + plot.w).end()
         );
-    });
-    await Promise.all(linePromises);
 
-    const labelPromises = [];
-    [{ value: minV, label: 'MIN' }, { value: maxV, label: 'MAX' }].forEach(item => {
-        const yPos = margins.top + y(item.value);
-        const text = svg.append('text').attr('class', 'annotation')
-            .attr('x', margins.left + plot.w - 8).attr('y', yPos - 8)
-            .attr('text-anchor', 'end').attr('fill', hlColor).attr('font-weight', 'bold')
-            .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
-            .text(`${item.label}: ${fmtNum(item.value)}`)
-            .attr('opacity', 0);
-        labelPromises.push(text.transition().duration(700).attr('opacity', 1).end());
-    });
-    await Promise.all(labelPromises);
+        // 🔥 simpleBar와 동일: 각 막대에 라벨 추가 (400ms delay, 400ms duration)
+        item.bars.each(function() {
+            const { x, y } = absCenter(svg, this);
+            
+            const text = svg.append("text").attr("class", "annotation")
+                .attr("x", x).attr("y", y)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 12)
+                .attr("font-weight", "bold")
+                .attr("fill", hlColor)
+                .attr("stroke", "white")
+                .attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`${item.label}: ${fmtNum(item.value)}`)
+                .attr("opacity", 0);
 
-    const topText = hasGroup
-        ? `Range for ${op.group}: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`
-        : `Overall Range: ${fmtNum(minV)} ~ ${fmtNum(maxV)}`;
-    await svg.append('text').attr('class', 'annotation')
-        .attr('x', margins.left).attr('y', margins.top - 10)
-        .attr('font-size', 12).attr('font-weight', 'bold')
-        .attr('fill', hlColor).attr('opacity', 0)
-        .text(topText)
-        .transition().duration(700).attr('opacity', 1).end();
+            animationPromises.push(
+                text.transition().delay(400).duration(400).attr("opacity", 1).end()
+            );
+        });
+    });
+
+    // 🔥 모든 애니메이션 대기
+    await Promise.all(animationPromises);
 
     return result;
 }
@@ -1151,141 +1156,141 @@ export async function groupedBarCompareBool(chartId, op, data, isLast = false) {
 
 export async function groupedBarSort(chartId, op, data, isLast = false) {
     if (isLast) {
-        return await simpleBarDiff(chartId, op, data, true);
+        return await simpleBarSort(chartId, op, data, true);
     }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
     resetBarsVisible(g);
-    svg.attr('data-filtering', '1');
 
-    const isObjA = typeof op.targetA === 'object' && op.targetA !== null;
-    const isObjB = typeof op.targetB === 'object' && op.targetB !== null;
-
-    const colorA = OP_COLORS.DIFF_A;
-    const colorB = OP_COLORS.DIFF_B;
-    const diffColor = OP_COLORS.DIFF_LINE;
-
-    const drawDiffLine = (nodeA, nodeB, diffVal) => {
-        const bboxA = nodeA.getBBox();
-        const bboxB = nodeB.getBBox();
-        const groupXA = readGroupX(nodeA);
-        const groupXB = readGroupX(nodeB);
-
-        const cxA = margins.left + groupXA + bboxA.x + bboxA.width / 2;
-        const cyA = margins.top + bboxA.y;
-        const cxB = margins.left + groupXB + bboxB.x + bboxB.width / 2;
-        const cyB = margins.top + bboxB.y;
-
-        const midX = (cxA + cxB) / 2;
-        const minY = Math.min(cyA, cyB);
-
-        const p1 = svg.append("line")
-            .attr("class", "annotation diff-line")
-            .attr("x1", cxA).attr("y1", minY - 10)
-            .attr("x2", cxA).attr("y2", minY - 10)
-            .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5")
-            .transition().duration(1000).ease(d3.easeCubicInOut)
-            .attr("x2", cxB)
-            .end();
-
-        const p2 = svg.append("text")
-            .attr("class", "annotation diff-label")
-            .attr("x", midX).attr("y", minY - 14)
-            .attr("text-anchor", "middle")
-            .attr("fill", diffColor)
-            .attr("font-weight", "bold")
-            .text(`Diff: ${fmtNum(diffVal)}`)
-            .attr("opacity", 0)
-            .transition().delay(500).duration(600)
-            .attr("opacity", 1)
-            .end();
-
-        return Promise.all([p1, p2]);
-    };
-
-    if (!isObjA && !isObjB && op.group) {
+    // 🔥 group이 있으면: simple bar로 변환 후 직접 정렬
+    if (op && op.group != null && op.group !== '') {
         const subgroup = String(op.group);
-        const subset = data.filter(d => String(d.group) === subgroup);
-        if (!subset.length) {
-            console.warn("groupedBarDiff[group]: no data", subgroup);
-            svg.attr('data-filtering', null);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        
+        if (subset.length === 0) {
+            console.warn('groupedBarSort: no data for group', subgroup);
             return [];
         }
+        
+        // Simple bar로 변환
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
-
-        const AFacet = String(op.targetA);
-        const BFacet = String(op.targetB);
-
-        const opForDiff = { targetA: { target: AFacet, group: subgroup }, targetB: { target: BFacet, group: subgroup } };
-        const diffResult = dataDiff(data, opForDiff);
-        if (!diffResult) {
-            console.warn("groupedBarDiff[group]: dataDiff empty", { opForDiff });
-            svg.attr('data-filtering', null);
-            return [];
-        }
-
-        const nodeA = findRectByTuple(g, { facet: AFacet, key: subgroup });
-        const nodeB = findRectByTuple(g, { facet: BFacet, key: subgroup });
-
-        if (nodeA && nodeB) {
-            const others = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
-            await Promise.all([
-                others.transition().duration(500).attr("opacity", 0.2).end(),
-                d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
-                d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
-            ]);
-            await drawDiffLine(nodeA, nodeB, diffResult.value);
-        }
-
-        svg.attr('data-filtering', null);
-        return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
+        
+        // 🔥 추가: 모든 facet group의 transform을 0으로 초기화
+        const allFacetGroups = g.selectAll('[class^="facet-group-"]');
+        allFacetGroups.each(function() {
+            const groupSel = d3.select(this);
+            const currentTransform = groupSel.attr('transform');
+            
+            // 현재 transform에서 x 오프셋 추출
+            const match = /translate\(([-\d.]+)/.exec(currentTransform);
+            const offsetX = match ? +match[1] : 0;
+            
+            // 각 막대의 x를 절대 좌표로 변환
+            groupSel.selectAll('rect').each(function() {
+                const rect = d3.select(this);
+                const currentX = +rect.attr('x') || 0;
+                rect.attr('x', offsetX + currentX);
+            });
+            
+            // group의 transform을 0으로
+            groupSel.attr('transform', 'translate(0,0)');
+        });
+        
+        // 정렬
+        const orderAsc = (op?.order ?? 'asc') === 'asc';
+        const sortedSubset = subset.slice().sort((a, b) => {
+            const valA = +a.value;
+            const valB = +b.value;
+            return orderAsc ? (valA - valB) : (valB - valA);
+        });
+        
+        // 정렬된 target 순서
+        const sortedTargets = sortedSubset.map(d => String(d.target));
+        
+        // 새로운 x 스케일
+        const xScale = d3.scaleBand()
+            .domain(sortedTargets)
+            .range([0, plot.w])
+            .padding(0.2);
+        
+        // 막대들 찾기
+        const bars = g.selectAll('rect');
+        
+        // 막대 위치 애니메이션
+        const barTransition = bars.transition().duration(1000)
+            .attr('x', function() {
+                const rect = d3.select(this);
+                const datum = rect.datum();
+                const target = datum?.target || rect.attr('data-target');
+                return xScale(String(target));
+            })
+            .attr('width', xScale.bandwidth())
+            .end();
+        
+        // x축 업데이트
+        const xAxisTransition = g.select('.x-axis-bottom-line')
+            .transition().duration(1000)
+            .call(d3.axisBottom(xScale).tickSizeOuter(0))
+            .end();
+        
+        await Promise.all([barTransition, xAxisTransition]);
+        
+        return sortedSubset;
     }
 
-    if (isObjA && isObjB && op.targetA.category && op.targetA.series && op.targetB.category && op.targetB.series) {
-        const opForDiff = {
-            targetA: { target: op.targetA.category, group: op.targetA.series },
-            targetB: { target: op.targetB.category, group: op.targetB.series }
-        };
-        const diffResult = dataDiff(data, opForDiff);
-        if (!diffResult) {
-            console.warn("groupedBarDiff: diff fail", op);
-            svg.attr('data-filtering', null);
-            return [];
+    // group이 없으면: facet 레벨 정렬
+    const sumByFacet = d3.rollup(
+        data,
+        v => d3.sum(v, d => +d.value),
+        d => String(d.target)
+    );
+
+    const sortedFacets = Array.from(sumByFacet.entries())
+        .sort((a, b) => {
+            const orderAsc = (op?.order ?? 'asc') === 'asc';
+            return orderAsc ? (a[1] - b[1]) : (b[1] - a[1]);
+        })
+        .map(entry => entry[0]);
+
+    const x0 = d3.scaleBand()
+        .domain(sortedFacets)
+        .range([0, plot.w])
+        .paddingInner(0.2);
+
+    const moveFacetPromises = [];
+    const allFacetGroups = g.selectAll('[class^="facet-group-"]');
+    
+    allFacetGroups.each(function() {
+        const groupNode = this;
+        const className = groupNode.getAttribute('class') || '';
+        const facetValue = className.replace('facet-group-', '').trim();
+        
+        if (sortedFacets.includes(facetValue)) {
+            const newX = x0(facetValue);
+            const groupSel = d3.select(groupNode);
+            moveFacetPromises.push(
+                groupSel.transition().duration(1000).ease(d3.easeCubicInOut)
+                    .attr('transform', `translate(${newX},0)`)
+                    .end()
+            );
         }
+    });
 
-        const nodeA = findRectByTuple(g, { facet: op.targetA.category, key: op.targetA.series });
-        const nodeB = findRectByTuple(g, { facet: op.targetB.category, key: op.targetB.series });
+    const xAxisP = g.select('.x-axis-bottom-line')
+        .transition().duration(1000)
+        .call(d3.axisBottom(x0).tickSizeOuter(0))
+        .end();
 
-        if (nodeA && nodeB) {
-            const others = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
-            await Promise.all([
-                others.transition().duration(500).attr("opacity", 0.2).end(),
-                d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
-                d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
-            ]);
-            await drawDiffLine(nodeA, nodeB, diffResult.value);
-        }
+    await Promise.all([...moveFacetPromises, xAxisP]);
 
-        svg.attr('data-filtering', null);
-        return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
-    }
+    const sortedData = [];
+    sortedFacets.forEach(facet => {
+        const facetData = data.filter(d => String(d.target) === facet);
+        sortedData.push(...facetData);
+    });
 
-    if (!isObjA && !isObjB) {
-        const AFacet = String(op.targetA);
-        const BFacet = String(op.targetB);
-        const inGroup = (d) => (op.group) ? String(d.group) === String(op.group) : true;
-        const aVal = d3.sum(data.filter(d => inGroup(d) && String(d.target) === AFacet), d => +d.value);
-        const bVal = d3.sum(data.filter(d => inGroup(d) && String(d.target) === BFacet), d => +d.value);
-        const diffVal = aVal - bVal;
-
-        svg.attr('data-filtering', null);
-        return [new DatumValue(facetField, yField, "Diff", op.group ?? null, Math.abs(diffVal), `${AFacet}-${BFacet}-diff`)];
-    }
-
-    console.warn("groupedBarDiff: unsupported targets", op);
-    svg.attr('data-filtering', null);
-    return [];
+    return sortedData;
 }
 
 export async function groupedBarSum(chartId, op, data, isLast = false) {
@@ -1304,24 +1309,27 @@ export async function groupedBarSum(chartId, op, data, isLast = false) {
             console.warn('groupedBarSum: no data for group', subgroup);
             return [];
         }
+        
         await groupedBarToSimpleByGroup(chartId, subgroup, data);
 
-        g.selectAll('g').each(function() {
-            const cls = (this.getAttribute('class') || '').split(/\s+/);
-            const isFacetGroup = cls.some(c => c.indexOf('facet-group-') === 0);
-            if (!isFacetGroup) return;
-            const grp = d3.select(this);
-            const tx = readGroupX(this) || 0;
-            if (tx !== 0) {
-                grp.selectAll('rect').each(function() {
-                    const r = d3.select(this);
-                    const x = +r.attr('x') || 0;
-                    r.attr('x', x + tx);
-                });
-                grp.attr('transform', 'translate(0,0)');
-            }
+        // 🔥 모든 facet group의 transform을 0으로 초기화
+        const allFacetGroups = g.selectAll('[class^="facet-group-"]');
+        allFacetGroups.each(function() {
+            const groupSel = d3.select(this);
+            const currentTransform = groupSel.attr('transform');
+            const match = /translate\(([-\d.]+)/.exec(currentTransform);
+            const offsetX = match ? +match[1] : 0;
+            
+            groupSel.selectAll('rect').each(function() {
+                const rect = d3.select(this);
+                const currentX = +rect.attr('x') || 0;
+                rect.attr('x', offsetX + currentX);
+            });
+            
+            groupSel.attr('transform', 'translate(0,0)');
         });
 
+        // 🔥 y축 클래스 확인 및 통일
         if (svg.select('.y-axis').empty()) {
             const cand = svg.select('.y-axis-left-line');
             if (!cand.empty()) cand.classed('y-axis', true);
@@ -1346,15 +1354,20 @@ export async function groupedBarSum(chartId, op, data, isLast = false) {
             return [sumDatum];
         }
 
+        // 🔥 새로운 y 스케일
         const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
+        
+        // y축 업데이트
         const yAxisTransition = svg.select('.y-axis')
             .transition().duration(1000)
             .call(d3.axisLeft(newYScale))
             .end();
 
+        // 🔥 모든 막대를 쌓기
         const bars = g.selectAll('rect');
-        const barWidth = bars.empty() ? 0 : +(bars.node().getAttribute('width') || 0);
+        const barWidth = bars.size() > 0 ? +(bars.node().getAttribute('width') || 0) : 20;
         const targetX = plot.w / 2 - barWidth / 2;
+        
         let runningTotal = 0;
         const stackPromises = [];
 
@@ -1362,11 +1375,13 @@ export async function groupedBarSum(chartId, op, data, isLast = false) {
             const rect = d3.select(this);
             const d = rect.datum();
             const value = (d && Number.isFinite(+d.value)) ? +d.value : 0;
+            
             const t = rect.transition().duration(1200)
                 .attr('x', targetX)
                 .attr('y', newYScale(runningTotal + value))
                 .attr('height', plot.h - newYScale(value))
                 .end();
+            
             stackPromises.push(t);
             runningTotal += value;
         });
@@ -1374,6 +1389,7 @@ export async function groupedBarSum(chartId, op, data, isLast = false) {
         await Promise.all([yAxisTransition, ...stackPromises]);
         await delay(200);
 
+        // 🔥 최종 합계 라인과 라벨
         const finalY = newYScale(totalSum);
         svg.append('line').attr('class', 'annotation value-line')
             .attr('x1', margins.left).attr('y1', margins.top + finalY)
@@ -1390,6 +1406,7 @@ export async function groupedBarSum(chartId, op, data, isLast = false) {
         return [sumDatum];
     }
 
+    // 🔥 group이 없을 때 (전체 sum)
     const result = dataSum(data, op, facetField, yField);
     if (!result) {
         console.warn("Sum could not be calculated.");
@@ -1531,15 +1548,208 @@ export async function groupedBarNth(chartId, op, data, isLast = false) {
     if (isLast) {
         return await simpleBarNth(chartId, op, data, true);
     }
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    
+    // 🔥 서수 변환 함수
+    const getOrdinal = (n) => {
+        const s = ['th', 'st', 'nd', 'rd'];
+        const v = n % 100;
+        return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    };
+    
+    const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     await waitForAttrClear(svg);
     resetBarsVisible(g);
 
-    let n = Number(op?.n ?? 1);
+    // 🔥 n을 배열로 처리 (단일 값이면 배열로 변환)
+    const nValues = Array.isArray(op.n) ? op.n : [op.n ?? 1];
     const from = String(op?.from || 'left').toLowerCase();
     const hlColor = OP_COLORS.NTH;
 
+    // 🔥 group이 있으면 simple bar로 변환 후 처리
+    if (op && op.group != null && op.group !== '') {
+        const subgroup = String(op.group);
+        const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
+        
+        if (subset.length === 0) {
+            console.warn('groupedBarNth: no data for group', subgroup);
+            return [];
+        }
+        
+        await groupedBarToSimpleByGroup(chartId, subgroup, data);
+        
+        // transform 초기화
+        const allFacetGroups = g.selectAll('[class^="facet-group-"]');
+        allFacetGroups.each(function() {
+            const groupSel = d3.select(this);
+            const currentTransform = groupSel.attr('transform');
+            const match = /translate\(([-\d.]+)/.exec(currentTransform);
+            const offsetX = match ? +match[1] : 0;
+            
+            groupSel.selectAll('rect').each(function() {
+                const rect = d3.select(this);
+                const currentX = +rect.attr('x') || 0;
+                rect.attr('x', offsetX + currentX);
+            });
+            
+            groupSel.attr('transform', 'translate(0,0)');
+        });
+        
+        // 막대 정렬 (x 좌표 기준)
+        const bars = g.selectAll('rect');
+        const items = bars.nodes().map(node => {
+            const x = +node.getAttribute('x') || 0;
+            const datum = d3.select(node).datum();
+            const target = datum?.target || node.getAttribute('data-target');
+            const value = datum?.value || 0;
+            return { node, x, target, value };
+        });
+        
+        items.sort((a, b) => a.x - b.x);
+        
+        const seq = from === 'right' ? items.slice().reverse() : items;
+        
+        // 모든 막대 흐리게
+        await bars.transition().duration(250).attr("opacity", 0.2).end();
+        
+        // y 스케일
+        const yMax = d3.max(data, d => d.value);
+        const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+        
+        // 🔥 1단계: 카운팅 애니메이션
+        const countedBars = [];
+        const maxN = Math.max(...nValues);
+        const countLimit = Math.min(maxN, seq.length);
+
+        for (let i = 0; i < countLimit; i++) {
+            const item = seq[i];
+            const sel = d3.select(item.node);
+            
+            countedBars.push({ 
+                index: i + 1, 
+                target: item.target, 
+                selection: sel, 
+                value: item.value,
+                node: item.node
+            });
+            
+            await sel.transition().duration(150).attr('opacity', 1).end();
+
+            const { x, y } = absCenter(svg, item.node);
+            
+            await svg.append('text').attr('class', 'annotation count-label')
+                .attr('x', x).attr('y', y)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', 14)
+                .attr('font-weight', 'bold')
+                .attr('fill', hlColor)
+                .attr('stroke', 'white')
+                .attr('stroke-width', 3)
+                .attr('paint-order', 'stroke')
+                .text(String(i + 1))
+                .attr('opacity', 0)
+                .transition().duration(150).attr('opacity', 1).end();
+            
+            await delay(100);
+        }
+
+        // 🔥 2단계: 선택되지 않은 것들 페이드아웃
+        const selectedIndices = new Set(nValues.filter(n => n <= countLimit));
+        const finals = [];
+        
+        countedBars.forEach((item) => {
+            if (!selectedIndices.has(item.index)) {
+                finals.push(item.selection.transition().duration(300).attr('opacity', 0.2).end());
+            }
+        });
+        finals.push(svg.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end());
+        await Promise.all(finals);
+
+        // 🔥 3단계: 선택된 것들 강조 + 수평선 + 값 표시 (동시에)
+        const highlightTasks = [];
+        const lineTasks = [];
+        const labelTasks = [];
+
+        nValues.forEach(n => {
+            if (n > countLimit) return;
+            
+            const item = countedBars.find(cb => cb.index === n);
+            if (!item) return;
+
+            // 강조
+            highlightTasks.push(
+                item.selection.transition().duration(400).attr('fill', hlColor).attr('opacity', 1).end()
+            );
+
+            // 수평선
+            const yPos = margins.top + yScale(item.value);
+            lineTasks.push(
+                svg.append('line').attr('class', 'annotation nth-line')
+                    .attr('x1', margins.left).attr('y1', yPos)
+                    .attr('x2', margins.left).attr('y2', yPos)
+                    .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
+                    .transition().duration(500).attr('x2', margins.left + plot.w).end()
+            );
+
+            // 값 표시 (서수 + 값)
+            const { x, y } = absCenter(svg, item.node);
+            
+            // 🔥 서수 배경
+            const ordinalText = getOrdinal(n);
+            labelTasks.push(
+                svg.append('rect').attr('class', 'annotation label-bg')
+                    .attr('x', x - 15).attr('y', y - 25)
+                    .attr('width', 30).attr('height', 14)
+                    .attr('fill', 'white').attr('rx', 3)
+                    .attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 0.9).end()
+            );
+            
+            // 서수 표시 (위쪽)
+            labelTasks.push(
+                svg.append('text').attr('class', 'annotation value-tag')
+                    .attr('x', x).attr('y', y - 15).attr('text-anchor', 'middle')
+                    .attr('font-size', 11).attr('font-weight', 'bold').attr('fill', hlColor)
+                    .text(ordinalText).attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 1).end()
+            );
+            
+            // 🔥 값 배경
+            const valueText = fmtNum(item.value);
+            const valueWidth = Math.max(30, valueText.length * 7);
+            labelTasks.push(
+                svg.append('rect').attr('class', 'annotation label-bg')
+                    .attr('x', x - valueWidth/2).attr('y', y - 11)
+                    .attr('width', valueWidth).attr('height', 14)
+                    .attr('fill', 'white').attr('rx', 3)
+                    .attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 0.9).end()
+            );
+            
+            // 값 표시 (아래쪽)
+            labelTasks.push(
+                svg.append('text').attr('class', 'annotation value-tag')
+                    .attr('x', x).attr('y', y - 1).attr('text-anchor', 'middle')
+                    .attr('font-size', 12).attr('font-weight', 'bold').attr('fill', hlColor)
+                    .text(valueText).attr('opacity', 0)
+                    .transition().duration(400).attr('opacity', 1).end()
+            );
+        });
+
+        await Promise.all([...highlightTasks]);
+        await Promise.all([...lineTasks]);
+        await Promise.all([...labelTasks]);
+
+        const selectedTargets = nValues
+            .filter(n => n <= countLimit)
+            .map(n => countedBars.find(cb => cb.index === n)?.target)
+            .filter(Boolean);
+        
+        const results = subset.filter(d => selectedTargets.includes(String(d.target)));
+        return results;
+    }
+
+    // 🔥 group이 없으면: facet 레벨에서 nth 선택
     const facetGroups = [];
     g.selectAll('g').each(function() {
         const cls = (this.getAttribute('class') || '').split(/\s+/);
@@ -1547,7 +1757,9 @@ export async function groupedBarNth(chartId, op, data, isLast = false) {
         if (!facetToken) return;
         const facet = facetToken.slice('facet-group-'.length);
         const tx = readGroupX(this) || 0;
-        facetGroups.push({ node: this, facet, x: tx });
+        const facetData = data.filter(d => String(d.target) === facet);
+        const totalValue = d3.sum(facetData, d => +d.value);
+        facetGroups.push({ node: this, facet, x: tx, value: totalValue });
     });
 
     if (facetGroups.length === 0) {
@@ -1556,77 +1768,164 @@ export async function groupedBarNth(chartId, op, data, isLast = false) {
     }
 
     facetGroups.sort((a, b) => a.x - b.x);
-    const ordered = (from === 'right') ? facetGroups.slice().reverse() : facetGroups;
-    const boundedN = Math.max(1, Math.min(n, ordered.length));
-    const picked = ordered[boundedN - 1];
-    if (!picked) {
-        console.warn('groupedBarNth: nth facet out of range', { n, from, len: ordered.length });
-        return [];
-    }
+    const seq = (from === 'right') ? facetGroups.slice().reverse() : facetGroups;
 
     const allRects = g.selectAll('rect');
-    if (allRects.empty()) {
-        console.warn('groupedBarNth: no bars found');
-        return [];
+    
+    // 모든 막대 흐리게
+    await allRects.transition().duration(250).attr('opacity', 0.2).end();
+    
+    // y 스케일
+    const yMax = d3.max(data, d => d.value);
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+
+    // 🔥 1단계: 카운팅 애니메이션
+    const countedFacets = [];
+    const maxN = Math.max(...nValues);
+    const countLimit = Math.min(maxN, seq.length);
+
+    for (let i = 0; i < countLimit; i++) {
+        const facetItem = seq[i];
+        const facetSelector = `.facet-group-${cssEscape(String(facetItem.facet))}`;
+        const pickedGroup = g.select(facetSelector);
+        const pickedRects = pickedGroup.selectAll('rect');
+        
+        countedFacets.push({
+            index: i + 1,
+            facet: facetItem.facet,
+            selection: pickedRects,
+            value: facetItem.value,
+            group: pickedGroup
+        });
+        
+        await pickedRects.transition().duration(150).attr('opacity', 1).end();
+
+        // 각 막대에 카운트 표시
+        pickedRects.each(function() {
+            const { x, y } = absCenter(svg, this);
+            svg.append('text').attr('class', 'annotation count-label')
+                .attr('x', x).attr('y', y)
+                .attr('text-anchor', 'middle')
+                .attr('font-size', 14)
+                .attr('font-weight', 'bold')
+                .attr('fill', hlColor)
+                .attr('stroke', 'white')
+                .attr('stroke-width', 3)
+                .attr('paint-order', 'stroke')
+                .text(String(i + 1))
+                .attr('opacity', 0)
+                .transition().duration(150).attr('opacity', 1);
+        });
+        
+        await delay(100);
     }
 
-    const facetSelector = `.facet-group-${cssEscape(String(picked.facet))}`;
-    const pickedGroup = g.select(facetSelector);
-    const pickedRects = pickedGroup.selectAll('rect');
-
-    await allRects.transition().duration(200).attr('opacity', 0.2).end();
-    await pickedRects.transition().duration(350)
-        .attr('opacity', 1)
-        .attr('stroke', hlColor)
-        .attr('stroke-width', 2)
-        .end();
-
-    const anims = [];
-    pickedRects.each(function() {
-        const bar = this;
-        const d = d3.select(bar).datum() || {};
-        const { x, y } = absCenter(svg, bar);
-
-        const guide = svg.append('line')
-            .attr('class', 'annotation nth-line')
-            .attr('x1', margins.left).attr('y1', y)
-            .attr('x2', margins.left).attr('y2', y)
-            .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '5 5');
-        anims.push(guide.transition().duration(450).attr('x2', x).end());
-
-        const val = Number.isFinite(+d.value) ? +d.value : NaN;
-        if (Number.isFinite(val)) {
-            const t = svg.append('text')
-                .attr('class', 'annotation nth-value')
-                .attr('x', x).attr('y', y - 10)
-                .attr('text-anchor', 'middle')
-                .attr('font-size', 12).attr('font-weight', 'bold')
-                .attr('fill', hlColor)
-                .attr('stroke', 'white').attr('stroke-width', 3).attr('paint-order', 'stroke')
-                .text(fmtNum(val))
-                .attr('opacity', 0)
-                .transition().duration(350).attr('opacity', 1).end();
-            anims.push(t);
+    // 🔥 2단계: 선택되지 않은 것들 페이드아웃
+    const selectedIndices = new Set(nValues.filter(n => n <= countLimit));
+    const finals = [];
+    
+    countedFacets.forEach((item) => {
+        if (!selectedIndices.has(item.index)) {
+            finals.push(item.selection.transition().duration(300).attr('opacity', 0.2).end());
         }
     });
+    finals.push(svg.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end());
+    await Promise.all(finals);
 
-    await Promise.all(anims).catch(() => {});
+   // 🔥 3단계: 선택된 것들 강조 + 수평선 + 서수/값 표시
+const highlightTasks = [];
+const lineTasks = [];
+const labelTasks = [];
 
-    const caption = `Nth facet (${from}, n=${boundedN}): ${picked.facet}`;
-    svg.append('text')
-        .attr('class', 'annotation nth-caption')
-        .attr('x', margins.left)
-        .attr('y', margins.top - 10)
-        .attr('font-size', 12)
-        .attr('font-weight', 'bold')
-        .attr('fill', hlColor)
-        .text(caption);
+nValues.forEach(n => {
+    if (n > countLimit) return;
+    const item = countedFacets.find(cf => cf.index === n);
+    if (!item) return;
+    
+    // 강조
+    highlightTasks.push(
+        item.selection.transition().duration(400).attr('fill', hlColor).attr('opacity', 1).end()
+    );
+    
+    // 🔥 각 facet의 막대들에 대해 수평선 그리기
+    item.selection.each(function() {
+        const bar = this;
+        const d = d3.select(bar).datum() || {};
+        const barValue = Number.isFinite(+d.value) ? +d.value : 0;
+        
+        if (barValue > 0) {
+            const yPos = margins.top + yScale(barValue);
+            const { x } = absCenter(svg, bar);
+            
+            // 🔥 추가: 수평선 그리기 (각 막대마다)
+            lineTasks.push(
+                svg.append('line').attr('class', 'annotation nth-line')
+                    .attr('x1', margins.left).attr('y1', yPos)
+                    .attr('x2', margins.left).attr('y2', yPos)
+                    .attr('stroke', hlColor).attr('stroke-width', 2).attr('stroke-dasharray', '5 5')
+                    .transition().duration(500).attr('x2', x).end()
+            );
+        }
+    });
+    
+    // 🔥 각 facet의 첫 번째 막대 위치에 서수/값 표시
+    const firstBar = item.selection.node();
+    if (!firstBar) return;
+    
+    const { x, y } = absCenter(svg, firstBar);
+    
+    // 🔥 서수 배경
+    const ordinalText = getOrdinal(n);
+    labelTasks.push(
+        svg.append('rect').attr('class', 'annotation label-bg')
+            .attr('x', x - 15).attr('y', y - 25)
+            .attr('width', 30).attr('height', 14)
+            .attr('fill', 'white').attr('rx', 3)
+            .attr('opacity', 0)
+            .transition().duration(400).attr('opacity', 0.9).end()
+    );
+    
+    // 서수 표시
+    labelTasks.push(
+        svg.append('text').attr('class', 'annotation value-tag')
+            .attr('x', x).attr('y', y - 15).attr('text-anchor', 'middle')
+            .attr('font-size', 11).attr('font-weight', 'bold').attr('fill', hlColor)
+            .text(ordinalText).attr('opacity', 0)
+            .transition().duration(400).attr('opacity', 1).end()
+    );
+    
+    // 🔥 값 배경 (facet 전체 합계)
+    const valueText = fmtNum(item.value);
+    const valueWidth = Math.max(30, valueText.length * 7);
+    labelTasks.push(
+        svg.append('rect').attr('class', 'annotation label-bg')
+            .attr('x', x - valueWidth/2).attr('y', y - 11)
+            .attr('width', valueWidth).attr('height', 14)
+            .attr('fill', 'white').attr('rx', 3)
+            .attr('opacity', 0)
+            .transition().duration(400).attr('opacity', 0.9).end()
+    );
+    
+    // 값 표시 (facet 전체 합계)
+    labelTasks.push(
+        svg.append('text').attr('class', 'annotation value-tag')
+            .attr('x', x).attr('y', y - 1).attr('text-anchor', 'middle')
+            .attr('font-size', 12).attr('font-weight', 'bold').attr('fill', hlColor)
+            .text(valueText).attr('opacity', 0)
+            .transition().duration(400).attr('opacity', 1).end()
+    );
+});
 
-    const facetVal = String(picked.facet);
-    const results = Array.isArray(data) ?
-        data.filter(d => String(d.target ?? d.facet ?? d.age ?? '') === facetVal) :
-        [];
+await Promise.all([...highlightTasks]);
+await Promise.all([...lineTasks]);
+await Promise.all([...labelTasks]);
 
+    const selectedFacets = nValues
+        .filter(n => n <= countLimit)
+        .map(n => countedFacets.find(cf => cf.index === n)?.facet)
+        .filter(Boolean);
+    
+    const results = data.filter(d => selectedFacets.includes(String(d.target)));
     return results;
 }
 
@@ -1647,6 +1946,7 @@ export async function groupedBarDiff(chartId, op, data, isLast = false) {
     const colorB = OP_COLORS.DIFF_B;
     const diffColor = OP_COLORS.DIFF_LINE;
 
+    // 🔥 simpleBar와 동일: diff line 그리기 함수
     const drawDiffLine = (nodeA, nodeB, diffVal) => {
         const bboxA = nodeA.getBBox();
         const bboxB = nodeB.getBBox();
@@ -1665,23 +1965,33 @@ export async function groupedBarDiff(chartId, op, data, isLast = false) {
             .attr("class", "annotation diff-line")
             .attr("x1", cxA).attr("y1", minY - 10)
             .attr("x2", cxA).attr("y2", minY - 10)
-            .attr("stroke", diffColor).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
+            .attr("stroke", diffColor)
+            .attr("stroke-width", 2)
+            .attr("stroke-dasharray", "5 5");
 
-        line.transition().duration(1000).ease(d3.easeCubicInOut)
-            .attr("x2", cxB);
+        const lineP = line.transition().duration(400).ease(d3.easeCubicInOut)
+            .attr("x2", cxB)
+            .end();
 
-        svg.append("text")
+        const label = svg.append("text")
             .attr("class", "annotation diff-label")
             .attr("x", midX).attr("y", minY - 14)
             .attr("text-anchor", "middle")
-            .attr("fill", diffColor)
+            .attr("font-size", 12)
             .attr("font-weight", "bold")
+            .attr("fill", diffColor)
+            .attr("stroke", "white")
+            .attr("stroke-width", 3)
+            .attr("paint-order", "stroke")
             .text(`Diff: ${fmtNum(diffVal)}`)
-            .attr("opacity", 0)
-            .transition().delay(500).duration(600)
-            .attr("opacity", 1);
+            .attr("opacity", 0);
+
+        const labelP = label.transition().duration(400).attr("opacity", 1).end();
+
+        return Promise.all([lineP, labelP]);
     };
 
+    // 🔥 group이 있을 때
     if (!isObjA && !isObjB && op.group) {
         const subgroup = String(op.group);
         const subset = data.filter(d => String(d.group) === subgroup);
@@ -1708,18 +2018,101 @@ export async function groupedBarDiff(chartId, op, data, isLast = false) {
 
         if (nodeA && nodeB) {
             const others = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
+            
+            // 🔥 simpleBar와 동일: 600ms 애니메이션
             await Promise.all([
-                others.transition().duration(500).attr("opacity", 0.2).end(),
-                d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
-                d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
+                others.transition().duration(600).attr("opacity", 0.2).end(),
+                d3.select(nodeA).transition().duration(600).attr("opacity", 1).attr("fill", colorA).end(),
+                d3.select(nodeB).transition().duration(600).attr("opacity", 1).attr("fill", colorB).end()
             ]);
-            drawDiffLine(nodeA, nodeB, diffResult.value);
+
+            // 🔥 simpleBar와 동일: 수평선 그리기
+            const yMax = d3.max(data, d => d.value);
+            const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+
+            const valueA = d3.select(nodeA).datum()?.value;
+            const valueB = d3.select(nodeB).datum()?.value;
+
+            const guidePositions = [];
+            const animationPromises = [];
+
+            [
+                { node: nodeA, value: valueA, color: colorA },
+                { node: nodeB, value: valueB, color: colorB }
+            ].forEach(t => {
+                if (!Number.isFinite(t.value)) return;
+
+                const yPos = margins.top + yScale(t.value);
+                guidePositions.push(yPos);
+
+                const line = svg.append("line").attr("class", "annotation")
+                    .attr("x1", margins.left).attr("y1", yPos)
+                    .attr("x2", margins.left).attr("y2", yPos)
+                    .attr("stroke", t.color)
+                    .attr("stroke-width", 1.5)
+                    .attr("stroke-dasharray", "4 4");
+
+                animationPromises.push(
+                    line.transition().duration(400).attr("x2", margins.left + plot.w).end()
+                );
+
+                const { x, y } = absCenter(svg, t.node);
+                svg.append("text").attr("class", "annotation")
+                    .attr("x", x).attr("y", y)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", 12)
+                    .attr("font-weight", "bold")
+                    .attr("fill", t.color)
+                    .attr("stroke", "white")
+                    .attr("stroke-width", 3)
+                    .attr("paint-order", "stroke")
+                    .text(fmtNum(t.value));
+            });
+
+            await Promise.all(animationPromises);
+
+            // 🔥 simpleBar와 동일: diff bridge 그리기
+            const diffMagnitude = Math.abs(diffResult.value);
+            if (guidePositions.length === 2 && Number.isFinite(diffMagnitude)) {
+                const [posA, posB] = guidePositions;
+                if (Number.isFinite(posA) && Number.isFinite(posB)) {
+                    const minY = Math.min(posA, posB);
+                    const maxY = Math.max(posA, posB);
+                    const diffX = margins.left + plot.w - 8;
+
+                    const bridge = svg.append("line").attr("class", "annotation diff-line")
+                        .attr("x1", diffX).attr("x2", diffX)
+                        .attr("y1", minY).attr("y2", minY)
+                        .attr("stroke", diffColor)
+                        .attr("stroke-width", 2)
+                        .attr("stroke-dasharray", "5 5");
+
+                    await bridge.transition().duration(400).attr("y2", maxY).end();
+
+                    const labelY = (minY + maxY) / 2;
+                    const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                        .attr("x", diffX - 6)
+                        .attr("y", labelY)
+                        .attr("text-anchor", "end")
+                        .attr("font-size", 12)
+                        .attr("font-weight", "bold")
+                        .attr("fill", diffColor)
+                        .attr("stroke", "white")
+                        .attr("stroke-width", 3)
+                        .attr("paint-order", "stroke")
+                        .text(`Diff: ${fmtNum(diffMagnitude)}`)
+                        .attr("opacity", 0);
+
+                    await diffLabel.transition().duration(400).attr("opacity", 1).end();
+                }
+            }
         }
 
         svg.attr('data-filtering', null);
         return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
     }
 
+    // 🔥 targetA, targetB가 객체일 때 (category + series)
     if (isObjA && isObjB && op.targetA.category && op.targetA.series && op.targetB.category && op.targetB.series) {
         const opForDiff = {
             targetA: { target: op.targetA.category, group: op.targetA.series },
@@ -1737,18 +2130,22 @@ export async function groupedBarDiff(chartId, op, data, isLast = false) {
 
         if (nodeA && nodeB) {
             const others = g.selectAll("rect").filter(function() { return this !== nodeA && this !== nodeB; });
+            
+            // 🔥 simpleBar와 동일
             await Promise.all([
-                others.transition().duration(500).attr("opacity", 0.2).end(),
-                d3.select(nodeA).transition().duration(500).attr("opacity", 1).attr("stroke", colorA).attr("stroke-width", 2).end(),
-                d3.select(nodeB).transition().duration(500).attr("opacity", 1).attr("stroke", colorB).attr("stroke-width", 2).end()
+                others.transition().duration(600).attr("opacity", 0.2).end(),
+                d3.select(nodeA).transition().duration(600).attr("opacity", 1).attr("fill", colorA).end(),
+                d3.select(nodeB).transition().duration(600).attr("opacity", 1).attr("fill", colorB).end()
             ]);
-            drawDiffLine(nodeA, nodeB, diffResult.value);
+
+            await drawDiffLine(nodeA, nodeB, Math.abs(diffResult.value));
         }
 
         svg.attr('data-filtering', null);
         return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
     }
 
+    // 🔥 facet 레벨 diff (group 지정 없음)
     if (!isObjA && !isObjB) {
         const AFacet = String(op.targetA);
         const BFacet = String(op.targetB);
