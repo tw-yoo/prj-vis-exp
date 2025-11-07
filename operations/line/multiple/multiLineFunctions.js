@@ -173,10 +173,11 @@ export async function multipleLineRetrieveValue(chartId, op, data) {
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
     const cx = xScale(targetDatums[0].target);
 
-    await selectAllLines(g).transition().duration(500)
-        .attr("opacity", 0.3)
-        .attr("stroke-width", 1.5)
-        .end().catch(() => {});
+selectAllLines(g).attr("opacity", 1).attr("stroke-width", 2);
+await selectAllLines(g).transition().duration(500)
+    .attr("opacity", 0.3)
+    .attr("stroke-width", 1.5)
+    .end().catch(() => {});
 
     g.append("line").attr("class", "annotation")
         .attr("x1", cx).attr("y1", plot.h)
@@ -382,6 +383,8 @@ export async function multipleLineDetermineRange(chartId, op, data) {
     const annotateValue = (value, label, datumsArr) => {
         if (!Number.isFinite(value)) return;
         const yPos = yScale(value);
+        
+        // 가로선 애니메이션
         const lineT = g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", yPos).attr("x2", 0).attr("y2", yPos)
             .attr("stroke", hlColor).attr("stroke-dasharray", "4 4")
@@ -389,24 +392,29 @@ export async function multipleLineDetermineRange(chartId, op, data) {
         pending.push(lineT.end().catch(()=>{}));
 
         const arr = Array.isArray(datumsArr) ? datumsArr : [];
-        arr.forEach(datum => {
-            const cx = xScale(datum.target);
-            const color = seriesColors(datum.group);
-            const cT = g.append("circle").attr("class", "annotation")
-                .attr("cx", cx).attr("cy", yPos).attr("r", 0)
-                .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
-                .transition().duration(500).delay(200).attr("r", 7);
-            pending.push(cT.end().catch(()=>{}));
-            const tT = g.append("text").attr("class", "annotation")
-                .attr("x", cx).attr("y", yPos - 12).attr("text-anchor", "middle")
-                .attr("font-weight", "bold").attr("fill", color)
-                .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
-                .text(`${label}: ${formatValue(value)}`)
-                .attr("opacity", 0).transition().duration(400).delay(400).attr("opacity", 1);
-            pending.push(tT.end().catch(()=>{}));
-        });
-
-        if (arr.length === 0) {
+        
+        // 데이터 포인트가 있으면 각 포인트에 점과 레이블 표시
+        if (arr.length > 0) {
+            arr.forEach(datum => {
+                const cx = xScale(datum.target);
+                const color = seriesColors(datum.group);
+                
+                const cT = g.append("circle").attr("class", "annotation")
+                    .attr("cx", cx).attr("cy", yPos).attr("r", 0)
+                    .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
+                    .transition().duration(500).delay(200).attr("r", 7);
+                pending.push(cT.end().catch(()=>{}));
+                
+                const tT = g.append("text").attr("class", "annotation")
+                    .attr("x", cx).attr("y", yPos - 12).attr("text-anchor", "middle")
+                    .attr("font-weight", "bold").attr("fill", color)
+                    .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+                    .text(`${label}: ${formatValue(value)}`)
+                    .attr("opacity", 0).transition().duration(400).delay(400).attr("opacity", 1);
+                pending.push(tT.end().catch(()=>{}));
+            });
+        } else {
+            // 데이터 포인트가 없으면 오른쪽 끝에 레이블만 표시
             const fbT = g.append("text").attr("class", "annotation")
                 .attr("x", plot.w - 6).attr("y", yPos - 6)
                 .attr("text-anchor", "end")
@@ -541,8 +549,8 @@ export async function multipleLineCompareBool(chartId, op, data) {
     annotate(datumB, colorScale(datumB.group));
 
     const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
-    const summary = `${datumA.value.toLocaleString()} (${datumA.group})${symbol}${datumB.value.toLocaleString()} (${datumB.group}) → ${boolResult.value}`;
-    const color = boolResult.value ? OP_COLORS.TRUE : OP_COLORS.FALSE;
+const summary = `${datumA.value.toLocaleString()} (${datumA.group})${symbol}${datumB.value.toLocaleString()} (${datumB.group}) → ${boolResult.bool}`;  // 변경
+const color = boolResult.bool ? OP_COLORS.TRUE : OP_COLORS.FALSE; 
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
         .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")

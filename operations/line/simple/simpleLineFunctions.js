@@ -436,7 +436,9 @@ export async function simpleLineCompareBool(chartId, op, data, isLast = false) {
     }
 
     const newOp = { ...op, targetA: datumA.target, targetB: datumB.target };
-    const boolResult = dataCompareBool(data, newOp, isLast);
+    const boolResult = dataCompareBool(data, newOp);
+        console.log('Simple boolResult:', boolResult);  // 디버깅
+    console.log('Simple boolResult.value:', boolResult?.value);
 
     if (!boolResult) {
         return new BoolValue("Computation failed", false);
@@ -444,8 +446,8 @@ export async function simpleLineCompareBool(chartId, op, data, isLast = false) {
 
     const valueA = datumA.value;
     const valueB = datumB.value;
-    const result = boolResult.value;
-
+    const result = boolResult.bool;
+    console.log('result:', result); 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
     const colorA = OP_COLORS.COMPARE_A;
@@ -709,33 +711,34 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
 export async function simpleLineDiff(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
+    
     const datumA = findDatumByKey(data, op.targetA);
     const datumB = findDatumByKey(data, op.targetB);
-
+    
     if (!datumA || !datumB) {
         console.warn("Diff: One or both data points not found.", op);
         return null;
     }
-
+    
     const newOp = { ...op, targetA: datumA.target, targetB: datumB.target };
-    const diffResult = dataDiff(data, newOp, isLast);
-
-    if (!diffResult) {
+    const diffResultArray = dataDiff(data, newOp);
+    
+    if (!diffResultArray || diffResultArray.length === 0) {
         console.warn("Diff: Could not be computed.", op);
         return null;
     }
-
+    
+    const diffResult = diffResultArray[0];
+    const diff = diffResult.value;
     const valueA = datumA.value;
     const valueB = datumB.value;
-    const diff = Math.abs(diffResult.value);
-
+    
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
     const colorA = OP_COLORS.DIFF_A;
     const colorB = OP_COLORS.DIFF_B;
     const hlColor = OP_COLORS.DIFF_LINE;
-
+    
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
         for (const id of candidates) {
@@ -744,15 +747,15 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
         }
         return d3.select(null);
     };
-
+    
     const pointA = pick(datumA);
     const pointB = pick(datumB);
-
+    
     if (pointA.empty() || pointB.empty()) {
-        return diffResult;
+        return diffResultArray;
     }
-
-    // 🔸 라인 1 → 0.4로 페이드
+    
+    // 라인 페이드
     baseLine.attr("opacity", 1).transition().duration(600).attr("opacity", 0.4);
     
     await Promise.all([
@@ -761,11 +764,11 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
         pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB)
             .attr("stroke", "white").attr("stroke-width", 2).end()
     ]);
-
+    
     const annotate = (pt, color) => {
         const cx = +pt.attr("cx"), cy = +pt.attr("cy");
         
-        // 🔸 세로선: x축에서 포인트로 올라감
+        // 세로선: x축에서 포인트로 올라감
         const vLine = g.append("line")
             .attr("class", "annotation")
             .attr("x1", cx).attr("x2", cx)
@@ -775,7 +778,7 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
             .attr("stroke-width", 1.5);
         vLine.transition().duration(500).attr("y2", cy);
         
-        // 🔸 가로선: y축에서 포인트로
+        // 가로선: y축에서 포인트로
         const hLine = g.append("line")
             .attr("class", "annotation")
             .attr("x1", 0).attr("x2", 0)
@@ -796,27 +799,27 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
             .attr("paint-order", "stroke")
             .text(pt.attr("data-value"));
     };
-
+    
     annotate(pointA, colorA);
     annotate(pointB, colorB);
-
+    
     await delay(500);
-
-    // 🔸 차이값 수직선 그리기
+    
+    // 차이값 수직선 그리기
     const values = (Array.isArray(data) ? data.map(d => d ? Number(d.value) : NaN) : []).filter(Number.isFinite);
     const yMax = d3.max(values) || 0;
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-
+    
     const cyA = +pointA.attr("cy");
     const cyB = +pointB.attr("cy");
     const cxA = +pointA.attr("cx");
     const cxB = +pointB.attr("cx");
-
-    // 🔸 두 포인트 중 더 오른쪽에 있는 지점 오른쪽에 차이선 그리기
+    
+    // 두 포인트 중 더 오른쪽에 있는 지점 오른쪽에 차이선 그리기
     const diffX = Math.max(cxA, cxB) + 15;
     const minY = Math.min(cyA, cyB);
     const maxY = Math.max(cyA, cyB);
-
+    
     if (Number.isFinite(diff) && minY !== maxY) {
         // 차이를 나타내는 수직선
         const diffLine = g.append("line")
@@ -826,9 +829,8 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
             .attr("stroke", hlColor)
             .attr("stroke-width", 2.5)
             .attr("stroke-dasharray", "5 5");
-
         await diffLine.transition().duration(600).attr("y2", maxY).end().catch(() => {});
-
+        
         // 차이값 라벨
         const labelY = (minY + maxY) / 2;
         g.append("text")
@@ -843,12 +845,11 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
             .attr("stroke", "white")
             .attr("stroke-width", 3.5)
             .attr("paint-order", "stroke")
-            .text(`Diff: ${diff.toLocaleString()}`);
+            .text(`Diff: ${Math.abs(diff).toLocaleString(undefined, {maximumFractionDigits: 2})}`);
     }
-
-    // 🔸 요약 텍스트
-    const summary = `Difference: ${Math.max(valueA, valueB).toLocaleString()} - ${Math.min(valueA, valueB).toLocaleString()} = ${diff.toLocaleString()}`;
-
+    
+    // 요약 텍스트
+    const summary = `Difference: ${valueA.toLocaleString()} - ${valueB.toLocaleString()} = ${diff.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left + plot.w / 2)
         .attr("y", margins.top - 10)
@@ -857,7 +858,7 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
         .attr("font-weight", "bold")
         .attr("fill", hlColor)
         .text(summary);
-
+    
     return diffResult;
 }
 
