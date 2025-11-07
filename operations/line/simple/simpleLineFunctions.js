@@ -132,7 +132,6 @@ function findDatumByKey(data, key) {
     });
 }
 
-
 export async function simpleLineRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -181,59 +180,79 @@ export async function simpleLineRetrieveValue(chartId, op, data, isLast = false)
         const cx = xScale(targetDatum.target);
         const cy = yScale(targetDatum.value);
 
-        const baseTr = baseLine.transition().duration(600).attr("opacity", 0.3).end();
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy)
-            .attr("x2", cx).attr("y2", plot.h)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-
-        g.append("line").attr("class", "annotation")
+        // 1. 수평선 + 수직선 동시 애니메이션
+        const hLine = g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", cy)
-            .attr("x2", cx).attr("y2", cy)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+            .attr("x2", 0).attr("y2", cy)
+            .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+        
+        const vLine = g.append("line").attr("class", "annotation")
+            .attr("x1", cx).attr("y1", plot.h)
+            .attr("x2", cx).attr("y2", plot.h)
+            .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+        
+        await Promise.all([
+            hLine.transition().duration(400).attr("x2", cx).end().catch(()=>{}),
+            vLine.transition().duration(400).attr("y2", cy).end().catch(()=>{})
+        ]);
 
+        // 2. 원 애니메이션
         const circle = g.append("circle").attr("class", "annotation")
             .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 2);
-        const circleTr = circle.transition().duration(400).delay(200).attr("r", 6).end();
+            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 3);
+        await circle.transition().duration(400).attr("r", 8).end().catch(()=>{});
 
+        // 3. 레이블 표시
         const labelText = Number(targetDatum.value).toLocaleString();
-
         g.append("text").attr("class", "annotation")
-            .attr("x", cx + 5).attr("y", cy - 5)
-            .attr("fill", hlColor).attr("font-weight", "bold")
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(labelText);
+            .attr("x", cx + 10).attr("y", cy - 10)
+            .attr("fill", hlColor).attr("font-weight", "bold").attr("font-size", "14px")
+            .attr("stroke", "white").attr("stroke-width", 4).attr("paint-order", "stroke")
+            .text(labelText)
+            .attr("opacity", 0)
+            .transition().duration(300).attr("opacity", 1);
 
-        await Promise.all([baseTr, circleTr]).catch(()=>{});
         return targetDatum;
     }
 
-    baseLine.transition().duration(600).attr("opacity", 0.3);
-    await targetPoint.transition().duration(600)
-        .attr("opacity", 1).attr("r", 8).attr("fill", hlColor)
-        .attr("stroke", "white").attr("stroke-width", 2).end();
+    // 포인트가 존재하는 경우
+    const cx = +targetPoint.attr("cx");
+    const cy = +targetPoint.attr("cy");
 
-    const cx = +targetPoint.attr("cx"),
-        cy = +targetPoint.attr("cy");
-    g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", cy)
-        .attr("x2", cx).attr("y2", plot.h)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-
-    g.append("line").attr("class", "annotation")
+    // 1. 수평선 + 수직선 동시 애니메이션
+    const hLine = g.append("line").attr("class", "annotation")
         .attr("x1", 0).attr("y1", cy)
-        .attr("x2", cx).attr("y2", cy)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
+        .attr("x2", 0).attr("y2", cy)
+        .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+    
+    const vLine = g.append("line").attr("class", "annotation")
+        .attr("x1", cx).attr("y1", plot.h)
+        .attr("x2", cx).attr("y2", plot.h)
+        .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
+    
+    await Promise.all([
+        hLine.transition().duration(400).attr("x2", cx).end().catch(()=>{}),
+        vLine.transition().duration(400).attr("y2", cy).end().catch(()=>{})
+    ]);
 
+    // 2. 타겟 포인트 강조
+    await targetPoint.transition().duration(400)
+        .attr("opacity", 1)
+        .attr("r", 10)
+        .attr("fill", hlColor)
+        .attr("stroke", "white")
+        .attr("stroke-width", 3)
+        .end().catch(()=>{});
+
+    // 3. 레이블 표시
     const labelText = Number(targetPoint.attr("data-value")).toLocaleString();
-
     g.append("text").attr("class", "annotation")
-        .attr("x", cx + 5).attr("y", cy - 5)
-        .attr("fill", hlColor).attr("font-weight", "bold")
-        .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-        .text(labelText);
+        .attr("x", cx + 10).attr("y", cy - 10)
+        .attr("fill", hlColor).attr("font-weight", "bold").attr("font-size", "14px")
+        .attr("stroke", "white").attr("stroke-width", 4).attr("paint-order", "stroke")
+        .text(labelText)
+        .attr("opacity", 0)
+        .transition().duration(300).attr("opacity", 1);
 
     return targetDatum;
 }
@@ -366,7 +385,7 @@ export async function simpleLineCompare(chartId, op, data, isLast = false) {
     const pointB = pick(datumB);
     if (pointA.empty() || pointB.empty()) return winners;
 
-    baseLine.transition().duration(600).attr("opacity", 0.3);
+    baseLine.attr("opacity", 1).transition().duration(600).attr("opacity", 0.4);
     await Promise.all([
         pointA.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorA).end(),
         pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB).end()
@@ -417,7 +436,9 @@ export async function simpleLineCompareBool(chartId, op, data, isLast = false) {
     }
 
     const newOp = { ...op, targetA: datumA.target, targetB: datumB.target };
-    const boolResult = dataCompareBool(data, newOp, isLast);
+    const boolResult = dataCompareBool(data, newOp);
+        console.log('Simple boolResult:', boolResult);  // 디버깅
+    console.log('Simple boolResult.value:', boolResult?.value);
 
     if (!boolResult) {
         return new BoolValue("Computation failed", false);
@@ -425,12 +446,13 @@ export async function simpleLineCompareBool(chartId, op, data, isLast = false) {
 
     const valueA = datumA.value;
     const valueB = datumB.value;
-    const result = boolResult.value;
-
+    const result = boolResult.bool;
+    console.log('result:', result); 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
     const colorA = OP_COLORS.COMPARE_A;
     const colorB = OP_COLORS.COMPARE_B;
+    const resultColor = result ? OP_COLORS.TRUE : OP_COLORS.FALSE;
 
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
@@ -448,30 +470,75 @@ export async function simpleLineCompareBool(chartId, op, data, isLast = false) {
         return boolResult;
     }
 
-    baseLine.transition().duration(600).attr("opacity", 0.3);
+    // 🔸 라인 1 → 0.4로 페이드
+    baseLine.attr("opacity", 1).transition().duration(600).attr("opacity", 0.4);
+    
     await Promise.all([
-        pointA.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorA).end(),
-        pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB).end()
+        pointA.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorA)
+            .attr("stroke", "white").attr("stroke-width", 2).end(),
+        pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB)
+            .attr("stroke", "white").attr("stroke-width", 2).end()
     ]);
 
     const annotate = (pt, color) => {
         const cx = +pt.attr("cx"),
             cy = +pt.attr("cy");
-        g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4");
-        g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4");
-        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 10).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke").text((+pt.attr("data-value")).toLocaleString());
+        
+        // 🔸 세로선: x축에서 포인트로 올라감
+        const vLine = g.append("line")
+            .attr("class", "annotation")
+            .attr("x1", cx).attr("x2", cx)
+            .attr("y1", plot.h).attr("y2", plot.h)
+            .attr("stroke", color)
+            .attr("stroke-dasharray", "4 4")
+            .attr("stroke-width", 1.5);
+        vLine.transition().duration(500).attr("y2", cy);
+        
+        // 🔸 가로선: y축에서 포인트로
+        const hLine = g.append("line")
+            .attr("class", "annotation")
+            .attr("x1", 0).attr("x2", 0)
+            .attr("y1", cy).attr("y2", cy)
+            .attr("stroke", color)
+            .attr("stroke-dasharray", "4 4")
+            .attr("stroke-width", 1.5);
+        hLine.transition().duration(500).attr("x2", cx);
+        
+        g.append("text").attr("class", "annotation")
+            .attr("x", cx).attr("y", cy - 10)
+            .attr("text-anchor", "middle")
+            .attr("fill", color)
+            .attr("font-weight", "bold")
+            .attr("font-size", 12)
+            .attr("stroke", "white")
+            .attr("stroke-width", 3)
+            .attr("paint-order", "stroke")
+            .text((+pt.attr("data-value")).toLocaleString());
     };
 
     annotate(pointA, colorA);
     annotate(pointB, colorB);
 
-    const symbol = { '>': ' > ', '>=': ' >= ', '<': ' < ', '<=': ' <= ', '==': ' == ', '!=': ' != ' }[op.operator] || ` ${op.operator} `;
+    // 🔸 비교 결과 표시
+    const symbol = { 
+        '>': ' > ', 
+        '>=': ' >= ', 
+        '<': ' < ', 
+        '<=': ' <= ', 
+        '==': ' == ', 
+        '!=': ' != ' 
+    }[op.operator] || ` ${op.operator} `;
+    
     const summary = `${valueA.toLocaleString()}${symbol}${valueB.toLocaleString()} → ${result}`;
 
     svg.append("text").attr("class", "annotation")
-        .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
-        .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
-        .attr("fill", result ? OP_COLORS.TRUE : OP_COLORS.FALSE).text(summary);
+        .attr("x", margins.left + plot.w / 2)
+        .attr("y", margins.top - 10)
+        .attr("text-anchor", "middle")
+        .attr("font-size", 16)
+        .attr("font-weight", "bold")
+        .attr("fill", resultColor)
+        .text(summary);
 
     return boolResult;
 }
@@ -483,11 +550,24 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
 
+    // 🔸 1단계: 포인트 먼저 보이게 (300ms)
+    await points.transition().duration(300)
+        .attr("opacity", 1)
+        .attr("fill", "steelblue")
+        .attr("r", 5)
+        .end().catch(()=>{});
+
+    await delay(400);
+
+    // 🔸 2단계: 라인과 포인트 흐리게 (300ms)
     await Promise.all([
-        baseLine.transition().duration(250).attr("opacity", 0.25).end().catch(()=>{}),
-        points.transition().duration(250).attr("opacity", 0.95).attr("fill", "#a9a9a9").end().catch(()=>{})
+        baseLine.transition().duration(300).attr("opacity", 0.3).end().catch(()=>{}),
+        points.transition().duration(300).attr("opacity", 0.5).end().catch(()=>{})
     ]).catch(()=>{});
 
+    await delay(200);
+
+    // 🔸 3단계: 라인 완전히 제거 (잔상 방지)
     baseLine.remove();
 
     const items = (Array.isArray(data) ? data : []).map(d => ({
@@ -511,6 +591,7 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
 
     g.selectAll('rect.temp-line-bar').remove();
 
+    // 🔸 4단계: 막대 그래프로 전환 (800ms)
     const bars = g.selectAll('rect.temp-line-bar')
         .data(items, d => d.id || d.target);
 
@@ -521,13 +602,22 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         .attr('data-target', d => d.target)
         .attr('data-value', d => d.value)
         .attr('x', d => xBand(d.target))
-        .attr('y', d => yScale(d.value))
+        .attr('y', plot.h)
         .attr('width', xBand.bandwidth())
-        .attr('height', d => plot.h - yScale(d.value))
+        .attr('height', 0)
         .attr('fill', '#69b3a2')
+        .attr('opacity', 0)
+        .transition().duration(800)
+        .attr('y', d => yScale(d.value))
+        .attr('height', d => plot.h - yScale(d.value))
         .attr('opacity', 0.85);
 
-    await points.transition().duration(150).attr('opacity', 0.2).end().catch(()=>{});
+    await delay(800);
+
+    // 🔸 5단계: 포인트 완전히 숨기기 (잔상 방지)
+    await points.transition().duration(200).attr('opacity', 0).end().catch(()=>{});
+
+    await delay(300);
 
     const effectiveOp = { ...op };
     if (op?.field) {
@@ -548,6 +638,7 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         const xSorted = d3.scaleBand().domain(sortedIds).range([0, plot.w]).padding(0.2);
         const allBars = g.selectAll('rect.temp-line-bar');
 
+        // 🔸 6단계: 막대 정렬 애니메이션 (1000ms)
         const moveTr = allBars.transition().duration(1000)
             .attr('x', function () {
                 const key = this.getAttribute('data-target') || '';
@@ -558,17 +649,34 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
             .end().catch(()=>{});
 
         const axisSel = svg.select('.x-axis');
-        const axisTr = !axisSel.empty()
-            ? axisSel.transition().duration(1000)
-                .call(d3.axisBottom(xSorted))
-                .selection()
-                .selectAll("text")
-                    .style("text-anchor", "end")
-                    .attr("dx", "-0.8em")
-                    .attr("dy", "0.15em")
-                    .attr("transform", "rotate(-45)")
-                .end().catch(()=>{})
-            : Promise.resolve();
+        let axisTr = Promise.resolve();
+        
+        if (!axisSel.empty()) {
+            // 🔸 연도만 표시
+            const formatYear = (d) => {
+                const str = String(d);
+                if (/^\d{4}-/.test(str)) {
+                    return str.substring(0, 4);
+                }
+                return str;
+            };
+            
+            const axis = d3.axisBottom(xSorted).tickFormat(formatYear);
+            
+            // 🔸 축 애니메이션 (1000ms)
+            axisTr = new Promise((resolve) => {
+                axisSel.transition().duration(1000)
+                    .call(axis)
+                    .on('end', () => {
+                        axisSel.selectAll("text")
+                            .style("text-anchor", "end")
+                            .attr("dx", "-0.8em")
+                            .attr("dy", "0.15em")
+                            .attr("transform", "rotate(-45)");
+                        resolve();
+                    });
+            });
+        }
 
         await Promise.all([moveTr, axisTr]).catch(()=>{});
     } else {
@@ -592,28 +700,6 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         await Promise.all([moveTr, axisTr]).catch(()=>{});
     }
 
-    const orderAsc = (effectiveOp?.order ?? 'asc') === 'asc';
-    const categoryName = items[0]?.category || (orientation === 'vertical' ? xField : yField);
-    const measureName  = items[0]?.measure  || (orientation === 'vertical' ? yField : xField);
-
-    const isLabelField = (
-        effectiveOp?.field === 'label' ||
-        effectiveOp?.field === 'target' ||
-        (categoryName && effectiveOp?.field === categoryName) ||
-        (orientation === 'vertical' ? effectiveOp?.field === xField : effectiveOp?.field === yField)
-    );
-    const labelFieldName = isLabelField ? (categoryName || 'label') : (measureName || 'value');
-    const labelText = `Sorted by ${labelFieldName} (${orderAsc ? 'Ascending' : 'Descending'})`;
-
-    svg.append('text')
-        .attr('class', 'annotation')
-        .attr('x', margins.left)
-        .attr('y', margins.top - 10)
-        .attr('font-size', 14)
-        .attr('font-weight', 'bold')
-        .attr('fill', '#6f42c1')
-        .text(labelText);
-
     if (isLast) {
         const first = sorted && sorted[0];
         if (!first) return [];
@@ -625,33 +711,34 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
 export async function simpleLineDiff(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
-
+    
     const datumA = findDatumByKey(data, op.targetA);
     const datumB = findDatumByKey(data, op.targetB);
-
+    
     if (!datumA || !datumB) {
         console.warn("Diff: One or both data points not found.", op);
         return null;
     }
-
+    
     const newOp = { ...op, targetA: datumA.target, targetB: datumB.target };
-    const diffResult = dataDiff(data, newOp, isLast);
-
-    if (!diffResult) {
+    const diffResultArray = dataDiff(data, newOp);
+    
+    if (!diffResultArray || diffResultArray.length === 0) {
         console.warn("Diff: Could not be computed.", op);
         return null;
     }
-
+    
+    const diffResult = diffResultArray[0];
+    const diff = diffResult.value;
     const valueA = datumA.value;
     const valueB = datumB.value;
-    const diff = diffResult.value;
-
+    
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
     const colorA = OP_COLORS.DIFF_A;
     const colorB = OP_COLORS.DIFF_B;
     const hlColor = OP_COLORS.DIFF_LINE;
-
+    
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
         for (const id of candidates) {
@@ -660,38 +747,118 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
         }
         return d3.select(null);
     };
-
+    
     const pointA = pick(datumA);
     const pointB = pick(datumB);
-
+    
     if (pointA.empty() || pointB.empty()) {
-        return diffResult;
+        return diffResultArray;
     }
-
-    baseLine.transition().duration(600).attr("opacity", 0.3);
-
+    
+    // 라인 페이드
+    baseLine.attr("opacity", 1).transition().duration(600).attr("opacity", 0.4);
+    
     await Promise.all([
-        pointA.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorA).end(),
-        pointB.transition().duration(600).attr("opacity",1).attr("r",8).attr("fill",colorB).end()
+        pointA.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorA)
+            .attr("stroke", "white").attr("stroke-width", 2).end(),
+        pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB)
+            .attr("stroke", "white").attr("stroke-width", 2).end()
     ]);
-
+    
     const annotate = (pt, color) => {
         const cx = +pt.attr("cx"), cy = +pt.attr("cy");
-        g.append("line").attr("class","annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray","4 4");
-        g.append("line").attr("class","annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray","4 4");
-        g.append("text").attr("class","annotation").attr("x", cx).attr("y", cy - 10).attr("text-anchor","middle").attr("fill",color).attr("font-weight","bold").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke").text((+pt.attr("data-value")).toLocaleString());
+        
+        // 세로선: x축에서 포인트로 올라감
+        const vLine = g.append("line")
+            .attr("class", "annotation")
+            .attr("x1", cx).attr("x2", cx)
+            .attr("y1", plot.h).attr("y2", plot.h)
+            .attr("stroke", color)
+            .attr("stroke-dasharray", "4 4")
+            .attr("stroke-width", 1.5);
+        vLine.transition().duration(500).attr("y2", cy);
+        
+        // 가로선: y축에서 포인트로
+        const hLine = g.append("line")
+            .attr("class", "annotation")
+            .attr("x1", 0).attr("x2", 0)
+            .attr("y1", cy).attr("y2", cy)
+            .attr("stroke", color)
+            .attr("stroke-dasharray", "4 4")
+            .attr("stroke-width", 1.5);
+        hLine.transition().duration(500).attr("x2", cx);
+        
+        g.append("text").attr("class", "annotation")
+            .attr("x", cx).attr("y", cy - 10)
+            .attr("text-anchor", "middle")
+            .attr("fill", color)
+            .attr("font-weight", "bold")
+            .attr("font-size", 12)
+            .attr("stroke", "white")
+            .attr("stroke-width", 3)
+            .attr("paint-order", "stroke")
+            .text(pt.attr("data-value"));
     };
-
+    
     annotate(pointA, colorA);
     annotate(pointB, colorB);
-
-    const summary = `Difference: ${Math.max(valueA, valueB).toLocaleString()} - ${Math.min(valueA, valueB).toLocaleString()} = ${Math.abs(diff).toLocaleString()}`;
-
-    svg.append("text").attr("class","annotation")
-        .attr("x", margins.left + plot.w/2).attr("y", margins.top - 10)
-        .attr("text-anchor","middle").attr("font-size",16).attr("font-weight","bold")
-        .attr("fill", hlColor).text(summary);
-
+    
+    await delay(500);
+    
+    // 차이값 수직선 그리기
+    const values = (Array.isArray(data) ? data.map(d => d ? Number(d.value) : NaN) : []).filter(Number.isFinite);
+    const yMax = d3.max(values) || 0;
+    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    
+    const cyA = +pointA.attr("cy");
+    const cyB = +pointB.attr("cy");
+    const cxA = +pointA.attr("cx");
+    const cxB = +pointB.attr("cx");
+    
+    // 두 포인트 중 더 오른쪽에 있는 지점 오른쪽에 차이선 그리기
+    const diffX = Math.max(cxA, cxB) + 15;
+    const minY = Math.min(cyA, cyB);
+    const maxY = Math.max(cyA, cyB);
+    
+    if (Number.isFinite(diff) && minY !== maxY) {
+        // 차이를 나타내는 수직선
+        const diffLine = g.append("line")
+            .attr("class", "annotation diff-bridge")
+            .attr("x1", diffX).attr("x2", diffX)
+            .attr("y1", minY).attr("y2", minY)
+            .attr("stroke", hlColor)
+            .attr("stroke-width", 2.5)
+            .attr("stroke-dasharray", "5 5");
+        await diffLine.transition().duration(600).attr("y2", maxY).end().catch(() => {});
+        
+        // 차이값 라벨
+        const labelY = (minY + maxY) / 2;
+        g.append("text")
+            .attr("class", "annotation diff-value")
+            .attr("x", diffX + 8)
+            .attr("y", labelY)
+            .attr("text-anchor", "start")
+            .attr("dominant-baseline", "middle")
+            .attr("font-size", 13)
+            .attr("font-weight", "bold")
+            .attr("fill", hlColor)
+            .attr("stroke", "white")
+            .attr("stroke-width", 3.5)
+            .attr("paint-order", "stroke")
+            .text(`Diff: ${Math.abs(diff).toLocaleString(undefined, {maximumFractionDigits: 2})}`);
+    }
+    
+    // 요약 텍스트
+    const summary = `Difference: ${valueA.toLocaleString()} - ${valueB.toLocaleString()} = ${diff.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+    svg.append("text").attr("class", "annotation")
+        .attr("x", margins.left + plot.w / 2)
+        .attr("y", margins.top - 10)
+        .attr("text-anchor", "middle")
+        .attr("font-size", 16)
+        .attr("font-weight", "bold")
+        .attr("fill", hlColor)
+        .text(summary);
+    
     return diffResult;
 }
 
@@ -702,11 +869,24 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
 
+    // 1단계: 포인트를 먼저 보이게 (300ms)
+    await points.transition().duration(300)
+        .attr("opacity", 1)
+        .attr("fill", "steelblue")
+        .attr("r", 5)
+        .end().catch(()=>{});
+
+    await delay(400); // 포인트가 보이는 상태로 잠시 대기
+
+    // 2단계: 라인과 포인트를 약간 흐리게 (300ms)
     await Promise.all([
-        baseLine.transition().duration(200).attr("opacity", 0.25).end().catch(()=>{}),
-        points.transition().duration(200).attr("opacity", 0.95).attr("fill", "#a9a9a9").end().catch(()=>{})
+        baseLine.transition().duration(300).attr("opacity", 0.3).end().catch(()=>{}),
+        points.transition().duration(300).attr("opacity", 0.5).end().catch(()=>{})
     ]).catch(()=>{});
 
+    await delay(200);
+
+    // 3단계: 라인 제거
     baseLine.remove();
 
     const items = (Array.isArray(data) ? data : []).map(d => ({
@@ -732,6 +912,7 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
 
     g.selectAll('rect.temp-line-bar').remove();
 
+    // 4단계: 막대 그래프로 전환 (800ms, 천천히)
     const bars = g.selectAll('rect.temp-line-bar')
         .data(items, d => d.id || d.target)
         .enter()
@@ -741,13 +922,22 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         .attr('data-target', d => d.target)
         .attr('data-value', d => d.value)
         .attr('x', d => xScale(d.target))
-        .attr('y', d => yScale(d.value))
+        .attr('y', plot.h)
         .attr('width', xScale.bandwidth())
-        .attr('height', d => plot.h - yScale(d.value))
+        .attr('height', 0)
         .attr('fill', '#69b3a2')
-        .attr('opacity', 0.85);
+        .attr('opacity', 0);
 
-    await points.transition().duration(150).attr('opacity', 0.15).end().catch(()=>{});
+    await bars.transition().duration(800)
+        .attr('y', d => yScale(d.value))
+        .attr('height', d => plot.h - yScale(d.value))
+        .attr('opacity', 0.85)
+        .end().catch(()=>{});
+
+    // 5단계: 포인트 숨기기
+    await points.transition().duration(200).attr('opacity', 0).end().catch(()=>{});
+
+    await delay(300);
 
     const matchColor = OP_COLORS.FILTER_MATCH;
     const toNumber = v => (v == null ? NaN : +v);
@@ -762,16 +952,17 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
 
     let filteredData = dataFilter(items, effectiveOp, xField, yField, isLast);
 
+    // 6단계: threshold 선 그리기
     const drawThreshold = async (rawVal) => {
         const v = toNumber(rawVal);
         if (!Number.isFinite(v)) return;
         const yPos = yScale(v);
-        const line = svg.append("line").attr("class", "threshold-line")
+        const line = svg.append("line").attr("class", "threshold-line annotation")
             .attr("x1", margins.left).attr("y1", margins.top + yPos)
             .attr("x2", margins.left).attr("y2", margins.top + yPos)
             .attr("stroke", OP_COLORS.FILTER_THRESHOLD).attr("stroke-width", 2).attr("stroke-dasharray", "5 5");
         await line.transition().duration(800).attr("x2", margins.left + plot.w).end().catch(()=>{});
-        svg.append("text").attr("class", "threshold-label")
+        svg.append("text").attr("class", "threshold-label annotation")
             .attr("x", margins.left + plot.w - 5).attr("y", margins.top + yPos - 5)
             .attr("text-anchor", "end")
             .attr("fill", OP_COLORS.FILTER_THRESHOLD).attr("font-size", 12).attr("font-weight", "bold")
@@ -811,6 +1002,7 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         }
     }
 
+    // 7단계: 필터 결과 처리
     if (!filteredData || filteredData.length === 0) {
         g.selectAll('rect.temp-line-bar').transition().duration(500).attr('opacity', 0.1);
         g.append("text").attr("class", "annotation empty-label")
@@ -825,6 +1017,7 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
     const filteredIds = new Set(filteredData.map(d => String(d.id ?? d.target)));
     const allBars = g.selectAll('rect.temp-line-bar');
 
+    // 8단계: 필터링된 막대만 강조 (매칭 안되는건 흐리게, 매칭되는건 하이라이트)
     await Promise.all([
         allBars.filter(function() {
             const id = this.getAttribute('data-id') || this.getAttribute('data-target');
@@ -838,6 +1031,7 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
 
     await delay(250);
 
+    // 9단계: 필터링된 데이터만 남기고 재배치
     const filteredTargets = filteredData.map(d => String(d.target));
     const xScaleFiltered = d3.scaleBand().domain(filteredTargets).range([0, plot.w]).padding(0.2);
 
@@ -857,6 +1051,7 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
 
     await Promise.all([axisTr, moveTr]).catch(()=>{});
 
+    // 10단계: 값 레이블 표시
     allBars.each(function() {
         const key = this.getAttribute('data-target') || '';
         if (!filteredTargets.includes(key)) return;
@@ -873,7 +1068,8 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
             .text(Number.isFinite(vVal) ? vVal : '');
     });
 
-    svg.append("text").attr("class", "filter-label")
+    // 11단계: 필터 레이블 표시
+    svg.append("text").attr("class", "filter-label annotation")
         .attr("x", margins.left).attr("y", margins.top - 8)
         .attr("font-size", 12).attr("fill", matchColor).attr("font-weight", "bold")
         .text(labelText);
@@ -890,25 +1086,28 @@ export async function simpleLineDetermineRange(chartId, op, data, isLast = false
     const result = dataDetermineRange(data, op, isLast);
     if (!result) return null;
 
-    let minV = (result.minV !== undefined ? result.minV : result.min);
-    let maxV = (result.maxV !== undefined ? result.maxV : result.max);
+    // 🔸 핵심 수정: result 구조 파싱
+    let minV = result.minV ?? result.min;
+    let maxV = result.maxV ?? result.max;
     let minDatums = result.minDatums;
     let maxDatums = result.maxDatums;
 
+    // Fallback: min/max 값이 없으면 직접 계산
     const values = (Array.isArray(data) ? data.map(d => d ? d.value : NaN) : []).filter(Number.isFinite);
     if (minV === undefined || minV === null) minV = d3.min(values);
     if (maxV === undefined || maxV === null) maxV = d3.max(values);
 
+    // 🔸 min/max에 해당하는 datum들 찾기
     if (!Array.isArray(minDatums)) {
         minDatums = Array.isArray(data) ? data.filter(d => Number.isFinite(d?.value) && d.value === minV) : [];
+        // 정확히 일치하는 게 없으면 가장 가까운 것 찾기
         if (minDatums.length === 0 && Number.isFinite(minV)) {
-            let best = null,
-                bd = Infinity;
+            let best = null, bestDiff = Infinity;
             (data || []).forEach(d => {
                 const diff = Math.abs((+d?.value) - minV);
-                if (Number.isFinite(diff) && diff < bd) {
+                if (Number.isFinite(diff) && diff < bestDiff) {
                     best = d;
-                    bd = diff;
+                    bestDiff = diff;
                 }
             });
             if (best) minDatums = [best];
@@ -917,13 +1116,12 @@ export async function simpleLineDetermineRange(chartId, op, data, isLast = false
     if (!Array.isArray(maxDatums)) {
         maxDatums = Array.isArray(data) ? data.filter(d => Number.isFinite(d?.value) && d.value === maxV) : [];
         if (maxDatums.length === 0 && Number.isFinite(maxV)) {
-            let best = null,
-                bd = Infinity;
+            let best = null, bestDiff = Infinity;
             (data || []).forEach(d => {
                 const diff = Math.abs((+d?.value) - maxV);
-                if (Number.isFinite(diff) && diff < bd) {
+                if (Number.isFinite(diff) && diff < bestDiff) {
                     best = d;
-                    bd = diff;
+                    bestDiff = diff;
                 }
             });
             if (best) maxDatums = [best];
@@ -931,43 +1129,92 @@ export async function simpleLineDetermineRange(chartId, op, data, isLast = false
     }
 
     const hlColor = OP_COLORS.RANGE;
+    const baseLine = selectMainLine(g);
+    const points = selectMainPoints(g);
+
+    // 🔸 라인과 포인트 페이드 처리
+    await Promise.all([
+        baseLine.transition().duration(300).attr('opacity', 0.4).end(),
+        points.transition().duration(300).attr('opacity', 0).end()
+    ]);
+
     const yMax = d3.max(values) || 0;
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
 
+    // 🔸 Min/Max 값에 대한 시각화 함수
     const annotateValue = (value, datums, label) => {
         const list = Array.isArray(datums) ? datums : (datums ? [datums] : []);
         const vNum = Number(value);
         if (!Number.isFinite(vNum)) return Promise.resolve();
+        
         const yPos = yScale(vNum);
-        const line = g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", yPos)
-            .attr("x2", 0).attr("y2", yPos)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-        const lineTr = line.transition().duration(800).attr("x2", plot.w).end().catch(()=>{});
+        
+        // 가로선 그리기
+        const line = g.append("line")
+            .attr("class", "annotation")
+            .attr("x1", 0)
+            .attr("y1", yPos)
+            .attr("x2", 0)
+            .attr("y2", yPos)
+            .attr("stroke", hlColor)
+            .attr("stroke-dasharray", "4 4");
+        
+        const lineTr = line.transition()
+            .duration(800)
+            .attr("x2", plot.w)
+            .end();
 
-        const points = selectMainPoints(g);
-        list.forEach(datum => {
+list.forEach(datum => {
             const candidates = toPointIdCandidates(datum?.target);
-            const near = points.filter(function() { return candidates.includes(d3.select(this).attr("data-id")); });
-            if (!near.empty()) {
-                const cx = +near.attr("cx"), cy = +near.attr("cy");
-                g.append("text").attr("class", "annotation")
-                    .attr("x", cx).attr("y", cy - 15)
-                    .attr("text-anchor", "middle").attr("fill", hlColor)
-                    .attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke")
+            const nearPoints = points.filter(function() {
+                return candidates.includes(d3.select(this).attr("data-id"));
+            });
+
+            if (!nearPoints.empty()) {
+                // 포인트 강조
+                nearPoints.transition()
+                    .duration(400)
+                    .attr("fill", hlColor)
+                    .attr("opacity", 1)
+                    .attr("r", 8)
+                    .attr("stroke", "white")
+                    .attr("stroke-width", 2);
+
+                const cx = +nearPoints.attr("cx");
+                const cy = +nearPoints.attr("cy");
+
+                // 🔸 값 라벨 (포인트 옆에 바로 붙여서)
+                g.append("text")
+                    .attr("class", "annotation")
+                    .attr("x", cx - 8)
+                    .attr("y", cy - 12)
+                    .attr("text-anchor", "end")
+                    .attr("fill", hlColor)
+                    .attr("font-size", 13)
+                    .attr("font-weight", "bold")
+                    .attr("stroke", "white")
+                    .attr("stroke-width", 3.5)
+                    .attr("paint-order", "stroke")
                     .text(`${label}: ${vNum.toLocaleString()}`);
             }
         });
+
         return lineTr;
     };
 
+    // 🔸 Min과 Max 시각화
     await delay(150);
     const pMin = annotateValue(minV, minDatums, "Min");
     const pMax = annotateValue(maxV, maxDatums, "Max");
-    await Promise.all([pMin, pMax]).catch(()=>{});
+    await Promise.all([pMin, pMax]).catch(() => {});
 
-    const fmtVal = (v) => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString() : '—'; };
+    // 🔸 범위 요약 텍스트
+    const fmtVal = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n.toLocaleString() : '—';
+    };
     const summaryText = `Range: ${fmtVal(minV)} ~ ${fmtVal(maxV)}`;
+    
     svg.append("text")
         .attr("class", "annotation")
         .attr("x", margins.left)
@@ -980,8 +1227,12 @@ export async function simpleLineDetermineRange(chartId, op, data, isLast = false
         .attr("paint-order", "stroke")
         .attr("opacity", 0)
         .text(summaryText)
-        .transition().duration(500).delay(400).attr("opacity", 1);
+        .transition()
+        .duration(500)
+        .delay(400)
+        .attr("opacity", 1);
 
+    // 🔸 IntervalValue 반환
     try {
         return new IntervalValue('value', minV, maxV);
     } catch (e) {
@@ -1007,10 +1258,26 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
 
     const baseLine = selectMainLine(g);
     const pointsSel = selectMainPoints(g);
+
+    // 🔸 1단계: 포인트 먼저 보이게 (300ms)
+    await pointsSel.transition().duration(300)
+        .attr("opacity", 1)
+        .attr("fill", "steelblue")
+        .attr("r", 5)
+        .end().catch(() => {});
+
+    await delay(400);
+
+    // 🔸 2단계: 라인과 포인트 흐리게 (300ms)
     await Promise.all([
-        baseLine.transition().duration(300).attr('opacity', 0.25).end(),
-        pointsSel.transition().duration(200).attr('opacity', 0.9).attr('fill', '#a9a9a9').end()
+        baseLine.transition().duration(300).attr('opacity', 0.3).end().catch(() => {}),
+        pointsSel.transition().duration(300).attr('opacity', 0.5).end().catch(() => {})
     ]).catch(() => {});
+
+    await delay(200);
+
+    // 🔸 3단계: 라인 완전히 제거 (잔상 방지)
+    baseLine.remove();
 
     const items = (Array.isArray(data) ? data : []).map(d => ({
         id: String(d?.id ?? d?.target ?? ''),
@@ -1029,6 +1296,7 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
 
     g.selectAll('rect.temp-line-bar').remove();
 
+    // 🔸 4단계: 막대 그래프로 전환 (800ms)
     const bars = g.selectAll('rect.temp-line-bar')
         .data(items, d => d.id || d.target)
         .enter()
@@ -1038,14 +1306,26 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
         .attr('data-target', d => d.target)
         .attr('data-value', d => d.value)
         .attr('x', d => xScale(d.target))
-        .attr('y', d => yScaleInitial(d.value))
+        .attr('y', plot.h)
         .attr('width', xScale.bandwidth())
-        .attr('height', d => plot.h - yScaleInitial(d.value))
+        .attr('height', 0)
         .attr('fill', baseColor)
-        .attr('opacity', 0.75);
+        .attr('opacity', 0);
 
+    await bars.transition().duration(800)
+        .attr('y', d => yScaleInitial(d.value))
+        .attr('height', d => plot.h - yScaleInitial(d.value))
+        .attr('opacity', 0.75)
+        .end().catch(() => {});
+
+    // 🔸 5단계: 포인트 완전히 숨기기 (잔상 방지)
+    await pointsSel.transition().duration(200).attr('opacity', 0).end().catch(() => {});
+
+    await delay(300);
+
+    // 🔸 6단계: Y축 스케일 변경 + 스택 애니메이션 (1200ms)
     const newYScale = d3.scaleLinear().domain([0, total]).nice().range([plot.h, 0]);
-    const yAxisTr = svg.select('.y-axis').transition().duration(1000).call(d3.axisLeft(newYScale)).end();
+    const yAxisTr = svg.select('.y-axis').transition().duration(1000).call(d3.axisLeft(newYScale)).end().catch(() => {});
 
     const barWidth = xScale.bandwidth();
     const targetX = plot.w / 2 - barWidth / 2;
@@ -1073,7 +1353,7 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
             .attr('height', h)
             .attr('fill', hlColor)
             .attr('opacity', 0.85)
-            .end();
+            .end().catch(() => {});
         stackPromises.push(t);
         runningTotal += v;
     }
@@ -1081,6 +1361,7 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
     await Promise.all([yAxisTr, ...stackPromises]).catch(() => {});
     await delay(200);
 
+    // 🔸 7단계: 결과 라인과 라벨
     const finalY = newYScale(total);
 
     svg.append('line').attr('class', 'annotation value-line')
@@ -1189,7 +1470,7 @@ export async function simpleLineNth(chartId, op, data, isLast = false) {
 
         if (!pointSel.empty()) {
             countedPoints.push(pointSel.node());
-            await pointSel.transition().duration(150).attr('opacity', 1).attr('r', 7).end();
+            await pointSel.transition().duration(100).attr('opacity', 1).attr('r', 7).end();
 
             const countLabel = g.append('text')
                 .attr('class', 'annotation count-label')

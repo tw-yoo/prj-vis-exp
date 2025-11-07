@@ -80,16 +80,16 @@ export function executeAtomicOps(chartId, vlSpec, opsSpecWithText) {
                     await runStackedBarOps(chartId, vlSpec, opsSpec, textSpec);
                     break;
                 case ChartType.GROUPED_BAR:
-                    await runGroupedBarOps(chartId, vlSpec, opsSpec);
+                    await runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec);
                     break;
                 case ChartType.MULTIPLE_BAR:
-                    await runGroupedBarOps(chartId, vlSpec, opsSpec);
+                    await runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec);
                     break;
                 case ChartType.SIMPLE_LINE:
-                    await runSimpleLineOps(chartId, vlSpec, opsSpec);
+                    await runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec);
                     break;
                 case ChartType.MULTI_LINE:
-                    await runMultipleLineOps(chartId, vlSpec, opsSpec);
+                    await runMultipleLineOps(chartId, vlSpec, opsSpec, textSpec);
                     break;
             }
 
