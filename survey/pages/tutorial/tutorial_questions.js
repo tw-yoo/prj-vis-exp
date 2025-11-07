@@ -43,8 +43,19 @@ const tutorialMainQuestion3 = new MainQuestion({
     surveyQuestions: tutorialSurveyQuestions
 });
 
+const testTutorialQuestion1 = new MainQuestion({
+    questionId: "bar_simple_200_25",
+    pageId: "tutorial_question",
+    slug: "tutorial_question",
+    explanationType: ExplanationType.OURS,
+    chartQuestionText: "tutorial question 4",
+    chartQuestionAnswer: "tutorial answer 4",
+    surveyQuestions: tutorialSurveyQuestions
+})
+
 export const TUTORIAL_QUESTIONS = [
-    tutorialMainQuestion1,
-    tutorialMainQuestion2,
-    tutorialMainQuestion3,
+    // tutorialMainQuestion1,
+    // tutorialMainQuestion2,
+    // tutorialMainQuestion3,
+    testTutorialQuestion1
 ];

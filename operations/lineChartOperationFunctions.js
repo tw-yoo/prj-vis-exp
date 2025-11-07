@@ -1,7 +1,7 @@
 /**
  * lineChartOperationFunctions.js
  * ------------------------------------------------------------
- * Pure data operation functions shared by simple & multi line charts.
+ * Pure data operation functions shared by simple & multiple line charts.
  * - No rendering / DOM side-effects.
  * - Each function accepts (data: DatumValue[], op: OperationSpec).
  * - `group` in op is optional. When present, it is a concrete series label value (e.g., "MSFT").
@@ -11,7 +11,7 @@
  *   category: string,   // label field name (e.g., 'date', 'country')
  *   measure:  string,   // measure field name (e.g., 'value', 'rating')
  *   target:   string,   // label value (e.g., '2024-01-01', 'KOR')
- *   group:    string|null, // subgroup label value (e.g., 'MSFT', 'AMZN') for multi-series; null for single-line
+ *   group:    string|null, // subgroup label value (e.g., 'MSFT', 'AMZN') for multiple-series; null for single-line
  *   value:    number,   // numeric value
  *   id?:      string
  * }

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "survey/data/csv/bar/simple/bar_simple_202_191.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Party",
+      "type": "nominal",
+      "sort": {
+        "field": "Votes",
+        "op": "sum",
+        "order": "descending"
+      }
+    },
+    "y": {
+      "field": "Votes",
+      "type": "quantitative"
+    }
+  }
+}

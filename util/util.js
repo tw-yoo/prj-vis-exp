@@ -197,6 +197,125 @@ function stripAxisTitles(canvas) {
   });
 }
 
+function adjustSvgXAxisLabelClearance(svg, opts = {}) {
+  const axisLabel = svg.querySelector('.x-axis-label');
+  if (!axisLabel) return true;
+
+  const axisGroup = svg.querySelector('.x-axis');
+  if (!axisGroup) return false;
+
+  const tickNodes = axisGroup.querySelectorAll('text');
+  if (!tickNodes || tickNodes.length === 0) return false;
+
+  const labelRect = axisLabel.getBoundingClientRect();
+  if (!labelRect || !Number.isFinite(labelRect.top)) return false;
+
+  let maxTickBottom = -Infinity;
+  tickNodes.forEach(node => {
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    if (rect && Number.isFinite(rect.bottom)) {
+      maxTickBottom = Math.max(maxTickBottom, rect.bottom);
+    }
+  });
+
+  if (!Number.isFinite(maxTickBottom)) return false;
+
+  const minGapPx = Number.isFinite(opts.minGap) ? opts.minGap : 12;
+  const maxShiftPx = Number.isFinite(opts.maxShift) ? opts.maxShift : 120;
+  const overlapPx = (maxTickBottom + minGapPx) - labelRect.top;
+  if (overlapPx <= 0) return true;
+
+  const svgRect = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : null;
+  const currentY = parseFloat(axisLabel.getAttribute('y') || '0');
+  if (!Number.isFinite(currentY)) return true;
+
+  const pxDelta = Math.min(overlapPx, maxShiftPx);
+  let scaleY = 1;
+  if (viewBox && Number.isFinite(viewBox.height) && svgRect && Number.isFinite(svgRect.height) && svgRect.height > 0) {
+    scaleY = viewBox.height / svgRect.height;
+  }
+  axisLabel.setAttribute('y', String(currentY + pxDelta * scaleY));
+  return true;
+}
+
+function adjustSvgYAxisLabelClearance(svg, opts = {}) {
+  const axisLabel = svg.querySelector('.y-axis-label');
+  if (!axisLabel) return true;
+
+  const axisGroup = svg.querySelector('.y-axis');
+  if (!axisGroup) return false;
+
+  const axisRect = axisGroup.getBoundingClientRect?.();
+  const labelRect = axisLabel.getBoundingClientRect?.();
+  if (!axisRect || !labelRect || !Number.isFinite(axisRect.left) || !Number.isFinite(labelRect.right)) {
+    return false;
+  }
+
+  const minGapPx = Number.isFinite(opts.minGap) ? opts.minGap : 12;
+  const maxShiftPx = Number.isFinite(opts.maxShift) ? opts.maxShift : 120;
+  const desiredRight = axisRect.left - minGapPx;
+  const overlapPx = labelRect.right - desiredRight;
+  if (overlapPx <= 0) return true;
+
+  const svgRect = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : null;
+  const currentY = parseFloat(axisLabel.getAttribute('y') || '0');
+  if (!Number.isFinite(currentY)) return true;
+
+  const pxDelta = Math.min(overlapPx, maxShiftPx);
+  let scaleX = 1;
+  if (viewBox && Number.isFinite(viewBox.width) && svgRect && Number.isFinite(svgRect.width) && svgRect.width > 0) {
+    scaleX = viewBox.width / svgRect.width;
+  }
+  axisLabel.setAttribute('y', String(currentY - pxDelta * scaleX));
+  return true;
+}
+
+export function ensureXAxisLabelClearance(chartId, opts = {}) {
+  const attempts = Math.max(1, Math.floor(opts.attempts ?? 3));
+  let remaining = attempts;
+  const schedule = typeof requestAnimationFrame === 'function'
+    ? requestAnimationFrame
+    : (cb) => setTimeout(cb, 16);
+
+  const resolveAxisOpts = (axisKey) => {
+    const axisOverrides = (opts && typeof opts === 'object' && opts[axisKey] && typeof opts[axisKey] === 'object')
+      ? opts[axisKey]
+      : null;
+    return {
+      minGap: axisOverrides?.minGap ?? opts.minGap,
+      maxShift: axisOverrides?.maxShift ?? opts.maxShift
+    };
+  };
+
+  const step = () => {
+    if (remaining <= 0) return;
+    remaining -= 1;
+
+    schedule(() => {
+      const container = document.getElementById(chartId);
+      if (!container) {
+        if (remaining > 0) step();
+        return;
+      }
+      const svg = container.querySelector('svg');
+      if (!svg) {
+        if (remaining > 0) step();
+        return;
+      }
+      const handledX = adjustSvgXAxisLabelClearance(svg, resolveAxisOpts('x'));
+      const handledY = adjustSvgYAxisLabelClearance(svg, resolveAxisOpts('y'));
+      if ((!handledX || !handledY) && remaining > 0) {
+        step();
+      }
+    });
+  };
+
+  step();
+}
+
 export async function renderChart(chartId, spec) {
     const canvas = ensureChartCanvas(chartId);
     remapIdsForRenderer(chartId);
@@ -230,6 +349,7 @@ export async function renderChart(chartId, spec) {
             console.warn(`Unknown chartType type: ${chartType}`);
     }
     stripAxisTitles(canvas);
+    ensureXAxisLabelClearance(chartId, { attempts: 5, minGap: 14, maxShift: 140 });
     // ensureTempTableBelow(chartId, spec);
 }
 

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "encoding": {
+    "y": {
+      "field": "Average audience share (m)",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal"
+    }
+  },
+  "data": {
+    "url": "survey/data/csv/line/simple/line_simple_202_135.csv"
+  },
+  "mark": "line"
+}
+
+

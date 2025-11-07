@@ -1,0 +1,17 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "survey/data/csv/bar/simple/bar_simple_201_7.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal"
+    },
+    "y": {
+      "field": "Gross Domestic Product",
+      "type": "quantitative"
+    }
+  }
+}

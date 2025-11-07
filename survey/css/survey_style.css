@@ -230,7 +230,7 @@ h1, h2, h3 {
     align-items: center;    /* vertical centering */
     font-weight: bold;
     font-size: 1.2em;
-    text-align: center;     /* ensures text stays centered if multi-line */
+    text-align: center;     /* ensures text stays centered if multiple-line */
 }
 
 .page-fixed-header {

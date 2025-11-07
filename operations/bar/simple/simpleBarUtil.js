@@ -18,7 +18,7 @@ import {
     addChartOpsText,
     buildSimpleBarSpec,
     convertToDatumValues,
-    dataCache, lastCategory, lastMeasure,
+    dataCache, ensureXAxisLabelClearance, lastCategory, lastMeasure,
     renderChart,
     stackChartToTempTable
 } from "../../../util/util.js";
@@ -42,6 +42,78 @@ const SIMPLE_BAR_OP_HANDLERS = {
 const chartDataStore = {};
 function clearAllAnnotations(svg) {
     svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
+}
+
+const SORT_OP_FNS = {
+    sum: (values) => d3.sum(values),
+    mean: (values) => d3.mean(values),
+    average: (values) => d3.mean(values),
+    avg: (values) => d3.mean(values),
+    median: (values) => d3.median(values),
+    min: (values) => d3.min(values),
+    max: (values) => d3.max(values),
+    count: (_values, rows) => rows.length,
+    valid: (_values, rows) => rows.length
+};
+
+function aggregateForSort(rows, sortField, op = 'sum') {
+    const normalizedOp = typeof op === 'string' ? op.toLowerCase() : 'sum';
+    const fn = SORT_OP_FNS[normalizedOp] || SORT_OP_FNS.sum;
+    if (normalizedOp === 'count' || normalizedOp === 'valid' || !sortField) {
+        const countResult = fn([], rows);
+        return Number.isFinite(countResult) ? countResult : rows.length;
+    }
+    const numericValues = rows
+        .map(d => Number(d[sortField]))
+        .filter(Number.isFinite);
+    if (numericValues.length === 0) return 0;
+    const result = fn(numericValues, rows);
+    return Number.isFinite(result) ? result : 0;
+}
+
+function resolveCategoricalDomain(data, xField, sortSpec) {
+    const fallbackDomain = Array.from(new Set(data.map(d => d[xField])));
+    if (!sortSpec) return fallbackDomain;
+
+    if (Array.isArray(sortSpec)) {
+        return sortSpec.slice();
+    }
+
+    if (typeof sortSpec === 'string') {
+        const unique = Array.from(new Set(fallbackDomain));
+        if (sortSpec === 'ascending') {
+            return unique.sort((a, b) => d3.ascending(String(a), String(b)));
+        }
+        if (sortSpec === 'descending') {
+            return unique.sort((a, b) => d3.descending(String(a), String(b)));
+        }
+        return unique;
+    }
+
+    if (typeof sortSpec === 'object') {
+        const { field: sortField, op = 'sum', order = 'ascending' } = sortSpec;
+        const grouped = new Map();
+        data.forEach(d => {
+            const key = d[xField];
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key).push(d);
+        });
+        const entries = Array.from(grouped.entries()).map(([key, rows]) => ({
+            key,
+            value: aggregateForSort(rows, sortField, op)
+        }));
+        const direction = String(order).toLowerCase() === 'descending' ? -1 : 1;
+        entries.sort((a, b) => {
+            const diff = (a.value ?? 0) - (b.value ?? 0);
+            if (Number.isFinite(diff) && diff !== 0) {
+                return diff * direction;
+            }
+            return d3.ascending(String(a.key), String(b.key));
+        });
+        return entries.map(entry => entry.key);
+    }
+
+    return fallbackDomain;
 }
 function getSvgAndSetup(chartId) {
     const svgNode = getPrimarySvgElement(chartId);
@@ -75,6 +147,7 @@ async function renderChartWithFade(chartId, spec, duration = 400) {
     }
 
     await renderChart(chartId, spec);
+    ensureXAxisLabelClearance(chartId, { attempts: 6, minGap: 14, maxShift: 140 });
 
     const newSvg = d3.select(`#${chartId}`).select("svg");
     if (!newSvg.empty()) {
@@ -384,7 +457,18 @@ export async function renderSimpleBarChart(chartId, spec) {
         .attr("data-x-field", xField)
         .attr("data-y-field", yField);
 
-    svg.attr("data-x-sort-order", spec.encoding.x.sort ? spec.encoding.x.sort.join(',') : null);
+    const xSortSpec = spec?.encoding?.x?.sort;
+    const sortAttrValue = (() => {
+        if (!xSortSpec) return null;
+        if (Array.isArray(xSortSpec)) return xSortSpec.join(',');
+        if (typeof xSortSpec === 'string') return xSortSpec;
+        try {
+            return JSON.stringify(xSortSpec);
+        } catch (_) {
+            return null;
+        }
+    })();
+    svg.attr("data-x-sort-order", sortAttrValue);
 
     const g = svg.append("g")
         .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -417,7 +501,7 @@ export async function renderSimpleBarChart(chartId, spec) {
             .attr("data-id", d => d.id ?? d[yField])
             .attr("data-value", d => d[xField]);
     } else {
-        const xDomain = spec.encoding.x.sort || data.map(d => d[xField]);
+        const xDomain = resolveCategoricalDomain(data, xField, xSortSpec);
         const xScale = d3.scaleBand()
             .domain(xDomain)
             .range([0, plotW])
@@ -469,6 +553,57 @@ export async function renderSimpleBarChart(chartId, spec) {
             .attr("text-anchor", "middle")
             .attr("font-size", 14)
             .text(resolvedYAxisLabel);
+    }
+
+    if (typeof window !== 'undefined') {
+        const svgNode = svg.node();
+        if (svgNode) {
+            const xLabelNode = svgNode.querySelector('.x-axis-label');
+            const xAxisNode = svgNode.querySelector('.x-axis');
+            if (xLabelNode && xAxisNode && typeof xAxisNode.getBoundingClientRect === 'function') {
+                const axisRect = xAxisNode.getBoundingClientRect();
+                const labelRect = xLabelNode.getBoundingClientRect();
+                if (axisRect && labelRect && Number.isFinite(axisRect.bottom) && Number.isFinite(labelRect.top)) {
+                    const desiredTop = axisRect.bottom + 16;
+                    if (labelRect.top < desiredTop) {
+                        const deltaPx = desiredTop - labelRect.top;
+                        const viewBox = svgNode.viewBox && svgNode.viewBox.baseVal;
+                        const svgRect = svgNode.getBoundingClientRect();
+                        let scaleY = 1;
+                        if (viewBox && Number.isFinite(viewBox.height) && svgRect && Number.isFinite(svgRect.height) && svgRect.height > 0) {
+                            scaleY = viewBox.height / svgRect.height;
+                        }
+                        const currentY = parseFloat(xLabelNode.getAttribute('y') || '0');
+                        if (Number.isFinite(currentY) && deltaPx > 0) {
+                            xLabelNode.setAttribute('y', String(currentY + deltaPx * scaleY));
+                        }
+                    }
+                }
+            }
+
+            const yLabelNode = svgNode.querySelector('.y-axis-label');
+            const yAxisNode = svgNode.querySelector('.y-axis');
+            if (yLabelNode && yAxisNode && typeof yAxisNode.getBoundingClientRect === 'function') {
+                const axisRect = yAxisNode.getBoundingClientRect();
+                const labelRect = yLabelNode.getBoundingClientRect();
+                if (axisRect && labelRect && Number.isFinite(axisRect.left) && Number.isFinite(labelRect.right)) {
+                    const desiredRight = axisRect.left - 16;
+                    if (labelRect.right > desiredRight) {
+                        const deltaPx = labelRect.right - desiredRight;
+                        const viewBox = svgNode.viewBox && svgNode.viewBox.baseVal;
+                        const svgRect = svgNode.getBoundingClientRect();
+                        let scaleX = 1;
+                        if (viewBox && Number.isFinite(viewBox.width) && svgRect && Number.isFinite(svgRect.width) && svgRect.width > 0) {
+                            scaleX = viewBox.width / svgRect.width;
+                        }
+                        const currentY = parseFloat(yLabelNode.getAttribute('y') || '0');
+                        if (Number.isFinite(currentY) && deltaPx > 0) {
+                            yLabelNode.setAttribute('y', String(currentY - deltaPx * scaleX));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     shrinkSvgViewBox(svg, 6);

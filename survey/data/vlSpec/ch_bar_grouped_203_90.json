@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Population Census for year 2000, grouped by age and gender",
+  "data": {
+    "url": "survey/data/csv/bar/grouped/bar_grouped_203_90.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Religious",
+      "type": "ordinal",
+      "spacing": 5
+    },
+    "y": {
+      "aggregate": "sum",
+      "field": "Percentage",
+      "type": "quantitative",
+      "axis": {
+        "title": "Population",
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Group",
+      "type": "nominal",
+      "scale": {
+        "rangeStep": 12
+      },
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Group",
+      "type": "nominal",
+      "scale": {
+        "range": ["#659CCA","#EA98D2"]
+      }
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

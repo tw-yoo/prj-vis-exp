@@ -1,7 +1,7 @@
 /****
  * Common selector shapes used across operations
  * - category: primary nominal/ordinal key (e.g., bar x-axis label)
- * - series: secondary nominal key (e.g., grouped/stacked bar groups, multi-line series)
+ * - series: secondary nominal key (e.g., grouped/stacked bar groups, multiple-line series)
  * - x: x-axis value (for line charts or horizontal bars)
  * - y: y-axis value (for vertical bars)
  * - index: row index or ordinal position when keys are insufficient

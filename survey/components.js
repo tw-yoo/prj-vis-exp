@@ -160,7 +160,7 @@ export async function createChart(cId, host = null) {
         // Resolve path: allow full path (*.json) or a logical key mapping to specs/ops/<key>.json
         const opSpecPath = (/\.json$/i.test(rawOpSpec) || rawOpSpec.includes('/'))
             ? rawOpSpec
-            : `specs/ops/op_${rawOpSpec}.json`;
+            : `./survey/data/opsSpec/op_${rawOpSpec}.json`;
 
         let operationSpec = null;
         try {
@@ -172,7 +172,7 @@ export async function createChart(cId, host = null) {
         }
 
         if (operationSpec) {
-            // Hand off the full multi-key spec (including text/ops/ops2/last) to the router.
+            // Hand off the full multiple-key spec (including text/ops/ops2/last) to the router.
             // The router will delegate to the chart-type-specific runner, which manages sequencing/UI.
             await executeAtomicOps(chartDomId, vegaLiteSpec, operationSpec);
         }

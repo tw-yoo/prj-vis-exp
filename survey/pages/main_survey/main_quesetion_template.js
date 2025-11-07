@@ -1,8 +1,9 @@
 const DEFAULT_TEMPLATE_PATH = 'pages/main_survey/main_question_template.html';
 const templateCache = new Map();
-const QUESTION_SPEC_ROOT = 'pages/main_survey/main_questions/specs';
-const QUESTION_CHART_SPEC_ROOT = `${QUESTION_SPEC_ROOT}/charts`;
-const QUESTION_OP_SPEC_ROOT = `${QUESTION_SPEC_ROOT}/ops`;
+// const QUESTION_SPEC_ROOT = 'pages/main_survey/main_questions/specs';
+const QUESTION_SPEC_ROOT = 'data';
+const QUESTION_CHART_SPEC_ROOT = `${QUESTION_SPEC_ROOT}/vlSpec`;
+const QUESTION_OP_SPEC_ROOT = `${QUESTION_SPEC_ROOT}/opsSpec`;
 
 export const ExplanationType = Object.freeze({
     OURS: 'OURS',

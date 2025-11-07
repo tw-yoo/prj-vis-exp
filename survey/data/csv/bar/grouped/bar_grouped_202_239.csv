@@ -1,0 +1,29 @@
+Language,Type,Indices
+Swahili,agglutination,0.67
+Swahili,synthesis,2.56
+Swahili,derivation,0.03
+Swahili,suffixing,0.16
+spoken Turkish,agglutination,0.67
+spoken Turkish,synthesis,1.75
+spoken Turkish,derivation,0.06
+spoken Turkish,suffixing,0.44
+written Turkish,agglutination,0.6
+written Turkish,synthesis,2.33
+written Turkish,derivation,0.11
+written Turkish,suffixing,0.54
+Yakut,agglutination,0.51
+Yakut,synthesis,2.17
+Yakut,derivation,0.16
+Yakut,suffixing,0.53
+Greek,agglutination,0.4
+Greek,synthesis,1.82
+Greek,derivation,0.07
+Greek,suffixing,0.42
+English,agglutination,0.3
+English,synthesis,1.67
+English,derivation,0.09
+English,suffixing,0.38
+Eskimo,agglutination,0.03
+Eskimo,synthesis,3.7
+Eskimo,derivation,0.34
+Eskimo,suffixing,0.73

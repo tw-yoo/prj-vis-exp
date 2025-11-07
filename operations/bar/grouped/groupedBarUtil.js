@@ -257,7 +257,7 @@ export async function renderGroupedBarChart(chartId, spec) {
     });
 
     g.append("g")
-        .attr("class", "x-axis-bottom-line")
+        .attr("class", "x-axis x-axis-bottom-line")
         .attr("transform", `translate(0,${plotH})`)
         .call(d3.axisBottom(x0).tickSizeOuter(0).tickPadding(6));
 
@@ -277,6 +277,28 @@ export async function renderGroupedBarChart(chartId, spec) {
             .attr("x", 20).attr("y", 12.5)
             .text(value);
     });
+
+    const xLabel = (column.axis && column.axis.title) || facetField || 'category';
+    const yLabel = (y.axis && y.axis.title) || yField || 'value';
+
+    svg.append("text")
+        .attr("class", "x-axis-label")
+        .attr("x", margin.left + width / 2)
+        .attr("y", margin.top + plotH + 50)
+        .attr("text-anchor", "middle")
+        .style("font-size", "14px")
+        .style("font-weight", "bold")
+        .text(xLabel);
+
+    svg.append("text")
+        .attr("class", "y-axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -(margin.top + plotH / 2))
+        .attr("y", margin.left - 45)
+        .attr("text-anchor", "middle")
+        .style("font-size", "14px")
+        .style("font-weight", "bold")
+        .text(yLabel);
 
     shrinkSvgViewBox(svg, 6);
 }

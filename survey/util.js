@@ -1,5 +1,6 @@
 export async function getVegaLiteSpec(chartId) {
     const candidates = [
+        `data/vlSpec/vl_${chartId}.json`
         `specs/charts/ch_${chartId}.json`,
         `pages/main_survey/main_questions/specs/charts/ch_${chartId}.json`
     ];
@@ -31,6 +32,7 @@ export async function getVegaLiteSpec(chartId) {
 export async function getOperationSpec(questionName) {
     try {
         const candidates = [
+            `data/opsSpec/op_${questionName}.json`,
             `specs/ops/${questionName}.json`,
             `pages/main_survey/main_questions/specs/ops/${questionName}.json`,
             `pages/main_survey/main_questions/specs/ops/op_${questionName}.json`

@@ -152,7 +152,7 @@ export async function renderMultipleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 48, right: 96, bottom: 48, left: 64 };
+    const margin = { top: 48, right: 96, bottom: 48, left: 84 };
     const innerWidth = (spec?.width ?? 600);
     const innerHeight = (spec?.height ?? 320);
     const totalWidth = innerWidth + margin.left + margin.right;
@@ -163,18 +163,58 @@ export async function renderMultipleLineChart(chartId, spec) {
     const colorField = spec.encoding.color.field;
     const isTemporal = spec.encoding.x.type === 'temporal';
 
+    const xTimeUnit = spec.encoding.x.timeUnit || null;
+    const parseTemporal = (rawValue) => {
+        if (!isTemporal) return null;
+        const raw = String(rawValue ?? '').trim();
+        if (!raw) return null;
+        if (xTimeUnit === 'month') {
+            const monthNames = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+            const idx = monthNames.indexOf(raw.slice(0,3).toLowerCase());
+            if (idx >= 0) {
+                return new Date(Date.UTC(2000, idx, 1));
+            }
+        }
+        if (xTimeUnit === 'quarter') {
+            const match = raw.match(/Q([1-4])/i);
+            if (match) {
+                const quarterIdx = Number(match[1]) - 1;
+                return new Date(Date.UTC(2000, quarterIdx * 3, 1));
+            }
+        }
+        const date = new Date(raw);
+        return Number.isNaN(date?.getTime?.()) ? null : date;
+    };
+
     const data = await d3.csv(spec.data.url, d => {
-        d[xField] = String(d[xField]);
-        d[yField] = +d[yField];
-        return d;
+        const clone = { ...d };
+        clone[xField] = String(d[xField]);
+        clone[yField] = +d[yField];
+        if (isTemporal) {
+            clone.__parsedX = parseTemporal(clone[xField]);
+        }
+        return clone;
     });
 
-    const series = d3.groups(data, d => d[colorField]).map(([key, values]) => ({ key, values }));
+    const filteredData = isTemporal
+        ? data.filter(d => d.__parsedX instanceof Date && !Number.isNaN(d.__parsedX.getTime()))
+        : data.slice();
+
+    if (isTemporal && filteredData.length === 0) {
+        console.warn('renderMultipleLineChart: no valid temporal values for', xField);
+    }
+
+    const series = d3.groups(filteredData, d => d[colorField]).map(([key, values]) => ({ key, values }));
 
     let xScale;
     if (isTemporal) {
+        let extentValues = d3.extent(filteredData, d => d.__parsedX);
+        if (!extentValues[0] || !extentValues[1]) {
+            const now = new Date();
+            extentValues = [now, new Date(now.getTime() + 86400000)];
+        }
         xScale = d3.scaleTime()
-            .domain(d3.extent(data, d => new Date(d[xField])))
+            .domain(extentValues)
             .range([0, innerWidth]);
     } else {
         const seen = new Set();
@@ -189,14 +229,14 @@ export async function renderMultipleLineChart(chartId, spec) {
     }
 
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(data, d => d[yField])]).nice()
+        .domain([0, d3.max(filteredData, d => d[yField])]).nice()
         .range([innerHeight, 0]);
 
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
         .domain(series.map(s => s.key));
 
     chartDataStore[chartId] = {
-        data,
+        data: filteredData,
         series,
         fullXScale: xScale,
         fullYScale: yScale,
@@ -227,7 +267,7 @@ export async function renderMultipleLineChart(chartId, spec) {
         .call(d3.axisLeft(yScale));
 
     const lineGen = d3.line()
-        .x(d => isTemporal ? xScale(new Date(d[xField])) : xScale(d[xField]))
+        .x(d => isTemporal ? xScale(d.__parsedX) : xScale(d[xField]))
         .y(d => yScale(d[yField]));
 
     g.selectAll(".series-line")
@@ -241,7 +281,7 @@ export async function renderMultipleLineChart(chartId, spec) {
 
     g.selectAll("circle.datapoint")
         .data(
-            data,
+            filteredData,
             d => {
                 const kx = String(d[xField]);
                 const ks = String(d[colorField]);
@@ -251,7 +291,7 @@ export async function renderMultipleLineChart(chartId, spec) {
         .join(
             enter => enter.append("circle")
                 .attr("class", "datapoint")
-                .attr("cx", d => isTemporal ? xScale(new Date(d[xField])) : xScale(d[xField]))
+                .attr("cx", d => isTemporal ? xScale(d.__parsedX) : xScale(d[xField]))
                 .attr("cy", d => yScale(d[yField]))
                 .attr("r", 3.5)
                 .attr("fill", d => colorScale(d[colorField]))
@@ -285,7 +325,7 @@ export async function renderMultipleLineChart(chartId, spec) {
         .attr("text-anchor", "middle")
         .text(yField);
 
-    shrinkSvgViewBox(svg, 6);
+    shrinkSvgViewBox(svg, 12);
 }
 
 function multipleLineToDatumValues(rawData, spec) {

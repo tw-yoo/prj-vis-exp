@@ -368,7 +368,7 @@ class DatumValue {
     category: string,   // label field (e.g., 'country', 'brand')
     measure: string,    // value field (e.g., 'rating', 'sales')
     target: string,     // label value (e.g., 'KOR', 'iPhone')
-    group: string|null, // subgroup label value (e.g., 'MSFT', 'AMZN', '2024') for multi-line/stacked/grouped charts; null otherwise
+    group: string|null, // subgroup label value (e.g., 'MSFT', 'AMZN', '2024') for multiple-line/stacked/grouped charts; null otherwise
     value: number,      // numeric value (e.g., 82, 1.25)
     id?: string         // runtime-assigned id for cross-list referencing
   ) {}
@@ -982,7 +982,7 @@ class DatumValue {
     category: string,   // label field (e.g., 'country', 'brand')
     measure: string,    // value field (e.g., 'rating', 'sales')
     target: string,     // label value (e.g., 'KOR', 'iPhone')
-    group: string|null, // subgroup label value (e.g., 'MSFT', 'AMZN', '2024') for multi-line/stacked/grouped charts; null otherwise
+    group: string|null, // subgroup label value (e.g., 'MSFT', 'AMZN', '2024') for multiple-line/stacked/grouped charts; null otherwise
     value: number,      // numeric value (e.g., 82, 1.25)
     id?: string         // runtime-assigned id for cross-list referencing
   ) {}
@@ -1529,7 +1529,7 @@ function validate(spec: Program) {
     const last = ops[ops.length - 1];
     if (!TERMINAL_OPS.has(last.op)) errors.push(`${key} must end in a terminal op (got "${last.op}")`);
 
-    // determinism heuristic: if final op is not Boolean and upstream allows multi, flag when no disambiguation seen
+    // determinism heuristic: if final op is not Boolean and upstream allows multiple, flag when no disambiguation seen
     const hasDisambiguation = ops.some(o => (o.op === "nth") || (o.op === "compare") || (o.op === "compareBool") || (o.op === "findExtremum") || (o.op === "sum") || (o.op === "average") || (o.op === "diff") || (o.op === "count"));
     if (!hasDisambiguation) warns.push(`${key} may return multiple items without explicit disambiguation`);
   }

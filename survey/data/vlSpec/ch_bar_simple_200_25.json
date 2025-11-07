@@ -1,0 +1,22 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "survey/data/csv/bar/simple/bar_simple_200_25.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Service",
+      "type": "nominal",
+      "sort": {
+        "field": "Total Cost (£ Million)",
+        "op": "sum",
+        "order": "descending"
+      }
+    },
+    "y": {
+      "field": "Total Cost (£ Million)",
+      "type": "quantitative"
+    }
+  }
+}

@@ -191,7 +191,7 @@ export async function renderSimpleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 48, right: 48, bottom: 48, left: 64 };
+    const margin = { top: 48, right: 48, bottom: 48, left: 84 };
     const innerWidth = (spec?.width ?? 560);
     const innerHeight = (spec?.height ?? 320);
     const totalWidth = innerWidth + margin.left + margin.right;
@@ -285,5 +285,5 @@ export async function renderSimpleLineChart(chartId, spec) {
         .attr("x", -(margin.top + innerHeight / 2)).attr("y", margin.left - 48)
         .attr("text-anchor", "middle").text(yField);
 
-    shrinkSvgViewBox(svg, 6);
+    shrinkSvgViewBox(svg, 12);
 }

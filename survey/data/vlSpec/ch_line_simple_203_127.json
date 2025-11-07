@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "encoding": {
+    "y": {
+      "field": "Attendance",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Date",
+      "type": "temporal"
+    }
+  },
+  "data": {
+    "url": "survey/data/csv/line/simple/line_simple_203_127.csv"
+  },
+  "mark": "line"
+}
+
+

@@ -624,8 +624,8 @@ function buildPageDescriptors() {
   return [
     ...loadMainPages(),
     ...loadTutorialPages(),
-    ...loadMainSurveyPages(),
-    ...loadFinalQuestionPages()
+    // ...loadMainSurveyPages(),
+    // ...loadFinalQuestionPages()
   ];
 }
 

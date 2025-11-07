@@ -359,7 +359,10 @@ export async function renderStackedBarChart(chartId, spec) {
 
         g.append("g").attr("class", "x-axis")
             .attr("transform", `translate(0,${plotH})`)
-            .call(d3.axisBottom(xScale));
+            .call(d3.axisBottom(xScale))
+            .selectAll("text")
+            .attr("transform", "rotate(-45)")
+            .style("text-anchor", "end");
         g.append("g").attr("class", "y-axis")
             .call(d3.axisLeft(yScale));
 
@@ -396,7 +399,10 @@ export async function renderStackedBarChart(chartId, spec) {
 
         g.append("g").attr("class", "x-axis")
             .attr("transform", `translate(0,${plotH})`)
-            .call(d3.axisBottom(xScale));
+            .call(d3.axisBottom(xScale))
+            .selectAll("text")
+            .attr("transform", "rotate(-45)")
+            .style("text-anchor", "end");
         g.append("g").attr("class", "y-axis")
             .call(d3.axisLeft(yScale));
 
@@ -431,17 +437,19 @@ export async function renderStackedBarChart(chartId, spec) {
     const yLabel = (spec.encoding.y.axis && spec.encoding.y.axis.title) || (aggregate || yField || "");
 
     svg.append("text")
+        .attr("class", "x-axis-label")
         .attr("x", margin.left + plotW / 2)
-        .attr("y", margin.top + plotH + 40) // 🔥 수정: y 좌표를 전체 높이가 아닌 플롯 영역 기준으로 변경
+        .attr("y", margin.top + plotH + 40)
         .attr("text-anchor", "middle")
         .style("font-size", "14px")
         .style("font-weight", "bold")
         .text(xLabel);
 
     svg.append("text")
+        .attr("class", "y-axis-label")
         .attr("transform", "rotate(-90)")
         .attr("x", -(margin.top + plotH / 2))
-        .attr("y", 15)
+        .attr("y", margin.left - 45)
         .attr("text-anchor", "middle")
         .style("font-size", "14px")
         .style("font-weight", "bold")
