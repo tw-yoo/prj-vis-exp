@@ -195,12 +195,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
 export async function renderSimpleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
-
-<<<<<<< HEAD
-    const margin = { top: 48, right: 48, bottom: 48, left: 84 };
-=======
     const margin = { top: 80, right: 48, bottom: 48, left: 64 };  // ✅ top을 120으로 크게 증가
->>>>>>> 34ffe1bdb94c5b9141cfd85a8f105451cfc1ea1e
     const innerWidth = (spec?.width ?? 560);
     const innerHeight = (spec?.height ?? 320);
     const totalWidth = innerWidth + margin.left + margin.right;
@@ -291,10 +286,4 @@ export async function renderSimpleLineChart(chartId, spec) {
         .attr("x", -(margin.top + innerHeight / 2)).attr("y", margin.left - 48)
         .attr("text-anchor", "middle").text(yField);
 
-<<<<<<< HEAD
-    shrinkSvgViewBox(svg, 12);
-}
-=======
-    //shrinkSvgViewBox(svg, 6);
-}
->>>>>>> 34ffe1bdb94c5b9141cfd85a8f105451cfc1ea1e
+    }
