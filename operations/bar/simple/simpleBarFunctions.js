@@ -106,7 +106,7 @@ function signalOpDone(chartId, opName) {
     document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId, op: opName } }));
 }
 
-// ============= RETRIEVE VALUE (템플릿 적용 - 기존 로직 유지) =============
+// ============= RETRIEVE VALUE (✅ 템플릿 적용) =============
 export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, orientation, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -130,10 +130,6 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
         return markKeepInput(selected);
     }
     
-    // 막대 색상 변경 (dim 없음!)
-    target.interrupt();
-    target.attr("fill", hlColor).attr("opacity", 1);
-    
     // 스케일 설정
     let xScale, yScale;
     if (orientation === 'vertical') {
@@ -146,77 +142,25 @@ export async function simpleBarRetrieveValue(chartId, op, data, isLast = false) 
         xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
     }
     
-    const animPromises = [];
-    
-    // 가이드라인 그리기 (기존 방식)
-    if (orientation === 'vertical') {
-        selected.forEach(d => {
-            const x1 = margins.left + xScale(d.target) + xScale.bandwidth() / 2;
-            const y1 = margins.top + yScale(d.value);
-            
-            const line = svg.append('line')
-                .attr('class', 'retrieve-line annotation')
-                .attr('x1', x1).attr('x2', x1)
-                .attr('y1', y1).attr('y2', y1)
-                .attr('stroke', hlColor)
-                .attr('stroke-width', 2)
-                .attr('stroke-dasharray', '5,5')
-                .attr('opacity', 0);
-            
-            animPromises.push(
-                line.transition().duration(400)
-                    .attr('x2', margins.left)
-                    .attr('opacity', 1)
-                    .end()
-            );
-        });
-    } else {
-        selected.forEach(d => {
-            const x1 = xScale(d.value);
-            const y1 = yScale(d.target) + yScale.bandwidth() / 2;
-            
-            const line = svg.append('line')
-                .attr('class', 'retrieve-line annotation')
-                .attr('x1', x1).attr('x2', x1)
-                .attr('y1', y1).attr('y2', y1)
-                .attr('stroke', hlColor)
-                .attr('stroke-width', 2)
-                .attr('stroke-dasharray', '5,5')
-                .attr('opacity', 0);
-            
-            animPromises.push(
-                line.transition().duration(400)
-                    .attr('y2', 0)
-                    .attr('opacity', 1)
-                    .end()
-            );
-        });
-    }
-    
-    // 값 레이블 (기존 방식)
-    target.each(function () {
-        const bar = this;
-        const val = getMarkValue(bar);
-        const { x, y } = getCenter(bar, orientation, margins);
-        
-        const p = svg.append("text").attr("class", "annotation")
-            .attr("x", x).attr("y", y)
-            .attr("text-anchor", "middle")
-            .attr("font-size", 12)
-            .attr("fill", hlColor)
-            .attr("stroke", "white")
-            .attr("stroke-width", 3)
-            .attr("paint-order", "stroke")
-            .text(String(val))
-            .attr("opacity", 0)
-            .transition().duration(400).attr("opacity", 1)
-            .end();
-        
-        animPromises.push(p);
+    // 🔥 템플릿 적용: highlightAndAnnotatePattern
+    await Templates.highlightAndAnnotatePattern({
+        allElements: bars,
+        targetElements: target,
+        color: hlColor,
+        svg: svg,
+        margins: margins,
+        plot: plot,
+        orientation: orientation,
+        getValueFn: (node) => getMarkValue(node),
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return orientation === 'vertical' ? yScale(val) : xScale(val);
+        },
+        getCenterFn: (node) => getCenter(node, orientation, margins),
+        useDim: false  // retrieveValue는 dim 안함
     });
     
-    await Promise.all(animPromises);
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'retrieveValue');
     
     if (isLast) {
@@ -318,14 +262,14 @@ export async function simpleBarFilter(chartId, op, data, isLast = false) {
         }
     });
 
-    await delay(1000);
+    await Helpers.delay(1000);
     signalOpDone(chartId, 'filter');
     return isLast
         ? [new DatumValue('filter', 'count', 'result', null, Array.isArray(filteredData) ? filteredData.length : 0, 'last_filter')]
         : filteredData;
 }
 
-// ============= FIND EXTREMUM (기존 유지 - 템플릿 불필요) =============
+// ============= FIND EXTREMUM (✅ 템플릿 적용) =============
 export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, orientation, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -353,9 +297,6 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
         return [selected];
     }
     
-    // 막대 색상 변경
-    await targetBar.transition().duration(600).attr("fill", hlColor).end();
-    
     // 스케일 설정
     let xScale, yScale;
     if (orientation === 'vertical') {
@@ -368,26 +309,29 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
         xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
     }
     
-    // 가이드라인
-    if (Number.isFinite(selVal)) {
-        if (orientation === 'vertical') {
-            const yPos = yScale(selVal);
-            await Helpers.drawHorizontalGuideline(svg, yPos, hlColor, margins, plot.w);
-        } else {
-            const xPos = xScale(selVal);
-            await Helpers.drawVerticalGuideline(svg, xPos, 0, plot.h, hlColor, margins);
-        }
-    }
+    // 🔥 템플릿 적용: highlightAndAnnotatePattern
+    await Templates.highlightAndAnnotatePattern({
+        allElements: bars,
+        targetElements: targetBar,
+        color: hlColor,
+        svg: svg,
+        margins: margins,
+        plot: plot,
+        orientation: orientation,
+        getValueFn: (node) => {
+            const val = getMarkValue(node);
+            const label = op?.which === 'min' ? 'Min' : 'Max';
+            return `${label}: ${val}`;
+        },
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return orientation === 'vertical' ? yScale(val) : xScale(val);
+        },
+        getCenterFn: (node) => getCenter(node, orientation, margins),
+        useDim: false
+    });
     
-    // 값 레이블
-    const node = targetBar.node();
-    if (node) {
-        const { x, y } = getCenter(node, orientation, margins);
-        const labelText = `${op?.which === 'min' ? 'Min' : 'Max'}: ${selVal}`;
-        await Helpers.addValueLabel(svg, x, y, labelText, hlColor);
-    }
-    
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'findExtremum');
     
     if (isLast) {
@@ -396,7 +340,7 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     return [selected];
 }
 
-// ============= DETERMINE RANGE (기존 유지) =============
+// ============= DETERMINE RANGE (✅ 템플릿 적용) =============
 export async function simpleBarDetermineRange(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -422,8 +366,6 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
         .nice()
         .range([plot.h, 0]);
 
-    const animationPromises = [];
-
     const findBars = (val) => selectAllMarks(g).filter(d => {
         if (!d) return false;
         const barValue = d.value !== undefined ? d.value : d[valueField];
@@ -433,42 +375,37 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
     const minBars = findBars(minV);
     const maxBars = findBars(maxV);
 
-    // 막대 색상 변경
-    animationPromises.push(
-        Helpers.changeBarColor(minBars, hlColor, DURATIONS.HIGHLIGHT)
-    );
-    animationPromises.push(
-        Helpers.changeBarColor(maxBars, hlColor, DURATIONS.HIGHLIGHT)
-    );
-
-    // 가이드라인 + 레이블
-    [
-        { value: minV, label: "Min", bars: minBars },
-        { value: maxV, label: "Max", bars: maxBars }
-    ].forEach(item => {
-        if (item.value === undefined) return;
-        
-        const yPos = yScale(item.value);
-        animationPromises.push(
-            Helpers.drawHorizontalGuideline(svg, yPos, hlColor, margins, plot.w)
-        );
-
-        item.bars.each(function() {
-            const { x, y } = getCenter(this, orientation, margins);
-            animationPromises.push(
-                Helpers.addValueLabel(svg, x, y, `${item.label}: ${item.value}`, hlColor)
-            );
-        });
+    // 🔥 템플릿 적용: comparePattern (min과 max 비교처럼 처리)
+    await Templates.comparePattern({
+        allElements: selectAllMarks(g),
+        elementA: minBars,
+        elementB: maxBars,
+        colorA: hlColor,
+        colorB: hlColor,
+        svg: svg,
+        margins: margins,
+        plot: plot,
+        orientation: orientation,
+        getValueFn: (node) => {
+            const val = getMarkValue(node);
+            const isMin = minBars.filter(function() { return this === node; }).size() > 0;
+            return `${isMin ? 'Min' : 'Max'}: ${val}`;
+        },
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return yScale(val);
+        },
+        getCenterFn: (node) => getCenter(node, orientation, margins),
+        useDim: false
     });
 
-    await Promise.all(animationPromises);
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'determineRange');
     
     return new IntervalValue(categoryAxisName, minV, maxV);
 }
 
-// ============= COMPARE (기존 유지) =============
+// ============= COMPARE (✅ 템플릿 적용) =============
 export async function simpleBarCompare(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -501,8 +438,6 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         return winner ? [winner] : [];
     }
 
-    const valueA = getMarkValue(barA.node());
-    const valueB = getMarkValue(barB.node());
     const colorA = OP_COLORS.COMPARE_A;
     const colorB = OP_COLORS.COMPARE_B;
 
@@ -518,50 +453,32 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
 
-    const animationPromises = [];
-
-    // 막대 색상 변경
-    animationPromises.push(
-        Helpers.changeBarColor(barA, colorA, DURATIONS.HIGHLIGHT)
-    );
-    animationPromises.push(
-        Helpers.changeBarColor(barB, colorB, DURATIONS.HIGHLIGHT)
-    );
-
-    // 가이드라인 + 레이블
-    const targets = [
-        { bar: barA, value: valueA, color: colorA },
-        { bar: barB, value: valueB, color: colorB }
-    ];
-
-    targets.forEach(t => {
-        if (!Number.isFinite(t.value)) return;
-
-        if (orientation === "vertical") {
-            const yPos = yScale(t.value);
-            animationPromises.push(
-                Helpers.drawHorizontalGuideline(svg, yPos, t.color, margins, plot.w)
-            );
-        } else {
-            const xPos = xScale(t.value);
-            animationPromises.push(
-                Helpers.drawVerticalGuideline(svg, xPos, 0, plot.h, t.color, margins)
-            );
-        }
-
-        const { x, y } = getCenter(t.bar.node(), orientation, margins);
-        animationPromises.push(
-            Helpers.addValueLabel(svg, x, y, String(t.value), t.color)
-        );
+    // 🔥 템플릿 적용: comparePattern
+    await Templates.comparePattern({
+        allElements: selectAllMarks(g),
+        elementA: barA,
+        elementB: barB,
+        colorA: colorA,
+        colorB: colorB,
+        svg: svg,
+        margins: margins,
+        plot: plot,
+        orientation: orientation,
+        getValueFn: (node) => getMarkValue(node),
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return orientation === "vertical" ? yScale(val) : xScale(val);
+        },
+        getCenterFn: (node) => getCenter(node, orientation, margins),
+        useDim: false
     });
 
-    await Promise.all(animationPromises).catch(() => {});
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'compare');
     return winner ? [winner] : [];
 }
 
-// ============= COMPARE BOOL (compare와 동일) =============
+// ============= COMPARE BOOL (✅ 템플릿 적용 - compare와 동일) =============
 export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -594,8 +511,6 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
         return verdict;
     }
 
-    const valueA = getMarkValue(barA.node());
-    const valueB = getMarkValue(barB.node());
     const colorA = OP_COLORS.COMPARE_A;
     const colorB = OP_COLORS.COMPARE_B;
 
@@ -611,45 +526,27 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
 
-    const animationPromises = [];
-
-    // 막대 색상 변경
-    animationPromises.push(
-        Helpers.changeBarColor(barA, colorA, DURATIONS.HIGHLIGHT)
-    );
-    animationPromises.push(
-        Helpers.changeBarColor(barB, colorB, DURATIONS.HIGHLIGHT)
-    );
-
-    // 가이드라인 + 레이블
-    const targets = [
-        { bar: barA, value: valueA, color: colorA },
-        { bar: barB, value: valueB, color: colorB }
-    ];
-
-    targets.forEach(t => {
-        if (!Number.isFinite(t.value)) return;
-
-        if (orientation === "vertical") {
-            const yPos = yScale(t.value);
-            animationPromises.push(
-                Helpers.drawHorizontalGuideline(svg, yPos, t.color, margins, plot.w)
-            );
-        } else {
-            const xPos = xScale(t.value);
-            animationPromises.push(
-                Helpers.drawVerticalGuideline(svg, xPos, 0, plot.h, t.color, margins)
-            );
-        }
-
-        const { x, y } = getCenter(t.bar.node(), orientation, margins);
-        animationPromises.push(
-            Helpers.addValueLabel(svg, x, y, String(t.value), t.color)
-        );
+    // 🔥 템플릿 적용: comparePattern
+    await Templates.comparePattern({
+        allElements: selectAllMarks(g),
+        elementA: barA,
+        elementB: barB,
+        colorA: colorA,
+        colorB: colorB,
+        svg: svg,
+        margins: margins,
+        plot: plot,
+        orientation: orientation,
+        getValueFn: (node) => getMarkValue(node),
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return orientation === "vertical" ? yScale(val) : xScale(val);
+        },
+        getCenterFn: (node) => getCenter(node, orientation, margins),
+        useDim: false
     });
 
-    await Promise.all(animationPromises).catch(() => {});
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'compareBool');
     return verdict;
 }
@@ -694,14 +591,14 @@ export async function simpleBarSort(chartId, op, data, isLast = false) {
         
         await Templates.repositionPattern({
             elements: bars,
-            newXScale: yScale,  // 파라미터명은 newXScale이지만 horizontal에서는 yScale
+            newXScale: yScale,
             orientation: 'horizontal',
             g: g,
             duration: DURATIONS.REPOSITION
         });
     }
     
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'sort');
     
     if (isLast) {
@@ -741,7 +638,7 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
 
     // 스택 애니메이션 (기존 유지)
     const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
-    const yAxisTransition = svg.select('.y-axis').transition().duration(1000).call(d3.axisLeft(newYScale)).end();
+    const yAxisTransition = svg.select('.y-axis').transition().duration(DURATIONS.STACK).call(d3.axisLeft(newYScale)).end();
     const bars = selectAllMarks(g);
     const barWidth = +bars.attr('width');
     const targetX = plot.w / 2 - barWidth / 2;
@@ -752,7 +649,7 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
         const rect = d3.select(this);
         const raw = getMarkValue(this);
         const value = Number.isFinite(+raw) ? +raw : 0;
-        const t = rect.transition().duration(1200)
+        const t = rect.transition().duration(DURATIONS.STACK)
             .attr('x', targetX)
             .attr('y', newYScale(runningTotal + value))
             .attr('height', plot.h - newYScale(value))
@@ -762,7 +659,7 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
     });
 
     await Promise.all([yAxisTransition, ...stackPromises]);
-    await delay(200);
+    await Helpers.delay(DURATIONS.SUM_DELAY);
 
     // 🔥 템플릿 적용: aggregateResultPattern
     await Templates.aggregateResultPattern({
@@ -777,7 +674,7 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
         lineStyle: 'dashed'
     });
 
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'sum');
     return isLast ? [sumDatum] : [sumDatum];
 }
@@ -843,7 +740,7 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
         lineStyle: 'dashed'
     });
 
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'average');
     return isLast ? [averageDatum] : [averageDatum];
 }
@@ -904,87 +801,52 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
 
-    const animationPromises = [];
-
-    // 막대 색상 변경
-    animationPromises.push(
-        Helpers.changeBarColor(barA, colorA, DURATIONS.HIGHLIGHT)
-    );
-    animationPromises.push(
-        Helpers.changeBarColor(barB, colorB, DURATIONS.HIGHLIGHT)
-    );
-
-    // 가이드라인 + 레이블
-    const targets = [
-        { bar: barA, value: valueA, color: colorA },
-        { bar: barB, value: valueB, color: colorB }
-    ];
-    const guidePositions = [];
-
-    targets.forEach(t => {
-        if (!Number.isFinite(t.value)) return;
-
-        if (orientation === "vertical") {
-            const yPos = margins.top + yScale(t.value);
-            guidePositions.push(yPos);
-            animationPromises.push(
-                Helpers.drawHorizontalGuideline(svg, yScale(t.value), t.color, margins, plot.w)
-            );
-        } else {
-            const xPos = margins.left + xScale(t.value);
-            guidePositions.push(xPos);
-            animationPromises.push(
-                Helpers.drawVerticalGuideline(svg, xScale(t.value), 0, plot.h, t.color, margins)
-            );
-        }
-
-        const { x, y } = getCenter(t.bar.node(), orientation, margins);
-        animationPromises.push(
-            Helpers.addValueLabel(svg, x, y, String(t.value), t.color)
-        );
+    // 🔥 템플릿 적용: comparePattern으로 막대 하이라이트
+    await Templates.comparePattern({
+        allElements: selectAllMarks(g),
+        elementA: barA,
+        elementB: barB,
+        colorA: colorA,
+        colorB: colorB,
+        svg: svg,
+        margins: margins,
+        plot: plot,
+        orientation: orientation,
+        getValueFn: (node) => getMarkValue(node),
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return orientation === "vertical" ? yScale(val) : xScale(val);
+        },
+        getCenterFn: (node) => getCenter(node, orientation, margins),
+        useDim: false
     });
 
-    await Promise.all(animationPromises);
-
-    // 🔥 템플릿 적용: rangeBridgePattern
+    // 🔥 템플릿 적용: rangeBridgePattern으로 브리지 라인
     const diffMagnitude = Number.isFinite(result?.value)
         ? Math.abs(result.value)
         : (Number.isFinite(valueA) && Number.isFinite(valueB) ? Math.abs(valueA - valueB) : null);
 
-    if (Number.isFinite(diffMagnitude) && guidePositions.length === 2) {
-        if (orientation === "vertical") {
-            await Templates.rangeBridgePattern({
-                svg: svg,
-                margins: margins,
-                plot: plot,
-                orientation: 'vertical',
-                valueA: valueA,
-                valueB: valueB,
-                yScale: yScale,
-                color: OP_COLORS.DIFF_LINE,
-                labelText: `Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-            });
-        } else {
-            await Templates.rangeBridgePattern({
-                svg: svg,
-                margins: margins,
-                plot: plot,
-                orientation: 'horizontal',
-                valueA: valueA,
-                valueB: valueB,
-                yScale: yScale,  // horizontal에서는 실제로 xScale이지만 파라미터명은 yScale
-                color: OP_COLORS.DIFF_LINE,
-                labelText: `Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-            });
-        }
+    if (Number.isFinite(diffMagnitude)) {
+        await Templates.rangeBridgePattern({
+            svg: svg,
+            margins: margins,
+            plot: plot,
+            orientation: orientation,
+            valueA: valueA,
+            valueB: valueB,
+            yScale: yScale,
+            color: OP_COLORS.DIFF_LINE,
+            labelText: `Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+        });
     }
 
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'diff');
     return [diffDatum];
 }
 
-// ============= NTH (✅ 템플릿 적용) =============
+
+// ============= NTH (✅ 수정 완료 - 순서 보장) =============
 export async function simpleBarNth(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -1023,44 +885,52 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
 
-    // 🔥 템플릿 적용: sequentialCountPattern
-    const maxN = Math.max(...nValues);
-    const countLimit = Math.min(maxN, cats.length);
-    
+    // 🔥 수정: 막대를 순서대로 정렬한 배열 생성
+    const orderedBars = [];
+    seq.forEach(category => {
+        const bar = all.filter(function() { 
+            return getBarKeyFromNode(this) === category; 
+        });
+        if (!bar.empty()) {
+            orderedBars.push({ 
+                node: bar.node(), 
+                selection: bar, 
+                category: category 
+            });
+        }
+    });
+
+    // 모든 막대 흐리게
     await Helpers.fadeElements(all, OPACITIES.DIM, 250);
     
+    // 🔥 순차 카운팅 (직접 구현 - 템플릿의 순서 보장 문제 회피)
     const countedBars = [];
-    
-    // 순차 카운팅
+    const maxN = Math.max(...nValues);
+    const countLimit = Math.min(maxN, orderedBars.length);
+
     for (let i = 0; i < countLimit; i++) {
-        const c = seq[i];
-        const sel = all.filter(function() { return getBarKeyFromNode(this) === c; });
-        const targetData = data.find(d => String(d.target) === c);
+        const { node, selection, category } = orderedBars[i];
         
         countedBars.push({ 
             index: i + 1, 
-            category: c, 
-            selection: sel, 
-            value: targetData?.value || 0 
+            category: category, 
+            selection: selection, 
+            node: node 
         });
         
-        await Helpers.changeBarColor(sel, color, DURATIONS.NTH_HIGHLIGHT);
-        await Helpers.fadeElements(sel, OPACITIES.FULL, DURATIONS.NTH_HIGHLIGHT);
+        await Helpers.changeBarColor(selection, color, DURATIONS.NTH_HIGHLIGHT);
+        await Helpers.fadeElements(selection, OPACITIES.FULL, DURATIONS.NTH_HIGHLIGHT);
 
-        const nodes = sel.nodes();
-        if (nodes.length) {
-            const bar = nodes[0];
-            const { x, y } = getCenter(bar, orientation, margins);
-            
-            await Helpers.addValueLabel(
-                svg, x, y,
-                String(i + 1),
-                color,
-                { className: 'annotation count-label', fontSize: 14 }
-            );
-        }
+        const { x, y } = getCenter(node, orientation, margins);
         
-        await delay(100);
+        await Helpers.addValueLabel(
+            svg, x, y,
+            String(i + 1),
+            color,
+            { className: 'annotation count-label', fontSize: 14 }
+        );
+        
+        await Helpers.delay(DURATIONS.NTH_COUNT);
     }
 
     // 선택되지 않은 것들 dim
@@ -1075,63 +945,50 @@ export async function simpleBarNth(chartId, op, data, isLast = false) {
     finals.push(svg.selectAll('.count-label').transition().duration(300).attr('opacity', 0).remove().end());
     await Promise.all(finals);
 
-    // 선택된 것들 강조 + 가이드라인 + 레이블
-    const highlightTasks = [];
+    // 선택된 것들에 가이드라인 + 상세 레이블 추가
     const lineTasks = [];
     const labelTasks = [];
 
     nValues.forEach(n => {
-        if (n > countLimit) return;
-        
         const item = countedBars.find(cb => cb.index === n);
         if (!item) return;
 
-        // 강조
-        highlightTasks.push(
-            Helpers.changeBarColor(item.selection, color, DURATIONS.HIGHLIGHT)
-        );
-        highlightTasks.push(
-            Helpers.fadeElements(item.selection, OPACITIES.FULL, DURATIONS.HIGHLIGHT)
-        );
+        // 데이터에서 값 찾기
+        const targetData = data.find(d => String(d.target) === item.category);
+        const value = targetData?.value || 0;
 
         // 가이드라인
         if (orientation === 'vertical') {
-            const yPos = yScale(item.value);
+            const yPos = yScale(value);
             lineTasks.push(
                 Helpers.drawHorizontalGuideline(svg, yPos, color, margins, plot.w)
             );
         }
 
         // 레이블 (서수 + 값)
-        const nodes = item.selection.nodes();
-        if (nodes.length) {
-            const bar = nodes[0];
-            const { x, y } = getCenter(bar, orientation, margins);
-            
-            const ordinalText = getOrdinal(n);
-            const valueText = fmtNum(item.value);
-            const valueWidth = Math.max(30, valueText.length * 7);
-            
-            // 서수 배경 + 텍스트
-            labelTasks.push(Helpers.addLabelBackground(svg, x, y - 25, 30, 14));
-            labelTasks.push(Helpers.addValueLabel(svg, x, y - 15, ordinalText, color, { fontSize: 11 }));
-            
-            // 값 배경 + 텍스트
-            labelTasks.push(Helpers.addLabelBackground(svg, x, y - 11, valueWidth, 14));
-            labelTasks.push(Helpers.addValueLabel(svg, x, y - 1, valueText, color, { fontSize: 12 }));
-        }
+        const { x, y } = getCenter(item.node, orientation, margins);
+        
+        const ordinalText = getOrdinal(n);
+        const valueText = fmtNum(value);
+        const valueWidth = Math.max(30, valueText.length * 7);
+        
+        // 서수 배경 + 텍스트
+        labelTasks.push(Helpers.addLabelBackground(svg, x, y - 25, 30, 14));
+        labelTasks.push(Helpers.addValueLabel(svg, x, y - 15, ordinalText, color, { fontSize: 11 }));
+        
+        // 값 배경 + 텍스트
+        labelTasks.push(Helpers.addLabelBackground(svg, x, y - 11, valueWidth, 14));
+        labelTasks.push(Helpers.addValueLabel(svg, x, y - 1, valueText, color, { fontSize: 12 }));
     });
 
-    await Promise.all(highlightTasks);
-    await Promise.all(lineTasks);
-    await Promise.all(labelTasks);
+    await Promise.all([...lineTasks, ...labelTasks]);
 
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'nth');
     return isLast ? [resultArray[0]] : resultArray;
 }
 
-// ============= COUNT (✅ 템플릿 적용) =============
+// ============= COUNT (✅ 수정 완료 - 순서 보장) =============
 export async function simpleBarCount(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, orientation, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -1145,14 +1002,9 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
         return result ? [result] : [];
     }
     
-    const baseColor = '#69b3a2';
     const hlColor = OP_COLORS.COUNT;
-    const stepInterval = Math.max(10, DURATIONS.COUNT_INTERVAL);
     
-    // 초기 dim
-    await Helpers.changeBarColor(bars, baseColor, stepInterval);
-    await Helpers.fadeElements(bars, OPACITIES.SEMI_DIM, stepInterval);
-    
+    // 🔥 막대를 순서대로 정렬
     const nodes = bars.nodes();
     const items = nodes.map((node) => {
         const x = +node.getAttribute('x') || 0;
@@ -1171,6 +1023,9 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
         ordered = items.slice().sort((a, b) => a.value - b.value);
     }
     
+    // 초기 dim
+    await Helpers.fadeElements(bars, OPACITIES.SEMI_DIM, 150);
+    
     const n = Math.min(totalCount, ordered.length);
     
     // 순차 카운팅
@@ -1178,8 +1033,8 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
         const { node } = ordered[i];
         const rect = d3.select(node);
         
-        await Helpers.changeBarColor(rect, hlColor, 150);
-        await Helpers.fadeElements(rect, OPACITIES.FULL, 150);
+        await Helpers.changeBarColor(rect, hlColor, DURATIONS.NTH_HIGHLIGHT);
+        await Helpers.fadeElements(rect, OPACITIES.FULL, DURATIONS.NTH_HIGHLIGHT);
         
         const { x, y } = getCenter(node, orientation, margins);
         await Helpers.addValueLabel(
@@ -1189,10 +1044,10 @@ export async function simpleBarCount(chartId, op, data, isLast = false) {
             { className: 'annotation count-label', fontSize: 12 }
         );
         
-        await delay(60);
+        await Helpers.delay(DURATIONS.COUNT_INTERVAL);
     }
 
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'count');
     return isLast ? (result ? [result] : []) : (result ? [result] : []);
 }
