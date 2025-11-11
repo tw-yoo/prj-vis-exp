@@ -25,11 +25,17 @@ function coerceDatumValue(datum, idx, opKey, fallbackCategory, fallbackMeasure) 
     const lookupSource = datum?.lookupId ?? datum?.id ?? datum?.target ?? null;
 
     const dv = new DatumValue(category, measure, target, group, value, stableId);
+    const customName = typeof datum?.name === "string" && datum.name.trim().length > 0
+        ? datum.name.trim()
+        : null;
+    if (customName) {
+        dv.name = customName;
+    }
 
     dv.lookupId = lookupSource != null ? String(lookupSource) : stableId;
 
     if (datum && typeof datum === "object") {
-        const protectedKeys = new Set(["category", "measure", "target", "group", "value", "id", "lookupId"]);
+        const protectedKeys = new Set(["category", "measure", "target", "group", "value", "id", "lookupId", "name"]);
         Object.keys(datum).forEach((key) => {
             if (protectedKeys.has(key)) return;
             dv[key] = datum[key];

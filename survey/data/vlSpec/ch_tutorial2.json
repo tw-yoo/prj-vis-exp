@@ -36,19 +36,13 @@
   },
   "mark": "bar",
   "encoding": {
-    "y": {
-      "field": "year",
-      "type": "nominal",
-      "axis": {
-        "labelAngle": 0
-      }
-    },
     "x": {
+      "field": "year",
+      "type": "nominal"
+    },
+    "y": {
       "field": "nests",
-      "type": "quantitative",
-      "axis": {
-        "grid": false
-      }
+      "type": "quantitative"
     }
   },
   "config": {

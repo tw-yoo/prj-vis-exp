@@ -1,0 +1,32 @@
+{
+  "ops": [
+    {
+      "op": "nth",
+      "field": "Date",
+      "n": 1,
+      "from": "right"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "nth",
+      "field": "Date",
+      "n": 1,
+      "from": "left"
+    }
+  ],
+  "last": [
+    {
+      "op": "diff",
+      "field": "Attendance",
+      "targetA": "ops_0",
+      "targetB": "ops2_0",
+      "signed": true
+    }
+  ],
+  "text": {
+    "ops": "Locate the rightmost point on the line chart to find the latest date, August 31, with an Attendance of 34518.",
+    "ops2": "Locate the leftmost point on the line chart to find the earliest date, August 1, with an Attendance of 34471.",
+    "last": "With both the latest (34518) and earliest (34471) attendance values highlighted, compute their difference: 34518 minus 34471 equals 47."
+  }
+}

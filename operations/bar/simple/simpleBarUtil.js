@@ -193,7 +193,7 @@ export async function executeSimpleBarOpsList(chartId, opsList, initialData, isL
  * 차트 리셋
  */
 async function fullChartReset(chartId) {
-    console.log("fullChartReset");
+    // console.log("fullChartReset");
     const { svg, g } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 

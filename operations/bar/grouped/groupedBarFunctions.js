@@ -91,6 +91,17 @@ function getDatumCategoryKey(d, fallback='') {
     if (!d) return String(fallback);
     return String(d.key ?? d.target ?? d.category ?? d.id ?? fallback);
 }
+
+function describeTargetSelector(sel) {
+    if (sel == null) return '';
+    if (typeof sel === 'string' || typeof sel === 'number') return String(sel);
+    if (typeof sel === 'object') {
+        if (sel.category && sel.series) return `${sel.category}/${sel.series}`;
+        if (sel.category) return String(sel.category);
+        if (sel.target) return String(sel.target);
+    }
+    return '';
+}
 function asDatumValues(list, opts = {}) {
     const {
         categoryField = 'target',
@@ -679,7 +690,7 @@ export async function groupedBarFindExtremum(chartId, op, data, isLast = false) 
         return await simpleBarFindExtremum(chartId, op, data, true);
     }
         if (isSimplifiedData(data)) {
-        console.log('Data is already simplified, delegating to simpleBarFindExtremum');
+        // console.log('Data is already simplified, delegating to simpleBarFindExtremum');
         return await simpleBarFindExtremum(chartId, op, data, false);
     }
     const { svg, g, margins, plot, yField, facetField } = getSvgAndSetup(chartId);
@@ -1351,6 +1362,7 @@ export async function groupedBarSum(chartId, op, data, isLast = false) {
             result.category, result.measure, result.target,
             result.group, result.value, result.id
         );
+        sumDatum.name = result?.name || sumDatum.target;
 
         const totalSum = +sumDatum.value;
         if (!Number.isFinite(totalSum)) {
@@ -1420,6 +1432,7 @@ export async function groupedBarSum(chartId, op, data, isLast = false) {
         result.category, result.measure, result.target,
         result.group, result.value, result.id
     );
+    sumDatum.name = result?.name || sumDatum.target;
     const totalSum = sumDatum.value;
 
     if (totalSum === 0) {
@@ -1513,6 +1526,7 @@ export async function groupedBarAverage(chartId, op, data, isLast = false) {
         result.category, result.measure, result.target,
         result.group, result.value, result.id
     );
+    avgDatum.name = result?.name || avgDatum.target;
     const avgValue = avgDatum.value;
     const color = OP_COLORS.AVERAGE;
 
@@ -2112,7 +2126,15 @@ export async function groupedBarDiff(chartId, op, data, isLast = false) {
         }
 
         svg.attr('data-filtering', null);
-        return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
+        const diffDatum = new DatumValue(
+            diffResult.category,
+            diffResult.measure,
+            diffResult.target,
+            diffResult.group,
+            Math.abs(diffResult.value)
+        );
+        diffDatum.name = diffResult?.name || diffDatum.target;
+        return [diffDatum];
     }
 
     // 🔥 targetA, targetB가 객체일 때 (category + series)
@@ -2145,7 +2167,15 @@ export async function groupedBarDiff(chartId, op, data, isLast = false) {
         }
 
         svg.attr('data-filtering', null);
-        return [new DatumValue(diffResult.category, diffResult.measure, diffResult.target, diffResult.group, Math.abs(diffResult.value))];
+        const diffDatum = new DatumValue(
+            diffResult.category,
+            diffResult.measure,
+            diffResult.target,
+            diffResult.group,
+            Math.abs(diffResult.value)
+        );
+        diffDatum.name = diffResult?.name || diffDatum.target;
+        return [diffDatum];
     }
 
     // 🔥 facet 레벨 diff (group 지정 없음)
@@ -2158,7 +2188,9 @@ export async function groupedBarDiff(chartId, op, data, isLast = false) {
         const diffVal = aVal - bVal;
 
         svg.attr('data-filtering', null);
-        return [new DatumValue(facetField, yField, "Diff", op.group ?? null, Math.abs(diffVal), `${AFacet}-${BFacet}-diff`)];
+        const diffDatum = new DatumValue(facetField, yField, "Diff", op.group ?? null, Math.abs(diffVal), `${AFacet}-${BFacet}-diff`);
+        diffDatum.name = `Diff of ${AFacet} vs ${BFacet}`;
+        return [diffDatum];
     }
 
     console.warn("groupedBarDiff: unsupported targets", op);
@@ -2181,6 +2213,7 @@ export async function groupedBarCount(chartId, op, data, isLast = false) {
         if (subset.length === 0) {
             console.warn('groupedBarCount: no data for group', subgroup);
             const zero = new DatumValue(null, null, 'Category Count', subgroup, 0, null);
+            zero.name = `Count (${subgroup})`;
             return [zero];
         }
 
@@ -2238,6 +2271,7 @@ export async function groupedBarCount(chartId, op, data, isLast = false) {
         const countDatum = result ?
             new DatumValue(result.category, result.measure, result.target, subgroup, totalCount, result.id) :
             new DatumValue(null, null, 'Category Count', subgroup, totalCount, null);
+        countDatum.name = result?.name || countDatum.target;
         return [countDatum];
     }
 
@@ -2251,6 +2285,7 @@ export async function groupedBarCount(chartId, op, data, isLast = false) {
         result.category, result.measure, result.target,
         result.group, result.value, result.id
     );
+    countDatum.name = result?.name || countDatum.target;
     const totalCount = countDatum.value;
 
     if (totalCount === 0) {

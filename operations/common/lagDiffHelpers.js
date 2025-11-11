@@ -20,6 +20,9 @@ export function normalizeLagDiffResults(diffs, fallbackCategory = "target", fall
         if (diff.prevTarget != null) {
             datum.prevTarget = diff.prevTarget;
         }
+        if (diff.name) {
+            datum.name = diff.name;
+        }
         return datum;
     });
 }

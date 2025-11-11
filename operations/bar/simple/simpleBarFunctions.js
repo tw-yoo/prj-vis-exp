@@ -676,6 +676,7 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
         result.value,
         result.id
     );
+    sumDatum.name = result.name || sumDatum.target;
 
     // 스택 애니메이션 (기존 유지)
     const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
@@ -757,15 +758,29 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
         result.value,
         result.id
     );
+    averageDatum.name = result.name || averageDatum.target;
 
-    // 스케일 설정
+    // 스케일 설정 (막대가 그대로 남아 있는 상태를 기반으로 계산)
+    const currentBars = selectAllMarks(g);
+    const currentValues = currentBars.nodes()
+        .map(node => getMarkValue(node))
+        .map(v => (Number.isFinite(+v) ? +v : NaN))
+        .filter(Number.isFinite);
+    const domMax = d3.max(currentValues) || 0;
+    const dataMax = d3.max(numeric) || 0;
+    const axisMax = Math.max(domMax, dataMax);
+
     let yScale, xScale;
     if (orientation === 'vertical') {
-        const yMax = d3.max(numeric) || 0;
-        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+        yScale = d3.scaleLinear()
+            .domain([0, axisMax])
+            .nice()
+            .range([plot.h, 0]);
     } else {
-        const xMax = d3.max(numeric) || 0;
-        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
+        xScale = d3.scaleLinear()
+            .domain([0, axisMax])
+            .nice()
+            .range([0, plot.w]);
     }
 
     // 🔥 템플릿 적용: aggregateResultPattern
@@ -811,6 +826,7 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         result.category, result.measure, result.target,
         result.group, diffValue, result.id
     );
+    diffDatum.name = result.name || diffDatum.target;
 
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);

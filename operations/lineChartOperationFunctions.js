@@ -26,6 +26,48 @@
 
 import {BoolValue} from "../object/valueType.js";
 
+const ROUND_PRECISION = 2;
+const ROUND_FACTOR = 10 ** ROUND_PRECISION;
+function roundNumeric(value) {
+    if (typeof value !== "number" || !Number.isFinite(value)) return value;
+    return Math.round(value * ROUND_FACTOR) / ROUND_FACTOR;
+}
+
+function toTrimmedString(value, fallback = "") {
+    if (value == null) return fallback;
+    const str = String(value).trim();
+    return str.length ? str : fallback;
+}
+
+function formatFieldLabel(field, fallback = "value") {
+    return toTrimmedString(field, fallback) || fallback;
+}
+
+function formatGroupSuffix(group) {
+    const label = toTrimmedString(group, "");
+    return label ? ` (${label})` : "";
+}
+
+function formatTargetLabel(selector) {
+    if (selector == null) return "";
+    if (typeof selector === "string" || typeof selector === "number") return String(selector);
+    if (typeof selector === "object") {
+        if (selector.category && selector.series) return `${selector.category}/${selector.series}`;
+        if (selector.category) return String(selector.category);
+        if (selector.target) return String(selector.target);
+        if (selector.id) return String(selector.id);
+    }
+    return "";
+}
+
+function formatResultName(kind, field, opts = {}) {
+    const baseField = formatFieldLabel(field);
+    const groupPart = formatGroupSuffix(opts.group);
+    const detailPart = toTrimmedString(opts.detail, "");
+    const detailSuffix = detailPart ? ` — ${detailPart}` : "";
+    return `${kind} of ${baseField}${groupPart}${detailSuffix}`;
+}
+
 /** Defensive clone to avoid mutating the caller's array */
 function cloneData(data) {
     return Array.isArray(data) ? data.slice() : [];
@@ -197,14 +239,15 @@ function sliceForTarget(data, opField, targetIn, opGroup) {
 }
 
 /** Factory for a single numeric DatumValue result */
-function makeScalarDatum(measureName, group, categoryName, targetLabel, numericValue) {
+function makeScalarDatum(measureName, group, categoryName, targetLabel, numericValue, name = null) {
     return [
         {
             category: categoryName ?? "result",
             measure: measureName ?? "value",
             target: targetLabel ?? "__result__",
             group: group ?? null,
-            value: Number(numericValue),
+            value: roundNumeric(Number(numericValue)),
+            name: name ?? (targetLabel ?? "__result__"),
         },
     ];
 }
@@ -352,17 +395,29 @@ export function determineRange(data, op) {
 
     if (kind === "measure") {
         const vals = inField.map((d) => d.value);
-        return { category: field || "value", min: Math.min(...vals), max: Math.max(...vals) };
+        return {
+            category: field || "value",
+            min: roundNumeric(Math.min(...vals)),
+            max: roundNumeric(Math.max(...vals))
+        };
     }
     // category range: try date range, else lexicographic ordinal range as indices
     const targets = inField.map((d) => d.target);
     const parsed = targets.map((t) => Date.parse(t));
     if (parsed.every((ts) => !Number.isNaN(ts))) {
-        return { category: field || "target", min: Math.min(...parsed), max: Math.max(...parsed) };
+        return {
+            category: field || "target",
+            min: roundNumeric(Math.min(...parsed)),
+            max: roundNumeric(Math.max(...parsed))
+        };
     }
     // ordinal index range
     const uniq = Array.from(new Set(targets)).sort(cmpStrAsc);
-    return { category: field || "target", min: 0, max: Math.max(0, uniq.length - 1) };
+    return {
+        category: field || "target",
+        min: roundNumeric(0),
+        max: roundNumeric(Math.max(0, uniq.length - 1))
+    };
 }
 
 /** 3.8 count — returns a single numeric DatumValue */
@@ -370,7 +425,9 @@ export function countData(data, op) {
     const arr = cloneData(data);
     const { group } = op;
     const byGroup = sliceByGroup(arr, group);
-    return makeScalarDatum("value", group ?? null, "count", "__count__", byGroup.length);
+    const fieldLabel = op?.field || "target";
+    const name = formatResultName("Count", fieldLabel, { group });
+    return makeScalarDatum("value", group ?? null, "count", "__count__", byGroup.length, name);
 }
 
 /** 3.9 sum — returns a single numeric DatumValue */
@@ -379,7 +436,9 @@ export function sumData(data, op) {
     const { field, group } = op;
     const byGroup = sliceByGroup(arr, group).filter(predicateByField(field, "measure"));
     const s = byGroup.reduce((acc, d) => acc + d.value, 0);
-    return makeScalarDatum(field || "value", group ?? null, field || "value", "__sum__", s);
+    const fieldLabel = field || "value";
+    const name = formatResultName("Sum", fieldLabel, { group });
+    return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, "__sum__", s, name);
 }
 
 /** 3.10 average — returns a single numeric DatumValue */
@@ -387,10 +446,12 @@ export function averageData(data, op) {
     const arr = cloneData(data);
     const { field, group } = op;
     const byGroup = sliceByGroup(arr, group).filter(predicateByField(field, "measure"));
+    const fieldLabel = field || "value";
+    const name = formatResultName("Average", fieldLabel, { group });
     if (byGroup.length === 0)
-        return makeScalarDatum(field || "value", group ?? null, field || "value", "__avg__", NaN);
+        return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, "__avg__", NaN, name);
     const avg = byGroup.reduce((acc, d) => acc + d.value, 0) / byGroup.length;
-    return makeScalarDatum(field || "value", group ?? null, field || "value", "__avg__", avg);
+    return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, "__avg__", avg, name);
 }
 
 /** 3.11 diff — returns a single numeric DatumValue (signed if op.signed) */
@@ -407,7 +468,12 @@ export function diffData(data, op) {
     const vA = aggregate(sA.map((d) => d.value), agg);
     const vB = aggregate(sB.map((d) => d.value), agg);
     const d = signed ? vA - vB : Math.abs(vA - vB);
-    return makeScalarDatum(field || "value", op.group ?? null, field || "value", "__diff__", d);
+    const fieldLabel = field || "value";
+    const labelA = formatTargetLabel(targetA);
+    const labelB = formatTargetLabel(targetB);
+    const detail = [labelA, labelB].filter(Boolean).join(" vs ");
+    const name = formatResultName("Diff", fieldLabel, { group: op.group ?? null, detail });
+    return makeScalarDatum(fieldLabel, op.group ?? null, fieldLabel, "__diff__", d, name);
 }
 
 /** 3.11b lagDiff — adjacent differences across an ordered sequence */
@@ -451,10 +517,15 @@ export function lagDiffData(data, op) {
             measure: measureName,
             target: curr.target,
             group: curr.group ?? null,
-            value: diffValue,
+            value: roundNumeric(diffValue),
             id: curr.id ? `${curr.id}_lagdiff` : undefined,
             prevTarget: prev.target
         };
+        const labelPrev = formatTargetLabel(prev.target);
+        const labelCurr = formatTargetLabel(curr.target);
+        if (labelPrev || labelCurr) {
+            resultDatum.name = labelPrev && labelCurr ? `${labelPrev} → ${labelCurr}` : (labelCurr || labelPrev);
+        }
         diffs.push(resultDatum);
     }
     return diffs;

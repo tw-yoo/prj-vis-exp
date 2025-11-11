@@ -1,4 +1,4 @@
-const DEFAULT_TEMPLATE_PATH = 'pages/main_survey/main_question_template.html';
+export const DEFAULT_TEMPLATE_PATH = 'pages/main_survey/main_question_template.html';
 const templateCache = new Map();
 // const QUESTION_SPEC_ROOT = 'pages/main_survey/main_questions/specs';
 const QUESTION_SPEC_ROOT = 'data';

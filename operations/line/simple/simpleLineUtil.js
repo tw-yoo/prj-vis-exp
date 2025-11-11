@@ -202,12 +202,12 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
     // reset cache
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
 
-    // 🔍 디버깅 로그 추가
-    console.log('=== DEBUG textSpec ===');
-    console.log('textSpec:', textSpec);
-    console.log('textSpec.text:', textSpec.text);
-    console.log('opsSpec keys:', Object.keys(opsSpec));
-    console.log('======================');
+    // // 🔍 디버깅 로그 추가
+    // console.log('=== DEBUG textSpec ===');
+    // console.log('textSpec:', textSpec);
+    // console.log('textSpec.text:', textSpec.text);
+    // console.log('opsSpec keys:', Object.keys(opsSpec));
+    // console.log('======================');
 
     await runOpsSequence({
         chartId,

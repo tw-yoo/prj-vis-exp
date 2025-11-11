@@ -1,5 +1,49 @@
 import {DatumValue, BoolValue, IntervalValue} from "../object/valueType.js";
 
+const ROUND_PRECISION = 2;
+const ROUND_FACTOR = 10 ** ROUND_PRECISION;
+
+function roundNumeric(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return value;
+  return Math.round(value * ROUND_FACTOR) / ROUND_FACTOR;
+}
+
+function toTrimmedString(value, fallback = "") {
+  if (value == null) return fallback;
+  const str = String(value).trim();
+  return str.length ? str : fallback;
+}
+
+function formatFieldLabel(field, fallback = "value") {
+  const label = toTrimmedString(field, fallback);
+  return label || fallback;
+}
+
+function formatGroupSuffix(group) {
+  const label = toTrimmedString(group, "");
+  return label ? ` (${label})` : "";
+}
+
+function formatTargetLabel(selector) {
+  if (selector == null) return "";
+  if (typeof selector === "string" || typeof selector === "number") return String(selector);
+  if (typeof selector === "object") {
+    if (selector.category && selector.series) return `${selector.category}/${selector.series}`;
+    if (selector.category) return String(selector.category);
+    if (selector.target) return String(selector.target);
+    if (selector.id) return String(selector.id);
+  }
+  return "";
+}
+
+function formatResultName(kind, field, opts = {}) {
+  const baseField = formatFieldLabel(field);
+  const groupPart = formatGroupSuffix(opts.group);
+  const detailPart = toTrimmedString(opts.detail, "");
+  const detailSuffix = detailPart ? ` — ${detailPart}` : "";
+  return `${kind} of ${baseField}${groupPart}${detailSuffix}`;
+}
+
 // Resolve a selection key/object for `last`: if an ID match exists in `data`, use { id: key }, otherwise fall back to { target: key }.
 
 function _resolveLastQuery(data, keyOrObj, isLast) {
@@ -223,7 +267,7 @@ export function determineRange(data, op, xField, yField, isLast = false) {
         if (vals.length === 0) return null;
         const minV = Math.min(...vals);
         const maxV = Math.max(...vals);
-        return new IntervalValue(String(op.group), minV, maxV);
+        return new IntervalValue(String(op.group), roundNumeric(minV), roundNumeric(maxV));
     }
 
     // Range over stack totals (sum across subgroups per category)
@@ -241,7 +285,7 @@ export function determineRange(data, op, xField, yField, isLast = false) {
         if (v < minV) minV = v;
         if (v > maxV) maxV = v;
     }
-    return new IntervalValue('Stack Totals', minV, maxV);
+    return new IntervalValue('Stack Totals', roundNumeric(minV), roundNumeric(maxV));
 }
 
 export function compare(data, op, xField, yField, isLast = false) {
@@ -473,7 +517,16 @@ export function sum(data, op, xField, yField, isLast = false) {
         if (Number.isFinite(v)) total += v;
     }
 
-    return { category: categoryName, measure: measureName, target: 'Sum', group: op?.group ?? null, value: total };
+    const fieldLabel = op?.field || measureName;
+    const name = formatResultName('Sum', fieldLabel, { group: op?.group });
+    return {
+        category: categoryName,
+        measure: measureName,
+        target: 'Sum',
+        group: op?.group ?? null,
+        value: roundNumeric(total),
+        name
+    };
 }
 
 export function average(data, op, xField, yField, isLast = false) {
@@ -502,7 +555,16 @@ export function average(data, op, xField, yField, isLast = false) {
     }
     if (count === 0) return null;
 
-    return { category: categoryName, measure: measureName, target: 'Average', group: op?.group ?? null, value: total / count };
+    const fieldLabel = op?.field || measureName;
+    const name = formatResultName('Average', fieldLabel, { group: op?.group });
+    return {
+        category: categoryName,
+        measure: measureName,
+        target: 'Average',
+        group: op?.group ?? null,
+        value: roundNumeric(total / count),
+        name
+    };
 }
 
 export function diff(data, op, xField, yField, isLast = false) {
@@ -660,12 +722,17 @@ export function diff(data, op, xField, yField, isLast = false) {
         resultValue = Number(resultValue.toFixed(precision));
     }
 
+    const labelA = formatTargetLabel(op.targetA);
+    const labelB = formatTargetLabel(op.targetB);
+    const detail = [labelA, labelB].filter(Boolean).join(' vs ');
+    const name = formatResultName('Diff', op?.field || measureName, { group: op?.group, detail });
     return {
         category: sample.category || 'target',
         measure: measureName,
         target: targetLabel,
         group: (qA2?.group ?? qB2?.group ?? op?.group ?? null),
-        value: resultValue
+        value: roundNumeric(resultValue),
+        name
     };
 }
 
@@ -715,15 +782,21 @@ export function lagDiff(data, op, xField, yField, isLast = false) {
         if (!Number.isFinite(currVal) || !Number.isFinite(prevVal)) continue;
         const diffValue = absolute ? Math.abs(currVal - prevVal) : (currVal - prevVal);
 
-        diffs.push({
+        const labelPrev = formatTargetLabel(prev.target ?? prev[categoryName]);
+        const labelCurr = formatTargetLabel(curr.target ?? curr[categoryName]);
+        const transitionLabel = labelPrev && labelCurr ? `${labelPrev} → ${labelCurr}` : (labelCurr || `Step ${i}`);
+
+        const diffDatum = {
             category: categoryName,
             measure: measureName,
             target: curr.target ?? curr[categoryName],
             group: curr.group ?? null,
-            value: diffValue,
+            value: roundNumeric(diffValue),
             id: curr.id ? `${curr.id}_lagdiff` : undefined,
             prevTarget: prev.target ?? prev[categoryName]
-        });
+        };
+        diffDatum.name = transitionLabel;
+        diffs.push(diffDatum);
     }
     return diffs;
 }
@@ -800,12 +873,16 @@ export function count(data, op, xField, yField, isLast = false) {
     const categoryName = sample?.category || 'target';
     const measureName  = sample?.measure  || 'value';
 
-    return new DatumValue(
+    const fieldLabel = op?.field || categoryName;
+    const name = formatResultName('Count', fieldLabel, { group: op?.group });
+    const datum = new DatumValue(
         categoryName,
         measureName,
         'Count',
         op?.group ?? null,
-        size,
+        roundNumeric(size),
         null
     );
+    datum.name = name;
+    return datum;
 }

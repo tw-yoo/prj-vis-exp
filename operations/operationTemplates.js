@@ -184,9 +184,22 @@ export async function filterPattern({
   }
   
   // Stage 2: dim 처리
+  const resolveCategoryValue = (datum) => {
+    if (!datum) return '';
+    if (categoryKey && datum[categoryKey] != null) return datum[categoryKey];
+    if (datum.target != null) return datum.target;
+    if (datum.id != null) return datum.id;
+    if (datum.key != null) return datum.key;
+    return '';
+  };
+
+  const normalizedKeptTargets = new Set(
+    Array.from(keptTargets ?? []).map(value => String(value))
+  );
+
   const barsToDim = allBars.filter(d => {
-    if (!d) return false;
-    return !keptTargets.has(String(d[categoryKey]));
+    const key = String(resolveCategoryValue(d));
+    return !normalizedKeptTargets.has(key);
   });
   
   await Helpers.fadeElements(barsToDim, OPACITIES.DIM, DURATIONS.DIM);
@@ -195,11 +208,16 @@ export async function filterPattern({
   // Stage 3: 데이터 바인딩 & 재배치
   const plainRows = filteredData.map(d => ({ 
     [categoryKey]: d.target, 
+    target: d.target,
     value: d.value, 
-    group: d.group 
+    group: d.group,
+    id: d.id ?? d.target
   }));
-  
-  const filteredBars = allBars.data(plainRows, d => String(d[categoryKey]));
+
+  const filteredBars = allBars.data(plainRows, d => {
+    const key = resolveCategoryValue(d);
+    return String(key);
+  });
   
   const xScaleFiltered = d3.scaleBand()
     .domain(filteredData.map(d => d.target))

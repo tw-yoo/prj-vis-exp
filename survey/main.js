@@ -21,6 +21,17 @@ import {
 import {MAIN_SURVEY_QUESTIONS} from "./pages/main_survey/main_questions/index.js";
 import {TUTORIAL_QUESTIONS} from "./pages/tutorial/tutorial_questions.js";
 
+const tutorialQuestionById = (() => {
+  const map = new Map();
+  (Array.isArray(TUTORIAL_QUESTIONS) ? TUTORIAL_QUESTIONS : []).forEach(question => {
+    const key = (question?.questionId || '').toLowerCase();
+    if (key) {
+      map.set(key, question);
+    }
+  });
+  return map;
+})();
+
 const TEST_MODE = (() => {
   const flag = urlParams.get('test');
   if (flag === '1' || flag === 'true') return true;
@@ -49,6 +60,8 @@ let activePageQuestionKeys = [];
 let submissionLocked = false;
 let submissionLockMap = {};
 const SUBMISSION_LOCK_KEY = 'survey_submission_locked';
+const TUTORIAL_INTRO_STORAGE_KEY = 'tutorial_template_intro_shown';
+const TUTORIAL_TEMPLATE_SELECTOR = '.page-content[data-template-id="tutorial-question"]';
 
 const storedParticipantCode = (() => {
   try {
@@ -201,6 +214,7 @@ let pageStartTime = null;
 let timerInterval = null;
 let timerElement = null;
 let accumulatedTime = 0; // 세션 시간 (표시용)
+let tutorialIntroShown = false;
 
 function formatTime(seconds) {
   const hrs = Math.floor(seconds / 3600);
@@ -277,6 +291,126 @@ function stopTimer() {
   }
   pageStartTime = null;
   return 0;
+}
+
+function hasTutorialIntroBeenShown() {
+  if (tutorialIntroShown) return true;
+  try {
+    return localStorage.getItem(TUTORIAL_INTRO_STORAGE_KEY) === '1';
+  } catch (_) {
+    return tutorialIntroShown;
+  }
+}
+
+function markTutorialIntroShown() {
+  tutorialIntroShown = true;
+  try {
+    localStorage.setItem(TUTORIAL_INTRO_STORAGE_KEY, '1');
+  } catch (_) {
+    console.warn('Unable to persist tutorial intro state');
+  }
+}
+
+function getTutorialQuestionById(id) {
+  if (!id) return null;
+  return tutorialQuestionById.get(id.toLowerCase()) || null;
+}
+
+function shouldForceTutorialIntro(questionRoot) {
+  if (!questionRoot) return false;
+  const questionId = (questionRoot.getAttribute('data-question-id') || '').toLowerCase();
+  return questionId === 'tutorial1';
+}
+
+function maybeStartTutorialIntro(root) {
+  if (!root) return;
+  if (typeof window === 'undefined' || typeof window.introJs !== 'function') return;
+
+  const templateRoot = root.querySelector(TUTORIAL_TEMPLATE_SELECTOR);
+  if (!templateRoot) return;
+  const questionRoot = templateRoot.querySelector('[data-role="main-question-root"]');
+  const forceIntro = shouldForceTutorialIntro(questionRoot);
+  if (!forceIntro && hasTutorialIntroBeenShown()) return;
+
+  const steps = [];
+  const chartPane = templateRoot.querySelector('.split-container .left');
+  if (chartPane) {
+    steps.push({
+      element: chartPane,
+      intro: 'Start here: carefully read the chart, the question, and the answer area.'
+    });
+  }
+
+  const explanationPane = templateRoot.querySelector('.split-container .right');
+  if (explanationPane) {
+    steps.push({
+      element: explanationPane,
+      intro: 'Next, read the explanation on the right. This part helps you understand why the answer is correct.'
+    });
+  }
+
+  const questionContainer = templateRoot.querySelector('.likert-container[data-field="survey-question-container"]');
+  if (questionContainer) {
+    steps.push({
+      element: questionContainer,
+      intro: 'Finally, choose your answer for this question.'
+    });
+  }
+
+  if (!steps.length) return;
+
+  try {
+    const intro = window.introJs();
+    intro.setOptions({
+      steps,
+      showStepNumbers: false,
+      exitOnOverlayClick: false,
+      showBullets: false,
+      nextLabel: 'Next',
+      prevLabel: 'Back',
+      doneLabel: 'Done'
+    });
+    markTutorialIntroShown();
+    intro.start();
+  } catch (err) {
+    console.warn('Failed to launch tutorial intro', err);
+  }
+}
+
+async function populateMethodReviewPreviews(root) {
+  if (!root) return;
+  const sections = Array.from(root.querySelectorAll('.method-review[data-question-id]'));
+  if (!sections.length) return;
+
+  for (const section of sections) {
+    const placeholder = section.querySelector('[data-role="method-preview"]');
+    if (!placeholder) continue;
+    const questionId = section.getAttribute('data-question-id') || '';
+    const question = getTutorialQuestionById(questionId);
+    if (!question) {
+      placeholder.innerHTML = '<div class="method-preview-placeholder error">Preview unavailable.</div>';
+      continue;
+    }
+
+    placeholder.innerHTML = '<div class="method-preview-placeholder">Loading preview...</div>';
+    try {
+      const html = await question.render(question.templatePath);
+      const template = document.createElement('template');
+      template.innerHTML = html;
+      const split = template.content.querySelector('.split-container[data-role="main-question-root"]');
+      if (!split) {
+        throw new Error('Missing tutorial split container');
+      }
+      const splitClone = split.cloneNode(true);
+      splitClone.classList.add('method-preview-split');
+      placeholder.innerHTML = '';
+      placeholder.appendChild(splitClone);
+      renderComponents(splitClone);
+    } catch (err) {
+      console.warn(`Failed to render preview for ${questionId}`, err);
+      placeholder.innerHTML = '<div class="method-preview-placeholder error">Preview unavailable.</div>';
+    }
+  }
 }
 
 async function savePageTiming(pageIndex, timeSpent, snapshot = null) {
@@ -406,14 +540,15 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-function renderComponents() {
+function renderComponents(root = document) {
+  const scope = (root && typeof root.querySelectorAll === 'function') ? root : document;
 
-  document.querySelectorAll('[data-component="chart"]').forEach(async el  => {
+  scope.querySelectorAll('[data-component="chart"]').forEach(async el  => {
     const { chart } = el.dataset;
     await createChart(chart, el);
   });
 
-  document.querySelectorAll('[data-component="likert"]').forEach(el => {
+  scope.querySelectorAll('[data-component="likert"]').forEach(el => {
     const { name, question, labels, baseid } = el.dataset;
     const comp = createLikertQuestion({
       name,
@@ -425,7 +560,7 @@ function renderComponents() {
   });
 
   // Open-ended inputs
-  document.querySelectorAll('[data-component="open-ended"]').forEach(el => {
+  scope.querySelectorAll('[data-component="open-ended"]').forEach(el => {
     const { id, labeltext, placeholder, multiline } = el.dataset;
     const comp = createOpenEndedInput({
       id,
@@ -436,7 +571,7 @@ function renderComponents() {
     el.replaceWith(comp);
   });
 
-  document.querySelectorAll('[data-component="completion-code"]').forEach(el => {
+  scope.querySelectorAll('[data-component="completion-code"]').forEach(el => {
     const comp = createCompletionCode(completionCode);
     el.replaceWith(comp);
   });
@@ -581,7 +716,7 @@ function loadMainPages() {
 
 function loadTutorialPages() {
   const introPages = [
-    createStaticPageDescriptor('tutorial/tutorial_intro.html', { trackTime: false }),
+    // createStaticPageDescriptor('tutorial/tutorial_intro.html', { trackTime: false }),
     createStaticPageDescriptor('tutorial/tutorial_overview.html', { trackTime: false })
   ];
   const questionPages = TUTORIAL_QUESTIONS.map(question => createTemplatePageDescriptor(
@@ -624,8 +759,8 @@ function buildPageDescriptors() {
   return [
     ...loadMainPages(),
     ...loadTutorialPages(),
-    // ...loadMainSurveyPages(),
-    // ...loadFinalQuestionPages()
+    ...loadMainSurveyPages(),
+    ...loadFinalQuestionPages()
   ];
 }
 
@@ -966,11 +1101,12 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
     const placeholder = scrollEl.querySelector('#dynamic-insert');
     if (placeholder) placeholder.insertAdjacentHTML('afterend', frag);
     // Instantiate components declared in fragment
-    renderComponents();
+    renderComponents(scrollEl);
     const savedData = readJSONFromStorage(STORAGE_KEY);
     Object.assign(responses, savedData);
     // Restore form inputs from saved or remote responses
     restoreResponses();
+    await populateMethodReviewPreviews(scrollEl);
     activePageQuestionKeys = collectQuestionKeys(scrollEl);
     // Navigation buttons appended after content
     const nav = createNavButtons({
@@ -1021,6 +1157,7 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
       submitFormId: "survey-form"
     });
     scrollEl.appendChild(nav);
+    maybeStartTutorialIntro(scrollEl);
   } catch (e) {
     descriptor = null;
     scrollEl.innerHTML = `<div class="error">Error: ${e.message}</div>`;

@@ -87,6 +87,7 @@ class BoolValue     { constructor(category: string, bool: boolean) {} }
 - **Multi-select friendly ops:** Use `filter` with `operator:"in"` (and an array `value`) to keep multiple labels in the same sequence; `sort` keeps the entire ordered slice in memory; `nth` accepts a single rank or an array of ranks (emitting one datum per requested position); `lagDiff` naturally emits the whole list of adjacent differences. Lean on these capabilities instead of cloning entire sequences. Use `retrieveValue` only when you truly need a single label; otherwise prefer `filter`. Whenever you need to isolate just a few marks before aggregating (e.g., median of even-length lists), apply the multi-select, then aggregate in `last` so the visual state matches human expectations.
 - **Break long workflows across `last`:** Keep each `ops` list focused on gathering/ordering the needed marks. When a sequence starts to mix selection, aggregation, and comparison logic, move the final aggregation or comparison into `last` so the earlier steps remain reusable (and other lists can reference those IDs). This also mirrors how a human would highlight several marks first, then compute with them afterward.
 - **Break long workflows across `last`:** Keep each `ops` list focused on gathering/ordering the needed marks. When a sequence starts to mix selection, aggregation, and comparison logic, move the final aggregation or comparison into `last` so the earlier steps remain reusable (and other lists can reference those IDs). This also mirrors how a human would highlight several marks first, then compute with them afterward. Avoid chaining more than ~3 operations inside one list when the final result requires a different “mode” (e.g., highlight + sum, highlight + diff); gather first, compute later.
+- **Scalar reuse rule:** If you need a derived scalar (e.g., an average) later in the workflow, restate the literal value or redo the intermediate steps inside that list. Do **not** attempt to drop an ID such as `"ops2_0"` into another op’s `value` or threshold—those placeholders are only legal inside `last`.
 
 ---
 
@@ -95,6 +96,7 @@ Each list must **terminate** in exactly one `Datum` or `Boolean`.
 
 - **`retrieveValue`** `{op, field, target, group?}` → `Datum[]`  
 - **`filter`** `{op, field, operator, value, group?}` → `Data`  
+  - `value` / `value2` must be literal numbers/strings/arrays. Do **not** point them to IDs like `"ops2_0"`; those IDs only exist for `last` lookups and the runtime will not resolve them mid-sequence.
 - **`compare`** `{op, field, targetA, targetB, group?, aggregate?, which?}` → `Datum[]`  
 - **`compareBool`** `{op, field, targetA, targetB, operator}` → `Boolean`  
 - **`findExtremum`** `{op, field, which, group?}` → `Datum[]`  
@@ -131,6 +133,7 @@ Each list must **terminate** in exactly one `Datum` or `Boolean`.
   id = <operationKey> + "_" + <0-based index>
   // e.g., "ops_0", "ops2_0"
 - In **`last`**, always reference prior results by **ID** (e.g., `"ops_0"`, `"ops2_0"`). **Never** use raw labels here.
+- Outside of `last`, IDs are **opaque** — you cannot plug `"ops_0"` into another op’s `value`, `target`, or threshold field. If a later step needs a scalar/label produced earlier, restate the literal number/label (the LLM must compute it) or restructure the workflow so the comparison happens inside `last`.
 - You may chain results inside `last` by referring to **previous `last` outputs** as `"last_<i>"` (0‑based within `last`).
 - `last` also **must end** in a **single** `Datum` or `Boolean`.
 

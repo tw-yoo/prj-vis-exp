@@ -1,25 +1,50 @@
 <div class="page-content">
     <div class="page-fixed-header">
         <h3>Final Survey</h3>
-        <p>Now that you have experienced <strong>all four explanation methods</strong>, please answer the following questions comparing them.</p>
+        <p>Now that you have experienced <strong>all three explanation methods</strong>, please answer the following questions comparing them.</p>
     </div>
 
-    <section class="method-review">
-        <h4>Method1</h4>
-        <div data-component="chart" data-chart="exp1_text"></div>
-        <p class="baseline-explanation">[Method1]</p>
+    <style>
+        .method-review {
+            margin-bottom: 2rem;
+        }
+        .method-review h4 {
+            margin: 0 0 0.75rem 0;
+        }
+        .method-review .method-preview {
+            width: 75%;
+            margin-left: 0;
+        }
+        .method-review .method-preview .method-preview-split {
+            width: 100%;
+        }
+        .method-review .method-preview-placeholder {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            padding: 1rem 0;
+        }
+    </style>
+
+    <section class="method-review" data-question-id="tutorial1">
+        <h2>Method1</h2>
+        <div class="method-preview" data-role="method-preview">
+            <div class="method-preview-placeholder">Loading preview...</div>
+        </div>
     </section>
 
-    <section class="method-review">
-        <h4>Method2</h4>
-        <div data-component="chart" data-chart="exp1_llm_image"></div>
-        <p class="baseline-explanation">[Method2]</p>
+    <section class="method-review" data-question-id="tutorial2">
+        <h2>Method2</h2>
+        <div class="method-preview" data-role="method-preview">
+            <div class="method-preview-placeholder">Loading preview...</div>
+        </div>
     </section>
 
-    <section class="method-review">
-        <h4>Method3</h4>
-        <div data-component="chart" data-chart="exp1_expert"></div>
-        <p class="baseline-explanation">[Method3]</p>
+    <section class="method-review" data-question-id="tutorial3">
+        <h2>Method3</h2>
+        <div class="method-preview" data-role="method-preview">
+            <div class="method-preview-placeholder">Loading preview...</div>
+        </div>
     </section>
 
     <section class="likert-container final-summary">

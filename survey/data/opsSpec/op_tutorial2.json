@@ -1,0 +1,17 @@
+{
+  "ops": [
+    {
+      "op": "sort",
+      "field": "nests",
+      "order": "desc"
+    },
+    {
+      "op": "nth",
+      "n": 3,
+      "from": "left"
+    }
+  ],
+  "text": {
+    "ops": "Sort all the bars by their 'nests' count in descending order, displaying them from highest to lowest (733, 732, 603, etc.). Then, select the third bar from the left in this sorted arrangement, which shows 603 nests."
+  }
+}

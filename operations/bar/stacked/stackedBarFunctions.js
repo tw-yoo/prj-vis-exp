@@ -44,6 +44,17 @@ function getDatumCategoryKey(d) {
     if (!d) return '';
     return String(d.key ?? d.target ?? d.category ?? d.id ?? '');
 }
+
+function describeTargetSelector(sel) {
+    if (sel == null) return '';
+    if (typeof sel === 'string' || typeof sel === 'number') return String(sel);
+    if (typeof sel === 'object') {
+        if (sel.category && sel.series) return `${sel.category}/${sel.series}`;
+        if (sel.category) return String(sel.category);
+        if (sel.target) return String(sel.target);
+    }
+    return '';
+}
 function evalComparison(op, a, b) {
     switch ((op || '').toLowerCase()) {
         case '<':  return a <  b;
@@ -512,6 +523,7 @@ export async function stackedBarSum(chartId, op, data, isLast = false) {
         rawResult.value,
         rawResult.id
     );
+    datumResult.name = rawResult.name || datumResult.target;
 
     if (!Number.isFinite(total) || total === 0) {
         return [datumResult];
@@ -1217,7 +1229,12 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
     if (op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (!subset.length) return semantic ? [new DatumValue(semantic.category, semantic.measure, semantic.target, subgroup, Math.abs(semantic.value), null)] : [];
+        if (!subset.length) {
+            if (!semantic) return [];
+            const clone = new DatumValue(semantic.category, semantic.measure, semantic.target, subgroup, Math.abs(semantic.value), null);
+            clone.name = semantic.name || clone.target;
+            return [clone];
+        }
         await stackedBarToSimpleBar(chartId, subset);
 
         // 🔥 group이 있을 때도 compare와 동일한 애니메이션 적용
@@ -1228,7 +1245,9 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
         if (!A || !B || !Number.isFinite(A.value) || !Number.isFinite(B.value)) {
             if (semantic) {
                 const v = op.signed ? semantic.value : Math.abs(semantic.value);
-                return [new DatumValue(semantic.category, semantic.measure, semantic.target, semantic.group ?? null, v, semantic.id)];
+                const clone = new DatumValue(semantic.category, semantic.measure, semantic.target, semantic.group ?? null, v, semantic.id);
+                clone.name = semantic.name || clone.target;
+                return [clone];
             }
             return [];
         }
@@ -1330,6 +1349,9 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
         await delay(300);
 
         const diffDatum = new DatumValue(xField, yField, "Diff", subgroup, diff);
+        const labelA = describeTargetSelector(op.targetA);
+        const labelB = describeTargetSelector(op.targetB);
+        diffDatum.name = semantic?.name || `Diff (${labelA || 'A'} vs ${labelB || 'B'})`;
         return [diffDatum];
     }
 
@@ -1342,13 +1364,18 @@ export async function stackedBarDiff(chartId, op, data, isLast = false) {
     if (!Number.isFinite(sumA) || !Number.isFinite(sumB)) {
         if (semantic) {
             const v = op.signed ? semantic.value : Math.abs(semantic.value);
-            return [new DatumValue(semantic.category, semantic.measure, semantic.target, semantic.group ?? null, v, semantic.id)];
+            const clone = new DatumValue(semantic.category, semantic.measure, semantic.target, semantic.group ?? null, v, semantic.id);
+            clone.name = semantic.name || clone.target;
+            return [clone];
         }
         return [];
     }
 
     const diff = op.signed ? (sumA - sumB) : Math.abs(sumA - sumB);
     const diffDatum = new DatumValue(xField, yField, "Diff", null, diff);
+    const labelA = describeTargetSelector(op.targetA);
+    const labelB = describeTargetSelector(op.targetB);
+    diffDatum.name = `Diff (${labelA || 'A'} vs ${labelB || 'B'})`;
 
     const all = g.selectAll('rect');
     const barsA = all.filter(d => getDatumCategoryKey(d) === String(op.targetA));
@@ -1784,7 +1811,11 @@ export async function stackedBarCount(chartId, op, data, isLast = false) {
     if (op && op.group != null) {
         const subgroup = String(op.group);
         const subset = Array.isArray(data) ? data.filter(d => String(d.group) === subgroup) : [];
-        if (!subset.length) return [new DatumValue(xField, yField, 'Category Count', subgroup, 0, null)];
+        if (!subset.length) {
+            const zero = new DatumValue(xField, yField, 'Category Count', subgroup, 0, null);
+            zero.name = `Count (${subgroup})`;
+            return [zero];
+        }
         await stackedBarToSimpleBar(chartId, subset);
         const op2 = { ...op }; delete op2.group;
         return await simpleBarCount(chartId, op2, subset, isLast);
@@ -1793,6 +1824,7 @@ export async function stackedBarCount(chartId, op, data, isLast = false) {
     const cats = [...new Set(data.map(d => d.target))];
     const total = cats.length;
     const result = new DatumValue(xField, yField, 'Category Count', null, total, null);
+    result.name = 'Category Count';
     if (total === 0) return [result];
 
     const all = g.selectAll('rect');

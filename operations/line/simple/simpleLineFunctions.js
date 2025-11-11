@@ -501,8 +501,8 @@ export async function simpleLineCompareBool(chartId, op, data, isLast = false) {
 
     const newOp = { ...op, targetA: datumA.target, targetB: datumB.target };
     const boolResult = dataCompareBool(data, newOp);
-        console.log('Simple boolResult:', boolResult);  // 디버깅
-    console.log('Simple boolResult.value:', boolResult?.value);
+        // console.log('Simple boolResult:', boolResult);  // 디버깅
+    // console.log('Simple boolResult.value:', boolResult?.value);
 
     if (!boolResult) {
         return new BoolValue("Computation failed", false);
@@ -511,7 +511,7 @@ export async function simpleLineCompareBool(chartId, op, data, isLast = false) {
     const valueA = datumA.value;
     const valueB = datumB.value;
     const result = boolResult.bool;
-    console.log('result:', result); 
+    // console.log('result:', result);
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
     const colorA = OP_COLORS.COMPARE_A;
@@ -1099,8 +1099,12 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
     }
 
     const xScale = d3.scaleBand().domain(items.map(d => d.target)).range([0, plot.w]).padding(0.2);
-    const yMax = d3.max(items, d => d.value) || 0;
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    const yMin = d3.min(items, d => d.value) ?? 0;
+    const yMax = d3.max(items, d => d.value) ?? 0;
+    const domainMin = Math.min(0, yMin);
+    const domainMax = Math.max(0, yMax);
+    const yScale = d3.scaleLinear().domain([domainMin, domainMax === domainMin ? domainMin + 1 : domainMax]).nice().range([plot.h, 0]);
+    const zeroY = yScale(0);
 
     g.selectAll('rect.temp-line-bar').remove();
 
@@ -1114,15 +1118,15 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         .attr('data-target', d => d.target)
         .attr('data-value', d => d.value)
         .attr('x', d => xScale(d.target))
-        .attr('y', plot.h)
+        .attr('y', zeroY)
         .attr('width', xScale.bandwidth())
         .attr('height', 0)
         .attr('fill', '#69b3a2')
         .attr('opacity', 0);
 
     await bars.transition().duration(800)
-        .attr('y', d => yScale(d.value))
-        .attr('height', d => plot.h - yScale(d.value))
+        .attr('y', d => d.value >= 0 ? yScale(d.value) : zeroY)
+        .attr('height', d => Math.max(0, Math.abs(yScale(d.value) - zeroY)))
         .attr('opacity', 0.85)
         .end().catch(()=>{});
 
@@ -1438,8 +1442,9 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
 
     const normalizedData = Array.isArray(data) ? data : (data != null ? [data] : []);
     const calc = dataSum(normalizedData, op, isLast);
+    const calcDatum = Array.isArray(calc) ? calc[0] : null;
     const values = normalizedData.map(d => d ? +d.value : NaN).filter(Number.isFinite);
-    const total = calc && Number.isFinite(+calc.value) ? +calc.value : values.reduce((a, b) => a + b, 0);
+    const total = calcDatum && Number.isFinite(+calcDatum.value) ? +calcDatum.value : values.reduce((a, b) => a + b, 0);
     if (!Number.isFinite(total)) {
         console.warn('[simpleLineSum] total is not finite');
         return null;
@@ -1568,7 +1573,12 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
         .attr('text-anchor', 'end')
         .text(`Sum: ${totalText}`);
 
-    return { category: 'value', target: 'sum', value: total };
+    return {
+        category: 'value',
+        target: 'sum',
+        value: total,
+        name: calcDatum?.name || 'Sum'
+    };
 }
 
 export async function simpleLineAverage(chartId, op, data, isLast = false) {

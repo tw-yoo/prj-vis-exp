@@ -6,6 +6,7 @@ export class DatumValue {
         this.value = value;
         this.group = group;
         this.id = id;
+        this.name = null;
     }
 }
 

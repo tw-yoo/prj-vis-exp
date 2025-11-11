@@ -51,19 +51,22 @@ export function buildCompareDatasetFromCache(cachedResults, fallbackCategory = '
     }
 
     const compareData = sanitized.map((datum, idx) => {
-        const baseLabel = (() => {
-            if (datum && datum.target != null) {
-                const t = String(datum.target).trim();
-                if (t.length > 0) return t;
-            }
-            return `Result ${idx + 1}`;
-        })();
-        const groupLabel = datum.group != null ? ` · ${String(datum.group)}` : '';
+        const hasCustomName = typeof datum?.name === 'string' && datum.name.trim().length > 0;
+        const baseLabel = hasCustomName
+            ? datum.name.trim()
+            : (() => {
+                if (datum && datum.target != null) {
+                    const t = String(datum.target).trim();
+                    if (t.length > 0) return t;
+                }
+                return `Result ${idx + 1}`;
+            })();
+        const groupLabel = (!hasCustomName && datum.group != null) ? ` · ${String(datum.group)}` : '';
         const normalizedId = (typeof datum?.id === 'string') ? datum.id.trim() : '';
         const stableId = (normalizedId.length > 0)
             ? normalizedId
             : `last_${idx}`;
-        const idHint = stableId.includes('_') ? ` (${stableId.split('_')[0]})` : '';
+        const idHint = hasCustomName ? '' : (stableId.includes('_') ? ` (${stableId.split('_')[0]})` : '');
         const targetLabel = `${baseLabel}${groupLabel}${idHint}`;
         const dv = new DatumValue(
             canonicalCategory,
@@ -73,6 +76,7 @@ export function buildCompareDatasetFromCache(cachedResults, fallbackCategory = '
             datum.value,
             stableId
         );
+        dv.name = baseLabel;
         const lookup = datum?.lookupId ?? stableId;
         if (lookup != null) {
             dv.lookupId = String(lookup);

@@ -1,0 +1,11 @@
+{
+  "ops": [
+    {
+      "op": "average",
+      "field": "Average audience share (m)"
+    }
+  ],
+  "text": {
+    "ops": "Compute the average of all 'Average audience share (m)' values, resulting in **10.799166666666666**."
+  }
+}
