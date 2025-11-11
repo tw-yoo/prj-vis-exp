@@ -31,7 +31,7 @@ import {
     simpleLineCount,
     simpleLineSort
 } from "../simple/simpleLineFunctions.js";
-import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { OP_COLORS } from "../../../object/colorPalette.js";
 
 /**
  * 작업 완료 신호를 DOM 이벤트로 방출합니다.

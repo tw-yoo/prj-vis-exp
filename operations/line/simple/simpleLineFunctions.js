@@ -13,7 +13,7 @@ import {
     compareBoolOp as dataCompareBool,
     countData as dataCount
 } from "../../lineChartOperationFunctions.js";
-import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { OP_COLORS } from "../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 import { DURATIONS, OPACITIES } from "../../animationConfig.js";
 

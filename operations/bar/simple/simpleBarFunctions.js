@@ -12,7 +12,7 @@ import {
     compareBool as dataCompareBool,
     count as dataCount
 } from "../../operationFunctions.js";
-import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { OP_COLORS } from "../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 
 // 🔥 템플릿 임포트
