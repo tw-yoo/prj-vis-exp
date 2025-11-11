@@ -253,7 +253,6 @@ export async function renderSimpleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    // const margin = { top: 48, right: 48, bottom: 48, left: 84 };
     const margin = { top: 80, right: 48, bottom: 48, left: 64 };  // ✅ top을 120으로 크게 증가
     const innerWidth = (spec?.width ?? 560);
     const innerHeight = (spec?.height ?? 320);
@@ -347,4 +346,3 @@ export async function renderSimpleLineChart(chartId, spec) {
 
     shrinkSvgViewBox(svg, 12);
 }
-    // shrinkSvgViewBox(svg, 6);

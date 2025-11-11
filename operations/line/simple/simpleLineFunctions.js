@@ -27,6 +27,7 @@ import {
     createVirtualBadge,
     fmtISO
 } from "../sharedLineUtils.js";
+import { DURATIONS, OPACITIES } from "../../animationConfig.js";
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 
@@ -1727,10 +1728,11 @@ export async function simpleLineCount(chartId, op, data, isLast = false) {
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
     const hlColor = OP_COLORS.COUNT;
+    const stepInterval = Math.max(10, DURATIONS.COUNT_INTERVAL);
 
     await Promise.all([
-        baseLine.transition().duration(150).attr('opacity', 0.3).end(),
-        points.transition().duration(150).attr('fill', '#a9a9a9').attr('opacity', 0.3).end()
+        baseLine.transition().duration(stepInterval).attr('opacity', OPACITIES.SEMI_DIM).end(),
+        points.transition().duration(stepInterval).attr('fill', '#a9a9a9').attr('opacity', OPACITIES.SEMI_DIM).end()
     ]);
 
     for (let i = 0; i < totalCount; i++) {
@@ -1742,7 +1744,7 @@ export async function simpleLineCount(chartId, op, data, isLast = false) {
         });
 
         if (!pointSel.empty()) {
-            await pointSel.transition().duration(150)
+            await pointSel.transition().duration(stepInterval)
                 .attr('fill', hlColor)
                 .attr('opacity', 1)
                 .attr('r', Math.max(6, +pointSel.attr('r') || 6))
@@ -1760,8 +1762,8 @@ export async function simpleLineCount(chartId, op, data, isLast = false) {
                 .attr('paint-order', 'stroke')
                 .text(String(i + 1))
                 .attr('opacity', 0);
-            await lbl.transition().duration(125).attr('opacity', 1).end().catch(()=>{});
-            await delay(60);
+            await lbl.transition().duration(Math.max(50, stepInterval)).attr('opacity', 1).end().catch(()=>{});
+            await delay(stepInterval);
         }
     }
 
