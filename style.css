@@ -49,6 +49,16 @@ html, body {
     min-height: 100px;
 }
 
+.status-label {
+    font-size: 12px;
+    margin-left: 8px;
+    color: #555;
+}
+
+.status-label.error {
+    color: #c0392b;
+}
+
 /* Keep editors confined so they don't overlay buttons */
 .CodeMirror {
     position: relative;

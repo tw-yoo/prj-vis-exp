@@ -1,5 +1,5 @@
 import {OperationType} from "../../../object/operationType.js";
-import {dataCache, lastCategory, lastMeasure, buildSimpleBarSpec, renderChart} from "../../../util/util.js";
+import {dataCache, lastCategory, lastMeasure, buildSimpleBarSpec, ensureXAxisLabelClearance} from "../../../util/util.js";
 import {
     clearAllAnnotations,
     delay,
@@ -7,11 +7,14 @@ import {
     groupedBarCompare, groupedBarCompareBool, groupedBarCount,
     groupedBarDetermineRange, groupedBarDiff,
     groupedBarFilter,
-    groupedBarFindExtremum, groupedBarNth,
+    groupedBarFindExtremum, groupedBarLagDiff, groupedBarNth,
     groupedBarRetrieveValue, groupedBarSort, groupedBarSum
 } from "./groupedBarFunctions.js";
-import { DatumValue } from "../../../object/valueType.js";
+import { DatumValue, IntervalValue, BoolValue, ScalarValue } from "../../../object/valueType.js";
 import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
+import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
+import { renderChartWithFade } from "../common/chartRenderUtils.js";
+import { normalizeCachedData } from "../common/datumCacheHelpers.js";
 
 // Wait for a few animation frames to allow DOM/layout/transition to settle
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -30,6 +33,7 @@ const GROUPED_BAR_OP_HANDLES = {
     [OperationType.SUM]:            groupedBarSum,
     [OperationType.AVERAGE]:        groupedBarAverage,
     [OperationType.DIFF]:           groupedBarDiff,
+    [OperationType.LAG_DIFF]:       groupedBarLagDiff,
     [OperationType.NTH]:            groupedBarNth,
     [OperationType.COUNT]:          groupedBarCount,
 }
@@ -95,6 +99,7 @@ async function resetGroupedBarChart(chartId, vlSpec, ctx = {}) {
 }
 
 export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
+    ensurePercentDiffAggregate(opsSpec, textSpec);
     const svg = d3.select(`#${chartId}`).select("svg");
     const chartInfo = chartDataStore[chartId];
 
@@ -122,49 +127,37 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         onRunOpsList: async (opsList, isLast) => {
             if (isLast) {
                 const cached = Object.values(dataCache).flat().filter(Boolean);
-                const datumOnly = cached.filter(d => d instanceof DatumValue);
-                if (datumOnly.length === 0) {
-                    console.warn('groupedBar last stage: no cached datum values');
+                if (cached.length === 0) {
+                    console.warn('groupedBar last stage: no cached data');
                     return [];
                 }
 
-                const normalized = datumOnly.map((d, idx) => {
-                    const category = d.category ?? categoryLabel ?? lastCategory ?? 'category';
-                    const measure  = d.measure  ?? measureLabel  ?? lastMeasure  ?? 'value';
-                    const baseTarget = String(d.target ?? `Result ${idx + 1}`);
-                    const groupLabel = d.group != null ? ` · ${String(d.group)}` : '';
-                    const idHint = (typeof d.id === 'string' && d.id.includes('_'))
-                        ? ` (${d.id.split('_')[0]})`
-                        : '';
-                    const displayTarget = `${baseTarget}${groupLabel}${idHint}`;
-                    const id = d.id ?? `last_${idx}`;
-                    return new DatumValue(category, measure, displayTarget, d.group ?? null, d.value, id);
-                });
+                const fallbackCategory = lastCategory ?? categoryLabel ?? 'category';
+                const fallbackMeasure = lastMeasure ?? measureLabel ?? 'value';
+                const prepared = buildCompareDatasetFromCache(cached, fallbackCategory, fallbackMeasure);
+                if (!prepared) {
+                    console.warn('groupedBar last stage: no DatumValue results to visualize');
+                    return [];
+                }
 
-                const specOpts = {};
-                const allCats = new Set(normalized.map(d => d.category).filter(Boolean));
-                const allMeasures = new Set(normalized.map(d => d.measure).filter(Boolean));
-                if (allCats.size !== 1) specOpts.axisLabels = { ...(specOpts.axisLabels || {}), x: null };
-                if (allMeasures.size !== 1) specOpts.axisLabels = { ...(specOpts.axisLabels || {}), y: null };
-
-                const simpleSpec = buildSimpleBarSpec(normalized, specOpts);
-                await renderChart(chartId, simpleSpec);
-                return await executeGroupedBarOpsList(chartId, opsList, normalized, true, 0);
+                const { compareData, specOpts } = prepared;
+                const simpleSpec = buildSimpleBarSpec(compareData, specOpts);
+                await renderChartWithFade(chartId, simpleSpec, 450);
+                ensureXAxisLabelClearance(chartId, { attempts: 6, minGap: 14, maxShift: 140 });
+                return await executeGroupedBarOpsList(chartId, opsList, compareData, true, 0);
             }
 
             const base = datumValues.slice();
             return await executeGroupedBarOpsList(chartId, opsList, base, false, 0);
         },
         onCache: (opKey, currentData) => {
-            const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);
-            arr.forEach((datum, idx) => {
-                if (datum instanceof DatumValue) {
-                    datum.id = `${opKey}_${idx}`;
-                    if (!datum.category || datum.category === 'x') datum.category = categoryLabel ?? lastCategory;
-                    if (!datum.measure || datum.measure === 'y') datum.measure  = measureLabel  ?? lastMeasure;
-                }
-            });
-            dataCache[opKey] = arr;
+            if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
+                dataCache[opKey] = [currentData];
+                return;
+            }
+            const fallbackCategory = categoryLabel ?? lastCategory ?? 'category';
+            const fallbackMeasure = measureLabel ?? lastMeasure ?? 'value';
+            dataCache[opKey] = normalizeCachedData(currentData, opKey, fallbackCategory, fallbackMeasure);
         },
         isLastKey: (k) => k === 'last',
         delayMs: 0,

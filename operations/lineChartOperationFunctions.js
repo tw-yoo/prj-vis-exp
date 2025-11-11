@@ -137,6 +137,41 @@ function normalizeTargetInput(target, opGroup) {
     return { category: target, series: opGroup ?? undefined };
 }
 
+function parseComparableValue(raw) {
+    if (raw instanceof Date) {
+        const ts = +raw;
+        if (!Number.isNaN(ts)) return ts;
+    }
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+        return raw;
+    }
+    const str = String(raw ?? "").trim();
+    if (str === "") return null;
+    const date = new Date(str);
+    if (!Number.isNaN(+date)) return +date;
+    const num = Number(str);
+    if (Number.isFinite(num)) return num;
+    return str;
+}
+
+function compareComparableValues(a, b) {
+    const aNull = a === null || a === undefined;
+    const bNull = b === null || b === undefined;
+    if (aNull && bNull) return 0;
+    if (aNull) return -1;
+    if (bNull) return 1;
+    if (typeof a === "number" && typeof b === "number") {
+        if (a < b) return -1;
+        if (a > b) return 1;
+        return 0;
+    }
+    const aStr = String(a);
+    const bStr = String(b);
+    if (aStr < bStr) return -1;
+    if (aStr > bStr) return 1;
+    return 0;
+}
+
 /** Select slice for a (category, series) target within optional measure field constraint */
 function sliceForTarget(data, opField, targetIn, opGroup) {
     const { category, series } = normalizeTargetInput(targetIn, opGroup);
@@ -148,8 +183,17 @@ function sliceForTarget(data, opField, targetIn, opGroup) {
         slice = slice.filter((d) => (opField === "value" ? true : d.measure === opField));
     }
     // Match category value (label)
-    slice = slice.filter((d) => d.target === String(category));
-    return slice;
+    const byTarget = slice.filter((d) => d.target === String(category));
+    if (byTarget.length > 0 || category == null) {
+        return byTarget;
+    }
+
+    const targetId = String(category);
+    const byId = slice.filter((d) => d && String(d.id) === targetId);
+    if (byId.length > 0) {
+        return byId;
+    }
+    return byTarget;
 }
 
 /** Factory for a single numeric DatumValue result */
@@ -259,14 +303,22 @@ export function findExtremum(data, op) {
     const arr = cloneData(data);
     const { field, which, group } = op;
     const byGroup = sliceByGroup(arr, group);
-    const inMeasure = byGroup.filter(predicateByField(field, "measure"));
-    if (inMeasure.length === 0) return [];
-    const sorted = inMeasure
+    const kind = inferFieldKind(byGroup, field) || "category";
+    const section = byGroup.filter(predicateByField(field, kind));
+    if (section.length === 0) return [];
+    const normalized = section
+        .map((datum) => ({
+            datum,
+            value: kind === "measure" ? datum.value : parseComparableValue(datum.target),
+        }))
+        .filter((entry) => entry.value !== null && entry.value !== undefined);
+    if (normalized.length === 0) return [];
+    const sorted = normalized
         .slice()
-        .sort((a, b) =>
-            which === "min" ? cmpNumAsc(a.value, b.value) : cmpNumDesc(a.value, b.value)
-        );
-    return [sorted[0]];
+        .sort((a, b) => compareComparableValues(a.value, b.value));
+    const pickMax = which !== "min";
+    const chosen = pickMax ? sorted[sorted.length - 1] : sorted[0];
+    return [chosen.datum];
 }
 
 /** 3.6 sort */
@@ -358,16 +410,83 @@ export function diffData(data, op) {
     return makeScalarDatum(field || "value", op.group ?? null, field || "value", "__diff__", d);
 }
 
+/** 3.11b lagDiff — adjacent differences across an ordered sequence */
+export function lagDiffData(data, op) {
+    const arr = cloneData(data);
+    const {
+        field,
+        orderField,
+        order = "asc",
+        group,
+        absolute = false
+    } = op || {};
+    const byGroup = sliceByGroup(arr, group);
+    if (byGroup.length < 2) return [];
+
+    const measureName = field || byGroup[0]?.measure || "value";
+    const categoryName = orderField || byGroup[0]?.category || "target";
+
+    const decorated = byGroup.map((datum) => {
+        const orderValue = parseComparableValue(
+            orderField ? datum?.[orderField] ?? datum.target : datum.target
+        );
+        return { datum, orderValue };
+    });
+
+    const direction = order === "desc" ? -1 : 1;
+    decorated.sort((a, b) => direction * compareComparableValues(a.orderValue, b.orderValue));
+
+    const diffs = [];
+    for (let i = 1; i < decorated.length; i++) {
+        const curr = decorated[i].datum;
+        const prev = decorated[i - 1].datum;
+        if (!curr || !prev) continue;
+        const diffValue = absolute
+            ? Math.abs(Number(curr.value) - Number(prev.value))
+            : Number(curr.value) - Number(prev.value);
+        if (!Number.isFinite(diffValue)) continue;
+
+        const resultDatum = {
+            category: categoryName,
+            measure: measureName,
+            target: curr.target,
+            group: curr.group ?? null,
+            value: diffValue,
+            id: curr.id ? `${curr.id}_lagdiff` : undefined,
+            prevTarget: prev.target
+        };
+        diffs.push(resultDatum);
+    }
+    return diffs;
+}
+
 /** 3.12 nth — returns the n-th item in current ordering (1-based) */
 export function nthData(data, op) {
     const arr = cloneData(data);
     const { n, from = "left", group } = op;
     const byGroup = sliceByGroup(arr, group);
-    if (!Number.isFinite(n) || n < 1) throw new Error('nth: "n" must be a positive integer');
     if (byGroup.length === 0) return [];
-    const idx = from === "right" ? byGroup.length - n : n - 1;
-    if (idx < 0 || idx >= byGroup.length) return [];
-    return [byGroup[idx]];
+    const queryIndices = Array.isArray(n) ? n : [n];
+
+    const normalized = queryIndices.map((value) => {
+        const num = Number(value);
+        if (!Number.isFinite(num) || num < 1) return null;
+        return Math.floor(num);
+    }).filter((value) => value !== null);
+
+    if (normalized.length === 0) return [];
+
+    const baseSequence = from === "right" ? [...byGroup].reverse() : byGroup.slice();
+
+    const results = [];
+    normalized.forEach((rank) => {
+        const idx = rank - 1;
+        if (idx >= 0 && idx < baseSequence.length) {
+            results.push(baseSequence[idx]);
+        }
+    });
+
+    return results;
 }
 
 // ---------------------------
@@ -385,6 +504,7 @@ export const LineChartOps = {
     sum: sumData,
     average: averageData,
     diff: diffData,
+    lagDiff: lagDiffData,
     nth: nthData,
 };
 

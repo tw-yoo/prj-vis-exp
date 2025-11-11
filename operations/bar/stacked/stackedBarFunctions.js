@@ -1,6 +1,15 @@
 import {
-    simpleBarAverage, simpleBarFilter, simpleBarFindExtremum, simpleBarSort, simpleBarDiff, simpleBarNth,
-    simpleBarCount, simpleBarDetermineRange, simpleBarCompare, simpleBarCompareBool, simpleBarSum
+    simpleBarAverage,
+    simpleBarFilter,
+    simpleBarFindExtremum,
+    simpleBarSort,
+    simpleBarDiff,
+    simpleBarNth,
+    simpleBarCount,
+    simpleBarDetermineRange,
+    simpleBarCompare,
+    simpleBarCompareBool,
+    simpleBarSum
 } from "../simple/simpleBarFunctions.js";
 
 import {
@@ -15,12 +24,14 @@ import {
     compare as dataCompare,
     compareBool as dataCompareBool,
     count as dataCount,
-    determineRange as dataDetermineRange
+    determineRange as dataDetermineRange,
+    lagDiff as dataLagDiff
 } from "../../operationFunctions.js";
 
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
 import { OP_COLORS } from "../../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
+import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 
 // ---- small helpers ---------------------------------------------------------
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
@@ -147,7 +158,7 @@ async function stackedBarToSimpleBar(chartId, filteredData) {
 }
 
 export async function stackedBarFilter(chartId, op, data, isLast = false) {
-    const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, xField, yField, margins, plot, colorField } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     if (op.group != null) {
@@ -162,6 +173,9 @@ export async function stackedBarFilter(chartId, op, data, isLast = false) {
     let keepCategories = new Set();
     const categoryField = xField;
     const measureField = yField;
+    const normalizedColorField = colorField ? String(colorField).toLowerCase() : '';
+    const normalizedFilterField = op?.field ? String(op.field).toLowerCase() : '';
+    const matchesColorField = normalizedColorField && normalizedFilterField && normalizedColorField === normalizedFilterField;
 
     if (op.field === measureField) {
         const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
@@ -172,6 +186,15 @@ export async function stackedBarFilter(chartId, op, data, isLast = false) {
     } else if (op.field === categoryField) {
         const filteredByTarget = dataFilter(data, { field: 'target', operator: op.operator, value: op.value }, xField, yField, isLast);
         keepCategories = new Set(filteredByTarget.map(d => d.target));
+    } else if (matchesColorField) {
+        const groupScopedOp = { ...op, field: 'group' };
+        const subset = dataFilter(data, groupScopedOp, xField, yField, isLast) || [];
+        if (!subset.length) {
+            console.warn('[stackedBarFilter] No matches for subgroup filter', op);
+            return [];
+        }
+        await stackedBarToSimpleBar(chartId, subset);
+        return subset;
     }
 
     if (op.field === measureField && Number.isFinite(op.value)) {
@@ -1798,4 +1821,35 @@ export async function stackedBarCount(chartId, op, data, isLast = false) {
     }
 
     return [result];
+}
+
+export async function stackedBarLagDiff(chartId, op, data, isLast = false) {
+    const { svg, xField, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const rawDiffs = dataLagDiff(data, op, null, null, isLast);
+    if (!Array.isArray(rawDiffs) || rawDiffs.length === 0) {
+        console.warn('[stackedBarLagDiff] no differences computed');
+        return [];
+    }
+    const diffs = normalizeLagDiffResults(rawDiffs, xField || 'target', yField || 'value');
+
+    const positiveTotal = diffs
+        .map(d => Number(d.value))
+        .filter(v => Number.isFinite(v) && v > 0)
+        .reduce((sum, v) => sum + v, 0);
+
+    svg.append('text').attr('class', 'annotation lagdiff-summary')
+        .attr('x', 16)
+        .attr('y', 20)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', OP_COLORS.SUM)
+        .text(
+            Number.isFinite(positiveTotal)
+                ? `lagDiff computed ${diffs.length} changes · positives sum ${positiveTotal.toLocaleString()}`
+                : `lagDiff computed ${diffs.length} changes`
+        );
+
+    return diffs;
 }

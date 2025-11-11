@@ -4,11 +4,13 @@ import { clearAllAnnotations as simpleClearAllAnnotations, delay } from '../simp
 import {
     multipleLineRetrieveValue, multipleLineFilter, multipleLineFindExtremum,
     multipleLineDetermineRange, multipleLineCompare, multipleLineAverage, multipleLineDiff,
-    multipleLineCount, multipleLineNth, multipleLineCompareBool
+    multipleLineCount, multipleLineNth, multipleLineCompareBool, multipleLineLagDiff
 } from './multiLineFunctions.js';
 import {OperationType} from "../../../object/operationType.js";
-import {dataCache, lastCategory, lastMeasure} from "../../../util/util.js";
+import {dataCache, lastCategory, lastMeasure, buildSimpleBarSpec} from "../../../util/util.js";
 import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
+import {renderSimpleBarChart, executeSimpleBarOpsList} from "../../bar/simple/simpleBarUtil.js";
+import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
 
 
 export const chartDataStore = {};
@@ -27,9 +29,47 @@ const MULTIPLE_LINE_OP_HANDLERS = {
     //[OperationType.SUM]:            multipleLineSum,
     [OperationType.AVERAGE]:        multipleLineAverage,
     [OperationType.DIFF]:           multipleLineDiff,
+    [OperationType.LAG_DIFF]:       multipleLineLagDiff,
     [OperationType.NTH]:            multipleLineNth,
     [OperationType.COUNT]:          multipleLineCount,
 };
+
+function coerceDatumValue(datum, idx, categoryLabel, measureLabel, opKey) {
+    const fallbackCategory = categoryLabel ?? lastCategory ?? 'category';
+    const fallbackMeasure = measureLabel ?? lastMeasure ?? 'value';
+    const category = (typeof datum?.category === 'string' && datum.category.trim().length > 0)
+        ? datum.category
+        : fallbackCategory;
+    const measure = (typeof datum?.measure === 'string' && datum.measure.trim().length > 0)
+        ? datum.measure
+        : fallbackMeasure;
+    const target = datum?.target != null
+        ? String(datum.target)
+        : (datum && category && datum[category] != null)
+            ? String(datum[category])
+            : `Result ${idx + 1}`;
+    const value = Number.isFinite(Number(datum?.value))
+        ? Number(datum.value)
+        : (Number.isFinite(Number(datum?.[measure])))
+            ? Number(datum[measure])
+            : 0;
+    const group = datum?.group ?? null;
+    const stableId = `${opKey}_${idx}`;
+    const lookupSource = datum?.id ?? datum?.lookupId ?? datum?.target ?? null;
+
+    const dv = new DatumValue(category, measure, target, group, value, stableId);
+    dv.lookupId = lookupSource != null ? String(lookupSource) : stableId;
+
+    if (datum && typeof datum === 'object') {
+        const protectedKeys = new Set(['category', 'measure', 'target', 'group', 'value', 'id', 'lookupId']);
+        Object.keys(datum).forEach((key) => {
+            if (protectedKeys.has(key)) return;
+            dv[key] = datum[key];
+        });
+    }
+
+    return dv;
+}
 
 
 async function applyMultipleLineOperation(chartId, operation, currentData, isLast = false) {
@@ -109,6 +149,7 @@ async function resetMultipleLineChart(chartId, vlSpec, ctx = {}) {
 }
 
 export async function runMultipleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) {
+    ensurePercentDiffAggregate(opsSpec, textSpec);
     const chartInfo = chartDataStore[chartId];
     if (!chartInfo) {
         console.error(`runMultipleLineOps: No data in store for chartId '${chartId}'.`);
@@ -127,19 +168,36 @@ export async function runMultipleLineOps(chartId, vlSpec, opsSpec, textSpec = {}
         textSpec,
         onReset: async (ctx = {}) => { await resetMultipleLineChart(chartId, vlSpec, ctx); },
         onRunOpsList: async (opsList, isLast) => {
+            if (isLast) {
+                const cached = Object.values(dataCache).flat().filter(Boolean);
+                if (cached.length === 0) {
+                    console.warn('runMultipleLineOps:last — no cached data to operate on');
+                    return [];
+                }
+
+                const fallbackCategory = lastCategory ?? categoryLabel ?? 'category';
+                const fallbackMeasure = lastMeasure ?? measureLabel ?? 'value';
+
+                const prepared = buildCompareDatasetFromCache(cached, fallbackCategory, fallbackMeasure);
+                if (!prepared) {
+                    console.warn('runMultipleLineOps:last — cached data missing DatumValue entries');
+                    return [];
+                }
+                const { compareData, specOpts } = prepared;
+                const compareSpec = buildSimpleBarSpec(compareData, specOpts);
+                await renderSimpleBarChart(chartId, compareSpec);
+                return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
+            }
+
             const base = datumValues.slice();
-            return await executeMultipleLineOpsList(chartId, opsList, base, isLast);
+            return await executeMultipleLineOpsList(chartId, opsList, base, false);
         },
         onCache: (opKey, currentData) => {
             const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);
-            arr.forEach((datum, idx) => {
-                if (datum && typeof datum === "object") {
-                    datum.id = `${opKey}_${idx}`;
-                    datum.category = lastCategory ?? categoryLabel;
-                    datum.measure  = lastMeasure  ?? measureLabel;
-                }
-            });
-            dataCache[opKey] = arr;
+            const normalized = arr
+                .filter(d => d != null)
+                .map((datum, idx) => coerceDatumValue(datum, idx, categoryLabel, measureLabel, opKey));
+            dataCache[opKey] = normalized;
         },
         isLastKey: (k) => k === 'last',
         delayMs: 0,

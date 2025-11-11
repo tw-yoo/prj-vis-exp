@@ -9,6 +9,7 @@ import {
     simpleBarDiff,
     simpleBarFilter,
     simpleBarFindExtremum,
+    simpleBarLagDiff,
     simpleBarNth,
     simpleBarRetrieveValue,
     simpleBarSort,
@@ -23,6 +24,9 @@ import {
     stackChartToTempTable
 } from "../../../util/util.js";
 import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence, getPrimarySvgElement, shrinkSvgViewBox } from "../../operationUtil.js";
+import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
+import { renderChartWithFade } from "../common/chartRenderUtils.js";
+import { normalizeCachedData } from "../common/datumCacheHelpers.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -35,11 +39,13 @@ const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.SUM]:            simpleBarSum,
     [OperationType.AVERAGE]:        simpleBarAverage,
     [OperationType.DIFF]:           simpleBarDiff,
+    [OperationType.LAG_DIFF]:       simpleBarLagDiff,
     [OperationType.NTH]:            simpleBarNth,
     [OperationType.COUNT]:          simpleBarCount,
 };
 
 const chartDataStore = {};
+
 function clearAllAnnotations(svg) {
     svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
 }
@@ -133,33 +139,6 @@ function getSvgAndSetup(chartId) {
     return { svg, g, orientation, xField, yField, margins, plot };
 }
 
-async function renderChartWithFade(chartId, spec, duration = 400) {
-    console.log("renderChartWithFade");
-    const host = d3.select(`#${chartId}`);
-    const currentSvg = host.select("svg");
-    if (!currentSvg.empty()) {
-        currentSvg.interrupt();
-        try {
-            await currentSvg.transition().duration(duration).style("opacity", 0).end();
-        } catch (_) {
-            currentSvg.style("opacity", 0);
-        }
-    }
-
-    await renderChart(chartId, spec);
-    ensureXAxisLabelClearance(chartId, { attempts: 6, minGap: 14, maxShift: 140 });
-
-    const newSvg = d3.select(`#${chartId}`).select("svg");
-    if (!newSvg.empty()) {
-        newSvg.style("opacity", 0);
-        try {
-            await newSvg.transition().duration(duration).style("opacity", 1).end();
-        } catch (_) {
-            newSvg.style("opacity", 1);
-        }
-    }
-}
-
 
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -179,7 +158,7 @@ async function applySimpleBarOperation(chartId, operation, currentData, isLast =
     return await fn(chartId, operation, currentData, isLast);
 }
 
-async function executeSimpleBarOpsList(chartId, opsList, initialData, isLast = false, delayMs = 0) {
+export async function executeSimpleBarOpsList(chartId, opsList, initialData, isLast = false, delayMs = 0) {
     const list = Array.isArray(opsList) ? opsList : [];
     let workingData = initialData;
     let lastResult = initialData;
@@ -232,6 +211,7 @@ async function fullChartReset(chartId) {
 }
 
 export async function runSimpleBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
+ensurePercentDiffAggregate(opsSpec, textSpec);
 await renderSimpleBarChart(chartId, vlSpec);
     const raw = chartDataStore[chartId] || [];
 
@@ -262,74 +242,24 @@ await renderSimpleBarChart(chartId, vlSpec);
             const baseDatumValues = await convertToDatumValues(fullData, xField, yField, orientation);
 
             if (isLast) {
-                const allCachedResults = Object.values(dataCache).flat().filter(d => d != null);
+                const allCachedResults = Object.values(dataCache).flat().filter(Boolean);
                 if (allCachedResults.length === 0) {
                     console.warn('last stage: no cached data');
                     return [];
                 }
 
-                const datumResults = allCachedResults.filter(d => d instanceof DatumValue);
-                if (datumResults.length === 0) {
+                const fallbackCategory = xField ?? lastCategory ?? 'category';
+                const fallbackMeasure = yField ?? lastMeasure ?? 'value';
+                const prepared = buildCompareDatasetFromCache(allCachedResults, fallbackCategory, fallbackMeasure);
+                if (!prepared) {
                     console.warn('last stage: no DatumValue results to visualize');
                     return [];
                 }
-                if (datumResults.length !== allCachedResults.length) {
-                    console.warn('last stage: skipping non-DatumValue cached results');
-                }
 
-                const categories = new Set();
-                const measures = new Set();
-                const sanitizedDatumResults = datumResults.map(d => {
-                    const categoryName = (typeof d.category === 'string') ? d.category.trim() : '';
-                    if (categoryName) categories.add(categoryName);
-                    const measureName = (typeof d.measure === 'string') ? d.measure.trim() : '';
-                    if (measureName) measures.add(measureName);
-                    return d;
-                });
-
-                const firstCategory = categories.size > 0 ? categories.values().next().value : '';
-                const firstMeasure = measures.size > 0 ? measures.values().next().value : '';
-                const canonicalCategory = (categories.size === 1 && firstCategory) ? firstCategory : 'result';
-                const canonicalMeasure = (measures.size === 1 && firstMeasure) ? firstMeasure : 'value';
-
-                const axisLabelOverrides = {};
-                if (!(categories.size === 1 && firstCategory)) {
-                    axisLabelOverrides.x = null;
-                }
-                if (!(measures.size === 1 && firstMeasure)) {
-                    axisLabelOverrides.y = null;
-                }
-
-                const compareData = sanitizedDatumResults.map((datum, idx) => {
-                    const baseLabel = (() => {
-                        if (datum && datum.target != null) {
-                            const t = String(datum.target).trim();
-                            if (t.length > 0) return t;
-                        }
-                        return `Result ${idx + 1}`;
-                    })();
-                    const groupLabel = datum.group != null ? ` · ${String(datum.group)}` : '';
-                    const idHint = (typeof datum.id === 'string' && datum.id.includes('_'))
-                        ? ` (${datum.id.split('_')[0]})`
-                        : '';
-                    const targetLabel = `${baseLabel}${groupLabel}${idHint}`;
-                    return new DatumValue(
-                        canonicalCategory,
-                        canonicalMeasure,
-                        targetLabel,
-                        datum.group ?? null,
-                        datum.value,
-                        datum.id
-                    );
-                });
-
-                const specOpts = {};
-                if (Object.keys(axisLabelOverrides).length > 0) {
-                    specOpts.axisLabels = axisLabelOverrides;
-                }
-
+                const { compareData, specOpts } = prepared;
                 const compareSpec = buildSimpleBarSpec(compareData, specOpts);
                 await renderChartWithFade(chartId, compareSpec, 450);
+                ensureXAxisLabelClearance(chartId, { attempts: 6, minGap: 14, maxShift: 140 });
 
                 return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
             }
@@ -339,25 +269,11 @@ await renderSimpleBarChart(chartId, vlSpec);
         onCache: (opKey, currentData) => {
             if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
                 dataCache[opKey] = [currentData];
-            } else {
-                const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);
-                arr.forEach((datum, idx) => {
-                    if (datum instanceof DatumValue) {
-                        if (!datum.id) {
-                            datum.id = `${opKey}_${idx}`;
-                        }
-                        const hasCategory = typeof datum.category === 'string' && datum.category.trim().length > 0;
-                        const hasMeasure = typeof datum.measure === 'string' && datum.measure.trim().length > 0;
-                        if (!hasCategory) {
-                            datum.category = xField;
-                        }
-                        if (!hasMeasure) {
-                            datum.measure = yField;
-                        }
-                    }
-                });
-                dataCache[opKey] = arr;
+                return;
             }
+            const fallbackCategory = xField ?? lastCategory ?? 'category';
+            const fallbackMeasure = yField ?? lastMeasure ?? 'value';
+            dataCache[opKey] = normalizeCachedData(currentData, opKey, fallbackCategory, fallbackMeasure);
         },
         isLastKey: (k) => k === 'last',
         delayMs: 0,
@@ -474,9 +390,17 @@ export async function renderSimpleBarChart(chartId, spec) {
         .attr("transform", `translate(${margin.left},${margin.top})`);
 
     if (isHorizontal) {
+        const xValues = data.map(d => d[xField]).filter(Number.isFinite);
+        const minX = d3.min(xValues);
+        const maxX = d3.max(xValues);
+        let domainMin = Math.min(0, Number.isFinite(minX) ? minX : 0);
+        let domainMax = Math.max(0, Number.isFinite(maxX) ? maxX : 0);
+        if (domainMin === domainMax) domainMax = domainMin + 1;
+
         const xScale = d3.scaleLinear()
-            .domain([0, d3.max(data, d => d[xField])]).nice()
+            .domain([domainMin, domainMax]).nice()
             .range([0, plotW]);
+        const zeroX = xScale(0);
         const yScale = d3.scaleBand()
             .domain(data.map(d => d[yField]))
             .range([0, plotH])
@@ -493,12 +417,14 @@ export async function renderSimpleBarChart(chartId, spec) {
         g.selectAll("rect")
             .data(data)
             .join("rect")
-            .attr("x", 0)
+            .attr("class", "main-bar")
+            .attr("x", d => (d[xField] >= 0 ? zeroX : xScale(d[xField])))
             .attr("y", d => yScale(d[yField]))
-            .attr("width", d => xScale(d[xField]))
+            .attr("width", d => Math.abs(xScale(d[xField]) - zeroX))
             .attr("height", yScale.bandwidth())
             .attr("fill", "#69b3a2")
             .attr("data-id", d => d.id ?? d[yField])
+            .attr("data-target", d => d[yField])
             .attr("data-value", d => d[xField]);
     } else {
         const xDomain = resolveCategoricalDomain(data, xField, xSortSpec);
@@ -506,9 +432,17 @@ export async function renderSimpleBarChart(chartId, spec) {
             .domain(xDomain)
             .range([0, plotW])
             .padding(0.2);
+        const yValues = data.map(d => d[yField]).filter(Number.isFinite);
+        const minY = d3.min(yValues);
+        const maxY = d3.max(yValues);
+        let domainMin = Math.min(0, Number.isFinite(minY) ? minY : 0);
+        let domainMax = Math.max(0, Number.isFinite(maxY) ? maxY : 0);
+        if (domainMin === domainMax) domainMax = domainMin + 1;
+
         const yScale = d3.scaleLinear()
-            .domain([0, d3.max(data, d => d[yField])]).nice()
+            .domain([domainMin, domainMax]).nice()
             .range([plotH, 0]);
+        const zeroY = yScale(0);
 
         g.append("g")
             .attr("class", "x-axis")
@@ -525,12 +459,14 @@ export async function renderSimpleBarChart(chartId, spec) {
         g.selectAll("rect")
             .data(data)
             .join("rect")
+            .attr("class", "main-bar")
             .attr("x", d => xScale(d[xField]))
-            .attr("y", d => yScale(d[yField]))
             .attr("width", xScale.bandwidth())
-            .attr("height", d => plotH - yScale(d[yField]))
+            .attr("y", d => (d[yField] >= 0 ? yScale(d[yField]) : zeroY))
+            .attr("height", d => Math.abs(yScale(d[yField]) - zeroY))
             .attr("fill", "#69b3a2")
             .attr("data-id", d => d.id ?? d[xField])
+            .attr("data-target", d => d[xField])
             .attr("data-value", d => d[yField]);
     }
 

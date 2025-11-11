@@ -1009,9 +1009,6 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
           const timeSpent = stopTimer();
           await savePageTiming(idx, timeSpent, snapshot);
         }
-        console.log("=== Survey Completed ===");
-        console.log("Responses:", responses);
-        console.log("Timing Data:", readJSONFromStorage(TIMING_KEY));
 
         alert('Your response has been successfully submitted!');
         setSubmissionLock();

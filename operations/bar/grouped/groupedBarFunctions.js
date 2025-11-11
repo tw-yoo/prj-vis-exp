@@ -12,7 +12,8 @@ import {
     compare as dataCompare,
     compareBool as dataCompareBool,
     count as dataCount,
-    determineRange as dataDetermineRange
+    determineRange as dataDetermineRange,
+    lagDiff as dataLagDiff
 } from "../../operationFunctions.js";
 // simple-bar 연출 재사용 (group 분기 시)
 import {
@@ -25,12 +26,14 @@ import {
     simpleBarDiff,
     simpleBarCompare,
     simpleBarCompareBool,
+    simpleBarLagDiff,
     simpleBarNth,
     simpleBarCount,
     simpleBarRetrieveValue
 } from "../simple/simpleBarFunctions.js";
 import { OP_COLORS } from "../../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
+import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 
 
 // ---------- 공통 셋업 ----------
@@ -2311,4 +2314,38 @@ export async function groupedBarCount(chartId, op, data, isLast = false) {
         .transition().duration(200).attr('opacity', 1);
 
     return [countDatum];
+}
+
+export async function groupedBarLagDiff(chartId, op, data, isLast = false) {
+    if (isSimplifiedData(data)) {
+        return await simpleBarLagDiff(chartId, op, data, isLast);
+    }
+    const { svg, xField, yField } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const diffsRaw = dataLagDiff(data, op, null, null, isLast);
+    if (!Array.isArray(diffsRaw) || diffsRaw.length === 0) {
+        console.warn('[groupedBarLagDiff] no differences computed');
+        return [];
+    }
+    const diffs = normalizeLagDiffResults(diffsRaw, xField || 'target', yField || 'value');
+
+    const positiveTotal = diffs
+        .map(d => Number(d.value))
+        .filter(v => Number.isFinite(v) && v > 0)
+        .reduce((sum, v) => sum + v, 0);
+
+    svg.append('text').attr('class', 'annotation lagdiff-summary')
+        .attr('x', 16)
+        .attr('y', 20)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', OP_COLORS.SUM)
+        .text(
+            Number.isFinite(positiveTotal)
+                ? `lagDiff computed ${diffs.length} changes · positives sum ${positiveTotal.toLocaleString()}`
+                : `lagDiff computed ${diffs.length} changes`
+        );
+
+    return diffs;
 }

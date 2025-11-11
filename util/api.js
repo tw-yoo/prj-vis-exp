@@ -22,9 +22,12 @@ function stringifyDataForPrompt(data, maxRows = 2000) {
     return String(data);
 }
 
-export async function updateAnswerFromGemini(spec, question) {
+export async function updateAnswerFromGemini(spec, question, hooks = {}) {
+    const { onAnswerStart, onAnswerEnd, onOpsStart, onOpsEnd } = hooks;
 
-
+    onAnswerStart?.();
+    let opsStarted = false;
+    let opsFinished = false;
     const key = await getKey();
 
     let data;
@@ -74,14 +77,35 @@ export async function updateAnswerFromGemini(spec, question) {
         const responseData = await response.json();
 
         const parsed = JSON.parse(responseData.candidates[0].content.parts[0].text);
-        document.getElementById('explanation').value = `Answer: ${parsed.answer}\n\nExplanation: ${parsed.explanation}`;
+        const answerEl = document.getElementById('explanation');
+        if (answerEl) {
+            answerEl.value = `Answer: ${parsed.answer}\n\nExplanation: ${parsed.explanation}`;
+        }
 
-        await updateSpecFromExplanation(vlSpec, dataString, question, parsed.answer, parsed.explanation)
+        onOpsStart?.();
+        opsStarted = true;
+        try {
+            await updateSpecFromExplanation(vlSpec, dataString, question, parsed.answer, parsed.explanation);
+            onOpsEnd?.({ success: true });
+            opsFinished = true;
+        } catch (specError) {
+            onOpsEnd?.({ success: false, error: specError });
+            opsFinished = true;
+            throw specError;
+        }
 
+        onAnswerEnd?.({ success: true });
     } catch (error) {
+        if (opsStarted && !opsFinished) {
+            onOpsEnd?.({ success: false, error });
+        }
+        onAnswerEnd?.({ success: false, error });
+        const answerEl = document.getElementById('explanation');
+        if (answerEl) {
+            answerEl.value = 'Failed to generate answer.\nSee console for details.';
+        }
         console.error('Error sending prompt to GenAI:', error);
     }
-
 }
 
 function getFormattedQuestion(vlSpec, data, question) {
@@ -89,33 +113,30 @@ function getFormattedQuestion(vlSpec, data, question) {
     const dataStr = typeof data === "string" ? data : JSON.stringify(data, null, 2);
 
     return `
-You are a data QA assistant. Answer the user's question by analyzing **only** the values in **Data**.
-The Vega-Lite spec is provided **solely to disambiguate field names or roles**; do not cite or reference it in your output.
-You may internally use the spec to infer which fields are labels vs. values, but **never** mention chart-grammar terms in the output.
+Instructions: You will receive (A) a Vega-Lite specification, (B) tabular data, and (C) a natural-language question. Answer using only the supplied data and describe the process as if a person is performing sequential chart interactions (filtering, sorting, highlighting).
 
-STRICT RULES:
-- Use **Data only** for any calculation or comparison. If Data is insufficient to answer, set "answer" to "unknown".
-- **Do not** mention or refer to: “Vega-Lite”, “specification”, “encoding”, “axis”, “mark”, or similar chart-grammar terms.
-- **Do not** include code blocks, backticks, Markdown, or any text outside the JSON object.
-- **Return ONLY this JSON object with EXACTLY these two keys** and nothing else:
-  {"answer": <string|number|boolean|array>, "explanation": <string>}
-- Numbers must be JSON numbers (not strings). Do not round unless the question explicitly requests it; otherwise preserve numeric precision present in Data.
-- If multiple items are equally valid (tie or multiple maxima/minima) and the question demands a single item, set "answer" to "tie" and list the tied items and their values in "explanation".
-- Ignore non-numeric entries when a numeric operation is required; state this if it affects the result.
-- If the spec and Data conflict, **trust Data**.
+Human-centered Guidelines:
+- Work strictly from the provided rows/columns. If information is missing, state that the table is insufficient.
+- Narrate your reasoning in plain English (no Markdown or emphasis). Each sentence should read like stage directions: “Filter to … then highlight … finally compare …”.
+- Keep workflows single-pass. Shared steps such as sorting or filtering should happen once, then reuse that state to pick multiple values (e.g., grab both middle ranks via a single "nth"-style step before averaging). Do not repeat identical operations for each target.
+- When multiple marks are needed (e.g., median of an even-length list), describe isolating all required values first and then performing any aggregation in a final step.
+- Mention numeric values with their associated labels so another person could reproduce the steps and confirm the answer.
+- Call out ties or empty result sets explicitly. Do not claim statistical significance or causal relationships; limit the response to descriptive facts from the table.
+
+Output: Provide (1) a concise English answer and (2) a short, human-centered explanation of the steps you took (still plain text, no Markdown). Keep everything self-contained so someone else could replicate the workflow.
 
 INPUTS
-(0) Vega-Lite Spec (for disambiguation only; never reference this in the answer)
+(A) Vega-Lite Spec (for disambiguation only; never reference this in the answer)
 \`\`\`json
 ${specStr}
 \`\`\`
 
-(1) Data
+(B) Data
 \`\`\`json
 ${dataStr}
 \`\`\`
 
-(2) Question
+(C) Question
 ${question}
 `;
 }

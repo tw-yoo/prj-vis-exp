@@ -11,10 +11,22 @@ import {
     nthData as dataNth,
     compareOp as dataCompare,
     compareBoolOp as dataCompareBool,
-    countData as dataCount
+    countData as dataCount,
+    lagDiffData as dataLagDiff
 } from "../../lineChartOperationFunctions.js";
 import { OP_COLORS } from "../../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
+import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
+import {
+    parseDateWithGranularity,
+    toPointIdCandidates,
+    findDatumByKey,
+    selectPointByTarget,
+    getNodeHighlightInfo,
+    computeFallbackPointForDatum,
+    createVirtualBadge,
+    fmtISO
+} from "../sharedLineUtils.js";
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 
@@ -53,8 +65,113 @@ function selectMainLine(g) {
 }
 
 function selectMainPoints(g) {
+    const bars = g.selectAll("rect.temp-line-bar");
+    if (!bars.empty()) return bars;
     const p = g.selectAll("circle.main-dp");
     return p.empty() ? g.selectAll("circle.datapoint") : p;
+}
+
+
+async function highlightNthDatum({
+    points,
+    datum,
+    rankLabel,
+    color,
+    g,
+    sourceData,
+    plot
+}) {
+    if (!datum) return null;
+    const candidates = toPointIdCandidates(datum.target);
+    if (datum.id != null) candidates.push(String(datum.id));
+
+    const nodeSel = points.filter(function () {
+        const sel = d3.select(this);
+        const nodeId = sel.attr("data-id");
+        const nodeTarget = sel.attr("data-target");
+        return (nodeId && candidates.includes(nodeId)) || (nodeTarget && candidates.includes(nodeTarget));
+    });
+
+    let info = null;
+    if (!nodeSel.empty()) {
+        info = getNodeHighlightInfo(nodeSel.node());
+        const tag = String(nodeSel.node().tagName || "").toLowerCase();
+        let transition = nodeSel.transition().duration(250).attr("opacity", 1).attr("fill", color);
+        if (tag === "circle") {
+            transition = transition.attr("r", 8).attr("stroke", "white").attr("stroke-width", 2);
+        } else if (tag === "rect") {
+            transition = transition.attr("stroke", "white").attr("stroke-width", 2);
+        }
+        await transition.end().catch(() => {});
+    } else {
+        info = computeFallbackPointForDatum(datum, sourceData, plot);
+        if (info) {
+            await g.append("circle")
+                .attr("class", "annotation nth-ghost")
+                .attr("cx", info.cx)
+                .attr("cy", info.cy)
+                .attr("r", 0)
+                .attr("fill", color)
+                .attr("opacity", 0.2)
+                .transition().duration(250)
+                .attr("r", 6)
+                .attr("opacity", 0.85)
+                .end().catch(() => {});
+        }
+    }
+
+    if (info) {
+        const displayValue = Number.isFinite(Number(datum.value))
+            ? Number(datum.value).toLocaleString()
+            : String(datum.value ?? "");
+        g.append("text")
+            .attr("class", "annotation nth-value-tag")
+            .attr("x", info.cx + 6)
+            .attr("y", info.cy - 10)
+            .attr("fill", color)
+            .attr("font-weight", "bold")
+            .attr("stroke", "white")
+            .attr("stroke-width", 3)
+            .attr("paint-order", "stroke")
+            .text(displayValue ? `#${rankLabel}: ${displayValue}` : `#${rankLabel}`);
+    }
+
+    return info;
+}
+
+function drawNthGuides(g, info, color, plot) {
+    if (!info) return;
+    g.append("line").attr("class", "annotation nth-line")
+        .attr("x1", info.cx).attr("y1", info.cy)
+        .attr("x2", info.cx).attr("y2", plot.h)
+        .attr("stroke", color)
+        .attr("stroke-dasharray", "4 4");
+    g.append("line").attr("class", "annotation nth-line")
+        .attr("x1", 0).attr("y1", info.cy)
+        .attr("x2", info.cx).attr("y2", info.cy)
+        .attr("stroke", color)
+        .attr("stroke-dasharray", "4 4");
+}
+
+function parseAxisTickValue(text) {
+    if (text == null) return NaN;
+    const cleaned = String(text).replace(/,/g, "").trim();
+    if (cleaned === "") return NaN;
+    const parsed = parseFloat(cleaned);
+    return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function getYAxisDomainFromAxis(svg) {
+    if (!svg || svg.empty()) return null;
+    const yAxis = svg.select(".y-axis");
+    if (yAxis.empty()) return null;
+    const tickNodes = yAxis.selectAll(".tick text").nodes();
+    if (!tickNodes.length) return null;
+    const tickValues = tickNodes
+        .map(node => parseAxisTickValue(d3.select(node).text()))
+        .filter(Number.isFinite);
+    if (tickValues.length < 2) return null;
+    return [d3.min(tickValues), d3.max(tickValues)];
 }
 
 export async function prepareForNextOperation(chartId) {
@@ -69,82 +186,16 @@ export async function prepareForNextOperation(chartId) {
     await delay(400);
 }
 
-const fmtISO = d3.timeFormat("%Y-%m-%d");
-
-function parseDateWithGranularity(v) {
-    if (v instanceof Date) return { date: v };
-    if (typeof v === "number" && String(v).length === 4) return { date: new Date(v, 0, 1) };
-    if (typeof v === "string") {
-        if (/^\d{4}$/.test(v)) return { date: new Date(+v, 0, 1) };
-        const d = new Date(v);
-        if (!isNaN(+d)) return { date: d };
-    }
-    return { date: null };
-}
-
-function toPointIdCandidates(key) {
-    const { date } = parseDateWithGranularity(key);
-    if (date) {
-        return [fmtISO(date), String(key)];
-    }
-    return [String(key)];
-}
-
-function findDatumByKey(data, key) {
-    if (!Array.isArray(data)) return null;
-
-    const keyStr = String(key).trim();
-    const isYearOnly = /^\d{4}$/.test(keyStr);
-
-    // 도메인 데이터가 다양한 스키마를 가질 수 있으므로
-    // 후보 키들을 넓게 잡아서 문자열 비교로 매칭합니다.
-    const CANDIDATE_FIELDS = [
-        'target', 'year', 'date', 'x', 'time', 'timestamp'
-    ];
-
-    return data.find(d => {
-        if (!d) return false;
-
-        // 1) 명시적 후보 필드들을 우선 확인
-        for (const f of CANDIDATE_FIELDS) {
-            if (d[f] != null) {
-                const v = String(d[f]).trim();
-                if (v === keyStr) return true;
-                if (isYearOnly && v.slice(0, 4) === keyStr) return true;
-            }
-        }
-
-        // 2) 그 외에도 문자열 형태의 필드(예: year 같은 X축 필드)가 있을 수 있으니
-        //    객체의 모든 속성 중 문자열인 것들을 보조로 점검
-        for (const [_, val] of Object.entries(d)) {
-            if (val == null) continue;
-            const v = String(val).trim();
-
-            // 날짜처럼 생긴 문자열은 그대로 비교 (예: 1994-01-01)
-            // 숫자/카테고리도 문자열로 비교
-            if (v === keyStr) return true;
-
-            // key가 4자리 연도만 들어온 경우, "YYYY-..." 형식 앞 4자리 비교 허용
-            if (isYearOnly && v.length >= 4 && v.slice(0, 4) === keyStr) return true;
-        }
-
-        return false;
-    });
-}
 
 export async function simpleLineRetrieveValue(chartId, op, data, isLast = false) {
     const { svg, g, orientation, xField, yField, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const datumToFind = findDatumByKey(data, op.target);
-    if (!datumToFind) {
-        console.warn("RetrieveValue: target not found for key:", op.target);
-        return null;
-    }
     const results = dataRetrieveValue(data, op, isLast);
     const targetDatum = results.length > 0 ? results[0] : null;
 
     if (!targetDatum) {
+        console.warn("RetrieveValue: no datum returned for key:", op.target);
         return null;
     }
 
@@ -381,15 +432,24 @@ export async function simpleLineCompare(chartId, op, data, isLast = false) {
         return d3.select(null);
     };
 
-    const pointA = pick(datumA);
-    const pointB = pick(datumB);
-    if (pointA.empty() || pointB.empty()) return winners;
-
     baseLine.attr("opacity", 1).transition().duration(600).attr("opacity", 0.4);
-    await Promise.all([
-        pointA.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorA).end(),
-        pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB).end()
-    ]);
+    const highlightDatum = async (datum, color, slotIndex) => {
+        const sel = pick(datum);
+        if (!sel.empty()) {
+            await sel.transition().duration(600)
+                .attr("opacity", 1)
+                .attr("r", 8)
+                .attr("fill", color)
+                .attr("stroke", "white")
+                .attr("stroke-width", 2)
+                .end().catch(()=>{});
+            return { cx: +sel.attr("cx"), cy: +sel.attr("cy"), kind: "point", selection: sel };
+        }
+        return createVirtualBadge(svg, margins, plot, datum, color, slotIndex);
+    };
+
+    const infoA = await highlightDatum(datumA, colorA, 0);
+    const infoB = await highlightDatum(datumB, colorB, 1);
 
     const sameTarget = (a, b) => {
         const da = parseDateWithGranularity(a).date;
@@ -399,20 +459,23 @@ export async function simpleLineCompare(chartId, op, data, isLast = false) {
     };
     const isWinner = (d) => winners.some(w => sameTarget(w.target, d.target));
 
-    const annotate = (pt, color, star = false) => {
-        const cx = +pt.attr("cx"),
-            cy = +pt.attr("cy");
+    const annotateInfo = (info, datum, color, star = false) => {
+        if (!info || info.kind === 'virtual') return;
+        const { cx, cy } = info;
         g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4");
         g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4");
+        const displayValue = Number.isFinite(Number(datum?.value))
+            ? Number(datum.value).toLocaleString()
+            : String(datum?.value ?? "");
         g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text((+pt.attr("data-value")).toLocaleString());
+            .text(displayValue);
         if (star) {
             g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 30).attr("text-anchor", "middle").attr("fill", winColor).attr("font-weight", "bold").text("★");
         }
     };
 
-    annotate(pointA, colorA, isWinner(datumA));
-    annotate(pointB, colorB, isWinner(datumB));
+    annotateInfo(infoA, datumA, colorA, isWinner(datumA));
+    annotateInfo(infoB, datumB, colorB, isWinner(datumB));
 
     const summary = `${(op.which || 'max').toUpperCase()} chosen`;
     svg.append("text").attr("class", "annotation")
@@ -549,6 +612,7 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
+    const sourceData = Array.isArray(data) ? data : (data ? [data] : []);
 
     // 🔸 1단계: 포인트 먼저 보이게 (300ms)
     await points.transition().duration(300)
@@ -570,7 +634,7 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
     // 🔸 3단계: 라인 완전히 제거 (잔상 방지)
     baseLine.remove();
 
-    const items = (Array.isArray(data) ? data : []).map(d => ({
+    const items = sourceData.map(d => ({
         id: String(d?.id ?? d?.target ?? ''),
         target: String(d?.target ?? ''),
         value: Number(d?.value),
@@ -700,6 +764,10 @@ export async function simpleLineSort(chartId, op, data, isLast = false) {
         await Promise.all([moveTr, axisTr]).catch(()=>{});
     }
 
+    // Remove old circle points so subsequent ops don't hit stale DOM elements
+    g.selectAll("circle.datapoint").remove();
+    g.selectAll("circle.main-dp").remove();
+
     if (isLast) {
         const first = sorted && sorted[0];
         if (!first) return [];
@@ -738,6 +806,12 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
     const colorA = OP_COLORS.DIFF_A;
     const colorB = OP_COLORS.DIFF_B;
     const hlColor = OP_COLORS.DIFF_LINE;
+    const aggregateMode = typeof op?.aggregate === 'string'
+        ? op.aggregate.toLowerCase()
+        : null;
+    const isPercentOfTotal = aggregateMode === 'percentage_of_total' || aggregateMode === 'percent_of_total';
+    const isRatioMode = String(op?.mode || '').toLowerCase() === 'ratio';
+    const isPercentMode = isPercentOfTotal || op?.percent === true || isRatioMode;
     
     const pick = (datum) => {
         const candidates = toPointIdCandidates(datum.target);
@@ -748,46 +822,49 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
         return d3.select(null);
     };
     
-    const pointA = pick(datumA);
-    const pointB = pick(datumB);
-    
-    if (pointA.empty() || pointB.empty()) {
-        return diffResultArray;
-    }
-    
+    const highlightDatum = async (datum, color, slotIndex) => {
+        const sel = pick(datum);
+        if (!sel.empty()) {
+            await sel.transition().duration(600)
+                .attr("opacity", 1)
+                .attr("r", 8)
+                .attr("fill", color)
+                .attr("stroke", "white")
+                .attr("stroke-width", 2)
+                .end().catch(()=>{});
+            return { cx: +sel.attr("cx"), cy: +sel.attr("cy"), kind: "point" };
+        }
+        return createVirtualBadge(svg, margins, plot, datum, color, slotIndex);
+    };
+
     // 라인 페이드
     baseLine.attr("opacity", 1).transition().duration(600).attr("opacity", 0.4);
+
+    const infoA = await highlightDatum(datumA, colorA, 0);
+    const infoB = await highlightDatum(datumB, colorB, 1);
     
-    await Promise.all([
-        pointA.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorA)
-            .attr("stroke", "white").attr("stroke-width", 2).end(),
-        pointB.transition().duration(600).attr("opacity", 1).attr("r", 8).attr("fill", colorB)
-            .attr("stroke", "white").attr("stroke-width", 2).end()
-    ]);
-    
-    const annotate = (pt, color) => {
-        const cx = +pt.attr("cx"), cy = +pt.attr("cy");
-        
-        // 세로선: x축에서 포인트로 올라감
-        const vLine = g.append("line")
+    const annotate = (info, datum, color) => {
+        if (!info || info.kind === 'virtual') return;
+        const { cx, cy } = info;
+        g.append("line")
             .attr("class", "annotation")
             .attr("x1", cx).attr("x2", cx)
             .attr("y1", plot.h).attr("y2", plot.h)
             .attr("stroke", color)
             .attr("stroke-dasharray", "4 4")
-            .attr("stroke-width", 1.5);
-        vLine.transition().duration(500).attr("y2", cy);
-        
-        // 가로선: y축에서 포인트로
-        const hLine = g.append("line")
+            .attr("stroke-width", 1.5)
+            .transition().duration(500).attr("y2", cy);
+        g.append("line")
             .attr("class", "annotation")
             .attr("x1", 0).attr("x2", 0)
             .attr("y1", cy).attr("y2", cy)
             .attr("stroke", color)
             .attr("stroke-dasharray", "4 4")
-            .attr("stroke-width", 1.5);
-        hLine.transition().duration(500).attr("x2", cx);
-        
+            .attr("stroke-width", 1.5)
+            .transition().duration(500).attr("x2", cx);
+        const displayValue = Number.isFinite(Number(datum?.value))
+            ? Number(datum.value).toLocaleString()
+            : String(datum?.value ?? "");
         g.append("text").attr("class", "annotation")
             .attr("x", cx).attr("y", cy - 10)
             .attr("text-anchor", "middle")
@@ -797,59 +874,67 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
             .attr("stroke", "white")
             .attr("stroke-width", 3)
             .attr("paint-order", "stroke")
-            .text(pt.attr("data-value"));
+            .text(displayValue);
     };
     
-    annotate(pointA, colorA);
-    annotate(pointB, colorB);
+    annotate(infoA, datumA, colorA);
+    annotate(infoB, datumB, colorB);
     
     await delay(500);
     
     // 차이값 수직선 그리기
-    const values = (Array.isArray(data) ? data.map(d => d ? Number(d.value) : NaN) : []).filter(Number.isFinite);
-    const yMax = d3.max(values) || 0;
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    const cyA = infoA?.cy;
+    const cyB = infoB?.cy;
+    const cxA = infoA?.cx;
+    const cxB = infoB?.cx;
     
-    const cyA = +pointA.attr("cy");
-    const cyB = +pointB.attr("cy");
-    const cxA = +pointA.attr("cx");
-    const cxB = +pointB.attr("cx");
-    
-    // 두 포인트 중 더 오른쪽에 있는 지점 오른쪽에 차이선 그리기
-    const diffX = Math.max(cxA, cxB) + 15;
-    const minY = Math.min(cyA, cyB);
-    const maxY = Math.max(cyA, cyB);
-    
-    if (Number.isFinite(diff) && minY !== maxY) {
-        // 차이를 나타내는 수직선
-        const diffLine = g.append("line")
-            .attr("class", "annotation diff-bridge")
-            .attr("x1", diffX).attr("x2", diffX)
-            .attr("y1", minY).attr("y2", minY)
-            .attr("stroke", hlColor)
-            .attr("stroke-width", 2.5)
-            .attr("stroke-dasharray", "5 5");
-        await diffLine.transition().duration(600).attr("y2", maxY).end().catch(() => {});
-        
-        // 차이값 라벨
-        const labelY = (minY + maxY) / 2;
-        g.append("text")
-            .attr("class", "annotation diff-value")
-            .attr("x", diffX + 8)
-            .attr("y", labelY)
-            .attr("text-anchor", "start")
-            .attr("dominant-baseline", "middle")
-            .attr("font-size", 13)
-            .attr("font-weight", "bold")
-            .attr("fill", hlColor)
-            .attr("stroke", "white")
-            .attr("stroke-width", 3.5)
-            .attr("paint-order", "stroke")
-            .text(`Diff: ${Math.abs(diff).toLocaleString(undefined, {maximumFractionDigits: 2})}`);
+    if (!isPercentMode &&
+        Number.isFinite(diff) &&
+        cyA != null && cyB != null &&
+        cxA != null && cxB != null &&
+        infoA?.kind !== 'virtual' &&
+        infoB?.kind !== 'virtual') {
+        const diffX = Math.max(cxA, cxB) + 15;
+        const minY = Math.min(cyA, cyB);
+        const maxY = Math.max(cyA, cyB);
+        if (minY !== maxY) {
+            const diffLine = g.append("line")
+                .attr("class", "annotation diff-bridge")
+                .attr("x1", diffX).attr("x2", diffX)
+                .attr("y1", minY).attr("y2", minY)
+                .attr("stroke", hlColor)
+                .attr("stroke-width", 2.5)
+                .attr("stroke-dasharray", "5 5");
+            await diffLine.transition().duration(600).attr("y2", maxY).end().catch(() => {});
+            
+            const labelY = (minY + maxY) / 2;
+            g.append("text")
+                .attr("class", "annotation diff-value")
+                .attr("x", diffX + 8)
+                .attr("y", labelY)
+                .attr("text-anchor", "start")
+                .attr("dominant-baseline", "middle")
+                .attr("font-size", 13)
+                .attr("font-weight", "bold")
+                .attr("fill", hlColor)
+                .attr("stroke", "white")
+                .attr("stroke-width", 3.5)
+                .attr("paint-order", "stroke")
+                .text(`Diff: ${Math.abs(diff).toLocaleString(undefined, {maximumFractionDigits: 2})}`);
+        }
     }
     
     // 요약 텍스트
-    const summary = `Difference: ${valueA.toLocaleString()} - ${valueB.toLocaleString()} = ${diff.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+    let summary;
+    if (isPercentOfTotal) {
+        const precision = Number.isFinite(Number(op?.precision)) ? Number(op.precision) : 1;
+        const percentLabel = Number.isFinite(diffResult.value)
+            ? `${diffResult.value.toFixed(precision)}%`
+            : '—';
+        summary = `Percent of total: ${valueA.toLocaleString()} / ${valueB.toLocaleString()} × 100 = ${percentLabel}`;
+    } else {
+        summary = `Difference: ${valueA.toLocaleString()} - ${valueB.toLocaleString()} = ${diff.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+    }
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left + plot.w / 2)
         .attr("y", margins.top - 10)
@@ -860,6 +945,112 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
         .text(summary);
     
     return diffResult;
+}
+
+export async function simpleLineLagDiff(chartId, op, data, isLast = false) {
+    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const sourceData = Array.isArray(data) ? data : (data ? [data] : []);
+    const rawDiffs = dataLagDiff(sourceData, op, isLast);
+    const diffs = normalizeLagDiffResults(rawDiffs, 'target', 'value');
+    if (!Array.isArray(diffs) || diffs.length === 0) {
+        console.warn('[simpleLineLagDiff] no differences computed');
+        return [];
+    }
+
+    const baseLine = selectMainLine(g);
+    const points = selectMainPoints(g);
+    await baseLine.transition().duration(300).attr('opacity', 0.35).end().catch(() => {});
+    await points.transition().duration(300).attr('opacity', 0.4).end().catch(() => {});
+
+    const maxPreview = Number.isFinite(op?.previewCount) ? op.previewCount : 6;
+    const subset = diffs.slice(0, Math.max(1, maxPreview));
+
+    for (const [idx, diffDatum] of subset.entries()) {
+        const currTarget = diffDatum?.target;
+        const prevTarget = diffDatum?.prevTarget;
+        const currDatum = findDatumByKey(sourceData, currTarget);
+        const prevDatum = findDatumByKey(sourceData, prevTarget);
+
+        const currSel = selectPointByTarget(points, currTarget);
+        const prevSel = selectPointByTarget(points, prevTarget);
+
+        const currInfo = !currSel.empty()
+            ? getNodeHighlightInfo(currSel.node())
+            : computeFallbackPointForDatum(currDatum, sourceData, plot);
+        const prevInfo = !prevSel.empty()
+            ? getNodeHighlightInfo(prevSel.node())
+            : computeFallbackPointForDatum(prevDatum, sourceData, plot);
+
+        const color = diffDatum.value >= 0 ? OP_COLORS.SUM : OP_COLORS.DIFF_LINE;
+
+        if (!currSel.empty()) {
+            await currSel.transition().duration(250)
+                .attr('opacity', 1)
+                .attr('fill', color)
+                .attr('stroke', 'white')
+                .attr('stroke-width', 2)
+                .attr('r', 8)
+                .end().catch(() => {});
+        }
+        if (!prevSel.empty()) {
+            await prevSel.transition().duration(250)
+                .attr('opacity', 1)
+                .attr('fill', color)
+                .attr('stroke', 'white')
+                .attr('stroke-width', 2)
+                .attr('r', 8)
+                .end().catch(() => {});
+        }
+
+        if (currInfo && prevInfo) {
+            const line = g.append('line')
+                .attr('class', 'annotation lagdiff-line')
+                .attr('x1', prevInfo.cx).attr('y1', prevInfo.cy)
+                .attr('x2', prevInfo.cx).attr('y2', prevInfo.cy)
+                .attr('stroke', color)
+                .attr('stroke-width', 2)
+                .attr('stroke-dasharray', '4 4');
+            line.transition().duration(400)
+                .attr('x2', currInfo.cx)
+                .attr('y2', currInfo.cy);
+
+            const midX = (prevInfo.cx + currInfo.cx) / 2;
+            const midY = (prevInfo.cy + currInfo.cy) / 2;
+            g.append('text')
+                .attr('class', 'annotation lagdiff-label')
+                .attr('x', midX + 6)
+                .attr('y', midY - 6)
+                .attr('fill', color)
+                .attr('font-weight', 'bold')
+                .attr('stroke', 'white')
+                .attr('stroke-width', 3)
+                .attr('paint-order', 'stroke')
+                .text((diffDatum.value >= 0 ? '+' : '') + diffDatum.value.toLocaleString());
+        }
+
+        await delay(200);
+    }
+
+    const positiveTotal = diffs
+        .map(d => Number(d.value))
+        .filter((v) => Number.isFinite(v) && v > 0)
+        .reduce((sum, v) => sum + v, 0);
+
+    const summaryText = Number.isFinite(positiveTotal)
+        ? `lagDiff computed ${diffs.length} differences · Sum of positives ≈ ${positiveTotal.toLocaleString()}`
+        : `lagDiff computed ${diffs.length} differences`;
+
+    svg.append('text').attr('class', 'annotation lagdiff-summary')
+        .attr('x', margins.left)
+        .attr('y', margins.top - 12)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', OP_COLORS.SUM)
+        .text(summaryText);
+
+    return diffs;
 }
 
 export async function simpleLineFilter(chartId, op, data, isLast = false) {
@@ -1244,8 +1435,9 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const calc = dataSum(data, op, isLast);
-    const values = (Array.isArray(data) ? data.map(d => d ? +d.value : NaN) : []).filter(Number.isFinite);
+    const normalizedData = Array.isArray(data) ? data : (data != null ? [data] : []);
+    const calc = dataSum(normalizedData, op, isLast);
+    const values = normalizedData.map(d => d ? +d.value : NaN).filter(Number.isFinite);
     const total = calc && Number.isFinite(+calc.value) ? +calc.value : values.reduce((a, b) => a + b, 0);
     if (!Number.isFinite(total)) {
         console.warn('[simpleLineSum] total is not finite');
@@ -1380,7 +1572,7 @@ export async function simpleLineSum(chartId, op, data, isLast = false) {
 
 export async function simpleLineAverage(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot } = getSvgAndSetup(chartId);
-    clearAllAnnotations(svg);
+    svg.selectAll(".annotation.avg-line, .annotation.avg-label").remove();
 
     if (!Array.isArray(data) || data.length === 0) {
         console.warn('[simpleLineAverage] empty data');
@@ -1397,8 +1589,16 @@ export async function simpleLineAverage(chartId, op, data, isLast = false) {
 
     const values = data.map(d => d ? Number(d.value) : NaN).filter(Number.isFinite);
     const ymaxData = d3.max(values);
-    const yMax = d3.max([ymaxData || 0, avg]);
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    const axisDomain = getYAxisDomainFromAxis(svg);
+    let yScale;
+    if (axisDomain) {
+        const axisMin = axisDomain[0];
+        const axisMax = Math.max(axisDomain[1], avg);
+        yScale = d3.scaleLinear().domain([axisMin, axisMax]).range([plot.h, 0]);
+    } else {
+        const yMax = d3.max([ymaxData || 0, avg]);
+        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    }
     const yPos = yScale(avg);
     if (!Number.isFinite(yPos)) {
         console.warn('[simpleLineAverage] yPos is not finite');
@@ -1439,104 +1639,78 @@ export async function simpleLineNth(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
-    const resultData = dataNth(data, op, isLast);
-    const targetDatum = resultData.length > 0 ? resultData[0] : null;
-
-    if (!targetDatum) {
-        return null;
+    const sourceData = Array.isArray(data) ? data : (data ? [data] : []);
+    const resultData = dataNth(sourceData, op, isLast);
+    if (!Array.isArray(resultData) || resultData.length === 0) {
+        console.warn('[simpleLineNth] dataNth returned empty results');
+        return [];
     }
+
+    const rawRanks = Array.isArray(op.n) ? op.n : [op.n ?? 1];
+    const normalizedRanks = rawRanks
+        .map((value) => {
+            const num = Number(value);
+            if (!Number.isFinite(num) || num < 1) return null;
+            return Math.floor(num);
+        })
+        .filter((value) => value !== null);
 
     const baseLine = selectMainLine(g);
     const points = selectMainPoints(g);
-    const n = op.n || 1;
     const from = op.from || 'left';
     const hlColor = OP_COLORS.NTH;
 
     await Promise.all([
-        baseLine.transition().duration(300).attr('opacity', 0.2).end(),
-        points.transition().duration(300).attr('opacity', 0.25).end()
+        baseLine.transition().duration(300).attr('opacity', 0.2).end().catch(() => {}),
+        points.transition().duration(300).attr('opacity', 0.25).end().catch(() => {})
     ]);
 
-    const dataSequence = from === 'right' ? [...data].reverse() : data;
-    const countedPoints = [];
+    const highlightInfos = [];
+    const summaryValues = [];
 
-    for (let i = 0; i < n; i++) {
-        const datum = dataSequence[i];
-        const candidates = toPointIdCandidates(datum.target);
-        const pointSel = points.filter(function() {
-            const id = d3.select(this).attr("data-id");
-            return candidates.includes(id);
+    for (let idx = 0; idx < resultData.length; idx++) {
+        const datum = resultData[idx];
+        const rankLabel = normalizedRanks[idx] ?? (idx + 1);
+        summaryValues.push(datum?.value);
+        const info = await highlightNthDatum({
+            points,
+            datum,
+            rankLabel,
+            color: hlColor,
+            g,
+            sourceData,
+            plot
         });
-
-        if (!pointSel.empty()) {
-            countedPoints.push(pointSel.node());
-            await pointSel.transition().duration(100).attr('opacity', 1).attr('r', 7).end();
-
-            const countLabel = g.append('text')
-                .attr('class', 'annotation count-label')
-                .attr('x', pointSel.attr('cx'))
-                .attr('y', +pointSel.attr('cy') - 15)
-                .attr('text-anchor', 'middle')
-                .attr('font-weight', 'bold')
-                .attr('fill', hlColor)
-                .attr('stroke', 'white')
-                .attr('stroke-width', 3)
-                .attr('paint-order', 'stroke')
-                .text(String(i + 1));
-
-            if (i === n - 1) {
-                countLabel.classed('final-count', true);
-            }
-
-            await delay(250);
+        if (info) {
+            highlightInfos.push(info);
         }
+        await delay(220);
     }
 
-    const finalTargetNode = countedPoints[n - 1];
-    const otherCountedNodes = countedPoints.slice(0, n - 1);
-
-    await Promise.all([
-        d3.selectAll(otherCountedNodes).transition().duration(300).attr('opacity', 0.25).attr('r', 5).end(),
-        g.selectAll('.count-label:not(.final-count)').transition().duration(300).attr('opacity', 0).remove().end()
-    ]);
-
-    await g.selectAll('.final-count').transition().duration(300).attr('opacity', 0).remove().end();
-
-    if (finalTargetNode) {
-        d3.select(finalTargetNode).transition().duration(300).attr('fill', hlColor).attr('opacity', 1).attr('r', 8);
-        const cx = +d3.select(finalTargetNode).attr('cx');
-        const cy = +d3.select(finalTargetNode).attr('cy');
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy)
-            .attr("x2", cx).attr("y2", plot.h)
-            .attr("stroke", hlColor)
-            .attr("stroke-dasharray", "4 4");
-
-        g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", cy)
-            .attr("x2", cx).attr("y2", cy)
-            .attr("stroke", hlColor)
-            .attr("stroke-dasharray", "4 4");
-
-        g.append("text").attr("class", "annotation")
-            .attr("x", cx + 5)
-            .attr("y", cy - 10)
-            .attr("fill", hlColor)
-            .attr("font-weight", "bold")
-            .attr("stroke", "white")
-            .attr("stroke-width", 3)
-            .attr("paint-order", "stroke")
-            .text(targetDatum.value.toLocaleString());
+    const finalInfo = highlightInfos[highlightInfos.length - 1];
+    if (finalInfo) {
+        drawNthGuides(g, finalInfo, hlColor, plot);
     }
 
-    svg.append('text').attr('class', 'annotation')
+    const summaryRanksText = normalizedRanks.length > 0
+        ? normalizedRanks.join(', ')
+        : resultData.map((_, idx) => idx + 1).join(', ');
+    const summaryValuesText = summaryValues
+        .map((v) => Number.isFinite(Number(v)) ? Number(v).toLocaleString() : '')
+        .filter(Boolean)
+        .join(', ');
+
+    svg.append('text').attr('class', 'annotation nth-summary')
         .attr('x', margins.left).attr('y', margins.top - 10)
         .attr('font-size', 14).attr('font-weight', 'bold')
         .attr('fill', hlColor)
-        .text(`Nth (from ${from}): ${n}`);
+        .text(
+            summaryValuesText
+                ? `Nth (from ${from}): ${summaryRanksText} → ${summaryValuesText}`
+                : `Nth (from ${from}): ${summaryRanksText}`
+        );
 
-    return targetDatum;
+    return resultData;
 }
 
 export async function simpleLineCount(chartId, op, data, isLast = false) {

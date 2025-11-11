@@ -418,13 +418,63 @@ export function buildSimpleBarSpec(dvList, opts = {}) {
     return spec;
 }
 
-export function convertToDatumValues(fullData, xField, yField, orientation, group = null) {
-    return fullData.map(d => {
-        const categoryField = orientation === 'horizontal' ? yField : xField;
-        const measureField  = orientation === 'horizontal' ? xField : yField;
-        const target        = d[categoryField];
-        const value         = d[measureField];
-        return new DatumValue(categoryField, measureField, target, group, value);
+export function convertToDatumValues(fullData, xField, yField, orientation, fallbackGroup = null) {
+    const rows = Array.isArray(fullData) ? fullData : [];
+    const isHorizontal = orientation === 'horizontal';
+    const categoryField = isHorizontal ? (yField || 'category') : (xField || 'category');
+    const measureField = isHorizontal ? (xField || 'value') : (yField || 'value');
+
+    return rows.map((row = {}, idx) => {
+        const baseCategory = row.category || categoryField;
+        const baseMeasure = row.measure || measureField;
+
+        if (row instanceof DatumValue) {
+            const resolvedCloneId = row.id ?? row.lookupId ?? row.target ?? `${baseCategory}_${idx}`;
+            const cloneId = resolvedCloneId != null ? String(resolvedCloneId) : `${baseCategory}_${idx}`;
+            const cloned = new DatumValue(
+                baseCategory,
+                baseMeasure,
+                row.target,
+                row.group ?? fallbackGroup ?? null,
+                row.value,
+                cloneId
+            );
+            if (row.lookupId != null) {
+                cloned.lookupId = String(row.lookupId);
+            } else {
+                cloned.lookupId = cloneId;
+            }
+            return cloned;
+        }
+
+        const targetRaw = (row?.[categoryField] ?? row?.target ?? row?.category ?? idx);
+        const target = targetRaw != null ? String(targetRaw) : `item_${idx}`;
+
+        const rawValue = row?.[measureField] ?? row?.value;
+        const numericValue = Number(rawValue);
+        const value = Number.isFinite(numericValue) ? numericValue : rawValue;
+
+        const groupValue = row?.group ?? fallbackGroup ?? null;
+        const stableIdRaw = row?.id ?? row?.lookupId ?? null;
+        const stableId = stableIdRaw != null ? String(stableIdRaw) : undefined;
+
+        const datum = new DatumValue(
+            baseCategory,
+            baseMeasure,
+            target,
+            groupValue,
+            value,
+            stableId
+        );
+
+        const lookupIdRaw = row?.lookupId ?? stableId ?? target;
+        if (lookupIdRaw != null) {
+            datum.lookupId = String(lookupIdRaw);
+        }
+        if (row?.tooltip != null) {
+            datum.tooltip = row.tooltip;
+        }
+        return datum;
     });
 }
 
