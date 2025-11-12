@@ -1,4 +1,22 @@
-const CONFIG_URL = '/config.json';
+// Dynamically resolve base path for GitHub Pages project sites and other hosts
+function __detectBaseURL() {
+  if (typeof window !== 'undefined') {
+    // 1) Allow explicit injection from HTML if provided
+    if (window.__BASEURL__) return window.__BASEURL__;
+    try {
+      const { hostname, pathname } = window.location;
+      const segments = pathname.split('/').filter(Boolean);
+      // For https://<user>.github.io/<repo>/... -> use "/<repo>"
+      if (hostname.endsWith('github.io') && segments.length > 0) {
+        return `/${segments[0]}`;
+      }
+    } catch (_) { /* no-op */ }
+  }
+  // Default: site root
+  return '';
+}
+const __BASEURL__ = __detectBaseURL();
+const CONFIG_URL = `${__BASEURL__}/config.json`;
 const FIRESTORE_HOST = 'https://firestore.googleapis.com/v1';
 
 let cachedSettings = null;
