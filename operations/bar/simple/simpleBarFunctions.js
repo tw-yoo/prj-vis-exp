@@ -13,11 +13,9 @@ import {
     count as dataCount,
     lagDiff as dataLagDiff
 } from "../../operationFunctions.js";
-import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { OP_COLORS } from "../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
-import { resolveLinearDomain, storeAxisDomain } from "../../common/scaleHelpers.js";
-import { getRuntimeResultsById } from "../../runtimeResultStore.js";
 
 // 🔥 템플릿 임포트
 import * as Helpers from '../../animationHelpers.js';
@@ -116,82 +114,6 @@ export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function signalOpDone(chartId, opName) {
     document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId, op: opName } }));
-}
-
-function collectNumericValues(data, fallbackField = 'value') {
-    if (!Array.isArray(data)) return [];
-    return data.map(d => {
-        if (!d) return NaN;
-        if (d.value !== undefined) return Number(d.value);
-        if (fallbackField && d[fallbackField] !== undefined) return Number(d[fallbackField]);
-        return NaN;
-    }).filter(Number.isFinite);
-}
-
-function buildValueScale(svgNode, orientation, plot, values, fallbackDomain = null) {
-    const axis = orientation === 'vertical' ? 'y' : 'x';
-    const finiteValues = Array.isArray(values) && values.length
-        ? values.filter(Number.isFinite)
-        : [];
-    let inferredDomain = fallbackDomain;
-    if ((!inferredDomain || inferredDomain.length < 2) && finiteValues.length) {
-        const minVal = d3.min(finiteValues);
-        const maxVal = d3.max(finiteValues);
-        const domainMin = Math.min(minVal, 0);
-        const domainMax = Math.max(maxVal, 0);
-        inferredDomain = (domainMin === domainMax)
-            ? [domainMin, domainMin === 0 ? 1 : domainMin * 1.1]
-            : [domainMin, domainMax];
-    }
-    const domain = resolveLinearDomain(svgNode, axis, inferredDomain);
-    if (!domain) return null;
-    const range = orientation === 'vertical'
-        ? [plot.h, 0]
-        : [0, plot.w];
-    return d3.scaleLinear().domain(domain).range(range);
-}
-
-function makeValuePositionResolver(svgNode, orientation, plot, values) {
-    const scale = buildValueScale(svgNode, orientation, plot, values);
-    if (orientation === 'vertical') {
-        return (node) => {
-            const val = getMarkValue(node);
-            const y = Number(node?.getAttribute?.('y') ?? 0);
-            const height = Number(node?.getAttribute?.('height') ?? 0);
-
-            if (scale && Number.isFinite(val)) {
-                const scaled = val >= 0 ? scale(val) : scale(0);
-                if (Number.isFinite(scaled)) {
-                    return scaled;
-                }
-            }
-
-            if (Number.isFinite(val) && val < 0 && Number.isFinite(y) && Number.isFinite(height)) {
-                return y + height;
-            }
-            return Number.isFinite(y) ? y : 0;
-        };
-    }
-    return (node) => {
-        const val = getMarkValue(node);
-        const x = Number(node?.getAttribute?.('x') ?? 0);
-        const width = Number(node?.getAttribute?.('width') ?? 0);
-
-        if (scale && Number.isFinite(val)) {
-            const scaled = val >= 0 ? scale(val) : scale(0);
-            if (Number.isFinite(scaled)) {
-                return scaled;
-            }
-        }
-
-        if (Number.isFinite(val) && val < 0 && Number.isFinite(x)) {
-            return x;
-        }
-        if (Number.isFinite(x) && Number.isFinite(width)) {
-            return x + width;
-        }
-        return 0;
-    };
 }
 
 // ============= RETRIEVE VALUE (✅ 템플릿 적용) =============
@@ -393,7 +315,16 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     }
     
     // 스케일 설정
-    const valueResolver = makeValuePositionResolver(svg.node(), orientation, plot, collectNumericValues(data, yField));
+    let xScale, yScale;
+    if (orientation === 'vertical') {
+        xScale = d3.scaleBand().domain(data.map(d => String(d.target))).range([0, plot.w]).padding(0.2);
+        const yMax = d3.max(data, d => +d.value) || 0;
+        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+    } else {
+        yScale = d3.scaleBand().domain(data.map(d => String(d.target))).range([0, plot.h]).padding(0.2);
+        const xMax = d3.max(data, d => +d.value) || 0;
+        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
+    }
     
     // 🔥 템플릿 적용: highlightAndAnnotatePattern
     await Templates.highlightAndAnnotatePattern({
@@ -409,7 +340,10 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
             const label = op?.which === 'min' ? 'Min' : 'Max';
             return `${label}: ${val}`;
         },
-        getYPositionFn: (node) => valueResolver(node),
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return orientation === 'vertical' ? yScale(val) : xScale(val);
+        },
         getCenterFn: (node) => getCenter(node, orientation, margins),
         useDim: false
     });
@@ -444,7 +378,10 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
 
     const minV = d3.min(values);
     const maxV = d3.max(values);
-    const valueResolver = makeValuePositionResolver(svg.node(), orientation, plot, values);
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(values) || 0])
+        .nice()
+        .range([plot.h, 0]);
 
     const findBars = (val) => selectAllMarks(g).filter(d => {
         if (!d) return false;
@@ -471,7 +408,10 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
             const isMin = minBars.filter(function() { return this === node; }).size() > 0;
             return `${isMin ? 'Min' : 'Max'}: ${val}`;
         },
-        getYPositionFn: (node) => valueResolver(node),
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return yScale(val);
+        },
         getCenterFn: (node) => getCenter(node, orientation, margins),
         useDim: false
     });
@@ -498,24 +438,14 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const key = String(k);
-        const foundById = data.find(d => String(d?.id) === key);
+        const foundById = data.find(d => String(d?.id) === k);
         if (foundById) return String(foundById.id);
-        const foundByLookup = data.find(d => d?.lookupId != null && String(d.lookupId) === key);
+        const foundByLookup = data.find(d => d?.lookupId != null && String(d.lookupId) === k);
         if (foundByLookup) {
             return String(foundByLookup.id ?? foundByLookup.lookupId);
         }
-        const foundByTarget = data.find(d => String(d?.target) === key);
-        if (foundByTarget) return String(foundByTarget.target);
-
-        const runtimeMatches = getRuntimeResultsById(key);
-        if (runtimeMatches.length > 0) {
-            const candidate = runtimeMatches[0];
-            if (candidate.id != null) return String(candidate.id);
-            if (candidate.lookupId != null) return String(candidate.lookupId);
-            if (candidate.target != null) return String(candidate.target);
-        }
-        return key;
+        const foundByTarget = data.find(d => String(d?.target) === k);
+        return foundByTarget ? String(foundByTarget.target) : k;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);
@@ -531,7 +461,18 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
 
     const colorA = OP_COLORS.COMPARE_A;
     const colorB = OP_COLORS.COMPARE_B;
-    const valueResolver = makeValuePositionResolver(svg.node(), orientation, plot, collectNumericValues(data, yField));
+
+    // 스케일 설정
+    let xScale, yScale;
+    if (orientation === "vertical") {
+        const yMax = d3.max(data, d => +d.value) || 0;
+        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+        xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
+    } else {
+        const xMax = d3.max(data, d => +d.value) || 0;
+        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
+        yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
+    }
 
     // 🔥 템플릿 적용: comparePattern
     await Templates.comparePattern({
@@ -545,12 +486,31 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         plot: plot,
         orientation: orientation,
         getValueFn: (node) => getMarkValue(node),
-        getYPositionFn: (node) => valueResolver(node),
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return orientation === "vertical" ? yScale(val) : xScale(val);
+        },
         getCenterFn: (node) => getCenter(node, orientation, margins),
         useDim: false
     });
 
-    await Helpers.delay(30);
+    if (isPercentOfTotal) {
+        const percentLabel = Number.isFinite(result.value)
+            ? `${result.value.toFixed(1)}%`
+            : '—';
+        svg.append('text')
+            .attr('class', 'annotation diff-percent-summary')
+            .attr('x', margins.left + plot.w / 2)
+            .attr('y', Math.max(24, margins.top - 6))
+            .attr('text-anchor', 'middle')
+            .attr('font-size', 16)
+            .attr('font-weight', 'bold')
+            .attr('fill', OP_COLORS.DIFF_LINE)
+            .text(`Percent of total = ${percentLabel}`);
+    }
+
+    await Promise.all(animationPromises).catch(() => {});
+    await delay(30);
     signalOpDone(chartId, 'compare');
     return winner ? [winner] : [];
 }
@@ -571,24 +531,14 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const key = String(k);
-        const foundById = data.find(d => String(d?.id) === key);
+        const foundById = data.find(d => String(d?.id) === k);
         if (foundById) return String(foundById.id);
-        const foundByLookup = data.find(d => d?.lookupId != null && String(d.lookupId) === key);
+        const foundByLookup = data.find(d => d?.lookupId != null && String(d.lookupId) === k);
         if (foundByLookup) {
             return String(foundByLookup.id ?? foundByLookup.lookupId);
         }
-        const foundByTarget = data.find(d => String(d?.target) === key);
-        if (foundByTarget) return String(foundByTarget.target);
-
-        const runtimeMatches = getRuntimeResultsById(key);
-        if (runtimeMatches.length > 0) {
-            const candidate = runtimeMatches[0];
-            if (candidate.id != null) return String(candidate.id);
-            if (candidate.lookupId != null) return String(candidate.lookupId);
-            if (candidate.target != null) return String(candidate.target);
-        }
-        return key;
+        const foundByTarget = data.find(d => String(d?.target) === k);
+        return foundByTarget ? String(foundByTarget.target) : k;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);
@@ -604,7 +554,18 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
 
     const colorA = OP_COLORS.COMPARE_A;
     const colorB = OP_COLORS.COMPARE_B;
-    const valueResolver = makeValuePositionResolver(svg.node(), orientation, plot, collectNumericValues(data, yField));
+
+    // 스케일 설정
+    let xScale, yScale;
+    if (orientation === "vertical") {
+        const yMax = d3.max(data, d => +d.value) || 0;
+        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
+        xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
+    } else {
+        const xMax = d3.max(data, d => +d.value) || 0;
+        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
+        yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
+    }
 
     // 🔥 템플릿 적용: comparePattern
     await Templates.comparePattern({
@@ -618,7 +579,10 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
         plot: plot,
         orientation: orientation,
         getValueFn: (node) => getMarkValue(node),
-        getYPositionFn: (node) => valueResolver(node),
+        getYPositionFn: (node) => {
+            const val = getMarkValue(node);
+            return orientation === "vertical" ? yScale(val) : xScale(val);
+        },
         getCenterFn: (node) => getCenter(node, orientation, margins),
         useDim: false
     });
@@ -712,7 +676,6 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
         result.value,
         result.id
     );
-    sumDatum.name = result.name || sumDatum.target;
 
     // 스택 애니메이션 (기존 유지)
     const newYScale = d3.scaleLinear().domain([0, totalSum]).nice().range([plot.h, 0]);
@@ -737,9 +700,6 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
     });
 
     await Promise.all([yAxisTransition, ...stackPromises]);
-    if (svg.node()) {
-        storeAxisDomain(svg.node(), 'y', newYScale.domain());
-    }
     await Helpers.delay(DURATIONS.SUM_DELAY);
 
     // 🔥 템플릿 적용: aggregateResultPattern
@@ -797,29 +757,15 @@ export async function simpleBarAverage(chartId, op, data, isLast = false) {
         result.value,
         result.id
     );
-    averageDatum.name = result.name || averageDatum.target;
 
-    // 스케일 설정 (막대가 그대로 남아 있는 상태를 기반으로 계산)
-    const currentBars = selectAllMarks(g);
-    const currentValues = currentBars.nodes()
-        .map(node => getMarkValue(node))
-        .map(v => (Number.isFinite(+v) ? +v : NaN))
-        .filter(Number.isFinite);
-    const domMax = d3.max(currentValues) || 0;
-    const dataMax = d3.max(numeric) || 0;
-    const axisMax = Math.max(domMax, dataMax);
-
+    // 스케일 설정
     let yScale, xScale;
     if (orientation === 'vertical') {
-        yScale = d3.scaleLinear()
-            .domain([0, axisMax])
-            .nice()
-            .range([plot.h, 0]);
+        const yMax = d3.max(numeric) || 0;
+        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
     } else {
-        xScale = d3.scaleLinear()
-            .domain([0, axisMax])
-            .nice()
-            .range([0, plot.w]);
+        const xMax = d3.max(numeric) || 0;
+        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
     }
 
     // 🔥 템플릿 적용: aggregateResultPattern
@@ -865,27 +811,16 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         result.category, result.measure, result.target,
         result.group, diffValue, result.id
     );
-    diffDatum.name = result.name || diffDatum.target;
 
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const key = String(k);
-        const foundById = data.find(d => String(d?.id) === key);
+        const foundById = data.find(d => String(d?.id) === k);
         if (foundById) return String(foundById.id);
-        const foundByTarget = data.find(d => String(d?.target) === key);
-        if (foundByTarget) return String(foundByTarget.target);
-
-        const runtimeMatches = getRuntimeResultsById(key);
-        if (runtimeMatches.length > 0) {
-            const candidate = runtimeMatches[0];
-            if (candidate.id != null) return String(candidate.id);
-            if (candidate.lookupId != null) return String(candidate.lookupId);
-            if (candidate.target != null) return String(candidate.target);
-        }
-        return key;
+        const foundByTarget = data.find(d => String(d?.target) === k);
+        return foundByTarget ? String(foundByTarget.target) : k;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);
@@ -916,57 +851,147 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
 
-    // 🔥 템플릿 적용: comparePattern으로 막대 하이라이트
-    await Templates.comparePattern({
-        allElements: selectAllMarks(g),
-        elementA: barA,
-        elementB: barB,
-        colorA: colorA,
-        colorB: colorB,
-        svg: svg,
-        margins: margins,
-        plot: plot,
-        orientation: orientation,
-        getValueFn: (node) => getMarkValue(node),
-        getYPositionFn: (node) => {
-            const val = getMarkValue(node);
-            return orientation === "vertical" ? yScale(val) : xScale(val);
-        },
-        getCenterFn: (node) => getCenter(node, orientation, margins),
-        useDim: false
+    const targets = [
+        { bar: barA, key: keyA, value: valueA, color: colorA },
+        { bar: barB, key: keyB, value: valueB, color: colorB }
+    ];
+    let guidePositions = [];
+
+    targets.forEach(t => {
+        if (!Number.isFinite(t.value)) return;
+
+        if (orientation === "vertical") {
+            const yPos = margins.top + yScale(t.value);
+            guidePositions.push(yPos);
+            const line = svg.append("line").attr("class", "annotation")
+                .attr("x1", margins.left).attr("y1", yPos)
+                .attr("x2", margins.left).attr("y2", yPos)
+                .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            animationPromises.push(
+                line.transition().duration(400).attr("x2", margins.left + plot.w).end()
+            );
+        } else {
+            const xPos = margins.left + xScale(t.value);
+            guidePositions.push(xPos);
+            const line = svg.append("line").attr("class", "annotation")
+                .attr("x1", xPos).attr("y1", margins.top)
+                .attr("x2", xPos).attr("y2", margins.top)
+                .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+            animationPromises.push(
+                line.transition().duration(400).attr("y2", margins.top + plot.h).end()
+            );
+        }
+
+        const { x, y } = getCenter(t.bar.node(), orientation, margins);
+        svg.append("text").attr("class", "annotation")
+            .attr("x", x).attr("y", y)
+            .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
+            .attr("fill", t.color)
+            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+            .text(t.value);
     });
+
+    const expectedGuideCount = targets.length;
+    if (guidePositions.length < expectedGuideCount) {
+        const fallbackPositions = [];
+        const resolveNumericValue = (key) => {
+            const datum = data.find(d => {
+                const datumKey = d?.id != null ? String(d.id) : String(d?.target ?? '');
+                return datumKey === key;
+            });
+            const v = Number(datum?.value);
+            return Number.isFinite(v) ? v : null;
+        };
+        const resolvedKeys = [visKeyA, visKeyB];
+        resolvedKeys.forEach((resolvedKey) => {
+            if (!resolvedKey) return;
+            const numericValue = resolveNumericValue(resolvedKey);
+            if (!Number.isFinite(numericValue)) return;
+            if (orientation === "vertical") {
+                fallbackPositions.push(margins.top + yScale(numericValue));
+            } else {
+                fallbackPositions.push(margins.left + xScale(numericValue));
+            }
+        });
+        if (fallbackPositions.length === expectedGuideCount) {
+            guidePositions = fallbackPositions;
+        }
+    }
 
     const diffMagnitude = Number.isFinite(result?.value)
         ? (isPercentMode ? result.value : Math.abs(result.value))
         : (Number.isFinite(valueA) && Number.isFinite(valueB) ? Math.abs(valueA - valueB) : null);
 
-    if (!isPercentMode && Number.isFinite(diffMagnitude)) {
-        await Templates.rangeBridgePattern({
-            svg: svg,
-            margins: margins,
-            plot: plot,
-            orientation: orientation,
-            valueA: valueA,
-            valueB: valueB,
-            yScale: yScale,
-            color: OP_COLORS.DIFF_LINE,
-            labelText: `Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-        });
-    }
+    if (!isPercentMode) {
+        if (orientation === "vertical" && guidePositions.length === 2 && Number.isFinite(diffMagnitude)) {
+            const [posA, posB] = guidePositions;
+            if (Number.isFinite(posA) && Number.isFinite(posB)) {
+                const minY = Math.min(posA, posB);
+                const maxY = Math.max(posA, posB);
+                const diffX = margins.left + plot.w - 8;
+                const bridge = svg.append("line").attr("class", "annotation diff-line")
+                    .attr("x1", diffX).attr("x2", diffX)
+                    .attr("y1", minY).attr("y2", minY)
+                    .attr("stroke", OP_COLORS.DIFF_LINE)
+                    .attr("stroke-width", 2)
+                    .attr("stroke-dasharray", "5 5");
+                animationPromises.push(
+                    bridge.transition().duration(400).attr("y2", maxY).end()
+                );
 
-    if (isPercentOfTotal) {
-        const percentLabel = Number.isFinite(result.value)
-            ? `${result.value.toFixed(1)}%`
-            : '—';
-        svg.append('text')
-            .attr('class', 'annotation diff-percent-summary')
-            .attr('x', margins.left + plot.w / 2)
-            .attr('y', Math.max(24, margins.top - 6))
-            .attr('text-anchor', 'middle')
-            .attr('font-size', 16)
-            .attr('font-weight', 'bold')
-            .attr('fill', OP_COLORS.DIFF_LINE)
-            .text(`Percent of total = ${percentLabel}`);
+                const labelY = (minY + maxY) / 2;
+                const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                    .attr("x", diffX - 6)
+                    .attr("y", labelY)
+                    .attr("text-anchor", "end")
+                    .attr("font-size", 12)
+                    .attr("font-weight", "bold")
+                    .attr("fill", OP_COLORS.DIFF_LINE)
+                    .attr("stroke", "white")
+                    .attr("stroke-width", 3)
+                    .attr("paint-order", "stroke")
+                    .text(`Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                    .attr("opacity", 0);
+                animationPromises.push(
+                    diffLabel.transition().duration(400).attr("opacity", 1).end()
+                );
+            }
+        }
+
+        if (orientation === "horizontal" && guidePositions.length === 2 && Number.isFinite(diffMagnitude)) {
+            const [posA, posB] = guidePositions;
+            if (Number.isFinite(posA) && Number.isFinite(posB)) {
+                const minX = Math.min(posA, posB);
+                const maxX = Math.max(posA, posB);
+                const diffY = margins.top + plot.h - 8;
+                const bridge = svg.append("line").attr("class", "annotation diff-line")
+                    .attr("x1", minX).attr("x2", minX)
+                    .attr("y1", diffY).attr("y2", diffY)
+                    .attr("stroke", OP_COLORS.DIFF_LINE)
+                    .attr("stroke-width", 2)
+                    .attr("stroke-dasharray", "5 5");
+                animationPromises.push(
+                    bridge.transition().duration(400).attr("x2", maxX).end()
+                );
+
+                const labelX = (minX + maxX) / 2;
+                const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                    .attr("x", labelX)
+                    .attr("y", diffY + 16)
+                    .attr("text-anchor", "middle")
+                    .attr("font-size", 12)
+                    .attr("font-weight", "bold")
+                    .attr("fill", OP_COLORS.DIFF_LINE)
+                    .attr("stroke", "white")
+                    .attr("stroke-width", 3)
+                    .attr("paint-order", "stroke")
+                    .text(`Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                    .attr("opacity", 0);
+                animationPromises.push(
+                    diffLabel.transition().duration(400).attr("opacity", 1).end()
+                );
+            }
+        }
     }
 
     await Helpers.delay(30);
@@ -1195,7 +1220,6 @@ export async function simpleBarLagDiff(chartId, op, data, isLast = false) {
     return diffDatumValues;
 }
 
-// ============= NTH (✅ 수정 완료 - 순서 보장) =============
 export async function simpleBarNth(chartId, op, data, isLast = false) {
     const { svg, g, xField, yField, margins, plot, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);

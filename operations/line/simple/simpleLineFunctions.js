@@ -14,7 +14,7 @@ import {
     countData as dataCount,
     lagDiffData as dataLagDiff
 } from "../../lineChartOperationFunctions.js";
-import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { OP_COLORS } from "../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 import {

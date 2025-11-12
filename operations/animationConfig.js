@@ -39,8 +39,8 @@ export const OPACITIES = {
 export const STYLES = {
   // 가이드라인 (점선)
   GUIDELINE: {
-    strokeDasharray: '5 5',
-    strokeWidth: 2,
+    strokeDasharray: '4 4',    // 기존 코드 기준
+    strokeWidth: 1.5,
     opacity: 1                 // 기존: opacity 속성 없음 (항상 1)
   },
   

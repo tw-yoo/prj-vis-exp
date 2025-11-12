@@ -31,7 +31,7 @@ import {
     simpleBarCount,
     simpleBarRetrieveValue
 } from "../simple/simpleBarFunctions.js";
-import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { OP_COLORS } from "../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 
