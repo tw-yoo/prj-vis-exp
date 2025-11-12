@@ -27,6 +27,7 @@ import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, upda
 import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
 import { renderChartWithFade } from "../common/chartRenderUtils.js";
 import { normalizeCachedData } from "../common/datumCacheHelpers.js";
+import { storeAxisDomain } from "../../common/scaleHelpers.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -405,6 +406,7 @@ export async function renderSimpleBarChart(chartId, spec) {
             .domain(data.map(d => d[yField]))
             .range([0, plotH])
             .padding(0.2);
+        storeAxisDomain(svg.node(), 'x', xScale.domain());
 
         g.append("g")
             .attr("class", "y-axis")
@@ -443,6 +445,7 @@ export async function renderSimpleBarChart(chartId, spec) {
             .domain([domainMin, domainMax]).nice()
             .range([plotH, 0]);
         const zeroY = yScale(0);
+        storeAxisDomain(svg.node(), 'y', yScale.domain());
 
         g.append("g")
             .attr("class", "x-axis")

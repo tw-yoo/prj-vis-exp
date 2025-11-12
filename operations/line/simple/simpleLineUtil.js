@@ -21,6 +21,7 @@ import {DatumValue} from "../../../object/valueType.js";
 import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 import {renderSimpleBarChart, executeSimpleBarOpsList} from "../../bar/simple/simpleBarUtil.js";
 import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
+import { storeAxisDomain } from "../../common/scaleHelpers.js";
 
 /** 내부 사용: 라인 차트 데이터 저장 (renderSimpleLineChart에서 적재) */
 const chartDataStore = {};
@@ -302,6 +303,7 @@ export async function renderSimpleLineChart(chartId, spec) {
 
     const yMax = d3.max(data, d => d[yField]);
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([innerHeight, 0]);
+    storeAxisDomain(svg.node(), 'y', yScale.domain());
 
     g.append("g").attr("class", "x-axis")
         .attr("transform", `translate(0,${innerHeight})`).call(d3.axisBottom(xScale));

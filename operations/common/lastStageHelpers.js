@@ -1,5 +1,48 @@
 import { DatumValue } from "../../object/valueType.js";
 
+function toTrimmedString(value) {
+    if (value == null) return '';
+    const str = String(value).trim();
+    return str.length > 0 ? str : '';
+}
+
+function formatNumericHint(value) {
+    if (value == null) return '';
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '';
+    if (Number.isInteger(num)) {
+        return num.toLocaleString();
+    }
+    return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function humanizeKey(value) {
+    const trimmed = toTrimmedString(value);
+    if (!trimmed) return '';
+    const normalized = trimmed.replace(/[_\s]+/g, ' ').trim();
+    if (!normalized) return '';
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function deriveSourceHint(datum, fallbackId) {
+    if (!datum) return humanizeKey(fallbackId);
+    const rawId = toTrimmedString(datum.id);
+    if (rawId) {
+        const lastUnderscore = rawId.lastIndexOf('_');
+        const base = lastUnderscore > 0 ? rawId.slice(0, lastUnderscore) : rawId;
+        const humanized = humanizeKey(base);
+        if (humanized) return humanized;
+    }
+    const lookup = toTrimmedString(datum.lookupId);
+    if (lookup) {
+        const humanizedLookup = humanizeKey(lookup);
+        if (humanizedLookup) return humanizedLookup;
+    }
+    const target = toTrimmedString(datum.target);
+    if (target) return target;
+    return humanizeKey(fallbackId);
+}
+
 export function extractLastText(textSpec = {}) {
     if (!textSpec) return '';
     if (typeof textSpec === 'string') return textSpec;
@@ -50,24 +93,52 @@ export function buildCompareDatasetFromCache(cachedResults, fallbackCategory = '
         axisLabelOverrides.y = null;
     }
 
-    const compareData = sanitized.map((datum, idx) => {
+    const labelBlueprints = sanitized.map((datum, idx) => {
         const hasCustomName = typeof datum?.name === 'string' && datum.name.trim().length > 0;
         const baseLabel = hasCustomName
             ? datum.name.trim()
             : (() => {
-                if (datum && datum.target != null) {
-                    const t = String(datum.target).trim();
-                    if (t.length > 0) return t;
-                }
-                return `Result ${idx + 1}`;
+                const targetLabel = toTrimmedString(datum?.target);
+                return targetLabel || `Result ${idx + 1}`;
             })();
-        const groupLabel = (!hasCustomName && datum.group != null) ? ` · ${String(datum.group)}` : '';
-        const normalizedId = (typeof datum?.id === 'string') ? datum.id.trim() : '';
-        const stableId = (normalizedId.length > 0)
-            ? normalizedId
-            : `last_${idx}`;
+        const groupKey = toTrimmedString(datum?.group);
+        const groupLabel = (!hasCustomName && groupKey) ? ` · ${groupKey}` : '';
+        const normalizedId = toTrimmedString(datum?.id);
+        const stableId = normalizedId || `last_${idx}`;
+        const labelKey = `${baseLabel}||${groupKey}`;
+        return { hasCustomName, baseLabel, groupLabel, stableId, labelKey };
+    });
+
+    const labelCounts = new Map();
+    labelBlueprints.forEach(({ labelKey }) => {
+        labelCounts.set(labelKey, (labelCounts.get(labelKey) || 0) + 1);
+    });
+
+    const compareData = sanitized.map((datum, idx) => {
+        const blueprint = labelBlueprints[idx];
+        const { hasCustomName, baseLabel, groupLabel, stableId, labelKey } = blueprint;
         const idHint = hasCustomName ? '' : (stableId.includes('_') ? ` (${stableId.split('_')[0]})` : '');
-        const targetLabel = `${baseLabel}${groupLabel}${idHint}`;
+        const baseWithGroup = `${baseLabel}${groupLabel}${idHint}`;
+        const needsDisambiguation = (labelCounts.get(labelKey) ?? 0) > 1;
+
+        let targetLabel = baseWithGroup;
+        if (needsDisambiguation) {
+            const suffixParts = [];
+            const numericHint = formatNumericHint(datum?.value);
+            if (numericHint) suffixParts.push(numericHint);
+            const idLabel = humanizeKey(stableId);
+            const sourceHint = deriveSourceHint(datum, stableId);
+            if (sourceHint && (!idLabel || !idLabel.toLowerCase().includes(sourceHint.toLowerCase()))) {
+                suffixParts.push(sourceHint);
+            }
+            if (idLabel) suffixParts.push(idLabel);
+            const uniqueSuffix = Array.from(new Set(suffixParts.filter(Boolean)));
+            if (uniqueSuffix.length === 0) {
+                uniqueSuffix.push(humanizeKey(stableId) || stableId);
+            }
+            targetLabel = `${baseWithGroup} — ${uniqueSuffix.join(' · ')}`;
+        }
+
         const dv = new DatumValue(
             canonicalCategory,
             canonicalMeasure,

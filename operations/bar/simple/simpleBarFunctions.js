@@ -16,6 +16,7 @@ import {
 import { OP_COLORS } from "../../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
+import { resolveLinearDomain, storeAxisDomain } from "../../common/scaleHelpers.js";
 
 // 🔥 템플릿 임포트
 import * as Helpers from '../../animationHelpers.js';
@@ -114,6 +115,65 @@ export const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function signalOpDone(chartId, opName) {
     document.dispatchEvent(new CustomEvent('ops:animation-complete', { detail: { chartId, op: opName } }));
+}
+
+function collectNumericValues(data, fallbackField = 'value') {
+    if (!Array.isArray(data)) return [];
+    return data.map(d => {
+        if (!d) return NaN;
+        if (d.value !== undefined) return Number(d.value);
+        if (fallbackField && d[fallbackField] !== undefined) return Number(d[fallbackField]);
+        return NaN;
+    }).filter(Number.isFinite);
+}
+
+function buildValueScale(svgNode, orientation, plot, values, fallbackDomain = null) {
+    const axis = orientation === 'vertical' ? 'y' : 'x';
+    const finiteValues = Array.isArray(values) && values.length
+        ? values.filter(Number.isFinite)
+        : [];
+    let inferredDomain = fallbackDomain;
+    if ((!inferredDomain || inferredDomain.length < 2) && finiteValues.length) {
+        const minVal = d3.min(finiteValues);
+        const maxVal = d3.max(finiteValues);
+        const domainMin = Math.min(minVal, 0);
+        const domainMax = Math.max(maxVal, 0);
+        inferredDomain = (domainMin === domainMax)
+            ? [domainMin, domainMin === 0 ? 1 : domainMin * 1.1]
+            : [domainMin, domainMax];
+    }
+    const domain = resolveLinearDomain(svgNode, axis, inferredDomain);
+    if (!domain) return null;
+    const range = orientation === 'vertical'
+        ? [plot.h, 0]
+        : [0, plot.w];
+    return d3.scaleLinear().domain(domain).range(range);
+}
+
+function makeValuePositionResolver(svgNode, orientation, plot, values) {
+    const scale = buildValueScale(svgNode, orientation, plot, values);
+    if (orientation === 'vertical') {
+        return (node) => {
+            const val = getMarkValue(node);
+            if (Number.isFinite(val) && scale) {
+                return scale(val);
+            }
+            const y = Number(node?.getAttribute?.('y') ?? 0);
+            const height = Number(node?.getAttribute?.('height') ?? 0);
+            if (Number.isFinite(val) && val < 0) return y + height;
+            return y;
+        };
+    }
+    return (node) => {
+        const val = getMarkValue(node);
+        if (Number.isFinite(val) && scale) {
+            return scale(val);
+        }
+        const x = Number(node?.getAttribute?.('x') ?? 0);
+        const width = Number(node?.getAttribute?.('width') ?? 0);
+        if (Number.isFinite(val) && val < 0) return x;
+        return x + width;
+    };
 }
 
 // ============= RETRIEVE VALUE (✅ 템플릿 적용) =============
@@ -315,16 +375,7 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
     }
     
     // 스케일 설정
-    let xScale, yScale;
-    if (orientation === 'vertical') {
-        xScale = d3.scaleBand().domain(data.map(d => String(d.target))).range([0, plot.w]).padding(0.2);
-        const yMax = d3.max(data, d => +d.value) || 0;
-        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-    } else {
-        yScale = d3.scaleBand().domain(data.map(d => String(d.target))).range([0, plot.h]).padding(0.2);
-        const xMax = d3.max(data, d => +d.value) || 0;
-        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
-    }
+    const valueResolver = makeValuePositionResolver(svg.node(), orientation, plot, collectNumericValues(data, yField));
     
     // 🔥 템플릿 적용: highlightAndAnnotatePattern
     await Templates.highlightAndAnnotatePattern({
@@ -340,10 +391,7 @@ export async function simpleBarFindExtremum(chartId, op, data, isLast = false) {
             const label = op?.which === 'min' ? 'Min' : 'Max';
             return `${label}: ${val}`;
         },
-        getYPositionFn: (node) => {
-            const val = getMarkValue(node);
-            return orientation === 'vertical' ? yScale(val) : xScale(val);
-        },
+        getYPositionFn: (node) => valueResolver(node),
         getCenterFn: (node) => getCenter(node, orientation, margins),
         useDim: false
     });
@@ -378,10 +426,7 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
 
     const minV = d3.min(values);
     const maxV = d3.max(values);
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(values) || 0])
-        .nice()
-        .range([plot.h, 0]);
+    const valueResolver = makeValuePositionResolver(svg.node(), orientation, plot, values);
 
     const findBars = (val) => selectAllMarks(g).filter(d => {
         if (!d) return false;
@@ -408,10 +453,7 @@ export async function simpleBarDetermineRange(chartId, op, data, isLast = false)
             const isMin = minBars.filter(function() { return this === node; }).size() > 0;
             return `${isMin ? 'Min' : 'Max'}: ${val}`;
         },
-        getYPositionFn: (node) => {
-            const val = getMarkValue(node);
-            return yScale(val);
-        },
+        getYPositionFn: (node) => valueResolver(node),
         getCenterFn: (node) => getCenter(node, orientation, margins),
         useDim: false
     });
@@ -461,18 +503,7 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
 
     const colorA = OP_COLORS.COMPARE_A;
     const colorB = OP_COLORS.COMPARE_B;
-
-    // 스케일 설정
-    let xScale, yScale;
-    if (orientation === "vertical") {
-        const yMax = d3.max(data, d => +d.value) || 0;
-        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-        xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
-    } else {
-        const xMax = d3.max(data, d => +d.value) || 0;
-        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
-        yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
-    }
+    const valueResolver = makeValuePositionResolver(svg.node(), orientation, plot, collectNumericValues(data, yField));
 
     // 🔥 템플릿 적용: comparePattern
     await Templates.comparePattern({
@@ -486,10 +517,7 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         plot: plot,
         orientation: orientation,
         getValueFn: (node) => getMarkValue(node),
-        getYPositionFn: (node) => {
-            const val = getMarkValue(node);
-            return orientation === "vertical" ? yScale(val) : xScale(val);
-        },
+        getYPositionFn: (node) => valueResolver(node),
         getCenterFn: (node) => getCenter(node, orientation, margins),
         useDim: false
     });
@@ -554,18 +582,7 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
 
     const colorA = OP_COLORS.COMPARE_A;
     const colorB = OP_COLORS.COMPARE_B;
-
-    // 스케일 설정
-    let xScale, yScale;
-    if (orientation === "vertical") {
-        const yMax = d3.max(data, d => +d.value) || 0;
-        yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-        xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
-    } else {
-        const xMax = d3.max(data, d => +d.value) || 0;
-        xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
-        yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
-    }
+    const valueResolver = makeValuePositionResolver(svg.node(), orientation, plot, collectNumericValues(data, yField));
 
     // 🔥 템플릿 적용: comparePattern
     await Templates.comparePattern({
@@ -579,10 +596,7 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
         plot: plot,
         orientation: orientation,
         getValueFn: (node) => getMarkValue(node),
-        getYPositionFn: (node) => {
-            const val = getMarkValue(node);
-            return orientation === "vertical" ? yScale(val) : xScale(val);
-        },
+        getYPositionFn: (node) => valueResolver(node),
         getCenterFn: (node) => getCenter(node, orientation, margins),
         useDim: false
     });
@@ -701,6 +715,9 @@ export async function simpleBarSum(chartId, op, data, isLast = false) {
     });
 
     await Promise.all([yAxisTransition, ...stackPromises]);
+    if (svg.node()) {
+        storeAxisDomain(svg.node(), 'y', newYScale.domain());
+    }
     await Helpers.delay(DURATIONS.SUM_DELAY);
 
     // 🔥 템플릿 적용: aggregateResultPattern

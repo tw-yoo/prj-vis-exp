@@ -37,6 +37,7 @@ import {
     simpleBarSort,
     simpleBarSum
 } from "../simple/simpleBarFunctions.js";
+import { storeAxisDomain } from "../../common/scaleHelpers.js";
 
 // --- settle helpers (match groupedBar pattern) ---
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -356,6 +357,7 @@ export async function renderStackedBarChart(chartId, spec) {
         let maxVal = d3.max(stackedData, layer => d3.max(layer, d => d[1]));
         if (!Number.isFinite(maxVal)) maxVal = d3.max(dataForStack, row => d3.sum(subgroups, k => +row[k] || 0)) || 0;
         const yScale = d3.scaleLinear().domain([0, maxVal]).nice().range([plotH, 0]);
+        storeAxisDomain(svg.node(), 'y', yScale.domain());
 
         g.append("g").attr("class", "x-axis")
             .attr("transform", `translate(0,${plotH})`)
@@ -396,6 +398,7 @@ export async function renderStackedBarChart(chartId, spec) {
         let maxVal = d3.max(stackedData, layer => d3.max(layer, d => d[1]));
         if (!Number.isFinite(maxVal)) maxVal = d3.max(dataForStack, row => d3.sum(subgroups, k => +row[k] || 0)) || 0;
         const xScale = d3.scaleLinear().domain([0, maxVal]).nice().range([0, plotW]);
+        storeAxisDomain(svg.node(), 'x', xScale.domain());
 
         g.append("g").attr("class", "x-axis")
             .attr("transform", `translate(0,${plotH})`)

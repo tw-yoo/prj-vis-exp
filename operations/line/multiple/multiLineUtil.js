@@ -1,4 +1,4 @@
-import { DatumValue } from "../../../object/valueType.js";
+import { DatumValue, BoolValue, IntervalValue, ScalarValue } from "../../../object/valueType.js";
 import { clearAllAnnotations as simpleClearAllAnnotations, delay } from '../simple/simpleLineFunctions.js';
 
 import {
@@ -11,6 +11,7 @@ import {dataCache, lastCategory, lastMeasure, buildSimpleBarSpec} from "../../..
 import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 import {renderSimpleBarChart, executeSimpleBarOpsList} from "../../bar/simple/simpleBarUtil.js";
 import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
+import { storeAxisDomain } from "../../common/scaleHelpers.js";
 
 
 export const chartDataStore = {};
@@ -82,15 +83,33 @@ async function applyMultipleLineOperation(chartId, operation, currentData, isLas
     return (next === undefined ? currentData : next);
 }
 
-async function executeMultipleLineOpsList(chartId, opsList, currentData, isLastList = false) {
-    for (let i = 0; i < opsList.length; i++) {
-        const operation = opsList[i];
-        const isLast = isLastList && (i === opsList.length - 1);
-        currentData = await applyMultipleLineOperation(chartId, operation, currentData, isLast);
+async function executeMultipleLineOpsList(chartId, opsList, initialData, isLastList = false) {
+    const list = Array.isArray(opsList) ? opsList : [];
+    let workingData = initialData;
+    let lastResult = initialData;
+
+    for (let i = 0; i < list.length; i++) {
+        const operation = list[i];
+        const isLast = isLastList && (i === list.length - 1);
+        const inputData = workingData;
+        const result = await applyMultipleLineOperation(chartId, operation, inputData, isLast);
+        lastResult = result;
+
+        const preserveInput = !!(result && result.__keepInput);
+        if (!preserveInput) {
+            if (Array.isArray(result)) {
+                workingData = result;
+            } else if (result instanceof IntervalValue || result instanceof BoolValue || result instanceof ScalarValue || result == null) {
+                // keep workingData unchanged
+            } else {
+                workingData = result;
+            }
+        }
+
         // Ensure browser paints/settles before moving on
         await settleFrame();
     }
-    return currentData;
+    return lastResult;
 }
 
 async function fullChartReset(chartId) {
@@ -289,6 +308,7 @@ export async function renderMultipleLineChart(chartId, spec) {
     const yScale = d3.scaleLinear()
         .domain([0, d3.max(filteredData, d => d[yField])]).nice()
         .range([innerHeight, 0]);
+    storeAxisDomain(svg.node(), 'y', yScale.domain());
 
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
         .domain(series.map(s => s.key));

@@ -32,6 +32,7 @@ import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.
 import { OP_COLORS } from "../../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
+import { resolveLinearDomain, storeAxisDomain } from "../../common/scaleHelpers.js";
 
 // ---- small helpers ---------------------------------------------------------
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
@@ -164,6 +165,9 @@ async function stackedBarToSimpleBar(chartId, filteredData) {
     const axis = g.select(".y-axis").transition().duration(550).call(d3.axisLeft(y)).end();
 
     await Promise.all([toRemove, ...geom, axis].filter(Boolean));
+    if (svg.node()) {
+        storeAxisDomain(svg.node(), 'y', y.domain());
+    }
     await waitFrames(1);
     return filteredData;
 }
@@ -211,8 +215,12 @@ export async function stackedBarFilter(chartId, op, data, isLast = false) {
     if (op.field === measureField && Number.isFinite(op.value)) {
         const sumsByCategory = d3.rollup(data, v => d3.sum(v, d => d.value), d => d.target);
         const maxTotal = d3.max(sumsByCategory.values()) || 0;
-        const y = d3.scaleLinear().domain([0, maxTotal]).nice().range([plot.h, 0]);
-        const yPos = y(op.value);
+        const domain = resolveLinearDomain(svg.node(), 'y', [0, maxTotal]);
+        const y = d3.scaleLinear().domain(domain || [0, maxTotal || 0]).range([plot.h, 0]);
+        const clampedValue = domain
+            ? Math.max(domain[0], Math.min(domain[1], op.value))
+            : op.value;
+        const yPos = y(clampedValue);
 
         const line = g.append('line').attr('class','annotation threshold-line')
             .attr('x1',0).attr('y1',yPos).attr('x2',0).attr('y2',yPos)
@@ -371,20 +379,40 @@ export async function stackedBarRetrieveValue(chartId, op, data, isLast = false)
 }
 
 export async function stackedBarFindExtremum(chartId, op, data, isLast = false) {
-    const { svg, g, margins, plot, yField, xField } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, yField, xField, orientation } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     const color = OP_COLORS.EXTREMUM;
 
+    const valueAxis = orientation === 'horizontal' ? 'x' : 'y';
+
     const drawGuideAt = async (val, domainMax) => {
         if (!Number.isFinite(val)) return;
-        const y = d3.scaleLinear().domain([0, domainMax || 0]).nice().range([plot.h, 0]);
-        const yPos = margins.top + y(val);
-        const line = svg.append('line').attr('class','annotation')
-            .attr('x1', margins.left).attr('y1', yPos).attr('x2', margins.left).attr('y2', yPos)
-            .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
-            .transition().duration(450).attr('x2', margins.left + plot.w).end();
-        await line;
+        const fallbackDomain = [
+            0,
+            Number.isFinite(domainMax) ? domainMax : 0
+        ];
+        const domain = resolveLinearDomain(svg.node(), valueAxis, fallbackDomain);
+        if (!domain) return;
+        const scale = d3.scaleLinear()
+            .domain(domain)
+            .range(valueAxis === 'y' ? [plot.h, 0] : [0, plot.w]);
+        const position = scale(val);
+        if (valueAxis === 'y') {
+            const yPos = margins.top + position;
+            const line = svg.append('line').attr('class','annotation')
+                .attr('x1', margins.left).attr('y1', yPos).attr('x2', margins.left).attr('y2', yPos)
+                .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+                .transition().duration(450).attr('x2', margins.left + plot.w).end();
+            await line;
+        } else {
+            const xPos = margins.left + position;
+            const line = svg.append('line').attr('class','annotation')
+                .attr('x1', xPos).attr('y1', margins.top + plot.h).attr('x2', xPos).attr('y2', margins.top + plot.h)
+                .attr('stroke', color).attr('stroke-width', 2).attr('stroke-dasharray','5 5')
+                .transition().duration(450).attr('y2', margins.top).end();
+            await line;
+        }
     };
 
     const labelBar = (node, text) => {

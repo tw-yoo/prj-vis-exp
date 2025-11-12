@@ -127,6 +127,10 @@ function selectAllPoints(g) {
 // Helper: delegate to simple-line if op.group is present, with optional onlyTargets whitelist for points
 async function delegateToSimpleIfGrouped(chartId, op, data, simpleFn, requirePoints = false) {
     if (op && op.group != null) {
+        const sourceData = Array.isArray(data) ? data : [];
+        if (!Array.isArray(data)) {
+            console.warn("delegateToSimpleIfGrouped: expected array data; falling back to empty array", { opName: op?.op, receivedType: typeof data });
+        }
         let onlyTargets = null;
         const name = op.op || op.type || '';
         // Whitelist for point-based ops so we don't draw all points
@@ -146,10 +150,14 @@ async function delegateToSimpleIfGrouped(chartId, op, data, simpleFn, requirePoi
             // simple 함수 내부 폴백/주석 렌더링을 사용.
         }
         const opts = { drawPoints: !!requirePoints, preserveStroke: true, onlyTargets };
-        const filtered = await multipleLineChangeToSimple(chartId, { group: op.group }, data, opts);
+        const filtered = await multipleLineChangeToSimple(chartId, { group: op.group }, sourceData, opts);
         const op2 = { ...op };
         delete op2.group;
-        return await simpleFn(chartId, op2, filtered);
+        const result = await simpleFn(chartId, op2, filtered);
+        if (name === 'retrieveValue') {
+            return markKeepInput(result);
+        }
+        return result;
     }
     return null; // no delegation
 }
@@ -211,7 +219,7 @@ await selectAllLines(g).transition().duration(500)
 
     await Promise.all(pending).catch(()=>{});
     emitOpDone(svg, chartId, 'multipleLineRetrieveValue', { count: targetDatums.length });
-    return targetDatums;
+    return markKeepInput(targetDatums);
 }
 
 export async function multipleLineFilter(chartId, op, data) {
@@ -889,13 +897,18 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
         return data;
     }
 
-    const filteredData = data.filter(d => String(d.group) === String(targetSeriesKey));
+    const sourceData = Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) {
+        console.warn("multipleLineChangeToSimple: expected array data; received", data);
+    }
+
+    const filteredData = sourceData.filter(d => String(d.group) === String(targetSeriesKey));
     if (filteredData.length === 0) {
         console.warn(`Series with key '${targetSeriesKey}' not found in data.`);
         return [];
     }
 
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
+    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(sourceData.map(d => d.group))));
     const highlightColor = colorScale(targetSeriesKey);
 
     const allLines = selectAllLines(g);
@@ -989,4 +1002,15 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
 
     emitOpDone(svg, chartId, 'multipleLineChangeToSimple', { group: targetSeriesKey, count: filteredData.length });
     return filteredData;
+}
+function markKeepInput(result) {
+    if (!result || typeof result !== 'object') return result;
+    if (!Object.prototype.hasOwnProperty.call(result, '__keepInput')) {
+        Object.defineProperty(result, '__keepInput', {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
+    }
+    return result;
 }

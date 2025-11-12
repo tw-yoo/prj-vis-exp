@@ -28,6 +28,7 @@ import {
     fmtISO
 } from "../sharedLineUtils.js";
 import { DURATIONS, OPACITIES } from "../../animationConfig.js";
+import { storeAxisDomain } from "../../common/scaleHelpers.js";
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 
@@ -1106,6 +1107,17 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
     const yScale = d3.scaleLinear().domain([domainMin, domainMax === domainMin ? domainMin + 1 : domainMax]).nice().range([plot.h, 0]);
     const zeroY = yScale(0);
 
+    // Update y-axis domain to reflect filtered subset
+    const yAxisSel = svg.select('.y-axis');
+    const updateYAxis = !yAxisSel.empty()
+        ? yAxisSel.transition().duration(800).call(d3.axisLeft(yScale).ticks(6)).end().catch(()=>{})
+        : Promise.resolve();
+
+    const svgNode = (typeof svg.node === 'function') ? svg.node() : null;
+    if (svgNode) {
+        storeAxisDomain(svgNode, 'y', yScale.domain());
+    }
+
     g.selectAll('rect.temp-line-bar').remove();
 
     // 4단계: 막대 그래프로 전환 (800ms, 천천히)
@@ -1245,7 +1257,7 @@ export async function simpleLineFilter(chartId, op, data, isLast = false) {
         .attr('width', xScaleFiltered.bandwidth())
         .end().catch(()=>{});
 
-    await Promise.all([axisTr, moveTr]).catch(()=>{});
+    await Promise.all([axisTr, moveTr, updateYAxis]).catch(()=>{});
 
     // 10단계: 값 레이블 표시
     allBars.each(function() {

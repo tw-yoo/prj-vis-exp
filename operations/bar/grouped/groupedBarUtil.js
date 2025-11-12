@@ -15,6 +15,7 @@ import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
 import { renderChartWithFade } from "../common/chartRenderUtils.js";
 import { normalizeCachedData } from "../common/datumCacheHelpers.js";
+import { storeAxisDomain } from "../../common/scaleHelpers.js";
 
 // Wait for a few animation frames to allow DOM/layout/transition to settle
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -216,6 +217,7 @@ export async function renderGroupedBarChart(chartId, spec) {
     const x1 = d3.scaleBand().domain(xDomain).range([0, x0.bandwidth()]).padding(0.05);
     const yMax = d3.max(data, d => d[yField]);
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plotH, 0]);
+    storeAxisDomain(svg.node(), 'y', yScale.domain());
 
     const defaultPalette = ["#0072B2", "#E69F00"];
     const palette = (spec.encoding?.color?.scale?.range) ?? defaultPalette;
