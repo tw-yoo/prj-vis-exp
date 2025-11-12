@@ -124,6 +124,18 @@ function asDatumValues(list, opts = {}) {
     });
 }
 
+function markKeepInput(arr) {
+    if (!Array.isArray(arr)) return arr;
+    if (!Object.prototype.hasOwnProperty.call(arr, '__keepInput')) {
+        Object.defineProperty(arr, '__keepInput', {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
+    }
+    return arr;
+}
+
 
 function readGroupX(node) {
     const p = node?.parentNode;
@@ -371,7 +383,11 @@ export async function groupedBarRetrieveValue(chartId, op, data, isLast = false)
 
     if (targetRects.empty()) {
         console.warn('RetrieveValue: Target DOM element not found for', op);
-        return selectedData;
+        return markKeepInput(asDatumValues(selectedData, {
+            categoryField: 'target',
+            measureField: yField || 'value',
+            idPrefix: 'retrieve'
+        }));
     }
 
     // 3. 다른 막대는 흐리게, 대상 막대는 강조 (빠른 애니메이션)
@@ -422,11 +438,11 @@ export async function groupedBarRetrieveValue(chartId, op, data, isLast = false)
     // 라인 그려지기 완료 보장
     await Promise.all(anims);
 
-    return asDatumValues(selectedData, {
+    return markKeepInput(asDatumValues(selectedData, {
         categoryField: 'target',
         measureField: yField || 'value',
         idPrefix: 'retrieve'
-    });
+    }));
 }
 
 export async function groupedBarFilter(chartId, op, data, isLast = false) {

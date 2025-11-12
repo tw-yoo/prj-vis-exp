@@ -17,6 +17,7 @@ import { OP_COLORS } from "../../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 import { resolveLinearDomain, storeAxisDomain } from "../../common/scaleHelpers.js";
+import { getRuntimeResultsById } from "../../runtimeResultStore.js";
 
 // 🔥 템플릿 임포트
 import * as Helpers from '../../animationHelpers.js';
@@ -497,14 +498,24 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const foundById = data.find(d => String(d?.id) === k);
+        const key = String(k);
+        const foundById = data.find(d => String(d?.id) === key);
         if (foundById) return String(foundById.id);
-        const foundByLookup = data.find(d => d?.lookupId != null && String(d.lookupId) === k);
+        const foundByLookup = data.find(d => d?.lookupId != null && String(d.lookupId) === key);
         if (foundByLookup) {
             return String(foundByLookup.id ?? foundByLookup.lookupId);
         }
-        const foundByTarget = data.find(d => String(d?.target) === k);
-        return foundByTarget ? String(foundByTarget.target) : k;
+        const foundByTarget = data.find(d => String(d?.target) === key);
+        if (foundByTarget) return String(foundByTarget.target);
+
+        const runtimeMatches = getRuntimeResultsById(key);
+        if (runtimeMatches.length > 0) {
+            const candidate = runtimeMatches[0];
+            if (candidate.id != null) return String(candidate.id);
+            if (candidate.lookupId != null) return String(candidate.lookupId);
+            if (candidate.target != null) return String(candidate.target);
+        }
+        return key;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);
@@ -539,23 +550,7 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         useDim: false
     });
 
-    if (isPercentOfTotal) {
-        const percentLabel = Number.isFinite(result.value)
-            ? `${result.value.toFixed(1)}%`
-            : '—';
-        svg.append('text')
-            .attr('class', 'annotation diff-percent-summary')
-            .attr('x', margins.left + plot.w / 2)
-            .attr('y', Math.max(24, margins.top - 6))
-            .attr('text-anchor', 'middle')
-            .attr('font-size', 16)
-            .attr('font-weight', 'bold')
-            .attr('fill', OP_COLORS.DIFF_LINE)
-            .text(`Percent of total = ${percentLabel}`);
-    }
-
-    await Promise.all(animationPromises).catch(() => {});
-    await delay(30);
+    await Helpers.delay(30);
     signalOpDone(chartId, 'compare');
     return winner ? [winner] : [];
 }
@@ -576,14 +571,24 @@ export async function simpleBarCompareBool(chartId, op, data, isLast = false) {
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const foundById = data.find(d => String(d?.id) === k);
+        const key = String(k);
+        const foundById = data.find(d => String(d?.id) === key);
         if (foundById) return String(foundById.id);
-        const foundByLookup = data.find(d => d?.lookupId != null && String(d.lookupId) === k);
+        const foundByLookup = data.find(d => d?.lookupId != null && String(d.lookupId) === key);
         if (foundByLookup) {
             return String(foundByLookup.id ?? foundByLookup.lookupId);
         }
-        const foundByTarget = data.find(d => String(d?.target) === k);
-        return foundByTarget ? String(foundByTarget.target) : k;
+        const foundByTarget = data.find(d => String(d?.target) === key);
+        if (foundByTarget) return String(foundByTarget.target);
+
+        const runtimeMatches = getRuntimeResultsById(key);
+        if (runtimeMatches.length > 0) {
+            const candidate = runtimeMatches[0];
+            if (candidate.id != null) return String(candidate.id);
+            if (candidate.lookupId != null) return String(candidate.lookupId);
+            if (candidate.target != null) return String(candidate.target);
+        }
+        return key;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);
@@ -867,10 +872,20 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
 
     const resolveKey = (k) => {
         if (!isLast || !Array.isArray(data)) return k;
-        const foundById = data.find(d => String(d?.id) === k);
+        const key = String(k);
+        const foundById = data.find(d => String(d?.id) === key);
         if (foundById) return String(foundById.id);
-        const foundByTarget = data.find(d => String(d?.target) === k);
-        return foundByTarget ? String(foundByTarget.target) : k;
+        const foundByTarget = data.find(d => String(d?.target) === key);
+        if (foundByTarget) return String(foundByTarget.target);
+
+        const runtimeMatches = getRuntimeResultsById(key);
+        if (runtimeMatches.length > 0) {
+            const candidate = runtimeMatches[0];
+            if (candidate.id != null) return String(candidate.id);
+            if (candidate.lookupId != null) return String(candidate.lookupId);
+            if (candidate.target != null) return String(candidate.target);
+        }
+        return key;
     };
     const visKeyA = resolveKey(keyA);
     const visKeyB = resolveKey(keyB);

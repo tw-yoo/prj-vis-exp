@@ -42,7 +42,7 @@ export const MAIN_SURVEY_QUESTIONS = [
     // ...getSurveyQuestions(q15ChartVlSpec, q15QuestionText, q15AnswerText, q15ExplanationType),
     ...getSurveyQuestions(q16ChartVlSpec, q16QuestionText, q16AnswerText, q16ExplanationType),
     // ...getSurveyQuestions(q17ChartVlSpec, q17QuestionText, q17AnswerText, q17ExplanationType),
-    // ...getSurveyQuestions(q18ChartVlSpec, q18QuestionText, q18AnswerText, q18ExplanationType),
+    ...getSurveyQuestions(q18ChartVlSpec, q18QuestionText, q18AnswerText, q18ExplanationType),
     // ...getSurveyQuestions(q19ChartVlSpec, q19QuestionText, q19AnswerText, q19ExplanationType),
     // ...getSurveyQuestions(q20ChartVlSpec, q20QuestionText, q20AnswerText, q20ExplanationType),
 ];

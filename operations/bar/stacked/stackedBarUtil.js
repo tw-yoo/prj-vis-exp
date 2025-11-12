@@ -102,7 +102,16 @@ async function executeStackedBarOpsList(chartId, opsList, currentData, isLast = 
         const stepKey = makeRuntimeKey(opKey, i);
         storeRuntimeResult(stepKey, result);
 
-        workingData = result;
+        const preserveInput = !!(result && result.__keepInput);
+        if (!preserveInput) {
+            if (Array.isArray(result)) {
+                workingData = result;
+            } else if (result instanceof IntervalValue || result instanceof BoolValue || result instanceof ScalarValue || result == null) {
+                // keep workingData for scalar/bool/interval or null outputs
+            } else {
+                workingData = result;
+            }
+        }
 
         if (delayMs > 0) {
             await delay(delayMs);

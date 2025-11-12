@@ -38,6 +38,18 @@ import { resolveLinearDomain, storeAxisDomain } from "../../common/scaleHelpers.
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 export const delay = (ms) => new Promise(r => setTimeout(r, ms));
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
+
+function markKeepInput(result) {
+    if (!Array.isArray(result)) return result;
+    if (!Object.prototype.hasOwnProperty.call(result, '__keepInput')) {
+        Object.defineProperty(result, '__keepInput', {
+            value: true,
+            enumerable: false,
+            configurable: true
+        });
+    }
+    return result;
+}
 async function waitFrames(n = 1){ for (let i=0;i<n;i++) await nextFrame(); }
 
 function fmtNum(v){ return (v!=null && isFinite(v)) ? (+v).toLocaleString() : String(v); }
@@ -330,7 +342,7 @@ export async function stackedBarRetrieveValue(chartId, op, data, isLast = false)
         });
         await Promise.all(tagIns);
         await waitFrames(1);
-        return selected;
+        return markKeepInput(selected);
     }
 
     const color = OP_COLORS.RETRIEVE_VALUE;

@@ -60,6 +60,25 @@ function _resolveLastQuery(data, keyOrObj, isLast) {
         return { id: String(datum.lookupId) };
       }
     }
+
+    const runtimeMatches = getRuntimeResultsById(k);
+    if (runtimeMatches.length > 0) {
+      const candidate = runtimeMatches[runtimeMatches.length - 1];
+      const query = {};
+      if (candidate?.id != null) {
+        query.id = String(candidate.id);
+      } else if (candidate?.lookupId != null) {
+        query.id = String(candidate.lookupId);
+      } else if (candidate?.target != null) {
+        query.target = String(candidate.target);
+      }
+      if (candidate?.group != null) {
+        query.group = candidate.group;
+      }
+      if (Object.keys(query).length > 0) {
+        return query;
+      }
+    }
   }
   return { target: k };
 }

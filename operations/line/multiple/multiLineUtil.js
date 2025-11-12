@@ -152,44 +152,94 @@ async function fullChartReset(chartId) {
     const xScale = fullXScale && typeof fullXScale.copy === "function" ? fullXScale.copy() : fullXScale;
     const yScale = fullYScale && typeof fullYScale.copy === "function" ? fullYScale.copy() : fullYScale;
 
+    let seriesLayer = g.select("g.series-layer");
+    if (seriesLayer.empty()) {
+        seriesLayer = g.insert("g", ":first-child").attr("class", "series-layer");
+    }
+
+    // Remove any stray series-line paths outside the managed layer (e.g., from annotations)
+    g.selectAll("path.series-line").filter(function() {
+        let node = this.parentNode;
+        while (node) {
+            const tagName = typeof node.tagName === "string" ? node.tagName.toLowerCase() : "";
+            if (tagName === "g" && node.classList && node.classList.contains("series-layer")) {
+                return false;
+            }
+            node = node.parentNode;
+        }
+        return true;
+    }).remove();
+
+    let pointLayer = g.select("g.datapoint-layer");
+    if (pointLayer.empty()) {
+        pointLayer = g.append("g").attr("class", "datapoint-layer");
+    }
+
+    const ensureColor = (key) => {
+        const safeKey = toSeriesKey(key);
+        if (colorScale && typeof colorScale.domain === "function") {
+            const current = colorScale.domain();
+            if (!current.includes(safeKey)) {
+                colorScale.domain([...current, safeKey]);
+            }
+        }
+        return colorScale ? colorScale(safeKey) : d3.schemeCategory10[0];
+    };
+
     if (xScale && yScale && Array.isArray(series) && series.length > 0 && xField && yField) {
         const lineGen = d3.line()
+            .defined(d => d != null && Number.isFinite(Number(d[yField])))
             .x(d => {
+                if (!d) return 0;
                 if (isTemporal) {
-                    return xScale(d.__parsedX);
+                    const parsed = d.__parsedX instanceof Date ? d.__parsedX : null;
+                    if (!parsed) return 0;
+                    const projected = xScale(parsed);
+                    return Number.isFinite(projected) ? projected : 0;
                 }
-                return xScale(String(d[xField]));
+                const key = String(d[xField]);
+                const projected = xScale(key);
+                return Number.isFinite(projected) ? projected : 0;
             })
-            .y(d => yScale(Number(d[yField])));
+            .y(d => {
+                const value = Number(d ? d[yField] : NaN);
+                if (!Number.isFinite(value)) {
+                    return typeof yScale.range === "function" ? yScale.range()[0] : 0;
+                }
+                const projected = yScale(value);
+                return Number.isFinite(projected) ? projected : (typeof yScale.range === "function" ? yScale.range()[0] : 0);
+            });
 
-        g.selectAll("path.series-line")
-            .data(series, d => d.id)
+        seriesLayer.selectAll("path.series-line")
+            .data(series, d => toSeriesKey(d?.id ?? d?.key))
             .join(
                 enter => enter.append("path")
-                    .attr("class", d => `series-line series-${String(d.id).replace(/\s+/g, '-')}`)
-                    .attr("data-series", d => d.id)
+                    .attr("class", d => `series-line series-${toSeriesKey(d?.id ?? d?.key).replace(/\s+/g, '-')}`)
+                    .attr("data-series", d => toSeriesKey(d?.id ?? d?.key))
                     .attr("fill", "none")
-                    .attr("stroke", d => colorScale(d.id))
                     .attr("stroke-width", 2)
-                    .attr("opacity", 1)
-                    .attr("d", d => lineGen(d.values)),
-                update => update
-                    .attr("fill", "none")
-                    .attr("data-series", d => d.id)
-                    .attr("stroke", d => colorScale(d.id))
-                    .attr("stroke-width", 2)
-                    .attr("opacity", 1)
-                    .attr("d", d => lineGen(d.values)),
+                    .attr("opacity", 1),
+                update => update,
                 exit => exit.remove()
-            );
+            )
+            .each(function(d) {
+                const seriesEntry = d;
+                const seriesId = toSeriesKey(seriesEntry?.id ?? seriesEntry?.key);
+                const values = Array.isArray(seriesEntry?.values) ? seriesEntry.values : [];
+                d3.select(this)
+                    .datum(values)
+                    .attr("stroke", ensureColor(seriesId))
+                    .attr("opacity", 1)
+                    .attr("stroke-width", 2)
+                    .attr("d", lineGen);
+            });
     } else {
         g.selectAll("path.series-line")
             .attr("opacity", 1)
             .attr("stroke-width", 2)
-            .attr("stroke", function(d) {
-                const key = d?.id ?? this.getAttribute("data-series");
-                const safeKey = toSeriesKey(key);
-                return colorScale ? colorScale(safeKey) : d3.schemeCategory10[0];
+            .attr("stroke", function() {
+                const key = this.getAttribute("data-series");
+                return ensureColor(key);
             });
     }
 
@@ -206,81 +256,62 @@ async function fullChartReset(chartId) {
 
     const legend = svg.select(".legend");
     if (!legend.empty()) {
-        legend.selectAll("g")
-            .attr("opacity", 1)
-            .select("text")
-            .attr("font-weight", "normal");
+        legend.selectAll("g").attr("opacity", 1);
+        legend.selectAll("text").attr("font-weight", "normal");
     }
-
-    const safeSeriesKey = (datum) => toSeriesKey(datum ? (datum[colorField] ?? datum.group) : null);
-    const safeTargetKey = (datum) => String(datum ? (datum[xField] ?? datum.target ?? '') : '');
-
-    const pointKey = (d) => {
-        const cxKey = safeTargetKey(d);
-        const groupKey = safeSeriesKey(d);
-        return `${cxKey}|${groupKey}`;
-    };
 
     g.selectAll("circle.datapoint-highlight, circle.main-dp").remove();
 
     if (Array.isArray(baseData) && xScale && yScale && xField && yField) {
-        g.selectAll("circle.datapoint")
-            .data(baseData, pointKey)
+        const pointData = baseData.map(datum => {
+            const seriesKey = toSeriesKey(datum ? (datum[colorField] ?? datum.group) : null);
+            const targetKey = String(datum ? (datum[xField] ?? datum.target ?? '') : '');
+            let cx = 0;
+            if (isTemporal) {
+                const parsed = datum.__parsedX instanceof Date ? datum.__parsedX : null;
+                if (parsed) {
+                    const projected = xScale(parsed);
+                    if (Number.isFinite(projected)) cx = projected;
+                }
+            } else {
+                const projected = xScale(targetKey);
+                if (Number.isFinite(projected)) cx = projected;
+            }
+            let cy = typeof yScale.range === "function" ? yScale.range()[0] : 0;
+            const valueNum = Number(datum ? datum[yField] : NaN);
+            if (Number.isFinite(valueNum)) {
+                const projectedY = yScale(valueNum);
+                if (Number.isFinite(projectedY)) cy = projectedY;
+            }
+            return {
+                key: `${targetKey}|${seriesKey}`,
+                cx,
+                cy,
+                target: targetKey,
+                series: seriesKey,
+                value: datum ? datum[yField] : undefined
+            };
+        });
+
+        pointLayer.selectAll("circle.datapoint")
+            .data(pointData, d => d.key)
             .join(
                 enter => enter.append("circle")
                     .attr("class", "datapoint")
-                    .attr("cx", d => {
-                        if (!d) return 0;
-                        if (isTemporal) {
-                            const parsed = d.__parsedX instanceof Date ? d.__parsedX : null;
-                            if (!parsed) return 0;
-                            const projected = xScale(parsed);
-                            return Number.isFinite(projected) ? projected : 0;
-                        }
-                        const key = String(d[xField]);
-                        const projected = xScale(key);
-                        return Number.isFinite(projected) ? projected : 0;
-                    })
-                    .attr("cy", d => {
-                        const val = Number(d ? d[yField] : NaN);
-                        if (!Number.isFinite(val)) return yScale.range ? yScale.range()[0] : 0;
-                        const projected = yScale(val);
-                        return Number.isFinite(projected) ? projected : (yScale.range ? yScale.range()[0] : 0);
-                    })
-                    .attr("r", 3.5)
-                    .attr("fill", d => colorScale(safeSeriesKey(d)))
-                    .attr("opacity", 0)
-                    .attr("data-id", d => safeTargetKey(d))
-                    .attr("data-value", d => (d ? d[yField] : ''))
-                    .attr("data-series", d => safeSeriesKey(d)),
-                update => update
-                    .attr("cx", d => {
-                        if (!d) return 0;
-                        if (isTemporal) {
-                            const parsed = d.__parsedX instanceof Date ? d.__parsedX : null;
-                            if (!parsed) return 0;
-                            const projected = xScale(parsed);
-                            return Number.isFinite(projected) ? projected : 0;
-                        }
-                        const key = String(d[xField]);
-                        const projected = xScale(key);
-                        return Number.isFinite(projected) ? projected : 0;
-                    })
-                    .attr("cy", d => {
-                        const val = Number(d ? d[yField] : NaN);
-                        if (!Number.isFinite(val)) return yScale.range ? yScale.range()[0] : 0;
-                        const projected = yScale(val);
-                        return Number.isFinite(projected) ? projected : (yScale.range ? yScale.range()[0] : 0);
-                    })
-                    .attr("fill", d => colorScale(safeSeriesKey(d)))
-                    .attr("opacity", 0)
-                    .attr("data-id", d => safeTargetKey(d))
-                    .attr("data-value", d => (d ? d[yField] : ''))
-                    .attr("data-series", d => safeSeriesKey(d)),
+                    .attr("r", 3.5),
+                update => update,
                 exit => exit.remove()
-            );
+            )
+            .attr("cx", d => d.cx)
+            .attr("cy", d => d.cy)
+            .attr("fill", d => ensureColor(d.series))
+            .attr("opacity", 0)
+            .attr("data-id", d => d.target)
+            .attr("data-target", d => d.target)
+            .attr("data-value", d => d.value)
+            .attr("data-series", d => d.series);
     } else {
-        g.selectAll("circle.datapoint").attr("opacity", 0);
+        pointLayer.selectAll("circle.datapoint").attr("opacity", 0);
     }
 
     await settleFrame();
@@ -554,11 +585,14 @@ export async function renderMultipleLineChart(chartId, spec) {
         .attr("class", "y-axis")
         .call(d3.axisLeft(yScale));
 
+    const seriesLayer = g.append("g").attr("class", "series-layer");
+    const pointLayer = g.append("g").attr("class", "datapoint-layer");
+
     const lineGen = d3.line()
         .x(row => isTemporal ? xScale(row.__parsedX) : xScale(String(row[xField])))
         .y(row => yScale(Number(row[yField])));
 
-    g.selectAll("path.series-line")
+    seriesLayer.selectAll("path.series-line")
         .data(series, s => s.id)
         .join("path")
         .attr("class", s => `series-line series-${String(s.id).replace(/\s+/g, '-')}`)
@@ -575,7 +609,7 @@ export async function renderMultipleLineChart(chartId, spec) {
         return `${category}|${seriesKey}`;
     };
 
-    g.selectAll("circle.datapoint")
+    pointLayer.selectAll("circle.datapoint")
         .data(baseData, pointKey)
         .join(
             enter => enter.append("circle")
@@ -586,6 +620,7 @@ export async function renderMultipleLineChart(chartId, spec) {
                 .attr("fill", row => colorScale(toSeriesKey(row[colorField])))
                 .attr("opacity", 0)
                 .attr("data-id", row => String(row[xField]))
+                .attr("data-target", row => String(row[xField]))
                 .attr("data-value", row => row[yField])
                 .attr("data-series", row => toSeriesKey(row[colorField])),
             update => update
@@ -594,6 +629,7 @@ export async function renderMultipleLineChart(chartId, spec) {
                 .attr("fill", row => colorScale(toSeriesKey(row[colorField])))
                 .attr("opacity", 0)
                 .attr("data-id", row => String(row[xField]))
+                .attr("data-target", row => String(row[xField]))
                 .attr("data-value", row => row[yField])
                 .attr("data-series", row => toSeriesKey(row[colorField])),
             exit => exit.remove()

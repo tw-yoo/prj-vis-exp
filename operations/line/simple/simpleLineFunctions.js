@@ -216,22 +216,44 @@ export async function simpleLineRetrieveValue(chartId, op, data, isLast = false)
     }
 
     if (targetPoint.empty()) {
-        const xVals = (Array.isArray(data) ? data.map(d => d?.target) : []);
-        const isTemporal = xVals.every(v => v instanceof Date);
-        const xScale = isTemporal ?
-            d3.scaleTime().domain(d3.extent(xVals)).range([0, plot.w]) :
-            d3.scalePoint().domain(xVals.map(v => String(v))).range([0, plot.w]);
+        const fallbackPoint = selectPointByTarget(
+            g.selectAll("circle.datapoint"),
+            targetDatum.target
+        ).filter(function () {
+            if (targetDatum.group == null) return true;
+            const seriesAttr = d3.select(this).attr("data-series");
+            return String(seriesAttr) === String(targetDatum.group);
+        });
 
-        const yValues = (Array.isArray(data) ? data.map(d => Number(d?.value)) : []).filter(Number.isFinite);
-        const yMax = d3.max(yValues) || 0;
-        const yMin = d3.min(yValues);
+        if (!fallbackPoint.empty()) {
+            targetPoint = fallbackPoint;
+        }
+    }
+
+    if (targetPoint.empty()) {
+        const xValsRaw = Array.isArray(data) ? data.map(d => d?.target) : [];
+        const xVals = Array.from(new Set(xValsRaw.map(v => (v instanceof Date ? v : String(v)))));
+        const isTemporal = xVals.every(v => v instanceof Date);
+        const xScale = isTemporal
+            ? d3.scaleTime().domain(d3.extent(xVals)).range([0, plot.w])
+            : d3.scalePoint().domain(xVals.map(v => String(v))).range([0, plot.w]);
+
+        const yValuesRaw = Array.isArray(data) ? data.map(d => Number(d?.value)) : [];
+        const yValues = yValuesRaw.filter(Number.isFinite);
+        const yMax = yValues.length ? d3.max(yValues) : 0;
+        const yMin = yValues.length ? d3.min(yValues) : 0;
         const yScale = d3.scaleLinear()
-            .domain([yMin > 0 ? 0 : (Number.isFinite(yMin) ? yMin : 0), yMax])
+            .domain([
+                yMin > 0 ? 0 : (Number.isFinite(yMin) ? yMin : 0),
+                Number.isFinite(yMax) ? yMax : 0
+            ])
             .nice()
             .range([plot.h, 0]);
 
-        const cx = xScale(targetDatum.target);
-        const cy = yScale(targetDatum.value);
+        const cxRaw = xScale(targetDatum.target);
+        const cyRaw = yScale(targetDatum.value);
+        const cx = Number.isFinite(cxRaw) ? cxRaw : 0;
+        const cy = Number.isFinite(cyRaw) ? cyRaw : (typeof yScale.range === "function" ? yScale.range()[0] : 0);
 
         // 1. 수평선 + 수직선 동시 애니메이션
         const hLine = g.append("line").attr("class", "annotation")

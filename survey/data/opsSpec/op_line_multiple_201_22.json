@@ -1,432 +1,152 @@
 {
   "ops": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Jan",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Jan",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops_0",
-      "targetB": "ops_1",
+      "targetA": { "category": "Jan", "series": "Average high °F" },
+      "targetB": { "category": "Jan", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops2": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Feb",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Feb",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops2_0",
-      "targetB": "ops2_1",
+      "targetA": { "category": "Feb", "series": "Average high °F" },
+      "targetB": { "category": "Feb", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops3": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Mar",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Mar",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops3_0",
-      "targetB": "ops3_1",
+      "targetA": { "category": "Mar", "series": "Average high °F" },
+      "targetB": { "category": "Mar", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops4": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Apr",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Apr",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops4_0",
-      "targetB": "ops4_1",
+      "targetA": { "category": "Apr", "series": "Average high °F" },
+      "targetB": { "category": "Apr", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops5": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "May",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "May",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops5_0",
-      "targetB": "ops5_1",
+      "targetA": { "category": "May", "series": "Average high °F" },
+      "targetB": { "category": "May", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops6": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Jun",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Jun",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops6_0",
-      "targetB": "ops6_1",
+      "targetA": { "category": "Jun", "series": "Average high °F" },
+      "targetB": { "category": "Jun", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops7": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Jul",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Jul",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops7_0",
-      "targetB": "ops7_1",
+      "targetA": { "category": "Jul", "series": "Average high °F" },
+      "targetB": { "category": "Jul", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops8": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Aug",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Aug",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops8_0",
-      "targetB": "ops8_1",
+      "targetA": { "category": "Aug", "series": "Average high °F" },
+      "targetB": { "category": "Aug", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops9": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Sep",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Sep",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops9_0",
-      "targetB": "ops9_1",
+      "targetA": { "category": "Sep", "series": "Average high °F" },
+      "targetB": { "category": "Sep", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops10": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Oct",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Oct",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops10_0",
-      "targetB": "ops10_1",
+      "targetA": { "category": "Oct", "series": "Average high °F" },
+      "targetB": { "category": "Oct", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops11": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Nov",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Nov",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops11_0",
-      "targetB": "ops11_1",
+      "targetA": { "category": "Nov", "series": "Average high °F" },
+      "targetB": { "category": "Nov", "series": "Average low °F" },
       "signed": true
     }
   ],
   "ops12": [
     {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Dec",
-      "group": "Average high °F"
-    },
-    {
-      "op": "retrieveValue",
-      "field": "Month",
-      "target": "Dec",
-      "group": "Average low °F"
-    },
-    {
       "op": "diff",
       "field": "Temperature",
-      "targetA": "ops12_0",
-      "targetB": "ops12_1",
+      "targetA": { "category": "Dec", "series": "Average high °F" },
+      "targetB": { "category": "Dec", "series": "Average low °F" },
       "signed": true
     }
   ],
   "last": [
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "ops_2",
-      "targetB": "ops2_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_0",
-      "targetB": "ops3_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_1",
-      "targetB": "ops4_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_2",
-      "targetB": "ops5_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_3",
-      "targetB": "ops6_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_4",
-      "targetB": "ops7_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_5",
-      "targetB": "ops8_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_6",
-      "targetB": "ops9_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_7",
-      "targetB": "ops10_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_8",
-      "targetB": "ops11_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_9",
-      "targetB": "ops12_2",
-      "which": "max"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "ops_2",
-      "targetB": "ops2_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_11",
-      "targetB": "ops3_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_12",
-      "targetB": "ops4_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_13",
-      "targetB": "ops5_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_14",
-      "targetB": "ops6_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_15",
-      "targetB": "ops7_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_16",
-      "targetB": "ops8_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_17",
-      "targetB": "ops9_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_18",
-      "targetB": "ops10_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_19",
-      "targetB": "ops11_2",
-      "which": "min"
-    },
-    {
-      "op": "compare",
-      "field": "value",
-      "targetA": "last_20",
-      "targetB": "ops12_2",
-      "which": "min"
-    },
-    {
-      "op": "diff",
-      "field": "value",
-      "targetA": "last_10",
-      "targetB": "last_21",
-      "signed": true
-    }
+    { "op": "compare", "field": "value", "targetA": "ops_0", "targetB": "ops2_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_0", "targetB": "ops3_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_1", "targetB": "ops4_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_2", "targetB": "ops5_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_3", "targetB": "ops6_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_4", "targetB": "ops7_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_5", "targetB": "ops8_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_6", "targetB": "ops9_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_7", "targetB": "ops10_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_8", "targetB": "ops11_0", "which": "max" },
+    { "op": "compare", "field": "value", "targetA": "last_9", "targetB": "ops12_0", "which": "max" },
+
+    { "op": "compare", "field": "value", "targetA": "ops_0", "targetB": "ops2_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_11", "targetB": "ops3_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_12", "targetB": "ops4_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_13", "targetB": "ops5_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_14", "targetB": "ops6_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_15", "targetB": "ops7_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_16", "targetB": "ops8_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_17", "targetB": "ops9_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_18", "targetB": "ops10_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_19", "targetB": "ops11_0", "which": "min" },
+    { "op": "compare", "field": "value", "targetA": "last_20", "targetB": "ops12_0", "which": "min" },
+
+    { "op": "diff", "field": "value", "targetA": "last_10", "targetB": "last_21", "signed": true }
   ],
   "text": {
-    "ops": "For January, retrieve the average high (55.4°F) and low (37.6°F) temperatures, then calculate the gap as 17.8°F.",
-    "ops2": "For February, retrieve the average high (61.5°F) and low (41.1°F) temperatures, then calculate the gap as 20.4°F.",
-    "ops3": "For March, retrieve the average high (65.9°F) and low (43.3°F) temperatures, then calculate the gap as 22.6°F.",
-    "ops4": "For April, retrieve the average high (71.1°F) and low (45.8°F) temperatures, then calculate the gap as 25.3°F.",
-    "ops5": "For May, retrieve the average high (78.0°F) and low (50.3°F) temperatures, then calculate the gap as 27.7°F.",
-    "ops6": "For June, retrieve the average high (84.4°F) and low (54.0°F) temperatures, then calculate the gap as 30.4°F.",
-    "ops7": "For July, retrieve the average high (89.0°F) and low (56.0°F) temperatures, then calculate the gap as 33.0°F.",
-    "ops8": "For August, retrieve the average high (88.8°F) and low (56.0°F) temperatures, then calculate the gap as 32.8°F.",
-    "ops9": "For September, retrieve the average high (86.6°F) and low (54.5°F) temperatures, then calculate the gap as 32.1°F.",
-    "ops10": "For October, retrieve the average high (78.3°F) and low (49.8°F) temperatures, then calculate the gap as 28.5°F.",
-    "ops11": "For November, retrieve the average high (65.4°F) and low (42.7°F) temperatures, then calculate the gap as 22.7°F.",
-    "ops12": "For December, retrieve the average high (56.0°F) and low (37.9°F) temperatures, then calculate the gap as 18.1°F.",
-    "last": "Bring all 12 monthly temperature gaps onto the stage. First, compare them to find the highest gap of 33.0°F (July). Next, compare them again to find the lowest gap of 17.8°F (January). Finally, subtract the lowest gap from the highest gap (33.0 - 17.8) to get the final difference of 15.2°F."
+    "ops": "January gap is the January Average high °F minus January Average low °F.",
+    "ops2": "February gap is February high minus low.",
+    "ops3": "March gap is March high minus low.",
+    "ops4": "April gap is April high minus low.",
+    "ops5": "May gap is May high minus low.",
+    "ops6": "June gap is June high minus low.",
+    "ops7": "July gap is July high minus low.",
+    "ops8": "August gap is August high minus low.",
+    "ops9": "September gap is September high minus low.",
+    "ops10": "October gap is October high minus low.",
+    "ops11": "November gap is November high minus low.",
+    "ops12": "December gap is December high minus low.",
+    "last": "Compare the twelve monthly gaps to find the maximum and minimum, then subtract the minimum gap from the maximum gap to produce the final difference."
   }
 }
