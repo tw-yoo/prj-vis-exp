@@ -1,4 +1,6 @@
-import { OP_COLORS } from "../../../object/colorPalette.js";
+// import { OP_COLORS } from "../../../object/colorPalette.js";
+
+import {OP_COLORS} from "../../object/colorPalette.js";
 
 const fmtISO = d3.timeFormat("%Y-%m-%d");
 
