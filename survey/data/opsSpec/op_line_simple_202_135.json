@@ -1,11 +1,23 @@
 {
   "ops": [
     {
-      "op": "average",
-      "field": "Average audience share (m)"
+      "op": "lagDiff",
+      "field": "Average audience share (m)",
+      "orderField": "Year"
+    },
+    {
+      "op": "filter",
+      "field": "value",
+      "operator": ">",
+      "value": 0
+    },
+    {
+      "op": "findExtremum",
+      "field": "value",
+      "which": "max"
     }
   ],
   "text": {
-    "ops": "Compute the average of all 'Average audience share (m)' values, resulting in **10.799166666666666**."
+    "ops": "First, calculate the step-by-step changes in 'Average audience share (m)' across consecutive years. Then, filter these changes to highlight only the positive increases. Among these positive increases, find the maximum value, which is 1.82 million, occurring between the 2002–2003 (11.29 million) and 2003–2004 (13.11 million) periods."
   }
 }

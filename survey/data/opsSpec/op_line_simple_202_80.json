@@ -1,0 +1,12 @@
+{
+  "ops": [
+    {
+      "op": "findExtremum",
+      "field": "metres",
+      "which": "min"
+    }
+  ],
+  "text": {
+    "ops": "Visually identify the shortest bar, which represents the minimum height in metres, and observe it is Cima di Posta at 2235 metres."
+  }
+}

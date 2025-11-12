@@ -1,0 +1,17 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "field": "Gender",
+      "operator": "==",
+      "value": "females"
+    },
+    {
+      "op": "average",
+      "field": "Population"
+    }
+  ],
+  "text": {
+    "ops": "Filter the chart to only show data for females. The populations highlighted are 733,226 (Polish), 162,566 (Yiddish), 1,586 (Russian), 39,176 (German), 307 (Ukrainian), and 1,535 (Other). Then, calculate the average of these highlighted female populations, which is approximately 156,399.33."
+  }
+}

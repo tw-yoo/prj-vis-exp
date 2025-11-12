@@ -1,0 +1,170 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "in",
+      "value": [
+        "1913",
+        "1930",
+        "1956",
+        "1966",
+        "1977",
+        "1992",
+        "2002"
+      ]
+    },
+    {
+      "op": "sum",
+      "field": "Population"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "==",
+      "value": "1913"
+    },
+    {
+      "op": "findExtremum",
+      "field": "Population",
+      "which": "max"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "==",
+      "value": "1930"
+    },
+    {
+      "op": "findExtremum",
+      "field": "Population",
+      "which": "max"
+    }
+  ],
+  "ops4": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "==",
+      "value": "1956"
+    },
+    {
+      "op": "findExtremum",
+      "field": "Population",
+      "which": "max"
+    }
+  ],
+  "ops5": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "==",
+      "value": "1966"
+    },
+    {
+      "op": "findExtremum",
+      "field": "Population",
+      "which": "max"
+    }
+  ],
+  "ops6": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "==",
+      "value": "1977"
+    },
+    {
+      "op": "findExtremum",
+      "field": "Population",
+      "which": "max"
+    }
+  ],
+  "ops7": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "==",
+      "value": "1992"
+    },
+    {
+      "op": "findExtremum",
+      "field": "Population",
+      "which": "max"
+    }
+  ],
+  "ops8": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "==",
+      "value": "2002"
+    },
+    {
+      "op": "findExtremum",
+      "field": "Population",
+      "which": "max"
+    }
+  ],
+  "last": [
+    {
+      "op": "sum",
+      "field": "value",
+      "targetA": "ops2_0",
+      "targetB": "ops3_0"
+    },
+    {
+      "op": "sum",
+      "field": "value",
+      "targetA": "last_0",
+      "targetB": "ops4_0"
+    },
+    {
+      "op": "sum",
+      "field": "value",
+      "targetA": "last_1",
+      "targetB": "ops5_0"
+    },
+    {
+      "op": "sum",
+      "field": "value",
+      "targetA": "last_2",
+      "targetB": "ops6_0"
+    },
+    {
+      "op": "sum",
+      "field": "value",
+      "targetA": "last_3",
+      "targetB": "ops7_0"
+    },
+    {
+      "op": "sum",
+      "field": "value",
+      "targetA": "last_4",
+      "targetB": "ops8_0"
+    },
+    {
+      "op": "diff",
+      "field": "value",
+      "targetA": "last_5",
+      "targetB": "ops_0",
+      "aggregate": "percentage_of_total",
+      "precision": 2
+    }
+  ],
+  "text": {
+    "ops": "First, filter the data to include only years from 1900 onwards, specifically 1913, 1930, 1956, 1966, 1977, 1992, and 2002. Then, sum the population for all ethnic groups across these filtered years to get a total combined population of 4,946,753.",
+    "ops2": "For the year 1913, identify the ethnic group with the largest population, which is Romanian at 216,425.",
+    "ops3": "For the year 1930, identify the ethnic group with the largest population, which is Romanian at 282,844.",
+    "ops4": "For the year 1956, identify the ethnic group with the largest population, which is Romanian at 514,331.",
+    "ops5": "For the year 1966, identify the ethnic group with the largest population, which is Romanian at 622,996.",
+    "ops6": "For the year 1977, identify the ethnic group with the largest population, which is Romanian at 784,934.",
+    "ops7": "For the year 1992, identify the ethnic group with the largest population, which is Romanian at 926,608.",
+    "ops8": "For the year 2002, identify the ethnic group with the largest population, which is Romanian at 883,620.",
+    "last": "Now, sum the populations of the top ethnic groups from each year (216,425 + 282,844 + 514,331 + 622,996 + 784,934 + 926,608 + 883,620) to get a total of 4,231,758 for the top groups. Finally, divide this sum (4,231,758) by the total combined population (4,946,753) and multiply by 100 to calculate the percentage, resulting in 85.56%."
+  }
+}

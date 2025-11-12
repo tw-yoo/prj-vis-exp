@@ -134,6 +134,20 @@ Each list must **terminate** in exactly one `Datum` or `Boolean`.
   // e.g., "ops_0", "ops2_0"
 - In **`last`**, always reference prior results by **ID** (e.g., `"ops_0"`, `"ops2_0"`). **Never** use raw labels here.
 - Outside of `last`, IDs are **opaque** — you cannot plug `"ops_0"` into another op’s `value`, `target`, or threshold field. If a later step needs a scalar/label produced earlier, restate the literal number/label (the LLM must compute it) or restructure the workflow so the comparison happens inside `last`.
+- **Reusing IDs inside the same sequence:** Every operation (bar/line/stacked/grouped) now preserves its result dataset for later steps and automatically aliases each returned `DatumValue` with an `ops_*` style ID (`ops_0`, `ops_1`, …). This means later operations in the **same** sequence can freely refer to those IDs in supported fields like `targetA`, `targetB`, `compareAgainst`, etc. Example:
+  ```json
+  {
+    "ops": [
+      { "op": "retrieveValue", "field": "Religious", "target": "Hindu", "group": "Literacy (%)" },
+      { "op": "retrieveValue", "field": "Religious", "target": "Hindu", "group": "Work participation (%)" },
+      { "op": "diff", "field": "value", "targetA": "ops_0", "targetB": "ops_1", "aggregate": "ratio", "precision": 4 }
+    ],
+    "last": [
+      { "op": "compare", "field": "value", "targetA": "ops_2", "targetB": "ops2_2", "which": "max" }
+    ]
+  }
+  ```
+  Here `ops_0` and `ops_1` come from the earlier `retrieveValue` steps in `ops`, the `diff` emits a new datum aliased as `ops_2`, and `last` can compare that ratio against a parallel `ops2_2`. No manual ID wiring is needed—the runtime assigns and carries the IDs automatically.
 - You may chain results inside `last` by referring to **previous `last` outputs** as `"last_<i>"` (0‑based within `last`).
 - `last` also **must end** in a **single** `Datum` or `Boolean`.
 

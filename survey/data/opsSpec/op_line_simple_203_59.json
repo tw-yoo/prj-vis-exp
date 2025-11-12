@@ -1,0 +1,18 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "field": "Country",
+      "operator": "==",
+      "value": "Brazil"
+    },
+    {
+      "op": "findExtremum",
+      "field": "Production",
+      "which": "max"
+    }
+  ],
+  "text": {
+    "ops": "First, filter the data to show only Brazil's production values across all years. Then, identify the highest point among Brazil's filtered production, which reveals a maximum of 40000."
+  }
+}
