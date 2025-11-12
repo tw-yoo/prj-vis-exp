@@ -1,4 +1,4 @@
-import {renderChart} from "../util/util.js";
+import {renderChart, renderPlainVegaLiteChart} from "../util/util.js";
 import {executeAtomicOps} from "../router/router.js";
 import {getVegaLiteSpec, getOperationSpec} from "./util.js";
 import { runOpsSequence, attachOpNavigator, updateNavigatorStates } from "../operations/operationUtil.js";
@@ -104,6 +104,18 @@ function normalizeDataUrl(url) {
     return `../${url}`;
 }
 
+function shouldRenderPlainVegaLite(container) {
+    if (!container) return false;
+    const rawMode = (container.getAttribute('data-render-mode') || container.dataset.renderMode || '').trim().toLowerCase();
+    if (rawMode === 'plain-vega-lite') return true;
+    const root = typeof container.closest === 'function'
+        ? container.closest('[data-role="main-question-root"]')
+        : null;
+    if (!root) return false;
+    const explanationType = (root.getAttribute('data-explanation-type') || '').trim().toUpperCase();
+    return explanationType === 'EXPERT';
+}
+
 export async function createChart(cId, host = null) {
     const chartDomId = nextChartDomId(cId);
 
@@ -146,8 +158,13 @@ export async function createChart(cId, host = null) {
     if (Object.prototype.hasOwnProperty.call(vegaLiteSpec, '__resolvedFrom')) {
         delete vegaLiteSpec.__resolvedFrom;
     }
-    await renderChart(chartDomId, vegaLiteSpec);
-    const disableNavigator = container.getAttribute('data-disable-navigator') === 'true';
+    const usePlainVegaLite = shouldRenderPlainVegaLite(container);
+    if (usePlainVegaLite) {
+        await renderPlainVegaLiteChart(chartDomId, vegaLiteSpec);
+    } else {
+        await renderChart(chartDomId, vegaLiteSpec);
+    }
+    const disableNavigator = usePlainVegaLite || container.getAttribute('data-disable-navigator') === 'true';
     let ctrl = null;
     if (!disableNavigator) {
         ctrl = attachOpNavigator(chartDomId, { mount: 'footer' });
@@ -156,7 +173,7 @@ export async function createChart(cId, host = null) {
 
     // Enable interactive operation sequence only when opspec is declared on the chart placeholder
     const rawOpSpec = (container.getAttribute('data-opspec') || container.dataset.opspec || '').trim();
-    if (rawOpSpec) {
+    if (!usePlainVegaLite && rawOpSpec) {
         // Resolve path: allow full path (*.json) or a logical key mapping to specs/ops/<key>.json
         const opSpecPath = (/\.json$/i.test(rawOpSpec) || rawOpSpec.includes('/'))
             ? rawOpSpec

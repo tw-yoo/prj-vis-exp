@@ -334,6 +334,7 @@ export class MainQuestion {
     async decorateCharts(template) {
         const chartId = inferChartIdFromSpec(this.chartSpecPath);
         const placeholders = template.content.querySelectorAll('[data-component="chart"]');
+        const isExpert = this.explanationType === ExplanationType.EXPERT;
         if (placeholders.length) {
             placeholders.forEach((node, index) => {
                 if (this.chartSpecPath) {
@@ -345,6 +346,15 @@ export class MainQuestion {
                 if (index === 0) {
                     node.setAttribute('data-disable-navigator', 'true');
                 }
+                if (isExpert) {
+                    node.setAttribute('data-render-mode', 'plain-vega-lite');
+                    node.setAttribute('data-disable-navigator', 'true');
+                } else {
+                    node.removeAttribute('data-render-mode');
+                    if (index !== 0 && node.hasAttribute('data-disable-navigator')) {
+                        node.removeAttribute('data-disable-navigator');
+                    }
+                }
             });
         }
 
@@ -352,17 +362,16 @@ export class MainQuestion {
         if (!explanationContainer) return;
 
         if (this.explanationType === ExplanationType.EXPERT) {
-            explanationContainer.setAttribute('data-component', 'chart-exp');
-            const folder = this.expertAssetFolder;
-            if (folder) {
-                explanationContainer.setAttribute('data-chart', folder);
-                explanationContainer.setAttribute('data-expert-prefix', this.expertSequencePrefix);
-            } else {
-                explanationContainer.innerHTML = '<div class="expert-explanation-missing">Expert assets unavailable.</div>';
+            if (this.chartSpecPath) {
+                explanationContainer.setAttribute('data-spec-path', this.chartSpecPath);
             }
+            if (chartId) {
+                explanationContainer.setAttribute('data-chart', chartId);
+            }
+            explanationContainer.setAttribute('data-render-mode', 'plain-vega-lite');
+            explanationContainer.setAttribute('data-disable-navigator', 'true');
             explanationContainer.removeAttribute('data-opspec');
-            explanationContainer.removeAttribute('data-spec-path');
-            explanationContainer.removeAttribute('data-disable-navigator');
+            explanationContainer.removeAttribute('data-expert-prefix');
             return;
         }
 
@@ -371,6 +380,7 @@ export class MainQuestion {
             explanationContainer.removeAttribute('data-chart');
             explanationContainer.removeAttribute('data-opspec');
             explanationContainer.removeAttribute('data-spec-path');
+            explanationContainer.removeAttribute('data-render-mode');
 
             const html = await this.loadBaselineExplanation();
             if (html) {
@@ -387,6 +397,7 @@ export class MainQuestion {
         if (chartId) {
             explanationContainer.setAttribute('data-chart', chartId);
         }
+        explanationContainer.removeAttribute('data-render-mode');
         const opSpecValue = this.resolveOperationSpecValue();
         if (opSpecValue) {
             explanationContainer.setAttribute('data-opspec', opSpecValue);

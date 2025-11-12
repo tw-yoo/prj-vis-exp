@@ -316,6 +316,26 @@ export function ensureXAxisLabelClearance(chartId, opts = {}) {
   step();
 }
 
+function resolveVegaEmbed() {
+  try {
+    if (typeof vegaEmbed === 'function') {
+      return vegaEmbed;
+    }
+  } catch (_) {
+    // Ignore ReferenceError when vegaEmbed is not defined globally
+  }
+  const globalObj = typeof window !== 'undefined'
+    ? window
+    : (typeof globalThis !== 'undefined' ? globalThis : null);
+  if (globalObj && typeof globalObj.vegaEmbed === 'function') {
+    return globalObj.vegaEmbed.bind(globalObj);
+  }
+  if (globalObj && globalObj.vega && typeof globalObj.vega.embed === 'function') {
+    return (container, spec, options) => globalObj.vega.embed(container, spec, options);
+  }
+  return null;
+}
+
 export async function renderChart(chartId, spec) {
     const canvas = ensureChartCanvas(chartId);
     remapIdsForRenderer(chartId);
@@ -351,6 +371,43 @@ export async function renderChart(chartId, spec) {
     stripAxisTitles(canvas);
     ensureXAxisLabelClearance(chartId, { attempts: 5, minGap: 14, maxShift: 140 });
     // ensureTempTableBelow(chartId, spec);
+}
+
+export async function renderPlainVegaLiteChart(chartId, spec, options = {}) {
+    const canvas = ensureChartCanvas(chartId);
+    const { canvas: normalizedCanvas } = remapIdsForRenderer(chartId);
+    const target = normalizedCanvas || canvas;
+
+    if (!target) {
+        console.warn(`renderPlainVegaLiteChart: unable to resolve canvas for chartId="${chartId}"`);
+        return null;
+    }
+
+    while (target.firstChild) {
+        target.removeChild(target.firstChild);
+    }
+
+    if (!spec || typeof spec !== 'object') {
+        console.warn('renderPlainVegaLiteChart: expected a Vega-Lite specification object');
+        return null;
+    }
+
+    const embed = resolveVegaEmbed();
+    if (typeof embed !== 'function') {
+        console.warn('renderPlainVegaLiteChart: vegaEmbed is not available on the global scope');
+        return null;
+    }
+
+    const embedOptions = {
+        actions: false,
+        renderer: 'svg',
+        ...options
+    };
+
+    const result = await embed(target, spec, embedOptions);
+    stripAxisTitles(target);
+    ensureXAxisLabelClearance(chartId, { attempts: 5, minGap: 14, maxShift: 140 });
+    return result;
 }
 
 export function buildSimpleBarSpec(dvList, opts = {}) {
