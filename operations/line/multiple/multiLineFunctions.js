@@ -13,7 +13,8 @@ import {
     compareBoolOp as dataCompareBool,
     // compareDual as dataCompareDual,
     // compareBoolDual as dataCompareBoolDual,
-    countData as dataCount
+    countData as dataCount,
+    lagDiffData as dataLagDiff
 } from "../../lineChartOperationFunctions.js";
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
@@ -29,9 +30,15 @@ import {
     simpleLineSum,
     simpleLineDiff,
     simpleLineCount,
-    simpleLineSort
+    simpleLineSort,
+    simpleLineLagDiff
 } from "../simple/simpleLineFunctions.js";
-import { OP_COLORS } from "../../../object/colorPalette.js";
+import { OP_COLORS } from "../../../../object/colorPalette.js";
+import {
+    parseDateWithGranularity,
+    fmtISO
+} from "../sharedLineUtils.js";
+import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 
 /**
  * 작업 완료 신호를 DOM 이벤트로 방출합니다.
@@ -51,25 +58,15 @@ function emitOpDone(svg, chartId, opName, detail = {}) {
 }
 
 // -------------------- Helpers --------------------
-const fmtISO = d3.timeFormat("%Y-%m-%d");
-
 // --- Util: Normalize a target value to id string
 function toTargetId(v){
-    const d = parseDate(v);
-    return d ? fmtISO(d) : String(v);
-}
-
-function parseDate(v) {
-    if (v instanceof Date) return v;
-    const d = new Date(v);
-    if (!isNaN(+d)) return d;
-    if (typeof v === "string" && /^\d{4}$/.test(v)) return new Date(+v, 0, 1);
-    return null;
+    const { date } = parseDateWithGranularity(v);
+    return date ? fmtISO(date) : String(v);
 }
 
 function isSameDateOrValue(val1, val2) {
-    const d1 = parseDate(val1);
-    const d2 = parseDate(val2);
+    const d1 = parseDateWithGranularity(val1).date;
+    const d2 = parseDateWithGranularity(val2).date;
     if (d1 && d2) {
         return fmtISO(d1) === fmtISO(d2);
     }
@@ -241,7 +238,7 @@ export async function multipleLineFilter(chartId, op, data) {
                 .text(`${op.operator} ${(+op.value).toLocaleString()}`);
         }
     } else if (internalField === 'target' && op.operator === 'between' && Array.isArray(op.value)) {
-        const [start, end] = op.value.map(parseDate);
+        const [start, end] = op.value.map(v => parseDateWithGranularity(v).date);
         if (start && end) {
             const xStart = originalXScale(start);
             const xEnd = originalXScale(end);
@@ -473,7 +470,20 @@ export async function multipleLineNth(chartId, op, data) {
     const { xScale, yScale } = buildScales(data, plot);
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
 
-    const pickedCategory = nthData[0].target instanceof Date ? fmtISO(nthData[0].target) : String(nthData[0].target);
+    const formatTarget = (datum) => {
+        const base = datum.target instanceof Date ? fmtISO(datum.target) : String(datum.target);
+        return datum.group != null ? `${base} (${datum.group})` : base;
+    };
+
+    const pickedSummary = nthData.map(formatTarget).join(', ');
+    const requestedRanks = Array.isArray(op?.n) ? op.n : [op?.n ?? 1];
+    const rankSummary = requestedRanks
+        .map((value) => {
+            const num = Number(value);
+            return Number.isFinite(num) && num > 0 ? num : null;
+        })
+        .filter((val) => val !== null)
+        .join(', ') || '1';
 
     nthData.forEach(datum => {
         const cx = xScale(datum.target);
@@ -488,9 +498,13 @@ export async function multipleLineNth(chartId, op, data) {
         .attr('x', margins.left).attr('y', margins.top - 10)
         .attr('font-size', 14).attr('font-weight', 'bold')
         .attr('fill', OP_COLORS.NTH)
-        .text(`Nth (from ${op.from || 'left'}): ${op.n} (${pickedCategory})`);
+        .text(`Nth (from ${op.from || 'left'}): ${rankSummary} → ${pickedSummary}`);
 
-    emitOpDone(svg, chartId, 'multipleLineNth', { n: op.n, from: op.from || 'left', target: pickedCategory });
+    emitOpDone(svg, chartId, 'multipleLineNth', {
+        n: op.n,
+        from: op.from || 'left',
+        targets: pickedSummary
+    });
     return nthData;
 }
 
@@ -738,6 +752,37 @@ export async function multipleLineDiff(chartId, op, data) {
     return diffResult;
 }
 
+export async function multipleLineLagDiff(chartId, op, data, isLast = false) {
+    const { svg } = getSvgAndSetup(chartId);
+    clearAllAnnotations(svg);
+
+    const rawDiffs = dataLagDiff(data, op, isLast);
+    const diffs = normalizeLagDiffResults(rawDiffs, 'target', 'value');
+    if (!Array.isArray(diffs) || diffs.length === 0) {
+        console.warn('[multipleLineLagDiff] no differences computed');
+        return [];
+    }
+
+    const positiveTotal = diffs
+        .map(d => Number(d.value))
+        .filter(v => Number.isFinite(v) && v > 0)
+        .reduce((acc, v) => acc + v, 0);
+
+    svg.append('text').attr('class', 'annotation lagdiff-summary')
+        .attr('x', 16)
+        .attr('y', 20)
+        .attr('font-size', 14)
+        .attr('font-weight', 'bold')
+        .attr('fill', OP_COLORS.SUM)
+        .text(
+            Number.isFinite(positiveTotal)
+                ? `lagDiff computed ${diffs.length} changes · positives sum ${positiveTotal.toLocaleString()}`
+                : `lagDiff computed ${diffs.length} changes`
+        );
+
+    return diffs;
+}
+
 export async function multipleLineCount(chartId, op, data) {
     const { svg, g, margins } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
@@ -894,7 +939,7 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
             .attr("stroke", highlightColor)
             .attr("stroke-width", 3.0)
             .attr("opacity", 0);
-        targetLine.transition().duration(300).attr("opacity", 1).catch(() => {});
+        targetLine.transition().duration(300).attr("opacity", 1).end().catch(() => {});
     } else {
         targetLine.datum(filteredData);
     }

@@ -1,3 +1,23 @@
+let ensureAxisClearanceFn = null;
+async function ensureAxisLabels(chartId) {
+    if (!ensureAxisClearanceFn) {
+        try {
+            const mod = await import("../util/util.js");
+            ensureAxisClearanceFn = mod.ensureXAxisLabelClearance;
+        } catch (err) {
+            console.warn("runOpsSequence: unable to load axis clearance helper", err);
+            return;
+        }
+    }
+    if (typeof ensureAxisClearanceFn === "function") {
+        try {
+            ensureAxisClearanceFn(chartId, { attempts: 3, minGap: 12, maxShift: 140 });
+        } catch (err) {
+            console.warn("runOpsSequence: ensureXAxisLabelClearance failed", err);
+        }
+    }
+}
+
 export function getFilteredData(op, data) {
     if (!Array.isArray(data) || data.length === 0) return [];
 
@@ -768,6 +788,8 @@ export async function runOpsSequence({
         } catch (e) {
             console.warn('runOpsSequence: failed to reattach ops-explain overlay after ops', e);
         }
+
+        await ensureAxisLabels(chartId);
 
         // (No updateNavigatorStates here; already updated above)
         if (delayMs > 0) await delay(delayMs);

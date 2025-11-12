@@ -5,8 +5,16 @@ import {DatumValue, BoolValue, IntervalValue} from "../object/valueType.js";
 function _resolveLastQuery(data, keyOrObj, isLast) {
   if (keyOrObj && typeof keyOrObj === 'object') return keyOrObj;
   const k = String(keyOrObj);
-  if (isLast && Array.isArray(data) && data.some(d => String(d?.id) === k)) {
-    return { id: k };
+  if (isLast && Array.isArray(data)) {
+    for (const datum of data) {
+      if (!datum) continue;
+      if (datum.id != null && String(datum.id) === k) {
+        return { id: String(datum.id) };
+      }
+      if (datum.lookupId != null && String(datum.lookupId) === k) {
+        return { id: String(datum.lookupId) };
+      }
+    }
   }
   return { target: k };
 }
@@ -18,6 +26,41 @@ function _buildQueryFor(data, targetKey, groupKey, isLast) {
     q.group = groupKey;
   }
   return q;
+}
+
+function parseComparableValue(raw) {
+  if (raw instanceof Date) {
+    const ts = +raw;
+    if (!Number.isNaN(ts)) return ts;
+  }
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return raw;
+  }
+  const str = String(raw ?? "").trim();
+  if (str === "") return null;
+  const date = new Date(str);
+  if (!Number.isNaN(+date)) return +date;
+  const num = Number(str);
+  if (Number.isFinite(num)) return num;
+  return str;
+}
+
+function compareComparableValues(a, b) {
+  const aNull = a === null || a === undefined;
+  const bNull = b === null || b === undefined;
+  if (aNull && bNull) return 0;
+  if (aNull) return -1;
+  if (bNull) return 1;
+  if (typeof a === "number" && typeof b === "number") {
+    if (a < b) return -1;
+    if (a > b) return 1;
+    return 0;
+  }
+  const aStr = String(a);
+  const bStr = String(b);
+  if (aStr < bStr) return -1;
+  if (aStr > bStr) return 1;
+  return 0;
 }
 
 export function retrieveValue(data, op, isLast = false) {
@@ -519,12 +562,35 @@ export function diff(data, op, xField, yField, isLast = false) {
         };
         const keyStr = String(k);
         return data.filter(d => inGroup(d) && (
-            String(getCat(d)) === keyStr || (d?.id != null && String(d.id) === keyStr)
+            String(getCat(d)) === keyStr ||
+            (d?.id != null && String(d.id) === keyStr) ||
+            (d?.lookupId != null && String(d.lookupId) === keyStr)
         ));
     };
 
     if (!A || A.length === 0) A = pickWith(qA2?.target ?? op.targetA, qA2?.group ?? op?.group ?? null);
     if (!B || B.length === 0) B = pickWith(qB2?.target ?? op.targetB, qB2?.group ?? op?.group ?? null);
+
+    const fallbackLookup = (key) => {
+        if (key == null) return [];
+        const keyStr = String(key);
+        return data.filter(d => {
+            if (!d) return false;
+            if (d.id != null && String(d.id) === keyStr) return true;
+            if (d.target != null && String(d.target) === keyStr) return true;
+            if (d.lookupId != null && String(d.lookupId) === keyStr) return true;
+            return false;
+        });
+    };
+
+    if (!A.length) {
+        const fallbackA = fallbackLookup(qA2?.id ?? qA2?.target ?? op.targetA);
+        if (fallbackA.length) A = fallbackA;
+    }
+    if (!B.length) {
+        const fallbackB = fallbackLookup(qB2?.id ?? qB2?.target ?? op.targetB);
+        if (fallbackB.length) B = fallbackB;
+    }
 
     if (!A.length || !B.length) {
         console.warn("diff: one or both targets not found", { op, qA: qA2, qB: qB2 });
@@ -558,41 +624,173 @@ export function diff(data, op, xField, yField, isLast = false) {
     const bVal = aggregate(B);
     if (!Number.isFinite(aVal) || !Number.isFinite(bVal)) return [];
 
-    const diffVal = aVal - bVal;
+    const aggregateMode = typeof op?.aggregate === 'string'
+        ? op.aggregate.toLowerCase()
+        : null;
+    const isPercentOfTotal = aggregateMode === 'percentage_of_total' || aggregateMode === 'percent_of_total';
+
+    const mode = String(op?.mode ?? 'difference').toLowerCase();
+    let resultValue;
+    let targetLabel = 'Diff';
+
+    if (isPercentOfTotal) {
+        if (bVal === 0) {
+            console.warn("diff (percentage_of_total): denominator is zero", { op });
+            return [];
+        }
+        resultValue = (aVal / bVal) * 100;
+        targetLabel = op?.targetName ?? 'PercentOfTotal';
+    } else if (mode === 'ratio') {
+        if (bVal === 0) {
+            console.warn("diff (ratio): denominator is zero", { op });
+            return [];
+        }
+        let ratio = aVal / bVal;
+        const defaultScale = op?.percent ? 100 : 1;
+        const scale = Number.isFinite(op?.scale) ? op.scale : defaultScale;
+        if (Number.isFinite(scale)) ratio *= scale;
+        resultValue = ratio;
+        targetLabel = op?.targetName ?? (op?.percent ? 'PercentOfTotal' : 'Ratio');
+    } else {
+        resultValue = aVal - bVal;
+    }
+
+    const precision = Number.isFinite(Number(op?.precision)) ? Math.max(0, Number(op.precision)) : null;
+    if (precision !== null) {
+        resultValue = Number(resultValue.toFixed(precision));
+    }
+
     return {
         category: sample.category || 'target',
         measure: measureName,
-        target: 'Diff',
+        target: targetLabel,
         group: (qA2?.group ?? qB2?.group ?? op?.group ?? null),
-        value: diffVal
+        value: resultValue
     };
+}
+
+export function lagDiff(data, op, xField, yField, isLast = false) {
+    if (!Array.isArray(data) || data.length < 2) return [];
+    const {
+        field,
+        orderField,
+        order = 'asc',
+        group,
+        absolute = false
+    } = op || {};
+
+    const filtered = (group == null)
+        ? data.slice()
+        : data.filter(d => d && String(d.group) === String(group));
+    if (filtered.length < 2) return [];
+
+    const sample = filtered[0] || {};
+    const measureName = field || sample.measure || 'value';
+    const categoryName = orderField || sample.category || 'target';
+
+    const getOrderRaw = (datum) => {
+        if (!datum) return null;
+        if (orderField && datum[orderField] !== undefined) return datum[orderField];
+        if (datum.target !== undefined) return datum.target;
+        if (categoryName && datum[categoryName] !== undefined) return datum[categoryName];
+        if (datum.id != null) return datum.id;
+        return null;
+    };
+
+    const decorated = filtered.map((datum) => ({
+        datum,
+        orderValue: parseComparableValue(getOrderRaw(datum))
+    }));
+
+    const direction = order === 'desc' ? -1 : 1;
+    decorated.sort((a, b) => direction * compareComparableValues(a.orderValue, b.orderValue));
+
+    const diffs = [];
+    for (let i = 1; i < decorated.length; i++) {
+        const curr = decorated[i].datum;
+        const prev = decorated[i - 1].datum;
+        if (!curr || !prev) continue;
+        const currVal = Number(curr?.[measureName] ?? curr?.value);
+        const prevVal = Number(prev?.[measureName] ?? prev?.value);
+        if (!Number.isFinite(currVal) || !Number.isFinite(prevVal)) continue;
+        const diffValue = absolute ? Math.abs(currVal - prevVal) : (currVal - prevVal);
+
+        diffs.push({
+            category: categoryName,
+            measure: measureName,
+            target: curr.target ?? curr[categoryName],
+            group: curr.group ?? null,
+            value: diffValue,
+            id: curr.id ? `${curr.id}_lagdiff` : undefined,
+            prevTarget: prev.target ?? prev[categoryName]
+        });
+    }
+    return diffs;
 }
 
 export function nth(data, op) {
     if (!Array.isArray(data) || data.length === 0) return [];
 
-    let n = Number(op?.n ?? 1);
     const from = String(op?.from || 'left').toLowerCase();
-    if (!Number.isFinite(n) || n <= 0) n = 1;
+    const rawRanks = Array.isArray(op?.n) ? op.n : [op?.n ?? 1];
+
+    const normalizedRanks = rawRanks
+        .map((value, orderIdx) => {
+            const num = Number(value);
+            if (!Number.isFinite(num) || num <= 0) return null;
+            return { num, orderIdx };
+        })
+        .filter(Boolean);
+
+    if (normalizedRanks.length === 0) {
+        normalizedRanks.push({ num: 1, orderIdx: 0 });
+    }
 
     if (op.groupBy) {
         const groupKey = op.groupBy;
         const groupsInOrder = [...new Set(data.map(d => d[groupKey]))];
-
         const total = groupsInOrder.length;
-        const idx = from === 'right' ? (total - n) : (n - 1);
-        if (idx < 0 || idx >= total) return [];
+        const selectedGroups = [];
 
-        const pickedGroup = groupsInOrder[idx];
-        return data.filter(d => String(d[groupKey]) === String(pickedGroup));
-    } else {
-        const total = data.length;
-        const idx = from === 'right' ? (total - n) : (n - 1);
-        if (idx < 0 || idx >= total) return [];
+        for (const entry of normalizedRanks) {
+            const idx = from === 'right'
+                ? (total - entry.num)
+                : (entry.num - 1);
+            if (idx < 0 || idx >= total) continue;
+            const groupValue = groupsInOrder[idx];
+            if (groupValue === undefined) continue;
+            selectedGroups.push({ value: groupValue, orderIdx: entry.orderIdx });
+        }
 
-        const item = data[idx];
-        return item ? [item] : [];
+        if (!selectedGroups.length) return [];
+
+        selectedGroups.sort((a, b) => a.orderIdx - b.orderIdx);
+        const orderedGroups = selectedGroups.map(sg => String(sg.value));
+
+        const orderedResults = [];
+        for (const groupLabel of orderedGroups) {
+            const matches = data.filter(d => String(d[groupKey]) === groupLabel);
+            orderedResults.push(...matches);
+        }
+        return orderedResults;
     }
+
+    const total = data.length;
+    const picks = [];
+
+    for (const entry of normalizedRanks) {
+        const idx = from === 'right'
+            ? (total - entry.num)
+            : (entry.num - 1);
+        if (idx < 0 || idx >= total) continue;
+        const datum = data[idx];
+        if (!datum) continue;
+        picks.push({ datum, orderIdx: entry.orderIdx });
+    }
+
+    if (!picks.length) return [];
+    picks.sort((a, b) => a.orderIdx - b.orderIdx);
+    return picks.map(p => p.datum);
 }
 
 export function count(data, op, xField, yField, isLast = false) {

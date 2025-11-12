@@ -150,11 +150,33 @@ export class DiffSpec {
    * @param {string} targetA
    * @param {string} targetB
    */
-  constructor(field, group, targetA, targetB) {
+  constructor(field, group, targetA, targetB, mode = 'difference', scale = null, precision = null, percent = false, targetName = null) {
     this.field = field;
     this.group = group;
     this.targetA = targetA;
     this.targetB = targetB;
+    this.mode = mode;
+    this.scale = scale;
+    this.precision = precision;
+    this.percent = percent;
+    this.targetName = targetName;
+  }
+}
+
+export class LagDiffSpec {
+  /**
+   * @param {string} field - Measure field to evaluate (defaults to chart measure)
+   * @param {string|null} orderField - Category/temporal field for ordering (defaults to x/category)
+   * @param {'asc'|'desc'} order
+   * @param {string|null} group
+   * @param {boolean} absolute
+   */
+  constructor(field, orderField = null, order = 'asc', group = null, absolute = false) {
+    this.field = field;
+    this.orderField = orderField;
+    this.order = order;
+    this.group = group;
+    this.absolute = absolute;
   }
 }
 

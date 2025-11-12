@@ -31,20 +31,70 @@ function validateOpsSpec(text) {
     return null;
 }
 
+const answerButton = document.getElementById('answer-button');
+const runOpsButton = document.getElementById('run-ops-button');
+
+const setStatus = (el, text, isError = false) => {
+    if (!el) return;
+    el.textContent = text || '';
+    if (isError) el.classList.add('error');
+    else el.classList.remove('error');
+};
+
+const setAnswerStatus = (text, isError = false) => {
+    setStatus(document.getElementById('answer-status'), text, isError);
+};
+
+const setOpsStatus = (text, isError = false) => {
+    setStatus(document.getElementById('ops-status'), text, isError);
+};
+
 document.getElementById('render-chart-button').addEventListener('click', async () => {
     const vlText  = vlEditor.getValue();
     const vlSpec = JSON.parse(vlText);
     await renderChart("chart", vlSpec);
 });
 
-document.getElementById('answer-button').addEventListener('click', async () => {
+answerButton.addEventListener('click', async () => {
     const vlText  = vlEditor.getValue();
     const vlSpec = JSON.parse(vlText);
     const questionText = questionEditor.getValue();
-    await updateAnswerFromGemini(vlSpec, questionText);
+    try {
+        await updateAnswerFromGemini(vlSpec, questionText, {
+            onAnswerStart: () => {
+                setAnswerStatus('⏳ Generating answer…');
+                setOpsStatus('');
+                answerButton.disabled = true;
+            },
+            onAnswerEnd: ({ success }) => {
+                if (success) {
+                    setAnswerStatus('');
+                } else {
+                    setAnswerStatus('⚠ Failed to generate answer', true);
+                }
+                answerButton.disabled = false;
+            },
+            onOpsStart: () => {
+                setOpsStatus('⏳ Generating ChartOps spec…');
+            },
+            onOpsEnd: ({ success }) => {
+                if (success) {
+                    setOpsStatus('');
+                } else {
+                    setOpsStatus('⚠ Failed to generate ChartOps spec', true);
+                }
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        const answerEl = document.getElementById('explanation');
+        if (answerEl) {
+            answerEl.value = 'Unable to generate answer.\nSee console for details.';
+        }
+    }
 });
 
-document.getElementById('run-ops-button').addEventListener('click', async () => {
+runOpsButton.addEventListener('click', async () => {
     const vlText  = vlEditor.getValue();
     const vlSpec = JSON.parse(vlText);
     // await renderChart("chart", vlSpec);

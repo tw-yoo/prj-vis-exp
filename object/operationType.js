@@ -11,7 +11,7 @@ export const OperationType = Object.freeze({
     SUM: "sum",
     AVERAGE: "average",
     DIFF: "diff",
+    LAG_DIFF: "lagDiff",
     NTH: "nth",
     COUNT: "count",
 });
-

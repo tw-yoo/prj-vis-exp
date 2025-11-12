@@ -1,0 +1,37 @@
+{
+  "line_simple": {
+    "ops": [
+      {
+        "op": "sort",
+        "field": "Gross Domestic Product",
+        "order": "desc"
+      },
+      {
+        "op": "nth",
+        "n": 2,
+        "from": "left"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "sort",
+        "field": "Gross Domestic Product",
+        "order": "desc"
+      },
+      {
+        "op": "nth",
+        "n": 5,
+        "from": "left"
+      }
+    ],
+    "last": [
+      {
+        "op": "diff",
+        "field": "value",
+        "targetA": "ops_0",
+        "targetB": "ops2_0",
+        "signed": true
+      }
+    ]
+  }
+}

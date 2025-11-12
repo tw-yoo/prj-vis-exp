@@ -2,9 +2,9 @@ import {OperationType} from "../../../object/operationType.js";
 import {
     buildSimpleBarSpec,
     dataCache,
+    ensureXAxisLabelClearance,
     lastCategory,
-    lastMeasure,
-    renderChart
+    lastMeasure
 } from "../../../util/util.js";
 import {
     getSvgAndSetup,
@@ -14,11 +14,29 @@ import {
     stackedBarCompare, stackedBarCompareBool, stackedBarCount,
     stackedBarDetermineRange, stackedBarDiff,
     stackedBarFilter,
-    stackedBarFindExtremum, stackedBarNth,
+    stackedBarFindExtremum, stackedBarLagDiff, stackedBarNth,
     stackedBarRetrieveValue, stackedBarSort, stackedBarSum
 } from "./stackedBarFunctions.js";
-import { DatumValue } from "../../../object/valueType.js";
+import { DatumValue, IntervalValue, BoolValue, ScalarValue } from "../../../object/valueType.js";
 import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
+import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
+import { renderChartWithFade } from "../common/chartRenderUtils.js";
+import { normalizeCachedData } from "../common/datumCacheHelpers.js";
+import {
+    simpleBarAverage,
+    simpleBarCompare,
+    simpleBarCompareBool,
+    simpleBarCount,
+    simpleBarDetermineRange,
+    simpleBarDiff,
+    simpleBarFilter,
+    simpleBarFindExtremum,
+    simpleBarLagDiff,
+    simpleBarNth,
+    simpleBarRetrieveValue,
+    simpleBarSort,
+    simpleBarSum
+} from "../simple/simpleBarFunctions.js";
 
 // --- settle helpers (match groupedBar pattern) ---
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -35,14 +53,32 @@ const GROUPED_BAR_OP_HANDLES = {
     [OperationType.SUM]:            stackedBarSum,
     [OperationType.AVERAGE]:        stackedBarAverage,
     [OperationType.DIFF]:           stackedBarDiff,
+    [OperationType.LAG_DIFF]:       stackedBarLagDiff,
     [OperationType.NTH]:            stackedBarNth,
     [OperationType.COUNT]:          stackedBarCount,
 }
 
+const SIMPLE_BAR_LAST_OP_HANDLES = {
+    [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
+    [OperationType.FILTER]:         simpleBarFilter,
+    [OperationType.FIND_EXTREMUM]:  simpleBarFindExtremum,
+    [OperationType.DETERMINE_RANGE]:simpleBarDetermineRange,
+    [OperationType.COMPARE]:        simpleBarCompare,
+    [OperationType.COMPARE_BOOL]:   simpleBarCompareBool,
+    [OperationType.SORT]:           simpleBarSort,
+    [OperationType.SUM]:            simpleBarSum,
+    [OperationType.AVERAGE]:        simpleBarAverage,
+    [OperationType.DIFF]:           simpleBarDiff,
+    [OperationType.LAG_DIFF]:       simpleBarLagDiff,
+    [OperationType.NTH]:            simpleBarNth,
+    [OperationType.COUNT]:          simpleBarCount,
+};
+
 const chartDataStore = {};
 
 async function applyStackedBarOperation(chartId, operation, currentData, isLast = false)  {
-    const fn = GROUPED_BAR_OP_HANDLES[operation.op];
+    const handlerMap = isLast ? SIMPLE_BAR_LAST_OP_HANDLES : GROUPED_BAR_OP_HANDLES;
+    const fn = handlerMap[operation.op];
     if (!fn) {
         console.warn(`Unsupported operation: ${operation.op}`);
         return currentData;
@@ -114,6 +150,7 @@ async function resetStackedBarChart(chartId, vlSpec, ctx = {}) {
  * 차트 리셋
  */
 export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) {
+    ensurePercentDiffAggregate(opsSpec, textSpec);
     const svg = d3.select(`#${chartId}`).select("svg");
 
     if (svg.empty() || svg.select(".plot-area").empty()) {
@@ -140,74 +177,37 @@ export async function runStackedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         onRunOpsList: async (opsList, isLast) => {
             if (isLast) {
                 const cachedValues = Object.values(dataCache).flat().filter(Boolean);
-                const datumResults = cachedValues.filter(v => v instanceof DatumValue);
-                if (datumResults.length === 0) {
+                if (cachedValues.length === 0) {
+                    console.warn('last stage: no cached data');
+                    return [];
+                }
+
+                const fallbackCategory = lastCategory ?? categoryLabel ?? 'category';
+                const fallbackMeasure = lastMeasure ?? measureLabel ?? 'value';
+                const prepared = buildCompareDatasetFromCache(cachedValues, fallbackCategory, fallbackMeasure);
+                if (!prepared) {
                     console.warn('last stage: no DatumValue results to visualize');
                     return [];
                 }
 
-                const categories = new Set();
-                const measures = new Set();
-                const normalized = datumResults.map((datum, idx) => {
-                    const categoryName = typeof datum.category === 'string' && datum.category.trim().length > 0
-                        ? datum.category
-                        : (categoryLabel ?? lastCategory ?? 'category');
-                    const measureName = typeof datum.measure === 'string' && datum.measure.trim().length > 0
-                        ? datum.measure
-                        : (measureLabel ?? lastMeasure ?? 'value');
-                    categories.add(categoryName);
-                    measures.add(measureName);
-
-                    const baseLabel = (() => {
-                        if (datum.target != null) {
-                            const t = String(datum.target).trim();
-                            if (t.length > 0) return t;
-                        }
-                        return `Result ${idx + 1}`;
-                    })();
-                    const groupSuffix = datum.group != null ? ` · ${String(datum.group)}` : '';
-                    const idHint = (typeof datum.id === 'string' && datum.id.includes('_'))
-                        ? ` (${datum.id.split('_')[0]})`
-                        : '';
-                    const targetLabel = `${baseLabel}${groupSuffix}${idHint}`;
-
-                    const id = datum.id ?? `last_${idx}`;
-                    return new DatumValue(categoryName, measureName, targetLabel, datum.group ?? null, datum.value, id);
-                });
-
-                const axisLabelOverrides = {};
-                if (categories.size !== 1) axisLabelOverrides.x = null;
-                if (measures.size !== 1) axisLabelOverrides.y = null;
-
-                const specOpts = {};
-                if (Object.keys(axisLabelOverrides).length > 0) {
-                    specOpts.axisLabels = axisLabelOverrides;
-                }
-
-                const chartSpec = buildSimpleBarSpec(normalized, specOpts);
-                await renderChart(chartId, chartSpec);
-                return await executeStackedBarOpsList(chartId, opsList, normalized, true, 0);
+                const { compareData, specOpts } = prepared;
+                const chartSpec = buildSimpleBarSpec(compareData, specOpts);
+                await renderChartWithFade(chartId, chartSpec, 450);
+                ensureXAxisLabelClearance(chartId, { attempts: 6, minGap: 14, maxShift: 140 });
+                return await executeStackedBarOpsList(chartId, opsList, compareData, true, 0);
             }
 
             const base = datumValues.slice();
             return await executeStackedBarOpsList(chartId, opsList, base, false, 0);
         },
         onCache: (opKey, currentData) => {
-            const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);
-            arr.forEach((datum, idx) => {
-                if (datum instanceof DatumValue) {
-                    datum.id = `${opKey}_${idx}`;
-                    const hasCategory = typeof datum.category === 'string' && datum.category.trim().length > 0;
-                    const hasMeasure = typeof datum.measure === 'string' && datum.measure.trim().length > 0;
-                    if (!hasCategory) {
-                        datum.category = categoryLabel ?? lastCategory;
-                    }
-                    if (!hasMeasure) {
-                        datum.measure = measureLabel ?? lastMeasure;
-                    }
-                }
-            });
-            dataCache[opKey] = arr;
+            if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {
+                dataCache[opKey] = [currentData];
+                return;
+            }
+            const fallbackCategory = categoryLabel ?? lastCategory ?? 'category';
+            const fallbackMeasure = measureLabel ?? lastMeasure ?? 'value';
+            dataCache[opKey] = normalizeCachedData(currentData, opKey, fallbackCategory, fallbackMeasure);
         },
         isLastKey: (k) => k === 'last',
         delayMs: 0,

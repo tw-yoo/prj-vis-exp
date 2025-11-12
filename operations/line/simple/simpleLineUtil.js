@@ -8,6 +8,7 @@ import {
     simpleLineCount,
     simpleLineDetermineRange,
     simpleLineDiff,
+    simpleLineLagDiff,
     simpleLineFilter,
     simpleLineFindExtremum,
     simpleLineNth,
@@ -15,9 +16,11 @@ import {
     simpleLineSum
 } from "./simpleLineFunctions.js";
 import {OperationType} from "../../../object/operationType.js";
-import {dataCache, lastCategory, lastMeasure} from "../../../util/util.js";
+import {dataCache, lastCategory, lastMeasure, buildSimpleBarSpec} from "../../../util/util.js";
 import {DatumValue} from "../../../object/valueType.js";
 import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
+import {renderSimpleBarChart, executeSimpleBarOpsList} from "../../bar/simple/simpleBarUtil.js";
+import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
 
 /** 내부 사용: 라인 차트 데이터 저장 (renderSimpleLineChart에서 적재) */
 const chartDataStore = {};
@@ -34,9 +37,47 @@ const SIMPLE_LINE_OP_HANDLERS = {
     [OperationType.SUM]:            simpleLineSum,
     [OperationType.AVERAGE]:        simpleLineAverage,
     [OperationType.DIFF]:           simpleLineDiff,
+    [OperationType.LAG_DIFF]:       simpleLineLagDiff,
     [OperationType.NTH]:            simpleLineNth,
     [OperationType.COUNT]:          simpleLineCount,
 };
+
+function coerceDatumValue(datum, idx, categoryLabel, measureLabel, opKey) {
+    const fallbackCategory = categoryLabel ?? lastCategory ?? 'category';
+    const fallbackMeasure = measureLabel ?? lastMeasure ?? 'value';
+    const category = (typeof datum?.category === 'string' && datum.category.trim().length > 0)
+        ? datum.category
+        : fallbackCategory;
+    const measure = (typeof datum?.measure === 'string' && datum.measure.trim().length > 0)
+        ? datum.measure
+        : fallbackMeasure;
+    const target = datum?.target != null
+        ? String(datum.target)
+        : (datum && category && datum[category] != null)
+            ? String(datum[category])
+            : `Result ${idx + 1}`;
+    const value = Number.isFinite(Number(datum?.value))
+        ? Number(datum.value)
+        : (Number.isFinite(Number(datum?.[measure])))
+            ? Number(datum[measure])
+            : 0;
+    const group = datum?.group ?? null;
+    const stableId = `${opKey}_${idx}`;
+    const lookupSource = datum?.id ?? datum?.lookupId ?? datum?.target ?? null;
+
+    const dv = new DatumValue(category, measure, target, group, value, stableId);
+    dv.lookupId = lookupSource != null ? String(lookupSource) : stableId;
+
+    if (datum && typeof datum === 'object') {
+        const protectedKeys = new Set(['category', 'measure', 'target', 'group', 'value', 'id', 'lookupId']);
+        Object.keys(datum).forEach((key) => {
+            if (protectedKeys.has(key)) return;
+            dv[key] = datum[key];
+        });
+    }
+
+    return dv;
+}
 
 async function fullChartReset(chartId) {
     const { svg, g } = getSvgAndSetup(chartId);
@@ -156,6 +197,8 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
     const raw = chartDataStore[chartId] || [];
     const { datumValues, categoryLabel, measureLabel } = simpleLineToDatumValues(raw, vlSpec);
 
+    ensurePercentDiffAggregate(opsSpec, textSpec);
+
     // reset cache
     Object.keys(dataCache).forEach(key => delete dataCache[key]);
 
@@ -172,19 +215,33 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         textSpec,
         onReset: async (ctx = {}) => { await resetSimpleLineChart(chartId, vlSpec, ctx); },
         onRunOpsList: async (opsList, isLast) => {
+            const cachedDatums = Object.values(dataCache).flat().filter(Boolean);
+            if (isLast) {
+                if (cachedDatums.length === 0) {
+                    console.warn('last stage: no cached data');
+                    return [];
+                }
+                const fallbackCategory = lastCategory ?? categoryLabel ?? 'category';
+                const fallbackMeasure = lastMeasure ?? measureLabel ?? 'value';
+                const prepared = buildCompareDatasetFromCache(cachedDatums, fallbackCategory, fallbackMeasure);
+                if (!prepared) {
+                    console.warn('last stage: no DatumValue results to visualize');
+                    return [];
+                }
+                const { compareData, specOpts } = prepared;
+                const compareSpec = buildSimpleBarSpec(compareData, specOpts);
+                await renderSimpleBarChart(chartId, compareSpec);
+                return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
+            }
             const base = datumValues.slice();
             return await executeSimpleLineOpsList(chartId, opsList, base);
         },
         onCache: (opKey, currentData) => {
             const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);
-            arr.forEach((d, idx) => {
-                if (d && typeof d === "object") {
-                    d.id = `${opKey}_${idx}`;
-                    d.category = lastCategory ?? categoryLabel;
-                    d.measure  = lastMeasure  ?? measureLabel;
-                }
-            });
-            dataCache[opKey] = arr;
+            const normalized = arr
+                .filter(d => d != null)
+                .map((d, idx) => coerceDatumValue(d, idx, categoryLabel, measureLabel, opKey));
+            dataCache[opKey] = normalized;
         },
         isLastKey: (k) => k === 'last',
         delayMs: 0,
@@ -195,6 +252,8 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
 export async function renderSimpleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
+
+    // const margin = { top: 48, right: 48, bottom: 48, left: 84 };
     const margin = { top: 80, right: 48, bottom: 48, left: 64 };  // ✅ top을 120으로 크게 증가
     const innerWidth = (spec?.width ?? 560);
     const innerHeight = (spec?.height ?? 320);
@@ -286,4 +345,6 @@ export async function renderSimpleLineChart(chartId, spec) {
         .attr("x", -(margin.top + innerHeight / 2)).attr("y", margin.left - 48)
         .attr("text-anchor", "middle").text(yField);
 
-    }
+    shrinkSvgViewBox(svg, 12);
+}
+    // shrinkSvgViewBox(svg, 6);
