@@ -44,12 +44,23 @@ export const surveyQuestion2List = [
     )
 ]
 
-export function getSurveyQuestions(questionId, questionText, answerText, explanationType, templatePath=DEFAULT_TEMPLATE_PATH) {
+export function getSurveyQuestions(
+    questionId,
+    questionText,
+    answerText,
+    explanationType,
+    templatePath = DEFAULT_TEMPLATE_PATH,
+    options = {}
+) {
+    const { introKeys = [], pageIds = [], slugs = [] } = options || {};
 
     const surveyQuestionList = [surveyQuestion1List, surveyQuestion2List];
     const surveyQuestionItemList = [];
 
     for (let i = 0; i < surveyQuestionList.length; i++) {
+        const introKey = Array.isArray(introKeys) ? introKeys[i] : null;
+        const pageId = Array.isArray(pageIds) ? pageIds[i] : null;
+        const slug = Array.isArray(slugs) ? slugs[i] : null;
         surveyQuestionItemList.push(
             new MainQuestion({
                 questionId,
@@ -57,7 +68,11 @@ export function getSurveyQuestions(questionId, questionText, answerText, explana
                 chartQuestionText: questionText,
                 chartQuestionAnswer: answerText,
                 surveyQuestions: surveyQuestionList[i],
-                templatePath: templatePath
+                templatePath: templatePath,
+                pageId,
+                slug,
+                tutorialIntroKey: introKey,
+                isContinuation: i > 0
             })
         )
     }

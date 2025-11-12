@@ -664,17 +664,42 @@ export async function runOpsSequence({
     if (totalSteps === 1) return;            // nothing to do
 
     // Pull layout hints from the current svg (recomputed after each reset)
+    const fallbackLayout = {
+        navX: initialNavOpts?.x ?? 15,
+        navY: initialNavOpts?.y ?? 15,
+        captionYOffset: 40
+    };
+    let lastLayout = null;
+
     const getLayout = () => {
-        const svg = d3.select(`#${chartId}`).select("svg");
-        const mLeft = +svg.attr("data-m-left") || 0;
-        const mTop  = +svg.attr("data-m-top")  || 0;
-        const plotW = +svg.attr("data-plot-w") || 0;
-        const plotH = +svg.attr("data-plot-h") || 0;
-        const captionYOffset = 40;
+        const svgNode = d3.select(`#${chartId}`).select("svg").node();
+        if (!svgNode) {
+            return lastLayout || fallbackLayout;
+        }
+
+        const numAttr = (name, fallback = 0) => {
+            const raw = svgNode.getAttribute(name);
+            const value = Number(raw);
+            return Number.isFinite(value) ? value : fallback;
+        };
+
+        const mLeft = numAttr("data-m-left");
+        const mTop  = numAttr("data-m-top");
+        const plotW = numAttr("data-plot-w");
+        const plotH = numAttr("data-plot-h");
+        const captionYOffset = fallbackLayout.captionYOffset;
         const navWidth = 170;
-        const navX = mLeft + (plotW / 2) - (navWidth / 2);
-        const navY = mTop + plotH + captionYOffset + 20;
-        return { navX, navY, captionYOffset };
+
+        const computedNavX = mLeft + (plotW / 2) - (navWidth / 2);
+        const computedNavY = mTop + plotH + captionYOffset + 20;
+
+        const layout = {
+            navX: Number.isFinite(computedNavX) ? computedNavX : fallbackLayout.navX,
+            navY: Number.isFinite(computedNavY) ? computedNavY : fallbackLayout.navY,
+            captionYOffset
+        };
+        lastLayout = layout;
+        return layout;
     };
 
     const { navX, navY, captionYOffset } = getLayout();
@@ -750,7 +775,7 @@ export async function runOpsSequence({
 
             if (typeof onRunOpsList === 'function') {
                 try {
-                    result = await onRunOpsList(opsList, isLast);
+                    result = await onRunOpsList(opsList, isLast, upcomingKey);
                 } finally {
                     await setNavBusyState(ctrl, false);
                 }

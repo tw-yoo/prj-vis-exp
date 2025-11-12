@@ -28,6 +28,7 @@ import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../
 import { renderChartWithFade } from "../common/chartRenderUtils.js";
 import { normalizeCachedData } from "../common/datumCacheHelpers.js";
 import { storeAxisDomain } from "../../common/scaleHelpers.js";
+import { resetRuntimeResults, storeRuntimeResult, makeRuntimeKey } from "../../runtimeResultStore.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -159,8 +160,9 @@ async function applySimpleBarOperation(chartId, operation, currentData, isLast =
     return await fn(chartId, operation, currentData, isLast);
 }
 
-export async function executeSimpleBarOpsList(chartId, opsList, initialData, isLast = false, delayMs = 0) {
+export async function executeSimpleBarOpsList(chartId, opsList, initialData, isLast = false, delayMs = 0, opKey = null) {
     const list = Array.isArray(opsList) ? opsList : [];
+    resetRuntimeResults();
     let workingData = initialData;
     let lastResult = initialData;
     const pauseMs = delayMs > 0 ? delayMs : 1500;
@@ -170,6 +172,9 @@ export async function executeSimpleBarOpsList(chartId, opsList, initialData, isL
         const inputData = workingData;
         const result = await applySimpleBarOperation(chartId, operation, inputData, isLast);
         lastResult = result;
+
+        const stepKey = makeRuntimeKey(opKey, i);
+        storeRuntimeResult(stepKey, result);
 
         const shouldPreserveInput = !!(result && result.__keepInput);
         if (!shouldPreserveInput) {
@@ -237,7 +242,7 @@ await renderSimpleBarChart(chartId, vlSpec);
             }
             await renderSimpleBarChart(chartId, vlSpec);
         },
-        onRunOpsList: async (opsList, isLast) => {
+        onRunOpsList: async (opsList, isLast, opKey) => {
             const { orientation, xField, yField } = getSvgAndSetup(chartId);
             const fullData = [...chartDataStore[chartId]];
             const baseDatumValues = await convertToDatumValues(fullData, xField, yField, orientation);
@@ -262,10 +267,10 @@ await renderSimpleBarChart(chartId, vlSpec);
                 await renderChartWithFade(chartId, compareSpec, 450);
                 ensureXAxisLabelClearance(chartId, { attempts: 6, minGap: 14, maxShift: 140 });
 
-                return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
+                return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0, opKey);
             }
 
-            return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0);
+            return await executeSimpleBarOpsList(chartId, opsList, baseDatumValues, false, 0, opKey);
         },
         onCache: (opKey, currentData) => {
             if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {

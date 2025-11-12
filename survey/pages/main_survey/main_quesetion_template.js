@@ -243,7 +243,9 @@ export class MainQuestion {
         chartSpecId = null,
         operationId = null,
         pageId = null,
-        slug = null
+        slug = null,
+        tutorialIntroKey = null,
+        isContinuation = false
     }) {
         if (!isNonEmptyString(questionId)) {
             throw new Error('MainQuestion requires a questionId');
@@ -263,6 +265,8 @@ export class MainQuestion {
         this.slugValue = isNonEmptyString(slug) ? slug : this.internalPageId;
         this.expertAssetFolder = resolveExpertExplanationFolder(this.expertExpPath);
         this.expertSequencePrefix = deriveExpertSequencePrefix(this.expertAssetFolder, resolvedExpertKey);
+        this.tutorialIntroKey = isNonEmptyString(tutorialIntroKey) ? tutorialIntroKey.trim() : null;
+        this.isContinuation = Boolean(isContinuation);
     }
 
     get pageId() {
@@ -281,6 +285,7 @@ export class MainQuestion {
         this.decorateRoot(template);
         await this.decorateCharts(template);
         this.decorateQuestionText(template);
+        this.decorateContinuationState(template);
         this.decorateSurveyQuestions(template);
 
         return template.innerHTML;
@@ -293,6 +298,19 @@ export class MainQuestion {
         root.setAttribute('data-explanation-type', this.explanationType);
         if (isNonEmptyString(this.expertExpPath)) {
             root.setAttribute('data-expert-exp', this.expertExpPath);
+        }
+        if (isNonEmptyString(this.tutorialIntroKey)) {
+            root.setAttribute('data-tutorial-intro-key', this.tutorialIntroKey);
+        }
+    }
+
+    decorateContinuationState(template) {
+        const flagNode = template.content.querySelector('[data-role="continuation-note"]');
+        if (!flagNode) return;
+        if (this.isContinuation) {
+            flagNode.removeAttribute('hidden');
+        } else {
+            flagNode.setAttribute('hidden', 'true');
         }
     }
 

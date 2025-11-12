@@ -16,6 +16,7 @@ import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../
 import { renderChartWithFade } from "../common/chartRenderUtils.js";
 import { normalizeCachedData } from "../common/datumCacheHelpers.js";
 import { storeAxisDomain } from "../../common/scaleHelpers.js";
+import { resetRuntimeResults, storeRuntimeResult, makeRuntimeKey } from "../../runtimeResultStore.js";
 
 // Wait for a few animation frames to allow DOM/layout/transition to settle
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -50,16 +51,27 @@ async function applyGroupedBarOperation(chartId, operation, currentData, isLast 
     return await fn(chartId, operation, currentData, isLast);
 }
 
-async function executeGroupedBarOpsList(chartId, opsList, currentData, isLast = false, delayMs = 0)  {
-    for (let i = 0; i < opsList.length; i++) {
-        const operation = opsList[i];
-        currentData = await applyGroupedBarOperation(chartId, operation, currentData, isLast);
+async function executeGroupedBarOpsList(chartId, opsList, currentData, isLast = false, delayMs = 0, opKey = null)  {
+    const list = Array.isArray(opsList) ? opsList : [];
+    resetRuntimeResults();
+    let workingData = currentData;
+    let lastResult = currentData;
+
+    for (let i = 0; i < list.length; i++) {
+        const operation = list[i];
+        const result = await applyGroupedBarOperation(chartId, operation, workingData, isLast);
+        lastResult = result;
+
+        const stepKey = makeRuntimeKey(opKey, i);
+        storeRuntimeResult(stepKey, result);
+
+        workingData = result;
 
         if (delayMs > 0) {
             await delay(delayMs);
         }
     }
-    return currentData;
+    return lastResult;
 }
 
 
@@ -125,7 +137,7 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         opsSpec,
         textSpec,
         onReset: async (ctx = {}) => { await resetGroupedBarChart(chartId, vlSpec, ctx); },
-        onRunOpsList: async (opsList, isLast) => {
+        onRunOpsList: async (opsList, isLast, opKey) => {
             if (isLast) {
                 const cached = Object.values(dataCache).flat().filter(Boolean);
                 if (cached.length === 0) {
@@ -145,11 +157,11 @@ export async function runGroupedBarOps(chartId, vlSpec, opsSpec, textSpec = {}) 
                 const simpleSpec = buildSimpleBarSpec(compareData, specOpts);
                 await renderChartWithFade(chartId, simpleSpec, 450);
                 ensureXAxisLabelClearance(chartId, { attempts: 6, minGap: 14, maxShift: 140 });
-                return await executeGroupedBarOpsList(chartId, opsList, compareData, true, 0);
+                return await executeGroupedBarOpsList(chartId, opsList, compareData, true, 0, opKey);
             }
 
             const base = datumValues.slice();
-            return await executeGroupedBarOpsList(chartId, opsList, base, false, 0);
+            return await executeGroupedBarOpsList(chartId, opsList, base, false, 0, opKey);
         },
         onCache: (opKey, currentData) => {
             if (currentData instanceof IntervalValue || currentData instanceof BoolValue || currentData instanceof ScalarValue) {

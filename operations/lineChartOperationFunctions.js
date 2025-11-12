@@ -25,6 +25,7 @@
 // ---------------------------
 
 import {BoolValue} from "../object/valueType.js";
+import { getRuntimeResultsById } from "./runtimeResultStore.js";
 
 const ROUND_PRECISION = 2;
 const ROUND_FACTOR = 10 ** ROUND_PRECISION;
@@ -235,6 +236,23 @@ function sliceForTarget(data, opField, targetIn, opGroup) {
     if (byId.length > 0) {
         return byId;
     }
+
+    const runtimeMatches = getRuntimeResultsById(targetId);
+    if (runtimeMatches.length > 0) {
+        let runtimeSlice = runtimeMatches;
+        if (series !== undefined) {
+            runtimeSlice = runtimeSlice.filter((d) => String(d.group) === String(series));
+        }
+        const runtimeKind = kind ?? inferFieldKind(runtimeSlice, opField);
+        if (runtimeKind === "measure") {
+            runtimeSlice = runtimeSlice.filter((d) => (opField === "value" ? true : d.measure === opField));
+        } else if (runtimeKind === "category") {
+            runtimeSlice = runtimeSlice.filter((d) => (opField === "target" ? true : d.category === opField));
+        }
+        if (runtimeSlice.length > 0) {
+            return runtimeSlice;
+        }
+    }
     return byTarget;
 }
 
@@ -260,14 +278,8 @@ function makeScalarDatum(measureName, group, categoryName, targetLabel, numericV
 export function retrieveValue(data, op) {
     const arr = cloneData(data);
     const { field, target, group } = op;
-    const kind = inferFieldKind(arr, field) || "category";
-    const byGroup = sliceByGroup(arr, group);
-    const byField = byGroup.filter(predicateByField(field, kind));
-    return byField.filter(
-        (d) =>{
-            return String(d.target) === String(target)
-        }
-    );
+    if (target == null) return [];
+    return sliceForTarget(arr, field, target, group);
 }
 
 /** 3.2 filter */

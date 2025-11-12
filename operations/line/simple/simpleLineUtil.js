@@ -22,6 +22,7 @@ import { runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 import {renderSimpleBarChart, executeSimpleBarOpsList} from "../../bar/simple/simpleBarUtil.js";
 import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
 import { storeAxisDomain } from "../../common/scaleHelpers.js";
+import { resetRuntimeResults, storeRuntimeResult, makeRuntimeKey } from "../../runtimeResultStore.js";
 
 /** 내부 사용: 라인 차트 데이터 저장 (renderSimpleLineChart에서 적재) */
 const chartDataStore = {};
@@ -143,16 +144,29 @@ async function applySimpleLineOperation(chartId, operation, currentData, isLast 
     return (next === undefined ? currentData : next);
 }
 
-async function executeSimpleLineOpsList(chartId, opsList, currentData) {
-    for (let i = 0; i < opsList.length; i++) {
-        const operation = opsList[i];
-        const isLast = (i === opsList.length - 1);
-        // 각 연산이 자신의 transition을 모두 끝낼 때까지 대기
-        currentData = await applySimpleLineOperation(chartId, operation, currentData, isLast);
-        // 렌더/레이아웃이 한 프레임 이상 안정화된 뒤 다음 연산으로 이동
+async function executeSimpleLineOpsList(chartId, opsList, currentData, opKey = null) {
+    const list = Array.isArray(opsList) ? opsList : [];
+    resetRuntimeResults();
+    let workingData = currentData;
+    let lastResult = currentData;
+
+    for (let i = 0; i < list.length; i++) {
+        const operation = list[i];
+        const isLast = (i === list.length - 1);
+        const result = await applySimpleLineOperation(chartId, operation, workingData, isLast);
+        lastResult = result;
+
+        const stepKey = makeRuntimeKey(opKey, i);
+        storeRuntimeResult(stepKey, result);
+
+        const preserveInput = !!(result && result.__keepInput);
+        if (!preserveInput) {
+            workingData = result;
+        }
+
         await settleFrame();
     }
-    return currentData;
+    return lastResult;
 }
 
 /** CSV 원본 → DatumValue[]로 정규화 (multiLineUtil과 동일한 철학) */
@@ -215,7 +229,7 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         opsSpec,
         textSpec,
         onReset: async (ctx = {}) => { await resetSimpleLineChart(chartId, vlSpec, ctx); },
-        onRunOpsList: async (opsList, isLast) => {
+        onRunOpsList: async (opsList, isLast, opKey) => {
             const cachedDatums = Object.values(dataCache).flat().filter(Boolean);
             if (isLast) {
                 if (cachedDatums.length === 0) {
@@ -232,10 +246,10 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
                 const { compareData, specOpts } = prepared;
                 const compareSpec = buildSimpleBarSpec(compareData, specOpts);
                 await renderSimpleBarChart(chartId, compareSpec);
-                return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0);
+                return await executeSimpleBarOpsList(chartId, opsList, compareData, true, 0, opKey);
             }
             const base = datumValues.slice();
-            return await executeSimpleLineOpsList(chartId, opsList, base);
+            return await executeSimpleLineOpsList(chartId, opsList, base, opKey);
         },
         onCache: (opKey, currentData) => {
             const arr = Array.isArray(currentData) ? currentData : (currentData != null ? [currentData] : []);

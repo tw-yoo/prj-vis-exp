@@ -15,7 +15,16 @@ const tutorial3QuestionText = "What is the difference between 2006 and 2008?";
 const tutorial3AnswerText = "The difference between 2006 and 2008 is 2118.41.";
 
 export const TUTORIAL_QUESTIONS = [
-    ...getSurveyQuestions(tutorial1ChartVlSpec, tutorial1QuestionText, tutorial1AnswerText, ExplanationType.BASELINE, TUTORIAL_TEMPLATE_PATH),
+    ...getSurveyQuestions(
+        tutorial1ChartVlSpec,
+        tutorial1QuestionText,
+        tutorial1AnswerText,
+        ExplanationType.BASELINE,
+        TUTORIAL_TEMPLATE_PATH,
+        {
+            introKeys: ['tutorial1_check_answer', 'tutorial1_rate_explanation']
+        }
+    ),
     ...getSurveyQuestions(tutorial2ChartVlSpec, tutorial2QuestionText, tutorial2AnswerText, ExplanationType.OURS, TUTORIAL_TEMPLATE_PATH),
     ...getSurveyQuestions(tutorial3ChartVlSpec, tutorial3QuestionText, tutorial3AnswerText, ExplanationType.OURS, TUTORIAL_TEMPLATE_PATH),
 ];

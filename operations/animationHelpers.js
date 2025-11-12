@@ -55,25 +55,36 @@ export async function dimOthers(allElements, selectedElements, opacity = OPACITI
  * 기존 코드와 동일한 방식
  */
 export async function drawHorizontalGuideline(svg, yPosition, color, margins, plotWidth, style = 'dashed') {
+  if (!Number.isFinite(yPosition)) {
+    return Promise.resolve();
+  }
+
   const yAbsolute = margins.top + yPosition;
-  
-  const strokeDasharray = style === 'dashed' ? STYLES.GUIDELINE.strokeDasharray : 'none';
-  
+  const strokeDasharray = style === 'dashed'
+    ? STYLES.GUIDELINE.strokeDasharray
+    : 'none';
+  const strokeWidth = Number.isFinite(STYLES.GUIDELINE.strokeWidth)
+    ? STYLES.GUIDELINE.strokeWidth
+    : 2;
+  const lineLength = Number.isFinite(plotWidth) ? plotWidth : 0;
+  const opacity = STYLES.GUIDELINE.opacity ?? 1;
+
   const line = svg.append('line')
     .attr('class', 'annotation guideline')
     .attr('x1', margins.left)
     .attr('y1', yAbsolute)
-    .attr('x2', margins.left)  // 시작점
+    .attr('x2', margins.left)
     .attr('y2', yAbsolute)
     .attr('stroke', color)
     .attr('stroke-dasharray', strokeDasharray)
-    .attr('stroke-width', STYLES.GUIDELINE.strokeWidth);
+    .attr('stroke-width', strokeWidth)
+    .attr('opacity', opacity);
   
   return line
     .transition()
     .duration(DURATIONS.GUIDELINE_DRAW)
     .ease(EASINGS.SMOOTH)
-    .attr('x2', margins.left + plotWidth)
+    .attr('x2', margins.left + Math.max(0, lineLength))
     .end();
 }
 

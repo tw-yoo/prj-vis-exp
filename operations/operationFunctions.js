@@ -1,4 +1,5 @@
 import {DatumValue, BoolValue, IntervalValue} from "../object/valueType.js";
+import { getRuntimeResultsById } from "./runtimeResultStore.js";
 
 const ROUND_PRECISION = 2;
 const ROUND_FACTOR = 10 ** ROUND_PRECISION;
@@ -130,13 +131,49 @@ export function retrieveValue(data, op, isLast = false) {
     const filterKeys = Object.keys(clean).filter(key => !reservedKeys.has(key));
     if (filterKeys.length === 0) return [];
 
-    return data.filter(item => {
+    const matchesCriteria = (item) => {
         if (!item) return false;
         return filterKeys.every(key => {
-            if (item[key] === undefined) return false;
-            return String(item[key]) === String(clean[key]);
+            const expected = clean[key];
+            if (expected === undefined) return true;
+            const expectedStr = String(expected);
+
+            if (item[key] !== undefined && String(item[key]) === expectedStr) return true;
+
+            if (key === 'target') {
+                if (item.id != null && String(item.id) === expectedStr) return true;
+                if (item.lookupId != null && String(item.lookupId) === expectedStr) return true;
+            }
+            if (key === 'id') {
+                if (item.id != null && String(item.id) === expectedStr) return true;
+                if (item.lookupId != null && String(item.lookupId) === expectedStr) return true;
+                if (item.target != null && String(item.target) === expectedStr) return true;
+            }
+            if (key === 'lookupId') {
+                if (item.lookupId != null && String(item.lookupId) === expectedStr) return true;
+                if (item.id != null && String(item.id) === expectedStr) return true;
+            }
+
+            return false;
         });
-    });
+    };
+
+    const matchesData = data.filter(matchesCriteria);
+
+    if (matchesData.length > 0) return matchesData;
+
+    const candidateKeys = new Set();
+    if (clean.id != null) candidateKeys.add(clean.id);
+    if (clean.target != null) candidateKeys.add(clean.target);
+    if (op?.id != null) candidateKeys.add(op.id);
+    if (op?.target != null) candidateKeys.add(op.target);
+
+    for (const candidate of candidateKeys) {
+        const runtimeMatches = getRuntimeResultsById(candidate).filter(matchesCriteria);
+        if (runtimeMatches.length > 0) return runtimeMatches;
+    }
+
+    return [];
 }
 
 export function filter(data, op, xField, yField, isLast = false) {

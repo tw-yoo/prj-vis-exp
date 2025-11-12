@@ -62,6 +62,24 @@ let submissionLockMap = {};
 const SUBMISSION_LOCK_KEY = 'survey_submission_locked';
 const TUTORIAL_INTRO_STORAGE_KEY = 'tutorial_template_intro_shown';
 const TUTORIAL_TEMPLATE_SELECTOR = '.page-content[data-template-id="tutorial-question"]';
+const TUTORIAL_INTRO_COPY = {
+  default: {
+    chart: 'Start here: carefully read the chart, the question, and the answer area.',
+    explanation: 'Next, read the explanation on the right. This part helps you understand why the answer is correct.',
+    survey: 'Finally, choose your answer for this question.'
+  },
+  tutorial1_check_answer: {
+    chart: 'Begin by reviewing the chart, question, and answer so you can verify whether the answer is correct.',
+    explanation: 'Use the explanation to confirm the answer before responding.',
+    survey: 'Answer the yes/no question about the solution\'s correctness.'
+  },
+  tutorial1_rate_explanation: {
+    chart: 'Refer back to the chart and answer while you consider each statement.',
+    explanation: 'Evaluate how well the explanation justifies the result for every statement.',
+    survey: 'Rate each statement using the provided scale.'
+  }
+};
+const FORCE_TUTORIAL_INTRO_KEYS = new Set(['tutorial1', 'tutorial1_check_answer', 'tutorial1_rate_explanation']);
 
 const storedParticipantCode = (() => {
   try {
@@ -316,10 +334,31 @@ function getTutorialQuestionById(id) {
   return tutorialQuestionById.get(id.toLowerCase()) || null;
 }
 
-function shouldForceTutorialIntro(questionRoot) {
-  if (!questionRoot) return false;
+function getTutorialIntroKey(questionRoot) {
+  if (!questionRoot) return 'default';
+  const explicit = questionRoot.getAttribute('data-tutorial-intro-key');
+  if (explicit && explicit.trim()) {
+    return explicit.trim();
+  }
   const questionId = (questionRoot.getAttribute('data-question-id') || '').toLowerCase();
-  return questionId === 'tutorial1';
+  return questionId || 'default';
+}
+
+function resolveTutorialIntroCopy(key) {
+  const base = TUTORIAL_INTRO_COPY.default;
+  if (!key) return base;
+  const override = TUTORIAL_INTRO_COPY[key];
+  if (!override) return base;
+  return {
+    chart: override.chart || base.chart,
+    explanation: override.explanation || base.explanation,
+    survey: override.survey || base.survey
+  };
+}
+
+function shouldForceTutorialIntro(questionRoot) {
+  const key = getTutorialIntroKey(questionRoot);
+  return FORCE_TUTORIAL_INTRO_KEYS.has(key);
 }
 
 function maybeStartTutorialIntro(root) {
@@ -329,31 +368,33 @@ function maybeStartTutorialIntro(root) {
   const templateRoot = root.querySelector(TUTORIAL_TEMPLATE_SELECTOR);
   if (!templateRoot) return;
   const questionRoot = templateRoot.querySelector('[data-role="main-question-root"]');
+  const introKey = getTutorialIntroKey(questionRoot);
   const forceIntro = shouldForceTutorialIntro(questionRoot);
   if (!forceIntro && hasTutorialIntroBeenShown()) return;
 
+  const copy = resolveTutorialIntroCopy(introKey);
   const steps = [];
   const chartPane = templateRoot.querySelector('.split-container .left');
-  if (chartPane) {
+  if (chartPane && copy.chart) {
     steps.push({
       element: chartPane,
-      intro: 'Start here: carefully read the chart, the question, and the answer area.'
+      intro: copy.chart
     });
   }
 
   const explanationPane = templateRoot.querySelector('.split-container .right');
-  if (explanationPane) {
+  if (explanationPane && copy.explanation) {
     steps.push({
       element: explanationPane,
-      intro: 'Next, read the explanation on the right. This part helps you understand why the answer is correct.'
+      intro: copy.explanation
     });
   }
 
   const questionContainer = templateRoot.querySelector('.likert-container[data-field="survey-question-container"]');
-  if (questionContainer) {
+  if (questionContainer && copy.survey) {
     steps.push({
       element: questionContainer,
-      intro: 'Finally, choose your answer for this question.'
+      intro: copy.survey
     });
   }
 

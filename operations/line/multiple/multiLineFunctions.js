@@ -38,6 +38,7 @@ import {
     parseDateWithGranularity,
     fmtISO
 } from "../sharedLineUtils.js";
+import { getRuntimeResultsById } from "../../runtimeResultStore.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 
 /**
@@ -73,6 +74,89 @@ function isSameDateOrValue(val1, val2) {
     return String(val1) === String(val2);
 }
 
+function normalizeRuntimeKey(target) {
+    if (target == null) return null;
+    if (typeof target === 'object') {
+        if (target.id != null) return String(target.id);
+        if (target.lookupId != null) return String(target.lookupId);
+        if (target.category != null) return String(target.category);
+        if (target.target != null) return String(target.target);
+    }
+    return String(target);
+}
+
+function lookupRuntimeDatum(targetKey, group) {
+    if (!targetKey) return null;
+    const stored = getRuntimeResultsById(targetKey);
+    if (!stored.length) return null;
+    if (group != null) {
+        const match = stored.find(d => String(d.group) === String(group));
+        if (match) return match;
+    }
+    return stored[stored.length - 1];
+}
+
+function resolveDatumWithRuntime(primary, target, group) {
+    if (primary) return primary;
+    const key = normalizeRuntimeKey(target);
+    return lookupRuntimeDatum(key, group);
+}
+
+function extractNumericValue(datum) {
+    if (!datum) return NaN;
+    const raw = datum.value ?? (datum.measure && datum[datum.measure]);
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : NaN;
+}
+
+function formatDatumValue(datum, opts = {}) {
+    if (!datum) return '';
+    const { maximumFractionDigits = 2 } = opts;
+    const raw = datum.value ?? (datum.measure && datum[datum.measure]);
+    if (raw === null || raw === undefined) return '';
+    const num = Number(raw);
+    if (Number.isFinite(num)) {
+        return num.toLocaleString(undefined, { maximumFractionDigits });
+    }
+    return String(raw);
+}
+
+function ensureDomainHasKey(scale, key) {
+    if (!scale || key === undefined || key === null) return;
+    const current = scale.domain ? scale.domain() : [];
+    const keyStr = String(key);
+    if (!current.includes(keyStr)) {
+        scale.domain([...current, keyStr]);
+    }
+}
+
+function toScaleValue(target) {
+    if (target instanceof Date && !Number.isNaN(+target)) return target;
+    if (target && typeof target === "object" && target.category !== undefined) {
+        return toScaleValue(target.category);
+    }
+    const parsed = parseDateWithGranularity(target).date;
+    if (parsed instanceof Date && !Number.isNaN(+parsed)) return parsed;
+    return String(target);
+}
+
+function projectX(scale, target) {
+    if (!scale) return 0;
+    try {
+        const projected = scale(toScaleValue(target));
+        return Number.isFinite(projected) ? projected : 0;
+    } catch (_) {
+        return 0;
+    }
+}
+
+function getColorScale(chartInfo, fallbackDomain) {
+    if (chartInfo?.colorScale && typeof chartInfo.colorScale.copy === "function") {
+        return chartInfo.colorScale.copy();
+    }
+    return d3.scaleOrdinal(d3.schemeCategory10).domain(fallbackDomain);
+}
+
 /** 외부 필드명을 내부 필드명으로 매핑 (시각화 주석에만 사용) */
 function mapFieldName(field) {
     const f = String(field || '').toLowerCase();
@@ -91,7 +175,8 @@ function getSvgAndSetup(chartId) {
     const xField = svgNode?.getAttribute("data-x-field");
     const yField = svgNode?.getAttribute("data-y-field");
     const colorField = svgNode?.getAttribute("data-color-field");
-    return { svg, g, margins, plot, xField, yField, colorField };
+    const chartInfo = svgNode?.__chartInfo ?? null;
+    return { svg, g, margins, plot, xField, yField, colorField, chartInfo };
 }
 
 function clearAllAnnotations(svg) {
@@ -100,17 +185,42 @@ function clearAllAnnotations(svg) {
 
 const delay = (ms) => new Promise(res => setTimeout(res, ms));
 
-function buildScales(data, plot) {
-    const xVals = data.map(d => d.target);
-    const isTemporal = xVals.every(v => v instanceof Date);
-    const xScale = isTemporal
-        ? d3.scaleTime().domain(d3.extent(xVals)).range([0, plot.w])
-        : d3.scalePoint().domain(xVals.map(v => String(v))).range([0, plot.w]);
+function buildScales(data, plot, chartInfo = null) {
+    if (chartInfo?.fullXScale && chartInfo?.fullYScale) {
+        return {
+            xScale: chartInfo.fullXScale.copy(),
+            yScale: chartInfo.fullYScale.copy()
+        };
+    }
 
-    const yValues = data.map(d => d.value).filter(v => Number.isFinite(v));
-    const yMax = d3.max(yValues);
-    const yMin = d3.min(yValues);
-    const yScale = d3.scaleLinear().domain([yMin > 0 ? 0 : yMin, yMax]).nice().range([plot.h, 0]);
+    const scaleInputs = data.map(d => toScaleValue(d.target));
+    const isTemporal = scaleInputs.every(v => v instanceof Date);
+
+    let xScale;
+    if (isTemporal) {
+        const extent = d3.extent(scaleInputs);
+        const validExtent = extent && extent[0] && extent[1] ? extent : [new Date(), new Date(Date.now() + 86400000)];
+        xScale = d3.scaleTime().domain(validExtent).range([0, plot.w]);
+    } else {
+        const domain = [];
+        const seen = new Set();
+        scaleInputs.forEach((value) => {
+            const key = String(value);
+            if (seen.has(key)) return;
+            seen.add(key);
+            domain.push(key);
+        });
+        if (!domain.length) domain.push('0');
+        xScale = d3.scalePoint().domain(domain).range([0, plot.w]);
+    }
+
+    const yValues = data.map(d => extractNumericValue(d)).filter(Number.isFinite);
+    const yMax = yValues.length ? d3.max(yValues) : 0;
+    const yMin = yValues.length ? d3.min(yValues) : 0;
+    const domainMin = Number.isFinite(yMin) ? (yMin > 0 ? 0 : yMin) : 0;
+    const domainMaxRaw = Number.isFinite(yMax) ? yMax : 0;
+    const domainMax = domainMaxRaw === domainMin ? domainMin + 1 : domainMaxRaw;
+    const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plot.h, 0]);
 
     return { xScale, yScale };
 }
@@ -165,7 +275,7 @@ async function delegateToSimpleIfGrouped(chartId, op, data, simpleFn, requirePoi
 // -------------------- Operations (Data+Visual separation) --------------------
 
 export async function multipleLineRetrieveValue(chartId, op, data) {
-    const { svg, g, plot } = getSvgAndSetup(chartId);
+    const { svg, g, plot, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineRetrieveValue, true);
     if (delegated !== null) return delegated;
@@ -173,10 +283,15 @@ export async function multipleLineRetrieveValue(chartId, op, data) {
     const targetDatums = dataRetrieveValue(data, op);
     if (!Array.isArray(targetDatums) || targetDatums.length === 0) return [];
 
-    const { xScale, yScale } = buildScales(data, plot);
+    const { xScale, yScale } = buildScales(data, plot, chartInfo);
     const allSeries = Array.from(new Set(data.map(d => d.group)));
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
-    const cx = xScale(targetDatums[0].target);
+    const colorScale = getColorScale(chartInfo, allSeries.filter(k => k != null));
+    const firstValue = extractNumericValue(targetDatums[0]);
+    if (!Number.isFinite(firstValue)) {
+        console.warn('multipleLineRetrieveValue: numeric value not found for target', targetDatums[0]);
+        return markKeepInput(targetDatums);
+    }
+    const anchorCx = projectX(xScale, targetDatums[0].target);
 
 selectAllLines(g).attr("opacity", 1).attr("stroke-width", 2);
 await selectAllLines(g).transition().duration(500)
@@ -185,35 +300,40 @@ await selectAllLines(g).transition().duration(500)
     .end().catch(() => {});
 
     g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", plot.h)
-        .attr("x2", cx).attr("y2", 0)
+        .attr("x1", anchorCx).attr("y1", plot.h)
+        .attr("x2", anchorCx).attr("y2", 0)
         .attr("stroke", OP_COLORS.RETRIEVE_VALUE).attr("stroke-dasharray", "4 4");
 
     const pending = [];
     targetDatums.forEach(datum => {
-        const cy = yScale(datum.value);
-        const color = colorScale(datum.group);
+        const value = extractNumericValue(datum);
+        if (!Number.isFinite(value)) return;
+        const cxDatum = projectX(xScale, datum.target);
+        const cy = yScale(value);
+        const groupKey = datum.group ?? '__default__';
+        ensureDomainHasKey(colorScale, groupKey);
+        const color = colorScale(groupKey);
 
         const hLineT = g.append("line").attr("class", "annotation")
             .attr("x1", 0).attr("y1", cy)
-            .attr("x2", cx).attr("y2", cy)
+            .attr("x2", cxDatum).attr("y2", cy)
             .attr("stroke", color).attr("stroke-dasharray", "2 2").attr("opacity", 0.7)
             .transition().duration(0);
         pending.push(hLineT.end().catch(()=>{}));
 
         const cT = g.append("circle").attr("class", "annotation")
-            .attr("cx", cx).attr("cy", cy).attr("r", 0)
+            .attr("cx", cxDatum).attr("cy", cy).attr("r", 0)
             .attr("fill", color).attr("stroke", "white").attr("stroke-width", 2)
             .transition().duration(400).delay(200).attr("r", 6);
         pending.push(cT.end().catch(()=>{}));
 
         const txtT = g.append("text").attr("class", "annotation")
-            .attr("x", cx + 8).attr("y", cy)
+            .attr("x", cxDatum + 8).attr("y", cy)
             .attr("dominant-baseline", "middle")
             .attr("fill", color).attr("font-weight", "bold")
             .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(datum.value.toLocaleString())
-            .attr("opacity", 0).transition().duration(400).delay(300).attr("opacity", 1);
+            .text(formatDatumValue(datum))
+            .attr("opacity", 0).transition().duration(400).attr("opacity", 1);
         pending.push(txtT.end().catch(()=>{}));
     });
 
@@ -223,15 +343,15 @@ await selectAllLines(g).transition().duration(500)
 }
 
 export async function multipleLineFilter(chartId, op, data) {
-    const { svg, g, plot } = getSvgAndSetup(chartId);
+    const { svg, g, plot, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineFilter);
     if (delegated !== null) return delegated;
 
     const filteredData = dataFilter(data, op);
 
-    const { xScale: originalXScale, yScale: originalYScale } = buildScales(data, plot);
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
+    const { xScale: originalXScale, yScale: originalYScale } = buildScales(data, plot, chartInfo);
+    const colorScale = getColorScale(chartInfo, Array.from(new Set(data.map(d => d.group))));
     const internalField = mapFieldName(op.field);
 
     if (internalField === 'value' && typeof op.value !== 'undefined' && op.operator && op.operator !== 'between') {
@@ -270,7 +390,9 @@ export async function multipleLineFilter(chartId, op, data) {
     selectAllLines(g).transition().duration(800).attr("opacity", 0.1);
     selectAllPoints(g).transition().duration(800).attr("opacity", 0).remove();
 
-    const lineGen = d3.line().x(d => originalXScale(d.target)).y(d => originalYScale(d.value));
+    const lineGen = d3.line()
+        .x(d => originalXScale(toScaleValue(d.target)))
+        .y(d => originalYScale(extractNumericValue(d)));
     const grouped = d3.groups(filteredData, d => d.group);
 
     g.selectAll(".highlight-line")
@@ -288,7 +410,9 @@ export async function multipleLineFilter(chartId, op, data) {
     const yAxis = g.select(".y-axis");
     if (!xAxis.empty() && !yAxis.empty()) {
         const { xScale: newXScale, yScale: newYScale } = buildScales(filteredData, plot);
-        const newLineGen = d3.line().x(d => newXScale(d.target)).y(d => newYScale(d.value));
+        const newLineGen = d3.line()
+            .x(d => newXScale(toScaleValue(d.target)))
+            .y(d => newYScale(extractNumericValue(d)));
         await Promise.all([
             xAxis.transition().duration(900).call(d3.axisBottom(newXScale)).end().catch(() => {}),
             yAxis.transition().duration(900).call(d3.axisLeft(newYScale)).end().catch(() => {}),
@@ -302,7 +426,7 @@ export async function multipleLineFilter(chartId, op, data) {
 }
 
 export async function multipleLineFindExtremum(chartId, op, data) {
-    const { svg, g, plot } = getSvgAndSetup(chartId);
+    const { svg, g, plot, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineFindExtremum, true);
     if (delegated !== null) return delegated;
@@ -317,13 +441,15 @@ export async function multipleLineFindExtremum(chartId, op, data) {
     };
 
     await selectAllPoints(g).transition().duration(600).attr("opacity", 0).end().catch(() => {});
-    const { xScale, yScale } = buildScales(data, plot);
+    const { xScale, yScale } = buildScales(data, plot, chartInfo);
     const which = op.which || 'max';
     const pending = [];
 
     extremumDatums.forEach(datum => {
-        const cx = xScale(datum.target);
-        const cy = yScale(datum.value);
+        const value = extractNumericValue(datum);
+        if (!Number.isFinite(value)) return;
+        const cx = projectX(xScale, datum.target);
+        const cy = yScale(value);
         const color = OP_COLORS.EXTREMUM;
 
         const vT = g.append("line").attr("class", "annotation")
@@ -348,7 +474,7 @@ export async function multipleLineFindExtremum(chartId, op, data) {
             .attr("x", cx).attr("y", cy - 20).attr("text-anchor", "middle")
             .attr("fill", color).attr("font-weight", "bold")
             .attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke");
-        text.append("tspan").attr("x", cx).attr("dy", "0em").text(`${which[0].toUpperCase() + which.slice(1)}: ${formatValue(datum.value)}`);
+        text.append("tspan").attr("x", cx).attr("dy", "0em").text(`${which[0].toUpperCase() + which.slice(1)}: ${formatValue(value)}`);
         text.append("tspan").attr("x", cx).attr("dy", "1.2em").text(`(${formatTarget(datum.target)})`);
     });
 
@@ -358,7 +484,7 @@ export async function multipleLineFindExtremum(chartId, op, data) {
 }
 
 export async function multipleLineDetermineRange(chartId, op, data) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineDetermineRange);
     if (delegated !== null) return delegated;
@@ -371,8 +497,8 @@ export async function multipleLineDetermineRange(chartId, op, data) {
     const hasNumeric = Number.isFinite(minV) && Number.isFinite(maxV);
 
     await selectAllPoints(g).transition().duration(600).attr("opacity", 0).remove().end().catch(() => {});
-    const { xScale, yScale } = buildScales(data, plot);
-    const seriesColors = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
+    const { xScale, yScale } = buildScales(data, plot, chartInfo);
+    const seriesColors = getColorScale(chartInfo, Array.from(new Set(data.map(d => d.group))));
     const hlColor = OP_COLORS.RANGE;
     const pending = [];
 
@@ -401,7 +527,7 @@ export async function multipleLineDetermineRange(chartId, op, data) {
         // 데이터 포인트가 있으면 각 포인트에 점과 레이블 표시
         if (arr.length > 0) {
             arr.forEach(datum => {
-                const cx = xScale(datum.target);
+                const cx = projectX(xScale, datum.target);
                 const color = seriesColors(datum.group);
                 
                 const cT = g.append("circle").attr("class", "annotation")
@@ -458,7 +584,7 @@ export async function multipleLineDetermineRange(chartId, op, data) {
 
 
 export async function multipleLineNth(chartId, op, data) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineNth, true);
     if (delegated !== null) return delegated;
@@ -475,8 +601,8 @@ export async function multipleLineNth(chartId, op, data) {
         allPoints.transition().duration(300).attr("opacity", 0.2).end().catch(()=>{})
     ]);
 
-    const { xScale, yScale } = buildScales(data, plot);
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
+    const { xScale, yScale } = buildScales(data, plot, chartInfo);
+    const colorScale = getColorScale(chartInfo, Array.from(new Set(data.map(d => d.group))).filter(k => k != null));
 
     const formatTarget = (datum) => {
         const base = datum.target instanceof Date ? fmtISO(datum.target) : String(datum.target);
@@ -494,12 +620,16 @@ export async function multipleLineNth(chartId, op, data) {
         .join(', ') || '1';
 
     nthData.forEach(datum => {
-        const cx = xScale(datum.target);
-        const cy = yScale(datum.value);
-        const color = colorScale(datum.group);
+        const numericValue = extractNumericValue(datum);
+        if (!Number.isFinite(numericValue)) return;
+        const cx = projectX(xScale, datum.target);
+        const cy = yScale(numericValue);
+        const groupKey = datum.group ?? '__default__';
+        ensureDomainHasKey(colorScale, groupKey);
+        const color = colorScale(groupKey);
         g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4");
         g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4");
-        g.append("text").attr("class", "annotation").attr("x", cx + 8).attr("y", cy).attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(datum.value.toLocaleString());
+        g.append("text").attr("class", "annotation").attr("x", cx + 8).attr("y", cy).attr("dominant-baseline", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(formatDatumValue(datum));
     });
 
     svg.append('text').attr('class', 'annotation')
@@ -517,7 +647,7 @@ export async function multipleLineNth(chartId, op, data) {
 }
 
 export async function multipleLineCompareBool(chartId, op, data) {
-    const { svg, g, plot, margins } = getSvgAndSetup(chartId);
+    const { svg, g, plot, margins, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineCompareBool, true);
     if (delegated !== null) return delegated;
@@ -537,42 +667,62 @@ export async function multipleLineCompareBool(chartId, op, data) {
         boolResult = dataCompareBoolDual(data, dual);
         datumA = data.find(d => isSameDateOrValue(d.target, dual.targetA) && String(d.group) === String(dual.groupA));
         datumB = data.find(d => isSameDateOrValue(d.target, dual.targetB) && String(d.group) === String(dual.groupB));
+        datumA = resolveDatumWithRuntime(datumA, dual.targetA, dual.groupA);
+        datumB = resolveDatumWithRuntime(datumB, dual.targetB, dual.groupB);
     } else {
         const same = { targetA: op.targetA, targetB: op.targetB, operator: op.operator || '>', group: op.group ?? null };
         boolResult = dataCompareBool(data, same);
         datumA = data.find(d => isSameDateOrValue(d.target, same.targetA) && (same.group == null || String(d.group) === String(same.group)));
         datumB = data.find(d => isSameDateOrValue(d.target, same.targetB) && (same.group == null || String(d.group) === String(same.group)));
+        datumA = resolveDatumWithRuntime(datumA, same.targetA, same.group);
+        datumB = resolveDatumWithRuntime(datumB, same.targetB, same.group);
     }
 
     if (!boolResult || !datumA || !datumB) return boolResult ?? new BoolValue("Compare failed", false);
 
-    const { xScale, yScale } = buildScales(data, plot);
+    const { xScale, yScale } = buildScales(data, plot, chartInfo);
     const allSeries = Array.from(new Set(data.map(d => d.group)));
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(allSeries);
+    const colorScale = getColorScale(chartInfo, allSeries.filter(k => k != null));
 
     const pending = [];
     pending.push(selectAllLines(g).transition().duration(600).attr("opacity", 0.1).end().catch(()=>{}));
     pending.push(selectAllPoints(g).transition().duration(600).attr("opacity", 0.1).end().catch(()=>{}));
 
     const annotate = (datum, color) => {
-        const cx = xScale(datum.target);
-        const cy = yScale(datum.value);
+        const numericValue = extractNumericValue(datum);
+        if (!Number.isFinite(numericValue)) return;
+        const cx = projectX(xScale, datum.target);
+        const cy = yScale(numericValue);
         const vT = g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4").style("opacity", 0).transition().duration(700).style("opacity", 1);
         pending.push(vT.end().catch(()=>{}));
         const hT = g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4").style("opacity", 0).transition().duration(700).style("opacity", 1);
         pending.push(hT.end().catch(()=>{}));
         const cT = g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", cy).attr("r", 0).attr("fill", color).attr("stroke", "white").attr("stroke-width", 2).transition().duration(500).attr("r", 7);
         pending.push(cT.end().catch(()=>{}));
-        const tT = g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(datum.value.toLocaleString()).attr("opacity", 0).transition().duration(400).delay(400).attr("opacity", 1);
+        const tT = g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(formatDatumValue(datum)).attr("opacity", 0).transition().duration(400).attr("opacity", 1);
         pending.push(tT.end().catch(()=>{}));
     };
 
-    annotate(datumA, colorScale(datumA.group));
-    annotate(datumB, colorScale(datumB.group));
+    const colorAKey = datumA.group ?? '__default__';
+    ensureDomainHasKey(colorScale, colorAKey);
+    const colorBKey = datumB.group ?? '__default__';
+    ensureDomainHasKey(colorScale, colorBKey);
+    annotate(datumA, colorScale(colorAKey));
+    annotate(datumB, colorScale(colorBKey));
 
-    const symbol = {'>':' > ','>=':' >= ','<':' < ','<=':' <= ','==':' == ','!=':' != '}[op.operator] || ` ${op.operator} `;
-const summary = `${datumA.value.toLocaleString()} (${datumA.group})${symbol}${datumB.value.toLocaleString()} (${datumB.group}) → ${boolResult.bool}`;  // 변경
-const color = boolResult.bool ? OP_COLORS.TRUE : OP_COLORS.FALSE; 
+    const operatorSymbols = {
+        '>': ' > ',
+        '>=': ' >= ',
+        '<': ' < ',
+        '<=': ' <= ',
+        '==': ' == ',
+        '!=': ' != '
+    };
+    const symbol = operatorSymbols[op.operator] || ` ${op.operator ?? '?'} `;
+    const valueALabel = formatDatumValue(datumA);
+    const valueBLabel = formatDatumValue(datumB);
+    const summary = `${valueALabel} (${datumA.group ?? '—'})${symbol}${valueBLabel} (${datumB.group ?? '—'}) → ${boolResult.bool}`;
+    const color = boolResult.bool ? OP_COLORS.TRUE : OP_COLORS.FALSE;
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
         .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
@@ -584,7 +734,7 @@ const color = boolResult.bool ? OP_COLORS.TRUE : OP_COLORS.FALSE;
 }
 
 export async function multipleLineCompare(chartId, op, data) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineCompare, true);
     if (delegated !== null) return delegated;
@@ -604,11 +754,15 @@ export async function multipleLineCompare(chartId, op, data) {
         winners = dataCompareDual(data, dual) || [];
         datumA = data.find(d => isSameDateOrValue(d.target, dual.targetA) && String(d.group) === String(dual.groupA));
         datumB = data.find(d => isSameDateOrValue(d.target, dual.targetB) && String(d.group) === String(dual.groupB));
+        datumA = resolveDatumWithRuntime(datumA, dual.targetA, dual.groupA);
+        datumB = resolveDatumWithRuntime(datumB, dual.targetB, dual.groupB);
     } else {
         const same = { targetA: op.targetA, targetB: op.targetB, which: (op.which || 'max'), group: op.group ?? null };
         winners = dataCompare(data, same) || [];
         datumA = data.find(d => isSameDateOrValue(d.target, same.targetA) && (same.group == null || String(d.group) === String(same.group)));
         datumB = data.find(d => isSameDateOrValue(d.target, same.targetB) && (same.group == null || String(d.group) === String(same.group)));
+        datumA = resolveDatumWithRuntime(datumA, same.targetA, same.group);
+        datumB = resolveDatumWithRuntime(datumB, same.targetB, same.group);
     }
 
     if (!datumA || !datumB) {
@@ -616,17 +770,21 @@ export async function multipleLineCompare(chartId, op, data) {
         return winners;
     }
 
-    const { xScale, yScale } = buildScales(data, plot);
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
+    const { xScale, yScale } = buildScales(data, plot, chartInfo);
+    const colorScale = getColorScale(chartInfo, Array.from(new Set(data.map(d => d.group))).filter(k => k != null));
     const winColor = OP_COLORS.COMPARE_WINNER;
 
     const annotate = (datum, star) => {
-        const cx = xScale(datum.target);
-        const cy = yScale(datum.value);
-        const color = colorScale(datum.group);
+        const numericValue = extractNumericValue(datum);
+        if (!Number.isFinite(numericValue)) return;
+        const cx = projectX(xScale, datum.target);
+        const cy = yScale(numericValue);
+        const groupKey = datum.group ?? '__default__';
+        ensureDomainHasKey(colorScale, groupKey);
+        const color = colorScale(groupKey);
         g.append("line").attr("class","annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray","4 4");
         g.append("line").attr("class","annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray","4 4");
-        g.append("text").attr("class","annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor","middle").attr("fill",color).attr("font-weight","bold").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke").text(datum.value.toLocaleString());
+        g.append("text").attr("class","annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor","middle").attr("fill",color).attr("font-weight","bold").attr("stroke","white").attr("stroke-width",3).attr("paint-order","stroke").text(formatDatumValue(datum));
         if (star) g.append("text").attr("class","annotation").attr("x", cx).attr("y", cy - 30).attr("text-anchor","middle").attr("fill", winColor).attr("font-weight","bold").text("★");
     };
 
@@ -646,7 +804,7 @@ export async function multipleLineCompare(chartId, op, data) {
 }
 
 export async function multipleLineAverage(chartId, op, data) {
-    const { svg, g, plot } = getSvgAndSetup(chartId);
+    const { svg, g, plot, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineAverage);
     if (delegated !== null) return delegated;
@@ -656,7 +814,7 @@ export async function multipleLineAverage(chartId, op, data) {
     if (!result) return null;
     const avg = result[0].value;
 
-    const { yScale } = buildScales(data, plot);
+    const { yScale } = buildScales(data, plot, chartInfo);
     const yPos = yScale(avg);
     const color = OP_COLORS.AVERAGE;
     const line = g.append("line").attr("class", "annotation avg-line")
@@ -703,7 +861,7 @@ export async function multipleLineSum(chartId, op, data) {
 }
 
 export async function multipleLineDiff(chartId, op, data) {
-    const { svg, g, plot, margins } = getSvgAndSetup(chartId);
+    const { svg, g, plot, margins, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineDiff, true);
     if (delegated !== null) return delegated;
@@ -721,42 +879,54 @@ export async function multipleLineDiff(chartId, op, data) {
             signed: !!op.signed,
             field: op.field
         };
-        diffResult = dataDiffDual(data, dual);
+        const diffArray = dataDiffDual(data, dual);
+        diffResult = Array.isArray(diffArray) ? diffArray[0] : diffArray;
         datumA = data.find(d => isSameDateOrValue(d.target, dual.targetA) && String(d.group) === String(dual.groupA));
         datumB = data.find(d => isSameDateOrValue(d.target, dual.targetB) && String(d.group) === String(dual.groupB));
+        datumA = resolveDatumWithRuntime(datumA, dual.targetA, dual.groupA);
+        datumB = resolveDatumWithRuntime(datumB, dual.targetB, dual.groupB);
     } else {
         const same = { targetA: op.targetA, targetB: op.targetB, signed: !!op.signed, field: op.field, group: op.group ?? null };
-        diffResult = dataDiff(data, same);
+        const diffArray = dataDiff(data, same);
+        diffResult = Array.isArray(diffArray) ? diffArray[0] : diffArray;
         datumA = data.find(d => isSameDateOrValue(d.target, same.targetA) && (same.group == null || String(d.group) === String(same.group)));
         datumB = data.find(d => isSameDateOrValue(d.target, same.targetB) && (same.group == null || String(d.group) === String(same.group)));
+        datumA = resolveDatumWithRuntime(datumA, same.targetA, same.group);
+        datumB = resolveDatumWithRuntime(datumB, same.targetB, same.group);
     }
 
     if (!diffResult || !datumA || !datumB) return diffResult;
 
-    const { xScale, yScale } = buildScales(data, plot);
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(data.map(d => d.group))));
+    const { xScale, yScale } = buildScales(data, plot, chartInfo);
+    const colorScale = getColorScale(chartInfo, Array.from(new Set(data.map(d => d.group))).filter(k => k != null));
     await selectAllLines(g).transition().duration(600).attr("opacity", 0.1).end().catch(()=>{});
 
     const annotate = (datum) => {
-        const cx = xScale(datum.target);
-        const cy = yScale(datum.value);
-        const color = colorScale(datum.group);
+        const value = extractNumericValue(datum);
+        if (!Number.isFinite(value)) return;
+        const cx = projectX(xScale, datum.target);
+        const cy = yScale(value);
+        const groupKey = datum.group ?? '__default__';
+        ensureDomainHasKey(colorScale, groupKey);
+        const color = colorScale(groupKey);
         g.append("line").attr("class", "annotation").attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h).attr("stroke", color).attr("stroke-dasharray", "4 4");
         g.append("line").attr("class", "annotation").attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy).attr("stroke", color).attr("stroke-dasharray", "4 4");
         g.append("circle").attr("class", "annotation").attr("cx", cx).attr("cy", cy).attr("r", 7).attr("fill", color).attr("stroke", "white").attr("stroke-width", 2);
-        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(datum.value.toLocaleString());
+        g.append("text").attr("class", "annotation").attr("x", cx).attr("y", cy - 12).attr("text-anchor", "middle").attr("fill", color).attr("font-weight", "bold").attr("stroke", "white").attr("stroke-width", 3.5).attr("paint-order", "stroke").text(formatDatumValue(datum));
     };
 
     annotate(datumA);
     annotate(datumB);
 
-    const summary = `Difference (Δ): ${diffResult.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    const diffValue = extractNumericValue(diffResult);
+    const summaryValue = Number.isFinite(diffValue) ? diffValue.toLocaleString(undefined, { maximumFractionDigits: 2 }) : formatDatumValue(diffResult);
+    const summary = `Difference (Δ): ${summaryValue}`;
     svg.append("text").attr("class", "annotation")
         .attr("x", margins.left + plot.w / 2).attr("y", margins.top - 10)
         .attr("text-anchor", "middle").attr("font-size", 16).attr("font-weight", "bold")
         .attr("fill", "#333").text(summary);
 
-    emitOpDone(svg, chartId, 'multipleLineDiff', { value: diffResult.value });
+    emitOpDone(svg, chartId, 'multipleLineDiff', { value: Number.isFinite(diffValue) ? diffValue : diffResult?.value ?? null });
     return diffResult;
 }
 
@@ -888,7 +1058,7 @@ export async function multipleLineSort(chartId, op, data) {
 }
 
 export async function multipleLineChangeToSimple(chartId, op, data, opts = { drawPoints: false, preserveStroke: true }) {
-    const { svg, g, margins, plot } = getSvgAndSetup(chartId);
+    const { svg, g, margins, plot, chartInfo } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
 
     const targetSeriesKey = op.group;
@@ -908,7 +1078,8 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
         return [];
     }
 
-    const colorScale = d3.scaleOrdinal(d3.schemeCategory10).domain(Array.from(new Set(sourceData.map(d => d.group))));
+    const colorScale = getColorScale(chartInfo, Array.from(new Set(sourceData.map(d => d.group))));
+    ensureDomainHasKey(colorScale, targetSeriesKey);
     const highlightColor = colorScale(targetSeriesKey);
 
     const allLines = selectAllLines(g);
@@ -933,16 +1104,28 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
         return String(k) !== String(targetSeriesKey);
     });
 
+    const legend = svg.select(".legend");
+
     await Promise.all([
-        otherLines.transition().duration(800).attr("opacity", 0).remove().end().catch(() => {}),
+        otherLines.transition().duration(800).attr("opacity", 0.05).attr("stroke-width", 1.5).end().catch(() => {}),
         (!targetLine.empty() && !opts.preserveStroke) ?
             targetLine.transition().duration(800).attr("stroke-width", 3.5).end().catch(() => {}) :
             Promise.resolve(),
-        svg.select(".legend").transition().duration(800).attr("opacity", 0).remove().end().catch(() => {})
+        legend.transition().duration(800).attr("opacity", 1).end().catch(() => {})
     ]).catch(() => {});
 
+    if (!legend.empty()) {
+        legend.selectAll("g").each(function() {
+            const row = d3.select(this);
+            const label = row.select("text").text();
+            const isTarget = String(label) === String(targetSeriesKey);
+            row.transition().duration(400).attr("opacity", isTarget ? 1 : 0.3).end().catch(() => {});
+            row.select("text").attr("font-weight", isTarget ? "bold" : "normal");
+        });
+    }
+
     const { xScale: xScaleNew, yScale: yScaleNew } = buildScales(filteredData, plot);
-    const lineGen = d3.line().x(d => xScaleNew(d.target)).y(d => yScaleNew(d.value));
+    const lineGen = d3.line().x(d => xScaleNew(toScaleValue(d.target))).y(d => yScaleNew(extractNumericValue(d)));
 
     if (targetLine.empty()) {
         targetLine = g.append("path")
@@ -980,8 +1163,8 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
             .attr("data-id", d => toId(d.target))
             .attr("data-target", d => toId(d.target))
             .attr("data-value", d => d.value)
-            .attr("cx", d => xScaleNew(d.target))
-            .attr("cy", d => yScaleNew(d.value))
+            .attr("cx", d => projectX(xScaleNew, d.target))
+            .attr("cy", d => yScaleNew(extractNumericValue(d)))
             .attr("r", 0)
             .attr("fill", highlightColor)
             .attr("stroke", "white")

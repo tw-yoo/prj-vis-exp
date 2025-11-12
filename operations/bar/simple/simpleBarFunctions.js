@@ -155,24 +155,41 @@ function makeValuePositionResolver(svgNode, orientation, plot, values) {
     if (orientation === 'vertical') {
         return (node) => {
             const val = getMarkValue(node);
-            if (Number.isFinite(val) && scale) {
-                return scale(val);
-            }
             const y = Number(node?.getAttribute?.('y') ?? 0);
             const height = Number(node?.getAttribute?.('height') ?? 0);
-            if (Number.isFinite(val) && val < 0) return y + height;
-            return y;
+
+            if (scale && Number.isFinite(val)) {
+                const scaled = val >= 0 ? scale(val) : scale(0);
+                if (Number.isFinite(scaled)) {
+                    return scaled;
+                }
+            }
+
+            if (Number.isFinite(val) && val < 0 && Number.isFinite(y) && Number.isFinite(height)) {
+                return y + height;
+            }
+            return Number.isFinite(y) ? y : 0;
         };
     }
     return (node) => {
         const val = getMarkValue(node);
-        if (Number.isFinite(val) && scale) {
-            return scale(val);
-        }
         const x = Number(node?.getAttribute?.('x') ?? 0);
         const width = Number(node?.getAttribute?.('width') ?? 0);
-        if (Number.isFinite(val) && val < 0) return x;
-        return x + width;
+
+        if (scale && Number.isFinite(val)) {
+            const scaled = val >= 0 ? scale(val) : scale(0);
+            if (Number.isFinite(scaled)) {
+                return scaled;
+            }
+        }
+
+        if (Number.isFinite(val) && val < 0 && Number.isFinite(x)) {
+            return x;
+        }
+        if (Number.isFinite(x) && Number.isFinite(width)) {
+            return x + width;
+        }
+        return 0;
     };
 }
 
