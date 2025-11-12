@@ -32,10 +32,7 @@
     },
     "color": {
       "field": "Group",
-      "type": "nominal",
-      "scale": {
-        "range": ["#659CCA","#EA98D2"]
-      }
+      "type": "nominal"
     }
   },
   "config": {

@@ -306,11 +306,28 @@ export class MainQuestion {
 
     decorateContinuationState(template) {
         const flagNode = template.content.querySelector('[data-role="continuation-note"]');
-        if (!flagNode) return;
+        const headingNode = template.content.querySelector('[data-role="survey-heading"]');
+        const defaultHeadingText = headingNode
+            ? headingNode.getAttribute('data-default-text') || headingNode.textContent.trim()
+            : '';
+        const continuationHeadingText = headingNode
+            ? headingNode.getAttribute('data-continuation-text') || (defaultHeadingText ? `(Continued) ${defaultHeadingText}` : '')
+            : '';
+
         if (this.isContinuation) {
-            flagNode.removeAttribute('hidden');
+            if (flagNode) {
+                flagNode.removeAttribute('hidden');
+            }
+            if (headingNode && (continuationHeadingText || defaultHeadingText)) {
+                headingNode.textContent = continuationHeadingText || defaultHeadingText;
+            }
         } else {
-            flagNode.setAttribute('hidden', 'true');
+            if (flagNode) {
+                flagNode.setAttribute('hidden', 'true');
+            }
+            if (headingNode && defaultHeadingText) {
+                headingNode.textContent = defaultHeadingText;
+            }
         }
     }
 

@@ -786,7 +786,7 @@ function loadMainSurveyPages() {
   return [
     ...introPages,
     ...questionPages,
-    ...closingPages
+    // ...closingPages
   ];
 }
 

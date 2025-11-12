@@ -433,6 +433,12 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
     }
 
     const winner = dataCompare(data, op, xField, yField, isLast);
+    const aggregateMode = typeof op?.aggregate === 'string'
+        ? op.aggregate.toLowerCase()
+        : null;
+    const isPercentOfTotal = aggregateMode === 'percentage_of_total' || aggregateMode === 'percent_of_total';
+    const animationPromises = [];
+
     const keyA = String(op.targetA);
     const keyB = String(op.targetB);
 
@@ -494,9 +500,11 @@ export async function simpleBarCompare(chartId, op, data, isLast = false) {
         useDim: false
     });
 
-    if (isPercentOfTotal) {
-        const percentLabel = Number.isFinite(result.value)
-            ? `${result.value.toFixed(1)}%`
+    if (isPercentOfTotal && winner) {
+        const percentValue = Number.isFinite(+winner.value) ? +winner.value : null;
+        const precision = Number.isInteger(op?.precision) ? op.precision : 1;
+        const percentLabel = Number.isFinite(percentValue)
+            ? `${percentValue.toFixed(precision)}%`
             : '—';
         svg.append('text')
             .attr('class', 'annotation diff-percent-summary')
@@ -851,6 +859,8 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
     }
 
+    const animationPromises = [];
+
     const targets = [
         { bar: barA, key: keyA, value: valueA, color: colorA },
         { bar: barB, key: keyB, value: valueB, color: colorB }
@@ -994,6 +1004,7 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
         }
     }
 
+    await Promise.all(animationPromises).catch(() => {});
     await Helpers.delay(30);
     signalOpDone(chartId, 'diff');
     return [diffDatum];

@@ -6,12 +6,14 @@ Template is illustrative only; when answering, produce valid JSON with the allow
 **Changelog:**
 - Single‑source spec (removed duplicate/older versions).
 - Operator set **normalized** (removed `eq`).
-- `last` **chaining** via `last_i` allowed and validated.
+- `last` runs as a **single-step combiner** that references only precomputed IDs (`ops_*`, `ops2_*`, …). No `last_i` chaining.
 - `text` upgraded to **Value‑Forward Narration** (names + numbers + composition).
 - Examples revised with **concrete values** from provided datasets.
 # NL → Spec Conversion Guideline (Single‑Sequence `ops` • v1.3 • 2025‑10‑26)
 
-> **Design Rationale.** Explanations should be short, concrete, and value‑forward: state the slice (overview/selection), the operation (zoom/filter/aggregate), and the actual numeric/label results used to form the conclusion. This aligns with narrative visualization guidance on concise author‑driven annotations and explicit highlights (Segel & Heer, 2010) and with the “overview → zoom/filter → details‑on‑demand” interaction mantra (Shneiderman, 1996).
+> **Design Rationale.** Explanations should be short, concrete, and value-forward: state the slice (overview/selection), the operation (zoom/filter/aggregate), and the actual numeric/label results used to form the conclusion. This aligns with narrative visualization guidance on concise author-driven annotations and explicit highlights (Segel & Heer, 2010) and with the “overview → zoom/filter → details-on-demand” interaction mantra (Shneiderman, 1996).
+
+> **Authoring Mindset.** You are **not** “discovering” the answer on the fly. You already know the final response, every intermediate value (`ops_0`, `ops2_0`, …), and how those marks appear on the supplied chart/spec. Your job is to lay out the *visual explanation* a knowledgeable instructor would give: stage the exact highlights, filters, and comparisons that reveal the known answer to the viewer. Never add speculative steps or redundant probes just to fetch numbers—you should select and narrate the marks that you already know resolve the explanation.
 
 ---
 
@@ -28,7 +30,7 @@ Template is illustrative only; when answering, produce valid JSON with the allow
 **You must output:**
 - A **single JSON object** with one or more **ordered operation lists**: `ops`, `ops2`, `ops3`, …
 - **Core rule — Single‑Sequence per key:** Each top‑level list (`ops`, `ops2`, …) encodes **exactly one human‑perceived sequence** (see §2). Each list **must end in exactly one `Datum` or one `Boolean`.**
-- If multiple sequences need to be combined **after** they finish, put the combining step(s) under **`last`** (optional). `last` also **must end** in exactly one `Datum` or one `Boolean`.
+- If multiple sequences need to be combined **after** they finish, put the single combining step under **`last`** (optional). `last` also **must end** in exactly one `Datum` or one `Boolean`.
 - **Human-readable annotations (`text`) — Visualization Narrative (REQUIRED):** Provide a top-level **`text`** object that **mirrors the operation list keys** (`ops`, `ops2`, `ops3`, `last`) and gives **descriptive narrative sentences** per key. Each sentence should **describe what the viewer would see on the chart as the step runs** (highlighting, sorting, filtering, comparisons), while still naming concrete fields/labels, numeric values (when known), and how those visuals combine into the final takeaway. Strings only; **no nested structure**.
 
 Strict output format (HARD RULE): Output must be a single raw JSON object only — no sentinels, no markdown fences, no commentary. The first non-whitespace character MUST be { and the last MUST be }.
@@ -51,7 +53,7 @@ class IntervalValue { constructor(category: string, min: number, max: number) {}
 class ScalarValue   { constructor(value: number) {} }
 class BoolValue     { constructor(category: string, bool: boolean) {} }
 **Defaults:** If NL omits explicit field names → **label → `"target"`**, **measure → `"value"`**.  
-**Groups:** In multi‑line, grouped‑bar, stacked‑bar charts, `group` is a **concrete subgroup label value** (e.g., `"MSFT"`, `"AMZN"`, `"2024"`), **not** a field name. The runtime infers the group field from the chart encoding. Never pass the dimension name itself (e.g., do **not** write `"group":"Continent"`); instead, spin up individual sequences that explicitly isolate each subgroup label (`"Africa"`, `"Asia"`, …) and hand their IDs to `last` for any comparisons or narration.
+**Groups:** In multi‑line, grouped‑bar, stacked‑bar charts, `group` is a **concrete subgroup label value** (e.g., `"MSFT"`, `"AMZN"`, `"2024"`), **not** a field name. The runtime infers the group field from the chart encoding. Never pass the dimension name itself (e.g., do **not** write `"group":"Continent"`); instead, spin up individual sequences that explicitly isolate each subgroup label (`"Africa"`, `"Asia"`, …) and hand their IDs to `last` for any comparisons or narration. Likewise, avoid redundant filters like `{"op":"filter","field":"Type","operator":"==","value":"Birth"}` when the target operation already supports `group:"Birth"`—use the `group` slot directly so the animation reflects the chart’s native series switching in one step.
 
 ---
 
@@ -114,7 +116,7 @@ Each list must **terminate** in exactly one `Datum` or `Boolean`.
 
 ---
 
-**Special `nth` usage:** You may provide `n` as a single 1-based integer or as an array of integers (e.g., `[2,5]`). When `n` is an array, the returned `Datum[]` contains one datum for each requested rank (in the provided order); the runtime still assigns sequential IDs (`<opKey>_0`, `<opKey>_1`, …), letting `last` refer to any of them without re-running `sort`. This is the canonical way to answer prompts like “difference between the 2nd and 5th largest values”: `sort` once, `nth` with `[2,5]`, then `diff` over `ops_0` and `ops_1`.
+**Special `nth` usage:** You may provide `n` as a single 1-based integer or as an array of integers (e.g., `[2,5]`). When `n` is an array, the returned `Datum[]` contains one datum for each requested rank (in the provided order); the runtime still assigns sequential IDs (`<opKey>_0`, `<opKey>_1`, …), letting `last` refer to any of them without re-running `sort`. This is the canonical way to answer prompts like “difference between the 2nd and 5th largest values”: `sort` once, `nth` with `[2,5]`, then compute the `diff` inside `last` by referencing `ops_0` and `ops_1`.
 
 ### Ordering heuristics — prefer native axis order
 - Treat the chart’s rendered axis order (e.g., time increasing left→right, categorical order given in the spec) as already sorted. Terms like “earliest”, “first”, “leftmost” map to `nth` with `"from":"left"`; “latest”, “last”, “rightmost” map to `nth` with `"from":"right"`.
@@ -122,34 +124,61 @@ Each list must **terminate** in exactly one `Datum` or `Boolean`.
 - Redundant `sort` + `nth` chains bloat the spec and can destabilize tie handling. Prefer the minimal deterministic sequence that still ends in a single datum.
 
 - **Filter once, keep both labels:** `{"op":"filter","field":"country","operator":"in","value":["USA","FRA"]}` returns both rows so IDs `ops_0`, `ops_1` are ready for `last`. No duplicate filters needed.
-- **Sort + `nth` arrays:** Perform a single `sort`, then `{"op":"nth","n":[2,5],"from":"left"}` to capture both ranks in order. The runtime assigns sequential IDs so you can `diff`/`compare` them immediately.
+- **Sort + `nth` arrays:** Perform a single `sort`, then `{"op":"nth","n":[2,5],"from":"left"}` to capture both ranks in order. The runtime assigns sequential IDs so `last` can `diff`/`compare` them without rerunning the earlier steps.
 - **Ops that already emit lists:** `lagDiff`, `compare`, `determineRange`, and plain `filter`/`sort` keep every matching datum. Use that list directly (or trim it with another op) instead of spinning up parallel sequences.
 - **Combine only at the end:** After a multi-select step, use `last` (or another terminal op) to compute comparisons, sums, or booleans across the captured IDs. This mirrors how a person would highlight several marks and then reason about them.
 - **Median workflow tip:** For even-length sets, `sort` once, use `nth` with the two middle ranks (e.g., `[6,7]`), then compute the average inside `last` so only those two highlighted marks remain on screen during the final step.
 
 
-## 5) IDs & `last` Referencing (incl. `last_i` chaining)
+## 5) IDs & `last` Referencing (single-step combiner)
 - After each **non‑`last`** list runs, the runtime assigns IDs to returned `DatumValue`s:
   id = <operationKey> + "_" + <0-based index>
   // e.g., "ops_0", "ops2_0"
 - In **`last`**, always reference prior results by **ID** (e.g., `"ops_0"`, `"ops2_0"`). **Never** use raw labels here.
 - Outside of `last`, IDs are **opaque** — you cannot plug `"ops_0"` into another op’s `value`, `target`, or threshold field. If a later step needs a scalar/label produced earlier, restate the literal number/label (the LLM must compute it) or restructure the workflow so the comparison happens inside `last`.
-- **Reusing IDs inside the same sequence:** Every operation (bar/line/stacked/grouped) now preserves its result dataset for later steps and automatically aliases each returned `DatumValue` with an `ops_*` style ID (`ops_0`, `ops_1`, …). This means later operations in the **same** sequence can freely refer to those IDs in supported fields like `targetA`, `targetB`, `compareAgainst`, etc. Example:
+- **HARD BAN — IDs outside `last`:** `ops_*`, `ops2_*`, … are reserved exclusively for `last`. They must never appear in any non-`last` operation (`diff`, `compare`, `retrieveValue`, `sum`, `filter`, etc.). If you think an op needs `"ops_0"` as input, stop and rewrite the sequence so the operation names its targets directly (via `{category, series, group}` objects or literal numbers). This keeps every sequence faithful to the natural-language steps shown on the chart.
+- **No ID-harvesting operations:** Do not insert extra `retrieveValue`, `nth`, or similar steps whose only purpose is to mint IDs for later math. Reject patterns like:
   ```json
   {
     "ops": [
-      { "op": "retrieveValue", "field": "Religious", "target": "Hindu", "group": "Literacy (%)" },
       { "op": "retrieveValue", "field": "Religious", "target": "Hindu", "group": "Work participation (%)" },
+      { "op": "retrieveValue", "field": "Religious", "target": "Hindu", "group": "Literacy (%)" },
       { "op": "diff", "field": "value", "targetA": "ops_0", "targetB": "ops_1", "aggregate": "ratio", "precision": 4 }
-    ],
-    "last": [
-      { "op": "compare", "field": "value", "targetA": "ops_2", "targetB": "ops2_2", "which": "max" }
     ]
   }
   ```
-  Here `ops_0` and `ops_1` come from the earlier `retrieveValue` steps in `ops`, the `diff` emits a new datum aliased as `ops_2`, and `last` can compare that ratio against a parallel `ops2_2`. No manual ID wiring is needed—the runtime assigns and carries the IDs automatically.
-- You may chain results inside `last` by referring to **previous `last` outputs** as `"last_<i>"` (0‑based within `last`).
-- `last` also **must end** in a **single** `Datum` or `Boolean`.
+  Instead, encode the computation directly in the terminal step:
+  ```json
+  {
+    "ops": [
+      {
+        "op": "diff",
+        "field": "value",
+        "targetA": { "category": "Hindu", "series": "Work participation (%)" },
+        "targetB": { "category": "Hindu", "series": "Literacy (%)" },
+        "aggregate": "ratio",
+        "precision": 4
+      }
+    ]
+  }
+  ```
+  Apply this rule broadly: whenever the natural-language explanation requests a final computation (diff, compare, ratio, sum, etc.), feed the true chart targets or literal values straight into that operation. Only introduce additional steps when the narrative explicitly describes an intermediate visual manipulation (filtering, sorting, spotlighting) that the viewer would actually see.
+- **Use the terminal IDs:** Within a list, IDs increment with every operation (`ops_0`, `ops_1`, …). When `last` references the outcome of that list, point to the ID emitted by its **terminal** operation (often the highest index). Referencing an earlier ID (e.g., using `ops_0` when the real diff lives at `ops_1`) means you are comparing the pre-processed dataset rather than the intended highlighted datum.
+- **Single-shot `last`:** `last` contains exactly **one** operation. That step may reference any previously produced IDs (`ops_0`, `ops2_0`, …) but must never mention `"last_0"`, `"last_1"`, or any other pseudo-ID created inside `last`. The combiner does not get to fabricate new intermediate values; it simply reads the finished results from earlier lists and produces the final datum/boolean in one move.
+- **Reject chained `last` ops:** Specs like the following are invalid because the second `compare` depends on `last_0`, which does not exist prior to `last` execution:
+  ```json
+  {
+    "ops": [ { "op": "diff", "field": "value", "targetA": {"category":"Hindu","series":"Work participation (%)"}, "targetB": {"category":"Hindu","series":"Literacy (%)"}, "aggregate": "ratio" } ],
+    "ops2": [ { "op": "diff", "field": "value", "targetA": {"category":"Muslim","series":"Work participation (%)"}, "targetB": {"category":"Muslim","series":"Literacy (%)"}, "aggregate": "ratio" } ],
+    "ops3": [ { "op": "diff", "field": "value", "targetA": {"category":"Sikh","series":"Work participation (%)"}, "targetB": {"category":"Sikh","series":"Literacy (%)"}, "aggregate": "ratio" } ],
+    "last": [
+      { "op": "compare", "field": "value", "targetA": "ops_0", "targetB": "ops2_0", "which": "max" },
+      { "op": "compare", "field": "value", "targetA": "last_0", "targetB": "ops3_0", "which": "max" }
+    ]
+  }
+  ```
+  To compare all three ratios, restructure so `last` performs a single extremum operation (e.g., `findExtremum` over the union of `ops`, `ops2`, `ops3`) or expand one of the earlier sequences to gather every needed datum before computing the final highlight. The goal is that viewers see the chart reach its conclusion in one clear final beat, not hop through invisible `last_*` placeholders.
+- `last` still **must end** in a **single** `Datum` or `Boolean`.
 
 ---
 
@@ -183,7 +212,7 @@ Forbidden top-level keys: notes, explanation, meta, BEGIN_JSON, END_JSON, code, 
 Do not include any keys beyond the allowed set.
 - `ops` (required): array of operation objects encoding **one sequence**.  
 - `ops2`, `ops3`, … (optional): additional sequences.  
-- `last` (optional): combines earlier results by ID; may chain via `last_i`.  
+- `last` (optional): single-step combiner over precomputed IDs.  
 - `text` (required): **value‑forward** strings mirroring keys.  
 No top‑level JSON arrays; no extra prose.
 
@@ -194,7 +223,7 @@ No top‑level JSON arrays; no extra prose.
 2. Apply the **Single‑Sequence** rule per list.  
 3. Use **only** §4 operations; include `op` key.  
 4. Ensure termination: each list ends in one `Datum` or one `Boolean`.  
-5. In `last`, reference results by **ID**; chain via `last_i` if needed.  
+5. In `last`, reference prior results by **ID** and keep it to a single combining op (no `last_i`).  
 6. Use numeric types for numbers; avoid `eq`.  
 7. Write **`text`** as a visualization narrative: describe the on-screen action, mention concrete labels/numbers when known, and explain how those highlighted visuals lead to the final result.  
 8. Prefer single-pass multi-selects (filters with `in`, `nth` arrays, `lagDiff`, etc.) instead of duplicating identical sequences for each target.  
@@ -239,25 +268,28 @@ function validate(spec: Program) {
   }
   for (const k of listKeys) checkList(k);
 
-  const ids = new Set<string>(); for (const k of listKeys) ids.add(`${k}_0`);
+  const ids = new Set<string>();
+  for (const k of listKeys) {
+    const opsForKey: Op[] = spec[k];
+    for (let i = 0; i < opsForKey.length; i++) {
+      ids.add(`${k}_${i}`);
+    }
+  }
 
   if (spec.last) {
     const lastOps: Op[] = spec.last;
-    if (!Array.isArray(lastOps) || lastOps.length === 0) errors.push("last must be a non-empty array when present");
-    const lastIds = new Set<string>();
-    for (let i=0;i<lastOps.length;i++) {
-      const op = lastOps[i];
-      if (!TERMINAL.has(op.op)) errors.push(`last[${i}] must be terminal (got "${op.op}")`);
-      lastIds.add(`last_${i}`);
+    if (!Array.isArray(lastOps) || lastOps.length !== 1) errors.push("last must contain exactly one operation when present");
+    else {
+      const op = lastOps[0];
+      if (!TERMINAL.has(op.op)) errors.push(`last[0] must be terminal (got "${op.op}")`);
       for (const f of ["targetA","targetB"]) {
         const v = op[f];
-        if (typeof v === "string" && !(ids.has(v) || lastIds.has(v))) {
-          errors.push(`last[${i}].${f} must reference an ID from prior lists or previous last steps`);
+        if (typeof v === "string") {
+          if (v.startsWith("last_")) errors.push(`last[0].${f} must not reference "${v}" (no chaining inside last)`);
+          if (!ids.has(v)) errors.push(`last[0].${f} must reference an ID from prior lists (found "${v}")`);
         }
       }
     }
-    const end = lastOps[lastOps.length - 1];
-    if (!TERMINAL.has(end.op)) errors.push("last must end in a terminal op");
   }
 
   return { valid: errors.length === 0, errors, warns };
@@ -269,14 +301,14 @@ function validate(spec: Program) {
 1) **Segment** the explanation into human‑perceived sequences → map to `ops`, `ops2`, … (Single‑Sequence rule).  
 2) **Map** each sentence/phrase to §4 ops.  
 3) **Enforce determinism** so each list ends in one `Datum`/`Boolean`.  
-4) **Combine** independent results in `last` using **IDs** (allow chaining via `last_i`).  
+4) **Combine** independent results in `last` with a **single** operation over the gathered IDs.  
 5) **Author `text`** as a visualization narrative: describe what the chart is doing in that step, mention the concrete labels/numbers involved, and state how those visuals compose into the final answer.
 
 **Meta‑Prompt Template**
 Convert the provided natural-language explanation into the NL→Spec grammar.
 - Apply the Single-Sequence rule: one human-perceived sequence per list key.
 - Use only the supported ops. End each list in exactly one Datum or one Boolean.
-- If combining results, put the final step(s) under `last` and reference earlier outputs by ID (ops_0, ops2_0, …).
+- If combining results, stage every prerequisite beforehand and let `last` perform one final operation that references the needed IDs (ops_0, ops2_0, …). No additional chaining inside `last`.
 
 ---
 
@@ -491,11 +523,7 @@ Convert the provided natural-language explanation into the NL→Spec grammar.
     { "op": "average", "field": "Population" }
   ],
   "last": [
-    { "op": "compare", "field": "Population", "targetA": "ops2_0", "targetB": "ops_0", "which": "max" },
-    { "op": "compare", "field": "Population", "targetA": "last_0", "targetB": "ops3_0", "which": "max" },
-    { "op": "compare", "field": "Population", "targetA": "last_1", "targetB": "ops4_0", "which": "max" },
-    { "op": "compare", "field": "Population", "targetA": "last_2", "targetB": "ops5_0", "which": "max" },
-    { "op": "compare", "field": "Population", "targetA": "last_3", "targetB": "ops6_0", "which": "max" }
+    { "op": "findExtremum", "field": "value", "which": "max" }
   ],
   "text": {
     "ops": "Filter to the Africa stacks and average their heights across the years to land near 316M people.",
@@ -504,7 +532,7 @@ Convert the provided natural-language explanation into the NL→Spec grammar.
     "ops4": "Latin America’s stacks average roughly 251M across the shown years.",
     "ops5": "Northern America settles near a 219M yearly average.",
     "ops6": "Oceania’s thinner stacks average around 17.7M.",
-    "last": "Bring all six averages onto the stage and keep the tallest glow on Asia (~1.91B), clearly above Europe (~0.63B) and the remaining continents."
+    "last": "With every average now buffered, find the maximum value and highlight Asia (~1.91B) as the dominant continent."
   }
 }
 
@@ -562,14 +590,13 @@ Convert the provided natural-language explanation into the NL→Spec grammar.
     { "op": "sum", "field": "percentage", "group": "Worsen" }
   ],
   "last": [
-    { "op": "compare", "field": "value", "targetA": "ops_0", "targetB": "ops2_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_0", "targetB": "ops3_0", "which": "max" }
+    { "op": "findExtremum", "field": "value", "which": "max" }
   ],
   "text": {
     "ops": "EU5 ‘Improve’ total 130 (32+29+25+22+22).",
     "ops2": "EU5 ‘Remain the same’ total 171 (35+43+27+37+29).",
     "ops3": "EU5 ‘Worsen’ total 193 (32+27+47+40+47).",
-    "last": "Compare the three totals and report Worsen at 193."
+    "last": "After summarizing each stance, run a single max scan and spotlight the ‘Worsen’ total at 193."
   }
 }
 
@@ -752,13 +779,11 @@ Convert the provided natural-language explanation into the NL→Spec grammar.
     { "op": "nth", "field": "Average audience share (m)", "n": [1, 2, 11, 12], "from": "left" }
   ],
   "last": [
-    { "op": "sum", "field": "Average audience share (m)", "targetA": "ops_0", "targetB": "ops_1" },
-    { "op": "sum", "field": "Average audience share (m)", "targetA": "last_0", "targetB": "ops_2" },
-    { "op": "sum", "field": "Average audience share (m)", "targetA": "last_1", "targetB": "ops_3" }
+    { "op": "sum", "field": "Average audience share (m)" }
   ],
   "text": {
     "ops": "Sort the series once, then keep the two tallest marks (15.82, 14.35) and the two shortest marks (6.90, 5.44) highlighted.",
-    "last": "Sequentially add the top pair (≈30.17), add the first bottom value (≈37.07), then add the final bottom value to reach about 42.51. Each addition happens after the highlights so the viewer sees which bars are being combined."
+    "last": "With those four highlights still in view, perform a single sum to show their combined total of about 42.51."
   }
 }
 

@@ -100,7 +100,7 @@ export const q15ExplanationType = ExplanationType.OURS
 export const q16ChartVlSpec = "bar_grouped_203_90"
 export const q16QuestionText = "Among Hindu, Muslim, and Sikh, which group has the highest ratio of Work participation to Literacy?"
 export const q16AnswerText = "The Hindu group has the highest ratio of Work participation to Literacy."
-export const q16ExplanationType = ExplanationType.BASELINE
+export const q16ExplanationType = ExplanationType.OURS
 
 export const q17ChartVlSpec = "line_multiple_200_10"
 export const q17QuestionText = "What is the maximum value across all series and time points?"

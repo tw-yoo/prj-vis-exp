@@ -486,6 +486,7 @@ export async function multipleLineFindExtremum(chartId, op, data) {
 
 export async function multipleLineDetermineRange(chartId, op, data) {
     const { svg, g, margins, plot, chartInfo } = getSvgAndSetup(chartId);
+    const colorField = chartInfo?.colorField;
     clearAllAnnotations(svg);
     const delegated = await delegateToSimpleIfGrouped(chartId, op, data, simpleLineDetermineRange);
     if (delegated !== null) return delegated;
@@ -1060,6 +1061,7 @@ export async function multipleLineSort(chartId, op, data) {
 
 export async function multipleLineChangeToSimple(chartId, op, data, opts = { drawPoints: false, preserveStroke: true }) {
     const { svg, g, margins, plot, chartInfo } = getSvgAndSetup(chartId);
+    const colorField = chartInfo?.colorField;
     clearAllAnnotations(svg);
 
     const targetSeriesKey = op.group;
@@ -1085,9 +1087,22 @@ export async function multipleLineChangeToSimple(chartId, op, data, opts = { dra
 
     const allLines = selectAllLines(g);
     const getKey = (d, node) => {
-        if (d == null && node) return node.getAttribute("data-series");
-        if (Array.isArray(d)) return d[0];
-        if (typeof d === 'object') {
+        if (node) {
+            const attr = node.getAttribute("data-series");
+            if (attr) return attr;
+        }
+        if (Array.isArray(d)) {
+            const firstWithGroup = d.find(item => item && (item.group != null || item.series != null || item.Type != null || item.type != null || item[colorField] != null));
+            if (firstWithGroup) {
+                return firstWithGroup.group
+                    ?? firstWithGroup.series
+                    ?? firstWithGroup.Type
+                    ?? firstWithGroup.type
+                    ?? (colorField ? firstWithGroup[colorField] : null);
+            }
+            return null;
+        }
+        if (typeof d === 'object' && d !== null) {
             if ('key' in d) return d.key;
             if ('group' in d) return d.group;
             if ('series' in d) return d.series;

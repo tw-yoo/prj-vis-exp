@@ -1,0 +1,16 @@
+{
+  "ops": [
+    { "op": "findExtremum", "field": "Count", "which": "max", "group": "Birth" }
+  ],
+  "ops2": [
+    { "op": "findExtremum", "field": "Count", "which": "max", "group": "Deaths" }
+  ],
+  "last": [
+    { "op": "compare", "field": "Count", "targetA": "ops_0", "targetB": "ops2_0", "which": "max" }
+  ],
+  "text": {
+    "ops": "Within the Birth line, highlight the point with the maximum Count.",
+    "ops2": "Within the Deaths line, highlight the point with the maximum Count.",
+    "last": "Compare the two highlighted maxima and report the higher series."
+  }
+}

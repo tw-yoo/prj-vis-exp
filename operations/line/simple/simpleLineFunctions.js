@@ -988,8 +988,11 @@ export async function simpleLineLagDiff(chartId, op, data, isLast = false) {
     await baseLine.transition().duration(300).attr('opacity', 0.35).end().catch(() => {});
     await points.transition().duration(300).attr('opacity', 0.4).end().catch(() => {});
 
-    const maxPreview = Number.isFinite(op?.previewCount) ? op.previewCount : 6;
-    const subset = diffs.slice(0, Math.max(1, maxPreview));
+    const requestedCount = Number.isFinite(Number(op?.previewCount))
+        ? Number(op.previewCount)
+        : diffs.length;
+    const maxPreview = Math.min(diffs.length, Math.max(1, requestedCount));
+    const subset = diffs.slice(0, maxPreview);
 
     for (const [idx, diffDatum] of subset.entries()) {
         const currTarget = diffDatum?.target;

@@ -3,150 +3,204 @@
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Jan", "series": "Average high °F" },
-      "targetB": { "category": "Jan", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Jan",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Jan",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops2": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Feb", "series": "Average high °F" },
-      "targetB": { "category": "Feb", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Feb",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Feb",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops3": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Mar", "series": "Average high °F" },
-      "targetB": { "category": "Mar", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Mar",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Mar",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops4": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Apr", "series": "Average high °F" },
-      "targetB": { "category": "Apr", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Apr",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Apr",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops5": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "May", "series": "Average high °F" },
-      "targetB": { "category": "May", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "May",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "May",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops6": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Jun", "series": "Average high °F" },
-      "targetB": { "category": "Jun", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Jun",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Jun",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops7": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Jul", "series": "Average high °F" },
-      "targetB": { "category": "Jul", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Jul",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Jul",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops8": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Aug", "series": "Average high °F" },
-      "targetB": { "category": "Aug", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Aug",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Aug",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops9": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Sep", "series": "Average high °F" },
-      "targetB": { "category": "Sep", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Sep",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Sep",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops10": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Oct", "series": "Average high °F" },
-      "targetB": { "category": "Oct", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Oct",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Oct",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops11": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Nov", "series": "Average high °F" },
-      "targetB": { "category": "Nov", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Nov",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Nov",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "ops12": [
     {
       "op": "diff",
       "field": "Temperature",
-      "targetA": { "category": "Dec", "series": "Average high °F" },
-      "targetB": { "category": "Dec", "series": "Average low °F" },
-      "signed": true
+      "targetA": {
+        "category": "Dec",
+        "series": "Average high °F"
+      },
+      "targetB": {
+        "category": "Dec",
+        "series": "Average low °F"
+      },
+      "signed": false
     }
   ],
   "last": [
-    { "op": "compare", "field": "value", "targetA": "ops_0", "targetB": "ops2_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_0", "targetB": "ops3_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_1", "targetB": "ops4_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_2", "targetB": "ops5_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_3", "targetB": "ops6_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_4", "targetB": "ops7_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_5", "targetB": "ops8_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_6", "targetB": "ops9_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_7", "targetB": "ops10_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_8", "targetB": "ops11_0", "which": "max" },
-    { "op": "compare", "field": "value", "targetA": "last_9", "targetB": "ops12_0", "which": "max" },
-
-    { "op": "compare", "field": "value", "targetA": "ops_0", "targetB": "ops2_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_11", "targetB": "ops3_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_12", "targetB": "ops4_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_13", "targetB": "ops5_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_14", "targetB": "ops6_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_15", "targetB": "ops7_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_16", "targetB": "ops8_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_17", "targetB": "ops9_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_18", "targetB": "ops10_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_19", "targetB": "ops11_0", "which": "min" },
-    { "op": "compare", "field": "value", "targetA": "last_20", "targetB": "ops12_0", "which": "min" },
-
-    { "op": "diff", "field": "value", "targetA": "last_10", "targetB": "last_21", "signed": true }
+    {
+      "op": "diff",
+      "field": "value",
+      "targetA": "ops7_0",
+      "targetB": "ops_0",
+      "signed": true
+    }
   ],
   "text": {
-    "ops": "January gap is the January Average high °F minus January Average low °F.",
-    "ops2": "February gap is February high minus low.",
-    "ops3": "March gap is March high minus low.",
-    "ops4": "April gap is April high minus low.",
-    "ops5": "May gap is May high minus low.",
-    "ops6": "June gap is June high minus low.",
-    "ops7": "July gap is July high minus low.",
-    "ops8": "August gap is August high minus low.",
-    "ops9": "September gap is September high minus low.",
-    "ops10": "October gap is October high minus low.",
-    "ops11": "November gap is November high minus low.",
-    "ops12": "December gap is December high minus low.",
-    "last": "Compare the twelve monthly gaps to find the maximum and minimum, then subtract the minimum gap from the maximum gap to produce the final difference."
+    "ops": "Calculate the absolute difference between Average high and Average low temperatures for January, resulting in a gap of 17.8 degrees Fahrenheit.",
+    "ops2": "Calculate the absolute difference between Average high and Average low temperatures for February, resulting in a gap of 20.4 degrees Fahrenheit.",
+    "ops3": "Calculate the absolute difference between Average high and Average low temperatures for March, resulting in a gap of 22.6 degrees Fahrenheit.",
+    "ops4": "Calculate the absolute difference between Average high and Average low temperatures for April, resulting in a gap of 25.3 degrees Fahrenheit.",
+    "ops5": "Calculate the absolute difference between Average high and Average low temperatures for May, resulting in a gap of 27.7 degrees Fahrenheit.",
+    "ops6": "Calculate the absolute difference between Average high and Average low temperatures for June, resulting in a gap of 30.4 degrees Fahrenheit.",
+    "ops7": "Calculate the absolute difference between Average high and Average low temperatures for July, resulting in a gap of 33.0 degrees Fahrenheit, which is the highest monthly gap.",
+    "ops8": "Calculate the absolute difference between Average high and Average low temperatures for August, resulting in a gap of 32.8 degrees Fahrenheit.",
+    "ops9": "Calculate the absolute difference between Average high and Average low temperatures for September, resulting in a gap of 32.1 degrees Fahrenheit.",
+    "ops10": "Calculate the absolute difference between Average high and Average low temperatures for October, resulting in a gap of 28.5 degrees Fahrenheit.",
+    "ops11": "Calculate the absolute difference between Average high and Average low temperatures for November, resulting in a gap of 22.7 degrees Fahrenheit.",
+    "ops12": "Calculate the absolute difference between Average high and Average low temperatures for December, resulting in a gap of 18.1 degrees Fahrenheit.",
+    "last": "Take the highest calculated gap of 33.0 degrees Fahrenheit (from July) and the lowest gap of 17.8 degrees Fahrenheit (from January), then compute their signed difference: 33.0 minus 17.8, which equals 15.2."
   }
 }
