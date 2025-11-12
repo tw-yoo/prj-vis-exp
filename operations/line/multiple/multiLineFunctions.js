@@ -33,13 +33,14 @@ import {
     simpleLineSort,
     simpleLineLagDiff
 } from "../simple/simpleLineFunctions.js";
-import { OP_COLORS } from "../../../../object/colorPalette.js";
+// import { OP_COLORS } from "../../../../object/colorPalette.js";
 import {
     parseDateWithGranularity,
     fmtISO
 } from "../sharedLineUtils.js";
 import { getRuntimeResultsById } from "../../runtimeResultStore.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
+import {OP_COLORS} from "../../../object/colorPalette.js";
 
 /**
  * 작업 완료 신호를 DOM 이벤트로 방출합니다.

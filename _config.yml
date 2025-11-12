@@ -1,0 +1,3 @@
+# _config.yml
+url: "https://tw-yoo.github.io"   # 사용자/조직 페이지 루트
+baseurl: "/prj-vis-exp"           # 프로젝트 리포 이름
