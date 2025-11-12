@@ -50,6 +50,13 @@ function formatGroupSuffix(group) {
 }
 
 function formatTargetLabel(selector) {
+    if (Array.isArray(selector)) {
+        const labels = selector
+            .map((entry) => formatTargetLabel(entry))
+            .filter((label) => typeof label === "string" && label.length > 0);
+        if (labels.length === 0) return "Multiple targets";
+        return labels.join(" + ");
+    }
     if (selector == null) return "";
     if (typeof selector === "string" || typeof selector === "number") return String(selector);
     if (typeof selector === "object") {
@@ -156,19 +163,22 @@ function evalOperator(operator, left, right) {
 /** Aggregation helpers */
 function aggregate(values, agg /* 'sum'|'avg'|'min'|'max'|undefined */) {
     if (!Array.isArray(values) || values.length === 0) return NaN;
+    const numeric = values
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value));
+    if (numeric.length === 0) return NaN;
     switch (agg) {
         case "sum":
-            return values.reduce((s, v) => s + v, 0);
+            return numeric.reduce((s, v) => s + v, 0);
         case "avg":
-            return values.reduce((s, v) => s + v, 0) / values.length;
+            return numeric.reduce((s, v) => s + v, 0) / numeric.length;
         case "min":
-            return Math.min(...values);
+            return Math.min(...numeric);
         case "max":
-            return Math.max(...values);
+            return Math.max(...numeric);
         case undefined:
         default:
-            // No aggregation requested: if multiple, use identity on single; else deterministic choice: take last
-            return values.length === 1 ? values[0] : values[values.length - 1];
+            return numeric.reduce((s, v) => s + v, 0);
     }
 }
 
@@ -467,25 +477,112 @@ export function averageData(data, op) {
 }
 
 /** 3.11 diff — returns a single numeric DatumValue (signed if op.signed) */
-export function diffData(data, op) {
+export function diffData(data, op = {}) {
     const arr = cloneData(data);
-    const { field, targetA, targetB, groupA, groupB, aggregate: agg, signed = true } = op;
-    const gA = groupA ?? op.group; // backward-compat
-    const gB = groupB ?? op.group;
-    const sA = sliceForTarget(arr, field, targetA, gA);
-    const sB = sliceForTarget(arr, field, targetB, gB);
-    if (sA.length === 0 || sB.length === 0) {
+    const {
+        field,
+        targetA,
+        targetB,
+        groupA,
+        groupB,
+        aggregate: agg,
+        signed = true
+    } = op;
+    const gA = groupA ?? op.group ?? null;
+    const gB = groupB ?? op.group ?? null;
+
+    const collectSlice = (targets, groupLabel) => {
+        const list = Array.isArray(targets) ? targets : [targets];
+        const collected = [];
+        list.forEach((entry) => {
+            const slice = sliceForTarget(arr, field, entry, groupLabel);
+            if (Array.isArray(slice) && slice.length > 0) {
+                collected.push(...slice);
+            }
+        });
+        return collected;
+    };
+
+    const sA = collectSlice(targetA, gA);
+    const sB = collectSlice(targetB, gB);
+    if (!sA.length || !sB.length) {
         throw new Error("diff: targetA/targetB not found in data slice");
     }
-    const vA = aggregate(sA.map((d) => d.value), agg);
-    const vB = aggregate(sB.map((d) => d.value), agg);
-    const d = signed ? vA - vB : Math.abs(vA - vB);
-    const fieldLabel = field || "value";
-    const labelA = formatTargetLabel(targetA);
-    const labelB = formatTargetLabel(targetB);
-    const detail = [labelA, labelB].filter(Boolean).join(" vs ");
-    const name = formatResultName("Diff", fieldLabel, { group: op.group ?? null, detail });
-    return makeScalarDatum(fieldLabel, op.group ?? null, fieldLabel, "__diff__", d, name);
+
+    const toNumericValues = (items) => items
+        .map((datum) => Number(datum?.value))
+        .filter((value) => Number.isFinite(value));
+    const valuesA = toNumericValues(sA);
+    const valuesB = toNumericValues(sB);
+    if (!valuesA.length || !valuesB.length) {
+        throw new Error("diff: numeric values missing for targetA/targetB");
+    }
+
+    const aggregateKey = typeof agg === "string" ? agg.toLowerCase() : agg;
+    const sumValues = (values) => values.reduce((total, value) => total + value, 0);
+    const aggregateValues = (values) => aggregate(values, aggregateKey);
+
+    const aVal = aggregateValues(valuesA);
+    const bVal = aggregateValues(valuesB);
+    if (!Number.isFinite(aVal) || !Number.isFinite(bVal)) {
+        throw new Error("diff: unable to aggregate targetA/targetB values");
+    }
+
+    const aggregateMode = typeof aggregateKey === "string" ? aggregateKey : null;
+    const isPercentOfTotal = aggregateMode === "percentage_of_total" || aggregateMode === "percent_of_total";
+    const mode = String(op?.mode ?? "difference").toLowerCase();
+
+    let resultValue;
+    let targetLabel = op?.targetName ?? "__diff__";
+
+    if (isPercentOfTotal) {
+        const numerator = sumValues(valuesA);
+        const denominator = sumValues(valuesB);
+        if (denominator === 0) {
+            console.warn("diff (percentage_of_total): denominator is zero", { op });
+            return [];
+        }
+        resultValue = (numerator / denominator) * 100;
+        targetLabel = op?.targetName ?? "PercentOfTotal";
+    } else if (mode === "ratio") {
+        const numerator = sumValues(valuesA);
+        const denominator = sumValues(valuesB);
+        if (denominator === 0) {
+            console.warn("diff (ratio): denominator is zero", { op });
+            return [];
+        }
+        const defaultScale = op?.percent ? 100 : 1;
+        const scale = Number.isFinite(op?.scale) ? Number(op.scale) : defaultScale;
+        resultValue = (numerator / denominator) * (Number.isFinite(scale) ? scale : 1);
+        targetLabel = op?.targetName ?? (op?.percent ? "PercentOfTotal" : "Ratio");
+    } else {
+        const diffValue = aVal - bVal;
+        resultValue = signed ? diffValue : Math.abs(diffValue);
+        targetLabel = op?.targetName ?? "__diff__";
+    }
+
+    const precision = Number.isFinite(Number(op?.precision))
+        ? Math.max(0, Number(op.precision))
+        : null;
+    if (precision !== null) {
+        resultValue = Number(resultValue.toFixed(precision));
+    }
+
+    const fieldLabel = field || sA[0]?.measure || sB[0]?.measure || "value";
+    const groupLabel = op.group ?? gA ?? gB ?? null;
+    const detail = [formatTargetLabel(targetA), formatTargetLabel(targetB)]
+        .filter(Boolean)
+        .join(" vs ");
+    const name = formatResultName("Diff", fieldLabel, { group: groupLabel, detail });
+
+    return makeScalarDatum(
+        fieldLabel,
+        groupLabel,
+        fieldLabel,
+        targetLabel,
+        resultValue,
+        name
+    );
 }
 
 /** 3.11b lagDiff — adjacent differences across an ordered sequence */

@@ -804,15 +804,24 @@ export async function simpleLineDiff(chartId, op, data, isLast = false) {
     const { svg, g, margins, plot } = getSvgAndSetup(chartId);
     clearAllAnnotations(svg);
     
-    const datumA = findDatumByKey(data, op.targetA);
-    const datumB = findDatumByKey(data, op.targetB);
+    const highlightTargetA = Array.isArray(op.targetA) ? op.targetA[0] : op.targetA;
+    const highlightTargetB = Array.isArray(op.targetB) ? op.targetB[0] : op.targetB;
+
+    const datumA = findDatumByKey(data, highlightTargetA);
+    const datumB = findDatumByKey(data, highlightTargetB);
     
     if (!datumA || !datumB) {
         console.warn("Diff: One or both data points not found.", op);
         return null;
     }
     
-    const newOp = { ...op, targetA: datumA.target, targetB: datumB.target };
+    const newOp = { ...op };
+    if (!Array.isArray(op.targetA) && datumA?.target != null) {
+        newOp.targetA = datumA.target;
+    }
+    if (!Array.isArray(op.targetB) && datumB?.target != null) {
+        newOp.targetB = datumB.target;
+    }
     const diffResultArray = dataDiff(data, newOp);
     
     if (!diffResultArray || diffResultArray.length === 0) {

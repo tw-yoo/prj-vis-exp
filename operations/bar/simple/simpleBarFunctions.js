@@ -813,196 +813,235 @@ export async function simpleBarDiff(chartId, op, data, isLast = false) {
     const isRatioMode = String(op?.mode || '').toLowerCase() === 'ratio';
     const isPercentMode = isPercentOfTotal || op?.percent === true || isRatioMode;
 
-    const diffValue = isPercentMode ? result.value : Math.abs(result.value);
+    const diffMagnitude = Number.isFinite(result?.value)
+        ? (isPercentMode ? result.value : Math.abs(result.value))
+        : NaN;
 
     const diffDatum = new DatumValue(
         result.category, result.measure, result.target,
-        result.group, diffValue, result.id
+        result.group, Number.isFinite(diffMagnitude) ? diffMagnitude : result.value, result.id
     );
 
-    const keyA = String(op.targetA);
-    const keyB = String(op.targetB);
-
-    const resolveKey = (k) => {
-        if (!isLast || !Array.isArray(data)) return k;
-        const foundById = data.find(d => String(d?.id) === k);
-        if (foundById) return String(foundById.id);
-        const foundByTarget = data.find(d => String(d?.target) === k);
-        return foundByTarget ? String(foundByTarget.target) : k;
+    const toArray = (value) => Array.isArray(value) ? value : [value];
+    const extractKey = (entry) => {
+        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+            if (entry.id != null) return String(entry.id);
+            if (entry.target != null) return String(entry.target);
+            if (entry.category != null) return String(entry.category);
+        }
+        return String(entry);
     };
-    const visKeyA = resolveKey(keyA);
-    const visKeyB = resolveKey(keyB);
 
-    const barA = selectBarByKey(g, visKeyA);
-    const barB = selectBarByKey(g, visKeyB);
+    const resolveKey = (key) => {
+        const keyStr = String(key);
+        if (!isLast || !Array.isArray(data)) return keyStr;
+        const foundById = data.find(d => String(d?.id) === keyStr);
+        if (foundById) return String(foundById.id);
+        const foundByTarget = data.find(d => String(d?.target) === keyStr);
+        return foundByTarget ? String(foundByTarget.target) : keyStr;
+    };
 
-    if (barA.empty() || barB.empty()) {
-        console.warn('simpleBarDiff: One or both targets not found.');
+    const collectEntries = (rawTargets, setName, color) => {
+        return toArray(rawTargets).map((entry, idx) => {
+            const rawKey = extractKey(entry);
+            const resolvedKey = resolveKey(rawKey);
+            const barSel = selectBarByKey(g, resolvedKey);
+            let value = NaN;
+            if (!barSel.empty()) {
+                value = Number(getMarkValue(barSel.node()));
+            }
+            if (!Number.isFinite(value)) {
+                const datum = data.find(d => {
+                    const datumKey = d?.id != null ? String(d.id) : String(d?.target ?? '');
+                    return datumKey === resolvedKey || datumKey === rawKey;
+                });
+                value = Number(datum?.value);
+            }
+            return {
+                set: setName,
+                index: idx,
+                key: resolvedKey,
+                bar: barSel,
+                value: Number.isFinite(value) ? value : NaN,
+                color
+            };
+        }).filter(entry => entry.bar && !entry.bar.empty() && Number.isFinite(entry.value));
+    };
+
+    const entriesA = collectEntries(op.targetA, 'A', OP_COLORS.DIFF_A);
+    const entriesB = collectEntries(op.targetB, 'B', OP_COLORS.DIFF_B);
+
+    if (!entriesA.length || !entriesB.length) {
+        console.warn('simpleBarDiff: unable to locate all targets', { op, foundA: entriesA.length, foundB: entriesB.length });
         signalOpDone(chartId, 'diff');
         return [diffDatum];
     }
 
-    const valueA = getMarkValue(barA.node());
-    const valueB = getMarkValue(barB.node());
-    const colorA = OP_COLORS.DIFF_A;
-    const colorB = OP_COLORS.DIFF_B;
+    const targets = [...entriesA, ...entriesB];
 
-    // 스케일 설정
     let xScale, yScale;
     if (orientation === "vertical") {
         const yMax = d3.max(data, d => +d.value) || 0;
         yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plot.h, 0]);
-        xScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.w]).padding(0.2);
+        xScale = d3.scaleBand().domain(data.map(d => String(d.target))).range([0, plot.w]).padding(0.2);
     } else {
         const xMax = d3.max(data, d => +d.value) || 0;
         xScale = d3.scaleLinear().domain([0, xMax]).nice().range([0, plot.w]);
-        yScale = d3.scaleBand().domain(data.map(d => d.target)).range([0, plot.h]).padding(0.2);
+        yScale = d3.scaleBand().domain(data.map(d => String(d.target))).range([0, plot.h]).padding(0.2);
     }
 
     const animationPromises = [];
+    const guideLookup = new Map();
 
-    const targets = [
-        { bar: barA, key: keyA, value: valueA, color: colorA },
-        { bar: barB, key: keyB, value: valueB, color: colorB }
-    ];
-    let guidePositions = [];
+    targets.forEach((target) => {
+        const { bar, value, color, set } = target;
+        if (!bar || bar.empty() || !Number.isFinite(value)) return;
 
-    targets.forEach(t => {
-        if (!Number.isFinite(t.value)) return;
+        animationPromises.push(
+            bar.transition().duration(400)
+                .attr("opacity", 1)
+                .attr("fill", color)
+                .attr("stroke", "white")
+                .attr("stroke-width", 2)
+                .end().catch(() => {})
+        );
 
         if (orientation === "vertical") {
-            const yPos = margins.top + yScale(t.value);
-            guidePositions.push(yPos);
+            const yPos = margins.top + yScale(value);
+            guideLookup.set(set, yPos);
             const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", margins.left).attr("y1", yPos)
                 .attr("x2", margins.left).attr("y2", yPos)
-                .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+                .attr("stroke", color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
             animationPromises.push(
-                line.transition().duration(400).attr("x2", margins.left + plot.w).end()
+                line.transition().duration(400).attr("x2", margins.left + plot.w).end().catch(() => {})
             );
         } else {
-            const xPos = margins.left + xScale(t.value);
-            guidePositions.push(xPos);
+            const xPos = margins.left + xScale(value);
+            guideLookup.set(set, xPos);
             const line = svg.append("line").attr("class", "annotation")
                 .attr("x1", xPos).attr("y1", margins.top)
                 .attr("x2", xPos).attr("y2", margins.top)
-                .attr("stroke", t.color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
+                .attr("stroke", color).attr("stroke-width", 1.5).attr("stroke-dasharray", "4 4");
             animationPromises.push(
-                line.transition().duration(400).attr("y2", margins.top + plot.h).end()
+                line.transition().duration(400).attr("y2", margins.top + plot.h).end().catch(() => {})
             );
         }
 
-        const { x, y } = getCenter(t.bar.node(), orientation, margins);
-        svg.append("text").attr("class", "annotation")
-            .attr("x", x).attr("y", y)
-            .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
-            .attr("fill", t.color)
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(t.value);
+        const node = bar.node();
+        if (node) {
+            const { x, y } = getCenter(node, orientation, margins);
+            svg.append("text").attr("class", "annotation")
+                .attr("x", x).attr("y", y)
+                .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
+                .attr("fill", color)
+                .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
+                .text(value.toLocaleString());
+        }
     });
 
-    const expectedGuideCount = targets.length;
-    if (guidePositions.length < expectedGuideCount) {
-        const fallbackPositions = [];
-        const resolveNumericValue = (key) => {
-            const datum = data.find(d => {
-                const datumKey = d?.id != null ? String(d.id) : String(d?.target ?? '');
-                return datumKey === key;
-            });
-            const v = Number(datum?.value);
-            return Number.isFinite(v) ? v : null;
-        };
-        const resolvedKeys = [visKeyA, visKeyB];
-        resolvedKeys.forEach((resolvedKey) => {
-            if (!resolvedKey) return;
-            const numericValue = resolveNumericValue(resolvedKey);
-            if (!Number.isFinite(numericValue)) return;
-            if (orientation === "vertical") {
-                fallbackPositions.push(margins.top + yScale(numericValue));
-            } else {
-                fallbackPositions.push(margins.left + xScale(numericValue));
-            }
-        });
-        if (fallbackPositions.length === expectedGuideCount) {
-            guidePositions = fallbackPositions;
+    const sumValues = (entries) => entries
+        .map(entry => Number(entry.value))
+        .filter(Number.isFinite)
+        .reduce((total, val) => total + val, 0);
+
+    const sumA = sumValues(entriesA);
+    const sumB = sumValues(entriesB);
+
+    const singleEntryA = entriesA.length === 1 ? entriesA[0] : null;
+    const singleEntryB = entriesB.length === 1 ? entriesB[0] : null;
+    const posA = singleEntryA ? guideLookup.get('A') : null;
+    const posB = singleEntryB ? guideLookup.get('B') : null;
+
+    const effectiveDiff = Number.isFinite(diffMagnitude)
+        ? diffMagnitude
+        : (Number.isFinite(sumA) && Number.isFinite(sumB) ? Math.abs(sumA - sumB) : null);
+
+    if (!isPercentMode && singleEntryA && singleEntryB && Number.isFinite(posA) && Number.isFinite(posB) && Number.isFinite(effectiveDiff)) {
+        if (orientation === "vertical") {
+            const minY = Math.min(posA, posB);
+            const maxY = Math.max(posA, posB);
+            const diffX = margins.left + plot.w - 8;
+            const bridge = svg.append("line").attr("class", "annotation diff-line")
+                .attr("x1", diffX).attr("x2", diffX)
+                .attr("y1", minY).attr("y2", minY)
+                .attr("stroke", OP_COLORS.DIFF_LINE)
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5 5");
+            animationPromises.push(
+                bridge.transition().duration(400).attr("y2", maxY).end().catch(() => {})
+            );
+
+            const labelY = (minY + maxY) / 2;
+            const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                .attr("x", diffX - 6)
+                .attr("y", labelY)
+                .attr("text-anchor", "end")
+                .attr("font-size", 12)
+                .attr("font-weight", "bold")
+                .attr("fill", OP_COLORS.DIFF_LINE)
+                .attr("stroke", "white")
+                .attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`Diff: ${effectiveDiff.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                .attr("opacity", 0);
+            animationPromises.push(
+                diffLabel.transition().duration(400).attr("opacity", 1).end().catch(() => {})
+            );
+        } else {
+            const minX = Math.min(posA, posB);
+            const maxX = Math.max(posA, posB);
+            const diffY = margins.top + plot.h - 8;
+            const bridge = svg.append("line").attr("class", "annotation diff-line")
+                .attr("x1", minX).attr("x2", minX)
+                .attr("y1", diffY).attr("y2", diffY)
+                .attr("stroke", OP_COLORS.DIFF_LINE)
+                .attr("stroke-width", 2)
+                .attr("stroke-dasharray", "5 5");
+            animationPromises.push(
+                bridge.transition().duration(400).attr("x2", maxX).end().catch(() => {})
+            );
+
+            const labelX = (minX + maxX) / 2;
+            const diffLabel = svg.append("text").attr("class", "annotation diff-label")
+                .attr("x", labelX)
+                .attr("y", diffY + 16)
+                .attr("text-anchor", "middle")
+                .attr("font-size", 12)
+                .attr("font-weight", "bold")
+                .attr("fill", OP_COLORS.DIFF_LINE)
+                .attr("stroke", "white")
+                .attr("stroke-width", 3)
+                .attr("paint-order", "stroke")
+                .text(`Diff: ${effectiveDiff.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
+                .attr("opacity", 0);
+            animationPromises.push(
+                diffLabel.transition().duration(400).attr("opacity", 1).end().catch(() => {})
+            );
         }
     }
 
-    const diffMagnitude = Number.isFinite(result?.value)
-        ? (isPercentMode ? result.value : Math.abs(result.value))
-        : (Number.isFinite(valueA) && Number.isFinite(valueB) ? Math.abs(valueA - valueB) : null);
+    const formattedSumA = Number.isFinite(sumA) ? sumA.toLocaleString() : '—';
+    const formattedSumB = Number.isFinite(sumB) ? sumB.toLocaleString() : '—';
+    const formattedResult = Number.isFinite(result?.value)
+        ? result.value.toLocaleString(undefined, { maximumFractionDigits: isPercentMode ? 2 : 2 })
+        : '—';
+    const differenceValue = sumA - sumB;
+    const formattedDifference = Number.isFinite(differenceValue)
+        ? differenceValue.toLocaleString(undefined, { maximumFractionDigits: 2 })
+        : '—';
 
-    if (!isPercentMode) {
-        if (orientation === "vertical" && guidePositions.length === 2 && Number.isFinite(diffMagnitude)) {
-            const [posA, posB] = guidePositions;
-            if (Number.isFinite(posA) && Number.isFinite(posB)) {
-                const minY = Math.min(posA, posB);
-                const maxY = Math.max(posA, posB);
-                const diffX = margins.left + plot.w - 8;
-                const bridge = svg.append("line").attr("class", "annotation diff-line")
-                    .attr("x1", diffX).attr("x2", diffX)
-                    .attr("y1", minY).attr("y2", minY)
-                    .attr("stroke", OP_COLORS.DIFF_LINE)
-                    .attr("stroke-width", 2)
-                    .attr("stroke-dasharray", "5 5");
-                animationPromises.push(
-                    bridge.transition().duration(400).attr("y2", maxY).end()
-                );
+    const summaryText = isPercentMode
+        ? `Sum(A): ${formattedSumA} vs Sum(B): ${formattedSumB} -> ${formattedResult}${(isPercentOfTotal || op?.percent) ? '%' : ''}`
+        : `Sum(A): ${formattedSumA} vs Sum(B): ${formattedSumB} -> Diff ${formattedDifference}`;
 
-                const labelY = (minY + maxY) / 2;
-                const diffLabel = svg.append("text").attr("class", "annotation diff-label")
-                    .attr("x", diffX - 6)
-                    .attr("y", labelY)
-                    .attr("text-anchor", "end")
-                    .attr("font-size", 12)
-                    .attr("font-weight", "bold")
-                    .attr("fill", OP_COLORS.DIFF_LINE)
-                    .attr("stroke", "white")
-                    .attr("stroke-width", 3)
-                    .attr("paint-order", "stroke")
-                    .text(`Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
-                    .attr("opacity", 0);
-                animationPromises.push(
-                    diffLabel.transition().duration(400).attr("opacity", 1).end()
-                );
-            }
-        }
-
-        if (orientation === "horizontal" && guidePositions.length === 2 && Number.isFinite(diffMagnitude)) {
-            const [posA, posB] = guidePositions;
-            if (Number.isFinite(posA) && Number.isFinite(posB)) {
-                const minX = Math.min(posA, posB);
-                const maxX = Math.max(posA, posB);
-                const diffY = margins.top + plot.h - 8;
-                const bridge = svg.append("line").attr("class", "annotation diff-line")
-                    .attr("x1", minX).attr("x2", minX)
-                    .attr("y1", diffY).attr("y2", diffY)
-                    .attr("stroke", OP_COLORS.DIFF_LINE)
-                    .attr("stroke-width", 2)
-                    .attr("stroke-dasharray", "5 5");
-                animationPromises.push(
-                    bridge.transition().duration(400).attr("x2", maxX).end()
-                );
-
-                const labelX = (minX + maxX) / 2;
-                const diffLabel = svg.append("text").attr("class", "annotation diff-label")
-                    .attr("x", labelX)
-                    .attr("y", diffY + 16)
-                    .attr("text-anchor", "middle")
-                    .attr("font-size", 12)
-                    .attr("font-weight", "bold")
-                    .attr("fill", OP_COLORS.DIFF_LINE)
-                    .attr("stroke", "white")
-                    .attr("stroke-width", 3)
-                    .attr("paint-order", "stroke")
-                    .text(`Diff: ${diffMagnitude.toLocaleString(undefined, { maximumFractionDigits: 2 })}`)
-                    .attr("opacity", 0);
-                animationPromises.push(
-                    diffLabel.transition().duration(400).attr("opacity", 1).end()
-                );
-            }
-        }
-    }
+    svg.append("text").attr("class", "annotation diff-summary")
+        .attr("x", margins.left)
+        .attr("y", margins.top - 12)
+        .attr("font-size", 14)
+        .attr("font-weight", "bold")
+        .attr("fill", OP_COLORS.DIFF_LINE)
+        .text(summaryText);
 
     await Promise.all(animationPromises).catch(() => {});
     await Helpers.delay(30);

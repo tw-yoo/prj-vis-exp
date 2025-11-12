@@ -114,6 +114,8 @@ Each list must **terminate** in exactly one `Datum` or `Boolean`.
 
 **Percentage-of-total diffs.** To express “what percent of the total is X?” or similar ratios, compute the total in one sequence, the focal value in another, then run `diff` with `aggregate: "percentage_of_total"` (or `"percent_of_total"`). This makes the runtime divide `targetA` by `targetB`, multiply by 100, and return a single datum (so you do not need an extra `multiply` step). Use `precision` to control rounding when needed.
 
+**Summing multiple IDs before a `diff`.** `targetA` (and/or `targetB`) may be an array of selectors/IDs such as `["ops2_0","ops3_0","ops4_0"]`. The runtime gathers every referenced datum, sums their numeric values, and then applies the requested diff/ratio/percent-of-total logic against the other side. This is the canonical way to compare “the combined top-1 groups across these years” vs “the total”, or any situation where several previously cached values must be treated as a single aggregate in the final step.
+
 ---
 
 **Special `nth` usage:** You may provide `n` as a single 1-based integer or as an array of integers (e.g., `[2,5]`). When `n` is an array, the returned `Datum[]` contains one datum for each requested rank (in the provided order); the runtime still assigns sequential IDs (`<opKey>_0`, `<opKey>_1`, …), letting `last` refer to any of them without re-running `sort`. This is the canonical way to answer prompts like “difference between the 2nd and 5th largest values”: `sort` once, `nth` with `[2,5]`, then compute the `diff` inside `last` by referencing `ops_0` and `ops_1`.

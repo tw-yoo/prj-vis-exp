@@ -26,6 +26,13 @@ function formatGroupSuffix(group) {
 }
 
 function formatTargetLabel(selector) {
+  if (Array.isArray(selector)) {
+    const labels = selector
+      .map(entry => formatTargetLabel(entry))
+      .filter(label => typeof label === "string" && label.length > 0);
+    if (labels.length === 0) return "Multiple targets";
+    return labels.join(" + ");
+  }
   if (selector == null) return "";
   if (typeof selector === "string" || typeof selector === "number") return String(selector);
   if (typeof selector === "object") {
@@ -626,97 +633,151 @@ export function average(data, op, xField, yField, isLast = false) {
 export function diff(data, op, xField, yField, isLast = false) {
     if (!Array.isArray(data) || data.length === 0) return [];
 
+    const sample = data[0] || {};
+    const measureName = sample.measure || 'value';
+    const categoryName = sample.category || 'target';
+
+    const toArray = (value) => Array.isArray(value) ? value : [value];
+
     // A/B 셀렉터 정규화: 문자열/숫자/객체({category,series} 또는 {target,group} 또는 {facet,key})
-    const normalizeSelector = (t) => {
-        if (t && typeof t === 'object') {
+    const normalizeSelector = (targetValue, fallbackGroup) => {
+        if (targetValue && typeof targetValue === 'object' && !Array.isArray(targetValue)) {
             const normalized = {};
-            if (t.id != null) normalized.id = String(t.id);
+            if (targetValue.id != null) normalized.id = String(targetValue.id);
 
-            const group = (t.series != null)
-                ? t.series
-                : (t.group != null)
-                    ? t.group
-                    : (t.key != null)
-                        ? t.key
-                        : (op?.group ?? null);
-
+            const group =
+                targetValue.series ?? targetValue.group ?? targetValue.key ?? fallbackGroup ?? op?.group ?? null;
             if (group != null) normalized.group = String(group);
 
             if (!normalized.id) {
-                const target = (t.category != null)
-                    ? t.category
-                    : (t.target != null)
-                        ? t.target
-                        : (t.facet != null)
-                            ? t.facet
-                            : String(t);
-                normalized.target = String(target);
+                const target =
+                    targetValue.category ??
+                    targetValue.target ??
+                    targetValue.facet ??
+                    targetValue.value ??
+                    targetValue.label ??
+                    String(targetValue);
+                if (target != null) normalized.target = String(target);
             }
             return normalized;
         }
-        return _buildQueryFor(data, t, op?.group, isLast);
+        return _buildQueryFor(data, targetValue, fallbackGroup ?? op?.group, isLast);
     };
 
-    const qA = normalizeSelector(op.targetA);
-    const qB = normalizeSelector(op.targetB);
+    const sanitize = (q) => Object.fromEntries(
+        Object.entries(q || {}).filter(([key, value]) => value !== null && value !== undefined)
+    );
 
-    const sanitize = (q) => Object.fromEntries(Object.entries(q).filter(([k,v]) => v !== null && v !== undefined));
-    const qA2 = sanitize(qA);
-    const qB2 = sanitize(qB);
-
-    let A = retrieveValue(data, qA2, isLast);
-    let B = retrieveValue(data, qB2, isLast);
-
-    const pickWith = (k, g) => {
-        const inGroup = (d) => (g == null) ? true : (d && String(d.group) === String(g));
-        const getCat = (d) => {
-            if (!d) return undefined;
-            if (d.target !== undefined) return d.target;
-            if (typeof d.category === 'string' && d[d.category] !== undefined) return d[d.category];
-            if (d.facet !== undefined) return d.facet;
-            if (xField && d[xField] !== undefined) return d[xField];
-            if (yField && d[yField] !== undefined) return d[yField];
-            return undefined;
-        };
-        const keyStr = String(k);
-        return data.filter(d => inGroup(d) && (
-            String(getCat(d)) === keyStr ||
-            (d?.id != null && String(d.id) === keyStr) ||
-            (d?.lookupId != null && String(d.lookupId) === keyStr)
-        ));
-    };
-
-    if (!A || A.length === 0) A = pickWith(qA2?.target ?? op.targetA, qA2?.group ?? op?.group ?? null);
-    if (!B || B.length === 0) B = pickWith(qB2?.target ?? op.targetB, qB2?.group ?? op?.group ?? null);
-
-    const fallbackLookup = (key) => {
+    const pickWith = (key, groupLabel) => {
         if (key == null) return [];
         const keyStr = String(key);
-        return data.filter(d => {
-            if (!d) return false;
-            if (d.id != null && String(d.id) === keyStr) return true;
-            if (d.target != null && String(d.target) === keyStr) return true;
-            if (d.lookupId != null && String(d.lookupId) === keyStr) return true;
+        const inGroup = (datum) => (groupLabel == null)
+            ? true
+            : (datum && String(datum.group) === String(groupLabel));
+
+        const getCategoryCandidate = (datum) => {
+            if (!datum) return undefined;
+            if (datum.target !== undefined) return datum.target;
+            if (typeof datum.category === 'string' && datum[datum.category] !== undefined) return datum[datum.category];
+            if (datum.facet !== undefined) return datum.facet;
+            if (xField && datum[xField] !== undefined) return datum[xField];
+            if (yField && datum[yField] !== undefined) return datum[yField];
+            return undefined;
+        };
+
+        return data.filter((datum) => {
+            if (!inGroup(datum)) return false;
+            const categoryCandidate = getCategoryCandidate(datum);
+            if (categoryCandidate != null && String(categoryCandidate) === keyStr) return true;
+            if (datum?.id != null && String(datum.id) === keyStr) return true;
+            if (datum?.lookupId != null && String(datum.lookupId) === keyStr) return true;
             return false;
         });
     };
 
-    if (!A.length) {
-        const fallbackA = fallbackLookup(qA2?.id ?? qA2?.target ?? op.targetA);
-        if (fallbackA.length) A = fallbackA;
-    }
-    if (!B.length) {
-        const fallbackB = fallbackLookup(qB2?.id ?? qB2?.target ?? op.targetB);
-        if (fallbackB.length) B = fallbackB;
-    }
+    const fallbackLookup = (key, groupLabel) => {
+        if (key == null) return [];
+        const keyStr = String(key);
+        return data.filter((datum) => {
+            if (!datum) return false;
+            if (groupLabel != null && String(datum.group ?? "") !== String(groupLabel)) return false;
+            if (datum.id != null && String(datum.id) === keyStr) return true;
+            if (datum.target != null && String(datum.target) === keyStr) return true;
+            if (datum.lookupId != null && String(datum.lookupId) === keyStr) return true;
+            return false;
+        });
+    };
+
+    const collectMatches = (rawTargets, fallbackGroup) => {
+        const matches = [];
+        toArray(rawTargets).forEach((rawTarget) => {
+            const selector = normalizeSelector(rawTarget, fallbackGroup);
+            const query = sanitize(selector);
+
+            let items = retrieveValue(data, query, isLast);
+            if (!Array.isArray(items) || items.length === 0) {
+                const targetKey = query?.target ?? rawTarget;
+                const groupKey = query?.group ?? fallbackGroup ?? null;
+                items = pickWith(targetKey, groupKey);
+            }
+
+            if (!Array.isArray(items) || items.length === 0) {
+                const candidateKeys = [
+                    query?.id,
+                    query?.target,
+                    rawTarget
+                ].filter((value) => value != null);
+
+                for (const candidateKey of candidateKeys) {
+                    const fallback = fallbackLookup(candidateKey, query?.group ?? fallbackGroup ?? null);
+                    if (fallback.length > 0) {
+                        items = fallback;
+                        break;
+                    }
+                }
+            }
+
+            if (!Array.isArray(items) || items.length === 0) {
+                const runtimeKey =
+                    selector?.id ??
+                    selector?.target ??
+                    (rawTarget != null ? String(rawTarget) : null);
+                if (runtimeKey != null) {
+                    const runtimeMatches = getRuntimeResultsById(runtimeKey);
+                    if (runtimeMatches.length > 0) {
+                        const targetGroup = selector?.group ?? fallbackGroup ?? null;
+                        const filtered = runtimeMatches.filter((datum) => {
+                            if (targetGroup == null) return true;
+                            return String(datum.group ?? "") === String(targetGroup);
+                        });
+                        if (filtered.length > 0) {
+                            items = filtered;
+                        }
+                    }
+                }
+            }
+
+            if (Array.isArray(items) && items.length > 0) {
+                matches.push(...items);
+            }
+        });
+        return matches;
+    };
+
+    const groupA = op?.groupA ?? op?.group ?? null;
+    const groupB = op?.groupB ?? op?.group ?? null;
+    const A = collectMatches(op.targetA, groupA);
+    const B = collectMatches(op.targetB, groupB);
 
     if (!A.length || !B.length) {
-        console.warn("diff: one or both targets not found", { op, qA: qA2, qB: qB2 });
+        console.warn("diff: one or both targets not found", {
+            op,
+            targetA: op.targetA,
+            targetB: op.targetB
+        });
         return [];
     }
 
-    const sample = data[0] || {};
-    const measureName = sample.measure || 'value';
     const getNumeric = (d) => {
         if (!d) return NaN;
         if (op?.field && d[op.field] !== undefined) return +d[op.field];
@@ -727,7 +788,7 @@ export function diff(data, op, xField, yField, isLast = false) {
         return NaN;
     };
 
-    const aggregate = (items) => {
+    const aggregateValues = (items) => {
         const vals = items.map(getNumeric).filter(Number.isFinite);
         if (!vals.length) return NaN;
         switch (op?.aggregate) {
@@ -738,8 +799,8 @@ export function diff(data, op, xField, yField, isLast = false) {
         }
     };
 
-    const aVal = aggregate(A);
-    const bVal = aggregate(B);
+    const aVal = aggregateValues(A);
+    const bVal = aggregateValues(B);
     if (!Number.isFinite(aVal) || !Number.isFinite(bVal)) return [];
 
     const aggregateMode = typeof op?.aggregate === 'string'
@@ -781,12 +842,20 @@ export function diff(data, op, xField, yField, isLast = false) {
     const labelA = formatTargetLabel(op.targetA);
     const labelB = formatTargetLabel(op.targetB);
     const detail = [labelA, labelB].filter(Boolean).join(' vs ');
-    const name = formatResultName('Diff', op?.field || measureName, { group: op?.group, detail });
+    const resultGroup =
+        (op?.group !== undefined && op.group !== null)
+            ? op.group
+            : (groupA !== null && groupA !== undefined)
+                ? groupA
+                : (groupB !== null && groupB !== undefined)
+                    ? groupB
+                    : (A[0]?.group ?? B[0]?.group ?? null);
+    const name = formatResultName('Diff', op?.field || measureName, { group: resultGroup, detail });
     return {
-        category: sample.category || 'target',
+        category: sample.category || categoryName || 'target',
         measure: measureName,
         target: targetLabel,
-        group: (qA2?.group ?? qB2?.group ?? op?.group ?? null),
+        group: resultGroup ?? null,
         value: roundNumeric(resultValue),
         name
     };
