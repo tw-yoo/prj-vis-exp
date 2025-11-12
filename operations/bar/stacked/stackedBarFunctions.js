@@ -29,7 +29,7 @@ import {
 } from "../../operationFunctions.js";
 
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
-import { OP_COLORS } from "../../../../object/colorPalette.js";
+import { OP_COLORS } from "../../../object/colorPalette.js";
 import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 

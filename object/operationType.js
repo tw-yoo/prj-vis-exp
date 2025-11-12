@@ -1,3 +1,4 @@
+
 export const OperationType = Object.freeze({
     RETRIEVE_VALUE: "retrieveValue",
     FILTER: "filter",
