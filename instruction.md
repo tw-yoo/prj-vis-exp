@@ -204,44 +204,51 @@ Each list must **terminate** in exactly one `Datum` or `Boolean`.
 
 ---
 
-## 7) Human‑Readable `text` — **Data Narrative** (REQUIRED)
+## 7) Human-Readable `text` — Data Narrative (REQUIRED)
 
-- No Markdown formatting in text values (no bold, backticks, or lists); use plain sentences.
-- Avoid emphasis markers entirely (no `**value**`, `_value_`, or HTML tags). Just write the words/numbers.
-- Top‑level **`text`** **must** be present; its keys **mirror** the actual lists (`ops`, `ops2`, `ops3`, `last`).
+- The top-level `text` object is REQUIRED. Its keys must exactly mirror the operation lists that exist in the program (`ops`, `ops2`, `ops3`, …, and `last` when present).
+- Each `text.<key>` value must be a single plain-text string (no Markdown, no lists, no JSON, no nested structure).
 
-### CRITICAL: Write about THE DATA, not the operations
+### 7.1 Purpose
 
-**DO NOT describe chart operations or procedures.** Instead, explain what you found in the data using natural, conversational language:
+`text` is a short data narrative for humans.  
+It should describe what the data in the chart shows in natural language: concrete values, patterns, trends, outliers, and comparisons that are relevant to the user’s question.
 
-❌ **Bad (operation-focused):**
-- "Sort by Votes descending, then take the top 3 and average them"
-- "Filter to Female values for ages 35-55"
-- "Retrieve the rating where country = KOR"
-- "Spotlight the second tallest bar after descending sort"
-- "Grab the rightmost year and compute the difference"
+### 7.2 Narrative structure
 
-✅ **Good (data-focused):**
-- "The three highest-polling parties are Liberal Democratic League (164,376 votes), Anti Revolutionary Party (143,843 votes), and General League (76,605 votes), averaging 128,275 votes"
-- "Among women aged 35 to 55, the largest group is age 35 with 11.6 million people"
-- "South Korea has a rating of 52"
-- "The second-highest value is France at 2.4 trillion"
-- "The most recent year, 2005, shows 21,783, compared to 7,764 in the earliest year (1980)"
+For each key (`ops`, `ops2`, …, `last`), write `text.<key>` as a small linear story with a simple beginning–middle–end:
 
-**Guidelines:**
-- **Lead with findings**: Start each sentence with what you discovered (actual values, patterns, comparisons)
-- **Use natural language**: Write as if explaining to a colleague over coffee—conversational and clear
-- **Include concrete values**: Always mention specific numbers, labels, and computed results
-- **Natural transitions**: Use phrases like "Looking at the data...", "Among these...", "This shows...", "Comparing these values..."
-- **Avoid operation vocabulary**: Never use words like "filter", "sort", "spotlight", "nth", "retrieve", "highlight", "grab", "compute", "bring forward", "place side by side"
+- **Beginning**: Briefly state what part of the data or which groups/years you are talking about.
+- **Middle**: Describe the key figures, patterns, notable exceptions, or comparisons over time that matter for the question. Always mention specific labels (e.g., countries, years, groups) and numbers when they are available.
+- **End**: Give a short conclusion or takeaway that summarizes the main insight (for example, which value is largest, how much something increased, or which group differs most).
 
-**Structure for multi-step explanations:**
-- `ops`: "The [description of first group] has [specific values with labels]..."
-- `ops2`: "Looking at [second group], the values are [specific numbers]..."
-- `last`: "Comparing these groups shows [calculation/comparison result]..."
+### 7.3 Content guidelines
 
-**Language**: Use `textLocale` if provided (e.g., Korean for "ko-KR"); otherwise English.  
-**Purpose**: These strings help humans understand the data story. They do NOT affect execution and have no IDs.
+When writing `text`:
+
+- Focus on **impactful insights**: the most important changes, contrasts, and extremes that answer the user’s question.
+- Mention **key statistics** explicitly: actual numeric values and category labels, not vague descriptions.
+- Highlight **patterns and outliers**: increasing or decreasing trends, unusually high or low values, or surprising differences between groups.
+- When the question involves a comparison, clearly state both sides and the size/direction of the difference.
+
+### 7.4 Style guidelines
+
+- Use natural, conversational language, as if you are explaining the chart to a colleague over coffee.
+- Assume the reader is not a technical expert: keep sentences clear and simple, but keep the numbers precise.
+- Do **not** describe internal chart operations or procedures. Avoid phrases like:
+  - “filter the data to…”
+  - “sort descending and take the top 3”
+  - “retrieve the value where…”
+  - “compute the difference between…”
+- Instead, describe what these operations reveal in the data:
+  - “Among these groups, X has the highest value at 76.”
+  - “From 1980 to 2005, the value increases from 7,764 to 21,783.”
+  - “The three largest parties have 164,376, 143,843, and 76,605 votes, averaging 128,275.”
+
+### 7.5 Locale
+
+- If `textLocale` is provided (for example, `"ko-KR"`), write all `text` strings in that language and style.
+- If `textLocale` is not provided, default to English.
 
 ---
 

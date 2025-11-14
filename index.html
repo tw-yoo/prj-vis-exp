@@ -37,21 +37,21 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "data": {
-    "url": "survey/data/csv/bar/simple/bar_simple_202_191.csv"
+    "url": "survey/data/csv/bar/simple/bar_simple_202_80.csv"
   },
   "mark": "bar",
   "encoding": {
     "x": {
-      "field": "Party",
+      "field": "Name",
       "type": "nominal",
       "sort": {
-        "field": "Votes",
+        "field": "metres",
         "op": "sum",
         "order": "descending"
       }
     },
     "y": {
-      "field": "Votes",
+      "field": "metres",
       "type": "quantitative"
     }
   }
