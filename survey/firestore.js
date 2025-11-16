@@ -47,7 +47,7 @@ async function loadConfig() {
     return cachedSettings;
 }
 
-async function getSettings() {
+export async function getSettings() {
     return loadConfig();
 }
 
@@ -138,13 +138,13 @@ async function requestFirestore(pathSegments, { method = 'GET', body = null, isC
     return res.json();
 }
 
-async function getDocument(pathSegments) {
+export async function getDocument(pathSegments) {
     const doc = await requestFirestore(pathSegments);
     if (!doc) return null;
     return { name: doc.name, fields: decodeFields(doc.fields || {}) };
 }
 
-async function patchDocument(pathSegments, fields) {
+export async function patchDocument(pathSegments, fields) {
     const body = { fields: encodeFields(fields) };
     await requestFirestore(pathSegments, { method: 'PATCH', body });
 }

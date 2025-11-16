@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Question Generation - Data Collection</title>
+    <link rel="stylesheet" href="../css/survey_style.css">
+    <link rel="stylesheet" href="../css/element.css">
+    
+    <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega@5/build/vega.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5/build/vega-lite.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6/build/vega-embed.min.js"></script>
+</head>
+<body>
+<div class="container">
+    <div class="space"></div>
+    <div class="main">
+        <div class="main-fixed top"></div>
+        <div class="main-scroll">
+            <div id="dynamic-insert"></div>
+        </div>
+        <div class="main-fixed bottom"></div>
+    </div>
+    <div class="space"></div>
+</div>
+<script type="module" src="../components.js"></script>
+<script type="module" src="main.js" defer></script>
+</body>
+</html>

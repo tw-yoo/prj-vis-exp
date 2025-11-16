@@ -36,25 +36,26 @@
         <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
-  "data": {
-    "url": "survey/data/csv/bar/simple/bar_simple_202_80.csv"
-  },
-  "mark": "bar",
   "encoding": {
     "x": {
-      "field": "Name",
+      "field": "Nation",
       "type": "nominal",
-      "sort": {
-        "field": "metres",
-        "op": "sum",
-        "order": "descending"
-      }
+      "sort":null
+
+    },
+    "color": {
+      "field": "Medal",
+      "type": "nominal"
     },
     "y": {
-      "field": "metres",
+      "field": "Count",
       "type": "quantitative"
     }
-  }
+  },
+  "data": {
+    "url": "survey/data/csv/bar/stacked/bar_stacked_203_61.csv"
+  },
+  "mark": "bar"
 }
   </textarea>
 
