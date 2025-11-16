@@ -4,12 +4,11 @@ import {
     createLikertQuestion // [수정] renderComponents 대신 createLikertQuestion을 import
 } from '../components.js';
 import {
+    getSettings,
     getDocument,
-    patchDocument,
-    getSettings // <-- [수정] getSettings를 import 목록에 추가합니다.
+    patchDocument
 } from '../firestore.js';
-// (중요) renderPlainVegaLiteChart를 root의 util.js에서 임포트
-// [수정] 경로를 '../util/util.js' -> '../../util/util.js'로 변경
+// (중요) renderPlainVegaLiteChart를 util/util.js에서 임포트 (경로 수정: ../../)
 import { renderPlainVegaLiteChart } from '../../util/util.js';
 
 // --- 1. 전역 상태 변수 ---
@@ -30,8 +29,6 @@ const FIRESTORE_COLLECTION = 'data_collection';
 
 async function fetchParticipantData(code) {
     try {
-        // config.json에서 projectId 등을 읽어올 때까지 기다립니다.
-        await getSettings(); 
         const doc = await getDocument([FIRESTORE_COLLECTION, code]);
         return doc ? doc.fields.questions || {} : {};
     } catch (e) {
@@ -43,8 +40,6 @@ async function fetchParticipantData(code) {
 async function saveToFirebase(code, questionsMap) {
     if (!code) return;
     try {
-        // config.json에서 projectId 등을 읽어올 때까지 기다립니다.
-        await getSettings();
         await patchDocument([FIRESTORE_COLLECTION, code], {
             questions: questionsMap,
             updatedAt: new Date()
@@ -90,20 +85,23 @@ function renderComponents(root) {
 
 // (중요) renderPlainVegaLiteChart를 사용하는 차트 렌더링 헬퍼
 async function renderChartForTask(chartId, elementId) {
-    // [수정] ch_ 접두사가 없는 ID를 사용하므로, 경로를 올바르게 조합합니다.
+    // [경로 수정] vlSpec 경로는 ../ (survey/data) 여야 함
     const specPath = `../data/vlSpec/ch_${chartId}.json`;
     try {
-        const response = await fetch(specPath);
-        if (!response.ok) {
-             throw new Error(`Failed to fetch spec: ${response.status} ${response.statusText}`);
-        }
-        const spec = await response.json();
+        const spec = await (await fetch(specPath)).json();
         
-        // (필수) 데이터 경로 수정: util.js가 아닌 이 파일 기준이므로 '../' 추가
+        // (필수) 데이터 경로 수정: util.js가 아닌 이 파일 기준이므로 '../' (survey/) 추가
         if (spec.data && spec.data.url) {
-            // [수정] 데이터 경로는 root/data/.. 이므로 `../../`
-            if (!spec.data.url.startsWith('../')) {
-                 spec.data.url = `../../${spec.data.url}`;
+            // [경로 수정] data/... -> ../data/...
+            // (예시) survey/data/csv/.. -> ../survey/data/csv/..
+            // (예시) data/d3/data/.. -> ../data/d3/data/..
+            
+            // [수정] ../ (한 단계 상위)가 아니라 ../../ (두 단계 상위)여야
+            // "survey/data_collection/" -> "root/" 로 이동할 수 있습니다.
+            if (spec.data.url.startsWith('survey/')) {
+                 spec.data.url = `../../${spec.data.url}`; // ../ -> ../../
+            } else if (spec.data.url.startsWith('data/')) {
+                 spec.data.url = `../../${spec.data.url}`; // ../ -> ../../
             }
         }
         
@@ -146,7 +144,6 @@ function saveCurrentChartData() {
 // allResponses 객체의 데이터를 Firebase에 저장 (네비게이션 시 호출됨)
 async function persistAllData() {
     if (participantCode) {
-        saveCurrentChartData(); // 저장하기 직전에 현재 페이지 데이터 갱신
         await saveToFirebase(participantCode, allResponses);
     }
 }
@@ -171,19 +168,6 @@ function updateButtons() {
     const next = btnNext();
     if (prev) prev.disabled = navigationInProgress || idx === 0;
     if (next) next.disabled = navigationInProgress;
-    
-    // [추가] Prev/Next 버튼 텍스트 업데이트
-    if (pageDescriptors[idx] && pageDescriptors[idx].id === 'main-task') {
-        if (prev) {
-             prev.style.visibility = (currentChartIndex === 0) ? 'hidden' : 'visible';
-        }
-        if (next) {
-            next.textContent = (currentChartIndex === assignedCharts.length - 1) ? 'Submit' : 'Next';
-        }
-    } else if (pageDescriptors[idx] && pageDescriptors[idx].id === 'login') {
-         if (prev) prev.style.visibility = 'hidden';
-         if (next) next.textContent = 'Next';
-    }
 }
 
 async function guardedNavigate(task) {
@@ -203,27 +187,24 @@ let idx = 0; // 현재 페이지 인덱스
 async function loadPage(pageIndex) {
     idx = pageIndex;
     const descriptor = pageDescriptors[idx];
-    if (!descriptor) {
-         console.error(`No page descriptor found for index: ${pageIndex}`);
-         return;
-    }
+    if (!descriptor) return;
 
-    // URL 업데이트 (페이지 인덱스 대신 slug 사용)
-    const slug = descriptor.slug || `page-${idx}`;
-    // [수정] URL을 localhost:8000/survey/collect/question/chart_100 형태로
-    if (descriptor.id === 'login') {
-        history.replaceState({ pageIndex: idx }, '', `index.html`);
-    } else if (descriptor.id === 'main-task') {
-        history.replaceState({ pageIndex: idx }, '', `question/${slug}`);
-    } else if (descriptor.id === 'complete') {
-        history.replaceState({ pageIndex: idx }, '', `complete`);
-    }
+    // URL 업데이트 (요청하신 /question/.. 대신 ?page= 사용)
+    // URL을 변경하면 상대 경로(fetch, import)가 모두 깨지기 때문에
+    // ?page= 파라미터를 사용하는 것이 가장 안정적입니다.
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', pageIndex);
+    history.replaceState({ pageIndex: idx }, '', url.href);
+    
+    updateButtons();
 
     const root = container();
     root.innerHTML = '<div id="dynamic-insert"></div>'; // 이전 내용 삭제
     const placeholder = root.querySelector('#dynamic-insert');
 
     try {
+        // [수정] fetch 경로에서 `../` 제거. 
+        // (main.js와 pages/는 같은 data_collection 폴더에 있으므로)
         const html = await (await fetch(descriptor.path)).text();
         placeholder.insertAdjacentHTML('afterend', html);
         placeholder.remove();
@@ -240,7 +221,10 @@ async function loadPage(pageIndex) {
         if (descriptor.id === 'login') {
              const codeInput = document.getElementById('participant-code');
              if(codeInput && participantCode) codeInput.value = participantCode;
+        } else if (descriptor.id === 'main-task') {
+             // onLoad에서 이미 복원됨
         }
+
 
         // 네비게이션 버튼 생성
         const nav = createNavButtons({
@@ -248,11 +232,10 @@ async function loadPage(pageIndex) {
             nextId: `next_${idx}`,
             onPrev: () => guardedNavigate(async () => {
                 if (descriptor.id === 'main-task') {
-                    await persistAllData(); // 저장
-                    loadPage(idx - 1);
-                } else {
-                    loadPage(idx - 1);
+                    saveCurrentChartData(); // 현재 작업 로컬 저장
+                    await persistAllData(); // Firebase 저장
                 }
+                loadPage(idx - 1);
             }),
             onNext: () => guardedNavigate(async () => {
                 if (!validatePage(root)) return;
@@ -263,7 +246,7 @@ async function loadPage(pageIndex) {
                     const code = codeInput.value.trim().toUpperCase();
                     if (!code) return alert("Please enter a code.");
                     
-                    // [수정] participant_assignments.json 경로 수정
+                    // [경로 수정] participant_assignments.json도 같은 폴더에 있으므로 ./
                     const assignments = await (await fetch('participant_assignments.json')).json();
                     
                     if (!assignments[code]) {
@@ -277,11 +260,11 @@ async function loadPage(pageIndex) {
                     
                     // (중요) 차트 페이지 동적 생성
                     pageDescriptors = [
-                        { id: 'login', path: 'pages/code-entry.html', slug: 'login' }, // [수정] 1-login.html -> code-entry.html
+                        { id: 'login', path: 'pages/code-entry.html', slug: 'login' }, 
                         ...assignedCharts.map((chartId, i) => ({
                             id: 'main-task', // 모든 차트 페이지가 동일한 템플릿/ID 사용
                             slug: chartId,
-                            path: 'pages/main-task.html', // [수정] 2-main-task.html -> main-task.html
+                            path: 'pages/main-task.html', 
                             onLoad: (root, pageIdx) => {
                                 currentChartIndex = pageIdx - 1; // 0번은 로그인
                                 const currentChartId = assignedCharts[currentChartIndex];
@@ -298,7 +281,8 @@ async function loadPage(pageIndex) {
                                 // 드롭다운 변경 시
                                 dropdown.onchange = () => {
                                     guardedNavigate(async () => {
-                                        await persistAllData(); // 현재 작업 저장
+                                        saveCurrentChartData(); // 현재 작업 로컬 저장
+                                        await persistAllData(); // Firebase 저장
                                         const newIdx = assignedCharts.indexOf(dropdown.value);
                                         loadPage(newIdx + 1); // +1 (로그인 페이지)
                                     });
@@ -311,7 +295,7 @@ async function loadPage(pageIndex) {
                                 restoreInputsForChart(currentChartId);
                             }
                         })),
-                        { id: 'complete', path: 'pages/completion.html', slug: 'complete' } // [수정] 3-complete.html -> completion.html
+                        { id: 'complete', path: 'pages/completion.html', slug: 'complete' } 
                     ];
                     TOTAL_PAGES = pageDescriptors.length;
                     
@@ -319,6 +303,7 @@ async function loadPage(pageIndex) {
 
                 } else if (descriptor.id === 'main-task') {
                     // 메인 작업 페이지 'Next' 로직
+                    saveCurrentChartData(); // 현재 페이지 내용 로컬 저장
                     await persistAllData(); // 전체 Firebase에 저장
                     loadPage(idx + 1); // 다음 페이지 (다음 차트 또는 완료)
                 }
@@ -330,9 +315,6 @@ async function loadPage(pageIndex) {
             currentPage: idx + 1
         });
         root.appendChild(nav);
-        
-        // [추가] 페이지 로드 후 버튼 상태 즉시 업데이트
-        updateButtons(); 
 
     } catch (e) {
         root.innerHTML = `<div class="error">Error loading page: ${e.message}</div>`;
@@ -342,9 +324,36 @@ async function loadPage(pageIndex) {
 
 // --- 5. 유효성 검사 (간단) ---
 function validatePage(root) {
-    // 지금은 간단히 true로 두지만, `pre-registration-main.js`의 `validatePage`를 복사해와
-    // `data-required="true"`인 필드를 검사하도록 확장할 수 있습니다.
-    // (예: 질문, 정답, 풀이 모두 필수 입력)
+    // [수정] 'main-task' 페이지에만 유효성 검사 적용
+    const qInput = root.querySelector('#q-question');
+    const aInput = root.querySelector('#q-answer');
+    const eInput = root.querySelector('#q-explanation');
+
+    // 이 입력 필드들이 없으면(예: 로그인 페이지 또는 완료 페이지), 검사 통과
+    if (!qInput && !aInput && !eInput) {
+        return true;
+    }
+
+    // 하나라도 있으면(즉, main-task 페이지이면) 모두 검사
+    if (!qInput || qInput.value.trim() === '') {
+        alert('Please enter your question.');
+        qInput.focus();
+        return false;
+    }
+    
+    if (!aInput || aInput.value.trim() === '') {
+        alert('Please enter the answer.');
+        aInput.focus();
+        return false;
+    }
+    
+    if (!eInput || eInput.value.trim() === '') {
+        alert('Please enter the explanation.');
+        eInput.focus();
+        return false;
+    }
+    
+    // 모든 필드가 채워져 있음
     return true; 
 }
 
@@ -352,20 +361,16 @@ function validatePage(root) {
 document.addEventListener('DOMContentLoaded', () => {
     // 초기 페이지 목록 (로그인 페이지만)
     pageDescriptors = [
-        { id: 'login', path: 'pages/code-entry.html', slug: 'login' } // [수정] 1-login.html -> code-entry.html
+        { id: 'login', path: 'pages/code-entry.html', slug: 'login' } 
     ];
     TOTAL_PAGES = 1; // 시작은 1
     
-    // [수정] URL 기반 라우팅 (간단하게)
-    const path = window.location.pathname;
-    if (path.includes("/question/")) {
-         // URL에 차트 ID가 있으면, 코드 입력을 건너뛰었다고 가정하고
-         // participantCode를 추후 설정해야 함.
-         // 지금은 단순화를 위해 로그인 페이지로 강제 리디렉션
-         console.warn("Direct access to question page not supported. Redirecting to login.");
-         history.replaceState(null, '', 'index.html');
-         loadPage(0);
-    } else {
-         loadPage(0); // 로그인 페이지로 시작
+    // URL에서 ?page= 파라미터 확인
+    const urlParams = new URLSearchParams(window.location.search);
+    let startPage = parseInt(urlParams.get('page'), 10);
+    if (isNaN(startPage) || startPage < 0) {
+        startPage = 0;
     }
+    
+    loadPage(startPage); // URL 파라미터 또는 0번 페이지로 시작
 });
