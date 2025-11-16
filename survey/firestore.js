@@ -312,3 +312,20 @@ export async function fetchSurveyState(code) {
     pageAnswers: fields.pageAnswers || {}
   };
 }
+
+export async function listDocuments(pathSegments) {
+// 'GET' 요청을 사용하고, body는 null로 둡니다.
+const result = await requestFirestore(pathSegments, { method: 'GET', body: null });
+if (!result || !result.documents) {
+ return []; // 문서가 없으면 빈 배열 반환
+}
+// 각 문서를 디코딩하여 반환
+return result.documents.map(doc => {
+const docId = doc.name.split('/').pop();
+return {
+id: docId,
+name: doc.name,
+ fields: decodeFields(doc.fields || {})
+};
+ });
+}
