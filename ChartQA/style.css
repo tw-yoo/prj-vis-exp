@@ -1,0 +1,292 @@
+:root {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Nanum Gothic", sans-serif;
+    color: #0f172a;
+    background-color: #f3f4f6;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(circle at top, #ffffff 0%, #f1f5f9 60%, #e2e8f0 100%);
+    display: flex;
+    justify-content: center;
+    padding: 24px;
+}
+
+.app {
+    width: min(1200px, 100%);
+    display: grid;
+    gap: 24px;
+}
+
+.app__header {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 15px 30px rgba(15, 23, 42, 0.08);
+}
+
+.app__header h1 {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+}
+
+.intro {
+    margin: 0 0 16px;
+    color: #475569;
+    line-height: 1.3;
+    font-size: 0.85rem;
+}
+
+.guide h2 {
+    margin: 0 0 8px;
+    font-size: 0.85rem;
+    color: #334155;
+}
+
+.guide ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 6px 16px;
+    font-size: 0.75rem;
+}
+
+.guide li {
+    padding: 4px 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.viewer {
+    background: white;
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 35px 60px rgba(15, 23, 42, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.viewer__info {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.jump-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.jump-label {
+    font-size: 0.75rem;
+    color: #475569;
+    font-weight: 600;
+}
+
+#jumpInput {
+    width: 80px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid #cbd5f5;
+    background: white;
+    font-size: 0.75rem;
+}
+
+.jump-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: none;
+    background: #0ea5e9;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.jump-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.jump-btn:not(:disabled):hover {
+    opacity: 0.85;
+}
+
+.counter {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #2563eb;
+}
+
+.filename {
+    font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+    font-size: 0.75rem;
+    color: #1e293b;
+    word-break: break-all;
+}
+
+.viewer__stage {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 16px;
+    align-items: center;
+}
+
+.image-frame {
+    height: 500px;
+    background: #f8fafc;
+    border-radius: 16px;
+    border: 1px dashed #cbd5f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    padding: 12px;
+}
+
+.image-frame img {
+    width: auto;
+    max-width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.nav {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: none;
+    background: #e2e8f0;
+    color: #0f172a;
+    font-size: 2rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.nav:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.nav:not(:disabled):hover {
+    transform: translateY(-1px);
+    background: #cbd5f5;
+}
+
+.controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.controls button {
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: none;
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(37, 99, 235, 0.25);
+    transition: transform 0.15s ease, opacity 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.controls button.secondary {
+    background: #0f172a;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.25);
+}
+
+.controls button .count {
+    font-size: 0.7rem;
+    opacity: 0.9;
+}
+
+.controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.controls button:not(:disabled):hover {
+    transform: translateY(-2px);
+}
+
+.undo-row {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.undo-btn {
+    padding: 8px 14px;
+    border-radius: 8px;
+    border: 1px dashed #94a3b8;
+    background: transparent;
+    color: #1f2937;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.undo-btn:not(:disabled):hover {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.undo-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.status {
+    margin: 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    color: #0f172a;
+    font-size: 0.75rem;
+}
+
+.status[data-tone="success"] {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status[data-tone="error"] {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 12px;
+    }
+    .image-frame {
+        height: 400px;
+    }
+    .nav {
+        width: 44px;
+        height: 44px;
+        font-size: 1.5rem;
+    }
+}

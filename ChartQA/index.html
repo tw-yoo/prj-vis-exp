@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChartQA 이미지 분류기</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="app">
+    <header class="app__header">
+        <h1>ChartQA 이미지 분류기</h1>
+        <p class="intro">
+            chartqa_images_train_shuffled 폴더에 있는 이미지를 알파벳 순으로 불러오고, 1–5/0 키를 눌러 해당 폴더로 이동할 수 있습니다.
+            방향키 또는 화살표 버튼으로 이미지를 전환할 수 있으며, 번호를 직접 입력한 뒤 “이동” 버튼으로 원하는 위치로 바로 이동할 수 있습니다.
+        </p>
+        <div class="guide">
+            <h2>가이드라인</h2>
+            <ul>
+                <li><strong>1</strong> → eligible/<code>bar_simple</code> (단일 막대형)</li>
+                <li><strong>2</strong> → eligible/<code>bar_stacked</code> (누적 막대형)</li>
+                <li><strong>3</strong> → eligible/<code>bar_grouped</code> (그룹 막대형)</li>
+                <li><strong>4</strong> → eligible/<code>line_simple</code> (단일 선형)</li>
+                <li><strong>5</strong> → eligible/<code>line_grouped</code> (다중 선형)</li>
+                <li><strong>0</strong> → <code>not_eligible</code> (조건 불충족)</li>
+                <li><strong>Z</strong> → 가장 최근 이동 되돌리기</li>
+            </ul>
+        </div>
+    </header>
+
+    <section class="viewer" aria-live="polite">
+        <div class="viewer__info">
+            <div class="counter"><span id="currentIndex">0</span> / <span id="totalCount">0</span></div>
+            <div id="filename" class="filename">이미지를 불러오는 중...</div>
+            <div class="jump-control">
+                <label class="jump-label" for="jumpInput">번호 이동</label>
+                <input type="number" id="jumpInput" min="1" step="1" placeholder="번호 입력">
+                <button type="button" id="jumpButton" class="jump-btn">이동</button>
+            </div>
+        </div>
+        <div class="viewer__stage">
+            <button id="prevBtn" class="nav nav--prev" type="button" aria-label="이전 이미지">
+                &#x2039;
+            </button>
+            <div class="image-frame">
+                <img id="chartImage" alt="차트 미리보기">
+            </div>
+            <button id="nextBtn" class="nav nav--next" type="button" aria-label="다음 이미지">
+                &#x203A;
+            </button>
+        </div>
+        <div class="controls" id="controls">
+            <button type="button" data-label="1">
+                <span class="label">1 · Bar Simple</span>
+                <span class="count" data-count-label="1">(0)</span>
+            </button>
+            <button type="button" data-label="2">
+                <span class="label">2 · Bar Stacked</span>
+                <span class="count" data-count-label="2">(0)</span>
+            </button>
+            <button type="button" data-label="3">
+                <span class="label">3 · Bar Grouped</span>
+                <span class="count" data-count-label="3">(0)</span>
+            </button>
+            <button type="button" data-label="4">
+                <span class="label">4 · Line Simple</span>
+                <span class="count" data-count-label="4">(0)</span>
+            </button>
+            <button type="button" data-label="5">
+                <span class="label">5 · Line Grouped</span>
+                <span class="count" data-count-label="5">(0)</span>
+            </button>
+            <button type="button" data-label="0" class="secondary">
+                <span class="label">0 · Not Eligible</span>
+                <span class="count" data-count-label="0">(0)</span>
+            </button>
+        </div>
+        <div class="undo-row">
+            <button type="button" id="undoBtn" class="undo-btn">Z · 마지막 이동 되돌리기</button>
+        </div>
+        <p id="statusText" class="status">준비 중...</p>
+    </section>
+</main>
+
+<script type="module">
+const state = {
+    images: [],
+    index: 0,
+    working: false,
+    loaded: false,
+    counts: {},
+};
+
+const countElements = {};
+document.querySelectorAll('[data-count-label]').forEach((element) => {
+    countElements[element.dataset.countLabel] = element;
+});
+
+const selectors = {
+    image: document.getElementById('chartImage'),
+    filename: document.getElementById('filename'),
+    currentIndex: document.getElementById('currentIndex'),
+    totalCount: document.getElementById('totalCount'),
+    prevBtn: document.getElementById('prevBtn'),
+    nextBtn: document.getElementById('nextBtn'),
+    controls: document.getElementById('controls'),
+    status: document.getElementById('statusText'),
+    counts: countElements,
+    undoBtn: document.getElementById('undoBtn'),
+    jumpInput: document.getElementById('jumpInput'),
+    jumpButton: document.getElementById('jumpButton'),
+};
+
+const LABEL_NAMES = {
+    1: 'eligible/bar_simple',
+    2: 'eligible/bar_stacked',
+    3: 'eligible/bar_grouped',
+    4: 'eligible/line_simple',
+    5: 'eligible/line_grouped',
+    0: 'not_eligible',
+};
+const LABEL_KEYS = Object.keys(LABEL_NAMES);
+
+function isTypingTarget(element) {
+    if (!element) return false;
+    if (element.isContentEditable) return true;
+    const interactiveTags = ['INPUT', 'TEXTAREA', 'SELECT'];
+    return interactiveTags.includes(element.tagName);
+}
+
+function setStatus(message, tone = 'info') {
+    selectors.status.textContent = message;
+    selectors.status.dataset.tone = tone;
+}
+
+function updateCountLabel(label, value) {
+    const target = selectors.counts[label];
+    if (target) {
+        target.textContent = `(${value})`;
+    }
+}
+
+function applyCounts(counts = {}) {
+    state.counts = {};
+    LABEL_KEYS.forEach((label) => {
+        state.counts[label] = Number(counts[label] ?? 0);
+        updateCountLabel(label, state.counts[label]);
+    });
+}
+
+function updateControlsDisabled() {
+    const noImages = state.images.length === 0;
+    const disabled = noImages || state.working;
+    selectors.prevBtn.disabled = disabled || state.index === 0;
+    selectors.nextBtn.disabled = disabled || state.index >= state.images.length - 1;
+    selectors.controls.querySelectorAll('button').forEach((btn) => {
+        btn.disabled = disabled;
+    });
+    if (selectors.undoBtn) {
+        selectors.undoBtn.disabled = state.working;
+    }
+    if (selectors.jumpInput) {
+        selectors.jumpInput.disabled = disabled;
+    }
+    if (selectors.jumpButton) {
+        selectors.jumpButton.disabled = disabled;
+    }
+}
+
+function renderImage() {
+    const total = state.images.length;
+    selectors.totalCount.textContent = total;
+
+    if (!total) {
+        selectors.currentIndex.textContent = 0;
+        selectors.image.removeAttribute('src');
+        selectors.image.alt = '분류할 이미지가 없습니다.';
+        selectors.filename.textContent = '모든 이미지를 분류했습니다.';
+        if (selectors.jumpInput) {
+            selectors.jumpInput.value = '';
+        }
+        updateControlsDisabled();
+        return;
+    }
+
+    const filename = state.images[state.index];
+    selectors.image.src = `/images/${encodeURIComponent(filename)}`;
+    selectors.image.alt = `${filename} 미리보기`;
+    selectors.filename.textContent = filename;
+    selectors.currentIndex.textContent = state.index + 1;
+    if (selectors.jumpInput) {
+        selectors.jumpInput.value = state.index + 1;
+    }
+    updateControlsDisabled();
+}
+
+function shiftImage(offset) {
+    if (state.working || state.images.length === 0) return;
+    const nextIndex = state.index + offset;
+    if (nextIndex < 0 || nextIndex >= state.images.length) return;
+    state.index = nextIndex;
+    renderImage();
+}
+
+function insertImageAlphabetically(filename) {
+    if (!filename) return -1;
+    const exists = state.images.includes(filename);
+    if (!exists) {
+        state.images.push(filename);
+        state.images.sort((a, b) => a.localeCompare(b));
+    }
+    return state.images.indexOf(filename);
+}
+
+function jumpToImageByNumber() {
+    if (state.working) return;
+    if (!selectors.jumpInput) return;
+    const value = Number(selectors.jumpInput.value);
+    if (!Number.isFinite(value)) {
+        setStatus('번호를 올바르게 입력하세요.', 'error');
+        return;
+    }
+    const targetIndex = Math.floor(value) - 1;
+    if (targetIndex < 0 || targetIndex >= state.images.length) {
+        setStatus('범위를 벗어난 번호입니다.', 'error');
+        return;
+    }
+    state.index = targetIndex;
+    renderImage();
+    setStatus(`${value}번째 이미지로 이동했습니다.`, 'success');
+}
+
+async function classify(label) {
+    if (state.working || state.images.length === 0) return;
+    const labelKey = String(label);
+    const filename = state.images[state.index];
+    state.working = true;
+    updateControlsDisabled();
+    setStatus(`"${filename}" 파일을 ${LABEL_NAMES[label]}로 이동 중...`, 'info');
+    try {
+        const response = await fetch('/api/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename, label }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.success) {
+            throw new Error(payload.error || '서버 오류');
+        }
+        state.images.splice(state.index, 1);
+        if (state.index >= state.images.length && state.images.length) {
+            state.index = state.images.length - 1;
+        }
+        if (typeof payload.count === 'number') {
+            state.counts[labelKey] = payload.count;
+        } else {
+            state.counts[labelKey] = (state.counts[labelKey] ?? 0) + 1;
+        }
+        updateCountLabel(labelKey, state.counts[labelKey]);
+        setStatus(`${filename} 이동 완료 → ${LABEL_NAMES[label]}`, 'success');
+    } catch (error) {
+        console.error(error);
+        setStatus(`이동 실패: ${error.message}`, 'error');
+    } finally {
+        state.working = false;
+        renderImage();
+    }
+}
+
+async function undoLastMove() {
+    if (state.working) return;
+    state.working = true;
+    updateControlsDisabled();
+    setStatus('가장 최근 이동을 되돌리는 중...', 'info');
+    try {
+        const response = await fetch('/api/undo', { method: 'POST' });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.success) {
+            throw new Error(payload.error || '서버 오류');
+        }
+        const labelKey = String(payload.label);
+        if (typeof payload.count === 'number') {
+            state.counts[labelKey] = payload.count;
+            updateCountLabel(labelKey, payload.count);
+        }
+        if (payload.filename) {
+            const newIndex = insertImageAlphabetically(payload.filename);
+            if (newIndex >= 0) {
+                state.index = newIndex;
+            }
+        }
+        setStatus(`"${payload.filename}" 되돌렸습니다.`, 'success');
+    } catch (error) {
+        console.error(error);
+        setStatus(`되돌리기 실패: ${error.message}`, 'error');
+    } finally {
+        state.working = false;
+        renderImage();
+    }
+}
+
+async function loadImages() {
+    setStatus('이미지 목록을 불러오는 중입니다...', 'info');
+    try {
+        const response = await fetch('/api/images');
+        if (!response.ok) throw new Error('이미지를 가져오지 못했습니다.');
+        const data = await response.json();
+        state.images = data.images || [];
+        state.index = 0;
+        state.loaded = true;
+        applyCounts(data.counts || {});
+        if (!state.images.length) {
+            setStatus('분류할 이미지가 없습니다.', 'success');
+        } else {
+            setStatus('키보드(1–5/0) 또는 버튼으로 분류하세요.', 'info');
+        }
+    } catch (error) {
+        console.error(error);
+        setStatus('이미지 목록을 로드하는 중 오류가 발생했습니다.', 'error');
+    } finally {
+        renderImage();
+    }
+}
+
+function setupEvents() {
+    selectors.prevBtn.addEventListener('click', () => shiftImage(-1));
+    selectors.nextBtn.addEventListener('click', () => shiftImage(1));
+    selectors.controls.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-label]');
+        if (!button) return;
+        classify(button.dataset.label);
+    });
+    if (selectors.undoBtn) {
+        selectors.undoBtn.addEventListener('click', undoLastMove);
+    }
+    if (selectors.jumpButton) {
+        selectors.jumpButton.addEventListener('click', (event) => {
+            event.preventDefault();
+            jumpToImageByNumber();
+        });
+    }
+    window.addEventListener('keydown', (event) => {
+        if (isTypingTarget(event.target)) return;
+        if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            event.stopPropagation();
+            shiftImage(1);
+        } else if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            event.stopPropagation();
+            shiftImage(-1);
+        } else if (/^[0-5]$/.test(event.key)) {
+            event.preventDefault();
+            event.stopPropagation();
+            classify(event.key);
+        } else if (event.key && event.key.toLowerCase() === 'z') {
+            event.preventDefault();
+            event.stopPropagation();
+            undoLastMove();
+        }
+    });
+}
+
+applyCounts({});
+setupEvents();
+loadImages();
+</script>
+</body>
+</html>
