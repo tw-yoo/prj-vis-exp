@@ -113,20 +113,31 @@ function getFormattedQuestion(vlSpec, data, question) {
     const dataStr = typeof data === "string" ? data : JSON.stringify(data, null, 2);
 
     return `
-Instructions: You will receive (A) a Vega-Lite specification, (B) tabular data, and (C) a natural-language question. Answer using only the supplied data and describe the process as if a person is performing sequential chart interactions (filtering, sorting, highlighting).
+Instructions: You will receive (A) a Vega-Lite chart specification, (B) tabular data, and (C) a natural-language question. Your task is to answer the question by analyzing the data and explaining your reasoning as if you're telling a story about the data itself—NOT about chart operations.
 
-Human-centered Guidelines:
-- Work strictly from the provided rows/columns. If information is missing, state that the table is insufficient.
-- Narrate your reasoning in plain English (no Markdown or emphasis). Each sentence should read like stage directions: “Filter to … then highlight … finally compare …”.
-- Keep workflows single-pass. Shared steps such as sorting or filtering should happen once, then reuse that state to pick multiple values (e.g., grab both middle ranks via a single "nth"-style step before averaging). Do not repeat identical operations for each target.
-- When multiple marks are needed (e.g., median of an even-length list), describe isolating all required values first and then performing any aggregation in a final step.
-- Mention numeric values with their associated labels so another person could reproduce the steps and confirm the answer.
-- Call out ties or empty result sets explicitly. Do not claim statistical significance or causal relationships; limit the response to descriptive facts from the table.
+Critical Guidelines:
+- FOCUS ON THE DATA, NOT THE OPERATIONS: Don't say "sort by X then filter Y". Instead, describe what you found: "The three highest values are A, B, C..."
+- BE CONVERSATIONAL: Write like you're explaining to a colleague over coffee, not writing a technical manual
+- LEAD WITH FINDINGS: Start each reasoning step with what you discovered, then mention the values
+- MENTION CONCRETE VALUES: Always include the actual numbers and labels so readers can verify
+- USE NATURAL TRANSITIONS: "Looking at the data...", "Among these...", "Comparing these values...", "This means..."
 
-Output: Provide (1) a concise English answer and (2) a short, human-centered explanation of the steps you took (still plain text, no Markdown). Keep everything self-contained so someone else could replicate the workflow.
+Bad Example (operation-focused):
+"Sort the data by Votes descending. Take the top 3. Calculate their average."
+
+Good Example (data-focused):
+"Looking at the vote counts, the three highest-polling parties are Liberal Democratic League (164,376 votes), Anti Revolutionary Party (143,843 votes), and General League (76,605 votes). Their average is about 128,275 votes. On the other end, the three lowest performers are Christian Historicals (62,770), Free-thinking Democratic League (51,595), and Other parties (18,638), averaging 44,334 votes. The difference between these two groups is 83,940 votes."
+
+Structure your explanation as:
+1. State what you're looking for
+2. Name the specific data points you found (with values)
+3. Perform any calculations while showing the numbers
+4. State the final answer clearly
+
+Output: Provide (1) a SHORT final answer (just the number/value), and (2) a DATA-FOCUSED explanation in plain English (no Markdown, no operation descriptions).
 
 INPUTS
-(A) Vega-Lite Spec (for disambiguation only; never reference this in the answer)
+(A) Vega-Lite Spec (for field names only)
 \`\`\`json
 ${specStr}
 \`\`\`
@@ -138,6 +149,8 @@ ${dataStr}
 
 (C) Question
 ${question}
+
+Remember: Explain WHAT you found in the data, not HOW you searched for it.
 `;
 }
 

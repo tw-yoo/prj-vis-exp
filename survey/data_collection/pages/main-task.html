@@ -1,0 +1,44 @@
+<div class="page-content">
+    <div class="task-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2>Chart Question Generation</h2>
+        <select id="chart-dropdown" style="padding: 8px; font-size: 16px;"></select>
+    </div>
+
+    <div class="examples" style="border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; background: #f9f9f9;">
+        <h4>Task Guide</h4>
+        <p>Your task is to create a question that can be answered using the chart below. The question must satisfy these conditions:</p>
+        <ul style="margin-top: 0; padding-left: 20px;">
+            <li>The question must require <strong>at least two operations</strong> (e.g., filter + find max, or compare two items).</li>
+            <li>The answer must be a <strong>single value</strong> (a number, text, or True/False).</li>
+        </ul>
+
+            <div style="padding-top: 10px;">
+                <p><strong>Good Question:</strong> "What is the difference in GDP between the most recent year and the earliest year?" (This uses 'find max year', 'find min year', and 'diff').</p>
+                <p><strong>Bad Question:</strong> "What was the GDP in 1990?" (This is only one operation).</p>
+                <p><strong>Good Answer:</strong> 14019</p>
+                <p><strong>Good Explanation:</strong> 1. Find the latest year (2005) and its GDP (21,783). 2. Find the earliest year (1980) and its GDP (7,764). 3. Subtract: 21,783 - 7,764 = 14,019.</p>
+            </div>
+
+    </div>
+
+    <div id="chart-main-view" class="d3chart-container" style="min-height: 400px; width: 100%; border: 1px solid #eee; margin-bottom: 15px;">
+        </div>
+
+    <div data-component="open-ended"
+         data-id="q-question"
+         data-labelText="1. Your Question"
+         data-placeholder="Enter your question here..."
+         data-multiline="true"></div>
+
+    <div data-component="open-ended"
+         data-id="q-answer"
+         data-labelText="2. The Answer"
+         data-placeholder="Enter the single correct answer (e.g., '14019', 'USA', 'True')"
+         data-multiline="false"></div>
+
+    <div data-component="open-ended"
+         data-id="q-explanation"
+         data-labelText="3. Explanation (Simple steps to get the answer)"
+         data-placeholder="Enter the simple steps..."
+         data-multiline="true"></div>
+</div>
