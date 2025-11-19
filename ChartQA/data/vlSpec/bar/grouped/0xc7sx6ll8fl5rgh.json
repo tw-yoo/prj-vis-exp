@@ -1,0 +1,36 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/0xc7sx6ll8fl5rgh.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Age Group",
+      "type": "ordinal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "y": {
+      "field": "Percentage of votes",
+      "type": "quantitative",
+      "axis": {
+        "title": "Percentage of votes",
+        "grid": false
+      }
+    },
+    "xOffset": {
+      "field": "Candidate"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

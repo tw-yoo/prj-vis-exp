@@ -1,0 +1,36 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/0q8vqyb35mbq0efx.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "y": {
+      "field": "Number of suicides",
+      "type": "quantitative",
+      "axis": {
+        "title": "Y axis title",
+        "grid": false
+      }
+    },
+    "xOffset": {
+      "field": "Age Group"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

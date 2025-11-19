@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "encoding": {
+    "y": {
+      "field": "Active users in millions",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Date",
+      "type": "nominal",
+      "sort": null
+    }
+  },
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0iv07908ph6y6ifj.csv"
+  },
+  "mark": "bar"
+}
