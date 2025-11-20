@@ -17,6 +17,7 @@ import { renderChartWithFade } from "../common/chartRenderUtils.js";
 import { normalizeCachedData } from "../common/datumCacheHelpers.js";
 import { storeAxisDomain } from "../../common/scaleHelpers.js";
 import { resetRuntimeResults, storeRuntimeResult, makeRuntimeKey } from "../../runtimeResultStore.js";
+import { groupedBarColors } from './colorPalette.js';
 
 // Wait for a few animation frames to allow DOM/layout/transition to settle
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
@@ -240,7 +241,7 @@ export async function renderGroupedBarChart(chartId, spec) {
     const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([plotH, 0]);
     storeAxisDomain(svg.node(), 'y', yScale.domain());
 
-    const defaultPalette = ["#0072B2", "#E69F00"];
+    const defaultPalette = groupedBarColors;
     const palette = (spec.encoding?.color?.scale?.range) ?? defaultPalette;
     const colorScale = d3.scaleOrdinal(palette).domain(xDomain);
 

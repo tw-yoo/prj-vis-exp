@@ -6,31 +6,31 @@
   },
   "mark": "bar",
   "encoding": {
-    "x": {
+    "column": {
       "field": "Frequency",
       "type": "ordinal",
-      "axis": {
-        "title": ""
-      }
+      "header": { "title": "" }
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
-      "axis": {
-        "title": "Y axis title",
-        "grid": false
+      "axis": { 
+        "title": "", 
+        "grid": false 
       }
     },
-    "xOffset": {
-      "field": "Race/Ethnicity"
+    "x": {
+      "field": "Race/Ethnicity",
+      "type": "nominal",
+      "axis": { "title": "" }
+    },
+    "color": {
+      "field": "Race/Ethnicity",
+      "type": "nominal"
     }
   },
   "config": {
-    "view": {
-      "stroke": "transparent"
-    },
-    "axis": {
-      "domainWidth": 1
-    }
+    "view": { "stroke": "transparent" },
+    "axis": { "domainWidth": 1 }
   }
 }

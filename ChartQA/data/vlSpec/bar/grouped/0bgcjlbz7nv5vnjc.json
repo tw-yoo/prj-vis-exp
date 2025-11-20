@@ -6,31 +6,31 @@
   },
   "mark": "bar",
   "encoding": {
-    "x": {
+    "column": {
       "field": "Period",
       "type": "ordinal",
-      "axis": {
-        "title": ""
-      }
+      "header": { "title": "" }
     },
     "y": {
       "field": "SharePercentage",
       "type": "quantitative",
-      "axis": {
-        "title": "Y axis title",
-        "grid": false
+      "axis": { 
+        "title": "", 
+        "grid": false 
       }
     },
-    "xOffset": {
-      "field": "AgeGroup"
+    "x": {
+      "field": "AgeGroup",
+      "type": "nominal",
+      "axis": { "title": "" }
+    },
+    "color": {
+      "field": "AgeGroup",
+      "type": "nominal"
     }
   },
   "config": {
-    "view": {
-      "stroke": "transparent"
-    },
-    "axis": {
-      "domainWidth": 1
-    }
+    "view": { "stroke": "transparent" },
+    "axis": { "domainWidth": 1 }
   }
 }

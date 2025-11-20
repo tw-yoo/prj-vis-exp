@@ -6,31 +6,31 @@
   },
   "mark": "bar",
   "encoding": {
-    "x": {
+    "column": {
       "field": "Country",
       "type": "ordinal",
-      "axis": {
-        "title": ""
-      }
+      "header": { "title": "" }
     },
     "y": {
       "field": "Number of procedures",
       "type": "quantitative",
-      "axis": {
-        "title": "Y axis title",
-        "grid": false
+      "axis": { 
+        "title": "", 
+        "grid": false 
       }
     },
-    "xOffset": {
-      "field": "Procedure Type"
+    "x": {
+      "field": "Procedure Type",
+      "type": "nominal",
+      "axis": { "title": "" }
+    },
+    "color": {
+      "field": "Procedure Type",
+      "type": "nominal"
     }
   },
   "config": {
-    "view": {
-      "stroke": "transparent"
-    },
-    "axis": {
-      "domainWidth": 1
-    }
+    "view": { "stroke": "transparent" },
+    "axis": { "domainWidth": 1 }
   }
 }

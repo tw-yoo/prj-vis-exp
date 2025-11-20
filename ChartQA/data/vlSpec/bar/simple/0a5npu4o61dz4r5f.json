@@ -6,7 +6,7 @@
       "type": "quantitative"
     },
     "x": {
-      "field": "country",
+      "field": "Country",
       "type": "nominal",
       "sort": null
     }

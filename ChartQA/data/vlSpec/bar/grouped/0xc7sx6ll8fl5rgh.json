@@ -6,31 +6,31 @@
   },
   "mark": "bar",
   "encoding": {
-    "x": {
+    "column": {
       "field": "Age Group",
       "type": "ordinal",
-      "axis": {
-        "title": ""
-      }
+      "header": { "title": "" }
     },
     "y": {
       "field": "Percentage of votes",
       "type": "quantitative",
-      "axis": {
-        "title": "Percentage of votes",
-        "grid": false
+      "axis": { 
+        "title": "", 
+        "grid": false 
       }
     },
-    "xOffset": {
-      "field": "Candidate"
+    "x": {
+      "field": "Candidate",
+      "type": "nominal",
+      "axis": { "title": "" }
+    },
+    "color": {
+      "field": "Candidate",
+      "type": "nominal"
     }
   },
   "config": {
-    "view": {
-      "stroke": "transparent"
-    },
-    "axis": {
-      "domainWidth": 1
-    }
+    "view": { "stroke": "transparent" },
+    "axis": { "domainWidth": 1 }
   }
 }

@@ -6,31 +6,31 @@
   },
   "mark": "bar",
   "encoding": {
-    "x": {
+    "column": {
       "field": "Diet Type",
       "type": "ordinal",
-      "axis": {
-        "title": ""
-      }
+      "header": { "title": "" }
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
-      "axis": {
-        "title": "Y axis title",
-        "grid": false
+      "axis": { 
+        "title": "", 
+        "grid": false 
       }
     },
-    "xOffset": {
-      "field": "Year"
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "axis": { "title": "" }
+    },
+    "color": {
+      "field": "Year",
+      "type": "nominal"
     }
   },
   "config": {
-    "view": {
-      "stroke": "transparent"
-    },
-    "axis": {
-      "domainWidth": 1
-    }
+    "view": { "stroke": "transparent" },
+    "axis": { "domainWidth": 1 }
   }
 }

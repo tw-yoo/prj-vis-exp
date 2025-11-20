@@ -7,12 +7,12 @@
     },
     "x": {
       "field": "Year",
-      "type": "nominal",
+      "type": "ordinal",
       "sort": null
     }
   },
   "data": {
-    "url": "ChartQA/data/csv/bar/simple/0cad2xfrwdgvo9zk.csv"
+    "url": "ChartQA/data/csv/bar/simple/0egdxqun1m2n9k4z.csv"
   },
   "mark": "bar"
 }
