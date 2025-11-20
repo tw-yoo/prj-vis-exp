@@ -1,16 +1,26 @@
 {
   "ABCDEFG": [
-    "bar_simple_200_25",
-    "bar_simple_203_3"
+    "bar_simple_0a5npu4o61dz4r5f",
+    "bar_grouped_0bgcjlbz7nv5vnjc",
+    "line_simple_0cymcilknp8krjwz"
   ],
   "XYZ123": [
-    "q1",
-    "bar_simple_201_7",
-    "line_simple_202_135"
+    "bar_simple_0a5npu4o61dz4r5f",
+    "bar_stacked_0aj7na7tkqb7iomu",
+    "line_multiple_0bunvsqd54e3qahz"
   ],
   "ABCABC": [
-    "q1",
-    "bar_simple_201_7",
-    "line_simple_202_135"
+    "bar_grouped_0bgcjlbz7nv5vnjc",
+    "bar_stacked_4def5ghi6jkl7mno",
+    "line_simple_7rst8uvw9xyz0abc"
+  ],
+  "TEST99": [
+    "bar_simple_0a5npu4o61dz4r5f",
+    "bar_simple_0abj8blv663ussbr",
+    "bar_grouped_0bgcjlbz7nv5vnjc",
+    "bar_grouped_0egzejn5mejtnfdm",
+    "bar_stacked_0aj7na7tkqb7iomu",
+    "line_simple_0cymcilknp8krjwz",
+    "line_multiple_0bunvsqd54e3qahz"
   ]
 }
