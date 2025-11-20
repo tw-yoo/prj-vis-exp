@@ -43,7 +43,10 @@ import { resetRuntimeResults, storeRuntimeResult, makeRuntimeKey } from "../../r
 // --- settle helpers (match groupedBar pattern) ---
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 async function waitFrames(n = 2) { for (let i = 0; i < n; i++) await nextFrame(); }
-
+const stackedBarColors = [
+  "#4C78A8", "#F58518", "#E45756", "#72B7B2", "#54A24B", 
+  "#EECA3B", "#B279A2", "#FF9DA6", "#9D755D", "#BAB0AC"
+];
 const GROUPED_BAR_OP_HANDLES = {
     [OperationType.RETRIEVE_VALUE]: stackedBarRetrieveValue,
     [OperationType.FILTER]:         stackedBarFilter,
@@ -303,16 +306,17 @@ export async function renderStackedBarChart(chartId, spec) {
     });
 
     // 6) Color scale
-    const colorScaleSpec = spec.encoding.color?.scale;
-    const subgroupsFromData = Array.from(new Set(data.map(d => d[colorField])));
-    let subgroups = subgroupsFromData;
-    let color;
-    if (colorScaleSpec?.domain && colorScaleSpec?.range) {
-        subgroups = colorScaleSpec.domain.slice();
-        color = d3.scaleOrdinal().domain(subgroups).range(colorScaleSpec.range);
-    } else {
-        color = d3.scaleOrdinal(d3.schemeTableau10).domain(subgroups);
-    }
+// 6) Color scale
+const colorScaleSpec = spec.encoding.color?.scale;
+const subgroupsFromData = Array.from(new Set(data.map(d => d[colorField])));
+let subgroups = subgroupsFromData;
+let color;
+if (colorScaleSpec?.domain && colorScaleSpec?.range) {
+    subgroups = colorScaleSpec.domain.slice();
+    color = d3.scaleOrdinal().domain(subgroups).range(colorScaleSpec.range);
+} else {
+    color = d3.scaleOrdinal(stackedBarColors).domain(subgroups);
+}
 
     // 7) --- 수정된 부분: 데이터 원본 순서를 유지하며 카테고리(groups) 생성 ---
     const groups = [];

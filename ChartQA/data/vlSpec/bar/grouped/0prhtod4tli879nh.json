@@ -1,0 +1,36 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/0prhtod4tli879nh.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "City",
+      "type": "ordinal",
+      "header": { "title": "" }
+    },
+    "y": {
+      "field": "Population in millions",
+      "type": "quantitative",
+      "axis": { 
+        "title": "", 
+        "grid": false 
+      }
+    },
+    "x": {
+      "field": "Year",
+      "type": "ordinal",
+      "axis": { "title": "" }
+    },
+    "color": {
+      "field": "Year",
+      "type": "ordinal"
+    }
+  },
+  "config": {
+    "view": { "stroke": "transparent" },
+    "axis": { "domainWidth": 1 }
+  }
+}

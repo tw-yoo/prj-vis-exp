@@ -1,0 +1,36 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/0wgqpso2vnilpym6.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Region",
+      "type": "ordinal",
+      "header": { "title": "" }
+    },
+    "y": {
+      "field": "Production in million barrels per day",
+      "type": "quantitative",
+      "axis": { 
+        "title": "", 
+        "grid": false 
+      }
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "axis": { "title": "" }
+    },
+    "color": {
+      "field": "Year",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": { "stroke": "transparent" },
+    "axis": { "domainWidth": 1 }
+  }
+}

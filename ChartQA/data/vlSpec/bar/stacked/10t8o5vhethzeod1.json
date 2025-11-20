@@ -1,0 +1,22 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/10t8o5vhethzeod1.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Share_of_GDP",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Sector",
+      "type": "nominal"
+    }
+  }
+}

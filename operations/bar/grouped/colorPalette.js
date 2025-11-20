@@ -1,0 +1,4 @@
+export const groupedBarColors = [
+  "#4C78A8", "#F58518", "#E45756", "#72B7B2", "#54A24B", 
+  "#EECA3B", "#B279A2", "#FF9DA6", "#9D755D", "#BAB0AC"
+];

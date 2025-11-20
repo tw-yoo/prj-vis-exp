@@ -524,19 +524,27 @@ export async function renderMultipleLineChart(chartId, spec) {
             .range([0, innerWidth]);
     }
 
-    const yValues = baseData.map(row => Number(row[yField])).filter(Number.isFinite);
-    const yMax = yValues.length ? d3.max(yValues) : 0;
-    const yMin = yValues.length ? d3.min(yValues) : 0;
-    const yDomain = [
-        Number.isFinite(yMin) && yMin < 0 ? yMin : 0,
-        Number.isFinite(yMax) ? yMax : 0
-    ];
+// 🔥 Y축 범위를 데이터 최소값 * 0.95 ~ 최대값 * 1.05로 설정
+const yValues = baseData.map(row => Number(row[yField])).filter(Number.isFinite);
+const yMin = yValues.length ? d3.min(yValues) : 0;
+const yMax = yValues.length ? d3.max(yValues) : 0;
 
-    const yScale = d3.scaleLinear()
-        .domain(yDomain[0] === yDomain[1] ? [yDomain[0], yDomain[0] + 1] : yDomain)
-        .nice()
-        .range([innerHeight, 0]);
+let domainMin = yMin * 0.95;
+let domainMax = yMax * 1.05;
 
+// 예외 처리
+if (!Number.isFinite(domainMin) || !Number.isFinite(domainMax)) {
+    domainMin = 0;
+    domainMax = 100;
+}
+if (domainMin === domainMax) {
+    domainMin = domainMin - 5;
+    domainMax = domainMax + 5;
+}
+
+const yScale = d3.scaleLinear()
+    .domain([domainMin, domainMax])
+    .range([innerHeight, 0]);
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
         .domain(series.map(s => s.id));
 

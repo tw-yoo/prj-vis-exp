@@ -1,0 +1,22 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Stock prices of 5 Tech Companies over Time.",
+  "data": {
+    "url": "ChartQA/data/csv/line/multiple/5p6g89v7l99aes05.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Average_Payroll_Million_USD",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Team_Group",
+      "type": "nominal"
+    }
+  }
+}

@@ -1,44 +1,217 @@
-<div class="page-content">
+<div class="page-content main-task-page">
     <div class="task-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h2>Chart Question Generation</h2>
         <select id="chart-dropdown" style="padding: 8px; font-size: 16px;"></select>
     </div>
 
-    <div class="examples" style="border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; background: #f9f9f9;">
-        <h4>Task Guide</h4>
-        <p>Your task is to create a question that can be answered using the chart below. The question must satisfy these conditions:</p>
-        <ul style="margin-top: 0; padding-left: 20px;">
-            <li>The question must require <strong>at least two operations</strong> (e.g., filter + find max, or compare two items).</li>
-            <li>The answer must be a <strong>single value</strong> (a number, text, or True/False).</li>
-        </ul>
-
-            <div style="padding-top: 10px;">
-                <p><strong>Good Question:</strong> "What is the difference in GDP between the most recent year and the earliest year?" (This uses 'find max year', 'find min year', and 'diff').</p>
-                <p><strong>Bad Question:</strong> "What was the GDP in 1990?" (This is only one operation).</p>
-                <p><strong>Good Answer:</strong> 14019</p>
-                <p><strong>Good Explanation:</strong> 1. Find the latest year (2005) and its GDP (21,783). 2. Find the earliest year (1980) and its GDP (7,764). 3. Subtract: 21,783 - 7,764 = 14,019.</p>
-            </div>
-
-    </div>
-
-    <div id="chart-main-view" class="d3chart-container" style="min-height: 400px; width: 100%; border: 1px solid #eee; margin-bottom: 15px;">
+    <!-- Two-column layout for guide and examples -->
+    <div class="guide-examples-grid">
+        <!-- Left: Task Guide -->
+        <div class="task-guide-box">
+            <h3>Quick Guide</h3>
+            <p><strong>Requirements:</strong></p>
+            <ul>
+                <li>Use <strong>≥ 2 operations</strong></li>
+                <li>Answer = <strong>single value</strong></li>
+            </ul>
+            <p style="margin-top: 15px; font-size: 13px; color: #666;">
+                You may use calculators, GPT, or tools to verify answers, but <strong>do NOT use GPT to generate questions</strong>.
+            </p>
         </div>
 
-    <div data-component="open-ended"
-         data-id="q-question"
-         data-labelText="1. Your Question"
-         data-placeholder="Enter your question here..."
-         data-multiline="true"></div>
+        <!-- Right: Examples -->
+        <div class="examples-box">
+            <h3>Examples</h3>
+            
+            <div class="example-item good">
+                <div class="example-label">✓ Good Question #1</div>
+                <div class="example-text">"What is the difference in GDP between the most recent year and the earliest year?"</div>
+                <div class="example-detail">Operations: Find max year, Find min year, Diff</div>
+                <div class="example-answer"><strong>Answer:</strong> 14019</div>
+            </div>
 
-    <div data-component="open-ended"
-         data-id="q-answer"
-         data-labelText="2. The Answer"
-         data-placeholder="Enter the single correct answer (e.g., '14019', 'USA', 'True')"
-         data-multiline="false"></div>
+            <div class="example-item good">
+                <div class="example-label">✓ Good Question #2</div>
+                <div class="example-text">"What is the average GDP of the top 3 countries by GDP?"</div>
+                <div class="example-detail">Operations: Sort, Nth (1st, 2nd, 3rd), Average</div>
+                <div class="example-answer"><strong>Answer:</strong> 18567.33</div>
+            </div>
 
-    <div data-component="open-ended"
-         data-id="q-explanation"
-         data-labelText="3. Explanation (Simple steps to get the answer)"
-         data-placeholder="Enter the simple steps..."
-         data-multiline="true"></div>
+            <div class="example-item bad">
+                <div class="example-label">✗ Bad Question #1</div>
+                <div class="example-text">"What was the GDP in 1990?"</div>
+                <div class="example-detail">Only 1 operation (Retrieve Value)</div>
+            </div>
+
+            <div class="example-item bad">
+                <div class="example-label">✗ Bad Question #2</div>
+                <div class="example-text">"List all countries with GDP over 10,000"</div>
+                <div class="example-detail">Answer is multiple values, not single value</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart and Input side-by-side -->
+    <div class="chart-input-grid">
+        <!-- Left: Chart -->
+        <div class="chart-container">
+            <h3>Chart</h3>
+            <div id="chart-main-view" class="d3chart-container"></div>
+        </div>
+
+        <!-- Right: Input Fields -->
+        <div class="input-container">
+            <h3>Your Response</h3>
+            
+            <div data-component="open-ended"
+                 data-id="q-question"
+                 data-labelText="1. Your Question"
+                 data-placeholder="Enter your question here..."
+                 data-multiline="true"></div>
+
+            <div data-component="open-ended"
+                 data-id="q-answer"
+                 data-labelText="2. The Answer"
+                 data-placeholder="Enter the single correct answer (e.g., '14019', 'USA', 'True')"
+                 data-multiline="false"></div>
+
+            <div data-component="open-ended"
+                 data-id="q-explanation"
+                 data-labelText="3. Explanation (Step-by-step)"
+                 data-placeholder="1. Find the latest year (2005) and its GDP (21,783)&#10;2. Find the earliest year (1980) and its GDP (7,764)&#10;3. Subtract: 21,783 - 7,764 = 14,019"
+                 data-multiline="true"></div>
+        </div>
+    </div>
+
+    <style>
+        .main-task-page {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Guide and Examples Grid */
+        .guide-examples-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        .task-guide-box, .examples-box {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .task-guide-box h3, .examples-box h3 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: #333;
+            border-bottom: 2px solid #4caf50;
+            padding-bottom: 6px;
+        }
+
+        .task-guide-box ul {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .task-guide-box li {
+            margin: 5px 0;
+        }
+
+        /* Example Items */
+        .example-item {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .example-item.good {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+
+        .example-item.bad {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+        }
+
+        .example-label {
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .example-item.good .example-label {
+            color: #2e7d32;
+        }
+
+        .example-item.bad .example-label {
+            color: #c62828;
+        }
+
+        .example-text {
+            font-style: italic;
+            margin: 4px 0;
+        }
+
+        .example-detail {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .example-answer {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        /* Chart and Input Grid */
+        .chart-input-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chart-container, .input-container {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .chart-container h3, .input-container h3 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: #333;
+            border-bottom: 2px solid #2196f3;
+            padding-bottom: 6px;
+        }
+
+        .d3chart-container {
+            min-height: 400px;
+            width: 100%;
+            border: 1px solid #eee;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+
+        .input-container > div {
+            margin-bottom: 15px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            .chart-input-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .guide-examples-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </div>

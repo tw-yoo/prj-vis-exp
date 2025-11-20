@@ -1,0 +1,36 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/0oinwvo88bvvs25b.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Service",
+      "type": "ordinal",
+      "header": { "title": "" }
+    },
+    "y": {
+      "field": "Share of women and men",
+      "type": "quantitative",
+      "axis": { 
+        "title": "", 
+        "grid": false 
+      }
+    },
+    "x": {
+      "field": "Gender",
+      "type": "nominal",
+      "axis": { "title": "" }
+    },
+    "color": {
+      "field": "Gender",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": { "stroke": "transparent" },
+    "axis": { "domainWidth": 1 }
+  }
+}

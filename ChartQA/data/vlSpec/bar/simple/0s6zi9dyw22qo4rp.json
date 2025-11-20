@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "encoding": {
+    "y": {
+      "field": "Fatality rate among plague cases",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Month/Year",
+      "type": "nominal",
+      "sort": null
+    }
+  },
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0s6zi9dyw22qo4rp.csv"
+  },
+  "mark": "bar"
+}

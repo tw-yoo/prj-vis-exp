@@ -1,0 +1,17 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/0ix8hz9qvakto18g.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Ease of doing business score",
+      "type": "quantitative"
+    }
+  }
+}

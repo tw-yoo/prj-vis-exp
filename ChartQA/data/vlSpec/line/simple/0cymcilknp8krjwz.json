@@ -1,0 +1,17 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/0cymcilknp8krjwz.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Average price in US dollars",
+      "type": "quantitative"
+    }
+  }
+}
