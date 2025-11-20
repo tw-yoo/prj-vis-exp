@@ -1,0 +1,22 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/001dao0mq0pplbzj.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Revenue_Million_USD",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Revenue_Type",
+      "type": "nominal"
+    }
+  }
+}

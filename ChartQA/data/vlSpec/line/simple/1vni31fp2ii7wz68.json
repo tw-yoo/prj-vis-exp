@@ -1,0 +1,17 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/1vni31fp2ii7wz68.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Month",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Number in millions",
+      "type": "quantitative"
+    }
+  }
+}

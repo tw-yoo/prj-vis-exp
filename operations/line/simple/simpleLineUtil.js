@@ -263,16 +263,15 @@ export async function runSimpleLineOps(chartId, vlSpec, opsSpec, textSpec = {}) 
         navOpts: { x: 15, y: 15 }
     });
 }
-
 export async function renderSimpleLineChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 80, right: 48, bottom: 48, left: 64 };  // ✅ top을 120으로 크게 증가
+    const margin = { top: 80, right: 48, bottom: 48, left: 64 };
     const innerWidth = (spec?.width ?? 560);
     const innerHeight = (spec?.height ?? 320);
     const totalWidth = innerWidth + margin.left + margin.right;
-    const totalHeight = innerHeight + margin.top + margin.bottom;  // ✅ totalHeight가 자동으로 증가함
+    const totalHeight = innerHeight + margin.top + margin.bottom;
 
     const xField = spec.encoding.x.field;
     const yField = spec.encoding.y.field;
@@ -297,7 +296,7 @@ export async function renderSimpleLineChart(chartId, spec) {
     chartDataStore[chartId] = data;
 
     const svg = container.append("svg")
-        .attr("viewBox", [0, 0, totalWidth, totalHeight])  // ✅ viewBox도 totalHeight 사용
+        .attr("viewBox", [0, 0, totalWidth, totalHeight])
         .attr("data-x-field", xField)
         .attr("data-y-field", yField)
         .attr("data-m-left", margin.left)
@@ -307,7 +306,7 @@ export async function renderSimpleLineChart(chartId, spec) {
 
     const g = svg.append("g")
         .attr("class", "plot-area")
-        .attr("transform", `translate(${margin.left},${margin.top})`);  // ✅ margin.top 적용
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const xScale = (xType === 'temporal')
         ? d3.scaleTime().domain(d3.extent(data, d => new Date(d[xField]))).range([0, innerWidth])
@@ -315,8 +314,29 @@ export async function renderSimpleLineChart(chartId, spec) {
             ? d3.scaleLinear().domain(d3.extent(data, d => d[xField])).nice().range([0, innerWidth])
             : d3.scalePoint().domain(data.map(d => String(d[xField]))).range([0, innerWidth]));
 
-    const yMax = d3.max(data, d => d[yField]);
-    const yScale = d3.scaleLinear().domain([0, yMax]).nice().range([innerHeight, 0]);
+    // 🔥 Y축 범위를 데이터 최소값 * 0.9 ~ 최대값 * 1.1로 설정
+    const yValues = data.map(d => d[yField]);
+    const yMin = d3.min(yValues);
+    const yMax = d3.max(yValues);
+
+    let domainMin = yMin * 0.95;
+    let domainMax = yMax * 1.05;
+
+    // 예외 처리
+    if (!Number.isFinite(domainMin) || !Number.isFinite(domainMax)) {
+        domainMin = 0;
+        domainMax = 100;
+    }
+    if (domainMin === domainMax) {
+        domainMin = domainMin - 5;
+        domainMax = domainMax + 5;
+    }
+
+    const yScale = d3.scaleLinear()
+        .domain([domainMin, domainMax])
+        .nice()
+        .range([innerHeight, 0]);
+    
     storeAxisDomain(svg.node(), 'y', yScale.domain());
 
     g.append("g").attr("class", "x-axis")

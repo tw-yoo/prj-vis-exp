@@ -1,0 +1,17 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/2jki13q54zizc6i4.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Period",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Number of trucks",
+      "type": "quantitative"
+    }
+  }
+}
