@@ -1150,6 +1150,7 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
     await populateMethodReviewPreviews(scrollEl);
     activePageQuestionKeys = collectQuestionKeys(scrollEl);
     // Navigation buttons appended after content
+    const effectiveTotalPages = Math.max(1, pageDescriptors.length - 1);
     const nav = createNavButtons({
       prevId: `prev_${idx}`,
       nextId: `next_${idx}`,
@@ -1171,8 +1172,9 @@ async function loadPage(i, pushHistory = true, previousSnapshot = null) {
       }),
       isLastPage,
       isAvailable: true,
-      totalPages: pageDescriptors.length,
-      currentPage: idx + 1,
+      totalPages: idx === 0 ? null : effectiveTotalPages,
+      currentPage: idx === 0 ? null : Math.min(effectiveTotalPages, idx),
+      showProgress: idx !== 0,
       onSubmit: () => guardedNavigate(async () => {
         if (!validatePage()) {
           return;

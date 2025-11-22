@@ -1,6 +1,6 @@
 <div class="page-content main-task-page">
     <div class="task-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h2>Chart Question Generation</h2>
+        <h2>Compositional Chart Question Generation</h2>
         <select id="chart-dropdown" style="padding: 8px; font-size: 16px;"></select>
     </div>
 
@@ -78,8 +78,12 @@
             <div data-component="open-ended"
                  data-id="q-explanation"
                  data-labelText="3. Explanation (Step-by-step)"
-                 data-placeholder="1. Find the latest year (2005) and its GDP (21,783)&#10;2. Find the earliest year (1980) and its GDP (7,764)&#10;3. Subtract: 21,783 - 7,764 = 14,019"
-                 data-multiline="true"></div>
+                 data-placeholder="1. ... &#10;2. ... &#10;3. ... "
+                 data-multiline="true"
+<!--                             data-placeholder="1. Find the latest year (2005) and its GDP (21,783)&#10;2. Find the earliest year (1980) and its GDP (7,764)&#10;3. Subtract: 21,783 - 7,764 = 14,019"-->
+            >
+
+            </div>
         </div>
     </div>
 
@@ -192,11 +196,31 @@
         }
 
         .d3chart-container {
-            min-height: 400px;
+            min-height: 460px;
             width: 100%;
+            height: 100%;
+            max-height: 70vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             border: 1px solid #eee;
             background: #fafafa;
             border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .d3chart-container > * {
+            margin: 0 auto;
+        }
+
+        .d3chart-container svg,
+        .d3chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: block;
         }
 
         .input-container > div {

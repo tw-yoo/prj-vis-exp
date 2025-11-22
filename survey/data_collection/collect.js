@@ -18,10 +18,12 @@ let currentChartIndex = 0;
 let pageDescriptors = [];
 let TOTAL_PAGES = 0;
 let navigationInProgress = false;
+let participantAssignments = null;
 
 const container = () => document.querySelector('.main-scroll');
 const btnPrev = () => document.querySelector('.prev-btn');
 const btnNext = () => document.querySelector('.next-btn');
+const DEFAULT_TUTORIAL_SPEC = 'ChartQA/data/vlSpec/bar/simple/0a5npu4o61dz4r5f.json';
 
 // --- 2. Firebase 헬퍼 함수 ---
 const FIRESTORE_COLLECTION = 'data_collection';
@@ -48,6 +50,165 @@ async function saveToFirebase(code, questionsMap) {
         console.error("Error saving data to Firebase:", e);
         alert("Error saving progress. Please check your connection and try again.");
     }
+}
+
+async function loadParticipantAssignments() {
+    if (participantAssignments) return participantAssignments;
+    try {
+        const res = await fetch('participant_assignments.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        participantAssignments = await res.json();
+    } catch (e) {
+        console.error("Failed to load participant assignments:", e);
+        participantAssignments = null;
+    }
+    return participantAssignments;
+}
+
+const LOGIN_PAGE = { id: 'login', path: 'pages/code-entry.html', slug: 'login' };
+
+const STATIC_PAGES_BEFORE_TASK = [
+    { id: 'tutorial', path: 'pages/tutorial.html', slug: 'tutorial' }
+];
+
+const STATIC_PAGES_AFTER_TASK = [
+    { id: 'complete', path: 'pages/completion.html', slug: 'complete' }
+];
+
+function getStaticPageCount() {
+    return STATIC_PAGES_BEFORE_TASK.length + STATIC_PAGES_AFTER_TASK.length;
+}
+
+function buildPageDescriptorsForAssignedCharts() {
+    return [
+        LOGIN_PAGE,
+        ...STATIC_PAGES_BEFORE_TASK,
+        ...assignedCharts.map((chartId, i) => ({
+            id: 'main-task',
+            slug: chartId,
+            path: 'pages/main-task.html',
+            onLoad: (root, pageIdx) => {
+                const offset = 1 + STATIC_PAGES_BEFORE_TASK.length;
+                currentChartIndex = pageIdx - offset;
+                const currentChartId = assignedCharts[currentChartIndex];
+
+                const dropdown = root.querySelector('#chart-dropdown');
+                dropdown.innerHTML = '';
+                assignedCharts.forEach((id, index) => {
+                    const opt = new Option(`${index + 1} / ${assignedCharts.length}: ${id}`, id);
+                    dropdown.appendChild(opt);
+                });
+                dropdown.value = currentChartId;
+
+                dropdown.onchange = () => {
+                    guardedNavigate(async () => {
+                        saveCurrentChartData();
+                        await persistAllData();
+                        const newIdx = assignedCharts.indexOf(dropdown.value);
+                        const offsetIndex = 1 + STATIC_PAGES_BEFORE_TASK.length;
+                        loadPage(newIdx + offsetIndex);
+                    });
+                };
+
+                renderChartForTask(currentChartId, 'chart-main-view');
+                restoreInputsForChart(currentChartId);
+            }
+        })),
+        ...STATIC_PAGES_AFTER_TASK
+    ];
+}
+
+function computeTotalPagesForCharts(chartList) {
+    const chartCount = Array.isArray(chartList) ? chartList.length : 0;
+    const staticCount = getStaticPageCount(); // excludes login
+    const total = chartCount + staticCount;
+    return total > 0 ? total : 1;
+}
+
+function normalizeSpecPath(rawPath) {
+    const p = (rawPath || '').trim();
+    if (!p) return null;
+    if (p.startsWith('http') || p.startsWith('../../')) return p;
+    if (p.startsWith('ChartQA/')) return `../../${p}`;
+    if (p.startsWith('data/')) return `../../ChartQA/${p}`;
+    return p;
+}
+
+function patchSpecDataUrl(spec) {
+    if (!spec || !spec.data || !spec.data.url) return spec;
+    const dataUrl = spec.data.url;
+    if (dataUrl.startsWith('http') || dataUrl.startsWith('../../')) {
+        return spec;
+    }
+    // if (dataUrl.startsWith('ChartQA/')) {
+    //     spec.data.url = `../../${dataUrl}`;
+    // } else if (dataUrl.startsWith('data/')) {
+    //     spec.data.url = `../../ChartQA/${dataUrl}`;
+    // } else {
+    //     spec.data.url = `../../ChartQA/${dataUrl}`;
+    // }
+    return spec;
+}
+
+async function setupTutorialExample(root) {
+    const chartWrap = root.querySelector('.tutorial-example-chart');
+    const viewEl = root.querySelector('#tutorial-chart-view');
+    const targetId = 'tutorial-chart-view';
+
+    if (!chartWrap || !viewEl) return;
+
+    const rawPath = chartWrap.dataset.specPath || DEFAULT_TUTORIAL_SPEC;
+    const normalized = normalizeSpecPath(rawPath) || normalizeSpecPath(DEFAULT_TUTORIAL_SPEC);
+    const specLabel = chartWrap.querySelector('.spec-path');
+    if (specLabel) {
+        specLabel.textContent = rawPath || DEFAULT_TUTORIAL_SPEC;
+    }
+
+    const render = async () => {
+        if (!normalized) return;
+        viewEl.innerHTML = '<div class="chart-placeholder">Loading chart...</div>';
+        try {
+            const spec = await (await fetch(normalized)).json();
+            patchSpecDataUrl(spec);
+            delete viewEl.dataset.chartBaseWidth;
+            delete viewEl.dataset.chartBaseHeight;
+            viewEl.innerHTML = '';
+            await renderPlainVegaLiteChart(targetId, spec);
+            fitChartToContainer(targetId);
+        } catch (err) {
+            console.error('Failed to render tutorial chart', err);
+            viewEl.innerHTML = `<div class="chart-placeholder" style="color:red;">Failed to load chart: ${err.message}</div>`;
+        }
+    };
+
+    render();
+}
+
+function refreshProgressIndicator(currentIndex = idx) {
+    const progressBar = document.querySelector('.progress-bar');
+    const progressLabel = document.querySelector('.progress-container span');
+    if (!progressBar || !progressLabel) return;
+    // login page is excluded from totals and hidden, so progress starts from tutorial (idx 1)
+    const total = Math.max(1, TOTAL_PAGES || 1);
+    const current = Math.min(Math.max(1, (currentIndex ?? 1)), total);
+    progressBar.max = total;
+    progressBar.value = current;
+    const percentage = ((current / total) * 100).toFixed(2);
+    progressLabel.textContent = `(${current}/${total}) ${percentage}%`;
+}
+
+function setTotalPages(nextTotal) {
+    const sanitized = Number.isFinite(nextTotal) && nextTotal > 0 ? nextTotal : 1;
+    if (TOTAL_PAGES !== sanitized) {
+        TOTAL_PAGES = sanitized;
+        refreshProgressIndicator();
+    }
+}
+
+async function previewTotalPagesForCode(code) {
+    const assignments = await loadParticipantAssignments();
+    const charts = assignments?.[code] || [];
+    setTotalPages(computeTotalPagesForCharts(charts));
 }
 
 // --- 3. 핵심 로직 함수 ---
@@ -119,6 +280,12 @@ async function renderChartForTask(chartId, elementId) {
     
     try {
         const spec = await (await fetch(specPath)).json();
+        const host = document.getElementById(elementId);
+        if (host) {
+            delete host.dataset.chartBaseWidth;
+            delete host.dataset.chartBaseHeight;
+        }
+        patchSpecDataUrl(spec);
         
         // 데이터 경로 수정
         if (spec.data && spec.data.url) {
@@ -143,6 +310,7 @@ async function renderChartForTask(chartId, elementId) {
         }
         
         await renderPlainVegaLiteChart(elementId, spec);
+        fitChartToContainer(elementId);
         
     } catch (e) {
         console.error(`Failed to render chart ${chartId} from ${specPath}`, e);
@@ -178,6 +346,64 @@ function saveCurrentChartData() {
 async function persistAllData() {
     if (participantCode) {
         await saveToFirebase(participantCode, allResponses);
+    }
+}
+
+function fitChartToContainer(elementId) {
+    const container = document.getElementById(elementId);
+    if (!container) return;
+
+    const embedRoot = container.querySelector('.vega-embed');
+    if (embedRoot) {
+        embedRoot.style.width = '100%';
+        embedRoot.style.height = '100%';
+        embedRoot.style.display = 'flex';
+        embedRoot.style.alignItems = 'center';
+        embedRoot.style.justifyContent = 'center';
+    }
+
+    const target = container.querySelector('.vega-embed svg, .vega-embed canvas, svg, canvas');
+    if (!target) return;
+
+    // Cache the original rendered size so we can scale relative to it
+    let baseWidth = Number(container.dataset.chartBaseWidth);
+    let baseHeight = Number(container.dataset.chartBaseHeight);
+    if (!Number.isFinite(baseWidth) || !Number.isFinite(baseHeight)) {
+        const attrWidth = Number(target.getAttribute('width'));
+        const attrHeight = Number(target.getAttribute('height'));
+        const viewBox = target.viewBox && target.viewBox.baseVal ? target.viewBox.baseVal : null;
+        baseWidth = Number.isFinite(attrWidth) && attrWidth > 0 ? attrWidth : (viewBox ? viewBox.width : target.clientWidth);
+        baseHeight = Number.isFinite(attrHeight) && attrHeight > 0 ? attrHeight : (viewBox ? viewBox.height : target.clientHeight);
+        if (!Number.isFinite(baseWidth) || baseWidth <= 0 || !Number.isFinite(baseHeight) || baseHeight <= 0) return;
+        container.dataset.chartBaseWidth = `${baseWidth}`;
+        container.dataset.chartBaseHeight = `${baseHeight}`;
+    }
+
+    const { clientWidth, clientHeight } = container;
+    if (clientWidth <= 0 || clientHeight <= 0) return;
+
+    // Decide which dimension to align to container, maintain aspect ratio
+    const prefersHeight = baseHeight >= baseWidth;
+    const scale = prefersHeight
+        ? (clientHeight / baseHeight)
+        : (clientWidth / baseWidth);
+
+    const newWidth = baseWidth * scale;
+    const newHeight = baseHeight * scale;
+
+    target.style.width = `${newWidth}px`;
+    target.style.height = `${newHeight}px`;
+    target.setAttribute('width', `${newWidth}`);
+    target.setAttribute('height', `${newHeight}`);
+
+    if (target.tagName && target.tagName.toLowerCase() === 'svg') {
+        target.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    }
+
+    if (!container.dataset.fitListenerAttached) {
+        const resizeHandler = () => fitChartToContainer(elementId);
+        container.dataset.fitListenerAttached = 'true';
+        window.addEventListener('resize', resizeHandler, { passive: true });
     }
 }
 
@@ -245,6 +471,13 @@ async function loadPage(pageIndex) {
         if (descriptor.id === 'login') {
              const codeInput = document.getElementById('participant-code');
              if(codeInput && participantCode) codeInput.value = participantCode;
+             if (codeInput) {
+                 const handleInput = () => previewTotalPagesForCode(codeInput.value.trim().toUpperCase());
+                 codeInput.addEventListener('input', handleInput);
+                 handleInput();
+             }
+        } else if (descriptor.id === 'tutorial') {
+             setupTutorialExample(root);
         } else if (descriptor.id === 'main-task') {
              // onLoad에서 이미 복원됨
         }
@@ -267,9 +500,8 @@ async function loadPage(pageIndex) {
                     const code = codeInput.value.trim().toUpperCase();
                     if (!code) return alert("Please enter a code.");
                     
-                    const assignments = await (await fetch('participant_assignments.json')).json();
-                    
-                    if (!assignments[code]) {
+                    const assignments = await loadParticipantAssignments();
+                    if (!assignments || !assignments[code]) {
                         return alert("Invalid participant code.");
                     }
                     
@@ -278,41 +510,8 @@ async function loadPage(pageIndex) {
                     allResponses = await fetchParticipantData(code);
                     currentChartIndex = 0;
                     
-                    pageDescriptors = [
-                        { id: 'login', path: 'pages/code-entry.html', slug: 'login' },
-                        { id: 'tutorial', path: 'pages/tutorial.html', slug: 'tutorial' },
-                        ...assignedCharts.map((chartId, i) => ({
-                            id: 'main-task',
-                            slug: chartId,
-                            path: 'pages/main-task.html',
-                            onLoad: (root, pageIdx) => {
-                                currentChartIndex = pageIdx - 2;
-                                const currentChartId = assignedCharts[currentChartIndex];
-                                
-                                const dropdown = root.querySelector('#chart-dropdown');
-                                dropdown.innerHTML = '';
-                                assignedCharts.forEach((id, index) => {
-                                    const opt = new Option(`${index + 1} / ${assignedCharts.length}: ${id}`, id);
-                                    dropdown.appendChild(opt);
-                                });
-                                dropdown.value = currentChartId;
-                                
-                                dropdown.onchange = () => {
-                                    guardedNavigate(async () => {
-                                        saveCurrentChartData();
-                                        await persistAllData();
-                                        const newIdx = assignedCharts.indexOf(dropdown.value);
-                                        loadPage(newIdx + 2);
-                                    });
-                                };
-
-                                renderChartForTask(currentChartId, 'chart-main-view');
-                                restoreInputsForChart(currentChartId);
-                            }
-                        })),
-                        { id: 'complete', path: 'pages/completion.html', slug: 'complete' } 
-                    ];
-                    TOTAL_PAGES = pageDescriptors.length;
+                    pageDescriptors = buildPageDescriptorsForAssignedCharts();
+                    setTotalPages(computeTotalPagesForCharts(assignedCharts));
                     
                     loadPage(idx + 1);
 
@@ -328,14 +527,16 @@ async function loadPage(pageIndex) {
             isLastPage: (descriptor.id === 'complete'),
             isAvailable: (descriptor.id !== 'complete'),
             hidePrev: (descriptor.id === 'login'),
-            totalPages: TOTAL_PAGES,
-            currentPage: idx + 1
+            totalPages: descriptor.id === 'login' ? null : TOTAL_PAGES,
+            currentPage: descriptor.id === 'login' ? null : Math.max(1, idx),
+            showProgress: descriptor.id !== 'login'
         });
         root.appendChild(nav);
 
     } catch (e) {
         root.innerHTML = `<div class="error">Error loading page: ${e.message}</div>`;
     }
+    refreshProgressIndicator(idx);
     updateButtons();
 }
 
@@ -372,16 +573,30 @@ function validatePage(root) {
 
 // --- 6. 초기화 ---
 document.addEventListener('DOMContentLoaded', () => {
-    pageDescriptors = [
-        { id: 'login', path: 'pages/code-entry.html', slug: 'login' } 
-    ];
-    TOTAL_PAGES = 1;
-    
+    initSurvey();
+});
+
+async function initSurvey() {
+    pageDescriptors = [LOGIN_PAGE];
+    setTotalPages(0);
+
     const urlParams = new URLSearchParams(window.location.search);
+    const codeFromQuery = (urlParams.get('code') || '').trim().toUpperCase();
+    const assignments = await loadParticipantAssignments();
+
+    if (codeFromQuery && assignments?.[codeFromQuery]) {
+        participantCode = codeFromQuery;
+        assignedCharts = assignments[codeFromQuery];
+        allResponses = await fetchParticipantData(codeFromQuery);
+        currentChartIndex = 0;
+        pageDescriptors = buildPageDescriptorsForAssignedCharts();
+        setTotalPages(computeTotalPagesForCharts(assignedCharts));
+    }
+    
     let startPage = parseInt(urlParams.get('page'), 10);
-    if (isNaN(startPage) || startPage < 0) {
+    if (isNaN(startPage) || startPage < 0 || startPage >= pageDescriptors.length) {
         startPage = 0;
     }
     
     loadPage(startPage);
-});
+}

@@ -3,7 +3,7 @@ import {executeAtomicOps} from "../router/router.js";
 import {getVegaLiteSpec, getOperationSpec} from "./util.js";
 import { runOpsSequence, attachOpNavigator, updateNavigatorStates } from "../operations/operationUtil.js";
 
-export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = null, submitFormId = null, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null }) {
+export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = null, submitFormId = null, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null, showProgress = true }) {
     const w = document.createElement('div');
     w.className = 'survey-nav';
     if (!isAvailable) {
@@ -28,26 +28,24 @@ export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = nu
         n.setAttribute('form', submitFormId);
     }
 
-    const progress = document.createElement('progress');
-    progress.className = 'progress-bar';
-    progress.max = totalPages;
-    progress.value = currentPage;
-    if (totalPages !== null && currentPage !== null) {
-        progress.max = totalPages;
-        progress.value = currentPage;
-    }
-
-    const progressLabel = document.createElement('span');
-    if (totalPages !== null && currentPage !== null) {
-        const percentage = ((currentPage / totalPages) * 100).toFixed(2);
-        progressLabel.textContent = `(${currentPage}/${totalPages}) ${percentage}%`;
-    }
-
     const progressContainer = document.createElement('div');
     progressContainer.className = 'progress-container';
-    progressContainer.append(progress);
-    progressContainer.append(document.createElement('br'));
-    progressContainer.append(progressLabel);
+    if (showProgress && totalPages !== null && currentPage !== null) {
+        const progress = document.createElement('progress');
+        progress.className = 'progress-bar';
+        progress.max = totalPages;
+        progress.value = currentPage;
+
+        const progressLabel = document.createElement('span');
+        const percentage = ((currentPage / totalPages) * 100).toFixed(2);
+        progressLabel.textContent = `(${currentPage}/${totalPages}) ${percentage}%`;
+
+        progressContainer.append(progress);
+        progressContainer.append(document.createElement('br'));
+        progressContainer.append(progressLabel);
+    } else {
+        progressContainer.style.display = 'none';
+    }
 
     if (!hidePrev) {
         p = document.createElement('button');
