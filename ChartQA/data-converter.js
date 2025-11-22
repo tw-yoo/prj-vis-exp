@@ -1,9 +1,9 @@
 const chartTypes = [
-  { id: 'bar_simple', label: 'Bar · Simple', segments: ['bar', 'simple'], ready: false },
-  { id: 'bar_stacked', label: 'Bar · Stacked', segments: ['bar', 'stacked'], ready: true },
-  { id: 'bar_grouped', label: 'Bar · Grouped', segments: ['bar', 'grouped'], ready: true },
-  { id: 'line_simple', label: 'Line · Simple', segments: ['line', 'simple'], ready: true },
-  { id: 'line_multiple', label: 'Line · Multiple', segments: ['line', 'multiple'], ready: true },
+  { id: 'simple', label: 'Bar · Simple', segments: ['bar', 'simple'], ready: false },
+  { id: 'stacked', label: 'Bar · Stacked', segments: ['bar', 'stacked'], ready: true },
+  { id: 'grouped', label: 'Bar · Grouped', segments: ['bar', 'grouped'], ready: true },
+  { id: 'simple', label: 'Line · Simple', segments: ['line', 'simple'], ready: true },
+  { id: 'multiple', label: 'Line · Multiple', segments: ['line', 'multiple'], ready: true },
 ];
 
 const Stage = {
@@ -109,7 +109,7 @@ function isImageFile(name) {
 }
 
 function isStackedType() {
-  return state.selectedType?.id === 'bar_stacked';
+  return state.selectedType?.id === 'stacked';
 }
 
 async function pickRootDirectory() {
@@ -230,19 +230,19 @@ function updateValueTable() {
     row.append(idxCell, xCell, yCell);
     dom.valueRows.appendChild(row);
   });
-  if (state.selectedType?.id === 'line_multiple' && state.groups.length) {
+  if (state.selectedType?.id === 'multiple' && state.groups.length) {
     const groupName = state.groups[state.currentGroupIndex] || '';
     const filled = state.yValues.filter((v) => v !== undefined).length;
     dom.captureProgress.textContent = `${groupName} (${state.currentGroupIndex + 1}/${
       state.groups.length
     }) · ${filled} / ${state.xValues.length}`;
-  } else if (state.selectedType?.id === 'bar_stacked' && state.groups.length) {
+  } else if (state.selectedType?.id === 'stacked' && state.groups.length) {
     const groupName = state.groups[state.currentGroupIndex] || '';
     const filled = state.yValues.filter((v) => v !== undefined).length;
     dom.captureProgress.textContent = `${groupName} (${state.currentGroupIndex + 1}/${
       state.groups.length
     }) · X ${state.stackCursor.xIndex + 1}/${state.xValues.length} · ${filled} / ${state.xValues.length}`;
-  } else if (state.selectedType?.id === 'bar_grouped' && state.groups.length) {
+  } else if (state.selectedType?.id === 'grouped' && state.groups.length) {
     const groupName = state.groups[state.currentGroupIndex] || '';
     const filled = state.yValues.filter((v) => v !== undefined).length;
     dom.captureProgress.textContent = `${groupName} (${state.currentGroupIndex + 1}/${
@@ -274,9 +274,9 @@ function resetInputsForImage() {
   state.precision = 2;
   if (state.selectedType && state.images.length) {
     state.stage =
-      state.selectedType.id === 'line_multiple' ||
-      state.selectedType.id === 'bar_stacked' ||
-      state.selectedType.id === 'bar_grouped'
+      state.selectedType.id === 'multiple' ||
+      state.selectedType.id === 'stacked' ||
+      state.selectedType.id === 'grouped'
         ? Stage.GroupInput
         : Stage.LabelInput;
   } else {
@@ -345,7 +345,7 @@ async function loadImagesAndDisplay(chartType) {
   setImageDisplay(state.images[state.imageIndex]);
   resetInputsForImage();
   const primary =
-    chartType.id === 'line_multiple' || chartType.id === 'bar_stacked' || chartType.id === 'bar_grouped'
+    chartType.id === 'multiple' || chartType.id === 'stacked' || chartType.id === 'grouped'
       ? '그룹을 입력하고 저장하세요.'
       : '라벨을 입력하고 저장하세요.';
   setStatus(primary, `${chartType.label} · ${state.images.length}개 남음`);
@@ -363,9 +363,9 @@ function setActiveChartButton(chartTypeId) {
 
 function toggleGroupSection() {
   const needsGroup =
-    state.selectedType?.id === 'line_multiple' ||
-    state.selectedType?.id === 'bar_stacked' ||
-    state.selectedType?.id === 'bar_grouped';
+    state.selectedType?.id === 'multiple' ||
+    state.selectedType?.id === 'stacked' ||
+    state.selectedType?.id === 'grouped';
   dom.groupSection.classList.toggle('hidden', !needsGroup);
 }
 
@@ -414,7 +414,7 @@ function updateTaskMessage() {
       secondary = 'X/Y 라벨을 입력하고 "라벨 저장"을 누르세요.';
       break;
     case Stage.XInput:
-      if (state.selectedType?.id === 'line_multiple' || state.selectedType?.id === 'bar_stacked') {
+      if (state.selectedType?.id === 'multiple' || state.selectedType?.id === 'stacked') {
         secondary = 'X축 값을 입력하세요. 모든 그룹에 동일하게 적용됩니다.';
       } else {
         secondary = 'X축 값을 한 줄에 하나씩 입력한 뒤 "X축 값 입력 완료"를 누르세요.';
@@ -430,19 +430,19 @@ function updateTaskMessage() {
       secondary = '차트 이미지에서 Y축 최대 지점을 클릭하세요.';
       break;
     case Stage.PointCapture: {
-      if (state.selectedType?.id === 'line_multiple' && state.groups.length) {
+      if (state.selectedType?.id === 'multiple' && state.groups.length) {
         const targetIndex = nextIndexForCurrentGroup();
         const targetX = state.xValues[targetIndex] || '';
         secondary = `그룹 "${currentGroupName()}" (${state.currentGroupIndex + 1}/${
           state.groups.length
         }) · "${targetX}" 위치를 클릭하세요. (${targetIndex + 1}/${state.xValues.length})`;
-      } else if (state.selectedType?.id === 'bar_stacked' && state.groups.length) {
+      } else if (state.selectedType?.id === 'stacked' && state.groups.length) {
         const { xIndex, groupIndex } = state.stackCursor;
         const targetX = state.xValues[xIndex] || '';
         secondary = `그룹 "${state.groups[groupIndex] || ''}" (${groupIndex + 1}/${
           state.groups.length
         }) · "${targetX}" 위치를 클릭하세요. (X ${xIndex + 1}/${state.xValues.length})`;
-      } else if (state.selectedType?.id === 'bar_grouped' && state.groups.length) {
+      } else if (state.selectedType?.id === 'grouped' && state.groups.length) {
         const { xIndex, groupIndex } = state.stackCursor;
         const targetX = state.xValues[xIndex] || '';
         secondary = `그룹 "${state.groups[groupIndex] || ''}" (${groupIndex + 1}/${
@@ -544,23 +544,23 @@ function setYRangeClickGuide() {
   } else if (state.stage === Stage.YRangeMaxClick) {
     dom.clickGuide.textContent = '차트 이미지에서 Y축 최대값 위치(끝 지점)를 클릭하세요.';
   } else if (state.stage === Stage.PointCapture) {
-    if (state.selectedType?.id === 'bar_stacked' && state.groups.length) {
+    if (state.selectedType?.id === 'stacked' && state.groups.length) {
       const { xIndex, groupIndex } = state.stackCursor;
       const xLabel = state.xValues[xIndex] || '-';
       dom.clickGuide.textContent = `${xLabel} / ${state.groups[groupIndex] || ''} 위치를 클릭하세요. (X ${
         xIndex + 1
       }/${state.xValues.length}, 그룹 ${groupIndex + 1}/${state.groups.length})`;
-    } else if (state.selectedType?.id === 'bar_grouped' && state.groups.length) {
+    } else if (state.selectedType?.id === 'grouped' && state.groups.length) {
       const { xIndex, groupIndex } = state.stackCursor;
       const xLabel = state.xValues[xIndex] || '-';
       dom.clickGuide.textContent = `${xLabel} / ${state.groups[groupIndex] || ''} 위치를 클릭하세요. (X ${
         xIndex + 1
       }/${state.xValues.length}, 그룹 ${groupIndex + 1}/${state.groups.length})`;
     } else {
-      const targetIndex = state.selectedType?.id === 'line_multiple' ? nextIndexForCurrentGroup() : state.yValues.length;
+      const targetIndex = state.selectedType?.id === 'multiple' ? nextIndexForCurrentGroup() : state.yValues.length;
       const xLabel = state.xValues[targetIndex] || '-';
       const groupText =
-        state.selectedType?.id === 'line_multiple' && state.groups.length
+        state.selectedType?.id === 'multiple' && state.groups.length
           ? ` [${currentGroupName()} - ${state.currentGroupIndex + 1}/${state.groups.length}]`
           : '';
       dom.clickGuide.textContent = `${xLabel} 에 해당하는 위치를 클릭하면 Y 값을 계산합니다.${groupText}`;
@@ -575,9 +575,9 @@ function handleLabelConfirm() {
     return;
   }
   if (
-    (state.selectedType?.id === 'line_multiple' ||
-      state.selectedType?.id === 'bar_stacked' ||
-      state.selectedType?.id === 'bar_grouped') &&
+    (state.selectedType?.id === 'multiple' ||
+      state.selectedType?.id === 'stacked' ||
+      state.selectedType?.id === 'grouped') &&
     !state.groups.length
   ) {
     setStatus('그룹 입력이 먼저 필요합니다.', '그룹을 입력하고 저장하세요.');
@@ -656,9 +656,9 @@ function handleXValuesConfirm() {
   }
   state.xValues = values;
   if (
-    state.selectedType?.id === 'line_multiple' ||
-    state.selectedType?.id === 'bar_stacked' ||
-    state.selectedType?.id === 'bar_grouped'
+    state.selectedType?.id === 'multiple' ||
+    state.selectedType?.id === 'stacked' ||
+    state.selectedType?.id === 'grouped'
   ) {
     initGroupValues(values.length);
     state.yValues = state.groupValues[state.currentGroupIndex];
@@ -747,7 +747,7 @@ function handleImageClick(event) {
   }
 
   if (state.stage === Stage.PointCapture) {
-    if (state.selectedType?.id === 'bar_stacked' && state.groups.length) {
+    if (state.selectedType?.id === 'stacked' && state.groups.length) {
       const { xIndex, groupIndex } = state.stackCursor;
       if (xIndex >= state.xValues.length) return;
       const absoluteValue = convertPixelToValue(y);
@@ -792,7 +792,7 @@ function handleImageClick(event) {
       return;
     }
 
-    if (state.selectedType?.id === 'bar_grouped' && state.groups.length) {
+    if (state.selectedType?.id === 'grouped' && state.groups.length) {
       const { xIndex, groupIndex } = state.stackCursor;
       if (xIndex >= state.xValues.length) return;
       const value = convertPixelToValue(y);
@@ -828,7 +828,7 @@ function handleImageClick(event) {
     }
 
     const targetIndex = state.yValues.length;
-    const nextIndex = state.selectedType?.id === 'line_multiple' ? nextIndexForCurrentGroup() : targetIndex;
+    const nextIndex = state.selectedType?.id === 'multiple' ? nextIndexForCurrentGroup() : targetIndex;
     if (nextIndex >= state.xValues.length) return;
     const value = convertPixelToValue(y);
     if (!Number.isFinite(value)) {
@@ -839,7 +839,7 @@ function handleImageClick(event) {
     addMarker(xPercent, yPercent, `${nextIndex + 1}`, '');
     updateValueTable();
     if (nextIndexForCurrentGroup() >= state.xValues.length) {
-      if (state.selectedType?.id === 'line_multiple') {
+      if (state.selectedType?.id === 'multiple') {
         state.groupValues[state.currentGroupIndex] = [...state.yValues];
         if (state.currentGroupIndex < state.groups.length - 1) {
           state.currentGroupIndex += 1;
@@ -885,9 +885,9 @@ function resetWorkflow() {
   state.precision = 2;
   if (state.selectedType && state.images.length) {
     state.stage =
-      state.selectedType.id === 'line_multiple' ||
-      state.selectedType.id === 'bar_stacked' ||
-      state.selectedType.id === 'bar_grouped'
+      state.selectedType.id === 'multiple' ||
+      state.selectedType.id === 'stacked' ||
+      state.selectedType.id === 'grouped'
         ? Stage.GroupInput
         : Stage.LabelInput;
   } else {
@@ -936,9 +936,9 @@ function resetGroupsSection() {
   state.xInputMode = XInputMode.Range;
   state.precision = 2;
   state.stage =
-    state.selectedType.id === 'line_multiple' ||
-    state.selectedType.id === 'bar_stacked' ||
-    state.selectedType.id === 'bar_grouped'
+    state.selectedType.id === 'multiple' ||
+    state.selectedType.id === 'stacked' ||
+    state.selectedType.id === 'grouped'
       ? Stage.GroupInput
       : Stage.LabelInput;
   dom.groupNamesInput.value = '';
@@ -967,9 +967,9 @@ function resetLabelsSection() {
   clearMarkers();
   state.labels = { x: '', y: '' };
   if (
-    state.selectedType.id === 'line_multiple' ||
-    state.selectedType.id === 'bar_stacked' ||
-    state.selectedType.id === 'bar_grouped'
+    state.selectedType.id === 'multiple' ||
+    state.selectedType.id === 'stacked' ||
+    state.selectedType.id === 'grouped'
   ) {
     state.groups = [];
     state.groupValues = [];
@@ -992,9 +992,9 @@ function resetLabelsSection() {
   state.xInputMode = XInputMode.Range;
   state.precision = 2;
   state.stage =
-    state.selectedType.id === 'line_multiple' ||
-    state.selectedType.id === 'bar_stacked' ||
-    state.selectedType.id === 'bar_grouped'
+    state.selectedType.id === 'multiple' ||
+    state.selectedType.id === 'stacked' ||
+    state.selectedType.id === 'grouped'
       ? Stage.GroupInput
       : Stage.LabelInput;
   dom.xLabelInput.value = '';
@@ -1020,9 +1020,9 @@ function resetXSection() {
   }
   clearMarkers();
   if (
-    state.selectedType.id === 'line_multiple' ||
-    state.selectedType.id === 'bar_stacked' ||
-    state.selectedType.id === 'bar_grouped'
+    state.selectedType.id === 'multiple' ||
+    state.selectedType.id === 'stacked' ||
+    state.selectedType.id === 'grouped'
   ) {
     state.groupValues = [];
     state.currentGroupIndex = 0;
@@ -1057,9 +1057,9 @@ function resetYRangeSection() {
   }
   clearMarkers();
   if (
-    state.selectedType.id === 'line_multiple' ||
-    state.selectedType.id === 'bar_stacked' ||
-    state.selectedType.id === 'bar_grouped'
+    state.selectedType.id === 'multiple' ||
+    state.selectedType.id === 'stacked' ||
+    state.selectedType.id === 'grouped'
   ) {
     state.groupValues = [];
     state.currentGroupIndex = 0;
@@ -1088,7 +1088,7 @@ function resetYClicksSection() {
     return;
   }
   clearMarkers();
-  if (state.selectedType.id === 'line_multiple' || state.selectedType.id === 'bar_stacked') {
+  if (state.selectedType.id === 'multiple' || state.selectedType.id === 'stacked') {
     state.groupValues = [];
     state.currentGroupIndex = 0;
     state.stackCursor = { xIndex: 0, groupIndex: 0 };
@@ -1129,7 +1129,7 @@ async function removeFromSource(chartType, fileName) {
 }
 
 function buildCsvString() {
-  if (state.selectedType?.id === 'line_multiple' || state.selectedType?.id === 'bar_stacked') {
+  if (state.selectedType?.id === 'multiple' || state.selectedType?.id === 'stacked') {
     const groupHeader = state.groupLabel || 'Group';
     const header = `${state.labels.x},${groupHeader},${state.labels.y}\n`;
     const rows = state.groups
@@ -1157,7 +1157,7 @@ async function handleSave() {
   const imageRecord = state.images[state.imageIndex];
   if (!imageRecord) return;
 
-  if (chartType.id === 'line_multiple' || chartType.id === 'bar_stacked') {
+  if (chartType.id === 'multiple' || chartType.id === 'stacked') {
     if (!state.groups.length) {
       setStatus('그룹이 설정되지 않았습니다.', '');
       return;
