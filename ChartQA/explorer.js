@@ -14,11 +14,11 @@ const STATIC_FILES = new Map([
 ]);
 
 const CLASS_PATHS = {
-  1: path.join(ROOT_DIR, 'eligible', 'bar_simple'),
-  2: path.join(ROOT_DIR, 'eligible', 'bar_stacked'),
-  3: path.join(ROOT_DIR, 'eligible', 'bar_grouped'),
-  4: path.join(ROOT_DIR, 'eligible', 'line_simple'),
-  5: path.join(ROOT_DIR, 'eligible', 'line_multiple'),
+  1: path.join(ROOT_DIR, 'eligible', 'simple'),
+  2: path.join(ROOT_DIR, 'eligible', 'stacked'),
+  3: path.join(ROOT_DIR, 'eligible', 'grouped'),
+  4: path.join(ROOT_DIR, 'eligible', 'simple'),
+  5: path.join(ROOT_DIR, 'eligible', 'multiple'),
   0: path.join(ROOT_DIR, 'not_eligible'),
 };
 
