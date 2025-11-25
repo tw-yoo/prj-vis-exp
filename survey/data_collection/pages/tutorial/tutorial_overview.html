@@ -1,0 +1,466 @@
+<div class="page-content tutorial-page tutorial-page--example">
+    <header class="tutorial-header">
+        <div>
+<!--            <p class="eyebrow">Tutorial • What you will do</p>-->
+            <h1>Create a compositional question from a chart</h1>
+            <p class="lede" style="font-size: 1.1em;">
+<!--                In this study, you will (1) <strong>read</strong> a given chart; (2) <strong>create</strong> a compositional question that can be answered from the chart; (3) <strong>calculate</strong> the answer; (4) <strong>mark</strong> what kind of arithmetic operations did you use to get the answer; (5) <strong>explain</strong> how did you get the answer.</p>-->
+<!--                You’ll read a chart, write a multi-step question, calculate the single correct answer (with any calculator/tool you like),-->
+<!--                select the operations you used (hover to see what each means), and explain your steps.-->
+        </div>
+
+        <div class="steps-box">
+            <p>To successfully complete the study, please follow this steps:</p>
+            <ol class="steps">
+                <li><strong>Read</strong> a given chart.</li>
+                <li><strong>Create</strong> a compositional question that can be answered from the chart.</li>
+                <li><strong>Calculate</strong> the answer.</li>
+                <li><strong>Mark</strong> what kind of arithmetic operations did you use.</li>
+                <li><strong>Explain</strong> how did you get the answer.</li>
+                <li><strong>Iterate</strong> this steps for 20 times</li>
+<!--                <li><strong>Write a compositional question.</strong> It should require multiple operations (not a single lookup).</li>-->
+<!--                <li><strong>Compute the single correct answer.</strong> Use any calculator/phone/GPT for the math, not for writing the question.</li>-->
+<!--                <li><strong>Select the operations you used.</strong> Hover each label to see what it means; add others if needed.</li>-->
+<!--                <li><strong>Explain your steps.</strong> Bullet them as “1, 2, 3” or “First, Second, Third”.</li>-->
+            </ol>
+        </div>
+        <div class="reminder">
+            <strong>Important:</strong> Use tools to <em>calculate</em> the answer, but <strong>do not use LLMs to generate the question itself.</strong>
+        </div>
+    </header>
+
+    <div class="example-grid">
+        <section class="card chart-card">
+            <div class="card-header">
+                <h3>Chart to read</h3>
+                <p class="hint">Look over the chart first. All answers should be derived from this chart.</p>
+            </div>
+            <div id="tutorial-chart-view__host" class="chart-host tutorial-example-chart" data-spec-path="pages/tutorial/tutorial_chart.json">
+                <div id="tutorial-chart-view" class="d3chart-container">
+                    <div class="chart-placeholder">Chart will appear here.</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card form-card">
+            <div class="card-header">
+                <h3>Try it exactly like the survey</h3>
+                <p class="hint">Fill 1–2 first, then continue to operations and explanation.</p>
+            </div>
+
+            <div class="form-body">
+                <div class="stage-panel is-active" data-stage="qa">
+                    <div data-component="open-ended"
+                         data-id="q-question"
+                         data-labelText="1. Your Question"
+                         data-placeholder="Enter your compositional question..."
+                         data-multiline="true"></div>
+
+                <div data-component="open-ended"
+                     data-id="q-answer"
+                     data-labelText="2. The Answer"
+                     data-placeholder="Enter the single correct answer (numbers/text/True–False)"
+                     data-multiline="false"></div>
+
+                    <p class="hint">Use any calculator/tool for the math, but not to write the question.</p>
+                </div>
+
+                <div class="stage-panel" data-stage="ops" style="display: none;">
+                    <p class="hint">In the actual survey, this part appears after you click Next.</p>
+                    <div class="qa-review">
+                        <div class="qa-review-item">
+                            <span class="qa-review-label">1. Your Question</span>
+                            <span class="qa-review-text" id="qa-review-question">No question yet.</span>
+                        </div>
+                        <div class="qa-review-item">
+                            <span class="qa-review-label">2. The Answer</span>
+                            <span class="qa-review-text" id="qa-review-answer">No answer yet.</span>
+                        </div>
+                    </div>
+
+                    <div class="ops-checklist">
+                        <label class="question">3. Operations Used (hover for meaning)</label>
+                        <div class="ops-checklist-body" id="ops-checklist">
+                            <label class="ops-check" data-tip="Placeholder description for Filter.">
+                                <input type="checkbox" value="Filter">
+                                <span>Filter</span>
+                            </label>
+                            <label class="ops-check" data-tip="Placeholder description for Sort.">
+                                <input type="checkbox" value="Sort">
+                                <span>Sort</span>
+                            </label>
+                            <label class="ops-check" data-tip="Placeholder description for Sum.">
+                                <input type="checkbox" value="Sum">
+                                <span>Sum</span>
+                            </label>
+                            <label class="ops-check" data-tip="Placeholder description for Average.">
+                                <input type="checkbox" value="Average">
+                                <span>Average</span>
+                            </label>
+                            <label class="ops-check" data-tip="Placeholder description for Difference.">
+                                <input type="checkbox" value="Difference">
+                                <span>Difference</span>
+                            </label>
+                            <label class="ops-check" data-tip="Placeholder description for Find Extremum.">
+                                <input type="checkbox" value="Find Extremum">
+                                <span>Find Extremum</span>
+                            </label>
+                            <label class="ops-check" data-tip="Placeholder description for Nth.">
+                                <input type="checkbox" value="Nth">
+                                <span>Nth</span>
+                            </label>
+                        </div>
+                        <div class="ops-custom">
+                            <label class="question optional-question" for="ops-custom-input">Other operations (add/remove)</label>
+                            <div class="ops-custom-input-row">
+                                <input id="ops-custom-input" type="text" placeholder="Add an operation and press + or Enter">
+                                <button type="button" id="ops-custom-add-btn" class="ops-custom-add" aria-label="Add custom operation">+</button>
+                            </div>
+                            <div class="ops-custom-list" id="ops-custom-list"></div>
+                        </div>
+                    </div>
+
+                    <div data-component="open-ended"
+                         data-id="q-explanation"
+                         data-labelText="4. Explanation (Step-by-step)"
+                         data-placeholder="1. ... &#10;2. ... &#10;3. ... "
+                         data-multiline="true"></div>
+                    <p class="hint">You can write steps as “1, 2, 3” or “First, Second, Third”.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <style>
+        .tutorial-page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 18px 32px;
+        }
+        .tutorial-header {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 12px;
+            color: #6b7280;
+            margin: 0;
+        }
+        .tutorial-header h1 {
+            margin: 0;
+            font-size: 26px;
+        }
+        .lede {
+            margin: 2px 0 0;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+        .reminder {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #7c2d12;
+            max-width: 100%;
+        }
+        .steps-box {
+            max-width: 100%;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px 14px;
+        }
+        .steps-box h3 {
+            margin: 0 0 6px 0;
+        }
+        .example-grid {
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 18px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .card-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .card-header h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+        }
+        .card-header .hint {
+            margin: 0;
+            color: red;
+            font-size: 14px;
+        }
+        .chart-card .chart-host {
+            padding: 0;
+        }
+        /* Match chart sizing/placement with tutorial task page */
+        .chart-host {
+            width: 100%;
+            height: 100%;
+            min-height: 420px;
+            display: flex;
+            flex: 1 0 100%;
+            border: 1px dashed #e5e7eb;
+            border-radius: 8px;
+            background: #f9fafb;
+            align-items: stretch;
+            justify-content: stretch;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        .d3chart-container {
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            min-height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 1 0 100%;
+            border: 1px solid #eee;
+            background: #fafafa;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .chart-host > .d3chart-container {
+            align-self: stretch;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .chart-host .vega-embed {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .chart-placeholder {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+        .form-card .form-body {
+            padding: 14px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .steps {
+            margin: 4px 0 0;
+            padding-left: 18px;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+        .ops-checklist {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            background: #f9fafb;
+        }
+        .ops-checklist-body {
+            max-height: 200px;
+            overflow: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 8px;
+            background: #fff;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 8px;
+        }
+        .ops-check {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            padding: 6px 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .ops-check input {
+            pointer-events: auto;
+        }
+        .ops-check::after {
+            content: attr(data-tip);
+            position: absolute;
+            left: 0;
+            bottom: calc(100% + 6px);
+            background: #0f172a;
+            color: #fff;
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            line-height: 1.4;
+            width: 220px;
+            max-width: 70vw;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(6px);
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            z-index: 5;
+            display: block;
+        }
+        .ops-check:hover::after,
+        .ops-check:focus-within::after {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .ops-custom {
+            margin-top: 10px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 10px;
+        }
+        .ops-custom-input-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .ops-custom-input-row input {
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .ops-custom-add {
+            padding: 8px 12px;
+            border: 1px solid #38bdf8;
+            background: #0ea5e9;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            min-width: 44px;
+        }
+        .ops-custom-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .ops-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: #e0f2fe;
+            color: #0f172a;
+            border-radius: 999px;
+            border: 1px solid #bae6fd;
+        }
+        .ops-chip__label { font-weight: 600; }
+        .ops-chip__remove {
+            border: none;
+            background: #f1f5f9;
+            color: #0f172a;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .micro-hint {
+            margin: 0;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .stage-panel {
+            margin-top: 4px;
+        }
+        .stage-panel.is-active {
+            display: block;
+        }
+        .qa-review {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 12px;
+            background: #f8fafc;
+            display: grid;
+            gap: 6px;
+        }
+        .qa-review-item {
+            display: block;
+            line-height: 1.4;
+        }
+        .qa-review-label {
+            font-weight: 700;
+            color: #0f172a;
+            margin-right: 6px;
+            display: inline;
+        }
+        .qa-review-label::after {
+            content: ': ';
+        }
+        .qa-review-text {
+            display: inline;
+            border: none;
+            padding: 0;
+            background: transparent;
+            min-height: auto;
+            white-space: pre-wrap;
+        }
+        .form-card textarea#q-explanation {
+            min-height: 4.5em;
+        }
+        @media (max-width: 1080px) {
+            .example-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</div>
+
+<script>
+// Lightweight custom-op handler for the tutorial page
+(function() {
+    const input = document.getElementById('ops-custom-input');
+    const addBtn = document.getElementById('ops-custom-add-btn');
+    const list = document.getElementById('ops-custom-list');
+    if (!input || !addBtn || !list) return;
+
+    const addOp = () => {
+        const value = (input.value || '').trim();
+        if (!value) return;
+        const exists = Array.from(list.querySelectorAll('[data-value]')).some(el => (el.dataset.value || '').toLowerCase() === value.toLowerCase());
+        if (exists) {
+            input.value = '';
+            return;
+        }
+        const chip = document.createElement('div');
+        chip.className = 'ops-chip';
+        chip.dataset.value = value;
+        const label = document.createElement('span');
+        label.className = 'ops-chip__label';
+        label.textContent = value;
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'ops-chip__remove';
+        remove.textContent = '-';
+        remove.addEventListener('click', () => chip.remove());
+        chip.append(label, remove);
+        list.appendChild(chip);
+        input.value = '';
+        input.focus();
+    };
+
+    addBtn.addEventListener('click', addOp);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addOp();
+        }
+    });
+})();
+</script>

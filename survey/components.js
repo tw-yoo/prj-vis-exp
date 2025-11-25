@@ -3,13 +3,20 @@ import {executeAtomicOps} from "../router/router.js";
 import {getVegaLiteSpec, getOperationSpec} from "./util.js";
 import { runOpsSequence, attachOpNavigator, updateNavigatorStates } from "../operations/operationUtil.js";
 
-export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = null, submitFormId = null, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null, showProgress = true }) {
+export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = null, submitFormId = null, isLastPage = false, isAvailable = true, hidePrev = false, totalPages = null, currentPage = null, showProgress = true, align = 'start' }) {
     const w = document.createElement('div');
     w.className = 'survey-nav';
+    if (align === 'center') {
+        w.classList.add('survey-nav--centered');
+    } else {
+        w.classList.add('survey-nav--start');
+    }
     if (!isAvailable) {
         w.style.display = 'none';
         return w;
     }
+    const inner = document.createElement('div');
+    inner.className = 'survey-nav__inner';
     let p;
     const n = document.createElement('button');
     n.id = nextId;
@@ -55,11 +62,12 @@ export function createNavButtons({ prevId, nextId, onPrev, onNext, onSubmit = nu
         p.disabled = true;
         p.addEventListener('click', onPrev);
         // Order: Previous, progress container, Next
-        w.append(p, progressContainer, n);
+        inner.append(p, progressContainer, n);
     } else {
         // Order: progress container, Next
-        w.append(progressContainer, n);
+        inner.append(progressContainer, n);
     }
+    w.append(inner);
     return w;
 }
 

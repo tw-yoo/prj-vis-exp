@@ -35,10 +35,47 @@
 
 /* 네비게이션 컨테이너 */
 .survey-nav {
-    width: 500px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin: 1.5rem 0 0.75rem;
+    padding-top: 0.5rem;
+}
+
+.survey-nav__inner {
+    width: min(520px, 100%);
     display: flex;
     justify-content: space-between;
-    margin: 1rem 0;
+    align-items: center;
+    gap: 12px;
+}
+
+.survey-nav--centered {
+    justify-content: center;
+}
+
+.survey-nav--start {
+    justify-content: flex-start;
+}
+
+/* Tutorial chart host should allow the SVG/canvas to fill available space */
+#tutorial-chart-view__host {
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+#tutorial-chart-view {
+    width: 100%;
+    height: 100%;
+    display: flex;
+}
+
+#tutorial-chart-view .vega-embed,
+#tutorial-chart-view svg,
+#tutorial-chart-view canvas {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* 필수 질문 표시 */

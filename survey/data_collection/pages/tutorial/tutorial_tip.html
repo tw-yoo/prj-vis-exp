@@ -1,80 +1,80 @@
 <div class="page-content tutorial-page">
-    <h1>Compositional Chart Question Generation Tutorial</h1>
-    
-    <div class="tutorial-intro">
-        <p>In this task, you will create compositional questions about charts using specific arithmetic operations. In this tutorial, we will understand what operations are available and how to use them.</p>
-    </div>
+<!--    <h1>Tutorial</h1>-->
+<!--    -->
+<!--    <div class="tutorial-intro">-->
+<!--        <p>In this task, you will create compositional questions about charts using specific arithmetic operations. This tutorial will help you understand what operations are available and how to use them.</p>-->
+<!--    </div>-->
 
-    <h2>Compositional Chart Question</h2>
-    <p>A compositional chart question is a question that requires <strong>more than one step</strong> to answer. Instead of looking at a single value in the chart, you combine two or more pieces of information to figure out the result.</p>
-    <div class="tutorial-example">
-        <div class="tutorial-example-chart" id="tutorial-chart-view" data-spec-path="pages/tutorial_chart.json">
-            <div class="chart-placeholder">Loading chart...</div>
-        </div>
-        <div class="tutorial-example-explanation">
-<p><strong>Compositional question examples (correct):</strong></p>
-<ul>
-    <li>"What is the difference between the total number of sunny days in summer months (June, July, August) and the total number of sunny days in winter months (December, January, February)?"
-        <br><small>Uses: Filter (by month groups) + Sum + Difference</small></li>
-    <li>"Which month has the second highest combined number of foggy and rainy days?"
-        <br><small>Uses: Sum (fog + rain per month) + Sort + Nth</small></li>
-    <li>"What is the difference between the average number of sunny days in the first quarter (January–March) and the average number of sunny days in the last quarter (October–December)?"
-        <br><small>Uses: Filter (by quarter) + Average + Difference</small></li>
-</ul>
-
-<p><strong>Non-compositional (incorrect) examples:</strong></p>
-<ul>
-    <li>"How many sunny days are there in July?"
-        <br><small>Only uses: Retrieve Value</small></li>
-    <li>"Which month has the highest number of foggy days?"
-        <br><small>Only uses: Find Extremum</small></li>
-    <li>"What is the drizzle count in March?"
-        <br><small>Only uses: Retrieve Value</small></li>
-</ul>
+<!--    <h2>Compositional Chart Question</h2>-->
+<!--    <p style="font-size: 1.25em;">A compositional chart question is a question that requires <strong>more than one step</strong> to answer. Instead of looking at a single value in the chart, you combine two or more pieces of information to figure out the result.</p>-->
+<!--    <div class="tutorial-example">-->
+<!--        <div class="tutorial-example-chart" id="tutorial-chart-view" data-spec-path="pages/tutorial/tutorial_chart.json">-->
+<!--            <div class="chart-placeholder">Loading chart...</div>-->
+<!--        </div>-->
+<!--        <div class="tutorial-example-explanation">-->
+<!--<p><strong>Compositional question examples (correct):</strong></p>-->
+<!--<ul>-->
+<!--    <li>"What is the difference between the total number of sunny days in summer months (June, July, August) and the total number of sunny days in winter months (December, January, February)?"-->
+<!--        <br><small>Uses: Filter (by month groups) + Sum + Difference</small></li>-->
+<!--    <li>"Which month has the second highest combined number of foggy and rainy days?"-->
+<!--        <br><small>Uses: Sum (fog + rain per month) + Sort + Nth</small></li>-->
+<!--    <li>"What is the difference between the average number of sunny days in the first quarter (January–March) and the average number of sunny days in the last quarter (October–December)?"-->
+<!--        <br><small>Uses: Filter (by quarter) + Average + Difference</small></li>-->
+<!--</ul>-->
+<!---->
+<!--<p><strong>Non-compositional (incorrect) examples:</strong></p>-->
+<!--<ul>-->
+<!--    <li>"How many sunny days are there in July?"-->
+<!--        <br><small>Only uses: Retrieve Value</small></li>-->
+<!--    <li>"Which month has the highest number of foggy days?"-->
+<!--        <br><small>Only uses: Find Extremum</small></li>-->
+<!--    <li>"What is the drizzle count in March?"-->
+<!--        <br><small>Only uses: Retrieve Value</small></li>-->
+<!--</ul>-->
 
 <!--<p>Use the chart to practice creating questions that require multiple reasoning steps and at least two operations.</p>-->
         </div>
-    </div>
+<!--    </div>-->
 
-    <h2>Available Operations (10 Types)</h2>
-    <p>In this survey, you will create compositional chart questions using two or more operations below:</p>
-    
-    <div class="operations-grid">
-        <div class="operation-card">
-            <h3>1. Retrieve Value</h3>
-            <p>Get the value of a specific data point.</p>
-            <p class="example"><strong>Example:</strong> "What is the GDP of USA in 2020?"</p>
-        </div>
+<!--    <h2>Available Operations (10 Types)</h2>-->
+<!--    <p>In this survey, you will create compositional chart questions using two or more operations below:</p>-->
 
-        <div class="operation-card">
-            <h3>2. Filter</h3>
-            <p>Select data points that meet certain conditions.</p>
-            <p class="example"><strong>Example:</strong> "Which countries have GDP greater than 10,000?"</p>
-        </div>
+<!--    <div class="operations-grid">-->
+<!--        <div class="operation-card">-->
+<!--            <h3>1. Retrieve Value</h3>-->
+<!--            <p>Get the value of a specific data point.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "What is the GDP of USA in 2020?"</p>-->
+<!--        </div>-->
 
-        <div class="operation-card">
-            <h3>3. Find Extremum</h3>
-            <p>Find the maximum or minimum value.</p>
-            <p class="example"><strong>Example:</strong> "Which country has the highest GDP?"</p>
-        </div>
+<!--        <div class="operation-card">-->
+<!--            <h3>2. Filter</h3>-->
+<!--            <p>Select data points that meet certain conditions.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "Which countries have GDP greater than 10,000?"</p>-->
+<!--        </div>-->
 
-        <div class="operation-card">
-            <h3>4. Determine Range</h3>
-            <p>Find the difference between max and min values.</p>
-            <p class="example"><strong>Example:</strong> "What is the range of GDP values?"</p>
-        </div>
+<!--        <div class="operation-card">-->
+<!--            <h3>3. Find Extremum</h3>-->
+<!--            <p>Find the maximum or minimum value.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "Which country has the highest GDP?"</p>-->
+<!--        </div>-->
 
-        <div class="operation-card">
-            <h3>5. Sort</h3>
-            <p>Arrange data in ascending or descending order.</p>
-            <p class="example"><strong>Example:</strong> "Sort countries by GDP from highest to lowest"</p>
-        </div>
+<!--        <div class="operation-card">-->
+<!--            <h3>4. Determine Range</h3>-->
+<!--            <p>Find the difference between max and min values.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "What is the range of GDP values?"</p>-->
+<!--        </div>-->
 
-        <div class="operation-card">
-            <h3>6. Compare</h3>
-            <p>Compare values between two items.</p>
-            <p class="example"><strong>Example:</strong> "Which country has higher GDP: USA or China?"</p>
-        </div>
+<!--        <div class="operation-card">-->
+<!--            <h3>5. Sort</h3>-->
+<!--            <p>Arrange data in ascending or descending order.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "Sort countries by GDP from highest to lowest"</p>-->
+<!--        </div>-->
+
+<!--        <div class="operation-card">-->
+<!--            <h3>6. Compare</h3>-->
+<!--            <p>Compare values between two items.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "Which country has higher GDP: USA or China?"</p>-->
+<!--        </div>-->
 
 <!--        <div class="operation-card">-->
 <!--            <h3>7. Compare Bool</h3>-->
@@ -82,29 +82,29 @@
 <!--            <p class="example"><strong>Example:</strong> "Is USA's GDP greater than China's?"</p>-->
 <!--        </div>-->
 
-        <div class="operation-card">
-            <h3>7. Sum</h3>
-            <p>Calculate the total of multiple values.</p>
-            <p class="example"><strong>Example:</strong> "What is the total GDP of Asian countries?"</p>
-        </div>
+<!--        <div class="operation-card">-->
+<!--            <h3>7. Sum</h3>-->
+<!--            <p>Calculate the total of multiple values.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "What is the total GDP of Asian countries?"</p>-->
+<!--        </div>-->
 
-        <div class="operation-card">
-            <h3>8. Average</h3>
-            <p>Calculate the mean value.</p>
-            <p class="example"><strong>Example:</strong> "What is the average GDP across all countries?"</p>
-        </div>
+<!--        <div class="operation-card">-->
+<!--            <h3>8. Average</h3>-->
+<!--            <p>Calculate the mean value.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "What is the average GDP across all countries?"</p>-->
+<!--        </div>-->
 
-        <div class="operation-card">
-            <h3>9. Difference</h3>
-            <p>Calculate the difference between two values or groups.</p>
-            <p class="example"><strong>Example:</strong> "What is the difference in GDP between USA and UK?"</p>
-        </div>
+<!--        <div class="operation-card">-->
+<!--            <h3>9. Difference</h3>-->
+<!--            <p>Calculate the difference between two values or groups.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "What is the difference in GDP between USA and UK?"</p>-->
+<!--        </div>-->
 
-        <div class="operation-card">
-            <h3>10. Nth</h3>
-            <p>Select the nth item in order.</p>
-            <p class="example"><strong>Example:</strong> "What is the 3rd highest GDP value?"</p>
-        </div>
+<!--        <div class="operation-card">-->
+<!--            <h3>10. Nth</h3>-->
+<!--            <p>Select the nth item in order.</p>-->
+<!--            <p class="example"><strong>Example:</strong> "What is the 3rd highest GDP value?"</p>-->
+<!--        </div>-->
 
 <!--        <div class="operation-card">-->
 <!--            <h3>12. Lag Diff</h3>-->
@@ -114,7 +114,7 @@
     </div>
 
     <div class="tutorial-requirements">
-        <h2>Requirements for Your Questions</h2>
+        <h2>Requirements for the Questions You Generate</h2>
         <div class="req-box">
             <h3>✅ MUST Use At Least 2 Operations</h3>
             <p>Combine operations to create meaningful questions.</p>
@@ -154,9 +154,9 @@
         </ul>
     </div>
 
-    <div class="ready-section">
-        <p>Click <strong>Next</strong> to begin creating questions for your assigned charts!</p>
-    </div>
+<!--    <div class="ready-section">-->
+<!--        <p>Click <strong>Next</strong> to begin creating questions for your assigned charts!</p>-->
+<!--    </div>-->
 
     <style>
         .tutorial-page {
