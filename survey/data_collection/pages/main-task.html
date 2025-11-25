@@ -4,85 +4,136 @@
         <select id="chart-dropdown" style="padding: 8px; font-size: 16px;"></select>
     </div>
 
-    <!-- Two-column layout for guide and examples -->
-    <div class="guide-examples-grid">
-        <!-- Left: Task Guide -->
-        <div class="task-guide-box">
-            <h3>Quick Guide</h3>
-            <p><strong>Requirements:</strong></p>
-            <ul>
-                <li>Use <strong>≥ 2 operations</strong></li>
-                <li>Answer = <strong>single value</strong></li>
-            </ul>
-            <p style="margin-top: 15px; font-size: 13px; color: #666;">
-                You may use calculators, GPT, or tools to verify answers, but <strong>do NOT use GPT to generate questions</strong>.
-            </p>
-        </div>
-
-        <!-- Right: Examples -->
-        <div class="examples-box">
-            <h3>Examples</h3>
-            
-            <div class="example-item good">
-                <div class="example-label">✓ Good Question #1</div>
-                <div class="example-text">"What is the difference in GDP between the most recent year and the earliest year?"</div>
-                <div class="example-detail">Operations: Find max year, Find min year, Diff</div>
-                <div class="example-answer"><strong>Answer:</strong> 14019</div>
-            </div>
-
-            <div class="example-item good">
-                <div class="example-label">✓ Good Question #2</div>
-                <div class="example-text">"What is the average GDP of the top 3 countries by GDP?"</div>
-                <div class="example-detail">Operations: Sort, Nth (1st, 2nd, 3rd), Average</div>
-                <div class="example-answer"><strong>Answer:</strong> 18567.33</div>
-            </div>
-
-            <div class="example-item bad">
-                <div class="example-label">✗ Bad Question #1</div>
-                <div class="example-text">"What was the GDP in 1990?"</div>
-                <div class="example-detail">Only 1 operation (Retrieve Value)</div>
-            </div>
-
-            <div class="example-item bad">
-                <div class="example-label">✗ Bad Question #2</div>
-                <div class="example-text">"List all countries with GDP over 10,000"</div>
-                <div class="example-detail">Answer is multiple values, not single value</div>
-            </div>
+    <div class="req-box">
+<!--        <h3>✅ Answer Must Be a Single Value</h3>-->
+        <p>(1) <strong>read</strong> a given chart; (2) <strong>create</strong> a compositional question that can be answered from the chart; (3) <strong>calculate</strong> the answer; (4) <strong>mark</strong> what kind of arithmetic operations did you use to get the answer; (5) <strong>explain</strong> how did you get the answer.</p>
+<!--        <div class="example-pair">-->
+<!--            <div class="good-example">-->
+<!--                <strong>✓ Good Answer:</strong> 14019 (a number)-->
+<!--            </div>-->
+<!--            <div class="bad-example">-->
+<!--                <strong>✗ Bad Answer:</strong> "USA has 21,783 and UK has 7,764" (multiple values)-->
+<!--            </div>-->
         </div>
     </div>
+
+    <!-- Two-column layout for guide and examples -->
+<!--    <div class="guide-examples-grid">-->
+        <!-- Left: Task Guide -->
+<!--        <div class="task-guide-box">-->
+<!--            <h3>Quick Guide</h3>-->
+<!--            <p><strong>Requirements:</strong></p>-->
+<!--            <ul>-->
+<!--                <li>Use <strong>≥ 2 operations</strong></li>-->
+<!--                <li>Answer = <strong>single value</strong></li>-->
+<!--            </ul>-->
+<!--            <p style="margin-top: 15px; font-size: 13px; color: #666;">-->
+<!--                You may use calculators, GPT, or tools to verify answers, but <strong>do NOT use GPT to generate questions</strong>.-->
+<!--            </p>-->
+<!--        </div>-->
+
+        <!-- Right: Examples -->
+<!--        <div class="examples-box">-->
+<!--            <h3>Examples</h3>-->
+<!--            -->
+<!--            <div class="example-item good">-->
+<!--                <div class="example-label">✓ Good Question #1</div>-->
+<!--                <div class="example-text">"What is the difference in GDP between the most recent year and the earliest year?"</div>-->
+<!--                <div class="example-detail">Operations: Find max year, Find min year, Diff</div>-->
+<!--                <div class="example-answer"><strong>Answer:</strong> 14019</div>-->
+<!--            </div>-->
+
+<!--            <div class="example-item good">-->
+<!--                <div class="example-label">✓ Good Question #2</div>-->
+<!--                <div class="example-text">"What is the average GDP of the top 3 countries by GDP?"</div>-->
+<!--                <div class="example-detail">Operations: Sort, Nth (1st, 2nd, 3rd), Average</div>-->
+<!--                <div class="example-answer"><strong>Answer:</strong> 18567.33</div>-->
+<!--            </div>-->
+
+<!--            <div class="example-item bad">-->
+<!--                <div class="example-label">✗ Bad Question #1</div>-->
+<!--                <div class="example-text">"What was the GDP in 1990?"</div>-->
+<!--                <div class="example-detail">Only 1 operation (Retrieve Value)</div>-->
+<!--            </div>-->
+
+<!--            <div class="example-item bad">-->
+<!--                <div class="example-label">✗ Bad Question #2</div>-->
+<!--                <div class="example-text">"List all countries with GDP over 10,000"</div>-->
+<!--                <div class="example-detail">Answer is multiple values, not single value</div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
 
     <!-- Chart and Input side-by-side -->
     <div class="chart-input-grid">
         <!-- Left: Chart -->
         <div class="chart-container">
             <h3>Chart</h3>
-            <div id="chart-main-view" class="d3chart-container"></div>
+            <div id="chart-main-view__host" class="chart-host">
+                <div id="chart-main-view" class="d3chart-container"></div>
+            </div>
         </div>
 
         <!-- Right: Input Fields -->
         <div class="input-container">
             <h3>Your Response</h3>
-            
-            <div data-component="open-ended"
-                 data-id="q-question"
-                 data-labelText="1. Your Question"
-                 data-placeholder="Enter your question here..."
-                 data-multiline="true"></div>
 
-            <div data-component="open-ended"
-                 data-id="q-answer"
-                 data-labelText="2. The Answer"
-                 data-placeholder="Enter the single correct answer (e.g., '14019', 'USA', 'True')"
-                 data-multiline="false"></div>
+            <div class="stage-panel is-active" data-stage="qa">
+                <div data-component="open-ended"
+                     data-id="q-question"
+                     data-labelText="1. Your Question"
+                     data-placeholder="Enter your question here..."
+                     data-multiline="true"></div>
 
-            <div data-component="open-ended"
-                 data-id="q-explanation"
-                 data-labelText="3. Explanation (Step-by-step)"
-                 data-placeholder="1. ... &#10;2. ... &#10;3. ... "
-                 data-multiline="true"
-<!--                             data-placeholder="1. Find the latest year (2005) and its GDP (21,783)&#10;2. Find the earliest year (1980) and its GDP (7,764)&#10;3. Subtract: 21,783 - 7,764 = 14,019"-->
-            >
+                <div data-component="open-ended"
+                     data-id="q-answer"
+                     data-labelText="2. The Answer"
+                     data-placeholder="Enter the single correct answer (e.g., '14019', 'USA', 'True')"
+                     data-multiline="false"></div>
 
+                <p class="stage-hint">Continue to the next step to record the operations and explanation.</p>
+            </div>
+
+            <div class="stage-panel" data-stage="ops" style="display: none;">
+                <div class="qa-review">
+                    <div class="qa-review-item">
+                        <div class="qa-review-label">1. Your Question</div>
+                        <div class="qa-review-text" id="qa-review-question">No question yet.</div>
+                    </div>
+                    <div class="qa-review-item">
+                        <div class="qa-review-label">2. The Answer</div>
+                        <div class="qa-review-text" id="qa-review-answer">No answer yet.</div>
+                    </div>
+                </div>
+
+                <div class="ops-checklist">
+                    <label class="question">3. Operations Used (multiple)</label>
+                    <div class="ops-checklist-body" id="ops-checklist">
+                        <label class="ops-check">
+                            <input type="checkbox" value="AAA">
+                            <span>AAA</span>
+                        </label>
+                        <label class="ops-check">
+                            <input type="checkbox" value="BBB">
+                            <span>BBB</span>
+                        </label>
+                    </div>
+                    <div class="ops-custom">
+                        <label class="question optional-question" for="ops-custom-input">Add/Remove custom operations</label>
+                        <div class="ops-custom-input-row">
+                            <input id="ops-custom-input" type="text" placeholder="Add an operation and press + or Enter">
+                            <button type="button" id="ops-custom-add-btn" class="ops-custom-add" aria-label="Add custom operation">+</button>
+                        </div>
+                        <div class="ops-custom-list" id="ops-custom-list"></div>
+                    </div>
+                </div>
+
+                <div data-component="open-ended"
+                     data-id="q-explanation"
+                     data-labelText="4. Explanation (Step-by-step)"
+                     data-placeholder="1. ... &#10;2. ... &#10;3. ... "
+                     data-multiline="true">
+                </div>
             </div>
         </div>
     </div>
@@ -185,6 +236,9 @@
             border: 1px solid #ddd;
             border-radius: 6px;
             padding: 15px;
+            min-height: 620px;
+            display: flex;
+            flex-direction: column;
         }
 
         .chart-container h3, .input-container h3 {
@@ -195,18 +249,15 @@
             padding-bottom: 6px;
         }
 
-        .d3chart-container {
-            min-height: 460px;
-            width: 100%;
-            height: 100%;
-            max-height: 70vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #eee;
-            background: #fafafa;
-            border-radius: 4px;
-            overflow: hidden;
+        /* Ensure chart fills the container similar to tutorial */
+        .chart-container .chart-host {
+            min-height: 620px;
+            flex: 1 1 auto;
+        }
+        .chart-container .d3chart-container {
+            min-height: 620px;
+            height: 620px;
+            flex: 1 1 auto;
         }
 
         .d3chart-container > * {
@@ -225,6 +276,132 @@
 
         .input-container > div {
             margin-bottom: 15px;
+        }
+
+        .stage-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .stage-tab {
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            background: #f9fafb;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .stage-tab.is-active {
+            background: #e0f2fe;
+            border-color: #38bdf8;
+            color: #0f172a;
+        }
+        .stage-panel {
+            margin-top: 6px;
+        }
+        .stage-panel.is-active {
+            display: block;
+        }
+        .stage-hint {
+            margin: 6px 0 0;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        .qa-review {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 8px 10px;
+            margin-bottom: 12px;
+            background: #f8fafc;
+            display: grid;
+            gap: 6px;
+        }
+        .qa-review-item {
+            display: block;
+            line-height: 1.4;
+        }
+        .qa-review-label {
+            font-weight: 700;
+            color: #0f172a;
+            margin-right: 6px;
+            display: inline;
+        }
+        .qa-review-label::after {
+            content: ': ';
+        }
+        .qa-review-text {
+            display: inline;
+            border: none;
+            padding: 0;
+            background: transparent;
+            min-height: auto;
+            white-space: pre-wrap;
+        }
+        .ops-custom {
+            margin-top: 10px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 10px;
+        }
+        .ops-custom-input-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .ops-custom-input-row input {
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .ops-custom-add {
+            padding: 8px 12px;
+            border: 1px solid #38bdf8;
+            background: #0ea5e9;
+            color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            min-width: 44px;
+        }
+        .ops-custom-add:hover {
+            filter: brightness(1.05);
+        }
+        .ops-custom-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .ops-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: #e0f2fe;
+            color: #0f172a;
+            border-radius: 999px;
+            border: 1px solid #bae6fd;
+        }
+        .ops-chip__label {
+            font-weight: 600;
+        }
+        .ops-chip__remove {
+            border: none;
+            background: #f1f5f9;
+            color: #0f172a;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            font-weight: 800;
+            line-height: 1;
+        }
+        .ops-chip__remove:hover {
+            background: #e2e8f0;
+        }
+        .input-container textarea#q-explanation {
+            min-height: 4.5em;
         }
 
         /* Responsive adjustments */

@@ -1,0 +1,204 @@
+/* Shared styling for data_collection pages (tutorial + main survey) */
+
+/* Chart host */
+.chart-host {
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+    display: flex;
+    flex: 1 0 100%;
+    border: 1px dashed #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.d3chart-container {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-height: 380px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 0 100%;
+    border: 1px solid #eee;
+    background: #fafafa;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+/* Force children to stretch inside chart host */
+.chart-host > .d3chart-container {
+    align-self: stretch;
+    width: 100% !important;
+    height: 100% !important;
+}
+.chart-host .vega-embed {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* Stage containers */
+.stage-panel {
+    margin-top: 4px;
+}
+.stage-panel.is-active {
+    display: block;
+}
+
+.micro-hint {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+/* QA review box */
+.qa-review {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+    background: #f8fafc;
+    display: grid;
+    gap: 6px;
+}
+.qa-review-item {
+    display: block;
+    line-height: 1.4;
+}
+.qa-review-label {
+    font-weight: 700;
+    color: #0f172a;
+    margin-right: 6px;
+    display: inline;
+}
+.qa-review-label::after {
+    content: ': ';
+}
+.qa-review-text {
+    display: inline;
+    border: none;
+    padding: 0;
+    background: transparent;
+    min-height: auto;
+    white-space: pre-wrap;
+}
+
+/* Ops checklist + custom chips */
+.ops-checklist {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+    background: #f9fafb;
+}
+.ops-checklist-body {
+    max-height: 200px;
+    overflow: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    padding: 8px;
+    background: #fff;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+}
+.ops-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    position: relative;
+}
+.ops-check input {
+    pointer-events: auto;
+}
+.ops-check::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 6px);
+    background: #0f172a;
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    width: 220px;
+    max-width: 70vw;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(6px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    z-index: 5;
+    display: block;
+}
+.ops-check:hover::after,
+.ops-check:focus-within::after {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.ops-custom {
+    margin-top: 10px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 10px;
+}
+.ops-custom-input-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.ops-custom-input-row input {
+    padding: 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.ops-custom-add {
+    padding: 8px 12px;
+    border: 1px solid #38bdf8;
+    background: #0ea5e9;
+    color: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 700;
+    min-width: 44px;
+}
+.ops-custom-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.ops-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: #e0f2fe;
+    color: #0f172a;
+    border-radius: 999px;
+    border: 1px solid #bae6fd;
+}
+.ops-chip__label { font-weight: 600; }
+.ops-chip__remove {
+    border: none;
+    background: #f1f5f9;
+    color: #0f172a;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    cursor: pointer;
+    font-weight: 800;
+    line-height: 1;
+}
