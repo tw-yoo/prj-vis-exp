@@ -78,7 +78,7 @@ const LOGIN_PAGE = { id: 'login', path: 'pages/code-entry.html', slug: 'login' }
 const TUTORIAL_PAGES = [
     { id: 'tutorial_index', path: 'pages/tutorial/tutorial_index.html', slug: 'tutorial_index', group: 'tutorial', onLoad: setupTutorialExample },
     { id: 'tutorial_overview', path: 'pages/tutorial/tutorial_overview.html', slug: 'tutorial_overview', group: 'tutorial', onLoad: setupTutorialExample },
-    { id: 'tutorial_tip', path: 'pages/tutorial/tutorial_tip.html', slug: 'tutorial_tip', group: 'tutorial', onLoad: setupTutorialExample },
+    // { id: 'tutorial_tip', path: 'pages/tutorial/tutorial_tip.html', slug: 'tutorial_tip', group: 'tutorial', onLoad: setupTutorialExample },
 ];
 
 const STATIC_PAGES_BEFORE_TASK = [
@@ -170,18 +170,72 @@ function normalizeSpecPath(rawPath) {
 
 function patchSpecDataUrl(spec) {
     if (!spec || !spec.data || !spec.data.url) return spec;
-    const dataUrl = spec.data.url;
-    if (dataUrl.startsWith('http') || dataUrl.startsWith('../../')) {
-        return spec;
-    }
-    // if (dataUrl.startsWith('ChartQA/')) {
-    //     spec.data.url = `../../${dataUrl}`;
-    // } else if (dataUrl.startsWith('data/')) {
-    //     spec.data.url = `../../ChartQA/${dataUrl}`;
-    // } else {
-    //     spec.data.url = `../../ChartQA/${dataUrl}`;
-    // }
     return spec;
+}
+
+function ensureTooltipConfig(spec) {
+    if (!spec || typeof spec !== 'object') return spec;
+    const config = spec.config || {};
+    const markConfig = config.mark || {};
+    const barConfig = config.bar || {};
+    const lineConfig = config.line || {};
+    const areaConfig = config.area || {};
+    const pointConfig = config.point || {};
+
+    const applyIfUnset = (obj) => {
+        if (obj.tooltip === undefined) {
+            obj.tooltip = true;
+        }
+    };
+
+    applyIfUnset(markConfig);
+    applyIfUnset(barConfig);
+    applyIfUnset(lineConfig);
+    applyIfUnset(areaConfig);
+    applyIfUnset(pointConfig);
+
+    spec.config = {
+        ...config,
+        mark: markConfig,
+        bar: barConfig,
+        line: lineConfig,
+        area: areaConfig,
+        point: pointConfig
+    };
+    return spec;
+}
+
+async function renderChartIntoHost({ specPath, targetId, hostElement = null, placeholderText = 'Loading chart...' }) {
+    const host = hostElement || document.getElementById(targetId);
+    const normalizedPath = normalizeSpecPath(specPath);
+
+    if (!host) {
+        console.warn(`renderChartIntoHost: no host found for targetId="${targetId}"`);
+        return;
+    }
+    if (!normalizedPath) {
+        host.innerHTML = `<div class="chart-placeholder" style="color:red;">Missing chart spec path.</div>`;
+        return;
+    }
+
+    host.innerHTML = `<div class="chart-placeholder">${placeholderText}</div>`;
+
+    try {
+        const response = await fetch(normalizedPath);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const spec = ensureTooltipConfig(await response.json());
+        patchSpecDataUrl(spec);
+        delete host.dataset.chartBaseWidth;
+        delete host.dataset.chartBaseHeight;
+        host.innerHTML = '';
+        await renderPlainVegaLiteChart(targetId, spec);
+        fitChartToContainer(targetId);
+    } catch (err) {
+        console.error(`Failed to render chart from ${normalizedPath}`, err);
+        host.innerHTML = `<div class="chart-placeholder" style="color:red;">Failed to load chart: ${err.message}</div>`;
+    }
 }
 
 async function setupTutorialExample(root) {
@@ -198,24 +252,12 @@ async function setupTutorialExample(root) {
         specLabel.textContent = rawPath || DEFAULT_TUTORIAL_SPEC;
     }
 
-    const render = async () => {
-        if (!normalized) return;
-        viewEl.innerHTML = '<div class="chart-placeholder">Loading chart...</div>';
-        try {
-            const spec = await (await fetch(normalized)).json();
-            patchSpecDataUrl(spec);
-            delete viewEl.dataset.chartBaseWidth;
-            delete viewEl.dataset.chartBaseHeight;
-            viewEl.innerHTML = '';
-            await renderPlainVegaLiteChart(targetId, spec);
-            fitChartToContainer(targetId);
-        } catch (err) {
-            console.error('Failed to render tutorial chart', err);
-            viewEl.innerHTML = `<div class="chart-placeholder" style="color:red;">Failed to load chart: ${err.message}</div>`;
-        }
-    };
-
-    render();
+    return renderChartIntoHost({
+        specPath: normalized,
+        targetId,
+        hostElement: viewEl,
+        placeholderText: 'Loading chart...'
+    });
 }
 
 function refreshProgressIndicator(currentIndex = idx) {
@@ -432,45 +474,11 @@ async function renderChartForTask(chartId, elementId) {
         return;
     }
     
-    try {
-        const spec = await (await fetch(specPath)).json();
-        const host = document.getElementById(elementId);
-        if (host) {
-            delete host.dataset.chartBaseWidth;
-            delete host.dataset.chartBaseHeight;
-        }
-        patchSpecDataUrl(spec);
-        
-        // 데이터 경로 수정
-        if (spec.data && spec.data.url) {
-            const dataUrl = spec.data.url;
-            
-            // 절대 경로나 이미 수정된 경로는 건드리지 않음
-            if (dataUrl.startsWith('http') || dataUrl.startsWith('../../')) {
-                // 그대로 유지
-            }
-            // ChartQA로 시작하는 경우 (이미 ChartQA 포함)
-            else if (dataUrl.startsWith('ChartQA/')) {
-                spec.data.url = `../../${dataUrl}`;
-            }
-            // data로 시작하는 경우 (ChartQA 없음)
-            else if (dataUrl.startsWith('data/')) {
-                spec.data.url = `../../ChartQA/${dataUrl}`;
-            }
-            // 기타 경우
-            else {
-                spec.data.url = `../../ChartQA/${dataUrl}`;
-            }
-        }
-        
-        await renderPlainVegaLiteChart(elementId, spec);
-        fitChartToContainer(elementId);
-        
-    } catch (e) {
-        console.error(`Failed to render chart ${chartId} from ${specPath}`, e);
-        const el = document.getElementById(elementId);
-        if (el) el.innerHTML = `<p style="color: red;">Error loading chart: ${e.message}<br>Path: ${specPath}</p>`;
-    }
+    return renderChartIntoHost({
+        specPath,
+        targetId: elementId,
+        placeholderText: 'Loading chart...'
+    });
 }
 
 function saveCurrentChartData() {
@@ -557,10 +565,9 @@ function fitChartToContainer(elementId) {
     if (clientWidth <= 0 || clientHeight <= 0) return;
 
     // Decide which dimension to align to container, maintain aspect ratio
-    const prefersHeight = baseHeight >= baseWidth;
-    const scale = prefersHeight
-        ? (clientHeight / baseHeight)
-        : (clientWidth / baseWidth);
+    const scaleWidth = clientWidth / baseWidth;
+    const scaleHeight = clientHeight / baseHeight;
+    const scale = Math.min(scaleWidth, scaleHeight);
 
     const newWidth = baseWidth * scale;
     const newHeight = baseHeight * scale;
