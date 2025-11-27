@@ -10,14 +10,14 @@
       "field": "Fiscal Year",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Fiscal Year"
       }
     },
     "y": {
       "field": "Sales price in U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Sales price in U.S. dollars",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Item",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Item"
       }
     },
     "color": {

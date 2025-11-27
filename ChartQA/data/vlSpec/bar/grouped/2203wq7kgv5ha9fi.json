@@ -10,14 +10,14 @@
       "field": "Age_Group",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Age_Group"
       }
     },
     "y": {
       "field": "Share_of_Respondents",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Share_of_Respondents",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Housing_Status",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Housing_Status"
       }
     },
     "color": {

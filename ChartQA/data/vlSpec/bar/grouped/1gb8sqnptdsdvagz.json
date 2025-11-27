@@ -10,14 +10,14 @@
       "field": "Hair Removal Type",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Hair Removal Type"
       }
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Share of respondents",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Age Group",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Age Group"
       }
     },
     "color": {

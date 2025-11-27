@@ -10,14 +10,14 @@
       "field": "Year",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Year"
       }
     },
     "y": {
       "field": "Revenue_Million_Euros",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Revenue_Million_Euros",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Sector",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Sector"
       }
     },
     "color": {

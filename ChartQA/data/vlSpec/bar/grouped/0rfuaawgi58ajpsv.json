@@ -10,14 +10,14 @@
       "field": "Year",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Year"
       }
     },
     "y": {
       "field": "Media rights revenue in billion U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Media rights revenue in billion U.S. dollars",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Region",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Region"
       }
     },
     "color": {

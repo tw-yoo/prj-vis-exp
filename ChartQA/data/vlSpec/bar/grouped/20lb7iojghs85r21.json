@@ -10,14 +10,14 @@
       "field": "Year",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Year"
       }
     },
     "y": {
       "field": "Percentage_of_Respondents",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Percentage_of_Respondents",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Grade",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Grade"
       }
     },
     "color": {

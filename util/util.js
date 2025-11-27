@@ -373,6 +373,7 @@ export async function renderChart(chartId, spec) {
     // ensureTempTableBelow(chartId, spec);
 }
 
+
 export async function renderPlainVegaLiteChart(chartId, spec, options = {}) {
     const canvas = ensureChartCanvas(chartId);
     const { canvas: normalizedCanvas } = remapIdsForRenderer(chartId);
@@ -398,57 +399,21 @@ export async function renderPlainVegaLiteChart(chartId, spec, options = {}) {
         return null;
     }
 
-    // 축 제목을 보존하고 간격을 조정하기 위한 스펙 강화
+    // 스펙 그대로 사용 - config만 보강
     const enhancedSpec = {
         ...spec,
         config: {
             ...(spec.config || {}),
             axis: {
-                labelFontSize: 10,
-                titleFontSize: 12,
-                titlePadding: 15,
+                labelFontSize: 11,
+                titleFontSize: 13,
+                titlePadding: 10,
                 labelPadding: 5,
                 labelLimit: 0,
                 ...(spec.config?.axis || {})
-            },
-            axisX: {
-                labelFontSize: 10,
-                titlePadding: 15,
-                labelPadding: 5,
-                labelLimit: 0,
-                ...(spec.config?.axisX || {})
-            },
-            axisY: {
-                labelFontSize: 10,
-                titlePadding: 15,
-                labelPadding: 5,
-                ...(spec.config?.axisY || {})
             }
         }
     };
-
-    // encoding에도 명시적으로 설정
-    if (enhancedSpec.encoding) {
-        if (enhancedSpec.encoding.x) {
-            enhancedSpec.encoding.x.axis = {
-                labelFontSize: 10,
-                titleFontSize: 12,
-                titlePadding: 15,
-                labelPadding: 5,
-                labelLimit: 0,
-                ...(enhancedSpec.encoding.x.axis || {})
-            };
-        }
-        if (enhancedSpec.encoding.y) {
-            enhancedSpec.encoding.y.axis = {
-                labelFontSize: 10,
-                titleFontSize: 12,
-                titlePadding: 15,
-                labelPadding: 5,
-                ...(enhancedSpec.encoding.y.axis || {})
-            };
-        }
-    }
 
     const embedOptions = {
         actions: false,
@@ -468,6 +433,7 @@ export async function renderPlainVegaLiteChart(chartId, spec, options = {}) {
     ensureXAxisLabelClearance(chartId, { attempts: 5, minGap: 14, maxShift: 140 });
     return result;
 }
+
 function adjustXAxisLabelAngle(chartId) {
     // DOM이 렌더링될 때까지 대기
     setTimeout(() => {

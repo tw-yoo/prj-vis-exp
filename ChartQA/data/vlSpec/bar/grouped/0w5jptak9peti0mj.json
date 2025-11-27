@@ -10,14 +10,14 @@
       "field": "Year",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Year"
       }
     },
     "y": {
       "field": "Annual revenue in million U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Annual revenue in million U.S. dollars",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Region",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Region"
       }
     },
     "color": {

@@ -10,14 +10,14 @@
       "field": "Year",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Year"
       }
     },
     "y": {
       "field": "Value_Million_USD",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Value_Million_USD",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Category",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Category"
       }
     },
     "color": {

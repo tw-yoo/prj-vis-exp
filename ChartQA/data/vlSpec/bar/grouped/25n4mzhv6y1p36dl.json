@@ -10,14 +10,14 @@
       "field": "Sector",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Sector"
       }
     },
     "y": {
       "field": "Share_of_Respondents",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Share_of_Respondents",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Intent",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Intent"
       }
     },
     "color": {

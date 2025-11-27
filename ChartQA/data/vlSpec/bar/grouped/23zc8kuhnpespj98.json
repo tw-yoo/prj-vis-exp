@@ -10,14 +10,14 @@
       "field": "Genre",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Genre"
       }
     },
     "y": {
       "field": "Share_of_Respondents",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Share_of_Respondents",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Gender",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Gender"
       }
     },
     "color": {

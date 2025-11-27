@@ -10,14 +10,14 @@
       "field": "Item",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Item"
       }
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Share of respondents",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Respondent Group",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Respondent Group"
       }
     },
     "color": {

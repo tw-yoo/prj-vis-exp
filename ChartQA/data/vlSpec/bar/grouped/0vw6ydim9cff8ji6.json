@@ -10,14 +10,14 @@
       "field": "Industry Sector",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Industry Sector"
       }
     },
     "y": {
       "field": "Share of SMEs",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Share of SMEs",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Period",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Period"
       }
     },
     "color": {

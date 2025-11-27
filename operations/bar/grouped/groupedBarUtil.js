@@ -198,10 +198,10 @@ export async function renderGroupedBarChart(chartId, spec) {
     const container = d3.select(`#${chartId}`);
     container.selectAll("*").remove();
 
-    const margin = { top: 60, right: 140, bottom: 80, left: 80 };
-    const width = 900 - margin.left - margin.right;
-    const height = 600;
-    const plotH = height - margin.top - margin.bottom;
+  const margin = { top: 80, right: 120, bottom: 60, left: 80 };
+  const width = 900 - margin.left - margin.right;
+  const height = 600; // 🔥 수정: SVG 높이를 400에서 600으로 늘림
+  const plotH = 400 - margin.top - margin.bottom; // 플롯 영역 높이는 유지
 
     const { column, x, y, color } = spec.encoding;
     const facetField = column.field;
@@ -218,9 +218,7 @@ export async function renderGroupedBarChart(chartId, spec) {
     const data = rawData;
 
     const svg = container.append("svg")
-        .attr("viewBox", [0, 0, width + margin.left + margin.right, height])
-        .attr("width", "100%")
-        .attr("height", "100%")
+        .attr("viewBox", [0, 0, width + margin.left + margin.right, height]) // 🔥 수정: 높이 변수 적용
         .attr("data-x-field", xField)
         .attr("data-y-field", yField)
         .attr("data-facet-field", facetField)
@@ -275,62 +273,51 @@ export async function renderGroupedBarChart(chartId, spec) {
             .attr("data-value", d => d.value);
     });
 
-    // X축 (하단)
     g.append("g")
         .attr("class", "x-axis x-axis-bottom-line")
         .attr("transform", `translate(0,${plotH})`)
-        .call(d3.axisBottom(x0).tickSizeOuter(0).tickPadding(6))
-        .selectAll("text")
-        .style("font-size", "11px");
+        .call(d3.axisBottom(x0).tickSizeOuter(0).tickPadding(6));
 
-    // Y축 (왼쪽)
-    g.append("g")
-        .attr("class", "y-axis")
-        .call(d3.axisLeft(yScale))
-        .selectAll("text")
-        .style("font-size", "11px");
+    g.append("g").attr("class", "y-axis")
+        .call(d3.axisLeft(yScale));
 
-    // 범례
     const legend = svg.append("g")
         .attr("class", "legend")
         .attr("transform", `translate(${width + margin.left + 20},${margin.top})`);
 
     xDomain.forEach((value, i) => {
-        const legendRow = legend.append("g").attr("transform", `translate(0, ${i * 22})`);
+        const legendRow = legend.append("g").attr("transform", `translate(0, ${i * 20})`);
         legendRow.append("rect")
             .attr("width", 15).attr("height", 15)
             .attr("fill", colorScale(value));
         legendRow.append("text")
             .attr("x", 20).attr("y", 12.5)
-            .style("font-size", "11px")
             .text(value);
     });
 
-    // X축 라벨
-    const xLabel = (column.axis && column.axis.title) || facetField || 'Category';
+    const xLabel = (column.axis && column.axis.title) || facetField || 'category';
+    const yLabel = (y.axis && y.axis.title) || yField || 'value';
+
     svg.append("text")
         .attr("class", "x-axis-label")
         .attr("x", margin.left + width / 2)
-        .attr("y", height - 20)
+        .attr("y", margin.top + plotH + 50)
         .attr("text-anchor", "middle")
-        .style("font-size", "13px")
-        .style("font-weight", "600")
+        .style("font-size", "14px")
+        .style("font-weight", "bold")
         .text(xLabel);
 
-    // Y축 라벨
-    const yLabel = (y.axis && y.axis.title) || yField || 'Value';
     svg.append("text")
         .attr("class", "y-axis-label")
         .attr("transform", "rotate(-90)")
         .attr("x", -(margin.top + plotH / 2))
-        .attr("y", 20)
+        .attr("y", margin.left - 45)
         .attr("text-anchor", "middle")
-        .style("font-size", "13px")
-        .style("font-weight", "600")
+        .style("font-size", "14px")
+        .style("font-weight", "bold")
         .text(yLabel);
 
-    // shrinkSvgViewBox 제거 또는 주석 처리
-    // shrinkSvgViewBox(svg, 6);
+    shrinkSvgViewBox(svg, 6);
 }
 
 export function toGroupedDatumValues(rawData, spec) {

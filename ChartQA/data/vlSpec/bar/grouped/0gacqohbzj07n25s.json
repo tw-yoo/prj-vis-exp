@@ -10,14 +10,14 @@
       "field": "Country",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Country"
       }
     },
     "y": {
       "field": "Number of procedures",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Number of procedures",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Procedure Type",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Procedure Type"
       }
     },
     "color": {

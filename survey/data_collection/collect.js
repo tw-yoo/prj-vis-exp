@@ -207,11 +207,11 @@ function ensureTooltipConfig(spec) {
     applyIfUnset(areaConfig);
     applyIfUnset(pointConfig);
 
-    // 축 설정 추가
+    // 축 설정 추가 - 기본값만 제공
     const axisConfig = {
-        labelFontSize: 10,
-        titleFontSize: 12,
-        titlePadding: 15,
+        labelFontSize: 11,
+        titleFontSize: 13,
+        titlePadding: 10,
         labelPadding: 5,
         labelLimit: 0,
         ...(config.axis || {})
@@ -227,31 +227,7 @@ function ensureTooltipConfig(spec) {
         axis: axisConfig
     };
 
-    // encoding에 axis 설정 추가
-    if (spec.encoding) {
-        if (spec.encoding.x) {
-            const xAxis = spec.encoding.x.axis || {};
-            spec.encoding.x.axis = {
-                labelFontSize: 10,
-                titleFontSize: 12,
-                titlePadding: 15,
-                labelPadding: 5,
-                labelLimit: 0,
-                ...xAxis
-            };
-        }
-        
-        if (spec.encoding.y) {
-            const yAxis = spec.encoding.y.axis || {};
-            spec.encoding.y.axis = {
-                labelFontSize: 10,
-                titleFontSize: 12,
-                titlePadding: 15,
-                labelPadding: 5,
-                ...yAxis
-            };
-        }
-    }
+    // encoding 수정은 하지 않음 - 원본 스펙 존중
     
     return spec;
 }

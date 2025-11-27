@@ -10,14 +10,14 @@
       "field": "Age_Group",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Age_Group"
       }
     },
     "y": {
       "field": "Median_Annual_Pay_GBP",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Median_Annual_Pay_GBP",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Gender",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Gender"
       }
     },
     "color": {

@@ -10,14 +10,14 @@
       "field": "Category",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Category"
       }
     },
     "y": {
       "field": "Share of employees",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Share of employees",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Gender",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Gender"
       }
     },
     "color": {

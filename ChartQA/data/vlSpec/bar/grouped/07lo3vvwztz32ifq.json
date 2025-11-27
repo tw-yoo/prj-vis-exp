@@ -10,14 +10,14 @@
       "field": "Region",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Region"
       }
     },
     "y": {
       "field": "Net_Sales_Percentage",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Net_Sales_Percentage",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Year",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Year"
       }
     },
     "color": {

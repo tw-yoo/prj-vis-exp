@@ -10,14 +10,14 @@
       "field": "Product Category",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Product Category"
       }
     },
     "y": {
       "field": "Revenue in billion U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Revenue in billion U.S. dollars",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Year",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Year"
       }
     },
     "color": {

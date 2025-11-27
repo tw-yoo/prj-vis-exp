@@ -10,14 +10,14 @@
       "field": "Age Group",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Age Group"
       }
     },
     "y": {
       "field": "Percentage of votes",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Percentage of votes",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Candidate",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Candidate"
       }
     },
     "color": {

@@ -10,14 +10,14 @@
       "field": "Group",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Group"
       }
     },
     "y": {
       "field": "Percentage of adults",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Percentage of adults",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Age Group",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Age Group"
       }
     },
     "color": {

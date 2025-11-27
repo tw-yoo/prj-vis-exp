@@ -10,14 +10,14 @@
       "field": "Category",
       "type": "ordinal",
       "header": {
-        "title": ""
+        "title": "Category"
       }
     },
     "y": {
       "field": "Percentage of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "",
+        "title": "Percentage of respondents",
         "grid": false
       }
     },
@@ -25,7 +25,7 @@
       "field": "Response",
       "type": "nominal",
       "axis": {
-        "title": ""
+        "title": "Response"
       }
     },
     "color": {
