@@ -398,17 +398,150 @@ export async function renderPlainVegaLiteChart(chartId, spec, options = {}) {
         return null;
     }
 
+    // 축 제목을 보존하고 간격을 조정하기 위한 스펙 강화
+    const enhancedSpec = {
+        ...spec,
+        config: {
+            ...(spec.config || {}),
+            axis: {
+                labelFontSize: 10,
+                titleFontSize: 12,
+                titlePadding: 15,
+                labelPadding: 5,
+                labelLimit: 0,
+                ...(spec.config?.axis || {})
+            },
+            axisX: {
+                labelFontSize: 10,
+                titlePadding: 15,
+                labelPadding: 5,
+                labelLimit: 0,
+                ...(spec.config?.axisX || {})
+            },
+            axisY: {
+                labelFontSize: 10,
+                titlePadding: 15,
+                labelPadding: 5,
+                ...(spec.config?.axisY || {})
+            }
+        }
+    };
+
+    // encoding에도 명시적으로 설정
+    if (enhancedSpec.encoding) {
+        if (enhancedSpec.encoding.x) {
+            enhancedSpec.encoding.x.axis = {
+                labelFontSize: 10,
+                titleFontSize: 12,
+                titlePadding: 15,
+                labelPadding: 5,
+                labelLimit: 0,
+                ...(enhancedSpec.encoding.x.axis || {})
+            };
+        }
+        if (enhancedSpec.encoding.y) {
+            enhancedSpec.encoding.y.axis = {
+                labelFontSize: 10,
+                titleFontSize: 12,
+                titlePadding: 15,
+                labelPadding: 5,
+                ...(enhancedSpec.encoding.y.axis || {})
+            };
+        }
+    }
+
     const embedOptions = {
         actions: false,
         renderer: 'svg',
+        padding: { left: 70, right: 30, top: 30, bottom: 70 },
         ...options
     };
 
-    const result = await embed(target, spec, embedOptions);
-    stripAxisTitles(target);
+    const result = await embed(target, enhancedSpec, embedOptions);
+    
+    // stripAxisTitles 주석 처리 - 축 제목 유지
+    // stripAxisTitles(target);
+    
+    // 자동으로 라벨 각도 조정
+    adjustXAxisLabelAngle(chartId);
+    
     ensureXAxisLabelClearance(chartId, { attempts: 5, minGap: 14, maxShift: 140 });
     return result;
 }
+function adjustXAxisLabelAngle(chartId) {
+    // DOM이 렌더링될 때까지 대기
+    setTimeout(() => {
+        const container = document.getElementById(chartId);
+        if (!container) return;
+        
+        const svg = container.querySelector('svg');
+        if (!svg) return;
+        
+        // x축 라벨들 찾기
+        const xAxisLabels = svg.querySelectorAll('.mark-text.role-axis-label[aria-hidden="true"]');
+        if (!xAxisLabels || xAxisLabels.length === 0) return;
+        
+        // 라벨들의 텍스트 길이 분석
+        let maxLabelLength = 0;
+        let totalOverlap = 0;
+        const labels = Array.from(xAxisLabels);
+        
+        labels.forEach(label => {
+            const text = label.textContent || '';
+            maxLabelLength = Math.max(maxLabelLength, text.length);
+        });
+        
+        // 라벨 간 겹침 확인
+        for (let i = 0; i < labels.length - 1; i++) {
+            const rect1 = labels[i].getBoundingClientRect();
+            const rect2 = labels[i + 1].getBoundingClientRect();
+            if (rect1.right > rect2.left) {
+                totalOverlap += (rect1.right - rect2.left);
+            }
+        }
+        
+        // 각도 결정 로직
+        let targetAngle = 0;
+        
+        if (totalOverlap > 20 || maxLabelLength > 12) {
+            // 심하게 겹치거나 긴 텍스트인 경우
+            if (maxLabelLength > 20) {
+                targetAngle = -90; // 세로로 눕히기
+            } else {
+                targetAngle = -45; // 45도 기울이기
+            }
+        }
+        
+        // 각도 적용
+        if (targetAngle !== 0) {
+            labels.forEach(label => {
+                const currentTransform = label.getAttribute('transform') || '';
+                const match = currentTransform.match(/translate\(([^,]+),([^)]+)\)/);
+                
+                if (match) {
+                    const x = parseFloat(match[1]);
+                    const y = parseFloat(match[2]);
+                    
+                    // 각도에 따른 앵커 조정
+                    if (targetAngle === -90) {
+                        label.setAttribute('text-anchor', 'end');
+                        label.setAttribute('transform', `translate(${x},${y}) rotate(${targetAngle})`);
+                    } else {
+                        label.setAttribute('text-anchor', 'end');
+                        label.setAttribute('transform', `translate(${x},${y}) rotate(${targetAngle})`);
+                    }
+                }
+            });
+            
+            // 차트 하단 패딩 조정
+            const chartRect = svg.getBoundingClientRect();
+            const currentHeight = parseFloat(svg.getAttribute('height')) || chartRect.height;
+            const additionalPadding = targetAngle === -90 ? 80 : 40;
+            svg.setAttribute('height', currentHeight + additionalPadding);
+        }
+    }, 100);
+}
+
 
 export function buildSimpleBarSpec(dvList, opts = {}) {
     if (!Array.isArray(dvList) || dvList.length === 0) {

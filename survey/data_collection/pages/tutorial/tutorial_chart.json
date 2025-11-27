@@ -1,19 +1,42 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "width": 600,
+  "height": 400,
+  "padding": 5,
   "encoding": {
     "x": {
       "field": "month",
       "type": "nominal",
-      "sort":null
-
+      "sort": null,
+      "axis": {
+        "labelAngle": 0,
+        "title": "Month",
+        "labelFontSize": 20,
+        "titleFontSize": 25,
+        "titlePadding": 10,
+        "labelPadding": 5,
+        "labelLimit": 0
+      }
     },
     "color": {
       "field": "weather",
-      "type": "nominal"
+      "type": "nominal",
+      "legend": {
+        "title": "Weather Type",
+        "titleFontSize": 20,
+        "labelFontSize": 18
+      }
     },
     "y": {
       "field": "count",
-      "type": "quantitative"
+      "type": "quantitative",
+      "axis": {
+        "title": "Count",
+        "labelFontSize": 20,
+        "titleFontSize": 25,
+        "titlePadding": 10,
+        "labelPadding": 5
+      }
     }
   },
   "data": {

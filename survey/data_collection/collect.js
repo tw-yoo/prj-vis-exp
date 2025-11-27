@@ -187,6 +187,7 @@ function patchSpecDataUrl(spec) {
 
 function ensureTooltipConfig(spec) {
     if (!spec || typeof spec !== 'object') return spec;
+    
     const config = spec.config || {};
     const markConfig = config.mark || {};
     const barConfig = config.bar || {};
@@ -206,14 +207,52 @@ function ensureTooltipConfig(spec) {
     applyIfUnset(areaConfig);
     applyIfUnset(pointConfig);
 
+    // 축 설정 추가
+    const axisConfig = {
+        labelFontSize: 10,
+        titleFontSize: 12,
+        titlePadding: 15,
+        labelPadding: 5,
+        labelLimit: 0,
+        ...(config.axis || {})
+    };
+
     spec.config = {
         ...config,
         mark: markConfig,
         bar: barConfig,
         line: lineConfig,
         area: areaConfig,
-        point: pointConfig
+        point: pointConfig,
+        axis: axisConfig
     };
+
+    // encoding에 axis 설정 추가
+    if (spec.encoding) {
+        if (spec.encoding.x) {
+            const xAxis = spec.encoding.x.axis || {};
+            spec.encoding.x.axis = {
+                labelFontSize: 10,
+                titleFontSize: 12,
+                titlePadding: 15,
+                labelPadding: 5,
+                labelLimit: 0,
+                ...xAxis
+            };
+        }
+        
+        if (spec.encoding.y) {
+            const yAxis = spec.encoding.y.axis || {};
+            spec.encoding.y.axis = {
+                labelFontSize: 10,
+                titleFontSize: 12,
+                titlePadding: 15,
+                labelPadding: 5,
+                ...yAxis
+            };
+        }
+    }
+    
     return spec;
 }
 
