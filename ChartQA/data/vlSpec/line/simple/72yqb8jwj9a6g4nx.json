@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for 72yqb8jwj9a6g4nx.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/72yqb8jwj9a6g4nx.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Percentage of internet users",
+      "type": "quantitative"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for 8hiwwys6qkrbtapb.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/8hiwwys6qkrbtapb.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Crime rate per 1,000 population",
+      "type": "quantitative"
+    }
+  }
+}

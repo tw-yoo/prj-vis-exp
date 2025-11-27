@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for 82aqt0k0jnbj3irf.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/82aqt0k0jnbj3irf.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Number of enterprises",
+      "type": "quantitative"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for b4o9bh8f969q6kqa.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/b4o9bh8f969q6kqa.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Index score on a scale from 0 to 100",
+      "type": "quantitative"
+    }
+  }
+}

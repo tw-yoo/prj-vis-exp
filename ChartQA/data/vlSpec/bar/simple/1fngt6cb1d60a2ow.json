@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1fngt6cb1d60a2ow.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1fngt6cb1d60a2ow.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Number of employees",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Region/Entity",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

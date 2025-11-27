@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1e56qqj7moat9gqa.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1e56qqj7moat9gqa.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Spending in billion U.S. dollars",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Fiscal Year & Status",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

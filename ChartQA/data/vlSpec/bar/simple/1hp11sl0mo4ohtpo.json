@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1hp11sl0mo4ohtpo.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1hp11sl0mo4ohtpo.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Average ticket price in U.S. dollars",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Fiscal Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 1xj7x49epprmpod7.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/1xj7x49epprmpod7.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Year",
+      "type": "ordinal",
+      "header": {
+        "title": ""
+      }
+    },
+    "y": {
+      "field": "Number of companies",
+      "type": "quantitative",
+      "axis": {
+        "title": "",
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Market Type",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Market Type",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

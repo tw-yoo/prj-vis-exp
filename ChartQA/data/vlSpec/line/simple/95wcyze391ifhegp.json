@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for 95wcyze391ifhegp.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/95wcyze391ifhegp.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Exchange rate in Singapore dollars",
+      "type": "quantitative"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for a6gnu78mgn3xmqhu.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/a6gnu78mgn3xmqhu.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Index score on a scale from 0 to 100",
+      "type": "quantitative"
+    }
+  }
+}

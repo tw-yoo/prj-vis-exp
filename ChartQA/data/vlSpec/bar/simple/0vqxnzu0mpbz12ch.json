@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0vqxnzu0mpbz12ch.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0vqxnzu0mpbz12ch.csv"
+  },
+  "mark": "bar",
   "encoding": {
     "y": {
       "field": "Share of population with a smartphone",
@@ -10,9 +15,5 @@
       "type": "nominal",
       "sort": null
     }
-  },
-  "data": {
-    "url": "ChartQA/data/csv/bar/simple/0vqxnzu0mpbz12ch.csv"
-  },
-  "mark": "bar"
+  }
 }

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for 724mfnyk34kp97le.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/724mfnyk34kp97le.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Cinema visits in millions",
+      "type": "quantitative"
+    }
+  }
+}

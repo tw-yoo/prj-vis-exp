@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Grouped bar chart",
+  "description": "Grouped bar chart for 0vw6ydim9cff8ji6.csv",
   "data": {
     "url": "ChartQA/data/csv/bar/grouped/0vw6ydim9cff8ji6.csv"
   },
@@ -9,20 +9,24 @@
     "column": {
       "field": "Industry Sector",
       "type": "ordinal",
-      "header": { "title": "" }
+      "header": {
+        "title": ""
+      }
     },
     "y": {
       "field": "Share of SMEs",
       "type": "quantitative",
-      "axis": { 
-        "title": "", 
-        "grid": false 
+      "axis": {
+        "title": "",
+        "grid": false
       }
     },
     "x": {
       "field": "Period",
       "type": "nominal",
-      "axis": { "title": "" }
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Period",
@@ -30,7 +34,11 @@
     }
   },
   "config": {
-    "view": { "stroke": "transparent" },
-    "axis": { "domainWidth": 1 }
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
   }
 }

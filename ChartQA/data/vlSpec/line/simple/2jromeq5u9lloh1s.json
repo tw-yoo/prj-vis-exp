@@ -1,5 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for 2jromeq5u9lloh1s.csv",
   "data": {
     "url": "ChartQA/data/csv/line/simple/2jromeq5u9lloh1s.csv"
   },

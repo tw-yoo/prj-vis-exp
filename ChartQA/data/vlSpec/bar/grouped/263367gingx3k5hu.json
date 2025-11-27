@@ -1,0 +1,44 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 263367gingx3k5hu.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/263367gingx3k5hu.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Region",
+      "type": "ordinal",
+      "header": {
+        "title": ""
+      }
+    },
+    "y": {
+      "field": "Demand_Million_Metric_Tons",
+      "type": "quantitative",
+      "axis": {
+        "title": "",
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Year",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

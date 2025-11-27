@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1ashoniy42n3n5jr.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1ashoniy42n3n5jr.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Operating revenue in m million NOK",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

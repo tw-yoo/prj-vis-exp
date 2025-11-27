@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for 7272hodb02i6e09q.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/7272hodb02i6e09q.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Population growth compared to previous year",
+      "type": "quantitative"
+    }
+  }
+}

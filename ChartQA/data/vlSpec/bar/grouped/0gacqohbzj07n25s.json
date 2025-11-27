@@ -1,6 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Grouped bar chart",
+  "description": "Grouped bar chart for 0gacqohbzj07n25s.csv",
   "data": {
     "url": "ChartQA/data/csv/bar/grouped/0gacqohbzj07n25s.csv"
   },
@@ -9,20 +9,24 @@
     "column": {
       "field": "Country",
       "type": "ordinal",
-      "header": { "title": "" }
+      "header": {
+        "title": ""
+      }
     },
     "y": {
       "field": "Number of procedures",
       "type": "quantitative",
-      "axis": { 
-        "title": "", 
-        "grid": false 
+      "axis": {
+        "title": "",
+        "grid": false
       }
     },
     "x": {
       "field": "Procedure Type",
       "type": "nominal",
-      "axis": { "title": "" }
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Procedure Type",
@@ -30,7 +34,11 @@
     }
   },
   "config": {
-    "view": { "stroke": "transparent" },
-    "axis": { "domainWidth": 1 }
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
   }
 }

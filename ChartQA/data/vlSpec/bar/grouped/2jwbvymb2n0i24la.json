@@ -1,0 +1,44 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 2jwbvymb2n0i24la.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/2jwbvymb2n0i24la.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Group",
+      "type": "ordinal",
+      "header": {
+        "title": ""
+      }
+    },
+    "y": {
+      "field": "Share of students",
+      "type": "quantitative",
+      "axis": {
+        "title": "",
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Race/Ethnicity",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Race/Ethnicity",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

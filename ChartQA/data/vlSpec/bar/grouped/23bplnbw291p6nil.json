@@ -1,0 +1,44 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 23bplnbw291p6nil.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/23bplnbw291p6nil.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Age_Group",
+      "type": "ordinal",
+      "header": {
+        "title": ""
+      }
+    },
+    "y": {
+      "field": "Median_Annual_Pay_GBP",
+      "type": "quantitative",
+      "axis": {
+        "title": "",
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Gender",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Gender",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

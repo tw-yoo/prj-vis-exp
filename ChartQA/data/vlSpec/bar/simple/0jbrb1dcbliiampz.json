@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0jbrb1dcbliiampz.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0jbrb1dcbliiampz.csv"
+  },
+  "mark": "bar",
   "encoding": {
     "y": {
       "field": "Investments in Billion Euros",
@@ -10,9 +15,5 @@
       "type": "nominal",
       "sort": null
     }
-  },
-  "data": {
-    "url": "ChartQA/data/csv/bar/simple/0jbrb1dcbliiampz.csv"
-  },
-  "mark": "bar"
+  }
 }

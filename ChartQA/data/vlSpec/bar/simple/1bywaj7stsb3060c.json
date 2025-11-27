@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1bywaj7stsb3060c.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1bywaj7stsb3060c.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Market shares",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Company",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

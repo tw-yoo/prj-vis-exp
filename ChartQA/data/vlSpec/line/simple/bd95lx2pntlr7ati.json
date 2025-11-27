@@ -1,0 +1,18 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Line chart for bd95lx2pntlr7ati.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/bd95lx2pntlr7ati.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Date",
+      "type": "ordinal"
+    },
+    "y": {
+      "field": "Number of cases",
+      "type": "quantitative"
+    }
+  }
+}

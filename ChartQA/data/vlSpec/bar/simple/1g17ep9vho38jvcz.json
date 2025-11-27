@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1g17ep9vho38jvcz.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1g17ep9vho38jvcz.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Share of mobile app developers",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Continent",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}
