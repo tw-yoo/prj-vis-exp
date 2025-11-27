@@ -21,7 +21,9 @@
     "x": {
       "field": "Gender",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Gender",

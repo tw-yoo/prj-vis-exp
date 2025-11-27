@@ -21,7 +21,9 @@
     "x": {
       "field": "Intent",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Intent",

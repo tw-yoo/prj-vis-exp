@@ -21,7 +21,9 @@
     "x": {
       "field": "AgeGroup",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "AgeGroup",

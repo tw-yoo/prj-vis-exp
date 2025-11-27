@@ -21,7 +21,9 @@
     "x": {
       "field": "Grade",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Grade",

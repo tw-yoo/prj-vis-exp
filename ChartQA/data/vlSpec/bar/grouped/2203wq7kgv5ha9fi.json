@@ -21,7 +21,9 @@
     "x": {
       "field": "Housing_Status",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Housing_Status",

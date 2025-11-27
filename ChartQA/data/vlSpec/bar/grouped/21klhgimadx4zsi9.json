@@ -21,7 +21,9 @@
     "x": {
       "field": "Sector",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Sector",

@@ -21,7 +21,9 @@
     "x": {
       "field": "Rice Type",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Rice Type",

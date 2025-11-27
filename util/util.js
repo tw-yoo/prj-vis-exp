@@ -344,6 +344,7 @@ export async function renderChart(chartId, spec) {
     if (canvas) {
         while (canvas.firstChild) canvas.removeChild(canvas.firstChild);
     }
+    
 
     const chartType = await getChartType(spec);
     switch (chartType) {

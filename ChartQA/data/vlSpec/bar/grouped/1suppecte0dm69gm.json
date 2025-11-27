@@ -21,7 +21,9 @@
     "x": {
       "field": "Response",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Response",

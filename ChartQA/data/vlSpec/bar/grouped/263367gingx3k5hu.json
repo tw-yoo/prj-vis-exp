@@ -21,7 +21,9 @@
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Year",

@@ -21,7 +21,9 @@
     "x": {
       "field": "Usage_Period",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Usage_Period",

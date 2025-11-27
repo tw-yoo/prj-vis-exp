@@ -21,7 +21,9 @@
     "x": {
       "field": "Region",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Region",

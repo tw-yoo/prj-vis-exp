@@ -21,7 +21,9 @@
     "x": {
       "field": "Channel",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Channel",

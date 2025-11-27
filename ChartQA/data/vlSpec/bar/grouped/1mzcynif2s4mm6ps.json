@@ -21,7 +21,9 @@
     "x": {
       "field": "Respondent Group",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Respondent Group",

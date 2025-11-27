@@ -21,7 +21,9 @@
     "x": {
       "field": "Market Type",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Market Type",

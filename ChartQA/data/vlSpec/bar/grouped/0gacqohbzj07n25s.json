@@ -21,7 +21,9 @@
     "x": {
       "field": "Procedure Type",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Procedure Type",

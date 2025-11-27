@@ -21,7 +21,9 @@
     "x": {
       "field": "Category",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Category",

@@ -21,7 +21,9 @@
     "x": {
       "field": "Race/Ethnicity",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Race/Ethnicity",

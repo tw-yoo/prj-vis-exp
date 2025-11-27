@@ -21,7 +21,9 @@
     "x": {
       "field": "Candidate",
       "type": "nominal",
-      "axis": {}
+      "axis": {
+        "title": ""
+      }
     },
     "color": {
       "field": "Candidate",
