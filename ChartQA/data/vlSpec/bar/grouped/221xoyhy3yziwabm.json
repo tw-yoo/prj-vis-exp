@@ -9,24 +9,19 @@
     "column": {
       "field": "Satisfaction_Level",
       "type": "ordinal",
-      "header": {
-        "title": "Satisfaction_Level"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share_of_Respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Share_of_Respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

@@ -9,24 +9,19 @@
     "column": {
       "field": "Region",
       "type": "ordinal",
-      "header": {
-        "title": "Region"
-      }
+      "header": {}
     },
     "y": {
       "field": "Demand_Million_Metric_Tons",
       "type": "quantitative",
       "axis": {
-        "title": "Demand_Million_Metric_Tons",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

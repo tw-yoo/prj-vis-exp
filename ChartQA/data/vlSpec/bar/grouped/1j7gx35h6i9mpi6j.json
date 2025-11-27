@@ -9,24 +9,19 @@
     "column": {
       "field": "Item",
       "type": "ordinal",
-      "header": {
-        "title": "Item"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Share of respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Response",
       "type": "nominal",
-      "axis": {
-        "title": "Response"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Response",

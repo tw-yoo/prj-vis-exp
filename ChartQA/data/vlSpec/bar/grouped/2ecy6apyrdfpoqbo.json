@@ -9,24 +9,19 @@
     "column": {
       "field": "Fiscal Year",
       "type": "ordinal",
-      "header": {
-        "title": "Fiscal Year"
-      }
+      "header": {}
     },
     "y": {
       "field": "Sales price in U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "Sales price in U.S. dollars",
         "grid": false
       }
     },
     "x": {
       "field": "Item",
       "type": "nominal",
-      "axis": {
-        "title": "Item"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Item",

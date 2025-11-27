@@ -9,24 +9,19 @@
     "column": {
       "field": "Time Period",
       "type": "ordinal",
-      "header": {
-        "title": "Time Period"
-      }
+      "header": {}
     },
     "y": {
       "field": "Retention rate",
       "type": "quantitative",
       "axis": {
-        "title": "Retention rate",
         "grid": false
       }
     },
     "x": {
       "field": "Type",
       "type": "nominal",
-      "axis": {
-        "title": "Type"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Type",

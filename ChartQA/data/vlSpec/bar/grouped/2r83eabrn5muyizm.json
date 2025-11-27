@@ -9,24 +9,19 @@
     "column": {
       "field": "Region",
       "type": "ordinal",
-      "header": {
-        "title": "Region"
-      }
+      "header": {}
     },
     "y": {
       "field": "Total external assets in billion U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "Total external assets in billion U.S. dollars",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

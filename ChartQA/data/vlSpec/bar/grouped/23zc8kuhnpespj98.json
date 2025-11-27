@@ -9,24 +9,19 @@
     "column": {
       "field": "Genre",
       "type": "ordinal",
-      "header": {
-        "title": "Genre"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share_of_Respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Share_of_Respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Gender",
       "type": "nominal",
-      "axis": {
-        "title": "Gender"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Gender",

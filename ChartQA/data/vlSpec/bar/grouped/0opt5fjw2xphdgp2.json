@@ -9,24 +9,19 @@
     "column": {
       "field": "Frequency",
       "type": "ordinal",
-      "header": {
-        "title": "Frequency"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Share of respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Race/Ethnicity",
       "type": "nominal",
-      "axis": {
-        "title": "Race/Ethnicity"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Race/Ethnicity",

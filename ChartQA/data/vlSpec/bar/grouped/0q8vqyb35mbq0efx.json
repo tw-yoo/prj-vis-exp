@@ -9,24 +9,19 @@
     "column": {
       "field": "Year",
       "type": "ordinal",
-      "header": {
-        "title": "Year"
-      }
+      "header": {}
     },
     "y": {
       "field": "Number of suicides",
       "type": "quantitative",
       "axis": {
-        "title": "Number of suicides",
         "grid": false
       }
     },
     "x": {
       "field": "Age Group",
       "type": "nominal",
-      "axis": {
-        "title": "Age Group"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Age Group",

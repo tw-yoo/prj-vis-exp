@@ -427,7 +427,7 @@ export async function renderPlainVegaLiteChart(chartId, spec, options = {}) {
     // stripAxisTitles 주석 처리 - 축 제목 유지
     // stripAxisTitles(target);
     
-    // 자동으로 라벨 각도 조정
+    // 자동으로 라벨 각도 조정 (faceted chart도 처리)
     adjustXAxisLabelAngle(chartId);
     
     ensureXAxisLabelClearance(chartId, { attempts: 5, minGap: 14, maxShift: 140 });

@@ -9,24 +9,19 @@
     "column": {
       "field": "Year",
       "type": "ordinal",
-      "header": {
-        "title": "Year"
-      }
+      "header": {}
     },
     "y": {
       "field": "Revenue_Million_Euros",
       "type": "quantitative",
       "axis": {
-        "title": "Revenue_Million_Euros",
         "grid": false
       }
     },
     "x": {
       "field": "Sector",
       "type": "nominal",
-      "axis": {
-        "title": "Sector"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Sector",

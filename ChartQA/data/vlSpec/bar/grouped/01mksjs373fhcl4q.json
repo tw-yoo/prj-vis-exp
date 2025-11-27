@@ -9,24 +9,19 @@
     "column": {
       "field": "Sector",
       "type": "ordinal",
-      "header": {
-        "title": "Sector"
-      }
+      "header": {}
     },
     "y": {
       "field": "Average length of lease in years",
       "type": "quantitative",
       "axis": {
-        "title": "Average length of lease in years",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

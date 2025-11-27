@@ -9,24 +9,19 @@
     "column": {
       "field": "Age_Group",
       "type": "ordinal",
-      "header": {
-        "title": "Age_Group"
-      }
+      "header": {}
     },
     "y": {
       "field": "Median_Annual_Pay_GBP",
       "type": "quantitative",
       "axis": {
-        "title": "Median_Annual_Pay_GBP",
         "grid": false
       }
     },
     "x": {
       "field": "Gender",
       "type": "nominal",
-      "axis": {
-        "title": "Gender"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Gender",

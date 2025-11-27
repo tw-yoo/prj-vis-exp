@@ -9,24 +9,19 @@
     "column": {
       "field": "City",
       "type": "ordinal",
-      "header": {
-        "title": "City"
-      }
+      "header": {}
     },
     "y": {
       "field": "Population in millions",
       "type": "quantitative",
       "axis": {
-        "title": "Population in millions",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

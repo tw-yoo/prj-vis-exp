@@ -9,24 +9,19 @@
     "column": {
       "field": "Service",
       "type": "ordinal",
-      "header": {
-        "title": "Service"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share of women and men",
       "type": "quantitative",
       "axis": {
-        "title": "Share of women and men",
         "grid": false
       }
     },
     "x": {
       "field": "Gender",
       "type": "nominal",
-      "axis": {
-        "title": "Gender"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Gender",

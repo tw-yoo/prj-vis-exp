@@ -9,24 +9,19 @@
     "column": {
       "field": "Year",
       "type": "ordinal",
-      "header": {
-        "title": "Year"
-      }
+      "header": {}
     },
     "y": {
       "field": "Value in billion U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "Value in billion U.S. dollars",
         "grid": false
       }
     },
     "x": {
       "field": "Market Type",
       "type": "nominal",
-      "axis": {
-        "title": "Market Type"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Market Type",

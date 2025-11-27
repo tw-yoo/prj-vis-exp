@@ -9,24 +9,19 @@
     "column": {
       "field": "State",
       "type": "ordinal",
-      "header": {
-        "title": "State"
-      }
+      "header": {}
     },
     "y": {
       "field": "Payment_Million_USD",
       "type": "quantitative",
       "axis": {
-        "title": "Payment_Million_USD",
         "grid": false
       }
     },
     "x": {
       "field": "Type",
       "type": "nominal",
-      "axis": {
-        "title": "Type"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Type",

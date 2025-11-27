@@ -9,24 +9,19 @@
     "column": {
       "field": "Region",
       "type": "ordinal",
-      "header": {
-        "title": "Region"
-      }
+      "header": {}
     },
     "y": {
       "field": "Net_Sales_Percentage",
       "type": "quantitative",
       "axis": {
-        "title": "Net_Sales_Percentage",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

@@ -9,24 +9,19 @@
     "column": {
       "field": "Fiscal Year",
       "type": "ordinal",
-      "header": {
-        "title": "Fiscal Year"
-      }
+      "header": {}
     },
     "y": {
       "field": "Export value in billion U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "Export value in billion U.S. dollars",
         "grid": false
       }
     },
     "x": {
       "field": "Rice Type",
       "type": "nominal",
-      "axis": {
-        "title": "Rice Type"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Rice Type",

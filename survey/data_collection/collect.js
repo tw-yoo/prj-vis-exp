@@ -207,7 +207,7 @@ function ensureTooltipConfig(spec) {
     applyIfUnset(areaConfig);
     applyIfUnset(pointConfig);
 
-    // 축 설정 추가 - 기본값만 제공
+    // 축 설정 - 기본값만 제공
     const axisConfig = {
         labelFontSize: 11,
         titleFontSize: 13,
@@ -226,8 +226,6 @@ function ensureTooltipConfig(spec) {
         point: pointConfig,
         axis: axisConfig
     };
-
-    // encoding 수정은 하지 않음 - 원본 스펙 존중
     
     return spec;
 }

@@ -9,24 +9,19 @@
     "column": {
       "field": "Product Category",
       "type": "ordinal",
-      "header": {
-        "title": "Product Category"
-      }
+      "header": {}
     },
     "y": {
       "field": "Revenue in billion U.S. dollars",
       "type": "quantitative",
       "axis": {
-        "title": "Revenue in billion U.S. dollars",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

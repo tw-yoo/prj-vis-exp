@@ -9,24 +9,19 @@
     "column": {
       "field": "Group",
       "type": "ordinal",
-      "header": {
-        "title": "Group"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share of students",
       "type": "quantitative",
       "axis": {
-        "title": "Share of students",
         "grid": false
       }
     },
     "x": {
       "field": "Race/Ethnicity",
       "type": "nominal",
-      "axis": {
-        "title": "Race/Ethnicity"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Race/Ethnicity",

@@ -9,24 +9,19 @@
     "column": {
       "field": "Channel",
       "type": "ordinal",
-      "header": {
-        "title": "Channel"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share of total gross premiums written",
       "type": "quantitative",
       "axis": {
-        "title": "Share of total gross premiums written",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

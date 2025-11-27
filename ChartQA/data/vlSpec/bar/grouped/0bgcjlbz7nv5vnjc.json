@@ -9,24 +9,19 @@
     "column": {
       "field": "Period",
       "type": "ordinal",
-      "header": {
-        "title": "Period"
-      }
+      "header": {}
     },
     "y": {
       "field": "SharePercentage",
       "type": "quantitative",
       "axis": {
-        "title": "SharePercentage",
         "grid": false
       }
     },
     "x": {
       "field": "AgeGroup",
       "type": "nominal",
-      "axis": {
-        "title": "AgeGroup"
-      }
+      "axis": {}
     },
     "color": {
       "field": "AgeGroup",

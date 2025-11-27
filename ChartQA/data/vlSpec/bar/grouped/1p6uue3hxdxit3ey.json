@@ -9,24 +9,19 @@
     "column": {
       "field": "Response",
       "type": "ordinal",
-      "header": {
-        "title": "Response"
-      }
+      "header": {}
     },
     "y": {
       "field": "Percentage of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Percentage of respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Age Group",
       "type": "nominal",
-      "axis": {
-        "title": "Age Group"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Age Group",

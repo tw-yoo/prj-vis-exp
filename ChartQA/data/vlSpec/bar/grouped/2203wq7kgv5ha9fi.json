@@ -9,24 +9,19 @@
     "column": {
       "field": "Age_Group",
       "type": "ordinal",
-      "header": {
-        "title": "Age_Group"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share_of_Respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Share_of_Respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Housing_Status",
       "type": "nominal",
-      "axis": {
-        "title": "Housing_Status"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Housing_Status",

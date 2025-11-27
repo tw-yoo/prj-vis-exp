@@ -9,24 +9,19 @@
     "column": {
       "field": "Region",
       "type": "ordinal",
-      "header": {
-        "title": "Region"
-      }
+      "header": {}
     },
     "y": {
       "field": "Production in million barrels per day",
       "type": "quantitative",
       "axis": {
-        "title": "Production in million barrels per day",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

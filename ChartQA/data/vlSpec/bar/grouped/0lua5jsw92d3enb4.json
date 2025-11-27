@@ -9,24 +9,19 @@
     "column": {
       "field": "Diet Type",
       "type": "ordinal",
-      "header": {
-        "title": "Diet Type"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Share of respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Year",
       "type": "nominal",
-      "axis": {
-        "title": "Year"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Year",

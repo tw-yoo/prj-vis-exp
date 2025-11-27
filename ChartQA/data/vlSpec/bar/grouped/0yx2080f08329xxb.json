@@ -9,24 +9,19 @@
     "column": {
       "field": "Year",
       "type": "ordinal",
-      "header": {
-        "title": "Year"
-      }
+      "header": {}
     },
     "y": {
       "field": "Value market share",
       "type": "quantitative",
       "axis": {
-        "title": "Value market share",
         "grid": false
       }
     },
     "x": {
       "field": "Channel",
       "type": "nominal",
-      "axis": {
-        "title": "Channel"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Channel",

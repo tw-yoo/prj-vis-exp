@@ -9,24 +9,19 @@
     "column": {
       "field": "ResponseCategory",
       "type": "ordinal",
-      "header": {
-        "title": "ResponseCategory"
-      }
+      "header": {}
     },
     "y": {
       "field": "SharePercentage",
       "type": "quantitative",
       "axis": {
-        "title": "SharePercentage",
         "grid": false
       }
     },
     "x": {
       "field": "Region",
       "type": "nominal",
-      "axis": {
-        "title": "Region"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Region",

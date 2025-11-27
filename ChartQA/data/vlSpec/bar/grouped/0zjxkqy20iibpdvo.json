@@ -9,24 +9,19 @@
     "column": {
       "field": "Platform",
       "type": "ordinal",
-      "header": {
-        "title": "Platform"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Share of respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Gender",
       "type": "nominal",
-      "axis": {
-        "title": "Gender"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Gender",

@@ -9,24 +9,19 @@
     "column": {
       "field": "Hair Removal Type",
       "type": "ordinal",
-      "header": {
-        "title": "Hair Removal Type"
-      }
+      "header": {}
     },
     "y": {
       "field": "Share of respondents",
       "type": "quantitative",
       "axis": {
-        "title": "Share of respondents",
         "grid": false
       }
     },
     "x": {
       "field": "Age Group",
       "type": "nominal",
-      "axis": {
-        "title": "Age Group"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Age Group",

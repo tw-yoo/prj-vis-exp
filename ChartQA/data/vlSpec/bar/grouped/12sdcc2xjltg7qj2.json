@@ -9,24 +9,19 @@
     "column": {
       "field": "Year",
       "type": "ordinal",
-      "header": {
-        "title": "Year"
-      }
+      "header": {}
     },
     "y": {
       "field": "Value_Million_USD",
       "type": "quantitative",
       "axis": {
-        "title": "Value_Million_USD",
         "grid": false
       }
     },
     "x": {
       "field": "Category",
       "type": "nominal",
-      "axis": {
-        "title": "Category"
-      }
+      "axis": {}
     },
     "color": {
       "field": "Category",
