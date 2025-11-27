@@ -127,9 +127,26 @@ function buildPageDescriptorsForAssignedCharts() {
             slug: chartId,
             path: 'pages/main-task.html',
             onLoad: (root, pageIdx) => {
-                const offset = 1 + STATIC_PAGES_BEFORE_TASK.length + tutorialTaskDescriptors.length;
+                // 📌 수정: offset 계산 수정
+                const offset = 1 + STATIC_PAGES_BEFORE_TASK.length + tutorialTaskDescriptors.length + PAGES_BEFORE_INTRO.length;
                 currentChartIndex = pageIdx - offset;
+                
+                // 📌 디버깅 로그 추가
+                console.log('🔍 Debug:', {
+                    pageIdx,
+                    offset,
+                    currentChartIndex,
+                    totalCharts: assignedCharts.length,
+                    chartId: assignedCharts[currentChartIndex]
+                });
+                
                 const currentChartId = assignedCharts[currentChartIndex];
+
+                // 📌 안전 장치 추가
+                if (!currentChartId) {
+                    console.error('❌ Invalid currentChartIndex:', currentChartIndex, 'assignedCharts:', assignedCharts);
+                    return;
+                }
 
                 const dropdown = root.querySelector('#chart-dropdown');
                 dropdown.innerHTML = '';
@@ -144,7 +161,7 @@ function buildPageDescriptorsForAssignedCharts() {
                         saveCurrentChartData();
                         await persistAllData();
                         const newIdx = assignedCharts.indexOf(dropdown.value);
-                        const offsetIndex = 1 + STATIC_PAGES_BEFORE_TASK.length;
+                        const offsetIndex = 1 + STATIC_PAGES_BEFORE_TASK.length + tutorialTaskDescriptors.length + PAGES_BEFORE_INTRO.length;
                         loadPage(newIdx + offsetIndex);
                     });
                 };
