@@ -108,16 +108,7 @@
 
                 <div class="ops-checklist">
                     <label class="question">3. Operations Used (multiple)</label>
-                    <div class="ops-checklist-body" id="ops-checklist">
-                        <label class="ops-check">
-                            <input type="checkbox" value="AAA">
-                            <span>AAA</span>
-                        </label>
-                        <label class="ops-check">
-                            <input type="checkbox" value="BBB">
-                            <span>BBB</span>
-                        </label>
-                    </div>
+                    <div class="ops-checklist-body" id="ops-checklist"></div>
                     <div class="ops-custom">
                         <label class="question optional-question" for="ops-custom-input">Add/Remove custom operations</label>
                         <div class="ops-custom-input-row">
@@ -247,31 +238,6 @@
             color: #333;
             border-bottom: 2px solid #2196f3;
             padding-bottom: 6px;
-        }
-
-        /* Ensure chart fills the container similar to tutorial */
-        .chart-container .chart-host {
-            min-height: 620px;
-            flex: 1 1 auto;
-        }
-        .chart-container .d3chart-container {
-            min-height: 620px;
-            height: 620px;
-            flex: 1 1 auto;
-        }
-
-        .d3chart-container > * {
-            margin: 0 auto;
-        }
-
-        .d3chart-container svg,
-        .d3chart-container canvas {
-            width: 100% !important;
-            height: 100% !important;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-            display: block;
         }
 
         .input-container > div {

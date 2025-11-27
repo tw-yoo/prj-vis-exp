@@ -1,0 +1,59 @@
+{
+  "ops": [
+    {
+      "value": "Retrieve Value",
+      "label": "Retrieve Value",
+      "tip": "Look up a single data point."
+    },
+    {
+      "value": "Filter",
+      "label": "Filter",
+      "tip": "Select data points that meet conditions."
+    },
+    {
+      "value": "Find Extremum",
+      "label": "Find Extremum",
+      "tip": "Find the maximum or minimum value."
+    },
+    {
+      "value": "Determine Range",
+      "label": "Determine Range",
+      "tip": "Difference between max and min values."
+    },
+    {
+      "value": "Compare",
+      "label": "Compare",
+      "tip": "Compare values between two items/groups."
+    },
+    {
+      "value": "Sort",
+      "label": "Sort",
+      "tip": "Order data ascending or descending."
+    },
+    {
+      "value": "Sum",
+      "label": "Sum",
+      "tip": "Add values together."
+    },
+    {
+      "value": "Average",
+      "label": "Average",
+      "tip": "Compute the mean of values."
+    },
+    {
+      "value": "Difference",
+      "label": "Difference",
+      "tip": "Subtract one value or group from another."
+    },
+    {
+      "value": "Nth",
+      "label": "Nth",
+      "tip": "Pick the 1st/2nd/3rd (or Nth) item after sorting."
+    },
+    {
+      "value": "Count",
+      "label": "Count",
+      "tip": "Count the number of items that meet a condition."
+    }
+  ]
+}

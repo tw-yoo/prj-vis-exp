@@ -22,6 +22,7 @@ let pageDescriptors = [];
 let TOTAL_PAGES = 0;
 let navigationInProgress = false;
 let participantAssignments = null;
+let opsOptionsCache = null;
 
 const container = () => document.querySelector('.main-scroll');
 const btnPrev = () => document.querySelector('.prev-btn');
@@ -81,8 +82,12 @@ const TUTORIAL_PAGES = [
     // { id: 'tutorial_tip', path: 'pages/tutorial/tutorial_tip.html', slug: 'tutorial_tip', group: 'tutorial', onLoad: setupTutorialExample },
 ];
 
+const PAGES_BEFORE_INTRO = [
+    { id: 'tutorial_end', path: 'pages/tutorial/tutorial_end.html', slug: 'tutorial_end', group: 'tutorial', onLoad: setupTutorialExample },
+]
+
 const STATIC_PAGES_BEFORE_TASK = [
-    ...TUTORIAL_PAGES
+    ...TUTORIAL_PAGES,
 ];
 
 const STATIC_PAGES_AFTER_TASK = [
@@ -116,6 +121,7 @@ function buildPageDescriptorsForAssignedCharts() {
         LOGIN_PAGE,
         ...STATIC_PAGES_BEFORE_TASK,
         ...tutorialTaskDescriptors,
+        ...PAGES_BEFORE_INTRO,
         ...assignedCharts.map((chartId, i) => ({
             id: 'main-task',
             slug: chartId,
@@ -170,6 +176,12 @@ function normalizeSpecPath(rawPath) {
 
 function patchSpecDataUrl(spec) {
     if (!spec || !spec.data || !spec.data.url) return spec;
+
+    const dataUrl = spec.data.url;
+    if (dataUrl.startsWith("ChartQA")) {
+        spec.data.url = `../../${dataUrl}`;
+    }
+
     return spec;
 }
 
@@ -279,6 +291,66 @@ function setTotalPages(nextTotal) {
         TOTAL_PAGES = sanitized;
         refreshProgressIndicator();
     }
+}
+
+function getDefaultOpsOptions() {
+    return [
+        { value: 'Retrieve Value', label: 'Retrieve Value', tip: 'Look up a single data point.' },
+        { value: 'Filter', label: 'Filter', tip: 'Select data points that meet conditions.' },
+        { value: 'Find Extremum', label: 'Find Extremum', tip: 'Find the maximum or minimum value.' },
+        { value: 'Determine Range', label: 'Determine Range', tip: 'Difference between max and min values.' },
+        { value: 'Compare', label: 'Compare', tip: 'Compare values between two items/groups.' },
+        { value: 'Sort', label: 'Sort', tip: 'Order data ascending or descending.' },
+        { value: 'Sum', label: 'Sum', tip: 'Add values together.' },
+        { value: 'Average', label: 'Average', tip: 'Compute the mean of values.' },
+        { value: 'Difference', label: 'Difference', tip: 'Subtract one value or group from another.' },
+        { value: 'Nth', label: 'Nth', tip: 'Pick the 1st/2nd/3rd (or Nth) item after sorting.' },
+        { value: 'Count', label: 'Count', tip: 'Count the number of items that meet a condition.' },
+    ];
+}
+
+async function loadOpsOptions() {
+    if (opsOptionsCache) return opsOptionsCache;
+    try {
+        const res = await fetch('ops_options.json', { cache: 'no-store' });
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        const parsed = Array.isArray(json?.ops) ? json.ops : (Array.isArray(json) ? json : []);
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+            throw new Error('Invalid ops_options.json format');
+        }
+        opsOptionsCache = parsed;
+    } catch (e) {
+        console.warn('Failed to load ops_options.json, using defaults:', e);
+        opsOptionsCache = getDefaultOpsOptions();
+    }
+    return opsOptionsCache;
+}
+
+async function populateOpsChecklist(root) {
+    const container = root?.querySelector('#ops-checklist');
+    if (!container) return;
+    const ops = await loadOpsOptions();
+    container.innerHTML = '';
+    ops.forEach((op) => {
+        const { value, label, tip } = op || {};
+        if (!value && !label) return;
+        const wrapper = document.createElement('label');
+        wrapper.className = 'ops-check';
+        if (tip) {
+            wrapper.dataset.tip = tip;
+        }
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = value || label || '';
+        const span = document.createElement('span');
+        span.textContent = label || value || '';
+        wrapper.appendChild(input);
+        wrapper.appendChild(span);
+        container.appendChild(wrapper);
+    });
 }
 
 async function previewTotalPagesForCode(code) {
@@ -676,6 +748,16 @@ async function guardedNavigate(task) {
 
 let idx = 0;
 
+function bindCompletionPageHandlers(root) {
+    const backHomeBtn = root?.querySelector('#btn-back-home');
+    if (!backHomeBtn) return;
+    backHomeBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        guardedNavigate(() => loadPage(0));
+    }, { capture: true });
+}
+
 async function loadPage(pageIndex) {
     idx = pageIndex;
     const descriptor = pageDescriptors[idx];
@@ -705,6 +787,7 @@ async function loadPage(pageIndex) {
         }
 
         renderComponents(root);
+        await populateOpsChecklist(root);
         if (descriptor.id === 'main-task') {
             setupTaskUI(root);
             const chartId = assignedCharts[currentChartIndex];
@@ -819,6 +902,9 @@ async function loadPage(pageIndex) {
             align: descriptor.id === 'login' ? 'start' : 'center'
         });
         root.appendChild(nav);
+        if (descriptor.id === 'complete') {
+            bindCompletionPageHandlers(root);
+        }
 
     } catch (e) {
         root.innerHTML = `<div class="error">Error loading page: ${e.message}</div>`;

@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     btn.addEventListener('click', () => {
         const url = new URL(window.location.href);
+        url.pathname = url.pathname.replace(/pages\/[^/]*$/, 'index.html');
         url.searchParams.delete('page');
         window.location.href = url.toString();
     });

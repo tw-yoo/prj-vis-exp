@@ -9,8 +9,8 @@
     <h2>Compositional Chart Question</h2>
     <p style="font-size: 1.1em;">A compositional chart question is a question that requires <strong>more than one step</strong> to answer. Instead of looking at a single value in the chart, you combine two or more pieces of information to figure out the result. Your task is to create compositional questions about the given chart. You will follow the following steps: </p>
     <div class="tutorial-example">
-        <div id="tutorial-chart-view__host" class="tutorial-example-chart" data-spec-path="pages/tutorial/tutorial_chart.json">
-            <div id="tutorial-chart-view" class="tutorial-chart-target">
+        <div id="tutorial-chart-view__host" class="chart-host tutorial-example-chart" data-spec-path="pages/tutorial/tutorial_chart.json">
+            <div id="tutorial-chart-view" class="d3chart-container">
                 <div class="chart-placeholder">Loading chart...</div>
             </div>
         </div>
@@ -188,51 +188,14 @@
             background: #fff;
             border: 1px solid #ddd;
             border-radius: 8px;
-            min-height: 360px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             padding: 0;
             position: relative;
-            overflow: hidden;
-        }
-
-        #tutorial-chart-view__host {
-            width: 100%;
-            height: 100%;
-            min-height: 360px;
-        }
-
-        #tutorial-chart-view {
-            min-height: 360px;
         }
 
         .tutorial-example-chart .chart-placeholder {
             color: #888;
             font-size: 14px;
             text-align: center;
-        }
-
-        .tutorial-example-chart > * {
-            margin: 0 auto;
-        }
-
-        .tutorial-example-chart .vega-embed {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;   /* !important 제거 */
-            height: 100%;  /* !important 제거 */
-        }
-
-        .tutorial-example-chart svg,
-        .tutorial-example-chart canvas {
-            display: block;
-            margin: 0 auto;
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;   /* 혹은 아예 안 적어도 됨 */
-            height: auto;  /* 혹은 아예 안 적어도 됨 */
         }
 
         .tutorial-example-explanation {
