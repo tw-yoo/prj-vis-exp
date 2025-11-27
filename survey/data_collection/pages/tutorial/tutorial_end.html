@@ -1,0 +1,97 @@
+<div class="page-content tutorial-page tutorial-page--end">
+    <header class="tutorial-header">
+        <h1>Great job! Tutorial complete.</h1>
+        <p class="lede">You’re ready for the main study. Your answers will be recorded from now on.</p>
+    </header>
+
+    <section class="card summary-card">
+        <div class="card-header">
+            <h3>What happens next</h3>
+        </div>
+        <div class="card-body">
+            <ul class="reminders">
+                <li>You will create <strong>20 compositional questions</strong> in total (one per chart).</li>
+                <li>For each chart: read the chart → write a compositional question → compute the single correct answer → select operations → explain the steps.</li>
+                <li>Use any calculator or tool for math, but <strong>write questions yourself</strong> (no LLMs for question generation).</li>
+                <li>Your responses from this point forward are saved.</li>
+            </ul>
+            <div class="cta">
+<!--                <button id="tutorial-end-next-btn" class="button">Start the main study</button>-->
+                <p>Click “Next” below or this button to begin.</p>
+            </div>
+        </div>
+    </section>
+
+    <style>
+        .tutorial-page--end {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px 18px 32px;
+        }
+        .tutorial-header h1 {
+            margin: 0 0 6px 0;
+            font-size: 26px;
+        }
+        .tutorial-header .lede {
+            margin: 0;
+            color: #4b5563;
+            font-size: 16px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .card-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .card-header h3 {
+            margin: 0;
+            font-size: 18px;
+        }
+        .card-body {
+            padding: 14px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .reminders {
+            margin: 0;
+            padding-left: 18px;
+            color: #111827;
+            line-height: 1.5;
+        }
+        .cta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .cta .button {
+            padding: 10px 14px;
+            font-weight: 700;
+        }
+        .micro-hint {
+            margin: 0;
+            color: #6b7280;
+            font-size: 13px;
+        }
+    </style>
+</div>
+
+<script>
+(function() {
+    const btn = document.getElementById('tutorial-end-next-btn');
+    const forward = () => {
+        const navNext = document.querySelector('.next-btn');
+        if (navNext && !navNext.disabled) {
+            navNext.click();
+        }
+    };
+    if (btn) {
+        btn.addEventListener('click', forward);
+    }
+})();
+</script>

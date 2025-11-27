@@ -25,5 +25,41 @@
     "bar_stacked_0aj7na7tkqb7iomu",
     "line_simple_0cymcilknp8krjwz",
     "line_multiple_0bunvsqd54e3qahz"
+  ],
+
+  "DCPAAA": [
+    "line_multiple_2eiyyw562tcvjypp",
+    "bar_grouped_0bgcjlbz7nv5vnjc",
+    "bar_simple_0s6zi9dyw22qo4rp",
+    "bar_stacked_0dglnk2wbf5ll15t",
+    "line_simple_0cymcilknp8krjwz"
+  ],
+  "DCPBBB": [
+    "line_multiple_2eiyyw562tcvjypp",
+    "bar_grouped_0bgcjlbz7nv5vnjc",
+    "bar_simple_0s6zi9dyw22qo4rp",
+    "bar_stacked_0dglnk2wbf5ll15t",
+    "line_simple_0cymcilknp8krjwz"
+  ],
+  "DCPBBC": [
+    "bar_simple_0s6zi9dyw22qo4rp",
+    "line_multiple_2eiyyw562tcvjypp",
+    "bar_grouped_0bgcjlbz7nv5vnjc",
+    "line_simple_0cymcilknp8krjwz",
+    "bar_stacked_0dglnk2wbf5ll15t"
+  ],
+  "DCPBBD": [
+    "line_simple_0cymcilknp8krjwz",
+    "line_multiple_2eiyyw562tcvjypp",
+    "bar_stacked_0dglnk2wbf5ll15t",
+    "bar_simple_0s6zi9dyw22qo4rp",
+    "bar_grouped_0bgcjlbz7nv5vnjc"
+  ],
+  "DCPBBE": [
+    "bar_grouped_0bgcjlbz7nv5vnjc",
+    "bar_stacked_0dglnk2wbf5ll15t",
+    "line_simple_0cymcilknp8krjwz",
+    "bar_simple_0s6zi9dyw22qo4rp",
+    "line_multiple_2eiyyw562tcvjypp"
   ]
 }

@@ -75,7 +75,6 @@ async function renderChart(chartId, elementId) {
                 spec.data.url = `../../../ChartQA/${dataUrl}`;
             }
         }
-        
         await renderPlainVegaLiteChart(elementId, spec);
         
     } catch (e) {

@@ -51,36 +51,7 @@
 
                 <div class="ops-checklist">
                     <label class="question">3. Operations Used (multiple)</label>
-                    <div class="ops-checklist-body" id="ops-checklist">
-                        <label class="ops-check">
-                            <input type="checkbox" value="AAA">
-                            <span>AAA</span>
-                        </label>
-                        <label class="ops-check">
-                            <input type="checkbox" value="BBB">
-                            <span>BBB</span>
-                        </label>
-                        <label class="ops-check">
-                            <input type="checkbox" value="CCC">
-                            <span>CCC</span>
-                        </label>
-                        <label class="ops-check">
-                            <input type="checkbox" value="DDD">
-                            <span>DDD</span>
-                        </label>
-                        <label class="ops-check">
-                            <input type="checkbox" value="EEE">
-                            <span>EEE</span>
-                        </label>
-                        <label class="ops-check">
-                            <input type="checkbox" value="FFF">
-                            <span>FFF</span>
-                        </label>
-                        <label class="ops-check">
-                            <input type="checkbox" value="GGG">
-                            <span>GGG</span>
-                        </label>
-                    </div>
+                    <div class="ops-checklist-body" id="ops-checklist"></div>
                     <div class="ops-custom">
                         <label class="question optional-question" for="ops-custom-input">Add/Remove custom operations</label>
                         <div class="ops-custom-input-row">
@@ -151,6 +122,8 @@
             padding: 10px;
             margin-bottom: 16px;
             background: #f9fafb;
+            position: relative;
+            overflow: visible;
         }
         .ops-checklist .question {
             display: block;
@@ -158,8 +131,8 @@
             font-weight: 600;
         }
         .ops-checklist-body {
-            max-height: 160px;
-            overflow: auto;
+            max-height: none;
+            overflow: visible;
             border: 1px solid #e5e7eb;
             border-radius: 4px;
             padding: 8px;

@@ -22,6 +22,7 @@ let pageDescriptors = [];
 let TOTAL_PAGES = 0;
 let navigationInProgress = false;
 let participantAssignments = null;
+let opsOptionsCache = null;
 
 const container = () => document.querySelector('.main-scroll');
 const btnPrev = () => document.querySelector('.prev-btn');
@@ -78,11 +79,15 @@ const LOGIN_PAGE = { id: 'login', path: 'pages/code-entry.html', slug: 'login' }
 const TUTORIAL_PAGES = [
     { id: 'tutorial_index', path: 'pages/tutorial/tutorial_index.html', slug: 'tutorial_index', group: 'tutorial', onLoad: setupTutorialExample },
     { id: 'tutorial_overview', path: 'pages/tutorial/tutorial_overview.html', slug: 'tutorial_overview', group: 'tutorial', onLoad: setupTutorialExample },
-    { id: 'tutorial_tip', path: 'pages/tutorial/tutorial_tip.html', slug: 'tutorial_tip', group: 'tutorial', onLoad: setupTutorialExample },
+    // { id: 'tutorial_tip', path: 'pages/tutorial/tutorial_tip.html', slug: 'tutorial_tip', group: 'tutorial', onLoad: setupTutorialExample },
 ];
 
+const PAGES_BEFORE_INTRO = [
+    { id: 'tutorial_end', path: 'pages/tutorial/tutorial_end.html', slug: 'tutorial_end', group: 'tutorial', onLoad: setupTutorialExample },
+]
+
 const STATIC_PAGES_BEFORE_TASK = [
-    ...TUTORIAL_PAGES
+    ...TUTORIAL_PAGES,
 ];
 
 const STATIC_PAGES_AFTER_TASK = [
@@ -116,6 +121,7 @@ function buildPageDescriptorsForAssignedCharts() {
         LOGIN_PAGE,
         ...STATIC_PAGES_BEFORE_TASK,
         ...tutorialTaskDescriptors,
+        ...PAGES_BEFORE_INTRO,
         ...assignedCharts.map((chartId, i) => ({
             id: 'main-task',
             slug: chartId,
@@ -170,18 +176,78 @@ function normalizeSpecPath(rawPath) {
 
 function patchSpecDataUrl(spec) {
     if (!spec || !spec.data || !spec.data.url) return spec;
+
     const dataUrl = spec.data.url;
-    if (dataUrl.startsWith('http') || dataUrl.startsWith('../../')) {
-        return spec;
+    if (dataUrl.startsWith("ChartQA")) {
+        spec.data.url = `../../${dataUrl}`;
     }
-    // if (dataUrl.startsWith('ChartQA/')) {
-    //     spec.data.url = `../../${dataUrl}`;
-    // } else if (dataUrl.startsWith('data/')) {
-    //     spec.data.url = `../../ChartQA/${dataUrl}`;
-    // } else {
-    //     spec.data.url = `../../ChartQA/${dataUrl}`;
-    // }
+
     return spec;
+}
+
+function ensureTooltipConfig(spec) {
+    if (!spec || typeof spec !== 'object') return spec;
+    const config = spec.config || {};
+    const markConfig = config.mark || {};
+    const barConfig = config.bar || {};
+    const lineConfig = config.line || {};
+    const areaConfig = config.area || {};
+    const pointConfig = config.point || {};
+
+    const applyIfUnset = (obj) => {
+        if (obj.tooltip === undefined) {
+            obj.tooltip = true;
+        }
+    };
+
+    applyIfUnset(markConfig);
+    applyIfUnset(barConfig);
+    applyIfUnset(lineConfig);
+    applyIfUnset(areaConfig);
+    applyIfUnset(pointConfig);
+
+    spec.config = {
+        ...config,
+        mark: markConfig,
+        bar: barConfig,
+        line: lineConfig,
+        area: areaConfig,
+        point: pointConfig
+    };
+    return spec;
+}
+
+async function renderChartIntoHost({ specPath, targetId, hostElement = null, placeholderText = 'Loading chart...' }) {
+    const host = hostElement || document.getElementById(targetId);
+    const normalizedPath = normalizeSpecPath(specPath);
+
+    if (!host) {
+        console.warn(`renderChartIntoHost: no host found for targetId="${targetId}"`);
+        return;
+    }
+    if (!normalizedPath) {
+        host.innerHTML = `<div class="chart-placeholder" style="color:red;">Missing chart spec path.</div>`;
+        return;
+    }
+
+    host.innerHTML = `<div class="chart-placeholder">${placeholderText}</div>`;
+
+    try {
+        const response = await fetch(normalizedPath);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        const spec = ensureTooltipConfig(await response.json());
+        patchSpecDataUrl(spec);
+        delete host.dataset.chartBaseWidth;
+        delete host.dataset.chartBaseHeight;
+        host.innerHTML = '';
+        await renderPlainVegaLiteChart(targetId, spec);
+        fitChartToContainer(targetId);
+    } catch (err) {
+        console.error(`Failed to render chart from ${normalizedPath}`, err);
+        host.innerHTML = `<div class="chart-placeholder" style="color:red;">Failed to load chart: ${err.message}</div>`;
+    }
 }
 
 async function setupTutorialExample(root) {
@@ -198,24 +264,12 @@ async function setupTutorialExample(root) {
         specLabel.textContent = rawPath || DEFAULT_TUTORIAL_SPEC;
     }
 
-    const render = async () => {
-        if (!normalized) return;
-        viewEl.innerHTML = '<div class="chart-placeholder">Loading chart...</div>';
-        try {
-            const spec = await (await fetch(normalized)).json();
-            patchSpecDataUrl(spec);
-            delete viewEl.dataset.chartBaseWidth;
-            delete viewEl.dataset.chartBaseHeight;
-            viewEl.innerHTML = '';
-            await renderPlainVegaLiteChart(targetId, spec);
-            fitChartToContainer(targetId);
-        } catch (err) {
-            console.error('Failed to render tutorial chart', err);
-            viewEl.innerHTML = `<div class="chart-placeholder" style="color:red;">Failed to load chart: ${err.message}</div>`;
-        }
-    };
-
-    render();
+    return renderChartIntoHost({
+        specPath: normalized,
+        targetId,
+        hostElement: viewEl,
+        placeholderText: 'Loading chart...'
+    });
 }
 
 function refreshProgressIndicator(currentIndex = idx) {
@@ -237,6 +291,66 @@ function setTotalPages(nextTotal) {
         TOTAL_PAGES = sanitized;
         refreshProgressIndicator();
     }
+}
+
+function getDefaultOpsOptions() {
+    return [
+        { value: 'Retrieve Value', label: 'Retrieve Value', tip: 'Look up a single data point.' },
+        { value: 'Filter', label: 'Filter', tip: 'Select data points that meet conditions.' },
+        { value: 'Find Extremum', label: 'Find Extremum', tip: 'Find the maximum or minimum value.' },
+        { value: 'Determine Range', label: 'Determine Range', tip: 'Difference between max and min values.' },
+        { value: 'Compare', label: 'Compare', tip: 'Compare values between two items/groups.' },
+        { value: 'Sort', label: 'Sort', tip: 'Order data ascending or descending.' },
+        { value: 'Sum', label: 'Sum', tip: 'Add values together.' },
+        { value: 'Average', label: 'Average', tip: 'Compute the mean of values.' },
+        { value: 'Difference', label: 'Difference', tip: 'Subtract one value or group from another.' },
+        { value: 'Nth', label: 'Nth', tip: 'Pick the 1st/2nd/3rd (or Nth) item after sorting.' },
+        { value: 'Count', label: 'Count', tip: 'Count the number of items that meet a condition.' },
+    ];
+}
+
+async function loadOpsOptions() {
+    if (opsOptionsCache) return opsOptionsCache;
+    try {
+        const res = await fetch('ops_options.json', { cache: 'no-store' });
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        const json = await res.json();
+        const parsed = Array.isArray(json?.ops) ? json.ops : (Array.isArray(json) ? json : []);
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+            throw new Error('Invalid ops_options.json format');
+        }
+        opsOptionsCache = parsed;
+    } catch (e) {
+        console.warn('Failed to load ops_options.json, using defaults:', e);
+        opsOptionsCache = getDefaultOpsOptions();
+    }
+    return opsOptionsCache;
+}
+
+async function populateOpsChecklist(root) {
+    const container = root?.querySelector('#ops-checklist');
+    if (!container) return;
+    const ops = await loadOpsOptions();
+    container.innerHTML = '';
+    ops.forEach((op) => {
+        const { value, label, tip } = op || {};
+        if (!value && !label) return;
+        const wrapper = document.createElement('label');
+        wrapper.className = 'ops-check';
+        if (tip) {
+            wrapper.dataset.tip = tip;
+        }
+        const input = document.createElement('input');
+        input.type = 'checkbox';
+        input.value = value || label || '';
+        const span = document.createElement('span');
+        span.textContent = label || value || '';
+        wrapper.appendChild(input);
+        wrapper.appendChild(span);
+        container.appendChild(wrapper);
+    });
 }
 
 async function previewTotalPagesForCode(code) {
@@ -432,45 +546,11 @@ async function renderChartForTask(chartId, elementId) {
         return;
     }
     
-    try {
-        const spec = await (await fetch(specPath)).json();
-        const host = document.getElementById(elementId);
-        if (host) {
-            delete host.dataset.chartBaseWidth;
-            delete host.dataset.chartBaseHeight;
-        }
-        patchSpecDataUrl(spec);
-        
-        // 데이터 경로 수정
-        if (spec.data && spec.data.url) {
-            const dataUrl = spec.data.url;
-            
-            // 절대 경로나 이미 수정된 경로는 건드리지 않음
-            if (dataUrl.startsWith('http') || dataUrl.startsWith('../../')) {
-                // 그대로 유지
-            }
-            // ChartQA로 시작하는 경우 (이미 ChartQA 포함)
-            else if (dataUrl.startsWith('ChartQA/')) {
-                spec.data.url = `../../${dataUrl}`;
-            }
-            // data로 시작하는 경우 (ChartQA 없음)
-            else if (dataUrl.startsWith('data/')) {
-                spec.data.url = `../../ChartQA/${dataUrl}`;
-            }
-            // 기타 경우
-            else {
-                spec.data.url = `../../ChartQA/${dataUrl}`;
-            }
-        }
-        
-        await renderPlainVegaLiteChart(elementId, spec);
-        fitChartToContainer(elementId);
-        
-    } catch (e) {
-        console.error(`Failed to render chart ${chartId} from ${specPath}`, e);
-        const el = document.getElementById(elementId);
-        if (el) el.innerHTML = `<p style="color: red;">Error loading chart: ${e.message}<br>Path: ${specPath}</p>`;
-    }
+    return renderChartIntoHost({
+        specPath,
+        targetId: elementId,
+        placeholderText: 'Loading chart...'
+    });
 }
 
 function saveCurrentChartData() {
@@ -557,10 +637,9 @@ function fitChartToContainer(elementId) {
     if (clientWidth <= 0 || clientHeight <= 0) return;
 
     // Decide which dimension to align to container, maintain aspect ratio
-    const prefersHeight = baseHeight >= baseWidth;
-    const scale = prefersHeight
-        ? (clientHeight / baseHeight)
-        : (clientWidth / baseWidth);
+    const scaleWidth = clientWidth / baseWidth;
+    const scaleHeight = clientHeight / baseHeight;
+    const scale = Math.min(scaleWidth, scaleHeight);
 
     const newWidth = baseWidth * scale;
     const newHeight = baseHeight * scale;
@@ -669,6 +748,16 @@ async function guardedNavigate(task) {
 
 let idx = 0;
 
+function bindCompletionPageHandlers(root) {
+    const backHomeBtn = root?.querySelector('#btn-back-home');
+    if (!backHomeBtn) return;
+    backHomeBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        guardedNavigate(() => loadPage(0));
+    }, { capture: true });
+}
+
 async function loadPage(pageIndex) {
     idx = pageIndex;
     const descriptor = pageDescriptors[idx];
@@ -698,6 +787,7 @@ async function loadPage(pageIndex) {
         }
 
         renderComponents(root);
+        await populateOpsChecklist(root);
         if (descriptor.id === 'main-task') {
             setupTaskUI(root);
             const chartId = assignedCharts[currentChartIndex];
@@ -812,6 +902,9 @@ async function loadPage(pageIndex) {
             align: descriptor.id === 'login' ? 'start' : 'center'
         });
         root.appendChild(nav);
+        if (descriptor.id === 'complete') {
+            bindCompletionPageHandlers(root);
+        }
 
     } catch (e) {
         root.innerHTML = `<div class="error">Error loading page: ${e.message}</div>`;
