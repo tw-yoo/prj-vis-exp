@@ -1,22 +1,99 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Stock prices of 5 Tech Companies over Time.",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for 16aphfabldrpgcmd.csv",
   "data": {
     "url": "ChartQA/data/csv/line/multiple/16aphfabldrpgcmd.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Year",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Average weight in metric grams",
+          "type": "quantitative",
+          "axis": {
+            "title": "Average weight in metric grams",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Group",
+          "type": "nominal",
+          "legend": {
+            "title": "Group",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
     },
-    "y": {
-      "field": "Average weight in metric grams",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Average weight in metric grams",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Group",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Group",
+            "type": "nominal",
+            "title": "Group"
+          },
+          {
+            "field": "Average weight in metric grams",
+            "type": "quantitative",
+            "title": "Average weight in metric grams"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
     },
-    "color": {
-      "field": "Group",
-      "type": "nominal"
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

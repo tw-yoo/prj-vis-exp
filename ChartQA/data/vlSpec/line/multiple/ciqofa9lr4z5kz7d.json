@@ -1,22 +1,99 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Stock prices of 5 Tech Companies over Time.",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for ciqofa9lr4z5kz7d.csv",
   "data": {
     "url": "ChartQA/data/csv/line/multiple/ciqofa9lr4z5kz7d.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Year",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Revenue and expending in million Canadian dollars",
+          "type": "quantitative",
+          "axis": {
+            "title": "Revenue and expending in million Canadian dollars",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Type",
+          "type": "nominal",
+          "legend": {
+            "title": "Type",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
     },
-    "y": {
-      "field": "Revenue and expending in million Canadian dollars",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Revenue and expending in million Canadian dollars",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Type",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Type",
+            "type": "nominal",
+            "title": "Type"
+          },
+          {
+            "field": "Revenue and expending in million Canadian dollars",
+            "type": "quantitative",
+            "title": "Revenue and expending in million Canadian dollars"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
     },
-    "color": {
-      "field": "Type",
-      "type": "nominal"
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

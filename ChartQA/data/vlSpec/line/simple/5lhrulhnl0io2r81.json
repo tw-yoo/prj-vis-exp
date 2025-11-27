@@ -1,18 +1,81 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
-  "description": "Simple Line chart for 5lhrulhnl0io2r81.csv",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Simple line chart for 5lhrulhnl0io2r81.csv",
   "data": {
     "url": "ChartQA/data/csv/line/simple/5lhrulhnl0io2r81.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Month/Year",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Month/Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Month/Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Producer Price Index (100=2009)",
+          "type": "quantitative",
+          "axis": {
+            "title": "Producer Price Index (100=2009)",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        }
+      }
     },
-    "y": {
-      "field": "Producer Price Index (100=2009)",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Month/Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Producer Price Index (100=2009)",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "Month/Year",
+            "type": "ordinal",
+            "title": "Month/Year"
+          },
+          {
+            "field": "Producer Price Index (100=2009)",
+            "type": "quantitative",
+            "title": "Producer Price Index (100=2009)"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

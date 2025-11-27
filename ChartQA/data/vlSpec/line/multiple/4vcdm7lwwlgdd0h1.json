@@ -1,22 +1,99 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Stock prices of 5 Tech Companies over Time.",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for 4vcdm7lwwlgdd0h1.csv",
   "data": {
     "url": "ChartQA/data/csv/line/multiple/4vcdm7lwwlgdd0h1.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Year",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Median_Wealth_Million_USD",
+          "type": "quantitative",
+          "axis": {
+            "title": "Median_Wealth_Million_USD",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Chamber",
+          "type": "nominal",
+          "legend": {
+            "title": "Chamber",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
     },
-    "y": {
-      "field": "Median_Wealth_Million_USD",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Median_Wealth_Million_USD",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Chamber",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Chamber",
+            "type": "nominal",
+            "title": "Chamber"
+          },
+          {
+            "field": "Median_Wealth_Million_USD",
+            "type": "quantitative",
+            "title": "Median_Wealth_Million_USD"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
     },
-    "color": {
-      "field": "Chamber",
-      "type": "nominal"
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

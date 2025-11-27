@@ -1,22 +1,99 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Stock prices of 5 Tech Companies over Time.",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for 6rqevjp16hadlyly.csv",
   "data": {
     "url": "ChartQA/data/csv/line/multiple/6rqevjp16hadlyly.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Year",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Percentage of tests passed",
+          "type": "quantitative",
+          "axis": {
+            "title": "Percentage of tests passed",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Gender",
+          "type": "nominal",
+          "legend": {
+            "title": "Gender",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
     },
-    "y": {
-      "field": "",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Percentage of tests passed",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Gender",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Gender",
+            "type": "nominal",
+            "title": "Gender"
+          },
+          {
+            "field": "Percentage of tests passed",
+            "type": "quantitative",
+            "title": "Percentage of tests passed"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
     },
-    "color": {
-      "field": "Gender",
-      "type": "nominal"
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

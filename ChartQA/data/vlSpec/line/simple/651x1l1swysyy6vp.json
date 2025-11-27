@@ -1,18 +1,81 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
-  "description": "Simple Line chart for 651x1l1swysyy6vp.csv",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Simple line chart for 651x1l1swysyy6vp.csv",
   "data": {
     "url": "ChartQA/data/csv/line/simple/651x1l1swysyy6vp.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Date",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Date",
+          "type": "ordinal",
+          "axis": {
+            "title": "Date",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Share of respondents who are worried",
+          "type": "quantitative",
+          "axis": {
+            "title": "Share of respondents who are worried",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        }
+      }
     },
-    "y": {
-      "field": "Share of respondents who are worried",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Date",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Share of respondents who are worried",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "Date",
+            "type": "ordinal",
+            "title": "Date"
+          },
+          {
+            "field": "Share of respondents who are worried",
+            "type": "quantitative",
+            "title": "Share of respondents who are worried"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

@@ -1,18 +1,81 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
-  "description": "Simple Line chart for 66va2s35es5t86l3.csv",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Simple line chart for 66va2s35es5t86l3.csv",
   "data": {
     "url": "ChartQA/data/csv/line/simple/66va2s35es5t86l3.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Year",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "In millions",
+          "type": "quantitative",
+          "axis": {
+            "title": "In millions",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        }
+      }
     },
-    "y": {
-      "field": "In millions",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "In millions",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "In millions",
+            "type": "quantitative",
+            "title": "In millions"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

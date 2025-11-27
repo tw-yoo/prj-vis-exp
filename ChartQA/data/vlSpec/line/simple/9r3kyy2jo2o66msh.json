@@ -1,18 +1,81 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
-  "description": "Simple Line chart for 9r3kyy2jo2o66msh.csv",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Simple line chart for 9r3kyy2jo2o66msh.csv",
   "data": {
     "url": "ChartQA/data/csv/line/simple/9r3kyy2jo2o66msh.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Month",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Month",
+          "type": "ordinal",
+          "axis": {
+            "title": "Month",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Number of femicides",
+          "type": "quantitative",
+          "axis": {
+            "title": "Number of femicides",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        }
+      }
     },
-    "y": {
-      "field": "Number of femicides",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Month",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Number of femicides",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "Month",
+            "type": "ordinal",
+            "title": "Month"
+          },
+          {
+            "field": "Number of femicides",
+            "type": "quantitative",
+            "title": "Number of femicides"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

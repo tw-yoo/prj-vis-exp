@@ -1,18 +1,81 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
-  "description": "Simple Line chart for 10gtgmmgh599jnr7.csv",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Simple line chart for 10gtgmmgh599jnr7.csv",
   "data": {
     "url": "ChartQA/data/csv/line/simple/10gtgmmgh599jnr7.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Year",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Percentage_of_Population",
+          "type": "quantitative",
+          "axis": {
+            "title": "Percentage_of_Population",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        }
+      }
     },
-    "y": {
-      "field": "Percentage_of_Population",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Percentage_of_Population",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Percentage_of_Population",
+            "type": "quantitative",
+            "title": "Percentage_of_Population"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
     }
   }
 }
