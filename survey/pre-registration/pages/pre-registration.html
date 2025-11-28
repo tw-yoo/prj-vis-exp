@@ -1,25 +1,85 @@
-<div class="page-content">
-  <h1>Thank you for your interest in our research!</h1>
+<div class="page-content pre-reg-page">
+  <div class="pr-shell">
+    <header class="pr-hero">
+      <p class="pr-eyebrow">Pre-registration</p>
+      <h1>Thank you for your interest in our study!</h1>
+      <p class="pr-lede">
+        We are a team from the Human-Data Interaction Lab at Yonsei University. Please complete this short pre-registration so we can confirm eligibility before moving to consent and the main survey.
+          It will take a maximum of 2 minutes to complete.
+      </p>
+      <div class="pr-tags">
+<!--        <span class="pr-pill">Step 1 of 3</span>-->
+<!--        <span class="pr-pill pr-pill&#45;&#45;muted">Takes about 2 minutes</span>-->
+<!--        <span class="pr-pill pr-pill&#45;&#45;info">True/False screening included</span>-->
+      </div>
+    </header>
 
-  <p>We are a team of researchers at the Human-Data Interaction Lab at Yonsei University. Thank you for your interest in our research.</p>
-  <p>The survey will proceed as follows: (1) Pre-registration → (2) Consent to provide personal information → (3) Main survey.</p>
-  <p>This survey is for <strong>pre-registration</strong>. Please answer the questions presented below.</p>
-  <p>If you have any questions, please reach out to Taewon Yoo at twyoo@yonsei.ac.kr.</p>
+    <div class="pr-grid">
+      <section class="pr-card">
+        <div class="pr-card__header">
+          <h3>About this study</h3>
+        </div>
+        <div class="pr-card__body">
+          <p>The survey will proceed as follows: (1) Pre-registration → (2) Consent to provide personal information → (3) Main survey.</p>
+          <ul class="pr-list">
+            <li>This step confirms basic eligibility and chart comprehension.</li>
+            <li>Answer the quick questions below, then complete a brief chart screening.</li>
+            <li>Questions? Contact Taewon Yoo at <strong>twyoo@yonsei.ac.kr</strong>.</li>
+          </ul>
+        </div>
+      </section>
 
-  <div data-component="likert"
-       data-name="pre_q1"
-       data-question="Is this your first time participating in our survey?"
-       data-labels="Yes|No"
-       data-baseid="q1"></div>
+      <section class="pr-card pr-card--note">
+        <div class="pr-card__header">
+          <h3>What to expect</h3>
+        </div>
+        <div class="pr-card__body">
+          <ul class="pr-list">
+            <li>Two eligibility questions.</li>
+            <li>Four True/False statements about a chart.</li>
+            <li>Passing unlocks the consent form and main survey.</li>
+          </ul>
+        </div>
+      </section>
+    </div>
 
-  <div data-component="likert"
-       data-name="pre_q2"
-       data-question="Are you currently between the ages of 18 and 64?"
-      data-labels="Yes|No"
-      data-baseid="q2"></div>
+    <section class="pr-card">
+      <div class="pr-card__header">
+        <h3>Quick eligibility check</h3>
+      </div>
+      <div class="pr-card__body pr-stack">
+        <div data-component="likert"
+             data-name="pre_q1"
+             data-question="Is this your first time participating in our survey?"
+             data-labels="Yes|No"
+             data-baseid="q1"></div>
 
-  <p>The following questions are designed to assess your basic chart comprehension skills. Please review the chart and answer the questions.</p>
-  <img src="pages/chart01.png" style="width: 50%">
+        <div data-component="likert"
+             data-name="pre_q2"
+             data-question="Are you currently between the ages of 18 and 64?"
+             data-labels="Yes|No"
+             data-baseid="q2"></div>
+      </div>
+    </section>
 
-  <div class="likert-container" data-role="screening-container"></div>
+    <section class="pr-card">
+      <div class="pr-card__header">
+        <div>
+          <h3>Chart screening</h3>
+          <p class="pr-subtle">Review the chart and mark each statement as True or False.</p>
+        </div>
+<!--        <span class="pr-pill pr-pill&#45;&#45;info">Required</span>-->
+      </div>
+      <div class="pr-card__body pr-screening-grid">
+        <div class="pr-chart-wrap">
+          <p class="pr-chart-label">Reference chart</p>
+          <img class="pr-chart" src="pages/chart01.png" alt="Line chart used for screening questions">
+        </div>
+        <div class="pr-screening">
+          <p class="pr-subtle">All statements must be correct to proceed.</p>
+          <div class="likert-container" data-role="screening-container"></div>
+        </div>
+      </div>
+    </section>
+  </div>
 </div>

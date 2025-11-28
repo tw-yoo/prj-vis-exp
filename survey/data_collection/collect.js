@@ -32,6 +32,130 @@ const OPS_CHECKBOX_NAME = 'ops-check';
 const FORM_STAGE_QA = 'qa';
 const FORM_STAGE_OPS = 'ops';
 
+// --- 1b. Local session persistence ---
+const SESSION_STORAGE_KEY = 'data_collection_state_v1';
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+let restoredFormStage = null;
+let restoredPageIndex = null;
+let draftParticipantCode = '';
+let persistTimer = null;
+let lastActivityAt = Date.now();
+
+const getCurrentDescriptor = () => pageDescriptors?.[idx];
+
+function clearStoredSession() {
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+        }
+    } catch (err) {
+        console.warn('Failed to clear stored session:', err);
+    }
+}
+
+function loadStoredSession() {
+    if (typeof localStorage === 'undefined') return null;
+    try {
+        const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const expiresAt = parsed?.expiresAt;
+        if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+            return null;
+        }
+        return parsed;
+    } catch (err) {
+        console.warn('Failed to load stored session:', err);
+        try {
+            localStorage.removeItem(SESSION_STORAGE_KEY);
+        } catch (_) {}
+        return null;
+    }
+}
+
+function syncCurrentDraftFromPage(descriptor = getCurrentDescriptor(), root = container()) {
+    const extras = {};
+    if (!descriptor || !root) return extras;
+
+    if (descriptor.id === 'login') {
+        const codeInput = root.querySelector('#participant-code');
+        draftParticipantCode = (codeInput?.value || '').trim().toUpperCase();
+        extras.draftParticipantCode = draftParticipantCode;
+        return extras;
+    }
+
+    const isExampleTutorial = !!root.querySelector('.tutorial-page--example');
+    if (descriptor.id === 'main-task') {
+        saveCurrentChartData({ silent: true });
+    } else if (descriptor.id === 'tutorial-task' || isExampleTutorial) {
+        saveCurrentTutorialData();
+    }
+    return extras;
+}
+
+function persistSessionState(options = {}) {
+    if (typeof localStorage === 'undefined') return;
+    const { skipSync = false, markActivity = true } = options;
+    const descriptor = getCurrentDescriptor();
+    const extras = skipSync ? {} : syncCurrentDraftFromPage(descriptor, container());
+    const activityTime = markActivity ? Date.now() : lastActivityAt;
+    if (markActivity) {
+        lastActivityAt = activityTime;
+    }
+    const state = {
+        version: 1,
+        idx,
+        participantCode,
+        draftParticipantCode,
+        assignedCharts: Array.isArray(assignedCharts) ? assignedCharts : [],
+        tutorialCharts: Array.isArray(tutorialCharts) ? tutorialCharts : [],
+        allResponses,
+        tutorialResponses,
+        currentChartIndex,
+        currentTutorialIndex,
+        formStage: getFormStage(container()),
+        pageSlug: descriptor?.slug,
+        pageId: descriptor?.id,
+        lastUpdated: activityTime,
+        expiresAt: activityTime + SESSION_TTL_MS,
+        ...extras
+    };
+    try {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+        console.warn('Failed to persist survey state:', err);
+    }
+}
+
+function schedulePersistSession(delay = 400) {
+    lastActivityAt = Date.now();
+    if (persistTimer) {
+        clearTimeout(persistTimer);
+    }
+    persistTimer = window.setTimeout(() => {
+        persistTimer = null;
+        persistSessionState();
+    }, delay);
+}
+
+function ensureAutosaveListeners() {
+    const root = container();
+    if (!root || root.dataset.autosaveBound === 'true') return;
+    const handler = () => schedulePersistSession();
+    root.addEventListener('input', handler, true);
+    root.addEventListener('change', handler, true);
+    root.dataset.autosaveBound = 'true';
+}
+
+function clampIndex(value, length) {
+    const max = Math.max(0, (length || 1) - 1);
+    const num = Number.isFinite(value) ? value : 0;
+    if (num < 0) return 0;
+    if (num > max) return max;
+    return num;
+}
+
 // --- 2. Firebase 헬퍼 함수 ---
 const FIRESTORE_COLLECTION = 'data_collection';
 
@@ -408,6 +532,7 @@ function setFormStage(root, stage) {
     });
     syncStageTabs(root, normalized);
     updateQaReview(root);
+    persistSessionState();
 }
 
 function getFormStage(root) {
@@ -463,9 +588,11 @@ function addCustomOp(value) {
     removeBtn.setAttribute('aria-label', `Remove ${normalized}`);
     removeBtn.addEventListener('click', () => {
         chip.remove();
+        schedulePersistSession();
     });
     chip.append(label, removeBtn);
     list.appendChild(chip);
+    schedulePersistSession();
 }
 
 function setCustomOps(values) {
@@ -553,7 +680,7 @@ async function renderChartForTask(chartId, elementId) {
     });
 }
 
-function saveCurrentChartData() {
+function saveCurrentChartData(options = {}) {
     if (currentChartIndex < 0 || currentChartIndex >= assignedCharts.length) return;
     
     const chartId = assignedCharts[currentChartIndex];
@@ -575,7 +702,9 @@ function saveCurrentChartData() {
     };
     
     allResponses[chartId] = data;
-    console.log(`Saving locally for ${chartId}:`, data);
+    if (!options?.silent) {
+        console.log(`Saving locally for ${chartId}:`, data);
+    }
 }
 
 function saveCurrentTutorialData() {
@@ -748,6 +877,20 @@ async function guardedNavigate(task) {
 
 let idx = 0;
 
+function applyRestoredStage(descriptor, root) {
+    if (restoredPageIndex === null || restoredFormStage === null) return;
+    if (restoredPageIndex !== idx) return;
+    const targetStage = restoredFormStage === FORM_STAGE_OPS ? FORM_STAGE_OPS : FORM_STAGE_QA;
+    const isStagePage = descriptor?.id === 'main-task'
+        || descriptor?.id === 'tutorial-task'
+        || !!root?.querySelector('.tutorial-page--example');
+    if (isStagePage) {
+        setFormStage(root, targetStage);
+    }
+    restoredPageIndex = null;
+    restoredFormStage = null;
+}
+
 function bindCompletionPageHandlers(root) {
     const backHomeBtn = root?.querySelector('#btn-back-home');
     if (!backHomeBtn) return;
@@ -768,6 +911,7 @@ async function loadPage(pageIndex) {
     history.replaceState({ pageIndex: idx }, '', url.href);
     
     updateButtons();
+    ensureAutosaveListeners();
 
     const root = container();
     root.innerHTML = '<div id="dynamic-insert"></div>';
@@ -806,11 +950,19 @@ async function loadPage(pageIndex) {
             setupExampleTutorialPage(root);
         }
 
+        applyRestoredStage(descriptor, root);
+
         if (descriptor.id === 'login') {
              const codeInput = document.getElementById('participant-code');
-             if(codeInput && participantCode) codeInput.value = participantCode;
              if (codeInput) {
-                 const handleInput = () => previewTotalPagesForCode(codeInput.value.trim().toUpperCase());
+                 const prefill = participantCode || draftParticipantCode;
+                 if (prefill) codeInput.value = prefill;
+                 const handleInput = () => {
+                     const value = codeInput.value.trim().toUpperCase();
+                     draftParticipantCode = value;
+                     previewTotalPagesForCode(value);
+                     schedulePersistSession();
+                 };
                  codeInput.addEventListener('input', handleInput);
                  handleInput();
              }
@@ -834,6 +986,7 @@ async function loadPage(pageIndex) {
                 } else if (descriptor.id === 'tutorial-task') {
                     saveCurrentTutorialData();
                 }
+                persistSessionState({ skipSync: true });
                 loadPage(idx - 1);
             }),
             onNext: () => guardedNavigate(async () => {
@@ -851,6 +1004,7 @@ async function loadPage(pageIndex) {
                     }
                     
                     participantCode = code;
+                    draftParticipantCode = code;
                     assignedCharts = assignments[code];
                     allResponses = await fetchParticipantData(code);
                     currentChartIndex = 0;
@@ -859,7 +1013,7 @@ async function loadPage(pageIndex) {
 
                     pageDescriptors = buildPageDescriptorsForAssignedCharts();
                     setTotalPages(computeTotalPagesForCharts(assignedCharts, tutorialCharts));
-
+                    persistSessionState({ skipSync: true });
                     loadPage(idx + 1);
 
                 } else if (isExampleTutorial) {
@@ -880,6 +1034,7 @@ async function loadPage(pageIndex) {
                         return;
                     }
                     saveCurrentTutorialData();
+                    persistSessionState({ skipSync: true });
                     loadPage(idx + 1);
 
                 } else if (descriptor.id === 'main-task') {
@@ -890,6 +1045,7 @@ async function loadPage(pageIndex) {
                     }
                     saveCurrentChartData();
                     await persistAllData();
+                    persistSessionState({ skipSync: true });
                     loadPage(idx + 1);
                 }
             }),
@@ -909,6 +1065,7 @@ async function loadPage(pageIndex) {
     } catch (e) {
         root.innerHTML = `<div class="error">Error loading page: ${e.message}</div>`;
     }
+    persistSessionState();
     refreshProgressIndicator(idx);
     updateButtons();
 }
@@ -955,6 +1112,14 @@ function validatePage(root) {
 }
 
 // --- 6. 초기화 ---
+window.addEventListener('beforeunload', () => {
+    try {
+        persistSessionState({ markActivity: false });
+    } catch (err) {
+        console.warn('Failed to persist session on unload:', err);
+    }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     initSurvey();
 });
@@ -962,25 +1127,64 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initSurvey() {
     pageDescriptors = [LOGIN_PAGE];
     setTotalPages(0);
+    ensureAutosaveListeners();
 
     const urlParams = new URLSearchParams(window.location.search);
     const codeFromQuery = (urlParams.get('code') || '').trim().toUpperCase();
+    const storedSession = loadStoredSession();
     const assignments = await loadParticipantAssignments();
-    tutorialCharts = Array.isArray(assignments?.TUTORIAL) ? assignments.TUTORIAL : [];
+    tutorialCharts = Array.isArray(assignments?.TUTORIAL) ? assignments.TUTORIAL : tutorialCharts;
+
+    let startPage = 0;
 
     if (codeFromQuery && assignments?.[codeFromQuery]) {
         participantCode = codeFromQuery;
+        draftParticipantCode = codeFromQuery;
         assignedCharts = assignments[codeFromQuery];
-        allResponses = await fetchParticipantData(codeFromQuery);
+        try {
+            const remote = await fetchParticipantData(codeFromQuery);
+            allResponses = remote || {};
+        } catch (err) {
+            console.warn('Failed to fetch responses for code from query:', err);
+        }
         currentChartIndex = 0;
         pageDescriptors = buildPageDescriptorsForAssignedCharts();
         setTotalPages(computeTotalPagesForCharts(assignedCharts, tutorialCharts));
+        const pageParam = parseInt(urlParams.get('page'), 10);
+        startPage = clampIndex(pageParam, pageDescriptors.length);
+    } else if (storedSession) {
+        draftParticipantCode = storedSession.draftParticipantCode || '';
+        lastActivityAt = Number(storedSession.lastUpdated) || lastActivityAt;
+        const storedCode = storedSession.participantCode;
+        const assigned = storedCode && assignments?.[storedCode] ? assignments[storedCode] : null;
+        if (assigned && assigned.length > 0) {
+            participantCode = storedCode;
+            assignedCharts = assigned;
+            let remoteResponses = {};
+            try {
+                remoteResponses = await fetchParticipantData(storedCode);
+            } catch (err) {
+                console.warn('Failed to fetch responses for stored session:', err);
+            }
+            allResponses = { ...(remoteResponses || {}), ...(storedSession.allResponses || {}) };
+            tutorialResponses = storedSession.tutorialResponses || {};
+            tutorialCharts = Array.isArray(assignments?.TUTORIAL)
+                ? assignments.TUTORIAL
+                : (Array.isArray(storedSession.tutorialCharts) ? storedSession.tutorialCharts : tutorialCharts);
+            currentChartIndex = clampIndex(storedSession.currentChartIndex, assignedCharts.length);
+            currentTutorialIndex = clampIndex(storedSession.currentTutorialIndex, tutorialCharts.length);
+            pageDescriptors = buildPageDescriptorsForAssignedCharts();
+            setTotalPages(computeTotalPagesForCharts(assignedCharts, tutorialCharts));
+            startPage = clampIndex(Number(storedSession.idx), pageDescriptors.length);
+            restoredFormStage = storedSession.formStage === FORM_STAGE_OPS ? FORM_STAGE_OPS : FORM_STAGE_QA;
+            restoredPageIndex = startPage;
+        } else {
+            startPage = clampIndex(Number(storedSession.idx), pageDescriptors.length);
+        }
+    } else {
+        const pageParam = parseInt(urlParams.get('page'), 10);
+        startPage = (isNaN(pageParam) || pageParam < 0 || pageParam >= pageDescriptors.length) ? 0 : pageParam;
     }
-    
-    let startPage = parseInt(urlParams.get('page'), 10);
-    if (isNaN(startPage) || startPage < 0 || startPage >= pageDescriptors.length) {
-        startPage = 0;
-    }
-    
+
     loadPage(startPage);
 }
