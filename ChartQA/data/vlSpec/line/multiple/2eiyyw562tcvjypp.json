@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "title": {
+    "text": "U.S. and Russia Mutual Favorability (2007-2017)",
+    "fontSize": 16,
+    "anchor": "middle"
+  },
   "description": "Multiple line chart for 2eiyyw562tcvjypp.csv",
   "data": {
     "url": "ChartQA/data/csv/line/multiple/2eiyyw562tcvjypp.csv"
@@ -30,7 +35,7 @@
           "field": "Favorable_View_Percentage",
           "type": "quantitative",
           "axis": {
-            "title": "Favorable_View_Percentage",
+            "title": "Favorable View (%)",
             "labelFontSize": 11,
             "titleFontSize": 13,
             "titlePadding": 10,
@@ -41,7 +46,7 @@
           "field": "Favorability_Direction",
           "type": "nominal",
           "legend": {
-            "title": "Favorability_Direction",
+            "title": "Favorability Direction",
             "titleFontSize": 12,
             "labelFontSize": 11
           }
@@ -77,12 +82,12 @@
           {
             "field": "Favorability_Direction",
             "type": "nominal",
-            "title": "Favorability_Direction"
+            "title": "Direction"
           },
           {
             "field": "Favorable_View_Percentage",
             "type": "quantitative",
-            "title": "Favorable_View_Percentage"
+            "title": "Favorable View (%)"
           }
         ]
       }
