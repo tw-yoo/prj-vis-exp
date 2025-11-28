@@ -1,15 +1,27 @@
-<div class="page-content">
-    <h1>Congratulations! You passed the qualification to participate in the study.</h1>
-    <p>We will send you a consent form to this email address.</p>
+<div class="page-content pre-reg-page">
+    <div class="pr-shell">
+        <div class="pr-status pr-status--pass">
+            <div class="pr-status__icon">✓</div>
+            <div>
+                <h1>You're qualified to participate</h1>
+                <p class="pr-footnote">Great job on the screening! We just need an email to send the consent form.</p>
+            </div>
+        </div>
 
-    <div data-component="open-ended"
-         data-id="email"
-         data-labelText="Please enter your email address"
-         data-placeholder="abc@xyz.com"
-         data-multiline=false></div>
+        <section class="pr-card">
+            <div class="pr-card__header">
+                <h3>Where should we send the consent form?</h3>
+                <span class="pr-pill pr-pill--info">Required</span>
+            </div>
+            <div class="pr-card__body pr-stack">
+                <div data-component="open-ended"
+                     data-id="email"
+                     data-labelText="Please enter your email address"
+                     data-placeholder="abc@xyz.com"
+                     data-multiline="false"></div>
+                <p class="pr-subtle">We will only use this email to send the consent form for this study.</p>
+                <p class="pr-footnote">After filling your email, click <strong>Submit</strong> to continue.</p>
+            </div>
+        </section>
     </div>
-
-    <p>Please click the <strong>"Submit"</strong> button.</p>
-
-
 </div>
