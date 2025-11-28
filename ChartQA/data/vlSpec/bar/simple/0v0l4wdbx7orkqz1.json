@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0v0l4wdbx7orkqz1.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0v0l4wdbx7orkqz1.csv"
+  },
+  "mark": "bar",
   "encoding": {
     "y": {
       "field": "Suicides per 100,000 population",
@@ -10,9 +15,5 @@
       "type": "nominal",
       "sort": null
     }
-  },
-  "data": {
-    "url": "ChartQA/data/csv/bar/simple/0v0l4wdbx7orkqz1.csv"
-  },
-  "mark": "bar"
+  }
 }

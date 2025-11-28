@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0fh0emp095qhq3ag.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0fh0emp095qhq3ag.csv"
+  },
+  "mark": "bar",
   "encoding": {
     "y": {
       "field": "Number of victims",
@@ -10,9 +15,5 @@
       "type": "nominal",
       "sort": null
     }
-  },
-  "data": {
-    "url": "ChartQA/data/csv/bar/simple/0fh0emp095qhq3ag.csv"
-  },
-  "mark": "bar"
+  }
 }

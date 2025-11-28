@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0egdxqun1m2n9k4z.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0egdxqun1m2n9k4z.csv"
+  },
+  "mark": "bar",
   "encoding": {
     "y": {
       "field": "Revenue multiple",
@@ -7,12 +12,8 @@
     },
     "x": {
       "field": "Year",
-      "type": "ordinal",
+      "type": "nominal",
       "sort": null
     }
-  },
-  "data": {
-    "url": "ChartQA/data/csv/bar/simple/0egdxqun1m2n9k4z.csv"
-  },
-  "mark": "bar"
+  }
 }

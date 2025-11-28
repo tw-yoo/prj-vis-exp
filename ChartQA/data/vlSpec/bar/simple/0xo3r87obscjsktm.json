@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0xo3r87obscjsktm.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0xo3r87obscjsktm.csv"
+  },
+  "mark": "bar",
   "encoding": {
     "y": {
       "field": "Mortality, Per 1 000 000 Inhabitants, 1997",
@@ -10,9 +15,5 @@
       "type": "nominal",
       "sort": null
     }
-  },
-  "data": {
-    "url": "ChartQA/data/csv/bar/simple/0xo3r87obscjsktm.csv"
-  },
-  "mark": "bar"
+  }
 }

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for bfi0ia7zx8pjb5g8.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/bfi0ia7zx8pjb5g8.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Share of retail revenue from foreign operations",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Product sector",
+      "type": "nominal"
+    }
+  }
+}

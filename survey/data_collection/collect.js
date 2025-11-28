@@ -251,9 +251,26 @@ function buildPageDescriptorsForAssignedCharts() {
             slug: chartId,
             path: 'pages/main-task.html',
             onLoad: (root, pageIdx) => {
-                const offset = 1 + STATIC_PAGES_BEFORE_TASK.length + tutorialTaskDescriptors.length;
+                // 📌 수정: offset 계산 수정
+                const offset = 1 + STATIC_PAGES_BEFORE_TASK.length + tutorialTaskDescriptors.length + PAGES_BEFORE_INTRO.length;
                 currentChartIndex = pageIdx - offset;
+                
+                // 📌 디버깅 로그 추가
+                console.log('🔍 Debug:', {
+                    pageIdx,
+                    offset,
+                    currentChartIndex,
+                    totalCharts: assignedCharts.length,
+                    chartId: assignedCharts[currentChartIndex]
+                });
+                
                 const currentChartId = assignedCharts[currentChartIndex];
+
+                // 📌 안전 장치 추가
+                if (!currentChartId) {
+                    console.error('❌ Invalid currentChartIndex:', currentChartIndex, 'assignedCharts:', assignedCharts);
+                    return;
+                }
 
                 const dropdown = root.querySelector('#chart-dropdown');
                 dropdown.innerHTML = '';
@@ -268,7 +285,7 @@ function buildPageDescriptorsForAssignedCharts() {
                         saveCurrentChartData();
                         await persistAllData();
                         const newIdx = assignedCharts.indexOf(dropdown.value);
-                        const offsetIndex = 1 + STATIC_PAGES_BEFORE_TASK.length;
+                        const offsetIndex = 1 + STATIC_PAGES_BEFORE_TASK.length + tutorialTaskDescriptors.length + PAGES_BEFORE_INTRO.length;
                         loadPage(newIdx + offsetIndex);
                     });
                 };
@@ -311,6 +328,7 @@ function patchSpecDataUrl(spec) {
 
 function ensureTooltipConfig(spec) {
     if (!spec || typeof spec !== 'object') return spec;
+    
     const config = spec.config || {};
     const markConfig = config.mark || {};
     const barConfig = config.bar || {};
@@ -330,14 +348,26 @@ function ensureTooltipConfig(spec) {
     applyIfUnset(areaConfig);
     applyIfUnset(pointConfig);
 
+    // 축 설정 - 기본값만 제공
+    const axisConfig = {
+        labelFontSize: 11,
+        titleFontSize: 13,
+        titlePadding: 10,
+        labelPadding: 5,
+        labelLimit: 0,
+        ...(config.axis || {})
+    };
+
     spec.config = {
         ...config,
         mark: markConfig,
         bar: barConfig,
         line: lineConfig,
         area: areaConfig,
-        point: pointConfig
+        point: pointConfig,
+        axis: axisConfig
     };
+    
     return spec;
 }
 

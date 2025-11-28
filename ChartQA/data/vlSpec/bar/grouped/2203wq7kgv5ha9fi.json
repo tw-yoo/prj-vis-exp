@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 2203wq7kgv5ha9fi.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/2203wq7kgv5ha9fi.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Age_Group",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "Share_of_Respondents",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Housing_Status",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Housing_Status",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

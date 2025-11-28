@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 221xwpab655f7g8x.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/221xwpab655f7g8x.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Share of total population",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Age Group",
+      "type": "nominal"
+    }
+  }
+}

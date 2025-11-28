@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1lf1h5jf9ymeid5q.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1lf1h5jf9ymeid5q.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Unit shipments in millions",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

@@ -1,5 +1,6 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 0gzowodb2py0d1s9.csv",
   "data": {
     "url": "ChartQA/data/csv/bar/stacked/0gzowodb2py0d1s9.csv"
   },

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1bv05pu9d8jnidty.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1bv05pu9d8jnidty.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "National debt in billion U.S. dollars",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

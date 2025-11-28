@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 07lo3vvwztz32ifq.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/07lo3vvwztz32ifq.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Region",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "Net_Sales_Percentage",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Year",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

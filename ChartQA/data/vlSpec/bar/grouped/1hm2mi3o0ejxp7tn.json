@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 1hm2mi3o0ejxp7tn.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/1hm2mi3o0ejxp7tn.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Group",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "Share of respondents",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Gender",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Gender",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

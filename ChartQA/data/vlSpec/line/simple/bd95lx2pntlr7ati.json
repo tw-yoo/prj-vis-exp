@@ -1,0 +1,81 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Simple line chart for bd95lx2pntlr7ati.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/bd95lx2pntlr7ati.csv"
+  },
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Date",
+          "type": "ordinal",
+          "axis": {
+            "title": "Date",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Number of cases",
+          "type": "quantitative",
+          "axis": {
+            "title": "Number of cases",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Date",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Number of cases",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "Date",
+            "type": "ordinal",
+            "title": "Date"
+          },
+          {
+            "field": "Number of cases",
+            "type": "quantitative",
+            "title": "Number of cases"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

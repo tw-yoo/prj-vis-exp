@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 1ar60b8rke2d8e64.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/1ar60b8rke2d8e64.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Time Period",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "Retention rate",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Type",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Type",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

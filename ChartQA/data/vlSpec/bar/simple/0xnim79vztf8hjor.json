@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0xnim79vztf8hjor.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0xnim79vztf8hjor.csv"
+  },
+  "mark": "bar",
   "encoding": {
     "y": {
       "field": "Average ticket price in U.S. dollars",
@@ -10,9 +15,5 @@
       "type": "nominal",
       "sort": null
     }
-  },
-  "data": {
-    "url": "ChartQA/data/csv/bar/simple/0xnim79vztf8hjor.csv"
-  },
-  "mark": "bar"
+  }
 }

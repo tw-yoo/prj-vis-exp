@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1a09xqtrj8zms716.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1a09xqtrj8zms716.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "U.S. dollars per square foot",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "City (Street)",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

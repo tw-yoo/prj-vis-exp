@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1hm06wtar7gh92c8.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1hm06wtar7gh92c8.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Share of population older than 65 years old",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

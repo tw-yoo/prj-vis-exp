@@ -1,22 +1,99 @@
 {
-  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
-  "description": "Stock prices of 5 Tech Companies over Time.",
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for 3tc31k5k2o6wmvyp.csv",
   "data": {
     "url": "ChartQA/data/csv/line/multiple/3tc31k5k2o6wmvyp.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {
-      "field": "Date",
-      "type": "ordinal"
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Date",
+          "type": "ordinal",
+          "axis": {
+            "title": "Date",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Percent_Do_Not_Want_Reelected",
+          "type": "quantitative",
+          "axis": {
+            "title": "Percent_Do_Not_Want_Reelected",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Candidate_Support",
+          "type": "nominal",
+          "legend": {
+            "title": "Candidate_Support",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
     },
-    "y": {
-      "field": "Percent_Do_Not_Want_Reelected",
-      "type": "quantitative"
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Date",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Percent_Do_Not_Want_Reelected",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Candidate_Support",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Date",
+            "type": "ordinal",
+            "title": "Date"
+          },
+          {
+            "field": "Candidate_Support",
+            "type": "nominal",
+            "title": "Candidate_Support"
+          },
+          {
+            "field": "Percent_Do_Not_Want_Reelected",
+            "type": "quantitative",
+            "title": "Percent_Do_Not_Want_Reelected"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
     },
-    "color": {
-      "field": "Candidate_Support",
-      "type": "nominal"
+    "axis": {
+      "domainWidth": 1
     }
   }
 }

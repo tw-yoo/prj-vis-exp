@@ -1,5 +1,10 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0vmvmj77j3p6vcy7.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0vmvmj77j3p6vcy7.csv"
+  },
+  "mark": "bar",
   "encoding": {
     "y": {
       "field": "Net income in million U.S. dollars",
@@ -10,9 +15,5 @@
       "type": "nominal",
       "sort": null
     }
-  },
-  "data": {
-    "url": "ChartQA/data/csv/bar/simple/0vmvmj77j3p6vcy7.csv"
-  },
-  "mark": "bar"
+  }
 }

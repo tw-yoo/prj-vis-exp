@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 1x37jzohqd666qc0.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/1x37jzohqd666qc0.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Category",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "Percentage of respondents",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Response",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Response",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

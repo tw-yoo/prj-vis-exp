@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1gdzafocxmz7rswi.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1gdzafocxmz7rswi.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Traffic in petabytes per month",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}
