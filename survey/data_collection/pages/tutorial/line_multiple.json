@@ -1,0 +1,99 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for 5p6g89v7l99aes05.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/multiple/5p6g89v7l99aes05.csv"
+  },
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Average_Payroll_Million_USD",
+          "type": "quantitative",
+          "axis": {
+            "title": "Average_Payroll_Million_USD",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Team_Group",
+          "type": "nominal",
+          "legend": {
+            "title": "Team_Group",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Average_Payroll_Million_USD",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Team_Group",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Team_Group",
+            "type": "nominal",
+            "title": "Team_Group"
+          },
+          {
+            "field": "Average_Payroll_Million_USD",
+            "type": "quantitative",
+            "title": "Average_Payroll_Million_USD"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}
