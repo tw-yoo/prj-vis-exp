@@ -1,13 +1,8 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-  "title": {
-    "text": "Average Price Trend (2010-2021)",
-    "fontSize": 26,
-    "anchor": "middle"
-  },
-  "description": "Simple line chart for 0cymcilknp8krjwz.csv",
+  "description": "Simple line chart for 82aqt0k0jnbj3irf.csv",
   "data": {
-    "url": "ChartQA/data/csv/line/simple/0cymcilknp8krjwz.csv"
+    "url": "ChartQA/data/csv/line/simple/82aqt0k0jnbj3irf.csv"
   },
   "width": 600,
   "height": 400,
@@ -25,19 +20,19 @@
           "axis": {
             "title": "Year",
             "labelAngle": 0,
-            "labelFontSize": 16,
-            "titleFontSize": 20,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
             "titlePadding": 10,
             "labelPadding": 5
           }
         },
         "y": {
-          "field": "Average price in US dollars",
+          "field": "Number of enterprises",
           "type": "quantitative",
           "axis": {
-            "title": "Average Price (USD)",
-            "labelFontSize": 16,
-            "titleFontSize": 20,
+            "title": "Number of enterprises",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
             "titlePadding": 10,
             "labelPadding": 5
           }
@@ -48,7 +43,7 @@
       "mark": {
         "type": "point",
         "filled": true,
-        "size": 150,
+        "size": 80,
         "tooltip": true
       },
       "encoding": {
@@ -57,7 +52,7 @@
           "type": "ordinal"
         },
         "y": {
-          "field": "Average price in US dollars",
+          "field": "Number of enterprises",
           "type": "quantitative"
         },
         "tooltip": [
@@ -67,9 +62,9 @@
             "title": "Year"
           },
           {
-            "field": "Average price in US dollars",
+            "field": "Number of enterprises",
             "type": "quantitative",
-            "title": "Price (USD)"
+            "title": "Number of enterprises"
           }
         ]
       }

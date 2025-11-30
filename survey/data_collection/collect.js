@@ -201,9 +201,57 @@ async function loadParticipantAssignments() {
 const LOGIN_PAGE = { id: 'login', path: 'pages/code-entry.html', slug: 'login' };
 
 const TUTORIAL_PAGES = [
-    { id: 'tutorial_index', path: 'pages/tutorial/tutorial_index.html', slug: 'tutorial_index', group: 'tutorial', onLoad: setupTutorialExample },
-    { id: 'tutorial_overview', path: 'pages/tutorial/tutorial_overview.html', slug: 'tutorial_overview', group: 'tutorial', onLoad: setupTutorialExample },
-    // { id: 'tutorial_tip', path: 'pages/tutorial/tutorial_tip.html', slug: 'tutorial_tip', group: 'tutorial', onLoad: setupTutorialExample },
+    { 
+        id: 'tutorial_index', 
+        path: 'pages/tutorial/tutorial_index.html', 
+        slug: 'tutorial_index', 
+        group: 'tutorial', 
+        onLoad: setupTutorialExample 
+    },
+    // 5개의 예제 페이지 추가
+    { 
+        id: 'tutorial_ex1', 
+        path: 'pages/tutorial/tutorial_example_1_bar_simple.html', 
+        slug: 'tutorial_ex1', 
+        group: 'tutorial', 
+        onLoad: setupTutorialExample 
+    },
+    { 
+        id: 'tutorial_ex2', 
+        path: 'pages/tutorial/tutorial_example_2_bar_grouped.html', 
+        slug: 'tutorial_ex2', 
+        group: 'tutorial', 
+        onLoad: setupTutorialExample 
+    },
+    { 
+        id: 'tutorial_ex3', 
+        path: 'pages/tutorial/tutorial_example_3_bar_stacked.html', 
+        slug: 'tutorial_ex3', 
+        group: 'tutorial', 
+        onLoad: setupTutorialExample 
+    },
+    { 
+        id: 'tutorial_ex4', 
+        path: 'pages/tutorial/tutorial_example_4_line_simple.html', 
+        slug: 'tutorial_ex4', 
+        group: 'tutorial', 
+        onLoad: setupTutorialExample 
+    },
+    { 
+        id: 'tutorial_ex5', 
+        path: 'pages/tutorial/tutorial_example_5_line_multiple.html', 
+        slug: 'tutorial_ex5', 
+        group: 'tutorial', 
+        onLoad: setupTutorialExample 
+    },
+        { 
+        id: 'tutorial_overview', 
+        path: 'pages/tutorial/tutorial_overview.html', 
+        slug: 'tutorial_overview', 
+        group: 'tutorial', 
+        onLoad: setupTutorialExample 
+    },
+    
 ];
 
 const PAGES_BEFORE_INTRO = [
@@ -486,16 +534,74 @@ async function loadOpsOptions() {
 async function populateOpsChecklist(root) {
     const container = root?.querySelector('#ops-checklist');
     if (!container) return;
-    const ops = await loadOpsOptions();
+    
+    // Detailed operation information with examples
+    const opsDetailed = [
+        {
+            value: "Retrieve Value",
+            label: "Retrieve Value",
+            tip: "Get a specific value from the chart\n\nExamples:\n• GDP of USA in 2020\n• Sunny days in July\n• Sales for Product A in Q2"
+        },
+        {
+            value: "Filter",
+            label: "Filter",
+            tip: "Select data meeting conditions\n\nExamples:\n• By X-axis: Countries in Asia\n• By Y-axis: Values > 100\n• By Group: Only Group A\n• By Time: Years after 2015"
+        },
+        {
+            value: "Find Extremum",
+            label: "Find Extremum",
+            tip: "Find maximum or minimum value\n\nExamples:\n• Country with highest GDP\n• Month with lowest rainfall\n• Product with min sales"
+        },
+        {
+            value: "Determine Range",
+            label: "Determine Range",
+            tip: "Difference between max and min\n\nExamples:\n• Range of GDP values\n• Temperature range\n• Price variation"
+        },
+        {
+            value: "Compare",
+            label: "Compare",
+            tip: "Compare values between items\n\nExamples:\n• USA vs China GDP\n• Q1 vs Q2 sales\n• Group A vs Group B average"
+        },
+        {
+            value: "Sort",
+            label: "Sort",
+            tip: "Arrange data in order\n\nExamples:\n• Sort by GDP (descending)\n• Order by rainfall (ascending)\n• Rank products by sales"
+        },
+        {
+            value: "Sum",
+            label: "Sum",
+            tip: "Add multiple values together\n\nExamples:\n• Total GDP of Asian countries\n• Combined product sales\n• Total summer rainfall"
+        },
+        {
+            value: "Average",
+            label: "Average",
+            tip: "Calculate the mean of values\n\nExamples:\n• Average GDP across countries\n• Mean temperature in January\n• Average sales per quarter"
+        },
+        {
+            value: "Difference",
+            label: "Difference",
+            tip: "Subtract one value from another\n\nExamples:\n• USA GDP - China GDP\n• Q4 sales - Q1 sales\n• Max value - Min value"
+        },
+        {
+            value: "Nth",
+            label: "Nth",
+            tip: "Select the nth item after sorting\n\nExamples:\n• 3rd highest GDP country\n• 2nd lowest temp month\n• 5th ranked product"
+        },
+        {
+            value: "Count",
+            label: "Count",
+            tip: "Count items meeting a condition\n\nExamples:\n• Countries with GDP > 1000\n• Months with rain > 50mm\n• Products with sales < avg"
+        }
+    ];
+    
     container.innerHTML = '';
-    ops.forEach((op) => {
+    opsDetailed.forEach((op) => {
         const { value, label, tip } = op || {};
         if (!value && !label) return;
         const wrapper = document.createElement('label');
         wrapper.className = 'ops-check';
-        if (tip) {
-            wrapper.dataset.tip = tip;
-        }
+        wrapper.dataset.tip = tip || '';
+        
         const input = document.createElement('input');
         input.type = 'checkbox';
         input.value = value || label || '';

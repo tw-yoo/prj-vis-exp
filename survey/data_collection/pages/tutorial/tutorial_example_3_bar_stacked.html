@@ -1,0 +1,173 @@
+<div class="page-content tutorial-page tutorial-page--example">
+    <header class="tutorial-header">
+        <div>
+            <p class="eyebrow">Tutorial Example 3 of 5</p>
+            <h1>Stacked Bar Chart Example</h1>
+            <p class="lede">This example shows how to use <strong>Sum</strong> and <strong>Determine Range</strong> operations.</p>
+        </div>
+    </header>
+
+    <div class="example-grid">
+        <section class="card chart-card">
+            <div class="card-header">
+                <h3>Chart</h3>
+            </div>
+            <div id="tutorial-chart-view__host" class="chart-host tutorial-example-chart" data-spec-path="pages/tutorial/bar_stacked.json">
+                <div id="tutorial-chart-view" class="d3chart-container">
+                    <div class="chart-placeholder">Loading chart...</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card form-card">
+            <div class="card-header">
+                <h3>Example Question & Answer</h3>
+                <p class="hint">This example shows how to work with stacked segments.</p>
+            </div>
+
+            <div class="form-body">
+                <div class="example-answer">
+                    <div class="answer-section">
+                        <strong>1. Question:</strong>
+                        <div class="answer-text">Which racial/ethnic group has the highest combined share of interested respondents (Very interested + Somewhat interested)?</div>
+                    </div>
+
+                    <div class="answer-section">
+                        <strong>2. Answer:</strong>
+                        <div class="answer-text">Hispanic</div>
+                    </div>
+
+                    <div class="answer-section">
+                        <strong>3. Operations Used:</strong>
+                        <div class="ops-display">
+                            <span class="op-tag">Filter</span>
+                            <span class="op-tag">Sum</span>
+                            <span class="op-tag">Find Extremum</span>
+                        </div>
+                    </div>
+
+                    <div class="answer-section">
+                        <strong>4. Explanation (Step-by-step):</strong>
+                        <div class="answer-text explanation">
+1. For each racial/ethnic group, filter only "Very interested" and "Somewhat interested"
+2. Sum these values for each group:
+   - White: 0.2 + 0.35 = 0.55
+   - Hispanic: 0.16 + 0.43 = 0.59
+   - Black: 0.19 + 0.33 = 0.52
+   - Other: 0.21 + 0.34 = 0.55
+3. Find the maximum value: 0.59 (Hispanic group)</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <style>
+        .tutorial-page--example {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px 18px 32px;
+        }
+        .tutorial-header {
+            margin-bottom: 18px;
+        }
+        .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-size: 12px;
+            color: #6b7280;
+            margin: 0 0 4px 0;
+            font-weight: 600;
+        }
+        .tutorial-header h1 {
+            margin: 0 0 6px 0;
+            font-size: 26px;
+        }
+        .lede {
+            margin: 0;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+        .example-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 18px;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .card-header {
+            padding: 14px 16px 10px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .card-header h3 {
+            margin: 0 0 4px 0;
+            font-size: 18px;
+        }
+        .card-header .hint {
+            margin: 0;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .chart-card .chart-host {
+            padding: 20px;
+            min-height: 400px;
+        }
+        .form-card .form-body {
+            padding: 20px;
+        }
+        .example-answer {
+            background: #f9fafb;
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .answer-section {
+            margin-bottom: 16px;
+        }
+        .answer-section:last-child {
+            margin-bottom: 0;
+        }
+        .answer-section strong {
+            display: block;
+            color: #059669;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+        .answer-text {
+            background: #fff;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #d1fae5;
+            color: #1f2937;
+            line-height: 1.5;
+        }
+        .answer-text.explanation {
+            white-space: pre-line;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+        }
+        .ops-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .op-tag {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid #10b981;
+        }
+        @media (max-width: 1080px) {
+            .example-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</div>

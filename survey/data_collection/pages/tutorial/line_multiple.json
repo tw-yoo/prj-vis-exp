@@ -1,13 +1,8 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-  "title": {
-    "text": "Average Price Trend (2010-2021)",
-    "fontSize": 26,
-    "anchor": "middle"
-  },
-  "description": "Simple line chart for 0cymcilknp8krjwz.csv",
+  "description": "Multiple line chart for 5p6g89v7l99aes05.csv",
   "data": {
-    "url": "ChartQA/data/csv/line/simple/0cymcilknp8krjwz.csv"
+    "url": "ChartQA/data/csv/line/multiple/5p6g89v7l99aes05.csv"
   },
   "width": 600,
   "height": 400,
@@ -25,21 +20,30 @@
           "axis": {
             "title": "Year",
             "labelAngle": 0,
-            "labelFontSize": 16,
-            "titleFontSize": 20,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
             "titlePadding": 10,
             "labelPadding": 5
           }
         },
         "y": {
-          "field": "Average price in US dollars",
+          "field": "Average_Payroll_Million_USD",
           "type": "quantitative",
           "axis": {
-            "title": "Average Price (USD)",
-            "labelFontSize": 16,
-            "titleFontSize": 20,
+            "title": "Average_Payroll_Million_USD",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
             "titlePadding": 10,
             "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Team_Group",
+          "type": "nominal",
+          "legend": {
+            "title": "Team_Group",
+            "titleFontSize": 12,
+            "labelFontSize": 11
           }
         }
       }
@@ -48,7 +52,7 @@
       "mark": {
         "type": "point",
         "filled": true,
-        "size": 150,
+        "size": 80,
         "tooltip": true
       },
       "encoding": {
@@ -57,8 +61,12 @@
           "type": "ordinal"
         },
         "y": {
-          "field": "Average price in US dollars",
+          "field": "Average_Payroll_Million_USD",
           "type": "quantitative"
+        },
+        "color": {
+          "field": "Team_Group",
+          "type": "nominal"
         },
         "tooltip": [
           {
@@ -67,9 +75,14 @@
             "title": "Year"
           },
           {
-            "field": "Average price in US dollars",
+            "field": "Team_Group",
+            "type": "nominal",
+            "title": "Team_Group"
+          },
+          {
+            "field": "Average_Payroll_Million_USD",
             "type": "quantitative",
-            "title": "Price (USD)"
+            "title": "Average_Payroll_Million_USD"
           }
         ]
       }

@@ -2,13 +2,19 @@
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "title": {
     "text": "U.S. and Russia Mutual Favorability (2007-2017)",
-    "fontSize": 16,
+    "fontSize": 26,
     "anchor": "middle"
   },
   "description": "Multiple line chart for 2eiyyw562tcvjypp.csv",
   "data": {
     "url": "ChartQA/data/csv/line/multiple/2eiyyw562tcvjypp.csv"
   },
+  "transform": [
+    {
+      "calculate": "datum.Favorability_Direction == 'U.S. favorability in Russia' ? 'U.S.' : 'Russia'",
+      "as": "Country"
+    }
+  ],
   "width": 600,
   "height": 400,
   "layer": [
@@ -25,8 +31,8 @@
           "axis": {
             "title": "Year",
             "labelAngle": 0,
-            "labelFontSize": 11,
-            "titleFontSize": 13,
+            "labelFontSize": 16,
+            "titleFontSize": 20,
             "titlePadding": 10,
             "labelPadding": 5
           }
@@ -36,19 +42,19 @@
           "type": "quantitative",
           "axis": {
             "title": "Favorable View (%)",
-            "labelFontSize": 11,
-            "titleFontSize": 13,
+            "labelFontSize": 16,
+            "titleFontSize": 20,
             "titlePadding": 10,
             "labelPadding": 5
           }
         },
         "color": {
-          "field": "Favorability_Direction",
+          "field": "Country",
           "type": "nominal",
           "legend": {
-            "title": "Favorability Direction",
-            "titleFontSize": 12,
-            "labelFontSize": 11
+            "title": "Country",
+            "titleFontSize": 18,
+            "labelFontSize": 16
           }
         }
       }
@@ -57,7 +63,7 @@
       "mark": {
         "type": "point",
         "filled": true,
-        "size": 80,
+        "size": 150,
         "tooltip": true
       },
       "encoding": {
@@ -70,7 +76,7 @@
           "type": "quantitative"
         },
         "color": {
-          "field": "Favorability_Direction",
+          "field": "Country",
           "type": "nominal"
         },
         "tooltip": [
@@ -80,9 +86,9 @@
             "title": "Year"
           },
           {
-            "field": "Favorability_Direction",
+            "field": "Country",
             "type": "nominal",
-            "title": "Direction"
+            "title": "Country"
           },
           {
             "field": "Favorable_View_Percentage",
