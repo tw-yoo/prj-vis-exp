@@ -322,7 +322,8 @@ async function loadPage(targetIndex, pushHistory = true) {
       isAvailable: descriptor.showNav !== false,
       hidePrev: descriptor.hidePrev === true,
       totalPages: PROGRESS_TOTAL,
-      currentPage: descriptor.progressIndex || PROGRESS_TOTAL
+      currentPage: descriptor.progressIndex || PROGRESS_TOTAL,
+      align: 'center'
     });
     root.appendChild(nav);
   } catch (err) {

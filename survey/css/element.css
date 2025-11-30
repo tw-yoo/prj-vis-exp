@@ -54,6 +54,11 @@
     justify-content: center;
 }
 
+.survey-nav--centered .survey-nav__inner {
+    width: auto;
+    justify-content: center;
+}
+
 .survey-nav--start {
     justify-content: flex-start;
 }
