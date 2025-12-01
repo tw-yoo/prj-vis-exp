@@ -9,6 +9,7 @@ import {
     patchDocument
 } from '../firestore.js';
 import { renderPlainVegaLiteChart } from '../../util/util.js';
+import { renderTutorialExamplePlaceholders } from './pages/tutorial/tutorial_example_template.js';
 
 // --- 1. 전역 상태 변수 ---
 let participantCode = null;
@@ -199,58 +200,63 @@ async function loadParticipantAssignments() {
 }
 
 const LOGIN_PAGE = { id: 'login', path: 'pages/code-entry.html', slug: 'login' };
+const TUTORIAL_EXAMPLE_TEMPLATE_PATH = 'pages/tutorial/tutorial_example_template.html';
 
 const TUTORIAL_PAGES = [
-    { 
-        id: 'tutorial_index', 
-        path: 'pages/tutorial/tutorial_index.html', 
-        slug: 'tutorial_index', 
-        group: 'tutorial', 
-        onLoad: setupTutorialExample 
+    {
+        id: 'tutorial_index',
+        path: 'pages/tutorial/tutorial_index.html',
+        slug: 'tutorial_index',
+        group: 'tutorial',
+        onLoad: setupTutorialExample
     },
-    // 5개의 예제 페이지 추가
     { 
         id: 'tutorial_ex1', 
-        path: 'pages/tutorial/tutorial_example_1_bar_simple.html', 
+        path: TUTORIAL_EXAMPLE_TEMPLATE_PATH, 
         slug: 'tutorial_ex1', 
         group: 'tutorial', 
+        tutorialExampleId: 'tutorial_ex1',
         onLoad: setupTutorialExample 
     },
     { 
         id: 'tutorial_ex2', 
-        path: 'pages/tutorial/tutorial_example_2_bar_grouped.html', 
+        path: TUTORIAL_EXAMPLE_TEMPLATE_PATH, 
         slug: 'tutorial_ex2', 
         group: 'tutorial', 
+        tutorialExampleId: 'tutorial_ex2',
         onLoad: setupTutorialExample 
     },
     { 
         id: 'tutorial_ex3', 
-        path: 'pages/tutorial/tutorial_example_3_bar_stacked.html', 
+        path: TUTORIAL_EXAMPLE_TEMPLATE_PATH, 
         slug: 'tutorial_ex3', 
         group: 'tutorial', 
+        tutorialExampleId: 'tutorial_ex3',
         onLoad: setupTutorialExample 
     },
     { 
         id: 'tutorial_ex4', 
-        path: 'pages/tutorial/tutorial_example_4_line_simple.html', 
+        path: TUTORIAL_EXAMPLE_TEMPLATE_PATH, 
         slug: 'tutorial_ex4', 
         group: 'tutorial', 
+        tutorialExampleId: 'tutorial_ex4',
         onLoad: setupTutorialExample 
     },
     { 
         id: 'tutorial_ex5', 
-        path: 'pages/tutorial/tutorial_example_5_line_multiple.html', 
+        path: TUTORIAL_EXAMPLE_TEMPLATE_PATH, 
         slug: 'tutorial_ex5', 
         group: 'tutorial', 
+        tutorialExampleId: 'tutorial_ex5',
         onLoad: setupTutorialExample 
     },
-        { 
-        id: 'tutorial_overview', 
-        path: 'pages/tutorial/tutorial_overview.html', 
-        slug: 'tutorial_overview', 
-        group: 'tutorial', 
-        onLoad: setupTutorialExample 
-    },
+    // {
+    //     id: 'tutorial_overview',
+    //     path: 'pages/tutorial/tutorial_overview.html',
+    //     slug: 'tutorial_overview',
+    //     group: 'tutorial',
+    //     onLoad: setupTutorialExample
+    // },
     
 ];
 
@@ -395,6 +401,35 @@ function ensureTooltipConfig(spec) {
     applyIfUnset(lineConfig);
     applyIfUnset(areaConfig);
     applyIfUnset(pointConfig);
+
+    const applyTooltipEncoding = (node) => {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node.layer)) {
+            node.layer.forEach(applyTooltipEncoding);
+        }
+        const encoding = node.encoding || {};
+        if (encoding.tooltip === undefined) {
+            node.encoding = {
+                ...encoding,
+                tooltip: { content: 'data' }
+            };
+        }
+    };
+    const applyMarkTooltip = (node) => {
+        if (!node || typeof node !== 'object') return;
+        if (Array.isArray(node.layer)) {
+            node.layer.forEach(applyMarkTooltip);
+        }
+        if (node.mark !== undefined) {
+            if (typeof node.mark === 'string') {
+                node.mark = { type: node.mark, tooltip: true };
+            } else if (node.mark && typeof node.mark === 'object' && node.mark.tooltip === undefined) {
+                node.mark = { ...node.mark, tooltip: true };
+            }
+        }
+    };
+    applyTooltipEncoding(spec);
+    applyMarkTooltip(spec);
 
     // 축 설정 - 기본값만 제공
     const axisConfig = {
@@ -677,11 +712,11 @@ function getFormStage(root) {
 
 function updateQaReview(root = container()) {
     const qText = (root?.querySelector('#q-question')?.value || '').trim() || 'No question yet.';
-    const aText = (root?.querySelector('#q-answer')?.value || '').trim() || 'No answer yet.';
+    const eText = (root?.querySelector('#q-explanation')?.value || '').trim() || 'No explanation yet.';
     const qDisplay = root?.querySelector('#qa-review-question');
-    const aDisplay = root?.querySelector('#qa-review-answer');
+    const eDisplay = root?.querySelector('#qa-review-explanation');
     if (qDisplay) qDisplay.textContent = qText;
-    if (aDisplay) aDisplay.textContent = aText;
+    if (eDisplay) eDisplay.textContent = eText;
 }
 
 function initStageTabs(root) {
@@ -696,9 +731,9 @@ function initStageTabs(root) {
 
 function wireQaReviewListeners(root) {
     const qInput = root?.querySelector('#q-question');
-    const aInput = root?.querySelector('#q-answer');
+    const eInput = root?.querySelector('#q-explanation');
     if (qInput) qInput.addEventListener('input', () => updateQaReview(root));
-    if (aInput) aInput.addEventListener('input', () => updateQaReview(root));
+    if (eInput) eInput.addEventListener('input', () => updateQaReview(root));
 }
 
 function addCustomOp(value) {
@@ -970,6 +1005,15 @@ function setupExampleTutorialPage(root) {
     updateQaReview(root);
 }
 
+function applyTutorialExampleDescriptor(root, descriptor) {
+    if (!root || !descriptor?.tutorialExampleId) return;
+    const placeholders = root.querySelectorAll('[data-tutorial-example-placeholder]');
+    placeholders.forEach((placeholder) => {
+        if (placeholder.dataset.tutorialExampleId) return;
+        placeholder.dataset.tutorialExampleId = descriptor.tutorialExampleId;
+    });
+}
+
 function getOpsSelection() {
     const checks = Array.from(document.querySelectorAll(`#ops-checklist input[type="checkbox"][value]`));
     const selected = checks.filter((c) => c.checked).map((c) => c.value);
@@ -1057,6 +1101,8 @@ async function loadPage(pageIndex) {
         const html = await (await fetch(descriptor.path)).text();
         placeholder.insertAdjacentHTML('afterend', html);
         placeholder.remove();
+        applyTutorialExampleDescriptor(root, descriptor);
+        renderTutorialExamplePlaceholders(root);
 
         const onLoadHandler = typeof descriptor.onLoad === 'function'
             ? descriptor.onLoad
@@ -1209,10 +1255,10 @@ async function loadPage(pageIndex) {
 // --- 5. 유효성 검사 ---
 function validateStage(root, stage) {
     const qInput = root?.querySelector('#q-question');
-    const aInput = root?.querySelector('#q-answer');
     const eInput = root?.querySelector('#q-explanation');
+    const aInput = root?.querySelector('#q-answer');
 
-    if (!qInput && !aInput && !eInput) {
+    if (!qInput && !eInput && !aInput) {
         return true;
     }
 
@@ -1221,17 +1267,17 @@ function validateStage(root, stage) {
         qInput?.focus();
         return false;
     }
-    
-    if (!aInput || aInput.value.trim() === '') {
-        alert('Please enter the answer.');
-        aInput?.focus();
+
+    if (!eInput || eInput.value.trim() === '') {
+        alert('Please enter the explanation.');
+        eInput?.focus();
         return false;
     }
 
     if (stage === FORM_STAGE_OPS) {
-        if (!eInput || eInput.value.trim() === '') {
-            alert('Please enter the explanation.');
-            eInput?.focus();
+        if (!aInput || aInput.value.trim() === '') {
+            alert('Please enter the answer.');
+            aInput?.focus();
             return false;
         }
     }

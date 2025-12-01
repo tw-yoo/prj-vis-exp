@@ -11,7 +11,7 @@
     }
   },
   "data": {
-    "url": "data/test/data/line_simple.csv"
+    "url": "ChartQA/data/csv/line/simple/zztutorialsimpleline.csv"
   },
   "mark": "line"
 }

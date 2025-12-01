@@ -1,6 +1,10 @@
 {
   "TUTORIAL": [
-    "bar_simple_0a5npu4o61dz4r5f"
+    "bar_simple_zztutorialsimplebar",
+    "bar_stacked_zztutorialstackedbar",
+    "bar_grouped_zztutorialgroupedbar",
+    "line_simple_zztutorialsimpleline",
+    "line_multiple_zztutorialmultipleline"
   ],
   "ABCDEFG": [
     "bar_simple_0a5npu4o61dz4r5f",

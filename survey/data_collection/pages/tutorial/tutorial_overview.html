@@ -3,7 +3,7 @@
         <div>
 <!--            <p class="eyebrow">Tutorial • What you will do</p>-->
             <h1>Create a compositional question from a chart</h1>
-            <p class="lede" style="font-size: 1.1em;">
+            <p class="lede">
 <!--                In this study, you will (1) <strong>read</strong> a given chart; (2) <strong>create</strong> a compositional question that can be answered from the chart; (3) <strong>calculate</strong> the answer; (4) <strong>mark</strong> what kind of arithmetic operations did you use to get the answer; (5) <strong>explain</strong> how did you get the answer.</p>-->
 <!--                You’ll read a chart, write a multi-step question, calculate the single correct answer (with any calculator/tool you like),-->
 <!--                select the operations you used (hover to see what each means), and explain your steps.-->
@@ -12,16 +12,14 @@
         <div class="steps-box">
             <p>To successfully complete the study, please follow this steps:</p>
             <ol class="steps">
-                <li><strong>Read</strong> a given chart.</li>
-                <li><strong>Create</strong> a compositional question that can be answered from the chart.</li>
-                <li><strong>Calculate</strong> the answer.</li>
-                <li><strong>Mark</strong> what kind of arithmetic operations did you use.</li>
-                <li><strong>Explain</strong> how did you get the answer.</li>
-                <li><strong>Iterate</strong> this steps for 20 times</li>
-<!--                <li><strong>Write a compositional question.</strong> It should require multiple operations (not a single lookup).</li>-->
-<!--                <li><strong>Compute the single correct answer.</strong> Use any calculator/phone/GPT for the math, not for writing the question.</li>-->
-<!--                <li><strong>Select the operations you used.</strong> Hover each label to see what it means; add others if needed.</li>-->
-<!--                <li><strong>Explain your steps.</strong> Bullet them as “1, 2, 3” or “First, Second, Third”.</li>-->
+                <li><strong>Read</strong> the given chart carefully.</li>
+                <li><strong>Create</strong> one compositional question whose answer can be obtained from the chart
+                    (i.e., a question that combines at least two pieces of information from the chart).</li>
+                <li><strong>Explain</strong> the steps you would follow to get the answer, in order.</li>
+                <li><strong>Mark</strong> which arithmetic operations you use
+                    (e.g., retrive value, filter, sort, compare).</li>
+                <li><strong>Calculate</strong> and write down the final answer.</li>
+                <li><strong>Repeat</strong> these steps until you have created 20 questions in total.</li>
             </ol>
         </div>
         <div class="reminder">
@@ -57,15 +55,15 @@
                          data-multiline="true"></div>
 
                 <div data-component="open-ended"
-                     data-id="q-answer"
-                     data-labelText="2. The Answer"
-                     data-placeholder="27.9"
-                     data-multiline="false"></div>
+                     data-id="q-explanation"
+                     data-labelText="2. Step-by-Step Explanation to Get the Answer"
+                     data-placeholder="1. Get the sum of foggy days: 411&#10;2. Get the sum of rainy days: 259&#10;3. Average value is (411 + 259)/12 = 27.9"
+                     data-multiline="true"></div>
 
 <!--                    <p class="hint">Use any calculator/tool for the math, but not to write the question.</p>-->
                 </div>
 
-                <div class="stage-panel" data-stage="ops" style="display: none;">
+                <div class="stage-panel" data-stage="ops">
 <!--                    <p class="hint">In the actual survey, this part appears after you click Next.</p>-->
                     <div class="qa-review">
                         <div class="qa-review-item">
@@ -73,8 +71,8 @@
                             <span class="qa-review-text" id="qa-review-question">No question yet.</span>
                         </div>
                         <div class="qa-review-item">
-                            <span class="qa-review-label">2. The Answer</span>
-                            <span class="qa-review-text" id="qa-review-answer">No answer yet.</span>
+                            <span class="qa-review-label">2. Explanation (Step-by-step)</span>
+                            <span class="qa-review-text" id="qa-review-explanation">No explanation yet.</span>
                         </div>
                     </div>
 
@@ -121,269 +119,17 @@
                     </div>
 
                     <div data-component="open-ended"
-                         data-id="q-explanation"
-                         data-labelText="4. Explanation (Step-by-step)"
-                         data-placeholder="1. Get the sum of foggy day, which is 411&#10;2. Get the sum of rainy day, which is 259 &#10;3. Average value is (411 + 259)/12 = 27.9 "
-                         data-multiline="true"></div>
-                    <p class="hint">You can write steps as “1, 2, 3” or “First, Second, Third”.</p>
+                         data-id="q-answer"
+                         data-labelText="4. The Answer"
+                         data-placeholder="27.9"
+                         data-multiline="false"></div>
+                    <p class="hint">Confirm the operations you used and record the single correct answer.</p>
                 </div>
             </div>
         </section>
     </div>
 
-    <style>
-        .tutorial-page {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px 18px 32px;
-        }
-        .tutorial-header {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 18px;
-        }
-        .eyebrow {
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            font-size: 12px;
-            color: #6b7280;
-            margin: 0;
-        }
-        .tutorial-header h1 {
-            margin: 0;
-            font-size: 26px;
-        }
-        .lede {
-            margin: 2px 0 0;
-            color: #4b5563;
-            line-height: 1.5;
-        }
-        .reminder {
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            border-radius: 8px;
-            padding: 10px 12px;
-            color: #7c2d12;
-            max-width: 100%;
-        }
-        .steps-box {
-            max-width: 100%;
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 12px 14px;
-        }
-        .steps-box h3 {
-            margin: 0 0 6px 0;
-        }
-        .example-grid {
-            display: grid;
-            grid-template-columns: 1.05fr 0.95fr;
-            gap: 18px;
-        }
-        .card {
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-        }
-        .card-header {
-            padding: 14px 16px 10px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .card-header h3 {
-            margin: 0 0 4px 0;
-            font-size: 18px;
-        }
-        .card-header .hint {
-            margin: 0;
-            color: red;
-            font-size: 14px;
-        }
-        .chart-card .chart-host {
-            padding: 0;
-        }
-        .chart-placeholder {
-            color: #9ca3af;
-            font-size: 14px;
-        }
-        .form-card .form-body {
-            padding: 14px 16px 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .steps {
-            margin: 4px 0 0;
-            padding-left: 18px;
-            color: #4b5563;
-            line-height: 1.5;
-        }
-        .ops-checklist {
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 10px;
-            background: #f9fafb;
-            position: relative;
-            overflow: visible;
-        }
-        .ops-checklist-body {
-            max-height: none;
-            overflow: visible;
-            border: 1px solid #e5e7eb;
-            border-radius: 4px;
-            padding: 8px;
-            background: #fff;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 8px;
-        }
-        .ops-check {
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 14px;
-            padding: 6px 8px;
-            border: 1px solid #e5e7eb;
-            border-radius: 4px;
-            background: #fff;
-            cursor: pointer;
-        }
-        .ops-check input {
-            pointer-events: auto;
-        }
-        .ops-check::after {
-            content: attr(data-tip);
-            position: absolute;
-            left: 0;
-            bottom: calc(100% + 6px);
-            background: #0f172a;
-            color: #fff;
-            padding: 6px 8px;
-            border-radius: 6px;
-            font-size: 12px;
-            line-height: 1.4;
-            width: 220px;
-            max-width: 70vw;
-            opacity: 0;
-            pointer-events: none;
-            transform: translateY(6px);
-            transition: opacity 0.15s ease, transform 0.15s ease;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-            z-index: 5;
-            display: block;
-        }
-        .ops-check:hover::after,
-        .ops-check:focus-within::after {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .ops-custom {
-            margin-top: 10px;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 10px;
-        }
-        .ops-custom-input-row {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        .ops-custom-input-row input {
-            padding: 8px;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        .ops-custom-add {
-            padding: 8px 12px;
-            border: 1px solid #38bdf8;
-            background: #0ea5e9;
-            color: #fff;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 700;
-            min-width: 44px;
-        }
-        .ops-custom-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .ops-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 10px;
-            background: #e0f2fe;
-            color: #0f172a;
-            border-radius: 999px;
-            border: 1px solid #bae6fd;
-        }
-        .ops-chip__label { font-weight: 600; }
-        .ops-chip__remove {
-            border: none;
-            background: #f1f5f9;
-            color: #0f172a;
-            border-radius: 50%;
-            width: 22px;
-            height: 22px;
-            cursor: pointer;
-            font-weight: 800;
-            line-height: 1;
-        }
-        .micro-hint {
-            margin: 0;
-            color: #6b7280;
-            font-size: 13px;
-        }
-        .stage-panel {
-            margin-top: 4px;
-        }
-        .stage-panel.is-active {
-            display: block;
-        }
-        .qa-review {
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 8px 10px;
-            margin-bottom: 12px;
-            background: #f8fafc;
-            display: grid;
-            gap: 6px;
-        }
-        .qa-review-item {
-            display: block;
-            line-height: 1.4;
-        }
-        .qa-review-label {
-            font-weight: 700;
-            color: #0f172a;
-            margin-right: 6px;
-            display: inline;
-        }
-        .qa-review-label::after {
-            content: ': ';
-        }
-        .qa-review-text {
-            display: inline;
-            border: none;
-            padding: 0;
-            background: transparent;
-            min-height: auto;
-            white-space: pre-wrap;
-        }
-        .form-card textarea#q-explanation {
-            min-height: 4.5em;
-        }
-        @media (max-width: 1080px) {
-            .example-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    
 </div>
 
 <script>
