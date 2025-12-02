@@ -314,15 +314,28 @@ export async function renderSimpleLineChart(chartId, spec) {
             ? d3.scaleLinear().domain(d3.extent(data, d => d[xField])).nice().range([0, innerWidth])
             : d3.scalePoint().domain(data.map(d => String(d[xField]))).range([0, innerWidth]));
 
-    // 🔥 Y축 범위를 데이터 최소값 * 0.9 ~ 최대값 * 1.1로 설정
+    // Y축 범위를 자동으로 여유 있게 잡되, 스펙에 명시된 도메인이 있으면 그대로 사용
+    const yScaleSpec = spec?.encoding?.y?.scale || {};
+    const hasExplicitDomain = Array.isArray(yScaleSpec.domain) && yScaleSpec.domain.length === 2
+        && Number.isFinite(Number(yScaleSpec.domain[0])) && Number.isFinite(Number(yScaleSpec.domain[1]));
+
     const yValues = data.map(d => d[yField]);
     const yMin = d3.min(yValues);
     const yMax = d3.max(yValues);
+    const safeYMin = Number.isFinite(yMin) ? yMin : 0;
+    const safeYMax = Number.isFinite(yMax) ? yMax : 0;
 
-    let domainMin = yMin * 0.95;
-    let domainMax = yMax * 1.05;
+    let domainMin;
+    let domainMax;
 
-    // 예외 처리
+    if (hasExplicitDomain) {
+        domainMin = Number(yScaleSpec.domain[0]);
+        domainMax = Number(yScaleSpec.domain[1]);
+    } else {
+        domainMin = safeYMin >= 0 ? safeYMin * 0.8 : safeYMin * 1.2;
+        domainMax = safeYMax >= 0 ? safeYMax * 1.2 : safeYMax * 0.8;
+    }
+
     if (!Number.isFinite(domainMin) || !Number.isFinite(domainMax)) {
         domainMin = 0;
         domainMax = 100;

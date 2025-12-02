@@ -336,6 +336,137 @@ function resolveVegaEmbed() {
   return null;
 }
 
+function isLineMark(mark) {
+  if (!mark) return false;
+  if (typeof mark === 'string') return mark === 'line';
+  if (typeof mark === 'object' && typeof mark.type === 'string') {
+    return mark.type === 'line';
+  }
+  return false;
+}
+
+function collectLineEncodings(spec = {}) {
+  const encodings = [];
+  if (isLineMark(spec.mark) && spec.encoding) {
+    encodings.push(spec.encoding);
+  }
+  if (Array.isArray(spec.layer)) {
+    spec.layer.forEach((layer) => {
+      if (isLineMark(layer?.mark) && layer.encoding) {
+        encodings.push(layer.encoding);
+      }
+    });
+  }
+  return encodings;
+}
+
+function parseCsvRows(text) {
+  if (!text || typeof text !== "string") return [];
+  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+  if (lines.length <= 1) return [];
+  const headers = lines[0].split(",").map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const cols = line.split(",");
+    const row = {};
+    headers.forEach((h, idx) => {
+      row[h] = (cols[idx] ?? "").trim();
+    });
+    return row;
+  });
+}
+
+async function loadRowsForSpecData(dataRef) {
+  if (!dataRef) return [];
+  if (Array.isArray(dataRef.values)) {
+    return dataRef.values;
+  }
+  if (typeof dataRef.url === "string") {
+    try {
+      const res = await fetch(dataRef.url);
+      if (!res?.ok) return [];
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("json")) {
+        return await res.json();
+      }
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (_) {
+        return parseCsvRows(text);
+      }
+    } catch (err) {
+      console.warn('loadRowsForSpecData: failed to fetch data', err);
+      return [];
+    }
+  }
+  return [];
+}
+
+function computePaddedDomain(minVal, maxVal) {
+  if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) return null;
+  let domainMin = minVal >= 0 ? minVal * 0.8 : minVal * 1.2;
+  let domainMax = maxVal >= 0 ? maxVal * 1.2 : maxVal * 0.8;
+  if (!Number.isFinite(domainMin) || !Number.isFinite(domainMax)) return null;
+  if (domainMin === domainMax) {
+    domainMin = domainMin - 5;
+    domainMax = domainMax + 5;
+  }
+  return [domainMin, domainMax];
+}
+
+async function applyAutoLineDomain(spec) {
+  if (!spec || typeof spec !== "object") return spec;
+
+  const lineEncodings = collectLineEncodings(spec);
+  if (lineEncodings.length === 0) return spec;
+
+  const hasExplicitDomain = lineEncodings.some(enc => enc?.y?.scale?.domain !== undefined);
+  if (hasExplicitDomain) return spec;
+
+  const yFields = Array.from(new Set(
+    lineEncodings
+      .map(enc => enc?.y?.field)
+      .filter(Boolean)
+  ));
+  if (yFields.length === 0) return spec;
+
+  const dataRef = spec.data || (Array.isArray(spec.layer) ? spec.layer.find(l => l?.data)?.data : null);
+  const rows = await loadRowsForSpecData(dataRef);
+  if (!Array.isArray(rows) || rows.length === 0) return spec;
+
+  let minVal = Infinity;
+  let maxVal = -Infinity;
+  rows.forEach(row => {
+    yFields.forEach(field => {
+      const v = Number(row?.[field]);
+      if (Number.isFinite(v)) {
+        if (v < minVal) minVal = v;
+        if (v > maxVal) maxVal = v;
+      }
+    });
+  });
+
+  if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) return spec;
+
+  const padded = computePaddedDomain(minVal, maxVal);
+  if (!padded) return spec;
+
+  lineEncodings.forEach((enc) => {
+    if (!enc?.y) return;
+    const scale = enc.y.scale || {};
+    enc.y = {
+      ...enc.y,
+      scale: {
+        ...scale,
+        domain: padded,
+        ...(scale.zero === undefined ? { zero: false } : {})
+      }
+    };
+  });
+
+  return spec;
+}
+
 export async function renderChart(chartId, spec) {
     const canvas = ensureChartCanvas(chartId);
     remapIdsForRenderer(chartId);
@@ -415,6 +546,8 @@ export async function renderPlainVegaLiteChart(chartId, spec, options = {}) {
             }
         }
     };
+
+    await applyAutoLineDomain(enhancedSpec);
 
     const embedOptions = {
         actions: false,

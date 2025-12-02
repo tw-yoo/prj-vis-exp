@@ -537,6 +537,71 @@
     gap: 8px;
 }
 
+.ops-reference {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.ops-reference__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 8px 0;
+}
+
+.ops-reference__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.op-tag {
+    display: inline-flex;
+    align-items: center;
+    position: relative;
+    padding: 6px 10px;
+    border-radius: 14px;
+    background: #e0f2fe;
+    color: #0f172a;
+    border: 1px solid #bfdbfe;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.op-tag::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 8px);
+    background: #1f2937;
+    color: #f9fafb;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    width: 260px;
+    max-width: 70vw;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    transition: all 0.2s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    pointer-events: none;
+    white-space: pre-line;
+}
+
+.op-tag:hover::after,
+.op-tag:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
 .ops-chip {
     display: inline-flex;
     align-items: center;

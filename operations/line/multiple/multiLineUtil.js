@@ -524,27 +524,41 @@ export async function renderMultipleLineChart(chartId, spec) {
             .range([0, innerWidth]);
     }
 
-// 🔥 Y축 범위를 데이터 최소값 * 0.95 ~ 최대값 * 1.05로 설정
-const yValues = baseData.map(row => Number(row[yField])).filter(Number.isFinite);
-const yMin = yValues.length ? d3.min(yValues) : 0;
-const yMax = yValues.length ? d3.max(yValues) : 0;
+    // Y축 범위를 자동으로 여유 있게 잡되, 스펙에 명시된 도메인이 있으면 그대로 사용
+    const yScaleSpec = yEnc.scale || {};
+    const hasExplicitDomain = Array.isArray(yScaleSpec.domain) && yScaleSpec.domain.length === 2
+        && Number.isFinite(Number(yScaleSpec.domain[0])) && Number.isFinite(Number(yScaleSpec.domain[1]));
 
-let domainMin = yMin * 0.95;
-let domainMax = yMax * 1.05;
+    const yValues = baseData.map(row => Number(row[yField])).filter(Number.isFinite);
+    const yMin = yValues.length ? d3.min(yValues) : 0;
+    const yMax = yValues.length ? d3.max(yValues) : 0;
+    const safeYMin = Number.isFinite(yMin) ? yMin : 0;
+    const safeYMax = Number.isFinite(yMax) ? yMax : 0;
 
-// 예외 처리
-if (!Number.isFinite(domainMin) || !Number.isFinite(domainMax)) {
-    domainMin = 0;
-    domainMax = 100;
-}
-if (domainMin === domainMax) {
-    domainMin = domainMin - 5;
-    domainMax = domainMax + 5;
-}
+    let domainMin;
+    let domainMax;
 
-const yScale = d3.scaleLinear()
-    .domain([domainMin, domainMax])
-    .range([innerHeight, 0]);
+    if (hasExplicitDomain) {
+        domainMin = Number(yScaleSpec.domain[0]);
+        domainMax = Number(yScaleSpec.domain[1]);
+    } else {
+        domainMin = safeYMin >= 0 ? safeYMin * 0.8 : safeYMin * 1.2;
+        domainMax = safeYMax >= 0 ? safeYMax * 1.2 : safeYMax * 0.8;
+    }
+
+    // 예외 처리
+    if (!Number.isFinite(domainMin) || !Number.isFinite(domainMax)) {
+        domainMin = 0;
+        domainMax = 100;
+    }
+    if (domainMin === domainMax) {
+        domainMin = domainMin - 5;
+        domainMax = domainMax + 5;
+    }
+
+    const yScale = d3.scaleLinear()
+        .domain([domainMin, domainMax])
+        .range([innerHeight, 0]);
     const colorScale = d3.scaleOrdinal(d3.schemeCategory10)
         .domain(series.map(s => s.id));
 

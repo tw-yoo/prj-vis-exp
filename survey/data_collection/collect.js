@@ -682,6 +682,42 @@ function renderComponents(root) {
   });
 }
 
+async function renderOpsReferenceTags(root) {
+    if (!root) return;
+    const target = root.querySelector('[data-name="q-explanation"]');
+    if (!target || target.dataset.opsRefRendered === 'true') return;
+
+    const options = await loadOpsOptions();
+    const allOptions = Array.isArray(options) ? options : getDefaultOpsOptions();
+    if (!Array.isArray(allOptions) || allOptions.length === 0) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'ops-reference';
+
+    const heading = document.createElement('div');
+    heading.className = 'ops-reference__title';
+    heading.textContent = 'Available operations (for reference)';
+
+    const tags = document.createElement('div');
+    tags.className = 'ops-reference__tags';
+
+    allOptions.forEach((op) => {
+        const label = op?.value || op?.label;
+        if (!label) return;
+        const tag = document.createElement('span');
+        tag.className = 'op-tag';
+        if (op?.tip) {
+            tag.dataset.tip = op.tip;
+        }
+        tag.textContent = label;
+        tags.appendChild(tag);
+    });
+
+    wrapper.append(heading, tags);
+    target.insertAdjacentElement('afterend', wrapper);
+    target.dataset.opsRefRendered = 'true';
+}
+
 function syncStageTabs(root, stage) {
     root?.querySelectorAll('[data-stage-btn]').forEach((btn) => {
         const target = btn.dataset.stageBtn;
@@ -1114,6 +1150,7 @@ async function loadPage(pageIndex) {
 
         renderComponents(root);
         await populateOpsChecklist(root);
+        await renderOpsReferenceTags(root);
         if (descriptor.id === 'main-task') {
             setupTaskUI(root);
             const chartId = assignedCharts[currentChartIndex];
