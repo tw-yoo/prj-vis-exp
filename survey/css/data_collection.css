@@ -537,6 +537,37 @@
     gap: 8px;
 }
 
+.data-link-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.data-link-btn {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid #0284c7;
+    background: #0ea5e9;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.data-link-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.data-link-hint {
+    color: #475569;
+    font-size: 13px;
+}
+
+.data-link-btn + .data-link-hint {
+    white-space: nowrap;
+}
+
 .ops-reference {
     margin-top: 12px;
     padding: 10px 12px;

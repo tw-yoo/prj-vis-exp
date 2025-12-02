@@ -1,17 +1,54 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
-  "encoding": {
-    "y": {
-      "field": "research_and_development_expenditure",
-      "type": "quantitative"
-    },
-    "x": {
-      "field": "year",
-      "type": "temporal"
-    }
-  },
+  "description": "Simple line chart for zztutorialsimpleline.csv",
   "data": {
     "url": "ChartQA/data/csv/line/simple/zztutorialsimpleline.csv"
   },
-  "mark": "line"
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false
+      },
+      "encoding": {
+        "y": {
+          "field": "research_and_development_expenditure",
+          "type": "quantitative"
+        },
+        "x": {
+          "field": "year",
+          "type": "temporal"
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 60
+      },
+      "encoding": {
+        "y": {
+          "field": "research_and_development_expenditure",
+          "type": "quantitative"
+        },
+        "x": {
+          "field": "year",
+          "type": "temporal"
+        },
+        "tooltip": [
+          {
+            "field": "year",
+            "type": "temporal",
+            "title": "year"
+          },
+          {
+            "field": "research_and_development_expenditure",
+            "type": "quantitative",
+            "title": "research_and_development_expenditure"
+          }
+        ]
+      }
+    }
+  ]
 }

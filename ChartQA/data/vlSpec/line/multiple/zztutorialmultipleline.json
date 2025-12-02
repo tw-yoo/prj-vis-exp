@@ -4,10 +4,34 @@
   "data": {
     "url": "ChartQA/data/csv/line/multiple/zztutorialmultipleline.csv"
   },
-  "mark": "line",
-  "encoding": {
-    "x": {"field": "date", "type": "temporal"},
-    "y": {"field": "price", "type": "quantitative"},
-    "color": {"field": "symbol", "type": "nominal"}
-  }
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false
+      },
+      "encoding": {
+        "x": { "field": "date", "type": "temporal" },
+        "y": { "field": "price", "type": "quantitative" },
+        "color": { "field": "symbol", "type": "nominal" }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 60
+      },
+      "encoding": {
+        "x": { "field": "date", "type": "temporal" },
+        "y": { "field": "price", "type": "quantitative" },
+        "color": { "field": "symbol", "type": "nominal" },
+        "tooltip": [
+          { "field": "date", "type": "temporal", "title": "date" },
+          { "field": "price", "type": "quantitative", "title": "price" },
+          { "field": "symbol", "type": "nominal", "title": "symbol" }
+        ]
+      }
+    }
+  ]
 }

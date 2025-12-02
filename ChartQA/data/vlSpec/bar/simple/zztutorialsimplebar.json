@@ -9,7 +9,19 @@
       "field": "country",
       "type": "nominal",
       "sort": null
-    }
+    },
+    "tooltip": [
+      {
+        "field": "country",
+        "type": "nominal",
+        "title": "country"
+      },
+      {
+        "field": "rating",
+        "type": "quantitative",
+        "title": "rating"
+      }
+    ]
   },
   "data": {
     "url": "ChartQA/data/csv/bar/simple/zztutorialsimplebar.csv"

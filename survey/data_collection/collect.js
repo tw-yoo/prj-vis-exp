@@ -24,6 +24,7 @@ let TOTAL_PAGES = 0;
 let navigationInProgress = false;
 let participantAssignments = null;
 let opsOptionsCache = null;
+let chartSheetMap = null;
 
 const container = () => document.querySelector('.main-scroll');
 const btnPrev = () => document.querySelector('.prev-btn');
@@ -292,6 +293,12 @@ function buildPageDescriptorsForAssignedCharts() {
             }
             renderChartForTask(currentChartId, 'tutorial-chart-view');
             restoreTutorialInputs(currentChartId);
+            const btn = root.querySelector('#data-link-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.dataset.sheetUrl = '';
+                btn.title = 'Data link is not available in tutorial mode.';
+            }
         }
     }));
 
@@ -334,18 +341,19 @@ function buildPageDescriptorsForAssignedCharts() {
                 });
                 dropdown.value = currentChartId;
 
-                dropdown.onchange = () => {
-                    guardedNavigate(async () => {
-                        saveCurrentChartData();
-                        await persistAllData();
-                        const newIdx = assignedCharts.indexOf(dropdown.value);
-                        const offsetIndex = 1 + STATIC_PAGES_BEFORE_TASK.length + tutorialTaskDescriptors.length + PAGES_BEFORE_INTRO.length;
-                        loadPage(newIdx + offsetIndex);
-                    });
-                };
+                    dropdown.onchange = () => {
+                        guardedNavigate(async () => {
+                            saveCurrentChartData();
+                            await persistAllData();
+                            const newIdx = assignedCharts.indexOf(dropdown.value);
+                            const offsetIndex = 1 + STATIC_PAGES_BEFORE_TASK.length + tutorialTaskDescriptors.length + PAGES_BEFORE_INTRO.length;
+                            loadPage(newIdx + offsetIndex);
+                        });
+                    };
 
                 renderChartForTask(currentChartId, 'chart-main-view');
                 restoreInputsForChart(currentChartId);
+                initDataLinkButton(root);
             }
         })),
         ...STATIC_PAGES_AFTER_TASK
@@ -564,6 +572,19 @@ async function loadOpsOptions() {
         opsOptionsCache = getDefaultOpsOptions();
     }
     return opsOptionsCache;
+}
+
+async function loadChartSheetMap() {
+    if (chartSheetMap) return chartSheetMap;
+    try {
+        const res = await fetch('chart_sheet_map.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        chartSheetMap = await res.json();
+    } catch (e) {
+        console.warn('Failed to load chart_sheet_map.json', e);
+        chartSheetMap = null;
+    }
+    return chartSheetMap;
 }
 
 async function populateOpsChecklist(root) {
@@ -1068,6 +1089,40 @@ function applyOpsSelection(saved) {
     });
     const customList = Array.isArray(saved?.others) ? saved.others : (Array.isArray(saved?.custom) ? saved.custom : []);
     setCustomOps(customList);
+}
+
+async function initDataLinkButton(root) {
+    const btn = root?.querySelector('#data-link-btn');
+    if (!btn) return;
+
+    btn.disabled = true;
+    btn.dataset.sheetUrl = '';
+    btn.addEventListener('click', () => {
+        const url = btn.dataset.sheetUrl;
+        if (url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    });
+
+    const map = await loadChartSheetMap();
+    if (!map || !participantCode) {
+        btn.disabled = true;
+        return;
+    }
+
+    const chartId = root?.querySelector('#chart-dropdown')?.value || assignedCharts[currentChartIndex];
+    const participantMap = map[participantCode] || null;
+    const sheetUrl = participantMap && chartId ? participantMap[chartId] : null;
+
+    if (sheetUrl) {
+        btn.dataset.sheetUrl = sheetUrl;
+        btn.disabled = false;
+        btn.title = 'Open data sheet in new tab';
+    } else {
+        btn.dataset.sheetUrl = '';
+        btn.disabled = true;
+        btn.title = 'No data sheet available for this chart.';
+    }
 }
 
 // --- 4. SPA 페이지 로더 및 라우터 ---

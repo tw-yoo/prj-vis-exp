@@ -4,8 +4,7 @@
     "x": {
       "field": "month",
       "type": "nominal",
-      "sort":null
-
+      "sort": null
     },
     "color": {
       "field": "weather",
@@ -14,7 +13,24 @@
     "y": {
       "field": "count",
       "type": "quantitative"
-    }
+    },
+    "tooltip": [
+      {
+        "field": "month",
+        "type": "nominal",
+        "title": "month"
+      },
+      {
+        "field": "weather",
+        "type": "nominal",
+        "title": "weather"
+      },
+      {
+        "field": "count",
+        "type": "quantitative",
+        "title": "count"
+      }
+    ]
   },
   "data": {
     "url": "ChartQA/data/csv/bar/stacked/zztutorialstackedbar.csv"

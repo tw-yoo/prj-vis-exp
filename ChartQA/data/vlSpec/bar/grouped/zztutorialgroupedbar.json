@@ -34,9 +34,26 @@
       "field": "gender",
       "type": "nominal",
       "scale": {
-        "range": ["#659CCA","#EA98D2"]
+        "range": ["#659CCA", "#EA98D2"]
       }
-    }
+    },
+    "tooltip": [
+      {
+        "field": "age",
+        "type": "ordinal",
+        "title": "age"
+      },
+      {
+        "field": "gender",
+        "type": "nominal",
+        "title": "gender"
+      },
+      {
+        "field": "people",
+        "type": "quantitative",
+        "title": "people"
+      }
+    ]
   },
   "config": {
     "view": {
