@@ -11,7 +11,6 @@
         <li><strong>Explain</strong> the steps you would follow to get the answer, in order.</li>
         <li><strong>Mark</strong> which arithmetic operations you use
             (e.g., retrive value, filter, sort, compare).</li>
-        <li><strong>Calculate</strong> and write down the final answer.</li>
     </ol>
 
 <!--    <div class="req-box">-->
@@ -115,7 +114,7 @@
                 </div>
             </div>
 
-            <div class="stage-panel is-active" data-stage="qa">
+            <div class="stage-panel is-active">
                 <div data-component="open-ended"
                      data-id="q-question"
                      data-labelText="1. Your Question"
@@ -127,21 +126,19 @@
                      data-labelText="2. Step-by-Step Explanation to Get the Answer"
                      data-placeholder="1. ... &#10;2. ... &#10;3. ..."
                      data-multiline="true"></div>
-
-                <p class="stage-hint">Continue to the next step to record the operations and final answer.</p>
             </div>
 
-            <div class="stage-panel" data-stage="ops">
-                <div class="qa-review">
-                    <div class="qa-review-item">
-                        <div class="qa-review-label">1. Your Question</div>
-                        <div class="qa-review-text" id="qa-review-question">No question yet.</div>
-                    </div>
-                    <div class="qa-review-item">
-                        <div class="qa-review-label">2. Explanation (Step-by-step)</div>
-                        <div class="qa-review-text" id="qa-review-explanation">No explanation yet.</div>
-                    </div>
-                </div>
+            <div class="stage-panel is-active ops-section">
+              <div class="qa-review">
+                  <div class="qa-review-item">
+                      <div class="qa-review-label">1. Your Question</div>
+                      <div class="qa-review-text" id="qa-review-question">No question yet.</div>
+                  </div>
+                  <div class="qa-review-item">
+                      <div class="qa-review-label">2. Explanation (Step-by-step)</div>
+                      <div class="qa-review-text" id="qa-review-explanation">No explanation yet.</div>
+                  </div>
+              </div>
 
                 <div class="ops-checklist">
                     <label class="question">3. Operations Used (multiple)</label>
@@ -154,13 +151,6 @@
                         </div>
                         <div class="ops-custom-list" id="ops-custom-list"></div>
                     </div>
-                </div>
-
-                <div data-component="open-ended"
-                     data-id="q-answer"
-                     data-labelText="4. The Answer"
-                     data-placeholder="Enter the single correct answer (e.g., '14019', 'USA', 'True')"
-                     data-multiline="false">
                 </div>
 
                 <div class="data-link-row">

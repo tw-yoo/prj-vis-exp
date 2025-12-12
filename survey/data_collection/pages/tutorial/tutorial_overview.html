@@ -18,7 +18,6 @@
                 <li><strong>Explain</strong> the steps you would follow to get the answer, in order.</li>
                 <li><strong>Mark</strong> which arithmetic operations you use
                     (e.g., retrive value, filter, sort, compare).</li>
-                <li><strong>Calculate</strong> and write down the final answer.</li>
                 <li><strong>Repeat</strong> these steps until you have created 20 questions in total.</li>
             </ol>
         </div>
@@ -47,24 +46,21 @@
             </div>
 
             <div class="form-body">
-                <div class="stage-panel is-active" data-stage="qa">
+                <div class="stage-panel is-active">
                     <div data-component="open-ended"
                          data-id="q-question"
                          data-labelText="1. Your Question"
                          data-placeholder="What is the average of combined foggy and rainy day?"
                          data-multiline="true"></div>
 
-                <div data-component="open-ended"
-                     data-id="q-explanation"
-                     data-labelText="2. Step-by-Step Explanation to Get the Answer"
-                     data-placeholder="1. Get the sum of foggy days: 411&#10;2. Get the sum of rainy days: 259&#10;3. Average value is (411 + 259)/12 = 27.9"
-                     data-multiline="true"></div>
-
-<!--                    <p class="hint">Use any calculator/tool for the math, but not to write the question.</p>-->
+                    <div data-component="open-ended"
+                         data-id="q-explanation"
+                         data-labelText="2. Step-by-Step Explanation to Get the Answer"
+                         data-placeholder="1. Get the sum of foggy days: 411&#10;2. Get the sum of rainy days: 259&#10;3. Average value is (411 + 259)/12 = 27.9"
+                         data-multiline="true"></div>
                 </div>
 
-                <div class="stage-panel" data-stage="ops">
-<!--                    <p class="hint">In the actual survey, this part appears after you click Next.</p>-->
+                <div class="stage-panel is-active ops-section">
                     <div class="qa-review">
                         <div class="qa-review-item">
                             <span class="qa-review-label">1. Your Question</span>
@@ -117,13 +113,6 @@
                             <div class="ops-custom-list" id="ops-custom-list"></div>
                         </div>
                     </div>
-
-                    <div data-component="open-ended"
-                         data-id="q-answer"
-                         data-labelText="4. The Answer"
-                         data-placeholder="27.9"
-                         data-multiline="false"></div>
-                    <p class="hint">Confirm the operations you used and record the single correct answer.</p>
                 </div>
             </div>
         </section>

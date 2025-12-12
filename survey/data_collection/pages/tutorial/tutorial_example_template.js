@@ -169,7 +169,6 @@ function renderExampleInto(element, exampleId) {
                 <li><strong>Explain</strong> the steps you would follow to get the answer, in order.</li>
                 <li><strong>Mark</strong> which arithmetic operations you use
                     (e.g., retrive value, filter, sort, compare).</li>
-                <li><strong>Calculate</strong> and write down the final answer.</li>
                 <li><strong>Repeat</strong> these steps until you have created 20 questions in total.</li>
             </ol>
         </div>
@@ -194,7 +193,7 @@ function renderExampleInto(element, exampleId) {
 
             <section class="card form-card">
                 <div class="card-header">
-                    <h3>Example Question & Answer</h3>
+                    <h3>Example Question & Steps</h3>
                     <p>This is a pre-filled example. Use it to understand how the question is structured.</p>
                 </div>
 
@@ -214,11 +213,6 @@ function renderExampleInto(element, exampleId) {
                             <strong>3. Operations Used:</strong>
                             <div class="ops-display" data-slot="operations"></div>
                         </div>
-
-                        <div class="answer-section">
-                            <strong>4. Answer:</strong>
-                            <div class="answer-text" data-slot="answer"></div>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -230,7 +224,6 @@ function renderExampleInto(element, exampleId) {
     const lede = element.querySelector('[data-slot="lede"]');
     const hint = element.querySelector('[data-slot="hint"]');
     const question = element.querySelector('[data-slot="question"]');
-    const answer = element.querySelector('[data-slot="answer"]');
     const explanation = element.querySelector('[data-slot="explanation"]');
     const opsContainer = element.querySelector('[data-slot="operations"]');
     const chartHost = element.querySelector('#tutorial-chart-view__host');
@@ -247,7 +240,6 @@ function renderExampleInto(element, exampleId) {
         }
     }
     fillElementText(question, data.question);
-    fillElementText(answer, data.answer);
     fillElementText(explanation, data.explanation);
     createOpsTags(opsContainer, data.operations);
     if (chartHost) {

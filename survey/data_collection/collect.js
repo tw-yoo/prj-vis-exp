@@ -748,23 +748,21 @@ function syncStageTabs(root, stage) {
     });
 }
 
-function setFormStage(root, stage) {
-    const normalized = stage === FORM_STAGE_OPS ? FORM_STAGE_OPS : FORM_STAGE_QA;
+function setFormStage(root) {
     if (root) {
-        root.dataset.formStage = normalized;
+        root.dataset.formStage = FORM_STAGE_QA;
     }
-    root?.querySelectorAll('[data-stage]').forEach((panel) => {
-        const isActive = (panel.dataset.stage || '') === normalized;
-        panel.classList.toggle('is-active', isActive);
-        panel.style.display = isActive ? '' : 'none';
+    root?.querySelectorAll('.stage-panel').forEach((panel) => {
+        panel.classList.add('is-active');
+        panel.style.display = '';
     });
-    syncStageTabs(root, normalized);
+    syncStageTabs(root, FORM_STAGE_QA);
     updateQaReview(root);
     persistSessionState();
 }
 
 function getFormStage(root) {
-    return root?.dataset.formStage === FORM_STAGE_OPS ? FORM_STAGE_OPS : FORM_STAGE_QA;
+    return FORM_STAGE_QA;
 }
 
 function updateQaReview(root = container()) {
@@ -778,11 +776,8 @@ function updateQaReview(root = container()) {
 
 function initStageTabs(root) {
     root?.querySelectorAll('[data-stage-btn]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const target = btn.dataset.stageBtn;
-            if (target === FORM_STAGE_OPS && !validateStage(root, FORM_STAGE_QA)) return;
-            setFormStage(root, target);
-        });
+        btn.classList.add('is-active');
+        btn.setAttribute('aria-pressed', 'true');
     });
 }
 
@@ -915,16 +910,14 @@ function saveCurrentChartData(options = {}) {
     if (!chartId) return;
 
     const qInput = document.getElementById('q-question');
-    const aInput = document.getElementById('q-answer');
     const eInput = document.getElementById('q-explanation');
 
-    if (!qInput || !aInput || !eInput) {
+    if (!qInput || !eInput) {
         return;
     }
 
     const data = {
         question: qInput.value || "",
-        answer: aInput.value || "",
         explanation: eInput.value || "",
         ops: getOpsSelection()
     };
@@ -941,13 +934,11 @@ function saveCurrentTutorialData() {
     if (!chartId) return;
 
     const qInput = document.getElementById('q-question');
-    const aInput = document.getElementById('q-answer');
     const eInput = document.getElementById('q-explanation');
-    if (!qInput || !aInput || !eInput) return;
+    if (!qInput || !eInput) return;
 
     const data = {
         question: qInput.value || "",
-        answer: aInput.value || "",
         explanation: eInput.value || "",
         ops: getOpsSelection()
     };
@@ -1018,28 +1009,24 @@ function fitChartToContainer(elementId) {
 }
 
 function restoreInputsForChart(chartId) {
-    const data = allResponses[chartId] || { question: "", answer: "", explanation: "", ops: null };
+    const data = allResponses[chartId] || { question: "", explanation: "", ops: null };
 
     const qInput = document.getElementById('q-question');
-    const aInput = document.getElementById('q-answer');
     const eInput = document.getElementById('q-explanation');
 
     if (qInput) qInput.value = data.question;
-    if (aInput) aInput.value = data.answer;
     if (eInput) eInput.value = data.explanation;
     applyOpsSelection(data.ops);
     updateQaReview(container());
 }
 
 function restoreTutorialInputs(chartId) {
-    const data = tutorialResponses[chartId] || { question: "", answer: "", explanation: "", ops: null };
+    const data = tutorialResponses[chartId] || { question: "", explanation: "", ops: null };
 
     const qInput = document.getElementById('q-question');
-    const aInput = document.getElementById('q-answer');
     const eInput = document.getElementById('q-explanation');
 
     if (qInput) qInput.value = data.question;
-    if (aInput) aInput.value = data.answer;
     if (eInput) eInput.value = data.explanation;
     applyOpsSelection(data.ops);
     updateQaReview(container());
@@ -1049,7 +1036,7 @@ function setupTaskUI(root) {
     initStageTabs(root);
     initCustomOpsUI(root);
     wireQaReviewListeners(root);
-    setFormStage(root, FORM_STAGE_QA);
+    setFormStage(root);
     updateQaReview(root);
 }
 
@@ -1058,7 +1045,7 @@ function setupExampleTutorialPage(root) {
     setupTutorialExample(root);
     initCustomOpsUI(root);
     wireQaReviewListeners(root);
-    setFormStage(root, FORM_STAGE_QA);
+    setFormStage(root);
     updateQaReview(root);
 }
 
@@ -1149,15 +1136,15 @@ async function guardedNavigate(task) {
 let idx = 0;
 
 function applyRestoredStage(descriptor, root) {
-    if (restoredPageIndex === null || restoredFormStage === null) return;
-    if (restoredPageIndex !== idx) return;
-    const targetStage = restoredFormStage === FORM_STAGE_OPS ? FORM_STAGE_OPS : FORM_STAGE_QA;
     const isStagePage = descriptor?.id === 'main-task'
         || descriptor?.id === 'tutorial-task'
         || !!root?.querySelector('.tutorial-page--example');
-    if (isStagePage) {
-        setFormStage(root, targetStage);
+    if (!root || !isStagePage) {
+        restoredPageIndex = null;
+        restoredFormStage = null;
+        return;
     }
+    setFormStage(root);
     restoredPageIndex = null;
     restoredFormStage = null;
 }
@@ -1248,12 +1235,6 @@ async function loadPage(pageIndex) {
             prevId: `prev_${idx}`,
             nextId: `next_${idx}`,
             onPrev: () => guardedNavigate(async () => {
-                const stage = getFormStage(root);
-                const isExampleTutorial = !!root.querySelector('.tutorial-page--example');
-                if ((descriptor.id === 'main-task' || descriptor.id === 'tutorial-task' || isExampleTutorial) && stage === FORM_STAGE_OPS) {
-                    setFormStage(root, FORM_STAGE_QA);
-                    return;
-                }
                 if (descriptor.id === 'main-task') {
                     saveCurrentChartData();
                     await persistAllData();
@@ -1291,32 +1272,17 @@ async function loadPage(pageIndex) {
                     loadPage(idx + 1);
 
                 } else if (isExampleTutorial) {
-                    const stage = getFormStage(root);
-                    if (stage === FORM_STAGE_QA) {
-                        setFormStage(root, FORM_STAGE_OPS);
-                        return;
-                    }
                     loadPage(idx + 1);
 
                 } else if (descriptor.group === 'tutorial') {
                     loadPage(idx + 1);
                     
                 } else if (descriptor.id === 'tutorial-task') {
-                    const stage = getFormStage(root);
-                    if (stage === FORM_STAGE_QA) {
-                        setFormStage(root, FORM_STAGE_OPS);
-                        return;
-                    }
                     saveCurrentTutorialData();
                     persistSessionState({ skipSync: true });
                     loadPage(idx + 1);
 
                 } else if (descriptor.id === 'main-task') {
-                    const stage = getFormStage(root);
-                    if (stage === FORM_STAGE_QA) {
-                        setFormStage(root, FORM_STAGE_OPS);
-                        return;
-                    }
                     saveCurrentChartData();
                     await persistAllData();
                     persistSessionState({ skipSync: true });
@@ -1345,12 +1311,11 @@ async function loadPage(pageIndex) {
 }
 
 // --- 5. 유효성 검사 ---
-function validateStage(root, stage) {
+function validateStage(root) {
     const qInput = root?.querySelector('#q-question');
     const eInput = root?.querySelector('#q-explanation');
-    const aInput = root?.querySelector('#q-answer');
 
-    if (!qInput && !eInput && !aInput) {
+    if (!qInput && !eInput) {
         return true;
     }
 
@@ -1366,23 +1331,11 @@ function validateStage(root, stage) {
         return false;
     }
 
-    if (stage === FORM_STAGE_OPS) {
-        if (!aInput || aInput.value.trim() === '') {
-            alert('Please enter the answer.');
-            aInput?.focus();
-            return false;
-        }
-    }
-    
     return true; 
 }
 
 function validatePage(root) {
-    const stage = getFormStage(root);
-    if (stage === FORM_STAGE_OPS) {
-        return validateStage(root, FORM_STAGE_OPS);
-    }
-    return validateStage(root, FORM_STAGE_QA);
+    return validateStage(root);
 }
 
 // --- 6. 초기화 ---

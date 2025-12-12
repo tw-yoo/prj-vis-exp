@@ -5,7 +5,7 @@
     </div>
 
     <div class="tutorial-task-note">
-        <p>This is a <strong>tutorial</strong>. Try writing a compositional question, answer, and explanation using the chart below. Your input here will <strong>not be saved to the survey</strong>.</p>
+        <p>This is a <strong>tutorial</strong>. Try writing a compositional question and explanation using the chart below. Your input here will <strong>not be saved to the survey</strong>.</p>
     </div>
 
     <div class="chart-input-grid">
@@ -104,7 +104,7 @@
                 </div>
             </div>
 
-            <div class="stage-panel is-active" data-stage="qa">
+            <div class="stage-panel is-active">
                 <div data-component="open-ended"
                      data-id="q-question"
                      data-labelText="1. Your Question"
@@ -116,11 +116,9 @@
                      data-labelText="2. Step-by-Step Explanation to Get the Answer"
                      data-placeholder="1. ... &#10;2. ... &#10;3. ..."
                      data-multiline="true"></div>
-
-                <p class="stage-hint">Next step will ask for operations and the final answer.</p>
             </div>
 
-            <div class="stage-panel" data-stage="ops">
+            <div class="stage-panel is-active ops-section">
                 <div class="qa-review">
                     <div class="qa-review-item">
                         <div class="qa-review-label">1. Your Question</div>
@@ -143,13 +141,6 @@
                         </div>
                         <div class="ops-custom-list" id="ops-custom-list"></div>
                     </div>
-                </div>
-
-                <div data-component="open-ended"
-                     data-id="q-answer"
-                     data-labelText="4. The Answer"
-                     data-placeholder="Enter the single correct answer (e.g., '14019', 'USA', 'True')"
-                     data-multiline="false">
                 </div>
 
                 <div class="data-link-row">
