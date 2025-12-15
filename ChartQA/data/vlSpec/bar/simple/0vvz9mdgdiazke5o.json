@@ -7,7 +7,7 @@
   "mark": "bar",
   "encoding": {
     "y": {
-      "field": "Gross payment volume in billion U.S. dollars",
+      "field": "Gross payment volume in billion USD",
       "type": "quantitative"
     },
     "x": {

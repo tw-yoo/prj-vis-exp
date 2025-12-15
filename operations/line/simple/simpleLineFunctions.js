@@ -15,7 +15,6 @@ import {
     lagDiffData as dataLagDiff
 } from "../../lineChartOperationFunctions.js";
 import { OP_COLORS } from "../../../object/colorPalette.js";
-import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 import {
     parseDateWithGranularity,
@@ -29,37 +28,18 @@ import {
 } from "../sharedLineUtils.js";
 import { DURATIONS, OPACITIES } from "../../animationConfig.js";
 import { storeAxisDomain } from "../../common/scaleHelpers.js";
+import { drawCrosshair, highlightPoint, createGhostPoint, addValueLabel as addPointLabel } from "../common/lineRenderHelpers.js";
+import { makeGetSvgAndSetup } from "../../common/chartContext.js";
+import { clearAnnotations } from "../../common/annotations.js";
+import { delay as commonDelay } from "../../common/events.js";
 
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
 
-export function getSvgAndSetup(chartId) {
-    const svgNode = getPrimarySvgElement(chartId);
-    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
-    const g = svg.select(".plot-area");
+export const getSvgAndSetup = makeGetSvgAndSetup({ preferPlotArea: true, defaultOrientation: "vertical" });
 
-    // fields set by renderer
-    const xField = svgNode?.getAttribute("data-x-field");
-    const yField = svgNode?.getAttribute("data-y-field");
+export const clearAllAnnotations = clearAnnotations;
 
-    // margins & plot box
-    const margins = { left: +(svgNode?.getAttribute("data-m-left") || 0), top: +(svgNode?.getAttribute("data-m-top") || 0) };
-    const plot = { w: +(svgNode?.getAttribute("data-plot-w") || 0), h: +(svgNode?.getAttribute("data-plot-h") || 0) };
-
-    // orientation: read from common attribute names; fallback to 'vertical'
-    const rawOrient = (svgNode?.getAttribute("data-orientation")
-        || svgNode?.getAttribute("data-orient")
-        || svgNode?.getAttribute("data-layout")
-        || "").toLowerCase();
-    const orientation = (rawOrient === "horizontal" || rawOrient === "h") ? "horizontal" : "vertical";
-
-    return { svg, g, orientation, xField, yField, margins, plot };
-}
-
-export function clearAllAnnotations(svg) {
-    svg.selectAll(".annotation").remove();
-}
-
-export const delay = (ms) => new Promise(res => setTimeout(res, ms));
+export const delay = commonDelay;
 
 function selectMainLine(g) {
     const preferred = g.select("path.series-line.main-line, path.series-line[data-main='true']");
@@ -255,37 +235,9 @@ export async function simpleLineRetrieveValue(chartId, op, data, isLast = false)
         const cx = Number.isFinite(cxRaw) ? cxRaw : 0;
         const cy = Number.isFinite(cyRaw) ? cyRaw : (typeof yScale.range === "function" ? yScale.range()[0] : 0);
 
-        // 1. 수평선 + 수직선 동시 애니메이션
-        const hLine = g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", cy)
-            .attr("x2", 0).attr("y2", cy)
-            .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
-        
-        const vLine = g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", plot.h)
-            .attr("x2", cx).attr("y2", plot.h)
-            .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
-        
-        await Promise.all([
-            hLine.transition().duration(400).attr("x2", cx).end().catch(()=>{}),
-            vLine.transition().duration(400).attr("y2", cy).end().catch(()=>{})
-        ]);
-
-        // 2. 원 애니메이션
-        const circle = g.append("circle").attr("class", "annotation")
-            .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 3);
-        await circle.transition().duration(400).attr("r", 8).end().catch(()=>{});
-
-        // 3. 레이블 표시
-        const labelText = Number(targetDatum.value).toLocaleString();
-        g.append("text").attr("class", "annotation")
-            .attr("x", cx + 10).attr("y", cy - 10)
-            .attr("fill", hlColor).attr("font-weight", "bold").attr("font-size", "14px")
-            .attr("stroke", "white").attr("stroke-width", 4).attr("paint-order", "stroke")
-            .text(labelText)
-            .attr("opacity", 0)
-            .transition().duration(300).attr("opacity", 1);
+        await drawCrosshair(g, cx, cy, plot, hlColor, 400);
+        await createGhostPoint(g, cx, cy, hlColor, { radius: 8, strokeWidth: 3, duration: 400 });
+        void addPointLabel(g, cx, cy, Number(targetDatum.value).toLocaleString(), hlColor, { offsetX: 10, offsetY: -10, duration: 300 });
 
         return targetDatum;
     }
@@ -294,40 +246,9 @@ export async function simpleLineRetrieveValue(chartId, op, data, isLast = false)
     const cx = +targetPoint.attr("cx");
     const cy = +targetPoint.attr("cy");
 
-    // 1. 수평선 + 수직선 동시 애니메이션
-    const hLine = g.append("line").attr("class", "annotation")
-        .attr("x1", 0).attr("y1", cy)
-        .attr("x2", 0).attr("y2", cy)
-        .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
-    
-    const vLine = g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", plot.h)
-        .attr("x2", cx).attr("y2", plot.h)
-        .attr("stroke", hlColor).attr("stroke-width", 2).attr("stroke-dasharray", "4 4");
-    
-    await Promise.all([
-        hLine.transition().duration(400).attr("x2", cx).end().catch(()=>{}),
-        vLine.transition().duration(400).attr("y2", cy).end().catch(()=>{})
-    ]);
-
-    // 2. 타겟 포인트 강조
-    await targetPoint.transition().duration(400)
-        .attr("opacity", 1)
-        .attr("r", 10)
-        .attr("fill", hlColor)
-        .attr("stroke", "white")
-        .attr("stroke-width", 3)
-        .end().catch(()=>{});
-
-    // 3. 레이블 표시
-    const labelText = Number(targetPoint.attr("data-value")).toLocaleString();
-    g.append("text").attr("class", "annotation")
-        .attr("x", cx + 10).attr("y", cy - 10)
-        .attr("fill", hlColor).attr("font-weight", "bold").attr("font-size", "14px")
-        .attr("stroke", "white").attr("stroke-width", 4).attr("paint-order", "stroke")
-        .text(labelText)
-        .attr("opacity", 0)
-        .transition().duration(300).attr("opacity", 1);
+    await drawCrosshair(g, cx, cy, plot, hlColor, 400);
+    await highlightPoint(targetPoint, hlColor, { radius: 10, strokeWidth: 3, duration: 400 });
+    void addPointLabel(g, cx, cy, Number(targetPoint.attr("data-value")).toLocaleString(), hlColor, { offsetX: 10, offsetY: -10, duration: 300 });
 
     return targetDatum;
 }
@@ -374,25 +295,17 @@ export async function simpleLineFindExtremum(chartId, op, data, isLast = false) 
 
         const baseTr = baseLine.transition().duration(600).attr("opacity", 0.3).end();
 
-        g.append("line").attr("class", "annotation")
-            .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", plot.h)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-        g.append("line").attr("class", "annotation")
-            .attr("x1", 0).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-            .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-        const circle = g.append("circle").attr("class", "annotation")
-            .attr("cx", cx).attr("cy", cy).attr("r", 0)
-            .attr("fill", hlColor).attr("stroke", "white").attr("stroke-width", 2);
-        const circleTr = circle.transition().duration(400).delay(150).attr("r", 7).end();
-
+        await drawCrosshair(g, cx, cy, plot, hlColor, 0);
+        const circleTr = createGhostPoint(g, cx, cy, hlColor, { radius: 7, strokeWidth: 2, duration: 400, delay: 150 });
         const label = `${op.which === "min" ? "Min" : "Max"}: ${targetVal.toLocaleString()}`;
-        g.append("text").attr("class", "annotation")
-            .attr("x", cx).attr("y", cy - 15)
-            .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
-            .attr("fill", hlColor)
-            .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-            .text(label);
-
+        await addPointLabel(g, cx, cy, label, hlColor, {
+            offsetX: 0,
+            offsetY: -15,
+            textAnchor: "middle",
+            fontSize: "12px",
+            strokeWidth: 3,
+            duration: 0
+        });
         await Promise.all([baseTr, circleTr]).catch(()=>{});
         return targetDatum;
     }
@@ -405,25 +318,17 @@ export async function simpleLineFindExtremum(chartId, op, data, isLast = false) 
     const cx = +targetPoint.attr("cx");
     const cy = +targetPoint.attr("cy");
 
-    const v = g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-    const h = g.append("line").attr("class", "annotation")
-        .attr("x1", cx).attr("y1", cy).attr("x2", cx).attr("y2", cy)
-        .attr("stroke", hlColor).attr("stroke-dasharray", "4 4");
-
-    await Promise.all([
-        v.transition().duration(500).attr("y2", plot.h).end(),
-        h.transition().duration(500).attr("x2", 0).end()
-    ]).catch(err => console.log("Animation interrupted"));
+    await drawCrosshair(g, cx, cy, plot, hlColor, 500);
 
     const label = `${op.which === "min" ? "Min" : "Max"}: ${targetVal.toLocaleString()}`;
-    g.append("text").attr("class", "annotation")
-        .attr("x", cx).attr("y", cy - 15)
-        .attr("text-anchor", "middle").attr("font-size", 12).attr("font-weight", "bold")
-        .attr("fill", hlColor)
-        .attr("stroke", "white").attr("stroke-width", 3).attr("paint-order", "stroke")
-        .text(label);
+    await addPointLabel(g, cx, cy, label, hlColor, {
+        offsetX: 0,
+        offsetY: -15,
+        textAnchor: "middle",
+        fontSize: "12px",
+        strokeWidth: 3,
+        duration: 0
+    });
 
     return targetDatum;
 }

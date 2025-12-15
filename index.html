@@ -25,68 +25,207 @@
 
 </head>
 
+<style>
+    body {
+        margin: 0;
+        font-family: "Inter", "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: #f8fafc;
+        color: #0f172a;
+    }
+    .exp-shell {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 24px 18px 48px;
+        box-sizing: border-box;
+    }
+    .hero {
+        background: linear-gradient(135deg, #e0f2fe 0%, #f5f3ff 60%, #fff 100%);
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: 0 10px 24px rgba(0,0,0,0.06);
+        margin-bottom: 18px;
+    }
+    .hero-title {
+        margin: 4px 0 8px;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        color: #0f172a;
+    }
+    .hero-sub {
+        margin: 0;
+        color: #475569;
+        font-size: 14px;
+    }
+    .layout-body {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 18px;
+        align-items: start;
+    }
+    .card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px 16px;
+        box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+        box-sizing: border-box;
+    }
+    .card + .card { margin-top: 12px; }
+    .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+    .card-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #111827;
+    }
+    .pill-btn {
+        background: #1d4ed8;
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        padding: 7px 12px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+    }
+    .pill-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 18px rgba(0,0,0,0.12);
+        background: #1e40af;
+    }
+    .inline-note { font-size: 12px; color: #64748b; }
+    textarea {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 12px;
+        font-size: 13px;
+        font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+        min-height: 120px;
+        resize: vertical;
+        background: #f8fafc;
+    }
+    #explanation { min-height: 120px; }
+    #question { min-height: 120px; }
+    .CodeMirror { border-radius: 10px; border: 1px solid #cbd5e1; }
+    .chart-card {
+        min-height: 520px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    #chart {
+        width: 100%;
+        min-height: 420px;
+        border: 1px dashed #e2e8f0;
+        border-radius: 12px;
+        background: #f8fafc;
+        padding: 6px;
+        box-sizing: border-box;
+    }
+    #ops-info-box {
+        margin-top: 4px;
+        font-family: sans-serif;
+        font-size: 1.1em;
+        color: #c1121f;
+    }
+    .qa-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .qa-col .sub-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #475569;
+        margin-bottom: 6px;
+    }
+    @media (max-width: 1024px) {
+        .layout-body { grid-template-columns: 1fr; }
+        .qa-grid { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+
 <body>
-<div id="container">
-    <div id="left-panel">
-        <div class="row-header">
-            <div class="label">Vega-Lite Spec</div>
-            <button id="render-chart-button" style="height: 24px;">Render Chart</button>
-        </div>
-        <div id="vl-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
-        <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
+<div class="exp-shell">
+<!--    <div class="hero">-->
+<!--        <div class="hero-title">Chart QA Playground</div>-->
+<!--        <p class="hero-sub">Vega-Lite 스펙을 수정하고 질문/연산을 실행하며 오른쪽 미리보기에서 바로 확인하세요.</p>-->
+<!--    </div>-->
+    <div class="layout-body">
+        <div class="left-col">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Vega-Lite Spec</div>
+                    <button id="render-chart-button" class="pill-btn">Render Chart</button>
+                </div>
+                <div id="vl-error" style="color: #dc2626; font-size: 0.9em;"></div>
+                <textarea id="vl-spec" placeholder="Paste Vega-Lite JSON here">
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "encoding": {
-    "x": {
-      "field": "Nation",
-      "type": "nominal",
-      "sort":null
-
-    },
-    "color": {
-      "field": "Medal",
-      "type": "nominal"
-    },
     "y": {
-      "field": "Count",
+      "field": "rating",
       "type": "quantitative"
+    },
+    "x": {
+      "field": "country",
+      "type": "nominal",
+      "sort": null
     }
   },
   "data": {
-    "url": "survey/data/csv/bar/stacked/bar_stacked_203_61.csv"
+    "url": "data/test/data/bar_simple_ver.csv"
   },
   "mark": "bar"
 }
   </textarea>
+            </div>
 
-        <div class="row-header">
-            <div class="label">Question</div>
-            <button id="answer-button" style="height: 24px;">Get Answer</button>
-        </div>
-        <div>
-            <textarea id="question" placeholder="Question"></textarea>
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">Question &amp; Answer</div>
+                    <button id="answer-button" class="pill-btn">Get Answer</button>
+                </div>
+                <div class="qa-grid">
+                    <div class="qa-col">
+                        <div class="sub-label">Question</div>
+                        <textarea id="question" placeholder="Question"></textarea>
+                    </div>
+                    <div class="qa-col">
+                        <div class="sub-label">Answer <span id="answer-status" class="status-label"></span></div>
+                        <textarea id="explanation" readonly>Baseline Explanation Here</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">ChartOps Spec <span id="ops-status" class="status-label"></span></div>
+                    <button id="run-ops-button" class="pill-btn">Run Operations</button>
+                </div>
+                <div id="ops-error" style="color: #dc2626; font-size: 0.9em;"></div>
+                <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here"></textarea>
+            </div>
         </div>
 
-        <div class="row-header">
-            <div class="label">Answer <span id="answer-status" class="status-label"></span></div>
+        <div class="card chart-card">
+            <div class="card-header">
+                <div class="card-title">Chart Preview</div>
+<!--                <span class="inline-note">변경 후 Render Chart를 눌러 갱신</span>-->
+            </div>
+            <div id="chart"></div>
+            <div id="ops-info-box"></div>
         </div>
-        <div>
-            <textarea id="explanation" readonly>Baseline Explanation Here</textarea>
-        </div>
-
-        <div class="row-header">
-            <div class="label">ChartOps Spec <span id="ops-status" class="status-label"></span></div>
-            <button id="run-ops-button" style="height: 24px;">Run Operations</button>
-        </div>
-        <div id="ops-error" style="color: red; font-family: sans-serif; font-size: 0.9em;"></div>
-        <textarea id="ops-spec" placeholder="Paste Atomic-Ops JSON here">
-
-  </textarea>
-    </div>
-    <div></div>
-    <div id="right-panel">
-        <div id="chart"></div>
-        <div id="ops-info-box" style="margin-top: 10px; color: #c00; font-family: sans-serif; font-size: 2em;"></div>
     </div>
 </div>
 

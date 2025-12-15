@@ -26,55 +26,14 @@
 
 import {BoolValue} from "../object/valueType.js";
 import { getRuntimeResultsById } from "./runtimeResultStore.js";
-
-const ROUND_PRECISION = 2;
-const ROUND_FACTOR = 10 ** ROUND_PRECISION;
-function roundNumeric(value) {
-    if (typeof value !== "number" || !Number.isFinite(value)) return value;
-    return Math.round(value * ROUND_FACTOR) / ROUND_FACTOR;
-}
-
-function toTrimmedString(value, fallback = "") {
-    if (value == null) return fallback;
-    const str = String(value).trim();
-    return str.length ? str : fallback;
-}
-
-function formatFieldLabel(field, fallback = "value") {
-    return toTrimmedString(field, fallback) || fallback;
-}
-
-function formatGroupSuffix(group) {
-    const label = toTrimmedString(group, "");
-    return label ? ` (${label})` : "";
-}
-
-function formatTargetLabel(selector) {
-    if (Array.isArray(selector)) {
-        const labels = selector
-            .map((entry) => formatTargetLabel(entry))
-            .filter((label) => typeof label === "string" && label.length > 0);
-        if (labels.length === 0) return "Multiple targets";
-        return labels.join(" + ");
-    }
-    if (selector == null) return "";
-    if (typeof selector === "string" || typeof selector === "number") return String(selector);
-    if (typeof selector === "object") {
-        if (selector.category && selector.series) return `${selector.category}/${selector.series}`;
-        if (selector.category) return String(selector.category);
-        if (selector.target) return String(selector.target);
-        if (selector.id) return String(selector.id);
-    }
-    return "";
-}
-
-function formatResultName(kind, field, opts = {}) {
-    const baseField = formatFieldLabel(field);
-    const groupPart = formatGroupSuffix(opts.group);
-    const detailPart = toTrimmedString(opts.detail, "");
-    const detailSuffix = detailPart ? ` — ${detailPart}` : "";
-    return `${kind} of ${baseField}${groupPart}${detailSuffix}`;
-}
+import {
+    roundNumeric,
+    toTrimmedString,
+    formatFieldLabel,
+    formatGroupSuffix,
+    formatTargetLabel,
+    formatResultName
+} from "./common/dataOpsCore.js";
 
 /** Defensive clone to avoid mutating the caller's array */
 function cloneData(data) {

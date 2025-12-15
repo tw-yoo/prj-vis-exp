@@ -30,13 +30,15 @@ import {
 
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
 import { OP_COLORS } from "../../../object/colorPalette.js";
-import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 import { resolveLinearDomain, storeAxisDomain } from "../../common/scaleHelpers.js";
+import { makeGetSvgAndSetup } from "../../common/chartContext.js";
+import { clearAnnotations } from "../../common/annotations.js";
+import { delay as commonDelay } from "../../common/events.js";
 
 // ---- small helpers ---------------------------------------------------------
 const cmpMap = { ">":(a,b)=>a>b, ">=":(a,b)=>a>=b, "<":(a,b)=>a<b, "<=":(a,b)=>a<=b, "==":(a,b)=>a==b, "eq":(a,b)=>a==b, "!=":(a,b)=>a!=b };
-export const delay = (ms) => new Promise(r => setTimeout(r, ms));
+export const delay = commonDelay;
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 
 function markKeepInput(result) {
@@ -102,21 +104,8 @@ function resolveStackedDatum(data, key, sumsMap) {
     return { datum, category, group, value: Number.isFinite(numeric) ? numeric : undefined };
 }
 
-export function getSvgAndSetup(chartId) {
-    const svgNode = getPrimarySvgElement(chartId);
-    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
-    const orientation = svgNode?.getAttribute("data-orientation");
-    const xField = svgNode?.getAttribute("data-x-field");
-    const yField = svgNode?.getAttribute("data-y-field");
-    const colorField = svgNode?.getAttribute("data-color-field");
-    const margins = { left:+(svgNode?.getAttribute("data-m-left") || 0), top:+(svgNode?.getAttribute("data-m-top") || 0) };
-    const plot = { w:+(svgNode?.getAttribute("data-plot-w") || 0), h:+(svgNode?.getAttribute("data-plot-h") || 0) };
-    const g = svg.select(".plot-area");
-    return { svg, g, orientation, xField, yField, colorField, margins, plot };
-}
-export function clearAllAnnotations(svg) {
-    svg.selectAll(".annotation, .value-line, .value-tag, .filter-label, .threshold-line, .extremum-highlight, .compare-label").remove();
-}
+export const getSvgAndSetup = makeGetSvgAndSetup({ preferPlotArea: true });
+export const clearAllAnnotations = clearAnnotations;
 
 
 async function stackedBarToSimpleBar(chartId, filteredData) {

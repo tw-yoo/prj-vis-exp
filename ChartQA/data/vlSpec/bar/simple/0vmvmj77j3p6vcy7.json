@@ -7,7 +7,7 @@
   "mark": "bar",
   "encoding": {
     "y": {
-      "field": "Net income in million U.S. dollars",
+      "field": "Net income in USD",
       "type": "quantitative"
     },
     "x": {

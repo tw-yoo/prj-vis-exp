@@ -17,7 +17,6 @@ import {
     lagDiffData as dataLagDiff
 } from "../../lineChartOperationFunctions.js";
 import { DatumValue, BoolValue, IntervalValue } from "../../../object/valueType.js";
-import { getPrimarySvgElement } from "../../operationUtil.js";
 import {
     simpleLineRetrieveValue,
     simpleLineFilter,
@@ -41,23 +40,11 @@ import {
 import { getRuntimeResultsById } from "../../runtimeResultStore.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
 import {OP_COLORS} from "../../../object/colorPalette.js";
+import { makeGetSvgAndSetup } from "../../common/chartContext.js";
+import { clearAnnotations } from "../../common/annotations.js";
+import { delay as commonDelay, emitOpDone as sharedEmitOpDone } from "../../common/events.js";
 
-/**
- * 작업 완료 신호를 DOM 이벤트로 방출합니다.
- * window.addEventListener('viz:op:done', e => { ... })
- */
-function emitOpDone(svg, chartId, opName, detail = {}) {
-    try {
-        const ev = new CustomEvent('viz:op:done', {
-            detail: { chartId, op: opName, ...detail },
-            bubbles: true,
-            composed: true,
-            cancelable: false
-        });
-        const node = svg && typeof svg.node === 'function' ? svg.node() : null;
-        (node || document).dispatchEvent(ev);
-    } catch (e) { /* noop */ }
-}
+const emitOpDone = sharedEmitOpDone;
 
 // -------------------- Helpers --------------------
 // --- Util: Normalize a target value to id string
@@ -167,24 +154,11 @@ function mapFieldName(field) {
     return field;
 }
 
-function getSvgAndSetup(chartId) {
-    const svgNode = getPrimarySvgElement(chartId);
-    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
-    const g = svg.select(".plot-area");
-    const margins = { left: +(svgNode?.getAttribute("data-m-left") || 0), top: +(svgNode?.getAttribute("data-m-top") || 0) };
-    const plot = { w: +(svgNode?.getAttribute("data-plot-w") || 0), h: +(svgNode?.getAttribute("data-plot-h") || 0) };
-    const xField = svgNode?.getAttribute("data-x-field");
-    const yField = svgNode?.getAttribute("data-y-field");
-    const colorField = svgNode?.getAttribute("data-color-field");
-    const chartInfo = svgNode?.__chartInfo ?? null;
-    return { svg, g, margins, plot, xField, yField, colorField, chartInfo };
-}
+const delay = commonDelay;
 
-function clearAllAnnotations(svg) {
-    svg.selectAll(".annotation").remove();
-}
+const getSvgAndSetup = makeGetSvgAndSetup({ preferPlotArea: true });
 
-const delay = (ms) => new Promise(res => setTimeout(res, ms));
+const clearAllAnnotations = clearAnnotations;
 
 function buildScales(data, plot, chartInfo = null) {
     if (chartInfo?.fullXScale && chartInfo?.fullYScale) {

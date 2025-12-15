@@ -23,12 +23,15 @@ import {
     renderChart,
     stackChartToTempTable
 } from "../../../util/util.js";
-import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence, getPrimarySvgElement, shrinkSvgViewBox } from "../../operationUtil.js";
+import { addChildDiv, clearDivChildren, updateOpCaption, attachOpNavigator, updateNavigatorStates, runOpsSequence, shrinkSvgViewBox } from "../../operationUtil.js";
 import { ensurePercentDiffAggregate, buildCompareDatasetFromCache } from "../../common/lastStageHelpers.js";
 import { renderChartWithFade } from "../common/chartRenderUtils.js";
 import { normalizeCachedData } from "../common/datumCacheHelpers.js";
 import { storeAxisDomain } from "../../common/scaleHelpers.js";
 import { resetRuntimeResults, storeRuntimeResult, makeRuntimeKey } from "../../runtimeResultStore.js";
+import { clearAnnotations } from "../../common/annotations.js";
+import { makeGetSvgAndSetup } from "../../common/chartContext.js";
+import { delay as commonDelay } from "../../common/events.js";
 
 const SIMPLE_BAR_OP_HANDLERS = {
     [OperationType.RETRIEVE_VALUE]: simpleBarRetrieveValue,
@@ -48,9 +51,7 @@ const SIMPLE_BAR_OP_HANDLERS = {
 
 const chartDataStore = {};
 
-function clearAllAnnotations(svg) {
-    svg.selectAll(".annotation, .filter-label, .sort-label, .value-tag, .range-line, .value-line, .threshold-line, .threshold-label, .compare-label").remove();
-}
+const clearAllAnnotations = clearAnnotations;
 
 const SORT_OP_FNS = {
     sum: (values) => d3.sum(values),
@@ -123,27 +124,11 @@ function resolveCategoricalDomain(data, xField, sortSpec) {
 
     return fallbackDomain;
 }
-function getSvgAndSetup(chartId) {
-    const svgNode = getPrimarySvgElement(chartId);
-    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
-    const orientation = svgNode?.getAttribute("data-orientation") || "vertical";
-    const xField = svgNode?.getAttribute("data-x-field");
-    const yField = svgNode?.getAttribute("data-y-field");
-    const margins = {
-        left: +(svgNode?.getAttribute("data-m-left") || 0),
-        top: +(svgNode?.getAttribute("data-m-top") || 0),
-    };
-    const plot = {
-        w: +(svgNode?.getAttribute("data-plot-w") || 0),
-        h: +(svgNode?.getAttribute("data-plot-h") || 0),
-    };
-    const g = svg.select('.plot-area').empty() ? svg.select('g') : svg.select('.plot-area');
-    return { svg, g, orientation, xField, yField, margins, plot };
-}
+const getSvgAndSetup = makeGetSvgAndSetup({ preferPlotArea: true, defaultOrientation: "vertical" });
 
 
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const delay = commonDelay;
 
 // Wait for a few animation frames to allow DOM/layout/transition to settle
 const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));

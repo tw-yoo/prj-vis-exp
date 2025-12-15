@@ -32,29 +32,16 @@ import {
     simpleBarRetrieveValue
 } from "../simple/simpleBarFunctions.js";
 import { OP_COLORS } from "../../../object/colorPalette.js";
-import { getPrimarySvgElement } from "../../operationUtil.js";
 import { normalizeLagDiffResults } from "../../common/lagDiffHelpers.js";
+import { makeGetSvgAndSetup } from "../../common/chartContext.js";
+import { clearAnnotations } from "../../common/annotations.js";
+import { delay as commonDelay } from "../../common/events.js";
 
 
 // ---------- 공통 셋업 ----------
-export function getSvgAndSetup(chartId) {
-    const svgNode = getPrimarySvgElement(chartId);
-    const svg = svgNode ? d3.select(svgNode) : d3.select(null);
-    const g = svg.select(".plot-area");
-    const margins = { left: +(svgNode?.getAttribute("data-m-left") || 0), top: +(svgNode?.getAttribute("data-m-top") || 0) };
-    const plot = { w: +(svgNode?.getAttribute("data-plot-w") || 0), h: +(svgNode?.getAttribute("data-plot-h") || 0) };
-    const xField = svgNode?.getAttribute("data-x-field");
-    const yField = svgNode?.getAttribute("data-y-field");
-    const facetField = svgNode?.getAttribute("data-facet-field");
-    const colorField = svgNode?.getAttribute("data-color-field");
-    return { svg, g, margins, plot, xField, yField, facetField, colorField };
-}
+export const getSvgAndSetup = makeGetSvgAndSetup({ preferPlotArea: true });
 
-export function clearAllAnnotations(svg) {
-    svg.selectAll(
-        ".annotation, .filter-label, .compare-label, .range-line, .extremum-label, .value-tag, .threshold-line, .threshold-label"
-    ).remove();
-}
+export const clearAllAnnotations = clearAnnotations;
 
 // groupedBarFunctions.js 상단에 추가/수정
 function isSimplifiedData(data) {
@@ -67,7 +54,7 @@ function isSimplifiedData(data) {
     return groups.size === 1 && data.every(d => d.target != null);
 }
 
-export const delay = (ms) => new Promise(r => setTimeout(r, ms));
+export const delay = commonDelay;
 
 // Helper to coordinate operation ordering by waiting for filtering attr to clear
 async function waitForAttrClear(svg, attr = 'data-filtering', timeout = 1000, interval = 50) {

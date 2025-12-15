@@ -12,7 +12,7 @@
       "header": {}
     },
     "y": {
-      "field": "Annual revenue in million U.S. dollars",
+      "field": "Annual revenue in million USD",
       "type": "quantitative",
       "axis": {
         "grid": false

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Experiment Collection</title>
+  <link rel="stylesheet" href="../css/survey_style.css">
+  <link rel="stylesheet" href="../css/element.css">
+  <link rel="stylesheet" href="../css/data_collection.css">
+  <script src="https://unpkg.com/d3@7/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@6"></script>
+  <style>
+    .exp-layout {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px 18px 40px;
+    }
+    .layout-header {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 8px;
+    }
+    .doc-toggle {
+      background: #1d4ed8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.1);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+    }
+    .doc-toggle:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 18px rgba(0,0,0,0.12);
+      background: #1e40af;
+    }
+    .layout-body {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .exp-layout.with-docs {
+      max-width: 1600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .exp-layout.with-docs .layout-body {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    .main-column {
+      flex: 1.8;
+      min-width: 0;
+    }
+    .panel-row {
+      display: flex;
+      gap: 16px;
+      align-items: stretch;
+    }
+    .chart-panel {
+      flex: 1;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+      padding: 16px;
+      min-height: 420px;
+    }
+    .chart-panel h3 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      color: #1f2937;
+    }
+    .chart-shell {
+      min-height: 360px;
+    }
+    .combined-input {
+      margin-top: 18px;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px 16px;
+      font-size: 15px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+      resize: vertical;
+      min-height: 90px;
+    }
+    .doc-panel {
+      flex: 1;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+      min-height: 400px;
+      overflow: auto;
+      font-size: 14px;
+      color: #0f172a;
+      line-height: 1.5;
+      display: none;
+    }
+    .exp-layout.with-docs .doc-panel {
+      display: block;
+    }
+    .doc-panel h1, .doc-panel h2, .doc-panel h3 {
+      margin: 12px 0 8px;
+      color: #111827;
+    }
+    .doc-panel ul {
+      padding-left: 20px;
+      margin: 6px 0 10px;
+    }
+    .doc-panel code {
+      background: #e5e7eb;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-family: "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+    .actions-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="space"></div>
+  <div class="main">
+    <div class="main-fixed top"></div>
+    <div class="main-scroll">
+      <div class="exp-layout">
+        <div class="layout-header">
+          <button id="doc-toggle" class="doc-toggle">README 보기</button>
+        </div>
+        <div class="layout-body">
+          <div class="main-column">
+            <div class="panel-row">
+              <div class="chart-panel">
+                <h3>Left Panel</h3>
+                <div id="chart-left" class="chart-shell"></div>
+              </div>
+              <div class="chart-panel">
+                <h3>Right Panel</h3>
+                <div id="chart-right" class="chart-shell"></div>
+              </div>
+            </div>
+            <textarea id="combined-input" class="combined-input" placeholder="Enter your response here..."></textarea>
+            <div class="actions-row">
+              <button id="run-script-btn" class="doc-toggle">명령 실행 (Right Panel)</button>
+            </div>
+          </div>
+          <div id="doc-panel" class="doc-panel"></div>
+        </div>
+      </div>
+    </div>
+    <div class="main-fixed bottom"></div>
+  </div>
+  <div class="space"></div>
+</div>
+
+<script type="module" src="./commandEditor.js" defer></script>
+<script type="module">
+  import { renderPlainVegaLiteChart } from "../../util/util.js";
+
+  const SPEC_PATH = "../../data/test/spec/bar_simple_ver.json";
+
+  async function loadSpec() {
+    const res = await fetch(SPEC_PATH);
+    if (!res.ok) {
+      console.warn("Failed to load spec:", SPEC_PATH);
+      return null;
+    }
+    return res.json();
+  }
+
+  async function render() {
+    const spec = await loadSpec();
+    if (!spec) return;
+    await renderPlainVegaLiteChart("chart-left", spec);
+    await renderPlainVegaLiteChart("chart-right", spec);
+  }
+
+  render().catch(err => console.error(err));
+</script>
+</body>
+</html>
