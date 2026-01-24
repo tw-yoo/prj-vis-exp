@@ -1,4 +1,5 @@
 import * as d3 from 'd3'
+import type { JsonValue } from '../../types'
 import { DrawAction, type DrawOp, type DrawSelect } from './types'
 
 /**
@@ -16,10 +17,36 @@ export abstract class BaseDrawHandler {
     this.container = container
   }
 
-  protected abstract selectElements(select?: DrawSelect): d3.Selection<SVGElement, unknown, any, any>
-  protected abstract allMarks(): d3.Selection<SVGElement, unknown, any, any>
+  protected abstract selectElements(select?: DrawSelect): d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>
+  protected abstract allMarks(): d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>
   protected defaultColor(): string {
     return '#69b3a2'
+  }
+
+  protected filterByKeys(
+    selection: d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>,
+    keys?: Array<string | number>,
+  ) {
+    if (!keys || keys.length === 0) return selection
+    const stringKeys = new Set(keys.map(String))
+    const numericKeys = new Set(keys.map((k) => Number(k)).filter(Number.isFinite))
+    return selection.filter(function () {
+      const el = this as Element
+      const candidates = [
+        el.getAttribute('data-id'),
+        el.getAttribute('data-target'),
+        el.getAttribute('data-value'),
+        el.getAttribute('data-series'),
+        el.id,
+      ]
+      for (const candidate of candidates) {
+        if (!candidate) continue
+        if (stringKeys.has(candidate)) return true
+        const num = Number(candidate)
+        if (Number.isFinite(num) && numericKeys.has(num)) return true
+      }
+      return false
+    })
   }
 
   clear() {
@@ -36,7 +63,7 @@ export abstract class BaseDrawHandler {
     const opacity = op.style?.opacity ?? 0.25
     const selectedNodes = new Set(this.selectElements(op.select).nodes())
     this.allMarks().attr('opacity', function () {
-      return selectedNodes.has(this as any) ? 1 : opacity
+      return selectedNodes.has(this as SVGElement) ? 1 : opacity
     })
   }
 

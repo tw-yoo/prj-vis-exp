@@ -15,7 +15,7 @@ export type DrawMark = (typeof DrawMark)[keyof typeof DrawMark]
 
 export type DrawSelect = {
   mark?: DrawMark
-  keys?: string[]
+  keys?: Array<string | number>
 }
 
 export type DrawOp = OperationSpec & {

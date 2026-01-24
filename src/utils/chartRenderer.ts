@@ -1,4 +1,5 @@
 import vegaEmbedLib from 'vega-embed'
+import type { JsonObject, JsonValue } from '../types'
 
 /**
  * Minimal Vega-Lite spec shape we care about for embedding/rendering.
@@ -8,16 +9,16 @@ export interface VegaLiteSpec {
   $schema?: string
   data?: {
     url?: string
-    values?: unknown[]
-    [key: string]: unknown
+    values?: JsonValue[]
+    [key: string]: JsonValue
   }
-  mark?: string | { type?: string; [key: string]: unknown }
-  encoding?: Record<string, unknown>
-  layer?: Array<Record<string, unknown>>
-  config?: Record<string, unknown>
+  mark?: string | { type?: string; [key: string]: JsonValue }
+  encoding?: Record<string, JsonValue>
+  layer?: Array<Record<string, JsonValue>>
+  config?: Record<string, JsonValue>
   width?: number
   height?: number
-  [key: string]: unknown
+  [key: string]: JsonValue
 }
 
 export interface VegaEmbedOptions {
@@ -31,7 +32,7 @@ export interface VegaEmbedOptions {
         top?: number
         bottom?: number
       }
-  [key: string]: unknown
+  [key: string]: JsonValue
 }
 
 export const ChartType = Object.freeze({
@@ -45,7 +46,13 @@ export const ChartType = Object.freeze({
 
 export type ChartTypeValue = (typeof ChartType)[keyof typeof ChartType]
 
-type VegaEmbedFn = (container: HTMLElement, spec: unknown, options?: VegaEmbedOptions) => Promise<unknown>
+type VegaEmbedResult = {
+  view?: object
+  spec?: VegaLiteSpec
+  [key: string]: JsonValue | object | undefined
+}
+
+type VegaEmbedFn = (container: HTMLElement, spec: VegaLiteSpec, options?: VegaEmbedOptions) => Promise<VegaEmbedResult>
 
 type AxisClearanceOptions = {
   attempts?: number
@@ -60,6 +67,15 @@ type GlobalWithVega = typeof globalThis & {
   vega?: { embed?: VegaEmbedFn }
 }
 
+type EncodingChannel = {
+  field?: JsonValue
+  type?: JsonValue
+  stack?: JsonValue
+  scale?: { domain?: JsonValue; zero?: JsonValue }
+}
+
+type EncodingMap = Record<string, EncodingChannel | undefined>
+
 declare const vegaEmbed: VegaEmbedFn | undefined
 
 /** Resolve mark type to a string, handling object form. */
@@ -72,16 +88,16 @@ function normalizeMarkType(mark: VegaLiteSpec['mark']) {
   return null
 }
 
-function hasFieldChannel(channel: unknown) {
+function hasFieldChannel(channel: JsonValue | undefined) {
   if (!channel) return false
   if (typeof channel === 'string') return true
   if (typeof channel === 'object') {
-    const channelObj = channel as { field?: unknown; condition?: unknown }
+    const channelObj = channel as { field?: JsonValue; condition?: JsonValue }
     if (channelObj.field) return true
     if (Array.isArray(channelObj.condition)) {
-      return channelObj.condition.some((c) => !!(c as { field?: unknown })?.field)
+      return channelObj.condition.some((c) => !!(c as { field?: JsonValue })?.field)
     }
-    if (channelObj.condition && (channelObj.condition as { field?: unknown }).field) return true
+    if (channelObj.condition && (channelObj.condition as { field?: JsonValue }).field) return true
   }
   return false
 }
@@ -108,11 +124,13 @@ export function getChartType(spec: VegaLiteSpec): ChartTypeValue | null {
 
   const layers = normalizeLayers(spec)
   const baseEnc = spec.encoding || {}
-  const hasFacet = !!((baseEnc as { column?: unknown }).column || (baseEnc as { row?: unknown }).row || spec.facet || spec.repeat)
+  const hasFacet = !!(
+    (baseEnc as { column?: JsonValue }).column || (baseEnc as { row?: JsonValue }).row || spec.facet || spec.repeat
+  )
 
   const barLayer = layers.find((layer) => layer.mark === 'bar')
   if (barLayer) {
-    const encoding = (barLayer.encoding || {}) as Record<string, any>
+    const encoding = (barLayer.encoding || {}) as EncodingMap
     const hasColor = !!encoding.color
 
     if (hasFacet) {
@@ -137,8 +155,8 @@ export function getChartType(spec: VegaLiteSpec): ChartTypeValue | null {
 
   const lineLayers = layers.filter((layer) => layer.mark === 'line')
   if (lineLayers.length > 0) {
-    const colorInLayers = layers.some((layer) => hasFieldChannel((layer.encoding as Record<string, unknown>)?.color))
-    const colorInBase = hasFieldChannel((baseEnc as Record<string, unknown>).color)
+    const colorInLayers = layers.some((layer) => hasFieldChannel((layer.encoding as EncodingMap)?.color))
+    const colorInBase = hasFieldChannel((baseEnc as Record<string, JsonValue>).color)
     if (colorInLayers || colorInBase) {
       return ChartType.MULTI_LINE
     }
@@ -171,7 +189,7 @@ function ensureChartCanvas(container: HTMLElement) {
 function resolveVegaEmbed(): VegaEmbedFn | null {
   // Prefer bundled import (vite/esm)
   if (typeof vegaEmbedLib === 'function') {
-    return vegaEmbedLib as unknown as VegaEmbedFn
+    return vegaEmbedLib as VegaEmbedFn
   }
   // Fallback to globals (browser CDN scenario)
   try {
@@ -190,8 +208,8 @@ function resolveVegaEmbed(): VegaEmbedFn | null {
   }
   if (globalObj && globalObj.vega && typeof globalObj.vega.embed === 'function') {
     const embedFn = globalObj.vega.embed
-    return (container: HTMLElement, spec: unknown, options?: VegaEmbedOptions) =>
-      embedFn(container, spec, options) as Promise<unknown>
+    return (container: HTMLElement, spec: VegaLiteSpec, options?: VegaEmbedOptions) =>
+      embedFn(container, spec, options) as Promise<VegaEmbedResult>
   }
   return null
 }
@@ -206,14 +224,14 @@ function isLineMark(mark: VegaLiteSpec['mark']) {
 }
 
 function collectLineEncodings(spec: VegaLiteSpec = {}) {
-  const encodings: Record<string, any>[] = []
+  const encodings: EncodingMap[] = []
   if (isLineMark(spec.mark) && spec.encoding) {
-    encodings.push(spec.encoding as Record<string, any>)
+    encodings.push(spec.encoding as EncodingMap)
   }
   if (Array.isArray(spec.layer)) {
     spec.layer.forEach((layer) => {
       if (isLineMark(layer?.mark as VegaLiteSpec['mark']) && layer?.encoding) {
-        encodings.push(layer.encoding as Record<string, any>)
+        encodings.push(layer.encoding as EncodingMap)
       }
     })
   }
@@ -295,9 +313,9 @@ async function applyAutoLineDomain(spec: VegaLiteSpec) {
 
   let minVal = Infinity
   let maxVal = -Infinity
-  rows.forEach((row: any) => {
+  rows.forEach((row) => {
     yFields.forEach((field) => {
-      const value = Number(row?.[field as string])
+      const value = Number((row as Record<string, JsonValue>)?.[field as string])
       if (Number.isFinite(value)) {
         if (value < minVal) minVal = value
         if (value > maxVal) maxVal = value
@@ -540,7 +558,7 @@ export async function renderVegaLiteChart(
         titlePadding: 10,
         labelPadding: 5,
         labelLimit: 0,
-        ...(spec.config as { axis?: Record<string, unknown> } | undefined)?.axis,
+        ...(spec.config as { axis?: Record<string, JsonValue> } | undefined)?.axis,
       },
     },
   }

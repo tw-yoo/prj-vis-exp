@@ -1,4 +1,8 @@
 import * as d3 from 'd3'
+import type { JsonObject, JsonValue } from '../../types'
+
+type D3Datum = JsonValue
+type D3Selection = d3.Selection<d3.BaseType, D3Datum, d3.BaseType, D3Datum>
 
 // ---------------------------------------------------------------------------
 // Animation configuration (ported from animationConfig.js)
@@ -83,17 +87,17 @@ export const OFFSETS = {
 // Animation helpers (ported from animationHelpers.js)
 // ---------------------------------------------------------------------------
 
-export async function fadeElements(selection: any, targetOpacity: number, duration = DURATIONS.FADE) {
+export async function fadeElements(selection: D3Selection, targetOpacity: number, duration = DURATIONS.FADE) {
   if (!selection || selection.empty()) return Promise.resolve()
   return selection.transition().duration(duration).ease(EASINGS.SMOOTH).attr('opacity', targetOpacity).end()
 }
 
-export async function changeBarColor(selection: any, color: string, duration = DURATIONS.HIGHLIGHT) {
+export async function changeBarColor(selection: D3Selection, color: string, duration = DURATIONS.HIGHLIGHT) {
   if (!selection || selection.empty()) return Promise.resolve()
   return selection.transition().duration(duration).ease(EASINGS.SMOOTH).attr('fill', color).end()
 }
 
-export async function dimOthers(allElements: any, selectedElements: any, opacity = OPACITIES.DIM) {
+export async function dimOthers(allElements: D3Selection, selectedElements: D3Selection, opacity = OPACITIES.DIM) {
   const selectedNodes = new Set(selectedElements.nodes?.() ?? [])
   const others = allElements.filter(function filterFn(this: Element) {
     return !selectedNodes.has(this)
@@ -102,7 +106,7 @@ export async function dimOthers(allElements: any, selectedElements: any, opacity
 }
 
 export async function drawHorizontalGuideline(
-  svg: any,
+  svg: D3Selection,
   yPosition: number,
   color: string,
   margins: { top: number; left: number },
@@ -132,7 +136,7 @@ export async function drawHorizontalGuideline(
 }
 
 export async function drawVerticalGuideline(
-  svg: any,
+  svg: D3Selection,
   xPosition: number,
   yStart: number,
   yEnd: number,
@@ -166,7 +170,7 @@ export async function drawVerticalGuideline(
 }
 
 export async function addValueLabel(
-  svg: any,
+  svg: D3Selection,
   x: number,
   y: number,
   text: string,
@@ -203,7 +207,7 @@ export async function addValueLabel(
   return label.transition().duration(DURATIONS.LABEL_FADE_IN).attr('opacity', 1).end()
 }
 
-export async function addLabelBackground(svg: any, x: number, y: number, width: number, height: number) {
+export async function addLabelBackground(svg: D3Selection, x: number, y: number, width: number, height: number) {
   const bg = svg
     .append('rect')
     .attr('class', 'annotation label-bg')
@@ -219,7 +223,7 @@ export async function addLabelBackground(svg: any, x: number, y: number, width: 
 }
 
 export async function drawAggregateResult(
-  svg: any,
+  svg: D3Selection,
   margins: { top: number; left: number },
   plot: { w: number; h?: number },
   yPos: number,
@@ -249,7 +253,7 @@ export async function drawAggregateResult(
 }
 
 export async function drawDiffBridge(
-  svg: any,
+  svg: D3Selection,
   margins: { left: number; top?: number },
   plot: { w: number; h?: number },
   posA: number,
@@ -279,7 +283,7 @@ export async function drawDiffBridge(
 }
 
 export async function drawRetrieveLine(
-  svg: any,
+  svg: D3Selection,
   startX: number,
   startY: number,
   endX: number,
@@ -307,7 +311,7 @@ export async function drawRetrieveLine(
     .end()
 }
 
-export async function parallel(...animations: Array<Promise<unknown> | (() => Promise<unknown>)>) {
+export async function parallel(...animations: Array<Promise<void> | (() => Promise<void>)>) {
   return Promise.all(
     animations.map((anim) => {
       if (typeof anim === 'function') return anim()
@@ -316,7 +320,7 @@ export async function parallel(...animations: Array<Promise<unknown> | (() => Pr
   )
 }
 
-export async function sequence(...animations: Array<Promise<unknown> | (() => Promise<unknown>)>) {
+export async function sequence(...animations: Array<Promise<void> | (() => Promise<void>)>) {
   for (const anim of animations) {
     if (typeof anim === 'function') {
       await anim()
@@ -331,20 +335,7 @@ export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve
 // ---------------------------------------------------------------------------
 // Chart context helpers (ported/refactored from chartContext.js)
 // ---------------------------------------------------------------------------
-
-function inferOrientation(svgNode: SVGSVGElement | null | undefined, fallback?: string) {
-  const raw = (
-    svgNode?.getAttribute('data-orientation') ||
-    svgNode?.getAttribute('data-orient') ||
-    svgNode?.getAttribute('data-layout') ||
-    ''
-  ).toLowerCase()
-  if (raw === 'horizontal' || raw === 'h') return 'horizontal'
-  if (raw === 'vertical' || raw === 'v') return 'vertical'
-  return fallback
-}
-
-function selectPlotGroup(svg: any, preferPlotArea = true) {
+function selectPlotGroup(svg: D3Selection, preferPlotArea = true) {
   if (!svg || typeof svg.select !== 'function') return d3.select(null)
   if (preferPlotArea) {
     const plot = svg.select('.plot-area')
@@ -355,16 +346,15 @@ function selectPlotGroup(svg: any, preferPlotArea = true) {
 }
 
 export type ChartContext = {
-  svg: any
-  g: any
+  svg: D3Selection
+  g: D3Selection
   margins: { left: number; top: number }
   plot: { w: number; h: number }
-  orientation?: string
   xField?: string | null
   yField?: string | null
   colorField?: string | null
   facetField?: string | null
-  chartInfo?: any
+  chartInfo?: JsonObject | null
 }
 
 function findSvg(container: HTMLElement | SVGSVGElement | null) {
@@ -379,17 +369,16 @@ function findSvg(container: HTMLElement | SVGSVGElement | null) {
  */
 /**
  * Read chart-level attributes and convenience references from a host container or svg.
- * Returns svg/g selections plus sizing/orientation metadata encoded in data-* attributes.
+ * Returns svg/g selections plus sizing metadata encoded in data-* attributes.
  */
 export function getChartContext(
   container: HTMLElement | SVGSVGElement | null,
-  opts: { preferPlotArea?: boolean; defaultOrientation?: string } = {},
+  opts: { preferPlotArea?: boolean } = {},
 ): ChartContext {
-  const { preferPlotArea = true, defaultOrientation = undefined } = opts
+  const { preferPlotArea = true } = opts
   const svgNode = findSvg(container)
   const svg = svgNode ? d3.select(svgNode) : d3.select(null)
 
-  const orientation = inferOrientation(svgNode, defaultOrientation)
   const margins = {
     left: +(svgNode?.getAttribute('data-m-left') || 0),
     top: +(svgNode?.getAttribute('data-m-top') || 0),
@@ -406,17 +395,16 @@ export function getChartContext(
     g,
     margins,
     plot,
-    orientation,
     xField: svgNode?.getAttribute('data-x-field'),
     yField: svgNode?.getAttribute('data-y-field'),
     colorField: svgNode?.getAttribute('data-color-field'),
     facetField: svgNode?.getAttribute('data-facet-field'),
-    chartInfo: (svgNode as any)?.__chartInfo ?? null,
+    chartInfo: (svgNode as { __chartInfo?: JsonObject })?.__chartInfo ?? null,
   }
 }
 
 /** Factory returning a context getter with preferred options preset. */
-export function makeGetSvgAndSetup(opts: { preferPlotArea?: boolean; defaultOrientation?: string } = {}) {
+export function makeGetSvgAndSetup(opts: { preferPlotArea?: boolean } = {}) {
   return (container: HTMLElement | SVGSVGElement | null) => getChartContext(container, opts)
 }
 
@@ -438,8 +426,7 @@ export const DEFAULT_ANNOTATION_SELECTORS = [
   '.extremum-label',
 ]
 
-export function clearAnnotations(svg: any, extraSelectors: string[] = []) {
-  if (!svg || typeof svg.selectAll !== 'function') return
+export function clearAnnotations(svg: D3Selection, extraSelectors: string[] = []) {
   const selectors = [...DEFAULT_ANNOTATION_SELECTORS, ...extraSelectors].filter(Boolean)
   if (!selectors.length) return
   svg.selectAll(selectors.join(', ')).remove()

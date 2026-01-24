@@ -1,3 +1,10 @@
+export type JsonPrimitive = string | number | boolean | null
+export interface JsonObject {
+  [key: string]: JsonValue
+}
+export interface JsonArray extends Array<JsonValue> {}
+export type JsonValue = JsonPrimitive | JsonObject | JsonArray
+
 /**
  * Normalized datum used by chart operations.
  * - category: semantic x/label field name (e.g., "country")
@@ -62,7 +69,7 @@ export interface OperationSpec {
     | 'contains'
     | 'between'
     | string
-  value?: unknown
+  value?: JsonValue
   group?: string | null
   groupA?: string | null
   groupB?: string | null
@@ -83,3 +90,5 @@ export interface OperationSpec {
   from?: 'left' | 'right'
   absolute?: boolean
 }
+
+export type DataOpResult = DatumValue[] | BoolValue | IntervalValue

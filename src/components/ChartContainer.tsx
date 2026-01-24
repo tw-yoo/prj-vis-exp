@@ -1,16 +1,26 @@
 import React from 'react'
 import useChartRunner from '../hooks/useChartRunner'
+import type { OperationSpec } from '../types'
+import type { VegaLiteSpec } from '../utils/chartRenderer'
 
-type ChartContainerProps = {
-  vlSpec: any
-  opsSpec?: any
-  renderer: (container: HTMLElement, vlSpec: any, opsSpec: any) => Promise<unknown> | unknown
+type ChartContainerProps<TSpec, TOps, TResult> = {
+  vlSpec: TSpec
+  opsSpec?: TOps
+  renderer: (container: HTMLElement, vlSpec: TSpec, opsSpec: TOps | undefined) => Promise<TResult> | TResult
   style?: React.CSSProperties
   className?: string
 }
 
-export function ChartContainer({ vlSpec, opsSpec, renderer, style, className }: ChartContainerProps) {
-  const containerRef = useChartRunner(vlSpec, opsSpec, renderer)
+type DefaultOpsSpec = OperationSpec[] | { ops: OperationSpec[] } | null
+
+export function ChartContainer<TSpec = VegaLiteSpec, TOps = DefaultOpsSpec, TResult = void>({
+  vlSpec,
+  opsSpec,
+  renderer,
+  style,
+  className,
+}: ChartContainerProps<TSpec, TOps, TResult>) {
+  const containerRef = useChartRunner<TSpec, TOps | undefined, TResult>(vlSpec, opsSpec, renderer)
 
   return <div ref={containerRef} style={{ width: '100%', height: '100%', ...style }} className={className} />
 }

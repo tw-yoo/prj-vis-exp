@@ -1,4 +1,4 @@
-import type { BoolValue, DatumValue, OperationSpec, TargetSelector } from '../types'
+import type { BoolValue, DatumValue, JsonPrimitive, JsonValue, OperationSpec, TargetSelector } from '../types'
 
 // ---------------------------------------------------------------------------
 // Shared helpers (ported from dataOpsCore.js)
@@ -8,23 +8,23 @@ const ROUND_PRECISION = 2
 const ROUND_FACTOR = 10 ** ROUND_PRECISION
 
 /** Round a numeric value to 2 decimal places; return original if non-numeric. */
-export function roundNumeric(value: unknown) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return value
+export function roundNumeric(value: number) {
+  if (!Number.isFinite(value)) return value
   return Math.round(value * ROUND_FACTOR) / ROUND_FACTOR
 }
 
-export function toTrimmedString(value: unknown, fallback = '') {
+export function toTrimmedString(value: JsonPrimitive | undefined, fallback = '') {
   if (value == null) return fallback
   const str = String(value).trim()
   return str.length ? str : fallback
 }
 
-export function formatFieldLabel(field: unknown, fallback = 'value') {
+export function formatFieldLabel(field: JsonPrimitive | undefined, fallback = 'value') {
   const label = toTrimmedString(field, fallback)
   return label || fallback
 }
 
-export function formatGroupSuffix(group: unknown) {
+export function formatGroupSuffix(group: JsonPrimitive | undefined) {
   const label = toTrimmedString(group, '')
   return label ? ` (${label})` : ''
 }
@@ -42,14 +42,18 @@ export function formatTargetLabel(selector: TargetSelector | TargetSelector[] | 
   if (typeof selector === 'object') {
     if (selector.category && selector.series) return `${selector.category}/${selector.series}`
     if (selector.category) return String(selector.category)
-    if ((selector as { target?: unknown }).target) return String((selector as { target?: unknown }).target)
-    if ((selector as { id?: unknown }).id) return String((selector as { id?: unknown }).id)
+    if ((selector as { target?: JsonValue }).target) return String((selector as { target?: JsonValue }).target)
+    if ((selector as { id?: JsonValue }).id) return String((selector as { id?: JsonValue }).id)
   }
   return ''
 }
 
 /** Create a human-friendly label for an aggregated result. */
-export function formatResultName(kind: string, field: unknown, opts: { group?: unknown; detail?: unknown } = {}) {
+export function formatResultName(
+  kind: string,
+  field: JsonPrimitive | undefined,
+  opts: { group?: JsonPrimitive; detail?: JsonPrimitive } = {},
+) {
   const baseField = formatFieldLabel(field)
   const groupPart = formatGroupSuffix(opts.group)
   const detailPart = toTrimmedString(opts.detail, '')
@@ -169,7 +173,7 @@ const cmpStrAsc = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 const cmpStrDesc = (a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0)
 
 /** Operator evaluation for filter/compareBool */
-function evalOperator(operator: string | undefined, left: unknown, right: unknown): boolean {
+function evalOperator(operator: string | undefined, left: JsonValue, right: JsonValue): boolean {
   switch (operator) {
     case '>':
       return (left as number) > (right as number)
@@ -200,7 +204,7 @@ function evalOperator(operator: string | undefined, left: unknown, right: unknow
 }
 
 /** Aggregation helpers */
-function aggregate(values: unknown[], agg: string | undefined) {
+function aggregate(values: JsonValue[], agg: string | undefined) {
   if (!Array.isArray(values) || values.length === 0) return NaN
   const numeric = values.map((value) => Number(value)).filter((value) => Number.isFinite(value))
   if (numeric.length === 0) return NaN
@@ -227,7 +231,7 @@ function normalizeTargetInput(target: TargetSelector | TargetSelector[] | undefi
   return { category: target as TargetSelector, series: opGroup ?? undefined }
 }
 
-function parseComparableValue(raw: unknown): number | string | null {
+function parseComparableValue(raw: JsonValue | Date): number | string | null {
   if (raw instanceof Date) {
     const ts = +raw
     if (!Number.isNaN(ts)) return ts
@@ -318,7 +322,7 @@ function makeScalarDatum(
       measure: measureName ?? 'value',
       target: targetLabel ?? '__result__',
       group: group ?? null,
-      value: roundNumeric(Number(numericValue)) as number,
+      value: roundNumeric(Number(numericValue)),
       name: name ?? targetLabel ?? '__result__',
     },
   ]
@@ -477,8 +481,8 @@ export function determineRange(
     const vals = inField.map((d) => d.value)
     return {
       category: field || 'value',
-      min: roundNumeric(Math.min(...vals)) as number,
-      max: roundNumeric(Math.max(...vals)) as number,
+      min: roundNumeric(Math.min(...vals)),
+      max: roundNumeric(Math.max(...vals)),
     }
   }
   // category range: try date range, else lexicographic ordinal range as indices
@@ -487,16 +491,16 @@ export function determineRange(
   if (parsed.every((ts) => !Number.isNaN(ts))) {
     return {
       category: field || 'target',
-      min: roundNumeric(Math.min(...parsed)) as number,
-      max: roundNumeric(Math.max(...parsed)) as number,
+      min: roundNumeric(Math.min(...parsed)),
+      max: roundNumeric(Math.max(...parsed)),
     }
   }
   // ordinal index range
   const uniq = Array.from(new Set(targets)).sort(cmpStrAsc)
   return {
     category: field || 'target',
-    min: roundNumeric(0) as number,
-    max: roundNumeric(Math.max(0, uniq.length - 1)) as number,
+    min: roundNumeric(0),
+    max: roundNumeric(Math.max(0, uniq.length - 1)),
   }
 }
 
@@ -648,7 +652,9 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
   const categoryName = orderField || byGroup[0]?.category || 'target'
 
   const decorated = byGroup.map((datum) => {
-    const orderValue = parseComparableValue(orderField ? (datum as any)?.[orderField] ?? datum.target : datum.target)
+    const orderValue = parseComparableValue(
+      orderField ? (datum as Record<string, JsonValue>)?.[orderField] ?? datum.target : datum.target,
+    )
     return { datum, orderValue }
   })
 
@@ -668,7 +674,7 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
       measure: measureName,
       target: curr.target,
       group: curr.group ?? null,
-      value: roundNumeric(diffValue) as number,
+      value: roundNumeric(diffValue),
       id: curr.id ? `${curr.id}_lagdiff` : undefined,
       prevTarget: prev.target,
     }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import './App.css'
 import barSimpleVerSpecRaw from '../data/test/spec/bar_simple_ver.json?raw'
+import type { JsonValue, OperationSpec } from './types'
 import { runSimpleBarOps, type SimpleBarSpec } from './renderer/bar/simpleBarRenderer'
 
 const vlSpecPlaceholder = barSimpleVerSpecRaw
@@ -9,7 +10,7 @@ const vlSpecPlaceholder = barSimpleVerSpecRaw
 function App() {
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
   const [opsSpec, setOpsSpec] = useState('')
-  const [pendingOps, setPendingOps] = useState<any[] | null>(null)
+  const [pendingOps, setPendingOps] = useState<OperationSpec[] | null>(null)
   const chartRef = useRef<HTMLDivElement | null>(null)
 
   const prettyFormatJson = (value: string) => {
@@ -17,6 +18,77 @@ function App() {
       return JSON.stringify(JSON.parse(value), null, 2)
     } catch {
       return value
+    }
+  }
+
+  const getLineIndent = (line: string) => {
+    const match = line.match(/^\s+/)
+    return match ? match[0] : ''
+  }
+
+  const handleOpsKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
+    const { key, currentTarget } = event
+    if (!['Tab', 'Enter', '{', '['].includes(key)) return
+
+    const { selectionStart, selectionEnd, value } = currentTarget
+    if (selectionStart == null || selectionEnd == null) return
+
+    if (key === '{' || key === '[') {
+      event.preventDefault()
+      const closeChar = key === '{' ? '}' : ']'
+      const before = value.slice(0, selectionStart)
+      const after = value.slice(selectionEnd)
+      const next = `${before}${key}${closeChar}${after}`
+      setOpsSpec(next)
+      requestAnimationFrame(() => {
+        const cursor = selectionStart + 1
+        currentTarget.selectionStart = currentTarget.selectionEnd = cursor
+      })
+      return
+    }
+
+    if (key === 'Tab') {
+      event.preventDefault()
+      const indent = '  '
+      const before = value.slice(0, selectionStart)
+      const after = value.slice(selectionEnd)
+      const next = `${before}${indent}${after}`
+      setOpsSpec(next)
+      requestAnimationFrame(() => {
+        currentTarget.selectionStart = currentTarget.selectionEnd = selectionStart + indent.length
+      })
+      return
+    }
+
+    if (key === 'Enter') {
+      event.preventDefault()
+      const before = value.slice(0, selectionStart)
+      const after = value.slice(selectionEnd)
+      const prevLine = before.split('\n').pop() ?? ''
+      const baseIndent = getLineIndent(prevLine)
+      const trimmedPrev = prevLine.trimEnd()
+      const opensBlock = trimmedPrev.endsWith('{') || trimmedPrev.endsWith('[')
+      const nextChar = after[0]
+      const hasAutoClose = (trimmedPrev.endsWith('{') && nextChar === '}') || (trimmedPrev.endsWith('[') && nextChar === ']')
+
+      const nextIndent = `${baseIndent}${opensBlock ? '  ' : ''}`
+
+      if (opensBlock && hasAutoClose) {
+        const nextValue = `${before}\n${nextIndent}\n${baseIndent}${after}`
+        setOpsSpec(nextValue)
+        requestAnimationFrame(() => {
+          const cursor = selectionStart + 1 + nextIndent.length
+          currentTarget.selectionStart = currentTarget.selectionEnd = cursor
+        })
+        return
+      }
+
+      const nextValue = `${before}\n${nextIndent}${after}`
+      setOpsSpec(nextValue)
+      requestAnimationFrame(() => {
+        const cursor = selectionStart + 1 + nextIndent.length
+        currentTarget.selectionStart = currentTarget.selectionEnd = cursor
+      })
     }
   }
 
@@ -54,8 +126,12 @@ function App() {
       return
     }
     try {
-      const parsed = opsSpec.trim() ? JSON.parse(opsSpec) : null
-      const arrayForm = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.ops) ? parsed.ops : []
+      const parsed = opsSpec.trim() ? (JSON.parse(opsSpec) as JsonValue) : null
+      const arrayForm = Array.isArray(parsed)
+        ? (parsed as OperationSpec[])
+        : Array.isArray((parsed as { ops?: JsonValue })?.ops)
+          ? ((parsed as { ops: OperationSpec[] }).ops ?? [])
+          : []
       if (!arrayForm.length) {
         alert('No operations found.')
         setPendingOps(null)
@@ -128,6 +204,7 @@ function App() {
             value={opsSpec}
             onChange={(event) => setOpsSpec(event.target.value)}
             onBlur={handleOpsBlur}
+            onKeyDown={handleOpsKeyDown}
           />
         </section>
 
