@@ -1,3 +1,9 @@
+import vegaEmbedLib from 'vega-embed'
+
+/**
+ * Minimal Vega-Lite spec shape we care about for embedding/rendering.
+ * This keeps the typing light while still providing structure.
+ */
 export interface VegaLiteSpec {
   $schema?: string
   data?: {
@@ -56,6 +62,7 @@ type GlobalWithVega = typeof globalThis & {
 
 declare const vegaEmbed: VegaEmbedFn | undefined
 
+/** Resolve mark type to a string, handling object form. */
 function normalizeMarkType(mark: VegaLiteSpec['mark']) {
   if (!mark) return null
   if (typeof mark === 'string') return mark
@@ -95,6 +102,7 @@ function normalizeLayers(spec: VegaLiteSpec = {}) {
   ]
 }
 
+/** Infer a coarse chart type (bar/line variants) from the spec. */
 export function getChartType(spec: VegaLiteSpec): ChartTypeValue | null {
   if (!spec || typeof spec !== 'object') return null
 
@@ -140,6 +148,7 @@ export function getChartType(spec: VegaLiteSpec): ChartTypeValue | null {
   return null
 }
 
+/** Ensure a .chart-canvas child exists and return it. */
 function ensureChartCanvas(container: HTMLElement) {
   if (!container) return null
   if (container.classList.contains('chart-canvas')) {
@@ -158,11 +167,15 @@ function ensureChartCanvas(container: HTMLElement) {
   return canvas
 }
 
+/** Resolve a vegaEmbed function from global scope (no import assumed). */
 function resolveVegaEmbed(): VegaEmbedFn | null {
+  // Prefer bundled import (vite/esm)
+  if (typeof vegaEmbedLib === 'function') {
+    return vegaEmbedLib as unknown as VegaEmbedFn
+  }
+  // Fallback to globals (browser CDN scenario)
   try {
-    if (typeof vegaEmbed === 'function') {
-      return vegaEmbed
-    }
+    if (typeof vegaEmbed === 'function') return vegaEmbed
   } catch (_) {
     // ignore ReferenceError when vegaEmbed is not defined globally
   }
@@ -481,6 +494,12 @@ function adjustXAxisLabelAngle(container: HTMLElement) {
   }, 100)
 }
 
+/**
+ * Render a Vega-Lite spec into the provided container element.
+ * @param container Host element that will contain the SVG.
+ * @param spec Vega-Lite specification object.
+ * @param options Optional vega-embed options (renderer/actions/etc).
+ */
 export async function renderVegaLiteChart(
   container: HTMLElement,
   spec: VegaLiteSpec,
@@ -510,7 +529,7 @@ export async function renderVegaLiteChart(
   }
 
   const enhancedSpec: VegaLiteSpec = {
-    ...spec,
+    ...normalizeSchema(spec),
     config: {
       ...(spec.config || {}),
       axis: {
@@ -539,4 +558,19 @@ export async function renderVegaLiteChart(
   ensureXAxisLabelClearance(target, { attempts: 5, minGap: 14, maxShift: 140 })
 
   return result
+}
+
+/**
+ * If the incoming spec uses an old Vega-Lite schema (e.g., v3), bump it to v5
+ * to silence version warnings while keeping the content intact.
+ */
+function normalizeSchema(input: VegaLiteSpec): VegaLiteSpec {
+  const spec = { ...input }
+  const schema = typeof spec.$schema === 'string' ? spec.$schema : ''
+  const match = schema.match(/vega-lite\/v(\d+)/i)
+  const major = match ? Number(match[1]) : null
+  if (!major || major < 5) {
+    spec.$schema = 'https://vega.github.io/schema/vega-lite/v5.json'
+  }
+  return spec
 }
