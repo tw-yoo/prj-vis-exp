@@ -90,7 +90,7 @@ function normalizeLayers(spec: VegaLiteSpec = {}) {
   const baseEncoding = spec.encoding || {}
   if (Array.isArray(spec.layer) && spec.layer.length > 0) {
     return spec.layer.map((layer) => ({
-      mark: normalizeMarkType(layer?.mark ?? spec.mark),
+      mark: normalizeMarkType((layer?.mark as VegaLiteSpec['mark']) ?? spec.mark),
       encoding: { ...baseEncoding, ...(layer?.encoding || {}) },
     }))
   }
@@ -189,7 +189,9 @@ function resolveVegaEmbed(): VegaEmbedFn | null {
     return globalObj.vegaEmbed.bind(globalObj)
   }
   if (globalObj && globalObj.vega && typeof globalObj.vega.embed === 'function') {
-    return (container, spec, options) => globalObj.vega?.embed?.(container, spec, options)
+    const embedFn = globalObj.vega.embed
+    return (container: HTMLElement, spec: unknown, options?: VegaEmbedOptions) =>
+      embedFn(container, spec, options) as Promise<unknown>
   }
   return null
 }
@@ -210,7 +212,7 @@ function collectLineEncodings(spec: VegaLiteSpec = {}) {
   }
   if (Array.isArray(spec.layer)) {
     spec.layer.forEach((layer) => {
-      if (isLineMark(layer?.mark) && layer?.encoding) {
+      if (isLineMark(layer?.mark as VegaLiteSpec['mark']) && layer?.encoding) {
         encodings.push(layer.encoding as Record<string, any>)
       }
     })
@@ -287,7 +289,7 @@ async function applyAutoLineDomain(spec: VegaLiteSpec) {
   if (yFields.length === 0) return spec
 
   const dataRef =
-    spec.data || (Array.isArray(spec.layer) ? (spec.layer.find((l) => l?.data)?.data as VegaLiteSpec['data']) : null)
+    spec.data || (Array.isArray(spec.layer) ? (spec.layer.find((l) => l?.data)?.data as VegaLiteSpec['data']) : undefined)
   const rows = await loadRowsForSpecData(dataRef)
   if (!Array.isArray(rows) || rows.length === 0) return spec
 
@@ -347,13 +349,13 @@ function adjustSvgXAxisLabelClearance(svg: SVGElement, opts: { minGap?: number; 
 
   if (!Number.isFinite(maxTickBottom)) return false
 
-  const minGapPx = Number.isFinite(opts.minGap) ? opts.minGap : 12
-  const maxShiftPx = Number.isFinite(opts.maxShift) ? opts.maxShift : 120
+  const minGapPx = Number.isFinite(opts.minGap as number) ? (opts.minGap as number) : 12
+  const maxShiftPx = Number.isFinite(opts.maxShift as number) ? (opts.maxShift as number) : 120
   const overlapPx = maxTickBottom + minGapPx - labelRect.top
   if (overlapPx <= 0) return true
 
   const svgRect = svg.getBoundingClientRect()
-  const viewBox = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : null
+  const viewBox = (svg as SVGSVGElement).viewBox && (svg as SVGSVGElement).viewBox.baseVal ? (svg as SVGSVGElement).viewBox.baseVal : null
   const currentY = parseFloat(axisLabel.getAttribute('y') || '0')
   if (!Number.isFinite(currentY)) return true
 
@@ -379,14 +381,14 @@ function adjustSvgYAxisLabelClearance(svg: SVGElement, opts: { minGap?: number; 
     return false
   }
 
-  const minGapPx = Number.isFinite(opts.minGap) ? opts.minGap : 12
-  const maxShiftPx = Number.isFinite(opts.maxShift) ? opts.maxShift : 120
+  const minGapPx = Number.isFinite(opts.minGap as number) ? (opts.minGap as number) : 12
+  const maxShiftPx = Number.isFinite(opts.maxShift as number) ? (opts.maxShift as number) : 120
   const desiredRight = axisRect.left - minGapPx
   const overlapPx = labelRect.right - desiredRight
   if (overlapPx <= 0) return true
 
   const svgRect = svg.getBoundingClientRect()
-  const viewBox = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : null
+  const viewBox = (svg as SVGSVGElement).viewBox && (svg as SVGSVGElement).viewBox.baseVal ? (svg as SVGSVGElement).viewBox.baseVal : null
   const currentY = parseFloat(axisLabel.getAttribute('y') || '0')
   if (!Number.isFinite(currentY)) return true
 

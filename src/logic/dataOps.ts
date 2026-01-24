@@ -29,9 +29,9 @@ export function formatGroupSuffix(group: unknown) {
   return label ? ` (${label})` : ''
 }
 
-export function formatTargetLabel(selector: TargetSelector | TargetSelector[] | undefined) {
+export function formatTargetLabel(selector: TargetSelector | TargetSelector[] | undefined): string {
   if (Array.isArray(selector)) {
-    const labels = selector
+    const labels: string[] = selector
       .map((entry) => formatTargetLabel(entry))
       .filter((label): label is string => typeof label === 'string' && label.length > 0)
     if (labels.length === 0) return 'Multiple targets'

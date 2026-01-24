@@ -16,19 +16,14 @@ import {
   countData,
   determineRange,
 } from '../../logic/dataOps'
-import {
-  clearAnnotations,
-  getChartContext,
-  type ChartContext,
-  STYLES,
-  DURATIONS,
-  EASINGS,
-} from '../common/d3Helpers'
+import { clearAnnotations, getChartContext, type ChartContext } from '../common/d3Helpers'
+import { BarDrawHandler } from '../draw/BarDrawHandler'
+import type { DrawOp } from '../draw/types'
 
 // Local store keyed by container element
 const localDataStore: WeakMap<HTMLElement, any[]> = new WeakMap()
 
-type SimpleBarSpec = VegaLiteSpec & {
+export type SimpleBarSpec = VegaLiteSpec & {
   encoding: {
     x: { field: string; type: string; aggregate?: string; sort?: any }
     y: { field: string; type: string; aggregate?: string }
@@ -182,7 +177,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
   const xType = spec.encoding.x.type
   const yType = spec.encoding.y.type
   const isHorizontal = xType === 'quantitative' && yType !== 'quantitative'
-  const axisLabelsMeta = spec?.meta?.axisLabels ?? {}
+  const axisLabelsMeta = ((spec as any)?.meta as any)?.axisLabels ?? {}
   const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
   const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
   const resolvedXAxisLabel = xAxisLabelOverride === undefined ? xField : xAxisLabelOverride
@@ -193,9 +188,9 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
     data = (spec.data as any).values.map((d: any) => ({ ...d }))
   } else if (spec.data && typeof (spec.data as any).url === 'string') {
     if ((spec.data as any).url.endsWith('.json')) {
-      data = await d3.json((spec.data as any).url)
+      data = (await d3.json((spec.data as any).url)) ?? []
     } else {
-      data = await d3.csv((spec.data as any).url)
+      data = (await d3.csv((spec.data as any).url)) ?? []
     }
   } else {
     console.warn('renderSimpleBarChart: spec.data.values or spec.data.url is required')
@@ -207,12 +202,19 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
     if (yType === 'quantitative') d[yField] = +d[yField]
   })
 
-  if (spec.transform) {
-    spec.transform.forEach((t: any) => {
+  const transforms = (spec as any).transform
+  if (Array.isArray(transforms)) {
+    transforms.forEach((t: any) => {
       if (t.filter) {
         const expr = t.filter.replace(/datum\./g, 'd.')
-        const filterFn = new Function('d', `return ${expr};`)
-        data = data.filter(filterFn)
+        const filterFn = new Function('d', `return ${expr};`) as (d: any) => boolean
+        data = data.filter((d: any) => {
+          try {
+            return filterFn(d)
+          } catch {
+            return true
+          }
+        })
       }
     })
   }
@@ -356,7 +358,7 @@ function normalizeOpsList(opsSpec: OpsSpecInput): OperationSpec[] {
   return []
 }
 
-const OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec) => DatumValue[] | any> = {
+const OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec, container?: HTMLElement) => DatumValue[] | any> = {
   retrieveValue,
   filter: filterData,
   findExtremum,
@@ -370,6 +372,14 @@ const OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec) => Dat
   lagDiff: lagDiffData,
   nth: nthData,
   count: countData,
+  draw: (data, op, container) => handleDraw(container, data, op as DrawOp),
+}
+
+function handleDraw(container: HTMLElement | undefined, data: DatumValue[], op: DrawOp) {
+  if (!container) return data
+  const handler = new BarDrawHandler(container)
+  handler.run(op)
+  return data
 }
 
 /**
@@ -395,7 +405,8 @@ export async function runSimpleBarOps(
       console.warn(`Unsupported operation: ${op.op}`)
       continue
     }
-    working = handler(Array.isArray(working) ? working : baseData, op)
+    // Pass container as the third argument so draw ops can target the rendered chart.
+    working = handler(Array.isArray(working) ? working : baseData, op, container)
   }
 
   // Optional: clear annotations between runs (uses new helper)

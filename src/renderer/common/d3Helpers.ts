@@ -228,7 +228,7 @@ export async function drawAggregateResult(
 ) {
   const yAbsolute = margins.top + yPos
 
-  const line = svg
+  svg
     .append('line')
     .attr('class', 'annotation value-line')
     .attr('x1', margins.left)
@@ -302,6 +302,7 @@ export async function drawRetrieveLine(
     .transition()
     .duration(DURATIONS.GUIDELINE_DRAW)
     .attr('x2', endX)
+    .attr('y2', endY)
     .attr('opacity', 1)
     .end()
 }
