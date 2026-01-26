@@ -129,9 +129,11 @@ function App() {
       const parsed = opsSpec.trim() ? (JSON.parse(opsSpec) as JsonValue) : null
       const arrayForm = Array.isArray(parsed)
         ? (parsed as OperationSpec[])
-        : Array.isArray((parsed as { ops?: JsonValue })?.ops)
+        : parsed && typeof parsed === 'object' && Array.isArray((parsed as { ops?: JsonValue })?.ops)
           ? ((parsed as { ops: OperationSpec[] }).ops ?? [])
-          : []
+          : parsed && typeof parsed === 'object'
+            ? ([parsed as OperationSpec] as OperationSpec[])
+            : []
       if (!arrayForm.length) {
         alert('No operations found.')
         setPendingOps(null)

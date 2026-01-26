@@ -340,6 +340,7 @@ function normalizeOpsList(opsSpec: OpsSpecInput): OperationSpec[] {
   if (typeof opsSpec === 'object' && Array.isArray((opsSpec as { ops?: JsonValue }).ops)) {
     return (opsSpec as { ops: OperationSpec[] }).ops
   }
+  if (typeof opsSpec === 'object') return [opsSpec as OperationSpec]
   return []
 }
 
