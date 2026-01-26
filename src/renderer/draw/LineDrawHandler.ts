@@ -1,5 +1,6 @@
 import * as d3 from 'd3'
 import type { JsonValue } from '../../types'
+import { SvgElements } from '../interfaces'
 import { BaseDrawHandler } from './BaseDrawHandler'
 import { DrawMark, type DrawSelect } from './types'
 
@@ -9,15 +10,18 @@ import { DrawMark, type DrawSelect } from './types'
  * Extend/override for stroke-width or point highlighting as needed.
  */
 export class LineDrawHandler extends BaseDrawHandler {
-  protected selectElements(select?: DrawSelect) {
-    const svg = d3.select(this.container).select('svg')
+  protected selectElements(select?: DrawSelect, chartId?: string) {
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    const scope = chartId ? svg.selectAll(`[data-chart-id="${String(chartId)}"]`) : svg
     const mark = select?.mark || DrawMark.Path
-    const selection = svg.selectAll<SVGElement, JsonValue>(mark)
+    const selection = scope.selectAll<SVGElement, JsonValue>(mark)
     return this.filterByKeys(selection, select?.keys)
   }
 
-  protected allMarks() {
-    return d3.select(this.container).select('svg').selectAll<SVGElement, JsonValue>('path')
+  protected allMarks(chartId?: string) {
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    const scope = chartId ? svg.selectAll(`[data-chart-id="${String(chartId)}"]`) : svg
+    return scope.selectAll<SVGElement, JsonValue>(SvgElements.Path)
   }
 
   protected defaultColor() {

@@ -1,5 +1,6 @@
 import * as d3 from 'd3'
 import type { JsonObject, JsonValue } from '../../types'
+import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../interfaces'
 
 type D3Datum = JsonValue
 type D3Selection = d3.Selection<d3.BaseType, D3Datum, d3.BaseType, D3Datum>
@@ -89,12 +90,12 @@ export const OFFSETS = {
 
 export async function fadeElements(selection: D3Selection, targetOpacity: number, duration = DURATIONS.FADE) {
   if (!selection || selection.empty()) return Promise.resolve()
-  return selection.transition().duration(duration).ease(EASINGS.SMOOTH).attr('opacity', targetOpacity).end()
+  return selection.transition().duration(duration).ease(EASINGS.SMOOTH).attr(SvgAttributes.Opacity, targetOpacity).end()
 }
 
 export async function changeBarColor(selection: D3Selection, color: string, duration = DURATIONS.HIGHLIGHT) {
   if (!selection || selection.empty()) return Promise.resolve()
-  return selection.transition().duration(duration).ease(EASINGS.SMOOTH).attr('fill', color).end()
+  return selection.transition().duration(duration).ease(EASINGS.SMOOTH).attr(SvgAttributes.Fill, color).end()
 }
 
 export async function dimOthers(allElements: D3Selection, selectedElements: D3Selection, opacity = OPACITIES.DIM) {
@@ -117,21 +118,21 @@ export async function drawHorizontalGuideline(
   const strokeDasharray = style === 'dashed' ? STYLES.GUIDELINE.strokeDasharray : 'none'
 
   const line = svg
-    .append('line')
-    .attr('class', 'annotation guideline')
-    .attr('x1', margins.left)
-    .attr('y1', yAbsolute)
-    .attr('x2', margins.left)
-    .attr('y2', yAbsolute)
-    .attr('stroke', color)
-    .attr('stroke-dasharray', strokeDasharray)
-    .attr('stroke-width', STYLES.GUIDELINE.strokeWidth)
+    .append(SvgElements.Line)
+    .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.Guideline}`)
+    .attr(SvgAttributes.X1, margins.left)
+    .attr(SvgAttributes.Y1, yAbsolute)
+    .attr(SvgAttributes.X2, margins.left)
+    .attr(SvgAttributes.Y2, yAbsolute)
+    .attr(SvgAttributes.Stroke, color)
+    .attr(SvgAttributes.StrokeDasharray, strokeDasharray)
+    .attr(SvgAttributes.StrokeWidth, STYLES.GUIDELINE.strokeWidth)
 
   return line
     .transition()
     .duration(DURATIONS.GUIDELINE_DRAW)
     .ease(EASINGS.SMOOTH)
-    .attr('x2', margins.left + plotWidth)
+    .attr(SvgAttributes.X2, margins.left + plotWidth)
     .end()
 }
 
@@ -151,21 +152,21 @@ export async function drawVerticalGuideline(
   const strokeDasharray = style === 'dashed' ? STYLES.GUIDELINE.strokeDasharray : 'none'
 
   const line = svg
-    .append('line')
-    .attr('class', 'annotation guideline')
-    .attr('x1', xAbsolute)
-    .attr('y1', yStartAbsolute)
-    .attr('x2', xAbsolute)
-    .attr('y2', yStartAbsolute)
-    .attr('stroke', color)
-    .attr('stroke-dasharray', strokeDasharray)
-    .attr('stroke-width', STYLES.GUIDELINE.strokeWidth)
+    .append(SvgElements.Line)
+    .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.Guideline}`)
+    .attr(SvgAttributes.X1, xAbsolute)
+    .attr(SvgAttributes.Y1, yStartAbsolute)
+    .attr(SvgAttributes.X2, xAbsolute)
+    .attr(SvgAttributes.Y2, yStartAbsolute)
+    .attr(SvgAttributes.Stroke, color)
+    .attr(SvgAttributes.StrokeDasharray, strokeDasharray)
+    .attr(SvgAttributes.StrokeWidth, STYLES.GUIDELINE.strokeWidth)
 
   return line
     .transition()
     .duration(DURATIONS.GUIDELINE_DRAW)
     .ease(EASINGS.SMOOTH)
-    .attr('y2', yEndAbsolute)
+    .attr(SvgAttributes.Y2, yEndAbsolute)
     .end()
 }
 
@@ -186,40 +187,44 @@ export async function addValueLabel(
     fontSize = STYLES.VALUE_LABEL.fontSize,
     fontWeight = STYLES.VALUE_LABEL.fontWeight,
     textAnchor = STYLES.VALUE_LABEL.textAnchor,
-    className = 'annotation',
+    className = SvgClassNames.Annotation,
   } = options
 
   const label = svg
-    .append('text')
-    .attr('class', className)
-    .attr('x', x)
-    .attr('y', y)
-    .attr('text-anchor', textAnchor)
+    .append(SvgElements.Text)
+    .attr(SvgAttributes.Class, className)
+    .attr(SvgAttributes.X, x)
+    .attr(SvgAttributes.Y, y)
+    .attr(SvgAttributes.TextAnchor, textAnchor)
     .style('font-size', `${fontSize}px`)
     .style('font-weight', fontWeight)
-    .attr('fill', color)
-    .attr('stroke', STYLES.VALUE_LABEL.stroke)
-    .attr('stroke-width', STYLES.VALUE_LABEL.strokeWidth)
-    .attr('paint-order', STYLES.VALUE_LABEL.paintOrder)
+    .attr(SvgAttributes.Fill, color)
+    .attr(SvgAttributes.Stroke, STYLES.VALUE_LABEL.stroke)
+    .attr(SvgAttributes.StrokeWidth, STYLES.VALUE_LABEL.strokeWidth)
+    .attr(SvgAttributes.PaintOrder, STYLES.VALUE_LABEL.paintOrder)
     .text(text)
-    .attr('opacity', 0)
+    .attr(SvgAttributes.Opacity, 0)
 
-  return label.transition().duration(DURATIONS.LABEL_FADE_IN).attr('opacity', 1).end()
+  return label.transition().duration(DURATIONS.LABEL_FADE_IN).attr(SvgAttributes.Opacity, 1).end()
 }
 
 export async function addLabelBackground(svg: D3Selection, x: number, y: number, width: number, height: number) {
   const bg = svg
-    .append('rect')
-    .attr('class', 'annotation label-bg')
-    .attr('x', x - width / 2)
-    .attr('y', y)
-    .attr('width', width)
-    .attr('height', height)
-    .attr('fill', STYLES.LABEL_BACKGROUND.fill)
-    .attr('rx', STYLES.LABEL_BACKGROUND.rx)
-    .attr('opacity', 0)
+    .append(SvgElements.Rect)
+    .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LabelBackground}`)
+    .attr(SvgAttributes.X, x - width / 2)
+    .attr(SvgAttributes.Y, y)
+    .attr(SvgAttributes.Width, width)
+    .attr(SvgAttributes.Height, height)
+    .attr(SvgAttributes.Fill, STYLES.LABEL_BACKGROUND.fill)
+    .attr(SvgAttributes.RX, STYLES.LABEL_BACKGROUND.rx)
+    .attr(SvgAttributes.Opacity, 0)
 
-  return bg.transition().duration(DURATIONS.LABEL_FADE_IN).attr('opacity', STYLES.LABEL_BACKGROUND.opacity).end()
+  return bg
+    .transition()
+    .duration(DURATIONS.LABEL_FADE_IN)
+    .attr(SvgAttributes.Opacity, STYLES.LABEL_BACKGROUND.opacity)
+    .end()
 }
 
 export async function drawAggregateResult(
@@ -233,15 +238,15 @@ export async function drawAggregateResult(
   const yAbsolute = margins.top + yPos
 
   svg
-    .append('line')
-    .attr('class', 'annotation value-line')
-    .attr('x1', margins.left)
-    .attr('y1', yAbsolute)
-    .attr('x2', margins.left + plot.w)
-    .attr('y2', yAbsolute)
-    .attr('stroke', color)
-    .attr('stroke-width', STYLES.THRESHOLD.strokeWidth)
-    .attr('stroke-dasharray', STYLES.THRESHOLD.strokeDasharray)
+    .append(SvgElements.Line)
+    .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.ValueLine}`)
+    .attr(SvgAttributes.X1, margins.left)
+    .attr(SvgAttributes.Y1, yAbsolute)
+    .attr(SvgAttributes.X2, margins.left + plot.w)
+    .attr(SvgAttributes.Y2, yAbsolute)
+    .attr(SvgAttributes.Stroke, color)
+    .attr(SvgAttributes.StrokeWidth, STYLES.THRESHOLD.strokeWidth)
+    .attr(SvgAttributes.StrokeDasharray, STYLES.THRESHOLD.strokeDasharray)
 
   const centerX = margins.left + plot.w / 2
   const centerY = yAbsolute + OFFSETS.LABEL_ABOVE_LINE
@@ -266,17 +271,17 @@ export async function drawDiffBridge(
   const diffX = margins.left + plot.w + OFFSETS.BRIDGE_OFFSET
 
   const bridge = svg
-    .append('line')
-    .attr('class', 'annotation diff-line')
-    .attr('x1', diffX)
-    .attr('x2', diffX)
-    .attr('y1', minY)
-    .attr('y2', minY)
-    .attr('stroke', color)
-    .attr('stroke-width', STYLES.THRESHOLD.strokeWidth)
-    .attr('stroke-dasharray', STYLES.THRESHOLD.strokeDasharray)
+    .append(SvgElements.Line)
+    .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.DiffLine}`)
+    .attr(SvgAttributes.X1, diffX)
+    .attr(SvgAttributes.X2, diffX)
+    .attr(SvgAttributes.Y1, minY)
+    .attr(SvgAttributes.Y2, minY)
+    .attr(SvgAttributes.Stroke, color)
+    .attr(SvgAttributes.StrokeWidth, STYLES.THRESHOLD.strokeWidth)
+    .attr(SvgAttributes.StrokeDasharray, STYLES.THRESHOLD.strokeDasharray)
 
-  await bridge.transition().duration(DURATIONS.GUIDELINE_DRAW).attr('y2', maxY).end()
+  await bridge.transition().duration(DURATIONS.GUIDELINE_DRAW).attr(SvgAttributes.Y2, maxY).end()
 
   const labelY = (minY + maxY) / 2
   return addValueLabel(svg, diffX - 6, labelY, labelText, color, { textAnchor: 'end' })
@@ -291,23 +296,23 @@ export async function drawRetrieveLine(
   color: string,
 ) {
   const line = svg
-    .append('line')
-    .attr('class', 'retrieve-line annotation')
-    .attr('x1', startX)
-    .attr('x2', startX)
-    .attr('y1', startY)
-    .attr('y2', startY)
-    .attr('stroke', color)
-    .attr('stroke-width', STYLES.RETRIEVE_LINE.strokeWidth)
-    .attr('stroke-dasharray', STYLES.RETRIEVE_LINE.strokeDasharray)
-    .attr('opacity', 0)
+    .append(SvgElements.Line)
+    .attr(SvgAttributes.Class, `${SvgClassNames.RetrieveLine} ${SvgClassNames.Annotation}`)
+    .attr(SvgAttributes.X1, startX)
+    .attr(SvgAttributes.X2, startX)
+    .attr(SvgAttributes.Y1, startY)
+    .attr(SvgAttributes.Y2, startY)
+    .attr(SvgAttributes.Stroke, color)
+    .attr(SvgAttributes.StrokeWidth, STYLES.RETRIEVE_LINE.strokeWidth)
+    .attr(SvgAttributes.StrokeDasharray, STYLES.RETRIEVE_LINE.strokeDasharray)
+    .attr(SvgAttributes.Opacity, 0)
 
   return line
     .transition()
     .duration(DURATIONS.GUIDELINE_DRAW)
-    .attr('x2', endX)
-    .attr('y2', endY)
-    .attr('opacity', 1)
+    .attr(SvgAttributes.X2, endX)
+    .attr(SvgAttributes.Y2, endY)
+    .attr(SvgAttributes.Opacity, 1)
     .end()
 }
 
@@ -341,7 +346,7 @@ function selectPlotGroup(svg: D3Selection, preferPlotArea = true) {
     const plot = svg.select('.plot-area')
     if (!plot.empty()) return plot
   }
-  const g = svg.select('g')
+  const g = svg.select(SvgElements.Group)
   return g.empty() ? svg.select('.plot-area') : g
 }
 
@@ -360,7 +365,7 @@ export type ChartContext = {
 function findSvg(container: HTMLElement | SVGSVGElement | null) {
   if (!container) return null
   if (container instanceof SVGSVGElement) return container
-  return container.querySelector('svg')
+  return container.querySelector(SvgElements.Svg)
 }
 
 /**
@@ -380,12 +385,12 @@ export function getChartContext(
   const svg = svgNode ? d3.select(svgNode) : d3.select(null)
 
   const margins = {
-    left: +(svgNode?.getAttribute('data-m-left') || 0),
-    top: +(svgNode?.getAttribute('data-m-top') || 0),
+    left: +(svgNode?.getAttribute(DataAttributes.MarginLeft) || 0),
+    top: +(svgNode?.getAttribute(DataAttributes.MarginTop) || 0),
   }
   const plot = {
-    w: +(svgNode?.getAttribute('data-plot-w') || 0),
-    h: +(svgNode?.getAttribute('data-plot-h') || 0),
+    w: +(svgNode?.getAttribute(DataAttributes.PlotWidth) || 0),
+    h: +(svgNode?.getAttribute(DataAttributes.PlotHeight) || 0),
   }
 
   const g = selectPlotGroup(svg, preferPlotArea)
@@ -395,10 +400,10 @@ export function getChartContext(
     g,
     margins,
     plot,
-    xField: svgNode?.getAttribute('data-x-field'),
-    yField: svgNode?.getAttribute('data-y-field'),
-    colorField: svgNode?.getAttribute('data-color-field'),
-    facetField: svgNode?.getAttribute('data-facet-field'),
+    xField: svgNode?.getAttribute(DataAttributes.XField),
+    yField: svgNode?.getAttribute(DataAttributes.YField),
+    colorField: svgNode?.getAttribute(DataAttributes.ColorField),
+    facetField: svgNode?.getAttribute(DataAttributes.FacetField),
     chartInfo: (svgNode as { __chartInfo?: JsonObject })?.__chartInfo ?? null,
   }
 }
@@ -413,12 +418,12 @@ export function makeGetSvgAndSetup(opts: { preferPlotArea?: boolean } = {}) {
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_ANNOTATION_SELECTORS = [
-  '.annotation',
+  SvgSelectors.Annotation,
   '.filter-label',
   '.sort-label',
   '.value-tag',
   '.range-line',
-  '.value-line',
+  `.${SvgClassNames.ValueLine}`,
   '.threshold-line',
   '.threshold-label',
   '.compare-label',

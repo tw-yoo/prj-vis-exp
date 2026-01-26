@@ -1,4 +1,12 @@
 import type { OperationSpec } from '../../types'
+import {
+  DrawLineModes,
+  DrawRectModes,
+  DrawTextModes,
+  type DrawLineMode,
+  type DrawRectMode,
+  type DrawTextMode,
+} from '../interfaces'
 
 export const DrawAction = {
   Highlight: 'highlight',
@@ -7,6 +15,10 @@ export const DrawAction = {
   Text: 'text',
   Rect: 'rect',
   Line: 'line',
+  LineTrace: 'line-trace',
+  BarSegment: 'bar-segment',
+  Split: 'split',
+  Unsplit: 'unsplit',
   Sort: 'sort',
   Filter: 'filter',
 } as const
@@ -23,7 +35,8 @@ export type DrawSelect = {
   keys?: Array<string | number>
 }
 
-export type DrawTextMode = 'anchor' | 'normalized'
+export { DrawLineModes, DrawRectModes, DrawTextModes }
+export type { DrawLineMode, DrawRectMode, DrawTextMode }
 
 export type DrawTextSpec = {
   value: string | Record<string, string>
@@ -39,13 +52,14 @@ export type DrawTextSpec = {
   }
 }
 
-export type DrawRectMode = 'normalized' | 'axis'
-
 export type DrawRectSpec = {
   mode?: DrawRectMode
   position?: { x: number; y: number }
-  axis?: { x?: string; y?: number }
-  size: { width: number; height: number }
+  axis?: { x?: string | string[]; y?: number | number[] }
+  /** Used when mode = "data-point". Finds the mark by x label and uses its (x,y) data point as the center. */
+  point?: { x: string | number }
+  /** required for normalized mode; ignored for axis mode */
+  size?: { width: number; height: number }
   style?: {
     fill?: string
     opacity?: number
@@ -55,7 +69,7 @@ export type DrawRectSpec = {
 }
 
 export type DrawLineSpec = {
-  mode?: 'angle' | 'connect' | 'hline-x' | 'hline-y'
+  mode?: DrawLineMode
   axis?: { x: string; y: number }
   pair?: { x: [string, string] }
   hline?: { x?: string; y?: number }
@@ -78,13 +92,37 @@ export type DrawFilterSpec = {
   y?: { op: '>' | '<' | '>=' | '<=' | 'gt' | 'lt' | 'gte' | 'lte'; value: number }
 }
 
+export type DrawBarSegmentSpec = {
+  threshold: number
+  /**
+   * Condition that defines the highlighted segment relative to `threshold`.
+   * Example: `gte` highlights the portion of the bar where value >= threshold.
+   */
+  when?: '>' | '<' | '>=' | '<=' | 'gt' | 'lt' | 'gte' | 'lte'
+  style?: { fill?: string; opacity?: number; stroke?: string; strokeWidth?: number }
+}
+
+export type DrawSplitSpec = {
+  by?: 'x'
+  /** User-defined group ids mapped to x labels. Provide 2 groups, or 1 group + restTo. */
+  groups: Record<string, Array<string | number>>
+  /** If only one group is provided, remaining labels go to this group id. */
+  restTo?: string
+  /** Layout direction of the two charts. */
+  orientation?: 'vertical' | 'horizontal'
+}
+
 export type DrawOp = OperationSpec & {
   action: DrawAction
+  /** When the chart is split, targets a specific sub-chart group id. */
+  chartId?: string
   select?: DrawSelect
   style?: { color?: string; opacity?: number }
   text?: DrawTextSpec
   rect?: DrawRectSpec
   line?: DrawLineSpec
+  segment?: DrawBarSegmentSpec
+  split?: DrawSplitSpec
   sort?: DrawSortSpec
   filter?: DrawFilterSpec
 }

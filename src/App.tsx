@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import './App.css'
-import barSimpleVerSpecRaw from '../data/test/spec/bar_simple_ver.json?raw'
+import barSimpleSpecRaw from '../data/test/spec/bar_simple_ver.json?raw'
+import lineSimpleSpecRaw from '../data/test/spec/line_simple.json?raw'
 import type { JsonValue, OperationSpec } from './types'
 import { runSimpleBarOps, type SimpleBarSpec } from './renderer/bar/simpleBarRenderer'
 
-const vlSpecPlaceholder = barSimpleVerSpecRaw
+const vlSpecPlaceholder = barSimpleSpecRaw
 
 function App() {
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
@@ -125,6 +126,9 @@ function App() {
       alert('Chart container is not ready.')
       return
     }
+    const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
+    await renderChart(specString)
+
     try {
       const parsed = opsSpec.trim() ? (JSON.parse(opsSpec) as JsonValue) : null
       const arrayForm = Array.isArray(parsed)

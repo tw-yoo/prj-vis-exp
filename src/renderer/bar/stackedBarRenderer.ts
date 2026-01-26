@@ -1,6 +1,8 @@
 import * as d3 from 'd3'
 import { renderVegaLiteChart, type VegaLiteSpec } from '../../utils/chartRenderer'
 import type { DatumValue, OperationSpec } from '../../types'
+import { DataAttributes, SvgAttributes, SvgElements } from '../interfaces'
+import { DrawAction } from '../draw/types'
 import {
   retrieveValue,
   filterData,
@@ -51,7 +53,7 @@ type DrawSelect = {
   mark?: string
 }
 type DrawOp = OperationSpec & {
-  action?: 'clear' | 'highlight' | 'dim'
+  action?: DrawAction
   select?: DrawSelect
   style?: { color?: string; opacity?: number }
 }
@@ -72,8 +74,8 @@ function toDatumValues(rawData: any[], xField: string, yField: string): DatumVal
 }
 
 function selectElements(container: HTMLElement, select: DrawSelect | undefined) {
-  const svg = d3.select(container).select('svg')
-  const mark = select?.mark || 'rect'
+  const svg = d3.select(container).select(SvgElements.Svg)
+  const mark = select?.mark || SvgElements.Rect
   if (!select?.keys || !select.keys.length) {
     return svg.selectAll<SVGElement, unknown>(mark)
   }
@@ -81,36 +83,38 @@ function selectElements(container: HTMLElement, select: DrawSelect | undefined) 
   return svg
     .selectAll<SVGElement, unknown>(mark)
     .filter(function filterByKey() {
-      const target = (this as Element).getAttribute('data-target') || (this as Element).getAttribute('data-id')
+      const target =
+        (this as Element).getAttribute(DataAttributes.Target) || (this as Element).getAttribute(DataAttributes.Id)
       return target != null && keySet.has(String(target))
     })
 }
 
 function handleDraw(container: HTMLElement | undefined, data: DatumValue[], op: DrawOp) {
   if (!container) return data
-  const action = (op.action || '').toLowerCase()
   const selection = selectElements(container, op.select)
-  const allRects = d3.select(container).select('svg').selectAll<SVGRectElement, unknown>('rect')
+  const allRects = d3.select(container).select(SvgElements.Svg).selectAll<SVGRectElement, unknown>(SvgElements.Rect)
 
-  if (action === 'clear') {
-    allRects.attr('fill', null).attr('opacity', 1)
-    clearAnnotations(d3.select(container).select('svg'))
-    return data
+  switch (op.action) {
+    case DrawAction.Clear:
+      allRects.attr(SvgAttributes.Fill, null).attr(SvgAttributes.Opacity, 1)
+      clearAnnotations(d3.select(container).select(SvgElements.Svg))
+      return data
+    case DrawAction.Highlight: {
+      const color = op.style?.color || '#ef4444'
+      selection.attr(SvgAttributes.Fill, color).attr(SvgAttributes.Opacity, 1)
+      return data
+    }
+    case DrawAction.Dim: {
+      const opacity = op.style?.opacity ?? 0.25
+      const selectedNodes = new Set(selection.nodes())
+      allRects.attr(SvgAttributes.Opacity, function () {
+        return selectedNodes.has(this as any) ? 1 : opacity
+      })
+      return data
+    }
+    default:
+      console.warn('draw: unsupported action', op.action, op)
   }
-  if (action === 'highlight') {
-    const color = op.style?.color || '#ef4444'
-    selection.attr('fill', color).attr('opacity', 1)
-    return data
-  }
-  if (action === 'dim') {
-    const opacity = op.style?.opacity ?? 0.25
-    const selectedNodes = new Set(selection.nodes())
-    allRects.attr('opacity', function () {
-      return selectedNodes.has(this as any) ? 1 : opacity
-    })
-    return data
-  }
-  console.warn('draw: unsupported action', action, op)
   return data
 }
 
@@ -132,6 +136,6 @@ export async function runStackedBarOps(container: HTMLElement, vlSpec: StackedSp
     if (!handler) continue
     working = handler(Array.isArray(working) ? working : base, { ...op, container })
   }
-  clearAnnotations(d3.select(container).select('svg'))
+  clearAnnotations(d3.select(container).select(SvgElements.Svg))
   return working
 }
