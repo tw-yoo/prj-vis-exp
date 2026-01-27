@@ -11,6 +11,17 @@ function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
   clone.width = clone.width ?? 600
   clone.height = clone.height ?? 300
   clone.padding = clone.padding ?? { left: 60, right: 20, top: 40, bottom: 70 }
+
+  // If the spec uses column/row facets (e.g., grouped bar), limit per-facet width and fit.
+  const hasFacet =
+    !!(clone.encoding as any)?.column ||
+    !!(clone.facet as any)?.column ||
+    !!(clone.facet as any)?.row ||
+    !!(clone.repeat as any)?.column
+  if (hasFacet) {
+    clone.width = clone.width && clone.width < 200 ? clone.width : 140
+    clone.autosize = { type: 'fit', contains: 'padding' }
+  }
   clone.config = {
     ...(clone.config || {}),
     axis: {
@@ -48,6 +59,27 @@ function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
 export async function renderChart(container: HTMLElement, spec: VegaLiteSpec) {
   const chartType = getChartType(spec)
   const normalized = normalizeSpec(spec)
+  // Limit width to host container to avoid overly wide faceted/grouped charts
+  const hostWidthRaw = Math.max(0, container.getBoundingClientRect?.().width || container.clientWidth || 0)
+  const hostWidth = hostWidthRaw > 0 ? Math.min(hostWidthRaw, 800) : 800
+  const hasFacet =
+    !!(normalized.encoding as any)?.column ||
+    !!(normalized.facet as any)?.column ||
+    !!(normalized.facet as any)?.row ||
+    !!(normalized.repeat as any)?.column
+
+  if (hostWidth > 0) {
+    if (hasFacet) {
+      // width is per facet cell; keep it small and within host
+      const maxPerCell = Math.min(100, hostWidth - 20)
+      normalized.width = Math.max(60, maxPerCell)
+      // avoid Vega warning: autosize fit not supported for faceted charts
+      normalized.autosize = { type: 'none', contains: 'padding' }
+    } else {
+      normalized.width = Math.min(normalized.width ?? hostWidth, hostWidth - 10)
+    }
+  }
+
   switch (chartType) {
     case 'Simple bar chart':
       return renderSimpleBarChart(container, normalized as any)

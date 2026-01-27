@@ -4,7 +4,7 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors
 
 // Loosen d3 selection typing to reduce downstream generic incompatibilities
 type D3Datum = any
-type D3Selection = d3.Selection<d3.BaseType, D3Datum, any, any>
+type D3Selection = d3.Selection<any, D3Datum, any, any>
 
 // ---------------------------------------------------------------------------
 // Animation configuration (ported from animationConfig.js)
@@ -101,9 +101,7 @@ export async function changeBarColor(selection: D3Selection, color: string, dura
 
 export async function dimOthers(allElements: D3Selection, selectedElements: D3Selection, opacity = OPACITIES.DIM) {
   const selectedNodes = new Set(selectedElements.nodes?.() ?? [])
-  const others = allElements.filter(function filterFn(this: Element) {
-    return !selectedNodes.has(this)
-  })
+  const others = allElements.filter((_d, i, nodes) => !selectedNodes.has(nodes[i] as Element))
   return fadeElements(others, opacity, DURATIONS.DIM)
 }
 
@@ -341,14 +339,14 @@ export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve
 // ---------------------------------------------------------------------------
 // Chart context helpers (ported/refactored from chartContext.js)
 // ---------------------------------------------------------------------------
-function selectPlotGroup(svg: D3Selection, preferPlotArea = true) {
-  if (!svg || typeof svg.select !== 'function') return d3.select(null)
+function selectPlotGroup(svg: D3Selection, preferPlotArea = true): D3Selection {
+  if (!svg || typeof (svg as any).select !== 'function') return d3.select(null) as unknown as D3Selection
   if (preferPlotArea) {
     const plot = svg.select('.plot-area')
-    if (!plot.empty()) return plot
+    if (!plot.empty()) return plot as unknown as D3Selection
   }
   const g = svg.select(SvgElements.Group)
-  return g.empty() ? svg.select('.plot-area') : g
+  return (g.empty() ? svg.select('.plot-area') : g) as unknown as D3Selection
 }
 
 export type ChartContext = {
@@ -383,7 +381,7 @@ export function getChartContext(
 ): ChartContext {
   const { preferPlotArea = true } = opts
   const svgNode = findSvg(container)
-  const svg = svgNode ? d3.select(svgNode) : d3.select(null)
+  const svg: D3Selection = svgNode ? (d3.select(svgNode) as any) : (d3.select(null) as any)
 
   const margins = {
     left: +(svgNode?.getAttribute(DataAttributes.MarginLeft) || 0),
