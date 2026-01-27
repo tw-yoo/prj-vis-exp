@@ -3,6 +3,7 @@ import type { JsonValue } from '../../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../../interfaces'
 import { LineDrawHandler } from '../LineDrawHandler'
 import { DrawAction, DrawRectModes, type DrawOp, type DrawSelect } from '../types'
+import { ensureAnnotationLayer } from '../utils/annotationLayer'
 
 type TraceSpec = {
   pair: { x: [string, string] }
@@ -19,9 +20,9 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
   protected override selectElements(_select?: DrawSelect, chartId?: string) {
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const scope = chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(chartId)}"]`) : svg
-    const selection = scope.selectAll<SVGElement, JsonValue>('path, circle, rect').filter(
-      `[${DataAttributes.Target}], [${DataAttributes.Id}]`,
-    )
+    const selection = scope
+      .selectAll<SVGElement, JsonValue>(`${SvgElements.Path}, ${SvgElements.Circle}, ${SvgElements.Rect}`)
+      .filter(SvgSelectors.DataTargets)
     return this.filterByKeys(selection, _select?.keys)
   }
 
@@ -29,8 +30,8 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const scope = chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(chartId)}"]`) : svg
     return scope
-      .selectAll<SVGElement, JsonValue>('path, circle, rect')
-      .filter(`[${DataAttributes.Target}], [${DataAttributes.Id}]`)
+      .selectAll<SVGElement, JsonValue>(`${SvgElements.Path}, ${SvgElements.Circle}, ${SvgElements.Rect}`)
+      .filter(SvgSelectors.DataTargets)
   }
 
   private drawPointCircle(
@@ -103,6 +104,8 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     if (!pair) return
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
+    const svgNode = svg.node() as SVGSVGElement | null
+    if (!svgNode) return
     const scope = op.chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(op.chartId)}"]`) : svg
     const [xA, xB] = pair
     // 사용 가능한 포인트(심볼)만 이용하고, 라벨별로 가장 작은 bbox(실제 심볼)를 사용
@@ -131,7 +134,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     const pointsWithin: Array<{ x: number; y: number }> = []
     for (let i = startIdx; i <= endIdx; i += 1) {
       const el = picked[i].el
-      const { x, y } = this.toSvgCenter(el, svg.node() as SVGSVGElement)
+      const { x, y } = this.toSvgCenter(el, svgNode)
       if (!Number.isFinite(x) || !Number.isFinite(y)) continue
       pointsWithin.push({ x, y })
     }
@@ -148,17 +151,18 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
       .x((d) => d.x)
       .y((d) => d.y)
 
-    svg
+    const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null)) as any
+    layer
       .append(SvgElements.Path)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
       .attr(DataAttributes.ChartId, op.chartId ?? null)
-      .attr('d', lineGen(pointsWithin) ?? null)
+      .attr(SvgAttributes.D, lineGen(pointsWithin) ?? null)
       .attr(SvgAttributes.Stroke, stroke)
       .attr(SvgAttributes.StrokeWidth, strokeWidth)
       .attr(SvgAttributes.Fill, 'none')
       .attr(SvgAttributes.Opacity, opacity)
 
-    pointsWithin.forEach((p) => this.drawPointCircle(svg as any, p.x, p.y, { fill, radius, stroke }, op.chartId))
+    pointsWithin.forEach((p) => this.drawPointCircle(layer, p.x, p.y, { fill, radius, stroke }, op.chartId))
   }
 
   override run(op: DrawOp) {
@@ -213,7 +217,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     const fallbackAxisTexts =
       axisTexts.length === 0
         ? Array.from(
-            svgNode.querySelectorAll<SVGGraphicsElement>('.role-axis-label text, text.role-axis-label'),
+            svgNode.querySelectorAll<SVGGraphicsElement>(SvgSelectors.VegaRoleAxisLabelText),
           ).filter((el) => {
             const axisGroup = el.closest('[aria-label]')
             const aria = axisGroup?.getAttribute('aria-label')?.toLowerCase() || ''
@@ -252,25 +256,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     })
     const minVal = markVals.length ? Math.min(...markVals) : null
     const maxVal = markVals.length ? Math.max(...markVals) : null
-
-    // Debug logging
-    // eslint-disable-next-line no-console
-    console.log('[line rectAxisY] inputs', {
-      yValues,
-      chartId: op.chartId,
-      axisTextCount: combinedAxisTexts.length,
-      axisTextMinX: minX,
-      axisTextMaxX: maxX,
-      svgRect,
-      viewBox: viewBox ? { x: viewBox.x, y: viewBox.y, w: viewBox.width, h: viewBox.height } : null,
-      scaleX,
-      scaleY,
-      xLeft,
-      xRight,
-      bandWidth,
-      minVal,
-      maxVal,
-    })
+    const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null)) as any
 
     const toPos = (v: number) => {
       const y = mapY(v)
@@ -283,9 +269,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
       const y = toPos(yValues[0])
       if (y == null) return
       const height = Math.max(10 * scaleY, Math.min(18 * scaleY, (maxTextH || svgRect.height * 0.04) * scaleY))
-      // eslint-disable-next-line no-console
-      console.log('[line rectAxisY] single', { yValue: yValues[0], y, height })
-      svg
+      layer
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -306,9 +290,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
       if (y1 == null || y2 == null) return
       const yTop = Math.min(y1, y2)
       const yBottom = Math.max(y1, y2)
-      // eslint-disable-next-line no-console
-      console.log('[line rectAxisY] range', { yValues, y1, y2, yTop, yBottom, height: yBottom - yTop })
-      svg
+      layer
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)

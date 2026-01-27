@@ -1,24 +1,8 @@
 // @ts-nocheck
 import * as d3 from 'd3'
 import type { VegaLiteSpec } from '../../utils/chartRenderer'
-import type { DatumValue, JsonValue, OperationSpec } from '../../types'
+import type { JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
-import {
-  retrieveValue,
-  filterData,
-  findExtremum,
-  sortData,
-  sumData,
-  averageData,
-  diffData,
-  lagDiffData,
-  nthData,
-  compareOp,
-  compareBoolOp,
-  countData,
-  determineRange,
-} from '../../logic/dataOps'
-import { clearAnnotations, getChartContext, type ChartContext } from '../common/d3Helpers'
 import { type DrawSplitSpec } from '../draw/types'
 
 type RawDatum = Record<string, JsonValue>
@@ -129,23 +113,6 @@ function aggregateForSort(rows: RawDatum[], sortField: string, op = 'sum') {
   if (numericValues.length === 0) return 0
   const result = fn(numericValues, rows)
   return Number.isFinite(result) ? result : 0
-}
-
-function toDatumValues(rawData: RawDatum[], xField: string, yField: string): DatumValue[] {
-  const categoryField = xField
-  const measureField = yField
-  return rawData.map((row, idx) => {
-    const targetRaw = row[categoryField] ?? `item_${idx}`
-    const valueRaw = row[measureField]
-    return {
-      category: categoryField,
-      measure: measureField,
-      target: String(targetRaw),
-      group: null,
-      value: Number(valueRaw),
-      id: row.id != null ? String(row.id) : String(idx),
-    }
-  })
 }
 
 function writeDatasetAttrs(
@@ -473,29 +440,6 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
       .attr(SvgAttributes.FontSize, 14)
       .text(resolvedYAxisLabel)
   }
-}
-
-/** Resolve chart context (svg, group, margins, fields) for a container. */
-function getContext(container: HTMLElement): ChartContext {
-  return getChartContext(container, { preferPlotArea: true })
-}
-
-function toWorkingDatumValues(container: HTMLElement, vlSpec: SimpleBarSpec) {
-  const raw = localDataStore.get(container) || []
-  const { xField, yField } = getContext(container)
-  return toDatumValues(raw, xField || vlSpec.encoding.x.field, yField || vlSpec.encoding.y.field)
-}
-
-type OpsSpecInput = { ops?: OperationSpec[] } | OperationSpec[] | null | undefined
-
-function normalizeOpsList(opsSpec: OpsSpecInput): OperationSpec[] {
-  if (!opsSpec) return []
-  if (Array.isArray(opsSpec)) return opsSpec
-  if (typeof opsSpec === 'object' && Array.isArray((opsSpec as { ops?: JsonValue }).ops)) {
-    return (opsSpec as { ops: OperationSpec[] }).ops
-  }
-  if (typeof opsSpec === 'object') return [opsSpec as OperationSpec]
-  return []
 }
 
 export function getSimpleBarStoredData(container: HTMLElement) {

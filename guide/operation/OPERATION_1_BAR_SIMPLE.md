@@ -64,9 +64,9 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 | `retrieveValue` | `target` | `field`, `group`, `visual.*` | `DatumValue[]` | **Simple Bar는 자동 draw(하이라이트+텍스트)** |
 | `filter` | `operator`, `value` | `field`, `group` | `DatumValue[]` | `operator="between"`은 `value:[start,end]` 필요 |
 | `findExtremum` | `which` | `field`, `group` | `DatumValue[]`(길이 0~1) | `which`가 `min`이면 최소, 그 외는 최대 |
-| `determineRange` | - | `field`, `group` | `{category,min,max}` | measure면 값 범위, category면 날짜/ordinal 범위 |
+| `determineRange` | - | `field`, `group` | `DatumValue[]`(길이 2) | `__min__`, `__max__` 두 datum 반환 |
 | `compare` | `targetA`, `targetB` | `field`, `groupA/groupB`, `aggregate`, `which` | `DatumValue[]`(길이 1) | 못 찾으면 throw |
-| `compareBool` | `targetA`, `targetB`, `operator` | `field`, `groupA/groupB` | `BoolValue` | 못 찾으면 throw |
+| `compareBool` | `targetA`, `targetB`, `operator` | `field`, `groupA/groupB` | `DatumValue[]`(스칼라 1개) | value는 `1`(true) 또는 `0`(false) |
 | `sort` | - | `field`, `order`(`asc`), `group` | `DatumValue[]` | field가 measure면 value 기준 정렬 |
 | `count` | - | `group` | `DatumValue[]`(스칼라 1개) | `target="__count__"` |
 | `sum` | - | `field`, `group` | `DatumValue[]`(스칼라 1개) | `target="__sum__"` |
@@ -137,6 +137,9 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ```json
 { "op": "determineRange", "field": "rating" }
 ```
+반환은 아래처럼 2개의 datum입니다.
+- `target="__min__"`: 최소값
+- `target="__max__"`: 최대값
 
 ### 4.5 compare / compareBool
 **목표**: 두 target을 비교합니다.
@@ -150,6 +153,7 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ```json
 { "op": "compareBool", "field": "rating", "targetA": "KOR", "targetB": "USA", "operator": ">" }
 ```
+반환은 `DatumValue[]`(길이 1)이며 `value`가 `1`이면 true, `0`이면 false 입니다.
 
 ### 4.6 sort
 **목표**: datum을 정렬합니다(기본 asc).

@@ -1,61 +1,20 @@
 import type { DatumValue, OperationSpec } from '../../types'
 import { OperationOp } from '../../types'
 import { renderSimpleLineChart, type LineSpec, getSimpleLineStoredData, tagSimpleLineMarks } from './simpleLineRenderer'
-import {
-  retrieveValue,
-  filterData,
-  findExtremum,
-  determineRange,
-  compareOp,
-  compareBoolOp,
-  sortData,
-  sumData,
-  averageData,
-  diffData,
-  lagDiffData,
-  nthData,
-  countData,
-} from '../../logic/dataOps'
-import { DrawAction } from '../draw/types'
+import { STANDARD_DATA_OP_HANDLERS } from '../ops/common/dataHandlers'
+import { toDatumValuesFromRaw } from '../ops/common/datum'
+import { executeDataOperation } from '../ops/common/executeDataOp'
+import { normalizeOpsList } from '../ops/common/opsSpec'
+import { DrawAction, type DrawOp } from '../draw/types'
 import { SimpleLineDrawHandler } from '../draw/line/SimpleLineDrawHandler'
 import { clearAnnotations } from '../common/d3Helpers'
 import { SvgElements } from '../interfaces'
 import * as d3 from 'd3'
-
-const OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec, container?: HTMLElement) => DatumValue[] | any> = {
-  [OperationOp.RetrieveValue]: retrieveValue,
-  [OperationOp.Filter]: filterData,
-  [OperationOp.FindExtremum]: findExtremum,
-  [OperationOp.DetermineRange]: determineRange,
-  [OperationOp.Compare]: compareOp,
-  [OperationOp.CompareBool]: compareBoolOp,
-  [OperationOp.Sort]: sortData,
-  [OperationOp.Sum]: sumData,
-  [OperationOp.Average]: averageData,
-  [OperationOp.Diff]: diffData,
-  [OperationOp.LagDiff]: lagDiffData,
-  [OperationOp.Nth]: nthData,
-  [OperationOp.Count]: countData,
-  [OperationOp.Draw]: (data, op, container) => handleDraw(container, data, op as DrawOp),
-}
+import { runSleepDraw } from '../ops/common/sleepDraw'
 
 type DrawSelect = { by?: 'key' | 'mark'; keys?: string[]; mark?: string }
-type DrawOp = OperationSpec & {
-  action?: DrawAction
-  select?: DrawSelect
-  style?: { color?: string; opacity?: number }
-  chartId?: string
-}
-
 function toDatumValues(rawData: any[], xField: string, yField: string): DatumValue[] {
-  return rawData.map((row, idx) => ({
-    category: xField,
-    measure: yField,
-    target: String(row[xField] ?? `item_${idx}`),
-    group: null,
-    value: Number(row[yField]),
-    id: row.id != null ? String(row.id) : String(idx),
-  }))
+  return toDatumValuesFromRaw(rawData as any, { xField, yField })
 }
 
 function handleDraw(container: HTMLElement | undefined, data: DatumValue[], op: DrawOp) {
@@ -95,13 +54,21 @@ export async function runSimpleLineOps(container: HTMLElement, vlSpec: LineSpec,
   const xField = vlSpec.encoding.x.field
   const yField = vlSpec.encoding.y.field
   const base = toDatumValues(raw, xField, yField)
-  const opsArray = Array.isArray(opsSpec) ? opsSpec : Array.isArray(opsSpec?.ops) ? opsSpec.ops : []
-  let working: any = base
+  const opsArray = normalizeOpsList(opsSpec as any)
+  let working: DatumValue[] = base
   for (const op of opsArray) {
-    const handler = OP_HANDLERS[op.op ?? '']
-    if (!handler) continue
-    working = handler(Array.isArray(working) ? working : base, { ...op, container }, container)
+    if (op.op === OperationOp.Draw) {
+      const drawOp = op as DrawOp
+      if (drawOp.action === DrawAction.Sleep) {
+        await runSleepDraw(drawOp.sleep)
+        continue
+      }
+      handleDraw(container, working, drawOp)
+      continue
+    }
+    const executed = executeDataOperation(working, op, STANDARD_DATA_OP_HANDLERS)
+    if (!executed) continue
+    working = executed.result
   }
   return working
 }
-

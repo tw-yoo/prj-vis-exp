@@ -1,4 +1,4 @@
-import type { BoolValue, DatumValue, JsonPrimitive, JsonValue, OperationSpec, TargetSelector } from '../types'
+import type { DatumValue, JsonPrimitive, JsonValue, OperationSpec, TargetSelector } from '../types'
 
 // ---------------------------------------------------------------------------
 // Shared helpers (ported from dataOpsCore.js)
@@ -328,12 +328,6 @@ function makeScalarDatum(
   ]
 }
 
-const makeBoolValue = (category: string | null, bool: boolean, id?: string | null): BoolValue => ({
-  category,
-  bool,
-  id: id ?? null,
-})
-
 // ---------------------------------------------------------------------------
 // Operations (ported from lineChartOperationFunctions.js)
 // ---------------------------------------------------------------------------
@@ -402,9 +396,9 @@ export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   return [chosen]
 }
 
-/** 3.4 compareBool — returns BoolValue object */
-/** Op 3.4: compare two targets; return BoolValue result. */
-export function compareBoolOp(data: DatumValue[], op: OperationSpec): BoolValue {
+/** 3.4 compareBool — returns a scalar DatumValue[] (value: 1 or 0) */
+/** Op 3.4: compare two targets; return a numeric boolean result. */
+export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
   const { field, targetA, targetB, groupA, groupB, operator } = op
   const gA = groupA ?? op.group
@@ -418,7 +412,11 @@ export function compareBoolOp(data: DatumValue[], op: OperationSpec): BoolValue 
   const vA = aggregate(sA.map((d) => d.value), undefined)
   const vB = aggregate(sB.map((d) => d.value), undefined)
   const boolResult = evalOperator(operator, vA, vB)
-  return makeBoolValue(field || 'value', boolResult)
+  const fieldLabel = field || 'value'
+  const groupLabel = op.group ?? gA ?? gB ?? null
+  const detail = [formatTargetLabel(targetA), formatTargetLabel(targetB)].filter(Boolean).join(' vs ')
+  const name = formatResultName('CompareBool', fieldLabel, { group: groupLabel, detail })
+  return makeScalarDatum(fieldLabel, groupLabel, 'bool', '__compareBool__', boolResult ? 1 : 0, name)
 }
 
 /** 3.5 findExtremum */
@@ -469,39 +467,51 @@ export function sortData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 export function determineRange(
   data: DatumValue[],
   op: OperationSpec,
-): { category: string; min: number; max: number } {
+): DatumValue[] {
   const arr = cloneData(data)
   const { field, group } = op
   const byGroup = sliceByGroup(arr, group ?? null)
   const kind = inferFieldKind(byGroup, field) || 'measure'
   const inField = byGroup.filter(predicateByField(field, kind))
-  if (inField.length === 0) return { category: field || 'value', min: NaN, max: NaN }
+  const fieldLabel = field || (kind === 'measure' ? 'value' : 'target')
+  const groupLabel = group ?? null
+  const nameMin = formatResultName('RangeMin', fieldLabel, { group: groupLabel })
+  const nameMax = formatResultName('RangeMax', fieldLabel, { group: groupLabel })
+  if (inField.length === 0) {
+    return [
+      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', NaN, nameMin),
+      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', NaN, nameMax),
+    ]
+  }
 
   if (kind === 'measure') {
     const vals = inField.map((d) => d.value)
-    return {
-      category: field || 'value',
-      min: roundNumeric(Math.min(...vals)),
-      max: roundNumeric(Math.max(...vals)),
-    }
+    const min = roundNumeric(Math.min(...vals))
+    const max = roundNumeric(Math.max(...vals))
+    return [
+      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
+      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
+    ]
   }
   // category range: try date range, else lexicographic ordinal range as indices
   const targets = inField.map((d) => d.target)
   const parsed = targets.map((t) => Date.parse(t))
   if (parsed.every((ts) => !Number.isNaN(ts))) {
-    return {
-      category: field || 'target',
-      min: roundNumeric(Math.min(...parsed)),
-      max: roundNumeric(Math.max(...parsed)),
-    }
+    const min = roundNumeric(Math.min(...parsed))
+    const max = roundNumeric(Math.max(...parsed))
+    return [
+      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
+      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
+    ]
   }
   // ordinal index range
   const uniq = Array.from(new Set(targets)).sort(cmpStrAsc)
-  return {
-    category: field || 'target',
-    min: roundNumeric(0),
-    max: roundNumeric(Math.max(0, uniq.length - 1)),
-  }
+  const min = roundNumeric(0)
+  const max = roundNumeric(Math.max(0, uniq.length - 1))
+  return [
+    ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
+    ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
+  ]
 }
 
 /** 3.8 count — returns a single numeric DatumValue */

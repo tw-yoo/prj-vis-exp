@@ -6,8 +6,8 @@ import lineSimpleSpecRaw from '../data/test/spec/line_simple.json?raw'
 import type { JsonValue, OperationSpec } from './types'
 import { renderChart as renderChartDispatch, runChartOps } from './renderer/renderChart'
 
-// const vlSpecPlaceholder = barSimpleSpecRaw
-const vlSpecPlaceholder = lineSimpleSpecRaw
+const vlSpecPlaceholder = barSimpleSpecRaw
+// const vlSpecPlaceholder = lineSimpleSpecRaw
 
 function App() {
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
@@ -122,10 +122,8 @@ function App() {
   }
 
   const handleRunOperations = async () => {
-    if (!chartRef.current) {
-      alert('Chart container is not ready.')
-      return
-    }
+    if (!chartRef.current) { alert('Chart container is not ready.'); return }
+
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
     await renderChart(specString)
 
@@ -138,12 +136,10 @@ function App() {
           : parsed && typeof parsed === 'object'
             ? ([parsed as OperationSpec] as OperationSpec[])
             : []
-      if (!arrayForm.length) {
-        alert('No operations found.')
-        setPendingOps(null)
-        return
-      }
-      setPendingOps(arrayForm)
+
+      if (!arrayForm.length) { alert('No operations found.'); setPendingOps(null); return}
+      setPendingOps(arrayForm);
+
     } catch (error) {
       console.error('Failed to parse Operations spec', error)
       alert('Invalid Operations JSON')
@@ -155,16 +151,18 @@ function App() {
     if (!chartRef.current) return
     const opsArray = pendingOps ?? []
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
-    let parsedVl: any
+    let parsedVlSpec: any
+
     try {
-      parsedVl = JSON.parse(specString)
+      parsedVlSpec = JSON.parse(specString)
     } catch (error) {
       console.error('Failed to parse Vega-Lite spec for operations', error)
       alert('Invalid Vega-Lite JSON')
       return
     }
+
     try {
-      await runChartOps(chartRef.current, parsedVl, { ops: opsArray })
+      await runChartOps(chartRef.current, parsedVlSpec, { ops: opsArray })
     } catch (error) {
       console.error('Run Operations failed', error)
       alert('Failed to run operations. Check the console for details.')

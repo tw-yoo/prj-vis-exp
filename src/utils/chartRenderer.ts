@@ -40,7 +40,6 @@ export const ChartType = Object.freeze({
   SIMPLE_BAR: 'Simple bar chart',
   STACKED_BAR: 'Stacked bar chart',
   GROUPED_BAR: 'Grouped bar chart',
-  MULTIPLE_BAR: 'Multiple bar chart',
   SIMPLE_LINE: 'Simple line chart',
   MULTI_LINE: 'Multi line chart',
 })
@@ -135,7 +134,8 @@ export function getChartType(spec: VegaLiteSpec): ChartTypeValue | null {
     const hasColor = !!encoding.color
 
     if (hasFacet) {
-      return ChartType.MULTIPLE_BAR
+      // Faceted bar views are treated as grouped/multi-series bars in this app.
+      return ChartType.GROUPED_BAR
     }
 
     const isSingleSeriesColor =

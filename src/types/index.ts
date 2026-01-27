@@ -26,18 +26,24 @@ export interface DatumValue {
   series?: string | null
 }
 
-export interface IntervalValue {
-  category: string | null
-  min: number
-  max: number
-  id?: string | null
-}
-
-export interface BoolValue {
-  category: string | null
-  bool: boolean
-  id?: string | null
-}
+/*
+ * Legacy result shapes (deprecated)
+ * --------------------------------
+ * We previously returned non-datum result types for some operations, but the
+ * current system assumes operations return `DatumValue[]` only.
+ */
+// export interface IntervalValue {
+//   category: string | null
+//   min: number
+//   max: number
+//   id?: string | null
+// }
+//
+// export interface BoolValue {
+//   category: string | null
+//   bool: boolean
+//   id?: string | null
+// }
 
 export type TargetSelector =
   | string
@@ -91,7 +97,7 @@ export interface OperationSpec {
   absolute?: boolean
 }
 
-export type DataOpResult = DatumValue[] | BoolValue | IntervalValue
+export type DataOpResult = DatumValue[]
 
 export { OperationOp } from './operationNames'
 export type { OperationOp as OperationOpType } from './operationNames'

@@ -21,6 +21,7 @@ export const DrawAction = {
   Unsplit: 'unsplit',
   Sort: 'sort',
   Filter: 'filter',
+  Sleep: 'sleep',
 } as const
 export type DrawAction = (typeof DrawAction)[keyof typeof DrawAction]
 
@@ -126,4 +127,7 @@ export type DrawOp = OperationSpec & {
   split?: DrawSplitSpec
   sort?: DrawSortSpec
   filter?: DrawFilterSpec
+  sleep?: { seconds?: number; duration?: number }
 }
+
+export type DrawSleepSpec = { seconds?: number; duration?: number }

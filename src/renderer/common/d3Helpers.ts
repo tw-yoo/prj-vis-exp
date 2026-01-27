@@ -342,11 +342,11 @@ export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve
 function selectPlotGroup(svg: D3Selection, preferPlotArea = true): D3Selection {
   if (!svg || typeof (svg as any).select !== 'function') return d3.select(null) as unknown as D3Selection
   if (preferPlotArea) {
-    const plot = svg.select('.plot-area')
+    const plot = svg.select(SvgSelectors.PlotArea)
     if (!plot.empty()) return plot as unknown as D3Selection
   }
   const g = svg.select(SvgElements.Group)
-  return (g.empty() ? svg.select('.plot-area') : g) as unknown as D3Selection
+  return (g.empty() ? svg.select(SvgSelectors.PlotArea) : g) as unknown as D3Selection
 }
 
 export type ChartContext = {
@@ -426,8 +426,8 @@ export function ensureXAxisLabelClearance(chartId: string, opts: { attempts?: nu
       if (!container) return
       const svg = container.querySelector('svg')
       if (!svg) return
-      const xTitle = svg.querySelector('.x-axis-label') as SVGTextElement | null
-      const xAxis = svg.querySelector('.x-axis') as SVGGElement | null
+      const xTitle = svg.querySelector(SvgSelectors.XAxisLabelText) as SVGTextElement | null
+      const xAxis = svg.querySelector(SvgSelectors.XAxisGroup) as SVGGElement | null
       if (xTitle && xAxis) {
         const titleRect = xTitle.getBoundingClientRect()
         const axisRect = xAxis.getBoundingClientRect()
@@ -439,8 +439,8 @@ export function ensureXAxisLabelClearance(chartId: string, opts: { attempts?: nu
           }
         }
       }
-      const yTitle = svg.querySelector('.y-axis-label') as SVGTextElement | null
-      const yAxis = svg.querySelector('.y-axis') as SVGGElement | null
+      const yTitle = svg.querySelector(SvgSelectors.YAxisLabelText) as SVGTextElement | null
+      const yAxis = svg.querySelector(SvgSelectors.YAxisGroup) as SVGGElement | null
       if (yTitle && yAxis) {
         const titleRect = yTitle.getBoundingClientRect()
         const axisRect = yAxis.getBoundingClientRect()

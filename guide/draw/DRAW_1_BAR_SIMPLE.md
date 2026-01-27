@@ -18,6 +18,7 @@
 | `unsplit` | - | - | split 해제 |
 | `sort` | - | `by`(`y`), `order`(`asc`) | 정렬 |
 | `filter` | - | `x.include/exclude`, `y.op`, `y.value` | include → exclude → y 비교 |
+| `sleep` | `sleep.seconds` | `sleep.duration`(초) | 다음 draw/data operation이 실행되기 전까지 지정 시간만큼 기다립니다 |
 
 선택 대상 기본값: `select.mark = "rect"`, 키 매칭 대상은 `data-id`, `data-target`(x), `data-value`(y), `data-series`, `id`.
 
@@ -141,6 +142,18 @@
   "line": { "mode": "hline-y", "hline": { "y": 65 }, "style": { "stroke": "#f59e0b", "strokeWidth": 2 } }
 }
 ```
+
+### sleep (timing control)
+
+```json
+{
+  "op": "draw",
+  "action": "sleep",
+  "sleep": { "seconds": 2 }
+}
+```
+
+`sleep`은 화면 자체를 변경하지 않고 **해당 draw 항목 이후, 연속된 ops 리스트에서 다음 draw/data operation이 실행될 때까지 지정한 초만큼 기다립니다**. `seconds` 대신 `duration`으로 동일한 초를 제공할 수 있습니다.
 
 ### filter
 ```json

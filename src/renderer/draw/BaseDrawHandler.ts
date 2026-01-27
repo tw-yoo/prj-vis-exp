@@ -13,6 +13,8 @@ import {
   type DrawSelect,
   type DrawTextMode,
 } from './types'
+import { toSvgCenter as toSvgCenterUtil } from './utils/coords'
+import { ensureAnnotationLayer } from './utils/annotationLayer'
 
 export abstract class BaseDrawHandler {
   protected container: HTMLElement
@@ -23,28 +25,7 @@ export abstract class BaseDrawHandler {
 
   /** Center of an element in SVG coordinates. Falls back to boundingClientRect if CTM is unavailable. */
   protected toSvgCenter(el: Element, svgNode: SVGSVGElement) {
-    const gEl = el as SVGGraphicsElement
-    const bbox = gEl.getBBox ? gEl.getBBox() : null
-    const elCtm = gEl.getScreenCTM ? gEl.getScreenCTM() : null
-    const svgCtm = svgNode.getScreenCTM ? svgNode.getScreenCTM() : null
-    if (bbox && elCtm && svgCtm) {
-      const pt = svgNode.createSVGPoint()
-      pt.x = bbox.x + bbox.width / 2
-      pt.y = bbox.y + bbox.height / 2
-      const screenPt = pt.matrixTransform(elCtm)
-      const svgPt = screenPt.matrixTransform(svgCtm.inverse())
-      return { x: svgPt.x, y: svgPt.y }
-    }
-    // fallback
-    const svgRect = svgNode.getBoundingClientRect()
-    const elRect = gEl.getBoundingClientRect()
-    const viewBox = svgNode.viewBox?.baseVal
-    const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
-    const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
-    return {
-      x: (viewBox?.x ?? 0) + (elRect.left - svgRect.left + elRect.width / 2) * scaleX,
-      y: (viewBox?.y ?? 0) + (elRect.top - svgRect.top + elRect.height / 2) * scaleY,
-    }
+    return toSvgCenterUtil(el, svgNode)
   }
 
   protected abstract selectElements(
@@ -178,6 +159,8 @@ export abstract class BaseDrawHandler {
 
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
+    const svgNode = svg.node() as SVGSVGElement | null
+    if (!svgNode) return
 
     const mode: DrawTextMode =
       textSpec?.mode ?? (op.select?.keys?.length ? DrawTextModes.Anchor : DrawTextModes.Normalized)
@@ -186,21 +169,21 @@ export abstract class BaseDrawHandler {
 
     const style = textSpec?.style
 
-      const resolveTextValue = (el?: Element) => {
-        if (typeof value === 'string') return value
-        if (!el) return null
-        const candidates = [
-          el.getAttribute(DataAttributes.Id),
-          el.getAttribute(DataAttributes.Target),
-          el.getAttribute(DataAttributes.Value),
-          el.getAttribute(DataAttributes.Series),
-          el.id,
-        ].filter(Boolean) as string[]
-        for (const key of candidates) {
-          if (value[key] != null) return value[key]
-        }
-        return null
+    const resolveTextValue = (el?: Element) => {
+      if (typeof value === 'string') return value
+      if (!el) return null
+      const candidates = [
+        el.getAttribute(DataAttributes.Id),
+        el.getAttribute(DataAttributes.Target),
+        el.getAttribute(DataAttributes.Value),
+        el.getAttribute(DataAttributes.Series),
+        el.id,
+      ].filter(Boolean) as string[]
+      for (const key of candidates) {
+        if (value[key] != null) return value[key]
       }
+      return null
+    }
 
     if (mode === DrawTextModes.Anchor) {
       const selection = this.selectElements(op.select, op.chartId)
@@ -213,8 +196,9 @@ export abstract class BaseDrawHandler {
         const y = bbox.y + offsetY
         const textValue = resolveTextValue(el)
         if (!textValue) return
-        const parent = el.parentElement ? d3.select(el.parentElement) : svg
-        parent
+        const layerParent = el.parentElement ?? svgNode
+        const layer = d3.select(ensureAnnotationLayer(layerParent, op.chartId ?? null))
+        layer
           .append(SvgElements.Text)
           .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
           .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -238,8 +222,6 @@ export abstract class BaseDrawHandler {
         console.warn('draw:text requires text.position when mode=normalized', op)
         return
       }
-      const svgNode = svg.node() as SVGSVGElement | null
-      if (!svgNode) return
       const viewBox = svgNode.viewBox?.baseVal
       const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
       const height = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
@@ -252,7 +234,8 @@ export abstract class BaseDrawHandler {
       const textValue = typeof value === 'string' ? value : null
       if (!textValue) return
 
-      svg
+      const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
+      layer
         .append(SvgElements.Text)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -278,6 +261,7 @@ export abstract class BaseDrawHandler {
 
     const svgNode = svg.node() as SVGSVGElement | null
     if (!svgNode) return
+    const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
     const viewBox = svgNode.viewBox?.baseVal
     const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
     const height = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
@@ -483,7 +467,7 @@ export abstract class BaseDrawHandler {
         // 2) Vega-Lite axes often use role/aria-label / role-axis-label classes; capture them (y-axis only)
         if (!tickInfos.length) {
           scope
-            .selectAll<SVGTextElement, any>('text, .role-axis-label')
+            .selectAll<SVGTextElement, any>(SvgSelectors.VegaAxisLabelCandidates)
             .filter(function () {
               const el = this as SVGTextElement
               const cls = (el.getAttribute('class') || '').toLowerCase()
@@ -546,15 +530,6 @@ export abstract class BaseDrawHandler {
           }))
           tickSource = 'marks'
         }
-        // Debug: log inputs for rect axis.y (especially for line charts)
-        // eslint-disable-next-line no-console
-        console.log('[draw:rect][axis.y] tickInfos', {
-          chartId: op.chartId,
-          source: tickSource,
-          yValues,
-          tickCount: tickInfos.length,
-          samples: tickInfos.slice(0, 5),
-        })
         if (!tickInfos.length) return
         tickInfos.sort((a, b) => a.value - b.value)
         const paddingX = 4 * scaleX
@@ -621,8 +596,6 @@ export abstract class BaseDrawHandler {
             y: pos.y - bandHeight / 2 - paddingY,
             height: bandHeight + paddingY * 2,
           }
-          // eslint-disable-next-line no-console
-          console.log('[draw:rect][axis.y] single', { y: yValues[0], pos, axisRect })
         } else if (yValues.length === 2) {
           const posA = mapYValue(yValues[0])
           const posB = mapYValue(yValues[1])
@@ -639,8 +612,6 @@ export abstract class BaseDrawHandler {
             y: yTop - paddingY,
             height: yBottom - yTop + paddingY * 2,
           }
-          // eslint-disable-next-line no-console
-          console.log('[draw:rect][axis.y] range', { yValues, posA, posB, axisRect })
         } else {
           console.warn('draw:rect axis.y supports 1 or 2 values', op)
         }
@@ -650,9 +621,9 @@ export abstract class BaseDrawHandler {
         centerY = axisRect.y + axisRect.height / 2
         const rectWidth = axisRect.width
         const rectHeight = axisRect.height
-      const x = axisRect.x
-      const y = axisRect.y
-      svg
+        const x = axisRect.x
+        const y = axisRect.y
+        layer
           .append(SvgElements.Rect)
           .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
           .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -666,7 +637,7 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.StrokeWidth, rectSpec.style?.strokeWidth ?? 1)
 
         if (axis.y != null && missingYLabel === true && missingLabelText) {
-          svg
+          layer
             .append(SvgElements.Text)
             .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
             .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -697,7 +668,7 @@ export abstract class BaseDrawHandler {
     const x = centerX - rectWidth / 2
     const y = centerY - rectHeight / 2
 
-    svg
+    layer
       .append(SvgElements.Rect)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
       .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -719,22 +690,11 @@ export abstract class BaseDrawHandler {
 
     const svgNode = svg.node() as SVGSVGElement | null
     if (!svgNode) return
+    const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
     const viewBox = svgNode.viewBox?.baseVal
     const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
     const height = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return
-
-    const toSvgCenter = (el: Element) => {
-      const svgRect = svgNode.getBoundingClientRect()
-      const elRect = el.getBoundingClientRect()
-      const viewBox = svgNode.viewBox?.baseVal
-      const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
-      const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
-      return {
-        x: (elRect.left - svgRect.left + elRect.width / 2) * scaleX,
-        y: (elRect.top - svgRect.top + elRect.height / 2) * scaleY,
-      }
-    }
 
     const scope = this.selectScope(op.chartId)
     const mapY = this.yValueToSvgY(scope, svgNode)
@@ -758,7 +718,7 @@ export abstract class BaseDrawHandler {
       const dx = Math.cos(rad) * lengthPx
       const dy = Math.sin(rad) * lengthPx
 
-      svg
+      layer
         .append(SvgElements.Line)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -794,7 +754,7 @@ export abstract class BaseDrawHandler {
       const a = pointFor(xA)
       const b = pointFor(xB)
       if (!a || !b) return
-      svg
+      layer
         .append(SvgElements.Line)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -841,7 +801,7 @@ export abstract class BaseDrawHandler {
       }
 
       if (y == null) return
-      svg
+      layer
         .append(SvgElements.Line)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)

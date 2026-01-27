@@ -31,6 +31,7 @@ export type SvgElementTag = (typeof SvgElements)[keyof typeof SvgElements]
 
 export const SvgAttributes = {
   Class: 'class',
+  D: 'd',
   X: 'x',
   Y: 'y',
   X1: 'x1',

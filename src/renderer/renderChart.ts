@@ -91,7 +91,6 @@ export async function renderChart(container: HTMLElement, spec: VegaLiteSpec) {
     case 'Stacked bar chart':
       return renderStackedBarChart(container, normalized as any)
     case 'Grouped bar chart':
-    case 'Multiple bar chart':
       return renderGroupedBarChart(container, normalized as any)
     case 'Simple line chart':
       return renderSimpleLineChart(container, normalized as any)
@@ -104,14 +103,15 @@ export async function renderChart(container: HTMLElement, spec: VegaLiteSpec) {
 }
 
 export async function runChartOps(container: HTMLElement, spec: VegaLiteSpec, opsSpec: any) {
+
   const chartType = getChartType(spec)
   const normalized = normalizeSpec(spec)
+
   switch (chartType) {
     case ChartType.SIMPLE_BAR:
       return runSimpleBarOps(container, normalized as any, opsSpec)
     case ChartType.STACKED_BAR:
       return runStackedBarOps(container, normalized as any, opsSpec)
-    case ChartType.MULTIPLE_BAR:
     case ChartType.GROUPED_BAR:
       return runGroupedBarOps(container, normalized as any, opsSpec)
     case ChartType.SIMPLE_LINE:

@@ -1,107 +1,24 @@
 // @ts-nocheck
-import type { DatumValue, OperationSpec } from '../../types'
-import { OperationOp } from '../../types'
 import * as d3 from 'd3'
-import {
-  retrieveValue,
-  filterData,
-  findExtremum,
-  determineRange,
-  compareOp,
-  compareBoolOp,
-  sortData,
-  sumData,
-  averageData,
-  diffData,
-  lagDiffData,
-  nthData,
-  countData,
-} from '../../logic/dataOps'
+import type { DatumValue } from '../../types'
+import { OperationOp } from '../../types'
+import { STANDARD_DATA_OP_HANDLERS } from '../ops/common/dataHandlers'
+import { toDatumValuesFromRaw } from '../ops/common/datum'
+import { executeDataOperation } from '../ops/common/executeDataOp'
+import { normalizeOpsList } from '../ops/common/opsSpec'
 import { clearAnnotations } from '../common/d3Helpers'
-import { DataAttributes, SvgAttributes, SvgElements } from '../interfaces'
-import { DrawAction } from '../draw/types'
 import { runGenericDraw } from '../draw/genericDraw'
+import { GroupedBarDrawHandler } from '../draw/bar/GroupedBarDrawHandler'
+import { DrawAction, type DrawOp as DrawOpType } from '../draw/types'
+import { SvgElements } from '../interfaces'
 import { renderGroupedBarChart, type GroupedSpec, getGroupedBarStoredData } from './groupedBarRenderer'
+import { runSleepDraw } from '../ops/common/sleepDraw'
 
-const OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec, container?: HTMLElement) => DatumValue[] | any> = {
-  [OperationOp.RetrieveValue]: retrieveValue,
-  [OperationOp.Filter]: filterData,
-  [OperationOp.FindExtremum]: findExtremum,
-  [OperationOp.DetermineRange]: determineRange,
-  [OperationOp.Compare]: compareOp,
-  [OperationOp.CompareBool]: compareBoolOp,
-  [OperationOp.Sort]: sortData,
-  [OperationOp.Sum]: sumData,
-  [OperationOp.Average]: averageData,
-  [OperationOp.Diff]: diffData,
-  [OperationOp.LagDiff]: lagDiffData,
-  [OperationOp.Nth]: nthData,
-  [OperationOp.Count]: countData,
-  [OperationOp.Draw]: (data, op, container) => {
-    const result = handleDraw(container, data, op as DrawOp)
-    runGenericDraw(container!, op as any)
-    return result
-  },
-}
-
-type DrawSelect = { by?: 'key' | 'mark'; keys?: string[]; mark?: string }
-type DrawOp = OperationSpec & {
-  action?: DrawAction
-  select?: DrawSelect
-  style?: { color?: string; opacity?: number }
-}
-
-function toDatumValues(rawData: any[], xField: string, yField: string, colorField?: string): DatumValue[] {
-  return rawData.map((row, idx) => ({
-    category: xField,
-    measure: yField,
-    target: String(row[xField] ?? `item_${idx}`),
-    group: colorField ? row[colorField] ?? null : null,
-    value: Number(row[yField]),
-    id: row.id != null ? String(row.id) : String(idx),
-  }))
-}
-
-function selectElements(container: HTMLElement, select: DrawSelect | undefined) {
-  const svg = d3.select(container).select(SvgElements.Svg) as any
-  const mark = select?.mark || SvgElements.Rect
-  if (!select?.keys || !select.keys.length) return svg.selectAll<SVGElement, any>(mark) as any
-  const keySet = new Set(select.keys.map(String))
-  return (svg as any)
-    .selectAll<SVGElement, any>(mark)
-    .filter(function () {
-      const target =
-        (this as Element).getAttribute(DataAttributes.Target) || (this as Element).getAttribute(DataAttributes.Id)
-      return target != null && keySet.has(String(target))
-    }) as any
-}
-
-function handleDraw(container: HTMLElement | undefined, data: DatumValue[], op: DrawOp) {
-  if (!container) return data
-  const selection = selectElements(container, op.select)
-  const allRects = d3.select(container).select(SvgElements.Svg).selectAll<SVGRectElement, unknown>(SvgElements.Rect)
-
-  switch (op.action) {
-    case DrawAction.Clear:
-      allRects.attr(SvgAttributes.Fill, null).attr(SvgAttributes.Opacity, 1)
-      clearAnnotations(d3.select(container).select(SvgElements.Svg))
-      return data
-    case DrawAction.Highlight: {
-      const color = op.style?.color || '#ef4444'
-      selection.attr(SvgAttributes.Fill, color).attr(SvgAttributes.Opacity, 1)
-      return data
-    }
-    case DrawAction.Dim: {
-      const opacity = op.style?.opacity ?? 0.25
-      const selectedNodes = new Set(selection.nodes())
-      allRects.attr(SvgAttributes.Opacity, function () {
-        return selectedNodes.has(this as any) ? 1 : opacity
-      })
-      return data
-    }
-    default:
-      console.warn('draw: unsupported action', op.action, op)
-  }
+function handleDraw(container: HTMLElement | undefined, data: DatumValue[], op: DrawOpType) {
+  if (!container || !op.action) return data
+  const handler = new GroupedBarDrawHandler(container)
+  handler.run(op as any)
+  runGenericDraw(container, op as any)
   return data
 }
 
@@ -111,15 +28,24 @@ export async function runGroupedBarOps(container: HTMLElement, vlSpec: GroupedSp
   const xField = vlSpec.encoding.x.field
   const yField = vlSpec.encoding.y.field
   const colorField = vlSpec.encoding.color?.field
-  const base = toDatumValues(raw, xField, yField, colorField)
-  const opsArray = Array.isArray(opsSpec) ? opsSpec : Array.isArray(opsSpec?.ops) ? opsSpec.ops : []
-  let working: any = base
-  for (const op of opsArray) {
-    const handler = OP_HANDLERS[op.op ?? '']
-    if (!handler) continue
-    working = handler(Array.isArray(working) ? working : base, { ...op, container }, container)
+  const base = toDatumValuesFromRaw(raw as any, { xField, yField, groupField: colorField })
+  const opsArray = normalizeOpsList(opsSpec as any)
+  let working: DatumValue[] = base
+  for (let index = 0; index < opsArray.length; index += 1) {
+    const op = opsArray[index]
+    if (op.op === OperationOp.Draw) {
+      const drawOp = op as DrawOpType
+      if (drawOp.action === DrawAction.Sleep) {
+        await runSleepDraw(drawOp.sleep)
+        continue
+      }
+      handleDraw(container, working, drawOp)
+      continue
+    }
+    const executed = executeDataOperation(working, op, STANDARD_DATA_OP_HANDLERS)
+    if (!executed) continue
+    working = executed.result
   }
   clearAnnotations(d3.select(container).select(SvgElements.Svg))
   return working
 }
-

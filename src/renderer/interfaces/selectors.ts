@@ -2,6 +2,8 @@ import { DataAttributes, SvgElements } from './attributes'
 
 export const SvgClassNames = {
   Annotation: 'annotation',
+  AnnotationLayer: 'annotation-layer',
+  PlotArea: 'plot-area',
   Guideline: 'guideline',
   LabelBackground: 'label-bg',
   ValueLine: 'value-line',
@@ -23,6 +25,11 @@ export type SvgClassName = (typeof SvgClassNames)[keyof typeof SvgClassNames]
 
 export const SvgSelectors = {
   SvgRoot: SvgElements.Svg,
+  PlotArea: `.${SvgClassNames.PlotArea}`,
+  XAxisGroup: `.${SvgClassNames.XAxis}`,
+  YAxisGroup: `.${SvgClassNames.YAxis}`,
+  XAxisLabelText: `.${SvgClassNames.XAxisLabel}`,
+  YAxisLabelText: `.${SvgClassNames.YAxisLabel}`,
   XAxisText: `.${SvgClassNames.XAxis} ${SvgElements.Text}`,
   YAxisText: `.${SvgClassNames.YAxis} ${SvgElements.Text}`,
   XAxisTicks: `.${SvgClassNames.XAxis} .${SvgClassNames.Tick}`,
@@ -30,6 +37,8 @@ export const SvgSelectors = {
   ChartGroup: `[${DataAttributes.ChartId}]`,
   DataTargets: `[${DataAttributes.Target}], [${DataAttributes.Id}], [${DataAttributes.Value}]`,
   MainBars: `${SvgElements.Rect}.${SvgClassNames.MainBar}`,
+  VegaRoleAxisLabelText: '.role-axis-label text, text.role-axis-label',
+  VegaAxisLabelCandidates: 'text, .role-axis-label',
 } as const
 
 export type SvgSelector = (typeof SvgSelectors)[keyof typeof SvgSelectors]
