@@ -2,12 +2,7 @@ import { useEffect, useRef } from 'react'
 
 type RenderFn<TSpec, TOps, TResult> = (container: HTMLElement, vlSpec: TSpec, opsSpec: TOps) => Promise<TResult> | TResult
 
-/**
- * React hook to run an imperative chart renderer against a ref'd div.
- * Calls the provided renderFunction whenever vlSpec/opsSpec change.
- * Cleans up by clearing the container on unmount or re-run.
- */
-export function useChartRunner<TSpec    , TOps, TResult = void>(
+export function useChartRunner<TSpec, TOps, TResult = void>(
   vlSpec: TSpec,
   opsSpec: TOps,
   renderFunction: RenderFn<TSpec, TOps, TResult>,

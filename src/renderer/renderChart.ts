@@ -1,10 +1,15 @@
 import {ChartType, type VegaLiteSpec} from '../utils/chartRenderer'
 import { getChartType, renderVegaLiteChart } from '../utils/chartRenderer'
-import { renderSimpleBarChart, runSimpleBarOps } from './bar/simpleBarRenderer'
-import { renderStackedBarChart, runStackedBarOps } from './bar/stackedBarRenderer'
-import { renderGroupedBarChart, runGroupedBarOps } from './bar/groupedBarRenderer'
-import { renderSimpleLineChart, runSimpleLineOps } from './line/simpleLineRenderer'
-import { renderMultipleLineChart, runMultipleLineOps } from './line/multipleLineRenderer'
+import { renderSimpleBarChart } from './bar/simpleBarRenderer'
+import { renderStackedBarChart } from './bar/stackedBarRenderer'
+import { renderGroupedBarChart } from './bar/groupedBarRenderer'
+import { renderSimpleLineChart } from './line/simpleLineRenderer'
+import { renderMultipleLineChart } from './line/multipleLineRenderer'
+import { runSimpleBarOps } from './bar/simpleBarOps'
+import { runStackedBarOps } from './bar/stackedBarOps'
+import { runGroupedBarOps } from './bar/groupedBarOps'
+import { runSimpleLineOps } from './line/simpleLineOps'
+import { runMultipleLineOps } from './line/multipleLineOps'
 
 function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
   const clone: VegaLiteSpec = { ...spec }

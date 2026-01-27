@@ -1,11 +1,12 @@
 import type { DataOpResult, DatumValue, OperationSpec } from '../../types'
+import { OperationOp } from '../../types'
 import type { DrawOp } from '../draw/types'
 import { makeRuntimeKey, resetRuntimeResults, storeRuntimeResult } from '../../logic/dataOps'
 
 export type DataOpHandler = (data: DatumValue[], op: OperationSpec) => DataOpResult
 
 export function isDrawOp(op: OperationSpec): op is DrawOp {
-  return op.op === 'draw' || (op as DrawOp).action !== undefined
+  return op.op === OperationOp.Draw || (op as DrawOp).action !== undefined
 }
 
 export function splitOps(ops: OperationSpec[]) {

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import * as d3 from 'd3'
 import type { VegaLiteSpec } from '../../utils/chartRenderer'
-import type { DataOpResult, DatumValue, JsonValue, OperationSpec } from '../../types'
+import type { DatumValue, JsonValue, OperationSpec } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import {
   retrieveValue,
@@ -18,11 +18,8 @@ import {
   countData,
   determineRange,
 } from '../../logic/dataOps'
-import { runDataOps, runDrawOps, splitOps } from '../ops/operationPipeline'
 import { clearAnnotations, getChartContext, type ChartContext } from '../common/d3Helpers'
-import { BarDrawHandler } from '../draw/BarDrawHandler'
-import { DrawAction, type DrawSplitSpec } from '../draw/types'
-import { runGenericDraw } from '../draw/genericDraw'
+import { type DrawSplitSpec } from '../draw/types'
 
 type RawDatum = Record<string, JsonValue>
 
@@ -363,7 +360,7 @@ function normalizeSplitGroups(split: DrawSplitSpec, xDomain: Array<string | numb
   }
 }
 
-async function renderSplitSimpleBarChart(container: HTMLElement, spec: SimpleBarSpec, split: DrawSplitSpec) {
+export async function renderSplitSimpleBarChart(container: HTMLElement, spec: SimpleBarSpec, split: DrawSplitSpec) {
   const data = localDataStore.get(container) || []
   const xField = spec.encoding.x.field
   const yField = spec.encoding.y.field
@@ -501,68 +498,7 @@ function normalizeOpsList(opsSpec: OpsSpecInput): OperationSpec[] {
   return []
 }
 
-const DATA_OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec) => DataOpResult> = {
-  retrieveValue,
-  filter: filterData,
-  findExtremum,
-  determineRange,
-  compare: compareOp,
-  compareBool: compareBoolOp,
-  sort: sortData,
-  sum: sumData,
-  average: averageData,
-  diff: diffData,
-  lagDiff: lagDiffData,
-  nth: nthData,
-  count: countData,
-}
-
-/**
- * Run a list of operations against a rendered simple bar chart in the given container.
- * Rendering is invoked first to ensure the chart and data store are prepared.
- */
-export async function runSimpleBarOps(
-  container: HTMLElement,
-  vlSpec: SimpleBarSpec,
-  opsSpec: OpsSpecInput,
-): Promise<DataOpResult> {
-  // render base chart
-  await renderSimpleBarChart(container, vlSpec)
-
-  const baseData = toWorkingDatumValues(container, vlSpec)
-
-  const opsList = normalizeOpsList(opsSpec)
-  const { dataOps, drawOps } = splitOps(opsList)
-
-  const working = runDataOps(baseData, dataOps, DATA_OP_HANDLERS, {
-    resetRuntime: true,
-    storeRuntime: true,
-  })
-
-  if (drawOps.length > 0) {
-    // Clear annotations between runs before applying draw ops.
-    const ctx = getContext(container)
-    clearAnnotations(ctx.svg)
-    const handler = new BarDrawHandler(container)
-    await runDrawOps(drawOps, async (op) => {
-      if (op.action === DrawAction.Split) {
-        if (!op.split) {
-          console.warn('draw:split requires split spec', op)
-          return
-        }
-        await renderSplitSimpleBarChart(container, vlSpec, op.split)
-        return
-      }
-      if (op.action === DrawAction.Unsplit) {
-        await renderSimpleBarChart(container, vlSpec)
-        return
-      }
-      handler.run(op)
-      // ensure generic actions (e.g., text) still work
-      runGenericDraw(container, op as any)
-    })
-  }
-
-  return working
+export function getSimpleBarStoredData(container: HTMLElement) {
+  return localDataStore.get(container) || []
 }
 // @ts-nocheck

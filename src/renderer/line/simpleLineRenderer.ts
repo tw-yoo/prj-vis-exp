@@ -1,29 +1,11 @@
 import * as d3 from 'd3'
 import { renderVegaLiteChart, type VegaLiteSpec } from '../../utils/chartRenderer'
-import type { DatumValue, OperationSpec } from '../../types'
-import { SimpleLineDrawHandler } from '../draw/line/SimpleLineDrawHandler'
-import { DrawAction } from '../draw/types'
 import { DataAttributes, SvgAttributes, SvgElements } from '../interfaces'
-import { clearAnnotations, ensureXAxisLabelClearance } from '../common/d3Helpers'
-import {
-  retrieveValue,
-  filterData,
-  findExtremum,
-  determineRange,
-  compareOp,
-  compareBoolOp,
-  sortData,
-  sumData,
-  averageData,
-  diffData,
-  lagDiffData,
-  nthData,
-  countData,
-} from '../../logic/dataOps'
+import { ensureXAxisLabelClearance } from '../common/d3Helpers'
 
 const localDataStore: WeakMap<HTMLElement, any[]> = new WeakMap()
 
-type LineSpec = VegaLiteSpec & {
+export type LineSpec = VegaLiteSpec & {
   encoding: {
     x: { field: string; type: string }
     y: { field: string; type: string }
@@ -31,70 +13,7 @@ type LineSpec = VegaLiteSpec & {
   }
 }
 
-const OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec, container?: HTMLElement) => DatumValue[] | any> = {
-  retrieveValue,
-  filter: filterData,
-  findExtremum,
-  determineRange,
-  compare: compareOp,
-  compareBool: compareBoolOp,
-  sort: sortData,
-  sum: sumData,
-  average: averageData,
-  diff: diffData,
-  lagDiff: lagDiffData,
-  nth: nthData,
-  count: countData,
-  draw: (data, op, container) => handleDraw(container, data, op as DrawOp),
-}
-
-type DrawSelect = { by?: 'key' | 'mark'; keys?: string[]; mark?: string }
-type DrawOp = OperationSpec & {
-  action?: DrawAction
-  select?: DrawSelect
-  style?: { color?: string; opacity?: number }
-  chartId?: string
-}
-
-function toDatumValues(rawData: any[], xField: string, yField: string): DatumValue[] {
-  return rawData.map((row, idx) => ({
-    category: xField,
-    measure: yField,
-    target: String(row[xField] ?? `item_${idx}`),
-    group: null,
-    value: Number(row[yField]),
-    id: row.id != null ? String(row.id) : String(idx),
-  }))
-}
-
-function handleDraw(container: HTMLElement | undefined, data: DatumValue[], op: DrawOp) {
-  if (!container) return data
-  const handler = new SimpleLineDrawHandler(container)
-  if (!op.action) return data
-  switch (op.action) {
-    case DrawAction.Clear: {
-      clearAnnotations(d3.select(container).select(SvgElements.Svg))
-      handler.run(op as any)
-      return data
-    }
-    case DrawAction.Highlight:
-    case DrawAction.Dim:
-    case DrawAction.LineTrace:
-    case DrawAction.Text: {
-      handler.run(op as any)
-      return data
-    }
-    case DrawAction.Rect:
-    case DrawAction.Line: {
-      handler.run(op as any)
-      return data
-    }
-    default: {
-      console.warn('draw: unsupported action for simple line', op.action)
-    }
-  }
-  return data
-}
+// Ops runner functions are in `src/renderer/line/simpleLineOps.ts`.
 
 export async function renderSimpleLineChart(container: HTMLElement, spec: LineSpec) {
   const values = (spec.data as any)?.values || []
@@ -105,34 +24,19 @@ export async function renderSimpleLineChart(container: HTMLElement, spec: LineSp
       : { ...(spec.mark || {}), type: (spec.mark as any)?.type || 'line', point: (spec.mark as any)?.point ?? true }
   const withPoints = { ...spec, mark }
   const result = await renderVegaLiteChart(container, withPoints)
-  await tagLineMarks(container, spec.encoding.x.field, spec.encoding.y.field, spec.encoding.x.type)
+  await tagSimpleLineMarks(container, spec)
   ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
   return result
 }
 
-export async function runSimpleLineOps(container: HTMLElement, vlSpec: LineSpec, opsSpec: any) {
-  // Re-render only if SVG is missing; otherwise reuse to avoid flicker.
-  const hasSvg = !!container.querySelector('svg')
-  if (!hasSvg) {
-    await renderSimpleLineChart(container, vlSpec)
-  } else {
-    await tagLineMarks(container, vlSpec.encoding.x.field, vlSpec.encoding.y.field, vlSpec.encoding.x.type)
-  }
-  const raw = localDataStore.get(container) || []
-  const xField = vlSpec.encoding.x.field
-  const yField = vlSpec.encoding.y.field
-  const base = toDatumValues(raw, xField, yField)
-  const opsArray = Array.isArray(opsSpec) ? opsSpec : Array.isArray(opsSpec?.ops) ? opsSpec.ops : []
-  let working: any = base
-  for (const op of opsArray) {
-    const handler = OP_HANDLERS[op.op ?? '']
-    if (!handler) continue
-    working = handler(Array.isArray(working) ? working : base, { ...op, container }, container)
-  }
-  return working
+export function getSimpleLineStoredData(container: HTMLElement) {
+  return localDataStore.get(container) || []
 }
 
-async function tagLineMarks(container: HTMLElement, xField: string, yField: string, xType?: string) {
+export async function tagSimpleLineMarks(container: HTMLElement, spec: LineSpec) {
+  const xField = spec.encoding.x.field
+  const yField = spec.encoding.y.field
+  const xType = spec.encoding.x.type
   // wait up to 5 animation frames for marks to be rendered
   for (let i = 0; i < 5; i += 1) {
     const svgCheck = d3.select(container).select(SvgElements.Svg)

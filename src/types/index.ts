@@ -92,3 +92,6 @@ export interface OperationSpec {
 }
 
 export type DataOpResult = DatumValue[] | BoolValue | IntervalValue
+
+export { OperationOp } from './operationNames'
+export type { OperationOp as OperationOpType } from './operationNames'
