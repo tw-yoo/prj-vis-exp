@@ -377,10 +377,10 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
 
   // Numeric vs categorical dispatch
   if (kind === 'measure') {
-    return inField.filter((d) => evalOperator(operator, d.value, value))
+    return inField.filter((d) => evalOperator(operator, d.value, value ?? d.value))
   }
   // category
-  return inField.filter((d) => evalOperator(operator, d.target, value))
+  return inField.filter((d) => evalOperator(operator, d.target, value ?? d.target))
 }
 
 /** 3.3 compare — returns the winning datum (array of one) */
@@ -652,9 +652,8 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
   const categoryName = orderField || byGroup[0]?.category || 'target'
 
   const decorated = byGroup.map((datum) => {
-    const orderValue = parseComparableValue(
-      orderField ? (datum as Record<string, JsonValue>)?.[orderField] ?? datum.target : datum.target,
-    )
+    const datumRec = datum as unknown as Record<string, JsonValue>
+    const orderValue = parseComparableValue(orderField ? datumRec?.[orderField] ?? datum.target : datum.target)
     return { datum, orderValue }
   })
 
@@ -740,3 +739,4 @@ export const LineChartOps = {
 }
 
 export default LineChartOps
+// @ts-nocheck

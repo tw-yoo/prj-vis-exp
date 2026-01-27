@@ -21,6 +21,32 @@ export abstract class BaseDrawHandler {
     this.container = container
   }
 
+  /** Center of an element in SVG coordinates. Falls back to boundingClientRect if CTM is unavailable. */
+  protected toSvgCenter(el: Element, svgNode: SVGSVGElement) {
+    const gEl = el as SVGGraphicsElement
+    const bbox = gEl.getBBox ? gEl.getBBox() : null
+    const elCtm = gEl.getScreenCTM ? gEl.getScreenCTM() : null
+    const svgCtm = svgNode.getScreenCTM ? svgNode.getScreenCTM() : null
+    if (bbox && elCtm && svgCtm) {
+      const pt = svgNode.createSVGPoint()
+      pt.x = bbox.x + bbox.width / 2
+      pt.y = bbox.y + bbox.height / 2
+      const screenPt = pt.matrixTransform(elCtm)
+      const svgPt = screenPt.matrixTransform(svgCtm.inverse())
+      return { x: svgPt.x, y: svgPt.y }
+    }
+    // fallback
+    const svgRect = svgNode.getBoundingClientRect()
+    const elRect = gEl.getBoundingClientRect()
+    const viewBox = svgNode.viewBox?.baseVal
+    const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+    const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
+    return {
+      x: (viewBox?.x ?? 0) + (elRect.left - svgRect.left + elRect.width / 2) * scaleX,
+      y: (viewBox?.y ?? 0) + (elRect.top - svgRect.top + elRect.height / 2) * scaleY,
+    }
+  }
+
   protected abstract selectElements(
     select?: DrawSelect,
     chartId?: string,
@@ -81,36 +107,45 @@ export abstract class BaseDrawHandler {
       const value = Number(text)
       if (!Number.isFinite(value)) return
       const elRect = (this as Element).getBoundingClientRect()
-      const y = (elRect.top - svgRect.top + elRect.height / 2) * scaleY
+      const y = (viewBox?.y ?? 0) + (elRect.top - svgRect.top + elRect.height / 2) * scaleY
       tickCenters.push({ value, y })
     })
-    if (tickCenters.length < 2) {
-      return (_value: number) => null
-    }
-    tickCenters.sort((a, b) => a.value - b.value)
+    const markCenters: Array<{ value: number; y: number }> = []
+    scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).each((_, i, nodes) => {
+      const el = nodes[i] as Element
+      const vAttr = el.getAttribute(DataAttributes.Value)
+      const v = vAttr != null ? Number(vAttr) : NaN
+      if (!Number.isFinite(v)) return
+      const { y } = this.toSvgCenter(el, svgNode)
+      markCenters.push({ value: v, y })
+    })
+
+    const centers = tickCenters.length >= 2 ? tickCenters : markCenters
+    if (centers.length < 2) return (_value: number) => null
+    centers.sort((a, b) => a.value - b.value)
 
     return (value: number) => {
       if (!Number.isFinite(value)) return null
-      const exact = tickCenters.find((t) => t.value === value)
+      const exact = centers.find((t) => t.value === value)
       if (exact) return exact.y
 
-      let lower = tickCenters[0]
-      let upper = tickCenters[tickCenters.length - 1]
-      for (let i = 0; i < tickCenters.length - 1; i += 1) {
-        const a = tickCenters[i]
-        const b = tickCenters[i + 1]
+      let lower = centers[0]
+      let upper = centers[centers.length - 1]
+      for (let i = 0; i < centers.length - 1; i += 1) {
+        const a = centers[i]
+        const b = centers[i + 1]
         if (value >= a.value && value <= b.value) {
           lower = a
           upper = b
           break
         }
       }
-      if (value < tickCenters[0].value) {
-        lower = tickCenters[0]
-        upper = tickCenters[1]
-      } else if (value > tickCenters[tickCenters.length - 1].value) {
-        upper = tickCenters[tickCenters.length - 1]
-        lower = tickCenters[tickCenters.length - 2]
+      if (value < centers[0].value) {
+        lower = centers[0]
+        upper = centers[1]
+      } else if (value > centers[centers.length - 1].value) {
+        upper = centers[centers.length - 1]
+        lower = centers[centers.length - 2]
       }
       if (upper.value === lower.value) return null
       const t = (value - lower.value) / (upper.value - lower.value)
@@ -151,21 +186,21 @@ export abstract class BaseDrawHandler {
 
     const style = textSpec?.style
 
-    const resolveTextValue = (el?: Element) => {
-      if (typeof value === 'string') return value
-      if (!el) return null
-      const candidates = [
-        el.getAttribute(DataAttributes.Id),
-        el.getAttribute(DataAttributes.Target),
-        el.getAttribute(DataAttributes.Value),
-        el.getAttribute(DataAttributes.Series),
-        el.id,
-      ].filter(Boolean) as string[]
-      for (const key of candidates) {
-        if (value[key] != null) return value[key]
+      const resolveTextValue = (el?: Element) => {
+        if (typeof value === 'string') return value
+        if (!el) return null
+        const candidates = [
+          el.getAttribute(DataAttributes.Id),
+          el.getAttribute(DataAttributes.Target),
+          el.getAttribute(DataAttributes.Value),
+          el.getAttribute(DataAttributes.Series),
+          el.id,
+        ].filter(Boolean) as string[]
+        for (const key of candidates) {
+          if (value[key] != null) return value[key]
+        }
+        return null
       }
-      return null
-    }
 
     if (mode === DrawTextModes.Anchor) {
       const selection = this.selectElements(op.select, op.chartId)
@@ -252,18 +287,6 @@ export abstract class BaseDrawHandler {
     const mode: DrawRectMode = rectSpec.mode ?? DrawRectModes.Normalized
     let centerX: number | null = null
     let centerY: number | null = null
-    const toSvgCenter = (el: Element) => {
-      const svgRect = svgNode.getBoundingClientRect()
-      const elRect = el.getBoundingClientRect()
-      const viewBox = svgNode.viewBox?.baseVal
-      const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
-      const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
-      return {
-        x: (elRect.left - svgRect.left + elRect.width / 2) * scaleX,
-        y: (elRect.top - svgRect.top + elRect.height / 2) * scaleY,
-      }
-    }
-
     if (mode === DrawRectModes.Normalized) {
       const pos = rectSpec.position
       const size = rectSpec.size
@@ -296,9 +319,9 @@ export abstract class BaseDrawHandler {
       const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
       const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
 
-      const xCenter = (elRect.left - svgRect.left + elRect.width / 2) * scaleX
-      const yTop = (elRect.top - svgRect.top) * scaleY
-      const yBottom = (elRect.bottom - svgRect.top) * scaleY
+      const xCenter = (viewBox?.x ?? 0) + (elRect.left - svgRect.left + elRect.width / 2) * scaleX
+      const yTop = (viewBox?.y ?? 0) + (elRect.top - svgRect.top) * scaleY
+      const yBottom = (viewBox?.y ?? 0) + (elRect.bottom - svgRect.top) * scaleY
 
       centerX = xCenter
       const rawValue = node.getAttribute(DataAttributes.Value)
@@ -319,13 +342,16 @@ export abstract class BaseDrawHandler {
         return
       }
       let axisRect: { x: number; y: number; width: number; height: number } | null = null
+      let missingYLabel: boolean | null = null
+      let missingLabelText: string | null = null
+
       if (axis.x != null) {
         const scope = this.selectScope(op.chartId)
         const labels = Array.isArray(axis.x) ? axis.x.map(String) : [String(axis.x)]
         const svgRect = svgNode.getBoundingClientRect()
         const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
         const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
-        const tickInfos: Array<{ label: string; centerX: number; minX: number; maxX: number; minY: number; height: number }> = []
+        let tickInfos: Array<{ label: string; centerX: number; minX: number; maxX: number; minY: number; height: number }> = []
         scope.selectAll<SVGGElement, JsonValue>(SvgSelectors.XAxisTicks).each(function () {
           const tick = this as SVGGElement
           const text = tick.querySelector('text')
@@ -334,13 +360,34 @@ export abstract class BaseDrawHandler {
           const bbox = tick.getBoundingClientRect()
           tickInfos.push({
             label,
-            centerX: (bbox.left - svgRect.left + bbox.width / 2) * scaleX,
-            minX: (bbox.left - svgRect.left) * scaleX,
-            maxX: (bbox.right - svgRect.left) * scaleX,
-            minY: (bbox.top - svgRect.top) * scaleY,
+            centerX: (viewBox?.x ?? 0) + (bbox.left - svgRect.left + bbox.width / 2) * scaleX,
+            minX: (viewBox?.x ?? 0) + (bbox.left - svgRect.left) * scaleX,
+            maxX: (viewBox?.x ?? 0) + (bbox.right - svgRect.left) * scaleX,
+            minY: (viewBox?.y ?? 0) + (bbox.top - svgRect.top) * scaleY,
             height: bbox.height * scaleY,
           })
         })
+        // fallback: use mark centers when axis ticks are unavailable
+        if (!tickInfos.length) {
+          const markInfos: Array<{ label: string; centerX: number }> = []
+          scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).each((_, i, nodes) => {
+            const el = nodes[i] as Element
+            const lbl = el.getAttribute(DataAttributes.Target) || el.getAttribute(DataAttributes.Id)
+            if (!lbl) return
+            const pt = this.toSvgCenter(el, svgNode)
+            markInfos.push({ label: String(lbl), centerX: pt.x })
+          })
+          markInfos.sort((a, b) => a.centerX - b.centerX)
+          tickInfos = markInfos.map((m, idx, arr) => {
+            const prev = arr[idx - 1]
+            const next = arr[idx + 1]
+            const spacingPrev = prev ? m.centerX - prev.centerX : next ? next.centerX - m.centerX : 10
+            const spacingNext = next ? next.centerX - m.centerX : spacingPrev
+            const minX = prev ? (prev.centerX + m.centerX) / 2 : m.centerX - spacingPrev / 2
+            const maxX = next ? (m.centerX + next.centerX) / 2 : m.centerX + spacingNext / 2
+            return { label: m.label, centerX: m.centerX, minX, maxX, minY: 0, height: 12 }
+          })
+        }
         if (!tickInfos.length) return
         tickInfos.sort((a, b) => a.centerX - b.centerX)
 
@@ -402,7 +449,7 @@ export abstract class BaseDrawHandler {
         const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
         const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
 
-        const tickInfos: Array<{
+        let tickInfos: Array<{
           value: number
           centerY: number
           minY: number
@@ -411,30 +458,120 @@ export abstract class BaseDrawHandler {
           maxX: number
           height: number
         }> = []
+        let tickSource: 'y-axis-class' | 'role-axis-label' | 'marks' | 'unknown' = 'unknown'
+        // 1) Preferred: explicit y-axis class (bar charts)
         scope.selectAll<SVGGElement, JsonValue>(`.${SvgClassNames.YAxis} .${SvgClassNames.Tick}`).each(function () {
           const tick = this as SVGGElement
           const text = tick.querySelector('text')
           const label = text?.textContent?.trim()
-          const num = Number(label)
+          const num = Number(label?.replace?.(/,/g, '') ?? label)
           if (!Number.isFinite(num)) return
           const bbox = text?.getBoundingClientRect() ?? tick.getBoundingClientRect()
+          const minX = (bbox.left - svgRect.left) * scaleX
+          const maxX = (bbox.right - svgRect.left) * scaleX
           tickInfos.push({
             value: num,
-            centerY: (bbox.top - svgRect.top + bbox.height / 2) * scaleY,
-            minY: (bbox.top - svgRect.top) * scaleY,
-            maxY: (bbox.bottom - svgRect.top) * scaleY,
-            minX: (bbox.left - svgRect.left) * scaleX,
-            maxX: (bbox.right - svgRect.left) * scaleX,
+            centerY: (viewBox?.y ?? 0) + (bbox.top - svgRect.top + bbox.height / 2) * scaleY,
+            minY: (viewBox?.y ?? 0) + (bbox.top - svgRect.top) * scaleY,
+            maxY: (viewBox?.y ?? 0) + (bbox.bottom - svgRect.top) * scaleY,
+            minX: (viewBox?.x ?? 0) + minX,
+            maxX: (viewBox?.x ?? 0) + maxX,
             height: bbox.height * scaleY,
           })
+          tickSource = 'y-axis-class'
+        })
+        // 2) Vega-Lite axes often use role/aria-label / role-axis-label classes; capture them (y-axis only)
+        if (!tickInfos.length) {
+          scope
+            .selectAll<SVGTextElement, any>('text, .role-axis-label')
+            .filter(function () {
+              const el = this as SVGTextElement
+              const cls = (el.getAttribute('class') || '').toLowerCase()
+              const parent = el.parentElement
+              const ariaSelf = el.getAttribute('aria-label')?.toLowerCase() || ''
+              const ariaParent = parent?.getAttribute('aria-label')?.toLowerCase() || ''
+              const axisAncestor = el.closest('[aria-label*=\"y-axis\"], [aria-label*=\"y axis\"]')
+              const isAxisLabel = cls.includes('role-axis-label') || ariaSelf.includes('y-axis') || ariaParent.includes('y-axis') || axisAncestor
+              return Boolean(isAxisLabel)
+            })
+            .each(function () {
+              const el = this as SVGTextElement
+              const str = String(el.textContent ?? '').trim().replace(/,/g, '')
+              const num = Number(str)
+              if (!Number.isFinite(num)) return
+              const bbox = el.getBoundingClientRect()
+              const minX = (bbox.left - svgRect.left) * scaleX
+              const maxX = (bbox.right - svgRect.left) * scaleX
+              tickInfos.push({
+                value: num,
+                centerY: (viewBox?.y ?? 0) + (bbox.top - svgRect.top + bbox.height / 2) * scaleY,
+                minY: (viewBox?.y ?? 0) + (bbox.top - svgRect.top) * scaleY,
+                maxY: (viewBox?.y ?? 0) + (bbox.bottom - svgRect.top) * scaleY,
+                minX: (viewBox?.x ?? 0) + minX,
+                maxX: (viewBox?.x ?? 0) + maxX,
+                height: bbox.height * scaleY,
+              })
+              tickSource = 'role-axis-label'
+            })
+        }
+        if (!tickInfos.length) {
+          const markInfos: Array<{ value: number; centerY: number; minX: number; maxX: number }> = []
+          scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).each((_, i, nodes) => {
+            const el = nodes[i] as Element
+            const vAttr = el.getAttribute(DataAttributes.Value)
+            const val = vAttr != null ? Number(vAttr) : NaN
+            if (!Number.isFinite(val)) return
+            const pt = this.toSvgCenter(el, svgNode)
+            const bbox = (el as SVGGraphicsElement).getBBox?.()
+            const halfW = bbox ? bbox.width / 2 : 4
+            markInfos.push({ value: val, centerY: pt.y, minX: pt.x - halfW, maxX: pt.x + halfW })
+          })
+          // Deduplicate by y-value, keep the point closest to the y-axis (smallest |x|)
+          const uniqueMap = new Map<number, { value: number; centerY: number; minX: number; maxX: number }>()
+          markInfos.forEach((m) => {
+            const prev = uniqueMap.get(m.value)
+            const dist = Math.abs(m.minX) + Math.abs(m.maxX)
+            const prevDist = prev ? Math.abs(prev.minX) + Math.abs(prev.maxX) : Infinity
+            if (!prev || dist < prevDist) uniqueMap.set(m.value, m)
+          })
+          const deduped = Array.from(uniqueMap.values()).sort((a, b) => a.value - b.value)
+          tickInfos = deduped.map((m) => ({
+            value: m.value,
+            centerY: m.centerY,
+            minY: m.centerY,
+            maxY: m.centerY,
+            minX: m.minX,
+            maxX: m.maxX,
+            height: 8,
+          }))
+          tickSource = 'marks'
+        }
+        // Debug: log inputs for rect axis.y (especially for line charts)
+        // eslint-disable-next-line no-console
+        console.log('[draw:rect][axis.y] tickInfos', {
+          chartId: op.chartId,
+          source: tickSource,
+          yValues,
+          tickCount: tickInfos.length,
+          samples: tickInfos.slice(0, 5),
         })
         if (!tickInfos.length) return
-        tickInfos.sort((a, b) => a.centerY - b.centerY)
+        tickInfos.sort((a, b) => a.value - b.value)
         const paddingX = 4 * scaleX
         const paddingY = 2 * scaleY
 
-        const overallMinX = Math.min(...tickInfos.map((t) => t.minX))
-        const overallMaxX = Math.max(...tickInfos.map((t) => t.maxX))
+        // y축 밴드는 실제 텍스트 폭을 기준으로 x범위를 계산
+        const finiteMinXs = tickInfos.map((t) => t.minX).filter((v) => Number.isFinite(v))
+        const finiteMaxXs = tickInfos.map((t) => t.maxX).filter((v) => Number.isFinite(v))
+        const overallMinX =
+          finiteMinXs.length && finiteMaxXs.length
+            ? Math.min(...finiteMinXs) - paddingX
+            : -paddingX
+        const overallMaxX =
+          finiteMinXs.length && finiteMaxXs.length
+            ? Math.max(...finiteMaxXs) + paddingX
+            : paddingX
+        const overallCenterX = (overallMinX + overallMaxX) / 2
 
         const findTickByValue = (v: number) => {
           const EPS = 1e-6
@@ -470,16 +607,13 @@ export abstract class BaseDrawHandler {
           return { y, height: Math.max(heightInterp, 0) }
         }
 
-        let missingYLabel = false
-        let missingLabelText: string | null = null
-
         if (yValues.length === 1) {
           const pos = mapYValue(yValues[0])
           if (!pos) return
           missingYLabel = !findTickByValue(yValues[0])
           missingLabelText = missingYLabel ? String(yValues[0]) : null
-          const rectLeft = overallMinX - paddingX
-          const rectRight = overallMaxX + paddingX
+          const rectLeft = overallMinX
+          const rectRight = overallMaxX
           const bandHeight = Math.max(pos.height || minGap * 0.6, minGap * 0.4)
           axisRect = {
             x: rectLeft,
@@ -487,6 +621,8 @@ export abstract class BaseDrawHandler {
             y: pos.y - bandHeight / 2 - paddingY,
             height: bandHeight + paddingY * 2,
           }
+          // eslint-disable-next-line no-console
+          console.log('[draw:rect][axis.y] single', { y: yValues[0], pos, axisRect })
         } else if (yValues.length === 2) {
           const posA = mapYValue(yValues[0])
           const posB = mapYValue(yValues[1])
@@ -495,26 +631,28 @@ export abstract class BaseDrawHandler {
           missingLabelText = missingYLabel ? `${yValues[0]}–${yValues[1]}` : null
           const yTop = Math.min(posA.y, posB.y)
           const yBottom = Math.max(posA.y, posB.y)
-          const rectLeft = overallMinX - paddingX
-          const rectRight = overallMaxX + paddingX
+          const rectLeft = overallMinX
+          const rectRight = overallMaxX
           axisRect = {
             x: rectLeft,
             width: rectRight - rectLeft,
             y: yTop - paddingY,
             height: yBottom - yTop + paddingY * 2,
           }
+          // eslint-disable-next-line no-console
+          console.log('[draw:rect][axis.y] range', { yValues, posA, posB, axisRect })
         } else {
           console.warn('draw:rect axis.y supports 1 or 2 values', op)
         }
       }
-        if (axisRect) {
-          centerX = axisRect.x + axisRect.width / 2
-          centerY = axisRect.y + axisRect.height / 2
-          const rectWidth = axisRect.width
-          const rectHeight = axisRect.height
-        const x = axisRect.x
-        const y = axisRect.y
-        svg
+      if (axisRect) {
+        centerX = axisRect.x + axisRect.width / 2
+        centerY = axisRect.y + axisRect.height / 2
+        const rectWidth = axisRect.width
+        const rectHeight = axisRect.height
+      const x = axisRect.x
+      const y = axisRect.y
+      svg
           .append(SvgElements.Rect)
           .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
           .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -527,7 +665,7 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.Stroke, rectSpec.style?.stroke ?? '#111827')
           .attr(SvgAttributes.StrokeWidth, rectSpec.style?.strokeWidth ?? 1)
 
-        if (axis.y != null && typeof missingYLabel !== 'undefined' && missingYLabel && missingLabelText) {
+        if (axis.y != null && missingYLabel === true && missingLabelText) {
           svg
             .append(SvgElements.Text)
             .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
@@ -609,9 +747,9 @@ export abstract class BaseDrawHandler {
         return (this as SVGTextElement).textContent?.trim() === xLabel
       })
       if (xTick.empty()) return
-      const xPt = toSvgCenter(xTick.node() as SVGTextElement)
-      const startY = mapY(lineSpec.axis.y)
-      const endY = mapY(lineSpec.axis.y + lineSpec.length)
+      const xPt = this.toSvgCenter(xTick.node() as SVGTextElement, svgNode)
+      const startY = mapY(lineSpec.axis.y) ?? xPt.y
+      const endY = mapY(lineSpec.axis.y + lineSpec.length) ?? startY
       if (startY == null || endY == null) return
 
       const lengthPx = Math.abs(endY - startY)
@@ -645,13 +783,13 @@ export abstract class BaseDrawHandler {
         })
         if (mark.empty()) return null
         const node = mark.node() as Element
-        const x = toSvgCenter(node).x
+        const pt = this.toSvgCenter(node, svgNode)
         const valueAttr = node.getAttribute(DataAttributes.Value)
         const yValue = valueAttr != null ? Number(valueAttr) : NaN
         if (!Number.isFinite(yValue)) return null
-        const y = mapY(yValue)
-        if (y == null) return null
-        return { x, y }
+        const y = mapY(yValue) ?? pt.y
+        if (!Number.isFinite(y)) return null
+        return { x: pt.x, y }
       }
       const a = pointFor(xA)
       const b = pointFor(xB)
@@ -695,7 +833,7 @@ export abstract class BaseDrawHandler {
         const valueAttr = node.getAttribute(DataAttributes.Value)
         const yValue = valueAttr != null ? Number(valueAttr) : NaN
         if (!Number.isFinite(yValue)) return
-        y = mapY(yValue)
+        y = mapY(yValue) ?? this.toSvgCenter(node, svgNode).y
       } else {
         const yValue = lineSpec.hline?.y
         if (yValue == null) return

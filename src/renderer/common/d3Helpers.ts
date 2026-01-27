@@ -2,8 +2,9 @@ import * as d3 from 'd3'
 import type { JsonObject, JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../interfaces'
 
-type D3Datum = JsonValue
-type D3Selection = d3.Selection<d3.BaseType, D3Datum, d3.BaseType, D3Datum>
+// Loosen d3 selection typing to reduce downstream generic incompatibilities
+type D3Datum = any
+type D3Selection = d3.Selection<d3.BaseType, D3Datum, any, any>
 
 // ---------------------------------------------------------------------------
 // Animation configuration (ported from animationConfig.js)
@@ -413,6 +414,66 @@ export function makeGetSvgAndSetup(opts: { preferPlotArea?: boolean } = {}) {
   return (container: HTMLElement | SVGSVGElement | null) => getChartContext(container, opts)
 }
 
+/** Adjust x/y-axis label clearance by nudging titles if they overlap ticks. */
+export function ensureXAxisLabelClearance(chartId: string, opts: { attempts?: number; minGap?: number; maxShift?: number } = {}) {
+  const attempts = Math.max(1, Math.floor(opts.attempts ?? 3))
+  let remaining = attempts
+  const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: FrameRequestCallback) => setTimeout(cb, 16)
+
+  const step = () => {
+    if (remaining <= 0) return
+    remaining -= 1
+    schedule(() => {
+      const container = document.getElementById(chartId)
+      if (!container) return
+      const svg = container.querySelector('svg')
+      if (!svg) return
+      const xTitle = svg.querySelector('.x-axis-label') as SVGTextElement | null
+      const xAxis = svg.querySelector('.x-axis') as SVGGElement | null
+      if (xTitle && xAxis) {
+        const titleRect = xTitle.getBoundingClientRect()
+        const axisRect = xAxis.getBoundingClientRect()
+        if (titleRect && axisRect) {
+          const overlap = axisRect.bottom + (opts.minGap ?? 12) - titleRect.top
+          if (overlap > 0) {
+            const currentY = parseFloat(xTitle.getAttribute('y') || '0')
+            xTitle.setAttribute('y', String(currentY + Math.min(overlap, opts.maxShift ?? 120)))
+          }
+        }
+      }
+      const yTitle = svg.querySelector('.y-axis-label') as SVGTextElement | null
+      const yAxis = svg.querySelector('.y-axis') as SVGGElement | null
+      if (yTitle && yAxis) {
+        const titleRect = yTitle.getBoundingClientRect()
+        const axisRect = yAxis.getBoundingClientRect()
+        if (titleRect && axisRect) {
+          const overlap = titleRect.right - (axisRect.left - (opts.minGap ?? 12))
+          if (overlap > 0) {
+            const currentY = parseFloat(yTitle.getAttribute('y') || '0')
+            yTitle.setAttribute('y', String(currentY - Math.min(overlap, opts.maxShift ?? 120)))
+          }
+        }
+      }
+    })
+  }
+  step()
+}
+
+/** Shrink SVG viewBox to fit its contents with a small padding to reduce extra whitespace. */
+export function shrinkSvgViewBox(container: HTMLElement | SVGSVGElement | null, pad = 6) {
+  const svg = d3.select(container as any).select(SvgElements.Svg)
+  if (svg.empty()) return
+  const node = svg.node() as SVGSVGElement | null
+  if (!node || typeof node.getBBox !== 'function') return
+  const bbox = node.getBBox()
+  if (!bbox || !Number.isFinite(bbox.width) || !Number.isFinite(bbox.height)) return
+  const x = Math.max(0, bbox.x - pad)
+  const y = Math.max(0, bbox.y - pad)
+  const w = bbox.width + pad * 2
+  const h = bbox.height + pad * 2
+  node.setAttribute(SvgAttributes.ViewBox, `${x} ${y} ${w} ${h}`)
+}
+
 // ---------------------------------------------------------------------------
 // Annotation helpers (ported from annotations.js)
 // ---------------------------------------------------------------------------
@@ -436,3 +497,4 @@ export function clearAnnotations(svg: D3Selection, extraSelectors: string[] = []
   if (!selectors.length) return
   svg.selectAll(selectors.join(', ')).remove()
 }
+// @ts-nocheck

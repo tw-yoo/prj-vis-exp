@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import type { JsonValue } from '../../types'
-import { SvgElements } from '../interfaces'
+import { DataAttributes, SvgElements } from '../interfaces'
 import { BaseDrawHandler } from './BaseDrawHandler'
 import { DrawMark, type DrawSelect } from './types'
 
@@ -12,16 +12,16 @@ import { DrawMark, type DrawSelect } from './types'
 export class LineDrawHandler extends BaseDrawHandler {
   protected selectElements(select?: DrawSelect, chartId?: string) {
     const svg = d3.select(this.container).select(SvgElements.Svg)
-    const scope = chartId ? svg.selectAll(`[data-chart-id="${String(chartId)}"]`) : svg
-    const mark = select?.mark || DrawMark.Path
+    const scope = chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(chartId)}"]`) : svg
+    const mark = select?.mark || DrawMark.Circle
     const selection = scope.selectAll<SVGElement, JsonValue>(mark)
     return this.filterByKeys(selection, select?.keys)
   }
 
   protected allMarks(chartId?: string) {
     const svg = d3.select(this.container).select(SvgElements.Svg)
-    const scope = chartId ? svg.selectAll(`[data-chart-id="${String(chartId)}"]`) : svg
-    return scope.selectAll<SVGElement, JsonValue>(SvgElements.Path)
+    const scope = chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(chartId)}"]`) : svg
+    return scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Path},${SvgElements.Circle}`)
   }
 
   protected defaultColor() {

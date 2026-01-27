@@ -4,9 +4,10 @@ import './App.css'
 import barSimpleSpecRaw from '../data/test/spec/bar_simple_ver.json?raw'
 import lineSimpleSpecRaw from '../data/test/spec/line_simple.json?raw'
 import type { JsonValue, OperationSpec } from './types'
-import { runSimpleBarOps, type SimpleBarSpec } from './renderer/bar/simpleBarRenderer'
+import { renderChart as renderChartDispatch, runChartOps } from './renderer/renderChart'
 
-const vlSpecPlaceholder = barSimpleSpecRaw
+// const vlSpecPlaceholder = barSimpleSpecRaw
+const vlSpecPlaceholder = lineSimpleSpecRaw
 
 function App() {
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
@@ -96,13 +97,12 @@ function App() {
   const renderChart = useCallback(
     async (specString: string) => {
       try {
-        const parsed = JSON.parse(specString) as SimpleBarSpec
+        const parsed = JSON.parse(specString)
         if (!chartRef.current) {
           alert('Chart container is not ready.')
           return
         }
-        // Use the same renderer used for operations to keep appearance consistent.
-        await runSimpleBarOps(chartRef.current, parsed, null)
+        await renderChartDispatch(chartRef.current, parsed)
       } catch (error) {
         console.error('Failed to parse Vega-Lite spec', error)
         alert('Invalid JSON')
@@ -134,7 +134,7 @@ function App() {
       const arrayForm = Array.isArray(parsed)
         ? (parsed as OperationSpec[])
         : parsed && typeof parsed === 'object' && Array.isArray((parsed as { ops?: JsonValue })?.ops)
-          ? ((parsed as { ops: OperationSpec[] }).ops ?? [])
+          ? ((parsed as unknown as { ops: OperationSpec[] }).ops ?? [])
           : parsed && typeof parsed === 'object'
             ? ([parsed as OperationSpec] as OperationSpec[])
             : []
@@ -155,7 +155,7 @@ function App() {
     if (!chartRef.current) return
     const opsArray = pendingOps ?? []
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
-    let parsedVl: SimpleBarSpec
+    let parsedVl: any
     try {
       parsedVl = JSON.parse(specString)
     } catch (error) {
@@ -164,7 +164,7 @@ function App() {
       return
     }
     try {
-      await runSimpleBarOps(chartRef.current, parsedVl, { ops: opsArray })
+      await runChartOps(chartRef.current, parsedVl, { ops: opsArray })
     } catch (error) {
       console.error('Run Operations failed', error)
       alert('Failed to run operations. Check the console for details.')

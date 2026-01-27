@@ -27,6 +27,7 @@ export type DrawAction = (typeof DrawAction)[keyof typeof DrawAction]
 export const DrawMark = {
   Rect: 'rect',
   Path: 'path',
+  Circle: 'circle',
 } as const
 export type DrawMark = (typeof DrawMark)[keyof typeof DrawMark]
 

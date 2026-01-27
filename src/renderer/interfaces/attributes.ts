@@ -51,6 +51,9 @@ export const SvgAttributes = {
   FontFamily: 'font-family',
   Transform: 'transform',
   RX: 'rx',
+  CX: 'cx',
+  CY: 'cy',
+  R: 'r',
   PaintOrder: 'paint-order',
   ViewBox: 'viewBox',
 } as const
