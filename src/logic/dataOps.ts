@@ -1,4 +1,19 @@
 import type { DatumValue, JsonPrimitive, JsonValue, OperationSpec, TargetSelector } from '../types'
+import type {
+  OpCompareBoolSpec,
+  OpCompareSpec,
+  OpCountSpec,
+  OpDiffSpec,
+  OpDetermineRangeSpec,
+  OpFilterSpec,
+  OpFindExtremumSpec,
+  OpLagDiffSpec,
+  OpNthSpec,
+  OpRetrieveValueSpec,
+  OpSortSpec,
+  OpSumSpec,
+  OpAverageSpec,
+} from '../types/operationSpecs'
 
 // ---------------------------------------------------------------------------
 // Shared helpers (ported from dataOpsCore.js)
@@ -336,8 +351,9 @@ function makeScalarDatum(
 /** Op 3.1: select entries matching target/field/group. */
 export function retrieveValue(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, target, group } = op
-  if (target == null) return []
+  const spec = op as OpRetrieveValueSpec
+  const { field, target, group } = spec
+  if (target == null) throw new Error('retrieveValue requires "target"')
   return sliceForTarget(arr, field, target, group ?? null)
 }
 
@@ -345,7 +361,10 @@ export function retrieveValue(data: DatumValue[], op: OperationSpec): DatumValue
 /** Op 3.2: filter by operator/value against category or measure field. */
 export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, operator, value, group } = op
+  const spec = op as OpFilterSpec
+  const { field, operator, value, group } = spec
+  if (!operator) throw new Error('filter requires "operator"')
+  if (value === undefined) throw new Error('filter requires "value"')
   const byGroup = sliceByGroup(arr, group ?? null)
   const kind = inferFieldKind(byGroup, field)
   const inField = byGroup.filter(predicateByField(field, kind))
@@ -381,7 +400,9 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
 /** Op 3.3: compare two targets; return the winning datum. */
 export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, targetA, targetB, groupA, groupB, aggregate: agg, which = 'max' } = op
+  const spec = op as OpCompareSpec
+  const { field, targetA, targetB, groupA, groupB, aggregate: agg, which = 'max' } = spec
+  if (targetA == null || targetB == null) throw new Error('compare requires targetA and targetB')
   const gA = groupA ?? op.group
   const gB = groupB ?? op.group
   const sA = sliceForTarget(arr, field, targetA, gA ?? null)
@@ -400,7 +421,10 @@ export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
 /** Op 3.4: compare two targets; return a numeric boolean result. */
 export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, targetA, targetB, groupA, groupB, operator } = op
+  const spec = op as OpCompareBoolSpec
+  const { field, targetA, targetB, groupA, groupB, operator } = spec
+  if (targetA == null || targetB == null) throw new Error('compareBool requires targetA and targetB')
+  if (!operator) throw new Error('compareBool requires "operator"')
   const gA = groupA ?? op.group
   const gB = groupB ?? op.group
   const sA = sliceForTarget(arr, field, targetA, gA ?? null)
@@ -423,7 +447,9 @@ export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue
 /** Op 3.5: find min/max datum within an optional group/field. */
 export function findExtremum(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, which, group } = op
+  const spec = op as OpFindExtremumSpec
+  const { field, which, group } = spec
+  if (!which) throw new Error('findExtremum requires "which" (min/max)')
   const byGroup = sliceByGroup(arr, group ?? null)
   const kind = inferFieldKind(byGroup, field) || 'category'
   const section = byGroup.filter(predicateByField(field, kind))
@@ -529,7 +555,9 @@ export function countData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 /** Op 3.9: sum numeric values; returns single DatumValue. */
 export function sumData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, group } = op
+  const spec = op as OpSumSpec
+  const { field, group } = spec
+  if (!field) throw new Error('sum requires "field"')
   const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
   const s = byGroup.reduce((acc, d) => acc + d.value, 0)
   const fieldLabel = field || 'value'
@@ -541,7 +569,9 @@ export function sumData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 /** Op 3.10: average numeric values; returns single DatumValue. */
 export function averageData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, group } = op
+  const spec = op as OpAverageSpec
+  const { field, group } = spec
+  if (!field) throw new Error('average requires "field"')
   const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
   const fieldLabel = field || 'value'
   const name = formatResultName('Average', fieldLabel, { group })
@@ -554,6 +584,8 @@ export function averageData(data: DatumValue[], op: OperationSpec): DatumValue[]
 /** Op 3.11: difference/ratio/percent-of-total between targets. */
 export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue[] {
   const arr = cloneData(data)
+  const spec = op as OpDiffSpec
+  if (spec.targetA == null || spec.targetB == null) throw new Error('diff requires targetA and targetB')
   const {
     field,
     targetA,
@@ -562,7 +594,7 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
     groupB,
     aggregate: agg,
     signed = true,
-  } = op
+  } = spec
   const gA = groupA ?? op.group ?? null
   const gB = groupB ?? op.group ?? null
 
@@ -654,7 +686,9 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
 /** Op 3.11b: adjacent differences across an ordered sequence. */
 export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, orderField, order = 'asc', group, absolute = false } = op || {}
+  const spec = (op as OpLagDiffSpec)
+  const { field, orderField, order = 'asc', group, absolute = false } = spec
+  if (!orderField) throw new Error('lagDiff requires "orderField"')
   const byGroup = sliceByGroup(arr, group ?? null)
   if (byGroup.length < 2) return []
 
@@ -701,7 +735,9 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
 /** Op 3.12: return the n-th datum (1-based) from left/right. */
 export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { n, from = 'left', group } = op
+  const spec = op as OpNthSpec
+  const { n, from = 'left', group } = spec
+  if (n == null) throw new Error('nth requires "n"')
   const byGroup = sliceByGroup(arr, group ?? null)
   if (byGroup.length === 0) return []
   const queryIndices = Array.isArray(n) ? n : [n]

@@ -74,10 +74,29 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 | `diff` | `targetA`, `targetB` | `field`, `aggregate`, `signed`, `mode`, `percent`, `scale`, `precision` | `DatumValue[]`(스칼라 1개) | 못 찾으면 throw |
 | `lagDiff` | - | `orderField`, `order`, `group`, `absolute` | `DatumValue[]` | 인접 값 차이(시퀀스) |
 | `nth` | `n` | `from`(`left`), `group` | `DatumValue[]` | `n`은 1-based |
+| `sleep` | `seconds` 또는 `duration` | - | `[]` | 다음 operation 실행까지 지정 시간(초)만큼 대기 |
 
 ---
 
 ## 4) 상세 스펙 + 예시
+
+### 4.0 sleep
+**목표**: 이후 실행될 data/draw operation을 지정한 시간만큼 지연시킵니다.
+
+필수
+- `seconds` 또는 `duration` (초 단위; 둘 중 하나 이상 반드시 제공)
+
+예시(2초 대기):
+```json
+{ "op": "sleep", "seconds": 2 }
+```
+
+예시(duration 사용):
+```json
+{ "op": "sleep", "duration": 0.5 }
+```
+
+`sleep`은 모든 chart 차종에 공통으로 적용되며, 다음 operation이 실행되기 전까지 아무런 action을 하지 않습니다.
 
 ### 4.1 retrieveValue
 **목표**: 특정 x 라벨(`target`)에 해당하는 datum slice를 반환합니다.

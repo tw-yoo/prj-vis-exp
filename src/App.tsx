@@ -4,7 +4,8 @@ import './App.css'
 import barSimpleSpecRaw from '../data/test/spec/bar_simple_ver.json?raw'
 import lineSimpleSpecRaw from '../data/test/spec/line_simple.json?raw'
 import type { JsonValue, OperationSpec } from './types'
-import { renderChart as renderChartDispatch, runChartOps } from './renderer/renderChart'
+import { renderChart as renderChartDispatch } from './renderer/renderChart'
+import {runChartOps} from "./renderer/runChartOps.ts";
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw

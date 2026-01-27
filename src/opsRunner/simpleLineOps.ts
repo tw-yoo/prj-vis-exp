@@ -1,16 +1,16 @@
-import type { DatumValue, OperationSpec } from '../../types'
-import { OperationOp } from '../../types'
-import { renderSimpleLineChart, type LineSpec, getSimpleLineStoredData, tagSimpleLineMarks } from './simpleLineRenderer'
-import { STANDARD_DATA_OP_HANDLERS } from '../ops/common/dataHandlers'
-import { toDatumValuesFromRaw } from '../ops/common/datum'
-import { executeDataOperation } from '../ops/common/executeDataOp'
-import { normalizeOpsList } from '../ops/common/opsSpec'
-import { DrawAction, type DrawOp } from '../draw/types'
-import { SimpleLineDrawHandler } from '../draw/line/SimpleLineDrawHandler'
-import { clearAnnotations } from '../common/d3Helpers'
-import { SvgElements } from '../interfaces'
+import type { DatumValue, OperationSpec } from '../types'
+import { OperationOp } from '../types'
+import { renderSimpleLineChart, type LineSpec, getSimpleLineStoredData, tagSimpleLineMarks } from '../renderer/line/simpleLineRenderer.ts'
+import { STANDARD_DATA_OP_HANDLERS } from '../renderer/ops/common/dataHandlers.ts'
+import { toDatumValuesFromRaw } from '../renderer/ops/common/datum.ts'
+import { executeDataOperation } from '../renderer/ops/common/executeDataOp.ts'
+import { normalizeOpsList } from '../renderer/ops/common/opsSpec.ts'
+import { DrawAction, type DrawOp } from '../renderer/draw/types.ts'
+import { SimpleLineDrawHandler } from '../renderer/draw/line/SimpleLineDrawHandler.ts'
+import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
+import { SvgElements } from '../renderer/interfaces'
 import * as d3 from 'd3'
-import { runSleepDraw } from '../ops/common/sleepDraw'
+import { runSleepOp } from '../renderer/ops/common/sleepOp.ts'
 
 type DrawSelect = { by?: 'key' | 'mark'; keys?: string[]; mark?: string }
 function toDatumValues(rawData: any[], xField: string, yField: string): DatumValue[] {
@@ -57,12 +57,13 @@ export async function runSimpleLineOps(container: HTMLElement, vlSpec: LineSpec,
   const opsArray = normalizeOpsList(opsSpec as any)
   let working: DatumValue[] = base
   for (const op of opsArray) {
+    if (op.op === OperationOp.Sleep) {
+      await runSleepOp(op)
+      continue
+    }
+
     if (op.op === OperationOp.Draw) {
       const drawOp = op as DrawOp
-      if (drawOp.action === DrawAction.Sleep) {
-        await runSleepDraw(drawOp.sleep)
-        continue
-      }
       handleDraw(container, working, drawOp)
       continue
     }

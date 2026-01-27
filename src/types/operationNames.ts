@@ -13,7 +13,7 @@ export const OperationOp = {
   LagDiff: 'lagDiff',
   Nth: 'nth',
   Count: 'count',
+  Sleep: 'sleep',
 } as const
 
 export type OperationOp = (typeof OperationOp)[keyof typeof OperationOp]
-

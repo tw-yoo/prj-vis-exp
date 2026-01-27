@@ -1,62 +1,27 @@
-import { OperationOp, type DatumValue, type OperationSpec } from '../../../../../types'
+import { OperationOp, type DatumValue } from '../../../../../types'
 import type { DrawOp } from '../../../../draw/types'
-import { DrawAction, DrawMark, DrawTextModes } from '../../../../draw/types'
-
-type RetrieveValueVisualOp = OperationSpec & {
-  op: typeof OperationOp.RetrieveValue
-  visual?: {
-    highlightColor?: string
-    textColor?: string
-    precision?: number
-  }
-}
-
-function formatNumber(value: number, precision?: number) {
-  if (!Number.isFinite(value)) return ''
-  if (typeof precision === 'number' && Number.isFinite(precision)) return value.toFixed(precision)
-  if (Number.isInteger(value)) return String(value)
-  return String(Number(value.toFixed(2)))
-}
+import { buildHighlightPlan, buildTextPlan } from './helpers'
+import type { RetrieveValueVisualOp } from './types'
 
 export function buildSimpleBarRetrieveValueDrawPlan(result: DatumValue[], op: RetrieveValueVisualOp): DrawOp[] {
-  const highlightColor = op.visual?.highlightColor ?? '#ef4444'
-  const textColor = op.visual?.textColor ?? '#111827'
   const precision = op.visual?.precision ?? op.precision
+  const highlightColor = op.visual?.highlightColor
+  const textColor = op.visual?.textColor
 
-  const plan: DrawOp[] = []
   const targets: string[] = []
   const seen = new Set<string>()
-  const textByTarget: Record<string, string> = {}
-  for (const d of result) {
-    const t = String(d.target)
-    if (!seen.has(t)) {
-      seen.add(t)
-      targets.push(t)
+  const entries: Array<{ target: string; value: number }> = []
+
+  for (const datum of result) {
+    const target = String(datum.target)
+    if (!seen.has(target)) {
+      seen.add(target)
+      targets.push(target)
     }
-    textByTarget[t] = formatNumber(d.value, precision)
+    entries.push({ target, value: datum.value })
   }
 
-  for (const target of targets) {
-    plan.push({
-      op: OperationOp.Draw,
-      action: DrawAction.Highlight,
-      select: { keys: [target], mark: DrawMark.Rect },
-      style: { color: highlightColor },
-    })
-
-    const textValue = textByTarget[target]
-    if (!textValue) continue
-
-    plan.push({
-      op: OperationOp.Draw,
-      action: DrawAction.Text,
-      select: { keys: [target], mark: DrawMark.Rect },
-      text: {
-        value: textValue,
-        mode: DrawTextModes.Anchor,
-        style: { color: textColor, fontSize: 12, fontWeight: 'bold' },
-      },
-    })
-  }
+  const plan = buildHighlightPlan(targets, highlightColor)
+  plan.push(...buildTextPlan(entries, textColor, precision ?? undefined))
   return plan
 }

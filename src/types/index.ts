@@ -95,6 +95,9 @@ export interface OperationSpec {
   n?: number | number[]
   from?: 'left' | 'right'
   absolute?: boolean
+  /** Sleep duration in seconds */
+  seconds?: number
+  duration?: number
 }
 
 export type DataOpResult = DatumValue[]

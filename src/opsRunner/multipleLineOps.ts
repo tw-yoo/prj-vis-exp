@@ -1,18 +1,18 @@
 // @ts-nocheck
 import * as d3 from 'd3'
-import type { DatumValue } from '../../types'
-import { OperationOp } from '../../types'
-import { STANDARD_DATA_OP_HANDLERS } from '../ops/common/dataHandlers'
-import { toDatumValuesFromRaw } from '../ops/common/datum'
-import { executeDataOperation } from '../ops/common/executeDataOp'
-import { normalizeOpsList } from '../ops/common/opsSpec'
-import { clearAnnotations } from '../common/d3Helpers'
-import { runGenericDraw } from '../draw/genericDraw'
-import { MultiLineDrawHandler } from '../draw/line/MultiLineDrawHandler'
-import { DrawAction, type DrawOp as DrawOpType } from '../draw/types'
-import { SvgElements } from '../interfaces'
-import { renderMultipleLineChart, type MultiLineSpec, getMultipleLineStoredData, tagMultipleLineMarks } from './multipleLineRenderer'
-import { runSleepDraw } from '../ops/common/sleepDraw'
+import type { DatumValue } from '../types'
+import { OperationOp } from '../types'
+import { STANDARD_DATA_OP_HANDLERS } from '../renderer/ops/common/dataHandlers.ts'
+import { toDatumValuesFromRaw } from '../renderer/ops/common/datum.ts'
+import { executeDataOperation } from '../renderer/ops/common/executeDataOp.ts'
+import { normalizeOpsList } from '../renderer/ops/common/opsSpec.ts'
+import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
+import { runGenericDraw } from '../renderer/draw/genericDraw.ts'
+import { MultiLineDrawHandler } from '../renderer/draw/line/MultiLineDrawHandler.ts'
+import { DrawAction, type DrawOp as DrawOpType } from '../renderer/draw/types.ts'
+import { SvgElements } from '../renderer/interfaces'
+import { renderMultipleLineChart, type MultiLineSpec, getMultipleLineStoredData, tagMultipleLineMarks } from '../renderer/line/multipleLineRenderer.ts'
+import { runSleepOp } from '../renderer/ops/common/sleepOp.ts'
 
 function handleDraw(container: HTMLElement | undefined, data: DatumValue[], op: DrawOpType) {
   if (!container || !op.action) return data
@@ -37,12 +37,13 @@ export async function runMultipleLineOps(container: HTMLElement, vlSpec: MultiLi
   const opsArray = normalizeOpsList(opsSpec as any)
   let working: DatumValue[] = base
   for (const op of opsArray) {
+    if (op.op === OperationOp.Sleep) {
+      await runSleepOp(op)
+      continue
+    }
+
     if (op.op === OperationOp.Draw) {
       const drawOp = op as DrawOpType
-      if (drawOp.action === DrawAction.Sleep) {
-        await runSleepDraw(drawOp.sleep)
-        continue
-      }
       handleDraw(container, working, drawOp)
       continue
     }

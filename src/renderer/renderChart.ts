@@ -1,17 +1,11 @@
-import {ChartType, type VegaLiteSpec} from '../utils/chartRenderer'
-import { getChartType, renderVegaLiteChart } from '../utils/chartRenderer'
-import { renderSimpleBarChart } from './bar/simpleBarRenderer'
-import { renderStackedBarChart } from './bar/stackedBarRenderer'
-import { renderGroupedBarChart } from './bar/groupedBarRenderer'
-import { renderSimpleLineChart } from './line/simpleLineRenderer'
-import { renderMultipleLineChart } from './line/multipleLineRenderer'
-import { runSimpleBarOps } from './bar/simpleBarOps'
-import { runStackedBarOps } from './bar/stackedBarOps'
-import { runGroupedBarOps } from './bar/groupedBarOps'
-import { runSimpleLineOps } from './line/simpleLineOps'
-import { runMultipleLineOps } from './line/multipleLineOps'
+import {getChartType, renderVegaLiteChart, type VegaLiteSpec} from '../utils/chartRenderer'
+import {renderSimpleBarChart} from './bar/simpleBarRenderer'
+import {renderStackedBarChart} from './bar/stackedBarRenderer'
+import {renderGroupedBarChart} from './bar/groupedBarRenderer'
+import {renderSimpleLineChart} from './line/simpleLineRenderer'
+import {renderMultipleLineChart} from './line/multipleLineRenderer'
 
-function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
+export function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
   const clone: VegaLiteSpec = { ...spec }
   clone.width = clone.width ?? 600
   clone.height = clone.height ?? 300
@@ -102,25 +96,3 @@ export async function renderChart(container: HTMLElement, spec: VegaLiteSpec) {
   }
 }
 
-export async function runChartOps(container: HTMLElement, spec: VegaLiteSpec, opsSpec: any) {
-
-  const chartType = getChartType(spec)
-  const normalized = normalizeSpec(spec)
-
-  switch (chartType) {
-    case ChartType.SIMPLE_BAR:
-      return runSimpleBarOps(container, normalized as any, opsSpec)
-    case ChartType.STACKED_BAR:
-      return runStackedBarOps(container, normalized as any, opsSpec)
-    case ChartType.GROUPED_BAR:
-      return runGroupedBarOps(container, normalized as any, opsSpec)
-    case ChartType.SIMPLE_LINE:
-      return runSimpleLineOps(container, normalized as any, opsSpec)
-    case ChartType.MULTI_LINE:
-      return runMultipleLineOps(container, normalized as any, opsSpec)
-    default:
-      console.warn('runChartOps: unknown chart type, running plain render then no-op ops')
-      await renderVegaLiteChart(container, normalized)
-      return normalized
-  }
-}
