@@ -1,10 +1,15 @@
+import type { AutoDrawPlanContext } from '../../../../ops/common/executeDataOp.ts'
 import { OperationOp, type DatumValue } from '../../../../../types'
 import type { DrawOp } from '../../../../draw/types'
-import { buildHighlightPlan, buildTextPlan } from './helpers'
-import type { RetrieveValueVisualOp } from './types'
+import { buildHighlightPlan, buildTextPlan } from '../../helpers.ts'
+import type {OpRetrieveValueSpec} from "../../../../../types/operationSpecs.ts";
 
-export function buildSimpleBarRetrieveValueDrawPlan(result: DatumValue[], op: RetrieveValueVisualOp): DrawOp[] {
-  const precision = op.visual?.precision ?? op.precision
+export function buildSimpleBarRetrieveValueDrawPlan(
+  result: DatumValue[],
+  op: OpRetrieveValueSpec,
+  _context?: AutoDrawPlanContext,
+): DrawOp[] {
+  const precision = op.precision
   const highlightColor = op.visual?.highlightColor
   const textColor = op.visual?.textColor
 

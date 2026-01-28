@@ -1,10 +1,15 @@
+import type { AutoDrawPlanContext } from '../../../../ops/common/executeDataOp.ts'
 import { OperationOp, type DatumValue } from '../../../../../types'
 import type { DrawOp } from '../../../../draw/types'
 import { DrawAction } from '../../../../draw/types'
-import type { SortVisualOp } from './types'
+import type {OpSortSpec} from "../../../../../types/operationSpecs.ts";
 
-export function buildSimpleBarSortDrawPlan(_: DatumValue[], op: SortVisualOp): DrawOp[] {
-  const sortBy = op.by === 'x' ? 'x' : 'y'
+export function buildSimpleBarSortDrawPlan(
+  _result: DatumValue[],
+  op: OpSortSpec,
+  _context?: AutoDrawPlanContext,
+): DrawOp[] {
+  const sortBy = op.field === 'x' ? 'x' : 'y'
   const sortOrder = op.order === 'desc' ? 'desc' : 'asc'
   return [
     {

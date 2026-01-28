@@ -9,6 +9,7 @@ type RawDatum = Record<string, JsonValue>
 
 // Local store keyed by container element
 const localDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
+const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new WeakMap()
 
 export type SimpleBarSpec = VegaLiteSpec & {
   encoding: {
@@ -153,6 +154,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
   const xField = spec.encoding.x.field
   const xType = spec.encoding.x.type
   const yType = spec.encoding.y.type
+  clearSimpleBarSplitDomains(container)
   const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
   const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
   const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
@@ -327,6 +329,26 @@ function normalizeSplitGroups(split: DrawSplitSpec, xDomain: Array<string | numb
   }
 }
 
+export async function renderSumSimpleBarChart(
+  container: HTMLElement,
+  spec: SimpleBarSpec,
+  sumConfig: { value: number; label?: string },
+) {
+  const label = sumConfig.label ?? 'Sum'
+  const value = sumConfig.value
+  if (!Number.isFinite(value)) return
+  const xField = spec.encoding.x.field
+  const yField = spec.encoding.y.field
+  const aggregatedRow: RawDatum = {
+    [xField]: label,
+    [yField]: value,
+  }
+  await renderSimpleBarChart(container, {
+    ...spec,
+    data: { values: [aggregatedRow] },
+  })
+}
+
 export async function renderSplitSimpleBarChart(container: HTMLElement, spec: SimpleBarSpec, split: DrawSplitSpec) {
   const data = localDataStore.get(container) || []
   const xField = spec.encoding.x.field
@@ -367,6 +389,11 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
 
   const [idA, idB] = splitGroups.ids
   const [domainA, domainB] = splitGroups.domains
+  const splitDomains: Record<string, Set<string>> = {
+    [idA]: new Set(domainA.map(String)),
+    [idB]: new Set(domainB.map(String)),
+  }
+  setSimpleBarSplitDomains(container, splitDomains)
 
   const groups: Array<{ id: string; domain: Array<string | number>; offsetX: number; offsetY: number }> = [
     { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },
@@ -444,5 +471,20 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
 
 export function getSimpleBarStoredData(container: HTMLElement) {
   return localDataStore.get(container) || []
+}
+
+export function setSimpleBarSplitDomains(container: HTMLElement, domains: Record<string, Set<string>>) {
+  splitDomainStore.set(container, domains)
+}
+
+export function clearSimpleBarSplitDomains(container: HTMLElement) {
+  splitDomainStore.delete(container)
+}
+
+export function getSimpleBarSplitDomain(container: HTMLElement, chartId: string | undefined) {
+  if (!chartId) return null
+  const domains = splitDomainStore.get(container)
+  if (!domains) return null
+  return domains[chartId] ?? null
 }
 // @ts-nocheck

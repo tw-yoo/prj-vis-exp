@@ -61,6 +61,7 @@ export type TargetSelector =
  */
 export interface OperationSpec {
   op?: string
+  chartId?: string
   field?: string
   operator?:
     | '>'

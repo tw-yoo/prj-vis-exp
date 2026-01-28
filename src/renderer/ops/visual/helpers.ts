@@ -1,5 +1,5 @@
-import { OperationOp } from '../../../../../types'
-import { DrawAction, DrawMark, DrawTextModes, type DrawOp } from '../../../../draw/types'
+import { OperationOp } from '../../../types'
+import { DrawAction, DrawMark, DrawTextModes, type DrawOp } from '../../draw/types.ts'
 
 const DEFAULT_HIGHLIGHT_COLOR = '#ef4444'
 const DEFAULT_TEXT_COLOR = '#111827'

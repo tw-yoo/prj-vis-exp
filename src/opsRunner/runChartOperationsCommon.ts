@@ -3,7 +3,7 @@ import * as d3 from 'd3'
 import type { DatumValue, OperationSpec } from '../types'
 import { OperationOp } from '../types'
 import { normalizeOpsList } from '../renderer/ops/common/opsSpec.ts'
-import { executeDataOperation } from '../renderer/ops/common/executeDataOp.ts'
+import { executeDataOperation, type AutoDrawPlanContext } from '../renderer/ops/common/executeDataOp.ts'
 import { STANDARD_DATA_OP_HANDLERS } from '../renderer/ops/common/dataHandlers.ts'
 import { runSleepOp } from '../renderer/ops/common/sleepOp.ts'
 import { isDrawOp, type DrawOp } from '../renderer/ops/operationPipeline.ts'
@@ -29,7 +29,13 @@ export type RunChartOperationsConfig<Spec> = {
   runDrawPlan?: (drawPlan: DrawOp[], handler: ChartHandler) => Promise<void>
   clearAnnotations?: (context: { container: HTMLElement; svg: D3Selection }) => void
   getSvg?: (container: HTMLElement) => D3Selection
-  autoDrawPlans?: Record<string, (result: DatumValue[], op: OperationSpec) => any[] | null>
+  autoDrawPlans?: Record<string, (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => any[] | null>
+  getOperationInput?: (operation: OperationSpec, currentWorking: DatumValue[]) => DatumValue[]
+  handleOperationResult?: (
+    operation: OperationSpec,
+    result: DatumValue[],
+    currentWorking: DatumValue[],
+  ) => Promise<DatumValue[]> | DatumValue[]
 }
 
 const defaultGetSvg = (container: HTMLElement): D3Selection => d3.select(container).select('svg') as D3Selection
@@ -49,7 +55,20 @@ export async function runChartOperationsCommon<Spec>(config: RunChartOperationsC
     clearAnnotations,
     getSvg,
     autoDrawPlans = {},
+    getOperationInput,
+    handleOperationResult,
   } = config
+
+  const deriveOperationInput =
+    getOperationInput ??
+    ((operation: OperationSpec, current: DatumValue[]) => {
+      return current
+    })
+  const commitOperationResult =
+    handleOperationResult ??
+    (async (operation: OperationSpec, result: DatumValue[], current: DatumValue[]) => {
+      return result
+    })
 
   await render(container, spec)
   if (postRender) {
@@ -79,7 +98,7 @@ export async function runChartOperationsCommon<Spec>(config: RunChartOperationsC
         continue
       }
       if (handleDrawOp) {
-        handleDrawOp(container, handler, drawOp)
+        await handleDrawOp(container, handler, drawOp)
         continue
       }
       handler.run(drawOp)
@@ -87,14 +106,18 @@ export async function runChartOperationsCommon<Spec>(config: RunChartOperationsC
       continue
     }
 
+    const operationInput = deriveOperationInput(operation, working)
     const executed =
-      executeDataOperation(working, operation, STANDARD_DATA_OP_HANDLERS, autoDrawPlans)
+      executeDataOperation(operationInput, operation, STANDARD_DATA_OP_HANDLERS, autoDrawPlans, {
+        container,
+        prevWorking: operationInput,
+      })
     if (!executed) {
       console.warn(`Unsupported operation: ${operation.op}`)
       continue
     }
 
-    working = executed.result
+    working = await commitOperationResult(operation, executed.result, working)
     if (runDrawPlan && executed.drawPlan) {
       await runDrawPlan(executed.drawPlan as DrawOp[], handler)
     }

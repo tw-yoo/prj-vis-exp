@@ -3,6 +3,7 @@ import { clearAnnotations } from '../../common/d3Helpers.ts'
 import { runGenericDraw } from '../../draw/genericDraw.ts'
 import type { DrawOp } from '../../draw/types.ts'
 import { DrawAction } from '../../draw/types.ts'
+import { runSleepOp } from '../common/sleepOp.ts'
 
 const ACTIONS_REQUIRING_GENERIC = new Set<DrawAction>([DrawAction.Text, DrawAction.Rect, DrawAction.Line])
 
@@ -30,6 +31,10 @@ export async function runDrawPlan<H extends HandlerLike>(options: RunDrawPlanOpt
   }
 
   for (const op of drawPlan) {
+    if (op.action === DrawAction.Sleep) {
+      await runSleepOp(op)
+      continue
+    }
     handler.run(op)
     if (ACTIONS_REQUIRING_GENERIC.has(op.action ?? ('' as DrawAction))) {
       runGenericDraw(container, op as DrawOp)
