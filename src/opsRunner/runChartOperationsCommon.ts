@@ -15,7 +15,7 @@ export type RunChartOperationsConfig<Spec> = {
   container: HTMLElement
   spec: Spec
   opsSpec: OperationSpec | OperationSpec[]
-  render: (container: HTMLElement, spec: Spec) => Promise<void>
+  render: (container: HTMLElement, spec: Spec) => Promise<unknown>
   postRender?: (container: HTMLElement, spec: Spec) => Promise<void>
   getWorkingData: (container: HTMLElement, spec: Spec) => DatumValue[]
   createHandler: (container: HTMLElement) => ChartHandler

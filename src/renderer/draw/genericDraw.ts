@@ -1,34 +1,11 @@
 // @ts-nocheck
 import * as d3 from 'd3'
 import { SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
-import type { DrawLineSpec, DrawRectSpec } from './types'
-import type { OperationSpec } from '../../types'
-
-type DrawAction = 'highlight' | 'dim' | 'clear' | 'text' | 'rect' | 'line'
-
-type DrawSelect = {
-  keys?: Array<string | number>
-  mark?: string
-}
-
-type DrawTextSpec = {
-  value: string
-  mode?: 'normalized'
-  position?: { x: number; y: number }
-  style?: { color?: string; fontSize?: number; fontWeight?: string | number; opacity?: number }
-}
-
-type DrawOp = OperationSpec & {
-  action?: DrawAction
-  select?: DrawSelect
-  style?: { color?: string; opacity?: number }
-  text?: DrawTextSpec
-  rect?: DrawRectSpec
-  line?: DrawLineSpec
-  chartId?: string
-}
+import type { DrawLineSpec, DrawRectSpec, DrawTextSpec, DrawOp } from './types'
 
 const DEFAULT_FILL = '#69b3a2'
+
+type DrawSelect = DrawOp['select']
 
 function selectByKeys(container: HTMLElement, select: DrawSelect | undefined) {
   const svg = d3.select(container).select(SvgElements.Svg)
@@ -88,7 +65,7 @@ function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
     .attr(SvgAttributes.FontSize, textSpec.style?.fontSize ?? 12)
     .attr(SvgAttributes.FontWeight, textSpec.style?.fontWeight ?? 'bold')
     .attr(SvgAttributes.Opacity, textSpec.style?.opacity ?? 1)
-    .text(textSpec.value)
+    .text(typeof textSpec.value === 'string' ? textSpec.value : String(textSpec.value))
 }
 
 function addNormalizedRect(container: HTMLElement, rectSpec: DrawRectSpec) {

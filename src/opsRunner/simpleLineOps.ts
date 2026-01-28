@@ -42,8 +42,12 @@ export async function runSimpleLineOps(container: HTMLElement, vlSpec: LineSpec,
     container,
     spec: vlSpec,
     opsSpec,
-    render: renderSimpleLineChart,
-    postRender: async (host, spec) => tagSimpleLineMarks(host, spec),
+    render: async (host, spec) => {
+      await renderSimpleLineChart(host, spec)
+    },
+    postRender: async (host, spec) => {
+      await tagSimpleLineMarks(host, spec)
+    },
     getWorkingData: (host, spec) => {
       const raw = getSimpleLineStoredData(host) || []
       return toDatumValues(raw, spec.encoding.x.field, spec.encoding.y.field)
