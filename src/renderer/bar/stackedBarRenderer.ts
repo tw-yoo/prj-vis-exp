@@ -10,7 +10,7 @@ export type StackedSpec = VegaLiteSpec & {
   encoding: {
     x: { field: string; type: string; stack?: string | null }
     y: { field: string; type: string; stack?: string | null }
-    color?: { field?: string }
+    color?: { field?: string; type?: string }
   }
 }
 

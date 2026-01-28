@@ -10,7 +10,7 @@ export type GroupedSpec = VegaLiteSpec & {
   encoding: {
     x: { field: string; type: string }
     y: { field: string; type: string }
-    color?: { field?: string }
+    color?: { field?: string; type?: string }
   }
 }
 

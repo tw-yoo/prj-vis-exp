@@ -23,6 +23,8 @@ export const DrawAction = {
   Filter: 'filter',
   Sum: 'sum',
   LineToBar: 'line-to-bar',
+  StackedToGrouped: 'stacked-to-grouped',
+  GroupedToStacked: 'grouped-to-stacked',
   Sleep: 'sleep',
 } as const
 export type DrawAction = (typeof DrawAction)[keyof typeof DrawAction]
@@ -121,6 +123,12 @@ export type DrawSumSpec = {
   label?: string
 }
 
+export type DrawStackGroupSpec = {
+  swapAxes?: boolean
+  xField?: string
+  colorField?: string
+}
+
 export type DrawOp = OperationSpec & {
   action: DrawAction
   /** When the chart is split, targets a specific sub-chart group id. */
@@ -135,6 +143,7 @@ export type DrawOp = OperationSpec & {
   split?: DrawSplitSpec
   sort?: DrawSortSpec
   filter?: DrawFilterSpec
+  stackGroup?: DrawStackGroupSpec
   sleep?: { seconds?: number; duration?: number }
 }
 

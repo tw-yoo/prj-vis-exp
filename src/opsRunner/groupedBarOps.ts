@@ -1,22 +1,34 @@
-import type { DatumValue, OperationSpec } from '../types'
+import type { DatumValue, OperationSpec, JsonValue } from '../types'
 import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runGenericDraw } from '../renderer/draw/genericDraw.ts'
+import { DrawAction } from '../renderer/draw/types.ts'
 import { GroupedBarDrawHandler } from '../renderer/draw/bar/GroupedBarDrawHandler.ts'
 import type { DrawOp } from '../renderer/draw/types.ts'
 import { renderGroupedBarChart, type GroupedSpec, getGroupedBarStoredData } from '../renderer/bar/groupedBarRenderer.ts'
-import { toDatumValuesFromRaw } from '../renderer/ops/common/datum.ts'
+import { toDatumValuesFromRaw, type RawRow } from '../renderer/ops/common/datum.ts'
 import { runGroupedBarDrawPlan } from '../renderer/ops/executor/runGroupedBarDrawPlan.ts'
+import { convertGroupedToStacked } from '../renderer/bar/stackGroupTransforms.ts'
 
-function toGroupedDatumValues(raw: any[], spec: GroupedSpec): DatumValue[] {
-  return toDatumValuesFromRaw(raw as any, {
+function toGroupedDatumValues(raw: JsonValue[], spec: GroupedSpec): DatumValue[] {
+  const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
+  return toDatumValuesFromRaw(normalized, {
     xField: spec.encoding.x.field,
     yField: spec.encoding.y.field,
     groupField: spec.encoding.color?.field,
   })
 }
 
-function handleGroupedBarDraw(container: HTMLElement, handler: GroupedBarDrawHandler, drawOp: DrawOp) {
+async function handleGroupedBarDraw(
+  container: HTMLElement,
+  handler: GroupedBarDrawHandler,
+  drawOp: DrawOp,
+  spec: GroupedSpec,
+) {
+  if (drawOp.action === DrawAction.GroupedToStacked) {
+    await convertGroupedToStacked(container, spec, drawOp.stackGroup)
+    return
+  }
   handler.run(drawOp)
   runGenericDraw(container, drawOp)
 }
@@ -33,11 +45,12 @@ export async function runGroupedBarOps(
     render: renderGroupedBarChart,
     postRender: async () => {},
     getWorkingData: () => {
-      const raw = getGroupedBarStoredData(container) || []
+      const raw = (getGroupedBarStoredData(container) || []) as JsonValue[]
       return toGroupedDatumValues(raw, vlSpec)
     },
     createHandler: () => new GroupedBarDrawHandler(container),
-    handleDrawOp: (host, handler, drawOp) => handleGroupedBarDraw(host, handler as GroupedBarDrawHandler, drawOp),
+    handleDrawOp: async (host, handler, drawOp) =>
+      handleGroupedBarDraw(host, handler as GroupedBarDrawHandler, drawOp, vlSpec),
     clearAnnotations: ({ svg }) => clearAnnotations(svg),
     runDrawPlan: async (drawPlan, handler) => {
       await runGroupedBarDrawPlan(container, drawPlan, { handler: handler as GroupedBarDrawHandler })
