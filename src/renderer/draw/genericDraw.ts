@@ -56,12 +56,16 @@ function selectByKeys(container: HTMLElement, select: DrawSelect | undefined) {
   })
 }
 
+/** select.keys에 맞춰 SVG 요소를 찾아 반환합니다 (data-target/id/value 포함). */
+
 function selectAllMarks(container: HTMLElement) {
   return d3
     .select(container)
     .select(SvgElements.Svg)
     .selectAll<SVGElement, unknown>(`${SvgElements.Rect},${SvgElements.Circle},${SvgElements.Path}`)
 }
+
+/** SVG viewBox를 기준으로 정규화된 텍스트/rect/line을 annotation 레이어에 추가합니다. */
 
 function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
   const svgSel = d3.select(container).select(SvgElements.Svg)
@@ -144,6 +148,7 @@ export function runGenericDraw(container: HTMLElement, op: DrawOp) {
   const selection = selectByKeys(container, op.select)
   const allMarks = selectAllMarks(container)
 
+  // DrawAction별 처리 흐름
   switch (action) {
     case 'clear':
       allMarks.attr(SvgAttributes.Fill, DEFAULT_FILL).attr(SvgAttributes.Opacity, 1)

@@ -69,3 +69,8 @@
 - 키 문자열은 x축 라벨과 동일한 포맷(예: `"YYYY-MM-DD"`)으로 넣으세요. (내부에서 ISO 전체와 매칭 처리)
 - 여러 효과가 필요하면 draw 액션을 나눠 순서대로 실행하세요.  
 - 차트가 재렌더링 없이 draw만 실행되므로, 선택 대상이 안 보이면 `clear` 후 다시 시도하거나 키 문자열을 확인하세요.
+
+## 5. 내부 구현 읽기
+- `src/renderer/draw/line/SimpleLineDrawHandler.ts`: highlight 시 작은 Circle을 그려주고, `lineTrace`는 `trace`+`select.keys`로 구간을 정한 뒤 기존 path를 따라 점과 선을 그립니다. `lineTrace`가 그리는 path는 `ensureAnnotationLayer`를 통해 SVG 최상위에 별도 그룹으로 관리합니다.
+- `src/renderer/draw/genericDraw.ts`: `highlight`, `dim`, `clear` 등의 기본 DOM 처리는 이 파일에서, selection/annotation 제거 로직이 일관되게 정의되어 있습니다.
+- `src/renderer/ops/executor/runDrawPlan.ts`: draw-plan을 실행하면서 handler → `runGenericDraw` 흐름을 돌아, 어떤 action이 annotation layer로 이어지는지 확인할 수 있습니다.

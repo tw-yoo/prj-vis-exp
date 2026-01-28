@@ -11,10 +11,10 @@ type TraceSpec = {
 }
 
 /**
- * Simple line-specific handler:
- * - highlight/dim draw small circles on data points (overlay)
- * - added action: line-trace (follow existing line path between two x labels; overlay path & points)
- * - split/sort/filter are intentionally unsupported.
+ * SimpleLine 전용 handler:
+ + highlight/dim 시 데이터 지점 위에 점(circle)만 덧그리는 오버레이 방식입니다.
+ + lineTrace 액션은 두 라벨을 따라 선 path와 점을 보여주는 안내선 역할을 합니다.
+ + draw action 중 split/sort/filter 등은 지원하지 않고, base handler 흐름을 재사용합니다.
  */
 export class SimpleLineDrawHandler extends LineDrawHandler {
   protected override selectElements(_select?: DrawSelect, chartId?: string) {
@@ -79,6 +79,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
         return area < accArea ? el : acc
       }, null)
       if (!best) return
+      // 가장 작은 bbox 중심을 SVG 좌표로 변환하고 annotation circle을 추가
       const { x, y } = this.toSvgCenter(best, svg.node() as SVGSVGElement)
       if (!Number.isFinite(x) || !Number.isFinite(y)) return
       this.drawPointCircle(svg as any, x, y, { fill: color }, op.chartId)
@@ -89,6 +90,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     const opacity = op.style?.opacity ?? 0.25
     const selectedNodes = new Set(this.selectElements(op.select, op.chartId).nodes())
     this.allMarks(op.chartId).attr(SvgAttributes.Opacity, function () {
+      // 하이라이트 대상은 불투명하게, 나머지는 투명도 감소
       return selectedNodes.has(this as SVGElement) ? 1 : opacity
     })
   }

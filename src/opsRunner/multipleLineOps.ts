@@ -1,56 +1,63 @@
-// @ts-nocheck
 import * as d3 from 'd3'
-import type { DatumValue } from '../types'
-import { OperationOp } from '../types'
-import { STANDARD_DATA_OP_HANDLERS } from '../renderer/ops/common/dataHandlers.ts'
+import type { DatumValue, OperationSpec } from '../types'
+import {
+  renderMultipleLineChart,
+  type MultiLineSpec,
+  getMultipleLineStoredData,
+  tagMultipleLineMarks,
+} from '../renderer/line/multipleLineRenderer.ts'
 import { toDatumValuesFromRaw } from '../renderer/ops/common/datum.ts'
-import { executeDataOperation } from '../renderer/ops/common/executeDataOp.ts'
-import { normalizeOpsList } from '../renderer/ops/common/opsSpec.ts'
-import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
-import { runGenericDraw } from '../renderer/draw/genericDraw.ts'
+import { DrawAction, type DrawOp } from '../renderer/draw/types.ts'
 import { MultiLineDrawHandler } from '../renderer/draw/line/MultiLineDrawHandler.ts'
-import { DrawAction, type DrawOp as DrawOpType } from '../renderer/draw/types.ts'
-import { SvgElements } from '../renderer/interfaces'
-import { renderMultipleLineChart, type MultiLineSpec, getMultipleLineStoredData, tagMultipleLineMarks } from '../renderer/line/multipleLineRenderer.ts'
-import { runSleepOp } from '../renderer/ops/common/sleepOp.ts'
+import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
+import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
+import { runMultipleLineDrawPlan } from '../renderer/ops/executor/runMultipleLineDrawPlan.ts'
 
-function handleDraw(container: HTMLElement | undefined, data: DatumValue[], op: DrawOpType) {
-  if (!container || !op.action) return data
-  const handler = new MultiLineDrawHandler(container)
-  handler.run(op as any)
-  runGenericDraw(container, op as any)
-  return data
+function toDatumValues(raw: any[], xField: string, yField: string): DatumValue[] {
+  return toDatumValuesFromRaw(raw as any, { xField, yField })
 }
 
-export async function runMultipleLineOps(container: HTMLElement, vlSpec: MultiLineSpec, opsSpec: any) {
-  const hasSvg = !!container.querySelector('svg')
-  if (!hasSvg) {
-    await renderMultipleLineChart(container, vlSpec)
-  } else {
-    await tagMultipleLineMarks(container, vlSpec)
+function handleMultipleLineDraw(container: HTMLElement, handler: MultiLineDrawHandler, drawOp: DrawOp) {
+  if (drawOp.action === DrawAction.Clear) {
+    clearAnnotations(d3.select(container).select('svg'))
+    handler.run(drawOp)
+    return
   }
-  const raw = getMultipleLineStoredData(container) || []
-  const xField = vlSpec.encoding.x.field
-  const yField = vlSpec.encoding.y.field
-  const colorField = vlSpec.encoding.color?.field
-  const base = toDatumValuesFromRaw(raw as any, { xField, yField, groupField: colorField })
-  const opsArray = normalizeOpsList(opsSpec as any)
-  let working: DatumValue[] = base
-  for (const op of opsArray) {
-    if (op.op === OperationOp.Sleep) {
-      await runSleepOp(op)
-      continue
-    }
+  if (
+    drawOp.action === DrawAction.Highlight ||
+    drawOp.action === DrawAction.Dim ||
+    drawOp.action === DrawAction.LineTrace ||
+    drawOp.action === DrawAction.Text ||
+    drawOp.action === DrawAction.Rect ||
+    drawOp.action === DrawAction.Line
+  ) {
+    handler.run(drawOp)
+    return
+  }
+  console.warn('draw: unsupported action for multiple line', drawOp.action)
+}
 
-    if (op.op === OperationOp.Draw) {
-      const drawOp = op as DrawOpType
-      handleDraw(container, working, drawOp)
-      continue
-    }
-    const executed = executeDataOperation(working, op, STANDARD_DATA_OP_HANDLERS)
-    if (!executed) continue
-    working = executed.result
-  }
-  clearAnnotations(d3.select(container).select(SvgElements.Svg))
-  return working
+export async function runMultipleLineOps(
+  container: HTMLElement,
+  vlSpec: MultiLineSpec,
+  opsSpec: OperationSpec | OperationSpec[],
+) {
+  return runChartOperationsCommon<MultiLineSpec>({
+    container,
+    spec: vlSpec,
+    opsSpec,
+    render: renderMultipleLineChart,
+    postRender: async (host, spec) => tagMultipleLineMarks(host, spec),
+    getWorkingData: (_, spec) => {
+      const raw = getMultipleLineStoredData(container) || []
+      return toDatumValues(raw, spec.encoding.x.field, spec.encoding.y.field)
+    },
+    createHandler: () => new MultiLineDrawHandler(container),
+    handleDrawOp: (host, handler, drawOp) =>
+      handleMultipleLineDraw(host, handler as MultiLineDrawHandler, drawOp),
+    clearAnnotations: ({ svg }) => clearAnnotations(svg),
+    runDrawPlan: async (drawPlan, handler) => {
+      await runMultipleLineDrawPlan(container, drawPlan, { handler: handler as MultiLineDrawHandler })
+    },
+  })
 }

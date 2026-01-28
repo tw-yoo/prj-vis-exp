@@ -14,6 +14,21 @@ import type {
   OpSumSpec,
   OpAverageSpec,
 } from '../types/operationSpecs'
+import {
+  assertAverageSpec,
+  assertCompareBoolSpec,
+  assertCompareSpec,
+  assertCountSpec,
+  assertDetermineRangeSpec,
+  assertDiffSpec,
+  assertFilterSpec,
+  assertFindExtremumSpec,
+  assertLagDiffSpec,
+  assertNthSpec,
+  assertRetrieveValueSpec,
+  assertSortSpec,
+  assertSumSpec,
+} from '../types/operationValidators'
 
 // ---------------------------------------------------------------------------
 // Shared helpers (ported from dataOpsCore.js)
@@ -351,9 +366,8 @@ function makeScalarDatum(
 /** Op 3.1: select entries matching target/field/group. */
 export function retrieveValue(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpRetrieveValueSpec
+  const spec = assertRetrieveValueSpec(op)
   const { field, target, group } = spec
-  if (target == null) throw new Error('retrieveValue requires "target"')
   return sliceForTarget(arr, field, target, group ?? null)
 }
 
@@ -361,10 +375,8 @@ export function retrieveValue(data: DatumValue[], op: OperationSpec): DatumValue
 /** Op 3.2: filter by operator/value against category or measure field. */
 export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpFilterSpec
+  const spec = assertFilterSpec(op)
   const { field, operator, value, group } = spec
-  if (!operator) throw new Error('filter requires "operator"')
-  if (value === undefined) throw new Error('filter requires "value"')
   const byGroup = sliceByGroup(arr, group ?? null)
   const kind = inferFieldKind(byGroup, field)
   const inField = byGroup.filter(predicateByField(field, kind))
@@ -400,9 +412,8 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
 /** Op 3.3: compare two targets; return the winning datum. */
 export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpCompareSpec
+  const spec = assertCompareSpec(op)
   const { field, targetA, targetB, groupA, groupB, aggregate: agg, which = 'max' } = spec
-  if (targetA == null || targetB == null) throw new Error('compare requires targetA and targetB')
   const gA = groupA ?? op.group
   const gB = groupB ?? op.group
   const sA = sliceForTarget(arr, field, targetA, gA ?? null)
@@ -421,10 +432,8 @@ export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
 /** Op 3.4: compare two targets; return a numeric boolean result. */
 export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpCompareBoolSpec
+  const spec = assertCompareBoolSpec(op)
   const { field, targetA, targetB, groupA, groupB, operator } = spec
-  if (targetA == null || targetB == null) throw new Error('compareBool requires targetA and targetB')
-  if (!operator) throw new Error('compareBool requires "operator"')
   const gA = groupA ?? op.group
   const gB = groupB ?? op.group
   const sA = sliceForTarget(arr, field, targetA, gA ?? null)
@@ -447,9 +456,8 @@ export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue
 /** Op 3.5: find min/max datum within an optional group/field. */
 export function findExtremum(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpFindExtremumSpec
+  const spec = assertFindExtremumSpec(op)
   const { field, which, group } = spec
-  if (!which) throw new Error('findExtremum requires "which" (min/max)')
   const byGroup = sliceByGroup(arr, group ?? null)
   const kind = inferFieldKind(byGroup, field) || 'category'
   const section = byGroup.filter(predicateByField(field, kind))
@@ -471,7 +479,8 @@ export function findExtremum(data: DatumValue[], op: OperationSpec): DatumValue[
 /** Op 3.6: sort a slice while preserving non-matching rows. */
 export function sortData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { field, order = 'asc', group } = op
+  const spec = assertSortSpec(op)
+  const { field, order = 'asc', group } = spec
   const byGroup = sliceByGroup(arr, group ?? null)
   const kind = inferFieldKind(byGroup, field)
   const inField = byGroup.filter(predicateByField(field, kind))
@@ -495,7 +504,8 @@ export function determineRange(
   op: OperationSpec,
 ): DatumValue[] {
   const arr = cloneData(data)
-  const { field, group } = op
+  const spec = assertDetermineRangeSpec(op)
+  const { field, group } = spec
   const byGroup = sliceByGroup(arr, group ?? null)
   const kind = inferFieldKind(byGroup, field) || 'measure'
   const inField = byGroup.filter(predicateByField(field, kind))
@@ -544,7 +554,8 @@ export function determineRange(
 /** Op 3.8: count rows; returns single DatumValue with the count. */
 export function countData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const { group } = op
+  const spec = assertCountSpec(op)
+  const { group } = spec
   const byGroup = sliceByGroup(arr, group ?? null)
   const fieldLabel = op?.field || 'target'
   const name = formatResultName('Count', fieldLabel, { group })
@@ -555,9 +566,8 @@ export function countData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 /** Op 3.9: sum numeric values; returns single DatumValue. */
 export function sumData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpSumSpec
+  const spec = assertSumSpec(op)
   const { field, group } = spec
-  if (!field) throw new Error('sum requires "field"')
   const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
   const s = byGroup.reduce((acc, d) => acc + d.value, 0)
   const fieldLabel = field || 'value'
@@ -569,9 +579,8 @@ export function sumData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 /** Op 3.10: average numeric values; returns single DatumValue. */
 export function averageData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpAverageSpec
+  const spec = assertAverageSpec(op)
   const { field, group } = spec
-  if (!field) throw new Error('average requires "field"')
   const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
   const fieldLabel = field || 'value'
   const name = formatResultName('Average', fieldLabel, { group })
@@ -584,8 +593,7 @@ export function averageData(data: DatumValue[], op: OperationSpec): DatumValue[]
 /** Op 3.11: difference/ratio/percent-of-total between targets. */
 export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpDiffSpec
-  if (spec.targetA == null || spec.targetB == null) throw new Error('diff requires targetA and targetB')
+  const spec = assertDiffSpec(op)
   const {
     field,
     targetA,
@@ -686,9 +694,8 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
 /** Op 3.11b: adjacent differences across an ordered sequence. */
 export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = (op as OpLagDiffSpec)
+  const spec = assertLagDiffSpec(op)
   const { field, orderField, order = 'asc', group, absolute = false } = spec
-  if (!orderField) throw new Error('lagDiff requires "orderField"')
   const byGroup = sliceByGroup(arr, group ?? null)
   if (byGroup.length < 2) return []
 
@@ -735,9 +742,8 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
 /** Op 3.12: return the n-th datum (1-based) from left/right. */
 export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = op as OpNthSpec
+  const spec = assertNthSpec(op)
   const { n, from = 'left', group } = spec
-  if (n == null) throw new Error('nth requires "n"')
   const byGroup = sliceByGroup(arr, group ?? null)
   if (byGroup.length === 0) return []
   const queryIndices = Array.isArray(n) ? n : [n]

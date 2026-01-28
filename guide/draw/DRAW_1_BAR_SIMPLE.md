@@ -158,3 +158,8 @@
 - `select.keys`는 x라벨(=data-target)과 맞춰 작성.
 - 여러 효과가 필요하면 draw 액션을 나눠 순차 적용.
 - split 이후에는 반드시 `chartId`로 대상 서브차트를 지정.
+
+## 5. 내부 구현 읽기
+- `src/renderer/draw/BarDrawHandler.ts`(루트): `highlight`, `dim`, `rect` 등 기본 draw action이 `BaseDrawHandler`의 `filterByKeys`/`selectScope`를 사용해 호출됩니다.
+- `src/renderer/draw/genericDraw.ts`: `highlight`/`dim`/`text`/`rect`/`line`의 공통 DOM 조작 함수가 여기에 있고, draw-plan을 사용하는 operation은 `runDrawPlan` → `runGenericDraw` 흐름으로 실행됩니다.
+- `src/renderer/ops/executor/runDrawPlan.ts`: draw action 리스트를 받아 `handler.run` + `runGenericDraw`를 반복하며 annotation layer를 정리합니다. draw action을 확장할 땐 이 파일을 먼저 참고하세요.

@@ -1,31 +1,23 @@
 // @ts-nocheck
 import type { DatumValue, OperationSpec } from '../types'
 import { OperationOp } from '../types'
-import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
 import { BarDrawHandler } from '../renderer/draw/BarDrawHandler.ts'
 import { DrawAction, type DrawSplitSpec, type DrawOp } from '../renderer/draw/types.ts'
-import { runGenericDraw } from '../renderer/draw/genericDraw.ts'
-import { isDrawOp } from '../renderer/ops/operationPipeline.ts'
 import { runSimpleBarDrawPlan } from '../renderer/ops/executor/runSimpleBarDrawPlan.ts'
 import { buildSimpleBarRetrieveValueDrawPlan } from '../renderer/ops/visual/bar/simple/retrieveValue.visual.ts'
-import {
-  resetRuntimeResults,
-  storeRuntimeResult,
-} from '../logic/dataOps.ts'
-import { STANDARD_DATA_OP_HANDLERS } from '../renderer/ops/common/dataHandlers.ts'
-import { getPlotContext } from '../renderer/ops/common/chartContext.ts'
-import { executeDataOperation } from '../renderer/ops/common/executeDataOp.ts'
+import { buildSimpleBarSortDrawPlan } from '../renderer/ops/visual/bar/simple/sort.visual.ts'
 import { normalizeOpsList, type OpsSpecInput } from '../renderer/ops/common/opsSpec.ts'
-import { runtimeKeyFor } from '../renderer/ops/common/runtime.ts'
+import { getPlotContext } from '../renderer/ops/common/chartContext.ts'
 import { toWorkingDatumValuesFromStore } from '../renderer/ops/common/workingData.ts'
-import { runSleepOp } from '../renderer/ops/common/sleepOp.ts'
+import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import {
   renderSimpleBarChart,
   renderSplitSimpleBarChart,
   type SimpleBarSpec,
   getSimpleBarStoredData,
 } from '../renderer/bar/simpleBarRenderer.ts'
-import {buildSimpleBarSortDrawPlan} from "../renderer/ops/visual/bar/simple/sort.visual.ts";
+import { resetRuntimeResults } from '../logic/dataOps.ts'
+import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
 
 function toWorkingDatumValues(container: HTMLElement, vlSpec: SimpleBarSpec) {
   const ctx = getPlotContext(container)
@@ -44,68 +36,48 @@ const AUTO_DRAW_PLANS: Record<string, (result: DatumValue[], op: OperationSpec) 
   [OperationOp.Sort]: (result, op) => buildSimpleBarSortDrawPlan(result, op as any),
 }
 
-/**
- * Run a list of operations against a rendered simple bar chart in the given container.
- * Rendering is invoked first to ensure the chart and data store are prepared.
- */
-export async function runSimpleBarOps(
+async function handleSimpleBarSplit(
   container: HTMLElement,
-  vlSpec: SimpleBarSpec,
-  opsSpec: OpsSpecInput,
-): Promise<DatumValue[]> {
-
-  await renderSimpleBarChart(container, vlSpec)
-
-  const baseData = toWorkingDatumValues(container, vlSpec)
-  const opsList = normalizeOpsList(opsSpec)
-
-  resetRuntimeResults()
-  clearAnnotations(getPlotContext(container).svg)
-
-  let working: DatumValue[] = baseData
-  let handler = new BarDrawHandler(container)
-
-  for (let index = 0; index < opsList.length; index += 1) {
-    const operation = opsList[index]
-
-    if (operation.op === OperationOp.Sleep) {
-      await runSleepOp(operation)
-      continue
+  spec: SimpleBarSpec,
+  drawOp: DrawOp,
+) {
+  if (drawOp.action === DrawAction.Split) {
+    if (!drawOp.split) {
+      console.warn('draw:split requires split spec', drawOp)
+      return true
     }
-
-    if (isDrawOp(operation)) {
-      const drawOp = operation as any
-      if (drawOp.action === DrawAction.Split) {
-        if (!drawOp.split) {
-          console.warn('draw:split requires split spec', drawOp)
-          continue
-        }
-        await renderSplitSimpleBarChart(container, vlSpec, drawOp.split as DrawSplitSpec)
-        handler = new BarDrawHandler(container)
-        continue
-      }
-      if (drawOp.action === DrawAction.Unsplit) {
-        await renderSimpleBarChart(container, vlSpec)
-        handler = new BarDrawHandler(container)
-        continue
-      }
-      handler.run(drawOp)
-      runGenericDraw(container, drawOp)
-      continue
-    }
-
-    const executed =
-        executeDataOperation(working, operation, STANDARD_DATA_OP_HANDLERS, AUTO_DRAW_PLANS)
-
-    if (!executed) { console.warn(`Unsupported operation: ${operation.op}`); continue }
-
-    storeRuntimeResult(runtimeKeyFor(operation, index), executed.result)
-    working = executed.result
-
-    if (executed.drawPlan) {
-      await runSimpleBarDrawPlan(container, executed.drawPlan as any, { handler })
-    }
+    await renderSplitSimpleBarChart(container, spec, drawOp.split as DrawSplitSpec)
+    return true
   }
+  if (drawOp.action === DrawAction.Unsplit) {
+    await renderSimpleBarChart(container, spec)
+    return true
+  }
+  return false
+}
 
-  return working
+export async function runSimpleBarOps(container: HTMLElement, vlSpec: SimpleBarSpec, opsSpec: OpsSpecInput) {
+  resetRuntimeResults()
+
+  return runChartOperationsCommon<SimpleBarSpec>({
+    container,
+    spec: vlSpec,
+    opsSpec,
+    render: renderSimpleBarChart,
+    postRender: async () => {},
+    getWorkingData: (host, spec) => toWorkingDatumValues(host, spec),
+    createHandler: (host) => new BarDrawHandler(host),
+    splitHandler: async (host, spec, handler, drawOp) => {
+      const handled = await handleSimpleBarSplit(host, spec, drawOp)
+      if (handled) {
+        handler = new BarDrawHandler(host)
+      }
+      return handled
+    },
+    clearAnnotations: ({ container: host }) => clearAnnotations(getPlotContext(host).svg),
+    autoDrawPlans: AUTO_DRAW_PLANS,
+    runDrawPlan: async (drawPlan, handler) => {
+      await runSimpleBarDrawPlan(container, drawPlan, { handler })
+    },
+  })
 }

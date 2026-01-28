@@ -163,6 +163,12 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ### 4.5 compare / compareBool
 **목표**: 두 target을 비교합니다.
 
+**필수**
+- `targetA`, `targetB`
+- *(compareBool만)* `operator`
+
+**선택**
+- `field`, `groupA/groupB`, `aggregate`, `which`
 예시(compare: 더 큰 값을 가진 datum 리턴)
 ```json
 { "op": "compare", "field": "rating", "targetA": "KOR", "targetB": "USA", "which": "max" }
@@ -177,6 +183,13 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ### 4.6 sort
 **목표**: datum을 정렬합니다(기본 asc).
 
+**필수**
+- 없음 (기본 `target` 정렬)
+
+**선택**
+- `field` (measure/category)
+- `order`: `"asc"`(기본) 또는 `"desc"`
+- `group`
 예시(rating 내림차순)
 ```json
 { "op": "sort", "field": "rating", "order": "desc" }
@@ -185,6 +198,12 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ### 4.7 count / sum / average
 **목표**: 스칼라 결과를 `DatumValue[]`(길이 1)로 반환합니다.
 
+**필수**
+- (count) 없음
+- (sum/average) `field`
+
+**선택**
+- `group`
 예시(count)
 ```json
 { "op": "count" }
@@ -203,6 +222,12 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ### 4.8 diff
 **목표**: 두 target의 차이/비율 등을 단일 스칼라 datum으로 반환합니다.
 
+**필수**
+- `targetA`, `targetB`
+
+**선택**
+- `field` (default `value`)
+- `aggregate`, `signed`, `mode`, `percent`, `scale`, `precision`
 예시(차이: KOR - USA, signed)
 ```json
 { "op": "diff", "field": "rating", "targetA": "KOR", "targetB": "USA", "signed": true }
@@ -216,6 +241,11 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ### 4.9 lagDiff
 **목표**: 정렬된 시퀀스에서 인접한 값의 차이를 계산합니다(현재 target 기준).
 
+**필수**
+- `orderField`
+
+**선택**
+- `order`, `group`, `absolute`
 예시(기본: target 기준 정렬 후 curr - prev)
 ```json
 { "op": "lagDiff", "field": "rating", "order": "asc" }
@@ -229,6 +259,11 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ### 4.10 nth
 **목표**: 현재 순서에서 n번째 datum을 반환합니다(`n`은 1부터).
 
+**필수**
+- `n`
+
+**선택**
+- `from`, `group`
 예시(왼쪽에서 1번째)
 ```json
 { "op": "nth", "n": 1, "from": "left" }

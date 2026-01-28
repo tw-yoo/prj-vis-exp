@@ -3,8 +3,8 @@ import type { JsonObject, JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../interfaces'
 
 // Loosen d3 selection typing to reduce downstream generic incompatibilities
-type D3Datum = any
-type D3Selection = d3.Selection<any, D3Datum, any, any>
+export type D3Datum = any
+export type D3Selection = d3.Selection<any, D3Datum, any, any>
 
 // ---------------------------------------------------------------------------
 // Animation configuration (ported from animationConfig.js)
