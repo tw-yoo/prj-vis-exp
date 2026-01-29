@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1nhvdb1l9awjyxs1.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1nhvdb1l9awjyxs1.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Market size in billion U.S. dollars",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

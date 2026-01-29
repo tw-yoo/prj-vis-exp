@@ -1,0 +1,23 @@
+State,Type,Payment_Million_USD
+Texas,Maximum,60
+Texas,Minimum,0
+California,Maximum,25
+California,Minimum,15
+Iowa,Maximum,25
+Iowa,Minimum,15
+Oklahoma,Maximum,25
+Oklahoma,Minimum,15
+Kansas,Maximum,15
+Kansas,Minimum,10
+Illinois,Maximum,15
+Illinois,Minimum,10
+Minnesota,Maximum,15
+Minnesota,Minimum,10
+Colorado,Maximum,10
+Colorado,Minimum,5
+New York,Maximum,10
+New York,Minimum,5
+Oregon,Maximum,10
+Oregon,Minimum,5
+Washington,Maximum,10
+Washington,Minimum,5

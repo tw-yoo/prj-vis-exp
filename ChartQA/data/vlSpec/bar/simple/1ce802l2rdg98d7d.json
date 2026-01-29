@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1ce802l2rdg98d7d.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1ce802l2rdg98d7d.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Share of respondents",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Party",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+    "data": {
+        "url": "ChartQA/data/csv/bar/grouped/2un131viqyjzg34y.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+        "column": {
+            "field": "Year",
+            "type": "ordinal",
+            "header": {}
+        },
+        "y": {
+            "field": "Number of shootings",
+            "type": "quantitative",
+            "axis": {
+                "grid": false
+            }
+        },
+        "x": {
+            "field": "Group",
+            "type": "nominal",
+            "axis": {
+                "title": ""
+            }
+        },
+        "color": {
+            "field": "Group",
+            "type": "nominal"
+        }
+    },
+    "config": {
+        "view": {
+            "stroke": "transparent"
+        },
+        "axis": {
+            "domainWidth": 1
+        }
+    }
+}

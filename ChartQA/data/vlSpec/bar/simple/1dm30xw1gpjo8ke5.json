@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1dm30xw1gpjo8ke5.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1dm30xw1gpjo8ke5.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Share of GDP",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Category",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

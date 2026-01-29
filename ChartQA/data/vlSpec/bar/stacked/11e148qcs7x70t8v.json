@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 11e148qcs7x70t8v.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/11e148qcs7x70t8v.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Period",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Share_of_Import_Value",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Country",
+      "type": "nominal"
+    }
+  }
+}

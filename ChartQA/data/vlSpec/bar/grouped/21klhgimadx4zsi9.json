@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 21klhgimadx4zsi9.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/21klhgimadx4zsi9.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Year",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "Revenue_Million_Euros",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Sector",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Sector",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

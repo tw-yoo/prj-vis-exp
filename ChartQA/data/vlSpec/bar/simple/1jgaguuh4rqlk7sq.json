@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1jgaguuh4rqlk7sq.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1jgaguuh4rqlk7sq.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Sales volume in tonnes",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for aoycx517slbw0ifa.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/aoycx517slbw0ifa.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Revenue in million euros",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Division",
+      "type": "nominal"
+    }
+  }
+}

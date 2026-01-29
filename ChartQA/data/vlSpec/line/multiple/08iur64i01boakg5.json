@@ -1,0 +1,99 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for 08iur64i01boakg5.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/multiple/08iur64i01boakg5.csv"
+  },
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Percentage of 25 to 29 year olds",
+          "type": "quantitative",
+          "axis": {
+            "title": "Percentage of 25 to 29 year olds",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Gender",
+          "type": "nominal",
+          "legend": {
+            "title": "Gender",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Percentage of 25 to 29 year olds",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Gender",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Gender",
+            "type": "nominal",
+            "title": "Gender"
+          },
+          {
+            "field": "Percentage of 25 to 29 year olds",
+            "type": "quantitative",
+            "title": "Percentage of 25 to 29 year olds"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0qz3v0bszsex7jjm.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0qz3v0bszsex7jjm.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Expenditure in billion GBP",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Fiscal Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

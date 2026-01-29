@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for chrkcwjl9vro8a6o.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/chrkcwjl9vro8a6o.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Quarter/Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Number of deals",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Region",
+      "type": "nominal"
+    }
+  }
+}

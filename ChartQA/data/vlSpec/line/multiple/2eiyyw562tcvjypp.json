@@ -1,0 +1,110 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "title": {
+    "text": "U.S. and Russia Mutual Favorability (2007-2017)",
+    "fontSize": 26,
+    "anchor": "middle"
+  },
+  "description": "Multiple line chart for 2eiyyw562tcvjypp.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/multiple/2eiyyw562tcvjypp.csv"
+  },
+  "transform": [
+    {
+      "calculate": "datum.Favorability_Direction == 'U.S. favorability in Russia' ? 'U.S.' : 'Russia'",
+      "as": "Country"
+    }
+  ],
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 16,
+            "titleFontSize": 20,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Favorable_View_Percentage",
+          "type": "quantitative",
+          "axis": {
+            "title": "Favorable View (%)",
+            "labelFontSize": 16,
+            "titleFontSize": 20,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Country",
+          "type": "nominal",
+          "legend": {
+            "title": "Country",
+            "titleFontSize": 18,
+            "labelFontSize": 16
+          }
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 150,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Favorable_View_Percentage",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Country",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Country",
+            "type": "nominal",
+            "title": "Country"
+          },
+          {
+            "field": "Favorable_View_Percentage",
+            "type": "quantitative",
+            "title": "Favorable View (%)"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}
