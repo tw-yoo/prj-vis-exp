@@ -12,7 +12,7 @@
       "header": {}
     },
     "y": {
-      "field": "Value in billion U.S. dollars",
+      "field": "Value in billion US dollars",
       "type": "quantitative",
       "axis": {
         "grid": false

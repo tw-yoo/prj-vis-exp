@@ -25,3 +25,5 @@ dist-ssr
 
 qodana.yaml
 qodana.sarif.json
+
+*.txt

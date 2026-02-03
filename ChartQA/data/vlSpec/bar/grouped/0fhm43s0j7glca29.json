@@ -12,7 +12,7 @@
       "header": {}
     },
     "y": {
-      "field": "Revenue in billion U.S. dollars",
+      "field": "Revenue in billion US dollars",
       "type": "quantitative",
       "axis": {
         "grid": false

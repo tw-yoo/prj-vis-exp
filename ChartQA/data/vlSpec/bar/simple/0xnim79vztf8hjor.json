@@ -7,7 +7,7 @@
   "mark": "bar",
   "encoding": {
     "y": {
-      "field": "Average ticket price in U.S. dollars",
+      "field": "Average ticket price in US dollars",
       "type": "quantitative"
     },
     "x": {

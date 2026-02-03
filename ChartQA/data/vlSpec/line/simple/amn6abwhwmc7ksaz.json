@@ -27,10 +27,10 @@
           }
         },
         "y": {
-          "field": "Price in U.S. dollars per peak watt",
+          "field": "Price in US dollars per peak watt",
           "type": "quantitative",
           "axis": {
-            "title": "Price in U.S. dollars per peak watt",
+            "title": "Price in US dollars per peak watt",
             "labelFontSize": 11,
             "titleFontSize": 13,
             "titlePadding": 10,
@@ -52,7 +52,7 @@
           "type": "ordinal"
         },
         "y": {
-          "field": "Price in U.S. dollars per peak watt",
+          "field": "Price in US dollars per peak watt",
           "type": "quantitative"
         },
         "tooltip": [
@@ -62,9 +62,9 @@
             "title": "Quarter/Year"
           },
           {
-            "field": "Price in U.S. dollars per peak watt",
+            "field": "Price in US dollars per peak watt",
             "type": "quantitative",
-            "title": "Price in U.S. dollars per peak watt"
+            "title": "Price in US dollars per peak watt"
           }
         ]
       }

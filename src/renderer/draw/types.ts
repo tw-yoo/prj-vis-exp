@@ -26,6 +26,8 @@ export const DrawAction = {
   StackedToGrouped: 'stacked-to-grouped',
   GroupedToStacked: 'grouped-to-stacked',
   Sleep: 'sleep',
+  StackedFilterGroups: 'stacked-filter-groups',
+  GroupedFilterGroups: 'grouped-filter-groups',
 } as const
 export type DrawAction = (typeof DrawAction)[keyof typeof DrawAction]
 
@@ -86,6 +88,24 @@ export type DrawLineSpec = {
     strokeWidth?: number
     opacity?: number
   }
+  arrow?: DrawArrowSpec
+}
+
+export type DrawArrowSpec = {
+  /** Draw an arrowhead at the start of the line (points along the line direction). */
+  start?: boolean
+  /** Draw an arrowhead at the end of the line (points along the line direction). */
+  end?: boolean
+  /** Length of the arrowward triangle in view-box units. */
+  length?: number
+  /** Width of the arrow base. */
+  width?: number
+  style?: {
+    stroke?: string
+    fill?: string
+    strokeWidth?: number
+    opacity?: number
+  }
 }
 
 export type DrawSortSpec = {
@@ -96,6 +116,17 @@ export type DrawSortSpec = {
 export type DrawFilterSpec = {
   x?: { include?: Array<string | number>; exclude?: Array<string | number> }
   y?: { op: '>' | '<' | '>=' | '<=' | 'gt' | 'lt' | 'gte' | 'lte'; value: number }
+}
+
+export type DrawGroupFilterSpec = {
+  /** Keep only this list of color series (matches the stacked chart color encoding). */
+  groups?: Array<string | number>
+  include?: Array<string | number>
+  keep?: Array<string | number>
+  /** Exclude a list of color series instead of keeping specific ones. */
+  exclude?: Array<string | number>
+  /** Re-render the original stacked dataset (remove any prior filtering). */
+  reset?: boolean
 }
 
 export type DrawBarSegmentSpec = {
@@ -144,6 +175,7 @@ export type DrawOp = OperationSpec & {
   sort?: DrawSortSpec
   filter?: DrawFilterSpec
   stackGroup?: DrawStackGroupSpec
+  groupFilter?: DrawGroupFilterSpec
   sleep?: { seconds?: number; duration?: number }
 }
 

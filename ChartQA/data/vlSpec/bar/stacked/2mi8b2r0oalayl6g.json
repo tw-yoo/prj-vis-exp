@@ -12,7 +12,7 @@
       "sort": null
     },
     "y": {
-      "field": "Revenue in million U.S. dollars",
+      "field": "Revenue in million US dollars",
       "type": "quantitative"
     },
     "color": {

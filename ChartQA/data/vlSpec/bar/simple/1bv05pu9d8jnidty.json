@@ -7,7 +7,7 @@
   "mark": "bar",
   "encoding": {
     "y": {
-      "field": "National debt in billion U.S. dollars",
+      "field": "National debt in billion US dollars",
       "type": "quantitative"
     },
     "x": {

@@ -12,7 +12,7 @@
       "sort": null
     },
     "y": {
-      "field": "Net sales in million U.S. dollars",
+      "field": "Net sales in million US dollars",
       "type": "quantitative"
     },
     "color": {

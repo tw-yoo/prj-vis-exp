@@ -12,7 +12,7 @@
       "header": {}
     },
     "y": {
-      "field": "Sales price in U.S. dollars",
+      "field": "Sales price in US dollars",
       "type": "quantitative",
       "axis": {
         "grid": false

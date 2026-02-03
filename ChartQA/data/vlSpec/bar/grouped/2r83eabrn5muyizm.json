@@ -12,7 +12,7 @@
       "header": {}
     },
     "y": {
-      "field": "Total external assets in billion U.S. dollars",
+      "field": "Total external assets in billion US dollars",
       "type": "quantitative",
       "axis": {
         "grid": false

@@ -1,39 +1,21 @@
-age,people,gender
-0,9735380,Male
-0,9310714,Female
-5,10552146,Male
-5,10069564,Female
-10,10563233,Male
-10,10022524,Female
-15,10237419,Male
-15,9692669,Female
-20,9731315,Male
-20,9324244,Female
-25,9659493,Male
-25,9518507,Female
-30,10205879,Male
-30,10119296,Female
-35,11475182,Male
-35,11635647,Female
-40,11320252,Male
-40,11488578,Female
-45,9925006,Male
-45,10261253,Female
-50,8507934,Male
-50,8911133,Female
-55,6459082,Male
-55,6921268,Female
-60,5123399,Male
-60,5668961,Female
-65,4453623,Male
-65,4804784,Female
-70,3792145,Male
-70,5184855,Female
-75,2912655,Male
-75,4355644,Female
-80,1902638,Male
-80,3221898,Female
-85,970357,Male
-85,1981156,Female
-90,336303,Male
-90,1064581,Female
+Year,Region,Media rights revenue in billion US dollars
+2009,North America,8.61
+2009,"Europe, Middle East and Africa",9.95
+2009,Asia Pacific,3.53
+2009,Latin America,0.99
+2010,North America,9.74
+2010,"Europe, Middle East and Africa",12.37
+2010,Asia Pacific,3.93
+2010,Latin America,1.17
+2011,North America,9.3
+2011,"Europe, Middle East and Africa",10.68
+2011,Asia Pacific,3.73
+2011,Latin America,1.14
+2012,North America,10.66
+2012,"Europe, Middle East and Africa",13.46
+2012,Asia Pacific,4.06
+2012,Latin America,1.21
+2013,North America,9.58
+2013,"Europe, Middle East and Africa",11.85
+2013,Asia Pacific,4.01
+2013,Latin America,1.27

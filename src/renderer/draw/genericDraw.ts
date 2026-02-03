@@ -1,7 +1,7 @@
 // @ts-nocheck
 import * as d3 from 'd3'
 import { SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
-import type { DrawLineSpec, DrawRectSpec, DrawTextSpec, DrawOp } from './types'
+import type { DrawArrowSpec, DrawLineSpec, DrawRectSpec, DrawTextSpec, DrawOp } from './types'
 
 const DEFAULT_FILL = '#69b3a2'
 
@@ -94,6 +94,47 @@ function addNormalizedRect(container: HTMLElement, rectSpec: DrawRectSpec) {
     .attr(SvgAttributes.Opacity, rectSpec.style?.opacity ?? 1)
 }
 
+function addArrowHead(
+  svgSel: d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>,
+  tipX: number,
+  tipY: number,
+  direction: { x: number; y: number },
+  style: {
+    stroke?: string
+    strokeWidth?: number
+    opacity?: number
+  },
+  arrowSpec: DrawArrowSpec,
+) {
+  const length = Math.max(arrowSpec.length ?? 12, 1)
+  const width =
+    Math.max(arrowSpec.width ?? Math.max(Math.round(length * 0.6), 1), 1)
+  const fill = arrowSpec.style?.fill ?? style.stroke ?? '#ef4444'
+  const stroke = arrowSpec.style?.stroke ?? style.stroke ?? fill
+  const strokeWidth = arrowSpec.style?.strokeWidth ?? style.strokeWidth ?? 0
+  const opacity = arrowSpec.style?.opacity ?? style.opacity ?? 1
+  const baseX = tipX - direction.x * length
+  const baseY = tipY - direction.y * length
+  const perpX = -direction.y
+  const perpY = direction.x
+  const p1x = baseX + perpX * (width / 2)
+  const p1y = baseY + perpY * (width / 2)
+  const p2x = baseX - perpX * (width / 2)
+  const p2y = baseY - perpY * (width / 2)
+  const path = `M${tipX},${tipY} L${p1x},${p1y} L${p2x},${p2y} Z`
+  svgSel
+    .append(SvgElements.Path)
+    .attr(
+      SvgAttributes.Class,
+      `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation} arrowhead`,
+    )
+    .attr(SvgAttributes.D, path)
+    .attr(SvgAttributes.Fill, fill)
+    .attr(SvgAttributes.Stroke, stroke)
+    .attr(SvgAttributes.StrokeWidth, strokeWidth)
+    .attr(SvgAttributes.Opacity, opacity)
+}
+
 function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
   const svgSel = d3.select(container).select(SvgElements.Svg)
   const svg = svgSel.node() as SVGSVGElement | null
@@ -108,6 +149,9 @@ function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
   const y1 = (1 - clamp(start.y)) * height
   const x2 = clamp(end.x) * width
   const y2 = (1 - clamp(end.y)) * height
+  const stroke = lineSpec.style?.stroke ?? '#ef4444'
+  const strokeWidth = lineSpec.style?.strokeWidth ?? 2
+  const opacity = lineSpec.style?.opacity ?? 1
   svgSel
     .append(SvgElements.Line)
     .attr(SvgAttributes.Class, SvgClassNames.Annotation)
@@ -115,9 +159,25 @@ function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
     .attr(SvgAttributes.Y1, y1)
     .attr(SvgAttributes.X2, x2)
     .attr(SvgAttributes.Y2, y2)
-    .attr(SvgAttributes.Stroke, lineSpec.style?.stroke ?? '#ef4444')
-    .attr(SvgAttributes.StrokeWidth, lineSpec.style?.strokeWidth ?? 2)
-    .attr(SvgAttributes.Opacity, lineSpec.style?.opacity ?? 1)
+    .attr(SvgAttributes.Stroke, stroke)
+    .attr(SvgAttributes.StrokeWidth, strokeWidth)
+    .attr(SvgAttributes.Opacity, opacity)
+
+  const arrowSpec = lineSpec.arrow
+  if (arrowSpec && (arrowSpec.start || arrowSpec.end)) {
+    const dx = x2 - x1
+    const dy = y2 - y1
+    const dist = Math.hypot(dx, dy)
+    if (dist > 0) {
+      const direction = { x: dx / dist, y: dy / dist }
+      if (arrowSpec.start) {
+        addArrowHead(svgSel, x1, y1, { x: -direction.x, y: -direction.y }, { stroke, strokeWidth, opacity }, arrowSpec)
+      }
+      if (arrowSpec.end) {
+        addArrowHead(svgSel, x2, y2, direction, { stroke, strokeWidth, opacity }, arrowSpec)
+      }
+    }
+  }
 }
 
 export function runGenericDraw(container: HTMLElement, op: DrawOp) {

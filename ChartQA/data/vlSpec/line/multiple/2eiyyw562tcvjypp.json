@@ -1,7 +1,7 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
   "title": {
-    "text": "U.S. and Russia Mutual Favorability (2007-2017)",
+    "text": "US and Russia Mutual Favorability (2007-2017)",
     "fontSize": 26,
     "anchor": "middle"
   },
@@ -11,7 +11,7 @@
   },
   "transform": [
     {
-      "calculate": "datum.Favorability_Direction == 'U.S. favorability in Russia' ? 'U.S.' : 'Russia'",
+      "calculate": "datum.Favorability_Direction == 'US favorability in Russia' ? 'US' : 'Russia'",
       "as": "Country"
     }
   ],

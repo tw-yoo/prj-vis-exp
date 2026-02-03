@@ -12,7 +12,7 @@
       "header": {}
     },
     "y": {
-      "field": "Media rights revenue in billion U.S. dollars",
+      "field": "Media rights revenue in billion US dollars",
       "type": "quantitative",
       "axis": {
         "grid": false

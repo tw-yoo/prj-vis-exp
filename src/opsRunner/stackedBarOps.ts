@@ -5,10 +5,17 @@ import { StackedBarDrawHandler } from '../renderer/draw/bar/StackedBarDrawHandle
 import { runGenericDraw } from '../renderer/draw/genericDraw.ts'
 import { DrawAction } from '../renderer/draw/types.ts'
 import type { DrawOp } from '../renderer/draw/types.ts'
-import { renderStackedBarChart, type StackedSpec, getStackedBarStoredData } from '../renderer/bar/stackedBarRenderer.ts'
+import {
+  renderStackedBarChart,
+  type StackedSpec,
+  getStackedBarStoredData,
+  getStackedBarOriginalData,
+} from '../renderer/bar/stackedBarRenderer.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../renderer/ops/common/datum.ts'
 import { runStackedBarDrawPlan } from '../renderer/ops/executor/runStackedBarDrawPlan.ts'
 import { convertStackedToGrouped } from '../renderer/bar/stackGroupTransforms.ts'
+
+const cloneDataset = (rows: any[]) => rows.map((row) => ({ ...row }))
 
 function toStackedDatumValues(raw: JsonValue[], spec: StackedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
@@ -27,6 +34,49 @@ function toStackedDatumValues(raw: JsonValue[], spec: StackedSpec): DatumValue[]
       },
     },
   )
+}
+
+async function handleStackedGroupFilter(
+  container: HTMLElement,
+  spec: StackedSpec,
+  drawOp: DrawOp,
+) {
+  if (drawOp.action !== DrawAction.StackedFilterGroups) return false
+  const filterSpec = drawOp.groupFilter
+  if (!filterSpec) {
+    console.warn('draw:stacked-filter-groups requires groupFilter spec')
+    return true
+  }
+  const colorField = spec.encoding.color?.field
+  if (!colorField) {
+    console.warn('draw:stacked-filter-groups requires a color encoding field')
+    return true
+  }
+  const originalData = getStackedBarOriginalData(container)
+  if (!originalData.length) return true
+  let filtered = originalData
+  if (filterSpec.reset) {
+    filtered = originalData
+  } else {
+    const includeCandidates =
+      filterSpec.groups?.length
+        ? filterSpec.groups
+        : filterSpec.include?.length
+        ? filterSpec.include
+        : filterSpec.keep
+    if (includeCandidates && includeCandidates.length) {
+      const includeSet = new Set(includeCandidates.map(String))
+      filtered = originalData.filter((row) => includeSet.has(String(row[colorField])))
+    } else if (filterSpec.exclude && filterSpec.exclude.length) {
+      const excludeSet = new Set(filterSpec.exclude.map(String))
+      filtered = originalData.filter((row) => !excludeSet.has(String(row[colorField])))
+    } else {
+      console.warn('draw:stacked-filter-groups needs groups/include/keep/exclude or reset flag')
+      return true
+    }
+  }
+  await renderStackedBarChart(container, { ...spec, data: { values: cloneDataset(filtered) } })
+  return true
 }
 
 async function handleStackedBarDraw(
@@ -59,6 +109,8 @@ export async function runStackedBarOps(
       return toStackedDatumValues(raw, vlSpec)
     },
     createHandler: () => new StackedBarDrawHandler(container),
+    splitHandler: async (host, spec, handler, drawOp) =>
+      handleStackedGroupFilter(host, spec, drawOp),
     handleDrawOp: async (host, handler, drawOp) =>
       handleStackedBarDraw(host, handler as StackedBarDrawHandler, drawOp, vlSpec),
     clearAnnotations: ({ svg }) => clearAnnotations(svg),

@@ -12,7 +12,7 @@
 | `clear` | - | - | 색상/불투명도 복원 + annotation 제거 |
 | `text` | `text.value` | `mode`(`anchor` if keys else `normalized`), `offset`, `style` | 텍스트 어노테이션 |
 | `rect` | `rect.size`(`axis`/`data-point`는 불필요) | `mode`(`normalized`/`axis`/`data-point`), `position`, `axis`, `point`, `style` | 영역/밴드 표시 |
-| `line` | `line.mode` | `angle/length/axis`, `pair`, `hline`, `style` | 기준선/연결선 |
+| `line` | `line.mode` | `angle/length/axis`, `pair`, `hline`, `style`, `arrow` | 기준선/연결선 + 화살표 |
 
 > 선택 대상 기본값: `select.mark`는 각 차트 핸들러의 기본 마크(바의 rect, 라인의 point/mark)를 사용. 키 매칭 대상은 `data-id`, `data-target`(x), `data-value`(y), `data-series`, `id`.
 
@@ -39,6 +39,8 @@
   - `mode="connect"`: `line.pair.x` 두 값 필요.  
   - `mode="hline-x"`: `line.hline.x` 필요.  
   - `mode="hline-y"`: `line.hline.y` 필요.
+  - `position`: `line.position.start`/`line.position.end`(0~1 정규화)을 직접 지정하면 `line.arrow`의 위치를 결정할 수 있습니다.  
+  - `arrow`: `line.arrow.start`/`line.arrow.end`을 `true`로 켜서 시작/끝에 화살표를 추가하며, `length`/`width`/`style`로 삼각형 크기와 색을 조절합니다. `style.fill`/`style.stroke`가 없으면 `line.style.stroke`를 따릅니다.  
 - `chartId`: 차트가 split/멀티 패널일 때 특정 서브차트만 대상 지정.
 
 ---
@@ -95,6 +97,21 @@
   "line": { "mode": "connect", "pair": { "x": ["1995-01-01", "2005-01-01"] }, "style": { "stroke": "#2563eb" } }
 }
 ```
+
+### line (arrowheads on ends)
+`data/test/spec/line_simple.json`(year × research_and_development_expenditure)를 기준으로 normalized viewbox 좌표를 쓰면 시작/끝 좌표를 직접 정할 수 있습니다.
+```json
+{
+  "op": "draw",
+  "action": "line",
+  "line": {
+    "position": { "start": { "x": 0.1, "y": 0.2 }, "end": { "x": 0.85, "y": 0.7 } },
+    "style": { "stroke": "#2563eb", "strokeWidth": 3 },
+    "arrow": { "start": true, "end": true, "length": 12, "width": 8 }
+  }
+}
+```
+`line.position`를 쓰면 axis 대신 normalized 좌표로도 선을 그릴 수 있으며, `line.arrow.start`/`line.arrow.end`으로 각 끝에 화살표를 추가합니다. `arrow.length`/`width`로 크기를 키우고 `arrow.style.fill`/`style.stroke`로 별도 색상을 줄 수 있습니다.
 
 ---
 

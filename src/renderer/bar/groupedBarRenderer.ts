@@ -5,6 +5,8 @@ import { DataAttributes, SvgAttributes, SvgElements } from '../interfaces'
 import { ensureXAxisLabelClearance } from '../common/d3Helpers'
 
 const localDataStore: WeakMap<HTMLElement, any[]> = new WeakMap()
+const originalDataStore: WeakMap<HTMLElement, any[]> = new WeakMap()
+const cloneRows = (rows: any[]) => rows.map((row) => ({ ...row }))
 
 export type GroupedSpec = VegaLiteSpec & {
   encoding: {
@@ -17,9 +19,12 @@ export type GroupedSpec = VegaLiteSpec & {
 // Ops runner functions are in `src/renderer/bar/groupedBarOps.ts`.
 
 export async function renderGroupedBarChart(container: HTMLElement, spec: GroupedSpec) {
-  localDataStore.set(container, (spec.data as any)?.values || [])
   const result = await renderVegaLiteChart(container, spec)
-  await tagBarMarks(container, spec.encoding.x.field, spec.encoding.y.field, spec.encoding.color?.field)
+  const rows = await tagBarMarks(container, spec.encoding.x.field, spec.encoding.y.field, spec.encoding.color?.field)
+  localDataStore.set(container, rows)
+  if (!originalDataStore.has(container)) {
+    originalDataStore.set(container, cloneRows(rows))
+  }
   fitSvgToHost(container)
   ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
   return result
@@ -32,6 +37,7 @@ async function tagBarMarks(container: HTMLElement, xField: string, yField: strin
     await new Promise((resolve) => requestAnimationFrame(resolve))
   }
   const svg = d3.select(container).select(SvgElements.Svg)
+  const rows: any[] = []
   svg.selectAll<SVGGraphicsElement, any>('rect,path').each(function (_d: any) {
     const datum = (_d as any)?.datum ?? _d ?? (this as any).__data__ ?? {}
     const xVal = datum?.[xField] ?? datum?.[xField?.toLowerCase?.()] ?? datum?.x ?? null
@@ -43,7 +49,18 @@ async function tagBarMarks(container: HTMLElement, xField: string, yField: strin
       .attr(DataAttributes.Id, String(xVal))
       .attr(DataAttributes.Value, String(yVal))
       .attr(DataAttributes.Series, colorVal != null ? String(colorVal) : null)
+    const numY = Number(yVal)
+    if (!Number.isFinite(numY)) return
+    const row: Record<string, any> = {
+      [xField]: xVal,
+      [yField]: numY,
+    }
+    if (colorField) {
+      row[colorField] = colorVal != null ? String(colorVal) : null
+    }
+    rows.push(row)
   })
+  return rows
 }
 
 function fitSvgToHost(container: HTMLElement) {
@@ -62,6 +79,10 @@ function fitSvgToHost(container: HTMLElement) {
 }
 
 export function getGroupedBarStoredData(container: HTMLElement) {
-  return localDataStore.get(container) || []
+  return cloneRows(localDataStore.get(container) || [])
+}
+
+export function getGroupedBarOriginalData(container: HTMLElement) {
+  return cloneRows(originalDataStore.get(container) || [])
 }
 // @ts-nocheck

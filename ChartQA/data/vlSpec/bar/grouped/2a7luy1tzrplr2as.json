@@ -12,7 +12,7 @@
       "header": {}
     },
     "y": {
-      "field": "Export value in billion U.S. dollars",
+      "field": "Export value in billion US dollars",
       "type": "quantitative",
       "axis": {
         "grid": false
