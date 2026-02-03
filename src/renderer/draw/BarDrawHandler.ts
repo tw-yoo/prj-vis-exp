@@ -4,6 +4,30 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors
 import { BaseDrawHandler } from './BaseDrawHandler'
 import { DrawAction, DrawMark, type DrawBarSegmentSpec, type DrawOp, type DrawSelect } from './types'
 
+const ComparisonOperatorGroups = {
+  Greater: ['>', 'gt'] as const,
+  GreaterEqual: ['>=', 'gte'] as const,
+  Less: ['<', 'lt'] as const,
+  LessEqual: ['<=', 'lte'] as const,
+} as const
+
+type ComparisonOperatorGroup = keyof typeof ComparisonOperatorGroups
+type ComparisonCondition = 'gt' | 'gte' | 'lt' | 'lte'
+
+function matchesComparison(op: string | undefined, group: ComparisonOperatorGroup) {
+  if (!op) return false
+  const list = ComparisonOperatorGroups[group] as readonly string[]
+  return list.includes(op)
+}
+
+function normalizeComparisonCondition(op: string | undefined): ComparisonCondition {
+  if (matchesComparison(op, 'Greater')) return 'gt'
+  if (matchesComparison(op, 'GreaterEqual')) return 'gte'
+  if (matchesComparison(op, 'Less')) return 'lt'
+  if (matchesComparison(op, 'LessEqual')) return 'lte'
+  return 'gte'
+}
+
 /**
  * Draw handler for bar-like charts.
  * Relies on data-target / data-id attributes set on rect marks.
@@ -93,7 +117,6 @@ export class BarDrawHandler extends BaseDrawHandler {
     const mapY = this.yValueToSvgY(scope, svgNode)
     if (mapY(0) == null) return
 
-    const when = segment.when ?? 'gte'
     const style = segment.style
 
     const barsAll = scope.selectAll<SVGRectElement, JsonValue>(SvgSelectors.MainBars)
@@ -109,24 +132,7 @@ export class BarDrawHandler extends BaseDrawHandler {
       const v = valueAttr != null ? Number(valueAttr) : NaN
       if (!Number.isFinite(v)) return
 
-      const condition = (() => {
-        switch (when) {
-          case '>':
-          case 'gt':
-            return 'gt' as const
-          case '>=':
-          case 'gte':
-            return 'gte' as const
-          case '<':
-          case 'lt':
-            return 'lt' as const
-          case '<=':
-          case 'lte':
-            return 'lte' as const
-          default:
-            return 'gte' as const
-        }
-      })()
+      const condition = normalizeComparisonCondition(segment.when ?? undefined)
 
       const svgRect = svgNode.getBoundingClientRect()
       const elRect = el.getBoundingClientRect()
@@ -205,21 +211,17 @@ export class BarDrawHandler extends BaseDrawHandler {
     }
     const matchY = (value: number) => {
       if (!filterSpec.y) return true
-      const v = value
       const target = filterSpec.y.value
-      switch (filterSpec.y.op) {
-        case '>':
+      const condition = normalizeComparisonCondition(filterSpec.y.op ?? undefined)
+      switch (condition) {
         case 'gt':
-          return v > target
-        case '>=':
+          return value > target
         case 'gte':
-          return v >= target
-        case '<':
+          return value >= target
         case 'lt':
-          return v < target
-        case '<=':
+          return value < target
         case 'lte':
-          return v <= target
+          return value <= target
         default:
           return true
       }
