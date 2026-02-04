@@ -126,9 +126,51 @@ function App() {
   const [pendingOps, setPendingOps] = useState<OperationSpec[] | null>(null)
   const chartRef = useRef<HTMLDivElement | null>(null)
 
+  const sanitizeJsonInput = (value: string) => {
+    if (!value) return value
+    let text = value
+    if (text.charCodeAt(0) === 0xfeff) {
+      text = text.slice(1)
+    }
+    const normalized = text.replace(/\r\n/g, '\n')
+    const lines = normalized.split('\n')
+    const isBlankLine = (line: string) => line.trim() === ''
+    const isMarkerLine = (line: string) => {
+      const trimmed = line.trim()
+      return trimmed === '---' || trimmed.startsWith('```')
+    }
+
+    let start = 0
+    let end = lines.length
+
+    const dropLeadingWhitespace = () => {
+      while (start < end && isBlankLine(lines[start])) {
+        start++
+      }
+    }
+    const dropTrailingWhitespace = () => {
+      while (start < end && isBlankLine(lines[end - 1])) {
+        end--
+      }
+    }
+
+    dropLeadingWhitespace()
+    while (start < end && isMarkerLine(lines[start])) {
+      start++
+      dropLeadingWhitespace()
+    }
+    dropTrailingWhitespace()
+    while (start < end && isMarkerLine(lines[end - 1])) {
+      end--
+      dropTrailingWhitespace()
+    }
+
+    return lines.slice(start, end).join('\n')
+  }
+
   const prettyFormatJson = (value: string) => {
     try {
-      return JSON.stringify(JSON.parse(value), null, 2)
+      return JSON.stringify(JSON.parse(sanitizeJsonInput(value)), null, 2)
     } catch {
       return value
     }
@@ -208,7 +250,8 @@ function App() {
   const renderChart = useCallback(
     async (specString: string) => {
       try {
-        const parsed = JSON.parse(specString)
+        const sanitizedSpec = sanitizeJsonInput(specString)
+        const parsed = JSON.parse(sanitizedSpec)
         if (!chartRef.current) {
           alert('Chart container is not ready.')
           return
@@ -239,7 +282,8 @@ function App() {
     await renderChart(specString)
 
     try {
-      const parsed = opsSpec.trim() ? (JSON.parse(opsSpec) as JsonValue) : null
+      const sanitizedOps = sanitizeJsonInput(opsSpec)
+      const parsed = sanitizedOps.trim() ? (JSON.parse(sanitizedOps) as JsonValue) : null
       const arrayForm = Array.isArray(parsed)
         ? (parsed as OperationSpec[])
         : parsed && typeof parsed === 'object' && Array.isArray((parsed as { ops?: JsonValue })?.ops)
@@ -262,10 +306,11 @@ function App() {
     if (!chartRef.current) return
     const opsArray = pendingOps ?? []
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
+    const sanitizedVlSpec = sanitizeJsonInput(specString)
     let parsedVlSpec: any
 
     try {
-      parsedVlSpec = JSON.parse(specString)
+      parsedVlSpec = JSON.parse(sanitizedVlSpec)
     } catch (error) {
       console.error('Failed to parse Vega-Lite spec for operations', error)
       alert('Invalid Vega-Lite JSON')
