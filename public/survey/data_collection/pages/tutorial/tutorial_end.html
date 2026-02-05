@@ -1,0 +1,41 @@
+<div class="page-content tutorial-page tutorial-page--end">
+    <header class="tutorial-header">
+        <h1>Great job! Tutorial complete.</h1>
+        <p class="lede">You’re ready for the main study. Your answers will be recorded from now on.</p>
+    </header>
+
+    <section class="card summary-card">
+        <div class="card-header">
+            <h3>What happens next</h3>
+        </div>
+        <div class="card-body">
+            <ul class="reminders">
+                <li>You will create <strong>20 compositional questions</strong> in total (one per chart).</li>
+<!--                <li>For each chart: read the chart → write a compositional question → compute the single correct answer → select operations → explain the steps.</li>-->
+                <li>Use any calculator or tool for math, but <strong>write questions yourself</strong> (no LLMs for question generation).</li>
+                <li>Your responses from this point forward are saved.</li>
+            </ul>
+            <div class="cta">
+<!--                <button id="tutorial-end-next-btn" class="button">Start the main study</button>-->
+                <p>Click “Next” below or this button to begin.</p>
+            </div>
+        </div>
+    </section>
+
+    
+</div>
+
+<script>
+(function() {
+    const btn = document.getElementById('tutorial-end-next-btn');
+    const forward = () => {
+        const navNext = document.querySelector('.next-btn');
+        if (navNext && !navNext.disabled) {
+            navNext.click();
+        }
+    };
+    if (btn) {
+        btn.addEventListener('click', forward);
+    }
+})();
+</script>

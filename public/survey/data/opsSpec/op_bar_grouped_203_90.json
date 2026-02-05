@@ -1,0 +1,47 @@
+{
+  "ops": [
+    {
+      "op": "diff",
+      "field": "value",
+      "targetA": { "category": "Hindu", "series": "Work participation (%)" },
+      "targetB": { "category": "Hindu", "series": "Literacy (%)" },
+      "aggregate": "ratio",
+      "precision": 4
+    }
+  ],
+  "ops2": [
+    {
+      "op": "diff",
+      "field": "value",
+      "targetA": { "category": "Muslim", "series": "Work participation (%)" },
+      "targetB": { "category": "Muslim", "series": "Literacy (%)" },
+      "aggregate": "ratio",
+      "precision": 4
+    }
+  ],
+  "ops3": [
+    {
+      "op": "diff",
+      "field": "value",
+      "targetA": { "category": "Sikh", "series": "Work participation (%)" },
+      "targetB": { "category": "Sikh", "series": "Literacy (%)" },
+      "aggregate": "ratio",
+      "precision": 4
+    }
+  ],
+  "last": [
+    {
+      "op": "compare",
+      "field": "value",
+      "targetA": "ops_0",
+      "targetB": "ops3_0",
+      "which": "max"
+    }
+  ],
+  "text": {
+    "ops": "For the Hindu group, compute the ratio of Work participation to Literacy (40.40 over 65.10) to yield 0.6206.",
+    "ops2": "For the Muslim group, compute the ratio of Work participation to Literacy (31.30 over 59.10) to yield 0.5296.",
+    "ops3": "For the Sikh group, compute the ratio of Work participation to Literacy (37.70 over 69.40) to yield 0.5432.",
+    "last": "Bring forward the Hindu and Sikh ratio bars and compare them directly; the higher mark remains highlighted (Hindu at 0.6206)."
+  }
+}

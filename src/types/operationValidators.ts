@@ -51,8 +51,19 @@ export function assertFilterSpec(op: OperationSpec): OpFilterSpec {
     throw new Error(`Expected Filter spec but got op "${op.op}"`)
   }
   const spec = op as OpFilterSpec
-  if (!spec.operator) throw new Error('filter requires "operator"')
-  if (spec.value === undefined) throw new Error('filter requires "value"')
+  const hasInclude = Array.isArray(spec.include) && spec.include.length > 0
+  const hasExclude = Array.isArray(spec.exclude) && spec.exclude.length > 0
+  const hasOperator = Boolean(spec.operator)
+  const hasValue = spec.value !== undefined
+  if (!hasInclude && !hasExclude && !hasOperator && !hasValue) {
+    throw new Error('filter requires "operator/value" or "include/exclude"')
+  }
+  if (hasOperator && !hasValue) {
+    throw new Error('filter requires "value" when "operator" is provided')
+  }
+  if (!hasOperator && hasValue) {
+    throw new Error('filter requires "operator" when "value" is provided')
+  }
   return spec
 }
 

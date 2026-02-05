@@ -27,3 +27,5 @@ qodana.yaml
 qodana.sarif.json
 
 *.txt
+
+data/expert

@@ -1,0 +1,355 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    line-height: 1.6;
+}
+
+h1, h2, h3 {
+    margin: 0;
+}
+
+
+
+:root {
+  --divider-color: rgba(0, 0, 0, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root { --divider-color: rgba(255, 255, 255, 0.18); }
+}
+
+.container {
+    display: grid;
+    grid-template-columns: minmax(60px, 10%) 1fr minmax(60px, 10%);
+    grid-gap: 10px;
+    width: 100%;
+    height: 100vh;
+    /*border: 1px solid #999;*/
+    box-sizing: border-box;
+}
+
+.space {
+    /*background: #efefef;*/
+}
+
+.main {
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr auto; /* header, scrollable content, footer */
+}
+
+.main-fixed {
+    /* Header and footer sections stay their own height */
+    min-height: 5px; /* ensures visibility on very short viewports */
+}
+
+.main-scroll {
+    /* Main content scrolls within its grid cell */
+    overflow-y: auto;
+    scrollbar-gutter: stable both-edges;
+    overflow-y: scroll;
+    /*background: #e2ecd7; !* scrollable area placeholder color *!*/
+    padding-top: 0px;
+    padding-right: 25px;
+    padding-bottom: 25px;
+    padding-left: 25px;
+}
+
+.split-container {
+    display: flex;
+    height: auto; /* 자동 높이 */
+    min-height: 0; /* 최소 높이 제거 */
+    overflow: visible;
+    position: relative;
+    --split-left: 50%;
+    border: 1px solid;
+}
+.split-container .left,
+.split-container .right {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    overflow: visible; /* 스크롤 완전 제거 */
+    height: auto;
+}
+.split-container .left {
+    flex: 0 0 var(--split-left);
+    background: #ffffff;
+    /*background: #f9f9f9;*/
+    border-right: 1px solid var(--divider-color);
+    border-color: #1f2937;
+}
+.split-container .right {
+    flex: 1;
+    background: #ffffff;
+}
+
+
+.split-container .pane-header {
+    flex: 0 0 auto;
+    padding: 8px;
+    background: #ffffff;
+}
+
+.split-container .pane-body {
+    flex: 1 1 auto;
+    overflow: visible; /* 스크롤 완전 제거 */
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: auto;
+}
+
+/* 차트 컨테이너 */
+.split-container .pane-body [data-component="chart"],
+.split-container .pane-body .d3chart-container {
+    flex: 0 0 auto;
+    overflow: visible !important;
+}
+
+/* 차트 내부 요소들 */
+.split-container .pane-body [data-component="chart"] > *,
+.split-container .pane-body .d3chart-container > * {
+    overflow: visible !important;
+}
+
+/* SVG 차트 */
+.split-container .pane-body svg {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none; /* 최대 높이 제한 제거 */
+}
+
+/* 차트 캔버스 */
+.split-container .pane-body .chart-canvas {
+    overflow: visible !important;
+}
+
+/* 차트 설명 */
+.split-container .pane-body .chart-ui-stack {
+    flex: 0 0 auto;
+    overflow: visible !important;
+}
+
+.split-container .pane-body .ops-explain-block {
+    overflow: visible !important;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+/* 차트 내비게이터 */
+.split-container .pane-body .nav-overlay {
+    flex: 0 0 auto;
+    overflow: visible !important;
+}
+
+/* 일반 텍스트 요소들 */
+.split-container .pane-body > p {
+    overflow: visible !important;
+}
+
+.chart-ui-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.chart-ui-stack:empty {
+    display: none;
+    margin: 0;
+}
+
+.chart-ui-stack > .ops-explain-block {
+    line-height: 1.35;
+    font-size: 15px;
+    max-width: 80%;
+    word-break: break-word;
+    align-self: flex-start;
+    align-items: center;
+}
+
+.chart-ui-stack > .ops-explain-block:empty {
+    display: none;
+}
+
+.chart-ui-stack > .ops-explain-block,
+.chart-ui-stack > .ops-explain-block[style],
+.chart-ui-stack > .ops-explain-block > div,
+.chart-ui-stack > .ops-explain-block [style*="text-align"],
+.chart-ui-stack > .ops-explain-block *[style*="text-align"] {
+    text-align: left !important;
+}
+
+.chart-ui-stack > .ops-explain-block .ops-token {
+    text-align: left;
+}
+
+.chart-ui-stack .nav-overlay {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #d7dce2;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    align-self: center !important;
+    justify-content: center !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: max-content;
+    min-width: 0;
+}
+
+.chart-ui-stack .nav-overlay .nav-btn {
+    display: flex;
+    appearance: none;
+    border: 0;
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: #f1f5f9;
+    cursor: pointer;
+}
+
+.chart-ui-stack .nav-overlay .nav-btn:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+.chart-ui-stack .nav-overlay .nav-step-text {
+    display: none; /* 0/3 표시 숨김 */
+}
+
+.panel-guide {
+    border: 1px solid;
+    display: flex;
+    justify-content: center; /* horizontal centering */
+    align-items: center;    /* vertical centering */
+    font-weight: bold;
+    font-size: 1.2em;
+    text-align: center;     /* ensures text stays centered if multiple-line */
+}
+
+.page-fixed-header {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    background: #ffffff;
+    z-index: 100;
+    padding: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 기존 코드 뒤에 추가 */
+
+/* 고정 타이머 */
+.page-timer {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #2563eb;
+    border-radius: 8px;
+    padding: 12px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    backdrop-filter: blur(10px);
+}
+
+.page-timer .timer-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.page-timer .timer-display {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2563eb;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+
+/* 네비게이터 오버레이 스타일 개선 */
+.nav-overlay {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.98);
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 네비게이터 버튼 스타일 */
+.nav-overlay .nav-btn {
+    appearance: none;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    background: #2563eb;
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 100px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.nav-overlay .nav-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
+.nav-overlay .nav-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+
+.nav-overlay .nav-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Prev 버튼 */
+.nav-overlay .nav-btn.prev {
+    background: #2563eb;
+}
+
+.nav-overlay .nav-btn.prev:hover:not(:disabled) {
+    background: #1d4ed8;
+    box-shadow: 0 2px 6px rgba(75, 85, 99, 0.3);
+}
+
+/* Next/Start/End 버튼 */
+.nav-overlay .nav-btn.next {
+    background: #2563eb;
+}
+
+.nav-overlay .nav-btn.next:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+/* 스텝 텍스트 (숨김 처리) */
+.nav-overlay .nav-step-text {
+    display: none !important;
+}
+
+/* Pane Footer 내의 네비게이터 */
+.pane-footer .nav-overlay {
+    margin: 0 auto;
+    width: max-content;
+}

@@ -1,0 +1,84 @@
+.viewer-shell {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background: #f0f2f5;
+}
+
+.viewer-sidebar {
+  width: 300px;
+  max-width: 35%;
+  min-width: 220px;
+  background: #fff;
+  border-right: 1px solid #ddd;
+  padding: 12px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.viewer-sidebar h3 {
+  margin-top: 0;
+}
+
+.viewer-links a {
+  display: block;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.viewer-links a:hover,
+.viewer-links a.selected {
+  background: #e9ecef;
+}
+
+.viewer-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.viewer-chart {
+  min-height: 320px;
+  border: 1px solid #ccc;
+  background: #fff;
+  border-radius: 6px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.viewer-submission {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.viewer-submission h4 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 6px;
+}
+
+.viewer-submission h4 span {
+  font-weight: normal;
+  color: #777;
+  font-size: 0.9em;
+}
+
+.viewer-submission pre {
+  background: #f9f9f9;
+  padding: 10px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.viewer-error {
+  color: #dc2626;
+}

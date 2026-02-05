@@ -1,0 +1,22 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "data": {
+    "url": "survey/data/csv/bar/simple/bar_simple_203_3.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Province",
+      "type": "nominal",
+      "sort": {
+        "field": "Population",
+        "op": "sum",
+        "order": "descending"
+      }
+    },
+    "y": {
+      "field": "Population",
+      "type": "quantitative"
+    }
+  }
+}

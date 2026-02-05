@@ -777,8 +777,19 @@ export abstract class BaseDrawHandler {
       const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
       const left = Math.min(...nodes.map((n) => (n.getBoundingClientRect().left - svgRect.left) * scaleX))
       const right = Math.max(...nodes.map((n) => (n.getBoundingClientRect().right - svgRect.left) * scaleX))
-      const x1 = left
+      let x1 = left
       const x2 = right
+
+      const axisGroup = svgNode.querySelector<SVGGraphicsElement>(SvgSelectors.YAxisGroup)
+      if (axisGroup) {
+        const axisRect = axisGroup.getBoundingClientRect()
+        if (axisRect.width > 0) {
+          const axisRight = (viewBox?.x ?? 0) + (axisRect.right - svgRect.left) * scaleX
+          if (Number.isFinite(axisRight) && axisRight < x1) {
+            x1 = axisRight
+          }
+        }
+      }
 
       if (mode === DrawLineModes.HorizontalFromX) {
         const label = lineSpec.hline?.x

@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import './App.css'
 import barSimpleSpecRaw from '../data/test/spec/bar_simple_ver.json?raw'
-import lineSimpleSpecRaw from '../data/test/spec/line_simple.json?raw'
 import type { JsonValue, OperationSpec } from './types'
 import { renderChart as renderChartDispatch } from './renderer/renderChart'
-import {runChartOps} from "./renderer/runChartOps.ts";
+import { runChartOps } from './renderer/runChartOps'
+import type { VegaLiteSpec } from './utils/chartRenderer'
+const ResultViewerPage = lazy(() => import('./survey/pages/ResultViewerPage'))
+const ConsentPage = lazy(() => import('./survey/pages/ConsentPage'))
+const PreRegistrationPage = lazy(() => import('./survey/pages/PreRegistrationPage'))
+const MainSurveyPage = lazy(() => import('./survey/pages/MainSurveyPage'))
+const DataCollectionPage = lazy(() => import('./survey/pages/DataCollectionPage'))
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
@@ -121,9 +126,45 @@ const triggerDownload = (blob: Blob, filename: string) => {
 }
 
 function App() {
+  const viewMode = useMemo(() => {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('view')
+  }, [])
+
+  const surveyPage = useMemo(() => {
+    switch (viewMode) {
+      case 'result-viewer':
+        return <ResultViewerPage />
+      case 'consent':
+        return <ConsentPage />
+      case 'pre-registration':
+        return <PreRegistrationPage />
+      case 'main-survey':
+        return <MainSurveyPage />
+      case 'data-collection':
+        return <DataCollectionPage />
+      default:
+        return null
+    }
+  }, [viewMode])
+
+  if (surveyPage) {
+    return (
+      <Suspense fallback={<div className="app-shell">Loading survey page…</div>}>
+        {surveyPage}
+      </Suspense>
+    )
+  }
+
+  return <ChartWorkbenchPage />
+}
+
+function ChartWorkbenchPage() {
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
   const [opsSpec, setOpsSpec] = useState('')
-  const [pendingOps, setPendingOps] = useState<OperationSpec[] | null>(null)
+  const [opsGroups, setOpsGroups] = useState<OperationSpec[][]>([])
+  const [currentOpsIndex, setCurrentOpsIndex] = useState(-1)
+  const [opsRunning, setOpsRunning] = useState(false)
   const chartRef = useRef<HTMLDivElement | null>(null)
 
   const sanitizeJsonInput = (value: string) => {
@@ -169,8 +210,56 @@ function App() {
   }
 
   const prettyFormatJson = (value: string) => {
+    const INDENT = 4
+    const isPrimitive = (val: unknown) =>
+      val == null || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean'
+    const isShortPrimitiveArray = (val: unknown) =>
+      Array.isArray(val) && val.length <= 4 && val.every(isPrimitive)
+    const isInlineObject = (val: unknown) => {
+      if (!val || typeof val !== 'object' || Array.isArray(val)) return false
+      const entries = Object.entries(val as Record<string, unknown>)
+      if (entries.length === 0 || entries.length > 3) return false
+      return entries.every(([, v]) => isPrimitive(v) || isShortPrimitiveArray(v))
+    }
+
+    const formatValue = (val: unknown, level: number): string => {
+      const pad = ' '.repeat(level * INDENT)
+      const nextPad = ' '.repeat((level + 1) * INDENT)
+
+      if (isPrimitive(val)) {
+        return JSON.stringify(val)
+      }
+
+      if (Array.isArray(val)) {
+        if (isShortPrimitiveArray(val)) {
+          return `[${val.map((item) => JSON.stringify(item)).join(', ')}]`
+        }
+        if (val.length === 0) return '[]'
+        const items = val.map((item) => `${nextPad}${formatValue(item, level + 1)}`)
+        return `[\n${items.join(',\n')}\n${pad}]`
+      }
+
+      if (isInlineObject(val)) {
+        const entries = Object.entries(val as Record<string, unknown>)
+        const parts = entries.map(([key, v]) => `"${key}": ${formatValue(v, level + 1)}`)
+        return `{ ${parts.join(', ')} }`
+      }
+
+      if (val && typeof val === 'object') {
+        const entries = Object.entries(val as Record<string, unknown>)
+        if (entries.length === 0) return '{}'
+        const lines = entries.map(
+          ([key, v]) => `${nextPad}${JSON.stringify(key)}: ${formatValue(v, level + 1)}`,
+        )
+        return `{\n${lines.join(',\n')}\n${pad}}`
+      }
+
+      return JSON.stringify(val)
+    }
+
     try {
-      return JSON.stringify(JSON.parse(sanitizeJsonInput(value)), null, 2)
+      const parsed = JSON.parse(sanitizeJsonInput(value))
+      return formatValue(parsed, 0)
     } catch {
       return value
     }
@@ -284,33 +373,61 @@ function App() {
     try {
       const sanitizedOps = sanitizeJsonInput(opsSpec)
       const parsed = sanitizedOps.trim() ? (JSON.parse(sanitizedOps) as JsonValue) : null
-      const arrayForm = Array.isArray(parsed)
-        ? (parsed as OperationSpec[])
-        : parsed && typeof parsed === 'object' && Array.isArray((parsed as { ops?: JsonValue })?.ops)
-          ? ((parsed as unknown as { ops: OperationSpec[] }).ops ?? [])
-          : parsed && typeof parsed === 'object'
-            ? ([parsed as OperationSpec] as OperationSpec[])
-            : []
+      const groups: OperationSpec[][] = []
+      const isOpsArray = (value: JsonValue): value is OperationSpec[] => {
+        if (!Array.isArray(value) || value.length === 0) return false
+        return value.every(
+          (item) =>
+            !!item && typeof item === 'object' && !Array.isArray(item) && ('op' in (item as Record<string, JsonValue>)),
+        )
+      }
 
-      if (!arrayForm.length) { alert('No operations found.'); setPendingOps(null); return}
-      setPendingOps(arrayForm);
+      if (Array.isArray(parsed)) {
+        if (isOpsArray(parsed as JsonValue)) {
+          groups.push(parsed as OperationSpec[])
+        }
+      } else if (parsed && typeof parsed === 'object') {
+        const obj = parsed as Record<string, JsonValue>
+        Object.values(obj).forEach((value) => {
+          if (isOpsArray(value)) {
+            groups.push(value as OperationSpec[])
+          }
+        })
+        if (groups.length === 0) {
+          // Single op object
+          groups.push([obj as unknown as OperationSpec])
+        }
+      }
+
+      const normalizedGroups = groups.filter((group) => Array.isArray(group) && group.length > 0)
+      if (!normalizedGroups.length) {
+        alert('No operations found.')
+        setOpsGroups([])
+        setCurrentOpsIndex(-1)
+        return
+      }
+      setOpsGroups(normalizedGroups)
+      setCurrentOpsIndex(-1)
 
     } catch (error) {
       console.error('Failed to parse Operations spec', error)
       alert('Invalid Operations JSON')
-      setPendingOps(null)
+      setOpsGroups([])
+      setCurrentOpsIndex(-1)
     }
   }
 
-  const handleStartOps = async () => {
+  const runOpsGroup = async (groupIndex: number) => {
     if (!chartRef.current) return
-    const opsArray = pendingOps ?? []
+    const opsArray = opsGroups[groupIndex] ?? []
+    if (!opsArray.length) return
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
+    await renderChart(specString)
     const sanitizedVlSpec = sanitizeJsonInput(specString)
-    let parsedVlSpec: any
+    let parsedVlSpec: VegaLiteSpec
 
     try {
-      parsedVlSpec = JSON.parse(sanitizedVlSpec)
+      parsedVlSpec = JSON.parse(sanitizedVlSpec) as VegaLiteSpec
     } catch (error) {
       console.error('Failed to parse Vega-Lite spec for operations', error)
       alert('Invalid Vega-Lite JSON')
@@ -318,11 +435,33 @@ function App() {
     }
 
     try {
+      setOpsRunning(true)
       await runChartOps(chartRef.current, parsedVlSpec, { ops: opsArray })
     } catch (error) {
       console.error('Run Operations failed', error)
       alert('Failed to run operations. Check the console for details.')
+    } finally {
+      setOpsRunning(false)
     }
+  }
+
+  const handleStartOps = async () => {
+    await runOpsGroup(0)
+    setCurrentOpsIndex(0)
+  }
+
+  const handleNextOps = async () => {
+    const nextIndex = currentOpsIndex + 1
+    if (nextIndex >= opsGroups.length) return
+    await runOpsGroup(nextIndex)
+    setCurrentOpsIndex(nextIndex)
+  }
+
+  const handlePrevOps = async () => {
+    const prevIndex = currentOpsIndex - 1
+    if (prevIndex < 0) return
+    await runOpsGroup(prevIndex)
+    setCurrentOpsIndex(prevIndex)
   }
 
   const handleDownloadChart = useCallback(async () => {
@@ -348,7 +487,7 @@ function App() {
   return (
     <div className="app-shell">
       <div className="layout-body">
-        <section className="card">
+        <section className="card ops-card">
           <div className="card-header">
             <label className="card-title" htmlFor="vl-spec">
               Vega-Lite Spec
@@ -392,11 +531,35 @@ function App() {
             </button>
           </div>
           <div className="chart-host" ref={chartRef} />
-          {pendingOps && pendingOps.length > 0 && (
+          {opsGroups.length > 0 && (
             <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-start' }}>
-              <button type="button" className="pill-btn" onClick={handleStartOps}>
-                Start
-              </button>
+              {currentOpsIndex === -1 ? (
+                <button type="button" className="pill-btn" onClick={handleStartOps} disabled={opsRunning}>
+                  Start
+                </button>
+              ) : null}
+              {currentOpsIndex > 0 ? (
+                <button
+                  type="button"
+                  className="pill-btn"
+                  onClick={handlePrevOps}
+                  disabled={opsRunning}
+                  style={{ marginLeft: 8 }}
+                >
+                  Prev
+                </button>
+              ) : null}
+              {currentOpsIndex >= 0 && currentOpsIndex < opsGroups.length - 1 ? (
+                <button
+                  type="button"
+                  className="pill-btn"
+                  onClick={handleNextOps}
+                  disabled={opsRunning}
+                  style={{ marginLeft: 8 }}
+                >
+                  Next
+                </button>
+              ) : null}
             </div>
           )}
         </section>

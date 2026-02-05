@@ -62,7 +62,7 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 | op | 필수 | 선택/기본값 | 결과 타입 | 비고 |
 | --- | --- | --- | --- | --- |
 | `retrieveValue` | `target` | `field`, `group`, `visual.*` | `DatumValue[]` | **Simple Bar는 자동 draw(하이라이트+텍스트)** |
-| `filter` | `operator`, `value` | `field`, `group` | `DatumValue[]` | `operator="between"`은 `value:[start,end]` 필요 |
+| `filter` | `operator`, `value` 또는 `include/exclude` | `field`, `group`, `include`, `exclude` | `DatumValue[]` | `operator="between"`은 `value:[start,end]` 필요 |
 | `findExtremum` | `which` | `field`, `group` | `DatumValue[]`(길이 0~1) | `which`가 `min`이면 최소, 그 외는 최대 |
 | `determineRange` | - | `field`, `group` | `DatumValue[]`(길이 2) | `__min__`, `__max__` 두 datum 반환 |
 | `compare` | `targetA`, `targetB` | `field`, `groupA/groupB`, `aggregate`, `which` | `DatumValue[]`(길이 1) | 못 찾으면 throw |
@@ -124,9 +124,14 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ### 4.2 filter
 **목표**: 조건에 맞는 datum만 남깁니다.
 
-필수
-- `operator`: `gt/gte/lt/lte/==/!=/between/...`
-- `value`: 비교값
+필수(둘 중 하나)
+- `operator` + `value`
+- 또는 `include`/`exclude` (x 라벨 기준)
+
+선택
+- `field`: measure/category 필드
+- `include`: x 라벨 포함 목록
+- `exclude`: x 라벨 제외 목록
 
 예시(60 이상만)
 ```json
@@ -137,6 +142,13 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 ```json
 { "op": "filter", "field": "rating", "operator": "between", "value": [50, 70] }
 ```
+
+예시(x 라벨 include/exclude)
+```json
+{ "op": "filter", "include": ["USA", "KOR"], "exclude": ["FRA"] }
+```
+
+`include/exclude`와 `operator/value`를 함께 쓰면, **먼저 include/exclude로 대상 라벨을 줄이고** 그 결과에 `operator` 조건을 적용합니다.
 
 ### 4.3 findExtremum
 **목표**: 최소/최대 datum 1개를 반환합니다.

@@ -376,10 +376,26 @@ export function retrieveValue(data: DatumValue[], op: OperationSpec): DatumValue
 export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
   const spec = assertFilterSpec(op)
-  const { field, operator, value, group } = spec
+  const { field, operator, value, group, include, exclude } = spec
   const byGroup = sliceByGroup(arr, group ?? null)
-  const kind = inferFieldKind(byGroup, field)
-  const inField = byGroup.filter(predicateByField(field, kind))
+  const includeSet = new Set((include ?? []).map(String))
+  const excludeSet = new Set((exclude ?? []).map(String))
+  const byTarget =
+    includeSet.size || excludeSet.size
+      ? byGroup.filter((d) => {
+          const key = String(d.target)
+          if (includeSet.size && !includeSet.has(key)) return false
+          if (excludeSet.size && excludeSet.has(key)) return false
+          return true
+        })
+      : byGroup
+
+  if (!operator) {
+    return byTarget
+  }
+
+  const kind = inferFieldKind(byTarget, field)
+  const inField = byTarget.filter(predicateByField(field, kind))
 
   if (operator === 'between') {
     const [start, end] = Array.isArray(value) ? value : []

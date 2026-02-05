@@ -1,0 +1,49 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Population Census for year 2000, grouped by age and gender",
+  "data": {
+    "url": "survey/data/csv/bar/grouped/bar_grouped_200_42.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Month",
+      "type": "ordinal",
+      "spacing": 5
+    },
+    "y": {
+      "aggregate": "sum",
+      "field": "Temperature",
+      "type": "quantitative",
+      "axis": {
+        "title": "Temperature",
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Type",
+      "type": "nominal",
+      "scale": {
+        "rangeStep": 12
+      },
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Type",
+      "type": "nominal",
+      "scale": {
+        "range": ["#659CCA","#EA98D2"]
+      }
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "field": "Medal",
+      "operator": "==",
+      "value": "Gold"
+    },
+    {
+      "op": "sum",
+      "field": "Count"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "field": "Medal",
+      "operator": "in",
+      "value": [
+        "Silver",
+        "Bronze"
+      ]
+    },
+    {
+      "op": "sum",
+      "field": "Count"
+    }
+  ],
+  "last": [
+    {
+      "op": "compareBool",
+      "field": "value",
+      "targetA": "ops_0",
+      "targetB": "ops2_0",
+      "operator": ">"
+    }
+  ],
+  "text": {
+    "ops": "First, filter to all Gold medal records across nations and sum their counts, resulting in a total of 45 Gold medals.",
+    "ops2": "Next, filter to all Silver or Bronze medal records across nations and sum their counts, which totals 79 for Silver and Bronze combined.",
+    "last": "Finally, compare the total Gold medals (45) to the combined total of Silver and Bronze medals (79) to check if 45 is greater than 79, which is false."
+  }
+}

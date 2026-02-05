@@ -2,7 +2,7 @@ export type JsonPrimitive = string | number | boolean | null
 export interface JsonObject {
   [key: string]: JsonValue
 }
-export interface JsonArray extends Array<JsonValue> {}
+export type JsonArray = JsonValue[]
 export type JsonValue = JsonPrimitive | JsonObject | JsonArray
 
 /**
@@ -63,6 +63,9 @@ export interface OperationSpec {
   op?: string
   chartId?: string
   field?: string
+  /** Target include/exclude list (used by filter op) */
+  include?: Array<string | number>
+  exclude?: Array<string | number>
   operator?:
     | '>'
     | '>='

@@ -1,0 +1,55 @@
+<div class="page-content" data-template-id="tutorial-question">
+    <div class="page-fixed-header">
+        <h3><p style="color:red;">(Tutorial)</p> Task: Evaluate Correctness</h3>
+        <p>Please indicate how much you agree with the following statements about the accuracy of the system‑generated answer and its explanation.</p>
+    </div>
+
+    <p><strong>During the survey, please follow these steps carefully:</strong></p>
+    <ol>
+        <li><strong>Start with the left panel:</strong> Study the chart thoroughly, read the question carefully, and check the provided answer.</li>
+        <li><strong>Next, move to the right panel:</strong> Read the detailed explanation provided, step-by-step, to see how the answer was derived.</li>
+        <li><strong>Evaluate the answer and explanation:</strong> Consider whether the provided answer and its explanation clearly match your own interpretation of the chart.</li>
+        <li><strong>Answer the questions:</strong> After reviewing everything, answer two questions at the bottom of the page to indicate whether the answer is correct and how clear both the answer and the explanation are.</li>
+    </ol>
+
+    <p><strong>Note:</strong> There’s a question below the box. The time elapsed from when you enter the page until you answer the questions and proceed to the next page will be recorded.
+
+    <div class="split-container" data-role="main-question-root">
+        <style>
+        </style>
+        <div class="left">
+            <div class="pane-header">
+                <h3>Chart, Related Question, and Answer</h3>
+            </div>
+            <div class="pane-body">
+                <div data-component="chart"
+                     data-role="primary-chart"
+                     data-disable-navigator="true"
+                ></div>
+                <p><strong>Question:</strong> <span data-field="chart-question-text"></span></p>
+                <p><strong>Answer:</strong> <span data-field="chart-question-answer"></span></p>
+            </div>
+        </div>
+        <div class="right">
+            <div class="pane-header">
+                <h3>Explanation of the Answer</h3>
+            </div>
+            <div class="pane-body">
+                <div data-component="chart"
+                     data-role="explanation-chart"></div>
+            </div>
+        </div>
+    </div>
+    <!--<div class="panel-guide">
+        You can scroll through each panel independently to view all the information.
+    </div>-->
+    <p></p>
+    <h2 data-role="survey-heading"
+        data-default-text="Please answer all of the questions below."
+        data-continuation-text="(Continued) Please answer all of the questions below.">
+        Please answer all of the questions below.
+    </h2>
+    <div class="likert-container" data-field="survey-question-container"></div>
+
+    <p>When you are ready, click <strong>Next</strong> to continue.</p>
+</div>

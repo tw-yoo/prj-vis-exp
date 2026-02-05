@@ -1,6 +1,6 @@
 // @ts-nocheck
 import * as d3 from 'd3'
-import { SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
+import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import type { DrawArrowSpec, DrawLineSpec, DrawRectSpec, DrawTextSpec, DrawOp } from './types'
 
 const DEFAULT_FILL = '#69b3a2'
@@ -43,6 +43,17 @@ function selectAllMarks(container: HTMLElement) {
 }
 
 /** SVG viewBox를 기준으로 정규화된 텍스트/rect/line을 annotation 레이어에 추가합니다. */
+
+function getMarkKey(el: Element) {
+  const attrs = [
+    el.getAttribute('data-target'),
+    el.getAttribute('data-id'),
+    el.getAttribute('data-value'),
+    el.getAttribute('data-series'),
+    el.id,
+  ]
+  return attrs.find((attr) => attr != null) ?? null
+}
 
 function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
   const svgSel = d3.select(container).select(SvgElements.Svg)
@@ -180,6 +191,22 @@ function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
   }
 }
 
+function addFilterHighlight(container: HTMLElement, include?: Array<string | number>, exclude?: Array<string | number>, options?: { opacity?: number }) {
+  if ((!include || include.length === 0) && (!exclude || exclude.length === 0)) return
+  const includeSet = new Set<string>((include || []).map(String))
+  const excludeSet = new Set<string>((exclude || []).map(String))
+  const svgDelta = selectAllMarks(container)
+  svgDelta.attr(SvgAttributes.Opacity, function () {
+    const key = getMarkKey(this as Element)
+    if (!key) return options?.opacity ?? 0.25
+    if (excludeSet.has(key)) return options?.opacity ?? 0.25
+    if (includeSet.size > 0) {
+      return includeSet.has(key) ? 1 : options?.opacity ?? 0.25
+    }
+    return 1
+  })
+}
+
 export function runGenericDraw(container: HTMLElement, op: DrawOp) {
   const action = (op.action || '').toLowerCase() as DrawAction
   const selection = selectByKeys(container, op.select)
@@ -220,6 +247,12 @@ export function runGenericDraw(container: HTMLElement, op: DrawOp) {
       if ((op.line as any)?.position?.start && (op.line as any)?.position?.end) {
         addNormalizedLine(container, op.line as any)
       }
+      return
+    }
+    case 'filter': {
+      addFilterHighlight(container, op.filter?.x?.include, op.filter?.x?.exclude, {
+        opacity: op.style?.opacity ?? 0.25,
+      })
       return
     }
     default:

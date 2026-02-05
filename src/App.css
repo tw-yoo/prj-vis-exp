@@ -72,6 +72,14 @@ textarea {
   background: #f8fafc;
 }
 
+.ops-card {
+  overflow: visible;
+}
+
+#ops-spec {
+  min-height: 400px;
+}
+
 .chart-host {
   min-height: 320px;
   border: 1px dashed #e5e7eb;

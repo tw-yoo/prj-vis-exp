@@ -1,0 +1,164 @@
+<div class="page-content main-task-page">
+    <div class="task-header">
+        <h2>Compositional Chart Question Generation</h2>
+        <select id="chart-dropdown" class="chart-dropdown"></select>
+    </div>
+    <p>To successfully complete the study, please follow this steps:</p>
+    <ol class="steps">
+        <li><strong>Read</strong> the given chart carefully.</li>
+        <li><strong>Create</strong> one compositional question whose answer can be obtained from the chart
+            (i.e., a question that combines at least two pieces of information from the chart).</li>
+        <li><strong>Explain</strong> the steps you would follow to get the answer, in order.</li>
+        <li><strong>Mark</strong> which arithmetic operations you use
+            (e.g., retrive value, filter, sort, compare).</li>
+    </ol>
+
+<!--    <div class="req-box">-->
+<!--        <p>(1) <strong>read</strong> a given chart; (2) <strong>create</strong> a compositional question that can be answered from the chart; (3) <strong>calculate</strong> the answer; (4) <strong>mark</strong> what kind of arithmetic operations did you use to get the answer; (5) <strong>explain</strong> how did you get the answer.</p>-->
+<!--    </div>-->
+
+    <!-- Chart and Input side-by-side -->
+    <div class="chart-input-grid">
+        <!-- Left: Chart -->
+        <div class="chart-container">
+            <h3>Chart</h3>
+            <div id="chart-main-view__host" class="chart-host">
+                <div id="chart-main-view" class="d3chart-container"></div>
+            </div>
+        </div>
+
+        <!-- Right: Input Fields -->
+        <div class="input-container">
+            <div class="response-header">
+                <h3>Your Response</h3>
+                <div class="help-btn-wrapper">
+                    <button type="button" class="help-btn" aria-label="Show examples">?</button>
+                    <div class="help-tooltip">
+                        <div class="tooltip-header">Examples: Good Questions</div>
+                        
+                        <!-- Example 1 -->
+                        <div class="tooltip-example">
+                            <div class="ex-title">📊 Example 1: Simple Bar Chart</div>
+                            <div class="ex-row">
+                                <span class="ex-label">Q:</span>
+                                <span>What is the average of the top 3 countries by damage?</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">A:</span>
+                                <span>173.33</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">Ops:</span>
+                                <span class="ex-ops">Sort • Nth • Average</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">Steps:</span>
+                                <div class="ex-steps">
+                                    1. Sort by damage descending<br>
+                                    2. Get top 3: Japan(360), China(110), Italy(50)<br>
+                                    3. Average: (360+110+50)/3 = 173.33
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Example 2 -->
+                        <div class="tooltip-example">
+                            <div class="ex-title">📈 Example 2: Line Chart</div>
+                            <div class="ex-row">
+                                <span class="ex-label">Q:</span>
+                                <span>How many years are above the average?</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">A:</span>
+                                <span>6</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">Ops:</span>
+                                <span class="ex-ops">Average • Filter • Count</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">Steps:</span>
+                                <div class="ex-steps">
+                                    1. Calculate overall average: 45.5<br>
+                                    2. Filter years where value > 45.5<br>
+                                    3. Count filtered results: 6 years
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Example 3 -->
+                        <div class="tooltip-example">
+                            <div class="ex-title">📊 Example 3: Grouped Bar Chart</div>
+                            <div class="ex-row">
+                                <span class="ex-label">Q:</span>
+                                <span>Difference between max in Group A and min in Group B?</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">A:</span>
+                                <span>45</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">Ops:</span>
+                                <span class="ex-ops">Filter • Find Extremum • Difference</span>
+                            </div>
+                            <div class="ex-row">
+                                <span class="ex-label">Steps:</span>
+                                <div class="ex-steps">
+                                    1. Filter Group A, find max: 85<br>
+                                    2. Filter Group B, find min: 40<br>
+                                    3. Difference: 85 - 40 = 45
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stage-panel is-active">
+                <div data-component="open-ended"
+                     data-id="q-question"
+                     data-labelText="1. Your Question"
+                     data-placeholder="Enter your question here..."
+                     data-multiline="true"></div>
+
+                <div data-component="open-ended"
+                     data-id="q-explanation"
+                     data-labelText="2. Step-by-Step Explanation to Get the Answer"
+                     data-placeholder="1. ... &#10;2. ... &#10;3. ..."
+                     data-multiline="true"></div>
+            </div>
+
+            <div class="stage-panel is-active ops-section">
+              <div class="qa-review">
+                  <div class="qa-review-item">
+                      <div class="qa-review-label">1. Your Question</div>
+                      <div class="qa-review-text" id="qa-review-question">No question yet.</div>
+                  </div>
+                  <div class="qa-review-item">
+                      <div class="qa-review-label">2. Explanation (Step-by-step)</div>
+                      <div class="qa-review-text" id="qa-review-explanation">No explanation yet.</div>
+                  </div>
+              </div>
+
+                <div class="ops-checklist">
+                    <label class="question">3. Operations Used (multiple)</label>
+                    <div class="ops-checklist-body" id="ops-checklist"></div>
+                    <div class="ops-custom">
+                        <label class="question optional-question" for="ops-custom-input">Add/Remove custom operations</label>
+                        <div class="ops-custom-input-row">
+                            <input id="ops-custom-input" type="text" placeholder="Add an operation and press + or Enter">
+                            <button type="button" id="ops-custom-add-btn" class="ops-custom-add" aria-label="Add custom operation">+</button>
+                        </div>
+                        <div class="ops-custom-list" id="ops-custom-list"></div>
+                    </div>
+                </div>
+
+                <div class="data-link-row">
+                    <button type="button" id="data-link-btn" class="data-link-btn">data link</button>
+                    <span class="data-link-hint">(opens in a new tab)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

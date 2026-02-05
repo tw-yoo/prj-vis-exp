@@ -42,6 +42,22 @@ function toWorkingDatumValues(container: HTMLElement, vlSpec: SimpleBarSpec) {
   })
 }
 
+function resolveSumValue(container: HTMLElement, spec: SimpleBarSpec, sumSpec?: DrawOp['sum']) {
+  if (sumSpec && Number.isFinite(sumSpec.value)) {
+    return sumSpec
+  }
+  const stored = getSimpleBarStoredData(container)
+  const valueField = spec.encoding.y.field
+  const total = stored
+    .map((d) => Number(d[valueField]))
+    .filter(Number.isFinite)
+    .reduce((acc, v) => acc + v, 0)
+  if (!Number.isFinite(total)) {
+    return null
+  }
+  return { value: total, label: sumSpec?.label ?? 'Sum' }
+}
+
 const AUTO_DRAW_PLANS: Record<
   string,
   (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => any[] | null
@@ -79,11 +95,12 @@ async function handleSimpleBarSplit(
   }
   if (drawOp.action === DrawAction.Sum) {
     const sumSpec = drawOp.sum
-    if (!sumSpec || !Number.isFinite(sumSpec.value)) {
-      console.warn('draw:sum requires a valid sum spec', drawOp)
+    const resolvedSum = resolveSumValue(container, spec, sumSpec)
+    if (!resolvedSum) {
+      console.warn('draw:sum could not resolve sum value', drawOp)
       return true
     }
-    await renderSumSimpleBarChart(container, spec, sumSpec)
+    await renderSumSimpleBarChart(container, spec, resolvedSum)
     return true
   }
   return false

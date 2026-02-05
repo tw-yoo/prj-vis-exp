@@ -1,0 +1,56 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "field": "Year",
+      "operator": "in",
+      "value": ["1913", "1930", "1956", "1966", "1977", "1992", "2002"]
+    },
+    {
+      "op": "sum",
+      "field": "Population"
+    }
+  ],
+  "ops2": [
+    { "op": "retrieveValue", "field": "Year", "target": "1913", "group": "Romanian" }
+  ],
+  "ops3": [
+    { "op": "retrieveValue", "field": "Year", "target": "1930", "group": "Romanian" }
+  ],
+  "ops4": [
+    { "op": "retrieveValue", "field": "Year", "target": "1956", "group": "Romanian" }
+  ],
+  "ops5": [
+    { "op": "retrieveValue", "field": "Year", "target": "1966", "group": "Romanian" }
+  ],
+  "ops6": [
+    { "op": "retrieveValue", "field": "Year", "target": "1977", "group": "Romanian" }
+  ],
+  "ops7": [
+    { "op": "retrieveValue", "field": "Year", "target": "1992", "group": "Romanian" }
+  ],
+  "ops8": [
+    { "op": "retrieveValue", "field": "Year", "target": "2002", "group": "Romanian" }
+  ],
+  "last": [
+    {
+      "op": "diff",
+      "field": "value",
+      "targetA": ["ops2_0", "ops3_0", "ops4_0", "ops5_0", "ops6_0", "ops7_0", "ops8_0"],
+      "targetB": "ops_0",
+      "aggregate": "percentage_of_total",
+      "precision": 2
+    }
+  ],
+  "text": {
+    "ops": "Filter to years 1913–2002 and sum all ethnic populations across them for a total combined population of 4,946,753.",
+    "ops2": "In 1913, retrieve the Romanian population (216,425).",
+    "ops3": "In 1930, retrieve the Romanian population (282,844).",
+    "ops4": "In 1956, retrieve the Romanian population (514,331).",
+    "ops5": "In 1966, retrieve the Romanian population (622,996).",
+    "ops6": "In 1977, retrieve the Romanian population (784,934).",
+    "ops7": "In 1992, retrieve the Romanian population (926,608).",
+    "ops8": "In 2002, retrieve the Romanian population (883,620).",
+    "last": "Sum the seven Romanian values (4,231,758) and divide by the full combined population (4,946,753) to yield 85.56%."
+  }
+}
