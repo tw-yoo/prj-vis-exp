@@ -1,4 +1,3 @@
-// @ts-nocheck
 import vegaEmbedLib from 'vega-embed'
 import type { JsonObject, JsonValue } from '../types'
 
@@ -11,15 +10,15 @@ export interface VegaLiteSpec {
   data?: {
     url?: string
     values?: JsonValue[]
-    [key: string]: JsonValue
+    [key: string]: JsonValue | undefined
   }
-  mark?: string | { type?: string; [key: string]: JsonValue }
+  mark?: string | { type?: string; [key: string]: JsonValue | undefined }
   encoding?: Record<string, JsonValue>
   layer?: Array<Record<string, JsonValue>>
   config?: Record<string, JsonValue>
   width?: number
   height?: number
-  [key: string]: JsonValue
+  [key: string]: unknown
 }
 
 export interface VegaEmbedOptions {
@@ -33,7 +32,7 @@ export interface VegaEmbedOptions {
         top?: number
         bottom?: number
       }
-  [key: string]: JsonValue
+  [key: string]: unknown
 }
 
 export const ChartType = Object.freeze({
@@ -103,11 +102,15 @@ function hasFieldChannel(channel: JsonValue | undefined) {
 }
 
 function normalizeLayers(spec: VegaLiteSpec = {}) {
-  const baseEncoding = spec.encoding || {}
+  const baseEncoding =
+    spec.encoding && typeof spec.encoding === 'object' ? (spec.encoding as Record<string, JsonValue>) : {}
   if (Array.isArray(spec.layer) && spec.layer.length > 0) {
     return spec.layer.map((layer) => ({
       mark: normalizeMarkType((layer?.mark as VegaLiteSpec['mark']) ?? spec.mark),
-      encoding: { ...baseEncoding, ...(layer?.encoding || {}) },
+      encoding: {
+        ...baseEncoding,
+        ...(layer?.encoding && typeof layer.encoding === 'object' ? layer.encoding : {}),
+      },
     }))
   }
   return [
@@ -190,7 +193,7 @@ function ensureChartCanvas(container: HTMLElement) {
 function resolveVegaEmbed(): VegaEmbedFn | null {
   // Prefer bundled import (vite/esm)
   if (typeof vegaEmbedLib === 'function') {
-    return vegaEmbedLib as VegaEmbedFn
+    return vegaEmbedLib as unknown as VegaEmbedFn
   }
   // Fallback to globals (browser CDN scenario)
   try {
@@ -515,6 +518,43 @@ function adjustXAxisLabelAngle(container: HTMLElement) {
   }, 100)
 }
 
+function applyAxisContrast(container: HTMLElement) {
+  const svg = container.querySelector('svg')
+  if (!svg) return
+
+  const setStroke = (selector: string) => {
+    svg.querySelectorAll<SVGElement>(selector).forEach((node) => {
+      node.setAttribute('stroke', '#000000')
+      node.setAttribute('stroke-opacity', '1')
+      node.style.setProperty('stroke', '#000000')
+      node.style.setProperty('stroke-opacity', '1')
+    })
+  }
+
+  const setFill = (selector: string) => {
+    svg.querySelectorAll<SVGElement>(selector).forEach((node) => {
+      node.setAttribute('fill', '#000000')
+      node.setAttribute('fill-opacity', '1')
+      node.style.setProperty('fill', '#000000')
+      node.style.setProperty('fill-opacity', '1')
+      node.style.setProperty('opacity', '1')
+    })
+  }
+
+  // Vega axis groups and marks.
+  setStroke('.role-axis line')
+  setStroke('.role-axis path')
+  setStroke('.role-axis .mark-rule')
+  setFill('.role-axis .role-axis-label')
+  setFill('.role-axis .role-axis-title')
+  setFill('.mark-text.role-axis-label')
+  setFill('.mark-text.role-axis-title')
+
+  // Custom labels added by renderers.
+  setFill('.x-axis-label')
+  setFill('.y-axis-label')
+}
+
 /**
  * Render a Vega-Lite spec into the provided container element.
  * @param container Host element that will contain the SVG.
@@ -577,6 +617,8 @@ export async function renderVegaLiteChart(
 
   adjustXAxisLabelAngle(target)
   ensureXAxisLabelClearance(target, { attempts: 5, minGap: 14, maxShift: 140 })
+  applyAxisContrast(target)
+  setTimeout(() => applyAxisContrast(target), 140)
 
   return result
 }
@@ -595,4 +637,3 @@ function normalizeSchema(input: VegaLiteSpec): VegaLiteSpec {
   }
   return spec
 }
-// @ts-nocheck

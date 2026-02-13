@@ -83,3 +83,43 @@ export interface SurveyChartTask {
   vlSpec: VegaLiteSpec
   opsSpec?: OperationSpec[] | { ops: OperationSpec[] } | JsonObject
 }
+
+export type SystemId = 'system1' | 'system2' | 'system3'
+
+export interface MainSessionResponseItem {
+  chartId: string
+  phase: 'tutorial' | 'main'
+  answerCorrect: 'yes' | 'no' | ''
+  confidenceQ1: number | null
+  explanationHelpQ3: number | null
+  reasonQ4: string
+}
+
+export interface PostSessionResponse {
+  matrix: Record<
+    SystemId,
+    {
+      clarity: number | null
+      complexConfidence: number | null
+      evidence: number | null
+    }
+  >
+  ranking: {
+    trustMost: SystemId[]
+    easiestExplanation: SystemId[]
+    realWorldUse: SystemId[]
+  }
+  keyDifferences: string
+}
+
+export interface PostSessionExample {
+  systemId: SystemId
+  systemLabel: string
+  examples: Array<{
+    title: string
+    chartId?: string
+    question: string
+    answer: string
+    explanation: string
+  }>
+}

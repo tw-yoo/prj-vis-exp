@@ -5,6 +5,8 @@ import {
   type LineSpec,
   getSimpleLineStoredData,
   tagSimpleLineMarks,
+  renderSplitSimpleLineChart,
+  getSimpleLineSplitDomain,
 } from '../renderer/line/simpleLineRenderer.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../renderer/ops/common/datum.ts'
 import { DrawAction, type DrawOp, type DrawFilterSpec } from '../renderer/draw/types.ts'
@@ -12,6 +14,7 @@ import { SimpleLineDrawHandler } from '../renderer/draw/line/SimpleLineDrawHandl
 import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runSimpleLineDrawPlan } from '../renderer/ops/executor/runSimpleLineDrawPlan.ts'
+import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../renderer/ops/visual/line/simple/autoDrawPlanRegistry.ts'
 
 function toDatumValues(rawData: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(rawData, { xField, yField })
@@ -153,7 +156,48 @@ async function handleSimpleLineDraw(
   console.warn('draw: unsupported action for simple line', drawOp.action)
 }
 
+async function handleSimpleLineSplit(container: HTMLElement, spec: LineSpec, drawOp: DrawOp) {
+  if (drawOp.action === DrawAction.Split) {
+    if (!drawOp.split) {
+      console.warn('draw:split requires split spec', drawOp)
+      return true
+    }
+    await renderSplitSimpleLineChart(container, spec, drawOp.split)
+    return true
+  }
+  if (drawOp.action === DrawAction.Unsplit) {
+    await renderSimpleLineChart(container, spec)
+    return true
+  }
+  return false
+}
+
 export async function runSimpleLineOps(container: HTMLElement, vlSpec: LineSpec, opsSpec: OperationSpec | OperationSpec[]) {
+  const chartWorking = new Map<string, DatumValue[]>()
+  const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
+    const domain = getSimpleLineSplitDomain(container, chartId)
+    if (!domain || domain.size === 0) return currentWorking
+    const domainSet = new Set(domain)
+    return currentWorking.filter((datum) => domainSet.has(String(datum.target)))
+  }
+  const deriveOperationInput = (operation: OperationSpec, currentWorking: DatumValue[]) => {
+    const chartId = operation.chartId
+    if (!chartId) return currentWorking
+    if (chartWorking.has(chartId)) return chartWorking.get(chartId)!
+    const subset = filterByChartDomain(chartId, currentWorking)
+    chartWorking.set(chartId, subset)
+    return subset
+  }
+  const handleOperationResult = (operation: OperationSpec, result: DatumValue[], currentWorking: DatumValue[]) => {
+    const chartId = operation.chartId
+    if (chartId) {
+      chartWorking.set(chartId, result)
+      return currentWorking
+    }
+    chartWorking.clear()
+    return result
+  }
+
   return runChartOperationsCommon<LineSpec>({
     container,
     spec: vlSpec,
@@ -169,9 +213,20 @@ export async function runSimpleLineOps(container: HTMLElement, vlSpec: LineSpec,
       return toDatumValues(raw, spec.encoding.x.field, spec.encoding.y.field)
     },
     createHandler: (host) => new SimpleLineDrawHandler(host),
+    splitHandler: async (host, spec, handler, drawOp) => {
+      const handled = await handleSimpleLineSplit(host, spec, drawOp)
+      if (handled) {
+        handler = new SimpleLineDrawHandler(host)
+        chartWorking.clear()
+      }
+      return handled
+    },
     handleDrawOp: (host, handler, drawOp) =>
       handleSimpleLineDraw(host, handler as SimpleLineDrawHandler, drawOp, vlSpec),
     clearAnnotations: ({ svg }) => clearAnnotations(svg),
+    autoDrawPlans: SIMPLE_LINE_AUTO_DRAW_PLANS,
+    getOperationInput: deriveOperationInput,
+    handleOperationResult,
     runDrawPlan: async (drawPlan, handler) => {
       await runSimpleLineDrawPlan(container, drawPlan, { handler: handler as SimpleLineDrawHandler })
     },

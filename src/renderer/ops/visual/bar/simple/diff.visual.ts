@@ -1,8 +1,9 @@
 import type { AutoDrawPlanContext } from '../../../../ops/common/executeDataOp.ts'
-import { OperationOp, type DatumValue, type TargetSelector } from '../../../../../types'
-import type { DrawOp } from '../../../../draw/types'
-import { DrawAction, DrawLineModes, DrawMark } from '../../../../draw/types'
-import type {OpDiffSpec} from "../../../../../types/operationSpecs.ts";
+import type { DatumValue, TargetSelector } from '../../../../../types'
+import type { DrawLineSpec, DrawOp } from '../../../../draw/types'
+import { DrawComparisonOperators, DrawLineModes, DrawMark } from '../../../../draw/types'
+import type { OpDiffSpec } from '../../../../../types/operationSpecs.ts'
+import { drawOps } from '../../../../draw/drawOps'
 
 const DEFAULT_HIGHLIGHT_COLOR = '#0f172a'
 const DEFAULT_LINE_COLOR = '#0ea5e9'
@@ -81,48 +82,49 @@ export function buildSimpleBarDiffDrawPlan(
 
   const smallerTarget = String(smallerDatum.target)
   const largerTarget = String(largerDatum.target)
-
-  plan.push({
-    op: OperationOp.Draw,
-    action: DrawAction.Highlight,
-    chartId: op.chartId,
-    select: { keys: [smallerTarget, largerTarget], mark: DrawMark.Rect },
-    style: { color: highlightColor },
-  })
-
-  plan.push({
-    op: OperationOp.Draw,
-    action: DrawAction.Line,
-    chartId: op.chartId,
-    line: {
-      mode: DrawLineModes.HorizontalFromY,
-      hline: { y: horizontalLineValue },
-      style: {
-        stroke: lineColor,
-        strokeWidth: lineStrokeWidth,
-        opacity: lineOpacity,
-      },
+  const lineSpec: DrawLineSpec = {
+    mode: DrawLineModes.HorizontalFromY,
+    hline: { y: horizontalLineValue },
+    style: {
+      stroke: lineColor,
+      strokeWidth: lineStrokeWidth,
+      opacity: lineOpacity,
     },
-  })
+  }
+
+  plan.push(
+    drawOps.highlight({
+      chartId: op.chartId,
+      select: { keys: [smallerTarget, largerTarget], mark: DrawMark.Rect },
+      style: { color: highlightColor },
+    }),
+  )
+
+  plan.push(
+    drawOps.line({
+      chartId: op.chartId,
+      line: lineSpec,
+    }),
+  )
 
   const difference = Math.abs(valueA - valueB)
   if (difference > 0) {
-    plan.push({
-    op: OperationOp.Draw,
-    action: DrawAction.BarSegment,
-    chartId: op.chartId,
-    select: { keys: [largerTarget], mark: DrawMark.Rect },
-      segment: {
-        threshold: horizontalLineValue,
-        when: 'gt',
-        style: {
-          fill: segmentFill,
-          stroke: segmentStroke,
-          strokeWidth: segmentStrokeWidth,
-          opacity: segmentOpacity,
+    plan.push(
+      drawOps.barSegment({
+        chartId: op.chartId,
+        select: { keys: [largerTarget], mark: DrawMark.Rect },
+        segment: {
+          threshold: horizontalLineValue,
+          when: DrawComparisonOperators.Greater,
+          style: {
+            fill: segmentFill,
+            stroke: segmentStroke,
+            strokeWidth: segmentStrokeWidth,
+            opacity: segmentOpacity,
+          },
         },
-      },
-    })
+      }),
+    )
   }
 
   return plan

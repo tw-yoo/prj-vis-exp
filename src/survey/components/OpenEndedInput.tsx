@@ -3,6 +3,7 @@ import './surveyUi.css'
 export interface OpenEndedInputProps {
   id: string
   labelText: string
+  hideLabel?: boolean
   placeholder?: string
   multiline?: boolean
   inputType?: 'text' | 'email' | 'number' | 'password'
@@ -21,6 +22,7 @@ function inferOptional(labelText: string, placeholder: string) {
 export function OpenEndedInput({
   id,
   labelText,
+  hideLabel = false,
   placeholder = '',
   multiline = false,
   inputType = 'text',
@@ -33,9 +35,11 @@ export function OpenEndedInput({
 
   return (
     <div className="text-input-wrapper" data-required={isRequired ? 'true' : 'false'}>
-      <label className={`question ${isRequired ? '' : 'optional-question'}`.trim()} htmlFor={id}>
-        {labelText}
-      </label>
+      {!hideLabel ? (
+        <label className={`question ${isRequired ? '' : 'optional-question'}`.trim()} htmlFor={id}>
+          {labelText}
+        </label>
+      ) : null}
 
       {multiline ? (
         <textarea

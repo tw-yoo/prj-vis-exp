@@ -495,4 +495,3 @@ export function clearAnnotations(svg: D3Selection, extraSelectors: string[] = []
   if (!selectors.length) return
   svg.selectAll(selectors.join(', ')).remove()
 }
-// @ts-nocheck

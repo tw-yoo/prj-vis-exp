@@ -52,7 +52,7 @@ async function fetchResource<T = unknown>(path: string, mode: FetchMode, useCach
 }
 
 /** Fetch JSON from `public/survey/**` with memoization by default. */
-export async function fetchSurveyJson<T extends JsonValue = JsonValue>(path: string, useCache = true) {
+export async function fetchSurveyJson<T = JsonValue>(path: string, useCache = true) {
   return fetchResource<T>(path, 'json', useCache)
 }
 
@@ -65,4 +65,3 @@ export async function fetchSurveyText(path: string, useCache = true) {
 export function clearSurveyApiCache() {
   responseCache.clear()
 }
-

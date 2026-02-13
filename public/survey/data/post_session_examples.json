@@ -1,0 +1,83 @@
+[
+  {
+    "systemId": "system1",
+    "systemLabel": "System 1",
+    "examples": [
+      {
+        "title": "Example 1",
+        "chartId": "bar_simple_202_80",
+        "question": "What is the minimum value?",
+        "answer": "The minimum value is 2235 metres, corresponding to Cima di Posta.",
+        "explanation": "This system highlights the lowest bar and directly maps the category label to the reported value."
+      },
+      {
+        "title": "Example 2",
+        "chartId": "line_simple_203_127",
+        "question": "What is the latest value minus the earliest value?",
+        "answer": "The latest attendance value minus the earliest attendance value is 47.",
+        "explanation": "The explanation compares only the start and end points with brief arithmetic steps."
+      },
+      {
+        "title": "Example 3",
+        "chartId": "bar_grouped_203_88",
+        "question": "What is the average value of female?",
+        "answer": "The average population for females is approximately 156399.33.",
+        "explanation": "It lists category values, computes an aggregate, and reports the rounded average."
+      }
+    ]
+  },
+  {
+    "systemId": "system2",
+    "systemLabel": "System 2",
+    "examples": [
+      {
+        "title": "Example 1",
+        "chartId": "bar_stacked_203_61",
+        "question": "Across all nations, is the total number of Gold medals greater than the combined total of Silver and Bronze medals?",
+        "answer": "No",
+        "explanation": "The explanation explicitly sums medal counts by type before comparing totals."
+      },
+      {
+        "title": "Example 2",
+        "chartId": "line_multiple_201_22",
+        "question": "What is the difference between the highest gap and the lowest gap between average high and average low for each month?",
+        "answer": "Yes",
+        "explanation": "This system walks through intermediate gaps month-by-month and then performs the final subtraction."
+      },
+      {
+        "title": "Example 3",
+        "chartId": "bar_grouped_202_239",
+        "question": "Is the average of synthesis values greater than derivation values?",
+        "answer": "Yes",
+        "explanation": "The rationale provides grouped filtering steps and compares both computed means."
+      }
+    ]
+  },
+  {
+    "systemId": "system3",
+    "systemLabel": "System 3",
+    "examples": [
+      {
+        "title": "Example 1",
+        "chartId": "line_simple_201_7",
+        "question": "What is the average of all values?",
+        "answer": "The average of all Gross Domestic Product values is 10168.17.",
+        "explanation": "The response enumerates every value, computes total sum, and divides by the count."
+      },
+      {
+        "title": "Example 2",
+        "chartId": "bar_stacked_202_44",
+        "question": "What percentage is contributed by the top ethnic group?",
+        "answer": "The top 1 ethnic group contributes 85.56% of the combined population.",
+        "explanation": "It aggregates populations across groups and reports ratio-based evidence for the claim."
+      },
+      {
+        "title": "Example 3",
+        "chartId": "line_multiple_203_95",
+        "question": "For the Democratic Party, what is the difference between the 2nd and the 5th highest values?",
+        "answer": "NA",
+        "explanation": "The explanation references extracted datapoints and explains why the target comparison cannot be resolved."
+      }
+    ]
+  }
+]

@@ -2,31 +2,15 @@ import * as d3 from 'd3'
 import type { JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../interfaces'
 import { BaseDrawHandler } from './BaseDrawHandler'
-import { DrawAction, DrawMark, type DrawBarSegmentSpec, type DrawOp, type DrawSelect } from './types'
-
-const ComparisonOperatorGroups = {
-  Greater: ['>', 'gt'] as const,
-  GreaterEqual: ['>=', 'gte'] as const,
-  Less: ['<', 'lt'] as const,
-  LessEqual: ['<=', 'lte'] as const,
-} as const
-
-type ComparisonOperatorGroup = keyof typeof ComparisonOperatorGroups
-type ComparisonCondition = 'gt' | 'gte' | 'lt' | 'lte'
-
-function matchesComparison(op: string | undefined, group: ComparisonOperatorGroup) {
-  if (!op) return false
-  const list = ComparisonOperatorGroups[group] as readonly string[]
-  return list.includes(op)
-}
-
-function normalizeComparisonCondition(op: string | undefined): ComparisonCondition {
-  if (matchesComparison(op, 'Greater')) return 'gt'
-  if (matchesComparison(op, 'GreaterEqual')) return 'gte'
-  if (matchesComparison(op, 'Less')) return 'lt'
-  if (matchesComparison(op, 'LessEqual')) return 'lte'
-  return 'gte'
-}
+import {
+  DrawAction,
+  DrawComparisonOperators,
+  DrawMark,
+  type DrawBarSegmentSpec,
+  type DrawOp,
+  type DrawSelect,
+} from './types'
+import { normalizeComparisonCondition } from './utils/comparison'
 
 /**
  * Draw handler for bar-like charts.
@@ -55,7 +39,7 @@ export class BarDrawHandler extends BaseDrawHandler {
     const order = (sortSpec?.order ?? 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc'
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const scope = this.selectScope(op.chartId)
-    const bars = scope.selectAll<SVGRectElement, JsonValue>(SvgSelectors.MainBars)
+    const bars = this.selectBarMarks(scope)
     if (bars.empty()) return
 
     const entries = bars.nodes().map((node) => {
@@ -119,7 +103,7 @@ export class BarDrawHandler extends BaseDrawHandler {
 
     const style = segment.style
 
-    const barsAll = scope.selectAll<SVGRectElement, JsonValue>(SvgSelectors.MainBars)
+    const barsAll = this.selectBarMarks(scope)
     const bars =
       (this.filterByKeys(
         barsAll as unknown as d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>,
@@ -128,6 +112,7 @@ export class BarDrawHandler extends BaseDrawHandler {
 
     bars.each(function () {
       const el = this as SVGRectElement
+
       const valueAttr = el.getAttribute(DataAttributes.Value)
       const v = valueAttr != null ? Number(valueAttr) : NaN
       if (!Number.isFinite(v)) return
@@ -148,9 +133,13 @@ export class BarDrawHandler extends BaseDrawHandler {
       const valueIntervalMax = Math.max(0, v)
 
       const segmentMin =
-        condition === 'gte' || condition === 'gt' ? Math.max(threshold, valueIntervalMin) : valueIntervalMin
+        condition === DrawComparisonOperators.GreaterEqual || condition === DrawComparisonOperators.Greater
+          ? Math.max(threshold, valueIntervalMin)
+          : valueIntervalMin
       const segmentMax =
-        condition === 'lte' || condition === 'lt' ? Math.min(threshold, valueIntervalMax) : valueIntervalMax
+        condition === DrawComparisonOperators.LessEqual || condition === DrawComparisonOperators.Less
+          ? Math.min(threshold, valueIntervalMax)
+          : valueIntervalMax
       if (segmentMax <= segmentMin) return
 
       const yA = mapY(segmentMin)
@@ -182,7 +171,7 @@ export class BarDrawHandler extends BaseDrawHandler {
     if (!filterSpec) return
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const scope = this.selectScope(op.chartId)
-    const bars = scope.selectAll<SVGRectElement, JsonValue>(SvgSelectors.MainBars)
+    const bars = this.selectBarMarks(scope)
     if (bars.empty()) return
 
     const entries = bars.nodes().map((node) => {
@@ -214,13 +203,13 @@ export class BarDrawHandler extends BaseDrawHandler {
       const target = filterSpec.y.value
       const condition = normalizeComparisonCondition(filterSpec.y.op ?? undefined)
       switch (condition) {
-        case 'gt':
+        case DrawComparisonOperators.Greater:
           return value > target
-        case 'gte':
+        case DrawComparisonOperators.GreaterEqual:
           return value >= target
-        case 'lt':
+        case DrawComparisonOperators.Less:
           return value < target
-        case 'lte':
+        case DrawComparisonOperators.LessEqual:
           return value <= target
         default:
           return true

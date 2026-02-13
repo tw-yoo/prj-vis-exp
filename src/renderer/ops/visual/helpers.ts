@@ -1,5 +1,5 @@
-import { OperationOp } from '../../../types'
-import { DrawAction, DrawMark, DrawTextModes, type DrawOp } from '../../draw/types.ts'
+import { DrawMark, DrawTextModes, type DrawOp } from '../../draw/types.ts'
+import { drawOps } from '../../draw/drawOps'
 
 const DEFAULT_HIGHLIGHT_COLOR = '#ef4444'
 const DEFAULT_TEXT_COLOR = '#111827'
@@ -12,27 +12,23 @@ function formatNumber(value: number, precision?: number) {
 }
 
 export function makeHighlightOp(target: string, color?: string): DrawOp {
-  return {
-    op: OperationOp.Draw,
-    action: DrawAction.Highlight,
+  return drawOps.highlight({
     select: { keys: [target], mark: DrawMark.Rect },
     style: { color: color ?? DEFAULT_HIGHLIGHT_COLOR },
-  }
+  })
 }
 
 export function makeTextOp(target: string, value: number, color?: string, precision?: number): DrawOp {
   const text = formatNumber(value, precision)
   if (!text) return makeHighlightOp(target, color)
-  return {
-    op: OperationOp.Draw,
-    action: DrawAction.Text,
+  return drawOps.text({
     select: { keys: [target], mark: DrawMark.Rect },
     text: {
       value: text,
       mode: DrawTextModes.Anchor,
       style: { color: color ?? DEFAULT_TEXT_COLOR, fontSize: 12, fontWeight: 'bold' },
     },
-  }
+  })
 }
 
 export function buildHighlightPlan(targets: string[], color?: string): DrawOp[] {

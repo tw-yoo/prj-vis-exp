@@ -1,19 +1,8 @@
-// @ts-nocheck
 import type { DatumValue, OperationSpec } from '../types'
-import { OperationOp } from '../types'
 import { BarDrawHandler } from '../renderer/draw/BarDrawHandler.ts'
 import { DrawAction, type DrawSplitSpec, type DrawOp } from '../renderer/draw/types.ts'
 import { runSimpleBarDrawPlan } from '../renderer/ops/executor/runSimpleBarDrawPlan.ts'
-import { buildSimpleBarRetrieveValueDrawPlan } from '../renderer/ops/visual/bar/simple/retrieveValue.visual.ts'
-import { buildSimpleBarSortDrawPlan } from '../renderer/ops/visual/bar/simple/sort.visual.ts'
-import { buildSimpleBarFilterDrawPlan } from '../renderer/ops/visual/bar/simple/filter.visual.ts'
-import { buildSimpleBarExtremumDrawPlan } from '../renderer/ops/visual/bar/simple/extremum.visual.ts'
-import { buildSimpleBarAverageDrawPlan } from '../renderer/ops/visual/bar/simple/average.visual.ts'
-import { buildSimpleBarCountDrawPlan } from '../renderer/ops/visual/bar/simple/count.visual.ts'
-import { buildSimpleBarDiffDrawPlan } from '../renderer/ops/visual/bar/simple/diff.visual.ts'
-import { buildSimpleBarNthDrawPlan } from '../renderer/ops/visual/bar/simple/nth.visual.ts'
-import { buildSimpleBarSumDrawPlan } from '../renderer/ops/visual/bar/simple/sum.visual.ts'
-import type { AutoDrawPlanContext } from '../renderer/ops/common/executeDataOp.ts'
+import { SIMPLE_BAR_AUTO_DRAW_PLANS } from '../renderer/ops/visual/bar/simple/autoDrawPlanRegistry.ts'
 import { normalizeOpsList, type OpsSpecInput } from '../renderer/ops/common/opsSpec.ts'
 import { getPlotContext } from '../renderer/ops/common/chartContext.ts'
 import { runSleepOp } from '../renderer/ops/common/sleepOp.ts'
@@ -56,23 +45,6 @@ function resolveSumValue(container: HTMLElement, spec: SimpleBarSpec, sumSpec?: 
     return null
   }
   return { value: total, label: sumSpec?.label ?? 'Sum' }
-}
-
-const AUTO_DRAW_PLANS: Record<
-  string,
-  (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => any[] | null
-> = {
-  [OperationOp.RetrieveValue]: (result, op, context) =>
-    buildSimpleBarRetrieveValueDrawPlan(result, op as any, context),
-  [OperationOp.Sort]: (result, op, context) => buildSimpleBarSortDrawPlan(result, op as any, context),
-  [OperationOp.Filter]: (result, op, context) => buildSimpleBarFilterDrawPlan(result, op as any, context),
-  [OperationOp.FindExtremum]: (result, op, context) =>
-    buildSimpleBarExtremumDrawPlan(result, op as any, context),
-  [OperationOp.Average]: (result, op, context) => buildSimpleBarAverageDrawPlan(result, op as any, context),
-  [OperationOp.Count]: (result, op, context) => buildSimpleBarCountDrawPlan(result, op as any, context),
-  [OperationOp.Diff]: (result, op, context) => buildSimpleBarDiffDrawPlan(result, op as any, context),
-  [OperationOp.Nth]: (result, op, context) => buildSimpleBarNthDrawPlan(result, op as any, context),
-  [OperationOp.Sum]: (result, op, context) => buildSimpleBarSumDrawPlan(result, op as any, context),
 }
 
 async function handleSimpleBarSplit(
@@ -151,11 +123,11 @@ export async function runSimpleBarOps(container: HTMLElement, vlSpec: SimpleBarS
       return handled
     },
     clearAnnotations: ({ container: host }) => clearAnnotations(getPlotContext(host).svg),
-    autoDrawPlans: AUTO_DRAW_PLANS,
+    autoDrawPlans: SIMPLE_BAR_AUTO_DRAW_PLANS,
     getOperationInput: deriveOperationInput,
     handleOperationResult,
     runDrawPlan: async (drawPlan, handler) => {
-      await runSimpleBarDrawPlan(container, drawPlan, { handler })
+      await runSimpleBarDrawPlan(container, drawPlan, { handler: handler as BarDrawHandler })
     },
   })
 }

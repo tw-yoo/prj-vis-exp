@@ -1,8 +1,9 @@
 import type { AutoDrawPlanContext } from '../../../../ops/common/executeDataOp.ts'
-import { OperationOp, type DatumValue } from '../../../../../types'
-import type { DrawOp } from '../../../../draw/types'
-import { DrawAction, DrawLineModes } from '../../../../draw/types'
-import type {OpFilterSpec} from "../../../../../types/operationSpecs.ts";
+import type { DatumValue } from '../../../../../types'
+import type { DrawLineSpec, DrawOp } from '../../../../draw/types'
+import { DrawComparisonAliasGroups, DrawLineModes, type DrawComparisonOperator } from '../../../../draw/types'
+import type { OpFilterSpec } from '../../../../../types/operationSpecs.ts'
+import { drawOps } from '../../../../draw/drawOps'
 
 const DEFAULT_LINE_COLOR = '#ef4444'
 const DEFAULT_SEGMENT_FILL = 'rgba(239,68,68,0.28)'
@@ -10,37 +11,19 @@ const DEFAULT_SEGMENT_STROKE = '#dc2626'
 const DEFAULT_SEGMENT_OPACITY = 0.8
 const DEFAULT_SEGMENT_STROKE_WIDTH = 1.5
 
-type NormalizedOperator = 'gt' | 'gte' | 'lt' | 'lte'
-
 function normalizeThreshold(value: unknown) {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : null
 }
 
-function normalizeOperator(operator?: string): NormalizedOperator | null {
+function normalizeOperator(operator?: string): DrawComparisonOperator | null {
   if (!operator) return null
-  switch (operator.toLowerCase()) {
-    case '>':
-    case 'gt':
-    case 'greater':
-    case 'greaterthan':
-      return 'gt'
-    case '>=':
-    case 'gte':
-    case 'greaterorequal':
-      return 'gte'
-    case '<':
-    case 'lt':
-    case 'less':
-    case 'lessthan':
-      return 'lt'
-    case '<=':
-    case 'lte':
-    case 'lessorequal':
-      return 'lte'
-    default:
-      return null
+  const token = operator.toLowerCase()
+  const entries = Object.entries(DrawComparisonAliasGroups) as Array<[DrawComparisonOperator, readonly string[]]>
+  for (const [key, aliases] of entries) {
+    if (aliases.includes(token)) return key
   }
+  return null
 }
 
 function buildSelectTargets(result: DatumValue[]) {
@@ -76,33 +59,25 @@ export function buildSimpleBarFilterDrawPlan(
   const segmentStroke = DEFAULT_SEGMENT_STROKE
   const segmentOpacity = DEFAULT_SEGMENT_OPACITY
   const segmentStrokeWidth = DEFAULT_SEGMENT_STROKE_WIDTH
+  const lineSpec: DrawLineSpec = {
+    mode: DrawLineModes.HorizontalFromY,
+    hline: { y: threshold },
+    style: {
+      stroke: lineColor,
+      strokeWidth: lineStrokeWidth,
+      opacity: lineOpacity,
+    },
+  }
 
   const plan: DrawOp[] = [
-    {
-      op: OperationOp.Draw,
-      action: DrawAction.Line,
+    drawOps.line({
       chartId: op.chartId,
-      line: {
-        mode: DrawLineModes.HorizontalFromY,
-        hline: { y: threshold },
-        style: {
-          stroke: lineColor,
-          strokeWidth: lineStrokeWidth,
-          opacity: lineOpacity,
-        },
-      },
-    },
-    {
-      op: OperationOp.Draw,
-      action: DrawAction.Sleep,
-      seconds: 1,
+      line: lineSpec,
+    }),
+    drawOps.sleep({ seconds: 1, chartId: op.chartId }),
+    drawOps.barSegment({
       chartId: op.chartId,
-    },
-    {
-      op: OperationOp.Draw,
-      action: DrawAction.BarSegment,
-      chartId: op.chartId,
-      select: targets.length ? { keys: targets } : undefined,
+      selectKeys: targets,
       segment: {
         threshold,
         when: operator,
@@ -113,21 +88,10 @@ export function buildSimpleBarFilterDrawPlan(
           opacity: segmentOpacity,
         },
       },
-    },
-    {
-      op: OperationOp.Draw,
-      action: DrawAction.Sleep,
-      seconds: 1,
-      chartId: op.chartId,
-    },
-    {
-      op: OperationOp.Draw,
-      action: DrawAction.Clear,
-      chartId: op.chartId,
-    },
-    {
-      op: OperationOp.Draw,
-      action: DrawAction.Filter,
+    }),
+    drawOps.sleep({ seconds: 1, chartId: op.chartId }),
+    drawOps.clear(op.chartId),
+    drawOps.filter({
       chartId: op.chartId,
       filter: {
         y: {
@@ -135,7 +99,7 @@ export function buildSimpleBarFilterDrawPlan(
           value: threshold,
         },
       },
-    },
+    }),
   ]
 
   return plan

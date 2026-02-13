@@ -1,12 +1,12 @@
-// @ts-nocheck
 import * as d3 from 'd3'
 import type { DatumValue, OperationSpec } from '../types'
 import { OperationOp } from '../types'
-import { normalizeOpsList } from '../renderer/ops/common/opsSpec.ts'
+import { normalizeOpsList, type OpsSpecInput } from '../renderer/ops/common/opsSpec.ts'
 import { executeDataOperation, type AutoDrawPlanContext } from '../renderer/ops/common/executeDataOp.ts'
 import { STANDARD_DATA_OP_HANDLERS } from '../renderer/ops/common/dataHandlers.ts'
 import { runSleepOp } from '../renderer/ops/common/sleepOp.ts'
-import { isDrawOp, type DrawOp } from '../renderer/ops/operationPipeline.ts'
+import { isDrawOp } from '../renderer/ops/operationPipeline.ts'
+import type { DrawOp } from '../renderer/draw/types.ts'
 import { runGenericDraw } from '../renderer/draw/genericDraw.ts'
 import type { D3Selection } from '../renderer/common/d3Helpers.ts'
 export type ChartHandler = { run: (op: DrawOp) => void }
@@ -14,7 +14,7 @@ export type ChartHandler = { run: (op: DrawOp) => void }
 export type RunChartOperationsConfig<Spec> = {
   container: HTMLElement
   spec: Spec
-  opsSpec: OperationSpec | OperationSpec[]
+  opsSpec: OpsSpecInput
   render: (container: HTMLElement, spec: Spec) => Promise<unknown>
   postRender?: (container: HTMLElement, spec: Spec) => Promise<void>
   getWorkingData: (container: HTMLElement, spec: Spec) => DatumValue[]

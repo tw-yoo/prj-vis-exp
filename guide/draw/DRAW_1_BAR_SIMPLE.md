@@ -12,7 +12,7 @@
 | `clear` | - | - | 색상/투명도 복원 + annotation 제거 |
 | `text` | `text.value` | `mode`(`anchor`\*), `offset`, `style` | \*`select` 없으면 `normalized` 사용 |
 | `rect` | `rect.size`(`axis`/`data-point`는 불필요) | `mode`(`normalized`/`axis`/`data-point`), `position`, `axis`, `point`, `style` | 영역 표시 |
-| `line` | `line.mode` | `angle/length/axis`, `pair`, `hline`, `style` | 기준선/연결선 |
+| `line` | `line.mode` | `angle/length/axis`, `pair`, `hline`, `style`, `arrow` | 기준선/연결선 + 화살표 |
 | `bar-segment` | `segment.threshold` | `segment.when`(`gte`), `segment.style` | 막대 일부만 오버레이 |
 | `split` | `split.groups` | `split.restTo`, `split.orientation`(`vertical`) | x 라벨을 두 그룹으로 나눠 2개 서브차트 렌더 |
 | `unsplit` | - | - | split 해제 |
@@ -35,6 +35,7 @@
   - `mode="connect"`: `line.pair.x` 두 개 필요.  
   - `mode="hline-x"`: `line.hline.x` 필요.  
   - `mode="hline-y"`: `line.hline.y` 필요.
+  - `arrow`: `line.arrow.start`/`line.arrow.end`를 `true`로 켜서 시작/끝에 화살표를 추가합니다. `length`/`width`/`style`로 삼각형 크기와 색을 조절합니다. `style.fill`/`style.stroke`가 없으면 `line.style.stroke`를 따릅니다.
 - `split`: `split.groups`에 2그룹 모두 기입하거나 1그룹 + `restTo`.
 - `sum`: `sum.value`는 숫자(필수), `sum.label`은 옵션(`"Sum"` 기본)이며, 해당 값만으로 새 막대 차트를 렌더링합니다.
 
@@ -88,7 +89,7 @@
 {
   "op": "draw",
   "action": "rect",
-  "rect": { "mode": "axis", "axis": { "x": "KOR" }, "style": { "fill": "#22c55e33" } }
+  "rect": { "mode": "axis", "axis": { "x": ["KOR"] }, "style": { "fill": "#22c55e33" } }
 }
 ```
 
@@ -154,12 +155,35 @@
 }
 ```
 
+### line (hline-y + arrows)
+```json
+{
+  "op": "draw",
+  "action": "line",
+  "line": {
+    "mode": "hline-y",
+    "hline": { "y": 65 },
+    "style": { "stroke": "#2563eb", "strokeWidth": 3 },
+    "arrow": { "start": true, "end": true, "length": 12, "width": 8 }
+  }
+}
+```
+
 ### filter
 ```json
 {
   "op": "draw",
   "action": "filter",
   "filter": { "x": { "include": ["USA", "KOR"], "exclude": ["FRA"] }, "y": { "op": "gte", "value": 50 } }
+}
+```
+
+### sort
+```json
+{
+  "op": "draw",
+  "action": "sort",
+  "sort": { "by": "y", "order": "asc" }
 }
 ```
 

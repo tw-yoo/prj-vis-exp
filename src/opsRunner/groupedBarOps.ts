@@ -2,58 +2,25 @@ import type { DatumValue, OperationSpec, JsonValue } from '../types'
 import { clearAnnotations } from '../renderer/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runGenericDraw } from '../renderer/draw/genericDraw.ts'
-import { DrawAction } from '../renderer/draw/types.ts'
+import { DrawAction, type DrawSplitSpec } from '../renderer/draw/types.ts'
 import { GroupedBarDrawHandler } from '../renderer/draw/bar/GroupedBarDrawHandler.ts'
 import type { DrawOp } from '../renderer/draw/types.ts'
-import { renderGroupedBarChart, type GroupedSpec, getGroupedBarStoredData, getGroupedBarOriginalData } from '../renderer/bar/groupedBarRenderer.ts'
+import {
+  renderGroupedBarChart,
+  renderSplitGroupedBarChart,
+  type GroupedSpec,
+  getGroupedBarStoredData,
+  getGroupedBarOriginalData,
+  getGroupedBarSplitState,
+} from '../renderer/bar/groupedBarRenderer.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../renderer/ops/common/datum.ts'
 import { runGroupedBarDrawPlan } from '../renderer/ops/executor/runGroupedBarDrawPlan.ts'
 import { convertGroupedToStacked } from '../renderer/bar/stackGroupTransforms.ts'
-
-const cloneDataset = (rows: any[]) => rows.map((row) => ({ ...row }))
-
-async function handleGroupedGroupFilter(
-  container: HTMLElement,
-  spec: GroupedSpec,
-  drawOp: DrawOp,
-) {
-  if (drawOp.action !== DrawAction.GroupedFilterGroups) return false
-  const filterSpec = drawOp.groupFilter
-  if (!filterSpec) {
-    console.warn('draw:grouped-filter-groups requires groupFilter spec')
-    return true
-  }
-  const colorField = spec.encoding.color?.field
-  if (!colorField) {
-    console.warn('draw:grouped-filter-groups requires a color encoding field')
-    return true
-  }
-  const originalData = getGroupedBarOriginalData(container)
-  if (!originalData.length) return true
-  let filtered = originalData
-  if (filterSpec.reset) {
-    filtered = originalData
-  } else {
-    const includeCandidates =
-      filterSpec.groups?.length
-        ? filterSpec.groups
-        : filterSpec.include?.length
-        ? filterSpec.include
-        : filterSpec.keep
-    if (includeCandidates && includeCandidates.length) {
-      const includeSet = new Set(includeCandidates.map(String))
-      filtered = originalData.filter((row) => includeSet.has(String(row[colorField])))
-    } else if (filterSpec.exclude && filterSpec.exclude.length) {
-      const excludeSet = new Set(filterSpec.exclude.map(String))
-      filtered = originalData.filter((row) => !excludeSet.has(String(row[colorField])))
-    } else {
-      console.warn('draw:grouped-filter-groups needs groups/include/keep/exclude or reset flag')
-      return true
-    }
-  }
-  await renderGroupedBarChart(container, { ...spec, data: { values: cloneDataset(filtered) } })
-  return true
-}
+import { aggregateDatumValuesByTarget } from '../renderer/ops/common/workingData.ts'
+import {
+  handleGroupFilter,
+  shouldAggregateWhenSingleGroup,
+} from './barOpsCommon.ts'
 
 function toGroupedDatumValues(raw: JsonValue[], spec: GroupedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
@@ -83,6 +50,45 @@ export async function runGroupedBarOps(
   vlSpec: GroupedSpec,
   opsSpec: OperationSpec | OperationSpec[],
 ) {
+  const chartWorking = new Map<string, DatumValue[]>()
+  const filterRawByChartDomain = (chartId: string, rawRows: JsonValue[]) => {
+    const splitState = getGroupedBarSplitState(container)
+    if (!splitState) return rawRows
+    const domain = splitState.domains[chartId]
+    if (!domain || domain.size === 0) return rawRows
+    return rawRows.filter((row) => {
+      if (!row || typeof row !== 'object') return false
+      const value = (row as RawRow)[splitState.field]
+      if (value == null) return false
+      return domain.has(String(value))
+    })
+  }
+
+  const getOperationInput = (operation: OperationSpec, currentWorking: DatumValue[]) => {
+    const chartId = operation.chartId
+    const hasGroup = operation.group != null && String(operation.group).trim() !== ''
+    const chartScoped =
+      chartId == null
+        ? currentWorking
+        : chartWorking.get(chartId) ??
+          toGroupedDatumValues(filterRawByChartDomain(chartId, getGroupedBarStoredData(container) as JsonValue[]), vlSpec)
+    if (chartId && !chartWorking.has(chartId)) {
+      chartWorking.set(chartId, chartScoped)
+    }
+    if (hasGroup) return chartScoped
+    return shouldAggregateWhenSingleGroup(chartScoped) ? aggregateDatumValuesByTarget(chartScoped) : chartScoped
+  }
+
+  const handleOperationResult = (operation: OperationSpec, result: DatumValue[], currentWorking: DatumValue[]) => {
+    const chartId = operation.chartId
+    if (chartId) {
+      chartWorking.set(chartId, result)
+      return currentWorking
+    }
+    chartWorking.clear()
+    return result
+  }
+
   return runChartOperationsCommon<GroupedSpec>({
     container,
     spec: vlSpec,
@@ -94,11 +100,35 @@ export async function runGroupedBarOps(
       return toGroupedDatumValues(raw, vlSpec)
     },
     createHandler: () => new GroupedBarDrawHandler(container),
-    splitHandler: async (host, spec, handler, drawOp) =>
-      handleGroupedGroupFilter(host, spec, drawOp),
+    splitHandler: async (host, spec, handler, drawOp) => {
+      if (drawOp.action === DrawAction.Split) {
+        if (!drawOp.split || typeof drawOp.split !== 'object') {
+          console.warn('draw:split requires split spec', drawOp)
+          return true
+        }
+        await renderSplitGroupedBarChart(host, spec, drawOp.split as DrawSplitSpec)
+        chartWorking.clear()
+        return true
+      }
+      if (drawOp.action === DrawAction.Unsplit) {
+        await renderGroupedBarChart(host, spec)
+        chartWorking.clear()
+        return true
+      }
+      const handled = await handleGroupFilter(host, spec, drawOp, {
+        action: DrawAction.GroupedFilterGroups,
+        getGroupField: (spec) => spec.encoding.color?.field,
+        getOriginalData: getGroupedBarOriginalData,
+        render: renderGroupedBarChart,
+      })
+      if (handled) chartWorking.clear()
+      return handled
+    },
     handleDrawOp: async (host, handler, drawOp) =>
       handleGroupedBarDraw(host, handler as GroupedBarDrawHandler, drawOp, vlSpec),
     clearAnnotations: ({ svg }) => clearAnnotations(svg),
+    getOperationInput,
+    handleOperationResult,
     runDrawPlan: async (drawPlan, handler) => {
       await runGroupedBarDrawPlan(container, drawPlan, { handler: handler as GroupedBarDrawHandler })
     },

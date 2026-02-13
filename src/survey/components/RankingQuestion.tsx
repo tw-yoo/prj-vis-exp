@@ -5,6 +5,7 @@ export interface RankingQuestionProps {
   name: string
   questionText: string
   options: string[]
+  value?: string[]
   required?: boolean
   onChange?: (orderedValues: string[]) => void
 }
@@ -17,14 +18,30 @@ function toOrderedValues(assignments: Array<number | null>, options: string[]) {
   return assignments.map((optionIndex) => (optionIndex == null ? '' : String(options[optionIndex])))
 }
 
-export function RankingQuestion({ name, questionText, options, required = true, onChange }: RankingQuestionProps) {
-  const [assignments, setAssignments] = useState<Array<number | null>>(() => emptyAssignments(options.length))
-  const [selectedOption, setSelectedOption] = useState<number | null>(null)
+function toAssignments(values: string[] | undefined, options: string[]) {
+  const next = emptyAssignments(options.length)
+  if (!Array.isArray(values)) return next
+  values.forEach((value, rankIndex) => {
+    if (rankIndex < 0 || rankIndex >= options.length) return
+    const optionIndex = options.indexOf(value)
+    if (optionIndex === -1) return
+    if (next.includes(optionIndex)) return
+    next[rankIndex] = optionIndex
+  })
+  return next
+}
 
+export function RankingQuestion({ name, questionText, options, value, required = true, onChange }: RankingQuestionProps) {
+  const [internalAssignments, setInternalAssignments] = useState<Array<number | null>>(() => emptyAssignments(options.length))
+  const [selectedOption, setSelectedOption] = useState<number | null>(null)
+  const isControlled = Array.isArray(value)
+  const assignments = isControlled ? toAssignments(value, options) : internalAssignments
   const orderedValues = useMemo(() => toOrderedValues(assignments, options), [assignments, options])
 
   const commitAssignments = (nextAssignments: Array<number | null>) => {
-    setAssignments(nextAssignments)
+    if (!isControlled) {
+      setInternalAssignments(nextAssignments)
+    }
     onChange?.(toOrderedValues(nextAssignments, options))
   }
 
@@ -142,4 +159,3 @@ export function RankingQuestion({ name, questionText, options, required = true, 
     </fieldset>
   )
 }
-

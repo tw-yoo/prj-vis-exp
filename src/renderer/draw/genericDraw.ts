@@ -1,7 +1,6 @@
-// @ts-nocheck
 import * as d3 from 'd3'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
-import type { DrawArrowSpec, DrawLineSpec, DrawRectSpec, DrawTextSpec, DrawOp } from './types'
+import { DrawAction, type DrawArrowSpec, type DrawLineSpec, type DrawRectSpec, type DrawTextSpec, type DrawOp } from './types'
 
 const DEFAULT_FILL = '#69b3a2'
 
@@ -14,7 +13,7 @@ function selectByKeys(container: HTMLElement, select: DrawSelect | undefined) {
   const keys = select?.keys
   if (!keys || keys.length === 0) return selection
   const keySet = new Set(keys.map(String))
-  return selection.filter(function () {
+  return selection.filter(function (this: SVGElement) {
     const el = this as Element
     const attrs = [
       el.getAttribute('data-target'),
@@ -27,7 +26,9 @@ function selectByKeys(container: HTMLElement, select: DrawSelect | undefined) {
       if (a && keySet.has(String(a))) return true
     }
     // fall back to bound datum
-    const datum: any = (this as any).__data__
+    const datum = (this as SVGElement & { __data__?: unknown }).__data__ as
+      | { target?: unknown; x?: unknown; id?: unknown }
+      | undefined
     const datumKey = datum?.target ?? datum?.x ?? datum?.id ?? null
     return datumKey != null && keySet.has(String(datumKey))
   })
@@ -56,7 +57,7 @@ function getMarkKey(el: Element) {
 }
 
 function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
-  const svgSel = d3.select(container).select(SvgElements.Svg)
+  const svgSel = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   const svg = svgSel.node() as SVGSVGElement | null
   if (!svg || textSpec.mode !== 'normalized' || !textSpec.position) return
   const vb = svg.viewBox?.baseVal
@@ -80,7 +81,7 @@ function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
 }
 
 function addNormalizedRect(container: HTMLElement, rectSpec: DrawRectSpec) {
-  const svgSel = d3.select(container).select(SvgElements.Svg)
+  const svgSel = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   const svg = svgSel.node() as SVGSVGElement | null
   if (!svg || !rectSpec.position || !rectSpec.size) return
   const vb = svg.viewBox?.baseVal
@@ -106,7 +107,7 @@ function addNormalizedRect(container: HTMLElement, rectSpec: DrawRectSpec) {
 }
 
 function addArrowHead(
-  svgSel: d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>,
+  svgSel: d3.Selection<SVGSVGElement, unknown, any, any>,
   tipX: number,
   tipY: number,
   direction: { x: number; y: number },
@@ -147,7 +148,7 @@ function addArrowHead(
 }
 
 function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
-  const svgSel = d3.select(container).select(SvgElements.Svg)
+  const svgSel = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   const svg = svgSel.node() as SVGSVGElement | null
   if (!svg || !lineSpec.position || !lineSpec.position.end || !lineSpec.position.start) return
   const vb = svg.viewBox?.baseVal
@@ -196,7 +197,7 @@ function addFilterHighlight(container: HTMLElement, include?: Array<string | num
   const includeSet = new Set<string>((include || []).map(String))
   const excludeSet = new Set<string>((exclude || []).map(String))
   const svgDelta = selectAllMarks(container)
-  svgDelta.attr(SvgAttributes.Opacity, function () {
+  svgDelta.attr(SvgAttributes.Opacity, function (this: SVGElement) {
     const key = getMarkKey(this as Element)
     if (!key) return options?.opacity ?? 0.25
     if (excludeSet.has(key)) return options?.opacity ?? 0.25
@@ -208,55 +209,58 @@ function addFilterHighlight(container: HTMLElement, include?: Array<string | num
 }
 
 export function runGenericDraw(container: HTMLElement, op: DrawOp) {
-  const action = (op.action || '').toLowerCase() as DrawAction
+  const action = op.action
   const selection = selectByKeys(container, op.select)
   const allMarks = selectAllMarks(container)
 
   // DrawAction별 처리 흐름
   switch (action) {
-    case 'clear':
+    case DrawAction.Clear:
       allMarks.attr(SvgAttributes.Fill, DEFAULT_FILL).attr(SvgAttributes.Opacity, 1)
       d3.select(container).select(SvgElements.Svg).selectAll(`.${SvgClassNames.Annotation}`).remove()
       return
-    case 'highlight': {
+    case DrawAction.Highlight: {
       const color = op.style?.color || '#ef4444'
       selection.attr(SvgAttributes.Fill, color).attr(SvgAttributes.Stroke, color).attr(SvgAttributes.Opacity, 1)
       return
     }
-    case 'dim': {
+    case DrawAction.Dim: {
       const opacity = op.style?.opacity ?? 0.25
-      const selectedNodes = new Set(selection.nodes())
-      allMarks.attr(SvgAttributes.Opacity, function () {
-        return selectedNodes.size === 0 ? opacity : selectedNodes.has(this as any) ? 1 : opacity
+      const selectedNodes = new Set<SVGElement>(selection.nodes())
+      allMarks.attr(SvgAttributes.Opacity, function (this: SVGElement) {
+        return selectedNodes.size === 0 ? opacity : selectedNodes.has(this) ? 1 : opacity
       })
       return
     }
-    case 'text': {
+    case DrawAction.Text: {
       if (op.text?.value) {
         addNormalizedText(container, op.text)
       }
       return
     }
-    case 'rect': {
+    case DrawAction.Rect: {
       if (op.rect?.position && op.rect?.size) {
         addNormalizedRect(container, op.rect)
       }
       return
     }
-    case 'line': {
-      if ((op.line as any)?.position?.start && (op.line as any)?.position?.end) {
-        addNormalizedLine(container, op.line as any)
+    case DrawAction.Line: {
+      const lineSpec = op.line
+      if (lineSpec?.position?.start && lineSpec.position?.end) {
+        addNormalizedLine(container, lineSpec)
       }
       return
     }
-    case 'filter': {
+    case DrawAction.Filter: {
       addFilterHighlight(container, op.filter?.x?.include, op.filter?.x?.exclude, {
         opacity: op.style?.opacity ?? 0.25,
       })
       return
     }
+    case DrawAction.BarSegment:
+    case DrawAction.Sort:
+      return
     default:
       console.warn('draw: unsupported action', action, op)
   }
 }
-// @ts-nocheck

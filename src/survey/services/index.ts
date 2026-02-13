@@ -27,5 +27,9 @@ export {
   saveSurveyResponse,
   saveSurveyTiming,
   fetchSurveyState,
+  saveMainSessionItem,
+  savePostSessionResponse,
+  fetchMainSessionItems,
+  fetchPostSessionResponse,
   listDocuments,
 } from './surveyFirestore'

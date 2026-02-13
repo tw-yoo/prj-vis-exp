@@ -11,7 +11,7 @@ export function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
   clone.height = clone.height ?? 300
   clone.padding = clone.padding ?? { left: 60, right: 20, top: 40, bottom: 70 }
 
-  // If the spec uses column/row facets (e.g., grouped bar), limit per-facet width and fit.
+  // If the spec uses column/row facets, keep per-facet width small and avoid fit autosize warning.
   const hasFacet =
     !!(clone.encoding as any)?.column ||
     !!(clone.facet as any)?.column ||
@@ -19,7 +19,7 @@ export function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
     !!(clone.repeat as any)?.column
   if (hasFacet) {
     clone.width = clone.width && clone.width < 200 ? clone.width : 140
-    clone.autosize = { type: 'fit', contains: 'padding' }
+    clone.autosize = { type: 'none', contains: 'padding' }
   }
   clone.config = {
     ...(clone.config || {}),
@@ -29,9 +29,29 @@ export function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
       titlePadding: 10,
       labelPadding: 5,
       labelLimit: 0,
+      domainColor: '#000000',
+      tickColor: '#000000',
+      labelColor: '#000000',
+      titleColor: '#000000',
       ...(clone.config as any)?.axis,
     },
+    axisX: {
+      domainColor: '#000000',
+      tickColor: '#000000',
+      labelColor: '#000000',
+      titleColor: '#000000',
+      ...((clone.config as any)?.axisX || {}),
+    },
+    axisY: {
+      domainColor: '#000000',
+      tickColor: '#000000',
+      labelColor: '#000000',
+      titleColor: '#000000',
+      ...((clone.config as any)?.axisY || {}),
+    },
     legend: {
+      labelColor: '#000000',
+      titleColor: '#000000',
       ...(clone.config as any)?.legend,
       labelFontSize: 11,
       titleFontSize: 12,
@@ -95,4 +115,3 @@ export async function renderChart(container: HTMLElement, spec: VegaLiteSpec) {
       return renderVegaLiteChart(container, normalized)
   }
 }
-

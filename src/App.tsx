@@ -1,11 +1,20 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import './App.css'
-import barSimpleSpecRaw from '../data/test/spec/bar_simple_ver.json?raw'
-import type { JsonValue, OperationSpec } from './types'
+import barSimpleSpecRaw from '../data/test/spec/example.json?raw'
+// ChartQA/data/vlSpec/bar/simple/0o12tngadmjjux2n.json
+// ../ChartQA/data/vlSpec/bar/grouped/0gacqohbzj07n25s.json?raw
+import lineSimpleSpecRaw from '../data/test/spec/line_simple.json?raw'
+import type { OperationSpec } from './types'
 import { renderChart as renderChartDispatch } from './renderer/renderChart'
 import { runChartOps } from './renderer/runChartOps'
-import type { VegaLiteSpec } from './utils/chartRenderer'
+import { clearAnnotations } from './renderer/common/d3Helpers'
+import { runOpsPlan } from './renderer/ops/opsPlans'
+import * as d3 from 'd3'
+import type { ChartTypeValue, VegaLiteSpec } from './utils/chartRenderer'
+import { getChartType } from './utils/chartRenderer'
+import OpsBuilder from './opsBuilder/OpsBuilder'
+import { collectOpsBuilderOptionSources, getEmptyOptionSources } from './opsBuilder/optionSources'
 const ResultViewerPage = lazy(() => import('./survey/pages/ResultViewerPage'))
 const ConsentPage = lazy(() => import('./survey/pages/ConsentPage'))
 const PreRegistrationPage = lazy(() => import('./survey/pages/PreRegistrationPage'))
@@ -16,6 +25,7 @@ const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
 
 const EXPORT_SCALE = 3
+const OPS_PLAN_MODULES = import.meta.glob('../data/expert/**/*.ts')
 
 const canvasToBlob = (canvas: HTMLCanvasElement, type = 'image/png'): Promise<Blob> =>
   new Promise((resolve, reject) => {
@@ -76,6 +86,8 @@ async function createPngBlobFromSvg(svg: SVGSVGElement, scale: number) {
     if (!ctx) {
       throw new Error('Canvas context not available for export')
     }
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, exportWidth, exportHeight)
     ctx.drawImage(image, 0, 0, exportWidth, exportHeight)
     return canvasToBlob(canvas)
   } finally {
@@ -96,6 +108,8 @@ async function createPngBlobFromCanvas(canvasEl: HTMLCanvasElement, scale: numbe
   if (!ctx) {
     throw new Error('Canvas context not available for export')
   }
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(canvasEl, 0, 0, canvas.width, canvas.height)
   return canvasToBlob(canvas)
 }
@@ -130,6 +144,28 @@ function App() {
     const params = new URLSearchParams(window.location.search)
     return params.get('view')
   }, [])
+  const isSurveyView = useMemo(
+    () =>
+      viewMode === 'result-viewer' ||
+      viewMode === 'consent' ||
+      viewMode === 'pre-registration' ||
+      viewMode === 'main-survey' ||
+      viewMode === 'data-collection',
+    [viewMode],
+  )
+
+  useEffect(() => {
+    const className = 'survey-light-mode'
+    if (isSurveyView) {
+      document.body.classList.add(className)
+      return () => {
+        document.body.classList.remove(className)
+      }
+    }
+
+    document.body.classList.remove(className)
+    return undefined
+  }, [isSurveyView])
 
   const surveyPage = useMemo(() => {
     switch (viewMode) {
@@ -161,11 +197,29 @@ function App() {
 
 function ChartWorkbenchPage() {
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
-  const [opsSpec, setOpsSpec] = useState('')
+  const [builderGroups, setBuilderGroups] = useState<OperationSpec[][]>([])
   const [opsGroups, setOpsGroups] = useState<OperationSpec[][]>([])
   const [currentOpsIndex, setCurrentOpsIndex] = useState(-1)
   const [opsRunning, setOpsRunning] = useState(false)
   const chartRef = useRef<HTMLDivElement | null>(null)
+  const [chartType, setChartType] = useState<ChartTypeValue | null>(null)
+  const [opsErrors, setOpsErrors] = useState<Record<string, string>>({})
+  const [opsValidationTick, setOpsValidationTick] = useState(0)
+  const [lastValidatedTick, setLastValidatedTick] = useState(0)
+  const [pendingRunOps, setPendingRunOps] = useState(false)
+  const [optionSources, setOptionSources] = useState(getEmptyOptionSources)
+  const [planPath, setPlanPath] = useState('')
+  const [planGroups, setPlanGroups] = useState<OperationSpec[][] | null>(null)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const [planLoading, setPlanLoading] = useState(false)
+  const planModuleKeys = useMemo(() => Object.keys(OPS_PLAN_MODULES).sort(), [])
+  const planOptions = useMemo(
+    () =>
+      planModuleKeys
+        .map((key) => key.replace(/^\.\//, '').replace(/^\.\.\//, ''))
+        .sort(),
+    [planModuleKeys],
+  )
 
   const sanitizeJsonInput = (value: string) => {
     if (!value) return value
@@ -209,146 +263,24 @@ function ChartWorkbenchPage() {
     return lines.slice(start, end).join('\n')
   }
 
-  const prettyFormatJson = (value: string) => {
-    const INDENT = 4
-    const isPrimitive = (val: unknown) =>
-      val == null || typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean'
-    const isShortPrimitiveArray = (val: unknown) =>
-      Array.isArray(val) && val.length <= 4 && val.every(isPrimitive)
-    const isInlineObject = (val: unknown) => {
-      if (!val || typeof val !== 'object' || Array.isArray(val)) return false
-      const entries = Object.entries(val as Record<string, unknown>)
-      if (entries.length === 0 || entries.length > 3) return false
-      return entries.every(([, v]) => isPrimitive(v) || isShortPrimitiveArray(v))
-    }
-
-    const formatValue = (val: unknown, level: number): string => {
-      const pad = ' '.repeat(level * INDENT)
-      const nextPad = ' '.repeat((level + 1) * INDENT)
-
-      if (isPrimitive(val)) {
-        return JSON.stringify(val)
-      }
-
-      if (Array.isArray(val)) {
-        if (isShortPrimitiveArray(val)) {
-          return `[${val.map((item) => JSON.stringify(item)).join(', ')}]`
-        }
-        if (val.length === 0) return '[]'
-        const items = val.map((item) => `${nextPad}${formatValue(item, level + 1)}`)
-        return `[\n${items.join(',\n')}\n${pad}]`
-      }
-
-      if (isInlineObject(val)) {
-        const entries = Object.entries(val as Record<string, unknown>)
-        const parts = entries.map(([key, v]) => `"${key}": ${formatValue(v, level + 1)}`)
-        return `{ ${parts.join(', ')} }`
-      }
-
-      if (val && typeof val === 'object') {
-        const entries = Object.entries(val as Record<string, unknown>)
-        if (entries.length === 0) return '{}'
-        const lines = entries.map(
-          ([key, v]) => `${nextPad}${JSON.stringify(key)}: ${formatValue(v, level + 1)}`,
-        )
-        return `{\n${lines.join(',\n')}\n${pad}}`
-      }
-
-      return JSON.stringify(val)
-    }
-
-    try {
-      const parsed = JSON.parse(sanitizeJsonInput(value))
-      return formatValue(parsed, 0)
-    } catch {
-      return value
-    }
-  }
-
-  const getLineIndent = (line: string) => {
-    const match = line.match(/^\s+/)
-    return match ? match[0] : ''
-  }
-
-  const handleOpsKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (event) => {
-    const { key, currentTarget } = event
-    if (!['Tab', 'Enter', '{', '['].includes(key)) return
-
-    const { selectionStart, selectionEnd, value } = currentTarget
-    if (selectionStart == null || selectionEnd == null) return
-
-    if (key === '{' || key === '[') {
-      event.preventDefault()
-      const closeChar = key === '{' ? '}' : ']'
-      const before = value.slice(0, selectionStart)
-      const after = value.slice(selectionEnd)
-      const next = `${before}${key}${closeChar}${after}`
-      setOpsSpec(next)
-      requestAnimationFrame(() => {
-        const cursor = selectionStart + 1
-        currentTarget.selectionStart = currentTarget.selectionEnd = cursor
-      })
-      return
-    }
-
-    if (key === 'Tab') {
-      event.preventDefault()
-      const indent = '  '
-      const before = value.slice(0, selectionStart)
-      const after = value.slice(selectionEnd)
-      const next = `${before}${indent}${after}`
-      setOpsSpec(next)
-      requestAnimationFrame(() => {
-        currentTarget.selectionStart = currentTarget.selectionEnd = selectionStart + indent.length
-      })
-      return
-    }
-
-    if (key === 'Enter') {
-      event.preventDefault()
-      const before = value.slice(0, selectionStart)
-      const after = value.slice(selectionEnd)
-      const prevLine = before.split('\n').pop() ?? ''
-      const baseIndent = getLineIndent(prevLine)
-      const trimmedPrev = prevLine.trimEnd()
-      const opensBlock = trimmedPrev.endsWith('{') || trimmedPrev.endsWith('[')
-      const nextChar = after[0]
-      const hasAutoClose = (trimmedPrev.endsWith('{') && nextChar === '}') || (trimmedPrev.endsWith('[') && nextChar === ']')
-
-      const nextIndent = `${baseIndent}${opensBlock ? '  ' : ''}`
-
-      if (opensBlock && hasAutoClose) {
-        const nextValue = `${before}\n${nextIndent}\n${baseIndent}${after}`
-        setOpsSpec(nextValue)
-        requestAnimationFrame(() => {
-          const cursor = selectionStart + 1 + nextIndent.length
-          currentTarget.selectionStart = currentTarget.selectionEnd = cursor
-        })
-        return
-      }
-
-      const nextValue = `${before}\n${nextIndent}${after}`
-      setOpsSpec(nextValue)
-      requestAnimationFrame(() => {
-        const cursor = selectionStart + 1 + nextIndent.length
-        currentTarget.selectionStart = currentTarget.selectionEnd = cursor
-      })
-    }
-  }
-
   const renderChart = useCallback(
-    async (specString: string) => {
+    async (specString: string): Promise<ChartTypeValue | null> => {
       try {
         const sanitizedSpec = sanitizeJsonInput(specString)
-        const parsed = JSON.parse(sanitizedSpec)
+        const parsed = JSON.parse(sanitizedSpec) as VegaLiteSpec
         if (!chartRef.current) {
           alert('Chart container is not ready.')
-          return
+          return null
         }
         await renderChartDispatch(chartRef.current, parsed)
+        const inferred = getChartType(parsed as VegaLiteSpec)
+        setChartType(inferred)
+        setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec: parsed as VegaLiteSpec }))
+        return inferred
       } catch (error) {
         console.error('Failed to parse Vega-Lite spec', error)
         alert('Invalid JSON')
+        return null
       }
     },
     []
@@ -359,62 +291,76 @@ function ChartWorkbenchPage() {
     void renderChart(specString)
   }
 
-  const handleOpsBlur: React.FocusEventHandler<HTMLTextAreaElement> = (event) => {
-    const formatted = prettyFormatJson(event.target.value)
-    setOpsSpec(formatted)
+  const handleOpsExportChange = (groups: OperationSpec[][], errors: Record<string, string>) => {
+    setBuilderGroups(groups)
+    setOpsErrors(errors)
+    setLastValidatedTick(opsValidationTick)
   }
 
-  const handleRunOperations = async () => {
-    if (!chartRef.current) { alert('Chart container is not ready.'); return }
+  const resolvePlanModuleKey = (input: string) => {
+    const raw = input.trim()
+    if (!raw) return null
+    const withExt = raw.endsWith('.ts') ? raw : `${raw}.ts`
+    const dataPath = withExt.startsWith('data/') ? `../${withExt}` : withExt
+    const dotPath = dataPath.startsWith('./') ? dataPath : `./${dataPath}`
+    if (dotPath in OPS_PLAN_MODULES) return dotPath
+    if (dataPath in OPS_PLAN_MODULES) return dataPath
+    if (withExt in OPS_PLAN_MODULES) return withExt
+    const bySuffix = planModuleKeys.find((key) => key.endsWith(withExt))
+    return bySuffix ?? null
+  }
 
+  const handleLoadPlan = async () => {
+    if (!chartRef.current) return
+    setPlanError(null)
+    const resolvedKey = resolvePlanModuleKey(planPath)
+    if (!resolvedKey) {
+      setPlanError('Plan file not found.')
+      return
+    }
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
-    await renderChart(specString)
-
+    setPlanLoading(true)
     try {
-      const sanitizedOps = sanitizeJsonInput(opsSpec)
-      const parsed = sanitizedOps.trim() ? (JSON.parse(sanitizedOps) as JsonValue) : null
-      const groups: OperationSpec[][] = []
-      const isOpsArray = (value: JsonValue): value is OperationSpec[] => {
-        if (!Array.isArray(value) || value.length === 0) return false
-        return value.every(
-          (item) =>
-            !!item && typeof item === 'object' && !Array.isArray(item) && ('op' in (item as Record<string, JsonValue>)),
-        )
-      }
-
-      if (Array.isArray(parsed)) {
-        if (isOpsArray(parsed as JsonValue)) {
-          groups.push(parsed as OperationSpec[])
-        }
-      } else if (parsed && typeof parsed === 'object') {
-        const obj = parsed as Record<string, JsonValue>
-        Object.values(obj).forEach((value) => {
-          if (isOpsArray(value)) {
-            groups.push(value as OperationSpec[])
-          }
-        })
-        if (groups.length === 0) {
-          // Single op object
-          groups.push([obj as unknown as OperationSpec])
-        }
-      }
-
-      const normalizedGroups = groups.filter((group) => Array.isArray(group) && group.length > 0)
-      if (!normalizedGroups.length) {
-        alert('No operations found.')
-        setOpsGroups([])
-        setCurrentOpsIndex(-1)
+      const sanitizedSpec = sanitizeJsonInput(specString)
+      const parsedSpec = JSON.parse(sanitizedSpec) as VegaLiteSpec
+      await renderChartDispatch(chartRef.current, parsedSpec)
+      const loader = OPS_PLAN_MODULES[resolvedKey]
+      if (!loader) {
+        setPlanError('Plan loader not found.')
         return
       }
-      setOpsGroups(normalizedGroups)
+      const module = (await loader()) as { default?: unknown }
+      if (!module?.default) {
+        setPlanError('Plan file must export default.')
+        return
+      }
+      const groups = await runOpsPlan(chartRef.current, parsedSpec, module.default as any)
+      if (!groups.length) {
+        setPlanError('Plan produced no operations.')
+        return
+      }
+      setPlanGroups(groups)
       setCurrentOpsIndex(-1)
-
     } catch (error) {
-      console.error('Failed to parse Operations spec', error)
-      alert('Invalid Operations JSON')
-      setOpsGroups([])
-      setCurrentOpsIndex(-1)
+      const message = error instanceof Error ? error.message : 'Failed to load plan.'
+      setPlanError(message)
+    } finally {
+      setPlanLoading(false)
     }
+  }
+
+  const handleClearPlan = () => {
+    setPlanGroups(null)
+    setPlanError(null)
+  }
+
+  const handleRunOperations = () => {
+    if (chartRef.current) {
+      const svg = d3.select(chartRef.current).select('svg')
+      if (!svg.empty()) clearAnnotations(svg)
+    }
+    setPendingRunOps(true)
+    setOpsValidationTick((value) => value + 1)
   }
 
   const runOpsGroup = async (groupIndex: number) => {
@@ -431,6 +377,11 @@ function ChartWorkbenchPage() {
     } catch (error) {
       console.error('Failed to parse Vega-Lite spec for operations', error)
       alert('Invalid Vega-Lite JSON')
+      return
+    }
+
+    if (Object.keys(opsErrors).length > 0) {
+      alert('Fix operation errors before running.')
       return
     }
 
@@ -484,6 +435,26 @@ function ChartWorkbenchPage() {
     void renderChart(vlSpecPlaceholder)
   }, [renderChart])
 
+  useEffect(() => {
+    if (!pendingRunOps || lastValidatedTick !== opsValidationTick) return
+    if (!planGroups && Object.keys(opsErrors).length > 0) {
+      alert('Fix operation errors before running.')
+      setPendingRunOps(false)
+      return
+    }
+    const nextGroups = planGroups ?? builderGroups
+    if (!nextGroups.length) {
+      alert('No operations found.')
+      setOpsGroups([])
+      setCurrentOpsIndex(-1)
+      setPendingRunOps(false)
+      return
+    }
+    setOpsGroups(nextGroups)
+    setCurrentOpsIndex(-1)
+    setPendingRunOps(false)
+  }, [pendingRunOps, opsErrors, builderGroups, planGroups, lastValidatedTick, opsValidationTick])
+
   return (
     <div className="app-shell">
       <div className="layout-body">
@@ -504,46 +475,84 @@ function ChartWorkbenchPage() {
           />
         </section>
 
-        <section className="card">
+        <section className="card ops-card">
           <div className="card-header">
-            <label className="card-title" htmlFor="ops-spec">
-              Operations Spec
+            <div className="card-title">Operations</div>
+            {planGroups ? <div className="plan-badge">Plan mode</div> : null}
+          </div>
+          <div className="plan-loader">
+            <label className="plan-label" htmlFor="ops-plan-path">
+              OpsPlan
             </label>
-            <button type="button" className="pill-btn" onClick={handleRunOperations}>
+            <input
+              id="ops-plan-path"
+              className="plan-input"
+              list="ops-plan-options"
+              placeholder="data/expert/e1/1_bar_simple_a_0o12tngadmjjux2n.ts"
+              value={planPath}
+              onChange={(event) => setPlanPath(event.target.value)}
+            />
+            <datalist id="ops-plan-options">
+              {planOptions.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+            <button type="button" className="pill-btn" onClick={handleLoadPlan} disabled={planLoading}>
+              {planLoading ? 'Loading…' : 'Load'}
+            </button>
+            <button type="button" className="pill-btn" onClick={handleClearPlan} disabled={!planGroups && !planError}>
+              Clear
+            </button>
+          </div>
+          {planError ? <div className="plan-error">{planError}</div> : null}
+          <OpsBuilder
+            chartType={chartType}
+            onExportChange={handleOpsExportChange}
+            optionSources={optionSources}
+            validationTick={opsValidationTick}
+          />
+          <div className="ops-runbar">
+            <button
+              type="button"
+              className="pill-btn"
+              onClick={handleRunOperations}
+              disabled={opsRunning || (!planGroups && Object.keys(opsErrors).length > 0)}
+            >
               Run Operations
             </button>
           </div>
-          <textarea
-            id="ops-spec"
-            placeholder="Paste Atomic-Ops JSON here"
-            value={opsSpec}
-            onChange={(event) => setOpsSpec(event.target.value)}
-            onBlur={handleOpsBlur}
-            onKeyDown={handleOpsKeyDown}
-          />
         </section>
 
         <section className="card">
-          <div className="card-header">
+          <div className="card-header chart-header">
             <div className="card-title">Chart Preview</div>
-            <button type="button" className="pill-btn" onClick={handleDownloadChart}>
-              Save as PNG
-            </button>
+            <div className="chart-header-center">
+              {opsGroups.length > 0 && currentOpsIndex === -1 ? (
+                <button
+                  type="button"
+                  className="pill-btn"
+                  onClick={handleStartOps}
+                  disabled={opsRunning || (!planGroups && Object.keys(opsErrors).length > 0)}
+                >
+                  Start
+                </button>
+              ) : null}
+            </div>
+            <div className="chart-header-right">
+              <button type="button" className="pill-btn" onClick={handleDownloadChart}>
+                Save as PNG
+              </button>
+            </div>
           </div>
           <div className="chart-host" ref={chartRef} />
           {opsGroups.length > 0 && (
             <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-start' }}>
-              {currentOpsIndex === -1 ? (
-                <button type="button" className="pill-btn" onClick={handleStartOps} disabled={opsRunning}>
-                  Start
-                </button>
-              ) : null}
               {currentOpsIndex > 0 ? (
                 <button
                   type="button"
                   className="pill-btn"
                   onClick={handlePrevOps}
-                  disabled={opsRunning}
+                  disabled={opsRunning || Object.keys(opsErrors).length > 0}
                   style={{ marginLeft: 8 }}
                 >
                   Prev
@@ -554,7 +563,7 @@ function ChartWorkbenchPage() {
                   type="button"
                   className="pill-btn"
                   onClick={handleNextOps}
-                  disabled={opsRunning}
+                  disabled={opsRunning || Object.keys(opsErrors).length > 0}
                   style={{ marginLeft: 8 }}
                 >
                   Next

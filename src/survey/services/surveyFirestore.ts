@@ -1,5 +1,5 @@
 import type { JsonValue } from '../../types'
-import type { FirestoreDocument, FirestoreSettings, PreRegistrationPayload } from '../types'
+import type { FirestoreDocument, FirestoreSettings, MainSessionResponseItem, PostSessionResponse, PreRegistrationPayload } from '../types'
 
 const FIRESTORE_HOST = 'https://firestore.googleapis.com/v1'
 const DEFAULT_DATABASE_ID = '(default)'
@@ -183,6 +183,27 @@ export async function saveSurveyTiming(
   })
 }
 
+export async function saveMainSessionItem(code: string, chartId: string, payload: MainSessionResponseItem) {
+  await patchDocument(['survey', code, 'main_session', chartId], {
+    chartId: payload.chartId,
+    phase: payload.phase,
+    answerCorrect: payload.answerCorrect,
+    confidenceQ1: payload.confidenceQ1,
+    explanationHelpQ3: payload.explanationHelpQ3,
+    reasonQ4: payload.reasonQ4,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export async function savePostSessionResponse(code: string, payload: PostSessionResponse) {
+  await patchDocument(['survey', code, 'post_session', 'response'], {
+    matrix: payload.matrix as unknown as JsonValue,
+    ranking: payload.ranking as unknown as JsonValue,
+    keyDifferences: payload.keyDifferences,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function fetchSurveyState(code: string) {
   const stateDoc = await getDocument(['survey', code, 'state', 'snapshot'])
   const fields = stateDoc?.fields || {}
@@ -191,6 +212,41 @@ export async function fetchSurveyState(code: string) {
     timings: (fields.timings as Record<string, JsonValue>) || {},
     pageAnswers: (fields.pageAnswers as Record<string, JsonValue>) || {},
   }
+}
+
+export async function fetchMainSessionItems(code: string): Promise<Record<string, MainSessionResponseItem>> {
+  const docs = (await listDocuments(['survey', code, 'main_session'])) as Array<{
+    id: string
+    fields: Record<string, JsonValue>
+  }>
+  const out: Record<string, MainSessionResponseItem> = {}
+
+  docs.forEach((doc) => {
+    const fields = doc.fields || {}
+    const chartId = typeof fields.chartId === 'string' ? fields.chartId : doc.id
+    const phase = fields.phase === 'tutorial' || fields.phase === 'main' ? fields.phase : 'main'
+    const answerCorrect = fields.answerCorrect === 'yes' || fields.answerCorrect === 'no' ? fields.answerCorrect : ''
+    const confidenceQ1 = typeof fields.confidenceQ1 === 'number' ? fields.confidenceQ1 : null
+    const explanationHelpQ3 = typeof fields.explanationHelpQ3 === 'number' ? fields.explanationHelpQ3 : null
+    const reasonQ4 = typeof fields.reasonQ4 === 'string' ? fields.reasonQ4 : ''
+
+    out[chartId] = {
+      chartId,
+      phase,
+      answerCorrect,
+      confidenceQ1,
+      explanationHelpQ3,
+      reasonQ4,
+    }
+  })
+
+  return out
+}
+
+export async function fetchPostSessionResponse(code: string): Promise<PostSessionResponse | null> {
+  const doc = await getDocument(['survey', code, 'post_session', 'response'])
+  if (!doc) return null
+  return doc.fields as unknown as PostSessionResponse
 }
 
 export async function listDocuments(pathSegments: string[]) {

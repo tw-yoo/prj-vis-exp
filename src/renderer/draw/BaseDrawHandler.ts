@@ -6,6 +6,7 @@ import {
   DrawLineModes,
   DrawRectModes,
   DrawTextModes,
+  type DrawArrowSpec,
   type DrawLineSpec,
   type DrawOp,
   type DrawRectMode,
@@ -15,6 +16,80 @@ import {
 } from './types'
 import { toSvgCenter as toSvgCenterUtil } from './utils/coords'
 import { ensureAnnotationLayer } from './utils/annotationLayer'
+
+type AnySelection = d3.Selection<any, unknown, any, any>
+
+const addArrowHead = (
+  layer: AnySelection,
+  tipX: number,
+  tipY: number,
+  direction: { x: number; y: number },
+  style: { stroke?: string; strokeWidth?: number; opacity?: number },
+  arrowSpec: DrawArrowSpec,
+) => {
+  const length = Math.max(arrowSpec.length ?? 12, 1)
+  const width = Math.max(arrowSpec.width ?? length * 0.6, 1)
+  const baseX = tipX - direction.x * length
+  const baseY = tipY - direction.y * length
+  const perpX = -direction.y
+  const perpY = direction.x
+  const leftX = baseX + perpX * width * 0.5
+  const leftY = baseY + perpY * width * 0.5
+  const rightX = baseX - perpX * width * 0.5
+  const rightY = baseY - perpY * width * 0.5
+  const path = `M ${tipX} ${tipY} L ${leftX} ${leftY} L ${rightX} ${rightY} Z`
+  const stroke = arrowSpec.style?.stroke ?? style.stroke ?? '#111827'
+  const strokeWidth = arrowSpec.style?.strokeWidth ?? style.strokeWidth ?? 2
+  const opacity = arrowSpec.style?.opacity ?? style.opacity ?? 1
+  const fill = arrowSpec.style?.fill ?? stroke
+
+  layer
+    .append(SvgElements.Path)
+    .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation} arrowhead`)
+    .attr(SvgAttributes.D, path)
+    .attr(SvgAttributes.Fill, fill)
+    .attr(SvgAttributes.Stroke, stroke)
+    .attr(SvgAttributes.StrokeWidth, strokeWidth)
+    .attr(SvgAttributes.Opacity, opacity)
+}
+
+const drawLineWithArrow = (
+  layer: AnySelection,
+  chartId: string | undefined,
+  lineSpec: DrawLineSpec,
+  coords: { x1: number; y1: number; x2: number; y2: number },
+) => {
+  const stroke = lineSpec.style?.stroke ?? '#111827'
+  const strokeWidth = lineSpec.style?.strokeWidth ?? 2
+  const opacity = lineSpec.style?.opacity ?? 1
+
+  layer
+    .append(SvgElements.Line)
+    .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
+    .attr(DataAttributes.ChartId, chartId ?? null)
+    .attr(SvgAttributes.X1, coords.x1)
+    .attr(SvgAttributes.Y1, coords.y1)
+    .attr(SvgAttributes.X2, coords.x2)
+    .attr(SvgAttributes.Y2, coords.y2)
+    .attr(SvgAttributes.Stroke, stroke)
+    .attr(SvgAttributes.StrokeWidth, strokeWidth)
+    .attr(SvgAttributes.Opacity, opacity)
+
+  const arrowSpec = lineSpec.arrow
+  if (!arrowSpec || (!arrowSpec.start && !arrowSpec.end)) return
+  const dx = coords.x2 - coords.x1
+  const dy = coords.y2 - coords.y1
+  const dist = Math.hypot(dx, dy)
+  if (dist <= 0) return
+  const direction = { x: dx / dist, y: dy / dist }
+
+  if (arrowSpec.start) {
+    addArrowHead(layer, coords.x1, coords.y1, { x: -direction.x, y: -direction.y }, { stroke, strokeWidth, opacity }, arrowSpec)
+  }
+  if (arrowSpec.end) {
+    addArrowHead(layer, coords.x2, coords.y2, direction, { stroke, strokeWidth, opacity }, arrowSpec)
+  }
+}
 
 export abstract class BaseDrawHandler {
   protected container: HTMLElement
@@ -46,6 +121,19 @@ export abstract class BaseDrawHandler {
     return groups.empty()
       ? (d3.select(null) as unknown as d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>)
       : (groups as unknown as d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>)
+  }
+
+  protected selectBarMarks(
+    scope: d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>,
+  ): d3.Selection<SVGRectElement, JsonValue, d3.BaseType, JsonValue> {
+    const mainBars = scope.selectAll<SVGRectElement, JsonValue>(SvgSelectors.MainBars)
+    if (!mainBars.empty()) return mainBars
+    const fallback = scope
+      .selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets)
+      .filter(function () {
+        return (this as Element).tagName.toLowerCase() === SvgElements.Rect
+      })
+    return fallback as unknown as d3.Selection<SVGRectElement, JsonValue, d3.BaseType, JsonValue>
   }
 
   protected filterByKeys(
@@ -179,6 +267,21 @@ export abstract class BaseDrawHandler {
         el.getAttribute(DataAttributes.Series),
         el.id,
       ].filter(Boolean) as string[]
+      if (value && typeof value === 'object') {
+        const byAttrName = [
+          DataAttributes.Id,
+          DataAttributes.Target,
+          DataAttributes.Value,
+          DataAttributes.Series,
+          'id',
+        ]
+        for (const key of byAttrName) {
+          if ((value as Record<string, unknown>)[key] != null) {
+            const mapped = (value as Record<string, unknown>)[key]
+            return typeof mapped === 'string' ? mapped : String(mapped)
+          }
+        }
+      }
       for (const key of candidates) {
         if (value[key] != null) return value[key]
       }
@@ -289,31 +392,44 @@ export abstract class BaseDrawHandler {
       }
       const label = String(pointX)
       const scope = this.selectScope(op.chartId)
-      const mark = scope.selectAll<SVGRectElement, JsonValue>(SvgSelectors.MainBars).filter(function () {
+      const candidates = scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).filter(function () {
         const el = this as Element
         const target = el.getAttribute(DataAttributes.Target) || el.getAttribute(DataAttributes.Id)
         return target != null && String(target) === label
       })
-      if (mark.empty()) return
-      const node = mark.node() as SVGRectElement | null
+      if (candidates.empty()) return
+      const nodes = candidates.nodes() as SVGGraphicsElement[]
+      const pick = nodes.reduce<SVGGraphicsElement | null>((best, current) => {
+        if (!best) return current
+        const bestBBox = typeof best.getBBox === 'function' ? best.getBBox() : null
+        const currBBox = typeof current.getBBox === 'function' ? current.getBBox() : null
+        const bestArea = bestBBox ? Math.abs(bestBBox.width * bestBBox.height) : Number.POSITIVE_INFINITY
+        const currArea = currBBox ? Math.abs(currBBox.width * currBBox.height) : Number.POSITIVE_INFINITY
+        return currArea < bestArea ? current : best
+      }, null)
+      const node = pick as SVGGraphicsElement | null
       if (!node) return
+
       const svgRect = svgNode.getBoundingClientRect()
-      const elRect = node.getBoundingClientRect()
       const viewBox = svgNode.viewBox?.baseVal
       const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
       const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
 
-      const xCenter = (viewBox?.x ?? 0) + (elRect.left - svgRect.left + elRect.width / 2) * scaleX
-      const yTop = (viewBox?.y ?? 0) + (elRect.top - svgRect.top) * scaleY
-      const yBottom = (viewBox?.y ?? 0) + (elRect.bottom - svgRect.top) * scaleY
-
-      centerX = xCenter
+      centerX = (viewBox?.x ?? 0) + (node.getBoundingClientRect().left - svgRect.left + node.getBoundingClientRect().width / 2) * scaleX
       const rawValue = node.getAttribute(DataAttributes.Value)
       const value = rawValue != null ? Number(rawValue) : NaN
-      if (Number.isFinite(value)) {
-        centerY = value >= 0 ? yTop : yBottom
+      if (node.tagName.toLowerCase() === SvgElements.Rect) {
+        const elRect = node.getBoundingClientRect()
+        const yTop = (viewBox?.y ?? 0) + (elRect.top - svgRect.top) * scaleY
+        const yBottom = (viewBox?.y ?? 0) + (elRect.bottom - svgRect.top) * scaleY
+        if (Number.isFinite(value)) {
+          centerY = value >= 0 ? yTop : yBottom
+        } else {
+          centerY = (yTop + yBottom) / 2
+        }
       } else {
-        centerY = (yTop + yBottom) / 2
+        const center = this.toSvgCenter(node, svgNode)
+        centerY = center.y
       }
     } else if (mode === DrawRectModes.Axis) {
       const axis = rectSpec.axis
@@ -718,17 +834,12 @@ export abstract class BaseDrawHandler {
       const dx = Math.cos(rad) * lengthPx
       const dy = Math.sin(rad) * lengthPx
 
-      layer
-        .append(SvgElements.Line)
-        .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
-        .attr(DataAttributes.ChartId, op.chartId ?? null)
-        .attr(SvgAttributes.X1, xPt.x)
-        .attr(SvgAttributes.Y1, startY)
-        .attr(SvgAttributes.X2, xPt.x + dx)
-        .attr(SvgAttributes.Y2, startY + dy)
-        .attr(SvgAttributes.Stroke, lineSpec.style?.stroke ?? '#111827')
-        .attr(SvgAttributes.StrokeWidth, lineSpec.style?.strokeWidth ?? 2)
-        .attr(SvgAttributes.Opacity, lineSpec.style?.opacity ?? 1)
+      drawLineWithArrow(layer, op.chartId, lineSpec, {
+        x1: xPt.x,
+        y1: startY,
+        x2: xPt.x + dx,
+        y2: startY + dy,
+      })
       return
     }
 
@@ -754,23 +865,13 @@ export abstract class BaseDrawHandler {
       const a = pointFor(xA)
       const b = pointFor(xB)
       if (!a || !b) return
-      layer
-        .append(SvgElements.Line)
-        .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
-        .attr(DataAttributes.ChartId, op.chartId ?? null)
-        .attr(SvgAttributes.X1, a.x)
-        .attr(SvgAttributes.Y1, a.y)
-        .attr(SvgAttributes.X2, b.x)
-        .attr(SvgAttributes.Y2, b.y)
-        .attr(SvgAttributes.Stroke, lineSpec.style?.stroke ?? '#111827')
-        .attr(SvgAttributes.StrokeWidth, lineSpec.style?.strokeWidth ?? 2)
-        .attr(SvgAttributes.Opacity, lineSpec.style?.opacity ?? 1)
+      drawLineWithArrow(layer, op.chartId, lineSpec, { x1: a.x, y1: a.y, x2: b.x, y2: b.y })
       return
     }
 
     if (mode === DrawLineModes.HorizontalFromX || mode === DrawLineModes.HorizontalFromY) {
       let y: number | null = null
-      const nodes = scope.selectAll<SVGRectElement, JsonValue>(SvgSelectors.MainBars).nodes()
+      const nodes = scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).nodes()
       if (!nodes.length) return
       const svgRect = svgNode.getBoundingClientRect()
       const viewBox = svgNode.viewBox?.baseVal
@@ -812,17 +913,7 @@ export abstract class BaseDrawHandler {
       }
 
       if (y == null) return
-      layer
-        .append(SvgElements.Line)
-        .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
-        .attr(DataAttributes.ChartId, op.chartId ?? null)
-        .attr(SvgAttributes.X1, x1)
-        .attr(SvgAttributes.Y1, y)
-        .attr(SvgAttributes.X2, x2)
-        .attr(SvgAttributes.Y2, y)
-        .attr(SvgAttributes.Stroke, lineSpec.style?.stroke ?? '#111827')
-        .attr(SvgAttributes.StrokeWidth, lineSpec.style?.strokeWidth ?? 2)
-        .attr(SvgAttributes.Opacity, lineSpec.style?.opacity ?? 1)
+      drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1: y, x2, y2: y })
     }
   }
 

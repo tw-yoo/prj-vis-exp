@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as d3 from 'd3'
 import type { VegaLiteSpec } from '../../utils/chartRenderer'
 import type { JsonValue } from '../../types'
@@ -48,10 +47,13 @@ function aggregateValues(data: RawDatum[], groupField: string, valueField: strin
     },
     (d) => d[groupField],
   )
-  return Array.from(roll.entries()).map(([key, value]) => ({
-    [groupField]: key,
-    [valueField]: value,
-  }))
+  return Array.from(roll.entries()).map(([key, value]) => {
+    const resolved = Number.isFinite(value ?? NaN) ? (value as number) : 0
+    return {
+      [groupField]: key,
+      [valueField]: resolved,
+    }
+  })
 }
 
 function resolveCategoricalDomain(data: RawDatum[], xField: string, sortSpec: JsonValue | undefined) {
@@ -117,7 +119,7 @@ function aggregateForSort(rows: RawDatum[], sortField: string, op = 'sum') {
 }
 
 function writeDatasetAttrs(
-  svg: d3.Selection<SVGSVGElement, RawDatum, HTMLElement, RawDatum>,
+  svg: d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>,
   spec: SimpleBarSpec,
   margin: { top: number; right: number; bottom: number; left: number },
   plotW: number,
@@ -220,12 +222,14 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
   const containerSelection = d3.select(container)
   containerSelection.selectAll('*').remove()
 
-  const svg = containerSelection.append(SvgElements.Svg).attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
-    .style('overflow', 'visible') as any
+  const svg = containerSelection
+    .append(SvgElements.Svg)
+    .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+    .style('overflow', 'visible')
 
   writeDatasetAttrs(svg, spec, margin, plotW, plotH)
 
-  const g = (svg as any).append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
+  const g = svg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
 
   const xDomain = resolveCategoricalDomain(data, xField, spec?.encoding?.x?.sort).map(String)
   const xScale = d3.scaleBand<string>().domain(xDomain).range([0, plotW]).padding(0.2)
@@ -249,7 +253,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
 
   g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
 
-  ;(g as any).selectAll(SvgElements.Rect)
+  g.selectAll<SVGRectElement, RawDatum>(SvgElements.Rect)
     .data(data)
     .join(SvgElements.Rect)
     .attr(SvgAttributes.Class, SvgClassNames.MainBar)
@@ -385,7 +389,7 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
     .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
     .style('overflow', 'visible')
 
-  writeDatasetAttrs(svg as any, spec, margin, plotW, plotH)
+  writeDatasetAttrs(svg, spec, margin, plotW, plotH)
 
   const [idA, idB] = splitGroups.ids
   const [domainA, domainB] = splitGroups.domains
@@ -428,7 +432,7 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
     const domainSet = new Set(domain.map(String))
     const rows = data.filter((d) => domainSet.has(String(d[xField])))
 
-    g.selectAll(SvgElements.Rect)
+    g.selectAll<SVGRectElement, RawDatum>(SvgElements.Rect)
       .data(rows)
       .join(SvgElements.Rect)
       .attr(SvgAttributes.Class, SvgClassNames.MainBar)
@@ -487,4 +491,3 @@ export function getSimpleBarSplitDomain(container: HTMLElement, chartId: string 
   if (!domains) return null
   return domains[chartId] ?? null
 }
-// @ts-nocheck

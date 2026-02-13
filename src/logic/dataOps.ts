@@ -807,4 +807,3 @@ export const LineChartOps = {
 }
 
 export default LineChartOps
-// @ts-nocheck

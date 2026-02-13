@@ -38,13 +38,65 @@ export const DrawMark = {
 } as const
 export type DrawMark = (typeof DrawMark)[keyof typeof DrawMark]
 
+export const DrawMarkOptions = [DrawMark.Rect, DrawMark.Path, DrawMark.Circle] as const
+
 export type DrawSelect = {
   mark?: DrawMark
   keys?: Array<string | number>
 }
 
+export const DrawComparisonOperators = {
+  Greater: 'gt',
+  GreaterEqual: 'gte',
+  Less: 'lt',
+  LessEqual: 'lte',
+} as const
+
+export type DrawComparisonOperator = (typeof DrawComparisonOperators)[keyof typeof DrawComparisonOperators]
+
+export const DrawComparisonTokens = {
+  Greater: 'gt',
+  GreaterEqual: 'gte',
+  Less: 'lt',
+  LessEqual: 'lte',
+  GreaterSymbol: '>',
+  GreaterEqualSymbol: '>=',
+  LessSymbol: '<',
+  LessEqualSymbol: '<=',
+} as const
+
+export type DrawComparisonToken = (typeof DrawComparisonTokens)[keyof typeof DrawComparisonTokens]
+
+export const DrawComparisonAliasGroups = {
+  [DrawComparisonOperators.Greater]: [DrawComparisonTokens.GreaterSymbol, DrawComparisonTokens.Greater],
+  [DrawComparisonOperators.GreaterEqual]: [DrawComparisonTokens.GreaterEqualSymbol, DrawComparisonTokens.GreaterEqual],
+  [DrawComparisonOperators.Less]: [DrawComparisonTokens.LessSymbol, DrawComparisonTokens.Less],
+  [DrawComparisonOperators.LessEqual]: [DrawComparisonTokens.LessEqualSymbol, DrawComparisonTokens.LessEqual],
+} as const
+
+export const DrawComparisonTokenOptions = [
+  DrawComparisonTokens.Greater,
+  DrawComparisonTokens.GreaterEqual,
+  DrawComparisonTokens.Less,
+  DrawComparisonTokens.LessEqual,
+  DrawComparisonTokens.GreaterSymbol,
+  DrawComparisonTokens.GreaterEqualSymbol,
+  DrawComparisonTokens.LessSymbol,
+  DrawComparisonTokens.LessEqualSymbol,
+] as const
+
 export { DrawLineModes, DrawRectModes, DrawTextModes }
 export type { DrawLineMode, DrawRectMode, DrawTextMode }
+
+export const DrawLineModeOptions = [
+  DrawLineModes.Angle,
+  DrawLineModes.Connect,
+  DrawLineModes.HorizontalFromX,
+  DrawLineModes.HorizontalFromY,
+] as const
+
+export const DrawRectModeOptions = [DrawRectModes.Normalized, DrawRectModes.DataPoint, DrawRectModes.Axis] as const
+export const DrawTextModeOptions = [DrawTextModes.Normalized, DrawTextModes.Anchor] as const
 
 export type DrawTextSpec = {
   value: string | Record<string, string>
@@ -78,6 +130,7 @@ export type DrawRectSpec = {
 
 export type DrawLineSpec = {
   mode?: DrawLineMode
+  position?: { start: { x: number; y: number }; end: { x: number; y: number } }
   axis?: { x: string; y: number }
   pair?: { x: [string, string] }
   hline?: { x?: string; y?: number }
@@ -115,7 +168,7 @@ export type DrawSortSpec = {
 
 export type DrawFilterSpec = {
   x?: { include?: Array<string | number>; exclude?: Array<string | number> }
-  y?: { op: '>' | '<' | '>=' | '<=' | 'gt' | 'lt' | 'gte' | 'lte'; value: number }
+  y?: { op: DrawComparisonToken; value: number }
 }
 
 export type DrawGroupFilterSpec = {
@@ -135,7 +188,7 @@ export type DrawBarSegmentSpec = {
    * Condition that defines the highlighted segment relative to `threshold`.
    * Example: `gte` highlights the portion of the bar where value >= threshold.
    */
-  when?: '>' | '<' | '>=' | '<=' | 'gt' | 'lt' | 'gte' | 'lte'
+  when?: DrawComparisonToken
   style?: { fill?: string; opacity?: number; stroke?: string; strokeWidth?: number }
 }
 

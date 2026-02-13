@@ -2,8 +2,14 @@ body {
   margin: 0;
   font-family: "Inter", "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
+  background: #0b1220;
+  color: #e2e8f0;
+}
+
+body.survey-light-mode {
   background: #f8fafc;
-  color: #0f172a;
+  color: #111827;
+  color-scheme: light;
 }
 
 .app-shell {
@@ -19,11 +25,11 @@ body {
 }
 
 .card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: #111827;
+  border: 1px solid #1f2937;
   border-radius: 12px;
   padding: 14px 16px;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
 }
 
@@ -38,42 +44,106 @@ body {
 .card-title {
   font-size: 14px;
   font-weight: 700;
-  color: #111827;
+  color: #f1f5f9;
 }
 
 .pill-btn {
-  background: #1d4ed8;
+  background: #2563eb;
   color: #ffffff;
   border: none;
   border-radius: 10px;
   padding: 7px 12px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
 }
 
 .pill-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
-  background: #1e40af;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.45);
+  background: #1d4ed8;
 }
 
 textarea {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #334155;
   border-radius: 10px;
   padding: 12px;
   font-size: 13px;
   font-family: "SFMono-Regular", Menlo, Consolas, monospace;
   min-height: 160px;
   resize: vertical;
-  background: #f8fafc;
+  background: #0f172a;
+  color: #e2e8f0;
 }
 
 .ops-card {
   overflow: visible;
+}
+
+.ops-runbar {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #1f2937;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.plan-loader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.plan-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.plan-input {
+  min-width: 320px;
+  flex: 1 1 320px;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 6px 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 12px;
+}
+
+.plan-error {
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #fca5a5;
+}
+
+.plan-badge {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.chart-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.chart-header-center {
+  justify-self: center;
+}
+
+.chart-header-right {
+  justify-self: end;
 }
 
 #ops-spec {
@@ -84,7 +154,35 @@ textarea {
   min-height: 320px;
   border: 1px dashed #e5e7eb;
   border-radius: 12px;
-  background: #f9fafb;
+  background: #ffffff;
+  color: #000000;
   padding: 8px;
   box-sizing: border-box;
+}
+
+.chart-host .vega-embed,
+.chart-host svg {
+  color: #000000 !important;
+}
+
+.chart-host .role-axis line,
+.chart-host .role-axis path,
+.chart-host .role-axis .mark-rule line,
+.chart-host .role-axis .mark-rule path {
+  stroke: #000000 !important;
+  stroke-opacity: 1 !important;
+}
+
+.chart-host .role-axis .mark-text,
+.chart-host .role-axis .mark-text text,
+.chart-host .mark-text.role-axis-label,
+.chart-host .mark-text.role-axis-label text,
+.chart-host .mark-text.role-axis-title,
+.chart-host .mark-text.role-axis-title text,
+.chart-host .x-axis-label,
+.chart-host .y-axis-label {
+  fill: #000000 !important;
+  fill-opacity: 1 !important;
+  color: #000000 !important;
+  opacity: 1 !important;
 }
