@@ -5,9 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run check:draw-support-sync && npm run check:authoring-style && npm run check:src-boundary && npm run check:arch-boundary && tsc -b && vite build",
     "lint": "eslint .",
+    "check:node": "node scripts/check-node-version.mjs",
+    "check:public-modules": "node scripts/check-public-module-links.mjs",
+    "check:draw-support-sync": "node scripts/check-draw-support-sync.mjs",
+    "check:authoring-style": "node scripts/check-authoring-no-object.mjs",
+    "check:src-boundary": "node scripts/check-src-engine-boundary.mjs",
+    "check:arch-boundary": "node scripts/check-architecture-boundary.mjs",
+    "docs:draw-authoring-typedoc-json": "node scripts/generate-authoring-typedoc-json.mjs",
+    "docs:draw-authoring-dsl": "npm run docs:draw-authoring-typedoc-json && node scripts/generate-draw-authoring-dsl-doc.mjs --typedoc-json .cache/typedoc-authoring.json",
+    "docs:draw-support-matrix": "node scripts/generate-draw-support-matrix.mjs",
     "docs:draw-test-cases": "node scripts/generate-draw-test-cases.mjs",
+    "docs:draw": "npm run docs:draw-authoring-dsl && npm run docs:draw-support-matrix && npm run docs:draw-test-cases",
+    "pretest:e2e": "npm run check:node && npm run check:public-modules && npm run check:draw-support-sync && npm run check:authoring-style && npm run check:src-boundary && npm run check:arch-boundary",
+    "pretest:e2e:headed": "npm run check:node && npm run check:public-modules && npm run check:draw-support-sync && npm run check:authoring-style && npm run check:src-boundary && npm run check:arch-boundary",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -20,6 +34,7 @@
     "vega-lite": "^5.17.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@eslint/js": "^9.39.1",
     "@types/d3": "^7.4.3",
     "@types/node": "^24.10.1",

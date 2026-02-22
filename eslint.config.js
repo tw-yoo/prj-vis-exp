@@ -29,4 +29,70 @@ export default defineConfig([
       'react-hooks/set-state-in-effect': 'warn',
     }
   },
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: ['react', 'react/*', 'react-dom', 'react-dom/*'],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/domain/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            'react',
+            'react/*',
+            'react-dom',
+            'react-dom/*',
+            'd3',
+            'd3/*',
+            'vega',
+            'vega/*',
+            'vega-lite',
+            'vega-lite/*',
+            'vega-embed',
+            'vega-embed/*',
+          ],
+        },
+      ],
+      'no-restricted-globals': ['error', 'window', 'document'],
+    },
+  },
+  {
+    files: [
+      'src/operation/run/runChartOps.ts',
+      'src/operation/run/multipleLineOps.ts',
+      'src/operation/build/builder-core/optionSources.ts',
+      'src/rendering/common/d3Helpers.ts',
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'error',
+    },
+  },
+  {
+    files: ['web/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            'src/!(api)/**',
+            './src/!(api)/**',
+            '../src/!(api)/**',
+            '../../src/!(api)/**',
+            '../../../src/!(api)/**',
+            '../../../../src/!(api)/**',
+          ],
+        },
+      ],
+    },
+  },
 ])

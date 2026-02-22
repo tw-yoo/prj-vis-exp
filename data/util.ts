@@ -1,5 +1,4 @@
-import type { DatumValue } from '../src/types'
-import { toDatumValuesFromRaw, type RawRow } from '../src/renderer/ops/common/datum'
+import { toDatumValuesFromRaw, type DatumValue, type RawRow } from '../src/api/types'
 
 export function getFileName(moduleUrl: string): string {
   if (!moduleUrl) return ''
@@ -148,12 +147,12 @@ export function rowsToDatumValues(
     },
     {
       idField: fields.idField,
-      groupFallback: (row) => {
+      groupFallback: (row: RawRow) => {
         const candidate = row.group ?? row.color ?? row.series ?? null
         return candidate == null ? null : String(candidate)
       },
     },
-  ).filter((datum) => Number.isFinite(datum.value))
+  ).filter((datum: DatumValue) => Number.isFinite(datum.value))
 }
 
 export async function loadDatumValuesFromFilePath(
