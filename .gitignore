@@ -66,3 +66,5 @@ public/generated/
 # Keep prompt templates tracked because the server loads them at runtime.
 nlp_server/**/*.md
 !nlp_server/prompts/**/*.md
+
+.claude/

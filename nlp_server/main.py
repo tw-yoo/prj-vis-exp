@@ -12,12 +12,23 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from models import (
+    CanonicalizeOpsSpecRequest,
+    CanonicalizeOpsSpecResponse,
     GenerateGrammarRequest,
     GenerateLambdaRequest,
     GenerateLambdaResponse,
+    RunPythonPlanRequest,
+    RunPythonPlanResponse,
 )
 from nlp_engine import NLPEngine
+from draw_plan import build_draw_ops_spec, export_draw_plan_to_public
 from opsspec.pipeline import OpsSpecPipeline
+from opsspec.python_scenario_loader import PythonScenarioLoadError, load_python_scenario_request
+from opsspec.ui_schema import build_op_registry_ui_schema
+from opsspec.context_builder import build_chart_context
+from opsspec.canonicalize import canonicalize_ops_spec_groups
+from opsspec.endpoint_validators import validate_and_parse_ops_spec_groups, validate_refs_against_node_ids
+from opsspec.utils import prune_nulls
 
 logger = logging.getLogger(__name__)
 trace_logger = logging.getLogger("pipeline_trace")
@@ -190,31 +201,98 @@ async def health_check():
     return {"status": "ok"}
 
 
-def _prune_nulls(value):  # type: ignore[no-untyped-def]
-    # Keep API responses minimal: drop null keys/items recursively.
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        out = {}
-        for k, v in value.items():
-            if v is None:
-                continue
-            pv = _prune_nulls(v)
-            if pv is None:
-                continue
-            out[k] = pv
-        return out
-    if isinstance(value, list):
-        out_list = []
-        for item in value:
-            if item is None:
-                continue
-            pv = _prune_nulls(item)
-            if pv is None:
-                continue
-            out_list.append(pv)
-        return out_list
-    return value
+@app.get("/op_registry")
+async def op_registry():
+    # UI-facing schema for specTest: op-specific parameter contract + ref rules.
+    return prune_nulls(build_op_registry_ui_schema())
+
+
+@app.post("/canonicalize_opsspec", response_model=CanonicalizeOpsSpecResponse)
+async def canonicalize_opsspec(request: CanonicalizeOpsSpecRequest):
+    request_id = uuid.uuid4().hex[:12]
+    started_at = time.perf_counter()
+    q_preview = " ".join(request.question.split())[:120]
+    logger.info('[/canonicalize_opsspec] request received | request_id=%s question="%s"', request_id, q_preview)
+
+    trace_logger.info(
+        "[request:%s] canonicalize_in | rows=%d groups=%d",
+        request_id,
+        len(request.data_rows),
+        len(request.ops_spec or {}),
+    )
+
+    try:
+        chart_context, ctx_warnings, _rows_preview = build_chart_context(
+            request.vega_lite_spec,
+            request.data_rows,
+        )
+
+        raw_groups = request.ops_spec or {}
+        if not isinstance(raw_groups, dict):
+            raise ValueError('ops_spec must be an object like {"ops":[...],"ops2":[...]}')
+
+        groups, parse_warnings, errors = validate_and_parse_ops_spec_groups(raw_groups, chart_context)
+        warnings: List[str] = list(ctx_warnings) + parse_warnings
+
+        # "ops" 그룹이 없으면 빈 값으로 보장 (안정적인 UI 흐름)
+        groups.setdefault("ops", [])
+
+        # ref/inputs 가 실존하는 nodeId를 가리키는지 교차 검증
+        errors.extend(validate_refs_against_node_ids(groups))
+
+        if errors:
+            raise ValueError("Validation failed:\n- " + "\n- ".join(errors))
+
+        canonical_groups, canon_warnings = canonicalize_ops_spec_groups(groups, chart_context=chart_context)
+        warnings.extend(canon_warnings)
+
+        ops_dump = {
+            group_name: [op.model_dump(by_alias=True, exclude_none=True) for op in ops]
+            for group_name, ops in canonical_groups.items()
+        }
+        response = CanonicalizeOpsSpecResponse(
+            ops_spec=prune_nulls(ops_dump),
+            warnings=warnings,
+            chart_context=chart_context,
+        )
+
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.info(
+            "[/canonicalize_opsspec] request completed | request_id=%s groups=%d warnings=%d elapsed_ms=%.1f",
+            request_id,
+            len(ops_dump),
+            len(warnings),
+            elapsed_ms,
+        )
+        trace_logger.info("[request:%s] canonicalize_out | elapsed_ms=%.1f", request_id, elapsed_ms)
+        return prune_nulls(response.model_dump())
+    except Exception as exc:
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.error(
+            "[/canonicalize_opsspec] error | request_id=%s elapsed_ms=%.1f error=%s",
+            request_id,
+            elapsed_ms,
+            exc,
+        )
+        report_path = _write_error_report(
+            endpoint="/canonicalize_opsspec",
+            request_id=request_id,
+            elapsed_ms=elapsed_ms,
+            error=exc,
+            request_summary={
+                "question_preview": q_preview,
+                "explanation_preview": _safe_line(request.explanation, max_len=500),
+                "data_rows_count": len(request.data_rows),
+                "ops_groups_count": len(request.ops_spec or {}),
+            },
+        )
+        if report_path is not None:
+            logger.error(
+                "[/canonicalize_opsspec] error report saved | request_id=%s path=%s",
+                request_id,
+                report_path,
+            )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/generate_lambda", response_model=GenerateLambdaResponse)
@@ -346,7 +424,7 @@ async def generate_grammar(request: GenerateGrammarRequest):
             group_name: [op.model_dump(by_alias=True, exclude_none=True) for op in ops]
             for group_name, ops in result.ops_spec.items()
         }
-        return _prune_nulls({"ops1": groups_dump})
+        return prune_nulls({"ops1": groups_dump})
     except RuntimeError as exc:
         elapsed_ms = (time.perf_counter() - started_at) * 1000
         logger.error(
@@ -400,6 +478,135 @@ async def generate_grammar(request: GenerateGrammarRequest):
         trace_logger.error("[request:%s] grammar_unhandled_error | elapsed_ms=%.1f error=%s", request_id, elapsed_ms, exc)
         logger.exception("Failed to generate grammar.")
         raise HTTPException(status_code=500, detail=f"Failed to parse text: {exc}") from exc
+
+
+@app.post("/run_python_plan", response_model=RunPythonPlanResponse)
+async def run_python_plan(request: RunPythonPlanRequest):
+    pipeline: OpsSpecPipeline = getattr(app.state, "grammar_pipeline", None)
+    if pipeline is None:
+        raise HTTPException(status_code=500, detail="Grammar pipeline is not initialized.")
+
+    request_id = uuid.uuid4().hex[:12]
+    started_at = time.perf_counter()
+    scenario_preview = _safe_line(request.scenario_path, max_len=180)
+    logger.info('[/run_python_plan] request received | request_id=%s scenario="%s"', request_id, scenario_preview)
+
+    trace_logger.info(
+        "[request:%s] python_plan_endpoint_in | scenario_path=%s debug=%s",
+        request_id,
+        request.scenario_path,
+        bool(request.debug),
+    )
+
+    try:
+        scenario_request, normalized_path = load_python_scenario_request(request.scenario_path)
+        debug_flag = bool(request.debug or scenario_request.debug)
+
+        grammar_result = pipeline.generate(
+            question=scenario_request.question,
+            explanation=scenario_request.explanation,
+            vega_lite_spec=scenario_request.vega_lite_spec,
+            data_rows=scenario_request.data_rows,
+            request_id=request_id,
+            debug=debug_flag,
+        )
+
+        draw_plan = build_draw_ops_spec(
+            ops_spec=grammar_result.ops_spec,
+            chart_context=grammar_result.chart_context,
+            data_rows=scenario_request.data_rows,
+            vega_lite_spec=scenario_request.vega_lite_spec,
+        )
+        draw_plan_path = export_draw_plan_to_public(draw_plan, request_id=request_id)
+
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.info(
+            "[/run_python_plan] request completed | request_id=%s scenario=%s groups=%d draw_groups=%d elapsed_ms=%.1f",
+            request_id,
+            normalized_path,
+            len(grammar_result.ops_spec),
+            len(draw_plan),
+            elapsed_ms,
+        )
+        trace_logger.info(
+            "[request:%s] python_plan_endpoint_out | elapsed_ms=%.1f draw_plan_path=%s",
+            request_id,
+            elapsed_ms,
+            str(draw_plan_path),
+        )
+        response_payload = RunPythonPlanResponse(
+            scenario_path=normalized_path,
+            vega_lite_spec=scenario_request.vega_lite_spec,
+            draw_plan=draw_plan,
+            warnings=list(grammar_result.warnings),
+        )
+        return prune_nulls(response_payload.model_dump())
+    except PythonScenarioLoadError as exc:
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.error(
+            "[/run_python_plan] scenario load error | request_id=%s elapsed_ms=%.1f error=%s",
+            request_id,
+            elapsed_ms,
+            exc,
+        )
+        report_path = _write_error_report(
+            endpoint="/run_python_plan",
+            request_id=request_id,
+            elapsed_ms=elapsed_ms,
+            error=exc,
+            request_summary={
+                "scenario_path": request.scenario_path,
+                "debug": bool(request.debug),
+                "failure_stage": "scenario_load",
+            },
+        )
+        if report_path is not None:
+            logger.error("[/run_python_plan] error report saved | request_id=%s path=%s", request_id, report_path)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.error(
+            "[/run_python_plan] runtime error | request_id=%s elapsed_ms=%.1f error=%s",
+            request_id,
+            elapsed_ms,
+            exc,
+        )
+        report_path = _write_error_report(
+            endpoint="/run_python_plan",
+            request_id=request_id,
+            elapsed_ms=elapsed_ms,
+            error=exc,
+            request_summary={
+                "scenario_path": request.scenario_path,
+                "debug": bool(request.debug),
+            },
+        )
+        if report_path is not None:
+            logger.error("[/run_python_plan] error report saved | request_id=%s path=%s", request_id, report_path)
+        trace_logger.error("[request:%s] python_plan_runtime_error | elapsed_ms=%.1f error=%s", request_id, elapsed_ms, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.error(
+            "[/run_python_plan] unhandled error | request_id=%s elapsed_ms=%.1f error=%s",
+            request_id,
+            elapsed_ms,
+            exc,
+        )
+        report_path = _write_error_report(
+            endpoint="/run_python_plan",
+            request_id=request_id,
+            elapsed_ms=elapsed_ms,
+            error=exc,
+            request_summary={
+                "scenario_path": request.scenario_path,
+                "debug": bool(request.debug),
+            },
+        )
+        if report_path is not None:
+            logger.error("[/run_python_plan] error report saved | request_id=%s path=%s", request_id, report_path)
+        trace_logger.error("[request:%s] python_plan_unhandled_error | elapsed_ms=%.1f error=%s", request_id, elapsed_ms, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to run python plan: {exc}") from exc
 
 
 if __name__ == "__main__":

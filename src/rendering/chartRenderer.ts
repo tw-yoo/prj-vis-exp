@@ -605,6 +605,10 @@ export async function renderVegaLiteChart(
         labelLimit: 0,
         ...(spec.config as { axis?: Record<string, JsonValue> } | undefined)?.axis,
       },
+      axisY: {
+        ...((spec.config as { axisY?: Record<string, JsonValue> } | undefined)?.axisY ?? {}),
+        grid: false,
+      },
     },
   }
 

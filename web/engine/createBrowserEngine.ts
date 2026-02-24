@@ -13,6 +13,8 @@ import type { RunChartOpsOptions } from '../../src/api/operation-run'
 import type { ParseToOperationSpecCommand } from '../../src/api/nlp-ops'
 import { buildDemoSentenceBindings as buildDemoSentenceBindingsApi } from '../../src/api/demo-binding'
 import type { DemoSentenceBinding } from '../../src/api/demo-binding'
+import { runPythonPlan as runPythonPlanApi } from '../../src/api/python-plan'
+import type { RunPythonPlanCommand, RunPythonPlanResult } from '../../src/api/python-plan'
 
 export type BrowserEngine = {
   renderChart: (container: HTMLElement, spec: VegaLiteSpec) => Promise<unknown>
@@ -25,6 +27,7 @@ export type BrowserEngine = {
   ) => Promise<unknown>
   buildDemoSentenceBindings: (sentences: string[], opsSpec: OpsSpecInput) => DemoSentenceBinding[]
   parseToOperationSpec: (command: ParseToOperationSpecCommand) => Promise<ParseToOpsResult>
+  runPythonPlan: (command: RunPythonPlanCommand) => Promise<RunPythonPlanResult>
   buildOps: typeof buildOps
   draw: typeof draw
   ops: typeof ops
@@ -46,6 +49,9 @@ export function createBrowserEngine(): BrowserEngine {
     },
     async parseToOperationSpec(command) {
       return parseToOperationSpecApi(command)
+    },
+    async runPythonPlan(command) {
+      return runPythonPlanApi(command)
     },
     buildOps,
     draw,

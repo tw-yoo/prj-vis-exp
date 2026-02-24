@@ -47,8 +47,14 @@ class StructuredLLMClient:
         # Default to ChatGPT/OpenAI API when credentials are available.
         # Use LLM_BACKEND to override (e.g., "ollama" for local runs).
         if forced_backend in {"", "openai", "chatgpt"} and has_openai_key:
+            model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
             self.backend = "openai_http"
             self.client = None
+            logger.info(
+                "LLM backend: openai_http | model=%s base_url=%s",
+                model,
+                os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            )
             return
 
         if forced_backend in {"openai", "chatgpt"} and not has_openai_key:
@@ -61,11 +67,22 @@ class StructuredLLMClient:
                 mode = instructor.Mode.JSON
             self.client = instructor.from_openai(base, mode=mode)
             self.backend = "instructor_openai"
+            logger.info(
+                "LLM backend: instructor_openai | model=%s base_url=%s mode=%s",
+                self.ollama_model,
+                self.ollama_base_url,
+                self.instructor_mode,
+            )
             return
 
         self.backend = "ollama_native"
         self.client = None
-        logger.warning("instructor/openai not installed; using Ollama native structured output path.")
+        logger.warning(
+            "LLM backend: ollama_native (fallback) | model=%s base_url=%s"
+            " — instructor/openai not installed.",
+            self.ollama_model,
+            self.ollama_base_url,
+        )
 
     def complete(
         self,

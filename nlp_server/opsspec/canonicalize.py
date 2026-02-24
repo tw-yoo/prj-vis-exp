@@ -173,11 +173,19 @@ def _reassign_node_ids_and_rewrite_refs(
                 available.sort(key=_avail_key)
 
     if len(topo) != len(nodes):
-        # Cycle or unresolved references. Make result deterministic by appending remaining nodes by signature.
-        remaining = [nid for nid in nodes.keys() if nid not in set(topo)]
-        remaining.sort(key=_avail_key)
-        warnings.append("cycle or unresolved graph detected; appended remaining nodes by signature order")
-        topo.extend(remaining)
+        # 사이클 또는 해결 불가능한 참조 → 조용한 복구 대신 명시적으로 실패시킵니다.
+        # 유효한 입력에서는 절대 발생하지 않아야 하므로, 발생 시 원인을 파악할 수 있도록
+        # 관련 노드 목록을 포함한 ValueError를 던집니다.
+        remaining = sorted(
+            [nid for nid in nodes.keys() if nid not in set(topo)],
+            key=_avail_key,
+        )
+        cycle_detail = ", ".join(remaining[:10])
+        raise ValueError(
+            f"OpsSpec 그래프에 사이클 또는 해결 불가능한 참조가 감지되었습니다. "
+            f"관련 노드: [{cycle_detail}]. "
+            f"meta.inputs 또는 ref:nX 참조가 서로 순환하지 않는지 확인하세요."
+        )
 
     id_map: Dict[str, str] = {}
     for idx, old_id in enumerate(topo, start=1):

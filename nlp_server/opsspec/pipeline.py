@@ -13,6 +13,7 @@ from draw_plan import build_draw_ops_spec, export_draw_plan_to_public
 from .canonicalize import canonicalize_ops_spec_groups
 from .context_builder import build_chart_context
 from .llm import StructuredLLMClient
+from .utils import prune_nulls
 from .models import ChartContext, GenerateOpsSpecResponse, GroundedPlanTree, PipelineTrace, PlanTree
 from .module_compile import run_compile_module
 from .module_decompose import run_decompose_module
@@ -55,36 +56,7 @@ def _create_debug_session_dir() -> Path:
 
 
 def _write_json(path: Path, payload: Dict[str, Any]) -> None:
-    path.write_text(json.dumps(_prune_nulls(payload), ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def _prune_nulls(value: Any) -> Any:
-    # Remove None values recursively for debug readability and smaller payloads.
-    # - dict: drop keys where value is None, and prune children.
-    # - list: drop items that are None, and prune children.
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        out: Dict[str, Any] = {}
-        for key, item in value.items():
-            if item is None:
-                continue
-            pruned = _prune_nulls(item)
-            if pruned is None:
-                continue
-            out[key] = pruned
-        return out
-    if isinstance(value, list):
-        out_list: List[Any] = []
-        for item in value:
-            if item is None:
-                continue
-            pruned = _prune_nulls(item)
-            if pruned is None:
-                continue
-            out_list.append(pruned)
-        return out_list
-    return value
+    path.write_text(json.dumps(prune_nulls(payload), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _escape_dot_label(text: str) -> str:

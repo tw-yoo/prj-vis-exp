@@ -82,6 +82,7 @@ const EXPORT_SCALE = 3
 const renderChartDispatch = browserEngine.renderChart
 const runChartOps = browserEngine.runChartOps
 const parseToOperationSpec = browserEngine.parseToOperationSpec
+const runPythonPlan = browserEngine.runPythonPlan
 const OPS_PLAN_MODULES = import.meta.glob('../../../data/expert/**/*.ts')
 const DRAW_TOOL_OPTIONS: Array<{ value: DrawInteractionTool; label: string }> = [
   { value: DrawInteractionTools.None, label: 'None' },
@@ -345,7 +346,7 @@ const triggerDownload = (blob: Blob, filename: string) => {
 const toPlanStem = (value: string) => {
   const trimmed = value.trim().split('?')[0]
   const fileName = trimmed.split('/').filter((token) => token.length > 0).pop() ?? ''
-  const stem = fileName.replace(/\.ts$/i, '').replace(/\.tsx$/i, '')
+  const stem = fileName.replace(/\.ts$/i, '').replace(/\.tsx$/i, '').replace(/\.py$/i, '')
   return stem.length > 0 ? stem : 'plan'
 }
 
@@ -1130,14 +1131,41 @@ function ChartWorkbenchPage() {
     setCaptureScenesStatus(null)
     setLoadedPlanResolvedKey(null)
     setLoadedPlanStem(null)
-    const resolvedKey = resolvePlanModuleKey(planPath)
-    if (!resolvedKey) {
-      setPlanError('Plan file not found.')
-      return
-    }
-    const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
     setPlanLoading(true)
     try {
+      const trimmedPath = planPath.trim()
+      if (!trimmedPath) {
+        setPlanError('Plan path is empty.')
+        return
+      }
+
+      if (trimmedPath.toLowerCase().endsWith('.py')) {
+        const loaded = await runPythonPlan({ scenarioPath: trimmedPath })
+        const normalized = normalizeOpsGroupsForWorkbench(loaded.drawPlan)
+        if (!normalized.length) {
+          setPlanError('Python scenario returned no executable draw operations.')
+          return
+        }
+
+        const nextSpec = loaded.vegaLiteSpec
+        await renderChartDispatch(chartRef.current, nextSpec)
+        currentSpecRef.current = nextSpec
+        setVlSpec(JSON.stringify(nextSpec, null, 2))
+        setPendingTextPlacement(null)
+        setPlanGroups(normalized.map((group) => group.ops))
+        setLoadedPlanResolvedKey(loaded.scenarioPath)
+        setLoadedPlanStem(toPlanStem(loaded.scenarioPath))
+        setCurrentOpsIndex(-1)
+        return
+      }
+
+      const resolvedKey = resolvePlanModuleKey(trimmedPath)
+      if (!resolvedKey) {
+        setPlanError('Plan file not found.')
+        return
+      }
+
+      const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
       const sanitizedSpec = sanitizeJsonInput(specString)
       const parsedSpec = JSON.parse(sanitizedSpec) as VegaLiteSpec
       await renderChartDispatch(chartRef.current, parsedSpec)
@@ -1148,11 +1176,13 @@ function ChartWorkbenchPage() {
         setPlanError('Plan loader not found.')
         return
       }
+
       const module = (await loader()) as { default?: unknown }
       if (!module?.default) {
         setPlanError('Plan file must export default.')
         return
       }
+
       const groups = await runOpsPlan(chartRef.current, parsedSpec, module.default as any)
       if (!groups.length) {
         setPlanError('Plan produced no operations.')
@@ -1642,7 +1672,7 @@ function ChartWorkbenchPage() {
               id="ops-plan-path"
               className="plan-input"
               list="ops-plan-options"
-              placeholder="data/expert/e1/1_bar_simple_a_0o12tngadmjjux2n.ts"
+              placeholder="data/expert/e1/sample_python_plan_rain_sun.py or ... .ts"
               value={planPath}
               onChange={(event) => setPlanPath(event.target.value)}
             />

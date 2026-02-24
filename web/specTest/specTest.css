@@ -1,0 +1,374 @@
+.spec-test-shell {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+.spec-test-card {
+  width: min(1400px, 100%);
+}
+
+.spec-test-controls {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.spec-test-debug-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed rgba(0, 0, 0, 0.18);
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.02);
+  font-size: 13px;
+}
+
+.spec-test-debug-toggle input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+.spec-test-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+
+.spec-test-field.grow {
+  flex: 1;
+  min-width: 320px;
+}
+
+.spec-test-field span {
+  font-size: 12px;
+  opacity: 1;
+}
+
+.spec-test-controls .spec-test-field span,
+.spec-test-inputs .spec-test-field span {
+  color: #f1f5f9;
+}
+
+.spec-test-link {
+  color: #f1f5f9;
+}
+
+.spec-test-field input,
+.spec-test-field textarea,
+.spec-test-field select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  font: inherit;
+  background: white;
+  color: #111;
+}
+
+.spec-test-btn {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: white;
+  cursor: pointer;
+}
+
+.spec-test-btn.primary {
+  background: #111827;
+  color: white;
+  border-color: #111827;
+}
+
+.spec-test-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spec-test-btn.tiny {
+  padding: 4px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.spec-test-link {
+  margin-left: auto;
+  font-size: 13px;
+  opacity: 0.85;
+  text-decoration: none;
+}
+
+.spec-test-status {
+  margin: 8px 0;
+  font-size: 13px;
+  opacity: 1;
+}
+
+.spec-test-error {
+  margin: 8px 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  color: #7f1d1d;
+}
+
+.spec-test-warnings {
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.spec-test-hint {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 6px;
+}
+
+.spec-test-inputs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.spec-test-split {
+  display: grid;
+  grid-template-columns: 360px 1fr 360px;
+  gap: 12px;
+  align-items: start;
+}
+
+.spec-test-pane {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.spec-test-pane,
+.spec-test-pane * {
+  color: #111;
+}
+
+.spec-test-pane.wide {
+  min-width: 520px;
+}
+
+.spec-test-pane-header {
+  padding: 10px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(17, 24, 39, 0.03);
+  color: #111;
+}
+
+.spec-test-pane-body {
+  padding: 12px;
+}
+
+.spec-test-chart-host {
+  min-height: 340px;
+}
+
+.spec-test-context {
+  margin-top: 12px;
+  font-size: 12px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 220px;
+}
+
+.lanes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.lane {
+  min-width: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(17, 24, 39, 0.02);
+}
+
+.lane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: white;
+}
+
+.lane-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lane-subtitle {
+  font-size: 12px;
+  opacity: 1;
+  color: #111;
+}
+
+.lane-sentence {
+  padding: 10px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  max-height: 64px;
+  overflow: hidden;
+  color: #111;
+}
+
+.lane-nodes {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lane-empty {
+  font-size: 13px;
+  opacity: 1;
+  color: #111;
+  padding: 8px;
+}
+
+.node-card {
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: white;
+  cursor: pointer;
+}
+
+.node-card.is-selected {
+  border-color: #111827;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.15);
+}
+
+.node-title {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-weight: 600;
+}
+
+.node-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 13px;
+  opacity: 1;
+  color: #111;
+}
+
+.node-op {
+  font-size: 13px;
+  opacity: 1;
+  color: #111;
+}
+
+.node-inputs {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 1;
+  color: #111;
+}
+
+.inspector-empty {
+  font-size: 13px;
+  opacity: 1;
+  color: #111;
+}
+
+.inspector-row {
+  display: flex;
+  gap: 10px;
+}
+
+.inspector-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.inspector-notes {
+  margin-top: 10px;
+}
+
+.inspector-fields {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inspector-field {
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.02);
+}
+
+.inspector-field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.inspector-field-key {
+  font-weight: 600;
+  font-size: 13px;
+  color: #111;
+}
+
+.req {
+  margin-left: 6px;
+  color: #b91c1c;
+}
+
+.inspector-raw {
+  margin-top: 10px;
+}
+
+.candidate-preview {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.candidate-chip {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: white;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: #111;
+  cursor: pointer;
+}
+
+.candidate-chip:hover {
+  background: rgba(17, 24, 39, 0.04);
+}
+
+.candidate-more {
+  font-size: 12px;
+  color: rgba(17, 24, 39, 0.75);
+}

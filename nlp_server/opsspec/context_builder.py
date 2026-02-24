@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from .models import ChartContext, NumericStats
 from .types import JsonValue, PrimitiveValue
+from .utils import to_float
 
 
 def _as_text(value: Any) -> str:
@@ -13,36 +14,7 @@ def _as_text(value: Any) -> str:
 
 
 def _is_number(value: Any) -> bool:
-    if value is None or isinstance(value, bool):
-        return False
-    if isinstance(value, (int, float)):
-        return True
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return False
-        try:
-            float(text)
-            return True
-        except Exception:
-            return False
-    return False
-
-
-def _to_float(value: Any) -> Optional[float]:
-    if value is None or isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return None
-        try:
-            return float(text)
-        except Exception:
-            return None
-    return None
+    return to_float(value) is not None
 
 
 def _extract_encoding_summary(spec: Dict[str, Any]) -> Dict[str, Dict[str, JsonValue]]:
@@ -168,7 +140,7 @@ def _build_numeric_stats(rows: List[Dict[str, Any]], field_types: Dict[str, str]
     for field, field_type in field_types.items():
         if field_type != "numeric":
             continue
-        numbers = [value for value in (_to_float(row.get(field)) for row in rows) if value is not None]
+        numbers = [value for value in (to_float(row.get(field)) for row in rows) if value is not None]
         if not numbers:
             continue
         out[field] = NumericStats(min=min(numbers), max=max(numbers), mean=sum(numbers) / len(numbers))
@@ -184,28 +156,35 @@ def _pick_roles(
     y_field = _as_text(encoding_summary.get("y", {}).get("field")) or None
     color_field = _as_text(encoding_summary.get("color", {}).get("field")) or None
 
-    category_fields = [field for field, field_type in field_types.items() if field_type == "categorical"]
-    measure_fields = [field for field, field_type in field_types.items() if field_type == "numeric"]
+    category_fields = [f for f, t in field_types.items() if t == "categorical"]
+    measure_fields = [f for f, t in field_types.items() if t == "numeric"]
 
-    primary_dimension = (
-        x_field
-        if x_field and field_types.get(x_field) == "categorical"
-        else y_field
-        if y_field and field_types.get(y_field) == "categorical"
-        else category_fields[0]
-        if category_fields
-        else fallback_fields[0]
-    )
-    primary_measure = (
-        y_field
-        if y_field and field_types.get(y_field) == "numeric"
-        else x_field
-        if x_field and field_types.get(x_field) == "numeric"
-        else measure_fields[0]
-        if measure_fields
-        else fallback_fields[0]
-    )
-    series_field = color_field if color_field and field_types.get(color_field) == "categorical" else None
+    # primary_dimension: x축 카테고리 → y축 카테고리 → 첫 번째 카테고리 필드 → fallback
+    if x_field and field_types.get(x_field) == "categorical":
+        primary_dimension = x_field
+    elif y_field and field_types.get(y_field) == "categorical":
+        primary_dimension = y_field
+    elif category_fields:
+        primary_dimension = category_fields[0]
+    else:
+        primary_dimension = fallback_fields[0]
+
+    # primary_measure: y축 수치 → x축 수치 → 첫 번째 수치 필드 → fallback
+    if y_field and field_types.get(y_field) == "numeric":
+        primary_measure = y_field
+    elif x_field and field_types.get(x_field) == "numeric":
+        primary_measure = x_field
+    elif measure_fields:
+        primary_measure = measure_fields[0]
+    else:
+        primary_measure = fallback_fields[0]
+
+    # series_field: color 채널이 카테고리 타입인 경우에만 설정
+    if color_field and field_types.get(color_field) == "categorical":
+        series_field: Optional[str] = color_field
+    else:
+        series_field = None
+
     return primary_dimension, primary_measure, series_field
 
 

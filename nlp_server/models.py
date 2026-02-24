@@ -152,3 +152,37 @@ class GenerateGrammarResponse(BaseModel):
     trace: PipelineTrace | None = None
 
     model_config = ConfigDict(extra="forbid")
+
+
+class RunPythonPlanRequest(BaseModel):
+    scenario_path: str = Field(..., min_length=1)
+    debug: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class RunPythonPlanResponse(BaseModel):
+    scenario_path: str = Field(..., min_length=1)
+    vega_lite_spec: dict = Field(default_factory=dict)
+    draw_plan: dict[str, list[dict]] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CanonicalizeOpsSpecRequest(BaseModel):
+    question: str = Field(..., min_length=1)
+    explanation: str = Field(..., min_length=1)
+    vega_lite_spec: dict = Field(..., description="Vega-Lite spec JSON")
+    data_rows: list[dict] = Field(..., description="Raw data rows (<500 lines assumed)")
+    ops_spec: dict[str, list[dict]] = Field(default_factory=dict, description="OpsSpec group map (raw dict ops)")
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CanonicalizeOpsSpecResponse(BaseModel):
+    ops_spec: dict[str, list[dict]] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+    chart_context: OpsChartContext
+
+    model_config = ConfigDict(extra="forbid")

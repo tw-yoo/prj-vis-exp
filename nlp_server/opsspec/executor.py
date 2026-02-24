@@ -11,22 +11,7 @@ from .specs.filter import FilterOp
 from .specs.range_sort_select import DetermineRangeOp, FindExtremumOp, NthOp, SortOp
 from .specs.set_op import SetOp
 from .specs.union import OperationSpec
-
-
-def _to_float(value: Any) -> Optional[float]:
-    if value is None or isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value)
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return None
-        try:
-            return float(text)
-        except Exception:
-            return None
-    return None
+from .utils import to_float
 
 
 def normalize_rows_to_datum_values(rows: List[Dict[str, Any]], chart_context: ChartContext) -> List[DatumValue]:
@@ -40,7 +25,7 @@ def normalize_rows_to_datum_values(rows: List[Dict[str, Any]], chart_context: Ch
         target = str(row.get(dim, "")).strip()
         if not target:
             continue
-        numeric = _to_float(row.get(measure))
+        numeric = to_float(row.get(measure))
         if numeric is None:
             continue
         group = None
@@ -232,7 +217,7 @@ class OpsSpecExecutor:
             if not values:
                 return None
             return values[-1].value
-        return _to_float(raw)
+        return to_float(raw)
 
     def _eval_operator(self, operator: str, left: Any, right: Any) -> bool:
         if operator == ">":

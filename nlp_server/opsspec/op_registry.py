@@ -130,6 +130,10 @@ OP_REGISTRY: Dict[str, OpContract] = {contract.op_name: contract for contract in
 LEGACY_NON_DRAW_OPS: Tuple[str, ...] = tuple(contract.op_name for contract in _OP_SEQUENCE if contract.op_name != "setOp")
 ALLOWED_OPS: Tuple[str, ...] = tuple(contract.op_name for contract in _OP_SEQUENCE)
 
+def list_contracts() -> Tuple[OpContract, ...]:
+    # Stable ordering for UI/docs: keep the declared sequence.
+    return _OP_SEQUENCE
+
 
 def get_contract(op_name: str) -> OpContract:
     if op_name not in OP_REGISTRY:
