@@ -3,10 +3,6 @@ import path from 'node:path'
 import ts from 'typescript'
 
 const root = process.cwd()
-const typedocJsonArgIndex = process.argv.findIndex((arg) => arg === '--typedoc-json')
-const typedocJsonPath = typedocJsonArgIndex >= 0 && process.argv[typedocJsonArgIndex + 1]
-  ? path.resolve(process.argv[typedocJsonArgIndex + 1])
-  : path.join(root, '.cache/typedoc-authoring.json')
 const drawFilePath = path.join(root, 'src/operation/build/authoring/draw.ts')
 const dataFilePath = path.join(root, 'src/operation/build/authoring/data.ts')
 const supportPath = path.join(root, 'src/rendering/draw/supportMatrix.ts')
@@ -40,165 +36,6 @@ const DSL_TO_DRAW_ACTION = {
   groupedToStacked: 'grouped-to-stacked',
   stackedFilterGroups: 'stacked-filter-groups',
   groupedFilterGroups: 'grouped-filter-groups',
-}
-
-function readSource(filePath) {
-  const sourceText = fs.readFileSync(filePath, 'utf8')
-  return ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
-}
-
-function findObjectLiteral(sourceFile, variableName) {
-  for (const statement of sourceFile.statements) {
-    if (!ts.isVariableStatement(statement)) continue
-    for (const declaration of statement.declarationList.declarations) {
-      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== variableName) continue
-      if (declaration.initializer && ts.isObjectLiteralExpression(declaration.initializer)) {
-        return declaration.initializer
-      }
-    }
-  }
-  return null
-}
-
-function getParamText(parameter, sourceFile) {
-  const name = parameter.name.getText(sourceFile)
-  const type = parameter.type ? parameter.type.getText(sourceFile) : 'unknown'
-  const optional = !!parameter.questionToken || !!parameter.initializer
-  return `${name}${optional ? '?' : ''}: ${type}`
-}
-
-function getMethodSignature(name, method, sourceFile) {
-  const params = method.parameters.map((param) => getParamText(param, sourceFile)).join(', ')
-  const returnType = method.type ? method.type.getText(sourceFile) : 'unknown'
-  return `\`${name}(${params}) => ${returnType}\``
-}
-
-function collectMethodRows(objectLiteral, sourceFile, prefix) {
-  const rows = []
-  for (const property of objectLiteral.properties) {
-    if (ts.isMethodDeclaration(property) && property.name) {
-      const methodName = property.name.getText(sourceFile)
-      rows.push({
-        name: `${prefix}${methodName}`,
-        signature: getMethodSignature(methodName, property, sourceFile),
-        comment: '',
-      })
-      continue
-    }
-    if (ts.isPropertyAssignment(property) && property.initializer && ts.isObjectLiteralExpression(property.initializer)) {
-      const propertyName = property.name.getText(sourceFile)
-      rows.push(...collectMethodRows(property.initializer, sourceFile, `${prefix}${propertyName}.`))
-    }
-  }
-  return rows
-}
-
-function normalizeText(parts) {
-  return (parts ?? [])
-    .map((part) => (typeof part?.text === 'string' ? part.text : ''))
-    .join('')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function formatTypedocType(type) {
-  if (!type || typeof type !== 'object') return 'unknown'
-  switch (type.type) {
-    case 'intrinsic':
-      return type.name ?? 'unknown'
-    case 'reference': {
-      const args = Array.isArray(type.typeArguments) && type.typeArguments.length > 0
-        ? `<${type.typeArguments.map(formatTypedocType).join(', ')}>`
-        : ''
-      return `${type.name ?? 'unknown'}${args}`
-    }
-    case 'array':
-      return `${formatTypedocType(type.elementType)}[]`
-    case 'union':
-      return (type.types ?? []).map(formatTypedocType).join(' | ') || 'unknown'
-    case 'intersection':
-      return (type.types ?? []).map(formatTypedocType).join(' & ') || 'unknown'
-    case 'literal':
-      return JSON.stringify(type.value)
-    case 'tuple':
-      return `[${(type.elements ?? []).map(formatTypedocType).join(', ')}]`
-    case 'reflection':
-      return 'object'
-    case 'query':
-      return `typeof ${type.queryType?.name ?? 'unknown'}`
-    default:
-      return type.name ?? 'unknown'
-  }
-}
-
-function signatureFromTypedoc(sig) {
-  const params = (sig.parameters ?? [])
-    .map((param) => {
-      const optional = param.flags?.isOptional ? '?' : ''
-      return `${param.name}${optional}: ${formatTypedocType(param.type)}`
-    })
-    .join(', ')
-  const returnType = formatTypedocType(sig.type)
-  return `\`${sig.name}(${params}) => ${returnType}\``
-}
-
-function commentFromTypedoc(sig) {
-  const summary = normalizeText(sig.comment?.summary)
-  if (!summary) return ''
-  return summary
-}
-
-function getNestedChildren(reflection) {
-  if (Array.isArray(reflection.children) && reflection.children.length > 0) return reflection.children
-  const declarationChildren = reflection.type?.declaration?.children
-  if (Array.isArray(declarationChildren) && declarationChildren.length > 0) return declarationChildren
-  return []
-}
-
-function collectRowsFromTypedoc(reflection, prefix = '') {
-  const rows = []
-  for (const child of getNestedChildren(reflection)) {
-    if (child.kindString === 'Method' && Array.isArray(child.signatures) && child.signatures.length > 0) {
-      const sig = child.signatures[0]
-      rows.push({
-        name: `${prefix}${child.name}`,
-        signature: signatureFromTypedoc(sig),
-        comment: commentFromTypedoc(sig),
-      })
-      continue
-    }
-    if (child.kindString === 'Property') {
-      rows.push(...collectRowsFromTypedoc(child, `${prefix}${child.name}.`))
-    }
-  }
-  return rows
-}
-
-function findTypedocVariable(rootNode, variableName) {
-  const stack = [rootNode]
-  while (stack.length > 0) {
-    const node = stack.pop()
-    if (!node || typeof node !== 'object') continue
-    if (node.kindString === 'Variable' && node.name === variableName) return node
-    const children = getNestedChildren(node)
-    for (const child of children) stack.push(child)
-  }
-  return null
-}
-
-function collectRowsFromTypedocJson(filePath) {
-  if (!fs.existsSync(filePath)) return null
-  const json = JSON.parse(fs.readFileSync(filePath, 'utf8'))
-  const drawNode = findTypedocVariable(json, 'draw')
-  const drawActionsNode = findTypedocVariable(json, 'drawActions')
-  const dataActionsNode = findTypedocVariable(json, 'dataActions')
-  if (!drawNode || !drawActionsNode || !dataActionsNode) return null
-  return {
-    drawHelperRows: collectRowsFromTypedoc(drawNode, 'draw.'),
-    drawActionRows: collectRowsFromTypedoc(drawActionsNode, 'ops.draw.'),
-    dataActionRows: collectRowsFromTypedoc(dataActionsNode, 'ops.data.'),
-    source: `typedoc-json:${path.relative(root, filePath)}`,
-  }
 }
 
 function parseRuntimeMatrix(sourceText) {
@@ -235,35 +72,93 @@ function toDrawActionName(actionValue) {
     .join('')
 }
 
-const drawSource = readSource(drawFilePath)
-const dataSource = readSource(dataFilePath)
-const supportSourceText = fs.readFileSync(supportPath, 'utf8')
-
-const typedocRows = collectRowsFromTypedocJson(typedocJsonPath)
-let drawHelperRows
-let drawActionRows
-let dataActionRows
-let signatureSource
-
-if (typedocRows) {
-  drawHelperRows = typedocRows.drawHelperRows
-  drawActionRows = typedocRows.drawActionRows
-  dataActionRows = typedocRows.dataActionRows
-  signatureSource = typedocRows.source
-} else {
-  const drawObject = findObjectLiteral(drawSource, 'draw')
-  const drawActionsObject = findObjectLiteral(drawSource, 'drawActions')
-  const dataActionsObject = findObjectLiteral(dataSource, 'dataActions')
-  if (!drawObject || !drawActionsObject || !dataActionsObject) {
-    throw new Error('Failed to locate draw/data authoring objects.')
+function createProgramFromTsconfig() {
+  const configPath = ts.findConfigFile(root, ts.sys.fileExists, 'tsconfig.app.json')
+  if (!configPath) throw new Error('tsconfig.app.json not found')
+  const configFile = ts.readConfigFile(configPath, ts.sys.readFile)
+  if (configFile.error) {
+    throw new Error(String(configFile.error.messageText))
   }
-  drawHelperRows = collectMethodRows(drawObject, drawSource, 'draw.')
-  drawActionRows = collectMethodRows(drawActionsObject, drawSource, 'ops.draw.')
-  dataActionRows = collectMethodRows(dataActionsObject, dataSource, 'ops.data.')
-  signatureSource = 'typescript-ast-fallback'
+  const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, path.dirname(configPath))
+  if (parsed.errors && parsed.errors.length > 0) {
+    throw new Error(String(parsed.errors[0].messageText))
+  }
+  return ts.createProgram({ rootNames: parsed.fileNames, options: parsed.options })
 }
 
+function findVariableDeclaration(sourceFile, variableName) {
+  for (const statement of sourceFile.statements) {
+    if (!ts.isVariableStatement(statement)) continue
+    for (const decl of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(decl.name)) continue
+      if (decl.name.text === variableName) return decl
+    }
+  }
+  return null
+}
+
+function collectRowsFromType(checker, type, prefix, locationFallback) {
+  const rows = []
+  const props = type.getProperties()
+  for (const prop of props) {
+    const propName = prop.getName()
+    const location = prop.valueDeclaration ?? prop.declarations?.[0] ?? locationFallback
+    const propType = checker.getTypeOfSymbolAtLocation(prop, location)
+    const callSignatures = propType.getCallSignatures()
+
+    if (callSignatures.length > 0) {
+      // Use the first overload; authoring APIs keep builder-first overload first.
+      const sigText = checker.signatureToString(callSignatures[0])
+      rows.push({
+        name: `${prefix}${propName}`,
+        signature: `\`${propName}${sigText}\``,
+        comment: '',
+      })
+      continue
+    }
+
+    const nestedProps = propType.getProperties()
+    if (nestedProps.length > 0) {
+      rows.push(...collectRowsFromType(checker, propType, `${prefix}${propName}.`, location))
+    }
+  }
+
+  rows.sort((a, b) => a.name.localeCompare(b.name))
+  return rows
+}
+
+function collectRowsFromTypeChecker() {
+  const program = createProgramFromTsconfig()
+  const checker = program.getTypeChecker()
+
+  const drawSource = program.getSourceFile(path.resolve(drawFilePath))
+  const dataSource = program.getSourceFile(path.resolve(dataFilePath))
+  if (!drawSource) throw new Error('draw.ts not found in program')
+  if (!dataSource) throw new Error('data.ts not found in program')
+
+  const drawDecl = findVariableDeclaration(drawSource, 'draw')
+  const drawActionsDecl = findVariableDeclaration(drawSource, 'drawActions')
+  const dataActionsDecl = findVariableDeclaration(dataSource, 'dataActions')
+  if (!drawDecl || !drawActionsDecl || !dataActionsDecl) {
+    throw new Error('Failed to locate draw/data authoring objects.')
+  }
+
+  const drawType = checker.getTypeAtLocation(drawDecl.name)
+  const drawActionsType = checker.getTypeAtLocation(drawActionsDecl.name)
+  const dataActionsType = checker.getTypeAtLocation(dataActionsDecl.name)
+
+  return {
+    drawHelperRows: collectRowsFromType(checker, drawType, 'draw.', drawDecl.name),
+    drawActionRows: collectRowsFromType(checker, drawActionsType, 'ops.draw.', drawActionsDecl.name),
+    dataActionRows: collectRowsFromType(checker, dataActionsType, 'ops.data.', dataActionsDecl.name),
+    source: 'typescript-typechecker',
+  }
+}
+
+const supportSourceText = fs.readFileSync(supportPath, 'utf8')
 const runtimeMatrix = parseRuntimeMatrix(supportSourceText)
+
+const { drawHelperRows, drawActionRows, dataActionRows, source: signatureSource } = collectRowsFromTypeChecker()
 
 const supportRows = drawActionRows.map((row) => {
   const dslName = row.name.replace('ops.draw.', '')
@@ -333,11 +228,11 @@ const lines = [
   "const split = draw.splitSpec.two('asia', values('KOR', 'JPN'), 'europe', values('DEU', 'FRA'))",
   '',
   'const opsGroup = [',
-  "  ops.draw.line('A', line),",
-  "  ops.draw.filter('A', draw.filterSpec.y('gte', 42)),",
-  "  ops.draw.split(undefined, split),",
-  "  ops.data.filterByComparison('>=', 100, 'Value'),",
-  "  ops.data.average('Value'),",
+  "  ops.draw.line('A', line)",
+  "  ops.draw.filter('A', draw.filterSpec.y('gte', 42))",
+  "  ops.draw.split(undefined, split)",
+  "  ops.data.filterByComparison('>=', 100, 'Value')",
+  "  ops.data.average('Value')",
   ']',
   '```',
 ]

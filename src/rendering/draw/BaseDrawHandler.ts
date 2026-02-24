@@ -878,18 +878,43 @@ export abstract class BaseDrawHandler {
       const nodes = scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).nodes()
       if (!nodes.length) return
       const svgRect = svgNode.getBoundingClientRect()
-      const viewBox = svgNode.viewBox?.baseVal
-      const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+      const viewBoxLocal = svgNode.viewBox?.baseVal
+      const scaleX = viewBoxLocal && svgRect.width > 0 ? viewBoxLocal.width / svgRect.width : 1
       const left = Math.min(...nodes.map((n) => (n.getBoundingClientRect().left - svgRect.left) * scaleX))
       const right = Math.max(...nodes.map((n) => (n.getBoundingClientRect().right - svgRect.left) * scaleX))
       let x1 = left
       const x2 = right
+      const numericMarkValues = nodes
+        .map((node) => Number((node as Element).getAttribute(DataAttributes.Value)))
+        .filter(Number.isFinite)
+      const domainMin = numericMarkValues.length ? Math.min(...numericMarkValues) : null
+      const domainMax = numericMarkValues.length ? Math.max(...numericMarkValues) : null
+
+      const resolveHorizontalY = (requested: number) => {
+        if (!Number.isFinite(requested)) return null
+        if (domainMin == null || domainMax == null) return mapY(requested)
+
+        const clamped = Math.min(domainMax, Math.max(domainMin, requested))
+        if (clamped !== requested) {
+          console.warn('[draw:line] hline-y value clamped to axis domain', {
+            requested,
+            clamped,
+            domainMin,
+            domainMax,
+            chartId: op.chartId ?? null,
+          })
+        }
+
+        const mapped = mapY(clamped)
+        if (mapped != null) return mapped
+        return clamped <= domainMin ? mapY(domainMin) : mapY(domainMax)
+      }
 
       const axisGroup = svgNode.querySelector<SVGGraphicsElement>(SvgSelectors.YAxisGroup)
       if (axisGroup) {
         const axisRect = axisGroup.getBoundingClientRect()
         if (axisRect.width > 0) {
-          const axisRight = (viewBox?.x ?? 0) + (axisRect.right - svgRect.left) * scaleX
+          const axisRight = (viewBoxLocal?.x ?? 0) + (axisRect.right - svgRect.left) * scaleX
           if (Number.isFinite(axisRight) && axisRight < x1) {
             x1 = axisRight
           }
@@ -913,10 +938,23 @@ export abstract class BaseDrawHandler {
       } else {
         const yValue = lineSpec.hline?.y
         if (yValue == null) return
-        y = mapY(Number(yValue))
+        y = resolveHorizontalY(Number(yValue))
+        if (y == null && domainMin != null && domainMax != null) {
+          y = mapY(domainMin) ?? mapY(domainMax)
+        }
       }
 
-      if (y == null) return
+      if (y == null) {
+        if (mode === DrawLineModes.HorizontalFromY) {
+          console.warn('draw:line hline-y skipped: unable to resolve y-position', {
+            requested: lineSpec.hline?.y,
+            domainMin,
+            domainMax,
+            chartId: op.chartId ?? null,
+          })
+        }
+        return
+      }
       drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1: y, x2, y2: y })
     }
   }

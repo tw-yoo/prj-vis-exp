@@ -16,8 +16,8 @@ import {
   getSimpleBarStoredData,
   getSimpleBarSplitDomain,
 } from '../../rendering/bar/simpleBarRenderer.ts'
-import { resetRuntimeResults } from './dataOps.ts'
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
+import type { RunChartOpsOptions } from './runChartOps.ts'
 
 function toWorkingDatumValues(container: HTMLElement, vlSpec: SimpleBarSpec) {
   const ctx = getPlotContext(container)
@@ -78,9 +78,12 @@ async function handleSimpleBarSplit(
   return false
 }
 
-export async function runSimpleBarOps(container: HTMLElement, vlSpec: SimpleBarSpec, opsSpec: OpsSpecInput) {
-  resetRuntimeResults()
-
+export async function runSimpleBarOps(
+  container: HTMLElement,
+  vlSpec: SimpleBarSpec,
+  opsSpec: OpsSpecInput,
+  options?: RunChartOpsOptions,
+) {
   const chartWorking = new Map<string, DatumValue[]>()
   const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
     const domain = getSimpleBarSplitDomain(container, chartId)
@@ -129,5 +132,8 @@ export async function runSimpleBarOps(container: HTMLElement, vlSpec: SimpleBarS
     runDrawPlan: async (drawPlan, handler) => {
       await runSimpleBarDrawPlan(container, drawPlan, { handler: handler as BarDrawHandler })
     },
+    onOperationCompleted: options?.onOperationCompleted,
+    runtimeScope: options?.runtimeScope ?? 'ops',
+    resetRuntime: options?.resetRuntime ?? true,
   })
 }

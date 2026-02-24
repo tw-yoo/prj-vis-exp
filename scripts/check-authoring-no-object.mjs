@@ -57,6 +57,88 @@ function inspectWithTypeScriptAst(filePath) {
     return { line: pos.line + 1, column: pos.character + 1 }
   }
 
+  const unwrapExpression = (node) => {
+    let current = node
+    // unwrap common wrappers so `({ ... } as DrawTextSpec)` is still caught
+    while (current) {
+      if (ts.isParenthesizedExpression(current)) {
+        current = current.expression
+        continue
+      }
+      if (ts.isAsExpression(current)) {
+        current = current.expression
+        continue
+      }
+      if (ts.isTypeAssertionExpression(current)) {
+        current = current.expression
+        continue
+      }
+      if (ts.isNonNullExpression(current)) {
+        current = current.expression
+        continue
+      }
+      if (typeof ts.isSatisfiesExpression === 'function' && ts.isSatisfiesExpression(current)) {
+        current = current.expression
+        continue
+      }
+      break
+    }
+    return current
+  }
+
+  const getOpsDrawMethodName = (call) => {
+    if (!ts.isCallExpression(call) || !ts.isPropertyAccessExpression(call.expression)) return null
+    const outer = call.expression
+    if (!ts.isIdentifier(outer.name)) return null
+    const inner = outer.expression
+    if (!ts.isPropertyAccessExpression(inner)) return null
+    if (!ts.isIdentifier(inner.name) || inner.name.text !== 'draw') return null
+    if (!ts.isIdentifier(inner.expression) || inner.expression.text !== 'ops') return null
+    return outer.name.text
+  }
+
+  const checkOpsDrawArgs = (node) => {
+    const method = getOpsDrawMethodName(node)
+    if (!method) return
+
+    const specArgIndexByMethod = {
+      highlight: [1],
+      dim: [1],
+      lineTrace: [1],
+      text: [1, 2],
+      line: [1],
+      rect: [1],
+      filter: [1],
+      split: [1],
+      barSegment: [2],
+      sum: [1],
+      stackedToGrouped: [1],
+      groupedToStacked: [1],
+    }
+
+    const indices = specArgIndexByMethod[method]
+    if (!indices) return
+
+    for (const index of indices) {
+      const arg = node.arguments[index]
+      if (!arg) continue
+      const unwrapped = unwrapExpression(arg)
+      if (unwrapped && ts.isObjectLiteralExpression(unwrapped)) {
+        const { line, column } = at(node)
+        violations.push(
+          createViolation(
+            filePath,
+            line,
+            column,
+            'ops.draw-object-args',
+            `ops.draw.${method}(...) must not receive object literals. Use authoring builders (draw.*Spec / draw.select.*) instead.`,
+          ),
+        )
+        return
+      }
+    }
+  }
+
   const visit = (node) => {
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
       const target = node.expression.expression
@@ -73,6 +155,10 @@ function inspectWithTypeScriptAst(filePath) {
           createViolation(filePath, line, column, 'dataOps-object-args', 'dataOps.*({ ... }) is forbidden in authoring code.'),
         )
       }
+    }
+
+    if (ts.isCallExpression(node)) {
+      checkOpsDrawArgs(node)
     }
 
     if (ts.isVariableDeclaration(node) && node.type && node.initializer && ts.isObjectLiteralExpression(node.initializer)) {
@@ -121,6 +207,43 @@ async function inspectWithTsMorph(files) {
           violations.push(
             createViolation(filePath, line, column, 'dataOps-object-args', 'dataOps.*({ ... }) is forbidden in authoring code.'),
           )
+        }
+
+        // ops.draw.* must not accept object literals for select/spec inputs.
+        if (Node.isPropertyAccessExpression(target) && Node.isIdentifier(target.getExpression()) && target.getExpression().getText() === 'ops' && target.getName() === 'draw') {
+          const method = expression.getName()
+          const specArgIndexByMethod = {
+            highlight: [1],
+            dim: [1],
+            lineTrace: [1],
+            text: [1, 2],
+            line: [1],
+            rect: [1],
+            filter: [1],
+            split: [1],
+            barSegment: [2],
+            sum: [1],
+            stackedToGrouped: [1],
+            groupedToStacked: [1],
+          }
+          const indices = specArgIndexByMethod[method]
+          if (indices) {
+            for (const index of indices) {
+              const arg = node.getArguments()[index]
+              if (arg && Node.isObjectLiteralExpression(arg)) {
+                violations.push(
+                  createViolation(
+                    filePath,
+                    line,
+                    column,
+                    'ops.draw-object-args',
+                    `ops.draw.${method}(...) must not receive object literals. Use authoring builders (draw.*Spec / draw.select.*) instead.`,
+                  ),
+                )
+                break
+              }
+            }
+          }
         }
       }
       if (Node.isVariableDeclaration(node) && node.getTypeNode() && node.getInitializer() && Node.isObjectLiteralExpression(node.getInitializer())) {

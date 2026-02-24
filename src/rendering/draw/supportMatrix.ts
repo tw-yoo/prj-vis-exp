@@ -132,7 +132,13 @@ export const RUNTIME_DRAW_SUPPORT_MATRIX: DrawSupportMatrix = {
   [DrawAction.GroupedFilterGroups]: withSupported({
     [ChartType.GROUPED_BAR]: 'supported',
   }),
-  [DrawAction.Sleep]: withSupported({}),
+  [DrawAction.Sleep]: withSupported({
+    [ChartType.SIMPLE_BAR]: 'supported',
+    [ChartType.STACKED_BAR]: 'supported',
+    [ChartType.GROUPED_BAR]: 'supported',
+    [ChartType.SIMPLE_LINE]: 'supported',
+    [ChartType.MULTI_LINE]: 'supported',
+  }),
 }
 
 export const RUNTIME_DRAW_SUPPORT_REASONS: DrawSupportReasonMatrix = {}

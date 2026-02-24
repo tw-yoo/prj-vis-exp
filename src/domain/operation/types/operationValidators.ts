@@ -54,7 +54,8 @@ export function assertFilterSpec(op: OperationSpec): OpFilterSpec {
   const hasInclude = Array.isArray(spec.include) && spec.include.length > 0
   const hasExclude = Array.isArray(spec.exclude) && spec.exclude.length > 0
   const hasOperator = Boolean(spec.operator)
-  const hasValue = spec.value !== undefined
+  // Treat null as "not provided". Ops specs pasted from UI often include null fields.
+  const hasValue = spec.value !== undefined && spec.value !== null
   if (!hasInclude && !hasExclude && !hasOperator && !hasValue) {
     throw new Error('filter requires "operator/value" or "include/exclude"')
   }

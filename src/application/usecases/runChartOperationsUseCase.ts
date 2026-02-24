@@ -6,10 +6,16 @@ import { executeDataOperation, type AutoDrawPlanContext } from '../services/exec
 import { STANDARD_DATA_OP_HANDLERS } from '../../rendering/ops/common/dataHandlers'
 import { runSleepOp } from '../../rendering/ops/common/sleepOp'
 import { isDrawOp } from '../services/operationPipeline'
-import type { DrawOp } from '../../rendering/draw/types'
+import { DrawAction, type DrawOp } from '../../rendering/draw/types'
 import type { D3Selection } from '../../rendering/common/d3Helpers'
+import { runtimeKeyFor } from '../../rendering/ops/common/runtime'
+import { resetRuntimeResults, storeRuntimeResult } from '../../operation/run/dataOps'
 
 export type ChartHandler = { run: (op: DrawOp) => void }
+export type OperationCompletedEvent = {
+  operation: OperationSpec
+  operationIndex: number
+}
 
 export type RunChartOperationsConfig<Spec> = {
   container: HTMLElement
@@ -36,6 +42,9 @@ export type RunChartOperationsConfig<Spec> = {
     result: DatumValue[],
     currentWorking: DatumValue[],
   ) => Promise<DatumValue[]> | DatumValue[]
+  onOperationCompleted?: (event: OperationCompletedEvent) => Promise<void> | void
+  runtimeScope?: string
+  resetRuntime?: boolean
 }
 
 const defaultGetSvg = (container: HTMLElement): D3Selection => d3.select(container).select('svg') as D3Selection
@@ -57,7 +66,14 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     autoDrawPlans = {},
     getOperationInput,
     handleOperationResult,
+    onOperationCompleted,
+    runtimeScope = 'ops',
+    resetRuntime = true,
   } = config
+
+  if (resetRuntime) {
+    resetRuntimeResults()
+  }
 
   const deriveOperationInput =
     getOperationInput ??
@@ -69,6 +85,10 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     (async (_: OperationSpec, result: DatumValue[]) => {
       return result
     })
+  const notifyOperationCompleted = async (operation: OperationSpec, operationIndex: number) => {
+    if (!onOperationCompleted) return
+    await onOperationCompleted({ operation, operationIndex })
+  }
 
   await render(container, spec)
   if (postRender) {
@@ -93,15 +113,22 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
 
     if (isDrawOp(operation)) {
       const drawOp = operation as DrawOp
+      if (drawOp.action === DrawAction.Sleep) {
+        await runSleepOp(drawOp)
+        continue
+      }
       if (splitHandler && (await splitHandler(container, spec, handler, drawOp))) {
         handler = createHandler(container)
+        await notifyOperationCompleted(operation, index)
         continue
       }
       if (handleDrawOp) {
         await handleDrawOp(container, handler, drawOp)
+        await notifyOperationCompleted(operation, index)
         continue
       }
       handler.run(drawOp)
+      await notifyOperationCompleted(operation, index)
       continue
     }
 
@@ -116,9 +143,13 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     }
 
     working = await commitOperationResult(operation, executed.result, working)
+    const scopedRuntimeKey = `${runtimeScope}_${index}`
+    storeRuntimeResult(runtimeKeyFor(operation, index), executed.result)
+    storeRuntimeResult(scopedRuntimeKey, executed.result)
     if (runDrawPlan && executed.drawPlan) {
       await runDrawPlan(executed.drawPlan as DrawOp[], handler)
     }
+    await notifyOperationCompleted(operation, index)
   }
 
   return working

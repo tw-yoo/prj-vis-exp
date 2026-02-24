@@ -20,12 +20,60 @@ import {
   type DrawSumSpec,
   type DrawTextSpec,
 } from '../../../rendering/draw/types'
+import type {
+  DrawFilterSpecXExclude,
+  DrawFilterSpecXInclude,
+  DrawFilterSpecY,
+  DrawLineSpecAngle,
+  DrawLineSpecConnect,
+  DrawLineSpecHorizontalFromY,
+  DrawLineSpecNormalized,
+  DrawRectSpecAxisX,
+  DrawRectSpecAxisY,
+  DrawRectSpecDataPoint,
+  DrawRectSpecNormalized,
+  DrawSegmentSpecThreshold,
+  DrawSelectKeys,
+  DrawSelectMarkKeys,
+  DrawSplitSpecOneAndRest,
+  DrawSplitSpecTwo,
+  DrawStackGroupSpecBuild,
+  DrawSumSpecValue,
+  DrawTextSpecAnchor,
+  DrawTextSpecNormalized,
+} from './drawAuthoringTypes'
+
+export type {
+  Brand,
+  DrawFilterSpecXExclude,
+  DrawFilterSpecXInclude,
+  DrawFilterSpecY,
+  DrawLineSpecAngle,
+  DrawLineSpecConnect,
+  DrawLineSpecHorizontalFromY,
+  DrawLineSpecNormalized,
+  DrawRectSpecAxisX,
+  DrawRectSpecAxisY,
+  DrawRectSpecDataPoint,
+  DrawRectSpecNormalized,
+  DrawSegmentSpecThreshold,
+  DrawSelectKeys,
+  DrawSelectMarkKeys,
+  DrawSplitSpecOneAndRest,
+  DrawSplitSpecTwo,
+  DrawStackGroupSpecBuild,
+  DrawSumSpecValue,
+  DrawTextSpecAnchor,
+  DrawTextSpecNormalized,
+} from './drawAuthoringTypes'
 
 export type LineStyleArgs = NonNullable<DrawLineSpec['style']>
 export type SegmentStyleArgs = NonNullable<DrawBarSegmentSpec['style']>
 export type RectStyleArgs = NonNullable<DrawRectSpec['style']>
 export type TextStyleArgs = NonNullable<DrawTextSpec['style']>
 export type ArrowStyleArgs = NonNullable<DrawArrowSpec['style']>
+
+/** @deprecated Prefer `DrawSelectKeys`/`DrawSelectMarkKeys` from `draw.select.*`. */
 export type SelectBuilder = DrawSelect
 export type GroupFilterMode = 'include' | 'exclude' | 'reset'
 
@@ -42,11 +90,11 @@ function buildGroupFilter(groups: Array<string | number>, mode: GroupFilterMode)
 
 export const draw = {
   select: {
-    keys(...keys: Array<string | number>): DrawSelect {
-      return { keys: [...keys] }
+    keys(...keys: Array<string | number>): DrawSelectKeys {
+      return { keys: [...keys] } as DrawSelectKeys
     },
-    markKeys(mark: DrawMark, ...keys: Array<string | number>): DrawSelect {
-      return { mark, keys: [...keys] }
+    markKeys(mark: DrawMark, ...keys: Array<string | number>): DrawSelectMarkKeys {
+      return { mark, keys: [...keys] } as DrawSelectMarkKeys
     },
   },
 
@@ -94,7 +142,7 @@ export const draw = {
       endY: number,
       style?: LineStyleArgs,
       arrow?: DrawArrowSpec,
-    ): DrawLineSpec {
+    ): DrawLineSpecNormalized {
       return {
         position: {
           start: { x: startX, y: startY },
@@ -102,28 +150,28 @@ export const draw = {
         },
         style,
         arrow,
-      }
+      } as DrawLineSpecNormalized
     },
-    horizontalFromY(y: number, style?: LineStyleArgs, arrow?: DrawArrowSpec): DrawLineSpec {
+    horizontalFromY(y: number, style?: LineStyleArgs, arrow?: DrawArrowSpec): DrawLineSpecHorizontalFromY {
       return {
         mode: DrawLineModes.HorizontalFromY,
         hline: { y },
         style,
         arrow,
-      }
+      } as DrawLineSpecHorizontalFromY
     },
     connect(
       startX: string | number,
       endX: string | number,
       style?: LineStyleArgs,
       arrow?: DrawArrowSpec,
-    ): DrawLineSpec {
+    ): DrawLineSpecConnect {
       return {
         mode: DrawLineModes.Connect,
         pair: { x: [String(startX), String(endX)] },
         style,
         arrow,
-      }
+      } as DrawLineSpecConnect
     },
     angle(
       axisX: string | number,
@@ -132,7 +180,7 @@ export const draw = {
       length: number,
       style?: LineStyleArgs,
       arrow?: DrawArrowSpec,
-    ): DrawLineSpec {
+    ): DrawLineSpecAngle {
       return {
         mode: DrawLineModes.Angle,
         axis: { x: String(axisX), y: axisY },
@@ -140,7 +188,7 @@ export const draw = {
         length,
         style,
         arrow,
-      }
+      } as DrawLineSpecAngle
     },
   },
 
@@ -151,35 +199,35 @@ export const draw = {
       width: number,
       height: number,
       style?: RectStyleArgs,
-    ): DrawRectSpec {
+    ): DrawRectSpecNormalized {
       return {
         mode: DrawRectModes.Normalized,
         position: { x: centerX, y: centerY },
         size: { width, height },
         style,
-      }
+      } as DrawRectSpecNormalized
     },
-    axisX(xLabel: string | number, style?: RectStyleArgs): DrawRectSpec {
+    axisX(xLabel: string | number, style?: RectStyleArgs): DrawRectSpecAxisX {
       return {
         mode: DrawRectModes.Axis,
         axis: { x: String(xLabel) },
         style,
-      }
+      } as DrawRectSpecAxisX
     },
-    axisY(y: number, style?: RectStyleArgs): DrawRectSpec {
+    axisY(y: number, style?: RectStyleArgs): DrawRectSpecAxisY {
       return {
         mode: DrawRectModes.Axis,
         axis: { y },
         style,
-      }
+      } as DrawRectSpecAxisY
     },
-    dataPoint(xLabel: string | number, width: number, height: number, style?: RectStyleArgs): DrawRectSpec {
+    dataPoint(xLabel: string | number, width: number, height: number, style?: RectStyleArgs): DrawRectSpecDataPoint {
       return {
         mode: DrawRectModes.DataPoint,
         point: { x: String(xLabel) },
         size: { width, height },
         style,
-      }
+      } as DrawRectSpecDataPoint
     },
   },
 
@@ -189,13 +237,13 @@ export const draw = {
       textStyle?: TextStyleArgs,
       offsetX?: number,
       offsetY?: number,
-    ): DrawTextSpec {
+    ): DrawTextSpecAnchor {
       return {
         value,
         mode: DrawTextModes.Anchor,
         offset: offsetX == null && offsetY == null ? undefined : { x: offsetX, y: offsetY },
         style: textStyle,
-      }
+      } as DrawTextSpecAnchor
     },
     normalized(
       value: string | Record<string, string>,
@@ -204,14 +252,14 @@ export const draw = {
       textStyle?: TextStyleArgs,
       offsetX?: number,
       offsetY?: number,
-    ): DrawTextSpec {
+    ): DrawTextSpecNormalized {
       return {
         value,
         mode: DrawTextModes.Normalized,
         position: { x, y },
         offset: offsetX == null && offsetY == null ? undefined : { x: offsetX, y: offsetY },
         style: textStyle,
-      }
+      } as DrawTextSpecNormalized
     },
   },
 
@@ -220,20 +268,20 @@ export const draw = {
       threshold: number,
       when: DrawComparisonToken = DrawComparisonOperators.GreaterEqual,
       style?: SegmentStyleArgs,
-    ): DrawBarSegmentSpec {
-      return { threshold, when, style }
+    ): DrawSegmentSpecThreshold {
+      return { threshold, when, style } as DrawSegmentSpecThreshold
     },
   },
 
   filterSpec: {
-    xInclude(...labels: Array<string | number>): DrawFilterSpec {
-      return { x: { include: [...labels] } }
+    xInclude(...labels: Array<string | number>): DrawFilterSpecXInclude {
+      return { x: { include: [...labels] } } as DrawFilterSpecXInclude
     },
-    xExclude(...labels: Array<string | number>): DrawFilterSpec {
-      return { x: { exclude: [...labels] } }
+    xExclude(...labels: Array<string | number>): DrawFilterSpecXExclude {
+      return { x: { exclude: [...labels] } } as DrawFilterSpecXExclude
     },
-    y(op: DrawComparisonToken, value: number): DrawFilterSpec {
-      return { y: { op, value } }
+    y(op: DrawComparisonToken, value: number): DrawFilterSpecY {
+      return { y: { op, value } } as DrawFilterSpecY
     },
   },
 
@@ -243,8 +291,8 @@ export const draw = {
       groupAKeys: Array<string | number>,
       groupBId: string,
       groupBKeys: Array<string | number>,
-      orientation: DrawSplitSpec['orientation'] = 'vertical',
-    ): DrawSplitSpec {
+      orientation: NonNullable<DrawSplitSpec['orientation']> = 'vertical',
+    ): DrawSplitSpecTwo {
       return {
         by: 'x',
         groups: {
@@ -252,14 +300,14 @@ export const draw = {
           [groupBId]: [...groupBKeys],
         },
         orientation,
-      }
+      } as DrawSplitSpecTwo
     },
     oneAndRest(
       groupAId: string,
       groupAKeys: Array<string | number>,
       restId: string,
-      orientation: DrawSplitSpec['orientation'] = 'vertical',
-    ): DrawSplitSpec {
+      orientation: NonNullable<DrawSplitSpec['orientation']> = 'vertical',
+    ): DrawSplitSpecOneAndRest {
       return {
         by: 'x',
         groups: {
@@ -267,111 +315,194 @@ export const draw = {
         },
         restTo: restId,
         orientation,
-      }
+      } as DrawSplitSpecOneAndRest
     },
   },
 
   sumSpec: {
-    value(value: number, label?: string): DrawSumSpec {
-      return { value, label }
+    value(value: number, label?: string): DrawSumSpecValue {
+      return { value, label } as DrawSumSpecValue
     },
   },
 
   stackGroupSpec: {
-    build(swapAxes?: boolean, xField?: string, colorField?: string): DrawStackGroupSpec {
-      return { swapAxes, xField, colorField }
+    build(swapAxes?: boolean, xField?: string, colorField?: string): DrawStackGroupSpecBuild {
+      return { swapAxes, xField, colorField } as DrawStackGroupSpecBuild
     },
   },
+} as const
+
+function drawHighlight(
+  chartId?: string,
+  select?: DrawSelectKeys | DrawSelectMarkKeys,
+  color?: string,
+  opacity?: number,
+): DrawOp
+/** @deprecated Accepts raw DrawSelect. Prefer `draw.select.*` builders. */
+function drawHighlight(chartId?: string, select?: DrawSelect, color?: string, opacity?: number): DrawOp
+function drawHighlight(chartId?: string, select?: DrawSelect, color?: string, opacity?: number): DrawOp {
+  return drawOps.highlight({ chartId, select, style: optionalStyle(color, opacity) })
+}
+
+function drawDim(
+  chartId?: string,
+  select?: DrawSelectKeys | DrawSelectMarkKeys,
+  color?: string,
+  opacity?: number,
+): DrawOp
+/** @deprecated Accepts raw DrawSelect. Prefer `draw.select.*` builders. */
+function drawDim(chartId?: string, select?: DrawSelect, color?: string, opacity?: number): DrawOp
+function drawDim(chartId?: string, select?: DrawSelect, color?: string, opacity?: number): DrawOp {
+  return drawOps.dim({ chartId, select, style: optionalStyle(color, opacity) })
+}
+
+function drawClear(chartId?: string): DrawOp {
+  return drawOps.clear(chartId)
+}
+
+function drawSleep(seconds: number, chartId?: string): DrawOp {
+  return drawOps.sleep({ seconds, chartId })
+}
+
+function drawLine(
+  chartId: string | undefined,
+  lineSpec: DrawLineSpecHorizontalFromY | DrawLineSpecConnect | DrawLineSpecAngle | DrawLineSpecNormalized,
+): DrawOp
+/** @deprecated Accepts raw DrawLineSpec. Prefer `draw.lineSpec.*` builders. */
+function drawLine(chartId: string | undefined, lineSpec: DrawLineSpec): DrawOp
+function drawLine(chartId: string | undefined, lineSpec: DrawLineSpec): DrawOp {
+  return drawOps.line({ chartId, line: lineSpec })
+}
+
+function drawRect(
+  chartId: string | undefined,
+  rectSpec: DrawRectSpecNormalized | DrawRectSpecAxisX | DrawRectSpecAxisY | DrawRectSpecDataPoint,
+): DrawOp
+/** @deprecated Accepts raw DrawRectSpec. Prefer `draw.rectSpec.*` builders. */
+function drawRect(chartId: string | undefined, rectSpec: DrawRectSpec): DrawOp
+function drawRect(chartId: string | undefined, rectSpec: DrawRectSpec): DrawOp {
+  return drawOps.rect({ chartId, rect: rectSpec })
+}
+
+function drawText(
+  chartId: string | undefined,
+  select: DrawSelectKeys | DrawSelectMarkKeys | undefined,
+  textSpec: DrawTextSpecAnchor | DrawTextSpecNormalized,
+): DrawOp
+/** @deprecated Accepts raw DrawSelect/DrawTextSpec. Prefer `draw.select.*` and `draw.textSpec.*` builders. */
+function drawText(chartId: string | undefined, select: DrawSelect | undefined, textSpec: DrawTextSpec): DrawOp
+function drawText(chartId: string | undefined, select: DrawSelect | undefined, textSpec: DrawTextSpec): DrawOp {
+  return drawOps.text({ chartId, select, text: textSpec })
+}
+
+function drawBarSegment(
+  chartId: string | undefined,
+  selectKeys: Array<string | number>,
+  segmentSpec: DrawSegmentSpecThreshold,
+): DrawOp
+/** @deprecated Accepts raw DrawBarSegmentSpec. Prefer `draw.segmentSpec.threshold(...)`. */
+function drawBarSegment(chartId: string | undefined, selectKeys: Array<string | number>, segmentSpec: DrawBarSegmentSpec): DrawOp
+function drawBarSegment(
+  chartId: string | undefined,
+  selectKeys: Array<string | number>,
+  segmentSpec: DrawBarSegmentSpec,
+): DrawOp {
+  return drawOps.barSegment({ chartId, selectKeys, segment: segmentSpec })
+}
+
+function drawFilter(
+  chartId: string | undefined,
+  filterSpec: DrawFilterSpecY | DrawFilterSpecXInclude | DrawFilterSpecXExclude,
+): DrawOp
+/** @deprecated Accepts raw DrawFilterSpec. Prefer `draw.filterSpec.*` builders. */
+function drawFilter(chartId: string | undefined, filterSpec: DrawFilterSpec): DrawOp
+function drawFilter(chartId: string | undefined, filterSpec: DrawFilterSpec): DrawOp {
+  return drawOps.filter({ chartId, filter: filterSpec })
+}
+
+function drawSort(
+  chartId: string | undefined,
+  by: DrawSortSpec['by'] = 'y',
+  order: DrawSortSpec['order'] = 'asc',
+): DrawOp {
+  return drawOps.sort({ chartId, sort: { by, order } })
+}
+
+function drawSplit(chartId: string | undefined, splitSpec: DrawSplitSpecTwo | DrawSplitSpecOneAndRest): DrawOp
+/** @deprecated Accepts raw DrawSplitSpec. Prefer `draw.splitSpec.*` builders. */
+function drawSplit(chartId: string | undefined, splitSpec: DrawSplitSpec): DrawOp
+function drawSplit(chartId: string | undefined, splitSpec: DrawSplitSpec): DrawOp {
+  return drawOps.split({ chartId, split: splitSpec })
+}
+
+function drawUnsplit(chartId?: string): DrawOp {
+  return drawOps.unsplit({ chartId })
+}
+
+function drawLineTrace(chartId?: string, select?: DrawSelectKeys | DrawSelectMarkKeys): DrawOp
+/** @deprecated Accepts raw DrawSelect. Prefer `draw.select.*` builders. */
+function drawLineTrace(chartId?: string, select?: DrawSelect): DrawOp
+function drawLineTrace(chartId?: string, select?: DrawSelect): DrawOp {
+  return drawOps.lineTrace({ chartId, select })
+}
+
+function drawLineToBar(chartId?: string): DrawOp {
+  return drawOps.lineToBar({ chartId })
+}
+
+function drawSum(chartId: string | undefined, sumSpec: DrawSumSpecValue): DrawOp
+/** @deprecated Accepts raw DrawSumSpec. Prefer `draw.sumSpec.value(...)`. */
+function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp
+function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp {
+  return drawOps.sum({ chartId, sum: sumSpec })
+}
+
+function drawStackedToGrouped(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpecBuild): DrawOp
+/** @deprecated Accepts raw DrawStackGroupSpec. Prefer `draw.stackGroupSpec.build(...)`. */
+function drawStackedToGrouped(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp
+function drawStackedToGrouped(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp {
+  return drawOps.stackedToGrouped({ chartId, stackGroup: stackGroupSpec ?? {} })
+}
+
+function drawGroupedToStacked(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpecBuild): DrawOp
+/** @deprecated Accepts raw DrawStackGroupSpec. Prefer `draw.stackGroupSpec.build(...)`. */
+function drawGroupedToStacked(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp
+function drawGroupedToStacked(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp {
+  return drawOps.groupedToStacked({ chartId, stackGroup: stackGroupSpec ?? {} })
+}
+
+function drawStackedFilterGroups(chartId: string | undefined, groups: Array<string | number>, mode: GroupFilterMode): DrawOp {
+  return drawOps.stackedFilterGroups({
+    chartId,
+    groupFilter: buildGroupFilter(groups, mode),
+  })
+}
+
+function drawGroupedFilterGroups(chartId: string | undefined, groups: Array<string | number>, mode: GroupFilterMode): DrawOp {
+  return drawOps.groupedFilterGroups({
+    chartId,
+    groupFilter: buildGroupFilter(groups, mode),
+  })
 }
 
 export const drawActions = {
-  highlight(chartId?: string, select?: SelectBuilder, color?: string, opacity?: number): DrawOp {
-    return drawOps.highlight({ chartId, select, style: optionalStyle(color, opacity) })
-  },
-
-  dim(chartId?: string, select?: SelectBuilder, color?: string, opacity?: number): DrawOp {
-    return drawOps.dim({ chartId, select, style: optionalStyle(color, opacity) })
-  },
-
-  clear(chartId?: string): DrawOp {
-    return drawOps.clear(chartId)
-  },
-
-  sleep(seconds: number, chartId?: string): DrawOp {
-    return drawOps.sleep({ seconds, chartId })
-  },
-
-  line(chartId: string | undefined, lineSpec: DrawLineSpec): DrawOp {
-    return drawOps.line({ chartId, line: lineSpec })
-  },
-
-  rect(chartId: string | undefined, rectSpec: DrawRectSpec): DrawOp {
-    return drawOps.rect({ chartId, rect: rectSpec })
-  },
-
-  text(chartId: string | undefined, select: SelectBuilder | undefined, textSpec: DrawTextSpec): DrawOp {
-    return drawOps.text({ chartId, select, text: textSpec })
-  },
-
-  barSegment(
-    chartId: string | undefined,
-    selectKeys: Array<string | number>,
-    segmentSpec: DrawBarSegmentSpec,
-  ): DrawOp {
-    return drawOps.barSegment({ chartId, selectKeys, segment: segmentSpec })
-  },
-
-  filter(chartId: string | undefined, filterSpec: DrawFilterSpec): DrawOp {
-    return drawOps.filter({ chartId, filter: filterSpec })
-  },
-
-  sort(
-    chartId: string | undefined,
-    by: DrawSortSpec['by'] = 'y',
-    order: DrawSortSpec['order'] = 'asc',
-  ): DrawOp {
-    return drawOps.sort({ chartId, sort: { by, order } })
-  },
-
-  split(chartId: string | undefined, splitSpec: DrawSplitSpec): DrawOp {
-    return drawOps.split({ chartId, split: splitSpec })
-  },
-
-  unsplit(chartId?: string): DrawOp {
-    return drawOps.unsplit({ chartId })
-  },
-
-  lineTrace(chartId?: string, select?: SelectBuilder): DrawOp {
-    return drawOps.lineTrace({ chartId, select })
-  },
-
-  lineToBar(chartId?: string): DrawOp {
-    return drawOps.lineToBar({ chartId })
-  },
-
-  sum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp {
-    return drawOps.sum({ chartId, sum: sumSpec })
-  },
-
-  stackedToGrouped(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp {
-    return drawOps.stackedToGrouped({ chartId, stackGroup: stackGroupSpec ?? {} })
-  },
-
-  groupedToStacked(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp {
-    return drawOps.groupedToStacked({ chartId, stackGroup: stackGroupSpec ?? {} })
-  },
-
-  stackedFilterGroups(chartId: string | undefined, groups: Array<string | number>, mode: GroupFilterMode): DrawOp {
-    return drawOps.stackedFilterGroups({
-      chartId,
-      groupFilter: buildGroupFilter(groups, mode),
-    })
-  },
-
-  groupedFilterGroups(chartId: string | undefined, groups: Array<string | number>, mode: GroupFilterMode): DrawOp {
-    return drawOps.groupedFilterGroups({
-      chartId,
-      groupFilter: buildGroupFilter(groups, mode),
-    })
-  },
-}
+  highlight: drawHighlight,
+  dim: drawDim,
+  clear: drawClear,
+  sleep: drawSleep,
+  line: drawLine,
+  rect: drawRect,
+  text: drawText,
+  barSegment: drawBarSegment,
+  filter: drawFilter,
+  sort: drawSort,
+  split: drawSplit,
+  unsplit: drawUnsplit,
+  lineTrace: drawLineTrace,
+  lineToBar: drawLineToBar,
+  sum: drawSum,
+  stackedToGrouped: drawStackedToGrouped,
+  groupedToStacked: drawGroupedToStacked,
+  stackedFilterGroups: drawStackedFilterGroups,
+  groupedFilterGroups: drawGroupedFilterGroups,
+} as const

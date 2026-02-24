@@ -5,6 +5,7 @@ export * from '../domain/operation/types/operationValidators'
 export * from '../domain/operation/opsSpec'
 export * from '../domain/chart'
 export * from '../domain/data'
+export type { ParseToOpsResult, ParseToOperationSpecCommand } from './nlp-ops'
 export type {
   FieldOptionsSource,
   FieldSchema,

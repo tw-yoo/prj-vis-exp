@@ -12,6 +12,26 @@ dist
 dist-ssr
 *.local
 
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.env
+
+# Test / Coverage
+coverage/
+htmlcov/
+playwright-report/
+test-results/
+
+# Local caches
+.cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -29,5 +49,20 @@ qodana.sarif.json
 *.txt
 
 data/expert
+data/expert_prompt
 
 .tmp-ir-demo
+.codex_tmp
+
+nlp_server/dev
+
+# nlp_server artifacts (do not commit)
+nlp_server/debug/
+nlp_server/logs/
+nlp_server/ClaimVis/
+public/generated/
+
+# nlp_server markdown (docs are generated/research notes)
+# Keep prompt templates tracked because the server loads them at runtime.
+nlp_server/**/*.md
+!nlp_server/prompts/**/*.md

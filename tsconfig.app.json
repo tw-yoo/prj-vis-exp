@@ -24,5 +24,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "web", "data/expert/**/*.ts"]
+  "include": ["src", "web", "data/expert/**/*.ts"],
+  "exclude": ["src/deprecated/**/*"]
 }

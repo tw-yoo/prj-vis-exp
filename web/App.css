@@ -41,6 +41,14 @@ body.survey-light-mode {
   gap: 12px;
 }
 
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .card-title {
   font-size: 14px;
   font-weight: 700;
@@ -77,6 +85,30 @@ textarea {
   resize: vertical;
   background: #0f172a;
   color: #e2e8f0;
+}
+
+.nl-panel textarea {
+  min-height: 120px;
+}
+
+.nl-status,
+.nl-resolved {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.nl-warning-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #fde68a;
+  font-size: 12px;
+}
+
+.nl-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #fca5a5;
 }
 
 .ops-card {
@@ -120,6 +152,48 @@ textarea {
   margin-bottom: 10px;
   font-size: 12px;
   color: #fca5a5;
+}
+
+.plan-capture {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.plan-capture-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.plan-capture-status {
+  font-size: 12px;
+  color: #93c5fd;
+}
+
+.ops-mode-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ops-mode-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #1f2937;
+}
+
+.ops-mode-btn.is-active {
+  background: #2563eb;
+}
+
+.ops-json-editor {
+  margin-bottom: 10px;
 }
 
 .plan-badge {

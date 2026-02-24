@@ -23,6 +23,7 @@ import {
 } from './barOpsCommon.ts'
 import { normalizeComparisonCondition } from '../../rendering/draw/utils/comparison.ts'
 import { DrawComparisonOperators, type DrawFilterSpec, type DrawSortSpec } from '../../rendering/draw/types.ts'
+import type { RunChartOpsOptions } from './runChartOps.ts'
 
 function toGroupedDatumValues(raw: JsonValue[], spec: GroupedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
@@ -123,6 +124,7 @@ export async function runGroupedBarOps(
   container: HTMLElement,
   vlSpec: GroupedSpec,
   opsSpec: OpsSpecInput,
+  options?: RunChartOpsOptions,
 ) {
   const chartWorking = new Map<string, DatumValue[]>()
   const filterRawByChartDomain = (chartId: string, rawRows: JsonValue[]) => {
@@ -231,5 +233,8 @@ export async function runGroupedBarOps(
     runDrawPlan: async (drawPlan, handler) => {
       await runGroupedBarDrawPlan(container, drawPlan, { handler: handler as GroupedBarDrawHandler })
     },
+    onOperationCompleted: options?.onOperationCompleted,
+    runtimeScope: options?.runtimeScope ?? 'ops',
+    resetRuntime: options?.resetRuntime ?? true,
   })
 }

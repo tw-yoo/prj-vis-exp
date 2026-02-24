@@ -16,6 +16,7 @@ import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runMultipleLineDrawPlan } from '../../rendering/ops/executor/runMultipleLineDrawPlan.ts'
 import { MULTI_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/multiple/autoDrawPlanRegistry.ts'
+import type { RunChartOpsOptions } from './runChartOps.ts'
 
 function toDatumValues(raw: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(raw, { xField, yField })
@@ -60,6 +61,7 @@ export async function runMultipleLineOps(
   container: HTMLElement,
   vlSpec: MultiLineSpec,
   opsSpec: OpsSpecInput,
+  options?: RunChartOpsOptions,
 ) {
   const chartWorking = new Map<string, DatumValue[]>()
   const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
@@ -114,5 +116,8 @@ export async function runMultipleLineOps(
     runDrawPlan: async (drawPlan, handler) => {
       await runMultipleLineDrawPlan(container, drawPlan, { handler: handler as MultiLineDrawHandler })
     },
+    onOperationCompleted: options?.onOperationCompleted,
+    runtimeScope: options?.runtimeScope ?? 'ops',
+    resetRuntime: options?.resetRuntime ?? true,
   })
 }

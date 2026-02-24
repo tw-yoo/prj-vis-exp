@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
+// import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
+import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/bar/stacked/10x2rgiqw97wdspi.json?raw'
 // ChartQA/data/vlSpec/bar/simple/0o12tngadmjjux2n.json
 // ../ChartQA/data/vlSpec/bar/grouped/0gacqohbzj07n25s.json?raw
 import lineSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
@@ -71,6 +72,8 @@ import * as d3 from 'd3'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
+import { createSceneCaptureWriter } from '../scenes/sceneCapture'
+import { fetchLatestPythonDrawPlan } from '../services/pythonDrawPlan'
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
@@ -78,6 +81,7 @@ const vlSpecPlaceholder = barSimpleSpecRaw
 const EXPORT_SCALE = 3
 const renderChartDispatch = browserEngine.renderChart
 const runChartOps = browserEngine.runChartOps
+const parseToOperationSpec = browserEngine.parseToOperationSpec
 const OPS_PLAN_MODULES = import.meta.glob('../../../data/expert/**/*.ts')
 const DRAW_TOOL_OPTIONS: Array<{ value: DrawInteractionTool; label: string }> = [
   { value: DrawInteractionTools.None, label: 'None' },
@@ -111,6 +115,67 @@ const cloneOperationForRecord = (operation: OperationSpec): OperationSpec => {
   } catch {
     return JSON.parse(JSON.stringify(operation)) as OperationSpec
   }
+}
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value)
+
+const isOperationSpecValue = (value: unknown): value is OperationSpec =>
+  isPlainObject(value) && typeof value.op === 'string'
+
+const isOperationSpecArray = (value: unknown): value is OperationSpec[] =>
+  Array.isArray(value) && value.every((entry) => isOperationSpecValue(entry))
+
+const orderedGroupNames = (groupNames: string[]) => {
+  const unique = Array.from(new Set(groupNames))
+  const out: string[] = []
+  if (unique.includes('ops')) out.push('ops')
+  unique
+    .filter((name) => /^ops\d+$/.test(name))
+    .sort((a, b) => Number(a.slice(3)) - Number(b.slice(3)))
+    .forEach((name) => {
+      if (!out.includes(name)) out.push(name)
+    })
+  unique
+    .filter((name) => name !== 'ops' && name !== 'last' && !/^ops\d+$/.test(name))
+    .sort((a, b) => a.localeCompare(b))
+    .forEach((name) => {
+      if (!out.includes(name)) out.push(name)
+    })
+  if (unique.includes('last')) out.push('last')
+  unique.forEach((name) => {
+    if (!out.includes(name)) out.push(name)
+  })
+  return out
+}
+
+const normalizeOpsGroupsForWorkbench = (opsSpec: unknown): Array<{ name: string; ops: OperationSpec[] }> => {
+  if (!opsSpec) return []
+  if (isOperationSpecArray(opsSpec)) return [{ name: 'ops', ops: opsSpec }]
+  if (isOperationSpecValue(opsSpec)) return [{ name: 'ops', ops: [opsSpec] }]
+  if (!isPlainObject(opsSpec)) return []
+
+  const source = opsSpec
+  const groups: Record<string, OperationSpec[]> = {}
+  if (isOperationSpecArray(source.ops)) {
+    groups.ops = source.ops
+  }
+
+  Object.entries(source).forEach(([key, value]) => {
+    if (key === 'ops') return
+    if (isOperationSpecArray(value)) {
+      groups[key] = value
+    }
+  })
+
+  if (!Object.keys(groups).length && isOperationSpecValue(source)) {
+    groups.ops = [source]
+  }
+
+  return orderedGroupNames(Object.keys(groups)).map((name) => ({
+    name,
+    ops: groups[name] ?? [],
+  }))
 }
 
 const withInteractionMeta = (operation: OperationSpec): OperationSpec => ({
@@ -151,6 +216,18 @@ function shouldUseGenericDraw(op: DrawOp) {
     return mode === DrawTextModes.Normalized || (!!op.text?.position && !op.select)
   }
   return false
+}
+
+const resolveNextChartTypeFromDrawOps = (current: ChartTypeValue | null, operations: OperationSpec[]): ChartTypeValue | null => {
+  let next = current
+  operations.forEach((operation) => {
+    if (operation.op !== OperationOp.Draw) return
+    const action = (operation as DrawOp).action
+    if (action === DrawAction.GroupedToStacked) next = ChartType.STACKED_BAR
+    else if (action === DrawAction.StackedToGrouped) next = ChartType.GROUPED_BAR
+    else if (action === DrawAction.LineToBar) next = ChartType.SIMPLE_BAR
+  })
+  return next
 }
 
 const canvasToBlob = (canvas: HTMLCanvasElement, type = 'image/png'): Promise<Blob> =>
@@ -265,13 +342,31 @@ const triggerDownload = (blob: Blob, filename: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 2000)
 }
 
+const toPlanStem = (value: string) => {
+  const trimmed = value.trim().split('?')[0]
+  const fileName = trimmed.split('/').filter((token) => token.length > 0).pop() ?? ''
+  const stem = fileName.replace(/\.ts$/i, '').replace(/\.tsx$/i, '')
+  return stem.length > 0 ? stem : 'plan'
+}
+
 function ChartWorkbenchPage() {
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
   const [builderGroups, setBuilderGroups] = useState<OperationSpec[][]>([])
   const [opsGroups, setOpsGroups] = useState<OperationSpec[][]>([])
   const [currentOpsIndex, setCurrentOpsIndex] = useState(-1)
   const [opsRunning, setOpsRunning] = useState(false)
+  const [nlInput, setNlInput] = useState('')
+  const [nlLoading, setNlLoading] = useState(false)
+  const [nlError, setNlError] = useState<string | null>(null)
+  const [nlWarnings, setNlWarnings] = useState<string[]>([])
+  const [nlResolvedText, setNlResolvedText] = useState<string | null>(null)
+  const [nlStatus, setNlStatus] = useState<string | null>(null)
+  const [nlImportCommand, setNlImportCommand] = useState<{ id: string; jsonText: string } | null>(null)
+  const [pythonDrawLoading, setPythonDrawLoading] = useState(false)
+  const [pythonDrawStatus, setPythonDrawStatus] = useState<string | null>(null)
+  const [pythonDrawError, setPythonDrawError] = useState<string | null>(null)
   const chartRef = useRef<HTMLDivElement | null>(null)
+  const nlImportSequenceRef = useRef(0)
   const currentSpecRef = useRef<VegaLiteSpec | null>(null)
   const [chartType, setChartType] = useState<ChartTypeValue | null>(null)
   const [opsErrors, setOpsErrors] = useState<Record<string, string>>({})
@@ -283,6 +378,15 @@ function ChartWorkbenchPage() {
   const [planGroups, setPlanGroups] = useState<OperationSpec[][] | null>(null)
   const [planError, setPlanError] = useState<string | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
+  const [opsInputMode, setOpsInputMode] = useState<'json' | 'builder'>('json')
+  const [opsJsonText, setOpsJsonText] = useState('{\n  "ops": []\n}')
+  const [opsJsonError, setOpsJsonError] = useState<string | null>(null)
+  const [opsJsonGroupNames, setOpsJsonGroupNames] = useState<string[]>([])
+  const [loadedPlanResolvedKey, setLoadedPlanResolvedKey] = useState<string | null>(null)
+  const [loadedPlanStem, setLoadedPlanStem] = useState<string | null>(null)
+  const [captureScenesEnabled, setCaptureScenesEnabled] = useState(false)
+  const [captureScenesStatus, setCaptureScenesStatus] = useState<string | null>(null)
+  const [captureScenesRunning, setCaptureScenesRunning] = useState(false)
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
   const [recordQueue, setRecordQueue] = useState<Array<{ id: string; op: OperationSpec }>>([])
   const recordSequenceRef = useRef(0)
@@ -370,6 +474,7 @@ function ChartWorkbenchPage() {
   const isBarChartType =
     chartType === ChartType.SIMPLE_BAR || chartType === ChartType.STACKED_BAR || chartType === ChartType.GROUPED_BAR
   const isGroupedOrStacked = chartType === ChartType.STACKED_BAR || chartType === ChartType.GROUPED_BAR
+  const hasBuilderValidationErrors = !planGroups && opsInputMode === 'builder' && Object.keys(opsErrors).length > 0
   const isToolSupported = useCallback(
     (tool: DrawInteractionTool) => {
       if (!chartType) return false
@@ -515,6 +620,16 @@ function ChartWorkbenchPage() {
     if (!result.accepted) {
       console.info(`[Record] Skipped: ${result.reason ?? 'unknown reason'}`)
     }
+  }, [])
+
+  const handleNlpImportHandled = useCallback((id: string, result: { accepted: boolean; reason?: string }) => {
+    setNlImportCommand((current) => (current?.id === id ? null : current))
+    if (!result.accepted) {
+      setNlError(result.reason ?? 'Failed to apply converted opsSpec to OpsBuilder.')
+      setNlStatus(null)
+      return
+    }
+    setNlStatus('Converted opsSpec was applied to OpsBuilder.')
   }, [])
 
   const applyDrawOp = useCallback(
@@ -936,6 +1051,30 @@ function ChartWorkbenchPage() {
     return lines.slice(start, end).join('\n')
   }
 
+  const parseOpsJsonInput = useCallback(() => {
+    const sanitized = sanitizeJsonInput(opsJsonText).trim()
+    if (!sanitized) {
+      throw new Error('Ops JSON is empty.')
+    }
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(sanitized)
+    } catch (error) {
+      throw new Error(`Invalid Ops JSON: ${error instanceof Error ? error.message : 'JSON parse failed.'}`)
+    }
+
+    const normalized = normalizeOpsGroupsForWorkbench(parsed)
+    if (!normalized.length) {
+      throw new Error('Ops JSON must include at least one executable group (e.g., "ops", "firstStep").')
+    }
+
+    return {
+      groups: normalized.map((group) => group.ops),
+      groupNames: normalized.map((group) => group.name),
+    }
+  }, [opsJsonText])
+
   const renderChart = useCallback(
     async (specString: string): Promise<ChartTypeValue | null> => {
       try {
@@ -988,6 +1127,9 @@ function ChartWorkbenchPage() {
   const handleLoadPlan = async () => {
     if (!chartRef.current) return
     setPlanError(null)
+    setCaptureScenesStatus(null)
+    setLoadedPlanResolvedKey(null)
+    setLoadedPlanStem(null)
     const resolvedKey = resolvePlanModuleKey(planPath)
     if (!resolvedKey) {
       setPlanError('Plan file not found.')
@@ -1017,6 +1159,8 @@ function ChartWorkbenchPage() {
         return
       }
       setPlanGroups(groups)
+      setLoadedPlanResolvedKey(resolvedKey)
+      setLoadedPlanStem(toPlanStem(resolvedKey))
       setCurrentOpsIndex(-1)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load plan.'
@@ -1029,6 +1173,98 @@ function ChartWorkbenchPage() {
   const handleClearPlan = () => {
     setPlanGroups(null)
     setPlanError(null)
+    setLoadedPlanResolvedKey(null)
+    setLoadedPlanStem(null)
+    setCaptureScenesEnabled(false)
+    setCaptureScenesStatus(null)
+  }
+
+  const handleConvertToOpsSpec = async () => {
+    const text = nlInput.trim()
+    if (!text) {
+      setNlError('Natural language input is empty.')
+      setNlStatus(null)
+      return
+    }
+
+    setNlLoading(true)
+    setNlError(null)
+    setNlStatus(null)
+    setNlWarnings([])
+
+    try {
+      const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
+      const sanitizedSpec = sanitizeJsonInput(specString)
+      const parsedSpec = JSON.parse(sanitizedSpec) as VegaLiteSpec
+      const result = await parseToOperationSpec({
+        text,
+        spec: parsedSpec,
+        container: chartRef.current,
+      })
+      const nextOpsSpec = result.opsSpec
+      if (!nextOpsSpec || !Array.isArray(nextOpsSpec.ops)) {
+        throw new Error('Converted opsSpec is invalid: "ops" group is missing.')
+      }
+      const jsonText = JSON.stringify(nextOpsSpec, null, 2)
+      const groupNames = Object.keys(nextOpsSpec)
+
+      handleClearPlan()
+      setOpsInputMode('json')
+      setOpsJsonText(jsonText)
+      setOpsJsonError(null)
+      setOpsJsonGroupNames(groupNames)
+      setNlResolvedText(result.resolvedText || text)
+      setNlWarnings(result.warnings ?? [])
+      setNlStatus(`Converted ${groupNames.length} group(s): ${groupNames.join(', ')}`)
+
+      const importId = `nl-import-${Date.now()}-${nlImportSequenceRef.current++}`
+      setNlImportCommand({ id: importId, jsonText })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to convert natural language to opsSpec.'
+      setNlError(message)
+      setNlResolvedText(null)
+      setNlWarnings([])
+      setNlImportCommand(null)
+    } finally {
+      setNlLoading(false)
+    }
+  }
+
+  const handleApplyPythonDrawPlan = async () => {
+    if (!chartRef.current) {
+      setPythonDrawError('Chart container is not ready.')
+      setPythonDrawStatus(null)
+      return
+    }
+    const spec = currentSpecRef.current
+    if (!spec) {
+      setPythonDrawError('Render chart first before applying Python draw plan.')
+      setPythonDrawStatus(null)
+      return
+    }
+
+    setPythonDrawLoading(true)
+    setPythonDrawError(null)
+    setPythonDrawStatus(null)
+    try {
+      const loaded = await fetchLatestPythonDrawPlan()
+      await runChartOps(chartRef.current, spec, { ops: loaded.ops })
+
+      const nextType = resolveNextChartTypeFromDrawOps(chartType, loaded.ops)
+      if (nextType !== chartType) {
+        setChartType(nextType)
+      }
+      setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec }))
+      setPythonDrawStatus(
+        `Applied ${loaded.ops.length} draw op(s) from ${loaded.path} (${loaded.groups.length} group(s)).`,
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to apply Python draw plan.'
+      setPythonDrawError(message)
+      setPythonDrawStatus(null)
+    } finally {
+      setPythonDrawLoading(false)
+    }
   }
 
   const handleRunOperations = () => {
@@ -1037,11 +1273,32 @@ function ChartWorkbenchPage() {
       const svg = d3.select(chartRef.current).select('svg')
       if (!svg.empty()) clearAnnotations(svg)
     }
+    if (!planGroups && opsInputMode === 'json') {
+      try {
+        const parsed = parseOpsJsonInput()
+        setOpsJsonError(null)
+        setOpsJsonGroupNames(parsed.groupNames)
+        setOpsGroups(parsed.groups)
+        setCurrentOpsIndex(-1)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to parse Ops JSON.'
+        setOpsJsonError(message)
+        setOpsGroups([])
+        setCurrentOpsIndex(-1)
+        alert(message)
+      }
+      return
+    }
     setPendingRunOps(true)
     setOpsValidationTick((value) => value + 1)
   }
 
-  const runOpsGroup = async (groupIndex: number) => {
+  const runOpsGroup = async (
+    groupIndex: number,
+    options?: {
+      onOperationCompleted?: (event: { operation: OperationSpec; operationIndex: number }) => Promise<void> | void
+    },
+  ) => {
     if (!chartRef.current) return
     const opsArray = opsGroups[groupIndex] ?? []
     if (!opsArray.length) return
@@ -1058,14 +1315,16 @@ function ChartWorkbenchPage() {
       return
     }
 
-    if (Object.keys(opsErrors).length > 0) {
+    if (!planGroups && opsInputMode === 'builder' && Object.keys(opsErrors).length > 0) {
       alert('Fix operation errors before running.')
       return
     }
 
     try {
       setOpsRunning(true)
-      await runChartOps(chartRef.current, parsedVlSpec, { ops: opsArray })
+      await runChartOps(chartRef.current, parsedVlSpec, { ops: opsArray }, {
+        onOperationCompleted: options?.onOperationCompleted,
+      })
     } catch (error) {
       console.error('Run Operations failed', error)
       alert('Failed to run operations. Check the console for details.')
@@ -1075,6 +1334,43 @@ function ChartWorkbenchPage() {
   }
 
   const handleStartOps = async () => {
+    if (captureScenesEnabled && planGroups) {
+      if (!chartRef.current) {
+        alert('Chart container is not ready.')
+        return
+      }
+      const stem = loadedPlanStem ?? toPlanStem(loadedPlanResolvedKey ?? planPath)
+      let sceneIndex = 0
+      const writer = createSceneCaptureWriter(triggerDownload)
+      setCaptureScenesRunning(true)
+      setCaptureScenesStatus('Preparing scene capture...')
+
+      try {
+        await writer.start(stem)
+        for (let groupIndex = 0; groupIndex < opsGroups.length; groupIndex += 1) {
+          await runOpsGroup(groupIndex, {
+            onOperationCompleted: async ({ operation }) => {
+              if (!chartRef.current) return
+              sceneIndex += 1
+              const blob = await captureChartAsBlob(chartRef.current, EXPORT_SCALE)
+              await writer.write(sceneIndex, operation, blob)
+              setCaptureScenesStatus(`Captured ${sceneIndex} scene(s)...`)
+            },
+          })
+          setCurrentOpsIndex(groupIndex)
+        }
+        const finished = await writer.finish()
+        setCaptureScenesStatus(`Saved ${sceneIndex} scene(s) to ${finished.label}`)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to capture scenes.'
+        setCaptureScenesStatus(`Scene capture failed: ${message}`)
+        alert(`Scene capture failed: ${message}`)
+      } finally {
+        setCaptureScenesRunning(false)
+      }
+      return
+    }
+
     await runOpsGroup(0)
     setCurrentOpsIndex(0)
   }
@@ -1222,7 +1518,7 @@ function ChartWorkbenchPage() {
 
   useEffect(() => {
     if (!pendingRunOps || lastValidatedTick !== opsValidationTick) return
-    if (!planGroups && Object.keys(opsErrors).length > 0) {
+    if (!planGroups && opsInputMode === 'builder' && Object.keys(opsErrors).length > 0) {
       alert('Fix operation errors before running.')
       setPendingRunOps(false)
       return
@@ -1238,7 +1534,7 @@ function ChartWorkbenchPage() {
     setOpsGroups(nextGroups)
     setCurrentOpsIndex(-1)
     setPendingRunOps(false)
-  }, [pendingRunOps, opsErrors, builderGroups, planGroups, lastValidatedTick, opsValidationTick])
+  }, [pendingRunOps, opsErrors, builderGroups, planGroups, lastValidatedTick, opsValidationTick, opsInputMode])
 
   return (
     <div className="app-shell">
@@ -1264,6 +1560,73 @@ function ChartWorkbenchPage() {
             value={vlSpec}
             onChange={(event) => setVlSpec(event.target.value)}
           />
+        </section>
+
+        <section className="card ops-card nl-panel" data-testid="nl-panel">
+          <div className="card-header">
+            <label className="card-title" htmlFor="nl-input">
+              Natural Language to OperationSpec
+            </label>
+            <div className="card-actions">
+              <button
+                type="button"
+                className="pill-btn"
+                onClick={() => void handleConvertToOpsSpec()}
+                disabled={nlLoading || opsRunning}
+                data-testid="nl-convert-button"
+              >
+                {nlLoading ? 'Converting…' : 'Convert to opsSpec'}
+              </button>
+              <button
+                type="button"
+                className="pill-btn"
+                onClick={() => void handleApplyPythonDrawPlan()}
+                disabled={pythonDrawLoading || nlLoading || opsRunning}
+                data-testid="python-draw-apply-button"
+              >
+                {pythonDrawLoading ? 'Applying Draw…' : 'Apply Python Draw Plan'}
+              </button>
+            </div>
+          </div>
+          <textarea
+            id="nl-input"
+            data-testid="nl-input"
+            placeholder="e.g. filter month in [1,2,3], sum count, compare with rain series"
+            value={nlInput}
+            onChange={(event) => setNlInput(event.target.value)}
+          />
+          {nlStatus ? (
+            <div className="nl-status" data-testid="nl-status">
+              {nlStatus}
+            </div>
+          ) : null}
+          {nlResolvedText ? (
+            <div className="nl-resolved" data-testid="nl-resolved-text">
+              Resolved text: {nlResolvedText}
+            </div>
+          ) : null}
+          {nlWarnings.length > 0 ? (
+            <ul className="nl-warning-list" data-testid="nl-warning-list">
+              {nlWarnings.map((warning, index) => (
+                <li key={`${warning}-${index}`}>{warning}</li>
+              ))}
+            </ul>
+          ) : null}
+          {nlError ? (
+            <div className="nl-error" data-testid="nl-error">
+              {nlError}
+            </div>
+          ) : null}
+          {pythonDrawStatus ? (
+            <div className="nl-status" data-testid="python-draw-status">
+              {pythonDrawStatus}
+            </div>
+          ) : null}
+          {pythonDrawError ? (
+            <div className="nl-error" data-testid="python-draw-error">
+              {pythonDrawError}
+            </div>
+          ) : null}
         </section>
 
         <section className="card ops-card">
@@ -1295,21 +1658,73 @@ function ChartWorkbenchPage() {
               Clear
             </button>
           </div>
+          <div className="plan-capture">
+            <label className="plan-capture-label" htmlFor="capture-scenes-toggle">
+              <input
+                id="capture-scenes-toggle"
+                type="checkbox"
+                checked={captureScenesEnabled}
+                onChange={(event) => setCaptureScenesEnabled(event.target.checked)}
+                disabled={!planGroups || captureScenesRunning || opsRunning}
+              />
+              <span>Capture scenes while running plan</span>
+            </label>
+            {captureScenesStatus ? <div className="plan-capture-status">{captureScenesStatus}</div> : null}
+          </div>
           {planError ? <div className="plan-error">{planError}</div> : null}
-          <OpsBuilder
-            chartType={chartType}
-            onExportChange={handleOpsExportChange}
-            optionSources={optionSources}
-            validationTick={opsValidationTick}
-            recordCommand={recordQueue[0] ?? null}
-            onRecordHandled={handleRecordHandled}
-          />
+          <div className="ops-mode-toggle">
+            <button
+              type="button"
+              className={`pill-btn ops-mode-btn ${opsInputMode === 'json' ? 'is-active' : ''}`}
+              onClick={() => setOpsInputMode('json')}
+            >
+              JSON Ops (Default)
+            </button>
+            <button
+              type="button"
+              className={`pill-btn ops-mode-btn ${opsInputMode === 'builder' ? 'is-active' : ''}`}
+              onClick={() => setOpsInputMode('builder')}
+            >
+              Visual Builder
+            </button>
+          </div>
+          {opsInputMode === 'json' ? (
+            <div className="ops-json-editor">
+              <label className="plan-label" htmlFor="ops-spec">
+                OpsSpec JSON
+              </label>
+              <textarea
+                id="ops-spec"
+                data-testid="ops-json-input"
+                value={opsJsonText}
+                onChange={(event) => {
+                  setOpsJsonText(event.target.value)
+                  setOpsJsonError(null)
+                }}
+              />
+              {opsJsonGroupNames.length > 0 ? (
+                <div className="nl-status">Detected groups: {opsJsonGroupNames.join(', ')}</div>
+              ) : null}
+              {opsJsonError ? <div className="plan-error">{opsJsonError}</div> : null}
+            </div>
+          ) : (
+            <OpsBuilder
+              chartType={chartType}
+              onExportChange={handleOpsExportChange}
+              optionSources={optionSources}
+              validationTick={opsValidationTick}
+              recordCommand={recordQueue[0] ?? null}
+              onRecordHandled={handleRecordHandled}
+              importCommand={nlImportCommand}
+              onImportHandled={handleNlpImportHandled}
+            />
+          )}
           <div className="ops-runbar">
             <button
               type="button"
               className="pill-btn"
               onClick={handleRunOperations}
-              disabled={opsRunning || (!planGroups && Object.keys(opsErrors).length > 0)}
+              disabled={captureScenesRunning || opsRunning || hasBuilderValidationErrors}
             >
               Run Operations
             </button>
@@ -1325,7 +1740,7 @@ function ChartWorkbenchPage() {
                   type="button"
                   className="pill-btn"
                   onClick={handleStartOps}
-                  disabled={opsRunning || (!planGroups && Object.keys(opsErrors).length > 0)}
+                  disabled={captureScenesRunning || opsRunning || hasBuilderValidationErrors}
                 >
                   Start
                 </button>
@@ -1785,7 +2200,7 @@ function ChartWorkbenchPage() {
                   type="button"
                   className="pill-btn"
                   onClick={handlePrevOps}
-                  disabled={opsRunning || Object.keys(opsErrors).length > 0}
+                  disabled={opsRunning || hasBuilderValidationErrors}
                   style={{ marginLeft: 8 }}
                 >
                   Prev
@@ -1796,7 +2211,7 @@ function ChartWorkbenchPage() {
                   type="button"
                   className="pill-btn"
                   onClick={handleNextOps}
-                  disabled={opsRunning || Object.keys(opsErrors).length > 0}
+                  disabled={opsRunning || hasBuilderValidationErrors}
                   style={{ marginLeft: 8 }}
                 >
                   Next

@@ -16,6 +16,7 @@ import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runSimpleLineDrawPlan } from '../../rendering/ops/executor/runSimpleLineDrawPlan.ts'
 import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/simple/autoDrawPlanRegistry.ts'
+import type { RunChartOpsOptions } from './runChartOps.ts'
 
 function toDatumValues(rawData: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(rawData, { xField, yField })
@@ -173,7 +174,12 @@ async function handleSimpleLineSplit(container: HTMLElement, spec: LineSpec, dra
   return false
 }
 
-export async function runSimpleLineOps(container: HTMLElement, vlSpec: LineSpec, opsSpec: OpsSpecInput) {
+export async function runSimpleLineOps(
+  container: HTMLElement,
+  vlSpec: LineSpec,
+  opsSpec: OpsSpecInput,
+  options?: RunChartOpsOptions,
+) {
   const chartWorking = new Map<string, DatumValue[]>()
   const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
     const domain = getSimpleLineSplitDomain(container, chartId)
@@ -231,5 +237,8 @@ export async function runSimpleLineOps(container: HTMLElement, vlSpec: LineSpec,
     runDrawPlan: async (drawPlan, handler) => {
       await runSimpleLineDrawPlan(container, drawPlan, { handler: handler as SimpleLineDrawHandler })
     },
+    onOperationCompleted: options?.onOperationCompleted,
+    runtimeScope: options?.runtimeScope ?? 'ops',
+    resetRuntime: options?.resetRuntime ?? true,
   })
 }

@@ -21,6 +21,7 @@ import {
   handleGroupFilter,
   shouldAggregateWhenMultipleGroups,
 } from './barOpsCommon.ts'
+import type { RunChartOpsOptions } from './runChartOps.ts'
 
 function toStackedDatumValues(raw: JsonValue[], spec: StackedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
@@ -58,6 +59,7 @@ export async function runStackedBarOps(
   container: HTMLElement,
   vlSpec: StackedSpec,
   opsSpec: OpsSpecInput,
+  options?: RunChartOpsOptions,
 ) {
   const chartWorking = new Map<string, DatumValue[]>()
   const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
@@ -133,5 +135,8 @@ export async function runStackedBarOps(
     runDrawPlan: async (drawPlan, handler) => {
       await runStackedBarDrawPlan(container, drawPlan, { handler: handler as StackedBarDrawHandler })
     },
+    onOperationCompleted: options?.onOperationCompleted,
+    runtimeScope: options?.runtimeScope ?? 'ops',
+    resetRuntime: options?.resetRuntime ?? true,
   })
 }

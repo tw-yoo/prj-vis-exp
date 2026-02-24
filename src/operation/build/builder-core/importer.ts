@@ -236,13 +236,17 @@ function normalizeGroupsFromJson(parsed: JsonValue): Array<{ name: string; ops: 
   }
 
   if (isPlainObject(parsed)) {
+    let foundGroups = false
     if (isOpsArray(parsed.ops)) {
       groups.push({ name: 'ops', ops: parsed.ops })
-      return groups
+      foundGroups = true
     }
     Object.entries(parsed).forEach(([key, value]) => {
+      if (key === 'ops') return
       if (isOpsArray(value)) groups.push({ name: key, ops: value })
+      if (isOpsArray(value)) foundGroups = true
     })
+    if (foundGroups) return groups
     if (!groups.length && typeof parsed.op === 'string') {
       groups.push({ name: 'ops', ops: [parsed] })
     }

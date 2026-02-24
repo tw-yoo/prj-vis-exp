@@ -27,6 +27,8 @@ type OpsBuilderProps = {
   validationTick?: number
   recordCommand?: { id: string; op: OperationSpec } | null
   onRecordHandled?: (id: string, result: { accepted: boolean; reason?: string }) => void
+  importCommand?: { id: string; jsonText: string } | null
+  onImportHandled?: (id: string, result: { accepted: boolean; reason?: string }) => void
 }
 
 const defaultState = (): OpsBuilderState => ({
@@ -320,6 +322,8 @@ export default function OpsBuilder({
   validationTick,
   recordCommand,
   onRecordHandled,
+  importCommand,
+  onImportHandled,
 }: OpsBuilderProps) {
   const undo = useUndoState<OpsBuilderState>(defaultState(), { debounceMs: 300 })
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
@@ -331,6 +335,7 @@ export default function OpsBuilder({
   const [searchQuery, setSearchQuery] = useState('')
   const chartTypeRef = useRef<ChartTypeValue | null>(null)
   const lastRecordIdRef = useRef<string | null>(null)
+  const lastImportIdRef = useRef<string | null>(null)
   const resolvedOptionSources = optionSources ?? emptyOptionSources
 
   const state = undo.present
@@ -603,17 +608,41 @@ export default function OpsBuilder({
     handleFieldChange(blockId, path, nextValue, 'immediate')
   }
 
-  const handleImport = () => {
-    try {
-      const sanitized = sanitizeJsonInput(importText).trim()
-      if (!sanitized) return
+  const applyImportJsonText = useCallback(
+    (jsonText: string) => {
+      const sanitized = sanitizeJsonInput(jsonText).trim()
+      if (!sanitized) {
+        throw new Error('Import JSON is empty.')
+      }
       const nextState = importOpsBuilderStateFromJsonText(sanitized, chartType)
       applyImportedState(nextState)
+    },
+    [applyImportedState, chartType],
+  )
+
+  const handleImport = () => {
+    try {
+      applyImportJsonText(importText)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid JSON'
       setImportError(message)
     }
   }
+
+  useEffect(() => {
+    if (!importCommand?.id) return
+    if (lastImportIdRef.current === importCommand.id) return
+    lastImportIdRef.current = importCommand.id
+
+    try {
+      applyImportJsonText(importCommand.jsonText)
+      onImportHandled?.(importCommand.id, { accepted: true })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Invalid JSON'
+      setImportError(reason)
+      onImportHandled?.(importCommand.id, { accepted: false, reason })
+    }
+  }, [importCommand, applyImportJsonText, onImportHandled])
 
   const handleCopyJson = async () => {
     try {
