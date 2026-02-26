@@ -1,0 +1,3 @@
+[submodule "nlp_server"]
+	path = nlp_server
+	url = https://github.com/tw-yoo/prj-vis-exp-pipeline.git
