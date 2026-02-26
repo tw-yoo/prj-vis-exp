@@ -1,8 +1,0 @@
-{
-  "stage": "specify_retry_exhausted",
-  "errors": [
-    "ops[0] semantic error: filter on series_field \"Type\" is forbidden; restrict series via op.group=\"<series value>\" instead."
-  ],
-  "attempts": 3,
-  "cross_module_retry_used": true
-}
