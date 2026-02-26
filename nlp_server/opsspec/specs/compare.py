@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from ..types import JsonValue
+from ..core.types import JsonValue
 from .base import BaseOpFields
 
 

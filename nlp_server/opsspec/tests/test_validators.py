@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from opsspec.models import ChartContext
+from opsspec.core.models import ChartContext
 from opsspec.specs.aggregate import AverageOp
 from opsspec.specs.filter import FilterOp
-from opsspec.validators import validate_operation
+from opsspec.validation.validators import validate_operation
 
 
 class ValidatorsTest(unittest.TestCase):

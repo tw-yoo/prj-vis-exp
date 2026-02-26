@@ -1,0 +1,65 @@
+{
+  "plan_tree": {
+    "nodes": [
+      {
+        "nodeId": "n1",
+        "op": "diff",
+        "group": "ops",
+        "params": {
+          "field": "@primary_measure",
+          "targetA": "ref:n2",
+          "targetB": "ref:n3"
+        },
+        "inputs": [
+          "n2",
+          "n3"
+        ],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n2",
+        "op": "retrieveValue",
+        "group": "ops",
+        "params": {
+          "field": "@primary_measure",
+          "group": "Lending",
+          "year": "2011"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n3",
+        "op": "retrieveValue",
+        "group": "ops",
+        "params": {
+          "field": "@primary_measure",
+          "group": "Investment",
+          "year": "2011"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n4",
+        "op": "findExtremum",
+        "group": "ops2",
+        "params": {
+          "field": "@primary_measure",
+          "which": "min"
+        },
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      }
+    ],
+    "warnings": []
+  },
+  "warnings": [],
+  "goal_type": "COMPARE_SCALARS",
+  "attempt": 3,
+  "validation_feedback_in": [
+    "Question asks for difference/gap -> require a \"diff\" node."
+  ]
+}

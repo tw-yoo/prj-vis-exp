@@ -1,0 +1,86 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "average",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1
+        },
+        "field": "Value",
+        "group": "Investment"
+      },
+      {
+        "op": "average",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [],
+          "sentenceIndex": 1
+        },
+        "field": "Value",
+        "group": "Lending"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Type",
+      "Value"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Type"
+    ],
+    "measure_fields": [
+      "Value"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Value",
+    "series_field": "Type",
+    "categorical_values": {
+      "Year": [
+        "2010"
+      ],
+      "Type": [
+        "Investment",
+        "Lending"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Type": "categorical",
+      "Value": "numeric"
+    },
+    "numeric_stats": {
+      "Value": {
+        "min": 0.1,
+        "max": 0.2,
+        "mean": 0.15000000000000002
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Value",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [
+    "decompose attempt 1/3 failed with 6 validation errors",
+    "draw plan generation failed: [Errno 1] Operation not permitted: '/Users/taewon_1/Desktop/vis-exp/explainable_chart_qa/prj-vis-exp/prj-vis-exp/public/generated/draw_plans/t_decompose_retry_1.json'"
+  ]
+}

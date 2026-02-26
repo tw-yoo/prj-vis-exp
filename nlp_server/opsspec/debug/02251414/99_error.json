@@ -1,0 +1,8 @@
+{
+  "stage": "decompose_retry_exhausted",
+  "errors": [
+    "nodes[0].inputs references unknown or forward nodeId \"n2\".",
+    "nodes[0].inputs references unknown or forward nodeId \"n3\"."
+  ],
+  "attempts": 3
+}

@@ -1,8 +1,8 @@
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from opsspec.models import ChartContext as OpsChartContext, PipelineTrace
+from opsspec.core.models import ChartContext as OpsChartContext, PipelineTrace
 from opsspec.specs.union import OperationSpec
 
 
@@ -184,5 +184,47 @@ class CanonicalizeOpsSpecResponse(BaseModel):
     ops_spec: dict[str, list[dict]] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
     chart_context: OpsChartContext
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class GenerateAnswerRequest(BaseModel):
+    question: str = Field(..., min_length=1)
+    vega_lite_spec_path: str = Field(..., min_length=1, description="Path to a Vega-Lite spec JSON file")
+    data_csv_path: str = Field(..., min_length=1, description="Path to a CSV file containing chart data")
+    llm: Literal["chatgpt", "gemini"] = Field(
+        "chatgpt",
+        description="LLM backend to use for the answer. Optional; defaults to chatgpt.",
+    )
+    debug: bool = False
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class GenerateAnswerResponse(BaseModel):
+    plan: list[str] = Field(default_factory=list)
+    answer: str
+    explanation: str
+    warnings: list[str] = Field(default_factory=list)
+    request_id: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class RunModuleTraceRequest(BaseModel):
+    question: str = Field(..., min_length=1)
+    explanation: str = Field(..., min_length=1)
+    vega_lite_spec_path: str = Field(..., min_length=1)
+    data_csv_path: str = Field(..., min_length=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class RunModuleTraceResponse(BaseModel):
+    plan_tree: dict = Field(default_factory=dict)
+    grounded_plan_tree: dict = Field(default_factory=dict)
+    ops_spec: dict = Field(default_factory=dict)
+    trace: dict = Field(default_factory=dict)
+    chart_context: dict = Field(default_factory=dict)
 
     model_config = ConfigDict(extra="forbid")

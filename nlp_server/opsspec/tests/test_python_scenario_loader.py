@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from opsspec.python_scenario_loader import PythonScenarioLoadError, load_python_scenario_request
+from opsspec.runtime.python_scenario_loader import PythonScenarioLoadError, load_python_scenario_request
 
 
 def _scenario_payload_literal() -> str:
@@ -32,8 +32,8 @@ class PythonScenarioLoaderTest(unittest.TestCase):
             )
 
             with (
-                patch("opsspec.python_scenario_loader._repo_root", return_value=repo_root),
-                patch("opsspec.python_scenario_loader._allowed_root", return_value=repo_root / "data" / "expert"),
+                patch("opsspec.runtime.python_scenario_loader._repo_root", return_value=repo_root),
+                patch("opsspec.runtime.python_scenario_loader._allowed_root", return_value=repo_root / "data" / "expert"),
             ):
                 request, normalized = load_python_scenario_request("data/expert/e1/sample.py")
 
@@ -53,8 +53,8 @@ class PythonScenarioLoaderTest(unittest.TestCase):
             )
 
             with (
-                patch("opsspec.python_scenario_loader._repo_root", return_value=repo_root),
-                patch("opsspec.python_scenario_loader._allowed_root", return_value=repo_root / "data" / "expert"),
+                patch("opsspec.runtime.python_scenario_loader._repo_root", return_value=repo_root),
+                patch("opsspec.runtime.python_scenario_loader._allowed_root", return_value=repo_root / "data" / "expert"),
             ):
                 request, normalized = load_python_scenario_request(str(scenario_path))
 
@@ -68,8 +68,8 @@ class PythonScenarioLoaderTest(unittest.TestCase):
             outside_file.write_text("REQUEST = {}", encoding="utf-8")
 
             with (
-                patch("opsspec.python_scenario_loader._repo_root", return_value=repo_root),
-                patch("opsspec.python_scenario_loader._allowed_root", return_value=repo_root / "data" / "expert"),
+                patch("opsspec.runtime.python_scenario_loader._repo_root", return_value=repo_root),
+                patch("opsspec.runtime.python_scenario_loader._allowed_root", return_value=repo_root / "data" / "expert"),
             ):
                 with self.assertRaises(PythonScenarioLoadError):
                     load_python_scenario_request(str(outside_file))
@@ -83,8 +83,8 @@ class PythonScenarioLoaderTest(unittest.TestCase):
             scenario_path.write_text("x = 1\n", encoding="utf-8")
 
             with (
-                patch("opsspec.python_scenario_loader._repo_root", return_value=repo_root),
-                patch("opsspec.python_scenario_loader._allowed_root", return_value=repo_root / "data" / "expert"),
+                patch("opsspec.runtime.python_scenario_loader._repo_root", return_value=repo_root),
+                patch("opsspec.runtime.python_scenario_loader._allowed_root", return_value=repo_root / "data" / "expert"),
             ):
                 with self.assertRaises(PythonScenarioLoadError):
                     load_python_scenario_request("data/expert/invalid.py")

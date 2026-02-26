@@ -68,3 +68,7 @@ nlp_server/**/*.md
 !nlp_server/prompts/**/*.md
 
 .claude/
+
+nlp_server/test.py
+nlp_server/test.csv
+*.ipynb

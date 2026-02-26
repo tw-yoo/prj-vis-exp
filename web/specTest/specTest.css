@@ -1,11 +1,12 @@
 .spec-test-shell {
   display: flex;
   justify-content: center;
-  padding: 16px;
+  padding: 8px;
 }
 
 .spec-test-card {
-  width: min(1400px, 100%);
+  /* Wider on large displays (TEMP tuned for specTest). */
+  width: min(4800px, 100%);
 }
 
 .spec-test-controls {
@@ -135,14 +136,132 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
 }
 
-.spec-test-split {
+.spec-test-inputs--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.spec-test-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.spec-test-row {
   display: grid;
-  grid-template-columns: 360px 1fr 360px;
   gap: 12px;
   align-items: start;
+}
+
+.spec-test-row--top {
+  grid-template-columns: 1fr 640px;
+}
+
+.spec-test-row--mid {
+  grid-template-columns: 1fr 560px;
+}
+
+.spec-test-pane--inputs .spec-test-pane-body {
+  padding-bottom: 6px;
+}
+
+.spec-test-pane--chart .spec-test-chart-host {
+  min-height: 360px;
+}
+
+.spec-test-pane--lanes .spec-test-pane-body.lanes {
+  max-height: 720px;
+}
+
+.spec-test-pane--inspector .spec-test-pane-body.inspector {
+  max-height: 720px;
+  overflow: auto;
+}
+
+.spec-test-graph-pane {
+  margin-top: 12px;
+}
+
+.spec-test-graph {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.02);
+  overflow: auto;
+  max-height: 520px;
+}
+
+.spec-test-graph-canvas {
+  position: relative;
+}
+
+.spec-test-graph-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.spec-test-graph-node {
+  position: absolute;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: white;
+  cursor: pointer;
+  padding: 8px 10px;
+  text-align: left;
+  color: #111;
+}
+
+.spec-test-graph-node:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.spec-test-graph-node.is-selected {
+  border-color: #111827;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.15);
+}
+
+.spec-test-graph-node-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.spec-test-graph-node-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.spec-test-graph-node-op {
+  font-weight: 600;
+}
+
+.spec-test-graph-node-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(17, 24, 39, 0.7);
+}
+
+.spec-test-graph-node-view {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(17, 24, 39, 0.72);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spec-test-graph-node-sentence {
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(17, 24, 39, 0.76);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spec-test-pane {
@@ -167,6 +286,85 @@
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(17, 24, 39, 0.03);
   color: #111;
+}
+
+.spec-test-pane-header--with-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.inspector-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inspector-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.inspector-tab {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: white;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.inspector-tab.is-active {
+  border-color: #111827;
+  background: rgba(17, 24, 39, 0.04);
+  font-weight: 700;
+}
+
+.inspector-dirty {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(220, 38, 38, 0.08);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  color: #7f1d1d;
+}
+
+.inspector-clean {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #065f46;
+}
+
+.relations-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.relation-block {
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: rgba(17, 24, 39, 0.02);
+}
+
+.relation-title {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.relation-body {
+  font-size: 12px;
+  word-break: break-word;
 }
 
 .spec-test-pane-body {
@@ -222,6 +420,12 @@
   font-size: 12px;
   opacity: 1;
   color: #111;
+}
+
+.lane-metrics {
+  margin-left: 8px;
+  font-weight: 500;
+  color: rgba(17, 24, 39, 0.72);
 }
 
 .lane-sentence {
@@ -288,6 +492,13 @@
   font-size: 12px;
   opacity: 1;
   color: #111;
+}
+
+.node-view {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(17, 24, 39, 0.78);
+  word-break: break-word;
 }
 
 .inspector-empty {

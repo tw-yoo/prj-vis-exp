@@ -8,6 +8,8 @@ type UnknownRecord = Record<string, unknown>
 
 export type ParseToOperationSpecCommand = {
   text: string
+  question?: string
+  explanation?: string
   spec: VegaLiteSpec
   container?: HTMLElement | null
   endpoint?: string
@@ -29,7 +31,7 @@ type GenerateGrammarRequest = {
   debug: boolean
 }
 
-type GenerateGrammarResponse = {
+type GenerateGrammarResponse = Record<string, unknown> & {
   ops1?: unknown
   resolvedText?: unknown
   resolved_text?: unknown
@@ -117,7 +119,7 @@ function normalizeWarnings(value: unknown): string[] {
 
 function normalizeGroupMap(raw: unknown): OpsSpecGroupMap {
   if (!raw || typeof raw !== 'object') {
-    throw new Error('NLP server response is invalid: "ops1" must be an object.')
+    throw new Error('NLP server response is invalid: response must be an opsSpec groups object.')
   }
   const groups = normalizeOpsGroups(raw as OpsSpecGroupMap)
   if (!groups.length) {
@@ -136,14 +138,16 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
   const endpoint = (command.endpoint ?? resolveDefaultEndpoint()).replace(/\/+$/, '')
   const fetcher = command.fetcher ?? fetch.bind(globalThis)
   const text = command.text.trim()
+  const question = (command.question ?? '').trim()
+  const explanation = (command.explanation ?? '').trim()
   if (!text) {
     return { resolvedText: '', opsSpec: { ops: [] }, warnings: ['Input text is empty.'] }
   }
 
   const dataRows = await loadDataRows(command.spec, fetcher)
   const payload: GenerateGrammarRequest = {
-    question: text,
-    explanation: text,
+    question: question || text,
+    explanation: explanation || text,
     vega_lite_spec: command.spec,
     data_rows: dataRows,
     debug: Boolean(command.debug),
@@ -160,7 +164,10 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
   }
 
   const body = (await response.json()) as GenerateGrammarResponse
-  const opsSpec = normalizeGroupMap(body.ops1)
+  // Backward-compatible: older servers wrap the group map under "ops1".
+  const maybeWrapped = asRecord(body.ops1)
+  const groupSource = maybeWrapped ?? body
+  const opsSpec = normalizeGroupMap(groupSource)
   const resolvedTextRaw = typeof body.resolvedText === 'string' ? body.resolvedText : body.resolved_text
 
   return {
@@ -169,4 +176,3 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
     warnings: normalizeWarnings(body.warnings),
   }
 }
-

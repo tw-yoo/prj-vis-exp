@@ -1,0 +1,61 @@
+{
+  "grounded_plan_tree": {
+    "nodes": [
+      {
+        "nodeId": "n1",
+        "op": "retrieveValue",
+        "group": "ops",
+        "params": {
+          "field": "Value in billion US dollars",
+          "target": "Lending"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n2",
+        "op": "retrieveValue",
+        "group": "ops",
+        "params": {
+          "field": "Value in billion US dollars",
+          "target": "Investment"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n3",
+        "op": "diff",
+        "group": "ops2",
+        "params": {
+          "field": "Value in billion US dollars",
+          "targetA": "ref:n1",
+          "targetB": "ref:n2"
+        },
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 2
+      },
+      {
+        "nodeId": "n4",
+        "op": "findExtremum",
+        "group": "ops3",
+        "params": {
+          "field": "Value in billion US dollars",
+          "which": "min"
+        },
+        "inputs": [
+          "n3"
+        ],
+        "sentenceIndex": 3
+      }
+    ],
+    "warnings": []
+  },
+  "warnings": [],
+  "llm_called": false,
+  "attempt": 1,
+  "validation_feedback_in": []
+}

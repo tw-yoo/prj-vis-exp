@@ -1,0 +1,32 @@
+digraph OpsSpecTree {
+  graph [rankdir=LR, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="white", fontname="Helvetica"];
+  edge [color="#666666"];
+  subgraph "cluster_ops" {
+    label="ops";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f0fe";
+    "n1" [label="n1 average (ops) field=Revenue_Million_Euros group=Broadcasting"];
+    "n2" [label="n2 average (ops) field=Revenue_Million_Euros group=Commercial"];
+  }
+  subgraph "cluster_ops2" {
+    label="ops2";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n3" [label="n3 filter (ops2) field=Revenue_Million_Euros group=Broadcasting"];
+    "n4" [label="n4 filter (ops2) field=Revenue_Million_Euros group=Commercial"];
+  }
+  subgraph "cluster_ops3" {
+    label="ops3";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n5" [label="n5 setOp (ops3) fn=intersection"];
+  }
+  "n1" -> "n3";
+  "n2" -> "n4";
+  "n3" -> "n5";
+  "n4" -> "n5";
+}

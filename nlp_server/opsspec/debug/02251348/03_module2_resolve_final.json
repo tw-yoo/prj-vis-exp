@@ -1,0 +1,76 @@
+{
+  "grounded_plan_tree": {
+    "nodes": [
+      {
+        "nodeId": "n1",
+        "op": "average",
+        "group": "ops",
+        "params": {
+          "field": "Revenue_Million_Euros",
+          "group": "Commercial"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n2",
+        "op": "average",
+        "group": "ops",
+        "params": {
+          "field": "Revenue_Million_Euros",
+          "group": "Broadcasting"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n3",
+        "op": "filter",
+        "group": "ops2",
+        "params": {
+          "field": "Revenue_Million_Euros",
+          "operator": ">",
+          "value": "ref:n1",
+          "group": "Commercial"
+        },
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      {
+        "nodeId": "n4",
+        "op": "filter",
+        "group": "ops2",
+        "params": {
+          "field": "Revenue_Million_Euros",
+          "operator": ">",
+          "value": "ref:n2",
+          "group": "Broadcasting"
+        },
+        "inputs": [
+          "n2"
+        ],
+        "sentenceIndex": 2
+      },
+      {
+        "nodeId": "n5",
+        "op": "setOp",
+        "group": "ops3",
+        "params": {
+          "fn": "intersection"
+        },
+        "inputs": [
+          "n3",
+          "n4"
+        ],
+        "sentenceIndex": 3
+      }
+    ],
+    "warnings": []
+  },
+  "warnings": [],
+  "llm_called": false,
+  "attempt": 1,
+  "validation_feedback_in": []
+}

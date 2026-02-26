@@ -1,0 +1,20 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "average",
+        "field": "Revenue_Million_Euros",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1
+        }
+      }
+    ]
+  },
+  "warnings": [],
+  "attempt": 2,
+  "validation_feedback_in": [
+    "ops[0] semantic error: Unknown field \"not_a_field\". Must be one of chart_context.fields."
+  ]
+}

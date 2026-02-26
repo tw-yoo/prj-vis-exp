@@ -1,0 +1,40 @@
+{
+  "plan_tree": {
+    "nodes": [
+      {
+        "nodeId": "n1",
+        "op": "average",
+        "group": "ops",
+        "params": {
+          "field": "@primary_measure",
+          "group": "Lending"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n2",
+        "op": "average",
+        "group": "ops",
+        "params": {
+          "field": "@primary_measure",
+          "group": "Investment"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    ],
+    "warnings": []
+  },
+  "warnings": [],
+  "goal_type": "UNKNOWN",
+  "attempt": 2,
+  "validation_feedback_in": [
+    "Series restriction cannot be expressed as a filter on series_field.",
+    "- nodes[0]: op=\"filter\" with field=\"@series_field\" is forbidden.",
+    "Instead, restrict series via params.group on the compute/filter nodes.",
+    "Example:",
+    "  { \"op\": \"average\", \"params\": { \"field\": \"@primary_measure\", \"group\": \"<series value>\" } }",
+    "  { \"op\": \"filter\",  \"params\": { \"field\": \"@primary_measure\", \"operator\": \">\", \"value\": \"ref:n1\", \"group\": \"<series value>\" } }"
+  ]
+}

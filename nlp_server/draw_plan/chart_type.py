@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Literal
 
-from opsspec.models import ChartContext
+from opsspec.core.models import ChartContext
 
 ChartKind = Literal["simple_bar", "grouped_bar", "stacked_bar", "simple_line", "multi_line", "unknown"]
 

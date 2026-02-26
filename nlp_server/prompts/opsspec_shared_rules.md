@@ -28,3 +28,10 @@ Shared rules (apply to ALL modules):
 - Sentence 1 -> group "ops"
 - Sentence k (k>=2) -> group "ops{k}" (examples: "ops2", "ops3", "ops10")
 - Do NOT use a "last" group.
+
+7) Series restriction (CRITICAL):
+- Do NOT restrict series values via a filter on the series field.
+  - Forbidden (PlanTree / GroundedPlanTree): { "op": "filter", "params": { "field": "@series_field", "include": ["A","B"] } }
+  - Forbidden (OpsSpec): { "op": "filter", "field": "<series_field>", "include": ["A","B"] }
+- Instead, restrict series via params.group / op.group:
+  - Example: { "op": "average", "params": { "field": "@primary_measure", "group": "A" } }

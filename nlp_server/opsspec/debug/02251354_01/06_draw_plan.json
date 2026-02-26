@@ -1,0 +1,273 @@
+{
+  "draw_ops_spec": {
+    "ops": [
+      {
+        "op": "draw",
+        "action": "clear",
+        "meta": {
+          "source": "python-draw-plan",
+          "inputs": []
+        }
+      },
+      {
+        "op": "draw",
+        "action": "stacked-filter-groups",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n1",
+          "sentenceIndex": 1,
+          "inputs": []
+        },
+        "groupFilter": {
+          "groups": [
+            "Broadcasting"
+          ]
+        }
+      },
+      {
+        "op": "draw",
+        "action": "line",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n1",
+          "sentenceIndex": 1,
+          "inputs": []
+        },
+        "line": {
+          "mode": "horizontal-from-y",
+          "hline": {
+            "y": 211.95454545454547
+          },
+          "style": {
+            "stroke": "#ef4444",
+            "strokeWidth": 2.0,
+            "opacity": 1.0
+          }
+        }
+      },
+      {
+        "op": "draw",
+        "action": "stacked-filter-groups",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n1",
+          "sentenceIndex": 1,
+          "inputs": []
+        },
+        "groupFilter": {
+          "reset": true
+        }
+      },
+      {
+        "op": "draw",
+        "action": "stacked-filter-groups",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n2",
+          "sentenceIndex": 1,
+          "inputs": []
+        },
+        "groupFilter": {
+          "groups": [
+            "Commercial"
+          ]
+        }
+      },
+      {
+        "op": "draw",
+        "action": "line",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n2",
+          "sentenceIndex": 1,
+          "inputs": []
+        },
+        "line": {
+          "mode": "horizontal-from-y",
+          "hline": {
+            "y": 257.8181818181818
+          },
+          "style": {
+            "stroke": "#ef4444",
+            "strokeWidth": 2.0,
+            "opacity": 1.0
+          }
+        }
+      },
+      {
+        "op": "draw",
+        "action": "stacked-filter-groups",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n2",
+          "sentenceIndex": 1,
+          "inputs": []
+        },
+        "groupFilter": {
+          "reset": true
+        }
+      }
+    ],
+    "ops2": [
+      {
+        "op": "draw",
+        "action": "clear",
+        "meta": {
+          "source": "python-draw-plan",
+          "inputs": []
+        }
+      },
+      {
+        "op": "draw",
+        "action": "stacked-filter-groups",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n3",
+          "sentenceIndex": 2,
+          "inputs": [
+            "n1"
+          ]
+        },
+        "groupFilter": {
+          "groups": [
+            "Broadcasting"
+          ]
+        }
+      },
+      {
+        "op": "draw",
+        "action": "highlight",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n3",
+          "sentenceIndex": 2,
+          "inputs": [
+            "n1"
+          ]
+        },
+        "select": {
+          "keys": [
+            "2015/16",
+            "2016/17",
+            "2017/18",
+            "2018/19",
+            "2019/20"
+          ]
+        },
+        "style": {
+          "color": "#ef4444",
+          "opacity": 1.0
+        }
+      },
+      {
+        "op": "draw",
+        "action": "stacked-filter-groups",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n3",
+          "sentenceIndex": 2,
+          "inputs": [
+            "n1"
+          ]
+        },
+        "groupFilter": {
+          "reset": true
+        }
+      },
+      {
+        "op": "draw",
+        "action": "stacked-filter-groups",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n4",
+          "sentenceIndex": 2,
+          "inputs": [
+            "n2"
+          ]
+        },
+        "groupFilter": {
+          "groups": [
+            "Commercial"
+          ]
+        }
+      },
+      {
+        "op": "draw",
+        "action": "highlight",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n4",
+          "sentenceIndex": 2,
+          "inputs": [
+            "n2"
+          ]
+        },
+        "select": {
+          "keys": [
+            "2015/16",
+            "2016/17",
+            "2017/18",
+            "2018/19",
+            "2019/20"
+          ]
+        },
+        "style": {
+          "color": "#ef4444",
+          "opacity": 1.0
+        }
+      },
+      {
+        "op": "draw",
+        "action": "stacked-filter-groups",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n4",
+          "sentenceIndex": 2,
+          "inputs": [
+            "n2"
+          ]
+        },
+        "groupFilter": {
+          "reset": true
+        }
+      }
+    ],
+    "ops3": [
+      {
+        "op": "draw",
+        "action": "clear",
+        "meta": {
+          "source": "python-draw-plan",
+          "inputs": []
+        }
+      },
+      {
+        "op": "draw",
+        "action": "highlight",
+        "meta": {
+          "source": "python-draw-plan",
+          "nodeId": "n5",
+          "sentenceIndex": 3,
+          "inputs": [
+            "n3",
+            "n4"
+          ]
+        },
+        "select": {
+          "keys": [
+            "2015/16",
+            "2016/17",
+            "2017/18",
+            "2018/19",
+            "2019/20"
+          ]
+        },
+        "style": {
+          "color": "#ef4444",
+          "opacity": 1.0
+        }
+      }
+    ]
+  },
+  "path": "/Users/taewon_1/Desktop/vis-exp/explainable_chart_qa/prj-vis-exp/prj-vis-exp/public/generated/draw_plans/latest.json"
+}

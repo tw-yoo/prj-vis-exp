@@ -1,0 +1,69 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Type",
+      "Value"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Type"
+    ],
+    "measure_fields": [
+      "Value"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Value",
+    "series_field": "Type",
+    "categorical_values": {
+      "Year": [
+        "2010"
+      ],
+      "Type": [
+        "Investment",
+        "Lending"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Type": "categorical",
+      "Value": "numeric"
+    },
+    "numeric_stats": {
+      "Value": {
+        "min": 0.1,
+        "max": 0.2,
+        "mean": 0.15000000000000002
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Value",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2010",
+      "Type": "Lending",
+      "Value": 0.1
+    },
+    {
+      "Year": "2010",
+      "Type": "Investment",
+      "Value": 0.2
+    }
+  ]
+}

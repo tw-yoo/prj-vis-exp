@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from opsspec.executor import OpsSpecExecutor
-from opsspec.models import ChartContext
+from opsspec.runtime.executor import OpsSpecExecutor
+from opsspec.core.models import ChartContext
 from opsspec.specs.base import OpsMeta
 from opsspec.specs.filter import FilterOp
 from opsspec.specs.set_op import SetOp

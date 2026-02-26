@@ -7,15 +7,12 @@ test('NL 입력을 opsSpec으로 변환해 OpsBuilder에 반영한다', async ({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        ops1: {
-          ops: [
-            { op: 'filter', field: 'country', include: ['USA'] },
-            { op: 'sum', field: 'rating' },
-          ],
-          ops2: [{ op: 'sum', field: 'rating' }],
-          ops3: [{ op: 'diff', targetA: 'ops_1', targetB: 'ops2_0' }],
-        },
-        warnings: ['Ambiguous target resolved with chart defaults.'],
+        ops: [
+          { op: 'filter', field: 'country', include: ['USA'] },
+          { op: 'sum', field: 'rating' },
+        ],
+        ops2: [{ op: 'sum', field: 'rating' }],
+        ops3: [{ op: 'diff', targetA: 'ops_1', targetB: 'ops2_0' }],
       }),
     })
   })
@@ -29,7 +26,6 @@ test('NL 입력을 opsSpec으로 변환해 OpsBuilder에 반영한다', async ({
 
   await expect(page.getByTestId('nl-status')).toContainText('Converted opsSpec was applied to OpsBuilder.')
   await expect(page.getByTestId('nl-resolved-text')).toContainText('sum rating for usa and compare')
-  await expect(page.getByTestId('nl-warning-list')).toContainText('Ambiguous target resolved with chart defaults.')
 
   await expect(page.locator('.ops-group input[value="ops"]')).toBeVisible()
   await expect(page.locator('.ops-group input[value="ops2"]')).toBeVisible()

@@ -91,6 +91,19 @@ textarea {
   min-height: 120px;
 }
 
+.nl-question {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  background: #0f172a;
+  color: #e2e8f0;
+  margin-bottom: 10px;
+}
+
 .nl-status,
 .nl-resolved {
   margin-top: 8px;

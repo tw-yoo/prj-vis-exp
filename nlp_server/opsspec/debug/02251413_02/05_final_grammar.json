@@ -1,0 +1,126 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "retrieveValue",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1
+        },
+        "field": "Value in billion US dollars",
+        "target": "Investment"
+      },
+      {
+        "op": "retrieveValue",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [],
+          "sentenceIndex": 1
+        },
+        "field": "Value in billion US dollars",
+        "target": "Lending"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "diff",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [
+            "n1",
+            "n2"
+          ],
+          "sentenceIndex": 2
+        },
+        "field": "Value in billion US dollars",
+        "targetA": "ref:n2",
+        "targetB": "ref:n1"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "findExtremum",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 3
+        },
+        "field": "Value in billion US dollars",
+        "which": "min"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Type",
+      "Value in billion US dollars"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Type"
+    ],
+    "measure_fields": [
+      "Value in billion US dollars"
+    ],
+    "primary_dimension": "Type",
+    "primary_measure": "Value in billion US dollars",
+    "series_field": "Type",
+    "categorical_values": {
+      "Year": [
+        "2011",
+        "2012",
+        "2013",
+        "2014"
+      ],
+      "Type": [
+        "Donation",
+        "Investment",
+        "Lending"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Type": "categorical",
+      "Value in billion US dollars": "numeric"
+    },
+    "numeric_stats": {
+      "Value in billion US dollars": {
+        "min": 0.11,
+        "max": 11.1,
+        "mean": 1.9358333333333333
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Value in billion US dollars",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Type",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [
+    "decompose attempt 1/3 failed with 1 validation errors",
+    "decompose attempt 2/3 failed with 4 validation errors"
+  ]
+}

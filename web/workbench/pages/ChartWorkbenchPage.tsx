@@ -356,6 +356,7 @@ function ChartWorkbenchPage() {
   const [opsGroups, setOpsGroups] = useState<OperationSpec[][]>([])
   const [currentOpsIndex, setCurrentOpsIndex] = useState(-1)
   const [opsRunning, setOpsRunning] = useState(false)
+  const [nlQuestion, setNlQuestion] = useState('')
   const [nlInput, setNlInput] = useState('')
   const [nlLoading, setNlLoading] = useState(false)
   const [nlError, setNlError] = useState<string | null>(null)
@@ -1217,6 +1218,8 @@ function ChartWorkbenchPage() {
       return
     }
 
+    const questionText = nlQuestion.trim() || text
+
     setNlLoading(true)
     setNlError(null)
     setNlStatus(null)
@@ -1228,6 +1231,8 @@ function ChartWorkbenchPage() {
       const parsedSpec = JSON.parse(sanitizedSpec) as VegaLiteSpec
       const result = await parseToOperationSpec({
         text,
+        question: questionText,
+        explanation: text,
         spec: parsedSpec,
         container: chartRef.current,
       })
@@ -1618,10 +1623,17 @@ function ChartWorkbenchPage() {
               </button>
             </div>
           </div>
+          <input
+            className="nl-question"
+            data-testid="nl-question"
+            placeholder="Question"
+            value={nlQuestion}
+            onChange={(event) => setNlQuestion(event.target.value)}
+          />
           <textarea
             id="nl-input"
             data-testid="nl-input"
-            placeholder="e.g. filter month in [1,2,3], sum count, compare with rain series"
+            placeholder="Explanation"
             value={nlInput}
             onChange={(event) => setNlInput(event.target.value)}
           />

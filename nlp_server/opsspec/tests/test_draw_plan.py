@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 
 from draw_plan.build_draw_plan import build_draw_ops_spec
-from opsspec.models import ChartContext
+from opsspec.core.models import ChartContext
 from opsspec.specs.base import OpsMeta
 from opsspec.specs.filter import FilterOp
 from opsspec.specs.aggregate import AverageOp

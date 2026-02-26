@@ -1,0 +1,35 @@
+{
+  "plan_tree": {
+    "nodes": [
+      {
+        "nodeId": "n1",
+        "op": "lagDiff",
+        "group": "ops",
+        "params": {
+          "field": "@primary_measure",
+          "order": "asc"
+        },
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      {
+        "nodeId": "n2",
+        "op": "findExtremum",
+        "group": "ops2",
+        "params": {
+          "field": "@primary_measure",
+          "which": "max"
+        },
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      }
+    ],
+    "warnings": []
+  },
+  "warnings": [],
+  "goal_type": "FIND_EXTREMUM",
+  "attempt": 1,
+  "validation_feedback_in": []
+}

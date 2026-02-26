@@ -1,0 +1,7 @@
+{
+  "stage": "decompose_retry_exhausted",
+  "errors": [
+    "Question asks for difference/gap -> require a \"diff\" node."
+  ],
+  "attempts": 3
+}

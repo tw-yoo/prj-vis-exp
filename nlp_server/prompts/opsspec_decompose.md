@@ -1,6 +1,7 @@
-Task: Module-1 Decompose.
+Task: Module-1 Explanation Decomposition.
 
-Given an English question + explanation and chart context, output a node-level plan tree.
+Given an English question + explanation and chart context,
+perform a two-phase analysis and output a plan tree.
 Return JSON only.
 
 Shared rules:
@@ -19,7 +20,7 @@ $measure_fields_json
 Validation feedback from previous failed attempts:
 $validation_feedback_json
 
-Schema:
+Output schema:
 {
   "plan_tree": {
     "nodes": [{
@@ -43,15 +44,21 @@ Schema:
   "warnings": ["string"]
 }
 
-Goal-driven planning (do NOT output these steps, only output JSON):
-1) Determine goal_type from the Question (examples):
-   - LIST_TARGETS: question asks "Which season/year/country ...?"
-   - RETURN_SCALARS: question asks to compute/report averages/sums/counts for categories
-   - COMPARE_SCALARS: question asks difference/gap between two aggregates
-   - FIND_EXTREMUM: question asks largest/smallest/biggest/lowest/highest
-   - SET_INTERSECTION: question asks targets satisfying conditions in BOTH A and B
-2) Align each explanation sentence to the goal (intermediate vs final).
-3) Synthesize the minimal plan: create only the nodes required to answer the question.
+Two-phase reasoning (output plan_tree only):
+
+Phase 1 — Intent Analysis:
+1) Classify the question intent (internally) to guide planning:
+   - LIST_TARGETS:      question asks "Which season/year/country ...?"
+   - RETURN_SCALARS:    question asks to compute/report averages/sums/counts for categories
+   - COMPARE_SCALARS:   question asks difference/gap between two aggregates
+   - FIND_EXTREMUM:     question asks largest/smallest/biggest/lowest/highest
+   - SET_INTERSECTION:  question asks targets satisfying conditions in BOTH A and B
+2) Align each explanation sentence to the goal (intermediate computation vs final answer).
+3) Identify which sentences contribute independent branches vs dependent chains.
+
+Phase 2 — Plan Synthesis (produces plan_tree from Phase 1 analysis):
+4) Synthesize the minimal plan: create only the nodes required to answer the question.
+5) Assign each node to the correct sentence-layer group (sentenceIndex).
 
 Rules:
 - Allowed operations: retrieveValue, filter, findExtremum, determineRange, compare, compareBool, sort, sum, average, diff, lagDiff, nth, count, setOp.
@@ -66,6 +73,9 @@ Rules:
 - Role tokens:
   - Use plain strings only: "@primary_dimension", "@primary_measure", "@series_field"
   - Example: "params": { "field": "@primary_measure" }
+- Series restriction (CRITICAL):
+  - NEVER create a filter node on "@series_field" (or the resolved series field) with include/exclude.
+  - Series slicing must be represented via params.group="<series value>" on the relevant compute/filter nodes.
 - Sentence-layer grouping:
   - sentenceIndex is REQUIRED and must be a positive integer.
   - group must match sentenceIndex:
@@ -139,6 +149,8 @@ Negative examples (forbidden):
 - Using inputs=["rows"]
 - Using nodeId="filter" or other non n<digits> ids
 - Using setOp when the question only asks to report scalars (no join)
+- Using series_field membership filter:
+  - { "op": "filter", "params": { "field": "@series_field", "include": ["A", "B"] } }
 
 Question:
 $question

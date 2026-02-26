@@ -1,0 +1,141 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "average",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1
+        },
+        "field": "Revenue_Million_Euros",
+        "group": "Broadcasting"
+      },
+      {
+        "op": "average",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [],
+          "sentenceIndex": 1
+        },
+        "field": "Revenue_Million_Euros",
+        "group": "Commercial"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2
+        },
+        "field": "Revenue_Million_Euros",
+        "operator": ">",
+        "value": "ref:n1",
+        "group": "Broadcasting"
+      },
+      {
+        "op": "filter",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n2"
+          ],
+          "sentenceIndex": 2
+        },
+        "field": "Revenue_Million_Euros",
+        "operator": ">",
+        "value": "ref:n2",
+        "group": "Commercial"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "setOp",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n3",
+            "n4"
+          ],
+          "sentenceIndex": 3
+        },
+        "fn": "intersection"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Season",
+      "Revenue_Type",
+      "Revenue_Million_Euros"
+    ],
+    "dimension_fields": [
+      "Season",
+      "Revenue_Type"
+    ],
+    "measure_fields": [
+      "Revenue_Million_Euros"
+    ],
+    "primary_dimension": "Season",
+    "primary_measure": "Revenue_Million_Euros",
+    "series_field": "Revenue_Type",
+    "categorical_values": {
+      "Season": [
+        "2009/10",
+        "2010/11",
+        "2011/12",
+        "2012/13",
+        "2013/14",
+        "2014/15",
+        "2015/16",
+        "2016/17",
+        "2017/18",
+        "2018/19",
+        "2019/20"
+      ],
+      "Revenue_Type": [
+        "Broadcasting",
+        "Commercial",
+        "Matchday"
+      ]
+    },
+    "field_types": {
+      "Season": "categorical",
+      "Revenue_Type": "categorical",
+      "Revenue_Million_Euros": "numeric"
+    },
+    "numeric_stats": {
+      "Revenue_Million_Euros": {
+        "min": 108.2,
+        "max": 359.6,
+        "mean": 199.11515151515152
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Season",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_Euros",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Revenue_Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": []
+}

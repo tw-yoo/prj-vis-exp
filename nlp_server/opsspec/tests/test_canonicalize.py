@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from opsspec.canonicalize import canonicalize_ops_spec_groups
-from opsspec.models import ChartContext
+from opsspec.runtime.canonicalize import canonicalize_ops_spec_groups
+from opsspec.core.models import ChartContext
 from opsspec.specs.aggregate import AverageOp
 from opsspec.specs.base import OpsMeta
 from opsspec.specs.set_op import SetOp

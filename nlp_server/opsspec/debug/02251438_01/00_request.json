@@ -1,0 +1,154 @@
+{
+  "request_id": "5eba0fbd1a43",
+  "question": "which city had the biggest jump in population from 2010 to 2025?",
+  "explanation": "In the chart, the bars for Delhi show a population of about 22.2 million in 2010 and approximately 28.6 million in 2025. This results in an increase of around 6.4 million, which is the largest jump compared to other cities.",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+    "description": "Grouped bar chart for 0prhtod4tli879nh.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/grouped/0prhtod4tli879nh.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "column": {
+        "field": "City",
+        "type": "ordinal",
+        "header": {}
+      },
+      "y": {
+        "field": "Population in millions",
+        "type": "quantitative",
+        "axis": {
+          "grid": false
+        }
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal",
+        "axis": {
+          "title": ""
+        }
+      },
+      "color": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    },
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "City": "Tokyo",
+      "Year": "2025",
+      "Population in millions": "37.1"
+    },
+    {
+      "City": "Tokyo",
+      "Year": "2010",
+      "Population in millions": "36.7"
+    },
+    {
+      "City": "Delhi",
+      "Year": "2025",
+      "Population in millions": "28.6"
+    },
+    {
+      "City": "Delhi",
+      "Year": "2010",
+      "Population in millions": "22.2"
+    },
+    {
+      "City": "São Paulo",
+      "Year": "2025",
+      "Population in millions": "21.7"
+    },
+    {
+      "City": "São Paulo",
+      "Year": "2010",
+      "Population in millions": "20.3"
+    },
+    {
+      "City": "Mumbai",
+      "Year": "2025",
+      "Population in millions": "25.8"
+    },
+    {
+      "City": "Mumbai",
+      "Year": "2010",
+      "Population in millions": "20"
+    },
+    {
+      "City": "Mexico City",
+      "Year": "2025",
+      "Population in millions": "20.7"
+    },
+    {
+      "City": "Mexico City",
+      "Year": "2010",
+      "Population in millions": "19.5"
+    },
+    {
+      "City": "New York-Newark",
+      "Year": "2025",
+      "Population in millions": "20.6"
+    },
+    {
+      "City": "New York-Newark",
+      "Year": "2010",
+      "Population in millions": "19.4"
+    },
+    {
+      "City": "Shanghai",
+      "Year": "2025",
+      "Population in millions": "20"
+    },
+    {
+      "City": "Shanghai",
+      "Year": "2010",
+      "Population in millions": "16.6"
+    },
+    {
+      "City": "Calcutta",
+      "Year": "2025",
+      "Population in millions": "20.1"
+    },
+    {
+      "City": "Calcutta",
+      "Year": "2010",
+      "Population in millions": "15.6"
+    },
+    {
+      "City": "Dhaka",
+      "Year": "2025",
+      "Population in millions": "20.9"
+    },
+    {
+      "City": "Dhaka",
+      "Year": "2010",
+      "Population in millions": "14.6"
+    },
+    {
+      "City": "Karachi",
+      "Year": "2025",
+      "Population in millions": "18.7"
+    },
+    {
+      "City": "Karachi",
+      "Year": "2010",
+      "Population in millions": "13.1"
+    },
+    {
+      "City": "",
+      "Year": "",
+      "Population in millions": ""
+    }
+  ],
+  "debug": true
+}

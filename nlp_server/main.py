@@ -14,21 +14,32 @@ from fastapi.middleware.cors import CORSMiddleware
 from models import (
     CanonicalizeOpsSpecRequest,
     CanonicalizeOpsSpecResponse,
+    GenerateAnswerRequest,
+    GenerateAnswerResponse,
     GenerateGrammarRequest,
     GenerateLambdaRequest,
     GenerateLambdaResponse,
+    RunModuleTraceRequest,
+    RunModuleTraceResponse,
     RunPythonPlanRequest,
     RunPythonPlanResponse,
 )
 from nlp_engine import NLPEngine
 from draw_plan import build_draw_ops_spec, export_draw_plan_to_public
-from opsspec.pipeline import OpsSpecPipeline
-from opsspec.python_scenario_loader import PythonScenarioLoadError, load_python_scenario_request
-from opsspec.ui_schema import build_op_registry_ui_schema
-from opsspec.context_builder import build_chart_context
-from opsspec.canonicalize import canonicalize_ops_spec_groups
-from opsspec.endpoint_validators import validate_and_parse_ops_spec_groups, validate_refs_against_node_ids
-from opsspec.utils import prune_nulls
+from opsspec.modules.pipeline import OpsSpecPipeline
+from opsspec.modules.answer_pipeline import (
+    ChartAnswerPipeline,
+    _load_csv_file,
+    _load_json_file,
+    _project_root,
+    _resolve_path_under_root,
+)
+from opsspec.runtime.python_scenario_loader import PythonScenarioLoadError, load_python_scenario_request
+from opsspec.runtime.ui_schema import build_op_registry_ui_schema
+from opsspec.runtime.context_builder import build_chart_context
+from opsspec.runtime.canonicalize import canonicalize_ops_spec_groups
+from opsspec.validation.endpoint_validators import validate_and_parse_ops_spec_groups, validate_refs_against_node_ids
+from opsspec.core.utils import prune_nulls
 
 logger = logging.getLogger(__name__)
 trace_logger = logging.getLogger("pipeline_trace")
@@ -161,16 +172,24 @@ async def lifespan(app: FastAPI):
         ollama_api_key=ollama_api_key,
         prompts_dir=Path(__file__).parent / "prompts",
     )
+    answer_pipeline = ChartAnswerPipeline(
+        ollama_model=ollama_model,
+        ollama_base_url=ollama_base_url,
+        ollama_api_key=ollama_api_key,
+        prompts_dir=Path(__file__).parent / "prompts",
+    )
 
     try:
         engine.load()
         grammar_pipeline.load()
+        answer_pipeline.load()
     except Exception:
         logger.exception("Failed to initialize NLP models during startup.")
         raise
 
     app.state.nlp_engine = engine
     app.state.grammar_pipeline = grammar_pipeline
+    app.state.answer_pipeline = answer_pipeline
     yield
 
 
@@ -393,7 +412,6 @@ async def generate_grammar(request: GenerateGrammarRequest):
     q_preview = " ".join(request.question.split())[:120]
     logger.info('[/generate_grammar] request received | request_id=%s question="%s"', request_id, q_preview)
 
-    # Never log raw rows; only counts and context summary.
     trace_logger.info(
         "[request:%s] grammar_endpoint_in | rows=%d debug=%s",
         request_id,
@@ -419,12 +437,12 @@ async def generate_grammar(request: GenerateGrammarRequest):
             elapsed_ms,
         )
         trace_logger.info("[request:%s] grammar_endpoint_out | elapsed_ms=%.1f", request_id, elapsed_ms)
-        # Keep response minimal for the web client: only return opsSpec groups under a single key.
+        # Keep response minimal for the web client: only return the opsSpec groups map.
         groups_dump = {
             group_name: [op.model_dump(by_alias=True, exclude_none=True) for op in ops]
             for group_name, ops in result.ops_spec.items()
         }
-        return prune_nulls({"ops1": groups_dump})
+        return prune_nulls(groups_dump)
     except RuntimeError as exc:
         elapsed_ms = (time.perf_counter() - started_at) * 1000
         logger.error(
@@ -478,6 +496,143 @@ async def generate_grammar(request: GenerateGrammarRequest):
         trace_logger.error("[request:%s] grammar_unhandled_error | elapsed_ms=%.1f error=%s", request_id, elapsed_ms, exc)
         logger.exception("Failed to generate grammar.")
         raise HTTPException(status_code=500, detail=f"Failed to parse text: {exc}") from exc
+
+
+@app.post("/answer_question", response_model=GenerateAnswerResponse)
+async def answer_question(request: GenerateAnswerRequest):
+    pipeline: ChartAnswerPipeline = getattr(app.state, "answer_pipeline", None)
+    if pipeline is None:
+        raise HTTPException(status_code=500, detail="Answer pipeline is not initialized.")
+
+    request_id = uuid.uuid4().hex[:12]
+    started_at = time.perf_counter()
+    q_preview = " ".join(request.question.split())[:120]
+    logger.info('[/answer_question] request received | request_id=%s question="%s"', request_id, q_preview)
+
+    trace_logger.info(
+        "[request:%s] answer_endpoint_in | spec_path=%s csv_path=%s debug=%s",
+        request_id,
+        request.vega_lite_spec_path,
+        request.data_csv_path,
+        bool(request.debug),
+    )
+
+    try:
+        payload = pipeline.answer_from_paths(
+            question=request.question,
+            vega_lite_spec_path=request.vega_lite_spec_path,
+            data_csv_path=request.data_csv_path,
+            llm_choice=request.llm,
+            request_id=request_id,
+            debug=bool(request.debug),
+        )
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.info(
+            "[/answer_question] request completed | request_id=%s warnings=%d elapsed_ms=%.1f",
+            request_id,
+            len(payload.get("warnings") or []),
+            elapsed_ms,
+        )
+        trace_logger.info("[request:%s] answer_endpoint_out | elapsed_ms=%.1f", request_id, elapsed_ms)
+
+        return {
+            "plan": payload.get("plan") or [],
+            "answer": payload.get("answer") or "",
+            "explanation": payload.get("explanation") or "",
+            "warnings": payload.get("warnings") or [],
+            "request_id": request_id,
+        }
+    except RuntimeError as exc:
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.error(
+            "[/answer_question] runtime error | request_id=%s elapsed_ms=%.1f error=%s",
+            request_id,
+            elapsed_ms,
+            exc,
+        )
+        report_path = _write_error_report(
+            endpoint="/answer_question",
+            request_id=request_id,
+            elapsed_ms=elapsed_ms,
+            error=exc,
+            request_summary={
+                "question_preview": q_preview,
+                "vega_lite_spec_path": request.vega_lite_spec_path,
+                "data_csv_path": request.data_csv_path,
+                "llm": request.llm,
+                "debug": bool(request.debug),
+            },
+        )
+        if report_path is not None:
+            logger.error("[/answer_question] error report saved | request_id=%s path=%s", request_id, report_path)
+        trace_logger.error("[request:%s] answer_runtime_error | elapsed_ms=%.1f error=%s", request_id, elapsed_ms, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        elapsed_ms = (time.perf_counter() - started_at) * 1000
+        logger.error(
+            "[/answer_question] unhandled error | request_id=%s elapsed_ms=%.1f error=%s",
+            request_id,
+            elapsed_ms,
+            exc,
+        )
+        report_path = _write_error_report(
+            endpoint="/answer_question",
+            request_id=request_id,
+            elapsed_ms=elapsed_ms,
+            error=exc,
+            request_summary={
+                "question_preview": q_preview,
+                "vega_lite_spec_path": request.vega_lite_spec_path,
+                "data_csv_path": request.data_csv_path,
+                "llm": request.llm,
+                "debug": bool(request.debug),
+            },
+        )
+        if report_path is not None:
+            logger.error("[/answer_question] error report saved | request_id=%s path=%s", request_id, report_path)
+        trace_logger.error("[request:%s] answer_unhandled_error | elapsed_ms=%.1f error=%s", request_id, elapsed_ms, exc)
+        raise HTTPException(status_code=500, detail=f"Failed to answer question: {exc}") from exc
+
+
+@app.post("/run_module_trace", response_model=RunModuleTraceResponse)
+async def run_module_trace(request: RunModuleTraceRequest):
+    pipeline: OpsSpecPipeline = getattr(app.state, "grammar_pipeline", None)
+    if pipeline is None:
+        raise HTTPException(status_code=500, detail="Grammar pipeline is not initialized.")
+
+    try:
+        root = _project_root().resolve()
+        spec_path = _resolve_path_under_root(request.vega_lite_spec_path, root=root)
+        data_path = _resolve_path_under_root(request.data_csv_path, root=root)
+        spec = _load_json_file(spec_path)
+        _, rows = _load_csv_file(data_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    request_id = uuid.uuid4().hex[:12]
+    result = pipeline.generate(
+        question=request.question,
+        explanation=request.explanation,
+        vega_lite_spec=spec,
+        data_rows=rows,
+        request_id=request_id,
+        debug=True,
+    )
+
+    trace = result.trace.model_dump() if result.trace else {}
+    plan_tree = trace.get("decompose_plan", {}).get("plan_tree", {})
+    grounded_plan_tree = trace.get("resolve_plan", {}).get("grounded_plan_tree", {})
+    ops_spec = {
+        group: [op.model_dump(by_alias=True, exclude_none=True) for op in ops]
+        for group, ops in result.ops_spec.items()
+    }
+    return {
+        "plan_tree": plan_tree,
+        "grounded_plan_tree": grounded_plan_tree,
+        "ops_spec": ops_spec,
+        "trace": trace,
+        "chart_context": result.chart_context.model_dump(mode="json"),
+    }
 
 
 @app.post("/run_python_plan", response_model=RunPythonPlanResponse)

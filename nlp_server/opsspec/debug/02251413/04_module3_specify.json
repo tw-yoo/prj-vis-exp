@@ -1,0 +1,78 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "average",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1
+        },
+        "field": "Revenue_Million_Euros",
+        "group": "Commercial"
+      },
+      {
+        "op": "average",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [],
+          "sentenceIndex": 1
+        },
+        "field": "Revenue_Million_Euros",
+        "group": "Broadcasting"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2
+        },
+        "field": "Revenue_Million_Euros",
+        "operator": ">",
+        "value": "ref:n1",
+        "group": "Commercial"
+      },
+      {
+        "op": "filter",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n2"
+          ],
+          "sentenceIndex": 2
+        },
+        "field": "Revenue_Million_Euros",
+        "operator": ">",
+        "value": "ref:n2",
+        "group": "Broadcasting"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "setOp",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n3",
+            "n4"
+          ],
+          "sentenceIndex": 3
+        },
+        "fn": "intersection"
+      }
+    ]
+  },
+  "warnings": [],
+  "attempt": 1,
+  "validation_feedback_in": []
+}

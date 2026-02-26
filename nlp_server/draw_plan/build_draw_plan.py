@@ -3,8 +3,8 @@ from __future__ import annotations
 import math
 from typing import Any, Dict, Iterable, List, Set
 
-from opsspec.executor import OpsSpecExecutor
-from opsspec.models import ChartContext
+from opsspec.runtime.executor import OpsSpecExecutor
+from opsspec.core.models import ChartContext
 from opsspec.specs.union import OperationSpec
 
 from .chart_type import ChartKind, derive_chart_kind
