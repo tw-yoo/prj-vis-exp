@@ -5,13 +5,11 @@ import { runSimpleBarDrawPlan } from '../../rendering/ops/executor/runSimpleBarD
 import { SIMPLE_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/simple/autoDrawPlanRegistry.ts'
 import { normalizeOpsList, type OpsSpecInput } from '../../rendering/ops/common/opsSpec.ts'
 import { getPlotContext } from '../../rendering/ops/common/chartContext.ts'
-import { runSleepOp } from '../../rendering/ops/common/sleepOp.ts'
 import { toWorkingDatumValuesFromStore } from '../../rendering/ops/common/workingData.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import {
   renderSimpleBarChart,
   renderSplitSimpleBarChart,
-  renderSumSimpleBarChart,
   type SimpleBarSpec,
   getSimpleBarStoredData,
   getSimpleBarSplitDomain,
@@ -31,22 +29,6 @@ function toWorkingDatumValues(container: HTMLElement, vlSpec: SimpleBarSpec) {
   })
 }
 
-function resolveSumValue(container: HTMLElement, spec: SimpleBarSpec, sumSpec?: DrawOp['sum']) {
-  if (sumSpec && Number.isFinite(sumSpec.value)) {
-    return sumSpec
-  }
-  const stored = getSimpleBarStoredData(container)
-  const valueField = spec.encoding.y.field
-  const total = stored
-    .map((d) => Number(d[valueField]))
-    .filter(Number.isFinite)
-    .reduce((acc, v) => acc + v, 0)
-  if (!Number.isFinite(total)) {
-    return null
-  }
-  return { value: total, label: sumSpec?.label ?? 'Sum' }
-}
-
 async function handleSimpleBarSplit(
   container: HTMLElement,
   spec: SimpleBarSpec,
@@ -58,21 +40,10 @@ async function handleSimpleBarSplit(
       return true
     }
     await renderSplitSimpleBarChart(container, spec, drawOp.split as DrawSplitSpec)
-    await runSleepOp({ seconds: 1 })
     return true
   }
   if (drawOp.action === DrawAction.Unsplit) {
     await renderSimpleBarChart(container, spec)
-    return true
-  }
-  if (drawOp.action === DrawAction.Sum) {
-    const sumSpec = drawOp.sum
-    const resolvedSum = resolveSumValue(container, spec, sumSpec)
-    if (!resolvedSum) {
-      console.warn('draw:sum could not resolve sum value', drawOp)
-      return true
-    }
-    await renderSumSimpleBarChart(container, spec, resolvedSum)
     return true
   }
   return false

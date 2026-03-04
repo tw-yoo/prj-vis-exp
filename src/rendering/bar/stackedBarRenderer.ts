@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
+import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
 import type { JsonValue } from '../../types'
 import { type DrawSplitSpec } from '../draw/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
@@ -13,163 +13,114 @@ const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new 
 
 const cloneRows = (rows: RawDatum[]) => rows.map((row) => ({ ...row }))
 
-const DEFAULT_CATEGORY_RANGE = [
-  '#60a5fa',
-  '#fb7185',
-  '#f59e0b',
-  '#10b981',
-  '#c084fc',
-  '#f472b6',
-  '#22d3ee',
-  '#a3e635',
-  '#f97316',
-] as const
-
-/**
- * Global (session) cache to stabilize series ordering across separate renders/containers
- * when the dataset is swapped (e.g., original.csv -> original_filter.csv).
- *
- * Key: `<colorField>` (kept intentionally simple for a temporary stabilization).
- */
-const GLOBAL_COLOR_DOMAIN_CACHE = new Map<string, string[]>()
+function rowsFromSpecData(spec: StackedSpec): RawDatum[] {
+  const xField = spec.encoding.x.field
+  const yField = spec.encoding.y.field
+  const colorField = spec.encoding.color?.field
+  const values = (spec.data as { values?: unknown })?.values
+  if (!Array.isArray(values)) return []
+  return values
+    .filter((row): row is RawDatum => !!row && typeof row === 'object' && !Array.isArray(row))
+    .map((row) => {
+      const xVal = row[xField]
+      const yVal = Number(row[yField])
+      if (xVal == null || !Number.isFinite(yVal)) return null
+      const next: RawDatum = { [xField]: xVal, [yField]: yVal }
+      if (colorField) {
+        const colorVal = row[colorField]
+        next[colorField] = colorVal == null ? null : String(colorVal)
+      }
+      return next
+    })
+    .filter((row): row is RawDatum => row !== null)
+}
 
 export type StackedSpec = VegaLiteSpec & {
   encoding: {
     x: { field: string; type: string; stack?: string | null }
     y: { field: string; type: string; stack?: string | null }
-    color?: { field?: string; type?: string }
+    color?: { field?: string; type?: string; scale?: JsonValue; legend?: JsonValue }
   }
 }
 
 // Ops runner functions are in `src/renderer/bar/stackedBarOps.ts`.
 
-function extractColorDomainFromRows(rows: RawDatum[], colorField: string): string[] {
-  const domain: string[] = []
-  const seen = new Set<string>()
-  rows.forEach((row) => {
-    const raw = row?.[colorField]
-    if (raw == null) return
-    const key = String(raw)
-    if (!key || seen.has(key)) return
-    seen.add(key)
-    domain.push(key)
-  })
-  return domain
-}
-
-function resolveCategoryPalette(spec: StackedSpec): string[] {
-  const candidate = (spec as any)?.config?.range?.category
-  if (Array.isArray(candidate) && candidate.every((v) => typeof v === 'string' && v.trim().length > 0)) {
-    return candidate as string[]
-  }
-  return [...DEFAULT_CATEGORY_RANGE]
-}
-
-async function loadRowsFromDataRef(dataRef: unknown): Promise<RawDatum[]> {
-  if (!dataRef || typeof dataRef !== 'object') return []
-  const asAny = dataRef as any
-  if (Array.isArray(asAny.values)) {
-    return asAny.values.filter((v: unknown) => v && typeof v === 'object' && !Array.isArray(v)) as RawDatum[]
-  }
-  if (typeof asAny.url === 'string' && asAny.url.trim().length > 0) {
-    const url = asAny.url
-    try {
-      if (url.toLowerCase().endsWith('.json')) {
-        const loaded = await d3.json(url)
-        return Array.isArray(loaded) ? (loaded.filter((v) => v && typeof v === 'object' && !Array.isArray(v)) as RawDatum[]) : []
-      }
-      const loaded = await d3.csv(url)
-      return Array.isArray(loaded) ? (loaded as unknown as RawDatum[]) : []
-    } catch {
-      return []
-    }
-  }
-  return []
-}
-
-function mergeDomainPreserveOrder(base: string[], extra: string[]) {
-  const seen = new Set(base)
-  const merged = base.slice()
-  extra.forEach((value) => {
-    if (!seen.has(value)) {
-      seen.add(value)
-      merged.push(value)
-    }
-  })
-  return merged
-}
-
-/**
- * Stabilize series→color assignment across re-renders (e.g., original → filtered).
- * Idea: derive a canonical series ordering from the original (unfiltered) dataset, then
- * reuse the same series colors for the currently-rendered subset.
- *
- * This prevents Vega-Lite from reassigning palette indices when the color domain shrinks.
- */
-async function stabilizeStackedColorScale(container: HTMLElement, spec: StackedSpec): Promise<StackedSpec> {
-  const colorField = spec.encoding.color?.field
-  if (!colorField) return spec
-
-  const storedOriginal = originalDataStore.get(container) || []
-  const currentRows = await loadRowsFromDataRef(spec.data)
-  const presentDomain = extractColorDomainFromRows(currentRows, colorField)
-
-  const storedOriginalDomain = extractColorDomainFromRows(storedOriginal, colorField)
-  const cachedDomain = GLOBAL_COLOR_DOMAIN_CACHE.get(colorField) ?? []
-  const baseDomain = storedOriginalDomain.length ? storedOriginalDomain : cachedDomain.length ? cachedDomain : presentDomain
-  if (!baseDomain.length) return spec
-
-  // Grow the global cache when we observe new categories (usually on the "original" dataset).
-  const nextCached = mergeDomainPreserveOrder(baseDomain, presentDomain)
-  GLOBAL_COLOR_DOMAIN_CACHE.set(colorField, nextCached)
-
-  const palette = resolveCategoryPalette(spec)
-  const fogColor = palette[1] ?? palette[0]
-  const rainColor = palette[2] ?? palette[1] ?? palette[0]
-  const colorMap = new Map<string, string>()
-  nextCached.forEach((series, idx) => {
-    colorMap.set(series, palette[idx % palette.length]!)
-  })
-  if (fogColor) colorMap.set('fog', fogColor)
-  if (rainColor) colorMap.set('rain', rainColor)
-
-  const present = new Set(presentDomain)
-  const stableDomain = present.size ? nextCached.filter((series) => present.has(series)) : nextCached.slice()
-  if (!stableDomain.length) return spec
-
-  const stableRange = stableDomain.map((series) => colorMap.get(series) ?? palette[0]!)
-
-  const nextEncoding = {
-    ...(spec.encoding as any),
-    color: {
-      ...(spec.encoding.color as any),
-      field: colorField,
-      scale: {
-        ...(((spec.encoding.color as any)?.scale as any) || {}),
-        domain: stableDomain,
-        range: stableRange,
-      },
-    },
-  }
-
-  return {
-    ...spec,
-    encoding: nextEncoding,
-  }
-}
-
-export async function renderStackedBarChart(container: HTMLElement, spec: StackedSpec) {
+export async function renderStackedBarChart(
+  container: HTMLElement,
+  spec: StackedSpec,
+  options?: { preserveOriginal?: boolean },
+) {
   clearStackedBarSplitState(container)
-  const stabilizedSpec = await stabilizeStackedColorScale(container, spec)
-  const result = await renderVegaLiteChart(container, stabilizedSpec)
-  const rows = await tagBarMarks(container, spec.encoding.x.field, spec.encoding.y.field, spec.encoding.color?.field)
+  const result = await renderVegaLiteChart(container, spec)
+  const taggedRows = await tagBarMarks(container, spec.encoding.x.field, spec.encoding.y.field, spec.encoding.color?.field)
+  const specRows = rowsFromSpecData(spec)
+  const rows = specRows.length ? specRows : taggedRows
   localDataStore.set(container, rows)
-  if (!originalDataStore.has(container)) {
+  if (!options?.preserveOriginal || !originalDataStore.has(container)) {
     originalDataStore.set(container, cloneRows(rows))
   }
   fitSvgToHost(container)
   ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
   return result
+}
+
+export async function renderSumStackedBarChart(
+  container: HTMLElement,
+  spec: StackedSpec,
+  config?: { label?: string; value?: number },
+) {
+  const rows = localDataStore.get(container) || []
+  const xField = spec.encoding.x.field
+  const yField = spec.encoding.y.field
+  const colorField = spec.encoding.color?.field
+  const label = config?.label ?? 'Sum'
+  const requestedTotal = Number(config?.value)
+  const hasRequestedTotal = Number.isFinite(requestedTotal)
+  if (!rows.length) return
+
+  if (!colorField) {
+    const computed = rows
+      .map((row) => Number(row[yField]))
+      .filter(Number.isFinite)
+      .reduce((acc, value) => acc + value, 0)
+    const total = hasRequestedTotal ? requestedTotal : computed
+    if (!Number.isFinite(total)) return
+    await renderStackedBarChart(container, {
+      ...spec,
+      data: { values: [{ [xField]: label, [yField]: total }] },
+    })
+    return
+  }
+
+  const bySeries = new Map<string, number>()
+  rows.forEach((row) => {
+    const seriesRaw = row[colorField]
+    const value = Number(row[yField])
+    if (seriesRaw == null || !Number.isFinite(value)) return
+    const series = String(seriesRaw)
+    bySeries.set(series, (bySeries.get(series) ?? 0) + value)
+  })
+  if (!bySeries.size) return
+
+  const computedTotal = Array.from(bySeries.values()).reduce((acc, value) => acc + value, 0)
+  const canScale = hasRequestedTotal && Number.isFinite(computedTotal) && Math.abs(computedTotal) > Number.EPSILON
+  const fallbackEven = hasRequestedTotal && (!Number.isFinite(computedTotal) || Math.abs(computedTotal) <= Number.EPSILON)
+  const values = Array.from(bySeries.entries()).map(([series, value], _index, list) => {
+    const scaledValue = canScale
+      ? (value / computedTotal) * requestedTotal
+      : fallbackEven
+        ? requestedTotal / Math.max(1, list.length)
+        : value
+    return {
+    [xField]: label,
+      [yField]: scaledValue,
+    [colorField]: series,
+    }
+  })
+  await renderStackedBarChart(container, {
+    ...spec,
+    data: { values },
+  })
 }
 
 function normalizeSplitGroups(split: DrawSplitSpec, xDomain: Array<string | number>) {
@@ -304,6 +255,7 @@ function writeDatasetAttrs(
 }
 
 export async function renderSplitStackedBarChart(container: HTMLElement, spec: StackedSpec, split: DrawSplitSpec) {
+  const renderEpoch = bumpRenderEpoch(container)
   const data = localDataStore.get(container) || []
   const xField = spec.encoding.x.field
   const yField = spec.encoding.y.field
@@ -345,6 +297,7 @@ export async function renderSplitStackedBarChart(container: HTMLElement, spec: S
   const svg = containerSelection
     .append(SvgElements.Svg)
     .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+    .attr(DataAttributes.RenderEpoch, renderEpoch)
     .style('overflow', 'visible')
 
   writeDatasetAttrs(svg, spec, margin, plotW, plotH)

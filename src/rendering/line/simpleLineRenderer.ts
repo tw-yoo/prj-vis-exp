@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import type { JsonValue } from '../../types'
-import { renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
+import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { ensureXAxisLabelClearance } from '../common/d3Helpers'
 
@@ -10,11 +10,62 @@ const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new 
 type RawDatum = Record<string, JsonValue>
 type AxisScale = d3.ScaleTime<number, number> | d3.ScaleLinear<number, number> | d3.ScalePoint<string>
 
-function toRawRows(data: VegaLiteSpec['data']): RawDatum[] {
-  if (!data || typeof data !== 'object' || !('values' in data)) return []
-  const values = data.values
-  if (!Array.isArray(values)) return []
-  return values.filter((value): value is RawDatum => !!value && typeof value === 'object' && !Array.isArray(value))
+type ResolvedLineEncoding = {
+  xField: string
+  yField: string
+  xType: string
+  yType: string
+  colorField?: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function normalizeMarkType(mark: VegaLiteSpec['mark']) {
+  if (!mark) return null
+  if (typeof mark === 'string') return mark
+  if (typeof mark === 'object' && typeof mark.type === 'string') return mark.type
+  return null
+}
+
+function normalizeLayers(spec: VegaLiteSpec) {
+  const baseEncoding = isRecord(spec.encoding) ? (spec.encoding as Record<string, JsonValue>) : {}
+  if (Array.isArray(spec.layer) && spec.layer.length > 0) {
+    return spec.layer.map((layer) => ({
+      mark: normalizeMarkType((layer?.mark as VegaLiteSpec['mark']) ?? spec.mark),
+      encoding: {
+        ...baseEncoding,
+        ...(layer?.encoding && typeof layer.encoding === 'object' ? layer.encoding : {}),
+      } as Record<string, JsonValue>,
+    }))
+  }
+  return [{ mark: normalizeMarkType(spec.mark), encoding: baseEncoding }]
+}
+
+function extractField(channel: unknown) {
+  if (!isRecord(channel)) return null
+  const field = channel.field
+  return typeof field === 'string' && field.trim().length > 0 ? field.trim() : null
+}
+
+function extractType(channel: unknown) {
+  if (!isRecord(channel)) return null
+  const type = channel.type
+  return typeof type === 'string' && type.trim().length > 0 ? type.trim() : null
+}
+
+export function resolveSimpleLineEncoding(spec: VegaLiteSpec): ResolvedLineEncoding | null {
+  const layers = normalizeLayers(spec)
+  const preferred = layers.find((layer) => layer.mark === 'line') ?? layers[0]
+  const encoding = preferred?.encoding ?? {}
+  const xField = extractField(encoding.x)
+  const yField = extractField(encoding.y)
+  if (!xField || !yField) return null
+  const xType = extractType(encoding.x) ?? 'nominal'
+  const yType = extractType(encoding.y) ?? 'quantitative'
+  const colorField = extractField(encoding.color) ?? undefined
+  return { xField, yField, xType, yType, colorField }
 }
 
 function resolveLineMark(mark: VegaLiteSpec['mark']) {
@@ -48,23 +99,20 @@ function getDatumRecord(value: unknown): Record<string, unknown> {
 }
 
 export type LineSpec = VegaLiteSpec & {
-  encoding: {
-    x: { field: string; type: string }
-    y: { field: string; type: string }
-    color?: { field?: string }
-  }
+  // Some "simple line" specs encode x/y at layer-level (e.g. line + point layering).
+  // Keep encoding optional and resolve effective fields via `resolveSimpleLineEncoding`.
+  encoding?: Record<string, JsonValue>
 }
 
 // Ops runner functions are in `src/renderer/line/simpleLineOps.ts`.
 
 export async function renderSimpleLineChart(container: HTMLElement, spec: LineSpec) {
-  const values = toRawRows(spec.data)
-  localDataStore.set(container, values)
   clearSimpleLineSplitDomains(container)
   const mark = resolveLineMark(spec.mark)
   const withPoints = { ...spec, mark }
   const result = await renderVegaLiteChart(container, withPoints)
-  await tagSimpleLineMarks(container, spec)
+  const tagged = await tagSimpleLineMarks(container, spec as VegaLiteSpec)
+  localDataStore.set(container, tagged)
   ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
   return result
 }
@@ -152,11 +200,18 @@ function normalizeLinePoints(values: RawDatum[], xField: string, yField: string,
   return points
 }
 
-export async function renderSplitSimpleLineChart(container: HTMLElement, spec: LineSpec, split: { groups: Record<string, Array<string | number>>; restTo?: string; orientation?: 'vertical' | 'horizontal' }) {
+export async function renderSplitSimpleLineChart(
+  container: HTMLElement,
+  spec: LineSpec,
+  split: { groups: Record<string, Array<string | number>>; restTo?: string; orientation?: 'vertical' | 'horizontal' },
+) {
+  const renderEpoch = bumpRenderEpoch(container)
   const stored = (getSimpleLineStoredData(container) || []) as RawDatum[]
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const xType = spec.encoding.x.type
+  const resolved = resolveSimpleLineEncoding(spec as VegaLiteSpec)
+  if (!resolved) return
+  const xField = resolved.xField
+  const yField = resolved.yField
+  const xType = resolved.xType
   const points = normalizeLinePoints(stored, xField, yField, xType)
   if (!points.length) return
 
@@ -198,6 +253,7 @@ export async function renderSplitSimpleLineChart(container: HTMLElement, spec: L
   const svg = containerSelection
     .append(SvgElements.Svg)
     .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+    .attr(DataAttributes.RenderEpoch, renderEpoch)
     .style('overflow', 'visible')
 
   const [idA, idB] = splitGroups.ids
@@ -303,10 +359,10 @@ export async function renderSplitSimpleLineChart(container: HTMLElement, spec: L
   })
 }
 
-export async function tagSimpleLineMarks(container: HTMLElement, spec: LineSpec) {
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const xType = spec.encoding.x.type
+export async function tagSimpleLineMarks(container: HTMLElement, spec: VegaLiteSpec) {
+  const resolved = resolveSimpleLineEncoding(spec)
+  if (!resolved) return []
+  const { xField, yField, xType } = resolved
   // wait up to 5 animation frames for marks to be rendered
   for (let i = 0; i < 5; i += 1) {
     const svgCheck = d3.select(container).select(SvgElements.Svg)
@@ -316,7 +372,7 @@ export async function tagSimpleLineMarks(container: HTMLElement, spec: LineSpec)
   }
   const svg = d3.select(container).select(SvgElements.Svg)
   // Tag all shapes that actually carry datum with x/y.
-  let count = 0
+  const rows: RawDatum[] = []
   svg.selectAll<SVGGraphicsElement, unknown>('path, circle, rect').each(function (rawDatum: unknown) {
     const ownerData = getDatumRecord(rawDatum)
     const embeddedDatum = getDatumRecord(ownerData.datum)
@@ -331,18 +387,31 @@ export async function tagSimpleLineMarks(container: HTMLElement, spec: LineSpec)
       let isoFull = String(rawTarget)
       let isoDate = String(rawTarget)
       if (xType === 'temporal') {
-        const dt = toDateValue(rawTarget as JsonValue)
-        isoFull = dt.toISOString()
-        isoDate = isoFull.slice(0, 10)
+        try {
+          const dt = toDateValue(rawTarget as JsonValue)
+          const time = dt.getTime()
+          if (Number.isFinite(time)) {
+            isoFull = dt.toISOString()
+            isoDate = isoFull.slice(0, 10)
+          }
+        } catch {
+          // If the date value is invalid, skip ISO conversion and keep the raw label.
+        }
       }
       const valueVal = rawValue
       d3.select(this as Element)
         .attr(DataAttributes.Target, isoDate)
         .attr(DataAttributes.Id, isoFull)
         .attr(DataAttributes.Value, valueVal != null ? String(valueVal) : null)
-      count += 1
+
+      const numeric = Number(valueVal)
+      if (Number.isFinite(numeric)) {
+        rows.push({
+          [xField]: rawTarget as JsonValue,
+          [yField]: numeric,
+        })
+      }
     }
   })
-  // eslint-disable-next-line no-console
-  return count
+  return rows
 }

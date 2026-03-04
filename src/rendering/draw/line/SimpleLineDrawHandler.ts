@@ -2,12 +2,29 @@ import * as d3 from 'd3'
 import type { JsonValue } from '../../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../../interfaces'
 import { LineDrawHandler } from '../LineDrawHandler'
-import { DrawAction, DrawRectModes, type DrawOp, type DrawSelect } from '../types'
+import { DrawAction, DrawComparisonOperators, DrawRectModes, type DrawOp, type DrawSelect } from '../types'
 import { ensureAnnotationLayer } from '../utils/annotationLayer'
+import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from '../animationPolicy'
 
 type TraceSpec = {
   pair: { x: [string, string] }
   style?: { stroke?: string; strokeWidth?: number; opacity?: number; fill?: string; radius?: number }
+}
+
+type LinePointEntry = {
+  el: SVGElement
+  target: string
+  value: number
+  x: number
+  y: number
+}
+
+async function waitTransition(transition: d3.Transition<any, any, any, any>) {
+  try {
+    await transition.end()
+  } catch {
+    // interrupted transitions are acceptable in interactive workflows
+  }
 }
 
 /**
@@ -167,7 +184,244 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     pointsWithin.forEach((p) => this.drawPointCircle(layer, p.x, p.y, { fill, radius, stroke }, op.chartId))
   }
 
-  override run(op: DrawOp) {
+  private collectPointEntries(chartId?: string) {
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    if (svg.empty()) return [] as LinePointEntry[]
+    const svgNode = svg.node() as SVGSVGElement | null
+    if (!svgNode) return [] as LinePointEntry[]
+    const points = this.selectElements(undefined, chartId)
+    if (points.empty()) return [] as LinePointEntry[]
+
+    const byTarget = new Map<string, { el: SVGElement; area: number; value: number; x: number; y: number }>()
+    points.each((_, index, nodes) => {
+      const el = nodes[index] as SVGElement
+      const target = el.getAttribute(DataAttributes.Target) || el.getAttribute(DataAttributes.Id)
+      const rawValue = Number(el.getAttribute(DataAttributes.Value))
+      if (!target || !Number.isFinite(rawValue)) return
+      const bbox = (el as SVGGraphicsElement).getBBox?.()
+      const area = bbox ? Math.abs(bbox.width * bbox.height) : Number.POSITIVE_INFINITY
+      const center = this.toSvgCenter(el, svgNode)
+      const prev = byTarget.get(String(target))
+      if (!prev || area < prev.area) {
+        if (!el.hasAttribute('data-layout-transform')) {
+          const baseTransform = el.getAttribute(SvgAttributes.Transform)
+          if (baseTransform != null) el.setAttribute('data-layout-transform', baseTransform)
+        }
+        if (!el.hasAttribute('data-layout-center-x')) {
+          el.setAttribute('data-layout-center-x', String(center.x))
+        }
+        byTarget.set(String(target), { el, area, value: rawValue, x: center.x, y: center.y })
+      }
+    })
+    return Array.from(byTarget.entries())
+      .map(([target, point]) => ({
+        el: point.el,
+        target,
+        value: point.value,
+        x: point.x,
+        y: point.y,
+      }))
+      .sort((a, b) => a.x - b.x)
+  }
+
+  private applyPointXTransition(
+    transition: d3.Transition<SVGElement, JsonValue, d3.BaseType, JsonValue>,
+    entry: LinePointEntry,
+    targetX: number,
+  ) {
+    transition
+      .filter(function () {
+        return this === entry.el
+      })
+      .attr(SvgAttributes.Opacity, 1)
+    const tag = entry.el.tagName.toLowerCase()
+    if (tag === SvgElements.Circle) {
+      transition
+        .filter(function () {
+          return this === entry.el
+        })
+        .attr(SvgAttributes.CX, targetX)
+      return
+    }
+    if (tag === SvgElements.Rect) {
+      const width = Number(entry.el.getAttribute(SvgAttributes.Width))
+      const left = Number.isFinite(width) ? targetX - width / 2 : targetX
+      transition
+        .filter(function () {
+          return this === entry.el
+        })
+        .attr(SvgAttributes.X, left)
+      return
+    }
+
+    const baseTransform = entry.el.getAttribute('data-layout-transform') ?? entry.el.getAttribute(SvgAttributes.Transform) ?? ''
+    if (!entry.el.hasAttribute('data-layout-transform')) {
+      entry.el.setAttribute('data-layout-transform', baseTransform)
+    }
+    const baseXRaw = Number(entry.el.getAttribute('data-layout-center-x'))
+    const baseX = Number.isFinite(baseXRaw) ? baseXRaw : entry.x
+    if (!entry.el.hasAttribute('data-layout-center-x')) {
+      entry.el.setAttribute('data-layout-center-x', String(baseX))
+    }
+    const dx = targetX - baseX
+    const transform = [baseTransform.trim(), `translate(${dx},0)`].filter((token) => token.length > 0).join(' ')
+    transition
+      .filter(function () {
+        return this === entry.el
+      })
+      .attr(SvgAttributes.Transform, transform)
+  }
+
+  private async updateLinePathForFilter(chartId: string | undefined, points: Array<{ x: number; y: number }>) {
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    if (svg.empty()) return
+    const scope = chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(chartId)}"]`) : svg
+    const linePathSelection = scope
+      .selectAll<SVGPathElement, JsonValue>(SvgElements.Path)
+      .filter(function () {
+        const el = this as SVGPathElement
+        if (el.classList.contains(SvgClassNames.Annotation)) return false
+        const hasTargetLike =
+          el.hasAttribute(DataAttributes.Target) || el.hasAttribute(DataAttributes.Value) || el.hasAttribute(DataAttributes.Id)
+        if (hasTargetLike) return false
+        const style = window.getComputedStyle(el)
+        return style.fill === 'none' || style.stroke !== 'none'
+      })
+    const linePathNode = linePathSelection.node()
+    if (!linePathNode) return
+    const linePath = d3.select(linePathNode as SVGPathElement)
+
+    if (points.length < 2) {
+      const fade = linePath.transition().duration(NON_SPLIT_EXIT_MS).attr(SvgAttributes.Opacity, 0)
+      await waitTransition(fade)
+      return
+    }
+
+    const lineGen = d3
+      .line<{ x: number; y: number }>()
+      .x((d) => d.x)
+      .y((d) => d.y)
+    const pathData = lineGen(points)
+    if (!pathData) return
+    const node = linePath.node()
+    if (!node || !node.parentElement) return
+    const style = window.getComputedStyle(node)
+    const targetOpacity = Number(style.opacity)
+    const nextOpacity = Number.isFinite(targetOpacity) ? targetOpacity : 1
+    const temp = d3
+      .select(node.parentElement)
+      .append(SvgElements.Path)
+      .attr(SvgAttributes.Class, 'line-filter-buffer')
+      .attr(SvgAttributes.D, pathData)
+      .attr(SvgAttributes.Fill, 'none')
+      .attr(SvgAttributes.Stroke, style.stroke || '#1d4ed8')
+      .attr(SvgAttributes.StrokeWidth, style.strokeWidth || 2)
+      .attr(SvgAttributes.Opacity, 0)
+
+    const fadeOut = linePath.transition().duration(NON_SPLIT_EXIT_MS).attr(SvgAttributes.Opacity, 0)
+    const fadeIn = temp.transition().duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS).attr(SvgAttributes.Opacity, nextOpacity)
+    await Promise.all([waitTransition(fadeOut), waitTransition(fadeIn)])
+    linePath.attr(SvgAttributes.D, pathData).attr(SvgAttributes.Opacity, nextOpacity)
+    temp.remove()
+  }
+
+  private async filter(op: DrawOp) {
+    const filterSpec = op.filter
+    if (!filterSpec) return
+    const entries = this.collectPointEntries(op.chartId)
+    if (!entries.length) return
+
+    const include = filterSpec.x?.include?.length ? new Set(filterSpec.x.include.map(String)) : null
+    const exclude = filterSpec.x?.exclude?.length ? new Set(filterSpec.x.exclude.map(String)) : null
+    const matchY = (value: number) => {
+      if (!filterSpec.y) return true
+      const threshold = Number(filterSpec.y.value)
+      if (!Number.isFinite(threshold)) return false
+      switch (filterSpec.y.op) {
+        case DrawComparisonOperators.Greater:
+          return value > threshold
+        case DrawComparisonOperators.GreaterEqual:
+          return value >= threshold
+        case DrawComparisonOperators.Less:
+          return value < threshold
+        case DrawComparisonOperators.LessEqual:
+          return value <= threshold
+        default:
+          return true
+      }
+    }
+
+    const kept = entries.filter((entry) => {
+      if (include && !include.has(entry.target)) return false
+      if (exclude && exclude.has(entry.target)) return false
+      return matchY(entry.value)
+    })
+    const keptLabels = kept.map((entry) => entry.target)
+    const keptSet = new Set(keptLabels)
+    const left = d3.min(entries.map((entry) => entry.x)) ?? 0
+    const right = d3.max(entries.map((entry) => entry.x)) ?? left
+    const xScale = d3.scalePoint<string>().domain(keptLabels).range([left, right])
+
+    const hidden = entries.filter((entry) => !keptSet.has(entry.target))
+    const hiddenTransition = d3
+      .selectAll<SVGElement, unknown>(hidden.map((entry) => entry.el) as SVGElement[])
+      .style('display', null)
+      .transition()
+      .duration(NON_SPLIT_EXIT_MS)
+      .attr(SvgAttributes.Opacity, 0)
+    await waitTransition(hiddenTransition)
+    d3.selectAll<SVGElement, unknown>(hidden.map((entry) => entry.el) as SVGElement[]).style('display', 'none')
+
+    if (kept.length) {
+      const shownSelection = d3
+        .selectAll<SVGElement, unknown>(kept.map((entry) => entry.el) as SVGElement[])
+        .style('display', null)
+        .attr(SvgAttributes.Opacity, 1) as unknown as d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>
+      const shownTransition = shownSelection.transition().duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS)
+      kept.forEach((entry) => {
+        const targetX = xScale(entry.target)
+        if (targetX == null) return
+        this.applyPointXTransition(shownTransition, entry, targetX)
+      })
+      await waitTransition(shownTransition)
+    }
+
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    const scope = op.chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(op.chartId)}"]`) : svg
+    const ticks = scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
+    const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
+    ticks.each(function () {
+      const tick = d3.select(this)
+      const label = tick.select(SvgElements.Text).text().trim()
+      const x = xScale(label)
+      if (x == null) {
+        tickTransition
+          .filter(function () {
+            return this === tick.node()
+          })
+          .attr(SvgAttributes.Opacity, 0)
+        return
+      }
+      tickTransition
+        .filter(function () {
+          return this === tick.node()
+        })
+        .attr(SvgAttributes.Opacity, 1)
+        .attr(SvgAttributes.Transform, `translate(${x},0)`)
+    })
+    await waitTransition(tickTransition)
+
+    const nextPoints = kept
+      .map((entry) => {
+        const x = xScale(entry.target)
+        if (x == null) return null
+        return { x, y: entry.y }
+      })
+      .filter((point): point is { x: number; y: number } => point !== null)
+    await this.updateLinePathForFilter(op.chartId, nextPoints)
+  }
+
+  override run(op: DrawOp): void | Promise<void> {
     // Line-chart specific axis.y rect handling (y-axis band near labels)
     if (
       op.action === DrawAction.Rect &&
@@ -183,12 +437,15 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
       this.lineTrace(op)
       return
     }
+    if (op.action === DrawAction.Filter) {
+      return this.filter(op)
+    }
     // disable unsupported actions for line chart
-    if (op.action === DrawAction.Sort || op.action === DrawAction.Filter || op.action === DrawAction.Split || op.action === DrawAction.Unsplit || op.action === DrawAction.BarSegment) {
+    if (op.action === DrawAction.Sort || op.action === DrawAction.Split || op.action === DrawAction.Unsplit || op.action === DrawAction.BarSegment) {
       console.warn('Unsupported draw action for line chart', op.action)
       return
     }
-    super.run(op)
+    return super.run(op)
   }
 
   /**

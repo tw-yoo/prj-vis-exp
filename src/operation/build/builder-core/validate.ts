@@ -2,6 +2,7 @@ import type { ChartTypeValue } from '../../../domain/chart'
 import type { OpsBuilderState } from './types'
 import { OperationOp } from '../../../types'
 import {
+  assertAddSpec,
   assertAverageSpec,
   assertCompareBoolSpec,
   assertCompareSpec,
@@ -12,7 +13,10 @@ import {
   assertFindExtremumSpec,
   assertLagDiffSpec,
   assertNthSpec,
+  assertPairDiffSpec,
   assertRetrieveValueSpec,
+  assertScaleSpec,
+  assertSetOpSpec,
   assertSortSpec,
   assertSumSpec,
 } from '../../../types/operationValidators'
@@ -114,11 +118,23 @@ export function validateOps(state: OpsBuilderState, chartType: ChartTypeValue | 
           case OperationOp.LagDiff:
             assertLagDiffSpec(op)
             break
+          case OperationOp.PairDiff:
+            assertPairDiffSpec(op)
+            break
           case OperationOp.Nth:
             assertNthSpec(op)
             break
           case OperationOp.Count:
             assertCountSpec(op)
+            break
+          case OperationOp.Add:
+            assertAddSpec(op)
+            break
+          case OperationOp.Scale:
+            assertScaleSpec(op)
+            break
+          case OperationOp.SetOp:
+            assertSetOpSpec(op)
             break
           case OperationOp.Sleep:
           case OperationOp.Draw:

@@ -64,7 +64,12 @@ function parseNumericLabel(text: string): number | null {
 }
 
 function collectBars(scopeElement: Element, svg: SVGSVGElement): BarSpan[] {
-  const bars = Array.from(scopeElement.querySelectorAll<SVGRectElement>(`${SvgElements.Rect}[${DataAttributes.Target}]`))
+  // Vega can render bars as <rect> or <path> depending on configuration/stacking.
+  const selector = [
+    `${SvgElements.Rect}[${DataAttributes.Target}]`,
+    `${SvgElements.Path}[${DataAttributes.Target}]`,
+  ].join(', ')
+  const bars = Array.from(scopeElement.querySelectorAll<SVGGraphicsElement>(selector))
     .filter((bar) => !bar.classList.contains(SvgClassNames.Annotation))
     .map((bar) => {
       const target = bar.getAttribute(DataAttributes.Target)

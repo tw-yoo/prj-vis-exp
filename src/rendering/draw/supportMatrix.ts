@@ -111,6 +111,8 @@ export const RUNTIME_DRAW_SUPPORT_MATRIX: DrawSupportMatrix = {
   }),
   [DrawAction.Sum]: withSupported({
     [ChartType.SIMPLE_BAR]: 'supported',
+    [ChartType.STACKED_BAR]: 'supported',
+    [ChartType.GROUPED_BAR]: 'supported',
   }),
   [DrawAction.BarSegment]: withSupported({
     [ChartType.SIMPLE_BAR]: 'supported',
@@ -120,10 +122,25 @@ export const RUNTIME_DRAW_SUPPORT_MATRIX: DrawSupportMatrix = {
   [DrawAction.LineToBar]: withSupported({
     [ChartType.SIMPLE_LINE]: 'supported',
   }),
+  [DrawAction.MultiLineToStacked]: withSupported({
+    [ChartType.MULTI_LINE]: 'supported',
+  }),
+  [DrawAction.MultiLineToGrouped]: withSupported({
+    [ChartType.MULTI_LINE]: 'supported',
+  }),
   [DrawAction.StackedToGrouped]: withSupported({
     [ChartType.STACKED_BAR]: 'supported',
   }),
   [DrawAction.GroupedToStacked]: withSupported({
+    [ChartType.GROUPED_BAR]: 'supported',
+  }),
+  [DrawAction.StackedToSimple]: withSupported({
+    [ChartType.STACKED_BAR]: 'supported',
+  }),
+  [DrawAction.StackedToDiverging]: withSupported({
+    [ChartType.STACKED_BAR]: 'supported',
+  }),
+  [DrawAction.GroupedToSimple]: withSupported({
     [ChartType.GROUPED_BAR]: 'supported',
   }),
   [DrawAction.StackedFilterGroups]: withSupported({
@@ -132,12 +149,26 @@ export const RUNTIME_DRAW_SUPPORT_MATRIX: DrawSupportMatrix = {
   [DrawAction.GroupedFilterGroups]: withSupported({
     [ChartType.GROUPED_BAR]: 'supported',
   }),
-  [DrawAction.Sleep]: withSupported({
+  [DrawAction.Band]: withSupported({
     [ChartType.SIMPLE_BAR]: 'supported',
     [ChartType.STACKED_BAR]: 'supported',
     [ChartType.GROUPED_BAR]: 'supported',
     [ChartType.SIMPLE_LINE]: 'supported',
     [ChartType.MULTI_LINE]: 'supported',
+  }),
+  [DrawAction.ScalarPanel]: withSupported({
+    [ChartType.SIMPLE_BAR]: 'supported',
+    [ChartType.STACKED_BAR]: 'supported',
+    [ChartType.GROUPED_BAR]: 'supported',
+    [ChartType.SIMPLE_LINE]: 'supported',
+    [ChartType.MULTI_LINE]: 'supported',
+  }),
+  [DrawAction.Sleep]: withSupported({
+    [ChartType.SIMPLE_BAR]: 'unsupported',
+    [ChartType.STACKED_BAR]: 'unsupported',
+    [ChartType.GROUPED_BAR]: 'unsupported',
+    [ChartType.SIMPLE_LINE]: 'unsupported',
+    [ChartType.MULTI_LINE]: 'unsupported',
   }),
 }
 

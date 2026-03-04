@@ -7,6 +7,7 @@ import {
   tagSimpleLineMarks,
   renderSplitSimpleLineChart,
   getSimpleLineSplitDomain,
+  resolveSimpleLineEncoding,
 } from '../../rendering/line/simpleLineRenderer.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/datum.ts'
 import type { OpsSpecInput } from '../../rendering/ops/common/opsSpec.ts'
@@ -67,8 +68,10 @@ function compareNumericValue(op: NumericOperator, actual: number, threshold: num
 }
 
 function matchesFilterForRow(row: RawRow, filter: DrawFilterSpec, spec: LineSpec) {
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
+  const resolved = resolveSimpleLineEncoding(spec as any)
+  if (!resolved) return false
+  const xField = resolved.xField
+  const yField = resolved.yField
 
   if (filter.x) {
     const include = filter.x.include
@@ -98,14 +101,6 @@ function matchesFilterForRow(row: RawRow, filter: DrawFilterSpec, spec: LineSpec
   return true
 }
 
-async function renderLineChartWithData(container: HTMLElement, spec: LineSpec, values: RawRow[]) {
-  const renderedSpec: LineSpec = {
-    ...spec,
-    data: { values },
-  }
-  await renderSimpleLineChart(container, renderedSpec)
-}
-
 async function convertLineChartToBars(container: HTMLElement, spec: LineSpec) {
   const stored = (getSimpleLineStoredData(container) || []) as RawRow[]
   if (!stored.length) return
@@ -117,13 +112,6 @@ async function convertLineChartToBars(container: HTMLElement, spec: LineSpec) {
   await renderSimpleLineChart(container, barSpec)
 }
 
-async function filterLineChart(container: HTMLElement, spec: LineSpec, filter: DrawFilterSpec) {
-  const stored = (getSimpleLineStoredData(container) || []) as RawRow[]
-  if (!stored.length) return
-  const filtered = stored.filter((row) => matchesFilterForRow(row, filter, spec))
-  await renderLineChartWithData(container, spec, filtered.map((row) => ({ ...row })))
-}
-
 async function handleSimpleLineDraw(
   container: HTMLElement,
   handler: SimpleLineDrawHandler,
@@ -132,10 +120,6 @@ async function handleSimpleLineDraw(
 ) {
   if (drawOp.action === DrawAction.LineToBar) {
     await convertLineChartToBars(container, spec)
-    return
-  }
-  if (drawOp.action === DrawAction.Filter && drawOp.filter) {
-    await filterLineChart(container, spec, drawOp.filter)
     return
   }
 
@@ -150,9 +134,10 @@ async function handleSimpleLineDraw(
     drawOp.action === DrawAction.LineTrace ||
     drawOp.action === DrawAction.Text ||
     drawOp.action === DrawAction.Rect ||
-    drawOp.action === DrawAction.Line
+    drawOp.action === DrawAction.Line ||
+    drawOp.action === DrawAction.Filter
   ) {
-    handler.run(drawOp)
+    await handler.run(drawOp)
     return
   }
   console.warn('draw: unsupported action for simple line', drawOp.action)
@@ -216,8 +201,28 @@ export async function runSimpleLineOps(
       await tagSimpleLineMarks(host, spec)
     },
     getWorkingData: (host, spec) => {
+      const resolved = resolveSimpleLineEncoding(spec as any)
+      if (!resolved) return []
       const raw = getSimpleLineStoredData(host) || []
-      return toDatumValues(raw, spec.encoding.x.field, spec.encoding.y.field)
+      const values = toDatumValues(raw as any, resolved.xField, resolved.yField)
+      if (values.length) return values
+
+      // Fallback: derive from tagged marks (works for data.url-backed charts).
+      return Array.from(host.querySelectorAll<SVGGraphicsElement>('[data-target][data-value]'))
+        .map((el) => {
+          const target = el.getAttribute('data-target') ?? ''
+          const value = Number(el.getAttribute('data-value'))
+          if (!target || !Number.isFinite(value)) return null
+          return {
+            category: resolved.xField,
+            measure: resolved.yField,
+            target,
+            group: null,
+            value,
+            id: el.getAttribute('data-id'),
+          }
+        })
+        .filter(Boolean) as DatumValue[]
     },
     createHandler: (host) => new SimpleLineDrawHandler(host),
     splitHandler: async (host, spec, handler, drawOp) => {

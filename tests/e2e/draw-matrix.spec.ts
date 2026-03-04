@@ -64,6 +64,12 @@ async function countVisibleBars(page: Page) {
   })
 }
 
+async function getRenderEpoch(page: Page) {
+  const raw = await page.locator(chartHost).first().getAttribute('data-render-epoch')
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 async function visibleSeries(page: Page) {
   return page.locator(`${chartHost} svg [data-series][data-target]`).evaluateAll((nodes) => {
     const values = new Set<string>()
@@ -160,9 +166,12 @@ test('TC7 line-trace (simple line)', async ({ page }) => {
 
 test('TC8 split/unsplit (simple bar)', async ({ page }) => {
   await renderSpec(page, SIMPLE_BAR_SPEC)
+  const epochBeforeSplit = await getRenderEpoch(page)
   await page.getByTestId('draw-tool-split').click()
   await dispatchClick(await firstMark(page))
   await page.getByRole('button', { name: 'Apply Split' }).click()
+  const epochAfterSplit = await getRenderEpoch(page)
+  expect(epochAfterSplit).toBeGreaterThan(epochBeforeSplit)
   await expect.poll(async () => (await splitMarkerCounts(page)).countA).toBeGreaterThan(0)
   await expect.poll(async () => (await splitMarkerCounts(page)).countB).toBeGreaterThan(0)
   await page.getByRole('button', { name: 'Unsplit' }).click()
@@ -262,7 +271,7 @@ test('TC19 visual-dom snapshot: simple bar highlight', async ({ page }) => {
   await renderSpec(page, SIMPLE_BAR_SPEC)
   await page.getByTestId('draw-tool-highlight').click()
   await dispatchClick(await firstMark(page))
-  const fills = await page.locator(`${chartHost} svg rect[data-target]`).evaluateAll((nodes) => {
+  const fills = await page.locator(`${chartHost} svg rect[data-target], ${chartHost} svg path[data-target]`).evaluateAll((nodes) => {
     return nodes.map((node) => node.getAttribute('fill')).filter((value): value is string => !!value)
   })
   expect(fills).toContain('#ef4444')

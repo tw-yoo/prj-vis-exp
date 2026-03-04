@@ -23,11 +23,18 @@ export const DrawAction = {
   Filter: 'filter',
   Sum: 'sum',
   LineToBar: 'line-to-bar',
+  MultiLineToStacked: 'multi-line-to-stacked',
+  MultiLineToGrouped: 'multi-line-to-grouped',
   StackedToGrouped: 'stacked-to-grouped',
   GroupedToStacked: 'grouped-to-stacked',
+  StackedToSimple: 'stacked-to-simple',
+  GroupedToSimple: 'grouped-to-simple',
+  StackedToDiverging: 'stacked-to-diverging',
   Sleep: 'sleep',
   StackedFilterGroups: 'stacked-filter-groups',
   GroupedFilterGroups: 'grouped-filter-groups',
+  Band: 'band',
+  ScalarPanel: 'scalar-panel',
 } as const
 export type DrawAction = (typeof DrawAction)[keyof typeof DrawAction]
 
@@ -133,6 +140,10 @@ export type DrawLineSpec = {
   position?: { start: { x: number; y: number }; end: { x: number; y: number } }
   axis?: { x: string; y: number }
   pair?: { x: [string, string] }
+  connectBy?: {
+    start: { target: string | number; series?: string | number }
+    end: { target: string | number; series?: string | number }
+  }
   hline?: { x?: string; y?: number }
   angle?: number
   length?: number
@@ -207,10 +218,66 @@ export type DrawSumSpec = {
   label?: string
 }
 
+export type DrawBandSpec = {
+  axis: 'x' | 'y'
+  range: [string | number, string | number]
+  label?: string
+  style?: {
+    fill?: string
+    opacity?: number
+    stroke?: string
+    strokeWidth?: number
+  }
+}
+
+export type DrawScalarPanelValueSpec = {
+  label: string
+  value: number
+}
+
+export type DrawScalarPanelDeltaSpec = {
+  label?: string
+  value: number
+}
+
+export type DrawScalarPanelPosition = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export type DrawScalarPanelStyle = {
+  leftFill?: string
+  rightFill?: string
+  panelFill?: string
+  panelStroke?: string
+  lineStroke?: string
+  arrowStroke?: string
+  textColor?: string
+}
+
+export type DrawScalarPanelSpec = {
+  mode?: 'base' | 'diff'
+  layout?: 'inset' | 'full-replace'
+  /** When true, bars and delta are rendered with absolute values. Default: true */
+  absolute?: boolean
+  left: DrawScalarPanelValueSpec
+  right: DrawScalarPanelValueSpec
+  delta?: DrawScalarPanelDeltaSpec
+  position?: DrawScalarPanelPosition
+  style?: DrawScalarPanelStyle
+}
+
 export type DrawStackGroupSpec = {
   swapAxes?: boolean
   xField?: string
   colorField?: string
+}
+
+export type DrawToSimpleSpec = {
+  /** Series label to keep (matches the chart series encoding). */
+  series: string | number
 }
 
 export type DrawOp = OperationSpec & {
@@ -228,8 +295,11 @@ export type DrawOp = OperationSpec & {
   sort?: DrawSortSpec
   filter?: DrawFilterSpec
   stackGroup?: DrawStackGroupSpec
+  toSimple?: DrawToSimpleSpec
   groupFilter?: DrawGroupFilterSpec
   sleep?: { seconds?: number; duration?: number }
+  band?: DrawBandSpec
+  scalarPanel?: DrawScalarPanelSpec
 }
 
 export type DrawSleepSpec = { seconds?: number; duration?: number }

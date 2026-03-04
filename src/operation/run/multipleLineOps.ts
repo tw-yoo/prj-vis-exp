@@ -17,15 +17,30 @@ import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runMultipleLineDrawPlan } from '../../rendering/ops/executor/runMultipleLineDrawPlan.ts'
 import { MULTI_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/multiple/autoDrawPlanRegistry.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
+import { convertMultiLineToGroupedBar, convertMultiLineToStackedBar } from '../../rendering/line/multiLineToBarTransforms.ts'
+import { resolveMultiLineEncoding } from '../../rendering/line/multipleLineRenderer.ts'
 
 function toDatumValues(raw: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(raw, { xField, yField })
 }
 
-function handleMultipleLineDraw(container: HTMLElement, handler: MultiLineDrawHandler, drawOp: DrawOp) {
+async function handleMultipleLineDraw(
+  container: HTMLElement,
+  handler: MultiLineDrawHandler,
+  drawOp: DrawOp,
+  spec: MultiLineSpec,
+) {
+  if (drawOp.action === DrawAction.MultiLineToStacked) {
+    await convertMultiLineToStackedBar(container, spec)
+    return
+  }
+  if (drawOp.action === DrawAction.MultiLineToGrouped) {
+    await convertMultiLineToGroupedBar(container, spec)
+    return
+  }
   if (drawOp.action === DrawAction.Clear) {
     clearAnnotations(d3.select(container).select('svg'))
-    handler.run(drawOp)
+    await handler.run(drawOp)
     return
   }
   if (
@@ -33,9 +48,10 @@ function handleMultipleLineDraw(container: HTMLElement, handler: MultiLineDrawHa
     drawOp.action === DrawAction.Dim ||
     drawOp.action === DrawAction.Text ||
     drawOp.action === DrawAction.Rect ||
-    drawOp.action === DrawAction.Line
+    drawOp.action === DrawAction.Line ||
+    drawOp.action === DrawAction.Filter
   ) {
-    handler.run(drawOp)
+    await handler.run(drawOp)
     return
   }
   console.warn('draw: unsupported action for multiple line', drawOp.action)
@@ -63,6 +79,10 @@ export async function runMultipleLineOps(
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
+  const encoding = resolveMultiLineEncoding(vlSpec)
+  if (!encoding) {
+    console.warn('runMultipleLineOps: missing x/y encoding; some operations may be unavailable')
+  }
   const chartWorking = new Map<string, DatumValue[]>()
   const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
     const domain = getMultipleLineSplitDomain(container, chartId)
@@ -96,7 +116,8 @@ export async function runMultipleLineOps(
     postRender: async (host, spec) => tagMultipleLineMarks(host, spec),
     getWorkingData: (_, spec) => {
       const raw = getMultipleLineStoredData(container) || []
-      return toDatumValues(raw, spec.encoding.x.field, spec.encoding.y.field)
+      if (!encoding) return []
+      return toDatumValues(raw, encoding.xField, encoding.yField)
     },
     createHandler: () => new MultiLineDrawHandler(container),
     splitHandler: async (host, spec, handler, drawOp) => {
@@ -108,7 +129,7 @@ export async function runMultipleLineOps(
       return handled
     },
     handleDrawOp: (host, handler, drawOp) =>
-      handleMultipleLineDraw(host, handler as MultiLineDrawHandler, drawOp),
+      handleMultipleLineDraw(host, handler as MultiLineDrawHandler, drawOp, vlSpec),
     clearAnnotations: ({ svg }) => clearAnnotations(svg),
     autoDrawPlans: MULTI_LINE_AUTO_DRAW_PLANS,
     getOperationInput: deriveOperationInput,

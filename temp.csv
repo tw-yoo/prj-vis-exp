@@ -1,21 +1,6 @@
-Country,Factor,Decrease_in_GDP_Percentage
-Czechia,China – exports,0.011
-Czechia,China – supply chain,0.036
-Czechia,Germany – exports,0.003
-Czechia,Italy – exports,0.064
-Czechia,Total,0.064
-Hungary,China – exports,0.015
-Hungary,China – supply chain,0.031
-Hungary,Germany – exports,0.004
-Hungary,Italy – exports,0.069
-Hungary,Total,0.069
-Romania,China – exports,0.004
-Romania,China – supply chain,0.015
-Romania,Germany – exports,0.002
-Romania,Italy – exports,0.038
-Romania,Total,0.038
-Poland,China – exports,0.004
-Poland,China – supply chain,0.023
-Poland,Germany – exports,0.001
-Poland,Italy – exports,0.038
-Poland,Total,0.033
+Period,Difference
+1970.0 - 1980.0,4.9
+1980.0 - 1990.0,8.100000000000001
+1990.0 - 2000.0,13.100000000000001
+2000.0 - 2010.0,15.0
+2010.0 - 2019.0,9.899999999999999

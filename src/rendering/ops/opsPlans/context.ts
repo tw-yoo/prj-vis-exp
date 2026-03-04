@@ -7,8 +7,8 @@ import type { OpsPlanContext } from './types'
 import { getSimpleBarStoredData, type SimpleBarSpec } from '../../bar/simpleBarRenderer'
 import { getStackedBarStoredData, type StackedSpec } from '../../bar/stackedBarRenderer'
 import { getGroupedBarStoredData, type GroupedSpec } from '../../bar/groupedBarRenderer'
-import { getSimpleLineStoredData, type LineSpec } from '../../line/simpleLineRenderer'
-import { getMultipleLineStoredData, type MultiLineSpec } from '../../line/multipleLineRenderer'
+import { getSimpleLineStoredData, resolveSimpleLineEncoding, type LineSpec } from '../../line/simpleLineRenderer'
+import { getMultipleLineStoredData, resolveMultiLineEncoding, type MultiLineSpec } from '../../line/multipleLineRenderer'
 
 const groupFallback = (row: RawRow) => {
   const candidate = row?.group ?? row?.color ?? row?.series ?? null
@@ -56,12 +56,14 @@ function buildGroupedBarWorkingData(container: HTMLElement, spec: GroupedSpec): 
 
 function buildSimpleLineWorkingData(container: HTMLElement, spec: LineSpec): DatumValue[] {
   const raw = (getSimpleLineStoredData(container) || []) as RawRow[]
+  const encoding = resolveSimpleLineEncoding(spec as any)
+  if (!encoding) return []
   return toDatumValuesFromRaw(
     raw,
     {
-      xField: spec.encoding.x.field,
-      yField: spec.encoding.y.field,
-      groupField: spec.encoding.color?.field,
+      xField: encoding.xField,
+      yField: encoding.yField,
+      groupField: encoding.colorField ?? undefined,
     },
     { groupFallback },
   )
@@ -69,12 +71,14 @@ function buildSimpleLineWorkingData(container: HTMLElement, spec: LineSpec): Dat
 
 function buildMultipleLineWorkingData(container: HTMLElement, spec: MultiLineSpec): DatumValue[] {
   const raw = (getMultipleLineStoredData(container) || []) as RawRow[]
+  const encoding = resolveMultiLineEncoding(spec)
+  if (!encoding) return []
   return toDatumValuesFromRaw(
     raw,
     {
-      xField: spec.encoding.x.field,
-      yField: spec.encoding.y.field,
-      groupField: spec.encoding.color?.field,
+      xField: encoding.xField,
+      yField: encoding.yField,
+      groupField: encoding.colorField ?? undefined,
     },
     { groupFallback },
   )

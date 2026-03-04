@@ -341,6 +341,34 @@ export const lineField: FieldSchema = {
       fields: [{ key: 'x', label: 'X Pair', kind: 'stringArray', optional: false, optionsSource: 'target' }],
     },
     {
+      key: 'connectBy',
+      label: 'Connect By',
+      kind: 'object',
+      optional: true,
+      fields: [
+        {
+          key: 'start',
+          label: 'Start',
+          kind: 'object',
+          optional: false,
+          fields: [
+            { key: 'target', label: 'Target', kind: 'stringOrNumber', optional: false, optionsSource: 'target' },
+            { key: 'series', label: 'Series', kind: 'stringOrNumber', optional: true, optionsSource: 'series' },
+          ],
+        },
+        {
+          key: 'end',
+          label: 'End',
+          kind: 'object',
+          optional: false,
+          fields: [
+            { key: 'target', label: 'Target', kind: 'stringOrNumber', optional: false, optionsSource: 'target' },
+            { key: 'series', label: 'Series', kind: 'stringOrNumber', optional: true, optionsSource: 'series' },
+          ],
+        },
+      ],
+    },
+    {
       key: 'hline',
       label: 'HLine',
       kind: 'object',
@@ -402,6 +430,14 @@ export const stackGroupField: FieldSchema = {
   ],
 }
 
+export const toSimpleField: FieldSchema = {
+  key: 'toSimple',
+  label: 'To Simple',
+  kind: 'object',
+  optional: true,
+  fields: [{ key: 'series', label: 'Series', kind: 'stringOrNumber', optional: false, optionsSource: 'series' }],
+}
+
 export const groupFilterField: FieldSchema = {
   key: 'groupFilter',
   label: 'Group Filter',
@@ -414,4 +450,140 @@ export const groupFilterField: FieldSchema = {
     { key: 'exclude', label: 'Exclude', kind: 'stringOrNumberArray', optional: true, optionsSource: 'series' },
     { key: 'reset', label: 'Reset', kind: 'boolean', optional: true },
   ],
+}
+
+export const bandField: FieldSchema = {
+  key: 'band',
+  label: 'Band',
+  kind: 'object',
+  optional: true,
+  fields: [
+    {
+      key: 'axis',
+      label: 'Axis',
+      kind: 'enum',
+      optional: false,
+      options: ['x', 'y'],
+    },
+    {
+      key: 'range',
+      label: 'Range',
+      kind: 'stringOrNumberArray',
+      optional: false,
+      optionsSource: 'target',
+    },
+    { key: 'label', label: 'Label', kind: 'string', optional: true },
+    {
+      key: 'style',
+      label: 'Style',
+      kind: 'object',
+      optional: true,
+      fields: [
+        { key: 'fill', label: 'Fill', kind: 'string', optional: true },
+        { key: 'opacity', label: 'Opacity', kind: 'number', optional: true },
+        { key: 'stroke', label: 'Stroke', kind: 'string', optional: true },
+        { key: 'strokeWidth', label: 'Stroke Width', kind: 'number', optional: true },
+      ],
+    },
+  ],
+}
+
+export const scalarPanelField: FieldSchema = {
+  key: 'scalarPanel',
+  label: 'Scalar Panel',
+  kind: 'object',
+  optional: true,
+  fields: [
+    {
+      key: 'mode',
+      label: 'Mode',
+      kind: 'enum',
+      optional: true,
+      options: ['base', 'diff'],
+    },
+    {
+      key: 'layout',
+      label: 'Layout',
+      kind: 'enum',
+      optional: true,
+      options: ['inset', 'full-replace'],
+    },
+    {
+      key: 'absolute',
+      label: 'Absolute',
+      kind: 'boolean',
+      optional: true,
+    },
+    {
+      key: 'left',
+      label: 'Left',
+      kind: 'object',
+      optional: false,
+      fields: [
+        { key: 'label', label: 'Label', kind: 'string', optional: false },
+        { key: 'value', label: 'Value', kind: 'number', optional: false },
+      ],
+    },
+    {
+      key: 'right',
+      label: 'Right',
+      kind: 'object',
+      optional: false,
+      fields: [
+        { key: 'label', label: 'Label', kind: 'string', optional: false },
+        { key: 'value', label: 'Value', kind: 'number', optional: false },
+      ],
+    },
+    {
+      key: 'delta',
+      label: 'Delta',
+      kind: 'object',
+      optional: true,
+      fields: [
+        { key: 'label', label: 'Label', kind: 'string', optional: true },
+        { key: 'value', label: 'Value', kind: 'number', optional: false },
+      ],
+    },
+    {
+      key: 'position',
+      label: 'Position',
+      kind: 'object',
+      optional: true,
+      fields: [
+        { key: 'x', label: 'X', kind: 'number', optional: false },
+        { key: 'y', label: 'Y', kind: 'number', optional: false },
+        { key: 'width', label: 'Width', kind: 'number', optional: false },
+        { key: 'height', label: 'Height', kind: 'number', optional: false },
+      ],
+    },
+    {
+      key: 'style',
+      label: 'Style',
+      kind: 'object',
+      optional: true,
+      fields: [
+        { key: 'leftFill', label: 'Left Fill', kind: 'string', optional: true },
+        { key: 'rightFill', label: 'Right Fill', kind: 'string', optional: true },
+        { key: 'panelFill', label: 'Panel Fill', kind: 'string', optional: true },
+        { key: 'panelStroke', label: 'Panel Stroke', kind: 'string', optional: true },
+        { key: 'lineStroke', label: 'Line Stroke', kind: 'string', optional: true },
+        { key: 'arrowStroke', label: 'Arrow Stroke', kind: 'string', optional: true },
+        { key: 'textColor', label: 'Text Color', kind: 'string', optional: true },
+      ],
+    },
+  ],
+}
+
+export const sleepSecondsField: FieldSchema = {
+  key: 'seconds',
+  label: 'Seconds',
+  kind: 'number',
+  optional: true,
+}
+
+export const sleepDurationField: FieldSchema = {
+  key: 'duration',
+  label: 'Duration',
+  kind: 'number',
+  optional: true,
 }

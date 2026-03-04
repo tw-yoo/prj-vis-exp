@@ -11,6 +11,7 @@ export const DrawInteractionTools = {
   Filter: 'filter',
   Split: 'split',
   SeriesFilter: 'series-filter',
+  Convert: 'convert',
   BarSegment: 'bar-segment',
 } as const
 

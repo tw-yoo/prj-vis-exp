@@ -14,6 +14,5 @@ export function buildSimpleBarSumDrawPlan(
   const label = String(op.targetName ?? datum.target ?? 'Sum')
   return [
     ops.draw.sum(op.chartId, draw.sumSpec.value(value, label)),
-    ops.draw.sleep(1, op.chartId),
   ]
 }

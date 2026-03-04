@@ -1,5 +1,6 @@
 import type { DatumValue, JsonPrimitive, JsonValue, OperationSpec, TargetSelector } from './types'
 import type {
+  OpAddSpec,
   OpCompareBoolSpec,
   OpCompareSpec,
   OpCountSpec,
@@ -9,12 +10,16 @@ import type {
   OpFindExtremumSpec,
   OpLagDiffSpec,
   OpNthSpec,
+  OpPairDiffSpec,
   OpRetrieveValueSpec,
+  OpScaleSpec,
+  OpSetOpSpec,
   OpSortSpec,
   OpSumSpec,
   OpAverageSpec,
 } from './types/operationSpecs'
 import {
+  assertAddSpec,
   assertAverageSpec,
   assertCompareBoolSpec,
   assertCompareSpec,
@@ -25,7 +30,10 @@ import {
   assertFindExtremumSpec,
   assertLagDiffSpec,
   assertNthSpec,
+  assertPairDiffSpec,
   assertRetrieveValueSpec,
+  assertScaleSpec,
+  assertSetOpSpec,
   assertSortSpec,
   assertSumSpec,
 } from './types/operationValidators'
@@ -313,12 +321,21 @@ function sliceForTarget(data: DatumValue[], opField: string | undefined, targetI
   }
 
   const targetId = String(category)
+  const targetIdNormalized = targetId.startsWith('ref:') ? targetId.slice('ref:'.length) : targetId
   const byId = slice.filter((d) => d && String(d.id) === targetId)
   if (byId.length > 0) {
     return byId
   }
+  if (targetIdNormalized !== targetId) {
+    const byNormalizedId = slice.filter((d) => d && String(d.id) === targetIdNormalized)
+    if (byNormalizedId.length > 0) {
+      return byNormalizedId
+    }
+  }
 
-  const runtimeMatches = getRuntimeResultsById(targetId)
+  const runtimeMatchesPrimary = getRuntimeResultsById(targetId)
+  const runtimeMatchesFallback = targetIdNormalized !== targetId ? getRuntimeResultsById(targetIdNormalized) : []
+  const runtimeMatches = runtimeMatchesPrimary.length > 0 ? runtimeMatchesPrimary : runtimeMatchesFallback
   if (runtimeMatches.length > 0) {
     let runtimeSlice = runtimeMatches
     if (series !== undefined) {
@@ -335,6 +352,84 @@ function sliceForTarget(data: DatumValue[], opField: string | undefined, targetI
     }
   }
   return byTarget
+}
+
+function selectorRefKey(target: TargetSelector | TargetSelector[] | undefined): string | null {
+  if (target == null) return null
+  if (Array.isArray(target)) {
+    for (const entry of target) {
+      const key = selectorRefKey(entry)
+      if (key) return key
+    }
+    return null
+  }
+  if (typeof target === 'string' && target.startsWith('ref:n')) {
+    return target.slice('ref:'.length)
+  }
+  if (typeof target === 'object') {
+    const refId = (target as { id?: JsonValue }).id
+    if (typeof refId === 'string' && refId.startsWith('n')) return refId
+  }
+  return null
+}
+
+export function resolveBinaryInputsFromMeta(inputs: unknown): {
+  targetA?: TargetSelector | TargetSelector[]
+  targetB?: TargetSelector | TargetSelector[]
+} {
+  if (!Array.isArray(inputs)) return {}
+  const ids = inputs
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+  if (ids.length < 2) return {}
+  const normalizeRef = (value: string) => (value.startsWith('ref:') ? value : `ref:${value}`)
+  return {
+    targetA: normalizeRef(ids[0]),
+    targetB: normalizeRef(ids[1]),
+  }
+}
+
+function resolveSelectorScalar(
+  data: DatumValue[],
+  opField: string | undefined,
+  target: TargetSelector | TargetSelector[] | undefined,
+  group: string | null | undefined,
+  agg: string | undefined,
+): number | null {
+  if (target == null) return null
+  if (typeof target === 'number' && Number.isFinite(target)) return target
+  const numericText = typeof target === 'string' ? Number(target) : NaN
+  if (Number.isFinite(numericText)) return numericText
+
+  const refKey = selectorRefKey(target)
+  if (refKey) {
+    const runtime = getRuntimeResultsById(refKey)
+    if (!runtime.length) return null
+    const values = runtime.map((item) => Number(item.value)).filter(Number.isFinite)
+    if (!values.length) return null
+    return aggregate(values, agg)
+  }
+
+  const slice = sliceForTarget(data, opField, target, group)
+  if (!slice.length) return null
+  const values = slice.map((item) => Number(item.value)).filter(Number.isFinite)
+  if (!values.length) return null
+  return aggregate(values, agg)
+}
+
+function targetKeyForPairDiff(item: DatumValue, byField: string) {
+  if (byField === 'target' || byField === item.category) return String(item.target)
+  if (byField === 'id') return String(item.id ?? '')
+  const runtimeLookupKey = item.lookupId ?? item.id ?? null
+  if (runtimeLookupKey) {
+    const runtimeRows = getRuntimeResultsById(runtimeLookupKey)
+    if (runtimeRows.length > 0) {
+      const key = runtimeRows[0]?.target
+      if (key) return String(key)
+    }
+  }
+  return String(item.target)
 }
 
 /** Factory for a single numeric DatumValue result */
@@ -390,6 +485,23 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
         })
       : byGroup
 
+  // nlp_server shorthand: filter with array value and no operator.
+  // Example: {"field":"Country","value":["South Korea","France"]}
+  // Resolve against group/target labels using the denser match.
+  if (!operator && Array.isArray(value) && value.length > 0) {
+    const valueSet = new Set(value.map((entry) => String(entry)))
+    const byGroupValue = byTarget.filter((d) => d.group != null && valueSet.has(String(d.group)))
+    const byTargetValue = byTarget.filter((d) => valueSet.has(String(d.target)))
+    if (byGroupValue.length === 0 && byTargetValue.length === 0) return []
+    if (byGroupValue.length > byTargetValue.length) return byGroupValue
+    if (byTargetValue.length > byGroupValue.length) return byTargetValue
+    const hint = String(field ?? '').toLowerCase()
+    if (hint.includes('series') || hint.includes('group') || hint.includes('country')) {
+      return byGroupValue.length ? byGroupValue : byTargetValue
+    }
+    return byTargetValue.length ? byTargetValue : byGroupValue
+  }
+
   if (!operator) {
     return byTarget
   }
@@ -429,7 +541,13 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
 export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
   const spec = assertCompareSpec(op)
-  const { field, targetA, targetB, groupA, groupB, aggregate: agg, which = 'max' } = spec
+  const { field, groupA, groupB, aggregate: agg, which = 'max' } = spec
+  const fallbackTargets = resolveBinaryInputsFromMeta(spec.meta?.inputs)
+  const targetA = spec.targetA ?? fallbackTargets.targetA
+  const targetB = spec.targetB ?? fallbackTargets.targetB
+  if (targetA == null || targetB == null) {
+    throw new Error('compare: targetA/targetB not found and meta.inputs fallback unavailable')
+  }
   const gA = groupA ?? op.group
   const gB = groupB ?? op.group
   const sA = sliceForTarget(arr, field, targetA, gA ?? null)
@@ -449,7 +567,13 @@ export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
 export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
   const spec = assertCompareBoolSpec(op)
-  const { field, targetA, targetB, groupA, groupB, operator } = spec
+  const { field, groupA, groupB, operator } = spec
+  const fallbackTargets = resolveBinaryInputsFromMeta(spec.meta?.inputs)
+  const targetA = spec.targetA ?? fallbackTargets.targetA
+  const targetB = spec.targetB ?? fallbackTargets.targetB
+  if (targetA == null || targetB == null) {
+    throw new Error('compareBool: targetA/targetB not found and meta.inputs fallback unavailable')
+  }
   const gA = groupA ?? op.group
   const gB = groupB ?? op.group
   const sA = sliceForTarget(arr, field, targetA, gA ?? null)
@@ -612,13 +736,17 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
   const spec = assertDiffSpec(op)
   const {
     field,
-    targetA,
-    targetB,
     groupA,
     groupB,
     aggregate: agg,
     signed = true,
   } = spec
+  const fallbackTargets = resolveBinaryInputsFromMeta(spec.meta?.inputs)
+  const targetA = spec.targetA ?? fallbackTargets.targetA
+  const targetB = spec.targetB ?? fallbackTargets.targetB
+  if (targetA == null || targetB == null) {
+    throw new Error('diff: targetA/targetB not found and meta.inputs fallback unavailable')
+  }
   const gA = groupA ?? op.group ?? null
   const gB = groupB ?? op.group ?? null
 
@@ -754,6 +882,173 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
   return diffs
 }
 
+/** 3.11c pairDiff — key-wise differences between two groups. */
+export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[] {
+  const arr = cloneData(data)
+  const spec = assertPairDiffSpec(op)
+  const {
+    by,
+    field,
+    groupA,
+    groupB,
+    signed = true,
+    absolute = false,
+    precision,
+    group,
+  } = spec
+  const scoped = sliceByGroup(arr, group ?? null)
+  const keyA = String(groupA)
+  const keyB = String(groupB)
+  const seriesField = spec.seriesField
+
+  const belongsToSeries = (item: DatumValue, series: string) => {
+    if (seriesField && seriesField !== (item.category ?? '')) {
+      return String(item.group ?? item.series ?? '') === series
+    }
+    return String(item.group ?? item.series ?? '') === series
+  }
+
+  const left = scoped.filter((item) => belongsToSeries(item, keyA))
+  const right = scoped.filter((item) => belongsToSeries(item, keyB))
+  if (!left.length || !right.length) return []
+
+  const measureName = field ?? left[0]?.measure ?? right[0]?.measure ?? 'value'
+  const buildMap = (items: DatumValue[]) => {
+    const out = new Map<string, number[]>()
+    items.forEach((item) => {
+      if (measureName !== 'value' && item.measure != null && item.measure !== measureName) return
+      const key = targetKeyForPairDiff(item, by)
+      if (!key) return
+      const value = Number(item.value)
+      if (!Number.isFinite(value)) return
+      const bucket = out.get(key) ?? []
+      bucket.push(value)
+      out.set(key, bucket)
+    })
+    return out
+  }
+
+  const mapA = buildMap(left)
+  const mapB = buildMap(right)
+  const keys = Array.from(mapA.keys()).filter((key) => mapB.has(key)).sort(cmpStrAsc)
+  const resultGroup = `${keyA}-${keyB}`
+  const out: DatumValue[] = []
+  keys.forEach((key) => {
+    const aVals = mapA.get(key) ?? []
+    const bVals = mapB.get(key) ?? []
+    if (!aVals.length || !bVals.length) return
+    const aVal = aggregate(aVals, spec.aggregate as string | undefined)
+    const bVal = aggregate(bVals, spec.aggregate as string | undefined)
+    if (!Number.isFinite(aVal) || !Number.isFinite(bVal)) return
+    let delta = signed ? aVal - bVal : Math.abs(aVal - bVal)
+    if (absolute) delta = Math.abs(delta)
+    if (Number.isFinite(Number(precision))) {
+      delta = Number(delta.toFixed(Math.max(0, Number(precision))))
+    }
+    out.push({
+      category: by,
+      measure: measureName,
+      target: key,
+      group: resultGroup,
+      value: roundNumeric(delta),
+      name: '__pairDiff__',
+    })
+  })
+  return out
+}
+
+/** 3.13 add — scalar addition. */
+export function addData(data: DatumValue[], op: OperationSpec): DatumValue[] {
+  const arr = cloneData(data)
+  const spec = assertAddSpec(op)
+  const group = spec.group ?? null
+  const fallbackTargets = resolveBinaryInputsFromMeta(spec.meta?.inputs)
+  const targetA = spec.targetA ?? fallbackTargets.targetA
+  const targetB = spec.targetB ?? fallbackTargets.targetB
+  if (targetA == null || targetB == null) return []
+  const left = resolveSelectorScalar(arr, spec.field, targetA, group, spec.aggregate as string | undefined)
+  const right = resolveSelectorScalar(arr, spec.field, targetB, group, spec.aggregate as string | undefined)
+  if (!Number.isFinite(left) || !Number.isFinite(right)) return []
+  return makeScalarDatum(
+    spec.field ?? 'value',
+    group,
+    'result',
+    spec.targetName ?? '__add__',
+    Number(left) + Number(right),
+    formatResultName('Add', spec.field ?? 'value', {
+      group,
+      detail: `${formatTargetLabel(targetA)} + ${formatTargetLabel(targetB)}`,
+    }),
+  )
+}
+
+/** 3.14 scale — scalar multiply. */
+export function scaleData(data: DatumValue[], op: OperationSpec): DatumValue[] {
+  const arr = cloneData(data)
+  const spec = assertScaleSpec(op)
+  const group = spec.group ?? null
+  const base = resolveSelectorScalar(arr, spec.field, spec.target, group, spec.aggregate as string | undefined)
+  const factor = Number(spec.factor)
+  if (!Number.isFinite(base) || !Number.isFinite(factor)) return []
+  return makeScalarDatum(
+    spec.field ?? 'value',
+    group,
+    'result',
+    spec.targetName ?? '__scale__',
+    Number(base) * factor,
+    formatResultName('Scale', spec.field ?? 'value', {
+      group,
+      detail: `${formatTargetLabel(spec.target)} × ${factor}`,
+    }),
+  )
+}
+
+/** 3.15 setOp — set union/intersection over runtime node inputs. */
+export function setOpData(_data: DatumValue[], op: OperationSpec): DatumValue[] {
+  const spec = assertSetOpSpec(op)
+  const inputs = Array.isArray(op.meta?.inputs) ? op.meta!.inputs!.filter((id) => typeof id === 'string') : []
+  if (inputs.length < 2) return []
+
+  const collections = inputs.map((id) => getRuntimeResultsById(id)).filter((rows) => rows.length > 0)
+  if (collections.length < 2) return []
+  const filteredCollections = spec.group
+    ? collections.map((rows) => rows.filter((row) => String(row.group ?? '') === String(spec.group)))
+    : collections
+  if (filteredCollections.some((rows) => rows.length === 0)) return []
+
+  const targetSets = filteredCollections.map((rows) => new Set(rows.map((row) => String(row.target))))
+  const merged = spec.fn === 'intersection'
+    ? Array.from(targetSets.slice(1).reduce((acc, next) => {
+      return new Set(Array.from(acc).filter((item) => next.has(item)))
+    }, new Set(targetSets[0])))
+    : Array.from(targetSets.reduce((acc, next) => {
+      next.forEach((item) => acc.add(item))
+      return acc
+    }, new Set<string>()))
+
+  const representative = new Map<string, DatumValue>()
+  filteredCollections.forEach((rows) => {
+    rows.forEach((row) => {
+      const key = String(row.target)
+      if (!representative.has(key)) representative.set(key, row)
+    })
+  })
+
+  return merged
+    .sort(cmpStrAsc)
+    .map((target) => {
+      const base = representative.get(target)
+      return {
+        category: base?.category ?? 'target',
+        measure: base?.measure ?? 'value',
+        target,
+        group: spec.group ?? base?.group ?? null,
+        value: 1,
+        name: target,
+      } as DatumValue
+    })
+}
+
 /** 3.12 nth — returns the n-th item in current ordering (1-based) */
 /** Op 3.12: return the n-th datum (1-based) from left/right. */
 export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
@@ -803,7 +1098,11 @@ export const LineChartOps = {
   average: averageData,
   diff: diffData,
   lagDiff: lagDiffData,
+  pairDiff: pairDiffData,
   nth: nthData,
+  add: addData,
+  scale: scaleData,
+  setOp: setOpData,
 }
 
 export default LineChartOps

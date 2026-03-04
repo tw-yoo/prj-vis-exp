@@ -146,10 +146,18 @@ const buildDataOp = (op: string, fields: Record<string, unknown>) => {
       return dataOps.diff(fields as Parameters<typeof dataOps.diff>[0])
     case OperationOp.LagDiff:
       return dataOps.lagDiff(fields as Parameters<typeof dataOps.lagDiff>[0])
+    case OperationOp.PairDiff:
+      return dataOps.pairDiff(fields as Parameters<typeof dataOps.pairDiff>[0])
     case OperationOp.Nth:
       return dataOps.nth(fields as Parameters<typeof dataOps.nth>[0])
     case OperationOp.Count:
       return dataOps.count(fields as Parameters<typeof dataOps.count>[0])
+    case OperationOp.Add:
+      return dataOps.add(fields as Parameters<typeof dataOps.add>[0])
+    case OperationOp.Scale:
+      return dataOps.scale(fields as Parameters<typeof dataOps.scale>[0])
+    case OperationOp.SetOp:
+      return dataOps.setOp(fields as Parameters<typeof dataOps.setOp>[0])
     case OperationOp.Sleep:
       return dataOps.sleep(fields as Parameters<typeof dataOps.sleep>[0])
     default:

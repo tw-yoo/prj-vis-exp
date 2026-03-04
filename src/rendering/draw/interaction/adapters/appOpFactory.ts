@@ -2,6 +2,7 @@ import { draw, ops } from '../../../../operation/build/authoring'
 import { DrawMark, type DrawLineSpec, type DrawRectSpec, type DrawOp } from '../../types'
 import { ChartType, type ChartTypeValue } from '../../../chartRenderer'
 import type { BarSegmentCommit, DrawInteractionHit } from '../types'
+import { formatDrawNumber } from '../../../ops/visual/helpers'
 
 type SegmentStyleInput = {
   fill: string
@@ -102,6 +103,16 @@ export const createGroupedToStackedOp = (chartId?: string): DrawOp => ops.draw.g
 
 export const createStackedToGroupedOp = (chartId?: string): DrawOp => ops.draw.stackedToGrouped(chartId)
 
+export const createMultiLineToStackedOp = (chartId?: string): DrawOp => ops.draw.multiLineToStacked(chartId)
+
+export const createMultiLineToGroupedOp = (chartId?: string): DrawOp => ops.draw.multiLineToGrouped(chartId)
+
+export const createStackedToSimpleOp = (series: string | number, chartId?: string): DrawOp =>
+  ops.draw.stackedToSimple(chartId, series)
+
+export const createGroupedToSimpleOp = (series: string | number, chartId?: string): DrawOp =>
+  ops.draw.groupedToSimple(chartId, series)
+
 export type GroupedCompareMacroArgs = {
   chartId?: string
   leftSeries: string
@@ -114,11 +125,10 @@ export const createGroupedCompareMacroOps = (args: GroupedCompareMacroArgs): Dra
   const lineStyleA = draw.style.line('#dc2626', 2, 1)
   const lineStyleB = draw.style.line('#2563eb', 2, 1)
   const textStyle = draw.style.text('#111827', 12, 700)
-  const diff = Number((args.leftAverage - args.rightAverage).toFixed(2))
-  const summary = `${args.leftSeries} avg=${args.leftAverage.toFixed(2)}, ${args.rightSeries} avg=${args.rightAverage.toFixed(2)}, diff=${diff.toFixed(2)}`
+  const diff = args.leftAverage - args.rightAverage
+  const summary = `${args.leftSeries} avg=${formatDrawNumber(args.leftAverage)}, ${args.rightSeries} avg=${formatDrawNumber(args.rightAverage)}, diff=${formatDrawNumber(diff)}`
   return [
     createSeriesFilterOp(ChartType.GROUPED_BAR, args.chartId, [args.leftSeries, args.rightSeries], 'include') as DrawOp,
-    ops.draw.sleep(0.25, args.chartId),
     ops.draw.line(args.chartId, draw.lineSpec.horizontalFromY(args.leftAverage, lineStyleA)),
     ops.draw.line(args.chartId, draw.lineSpec.horizontalFromY(args.rightAverage, lineStyleB)),
     ops.draw.text(args.chartId, undefined, draw.textSpec.normalized(summary, 0.03, 0.06, textStyle)),
@@ -140,7 +150,7 @@ export const createStackedCompositionLabelOps = (
     ops.draw.text(
       chartId,
       draw.select.keys(label.id),
-      draw.textSpec.anchor(`${label.series} ${label.percentage.toFixed(1)}%`, textStyle, 0, -6),
+      draw.textSpec.anchor(`${label.series} ${formatDrawNumber(label.percentage, 1)}%`, textStyle, 0, -6),
     ),
   )
 }

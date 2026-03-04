@@ -1,5 +1,9 @@
 import vegaEmbedLib from 'vega-embed'
 import type { JsonObject, JsonValue } from '../types'
+import { normalizeSpec as normalizeSpecDomain } from '../domain/chart/normalizeSpec'
+import { loadRowsFromVegaLiteData, normalizeVegaLiteDataUrl } from './vegaLite/dataLoader'
+import { ensureStableOrdinalColorMapping } from './vegaLite/colorScaleStability'
+import { DataAttributes, SvgClassNames } from './interfaces'
 
 /**
  * Minimal Vega-Lite spec shape we care about for embedding/rendering.
@@ -52,6 +56,18 @@ type VegaEmbedResult = {
 }
 
 type VegaEmbedFn = (container: HTMLElement, spec: VegaLiteSpec, options?: VegaEmbedOptions) => Promise<VegaEmbedResult>
+type VegaViewLike = {
+  renderer?: (rendererType?: 'svg' | 'canvas') => unknown
+  runAsync?: () => Promise<unknown>
+}
+
+type EncodingHint = {
+  xField: string
+  yField: string
+  xType?: string
+  yType?: string
+  colorField?: string
+}
 
 type AxisClearanceOptions = {
   attempts?: number
@@ -70,12 +86,33 @@ type EncodingChannel = {
   field?: JsonValue
   type?: JsonValue
   stack?: JsonValue
-  scale?: { domain?: JsonValue; zero?: JsonValue }
+  scale?: { domain?: JsonValue; domainMin?: JsonValue; domainMax?: JsonValue; nice?: JsonValue; zero?: JsonValue }
 }
 
 type EncodingMap = Record<string, EncodingChannel | undefined>
 
 declare const vegaEmbed: VegaEmbedFn | undefined
+
+export function getRenderEpoch(container: HTMLElement) {
+  const raw = container.getAttribute(DataAttributes.RenderEpoch)
+  const parsed = Number(raw)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+export function bumpRenderEpoch(container: HTMLElement, target?: HTMLElement | null) {
+  const nextEpoch = getRenderEpoch(container) + 1
+  container.setAttribute(DataAttributes.RenderEpoch, String(nextEpoch))
+  if (target && target !== container) {
+    target.setAttribute(DataAttributes.RenderEpoch, String(nextEpoch))
+  }
+  return nextEpoch
+}
+
+function syncSvgRenderEpoch(target: HTMLElement, epoch: number) {
+  target.querySelectorAll('svg').forEach((svg) => {
+    svg.setAttribute(DataAttributes.RenderEpoch, String(epoch))
+  })
+}
 
 /** Resolve mark type to a string, handling object form. */
 function normalizeMarkType(mark: VegaLiteSpec['mark']) {
@@ -306,7 +343,11 @@ async function applyAutoLineDomain(spec: VegaLiteSpec) {
   const lineEncodings = collectLineEncodings(spec)
   if (lineEncodings.length === 0) return spec
 
-  const hasExplicitDomain = lineEncodings.some((enc) => enc?.y?.scale?.domain !== undefined)
+  const hasExplicitDomain = lineEncodings.some((enc) => {
+    const scale = enc?.y?.scale
+    if (!scale) return false
+    return scale.domain !== undefined || scale.domainMin !== undefined || scale.domainMax !== undefined
+  })
   if (hasExplicitDomain) return spec
 
   const yFields = Array.from(
@@ -559,6 +600,224 @@ function applyAxisContrast(container: HTMLElement) {
   setFill('.y-axis-label')
 }
 
+function normalizeSchemaForEmbed(spec: VegaLiteSpec): VegaLiteSpec {
+  const rawSchema = typeof spec.$schema === 'string' ? spec.$schema : ''
+  if (!rawSchema) return spec
+  if (!/vega-lite\/v3/i.test(rawSchema)) return spec
+
+  const cloned: VegaLiteSpec = (() => {
+    try {
+      return structuredClone(spec)
+    } catch {
+      return JSON.parse(JSON.stringify(spec)) as VegaLiteSpec
+    }
+  })()
+  cloned.$schema = 'https://vega.github.io/schema/vega-lite/v5.json'
+  return cloned
+}
+
+function patchSpecDataUrls(spec: VegaLiteSpec): VegaLiteSpec {
+  const clone: VegaLiteSpec = (() => {
+    try {
+      return structuredClone(spec)
+    } catch {
+      return JSON.parse(JSON.stringify(spec)) as VegaLiteSpec
+    }
+  })()
+
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) {
+      node.forEach((item) => walk(item))
+      return
+    }
+
+    const rec = node as Record<string, unknown>
+    const data = rec.data
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      const dataRec = data as Record<string, unknown>
+      if (typeof dataRec.url === 'string') {
+        dataRec.url = normalizeVegaLiteDataUrl(dataRec.url) ?? dataRec.url
+      }
+    }
+    Object.values(rec).forEach((value) => walk(value))
+  }
+
+  walk(clone)
+  return clone
+}
+
+function hasVisibleSvg(target: HTMLElement) {
+  const svgs = Array.from(target.querySelectorAll('svg'))
+  return svgs.some((svg) => {
+    const style = window.getComputedStyle(svg)
+    if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || '1') === 0) return false
+    const rect = svg.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  })
+}
+
+async function enforceSvgRenderer(target: HTMLElement, result: VegaEmbedResult, debug: { debugDataLoader?: boolean } | null) {
+  if (typeof window === 'undefined') return
+  if (hasVisibleSvg(target)) return
+  if (target.querySelectorAll('canvas').length === 0) return
+
+  const view = (result?.view ?? null) as VegaViewLike | null
+  if (!view || typeof view.renderer !== 'function' || typeof view.runAsync !== 'function') return
+
+  try {
+    view.renderer('svg')
+    await view.runAsync()
+  } catch (error) {
+    if (debug?.debugDataLoader) {
+      console.warn('[Workbench] failed to enforce SVG renderer', error)
+    }
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
+}
+
+function extractField(channel: unknown): string | undefined {
+  const rec = asRecord(channel)
+  return typeof rec.field === 'string' && rec.field.trim() ? rec.field.trim() : undefined
+}
+
+function extractType(channel: unknown): string | undefined {
+  const rec = asRecord(channel)
+  return typeof rec.type === 'string' && rec.type.trim() ? rec.type.trim() : undefined
+}
+
+function collectEncodingHints(spec: VegaLiteSpec): EncodingHint[] {
+  const layers = normalizeLayers(spec)
+  const hints: EncodingHint[] = []
+  const seen = new Set<string>()
+
+  layers.forEach((layer) => {
+    const encoding = asRecord(layer.encoding)
+    const xChannel = encoding.x
+    const yChannel = encoding.y
+    const colorChannel = encoding.color
+    const xField = extractField(xChannel)
+    const yField = extractField(yChannel)
+    if (!xField || !yField) return
+    const hint: EncodingHint = {
+      xField,
+      yField,
+      xType: extractType(xChannel),
+      yType: extractType(yChannel),
+      colorField: extractField(colorChannel),
+    }
+    const key = `${hint.xField}|${hint.yField}|${hint.colorField ?? ''}|${hint.xType ?? ''}|${hint.yType ?? ''}`
+    if (seen.has(key)) return
+    seen.add(key)
+    hints.push(hint)
+  })
+
+  return hints
+}
+
+function toTemporalTarget(raw: unknown): string | null {
+  if (raw == null) return null
+  const date = raw instanceof Date ? raw : new Date(String(raw))
+  if (!Number.isFinite(date.getTime())) return null
+  return date.toISOString().slice(0, 10)
+}
+
+function resolveDatumForMark(mark: SVGElement): Record<string, unknown> {
+  const ownerData = asRecord((mark as SVGElement & { __data__?: unknown }).__data__)
+  const embeddedDatum = asRecord(ownerData.datum)
+  if (Object.keys(embeddedDatum).length > 0) return embeddedDatum
+  if (Object.keys(ownerData).length > 0) return ownerData
+
+  // Vega sometimes binds datum on a parent group (e.g. symbol marks).
+  let parent: Element | null = mark.parentElement
+  for (let i = 0; i < 3 && parent; i += 1) {
+    const parentOwner = asRecord((parent as Element & { __data__?: unknown }).__data__)
+    const parentDatum = asRecord(parentOwner.datum)
+    if (Object.keys(parentDatum).length > 0) return parentDatum
+    if (Object.keys(parentOwner).length > 0) return parentOwner
+    parent = parent.parentElement
+  }
+
+  // Vega often binds datum to a child path inside a graphics-symbol group.
+  // When annotating groups (role=graphics-symbol), attempt to inherit the first child datum.
+  const childCandidates = Array.from(mark.querySelectorAll<SVGElement>('path,circle,rect'))
+  for (const child of childCandidates) {
+    const childOwner = asRecord((child as SVGElement & { __data__?: unknown }).__data__)
+    const childDatum = asRecord(childOwner.datum)
+    if (Object.keys(childDatum).length > 0) return childDatum
+    if (Object.keys(childOwner).length > 0) return childOwner
+  }
+  return {}
+}
+
+function resolveTargetAndValueFromHint(datum: Record<string, unknown>, hint: EncodingHint) {
+  const rawX = datum[hint.xField]
+  const rawY = datum[hint.yField]
+  const xNum = Number(rawX)
+  const yNum = Number(rawY)
+
+  if (rawX != null && Number.isFinite(yNum)) {
+    const target =
+      hint.xType === 'temporal'
+        ? toTemporalTarget(rawX) ?? String(rawX)
+        : String(rawX)
+    return { target, value: yNum }
+  }
+
+  if (rawY != null && Number.isFinite(xNum)) {
+    const target =
+      hint.yType === 'temporal'
+        ? toTemporalTarget(rawY) ?? String(rawY)
+        : String(rawY)
+    return { target, value: xNum }
+  }
+
+  return null
+}
+
+function annotateRenderedMarksForDraw(target: HTMLElement, spec: VegaLiteSpec) {
+  const hints = collectEncodingHints(spec)
+  if (!hints.length) return
+  const marks = Array.from(
+    target.querySelectorAll<SVGElement>('svg [role="graphics-symbol"], svg rect, svg path, svg circle'),
+  )
+  if (!marks.length) return
+
+  marks.forEach((mark) => {
+    if (mark.classList.contains(SvgClassNames.Annotation)) return
+    const datum = resolveDatumForMark(mark)
+    if (Object.keys(datum).length === 0) return
+
+    let matched: { hint: EncodingHint; target: string; value: number } | null = null
+    for (const hint of hints) {
+      const resolved = resolveTargetAndValueFromHint(datum, hint)
+      if (!resolved) continue
+      matched = { hint, ...resolved }
+      break
+    }
+    if (!matched) return
+
+    const { hint, target, value } = matched
+    mark.setAttribute(DataAttributes.Target, target)
+    mark.setAttribute(DataAttributes.Value, String(value))
+
+    const rawSeries = hint.colorField ? datum[hint.colorField] : null
+    const series = rawSeries == null ? '' : String(rawSeries)
+    if (series) {
+      mark.setAttribute(DataAttributes.Series, series)
+    }
+
+    if (!mark.getAttribute(DataAttributes.Id)) {
+      const id = series ? `${target}__${series}` : target
+      mark.setAttribute(DataAttributes.Id, id)
+    }
+  })
+}
+
 /**
  * Render a Vega-Lite spec into the provided container element.
  * @param container Host element that will contain the SVG.
@@ -572,6 +831,7 @@ export async function renderVegaLiteChart(
 ) {
   const canvas = ensureChartCanvas(container)
   const target = canvas || container
+  const renderEpoch = bumpRenderEpoch(container, target)
 
   if (!target) {
     console.warn('renderVegaLiteChart: unable to resolve chart container')
@@ -593,35 +853,175 @@ export async function renderVegaLiteChart(
     return null
   }
 
-  const enhancedSpec: VegaLiteSpec = {
-    ...normalizeSchema(spec),
-    config: {
-      ...(spec.config || {}),
-      axis: {
-        labelFontSize: 11,
-        titleFontSize: 13,
-        titlePadding: 10,
-        labelPadding: 5,
-        labelLimit: 0,
-        ...(spec.config as { axis?: Record<string, JsonValue> } | undefined)?.axis,
-      },
-      axisY: {
-        ...((spec.config as { axisY?: Record<string, JsonValue> } | undefined)?.axisY ?? {}),
-        grid: false,
-      },
-    },
-  }
+  const debugOpts =
+    typeof window !== 'undefined' && window && typeof (window as any).__WORKBENCH_VEGA_DEBUG__ === 'object'
+      ? ((window as any).__WORKBENCH_VEGA_DEBUG__ as {
+          logEmbedSpec?: boolean
+          logColorStability?: boolean
+          debugDataLoader?: boolean
+        })
+      : null
+
+  const normalizedSpec: VegaLiteSpec = (() => {
+    // Apply the same safe defaults the app uses elsewhere (sizes, padding, axis/range defaults),
+    // but do not override explicit encodings or scale domains.
+    const normalized = normalizeSpecDomain(spec as any) as unknown as VegaLiteSpec
+
+    // Respect container width like the legacy renderChart path (prevents unexpected sizing regressions).
+    const hostWidthRaw = Math.max(0, container.getBoundingClientRect?.().width || container.clientWidth || 0)
+    const hostWidth = hostWidthRaw > 0 ? Math.min(hostWidthRaw, 800) : 800
+    const hasExplicitPadding = Object.prototype.hasOwnProperty.call(spec as Record<string, unknown>, 'padding')
+    const hasExplicitAutosize = Object.prototype.hasOwnProperty.call(spec as Record<string, unknown>, 'autosize')
+    const encoding = normalized.encoding && typeof normalized.encoding === 'object' ? (normalized.encoding as any) : null
+    const hasFacetChart = !!(
+      (encoding && (encoding.column || encoding.row)) ||
+      (normalized as any).facet ||
+      (normalized as any).repeat
+    )
+
+    if (hostWidth > 0) {
+      if (hasFacetChart) {
+        const preferredCellWidth = Math.min(180, hostWidth - 40)
+        normalized.width = Math.max(140, preferredCellWidth)
+        if (!hasExplicitAutosize) {
+          delete (normalized as any).autosize
+        }
+        if (!hasExplicitPadding) {
+          normalized.padding = { left: 12, right: 12, top: 20, bottom: 24 } as any
+        }
+      } else {
+        normalized.width = Math.min((normalized.width ?? hostWidth) as number, hostWidth - 10)
+      }
+    }
+
+    return normalized
+  })()
+
+  const enhancedSpec: VegaLiteSpec = (() => {
+    // Clone defensively: downstream helpers may add safe defaults.
+    let cloned: VegaLiteSpec
+    try {
+      cloned = structuredClone(normalizedSpec)
+    } catch {
+      cloned = JSON.parse(JSON.stringify(normalizedSpec)) as VegaLiteSpec
+    }
+
+    const config = (cloned.config && typeof cloned.config === 'object' ? cloned.config : {}) as Record<string, JsonValue>
+    const axis = (config.axis && typeof config.axis === 'object' ? config.axis : {}) as Record<string, JsonValue>
+    const axisY = (config.axisY && typeof config.axisY === 'object' ? config.axisY : {}) as Record<string, JsonValue>
+    const view = (config.view && typeof config.view === 'object' ? config.view : {}) as Record<string, JsonValue>
+
+    const nextAxis: Record<string, JsonValue> = {
+      labelFontSize: 11,
+      titleFontSize: 13,
+      titlePadding: 10,
+      labelPadding: 5,
+      labelLimit: 0,
+      ...axis,
+    }
+
+    const nextAxisY: Record<string, JsonValue> = {
+      ...axisY,
+      ...(axisY.grid === undefined ? { grid: false } : {}),
+    }
+
+    const nextView: Record<string, JsonValue> = {
+      ...view,
+      ...(view.stroke === undefined ? { stroke: 'transparent' } : {}),
+    }
+
+    cloned.config = {
+      ...config,
+      axis: nextAxis,
+      axisY: nextAxisY,
+      view: nextView,
+    }
+
+    // Workbench design default: if a simple bar spec does not specify any color encoding
+    // or mark/config color, use the historical default bar fill (#69b3a2) instead of
+    // Vega-Lite's default palette (often #4c78a8).
+    try {
+      const inferred = getChartType(cloned)
+      const markType = normalizeMarkType(cloned.mark)
+      const encoding = cloned.encoding && typeof cloned.encoding === 'object' ? (cloned.encoding as Record<string, JsonValue>) : {}
+      const hasColorEncoding = hasFieldChannel(encoding.color)
+      const markRec = cloned.mark && typeof cloned.mark === 'object' && !Array.isArray(cloned.mark) ? (cloned.mark as Record<string, JsonValue>) : {}
+      const hasMarkColor = typeof markRec.color === 'string' || typeof markRec.fill === 'string'
+      const configMark = asRecord((cloned.config as any)?.mark)
+      const hasConfigMarkColor = typeof configMark.color === 'string' && configMark.color.trim().length > 0
+
+      if (inferred === ChartType.SIMPLE_BAR && markType === 'bar' && !hasColorEncoding && !hasMarkColor && !hasConfigMarkColor) {
+        cloned.mark = { ...markRec, type: 'bar', color: '#69b3a2' }
+      }
+    } catch {
+      // ignore default injection failures
+    }
+
+    return cloned
+  })()
 
   await applyAutoLineDomain(enhancedSpec)
 
+  const schemaNormalizedSpec = normalizeSchemaForEmbed(enhancedSpec)
+  const dataPatchedSpec = patchSpecDataUrls(schemaNormalizedSpec)
+
+  let finalSpec: VegaLiteSpec = dataPatchedSpec
+  try {
+    const stabilizedPromise = ensureStableOrdinalColorMapping(dataPatchedSpec as unknown as Record<string, unknown>, {
+      loadRows: async (data) =>
+        loadRowsFromVegaLiteData(data as any, {
+          debug: !!debugOpts?.debugDataLoader,
+          debugLabel: typeof (data as any)?.url === 'string' ? String((data as any).url) : 'inline-values',
+        }),
+      debug: { logColorStability: !!debugOpts?.logColorStability },
+      legendBehavior: 'presentOnly',
+    }) as Promise<VegaLiteSpec>
+
+    const stabilizedOrTimeout = await Promise.race<VegaLiteSpec | null>([
+      stabilizedPromise,
+      new Promise<null>((resolve) => {
+        // NOTE: Color stability injection may require fetching/parsing CSV data (and applying transforms).
+        // We intentionally allow a generous timeout here to avoid silently skipping the injection for
+        // larger datasets, which would cause series/group → color remapping after filter ops.
+        window.setTimeout(() => resolve(null), 8000)
+      }),
+    ])
+    if (stabilizedOrTimeout) {
+      finalSpec = stabilizedOrTimeout
+    } else if (debugOpts?.debugDataLoader) {
+      console.warn('[Workbench] skip color stability injection (timeout)')
+    }
+  } catch (error) {
+    if (debugOpts?.debugDataLoader) {
+      console.warn('[Workbench] skip color stability injection (error)', error)
+    }
+  }
+
   const embedOptions: VegaEmbedOptions = {
     actions: false,
+    mode: 'vega-lite',
     renderer: 'svg',
-    padding: { left: 70, right: 30, top: 30, bottom: 70 },
     ...options,
   }
 
-  const result = await embed(target, enhancedSpec, embedOptions)
+  ;(container as any).__lastVegaLiteSpec = finalSpec
+  ;(container as any).__lastVegaEmbedOptions = embedOptions
+  if (canvas) {
+    ;(canvas as any).__lastVegaLiteSpec = finalSpec
+    ;(canvas as any).__lastVegaEmbedOptions = embedOptions
+  }
+  if (debugOpts?.logEmbedSpec) {
+    console.log('[Workbench] vegaEmbed spec (final)', finalSpec)
+  }
+
+  const result = await embed(target, finalSpec, embedOptions)
+  syncSvgRenderEpoch(target, renderEpoch)
+  await enforceSvgRenderer(target, result, debugOpts)
+  annotateRenderedMarksForDraw(target, finalSpec)
+  ;(container as any).__lastVegaEmbedResult = result
+  if (canvas) {
+    ;(canvas as any).__lastVegaEmbedResult = result
+  }
 
   adjustXAxisLabelAngle(target)
   ensureXAxisLabelClearance(target, { attempts: 5, minGap: 14, maxShift: 140 })
@@ -631,17 +1031,5 @@ export async function renderVegaLiteChart(
   return result
 }
 
-/**
- * If the incoming spec uses an old Vega-Lite schema (e.g., v3), bump it to v5
- * to silence version warnings while keeping the content intact.
- */
-function normalizeSchema(input: VegaLiteSpec): VegaLiteSpec {
-  const spec = { ...input }
-  const schema = typeof spec.$schema === 'string' ? spec.$schema : ''
-  const match = schema.match(/vega-lite\/v(\d+)/i)
-  const major = match ? Number(match[1]) : null
-  if (!major || major < 5) {
-    spec.$schema = 'https://vega.github.io/schema/vega-lite/v5.json'
-  }
-  return spec
-}
+// NOTE: Do not rewrite `$schema`. Workbench should render incoming specs "as-is"
+// (v3/v5 examples) and avoid altering semantics or user expectations.

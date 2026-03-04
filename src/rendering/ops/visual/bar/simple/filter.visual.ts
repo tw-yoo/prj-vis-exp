@@ -72,10 +72,7 @@ export function buildSimpleBarFilterDrawPlan(
 
   const plan: DrawOp[] = [
     ops.draw.line(op.chartId, lineSpec),
-    ops.draw.sleep(1, op.chartId),
     ops.draw.barSegment(op.chartId, targets, segmentSpec),
-    ops.draw.sleep(1, op.chartId),
-    ops.draw.clear(op.chartId),
     ops.draw.filter(op.chartId, filterSpec),
   ]
 

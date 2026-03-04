@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type React from 'react'
 import '../../App.css'
 // import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
-import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/bar/stacked/10x2rgiqw97wdspi.json?raw'
+import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/simple/0pzdf7hfbxgjghsa.json?raw'
 // ChartQA/data/vlSpec/bar/simple/0o12tngadmjjux2n.json
 // ../ChartQA/data/vlSpec/bar/grouped/0gacqohbzj07n25s.json?raw
 import lineSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
@@ -21,14 +21,18 @@ import {
   createFilterOp,
   createGroupedCompareMacroOps,
   createGroupedToStackedOp,
+  createGroupedToSimpleOp,
   createHighlightOp,
   createLineOp,
   createLineTraceOp,
+  createMultiLineToGroupedOp,
+  createMultiLineToStackedOp,
   createRectOp,
   createSeriesFilterOp,
   createSplitOp,
   createStackedCompositionLabelOps,
   createStackedToGroupedOp,
+  createStackedToSimpleOp,
   createTextOp,
   createUnsplitOp,
   DrawAction,
@@ -79,6 +83,7 @@ const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
 
 const EXPORT_SCALE = 3
+// Workbench: always use our chart-type-specific renderers (D3-first) instead of raw vega-embed.
 const renderChartDispatch = browserEngine.renderChart
 const runChartOps = browserEngine.runChartOps
 const parseToOperationSpec = browserEngine.parseToOperationSpec
@@ -95,6 +100,7 @@ const DRAW_TOOL_OPTIONS: Array<{ value: DrawInteractionTool; label: string }> = 
   { value: DrawInteractionTools.Filter, label: 'Filter' },
   { value: DrawInteractionTools.Split, label: 'Split' },
   { value: DrawInteractionTools.SeriesFilter, label: 'Series Filter' },
+  { value: DrawInteractionTools.Convert, label: 'Convert' },
   { value: DrawInteractionTools.BarSegment, label: 'Bar Segment' },
 ]
 
@@ -226,6 +232,8 @@ const resolveNextChartTypeFromDrawOps = (current: ChartTypeValue | null, operati
     const action = (operation as DrawOp).action
     if (action === DrawAction.GroupedToStacked) next = ChartType.STACKED_BAR
     else if (action === DrawAction.StackedToGrouped) next = ChartType.GROUPED_BAR
+    else if (action === DrawAction.GroupedToSimple) next = ChartType.SIMPLE_BAR
+    else if (action === DrawAction.StackedToSimple) next = ChartType.SIMPLE_BAR
     else if (action === DrawAction.LineToBar) next = ChartType.SIMPLE_BAR
   })
   return next
@@ -351,6 +359,7 @@ const toPlanStem = (value: string) => {
 }
 
 function ChartWorkbenchPage() {
+  const [debugLogEmbedSpec, setDebugLogEmbedSpec] = useState(false)
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
   const [builderGroups, setBuilderGroups] = useState<OperationSpec[][]>([])
   const [opsGroups, setOpsGroups] = useState<OperationSpec[][]>([])
@@ -389,6 +398,7 @@ function ChartWorkbenchPage() {
   const [captureScenesEnabled, setCaptureScenesEnabled] = useState(false)
   const [captureScenesStatus, setCaptureScenesStatus] = useState<string | null>(null)
   const [captureScenesRunning, setCaptureScenesRunning] = useState(false)
+  const opsSessionActiveRef = useRef(false)
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
   const [recordQueue, setRecordQueue] = useState<Array<{ id: string; op: OperationSpec }>>([])
   const recordSequenceRef = useRef(0)
@@ -655,8 +665,12 @@ function ChartWorkbenchPage() {
         DrawAction.Unsplit,
         DrawAction.Filter,
         DrawAction.LineToBar,
+        DrawAction.MultiLineToStacked,
+        DrawAction.MultiLineToGrouped,
         DrawAction.StackedToGrouped,
         DrawAction.GroupedToStacked,
+        DrawAction.StackedToSimple,
+        DrawAction.GroupedToSimple,
         DrawAction.StackedFilterGroups,
         DrawAction.GroupedFilterGroups,
         DrawAction.Sum,
@@ -687,8 +701,14 @@ function ChartWorkbenchPage() {
         setChartType(ChartType.STACKED_BAR)
       } else if (action === DrawAction.StackedToGrouped) {
         setChartType(ChartType.GROUPED_BAR)
+      } else if (action === DrawAction.GroupedToSimple || action === DrawAction.StackedToSimple) {
+        setChartType(ChartType.SIMPLE_BAR)
       } else if (action === DrawAction.LineToBar) {
         setChartType(ChartType.SIMPLE_BAR)
+      } else if (action === DrawAction.MultiLineToStacked) {
+        setChartType(ChartType.STACKED_BAR)
+      } else if (action === DrawAction.MultiLineToGrouped) {
+        setChartType(ChartType.GROUPED_BAR)
       }
       if (currentSpecRef.current) {
         setOptionSources(
@@ -842,6 +862,28 @@ function ChartWorkbenchPage() {
   const handleConvertStackedToGrouped = useCallback(() => {
     if (chartType !== ChartType.STACKED_BAR) return
     void applyDrawOp(createStackedToGroupedOp(), { recordTool: DrawInteractionTools.SeriesFilter })
+  }, [applyDrawOp, chartType])
+
+  const handleConvertGroupedToSimple = useCallback(() => {
+    if (chartType !== ChartType.GROUPED_BAR) return
+    if (drawSeriesSelection.length !== 1) return
+    void applyDrawOp(createGroupedToSimpleOp(drawSeriesSelection[0]), { recordTool: DrawInteractionTools.SeriesFilter })
+  }, [applyDrawOp, chartType, drawSeriesSelection])
+
+  const handleConvertStackedToSimple = useCallback(() => {
+    if (chartType !== ChartType.STACKED_BAR) return
+    if (drawSeriesSelection.length !== 1) return
+    void applyDrawOp(createStackedToSimpleOp(drawSeriesSelection[0]), { recordTool: DrawInteractionTools.SeriesFilter })
+  }, [applyDrawOp, chartType, drawSeriesSelection])
+
+  const handleConvertMultiLineToStacked = useCallback(() => {
+    if (chartType !== ChartType.MULTI_LINE) return
+    void applyDrawOp(createMultiLineToStackedOp(), { recordTool: DrawInteractionTools.Convert })
+  }, [applyDrawOp, chartType])
+
+  const handleConvertMultiLineToGrouped = useCallback(() => {
+    if (chartType !== ChartType.MULTI_LINE) return
+    void applyDrawOp(createMultiLineToGroupedOp(), { recordTool: DrawInteractionTools.Convert })
   }, [applyDrawOp, chartType])
 
   const handleRunGroupedCompareMacro = useCallback(async () => {
@@ -1079,13 +1121,22 @@ function ChartWorkbenchPage() {
 
   const renderChart = useCallback(
     async (specString: string): Promise<ChartTypeValue | null> => {
+      const sanitizedSpec = sanitizeJsonInput(specString)
+      let parsed: VegaLiteSpec
       try {
-        const sanitizedSpec = sanitizeJsonInput(specString)
-        const parsed = JSON.parse(sanitizedSpec) as VegaLiteSpec
-        if (!chartRef.current) {
-          alert('Chart container is not ready.')
-          return null
-        }
+        parsed = JSON.parse(sanitizedSpec) as VegaLiteSpec
+      } catch (error) {
+        console.error('Failed to parse Vega-Lite spec JSON', error)
+        alert('Invalid JSON')
+        return null
+      }
+
+      if (!chartRef.current) {
+        alert('Chart container is not ready.')
+        return null
+      }
+
+      try {
         await renderChartDispatch(chartRef.current, parsed)
         currentSpecRef.current = parsed
         setPendingTextPlacement(null)
@@ -1094,8 +1145,10 @@ function ChartWorkbenchPage() {
         setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec: parsed as VegaLiteSpec }))
         return inferred
       } catch (error) {
-        console.error('Failed to parse Vega-Lite spec', error)
-        alert('Invalid JSON')
+        // Rendering can fail even when JSON is valid (e.g., renderer post-processing/tagging errors).
+        // Do not mislabel these failures as "Invalid JSON".
+        console.error('Failed to render Vega-Lite spec', error)
+        alert('Failed to render chart. Check the console for details.')
         return null
       }
     },
@@ -1244,7 +1297,7 @@ function ChartWorkbenchPage() {
       const groupNames = Object.keys(nextOpsSpec)
 
       handleClearPlan()
-      setOpsInputMode('json')
+      setOpsInputMode('builder')
       setOpsJsonText(jsonText)
       setOpsJsonError(null)
       setOpsJsonGroupNames(groupNames)
@@ -1303,6 +1356,7 @@ function ChartWorkbenchPage() {
   }
 
   const handleRunOperations = () => {
+    opsSessionActiveRef.current = false
     setPendingTextPlacement(null)
     if (chartRef.current) {
       const svg = d3.select(chartRef.current).select('svg')
@@ -1332,11 +1386,16 @@ function ChartWorkbenchPage() {
     groupIndex: number,
     options?: {
       onOperationCompleted?: (event: { operation: OperationSpec; operationIndex: number }) => Promise<void> | void
+      resetRuntime?: boolean
+      runtimeScope?: string
     },
   ) => {
     if (!chartRef.current) return
     const opsArray = opsGroups[groupIndex] ?? []
     if (!opsArray.length) return
+    const runtimeScope =
+      options?.runtimeScope ??
+      (opsJsonGroupNames[groupIndex] || (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`))
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
     await renderChart(specString)
     const sanitizedVlSpec = sanitizeJsonInput(specString)
@@ -1359,7 +1418,10 @@ function ChartWorkbenchPage() {
       setOpsRunning(true)
       await runChartOps(chartRef.current, parsedVlSpec, { ops: opsArray }, {
         onOperationCompleted: options?.onOperationCompleted,
+        runtimeScope,
+        resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
       })
+      opsSessionActiveRef.current = true
     } catch (error) {
       console.error('Run Operations failed', error)
       alert('Failed to run operations. Check the console for details.')
@@ -1381,9 +1443,12 @@ function ChartWorkbenchPage() {
       setCaptureScenesStatus('Preparing scene capture...')
 
       try {
+        opsSessionActiveRef.current = false
         await writer.start(stem)
         for (let groupIndex = 0; groupIndex < opsGroups.length; groupIndex += 1) {
           await runOpsGroup(groupIndex, {
+            resetRuntime: groupIndex === 0,
+            runtimeScope: opsJsonGroupNames[groupIndex] || (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`),
             onOperationCompleted: async ({ operation }) => {
               if (!chartRef.current) return
               sceneIndex += 1
@@ -1406,21 +1471,34 @@ function ChartWorkbenchPage() {
       return
     }
 
-    await runOpsGroup(0)
+    opsSessionActiveRef.current = false
+    await runOpsGroup(0, {
+      resetRuntime: true,
+      runtimeScope: opsJsonGroupNames[0] || 'ops',
+    })
     setCurrentOpsIndex(0)
   }
 
   const handleNextOps = async () => {
     const nextIndex = currentOpsIndex + 1
     if (nextIndex >= opsGroups.length) return
-    await runOpsGroup(nextIndex)
+    await runOpsGroup(nextIndex, {
+      resetRuntime: false,
+      runtimeScope: opsJsonGroupNames[nextIndex] || (nextIndex === 0 ? 'ops' : `ops${nextIndex + 1}`),
+    })
     setCurrentOpsIndex(nextIndex)
   }
 
   const handlePrevOps = async () => {
     const prevIndex = currentOpsIndex - 1
     if (prevIndex < 0) return
-    await runOpsGroup(prevIndex)
+    opsSessionActiveRef.current = false
+    for (let index = 0; index <= prevIndex; index += 1) {
+      await runOpsGroup(index, {
+        resetRuntime: index === 0,
+        runtimeScope: opsJsonGroupNames[index] || (index === 0 ? 'ops' : `ops${index + 1}`),
+      })
+    }
     setCurrentOpsIndex(prevIndex)
   }
 
@@ -1543,6 +1621,7 @@ function ChartWorkbenchPage() {
 
   const handleAppendTimelineToOpsBuilder = useCallback(() => {
     const serialized = serializeSessionToOperationSpec(interactionSession)
+    setOpsInputMode('builder')
     enqueueOpsBuilderRecordCommands(serialized.ops)
     setTimelineStatusText(`Queued ${serialized.ops.length} op(s) for OpsBuilder append.`)
   }, [enqueueOpsBuilderRecordCommands, interactionSession])
@@ -1550,6 +1629,13 @@ function ChartWorkbenchPage() {
   useEffect(() => {
     void renderChart(vlSpecPlaceholder)
   }, [renderChart])
+
+  useEffect(() => {
+    ;(window as any).__WORKBENCH_VEGA_DEBUG__ = {
+      ...(typeof (window as any).__WORKBENCH_VEGA_DEBUG__ === 'object' ? (window as any).__WORKBENCH_VEGA_DEBUG__ : {}),
+      logEmbedSpec: debugLogEmbedSpec,
+    }
+  }, [debugLogEmbedSpec])
 
   useEffect(() => {
     if (!pendingRunOps || lastValidatedTick !== opsValidationTick) return
@@ -1568,6 +1654,7 @@ function ChartWorkbenchPage() {
     }
     setOpsGroups(nextGroups)
     setCurrentOpsIndex(-1)
+    opsSessionActiveRef.current = false
     setPendingRunOps(false)
   }, [pendingRunOps, opsErrors, builderGroups, planGroups, lastValidatedTick, opsValidationTick, opsInputMode])
 
@@ -1575,19 +1662,28 @@ function ChartWorkbenchPage() {
     <div className="app-shell">
       <div className="layout-body">
         <section className="card ops-card">
-          <div className="card-header">
-            <label className="card-title" htmlFor="vl-spec">
-              Vega-Lite Spec
-            </label>
-            <button
-              type="button"
-              className="pill-btn"
-              onClick={handleRenderChart}
-              data-testid="render-chart-button"
-            >
-              Render Chart
-            </button>
-          </div>
+            <div className="card-header">
+              <label className="card-title" htmlFor="vl-spec">
+                Vega-Lite Spec
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                <input
+                  type="checkbox"
+                  checked={debugLogEmbedSpec}
+                  onChange={(event) => setDebugLogEmbedSpec(event.target.checked)}
+                  data-testid="debug-log-embed-spec-toggle"
+                />
+                Log embed spec
+              </label>
+              <button
+                type="button"
+                className="pill-btn"
+                onClick={handleRenderChart}
+                data-testid="render-chart-button"
+              >
+                Render Chart
+              </button>
+            </div>
           <textarea
             id="vl-spec"
             data-testid="vl-spec-input"
@@ -2110,6 +2206,28 @@ function ChartWorkbenchPage() {
                 <button
                   type="button"
                   className="pill-btn"
+                  onClick={handleConvertGroupedToSimple}
+                  disabled={drawSeriesSelection.length !== 1}
+                  data-testid="draw-series-convert-grouped-simple"
+                >
+                  Convert to Simple
+                </button>
+              ) : null}
+              {chartType === ChartType.STACKED_BAR ? (
+                <button
+                  type="button"
+                  className="pill-btn"
+                  onClick={handleConvertStackedToSimple}
+                  disabled={drawSeriesSelection.length !== 1}
+                  data-testid="draw-series-convert-stacked-simple"
+                >
+                  Convert to Simple
+                </button>
+              ) : null}
+              {chartType === ChartType.GROUPED_BAR ? (
+                <button
+                  type="button"
+                  className="pill-btn"
                   onClick={() => {
                     void handleRunGroupedCompareMacro()
                   }}
@@ -2132,6 +2250,33 @@ function ChartWorkbenchPage() {
                   Label Target Composition
                 </button>
               ) : null}
+            </div>
+          ) : null}
+
+          {drawTool === DrawInteractionTools.Convert ? (
+            <div className="draw-options">
+              {chartType === ChartType.MULTI_LINE ? (
+                <>
+                  <button
+                    type="button"
+                    className="pill-btn"
+                    onClick={handleConvertMultiLineToStacked}
+                    data-testid="draw-convert-multiline-stacked"
+                  >
+                    Convert to Stacked Bar
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-btn"
+                    onClick={handleConvertMultiLineToGrouped}
+                    data-testid="draw-convert-multiline-grouped"
+                  >
+                    Convert to Grouped Bar
+                  </button>
+                </>
+              ) : (
+                <div className="nl-status">Convert tool is currently available for multi-line charts.</div>
+              )}
             </div>
           ) : null}
 

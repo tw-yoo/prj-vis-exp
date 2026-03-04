@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import type { JsonValue } from '../../types'
-import { renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
+import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { ensureXAxisLabelClearance } from '../common/d3Helpers'
 
@@ -10,20 +10,13 @@ const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new 
 type RawDatum = Record<string, JsonValue>
 type AxisScale = d3.ScaleTime<number, number> | d3.ScaleLinear<number, number> | d3.ScalePoint<string>
 
-function toRawRows(data: VegaLiteSpec['data']): RawDatum[] {
-  if (!data || typeof data !== 'object' || !('values' in data)) return []
-  const values = data.values
-  if (!Array.isArray(values)) return []
-  return values.filter((value): value is RawDatum => !!value && typeof value === 'object' && !Array.isArray(value))
-}
-
-function resolveLineMark(mark: VegaLiteSpec['mark']) {
-  if (typeof mark === 'string') return { type: mark, point: true }
-  const markObj = mark && typeof mark === 'object' ? mark : {}
-  const type = typeof markObj.type === 'string' ? markObj.type : 'line'
-  const point = typeof markObj.point === 'boolean' ? markObj.point : true
-  return { ...markObj, type, point }
-}
+	function resolveLineMark(mark: VegaLiteSpec['mark']) {
+	  if (typeof mark === 'string') return { type: mark, point: true }
+	  const markObj = mark && typeof mark === 'object' ? mark : {}
+	  const type = typeof markObj.type === 'string' ? markObj.type : 'line'
+	  const point = typeof markObj.point === 'boolean' ? markObj.point : true
+	  return { ...markObj, type, point }
+	}
 
 function toDateValue(raw: JsonValue) {
   if (raw instanceof Date) return raw
@@ -48,30 +41,140 @@ function getDatumRecord(value: unknown): Record<string, unknown> {
 }
 
 export type MultiLineSpec = VegaLiteSpec & {
-  encoding: {
-    x: { field: string; type: string }
-    y: { field: string; type: string }
+  encoding?: {
+    x?: { field?: string; type?: string }
+    y?: { field?: string; type?: string }
     color?: { field?: string }
   }
 }
 // Ops runner functions are in `src/renderer/line/multipleLineOps.ts`.
 
+export type ResolvedMultiLineEncoding = {
+  xField: string
+  yField: string
+  xType?: string
+  yType?: string
+  colorField?: string | null
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+function extractField(channel: unknown): string | undefined {
+  const rec = asRecord(channel)
+  return typeof rec.field === 'string' && rec.field.trim().length > 0 ? rec.field.trim() : undefined
+}
+
+function extractType(channel: unknown): string | undefined {
+  const rec = asRecord(channel)
+  return typeof rec.type === 'string' && rec.type.trim().length > 0 ? rec.type.trim() : undefined
+}
+
+/**
+ * Multi-line specs in the wild often place x/y encoding at the layer level (especially layered line+point charts).
+ * Resolve the effective x/y/color fields without requiring top-level `spec.encoding`.
+ */
+export function resolveMultiLineEncoding(spec: VegaLiteSpec): ResolvedMultiLineEncoding | null {
+  const baseEnc = asRecord((spec as { encoding?: unknown }).encoding)
+  const baseX = baseEnc.x
+  const baseY = baseEnc.y
+  const baseColor = baseEnc.color
+
+  const baseXField = extractField(baseX)
+  const baseYField = extractField(baseY)
+  const baseXType = extractType(baseX)
+  const baseYType = extractType(baseY)
+  const baseColorField = extractField(baseColor) ?? null
+
+  let resolved: ResolvedMultiLineEncoding | null =
+    baseXField && baseYField
+      ? { xField: baseXField, yField: baseYField, xType: baseXType, yType: baseYType, colorField: baseColorField }
+      : null
+
+  const layers = Array.isArray(spec.layer) ? spec.layer : []
+  if (!resolved && layers.length > 0) {
+    for (const layer of layers) {
+      const layerEnc = asRecord((layer as { encoding?: unknown })?.encoding)
+      const layerX = layerEnc.x ?? baseX
+      const layerY = layerEnc.y ?? baseY
+      const xField = extractField(layerX)
+      const yField = extractField(layerY)
+      if (!xField || !yField) continue
+      const colorField = baseColorField ?? extractField(layerEnc.color) ?? null
+      resolved = {
+        xField,
+        yField,
+        xType: extractType(layerX) ?? baseXType,
+        yType: extractType(layerY) ?? baseYType,
+        colorField,
+      }
+      break
+    }
+  }
+
+  if (resolved && resolved.colorField == null && layers.length > 0) {
+    for (const layer of layers) {
+      const layerEnc = asRecord((layer as { encoding?: unknown })?.encoding)
+      const layerColorField = extractField(layerEnc.color)
+      if (layerColorField) {
+        resolved.colorField = layerColorField
+        break
+      }
+    }
+  }
+
+  return resolved
+}
+
 export async function renderMultipleLineChart(container: HTMLElement, spec: MultiLineSpec) {
-  const values = toRawRows(spec.data)
-  localDataStore.set(container, values)
   clearMultipleLineSplitDomains(container)
 
-  const mark = resolveLineMark(spec.mark)
+  const resolvedEncoding = resolveMultiLineEncoding(spec)
+  if (!resolvedEncoding) {
+    console.warn('renderMultipleLineChart: missing x/y encoding (cannot tag marks for ops)')
+  }
 
-  const withPoints = { ...spec, mark }
+  const withPoints = Array.isArray(spec.layer) && spec.layer.length > 0 ? spec : { ...spec, mark: resolveLineMark(spec.mark) }
   const result = await renderVegaLiteChart(container, withPoints)
   await tagMultipleLineMarks(container, spec)
+  // IMPORTANT: Read back the rendered (post-transform/filter) Vega-Lite mark data so that
+  // downstream app logic (ops, interactions) sees the same filtered dataset the user sees.
+  localDataStore.set(container, resolvedEncoding ? collectRenderedDatumRows(container, resolvedEncoding) : [])
   ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
   return result
 }
 
 export function getMultipleLineStoredData(container: HTMLElement) {
   return localDataStore.get(container) || []
+}
+
+function collectRenderedDatumRows(container: HTMLElement, encoding: ResolvedMultiLineEncoding): RawDatum[] {
+  const { xField, yField, colorField } = encoding
+  const svg = d3.select(container).select(SvgElements.Svg)
+  if (svg.empty()) return []
+
+  const rows: RawDatum[] = []
+  const seen = new Set<string>()
+  svg.selectAll<SVGGraphicsElement, unknown>('path, circle, rect').each(function (rawDatum: unknown) {
+    const ownerData = getDatumRecord(rawDatum)
+    const embeddedDatum = getDatumRecord(ownerData.datum)
+    const fallback = getDatumRecord((this as SVGGraphicsElement & { __data__?: unknown }).__data__)
+    const datum = Object.keys(embeddedDatum).length ? embeddedDatum : Object.keys(ownerData).length ? ownerData : fallback
+
+    const rawX = datum?.[xField]
+    const rawY = datum?.[yField]
+    if (rawX == null || rawY == null) return
+    const yNum = Number(rawY)
+    if (!Number.isFinite(yNum)) return
+
+    const series = colorField ? datum?.[colorField] : null
+    const key = `${String(rawX)}__${String(series ?? '')}__${String(rawY)}`
+    if (seen.has(key)) return
+    seen.add(key)
+    rows.push(datum as RawDatum)
+  })
+  return rows
 }
 
 export function setMultipleLineSplitDomains(container: HTMLElement, domains: Record<string, Set<string>>) {
@@ -135,11 +238,11 @@ function normalizeSplitGroups(split: { groups: Record<string, Array<string | num
   return { ids: [idA, idB] as [string, string], domains: [domainA, domainB] as [string[], string[]] }
 }
 
-function normalizeMultiLinePoints(values: RawDatum[], spec: MultiLineSpec) {
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const xType = spec.encoding.x.type
-  const colorField = spec.encoding.color?.field
+function normalizeMultiLinePoints(values: RawDatum[], encoding: ResolvedMultiLineEncoding) {
+  const xField = encoding.xField
+  const yField = encoding.yField
+  const xType = encoding.xType ?? 'nominal'
+  const colorField = encoding.colorField ?? null
   const points: NormalizedMultiLinePoint[] = []
   values.forEach((row) => {
     const rawX = row?.[xField]
@@ -165,9 +268,15 @@ export async function renderSplitMultipleLineChart(
   spec: MultiLineSpec,
   split: { groups: Record<string, Array<string | number>>; restTo?: string; orientation?: 'vertical' | 'horizontal' },
 ) {
+  const renderEpoch = bumpRenderEpoch(container)
   const stored = (getMultipleLineStoredData(container) || []) as RawDatum[]
-  const xType = spec.encoding.x.type
-  const points = normalizeMultiLinePoints(stored, spec)
+  const encoding = resolveMultiLineEncoding(spec)
+  if (!encoding) {
+    console.warn('renderSplitMultipleLineChart: missing x/y encoding')
+    return
+  }
+  const xType = encoding.xType ?? 'nominal'
+  const points = normalizeMultiLinePoints(stored, encoding)
   if (!points.length) return
 
   const uniqueLabels = new Set(points.map((p) => p.xLabel))
@@ -208,6 +317,7 @@ export async function renderSplitMultipleLineChart(
   const svg = containerSelection
     .append(SvgElements.Svg)
     .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+    .attr(DataAttributes.RenderEpoch, renderEpoch)
     .style('overflow', 'visible')
 
   const [idA, idB] = splitGroups.ids
@@ -329,9 +439,14 @@ export async function renderSplitMultipleLineChart(
 }
 
 export async function tagMultipleLineMarks(container: HTMLElement, spec: MultiLineSpec) {
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const xType = spec.encoding.x.type
+  const encoding = resolveMultiLineEncoding(spec)
+  if (!encoding) {
+    console.warn('tagMultipleLineMarks: missing x/y encoding (skipped)')
+    return
+  }
+  const xField = encoding.xField
+  const yField = encoding.yField
+  const xType = encoding.xType ?? 'nominal'
   // wait up to 5 frames for marks to exist
   for (let i = 0; i < 5; i += 1) {
     const svgCheck = d3.select(container).select(SvgElements.Svg)

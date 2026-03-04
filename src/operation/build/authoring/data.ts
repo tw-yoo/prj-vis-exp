@@ -1,6 +1,7 @@
 import { dataOps } from '../dataOpsBuilder'
 import type { TargetSelector } from '../../../types'
 import type {
+  OpAddSpec,
   OpCompareBoolSpec,
   OpCompareSpec,
   OpCountSpec,
@@ -10,7 +11,10 @@ import type {
   OpFindExtremumSpec,
   OpLagDiffSpec,
   OpNthSpec,
+  OpPairDiffSpec,
   OpRetrieveValueSpec,
+  OpScaleSpec,
+  OpSetOpSpec,
   OpSortSpec,
   OpSumSpec,
 } from '../../../types/operationSpecs'
@@ -118,6 +122,32 @@ export const dataActions = {
     return dataOps.lagDiff({ orderField, order, group, chartId })
   },
 
+  pairDiff(
+    by: string,
+    groupA: string,
+    groupB: string,
+    seriesField?: string,
+    field?: string,
+    signed?: boolean,
+    absolute?: boolean,
+    precision?: number,
+    group?: string | null,
+    chartId?: string,
+  ): OpPairDiffSpec {
+    return dataOps.pairDiff({
+      by,
+      groupA,
+      groupB,
+      seriesField,
+      field,
+      signed,
+      absolute,
+      precision,
+      group,
+      chartId,
+    })
+  },
+
   nth(
     n: number,
     from?: NthFrom,
@@ -132,7 +162,27 @@ export const dataActions = {
     return dataOps.count({ field, group, chartId })
   },
 
-  sleep(seconds: number, chartId?: string) {
-    return dataOps.sleep({ seconds, chartId })
+  add(
+    targetA: OpAddSpec['targetA'],
+    targetB: OpAddSpec['targetB'],
+    field?: string,
+    group?: string | null,
+    chartId?: string,
+  ): OpAddSpec {
+    return dataOps.add({ targetA, targetB, field, group, chartId })
+  },
+
+  scale(
+    target: OpScaleSpec['target'],
+    factor: number,
+    field?: string,
+    group?: string | null,
+    chartId?: string,
+  ): OpScaleSpec {
+    return dataOps.scale({ target, factor, field, group, chartId })
+  },
+
+  setOp(fn: OpSetOpSpec['fn'], group?: string | null, chartId?: string): OpSetOpSpec {
+    return dataOps.setOp({ fn, group, chartId })
   },
 }

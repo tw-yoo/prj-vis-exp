@@ -28,6 +28,8 @@ type LinePosition = NonNullable<DrawLineSpec['position']>
 type LinePoint = NonNullable<LinePosition['start']>
 type LineAxis = NonNullable<DrawLineSpec['axis']>
 type LinePair = NonNullable<DrawLineSpec['pair']>
+type LineConnectBy = NonNullable<DrawLineSpec['connectBy']>
+type LineConnectByPoint = NonNullable<LineConnectBy['start']>
 type LineHLine = NonNullable<DrawLineSpec['hline']>
 type LineStyle = NonNullable<DrawLineSpec['style']>
 type LineArrow = NonNullable<DrawArrowSpec>
@@ -35,6 +37,11 @@ type LineArrowStyle = NonNullable<DrawArrowSpec['style']>
 type FilterX = NonNullable<DrawFilterSpec['x']>
 type FilterY = NonNullable<DrawFilterSpec['y']>
 type SegmentStyle = NonNullable<DrawBarSegmentSpec['style']>
+type ScalarPanelSpec = NonNullable<DrawOp['scalarPanel']>
+type ScalarPanelValue = NonNullable<ScalarPanelSpec['left']>
+type ScalarPanelDelta = NonNullable<NonNullable<ScalarPanelSpec['delta']>>
+type ScalarPanelPosition = NonNullable<ScalarPanelSpec['position']>
+type ScalarPanelStyle = NonNullable<ScalarPanelSpec['style']>
 
 const DRAW_OP_KEYS = [
   'action',
@@ -51,6 +58,9 @@ const DRAW_OP_KEYS = [
   'filter',
   'stackGroup',
   'groupFilter',
+  'toSimple',
+  'band',
+  'scalarPanel',
 ] satisfies ReadonlyArray<keyof DrawOp>
 
 const DRAW_OP_KEY_SET = new Set<string>(DRAW_OP_KEYS)
@@ -74,6 +84,7 @@ const DRAW_LINE_KEYS = [
   'position',
   'axis',
   'pair',
+  'connectBy',
   'hline',
   'angle',
   'length',
@@ -84,6 +95,8 @@ const DRAW_LINE_POSITION_KEYS = ['start', 'end'] satisfies ReadonlyArray<keyof L
 const DRAW_LINE_POINT_KEYS = ['x', 'y'] satisfies ReadonlyArray<keyof LinePoint>
 const DRAW_LINE_AXIS_KEYS = ['x', 'y'] satisfies ReadonlyArray<keyof LineAxis>
 const DRAW_LINE_PAIR_KEYS = ['x'] satisfies ReadonlyArray<keyof LinePair>
+const DRAW_LINE_CONNECT_BY_KEYS = ['start', 'end'] satisfies ReadonlyArray<keyof LineConnectBy>
+const DRAW_LINE_CONNECT_BY_POINT_KEYS = ['target', 'series'] satisfies ReadonlyArray<keyof LineConnectByPoint>
 const DRAW_LINE_HLINE_KEYS = ['x', 'y'] satisfies ReadonlyArray<keyof LineHLine>
 const DRAW_LINE_STYLE_KEYS = ['stroke', 'strokeWidth', 'opacity'] satisfies ReadonlyArray<keyof LineStyle>
 const DRAW_LINE_ARROW_KEYS = ['start', 'end', 'length', 'width', 'style'] satisfies ReadonlyArray<keyof LineArrow>
@@ -102,6 +115,22 @@ const DRAW_STACK_GROUP_KEYS = ['swapAxes', 'xField', 'colorField'] satisfies Rea
 const DRAW_GROUP_FILTER_KEYS = ['groups', 'include', 'keep', 'exclude', 'reset'] satisfies ReadonlyArray<
   keyof DrawGroupFilterSpec
 >
+const DRAW_TO_SIMPLE_KEYS = ['series'] as const
+const DRAW_BAND_KEYS = ['axis', 'range', 'label', 'style'] as const
+const DRAW_BAND_STYLE_KEYS = ['fill', 'opacity', 'stroke', 'strokeWidth'] as const
+const DRAW_SCALAR_PANEL_KEYS = ['mode', 'layout', 'absolute', 'left', 'right', 'delta', 'position', 'style'] as const
+const DRAW_SCALAR_PANEL_VALUE_KEYS = ['label', 'value'] satisfies ReadonlyArray<keyof ScalarPanelValue>
+const DRAW_SCALAR_PANEL_DELTA_KEYS = ['label', 'value'] satisfies ReadonlyArray<keyof ScalarPanelDelta>
+const DRAW_SCALAR_PANEL_POSITION_KEYS = ['x', 'y', 'width', 'height'] satisfies ReadonlyArray<keyof ScalarPanelPosition>
+const DRAW_SCALAR_PANEL_STYLE_KEYS = [
+  'leftFill',
+  'rightFill',
+  'panelFill',
+  'panelStroke',
+  'lineStroke',
+  'arrowStroke',
+  'textColor',
+] satisfies ReadonlyArray<keyof ScalarPanelStyle>
 
 const DRAW_FIELD_KEY_MAP: Record<string, readonly string[]> = {
   select: DRAW_SELECT_KEYS,
@@ -122,6 +151,9 @@ const DRAW_FIELD_KEY_MAP: Record<string, readonly string[]> = {
   'line.position.end': DRAW_LINE_POINT_KEYS,
   'line.axis': DRAW_LINE_AXIS_KEYS,
   'line.pair': DRAW_LINE_PAIR_KEYS,
+  'line.connectBy': DRAW_LINE_CONNECT_BY_KEYS,
+  'line.connectBy.start': DRAW_LINE_CONNECT_BY_POINT_KEYS,
+  'line.connectBy.end': DRAW_LINE_CONNECT_BY_POINT_KEYS,
   'line.hline': DRAW_LINE_HLINE_KEYS,
   'line.style': DRAW_LINE_STYLE_KEYS,
   'line.arrow': DRAW_LINE_ARROW_KEYS,
@@ -136,6 +168,15 @@ const DRAW_FIELD_KEY_MAP: Record<string, readonly string[]> = {
   'filter.y': DRAW_FILTER_Y_KEYS,
   stackGroup: DRAW_STACK_GROUP_KEYS,
   groupFilter: DRAW_GROUP_FILTER_KEYS,
+  toSimple: DRAW_TO_SIMPLE_KEYS,
+  band: DRAW_BAND_KEYS,
+  'band.style': DRAW_BAND_STYLE_KEYS,
+  scalarPanel: DRAW_SCALAR_PANEL_KEYS,
+  'scalarPanel.left': DRAW_SCALAR_PANEL_VALUE_KEYS,
+  'scalarPanel.right': DRAW_SCALAR_PANEL_VALUE_KEYS,
+  'scalarPanel.delta': DRAW_SCALAR_PANEL_DELTA_KEYS,
+  'scalarPanel.position': DRAW_SCALAR_PANEL_POSITION_KEYS,
+  'scalarPanel.style': DRAW_SCALAR_PANEL_STYLE_KEYS,
 }
 
 type ValidateOptions = { skipKeyCheck?: boolean }

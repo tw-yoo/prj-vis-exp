@@ -1,4 +1,3 @@
-import { ops } from '../../../../operation/build/authoring'
 import type { OperationSpec } from '../../../../types'
 import { DrawAction, type DrawOp } from '../../types'
 import { getEnabledTimelineSteps } from './reducer'
@@ -18,18 +17,13 @@ export function serializeSessionToOperationSpec(session: InteractionSession): Se
   steps.forEach((step) => {
     if (step.kind === TimelineStepKind.Draw) {
       out.push(cloneOp(step.op))
-      return
-    }
-    if (step.kind === TimelineStepKind.Sleep) {
-      const seconds = Math.max(0, Number(step.durationMs) || 0) / 1000
-      out.push(ops.draw.sleep(seconds))
     }
   })
   return { ops: out }
 }
 
 export const hasSerializableTimelineSteps = (session: InteractionSession) =>
-  getEnabledTimelineSteps(session).some((step) => step.kind === TimelineStepKind.Draw || step.kind === TimelineStepKind.Sleep)
+  getEnabledTimelineSteps(session).some((step) => step.kind === TimelineStepKind.Draw)
 
 export const getDrawActionLabel = (op: DrawOp) => {
   switch (op.action) {
@@ -59,6 +53,8 @@ export const getDrawActionLabel = (op: DrawOp) => {
       return 'sort'
     case DrawAction.Sum:
       return 'sum'
+    case DrawAction.ScalarPanel:
+      return 'scalar-panel'
     default:
       return op.action
   }

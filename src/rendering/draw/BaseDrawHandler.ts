@@ -6,7 +6,9 @@ import {
   DrawLineModes,
   DrawRectModes,
   DrawTextModes,
+  type DrawBandSpec,
   type DrawArrowSpec,
+  type DrawScalarPanelSpec,
   type DrawLineSpec,
   type DrawOp,
   type DrawRectMode,
@@ -16,6 +18,7 @@ import {
 } from './types'
 import { toSvgCenter as toSvgCenterUtil } from './utils/coords'
 import { ensureAnnotationLayer } from './utils/annotationLayer'
+import { MIN_DRAW_DURATION_MS } from './animationPolicy'
 
 type AnySelection = d3.Selection<any, unknown, any, any>
 
@@ -91,6 +94,57 @@ const drawLineWithArrow = (
   }
 }
 
+function formatScalarPanelNumber(value: number) {
+  if (!Number.isFinite(value)) return ''
+  let text = value.toFixed(2)
+  text = text.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '')
+  if (text === '-0') return '0'
+  return text
+}
+
+function toWrappedLines(label: string, maxCharsPerLine: number, maxLines: number): string[] {
+  const normalized = String(label ?? '').trim().replace(/\s+/g, ' ')
+  if (!normalized) return ['']
+  const safeMaxChars = Math.max(6, Math.floor(maxCharsPerLine))
+  const safeMaxLines = Math.max(1, Math.floor(maxLines))
+  const words = normalized.split(' ')
+  const lines: string[] = []
+  let current = ''
+
+  const pushCurrent = () => {
+    if (!current) return
+    lines.push(current)
+    current = ''
+  }
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word
+    if (candidate.length <= safeMaxChars) {
+      current = candidate
+      continue
+    }
+    if (!current) {
+      lines.push(word.slice(0, safeMaxChars))
+      continue
+    }
+    pushCurrent()
+    current = word
+    if (lines.length >= safeMaxLines) break
+  }
+  pushCurrent()
+
+  if (lines.length > safeMaxLines) lines.length = safeMaxLines
+
+  const consumed = lines.join(' ').length
+  if (consumed < normalized.length && lines.length > 0) {
+    const lastIndex = lines.length - 1
+    const last = lines[lastIndex]
+    const clipped = last.length >= safeMaxChars ? `${last.slice(0, Math.max(1, safeMaxChars - 1))}…` : `${last}…`
+    lines[lastIndex] = clipped
+  }
+  return lines
+}
+
 export abstract class BaseDrawHandler {
   protected container: HTMLElement
 
@@ -138,6 +192,12 @@ export abstract class BaseDrawHandler {
         return true
       })
     return fallback as unknown as d3.Selection<SVGRectElement, JsonValue, d3.BaseType, JsonValue>
+  }
+
+  protected applyTransition<T extends d3.BaseType, D, P extends d3.BaseType, Q>(
+    selection: d3.Selection<T, D, P, Q>,
+  ): d3.Transition<T, D, P, Q> {
+    return selection.transition().duration(MIN_DRAW_DURATION_MS)
   }
 
   protected filterByKeys(
@@ -227,19 +287,22 @@ export abstract class BaseDrawHandler {
   }
 
   clear(chartId?: string) {
-    this.allMarks(chartId).attr(SvgAttributes.Fill, this.defaultColor()).attr(SvgAttributes.Opacity, 1)
+    // Non-split clear should only reset annotations to avoid visual flicker.
+    this.applyTransition(this.allMarks(chartId)).attr(SvgAttributes.Opacity, 1)
     this.clearAnnotations(chartId)
   }
 
   highlight(op: DrawOp) {
     const color = op.style?.color || '#ef4444'
-    this.selectElements(op.select, op.chartId).attr(SvgAttributes.Fill, color).attr(SvgAttributes.Opacity, 1)
+    this.applyTransition(this.selectElements(op.select, op.chartId))
+      .attr(SvgAttributes.Fill, color)
+      .attr(SvgAttributes.Opacity, 1)
   }
 
   dim(op: DrawOp) {
     const opacity = op.style?.opacity ?? 0.25
     const selectedNodes = new Set(this.selectElements(op.select, op.chartId).nodes())
-    this.allMarks(op.chartId).attr(SvgAttributes.Opacity, function () {
+    this.applyTransition(this.allMarks(op.chartId)).attr(SvgAttributes.Opacity, function () {
       return selectedNodes.has(this as SVGElement) ? 1 : opacity
     })
   }
@@ -848,26 +911,94 @@ export abstract class BaseDrawHandler {
     }
 
     if (mode === DrawLineModes.Connect) {
-      if (!lineSpec.pair || lineSpec.pair.x.length !== 2) return
-      const [xA, xB] = lineSpec.pair.x
-      const pointFor = (label: string) => {
-        const mark = scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).filter(function () {
+      const toViewBoxPoint = (clientX: number, clientY: number) => {
+        const svgRect = svgNode.getBoundingClientRect()
+        const viewBox = svgNode.viewBox?.baseVal
+        const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+        const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
+        return {
+          x: (clientX - svgRect.left) * scaleX + (viewBox?.x ?? 0),
+          y: (clientY - svgRect.top) * scaleY + (viewBox?.y ?? 0),
+        }
+      }
+
+      const resolveAnchorPoint = (node: Element, yValue: number) => {
+        if (node instanceof SVGRectElement) {
+          const svgRect = svgNode.getBoundingClientRect()
+          const nodeRect = node.getBoundingClientRect()
+          const viewBox = svgNode.viewBox?.baseVal
+          const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+          const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
+          if (Number.isFinite(scaleX) && Number.isFinite(scaleY) && scaleX > 0 && scaleY > 0) {
+            const centerX = (nodeRect.left - svgRect.left + nodeRect.width / 2) * scaleX + (viewBox?.x ?? 0)
+            // Bars: use top edge for positive values, bottom edge for negative values.
+            const edgeY = yValue >= 0 ? nodeRect.top : nodeRect.bottom
+            const anchorY = (edgeY - svgRect.top) * scaleY + (viewBox?.y ?? 0)
+            if (Number.isFinite(centerX) && Number.isFinite(anchorY)) {
+              return { x: centerX, y: anchorY, exact: true as const }
+            }
+          }
+        }
+        if (node instanceof SVGCircleElement) {
+          const cx = Number(node.getAttribute(SvgAttributes.CX))
+          const cy = Number(node.getAttribute(SvgAttributes.CY))
+          if (Number.isFinite(cx) && Number.isFinite(cy)) return { x: cx, y: cy, exact: true as const }
+        }
+        // Vega/custom bar marks may be <path> or other shapes. Use visual bbox top/bottom edge.
+        const nodeRect = node.getBoundingClientRect()
+        if (Number.isFinite(nodeRect.width) && Number.isFinite(nodeRect.height) && nodeRect.width > 0 && nodeRect.height > 0) {
+          const center = toViewBoxPoint(nodeRect.left + nodeRect.width / 2, nodeRect.top + nodeRect.height / 2)
+          const edge = yValue >= 0
+            ? toViewBoxPoint(nodeRect.left + nodeRect.width / 2, nodeRect.top)
+            : toViewBoxPoint(nodeRect.left + nodeRect.width / 2, nodeRect.bottom)
+          if (Number.isFinite(center.x) && Number.isFinite(edge.y)) {
+            return { x: center.x, y: edge.y, exact: true as const }
+          }
+        }
+        const pt = this.toSvgCenter(node, svgNode)
+        return { x: pt.x, y: pt.y, exact: false as const }
+      }
+
+      const pointFor = (label: string, series?: string | number) => {
+        const matchesTarget = function (this: SVGElement) {
           const el = this as Element
           const target = el.getAttribute(DataAttributes.Target) || el.getAttribute(DataAttributes.Id)
-          return target != null && String(target) === String(label)
-        })
-        if (mark.empty()) return null
-        const node = mark.node() as Element
-        const pt = this.toSvgCenter(node, svgNode)
+          if (target == null || String(target) !== String(label)) return false
+          if (series == null) return true
+          const markSeries = el.getAttribute(DataAttributes.Series)
+          return markSeries != null && String(markSeries) === String(series)
+        }
+        const mainBarCandidates = scope
+          .selectAll<SVGRectElement, JsonValue>(SvgSelectors.MainBars)
+          .filter(matchesTarget)
+          .nodes() as Element[]
+        const fallbackCandidates = scope
+          .selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets)
+          .filter(matchesTarget)
+          .nodes() as Element[]
+        const candidates = mainBarCandidates.length ? mainBarCandidates : fallbackCandidates
+        if (!candidates.length) return null
+        const node = candidates[0]
         const valueAttr = node.getAttribute(DataAttributes.Value)
         const yValue = valueAttr != null ? Number(valueAttr) : NaN
         if (!Number.isFinite(yValue)) return null
-        const y = mapY(yValue) ?? pt.y
+        const shapeAnchor = resolveAnchorPoint(node, yValue)
+        const mappedY = mapY(yValue)
+        // For bars/points, the DOM anchor is already exact and should win.
+        // mapY interpolation can drift when axis/tick extraction is noisy.
+        const y = shapeAnchor.exact ? shapeAnchor.y : (mappedY ?? shapeAnchor.y)
         if (!Number.isFinite(y)) return null
-        return { x: pt.x, y }
+        return { x: shapeAnchor.x, y }
       }
-      const a = pointFor(xA)
-      const b = pointFor(xB)
+      const connectBy = lineSpec.connectBy
+      const pair = lineSpec.pair
+      if (!connectBy && (!pair || pair.x.length !== 2)) return
+      const a = connectBy
+        ? pointFor(String(connectBy.start.target), connectBy.start.series)
+        : pointFor(String(pair!.x[0]))
+      const b = connectBy
+        ? pointFor(String(connectBy.end.target), connectBy.end.series)
+        : pointFor(String(pair!.x[1]))
       if (!a || !b) return
       drawLineWithArrow(layer, op.chartId, lineSpec, { x1: a.x, y1: a.y, x2: b.x, y2: b.y })
       return
@@ -959,7 +1090,412 @@ export abstract class BaseDrawHandler {
     }
   }
 
-  run(op: DrawOp) {
+  protected band(op: DrawOp) {
+    const spec: DrawBandSpec | undefined = op.band
+    if (!spec) return
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    if (svg.empty()) return
+    const svgNode = svg.node() as SVGSVGElement | null
+    if (!svgNode) return
+    const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
+    const viewBox = svgNode.viewBox?.baseVal
+    const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
+    const height =
+      viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return
+
+    const [start, end] = spec.range
+    const style = spec.style ?? {}
+    const fill = style.fill ?? 'rgba(59,130,246,0.16)'
+    const stroke = style.stroke ?? '#3b82f6'
+    const strokeWidth = style.strokeWidth ?? 1.5
+    const opacity = style.opacity ?? 1
+
+    if (spec.axis === 'x') {
+      const scope = this.selectScope(op.chartId)
+      const ticks = scope.selectAll<SVGGElement, JsonValue>(SvgSelectors.XAxisTicks)
+      const svgRect = svgNode.getBoundingClientRect()
+      const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+      const positions: Array<{ label: string; x: number }> = []
+      ticks.each(function () {
+        const tick = this as SVGGElement
+        const text = tick.querySelector('text')?.textContent?.trim()
+        if (!text) return
+        const bbox = tick.getBoundingClientRect()
+        positions.push({
+          label: text,
+          x: (viewBox?.x ?? 0) + (bbox.left - svgRect.left + bbox.width / 2) * scaleX,
+        })
+      })
+      const resolveX = (label: string | number) => positions.find((p) => p.label === String(label))?.x ?? null
+      const xStart = resolveX(start)
+      const xEnd = resolveX(end)
+      if (xStart == null || xEnd == null) return
+      const left = Math.min(xStart, xEnd)
+      const right = Math.max(xStart, xEnd)
+      const band = layer
+        .append(SvgElements.Rect)
+        .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
+        .attr(DataAttributes.ChartId, op.chartId ?? null)
+        .attr(SvgAttributes.X, left)
+        .attr(SvgAttributes.Y, 0)
+        .attr(SvgAttributes.Width, right - left)
+        .attr(SvgAttributes.Height, height)
+        .attr(SvgAttributes.Fill, fill)
+        .attr(SvgAttributes.Opacity, opacity)
+        .attr(SvgAttributes.Stroke, stroke)
+        .attr(SvgAttributes.StrokeWidth, strokeWidth)
+      if (spec.label) {
+        layer
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
+          .attr(DataAttributes.ChartId, op.chartId ?? null)
+          .attr(SvgAttributes.X, left + (right - left) / 2)
+          .attr(SvgAttributes.Y, 12)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.Fill, stroke)
+          .attr(SvgAttributes.FontSize, 12)
+          .attr(SvgAttributes.FontWeight, 'bold')
+          .text(spec.label)
+      }
+      this.applyTransition(band)
+      return
+    }
+
+    // y-axis band
+    const yMin = Number(start)
+    const yMax = Number(end)
+    if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) return
+    const scope = this.selectScope(op.chartId)
+    const mapY = this.yValueToSvgY(scope, svgNode)
+    const yA = mapY(yMin)
+    const yB = mapY(yMax)
+    if (yA == null || yB == null) return
+    const top = Math.min(yA, yB)
+    const h = Math.abs(yA - yB)
+    const band = layer
+      .append(SvgElements.Rect)
+      .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
+      .attr(DataAttributes.ChartId, op.chartId ?? null)
+      .attr(SvgAttributes.X, 0)
+      .attr(SvgAttributes.Y, top)
+      .attr(SvgAttributes.Width, width)
+      .attr(SvgAttributes.Height, h)
+      .attr(SvgAttributes.Fill, fill)
+      .attr(SvgAttributes.Opacity, opacity)
+      .attr(SvgAttributes.Stroke, stroke)
+      .attr(SvgAttributes.StrokeWidth, strokeWidth)
+    if (spec.label) {
+      layer
+        .append(SvgElements.Text)
+        .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
+        .attr(DataAttributes.ChartId, op.chartId ?? null)
+        .attr(SvgAttributes.X, width - 8)
+        .attr(SvgAttributes.Y, top - 4)
+        .attr(SvgAttributes.TextAnchor, 'end')
+        .attr(SvgAttributes.Fill, stroke)
+        .attr(SvgAttributes.FontSize, 12)
+        .attr(SvgAttributes.FontWeight, 'bold')
+        .text(spec.label)
+    }
+    this.applyTransition(band)
+  }
+
+  protected scalarPanel(op: DrawOp) {
+    const spec: DrawScalarPanelSpec | undefined = op.scalarPanel
+    if (!spec) return
+    const absolute = spec.absolute ?? true
+    const leftRaw = Number(spec.left?.value)
+    const rightRaw = Number(spec.right?.value)
+    if (!Number.isFinite(leftRaw) || !Number.isFinite(rightRaw)) return
+    const leftValue = absolute ? Math.abs(leftRaw) : leftRaw
+    const rightValue = absolute ? Math.abs(rightRaw) : rightRaw
+    const layout = spec.layout ?? 'inset'
+    const fullReplace = layout === 'full-replace'
+
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    if (svg.empty()) return
+    const svgNode = svg.node() as SVGSVGElement | null
+    if (!svgNode) return
+    const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
+    const chartId = op.chartId ?? null
+
+    const viewBox = svgNode.viewBox?.baseVal
+    const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
+    const height = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return
+
+    const position = spec.position ?? { x: 0.62, y: 0.72, width: 0.34, height: 0.22 }
+    const panelX = fullReplace ? 0 : Math.max(0, Math.min(width - 24, position.x * width))
+    const panelY = fullReplace ? 0 : Math.max(0, Math.min(height - 24, position.y * height))
+    const panelWidth = fullReplace ? width : Math.max(120, Math.min(width - panelX, position.width * width))
+    const panelHeight = fullReplace ? height : Math.max(80, Math.min(height - panelY, position.height * height))
+
+    const style = spec.style ?? {}
+    const panelFill = style.panelFill ?? (fullReplace ? '#ffffff' : 'rgba(255,255,255,0.96)')
+    const panelStroke = style.panelStroke ?? '#cbd5e1'
+    const leftFill = style.leftFill ?? '#ef4444'
+    const rightFill = style.rightFill ?? '#0ea5e9'
+    const lineStroke = style.lineStroke ?? '#ef4444'
+    const arrowStroke = style.arrowStroke ?? '#0ea5e9'
+    const textColor = style.textColor ?? '#111827'
+
+    const panelKey = `${layout}|${spec.left.label}|${spec.right.label}`
+    const panelClass = 'scalar-panel'
+    const allPanels = layer.selectAll<SVGGElement, unknown>(`g.${panelClass}`)
+    const targetPanels = allPanels.filter(function () {
+      const el = this as Element
+      const sameChart = (el.getAttribute(DataAttributes.ChartId) ?? null) === chartId
+      return sameChart && (el.getAttribute('data-panel-key') ?? '') === panelKey
+    })
+    if (fullReplace) {
+      allPanels
+        .filter(function () {
+          const el = this as Element
+          const sameChart = (el.getAttribute(DataAttributes.ChartId) ?? null) === chartId
+          const sameKey = (el.getAttribute('data-panel-key') ?? '') === panelKey
+          return sameChart && !sameKey
+        })
+        .remove()
+    }
+    const panel = targetPanels.empty()
+      ? layer
+          .append(SvgElements.Group)
+          .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${panelClass}`)
+          .attr(DataAttributes.ChartId, chartId)
+          .attr('data-panel-key', panelKey)
+          .attr('opacity', 0)
+      : targetPanels
+
+    panel
+      .attr(SvgAttributes.Transform, `translate(${panelX},${panelY})`)
+
+    if (targetPanels.empty()) {
+      this.applyTransition(panel).attr('opacity', 1)
+    }
+
+    panel.selectAll('*').remove()
+
+    panel.selectAll('.scalar-panel-delta').remove()
+    panel.selectAll('.scalar-panel-arrow').remove()
+
+    const marginFromAttr = (name: string, fallback: number) => {
+      const raw = Number(svg.attr(name))
+      return Number.isFinite(raw) ? raw : fallback
+    }
+    const fullMarginLeft = marginFromAttr(DataAttributes.MarginLeft, Math.max(48, panelWidth * 0.12))
+    const fullMarginTop = marginFromAttr(DataAttributes.MarginTop, Math.max(24, panelHeight * 0.12))
+    const fullPlotWidth = marginFromAttr(DataAttributes.PlotWidth, Math.max(140, panelWidth - fullMarginLeft - 24))
+    const fullPlotHeight = marginFromAttr(DataAttributes.PlotHeight, Math.max(100, panelHeight - fullMarginTop - 42))
+
+    const padX = fullReplace ? fullMarginLeft : 10
+    const padTop = fullReplace ? fullMarginTop : 10
+    const padBottom = fullReplace ? (panelHeight - (fullMarginTop + fullPlotHeight)) : 18
+    const bottomY = fullReplace ? (fullMarginTop + fullPlotHeight) : (panelHeight - padBottom)
+    const topY = padTop
+    const barWidth = fullReplace ? Math.max(36, fullPlotWidth * 0.2) : Math.max(14, panelWidth * 0.16)
+    const leftCenterX = fullReplace ? (fullMarginLeft + fullPlotWidth * 0.3) : (panelWidth * 0.32)
+    const rightCenterX = fullReplace ? (fullMarginLeft + fullPlotWidth * 0.7) : (panelWidth * 0.68)
+
+    const axisX1 = fullReplace ? fullMarginLeft : padX
+    const axisX2 = fullReplace ? fullMarginLeft + fullPlotWidth : (panelWidth - padX)
+    const axisY = bottomY
+    const valueMax = Math.max(leftValue, rightValue, 0)
+    const yMax = valueMax > 0 ? valueMax * 1.1 : 1
+
+    const barYScale = d3
+      .scaleLinear()
+      .domain([0, yMax])
+      .range([bottomY, topY])
+
+    const leftTopY = barYScale(leftValue)
+    const rightTopY = barYScale(rightValue)
+    const zeroY = axisY
+
+    const bg = panel.append(SvgElements.Rect).attr('class', 'scalar-panel-bg')
+    bg
+      .attr(SvgAttributes.X, 0)
+      .attr(SvgAttributes.Y, 0)
+      .attr(SvgAttributes.Width, panelWidth)
+      .attr(SvgAttributes.Height, panelHeight)
+      .attr(SvgAttributes.RX, 8)
+      .attr(SvgAttributes.Fill, panelFill)
+      .attr(SvgAttributes.Stroke, panelStroke)
+      .attr(SvgAttributes.StrokeWidth, 1)
+      .attr(SvgAttributes.Opacity, 1)
+
+    const baseline = panel.append(SvgElements.Line).attr('class', 'scalar-panel-baseline')
+    baseline
+      .attr(SvgAttributes.X1, axisX1)
+      .attr(SvgAttributes.Y1, zeroY)
+      .attr(SvgAttributes.X2, axisX2)
+      .attr(SvgAttributes.Y2, zeroY)
+      .attr(SvgAttributes.Stroke, '#94a3b8')
+      .attr(SvgAttributes.StrokeWidth, 1.25)
+      .attr(SvgAttributes.Opacity, 0.8)
+
+    if (fullReplace) {
+      const yAxis = panel.append(SvgElements.Group).attr('class', 'scalar-panel-y-axis')
+      const tickCount = 4
+      for (let i = 0; i <= tickCount; i += 1) {
+        const tickValue = (yMax / tickCount) * i
+        const y = barYScale(tickValue)
+        yAxis
+          .append(SvgElements.Line)
+          .attr(SvgAttributes.X1, fullMarginLeft - 6)
+          .attr(SvgAttributes.Y1, y)
+          .attr(SvgAttributes.X2, fullMarginLeft)
+          .attr(SvgAttributes.Y2, y)
+          .attr(SvgAttributes.Stroke, '#1f2937')
+          .attr(SvgAttributes.StrokeWidth, 1)
+        yAxis
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.X, fullMarginLeft - 10)
+          .attr(SvgAttributes.Y, y)
+          .attr(SvgAttributes.TextAnchor, 'end')
+          .attr(SvgAttributes.DominantBaseline, 'middle')
+          .attr(SvgAttributes.Fill, '#111827')
+          .attr(SvgAttributes.FontSize, 11)
+          .text(formatScalarPanelNumber(tickValue))
+      }
+      yAxis
+        .append(SvgElements.Line)
+        .attr(SvgAttributes.X1, fullMarginLeft)
+        .attr(SvgAttributes.Y1, topY)
+        .attr(SvgAttributes.X2, fullMarginLeft)
+        .attr(SvgAttributes.Y2, axisY)
+        .attr(SvgAttributes.Stroke, '#111827')
+        .attr(SvgAttributes.StrokeWidth, 1.2)
+    }
+
+    const leftBar = panel.append(SvgElements.Rect).attr('class', 'scalar-panel-bar-left')
+    leftBar
+      .attr(SvgAttributes.Fill, leftFill)
+      .attr(SvgAttributes.X, leftCenterX - barWidth / 2)
+      .attr(SvgAttributes.Width, barWidth)
+      .attr(SvgAttributes.Y, Math.min(leftTopY, zeroY))
+      .attr(SvgAttributes.Height, Math.abs(zeroY - leftTopY))
+
+    const rightBar = panel.append(SvgElements.Rect).attr('class', 'scalar-panel-bar-right')
+    rightBar
+      .attr(SvgAttributes.Fill, rightFill)
+      .attr(SvgAttributes.X, rightCenterX - barWidth / 2)
+      .attr(SvgAttributes.Width, barWidth)
+      .attr(SvgAttributes.Y, Math.min(rightTopY, zeroY))
+      .attr(SvgAttributes.Height, Math.abs(zeroY - rightTopY))
+
+    const labelFontSize = fullReplace ? 11 : 11
+    const labelYBase = fullReplace ? (axisY + 18) : (panelHeight - 4)
+    const labelGap = Math.max(40, rightCenterX - leftCenterX)
+    const labelMaxWidth = fullReplace ? Math.max(96, labelGap - 24) : Math.max(64, barWidth * 2.2)
+    const maxCharsPerLine = Math.max(8, Math.floor(labelMaxWidth / 6.4))
+
+    const leftLabelLines = toWrappedLines(spec.left.label, maxCharsPerLine, fullReplace ? 2 : 1)
+    const leftLabel = panel.append(SvgElements.Text).attr('class', 'scalar-panel-label-left')
+    leftLabel
+      .attr(SvgAttributes.X, leftCenterX)
+      .attr(SvgAttributes.Y, labelYBase)
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.Fill, textColor)
+      .attr(SvgAttributes.FontSize, labelFontSize)
+      .attr(SvgAttributes.FontWeight, 600)
+    leftLabelLines.forEach((line, idx) => {
+      leftLabel
+        .append(SvgElements.TSpan)
+        .attr(SvgAttributes.X, leftCenterX)
+        .attr('dy', idx === 0 ? 0 : 12)
+        .text(line)
+    })
+
+    const rightLabelLines = toWrappedLines(spec.right.label, maxCharsPerLine, fullReplace ? 2 : 1)
+    const rightLabel = panel.append(SvgElements.Text).attr('class', 'scalar-panel-label-right')
+    rightLabel
+      .attr(SvgAttributes.X, rightCenterX)
+      .attr(SvgAttributes.Y, labelYBase)
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.Fill, textColor)
+      .attr(SvgAttributes.FontSize, labelFontSize)
+      .attr(SvgAttributes.FontWeight, 600)
+    rightLabelLines.forEach((line, idx) => {
+      rightLabel
+        .append(SvgElements.TSpan)
+        .attr(SvgAttributes.X, rightCenterX)
+        .attr('dy', idx === 0 ? 0 : 12)
+        .text(line)
+    })
+
+    const leftValueText = panel.append(SvgElements.Text).attr('class', 'scalar-panel-value-left')
+    leftValueText
+      .attr(SvgAttributes.X, leftCenterX)
+      .attr(SvgAttributes.Y, Math.min(leftTopY, zeroY) - (fullReplace ? 8 : 4))
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.Fill, textColor)
+      .attr(SvgAttributes.FontSize, fullReplace ? 16 : 11)
+      .attr(SvgAttributes.FontWeight, 'bold')
+      .text(formatScalarPanelNumber(leftValue))
+
+    const rightValueText = panel.append(SvgElements.Text).attr('class', 'scalar-panel-value-right')
+    rightValueText
+      .attr(SvgAttributes.X, rightCenterX)
+      .attr(SvgAttributes.Y, Math.min(rightTopY, zeroY) - (fullReplace ? 8 : 4))
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.Fill, textColor)
+      .attr(SvgAttributes.FontSize, fullReplace ? 16 : 11)
+      .attr(SvgAttributes.FontWeight, 'bold')
+      .text(formatScalarPanelNumber(rightValue))
+
+    const compareLine = panel.append(SvgElements.Line).attr('class', 'scalar-panel-compare-line')
+    const compareLineStroke = spec.mode === 'diff' ? arrowStroke : lineStroke
+    compareLine
+      .attr(SvgAttributes.X1, leftCenterX)
+      .attr(SvgAttributes.Y1, leftTopY)
+      .attr(SvgAttributes.X2, rightCenterX)
+      .attr(SvgAttributes.Y2, rightTopY)
+      .attr(SvgAttributes.Stroke, compareLineStroke)
+      .attr(SvgAttributes.StrokeWidth, 2)
+      .attr(SvgAttributes.Opacity, 0.95)
+    this.applyTransition(compareLine)
+      .attr(SvgAttributes.X1, leftCenterX)
+      .attr(SvgAttributes.Y1, leftTopY)
+      .attr(SvgAttributes.X2, rightCenterX)
+      .attr(SvgAttributes.Y2, rightTopY)
+
+    if (spec.mode !== 'diff') return
+
+    const arrowOpSpec: DrawLineSpec = {
+      style: { stroke: arrowStroke, strokeWidth: 2, opacity: 0 },
+      arrow: {
+        end: true,
+        style: { stroke: arrowStroke, fill: arrowStroke, strokeWidth: 2, opacity: 0.95 },
+      },
+    }
+    const arrowGroup = panel.append(SvgElements.Group).attr('class', 'scalar-panel-arrow')
+    drawLineWithArrow(arrowGroup as unknown as AnySelection, op.chartId, arrowOpSpec, {
+      x1: leftCenterX,
+      y1: leftTopY,
+      x2: rightCenterX,
+      y2: rightTopY,
+    })
+    this.applyTransition(arrowGroup).attr(SvgAttributes.Opacity, 1)
+
+    const deltaRaw = spec.delta?.value ?? (leftValue - rightValue)
+    const deltaValue = absolute ? Math.abs(deltaRaw) : deltaRaw
+    const deltaLabel = spec.delta?.label ?? 'Δ'
+    const deltaText = panel
+      .append(SvgElements.Text)
+      .attr(SvgAttributes.Class, 'scalar-panel-delta')
+      .attr(SvgAttributes.X, (leftCenterX + rightCenterX) / 2)
+      .attr(SvgAttributes.Y, Math.min(leftTopY, rightTopY) - (fullReplace ? 16 : 12))
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.Fill, textColor)
+      .attr(SvgAttributes.FontSize, fullReplace ? 16 : 12)
+      .attr(SvgAttributes.FontWeight, 'bold')
+      .attr(SvgAttributes.Opacity, 0)
+      .text(`${deltaLabel}: ${formatScalarPanelNumber(deltaValue)}`)
+    this.applyTransition(deltaText).attr(SvgAttributes.Opacity, 1)
+  }
+
+  run(op: DrawOp): void | Promise<void> {
     switch (op.action) {
       case DrawAction.Clear:
         this.clear(op.chartId)
@@ -978,6 +1514,12 @@ export abstract class BaseDrawHandler {
         break
       case DrawAction.Line:
         this.line(op)
+        break
+      case DrawAction.Band:
+        this.band(op)
+        break
+      case DrawAction.ScalarPanel:
+        this.scalarPanel(op)
         break
       case DrawAction.Filter:
         console.warn('Filter action not implemented for this chart type')

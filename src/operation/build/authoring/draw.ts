@@ -4,6 +4,7 @@ import {
   DrawLineModes,
   DrawRectModes,
   DrawTextModes,
+  type DrawBandSpec,
   type DrawArrowSpec,
   type DrawBarSegmentSpec,
   type DrawComparisonToken,
@@ -13,6 +14,7 @@ import {
   type DrawMark,
   type DrawOp,
   type DrawRectSpec,
+  type DrawScalarPanelSpec,
   type DrawSelect,
   type DrawSortSpec,
   type DrawSplitSpec,
@@ -173,6 +175,24 @@ export const draw = {
         arrow,
       } as DrawLineSpecConnect
     },
+    connectBy(
+      startTarget: string | number,
+      endTarget: string | number,
+      startSeries?: string | number,
+      endSeries?: string | number,
+      style?: LineStyleArgs,
+      arrow?: DrawArrowSpec,
+    ): DrawLineSpec {
+      return {
+        mode: DrawLineModes.Connect,
+        connectBy: {
+          start: { target: String(startTarget), series: startSeries },
+          end: { target: String(endTarget), series: endSeries },
+        },
+        style,
+        arrow,
+      }
+    },
     angle(
       axisX: string | number,
       axisY: number,
@@ -325,6 +345,83 @@ export const draw = {
     },
   },
 
+  scalarPanelSpec: {
+    base(
+      leftLabel: string,
+      leftValue: number,
+      rightLabel: string,
+      rightValue: number,
+      position?: DrawScalarPanelSpec['position'],
+      style?: DrawScalarPanelSpec['style'],
+    ): DrawScalarPanelSpec {
+      return {
+        mode: 'base',
+        layout: 'inset',
+        absolute: true,
+        left: { label: leftLabel, value: leftValue },
+        right: { label: rightLabel, value: rightValue },
+        position,
+        style,
+      }
+    },
+    diff(
+      leftLabel: string,
+      leftValue: number,
+      rightLabel: string,
+      rightValue: number,
+      deltaValue: number,
+      deltaLabel = 'Δ',
+      position?: DrawScalarPanelSpec['position'],
+      style?: DrawScalarPanelSpec['style'],
+    ): DrawScalarPanelSpec {
+      return {
+        mode: 'diff',
+        layout: 'inset',
+        absolute: true,
+        left: { label: leftLabel, value: leftValue },
+        right: { label: rightLabel, value: rightValue },
+        delta: { label: deltaLabel, value: deltaValue },
+        position,
+        style,
+      }
+    },
+    fullReplaceBase(
+      leftLabel: string,
+      leftValue: number,
+      rightLabel: string,
+      rightValue: number,
+      style?: DrawScalarPanelSpec['style'],
+    ): DrawScalarPanelSpec {
+      return {
+        mode: 'base',
+        layout: 'full-replace',
+        absolute: true,
+        left: { label: leftLabel, value: leftValue },
+        right: { label: rightLabel, value: rightValue },
+        style,
+      }
+    },
+    fullReplaceDiff(
+      leftLabel: string,
+      leftValue: number,
+      rightLabel: string,
+      rightValue: number,
+      deltaValue: number,
+      deltaLabel = 'Δ',
+      style?: DrawScalarPanelSpec['style'],
+    ): DrawScalarPanelSpec {
+      return {
+        mode: 'diff',
+        layout: 'full-replace',
+        absolute: true,
+        left: { label: leftLabel, value: leftValue },
+        right: { label: rightLabel, value: rightValue },
+        delta: { label: deltaLabel, value: deltaValue },
+        style,
+      }
+    },
+  },
+
   stackGroupSpec: {
     build(swapAxes?: boolean, xField?: string, colorField?: string): DrawStackGroupSpecBuild {
       return { swapAxes, xField, colorField } as DrawStackGroupSpecBuild
@@ -360,6 +457,7 @@ function drawClear(chartId?: string): DrawOp {
   return drawOps.clear(chartId)
 }
 
+/** @deprecated Legacy helper. New plans should rely on draw transition duration instead of sleep ops. */
 function drawSleep(seconds: number, chartId?: string): DrawOp {
   return drawOps.sleep({ seconds, chartId })
 }
@@ -446,14 +544,22 @@ function drawLineTrace(chartId?: string, select?: DrawSelect): DrawOp {
   return drawOps.lineTrace({ chartId, select })
 }
 
-function drawLineToBar(chartId?: string): DrawOp {
-  return drawOps.lineToBar({ chartId })
-}
+	function drawLineToBar(chartId?: string): DrawOp {
+	  return drawOps.lineToBar({ chartId })
+	}
 
-function drawSum(chartId: string | undefined, sumSpec: DrawSumSpecValue): DrawOp
-/** @deprecated Accepts raw DrawSumSpec. Prefer `draw.sumSpec.value(...)`. */
-function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp
-function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp {
+	function drawMultiLineToStacked(chartId?: string): DrawOp {
+	  return drawOps.multiLineToStacked({ chartId })
+	}
+
+	function drawMultiLineToGrouped(chartId?: string): DrawOp {
+	  return drawOps.multiLineToGrouped({ chartId })
+	}
+
+	function drawSum(chartId: string | undefined, sumSpec: DrawSumSpecValue): DrawOp
+	/** @deprecated Accepts raw DrawSumSpec. Prefer `draw.sumSpec.value(...)`. */
+	function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp
+	function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp {
   return drawOps.sum({ chartId, sum: sumSpec })
 }
 
@@ -471,6 +577,14 @@ function drawGroupedToStacked(chartId: string | undefined, stackGroupSpec?: Draw
   return drawOps.groupedToStacked({ chartId, stackGroup: stackGroupSpec ?? {} })
 }
 
+function drawStackedToSimple(chartId: string | undefined, series: string | number): DrawOp {
+  return drawOps.stackedToSimple({ chartId, toSimple: { series } })
+}
+
+function drawGroupedToSimple(chartId: string | undefined, series: string | number): DrawOp {
+  return drawOps.groupedToSimple({ chartId, toSimple: { series } })
+}
+
 function drawStackedFilterGroups(chartId: string | undefined, groups: Array<string | number>, mode: GroupFilterMode): DrawOp {
   return drawOps.stackedFilterGroups({
     chartId,
@@ -483,6 +597,20 @@ function drawGroupedFilterGroups(chartId: string | undefined, groups: Array<stri
     chartId,
     groupFilter: buildGroupFilter(groups, mode),
   })
+}
+
+function drawBand(
+  chartId: string | undefined,
+  axis: 'x' | 'y',
+  range: [string | number, string | number],
+  label?: string,
+  style?: NonNullable<DrawBandSpec['style']>,
+): DrawOp {
+  return drawOps.band({ chartId, band: { axis, range, label, style } })
+}
+
+function drawScalarPanel(chartId: string | undefined, scalarPanelSpec: DrawScalarPanelSpec): DrawOp {
+  return drawOps.scalarPanel({ chartId, scalarPanel: scalarPanelSpec })
 }
 
 export const drawActions = {
@@ -500,9 +628,15 @@ export const drawActions = {
   unsplit: drawUnsplit,
   lineTrace: drawLineTrace,
   lineToBar: drawLineToBar,
+  multiLineToStacked: drawMultiLineToStacked,
+  multiLineToGrouped: drawMultiLineToGrouped,
   sum: drawSum,
   stackedToGrouped: drawStackedToGrouped,
   groupedToStacked: drawGroupedToStacked,
+  stackedToSimple: drawStackedToSimple,
+  groupedToSimple: drawGroupedToSimple,
   stackedFilterGroups: drawStackedFilterGroups,
   groupedFilterGroups: drawGroupedFilterGroups,
+  band: drawBand,
+  scalarPanel: drawScalarPanel,
 } as const

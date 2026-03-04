@@ -4,6 +4,7 @@ export const DataAttributes = {
   Value: 'data-value',
   Series: 'data-series',
   ChartId: 'data-chart-id',
+  RenderEpoch: 'data-render-epoch',
   MarginLeft: 'data-m-left',
   MarginTop: 'data-m-top',
   PlotWidth: 'data-plot-w',

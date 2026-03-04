@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import type { VegaLiteSpec } from '../chartRenderer'
+import { bumpRenderEpoch, type VegaLiteSpec } from '../chartRenderer'
 import type { JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { type DrawSplitSpec } from '../draw/types'
@@ -22,6 +22,21 @@ function normalizeOptionalLabel(value: JsonValue | undefined) {
   if (value === null) return null
   const str = String(value).trim()
   return str.length > 0 ? str : null
+}
+
+function resolveBarFill(spec: SimpleBarSpec): string {
+  const mark = (spec as { mark?: JsonValue }).mark
+  if (mark && typeof mark === 'object' && !Array.isArray(mark)) {
+    const fill = (mark as { fill?: JsonValue }).fill
+    if (typeof fill === 'string' && fill.trim().length > 0) return fill
+    const color = (mark as { color?: JsonValue }).color
+    if (typeof color === 'string' && color.trim().length > 0) return color
+  }
+
+  const configColor = (spec as { config?: { mark?: { color?: JsonValue } } }).config?.mark?.color
+  if (typeof configColor === 'string' && configColor.trim().length > 0) return configColor
+
+  return '#69b3a2'
 }
 
 function aggregateValues(data: RawDatum[], groupField: string, valueField: string, agg: string) {
@@ -152,10 +167,12 @@ function writeDatasetAttrs(
  * Stores raw data per container in a WeakMap for later ops.
  */
 export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleBarSpec) {
+  const renderEpoch = bumpRenderEpoch(container)
   const yField = spec.encoding.y.field
   const xField = spec.encoding.x.field
   const xType = spec.encoding.x.type
   const yType = spec.encoding.y.type
+  const barFill = resolveBarFill(spec)
   clearSimpleBarSplitDomains(container)
   const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
   const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
@@ -225,6 +242,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
   const svg = containerSelection
     .append(SvgElements.Svg)
     .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+    .attr(DataAttributes.RenderEpoch, renderEpoch)
     .style('overflow', 'visible')
 
   writeDatasetAttrs(svg, spec, margin, plotW, plotH)
@@ -262,12 +280,12 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
     .attr(SvgAttributes.Y, (d) => {
       const value = Number(d[yField])
       return value >= 0 ? yScale(value) : zeroY
-    })
-    .attr(SvgAttributes.Height, (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
-    .attr(SvgAttributes.Fill, '#69b3a2')
-    .attr(DataAttributes.Id, (d) => String((d as { id?: JsonValue }).id ?? d[xField]))
-    .attr(DataAttributes.Target, (d) => String(d[xField]))
-    .attr(DataAttributes.Value, (d) => Number(d[yField]))
+	    })
+	    .attr(SvgAttributes.Height, (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
+	    .attr(SvgAttributes.Fill, barFill)
+	    .attr(DataAttributes.Id, (d) => String((d as { id?: JsonValue }).id ?? d[xField]))
+	    .attr(DataAttributes.Target, (d) => String(d[xField]))
+	    .attr(DataAttributes.Value, (d) => Number(d[yField]))
 
   if (resolvedXAxisLabel) {
     svg
@@ -354,10 +372,12 @@ export async function renderSumSimpleBarChart(
 }
 
 export async function renderSplitSimpleBarChart(container: HTMLElement, spec: SimpleBarSpec, split: DrawSplitSpec) {
+  const renderEpoch = bumpRenderEpoch(container)
   const data = localDataStore.get(container) || []
   const xField = spec.encoding.x.field
   const yField = spec.encoding.y.field
   const { resolvedXAxisLabel, resolvedYAxisLabel } = resolveAxisLabels(spec)
+  const barFill = resolveBarFill(spec)
 
   const margin = { top: 60, right: 20, bottom: 80, left: 60 }
   const width = 600
@@ -387,6 +407,7 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
   const svg = containerSelection
     .append(SvgElements.Svg)
     .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+    .attr(DataAttributes.RenderEpoch, renderEpoch)
     .style('overflow', 'visible')
 
   writeDatasetAttrs(svg, spec, margin, plotW, plotH)
@@ -441,12 +462,12 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
       .attr(SvgAttributes.Y, (d) => {
         const value = Number(d[yField])
         return value >= 0 ? yScale(value) : zeroY
-      })
-      .attr(SvgAttributes.Height, (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
-      .attr(SvgAttributes.Fill, '#69b3a2')
-      .attr(DataAttributes.Id, (d, i) => String((d as { id?: JsonValue }).id ?? d[xField] ?? i))
-      .attr(DataAttributes.Target, (d) => String(d[xField]))
-      .attr(DataAttributes.Value, (d) => Number(d[yField]))
+	    })
+	    .attr(SvgAttributes.Height, (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
+	    .attr(SvgAttributes.Fill, barFill)
+	    .attr(DataAttributes.Id, (d, i) => String((d as { id?: JsonValue }).id ?? d[xField] ?? i))
+	    .attr(DataAttributes.Target, (d) => String(d[xField]))
+	    .attr(DataAttributes.Value, (d) => Number(d[yField]))
   })
 
   if (resolvedXAxisLabel) {

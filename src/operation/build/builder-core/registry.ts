@@ -18,7 +18,10 @@ import {
   rectField,
   lineField,
   stackGroupField,
+  toSimpleField,
   groupFilterField,
+  bandField,
+  scalarPanelField,
 } from './schema/drawSchemas'
 import { validateDrawSchema } from './schema/validateDrawSchema'
 import type { ActionSchema, FieldSchema, OperationRegistry } from './types'
@@ -111,6 +114,18 @@ const drawActions: ActionSchema[] = [
     allowedCharts: runtimeAllowedCharts(DrawAction.LineToBar),
   },
   {
+    value: 'multi-line-to-stacked',
+    label: 'Multi-line → Stacked',
+    icon: '📊',
+    allowedCharts: runtimeAllowedCharts(DrawAction.MultiLineToStacked),
+  },
+  {
+    value: 'multi-line-to-grouped',
+    label: 'Multi-line → Grouped',
+    icon: '📊',
+    allowedCharts: runtimeAllowedCharts(DrawAction.MultiLineToGrouped),
+  },
+  {
     value: 'stacked-to-grouped',
     label: 'Stacked → Grouped',
     icon: '↔️',
@@ -123,6 +138,26 @@ const drawActions: ActionSchema[] = [
     icon: '↔️',
     allowedCharts: runtimeAllowedCharts(DrawAction.GroupedToStacked),
     fields: [stackGroupField],
+  },
+  {
+    value: 'stacked-to-simple',
+    label: 'Stacked → Simple',
+    icon: '↘︎',
+    allowedCharts: runtimeAllowedCharts(DrawAction.StackedToSimple),
+    fields: [asRequired(toSimpleField)],
+  },
+  {
+    value: 'stacked-to-diverging',
+    label: 'Stacked → Diverging',
+    icon: '⇵',
+    allowedCharts: runtimeAllowedCharts(DrawAction.StackedToDiverging),
+  },
+  {
+    value: 'grouped-to-simple',
+    label: 'Grouped → Simple',
+    icon: '↘︎',
+    allowedCharts: runtimeAllowedCharts(DrawAction.GroupedToSimple),
+    fields: [asRequired(toSimpleField)],
   },
   {
     value: 'stacked-filter-groups',
@@ -139,11 +174,25 @@ const drawActions: ActionSchema[] = [
     fields: [asRequired(groupFilterField)],
   },
   {
+    value: 'band',
+    label: 'Band',
+    icon: '🟦',
+    allowedCharts: runtimeAllowedCharts(DrawAction.Band),
+    fields: [asRequired(bandField)],
+  },
+  {
+    value: 'scalar-panel',
+    label: 'Scalar Panel',
+    icon: '🧷',
+    allowedCharts: runtimeAllowedCharts(DrawAction.ScalarPanel),
+    fields: [asRequired(scalarPanelField)],
+  },
+  {
     value: 'clear',
     label: 'Clear',
     icon: '🧼',
   },
-]
+] 
 
 const isDev = typeof import.meta !== 'undefined' && (import.meta as { env?: { DEV?: boolean } }).env?.DEV
 if (isDev) {
@@ -303,6 +352,22 @@ export const operationRegistry: OperationRegistry = {
       ],
     },
     {
+      op: 'pairDiff',
+      label: 'Pair Diff',
+      icon: '🧷',
+      fields: [
+        { key: 'by', label: 'By', kind: 'string', optional: false, optionsSource: 'field' },
+        { key: 'groupA', label: 'Group A', kind: 'string', optional: false, optionsSource: 'series' },
+        { key: 'groupB', label: 'Group B', kind: 'string', optional: false, optionsSource: 'series' },
+        { key: 'seriesField', label: 'Series Field', kind: 'string', optional: true, optionsSource: 'field' },
+        { key: 'field', label: 'Field', kind: 'string', optional: true, optionsSource: 'field' },
+        { key: 'signed', label: 'Signed', kind: 'boolean', optional: true },
+        { key: 'absolute', label: 'Absolute', kind: 'boolean', optional: true },
+        { key: 'precision', label: 'Precision', kind: 'number', optional: true },
+        { key: 'group', label: 'Group', kind: 'string', optional: true, optionsSource: 'series' },
+      ],
+    },
+    {
       op: 'nth',
       label: 'Nth',
       icon: '🔢',
@@ -323,12 +388,34 @@ export const operationRegistry: OperationRegistry = {
       ],
     },
     {
-      op: 'sleep',
-      label: 'Sleep',
-      icon: '⏸️',
+      op: 'add',
+      label: 'Add',
+      icon: '➕',
       fields: [
-        { key: 'seconds', label: 'Seconds', kind: 'number', optional: true },
-        { key: 'duration', label: 'Duration', kind: 'number', optional: true },
+        { key: 'targetA', label: 'Target A', kind: 'stringOrNumber', optional: false, optionsSource: 'target' },
+        { key: 'targetB', label: 'Target B', kind: 'stringOrNumber', optional: false, optionsSource: 'target' },
+        { key: 'field', label: 'Field', kind: 'string', optional: true, optionsSource: 'field' },
+        { key: 'group', label: 'Group', kind: 'string', optional: true, optionsSource: 'series' },
+      ],
+    },
+    {
+      op: 'scale',
+      label: 'Scale',
+      icon: '✖️',
+      fields: [
+        { key: 'target', label: 'Target', kind: 'stringOrNumber', optional: false, optionsSource: 'target' },
+        { key: 'factor', label: 'Factor', kind: 'number', optional: false },
+        { key: 'field', label: 'Field', kind: 'string', optional: true, optionsSource: 'field' },
+        { key: 'group', label: 'Group', kind: 'string', optional: true, optionsSource: 'series' },
+      ],
+    },
+    {
+      op: 'setOp',
+      label: 'Set Op',
+      icon: '🧩',
+      fields: [
+        { key: 'fn', label: 'Fn', kind: 'enum', optional: false, options: ['intersection', 'union'] },
+        { key: 'group', label: 'Group', kind: 'string', optional: true, optionsSource: 'series' },
       ],
     },
   ],

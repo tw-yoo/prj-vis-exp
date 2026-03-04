@@ -242,7 +242,6 @@ export function createDrawInteractionController(options: DrawInteractionControll
         ? resolveBarSegmentScope(container, event.target, point)
         : null
     const segmentScope = resolvedSegmentScope ?? undefined
-    if (state.tool === DrawInteractionTools.BarSegment && !segmentScope) return
 
     dragState = {
       tool: state.tool,
@@ -272,8 +271,13 @@ export function createDrawInteractionController(options: DrawInteractionControll
 
     if (dragState.tool === DrawInteractionTools.Rect) {
       renderRectPreview(container, dragState.start, point, state)
-    } else if (dragState.tool === DrawInteractionTools.BarSegment && dragState.segmentScope) {
-      renderBarSegmentPreview(container, dragState.segmentScope, point, state)
+    } else if (dragState.tool === DrawInteractionTools.BarSegment) {
+      if (!dragState.segmentScope) {
+        dragState.segmentScope = resolveBarSegmentScope(container, event.target, dragState.start) ?? undefined
+      }
+      if (dragState.segmentScope) {
+        renderBarSegmentPreview(container, dragState.segmentScope, point, state)
+      }
     } else {
       renderLinePreview(container, dragState.start, point, state)
     }
@@ -297,10 +301,33 @@ export function createDrawInteractionController(options: DrawInteractionControll
     const dy = Math.abs(point.y - start.y)
     if (dx < MIN_DRAG_DELTA && dy < MIN_DRAG_DELTA) return
 
-    if (currentTool === DrawInteractionTools.BarSegment && activeDrag.segmentScope) {
-      const commit = buildBarSegmentCommit(activeDrag.segmentScope, start, point)
-      if (!commit) return
-      onBarSegmentCommit(commit)
+    if (currentTool === DrawInteractionTools.BarSegment) {
+      const scope =
+        activeDrag.segmentScope ?? resolveBarSegmentScope(container, event.target, start) ?? null
+      const commit = scope ? buildBarSegmentCommit(scope, start, point) : null
+      if (commit) {
+        onBarSegmentCommit(commit)
+        return
+      }
+
+      // Fallback: if we fail to infer axis/value mappings (e.g., missing tick labels),
+      // still emit a conservative segment op so the interaction doesn't silently do nothing.
+      if (!(svg instanceof SVGSVGElement)) return
+      const keys = Array.from(
+        new Set(
+          Array.from(svg.querySelectorAll<SVGElement>('[data-target]'))
+            .filter((el) => !el.classList.contains('background') && !el.classList.contains('annotation'))
+            .map((el) => (el.getAttribute('data-target') ?? '').trim())
+            .filter((value) => value.length > 0),
+        ),
+      )
+      if (keys.length === 0) return
+      onBarSegmentCommit({
+        threshold: 0,
+        when: point.y > start.y ? 'gte' : 'lte',
+        keys,
+        chartId: scope?.chartId,
+      })
       return
     }
 
@@ -345,6 +372,11 @@ export function createDrawInteractionController(options: DrawInteractionControll
 
   container.addEventListener('click', handleClick)
   container.addEventListener('pointerdown', handlePointerDown)
+  // Use both container + window listeners:
+  // - window captures real drags that leave the chart bounds
+  // - container captures synthetic pointer events dispatched on the SVG element (e2e helpers)
+  container.addEventListener('pointermove', handlePointerMove, { capture: true })
+  container.addEventListener('pointerup', handlePointerUp, { capture: true })
   window.addEventListener('pointermove', handlePointerMove)
   window.addEventListener('pointerup', handlePointerUp)
   window.addEventListener('keydown', handleKeyDown)
@@ -358,6 +390,8 @@ export function createDrawInteractionController(options: DrawInteractionControll
       clearPreviewLayer(container)
       container.removeEventListener('click', handleClick)
       container.removeEventListener('pointerdown', handlePointerDown)
+      container.removeEventListener('pointermove', handlePointerMove, true)
+      container.removeEventListener('pointerup', handlePointerUp, true)
       window.removeEventListener('pointermove', handlePointerMove)
       window.removeEventListener('pointerup', handlePointerUp)
       window.removeEventListener('keydown', handleKeyDown)

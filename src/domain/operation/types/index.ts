@@ -95,7 +95,11 @@ export interface OperationSpec {
   mode?: 'difference' | 'ratio' | string
   percent?: boolean
   scale?: number
+  factor?: number
   precision?: number
+  fn?: 'intersection' | 'union' | string
+  by?: string
+  seriesField?: string
   target?: TargetSelector | TargetSelector[]
   targetA?: TargetSelector | TargetSelector[]
   targetB?: TargetSelector | TargetSelector[]

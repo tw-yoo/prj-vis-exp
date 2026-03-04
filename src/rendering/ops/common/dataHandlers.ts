@@ -1,6 +1,7 @@
 import type { DatumValue, OperationSpec } from '../../../types'
 import { OperationOp } from '../../../types'
 import {
+  addData,
   retrieveValue,
   filterData,
   findExtremum,
@@ -9,7 +10,10 @@ import {
   averageData,
   diffData,
   lagDiffData,
+  pairDiffData,
   nthData,
+  scaleData,
+  setOpData,
   compareOp,
   compareBoolOp,
   countData,
@@ -28,7 +32,10 @@ export const STANDARD_DATA_OP_HANDLERS: Record<string, (data: DatumValue[], op: 
   [OperationOp.Average]: averageData,
   [OperationOp.Diff]: diffData,
   [OperationOp.LagDiff]: lagDiffData,
+  [OperationOp.PairDiff]: pairDiffData,
   [OperationOp.Nth]: nthData,
   [OperationOp.Count]: countData,
+  [OperationOp.Add]: addData,
+  [OperationOp.Scale]: scaleData,
+  [OperationOp.SetOp]: setOpData,
 }
-

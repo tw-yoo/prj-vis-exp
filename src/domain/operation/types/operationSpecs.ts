@@ -43,8 +43,8 @@ export interface OpDetermineRangeSpec extends OperationSpec {
 
 export interface OpCompareSpec extends OperationSpec {
   op: typeof OperationOp.Compare
-  targetA: TargetSelector | TargetSelector[]
-  targetB: TargetSelector | TargetSelector[]
+  targetA?: TargetSelector | TargetSelector[]
+  targetB?: TargetSelector | TargetSelector[]
   field?: string
   groupA?: string | null
   groupB?: string | null
@@ -53,8 +53,8 @@ export interface OpCompareSpec extends OperationSpec {
 
 export interface OpCompareBoolSpec extends OperationSpec {
   op: typeof OperationOp.CompareBool
-  targetA: TargetSelector | TargetSelector[]
-  targetB: TargetSelector | TargetSelector[]
+  targetA?: TargetSelector | TargetSelector[]
+  targetB?: TargetSelector | TargetSelector[]
   operator: OperationSpec['operator']
   field?: string
   groupA?: string | null
@@ -75,8 +75,8 @@ export interface OpAverageSpec extends OperationSpec {
 
 export interface OpDiffSpec extends OperationSpec {
   op: typeof OperationOp.Diff
-  targetA: TargetSelector | TargetSelector[]
-  targetB: TargetSelector | TargetSelector[]
+  targetA?: TargetSelector | TargetSelector[]
+  targetB?: TargetSelector | TargetSelector[]
   field?: string
   signed?: boolean
   precision?: number
@@ -86,6 +86,19 @@ export interface OpLagDiffSpec extends OperationSpec {
   op: typeof OperationOp.LagDiff
   orderField: string
   order?: 'asc' | 'desc'
+  group?: string | null
+}
+
+export interface OpPairDiffSpec extends OperationSpec {
+  op: typeof OperationOp.PairDiff
+  by: string
+  seriesField?: string
+  field?: string
+  groupA: string
+  groupB: string
+  signed?: boolean
+  absolute?: boolean
+  precision?: number
   group?: string | null
 }
 
@@ -100,5 +113,27 @@ export interface OpNthSpec extends OperationSpec {
 export interface OpCountSpec extends OperationSpec {
   op: typeof OperationOp.Count
   field?: string
+  group?: string | null
+}
+
+export interface OpAddSpec extends OperationSpec {
+  op: typeof OperationOp.Add
+  targetA: TargetSelector | TargetSelector[]
+  targetB: TargetSelector | TargetSelector[]
+  field?: string
+  group?: string | null
+}
+
+export interface OpScaleSpec extends OperationSpec {
+  op: typeof OperationOp.Scale
+  target: TargetSelector | TargetSelector[]
+  factor: number
+  field?: string
+  group?: string | null
+}
+
+export interface OpSetOpSpec extends OperationSpec {
+  op: typeof OperationOp.SetOp
+  fn: 'intersection' | 'union'
   group?: string | null
 }

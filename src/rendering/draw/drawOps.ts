@@ -13,7 +13,10 @@ import {
   type DrawSplitSpec,
   type DrawStackGroupSpec,
   type DrawSumSpec,
+  type DrawScalarPanelSpec,
   type DrawTextSpec,
+  type DrawToSimpleSpec,
+  type DrawBandSpec,
 } from './types'
 import type { OperationSpec } from '../../types'
 
@@ -55,7 +58,10 @@ export type DrawSplitArgs = BaseDrawArgs & { split: DrawSplitSpec }
 export type DrawSumArgs = BaseDrawArgs & { sum: DrawSumSpec }
 export type DrawStackGroupArgs = BaseDrawArgs & { stackGroup: DrawStackGroupSpec }
 export type DrawGroupFilterArgs = BaseDrawArgs & { groupFilter: DrawGroupFilterSpec }
+export type DrawToSimpleArgs = BaseDrawArgs & { toSimple: DrawToSimpleSpec }
 export type DrawSleepArgs = BaseDrawArgs & { seconds?: number; duration?: number }
+export type DrawBandArgs = BaseDrawArgs & { band: DrawBandSpec }
+export type DrawScalarPanelArgs = BaseDrawArgs & { scalarPanel: DrawScalarPanelSpec }
 
 /**
  * @deprecated Authoring code should prefer positional DSL helpers from
@@ -123,6 +129,14 @@ export const drawOps = {
     return buildDrawBase(DrawAction.LineToBar, args)
   },
 
+  multiLineToStacked(args: BaseDrawArgs = {}): DrawOp {
+    return buildDrawBase(DrawAction.MultiLineToStacked, args)
+  },
+
+  multiLineToGrouped(args: BaseDrawArgs = {}): DrawOp {
+    return buildDrawBase(DrawAction.MultiLineToGrouped, args)
+  },
+
   stackedToGrouped(args: DrawStackGroupArgs): DrawOp {
     return { ...buildDrawBase(DrawAction.StackedToGrouped, args), stackGroup: args.stackGroup }
   },
@@ -131,12 +145,28 @@ export const drawOps = {
     return { ...buildDrawBase(DrawAction.GroupedToStacked, args), stackGroup: args.stackGroup }
   },
 
+  stackedToSimple(args: DrawToSimpleArgs): DrawOp {
+    return { ...buildDrawBase(DrawAction.StackedToSimple, args), toSimple: args.toSimple }
+  },
+
+  groupedToSimple(args: DrawToSimpleArgs): DrawOp {
+    return { ...buildDrawBase(DrawAction.GroupedToSimple, args), toSimple: args.toSimple }
+  },
+
   stackedFilterGroups(args: DrawGroupFilterArgs): DrawOp {
     return { ...buildDrawBase(DrawAction.StackedFilterGroups, args), groupFilter: args.groupFilter }
   },
 
   groupedFilterGroups(args: DrawGroupFilterArgs): DrawOp {
     return { ...buildDrawBase(DrawAction.GroupedFilterGroups, args), groupFilter: args.groupFilter }
+  },
+
+  band(args: DrawBandArgs): DrawOp {
+    return { ...buildDrawBase(DrawAction.Band, args), band: args.band }
+  },
+
+  scalarPanel(args: DrawScalarPanelArgs): DrawOp {
+    return { ...buildDrawBase(DrawAction.ScalarPanel, args), scalarPanel: args.scalarPanel }
   },
 
   sleep(args: DrawSleepArgs): DrawOp {
@@ -176,14 +206,26 @@ export const drawOps = {
         return drawOps.sum(args as DrawSumArgs)
       case DrawAction.LineToBar:
         return drawOps.lineToBar(args as BaseDrawArgs)
+      case DrawAction.MultiLineToStacked:
+        return drawOps.multiLineToStacked(args as BaseDrawArgs)
+      case DrawAction.MultiLineToGrouped:
+        return drawOps.multiLineToGrouped(args as BaseDrawArgs)
       case DrawAction.StackedToGrouped:
         return drawOps.stackedToGrouped(args as DrawStackGroupArgs)
       case DrawAction.GroupedToStacked:
         return drawOps.groupedToStacked(args as DrawStackGroupArgs)
+      case DrawAction.StackedToSimple:
+        return drawOps.stackedToSimple(args as DrawToSimpleArgs)
+      case DrawAction.GroupedToSimple:
+        return drawOps.groupedToSimple(args as DrawToSimpleArgs)
       case DrawAction.StackedFilterGroups:
         return drawOps.stackedFilterGroups(args as DrawGroupFilterArgs)
       case DrawAction.GroupedFilterGroups:
         return drawOps.groupedFilterGroups(args as DrawGroupFilterArgs)
+      case DrawAction.Band:
+        return drawOps.band(args as DrawBandArgs)
+      case DrawAction.ScalarPanel:
+        return drawOps.scalarPanel(args as DrawScalarPanelArgs)
       case DrawAction.Sleep:
         return drawOps.sleep(args as DrawSleepArgs)
       default:

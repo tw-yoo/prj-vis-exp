@@ -1,4 +1,4 @@
-import type { DatumValue, OperationSpec, JsonValue } from '../../types'
+import { OperationOp, type DatumValue, type OperationSpec, type JsonValue } from '../../types'
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { StackedBarDrawHandler } from '../../rendering/draw/bar/StackedBarDrawHandler.ts'
@@ -16,7 +16,10 @@ import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/da
 import type { OpsSpecInput } from '../../rendering/ops/common/opsSpec.ts'
 import { runStackedBarDrawPlan } from '../../rendering/ops/executor/runStackedBarDrawPlan.ts'
 import { convertStackedToGrouped } from '../../rendering/bar/stackGroupTransforms.ts'
+import { convertStackedToDiverging } from '../../rendering/bar/stackGroupTransforms.ts'
+import { convertStackedToSimple } from '../../rendering/bar/toSimpleTransforms.ts'
 import { aggregateDatumValuesByTarget } from '../../rendering/ops/common/workingData.ts'
+import { STACKED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/stacked/autoDrawPlanRegistry.ts'
 import {
   handleGroupFilter,
   shouldAggregateWhenMultipleGroups,
@@ -52,7 +55,27 @@ async function handleStackedBarDraw(
     await convertStackedToGrouped(container, spec, drawOp.stackGroup)
     return
   }
-  handler.run(drawOp)
+  if (drawOp.action === DrawAction.StackedToDiverging) {
+    await convertStackedToDiverging(container, spec)
+    return
+  }
+  if (drawOp.action === DrawAction.StackedToSimple) {
+    if (!drawOp.toSimple?.series) {
+      console.warn('stacked-to-simple: missing toSimple.series', drawOp)
+      return
+    }
+    await convertStackedToSimple(container, spec, drawOp.toSimple)
+    return
+  }
+  await handler.run(drawOp)
+}
+
+function shouldUseSeriesScopedInput(operation: OperationSpec) {
+  if (operation.op === OperationOp.SetOp || operation.op === OperationOp.PairDiff) return true
+  if (operation.op === OperationOp.Compare || operation.op === OperationOp.Diff) {
+    return Boolean(operation.groupA || operation.groupB || operation.seriesField)
+  }
+  return false
 }
 
 export async function runStackedBarOps(
@@ -78,7 +101,7 @@ export async function runStackedBarOps(
     if (chartId && !chartWorking.has(chartId)) {
       chartWorking.set(chartId, chartScoped)
     }
-    if (hasGroup) return chartScoped
+    if (hasGroup || shouldUseSeriesScopedInput(operation)) return chartScoped
     return shouldAggregateWhenMultipleGroups(chartScoped) ? aggregateDatumValuesByTarget(chartScoped) : chartScoped
   }
 
@@ -118,14 +141,7 @@ export async function runStackedBarOps(
         chartWorking.clear()
         return true
       }
-      const handled = await handleGroupFilter(host, spec, drawOp, {
-        action: DrawAction.StackedFilterGroups,
-        getGroupField: (spec) => spec.encoding.color?.field,
-        getOriginalData: getStackedBarOriginalData,
-        render: renderStackedBarChart,
-      })
-      if (handled) chartWorking.clear()
-      return handled
+      return false
     },
     handleDrawOp: async (host, handler, drawOp) =>
       handleStackedBarDraw(host, handler as StackedBarDrawHandler, drawOp, vlSpec),
@@ -135,6 +151,7 @@ export async function runStackedBarOps(
     runDrawPlan: async (drawPlan, handler) => {
       await runStackedBarDrawPlan(container, drawPlan, { handler: handler as StackedBarDrawHandler })
     },
+    autoDrawPlans: STACKED_BAR_AUTO_DRAW_PLANS,
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,

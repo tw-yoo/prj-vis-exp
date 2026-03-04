@@ -87,10 +87,10 @@ export function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
     labelColor: '#000000',
     titleColor: '#000000',
     ...(config.legend ?? {}),
-    labelFontSize: 11,
-    titleFontSize: 12,
+    ...(config.legend?.labelFontSize === undefined ? { labelFontSize: 11 } : {}),
+    ...(config.legend?.titleFontSize === undefined ? { titleFontSize: 12 } : {}),
   }
-  const view: ViewSpec = { ...(config.view ?? {}), stroke: 'transparent' }
+  const view: ViewSpec = { ...(config.view ?? {}), ...(config.view?.stroke === undefined ? { stroke: 'transparent' } : {}) }
   const range: RangeSpec = {
     category: [
       '#60a5fa',

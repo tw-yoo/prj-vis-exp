@@ -4,11 +4,15 @@ import { draw, ops } from '../../../operation/build/authoring'
 const DEFAULT_HIGHLIGHT_COLOR = '#ef4444'
 const DEFAULT_TEXT_COLOR = '#111827'
 
-function formatNumber(value: number, precision?: number) {
+export function formatDrawNumber(value: number, precision?: number) {
   if (!Number.isFinite(value)) return ''
-  if (typeof precision === 'number' && Number.isFinite(precision)) return value.toFixed(precision)
-  if (Number.isInteger(value)) return String(value)
-  return String(Number(value.toFixed(2)))
+  const digits = typeof precision === 'number' && Number.isFinite(precision)
+    ? Math.max(0, Math.min(2, Math.trunc(precision)))
+    : 2
+  let text = value.toFixed(digits)
+  text = text.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '')
+  if (text === '-0') return '0'
+  return text
 }
 
 export function makeHighlightOp(target: string, color?: string): DrawOp {
@@ -16,7 +20,7 @@ export function makeHighlightOp(target: string, color?: string): DrawOp {
 }
 
 export function makeTextOp(target: string, value: number, color?: string, precision?: number): DrawOp {
-  const text = formatNumber(value, precision)
+  const text = formatDrawNumber(value, precision)
   if (!text) return makeHighlightOp(target, color)
   return ops.draw.text(
     undefined,

@@ -11,8 +11,12 @@ export const OperationOp = {
   Average: 'average',
   Diff: 'diff',
   LagDiff: 'lagDiff',
+  PairDiff: 'pairDiff',
   Nth: 'nth',
   Count: 'count',
+  Add: 'add',
+  Scale: 'scale',
+  SetOp: 'setOp',
   Sleep: 'sleep',
 } as const
 

@@ -13,7 +13,13 @@ async function getBarMarks(page: Page) {
   if ((await mainBars.count()) > 0) {
     return mainBars
   }
-  return page.locator(`${chartHost} svg rect[data-target]`)
+  const symbolBars = page.locator(
+    `${chartHost} svg [role="graphics-symbol"][aria-roledescription="bar"][data-target]:not(.background)`,
+  )
+  if ((await symbolBars.count()) > 0) {
+    return symbolBars
+  }
+  return page.locator(`${chartHost} svg rect[data-target]:not(.background), ${chartHost} svg path[data-target]:not(.background)`)
 }
 
 async function waitForChartReady(page: Page) {
@@ -90,7 +96,12 @@ test('TC2 dim 클릭', async ({ page }) => {
 
   const bars = await getBarMarks(page)
   await bars.nth(0).click()
-  await expect(bars.nth(1)).toHaveAttribute('opacity', /0\.[0-9]+/)
+  await expect
+    .poll(async () => {
+      const value = await bars.nth(1).evaluate((el) => window.getComputedStyle(el as Element).opacity)
+      return Number(value)
+    })
+    .toBeLessThan(1)
 })
 
 test('TC3 text 클릭 입력', async ({ page }) => {

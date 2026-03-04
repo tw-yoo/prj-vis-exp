@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
+import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
 import type { JsonValue } from '../../types'
 import { type DrawSplitSpec } from '../draw/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
@@ -26,16 +26,23 @@ const cloneRows = (rows: RawDatum[]) => rows.map((row) => ({ ...row }))
 export type GroupedSpec = VegaLiteSpec & {
   encoding: {
     x: { field: string; type: string; sort?: JsonValue }
-    y: { field: string; type: string }
-    color?: { field?: string; type?: string }
+    y: { field: string; type: string; stack?: string | null }
+    color?: { field?: string; type?: string; scale?: JsonValue; legend?: JsonValue }
     column?: { field?: string; type?: string }
     row?: { field?: string; type?: string }
+    // Optional grouped hints (Vega-Lite v4+); used by draw conversions and Workbench chart-type inference.
+    xOffset?: { field?: string; type?: string }
+    yOffset?: { field?: string; type?: string }
   }
 }
 
 // Ops runner functions are in `src/renderer/bar/groupedBarOps.ts`.
 
-export async function renderGroupedBarChart(container: HTMLElement, spec: GroupedSpec) {
+export async function renderGroupedBarChart(
+  container: HTMLElement,
+  spec: GroupedSpec,
+  options?: { preserveOriginal?: boolean },
+) {
   clearGroupedBarSplitState(container)
   const result = await renderVegaLiteChart(container, spec)
   const facetField = resolveFacetField(spec) ?? undefined
@@ -47,12 +54,79 @@ export async function renderGroupedBarChart(container: HTMLElement, spec: Groupe
     facetField,
   )
   localDataStore.set(container, rows)
-  if (!originalDataStore.has(container)) {
+  if (!options?.preserveOriginal || !originalDataStore.has(container)) {
     originalDataStore.set(container, cloneRows(rows))
   }
   fitSvgToHost(container)
   ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
   return result
+}
+
+export async function renderSumGroupedBarChart(
+  container: HTMLElement,
+  spec: GroupedSpec,
+  config?: { label?: string; value?: number },
+) {
+  const rows = localDataStore.get(container) || []
+  const xField = spec.encoding.x.field
+  const yField = spec.encoding.y.field
+  const colorField = spec.encoding.color?.field
+  const label = config?.label ?? 'Sum'
+  const requestedTotal = Number(config?.value)
+  const hasRequestedTotal = Number.isFinite(requestedTotal)
+  if (!rows.length) return
+
+  if (!colorField) {
+    const computed = rows
+      .map((row) => Number(row[yField]))
+      .filter(Number.isFinite)
+      .reduce((acc, value) => acc + value, 0)
+    const total = hasRequestedTotal ? requestedTotal : computed
+    if (!Number.isFinite(total)) return
+    await renderGroupedBarChart(container, {
+      ...spec,
+      data: { values: [{ [xField]: label, [yField]: total }] },
+    })
+    return
+  }
+
+  const bySeries = new Map<string, number>()
+  rows.forEach((row) => {
+    const seriesRaw = row[colorField]
+    const value = Number(row[yField])
+    if (seriesRaw == null || !Number.isFinite(value)) return
+    const series = String(seriesRaw)
+    bySeries.set(series, (bySeries.get(series) ?? 0) + value)
+  })
+  if (!bySeries.size) return
+
+  const computedTotal = Array.from(bySeries.values()).reduce((acc, value) => acc + value, 0)
+  const canScale = hasRequestedTotal && Number.isFinite(computedTotal) && Math.abs(computedTotal) > Number.EPSILON
+  const fallbackEven = hasRequestedTotal && (!Number.isFinite(computedTotal) || Math.abs(computedTotal) <= Number.EPSILON)
+  const values = Array.from(bySeries.entries()).map(([series, value], index, list) => ({
+    [xField]: label,
+    [yField]: canScale ? (value / computedTotal) * requestedTotal : fallbackEven ? requestedTotal / Math.max(1, list.length) : value,
+    [colorField]: series,
+  }))
+
+  // Render as a single stacked bar to preserve series colors in one aggregate bar.
+  const stackedLikeEncoding: GroupedSpec['encoding'] = {
+    x: { ...spec.encoding.x },
+    y: {
+      ...spec.encoding.y,
+      stack: 'zero',
+    },
+  }
+  if (spec.encoding.color) {
+    stackedLikeEncoding.color = { ...spec.encoding.color }
+  }
+
+  const stackedLikeSpec: GroupedSpec = {
+    ...spec,
+    encoding: stackedLikeEncoding,
+    data: { values },
+  }
+  await renderGroupedBarChart(container, stackedLikeSpec)
 }
 
 function collectDomain(rows: RawDatum[], field: string): Array<string | number> {
@@ -197,6 +271,7 @@ function writeDatasetAttrs(
 }
 
 export async function renderSplitGroupedBarChart(container: HTMLElement, spec: GroupedSpec, split: DrawSplitSpec) {
+  const renderEpoch = bumpRenderEpoch(container)
   const data = localDataStore.get(container) || []
   const xField = spec.encoding.x.field
   const yField = spec.encoding.y.field
@@ -251,6 +326,7 @@ export async function renderSplitGroupedBarChart(container: HTMLElement, spec: G
   const svg = containerSelection
     .append(SvgElements.Svg)
     .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+    .attr(DataAttributes.RenderEpoch, renderEpoch)
     .style('overflow', 'visible')
 
   writeDatasetAttrs(svg, spec, margin, plotW, plotH)

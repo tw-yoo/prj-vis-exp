@@ -195,14 +195,11 @@ const formatDrawStep = (step: TimelineStep): string | null => {
       return `ops.draw.sort(${formatArgs(chartId, op.sort?.by ? formatScalar(op.sort.by) : undefined, op.sort?.order ? formatScalar(op.sort.order) : undefined)})`
     case DrawAction.Sum:
       return `ops.draw.sum(${chartId}, draw.sumSpec.value(${op.sum?.value ?? 0}, ${op.sum?.label ? formatScalar(op.sum.label) : 'undefined'}))`
+    case DrawAction.ScalarPanel:
+      return `ops.draw.scalarPanel(${chartId}, ${stringify(op.scalarPanel)})`
     default:
       return null
   }
-}
-
-const formatSleepStep = (step: TimelineStep): string | null => {
-  if (step.kind !== TimelineStepKind.Sleep) return null
-  return `ops.draw.sleep(${Math.max(0, step.durationMs) / 1000})`
 }
 
 export function serializeSessionToDslPlanSource(session: InteractionSession): string {
@@ -212,7 +209,8 @@ export function serializeSessionToDslPlanSource(session: InteractionSession): st
 
   steps.forEach((step) => {
     if (step.kind === TimelineStepKind.Group) return
-    const expr = step.kind === TimelineStepKind.Sleep ? formatSleepStep(step) : formatDrawStep(step)
+    if (step.kind === TimelineStepKind.Sleep) return
+    const expr = formatDrawStep(step)
     if (!expr) return
     if (expr.includes('DrawMark.')) usesDrawMark = true
     lines.push(`  ${expr},`)

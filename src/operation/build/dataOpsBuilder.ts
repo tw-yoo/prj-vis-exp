@@ -1,5 +1,6 @@
 import { OperationOp } from '../../types'
 import type {
+  OpAddSpec,
   OpAverageSpec,
   OpCompareBoolSpec,
   OpCompareSpec,
@@ -10,7 +11,10 @@ import type {
   OpFindExtremumSpec,
   OpLagDiffSpec,
   OpNthSpec,
+  OpPairDiffSpec,
   OpRetrieveValueSpec,
+  OpScaleSpec,
+  OpSetOpSpec,
   OpSortSpec,
   OpSumSpec,
 } from '../../types/operationSpecs'
@@ -28,8 +32,12 @@ export type SumArgs = WithoutOp<OpSumSpec>
 export type AverageArgs = WithoutOp<OpAverageSpec>
 export type DiffArgs = WithoutOp<OpDiffSpec>
 export type LagDiffArgs = WithoutOp<OpLagDiffSpec>
+export type PairDiffArgs = WithoutOp<OpPairDiffSpec>
 export type NthArgs = WithoutOp<OpNthSpec>
 export type CountArgs = WithoutOp<OpCountSpec>
+export type AddArgs = WithoutOp<OpAddSpec>
+export type ScaleArgs = WithoutOp<OpScaleSpec>
+export type SetOpArgs = WithoutOp<OpSetOpSpec>
 export type SleepArgs = { chartId?: string; seconds?: number; duration?: number }
 
 /**
@@ -82,12 +90,28 @@ export const dataOps = {
     return { op: OperationOp.LagDiff, ...args }
   },
 
+  pairDiff(args: PairDiffArgs): OpPairDiffSpec {
+    return { op: OperationOp.PairDiff, ...args }
+  },
+
   nth(args: NthArgs): OpNthSpec {
     return { op: OperationOp.Nth, ...args }
   },
 
   count(args: CountArgs): OpCountSpec {
     return { op: OperationOp.Count, ...args }
+  },
+
+  add(args: AddArgs): OpAddSpec {
+    return { op: OperationOp.Add, ...args }
+  },
+
+  scale(args: ScaleArgs): OpScaleSpec {
+    return { op: OperationOp.Scale, ...args }
+  },
+
+  setOp(args: SetOpArgs): OpSetOpSpec {
+    return { op: OperationOp.SetOp, ...args }
   },
 
   sleep(args: SleepArgs) {

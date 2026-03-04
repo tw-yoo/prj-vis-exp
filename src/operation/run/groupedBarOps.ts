@@ -1,4 +1,4 @@
-import type { DatumValue, OperationSpec, JsonValue } from '../../types'
+import { OperationOp, type DatumValue, type OperationSpec, type JsonValue } from '../../types'
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { DrawAction, type DrawSplitSpec } from '../../rendering/draw/types.ts'
@@ -16,7 +16,9 @@ import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/da
 import type { OpsSpecInput } from '../../rendering/ops/common/opsSpec.ts'
 import { runGroupedBarDrawPlan } from '../../rendering/ops/executor/runGroupedBarDrawPlan.ts'
 import { convertGroupedToStacked } from '../../rendering/bar/stackGroupTransforms.ts'
+import { convertGroupedToSimple } from '../../rendering/bar/toSimpleTransforms.ts'
 import { aggregateDatumValuesByTarget } from '../../rendering/ops/common/workingData.ts'
+import { GROUPED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/grouped/autoDrawPlanRegistry.ts'
 import {
   handleGroupFilter,
   shouldAggregateWhenSingleGroup,
@@ -44,7 +46,15 @@ async function handleGroupedBarDraw(
     await convertGroupedToStacked(container, spec, drawOp.stackGroup)
     return
   }
-  handler.run(drawOp)
+  if (drawOp.action === DrawAction.GroupedToSimple) {
+    if (!drawOp.toSimple?.series) {
+      console.warn('grouped-to-simple: missing toSimple.series', drawOp)
+      return
+    }
+    await convertGroupedToSimple(container, spec, drawOp.toSimple)
+    return
+  }
+  await handler.run(drawOp)
 }
 
 function filterGroupedRows(rawRows: RawRow[], spec: GroupedSpec, filterSpec: DrawFilterSpec) {
@@ -120,6 +130,14 @@ function sortTargetsBySpec(rawRows: RawRow[], spec: GroupedSpec, sortSpec: DrawS
   return targets
 }
 
+function shouldUseSeriesScopedInput(operation: OperationSpec) {
+  if (operation.op === OperationOp.SetOp || operation.op === OperationOp.PairDiff) return true
+  if (operation.op === OperationOp.Compare || operation.op === OperationOp.Diff) {
+    return Boolean(operation.groupA || operation.groupB || operation.seriesField)
+  }
+  return false
+}
+
 export async function runGroupedBarOps(
   container: HTMLElement,
   vlSpec: GroupedSpec,
@@ -151,7 +169,7 @@ export async function runGroupedBarOps(
     if (chartId && !chartWorking.has(chartId)) {
       chartWorking.set(chartId, chartScoped)
     }
-    if (hasGroup) return chartScoped
+    if (hasGroup || shouldUseSeriesScopedInput(operation)) return chartScoped
     return shouldAggregateWhenSingleGroup(chartScoped) ? aggregateDatumValuesByTarget(chartScoped) : chartScoped
   }
 
@@ -177,31 +195,6 @@ export async function runGroupedBarOps(
     },
     createHandler: () => new GroupedBarDrawHandler(container),
     splitHandler: async (host, spec, handler, drawOp) => {
-      if (drawOp.action === DrawAction.Filter && drawOp.filter && !drawOp.chartId) {
-        const rows = (getGroupedBarStoredData(host) || []) as JsonValue[]
-        const normalized = rows.filter((item): item is RawRow => typeof item === 'object' && item !== null)
-        const filteredRows = filterGroupedRows(normalized, spec, drawOp.filter)
-        await renderGroupedBarChart(host, { ...spec, data: { values: filteredRows } })
-        chartWorking.clear()
-        return true
-      }
-      if (drawOp.action === DrawAction.Sort && !drawOp.chartId) {
-        const rows = (getGroupedBarStoredData(host) || []) as JsonValue[]
-        const normalized = rows.filter((item): item is RawRow => typeof item === 'object' && item !== null)
-        const sortedTargets = sortTargetsBySpec(normalized, spec, drawOp.sort)
-        await renderGroupedBarChart(host, {
-          ...spec,
-          encoding: {
-            ...spec.encoding,
-            x: {
-              ...spec.encoding.x,
-              sort: sortedTargets,
-            },
-          },
-        })
-        chartWorking.clear()
-        return true
-      }
       if (drawOp.action === DrawAction.Split) {
         if (!drawOp.split || typeof drawOp.split !== 'object') {
           console.warn('draw:split requires split spec', drawOp)
@@ -216,14 +209,7 @@ export async function runGroupedBarOps(
         chartWorking.clear()
         return true
       }
-      const handled = await handleGroupFilter(host, spec, drawOp, {
-        action: DrawAction.GroupedFilterGroups,
-        getGroupField: (spec) => spec.encoding.color?.field,
-        getOriginalData: getGroupedBarOriginalData,
-        render: renderGroupedBarChart,
-      })
-      if (handled) chartWorking.clear()
-      return handled
+      return false
     },
     handleDrawOp: async (host, handler, drawOp) =>
       handleGroupedBarDraw(host, handler as GroupedBarDrawHandler, drawOp, vlSpec),
@@ -233,6 +219,7 @@ export async function runGroupedBarOps(
     runDrawPlan: async (drawPlan, handler) => {
       await runGroupedBarDrawPlan(container, drawPlan, { handler: handler as GroupedBarDrawHandler })
     },
+    autoDrawPlans: GROUPED_BAR_AUTO_DRAW_PLANS,
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,

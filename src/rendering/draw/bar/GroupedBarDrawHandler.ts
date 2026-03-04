@@ -9,6 +9,15 @@ import {
   type DrawSelect,
 } from '../types'
 import { normalizeComparisonCondition } from '../utils/comparison'
+import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from '../animationPolicy'
+
+async function waitTransition(transition: d3.Transition<any, any, any, any>) {
+  try {
+    await transition.end()
+  } catch {
+    // interrupted transitions are acceptable in interactive workflows
+  }
+}
 
 type GroupedBarEntry = {
   el: SVGGraphicsElement
@@ -39,19 +48,33 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
 
     const resolveBaseNumeric = (node: SVGGraphicsElement, attrName: string) => {
       const stored = Number(node.getAttribute(`data-layout-${attrName}`))
-      if (Number.isFinite(stored)) return stored
+      if (Number.isFinite(stored) && (attrName === SvgAttributes.X || stored > 0)) return stored
       const attr = Number(node.getAttribute(attrName))
-      if (Number.isFinite(attr)) {
+      if (Number.isFinite(attr) && (attrName === SvgAttributes.X || attr > 0)) {
         node.setAttribute(`data-layout-${attrName}`, String(attr))
         return attr
       }
       const bbox = node.getBBox?.()
-      if (!bbox) return NaN
-      const fallback = attrName === SvgAttributes.X ? bbox.x : bbox.width
-      if (Number.isFinite(fallback)) {
-        node.setAttribute(`data-layout-${attrName}`, String(fallback))
+      const localFallback = bbox ? (attrName === SvgAttributes.X ? bbox.x : bbox.width) : NaN
+      if (Number.isFinite(localFallback) && (attrName === SvgAttributes.X || localFallback > 0)) {
+        node.setAttribute(`data-layout-${attrName}`, String(localFallback))
+        return localFallback
       }
-      return fallback
+      const ownerSvg = node.ownerSVGElement
+      const nodeRect = node.getBoundingClientRect?.()
+      const svgRect = ownerSvg?.getBoundingClientRect?.()
+      const viewBox = ownerSvg?.viewBox?.baseVal
+      if (!nodeRect || !svgRect || !viewBox || svgRect.width <= 0 || svgRect.height <= 0) return NaN
+      const scaleX = viewBox.width / svgRect.width
+      const fallback =
+        attrName === SvgAttributes.X
+          ? (viewBox.x ?? 0) + (nodeRect.left - svgRect.left) * scaleX
+          : nodeRect.width * scaleX
+      if (Number.isFinite(fallback) && (attrName === SvgAttributes.X || fallback > 0)) {
+        node.setAttribute(`data-layout-${attrName}`, String(fallback))
+        return fallback
+      }
+      return NaN
     }
 
     return bars
@@ -64,7 +87,9 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
         const series = seriesRaw != null && seriesRaw.trim().length > 0 ? seriesRaw.trim() : '__default__'
         const baseX = resolveBaseNumeric(el, SvgAttributes.X)
         const width = resolveBaseNumeric(el, SvgAttributes.Width)
-        const value = Number(el.getAttribute(DataAttributes.Value))
+        const rawValue = Number(el.getAttribute(DataAttributes.Value))
+        const bbox = el.getBBox?.()
+        const value = Number.isFinite(rawValue) ? rawValue : Number(bbox?.height ?? 0)
         if (!Number.isFinite(baseX) || !Number.isFinite(width) || width <= 0 || !Number.isFinite(value)) return null
         const baseTransform = el.getAttribute('data-layout-transform') ?? el.getAttribute(SvgAttributes.Transform)
         if (!el.hasAttribute('data-layout-transform') && baseTransform != null) {
@@ -117,16 +142,27 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
     scope: d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>,
     entries: GroupedBarEntry[],
     visibleTargets: string[],
+    visibleSeries?: Set<string>,
   ) {
-    if (!entries.length) return
+    if (!entries.length) return Promise.resolve()
     const targetSet = new Set(visibleTargets)
-    const seriesDomain = this.resolveSeriesDomain(entries)
+    const allSeries = this.resolveSeriesDomain(entries)
+    const seriesDomain = visibleSeries ? allSeries.filter((series) => visibleSeries.has(series)) : allSeries
     if (!seriesDomain.length || !visibleTargets.length) {
-      entries.forEach((entry) => {
-        d3.select(entry.el).style('display', 'none')
+      const hideTransition = d3
+        .selectAll<SVGGraphicsElement, unknown>(entries.map((entry) => entry.el) as SVGGraphicsElement[])
+        .style('display', null)
+        .transition()
+        .duration(NON_SPLIT_EXIT_MS)
+        .attr(SvgAttributes.Opacity, 0)
+      const tickFade = scope
+        .selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
+        .transition()
+        .duration(NON_SPLIT_EXIT_MS)
+        .attr(SvgAttributes.Opacity, 0)
+      return Promise.all([waitTransition(hideTransition), waitTransition(tickFade)]).then(() => {
+        d3.selectAll<SVGGraphicsElement, unknown>(entries.map((entry) => entry.el) as SVGGraphicsElement[]).style('display', 'none')
       })
-      scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks).style('display', 'none')
-      return
     }
 
     const maxRight = d3.max(entries.map((entry) => entry.baseX + entry.width)) ?? 0
@@ -139,47 +175,87 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
       .paddingOuter(0.08)
     const groupScale = d3.scaleBand<string>().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.08)
 
-    entries.forEach((entry) => {
-      const el = d3.select(entry.el)
-      if (!targetSet.has(entry.target)) {
-        el.style('display', 'none')
-        return
-      }
+    const hiddenEntries = entries.filter(
+      (entry) => !targetSet.has(entry.target) || (visibleSeries ? !visibleSeries.has(entry.series) : false),
+    )
+    const shownEntries = entries.filter(
+      (entry) => targetSet.has(entry.target) && (!visibleSeries || visibleSeries.has(entry.series)),
+    )
+
+    const hideTransition = d3
+      .selectAll<SVGGraphicsElement, unknown>(hiddenEntries.map((entry) => entry.el) as SVGGraphicsElement[])
+      .style('display', null)
+      .transition()
+      .duration(NON_SPLIT_EXIT_MS)
+      .attr(SvgAttributes.Opacity, 0)
+
+    const showSelection = d3
+      .selectAll<SVGGraphicsElement, unknown>(shownEntries.map((entry) => entry.el) as SVGGraphicsElement[])
+      .style('display', null)
+      .attr(SvgAttributes.Opacity, 1)
+    const showTransition = showSelection.transition().duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS)
+    shownEntries.forEach((entry) => {
       const xLeft = xScale(entry.target)
       const offset = groupScale(entry.series)
-      if (xLeft == null || offset == null) {
-        el.style('display', 'none')
-        return
-      }
+      if (xLeft == null || offset == null) return
       const targetX = xLeft + offset
       if (entry.tagName === SvgElements.Rect) {
-        el
-          .style('display', null)
+        showTransition
+          .filter(function () {
+            return this === entry.el
+          })
           .attr(SvgAttributes.Transform, entry.baseTransform ?? null)
           .attr(SvgAttributes.X, targetX)
           .attr(SvgAttributes.Width, groupScale.bandwidth())
+          .attr(SvgAttributes.Opacity, 1)
         return
       }
       const dx = targetX - entry.baseX
       const transformParts = [entry.baseTransform?.trim(), `translate(${dx},0)`].filter((part) => !!part)
-      el.style('display', null).attr(SvgAttributes.Transform, transformParts.join(' '))
+      showTransition
+        .filter(function () {
+          return this === entry.el
+        })
+        .attr(SvgAttributes.Transform, transformParts.join(' '))
+        .attr(SvgAttributes.Opacity, 1)
     })
 
     const ticks = scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
-    ticks.style('display', 'none')
+    const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
     ticks.each(function () {
       const tick = d3.select(this)
       const text = tick.select(SvgElements.Text).text().trim()
       const x = xScale(text)
-      if (x == null) return
-      tick
-        .style('display', null)
+      if (x == null) {
+        tickTransition
+          .filter(function () {
+            return this === tick.node()
+          })
+          .attr(SvgAttributes.Opacity, 0)
+        return
+      }
+      tickTransition
+        .filter(function () {
+          return this === tick.node()
+        })
+        .attr(SvgAttributes.Opacity, 1)
         .attr(SvgAttributes.Transform, `translate(${x + xScale.bandwidth() / 2},0)`)
       tick.select(SvgElements.Text).attr(SvgAttributes.Transform, 'rotate(-45)').style('text-anchor', 'end')
     })
+
+    return Promise.all([
+      waitTransition(hideTransition),
+      waitTransition(showTransition),
+      waitTransition(tickTransition),
+    ]).then(() => {
+      d3.selectAll<SVGGraphicsElement, unknown>(hiddenEntries.map((entry) => entry.el) as SVGGraphicsElement[]).style(
+        'display',
+        'none',
+      )
+    })
   }
 
-  private sortGroupedBars(op: DrawOp) {
+  private async sortGroupedBars(op: DrawOp) {
     const sortSpec = op.sort
     const by = sortSpec?.by ?? 'y'
     const order = (sortSpec?.order ?? 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc'
@@ -197,23 +273,23 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
     })
     if (order === 'desc') sortedTargets.reverse()
 
-    this.relayoutGroupedBars(scope, entries, sortedTargets)
+    await this.relayoutGroupedBars(scope, entries, sortedTargets)
   }
 
-  private filterGroupedBars(op: DrawOp) {
+  private async filterGroupedBars(op: DrawOp) {
     const filterSpec = op.filter
-    if (!filterSpec) return
     const scope = this.selectScope(op.chartId)
     const entries = this.collectGroupedBarEntries(scope)
     if (!entries.length) return
 
-    const includeSet = filterSpec.x?.include?.length ? new Set(filterSpec.x.include.map(String)) : null
-    const excludeSet = filterSpec.x?.exclude?.length ? new Set(filterSpec.x.exclude.map(String)) : null
+    const includeSet = filterSpec?.x?.include?.length ? new Set(filterSpec.x.include.map(String)) : null
+    const excludeSet = filterSpec?.x?.exclude?.length ? new Set(filterSpec.x.exclude.map(String)) : null
     const aggregate = this.aggregateByTarget(entries)
     const targetDomain = Array.from(new Set(entries.map((entry) => entry.target)))
+    const selectKeys = new Set((op.select?.keys ?? []).map(String))
 
     const matchY = (target: string) => {
-      const yRule = filterSpec.y
+      const yRule = filterSpec?.y
       if (!yRule) return true
       const condition = normalizeComparisonCondition(yRule.op ?? undefined)
       const threshold = Number(yRule.value)
@@ -238,19 +314,194 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
       if (excludeSet && excludeSet.has(target)) return false
       return matchY(target)
     })
+    if (visibleTargets.length > 0 || includeSet || excludeSet || filterSpec?.y) {
+      await this.relayoutGroupedBars(scope, entries, visibleTargets)
+      return
+    }
 
-    this.relayoutGroupedBars(scope, entries, visibleTargets)
+    if (!selectKeys.size) return
+    const fallbackTargets = new Set<string>()
+    entries.forEach((entry) => {
+      if (selectKeys.has(entry.target)) fallbackTargets.add(entry.target)
+      if (selectKeys.has(`${entry.target}__${entry.series}`)) fallbackTargets.add(entry.target)
+      if (selectKeys.has(entry.series)) fallbackTargets.add(entry.target)
+    })
+    if (!fallbackTargets.size) return
+    await this.relayoutGroupedBars(scope, entries, Array.from(fallbackTargets))
   }
 
-  override run(op: DrawOp) {
+  private async filterGroupedSeries(op: DrawOp) {
+    if (op.action !== DrawAction.GroupedFilterGroups) return
+    const filterSpec = op.groupFilter
+    if (!filterSpec) return
+    const scope = this.selectScope(op.chartId)
+    const entries = this.collectGroupedBarEntries(scope)
+    if (!entries.length) return
+    const allTargets = Array.from(new Set(entries.map((entry) => entry.target)))
+    const allSeries = this.resolveSeriesDomain(entries)
+    let visibleSeries = new Set(allSeries)
+    if (!filterSpec.reset) {
+      const includeCandidates =
+        filterSpec.groups?.length
+          ? filterSpec.groups
+          : filterSpec.include?.length
+            ? filterSpec.include
+            : filterSpec.keep
+      if (includeCandidates && includeCandidates.length) {
+        visibleSeries = new Set(includeCandidates.map(String))
+      } else if (filterSpec.exclude?.length) {
+        const excluded = new Set(filterSpec.exclude.map(String))
+        visibleSeries = new Set(allSeries.filter((series) => !excluded.has(series)))
+      } else if (op.select?.keys?.length) {
+        const keySet = new Set(op.select.keys.map(String))
+        const matched = allSeries.filter((series) => keySet.has(series))
+        if (matched.length) {
+          visibleSeries = new Set(matched)
+        } else {
+          entries.forEach((entry) => {
+            if (keySet.has(`${entry.target}__${entry.series}`)) visibleSeries.add(entry.series)
+          })
+        }
+      }
+    }
+    await this.relayoutGroupedBars(scope, entries, allTargets, visibleSeries)
+  }
+
+  private async sumGrouped(op: DrawOp) {
+    const scope = this.selectScope(op.chartId)
+    const entries = this.collectGroupedBarEntries(scope)
+    if (!entries.length) return
+
+    const seriesDomain = this.resolveSeriesDomain(entries)
+    if (!seriesDomain.length) return
+    const bySeries = new Map<string, number>()
+    entries.forEach((entry) => {
+      bySeries.set(entry.series, (bySeries.get(entry.series) ?? 0) + entry.value)
+    })
+    const computedTotal = Array.from(bySeries.values()).reduce((acc, value) => acc + value, 0)
+    const requestedTotal = Number(op.sum?.value)
+    const total = Number.isFinite(requestedTotal) ? requestedTotal : computedTotal
+    if (!Number.isFinite(total)) return
+
+    const scaleFactor = Math.abs(computedTotal) > Number.EPSILON ? total / computedTotal : 1
+    const sumLabel = String(op.sum?.label ?? 'Sum')
+    const minLeft = d3.min(entries.map((entry) => entry.baseX)) ?? 0
+    const maxRight = d3.max(entries.map((entry) => entry.baseX + entry.width)) ?? 0
+    if (!Number.isFinite(minLeft) || !Number.isFinite(maxRight) || maxRight <= minLeft) return
+    const xScale = d3.scaleBand<string>().domain([sumLabel]).range([minLeft, maxRight]).padding(0.25)
+    const targetX = xScale(sumLabel) ?? minLeft
+    const targetWidth = xScale.bandwidth() || maxRight - minLeft
+
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    const svgNode = svg.node() as SVGSVGElement | null
+    if (!svgNode) return
+    const mapY = this.yValueToSvgY(scope, svgNode)
+    const zeroY = mapY(0) ?? 0
+
+    const anchorBySeries = new Map<string, GroupedBarEntry>()
+    entries
+      .slice()
+      .sort((a, b) => a.baseX - b.baseX)
+      .forEach((entry) => {
+        if (!anchorBySeries.has(entry.series)) anchorBySeries.set(entry.series, entry)
+      })
+
+    const hiddenEntries = entries.filter((entry) => anchorBySeries.get(entry.series)?.el !== entry.el)
+    const hiddenSelection = d3.selectAll<SVGGraphicsElement, unknown>(hiddenEntries.map((entry) => entry.el) as SVGGraphicsElement[])
+    const hideTransition = hiddenSelection
+      .style('display', null)
+      .transition()
+      .duration(NON_SPLIT_EXIT_MS)
+      .attr(SvgAttributes.Opacity, 0)
+      .attr(SvgAttributes.Y, zeroY)
+      .attr(SvgAttributes.Height, 0)
+
+    let positive = 0
+    let negative = 0
+    const shownEntries: Array<{ entry: GroupedBarEntry; y: number; height: number; value: number }> = []
+    seriesDomain.forEach((series) => {
+      const anchor = anchorBySeries.get(series)
+      if (!anchor) return
+      const rawValue = bySeries.get(series) ?? 0
+      const value = rawValue * scaleFactor
+      const start = value >= 0 ? positive : negative
+      const end = start + value
+      if (value >= 0) positive = end
+      else negative = end
+      const y0 = mapY(start) ?? zeroY
+      const y1 = mapY(end) ?? zeroY
+      shownEntries.push({
+        entry: anchor,
+        y: Math.min(y0, y1),
+        height: Math.abs(y0 - y1),
+        value,
+      })
+    })
+
+    const shownSelection = d3
+      .selectAll<SVGGraphicsElement, unknown>(shownEntries.map((item) => item.entry.el) as SVGGraphicsElement[])
+      .style('display', null)
+      .attr(SvgAttributes.Opacity, 1)
+    const shownTransition = shownSelection.transition().duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS)
+    shownEntries.forEach((item) => {
+      const node = d3.select(item.entry.el)
+      node
+        .attr(SvgAttributes.Transform, item.entry.baseTransform ?? null)
+        .attr(DataAttributes.Target, sumLabel)
+        .attr(DataAttributes.Id, `${sumLabel}__${item.entry.series}`)
+        .attr(DataAttributes.Value, String(item.value))
+      shownTransition
+        .filter(function () {
+          return this === item.entry.el
+        })
+        .attr(SvgAttributes.X, targetX)
+        .attr(SvgAttributes.Width, targetWidth)
+        .attr(SvgAttributes.Y, item.y)
+        .attr(SvgAttributes.Height, item.height)
+        .attr(SvgAttributes.Opacity, 1)
+    })
+
+    const ticks = scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
+    const tickNodes = ticks.nodes()
+    const primaryTick = tickNodes.length ? tickNodes[0] : null
+    const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
+    ticks.each(function () {
+      const tick = d3.select(this)
+      const isPrimary = this === primaryTick
+      if (!isPrimary) {
+        tickTransition
+          .filter(function () {
+            return this === tick.node()
+          })
+          .attr(SvgAttributes.Opacity, 0)
+        return
+      }
+      tick.select(SvgElements.Text).text(sumLabel)
+      tickTransition
+        .filter(function () {
+          return this === tick.node()
+        })
+        .attr(SvgAttributes.Opacity, 1)
+        .attr(SvgAttributes.Transform, `translate(${targetX + targetWidth / 2},0)`)
+    })
+
+    await Promise.all([waitTransition(hideTransition), waitTransition(shownTransition), waitTransition(tickTransition)])
+    hiddenSelection.style('display', 'none')
+  }
+
+  override run(op: DrawOp): void | Promise<void> {
     if (op.action === DrawAction.Sort) {
-      this.sortGroupedBars(op)
-      return
+      return this.sortGroupedBars(op)
     }
     if (op.action === DrawAction.Filter) {
-      this.filterGroupedBars(op)
-      return
+      return this.filterGroupedBars(op)
     }
-    super.run(op)
+    if (op.action === DrawAction.GroupedFilterGroups) {
+      return this.filterGroupedSeries(op)
+    }
+    if (op.action === DrawAction.Sum) {
+      return this.sumGrouped(op)
+    }
+    return super.run(op)
   }
 }

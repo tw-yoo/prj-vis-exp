@@ -72,3 +72,20 @@
 - **Coordinate space mapping:** Geometry is recovered from the live SVG rather than hidden chart state. For horizontal guides (e.g., threshold lines) the handler reads y-axis ticks or data-mark positions, interpolates in SVG space, and maps the numeric value to a y coordinate before drawing. For bar segments, it inspects each bar’s data attributes (value, target) and DOM bounding boxes, scales them to the viewBox, and overlays shaded rectangles that exactly cover the qualifying portion. Highlights/selects locate marks via data-target/id/value keys and then use their bounding boxes or centers for anchored text and overlays.
 - **Contextual chaining:** The operations runner maintains a “working” dataset that is updated after each data operation; subsequent steps consume this transformed set, so a filter step narrows the scope for the next computation unless a chartId-scoped buffer is used to branch per subview. Auto-draw plans also receive the pre-operation working slice for contextual labeling (e.g., count uses current ordering). Runtime result caching and target selectors allow later steps to reference previously computed slices by identifier when provided, reinforcing deterministic chaining without implicit recomputation.
 - **Runtime result caching:** The data layer exposes a runtime result store keyed by operation identifiers, enabling future features that reuse earlier results. The current system does not rely on intermediate variables in specs; chaining is achieved primarily by the working dataset updates and explicit target selectors.
+
+## 7. Update (2026-03-04)
+
+- TS `OperationOp`은 `setOp`, `pairDiff`, `add`, `scale`를 런타임 data op로 정식 지원한다.
+- 실행 스케줄 정책:
+  - 같은 phase 내부에서 `data op`는 순차 실행(결정성 보장)
+  - `draw op`는 병렬 실행하되, 구조 변경 draw(`clear/filter/sort/split/unsplit/sum` 등)는 배리어로 순차 처리
+- sleep 정책:
+  - 신규 auto draw / Python draw plan은 `sleep`을 생성하지 않는다.
+  - 기본 최소 실행 시간은 draw transition(기본 0.5s)으로 확보한다.
+  - 레거시 sleep 입력은 런타임 호환 경로(no-op/skip)만 유지한다.
+- bar sum 렌더 정책:
+  - simple/stacked/grouped 모두 `draw.sum.value`를 우선 사용한다.
+  - stacked/grouped는 단일 합산 바에서 시리즈 색을 유지하기 위해 시리즈 비율 기반으로 값 분배 렌더링한다.
+- auto draw 확장:
+  - simple/stacked/grouped bar에서 `determineRange`, `compareBool`, `setOp`, `add`, `scale`, `pairDiff`까지 포함한다.
+  - stacked/grouped `compare/diff`는 `groupA/groupB`가 있으면 series-level strict pair를 우선 시도하고, 실패 시 target-level fallback으로 연결선을 생성한다.
