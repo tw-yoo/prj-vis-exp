@@ -16,7 +16,7 @@ import { SimpleLineDrawHandler } from '../../rendering/draw/line/SimpleLineDrawH
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runSimpleLineDrawPlan } from '../../rendering/ops/executor/runSimpleLineDrawPlan.ts'
-import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/simple/autoDrawPlanRegistry.ts'
+import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/simple/simpleLineAutoDrawPlanBuilder.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 
 function toDatumValues(rawData: RawRow[], xField: string, yField: string): DatumValue[] {
@@ -245,5 +245,6 @@ export async function runSimpleLineOps(
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,
+    initialRenderMode: options?.initialRenderMode ?? 'always',
   })
 }

@@ -20,6 +20,7 @@ export type ParseToOperationSpecCommand = {
 export type ParseToOpsResult = {
   resolvedText: string
   opsSpec: OpsSpecGroupMap
+  drawPlan?: OpsSpecGroupMap
   warnings: string[]
 }
 
@@ -33,6 +34,7 @@ type GenerateGrammarRequest = {
 
 type GenerateGrammarResponse = Record<string, unknown> & {
   ops1?: unknown
+  draw_plan?: unknown
   resolvedText?: unknown
   resolved_text?: unknown
   warnings?: unknown
@@ -134,6 +136,18 @@ function normalizeGroupMap(raw: unknown): OpsSpecGroupMap {
   return out
 }
 
+function normalizeOptionalDrawPlan(raw: unknown): OpsSpecGroupMap | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined
+  const groups = normalizeOpsGroups(raw as OpsSpecGroupMap)
+  if (!groups.length) return undefined
+  const out: OpsSpecGroupMap = {}
+  for (const group of groups) {
+    out[group.name] = group.ops
+  }
+  if (!Array.isArray(out.ops)) out.ops = []
+  return out
+}
+
 export async function parseToOperationSpec(command: ParseToOperationSpecCommand): Promise<ParseToOpsResult> {
   const endpoint = (command.endpoint ?? resolveDefaultEndpoint()).replace(/\/+$/, '')
   const fetcher = command.fetcher ?? fetch.bind(globalThis)
@@ -168,11 +182,13 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
   const maybeWrapped = asRecord(body.ops1)
   const groupSource = maybeWrapped ?? body
   const opsSpec = normalizeGroupMap(groupSource)
+  const drawPlan = normalizeOptionalDrawPlan((body as UnknownRecord).draw_plan)
   const resolvedTextRaw = typeof body.resolvedText === 'string' ? body.resolvedText : body.resolved_text
 
   return {
     resolvedText: typeof resolvedTextRaw === 'string' && resolvedTextRaw.trim().length > 0 ? resolvedTextRaw : text,
     opsSpec,
+    drawPlan,
     warnings: normalizeWarnings(body.warnings),
   }
 }

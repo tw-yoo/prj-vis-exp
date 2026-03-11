@@ -2,9 +2,39 @@ import * as d3 from 'd3'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { DrawAction, type DrawArrowSpec, type DrawLineSpec, type DrawRectSpec, type DrawTextSpec, type DrawOp } from './types'
 
-const DEFAULT_FILL = '#69b3a2'
-
 type DrawSelect = DrawOp['select']
+
+function resolveSelectFieldAttr(container: HTMLElement, field?: string) {
+  if (typeof field !== 'string') return null
+  const normalized = field.trim().toLowerCase()
+  if (!normalized) return null
+  const alias = new Map<string, string>([
+    ['id', 'id'],
+    [DataAttributes.Id, DataAttributes.Id],
+    ['target', DataAttributes.Target],
+    ['x', DataAttributes.Target],
+    [DataAttributes.Target, DataAttributes.Target],
+    ['value', DataAttributes.Value],
+    ['y', DataAttributes.Value],
+    [DataAttributes.Value, DataAttributes.Value],
+    ['series', DataAttributes.Series],
+    ['group', DataAttributes.Series],
+    ['color', DataAttributes.Series],
+    [DataAttributes.Series, DataAttributes.Series],
+  ])
+  const aliased = alias.get(normalized)
+  if (aliased) return aliased
+
+  const svgNode = d3.select(container).select(SvgElements.Svg).node() as SVGSVGElement | null
+  if (!svgNode) return null
+  const xField = (svgNode.getAttribute(DataAttributes.XField) ?? '').trim().toLowerCase()
+  const yField = (svgNode.getAttribute(DataAttributes.YField) ?? '').trim().toLowerCase()
+  const colorField = (svgNode.getAttribute(DataAttributes.ColorField) ?? '').trim().toLowerCase()
+  if (xField && normalized === xField) return DataAttributes.Target
+  if (yField && normalized === yField) return DataAttributes.Value
+  if (colorField && normalized === colorField) return DataAttributes.Series
+  return null
+}
 
 function selectByKeys(container: HTMLElement, select: DrawSelect | undefined) {
   const svg = d3.select(container).select(SvgElements.Svg)
@@ -12,18 +42,29 @@ function selectByKeys(container: HTMLElement, select: DrawSelect | undefined) {
   const selection = svg.selectAll<SVGElement, unknown>(mark)
   const keys = select?.keys
   if (!keys || keys.length === 0) return selection
+  const fieldAttr = resolveSelectFieldAttr(container, select?.field)
   const keySet = new Set(keys.map(String))
+  const numberKeys = new Set(keys.map((k) => Number(k)).filter(Number.isFinite))
+  const inferredFieldAttr = !fieldAttr && select?.field ? inferFieldAttr(selection, keySet, numberKeys) : null
+  const effectiveFieldAttr = fieldAttr ?? inferredFieldAttr
   return selection.filter(function (this: SVGElement) {
     const el = this as Element
-    const attrs = [
-      el.getAttribute('data-target'),
-      el.getAttribute('data-id'),
-      el.getAttribute('data-value'),
-      el.getAttribute('data-series'),
-      el.id,
-    ].filter(Boolean)
+    const attrs = effectiveFieldAttr
+      ? effectiveFieldAttr === 'id'
+        ? [el.id]
+        : [el.getAttribute(effectiveFieldAttr)]
+      : [
+          el.getAttribute('data-target'),
+          el.getAttribute('data-id'),
+          el.getAttribute('data-value'),
+          el.getAttribute('data-series'),
+          el.id,
+        ]
     for (const a of attrs) {
-      if (a && keySet.has(String(a))) return true
+      if (!a) continue
+      if (keySet.has(String(a))) return true
+      const numeric = Number(a)
+      if (Number.isFinite(numeric) && numberKeys.has(numeric)) return true
     }
     // fall back to bound datum
     const datum = (this as SVGElement & { __data__?: unknown }).__data__ as
@@ -32,6 +73,35 @@ function selectByKeys(container: HTMLElement, select: DrawSelect | undefined) {
     const datumKey = datum?.target ?? datum?.x ?? datum?.id ?? null
     return datumKey != null && keySet.has(String(datumKey))
   })
+}
+
+function inferFieldAttr(
+  selection: d3.Selection<SVGElement, unknown, any, any>,
+  keySet: Set<string>,
+  numberKeys: Set<number>,
+) {
+  const candidates = [DataAttributes.Target, DataAttributes.Series, DataAttributes.Value, DataAttributes.Id, 'id'] as const
+  let best: (typeof candidates)[number] | null = null
+  let bestScore = 0
+  const matches = (raw: string | null | undefined) => {
+    if (!raw) return false
+    if (keySet.has(raw)) return true
+    const numeric = Number(raw)
+    return Number.isFinite(numeric) && numberKeys.has(numeric)
+  }
+  candidates.forEach((candidate) => {
+    let score = 0
+    selection.each(function () {
+      const el = this as Element
+      const raw = candidate === 'id' ? el.id : el.getAttribute(candidate)
+      if (matches(raw)) score += 1
+    })
+    if (score > bestScore) {
+      bestScore = score
+      best = candidate
+    }
+  })
+  return bestScore > 0 ? best : null
 }
 
 /** select.keys에 맞춰 SVG 요소를 찾아 반환합니다 (data-target/id/value 포함). */
@@ -213,21 +283,38 @@ export function runGenericDraw(container: HTMLElement, op: DrawOp) {
   const selection = selectByKeys(container, op.select)
   const allMarks = selectAllMarks(container)
 
-  // DrawAction별 처리 흐름
+    // DrawAction별 처리 흐름
   switch (action) {
     case DrawAction.Clear:
-      allMarks.attr(SvgAttributes.Fill, DEFAULT_FILL).attr(SvgAttributes.Opacity, 1)
+      allMarks.interrupt().attr(SvgAttributes.Opacity, 1)
       d3.select(container).select(SvgElements.Svg).selectAll(`.${SvgClassNames.Annotation}`).remove()
       return
     case DrawAction.Highlight: {
       const color = op.style?.color || '#ef4444'
-      selection.attr(SvgAttributes.Fill, color).attr(SvgAttributes.Stroke, color).attr(SvgAttributes.Opacity, 1)
+      selection.interrupt().each(function (this: SVGElement) {
+        const el = d3.select(this as Element)
+        const fill = (el.attr(SvgAttributes.Fill) ?? '').trim().toLowerCase()
+        const stroke = (el.attr(SvgAttributes.Stroke) ?? '').trim().toLowerCase()
+        const hasFill = fill.length > 0 && fill !== 'none' && fill !== 'transparent'
+        const hasStroke = stroke.length > 0 && stroke !== 'none' && stroke !== 'transparent'
+        if (hasFill || !hasStroke) {
+          el.attr(SvgAttributes.Fill, color)
+          return
+        }
+        el.attr(SvgAttributes.Stroke, color)
+      })
+      if (op.style?.opacity != null) {
+        selection.attr(SvgAttributes.Opacity, op.style.opacity)
+      }
       return
     }
     case DrawAction.Dim: {
       const opacity = op.style?.opacity ?? 0.25
+      if ((op.select?.keys?.length ?? 0) > 0 && selection.empty()) {
+        return
+      }
       const selectedNodes = new Set<SVGElement>(selection.nodes())
-      allMarks.attr(SvgAttributes.Opacity, function (this: SVGElement) {
+      allMarks.interrupt().attr(SvgAttributes.Opacity, function (this: SVGElement) {
         return selectedNodes.size === 0 ? opacity : selectedNodes.has(this) ? 1 : opacity
       })
       return

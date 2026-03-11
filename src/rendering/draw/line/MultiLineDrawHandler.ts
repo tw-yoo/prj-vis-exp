@@ -23,13 +23,14 @@ async function waitTransition(transition: d3.Transition<any, any, any, any>) {
 export class MultiLineDrawHandler extends LineDrawHandler {
   protected override selectElements(select?: DrawSelect, chartId?: string) {
     const scope = this.selectScope(chartId)
-    const selection = scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Path},${SvgElements.Circle},${SvgElements.Rect}`)
-    return this.filterByKeys(selection, select?.keys)
+    const mark = select?.mark ?? `${SvgElements.Path},${SvgElements.Circle},${SvgElements.Rect}`
+    const selection = this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(mark))
+    return this.filterBySelect(selection, select)
   }
 
   protected override allMarks(chartId?: string) {
     const scope = this.selectScope(chartId)
-    return scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Path},${SvgElements.Circle},${SvgElements.Rect}`)
+    return this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Path},${SvgElements.Circle},${SvgElements.Rect}`))
   }
 
   private collectPointEntries(chartId?: string) {

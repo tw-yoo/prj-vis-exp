@@ -62,12 +62,28 @@ function ensureType(override?: string, fallback?: string) {
   return override ?? fallback ?? 'nominal'
 }
 
+function resolveOrderedDomain(values: RawDatum[], field: string): Array<string | number> {
+  const seen = new Set<string>()
+  const domain: Array<string | number> = []
+  values.forEach((row) => {
+    const raw = row?.[field]
+    if (raw == null) return
+    const value = typeof raw === 'number' ? raw : String(raw)
+    const key = typeof value === 'number' ? `n:${value}` : `s:${value}`
+    if (seen.has(key)) return
+    seen.add(key)
+    domain.push(value)
+  })
+  return domain
+}
+
 export async function convertStackedToGrouped(
   container: HTMLElement,
   spec: StackedSpec,
   options?: DrawStackGroupSpec,
 ) {
-  const values = await resolveDatasetAsync(getStackedBarStoredData(container), spec)
+  const storedRows = cloneRows(getStackedBarStoredData(container))
+  const values = await resolveDatasetAsync(storedRows, spec)
   if (!values.length) {
     console.warn('stacked-to-grouped: no dataset available to re-render grouped chart')
     return
@@ -93,13 +109,20 @@ export async function convertStackedToGrouped(
     return
   }
 
+  const xDomainSource = storedRows.length ? storedRows : values
+  const xSortDomain = resolveOrderedDomain(xDomainSource, xField)
+
   const baseColor = encoding.color ?? {}
   const groupedSpec: GroupedSpec = {
     ...spec,
     data: { values },
     encoding: {
       ...encoding,
-      x: { field: xField, type: xType },
+      x: {
+        field: xField,
+        type: xType,
+        ...(xSortDomain.length > 0 ? { sort: xSortDomain } : {}),
+      },
       // IMPORTANT: grouped charts must disable stacking; otherwise Vega-Lite will keep stacking bars.
       y: { ...encoding.y, stack: null },
       color: {

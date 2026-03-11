@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-// import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
-import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/simple/0pzdf7hfbxgjghsa.json?raw'
+// import barSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
+import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
+// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/simple/0o12tngadmjjux2n.json?raw' // Simple bar1
+// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/stacked/10t8o5vhethzeod1.json?raw' // Stacked bar1
+// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/grouped/0prhtod4tli879nh.json?raw' // Grouped bar1
+// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/line/simple/10gtgmmgh599jnr7.json?raw' // Simple line1
+// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/simple/0w88bu7qm4ilsqmh.json?raw' // Simple bar 2
 // ChartQA/data/vlSpec/bar/simple/0o12tngadmjjux2n.json
 // ../ChartQA/data/vlSpec/bar/grouped/0gacqohbzj07n25s.json?raw
 import lineSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
@@ -116,6 +121,25 @@ const DRAW_TOOL_ACTION_MAP: Partial<Record<DrawInteractionTool, DrawAction>> = {
   [DrawInteractionTools.BarSegment]: DrawAction.BarSegment,
 }
 
+const STRUCTURAL_DRAW_ACTIONS = new Set<DrawAction>([
+  DrawAction.Clear,
+  DrawAction.Filter,
+  DrawAction.Sort,
+  DrawAction.Split,
+  DrawAction.Unsplit,
+  DrawAction.Sum,
+  DrawAction.LineToBar,
+  DrawAction.MultiLineToStacked,
+  DrawAction.MultiLineToGrouped,
+  DrawAction.StackedToGrouped,
+  DrawAction.GroupedToStacked,
+  DrawAction.StackedToSimple,
+  DrawAction.GroupedToSimple,
+  DrawAction.StackedToDiverging,
+  DrawAction.StackedFilterGroups,
+  DrawAction.GroupedFilterGroups,
+])
+
 const cloneOperationForRecord = (operation: OperationSpec): OperationSpec => {
   try {
     return structuredClone(operation)
@@ -185,6 +209,29 @@ const normalizeOpsGroupsForWorkbench = (opsSpec: unknown): Array<{ name: string;
   }))
 }
 
+type OpsJsonExecutionSource = 'draw_plan' | 'ops'
+
+type ParsedOpsJsonInput = {
+  groups: OperationSpec[][]
+  groupNames: string[]
+  executionSource: OpsJsonExecutionSource
+  warnings: string[]
+}
+
+const hasSplitIntentInMetaView = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
+  return groups.some((group) =>
+    group.ops.some((operation) => {
+      const view = (operation as { meta?: { view?: unknown } }).meta?.view
+      if (!view || typeof view !== 'object' || Array.isArray(view)) return false
+      const viewRecord = view as Record<string, unknown>
+      const splitGroup = typeof viewRecord.splitGroup === 'string' ? viewRecord.splitGroup.trim() : ''
+      const panelId = typeof viewRecord.panelId === 'string' ? viewRecord.panelId.trim() : ''
+      const joinBarrier = viewRecord.joinBarrier === true
+      return splitGroup.length > 0 || panelId.length > 0 || joinBarrier
+    }),
+  )
+}
+
 const withInteractionMeta = (operation: OperationSpec): OperationSpec => ({
   ...operation,
   meta: {
@@ -192,6 +239,69 @@ const withInteractionMeta = (operation: OperationSpec): OperationSpec => ({
     source: 'interaction',
   },
 })
+
+const isExecutableDrawOp = (operation: OperationSpec): operation is DrawOp =>
+  operation.op === OperationOp.Draw && typeof (operation as DrawOp).action === 'string'
+
+const isDrawOnlyGroup = (operations: OperationSpec[]) => {
+  const executable = operations.filter((operation) => operation.op !== OperationOp.Sleep)
+  if (!executable.length) return false
+  return executable.every((operation) => isExecutableDrawOp(operation))
+}
+
+const isDrawDebugEnabled = () => {
+  if (typeof window === 'undefined') return false
+  return Boolean((window as unknown as { __WORKBENCH_DRAW_DEBUG__?: boolean }).__WORKBENCH_DRAW_DEBUG__)
+}
+
+function countMainBarsFromNodes(nodes: NodeList | Node[]) {
+  let count = 0
+  Array.from(nodes).forEach((node) => {
+    if (!(node instanceof Element)) return
+    if (node.matches('rect.main-bar')) count += 1
+    count += node.querySelectorAll('rect.main-bar').length
+  })
+  return count
+}
+
+function createMainBarMutationTrace(container: HTMLElement, operationLabel: string) {
+  if (!isDrawDebugEnabled()) return null
+  const svg = container.querySelector('svg')
+  if (!svg) return null
+
+  const events: Array<{ type: 'added' | 'removed'; count: number; stack?: string }> = []
+  let added = 0
+  let removed = 0
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type !== 'childList') return
+      const addedCount = countMainBarsFromNodes(mutation.addedNodes)
+      if (addedCount > 0) {
+        added += addedCount
+        events.push({ type: 'added', count: addedCount, stack: new Error().stack })
+      }
+      const removedCount = countMainBarsFromNodes(mutation.removedNodes)
+      if (removedCount > 0) {
+        removed += removedCount
+        events.push({ type: 'removed', count: removedCount, stack: new Error().stack })
+      }
+    })
+  })
+  observer.observe(svg, { childList: true, subtree: true })
+
+  return {
+    stop: () => {
+      observer.disconnect()
+      if (added === 0 && removed === 0) return
+      console.warn('[draw:main-bar-recreated]', {
+        operationLabel,
+        added,
+        removed,
+        events: events.slice(0, 10),
+      })
+    },
+  }
+}
 
 function createLiveDrawHandler(container: HTMLElement, chartType: ChartTypeValue | null) {
   switch (chartType) {
@@ -393,6 +503,11 @@ function ChartWorkbenchPage() {
   const [opsJsonText, setOpsJsonText] = useState('{\n  "ops": []\n}')
   const [opsJsonError, setOpsJsonError] = useState<string | null>(null)
   const [opsJsonGroupNames, setOpsJsonGroupNames] = useState<string[]>([])
+  const [opsJsonExecutionSource, setOpsJsonExecutionSource] = useState<OpsJsonExecutionSource | null>(null)
+  const [opsJsonWarnings, setOpsJsonWarnings] = useState<string[]>([])
+  const [isVlSectionExpanded, setIsVlSectionExpanded] = useState(false)
+  const [isNlSectionExpanded, setIsNlSectionExpanded] = useState(false)
+  const [isOpsSectionExpanded, setIsOpsSectionExpanded] = useState(true)
   const [loadedPlanResolvedKey, setLoadedPlanResolvedKey] = useState<string | null>(null)
   const [loadedPlanStem, setLoadedPlanStem] = useState<string | null>(null)
   const [captureScenesEnabled, setCaptureScenesEnabled] = useState(false)
@@ -683,7 +798,7 @@ function ChartWorkbenchPage() {
           return
         }
         try {
-          await runChartOps(chartRef.current, currentSpec, { ops: [drawOp] })
+          await runChartOps(chartRef.current, currentSpec, { ops: [drawOp] }, { initialRenderMode: 'reuse-existing' })
         } catch (error) {
           console.error('Failed to apply interaction draw operation via runner', error)
           throw error
@@ -1095,7 +1210,7 @@ function ChartWorkbenchPage() {
     return lines.slice(start, end).join('\n')
   }
 
-  const parseOpsJsonInput = useCallback(() => {
+  const parseOpsJsonInput = useCallback((): ParsedOpsJsonInput => {
     const sanitized = sanitizeJsonInput(opsJsonText).trim()
     if (!sanitized) {
       throw new Error('Ops JSON is empty.')
@@ -1108,14 +1223,38 @@ function ChartWorkbenchPage() {
       throw new Error(`Invalid Ops JSON: ${error instanceof Error ? error.message : 'JSON parse failed.'}`)
     }
 
-    const normalized = normalizeOpsGroupsForWorkbench(parsed)
-    if (!normalized.length) {
+    const topLevelGroups = normalizeOpsGroupsForWorkbench(parsed)
+    const parsedRecord = isPlainObject(parsed) ? parsed : null
+    const warnings: string[] = []
+
+    let selectedGroups = topLevelGroups
+    let executionSource: OpsJsonExecutionSource = 'ops'
+
+    if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'draw_plan')) {
+      const drawPlanGroups = normalizeOpsGroupsForWorkbench(parsedRecord.draw_plan)
+      if (drawPlanGroups.length > 0) {
+        selectedGroups = drawPlanGroups
+        executionSource = 'draw_plan'
+      } else if (topLevelGroups.length > 0) {
+        warnings.push('draw_plan detected but invalid; falling back to top-level ops groups.')
+      } else {
+        throw new Error('Ops JSON includes "draw_plan", but it has no executable groups.')
+      }
+    }
+
+    if (!selectedGroups.length) {
       throw new Error('Ops JSON must include at least one executable group (e.g., "ops", "firstStep").')
     }
 
+    if (executionSource === 'ops' && hasSplitIntentInMetaView(topLevelGroups)) {
+      warnings.push('Split intent found in meta.view; use draw_plan for split visual execution.')
+    }
+
     return {
-      groups: normalized.map((group) => group.ops),
-      groupNames: normalized.map((group) => group.name),
+      groups: selectedGroups.map((group) => group.ops),
+      groupNames: selectedGroups.map((group) => group.name),
+      executionSource,
+      warnings,
     }
   }, [opsJsonText])
 
@@ -1293,17 +1432,29 @@ function ChartWorkbenchPage() {
       if (!nextOpsSpec || !Array.isArray(nextOpsSpec.ops)) {
         throw new Error('Converted opsSpec is invalid: "ops" group is missing.')
       }
+      const drawPlanNormalized = result.drawPlan ? normalizeOpsGroupsForWorkbench(result.drawPlan) : []
       const jsonText = JSON.stringify(nextOpsSpec, null, 2)
-      const groupNames = Object.keys(nextOpsSpec)
+      const groupNames = drawPlanNormalized.length
+        ? drawPlanNormalized.map((group) => group.name)
+        : Object.keys(nextOpsSpec)
 
       handleClearPlan()
+      if (drawPlanNormalized.length) {
+        setPlanGroups(drawPlanNormalized.map((group) => group.ops))
+      }
       setOpsInputMode('builder')
       setOpsJsonText(jsonText)
       setOpsJsonError(null)
       setOpsJsonGroupNames(groupNames)
       setNlResolvedText(result.resolvedText || text)
       setNlWarnings(result.warnings ?? [])
-      setNlStatus(`Converted ${groupNames.length} group(s): ${groupNames.join(', ')}`)
+      if (drawPlanNormalized.length) {
+        setNlStatus(
+          `Converted ${Object.keys(nextOpsSpec).length} ops group(s), draw_plan ${groupNames.length} group(s): ${groupNames.join(', ')}`,
+        )
+      } else {
+        setNlStatus(`Converted ${groupNames.length} group(s): ${groupNames.join(', ')}`)
+      }
 
       const importId = `nl-import-${Date.now()}-${nlImportSequenceRef.current++}`
       setNlImportCommand({ id: importId, jsonText })
@@ -1336,7 +1487,7 @@ function ChartWorkbenchPage() {
     setPythonDrawStatus(null)
     try {
       const loaded = await fetchLatestPythonDrawPlan()
-      await runChartOps(chartRef.current, spec, { ops: loaded.ops })
+      await runChartOps(chartRef.current, spec, { ops: loaded.ops }, { initialRenderMode: 'reuse-existing' })
 
       const nextType = resolveNextChartTypeFromDrawOps(chartType, loaded.ops)
       if (nextType !== chartType) {
@@ -1367,11 +1518,15 @@ function ChartWorkbenchPage() {
         const parsed = parseOpsJsonInput()
         setOpsJsonError(null)
         setOpsJsonGroupNames(parsed.groupNames)
+        setOpsJsonExecutionSource(parsed.executionSource)
+        setOpsJsonWarnings(parsed.warnings)
         setOpsGroups(parsed.groups)
         setCurrentOpsIndex(-1)
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to parse Ops JSON.'
         setOpsJsonError(message)
+        setOpsJsonExecutionSource(null)
+        setOpsJsonWarnings([])
         setOpsGroups([])
         setCurrentOpsIndex(-1)
         alert(message)
@@ -1393,11 +1548,12 @@ function ChartWorkbenchPage() {
     if (!chartRef.current) return
     const opsArray = opsGroups[groupIndex] ?? []
     if (!opsArray.length) return
+    setOpsJsonError(null)
+
     const runtimeScope =
       options?.runtimeScope ??
       (opsJsonGroupNames[groupIndex] || (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`))
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
-    await renderChart(specString)
     const sanitizedVlSpec = sanitizeJsonInput(specString)
     let parsedVlSpec: VegaLiteSpec
 
@@ -1409,23 +1565,64 @@ function ChartWorkbenchPage() {
       return
     }
 
+    const drawOnlyGroup = isDrawOnlyGroup(opsArray)
+    const hasSvg = !!chartRef.current.querySelector('svg')
+    const currentSpec = currentSpecRef.current
+    let executionSpec: VegaLiteSpec = parsedVlSpec
+
+    if (drawOnlyGroup) {
+      if (!hasSvg || !currentSpec) {
+        const message = 'Render Chart first for draw-only operations.'
+        setOpsJsonError(message)
+        alert(message)
+        return
+      }
+      executionSpec = currentSpec
+    } else {
+      const hasSameSpec =
+        currentSpec != null &&
+        (() => {
+          try {
+            return JSON.stringify(currentSpec) === JSON.stringify(parsedVlSpec)
+          } catch {
+            return false
+          }
+        })()
+      if (!hasSvg || !hasSameSpec) {
+        await renderChart(specString)
+      }
+      executionSpec = currentSpecRef.current ?? parsedVlSpec
+    }
+
     if (!planGroups && opsInputMode === 'builder' && Object.keys(opsErrors).length > 0) {
       alert('Fix operation errors before running.')
       return
     }
 
+    const opLabel = opsArray
+      .filter((operation) => operation.op === OperationOp.Draw)
+      .map((operation) => `${(operation as DrawOp).action}`)
+      .join(',')
+    const enableMutationTrace =
+      drawOnlyGroup &&
+      opsArray.some((operation) => isExecutableDrawOp(operation) && !STRUCTURAL_DRAW_ACTIONS.has(operation.action)) &&
+      opLabel.length > 0
+    const mutationTrace = enableMutationTrace ? createMainBarMutationTrace(chartRef.current, opLabel) : null
+
     try {
       setOpsRunning(true)
-      await runChartOps(chartRef.current, parsedVlSpec, { ops: opsArray }, {
+      await runChartOps(chartRef.current, executionSpec, { ops: opsArray }, {
         onOperationCompleted: options?.onOperationCompleted,
         runtimeScope,
         resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
+        initialRenderMode: 'reuse-existing',
       })
       opsSessionActiveRef.current = true
     } catch (error) {
       console.error('Run Operations failed', error)
       alert('Failed to run operations. Check the console for details.')
     } finally {
+      mutationTrace?.stop()
       setOpsRunning(false)
     }
   }
@@ -1658,14 +1855,19 @@ function ChartWorkbenchPage() {
     setPendingRunOps(false)
   }, [pendingRunOps, opsErrors, builderGroups, planGroups, lastValidatedTick, opsValidationTick, opsInputMode])
 
+  const vlCollapsedSummary = `Vega-Lite 입력 숨김 (${vlSpec.length} chars)`
+  const nlCollapsedSummary = `NL 입력 숨김${nlQuestion ? ` · Q: ${nlQuestion}` : ''}`
+  const opsCollapsedSummary = `Operations 입력 숨김 · mode=${opsInputMode}${planGroups ? ' · plan=loaded' : ''}`
+
   return (
     <div className="app-shell">
       <div className="layout-body">
         <section className="card ops-card">
-            <div className="card-header">
-              <label className="card-title" htmlFor="vl-spec">
-                Vega-Lite Spec
-              </label>
+          <div className="card-header">
+            <label className="card-title" htmlFor="vl-spec">
+              Vega-Lite Spec
+            </label>
+            <div className="card-actions">
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                 <input
                   type="checkbox"
@@ -1684,13 +1886,26 @@ function ChartWorkbenchPage() {
                 Render Chart
               </button>
             </div>
-          <textarea
-            id="vl-spec"
-            data-testid="vl-spec-input"
-            placeholder={vlSpecPlaceholder}
-            value={vlSpec}
-            onChange={(event) => setVlSpec(event.target.value)}
-          />
+            <button
+              type="button"
+              className="pill-btn section-toggle-btn"
+              onClick={() => setIsVlSectionExpanded((current) => !current)}
+              data-testid="toggle-vl-section"
+            >
+              {isVlSectionExpanded ? 'Collapse' : 'Expand'}
+            </button>
+          </div>
+          {isVlSectionExpanded ? (
+            <textarea
+              id="vl-spec"
+              data-testid="vl-spec-input"
+              placeholder={vlSpecPlaceholder}
+              value={vlSpec}
+              onChange={(event) => setVlSpec(event.target.value)}
+            />
+          ) : (
+            <div className="section-collapsed-line">{vlCollapsedSummary}</div>
+          )}
         </section>
 
         <section className="card ops-card nl-panel" data-testid="nl-panel">
@@ -1717,156 +1932,200 @@ function ChartWorkbenchPage() {
               >
                 {pythonDrawLoading ? 'Applying Draw…' : 'Apply Python Draw Plan'}
               </button>
+              <button
+                type="button"
+                className="pill-btn section-toggle-btn"
+                onClick={() => setIsNlSectionExpanded((current) => !current)}
+                data-testid="toggle-nl-section"
+              >
+                {isNlSectionExpanded ? 'Collapse' : 'Expand'}
+              </button>
             </div>
           </div>
-          <input
-            className="nl-question"
-            data-testid="nl-question"
-            placeholder="Question"
-            value={nlQuestion}
-            onChange={(event) => setNlQuestion(event.target.value)}
-          />
-          <textarea
-            id="nl-input"
-            data-testid="nl-input"
-            placeholder="Explanation"
-            value={nlInput}
-            onChange={(event) => setNlInput(event.target.value)}
-          />
-          {nlStatus ? (
-            <div className="nl-status" data-testid="nl-status">
-              {nlStatus}
-            </div>
-          ) : null}
-          {nlResolvedText ? (
-            <div className="nl-resolved" data-testid="nl-resolved-text">
-              Resolved text: {nlResolvedText}
-            </div>
-          ) : null}
-          {nlWarnings.length > 0 ? (
-            <ul className="nl-warning-list" data-testid="nl-warning-list">
-              {nlWarnings.map((warning, index) => (
-                <li key={`${warning}-${index}`}>{warning}</li>
-              ))}
-            </ul>
-          ) : null}
-          {nlError ? (
-            <div className="nl-error" data-testid="nl-error">
-              {nlError}
-            </div>
-          ) : null}
-          {pythonDrawStatus ? (
-            <div className="nl-status" data-testid="python-draw-status">
-              {pythonDrawStatus}
-            </div>
-          ) : null}
-          {pythonDrawError ? (
-            <div className="nl-error" data-testid="python-draw-error">
-              {pythonDrawError}
-            </div>
-          ) : null}
+          {isNlSectionExpanded ? (
+            <>
+              <input
+                className="nl-question"
+                data-testid="nl-question"
+                placeholder="Question"
+                value={nlQuestion}
+                onChange={(event) => setNlQuestion(event.target.value)}
+              />
+              <textarea
+                id="nl-input"
+                data-testid="nl-input"
+                placeholder="Explanation"
+                value={nlInput}
+                onChange={(event) => setNlInput(event.target.value)}
+              />
+              {nlStatus ? (
+                <div className="nl-status" data-testid="nl-status">
+                  {nlStatus}
+                </div>
+              ) : null}
+              {nlResolvedText ? (
+                <div className="nl-resolved" data-testid="nl-resolved-text">
+                  Resolved text: {nlResolvedText}
+                </div>
+              ) : null}
+              {nlWarnings.length > 0 ? (
+                <ul className="nl-warning-list" data-testid="nl-warning-list">
+                  {nlWarnings.map((warning, index) => (
+                    <li key={`${warning}-${index}`}>{warning}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {nlError ? (
+                <div className="nl-error" data-testid="nl-error">
+                  {nlError}
+                </div>
+              ) : null}
+              {pythonDrawStatus ? (
+                <div className="nl-status" data-testid="python-draw-status">
+                  {pythonDrawStatus}
+                </div>
+              ) : null}
+              {pythonDrawError ? (
+                <div className="nl-error" data-testid="python-draw-error">
+                  {pythonDrawError}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="section-collapsed-line">{nlCollapsedSummary}</div>
+          )}
         </section>
 
         <section className="card ops-card">
           <div className="card-header">
             <div className="card-title">Operations</div>
-            {planGroups ? <div className="plan-badge">Plan mode</div> : null}
-          </div>
-          <div className="plan-loader">
-            <label className="plan-label" htmlFor="ops-plan-path">
-              OpsPlan
-            </label>
-            <input
-              id="ops-plan-path"
-              className="plan-input"
-              list="ops-plan-options"
-              placeholder="data/expert/e1/sample_python_plan_rain_sun.py or ... .ts"
-              value={planPath}
-              onChange={(event) => setPlanPath(event.target.value)}
-            />
-            <datalist id="ops-plan-options">
-              {planOptions.map((option) => (
-                <option key={option} value={option} />
-              ))}
-            </datalist>
-            <button type="button" className="pill-btn" onClick={handleLoadPlan} disabled={planLoading}>
-              {planLoading ? 'Loading…' : 'Load'}
-            </button>
-            <button type="button" className="pill-btn" onClick={handleClearPlan} disabled={!planGroups && !planError}>
-              Clear
-            </button>
-          </div>
-          <div className="plan-capture">
-            <label className="plan-capture-label" htmlFor="capture-scenes-toggle">
-              <input
-                id="capture-scenes-toggle"
-                type="checkbox"
-                checked={captureScenesEnabled}
-                onChange={(event) => setCaptureScenesEnabled(event.target.checked)}
-                disabled={!planGroups || captureScenesRunning || opsRunning}
-              />
-              <span>Capture scenes while running plan</span>
-            </label>
-            {captureScenesStatus ? <div className="plan-capture-status">{captureScenesStatus}</div> : null}
-          </div>
-          {planError ? <div className="plan-error">{planError}</div> : null}
-          <div className="ops-mode-toggle">
-            <button
-              type="button"
-              className={`pill-btn ops-mode-btn ${opsInputMode === 'json' ? 'is-active' : ''}`}
-              onClick={() => setOpsInputMode('json')}
-            >
-              JSON Ops (Default)
-            </button>
-            <button
-              type="button"
-              className={`pill-btn ops-mode-btn ${opsInputMode === 'builder' ? 'is-active' : ''}`}
-              onClick={() => setOpsInputMode('builder')}
-            >
-              Visual Builder
-            </button>
-          </div>
-          {opsInputMode === 'json' ? (
-            <div className="ops-json-editor">
-              <label className="plan-label" htmlFor="ops-spec">
-                OpsSpec JSON
-              </label>
-              <textarea
-                id="ops-spec"
-                data-testid="ops-json-input"
-                value={opsJsonText}
-                onChange={(event) => {
-                  setOpsJsonText(event.target.value)
-                  setOpsJsonError(null)
-                }}
-              />
-              {opsJsonGroupNames.length > 0 ? (
-                <div className="nl-status">Detected groups: {opsJsonGroupNames.join(', ')}</div>
-              ) : null}
-              {opsJsonError ? <div className="plan-error">{opsJsonError}</div> : null}
+            <div className="card-actions">
+              {planGroups ? <div className="plan-badge">Plan mode</div> : null}
+              <button
+                type="button"
+                className="pill-btn section-toggle-btn"
+                onClick={() => setIsOpsSectionExpanded((current) => !current)}
+                data-testid="toggle-ops-section"
+              >
+                {isOpsSectionExpanded ? 'Collapse' : 'Expand'}
+              </button>
             </div>
-          ) : (
-            <OpsBuilder
-              chartType={chartType}
-              onExportChange={handleOpsExportChange}
-              optionSources={optionSources}
-              validationTick={opsValidationTick}
-              recordCommand={recordQueue[0] ?? null}
-              onRecordHandled={handleRecordHandled}
-              importCommand={nlImportCommand}
-              onImportHandled={handleNlpImportHandled}
-            />
-          )}
-          <div className="ops-runbar">
-            <button
-              type="button"
-              className="pill-btn"
-              onClick={handleRunOperations}
-              disabled={captureScenesRunning || opsRunning || hasBuilderValidationErrors}
-            >
-              Run Operations
-            </button>
           </div>
+          {isOpsSectionExpanded ? (
+            <>
+              <div className="plan-loader">
+                <label className="plan-label" htmlFor="ops-plan-path">
+                  OpsPlan
+                </label>
+                <input
+                  id="ops-plan-path"
+                  className="plan-input"
+                  list="ops-plan-options"
+                  placeholder="data/expert/e1/sample_python_plan_rain_sun.py or ... .ts"
+                  value={planPath}
+                  onChange={(event) => setPlanPath(event.target.value)}
+                />
+                <datalist id="ops-plan-options">
+                  {planOptions.map((option) => (
+                    <option key={option} value={option} />
+                  ))}
+                </datalist>
+                <button type="button" className="pill-btn" onClick={handleLoadPlan} disabled={planLoading}>
+                  {planLoading ? 'Loading…' : 'Load'}
+                </button>
+                <button type="button" className="pill-btn" onClick={handleClearPlan} disabled={!planGroups && !planError}>
+                  Clear
+                </button>
+              </div>
+              <div className="plan-capture">
+                <label className="plan-capture-label" htmlFor="capture-scenes-toggle">
+                  <input
+                    id="capture-scenes-toggle"
+                    type="checkbox"
+                    checked={captureScenesEnabled}
+                    onChange={(event) => setCaptureScenesEnabled(event.target.checked)}
+                    disabled={!planGroups || captureScenesRunning || opsRunning}
+                  />
+                  <span>Capture scenes while running plan</span>
+                </label>
+                {captureScenesStatus ? <div className="plan-capture-status">{captureScenesStatus}</div> : null}
+              </div>
+              {planError ? <div className="plan-error">{planError}</div> : null}
+              <div className="ops-mode-toggle">
+                <button
+                  type="button"
+                  className={`pill-btn ops-mode-btn ${opsInputMode === 'json' ? 'is-active' : ''}`}
+                  onClick={() => setOpsInputMode('json')}
+                >
+                  JSON Ops (Default)
+                </button>
+                <button
+                  type="button"
+                  className={`pill-btn ops-mode-btn ${opsInputMode === 'builder' ? 'is-active' : ''}`}
+                  onClick={() => setOpsInputMode('builder')}
+                >
+                  Visual Builder
+                </button>
+              </div>
+              {opsInputMode === 'json' ? (
+                <div className="ops-json-editor">
+                  <label className="plan-label" htmlFor="ops-spec">
+                    OpsSpec JSON
+                  </label>
+                  <textarea
+                    id="ops-spec"
+                    data-testid="ops-json-input"
+                    value={opsJsonText}
+                    onChange={(event) => {
+                      setOpsJsonText(event.target.value)
+                      setOpsJsonError(null)
+                      setOpsJsonExecutionSource(null)
+                      setOpsJsonWarnings([])
+                    }}
+                  />
+                  {opsJsonGroupNames.length > 0 ? (
+                    <div className="nl-status">Detected groups: {opsJsonGroupNames.join(', ')}</div>
+                  ) : null}
+                  {opsJsonExecutionSource ? (
+                    <div className="nl-status" data-testid="ops-json-status">
+                      Execution source: {opsJsonExecutionSource}
+                    </div>
+                  ) : null}
+                  {opsJsonWarnings.length > 0 ? (
+                    <ul className="nl-warning-list" data-testid="ops-json-warning-list">
+                      {opsJsonWarnings.map((warning, index) => (
+                        <li key={`${warning}-${index}`}>{warning}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {opsJsonError ? <div className="plan-error">{opsJsonError}</div> : null}
+                </div>
+              ) : (
+                <OpsBuilder
+                  chartType={chartType}
+                  onExportChange={handleOpsExportChange}
+                  optionSources={optionSources}
+                  validationTick={opsValidationTick}
+                  recordCommand={recordQueue[0] ?? null}
+                  onRecordHandled={handleRecordHandled}
+                  importCommand={nlImportCommand}
+                  onImportHandled={handleNlpImportHandled}
+                />
+              )}
+              <div className="ops-runbar">
+                <button
+                  type="button"
+                  className="pill-btn"
+                  onClick={handleRunOperations}
+                  disabled={captureScenesRunning || opsRunning || hasBuilderValidationErrors}
+                >
+                  Run Operations
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="section-collapsed-line">{opsCollapsedSummary}</div>
+          )}
         </section>
 
         <section className="card">

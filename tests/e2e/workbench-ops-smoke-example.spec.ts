@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { STACKED_BAR_SPEC } from './fixtures/specs'
+import { resetRuntimeResults, resolveFilterRefThreshold, storeRuntimeResult } from '../../src/domain/operation/dataOps'
 
 const chartHost = '[data-testid="chart-host"]'
 
@@ -63,6 +64,13 @@ function loadSimpleBarSpec() {
   return fs.readFileSync(specPath, 'utf-8')
 }
 
+function loadSimpleBarRatings() {
+  const csvPath = path.resolve(process.cwd(), 'data/test/data/bar_simple_ver.csv')
+  return parseCsv(fs.readFileSync(csvPath, 'utf-8'))
+    .map((row) => Number(row.rating))
+    .filter(Number.isFinite)
+}
+
 function loadExampleOpsSpecs(limit = 4) {
   const csvPath = path.resolve(process.cwd(), 'nlp_server/example.csv')
   const rows = parseCsv(fs.readFileSync(csvPath, 'utf-8'))
@@ -86,6 +94,21 @@ async function renderSpec(page: Page, spec: string) {
   await page.getByTestId('render-chart-button').click()
   await expect(page.locator(`${chartHost} svg`).first()).toBeVisible()
 }
+
+test('resolveFilterRefThreshold resolves single/multi/missing refs', () => {
+  resetRuntimeResults()
+  storeRuntimeResult('n_single', [{ category: 'value', measure: 'value', target: '__avg__', group: null, value: 10 }])
+  expect(resolveFilterRefThreshold('ref:n_single')).toBe(10)
+
+  storeRuntimeResult('n_multi', [
+    { category: 'value', measure: 'value', target: 'a', group: null, value: 10 },
+    { category: 'value', measure: 'value', target: 'b', group: null, value: 20 },
+  ])
+  expect(resolveFilterRefThreshold('ref:n_multi')).toBe(30)
+  expect(resolveFilterRefThreshold('ref:n_multi', 'avg')).toBe(15)
+
+  expect(resolveFilterRefThreshold('ref:n_missing')).toBeNull()
+})
 
 test('example.csv ops spec smoke on grouped fixture', async ({ page }) => {
   const fatalLogs: string[] = []
@@ -113,12 +136,13 @@ test('example.csv ops spec smoke on grouped fixture', async ({ page }) => {
   expect(fatalLogs).toHaveLength(0)
 })
 
-test('stacked bar group-only filter runs without validator failure and converts to simple', async ({ page }) => {
+test('stacked bar group-only filter runs in-place without unsupported draw action', async ({ page }) => {
   const fatalLogs: string[] = []
+  const unsupportedLogs: string[] = []
   page.on('console', (message) => {
-    if (message.type() !== 'error') return
     const text = message.text()
     if (text.includes('[ops:data-op] execution failed')) fatalLogs.push(text)
+    if (text.includes('Unsupported draw action') && text.includes('stacked-to-simple')) unsupportedLogs.push(text)
   })
 
   await renderSpec(page, STACKED_BAR_SPEC)
@@ -145,6 +169,21 @@ test('stacked bar group-only filter runs without validator failure and converts 
   await expect(runButton).toBeEnabled({ timeout: 30_000 })
   await expect(page.locator(`${chartHost} svg`).first()).toBeVisible()
   expect(fatalLogs).toHaveLength(0)
+  expect(unsupportedLogs).toHaveLength(0)
+
+  const visibleSeries = await page.evaluate(() => {
+    const marks = Array.from(document.querySelectorAll('svg [data-series]')) as SVGGraphicsElement[]
+    const visible = marks.filter((mark) => {
+      if ((mark as SVGElement).style.display === 'none') return false
+      const opacity = Number((mark as SVGElement).getAttribute('opacity') ?? '1')
+      return Number.isFinite(opacity) ? opacity > 0 : true
+    })
+    return Array.from(new Set(visible.map((mark) => String((mark as SVGElement).getAttribute('data-series') ?? ''))))
+      .filter((value) => value.length > 0)
+      .sort()
+  })
+  expect(visibleSeries.length).toBeGreaterThan(0)
+  expect(visibleSeries).toContain('sun')
 })
 
 test('simple bar retrieveValue refs feed diff via meta.inputs without targetA/targetB', async ({ page }) => {
@@ -183,6 +222,50 @@ test('simple bar retrieveValue refs feed diff via meta.inputs without targetA/ta
             targetA: 'ref:n1',
             targetB: 'ref:n2',
             signed: false,
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+  )
+
+  const runButton = page.getByRole('button', { name: 'Run Operations' })
+  await runButton.click()
+  await expect(runButton).toBeEnabled({ timeout: 30_000 })
+  await expect(page.locator(`${chartHost} svg`).first()).toBeVisible()
+  expect(failedLogs).toHaveLength(0)
+})
+
+test('simple bar average ref threshold feeds filter without execution failure', async ({ page }) => {
+  const failedLogs: string[] = []
+  page.on('console', (message) => {
+    const text = message.text()
+    if (!text.includes('[ops:data-op] execution failed')) return
+    failedLogs.push(text)
+  })
+
+  await renderSpec(page, loadSimpleBarSpec())
+  await page.getByRole('button', { name: 'JSON Ops' }).click()
+  await page.getByTestId('ops-json-input').fill(
+    JSON.stringify(
+      {
+        ops: [
+          {
+            op: 'average',
+            id: 'n1',
+            meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1, view: { phase: 1 } },
+            field: 'rating',
+          },
+        ],
+        ops2: [
+          {
+            op: 'filter',
+            id: 'n2',
+            meta: { nodeId: 'n2', inputs: ['n1'], sentenceIndex: 2, view: { phase: 2 } },
+            field: 'rating',
+            operator: '>',
+            value: 'ref:n1',
           },
         ],
       },

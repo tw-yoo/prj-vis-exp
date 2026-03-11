@@ -18,7 +18,7 @@ import { runGroupedBarDrawPlan } from '../../rendering/ops/executor/runGroupedBa
 import { convertGroupedToStacked } from '../../rendering/bar/stackGroupTransforms.ts'
 import { convertGroupedToSimple } from '../../rendering/bar/toSimpleTransforms.ts'
 import { aggregateDatumValuesByTarget } from '../../rendering/ops/common/workingData.ts'
-import { GROUPED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/grouped/autoDrawPlanRegistry.ts'
+import { GROUPED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/grouped/groupedBarAutoDrawPlanBuilder.ts'
 import {
   handleGroupFilter,
   shouldAggregateWhenSingleGroup,
@@ -223,5 +223,6 @@ export async function runGroupedBarOps(
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,
+    initialRenderMode: options?.initialRenderMode ?? 'always',
   })
 }

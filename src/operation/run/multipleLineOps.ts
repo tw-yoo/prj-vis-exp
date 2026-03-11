@@ -15,7 +15,7 @@ import { MultiLineDrawHandler } from '../../rendering/draw/line/MultiLineDrawHan
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runMultipleLineDrawPlan } from '../../rendering/ops/executor/runMultipleLineDrawPlan.ts'
-import { MULTI_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/multiple/autoDrawPlanRegistry.ts'
+import { MULTI_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/multiple/multipleLineAutoDrawPlanBuilder.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { convertMultiLineToGroupedBar, convertMultiLineToStackedBar } from '../../rendering/line/multiLineToBarTransforms.ts'
 import { resolveMultiLineEncoding } from '../../rendering/line/multipleLineRenderer.ts'
@@ -140,5 +140,6 @@ export async function runMultipleLineOps(
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,
+    initialRenderMode: options?.initialRenderMode ?? 'always',
   })
 }

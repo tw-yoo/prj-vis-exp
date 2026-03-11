@@ -4,6 +4,7 @@ export const DataAttributes = {
   Value: 'data-value',
   Series: 'data-series',
   ChartId: 'data-chart-id',
+  AnnotationKey: 'data-annotation-key',
   RenderEpoch: 'data-render-epoch',
   MarginLeft: 'data-m-left',
   MarginTop: 'data-m-top',
@@ -26,6 +27,7 @@ export const SvgElements = {
   Circle: 'circle',
   Text: 'text',
   Line: 'line',
+  TSpan: 'tspan',
 } as const
 
 export type SvgElementTag = (typeof SvgElements)[keyof typeof SvgElements]

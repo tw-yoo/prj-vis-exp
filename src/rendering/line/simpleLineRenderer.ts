@@ -166,6 +166,7 @@ function normalizeSplitGroups(split: { groups: Record<string, Array<string | num
   const entries = Object.entries(split.groups ?? {})
   if (entries.length === 0) return null
   const [idA, listA] = entries[0]
+  const hasExplicitSecondGroup = entries.length >= 2
   const idB = entries[1]?.[0] ?? split.restTo ?? 'B'
   const listB = entries[1]?.[1] ?? []
 
@@ -176,7 +177,7 @@ function normalizeSplitGroups(split: { groups: Record<string, Array<string | num
   xDomain.forEach((label) => {
     if (setA.has(label)) domainA.push(label)
     else if (setB.has(label)) domainB.push(label)
-    else domainB.push(label)
+    else if (!hasExplicitSecondGroup) domainB.push(label)
   })
   return { ids: [idA, idB] as [string, string], domains: [domainA, domainB] as [string[], string[]] }
 }
@@ -362,7 +363,7 @@ export async function renderSplitSimpleLineChart(
 export async function tagSimpleLineMarks(container: HTMLElement, spec: VegaLiteSpec) {
   const resolved = resolveSimpleLineEncoding(spec)
   if (!resolved) return []
-  const { xField, yField, xType } = resolved
+  const { xField, yField, xType, colorField } = resolved
   // wait up to 5 animation frames for marks to be rendered
   for (let i = 0; i < 5; i += 1) {
     const svgCheck = d3.select(container).select(SvgElements.Svg)
@@ -371,6 +372,10 @@ export async function tagSimpleLineMarks(container: HTMLElement, spec: VegaLiteS
     await new Promise((resolve) => requestAnimationFrame(resolve))
   }
   const svg = d3.select(container).select(SvgElements.Svg)
+  svg
+    .attr(DataAttributes.XField, xField)
+    .attr(DataAttributes.YField, yField)
+    .attr(DataAttributes.ColorField, colorField ?? null)
   // Tag all shapes that actually carry datum with x/y.
   const rows: RawDatum[] = []
   svg.selectAll<SVGGraphicsElement, unknown>('path, circle, rect').each(function (rawDatum: unknown) {

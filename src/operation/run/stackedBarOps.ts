@@ -19,7 +19,7 @@ import { convertStackedToGrouped } from '../../rendering/bar/stackGroupTransform
 import { convertStackedToDiverging } from '../../rendering/bar/stackGroupTransforms.ts'
 import { convertStackedToSimple } from '../../rendering/bar/toSimpleTransforms.ts'
 import { aggregateDatumValuesByTarget } from '../../rendering/ops/common/workingData.ts'
-import { STACKED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/stacked/autoDrawPlanRegistry.ts'
+import { STACKED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/stacked/stackedBarAutoDrawPlanBuilder.ts'
 import {
   handleGroupFilter,
   shouldAggregateWhenMultipleGroups,
@@ -155,5 +155,6 @@ export async function runStackedBarOps(
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,
+    initialRenderMode: options?.initialRenderMode ?? 'always',
   })
 }

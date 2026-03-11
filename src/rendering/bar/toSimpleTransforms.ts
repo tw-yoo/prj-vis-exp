@@ -43,6 +43,20 @@ function resolveSeriesColor(rows: RawDatum[], seriesField: string, seriesValue: 
   return null
 }
 
+function resolveSeriesColorFromRenderedMarks(container: HTMLElement, seriesValue: string | number) {
+  const seriesKey = String(seriesValue)
+  const marks = container.querySelectorAll<SVGElement>('svg [data-series]')
+  for (const mark of Array.from(marks)) {
+    const markSeries = mark.getAttribute('data-series')
+    if (markSeries == null || String(markSeries) !== seriesKey) continue
+    const fill = (mark.getAttribute('fill') ?? '').trim()
+    if (fill.length > 0 && fill.toLowerCase() !== 'none' && fill.toLowerCase() !== 'transparent') return fill
+    const stroke = (mark.getAttribute('stroke') ?? '').trim()
+    if (stroke.length > 0 && stroke.toLowerCase() !== 'none' && stroke.toLowerCase() !== 'transparent') return stroke
+  }
+  return null
+}
+
 function setBarMarkColor(spec: SimpleBarSpec, color: string | null) {
   if (!color) return spec
   const mark = spec.mark
@@ -59,7 +73,15 @@ function toSimpleBarSpec(
   rows: RawDatum[],
   seriesField: string,
   seriesValue: string | number,
-  options: { xField: string; xType: string; yField: string; yType: string; baseAxis?: JsonValue; baseSort?: JsonValue },
+  options: {
+    xField: string
+    xType: string
+    yField: string
+    yType: string
+    baseAxis?: JsonValue
+    baseSort?: JsonValue
+    explicitColor?: string | null
+  },
 ) {
   const filtered = rows.filter((row) => String(row?.[seriesField] ?? '') === String(seriesValue))
 
@@ -100,7 +122,7 @@ function toSimpleBarSpec(
     delete (encAny.y as Record<string, unknown>).stack
   }
 
-  const color = resolveSeriesColor(rows, seriesField, seriesValue)
+  const color = options.explicitColor ?? resolveSeriesColor(rows, seriesField, seriesValue)
   return setBarMarkColor(next, color)
 }
 
@@ -125,6 +147,8 @@ export async function convertStackedToSimple(
   const yType = spec.encoding.y.type
   const baseAxis = (spec.encoding.x as Record<string, JsonValue>).axis
   const baseSort = (spec.encoding.x as Record<string, JsonValue>).sort
+  const explicitColor =
+    resolveSeriesColor(values, seriesField, toSimple.series) ?? resolveSeriesColorFromRenderedMarks(container, toSimple.series)
 
   const simple = toSimpleBarSpec(spec, values, seriesField, toSimple.series, {
     xField,
@@ -133,6 +157,7 @@ export async function convertStackedToSimple(
     yType,
     baseAxis,
     baseSort,
+    explicitColor,
   })
   await renderSimpleBarChart(container, simple)
 }
@@ -163,6 +188,7 @@ export async function convertGroupedToSimple(
 
   const baseAxis = (xDef as Record<string, JsonValue>).axis
   const baseSort = (xDef as Record<string, JsonValue>).sort
+  const explicitColor = resolveSeriesColor(values, seriesField, toSimple.series) ?? resolveSeriesColorFromRenderedMarks(container, toSimple.series)
 
   // If x encodes the series itself (common faceted grouped pattern), promote facet field to x.
   const columnField = spec.encoding.column?.field
@@ -184,7 +210,7 @@ export async function convertGroupedToSimple(
     yType,
     baseAxis,
     baseSort,
+    explicitColor,
   })
   await renderSimpleBarChart(container, simple)
 }
-

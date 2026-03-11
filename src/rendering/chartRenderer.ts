@@ -327,12 +327,19 @@ async function loadRowsForSpecData(dataRef: VegaLiteSpec['data']) {
 
 function computePaddedDomain(minVal: number, maxVal: number) {
   if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) return null
-  let domainMin = minVal >= 0 ? minVal * 0.8 : minVal * 1.2
-  let domainMax = maxVal >= 0 ? maxVal * 1.2 : maxVal * 0.8
+  const span = maxVal - minVal
+  if (span <= 0) {
+    const fallbackPad = Math.max(1, Math.abs(maxVal) * 0.05)
+    return [minVal - fallbackPad, maxVal + fallbackPad]
+  }
+  const pad = span * 0.05
+  let domainMin = minVal - pad
+  let domainMax = maxVal + pad
   if (!Number.isFinite(domainMin) || !Number.isFinite(domainMax)) return null
   if (domainMin === domainMax) {
-    domainMin -= 5
-    domainMax += 5
+    const fallbackPad = Math.max(1, Math.abs(maxVal) * 0.05)
+    domainMin -= fallbackPad
+    domainMax += fallbackPad
   }
   return [domainMin, domainMax]
 }
@@ -872,12 +879,16 @@ export async function renderVegaLiteChart(
     const hostWidth = hostWidthRaw > 0 ? Math.min(hostWidthRaw, 800) : 800
     const hasExplicitPadding = Object.prototype.hasOwnProperty.call(spec as Record<string, unknown>, 'padding')
     const hasExplicitAutosize = Object.prototype.hasOwnProperty.call(spec as Record<string, unknown>, 'autosize')
+    const hasExplicitWidth = Object.prototype.hasOwnProperty.call(spec as Record<string, unknown>, 'width')
+    const hasExplicitHeight = Object.prototype.hasOwnProperty.call(spec as Record<string, unknown>, 'height')
     const encoding = normalized.encoding && typeof normalized.encoding === 'object' ? (normalized.encoding as any) : null
     const hasFacetChart = !!(
       (encoding && (encoding.column || encoding.row)) ||
       (normalized as any).facet ||
       (normalized as any).repeat
     )
+    const inferredType = getChartType(normalized)
+    const isLineChart = inferredType === ChartType.SIMPLE_LINE || inferredType === ChartType.MULTI_LINE
 
     if (hostWidth > 0) {
       if (hasFacetChart) {
@@ -893,6 +904,18 @@ export async function renderVegaLiteChart(
         normalized.width = Math.min((normalized.width ?? hostWidth) as number, hostWidth - 10)
       }
     }
+    if (isLineChart && !hasExplicitPadding) {
+      normalized.padding = { left: 60, right: 20, top: 60, bottom: 80 } as any
+    }
+    if (isLineChart && !hasExplicitWidth && hostWidth > 0) {
+      const hostMaxWidth = Math.max(200, hostWidth - 10)
+      const preferredWidth = 680
+      normalized.width = Math.min(Math.max(preferredWidth, Number(normalized.width ?? preferredWidth)), hostMaxWidth)
+    }
+    if (isLineChart && !hasExplicitHeight) {
+      const preferredHeight = 360
+      normalized.height = Math.max(preferredHeight, Number(normalized.height ?? preferredHeight))
+    }
 
     return normalized
   })()
@@ -906,23 +929,51 @@ export async function renderVegaLiteChart(
       cloned = JSON.parse(JSON.stringify(normalizedSpec)) as VegaLiteSpec
     }
 
+    const inferredType = getChartType(cloned)
+    const isLineChart = inferredType === ChartType.SIMPLE_LINE || inferredType === ChartType.MULTI_LINE
+    const rawConfig = (spec && typeof spec === 'object' && (spec as VegaLiteSpec).config && typeof (spec as VegaLiteSpec).config === 'object'
+      ? ((spec as VegaLiteSpec).config as Record<string, JsonValue>)
+      : {}) as Record<string, JsonValue>
+    const rawAxis = (rawConfig.axis && typeof rawConfig.axis === 'object' ? rawConfig.axis : {}) as Record<string, JsonValue>
+    const rawAxisX = (rawConfig.axisX && typeof rawConfig.axisX === 'object' ? rawConfig.axisX : {}) as Record<string, JsonValue>
+    const rawAxisY = (rawConfig.axisY && typeof rawConfig.axisY === 'object' ? rawConfig.axisY : {}) as Record<string, JsonValue>
     const config = (cloned.config && typeof cloned.config === 'object' ? cloned.config : {}) as Record<string, JsonValue>
     const axis = (config.axis && typeof config.axis === 'object' ? config.axis : {}) as Record<string, JsonValue>
+    const axisX = (config.axisX && typeof config.axisX === 'object' ? config.axisX : {}) as Record<string, JsonValue>
     const axisY = (config.axisY && typeof config.axisY === 'object' ? config.axisY : {}) as Record<string, JsonValue>
     const view = (config.view && typeof config.view === 'object' ? config.view : {}) as Record<string, JsonValue>
 
     const nextAxis: Record<string, JsonValue> = {
-      labelFontSize: 11,
-      titleFontSize: 13,
-      titlePadding: 10,
-      labelPadding: 5,
+      labelFontSize: isLineChart ? 12 : 11,
+      titleFontSize: isLineChart ? 14 : 13,
+      titlePadding: isLineChart ? 12 : 10,
+      labelPadding: isLineChart ? 6 : 5,
       labelLimit: 0,
       ...axis,
+      ...(axis.grid === undefined ? { grid: false } : {}),
+    }
+
+    const nextAxisX: Record<string, JsonValue> = {
+      ...axisX,
+      ...(axisX.grid === undefined ? { grid: false } : {}),
     }
 
     const nextAxisY: Record<string, JsonValue> = {
       ...axisY,
       ...(axisY.grid === undefined ? { grid: false } : {}),
+    }
+
+    // normalizeSpecDomain injects default axis font sizes (11/13). For line charts, keep
+    // larger readability defaults unless the user explicitly set axis typography.
+    if (isLineChart) {
+      const userSetAxisLabelFont = rawAxis.labelFontSize !== undefined || rawAxisX.labelFontSize !== undefined || rawAxisY.labelFontSize !== undefined
+      const userSetAxisTitleFont = rawAxis.titleFontSize !== undefined || rawAxisX.titleFontSize !== undefined || rawAxisY.titleFontSize !== undefined
+      const userSetAxisTitlePadding = rawAxis.titlePadding !== undefined || rawAxisX.titlePadding !== undefined || rawAxisY.titlePadding !== undefined
+      const userSetAxisLabelPadding = rawAxis.labelPadding !== undefined || rawAxisX.labelPadding !== undefined || rawAxisY.labelPadding !== undefined
+      if (!userSetAxisLabelFont) nextAxis.labelFontSize = 12
+      if (!userSetAxisTitleFont) nextAxis.titleFontSize = 14
+      if (!userSetAxisTitlePadding) nextAxis.titlePadding = 12
+      if (!userSetAxisLabelPadding) nextAxis.labelPadding = 6
     }
 
     const nextView: Record<string, JsonValue> = {
@@ -933,6 +984,7 @@ export async function renderVegaLiteChart(
     cloned.config = {
       ...config,
       axis: nextAxis,
+      axisX: nextAxisX,
       axisY: nextAxisY,
       view: nextView,
     }
@@ -941,7 +993,6 @@ export async function renderVegaLiteChart(
     // or mark/config color, use the historical default bar fill (#69b3a2) instead of
     // Vega-Lite's default palette (often #4c78a8).
     try {
-      const inferred = getChartType(cloned)
       const markType = normalizeMarkType(cloned.mark)
       const encoding = cloned.encoding && typeof cloned.encoding === 'object' ? (cloned.encoding as Record<string, JsonValue>) : {}
       const hasColorEncoding = hasFieldChannel(encoding.color)
@@ -950,7 +1001,7 @@ export async function renderVegaLiteChart(
       const configMark = asRecord((cloned.config as any)?.mark)
       const hasConfigMarkColor = typeof configMark.color === 'string' && configMark.color.trim().length > 0
 
-      if (inferred === ChartType.SIMPLE_BAR && markType === 'bar' && !hasColorEncoding && !hasMarkColor && !hasConfigMarkColor) {
+      if (inferredType === ChartType.SIMPLE_BAR && markType === 'bar' && !hasColorEncoding && !hasMarkColor && !hasConfigMarkColor) {
         cloned.mark = { ...markRec, type: 'bar', color: '#69b3a2' }
       }
     } catch {

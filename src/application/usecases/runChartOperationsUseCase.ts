@@ -23,6 +23,7 @@ export type RunChartOperationsConfig<Spec> = {
   spec: Spec
   opsSpec: OpsSpecInput
   render: (container: HTMLElement, spec: Spec) => Promise<unknown>
+  initialRenderMode?: 'always' | 'reuse-existing'
   postRender?: (container: HTMLElement, spec: Spec) => Promise<void>
   getWorkingData: (container: HTMLElement, spec: Spec) => DatumValue[]
   createHandler: (container: HTMLElement) => ChartHandler
@@ -69,7 +70,19 @@ const STRUCTURAL_DRAW_ACTIONS = new Set<DrawAction>([
   DrawAction.GroupedFilterGroups,
 ])
 
-const REMOUNT_ALLOWED_ACTIONS = new Set<DrawAction>([DrawAction.Split, DrawAction.Unsplit])
+const REMOUNT_ALLOWED_ACTIONS = new Set<DrawAction>([
+  DrawAction.Split,
+  DrawAction.Unsplit,
+  // Chart-type conversion draws intentionally re-render and replace the SVG root.
+  DrawAction.LineToBar,
+  DrawAction.MultiLineToStacked,
+  DrawAction.MultiLineToGrouped,
+  DrawAction.StackedToGrouped,
+  DrawAction.GroupedToStacked,
+  DrawAction.StackedToSimple,
+  DrawAction.GroupedToSimple,
+  DrawAction.StackedToDiverging,
+])
 const STRICT_NON_SPLIT_NO_REMOUNT = false
 
 type RenderIdentity = {
@@ -85,6 +98,11 @@ function getRenderIdentity(container: HTMLElement): RenderIdentity {
     svg: svg instanceof SVGSVGElement ? svg : null,
     epoch: Number.isFinite(epoch) ? epoch : 0,
   }
+}
+
+function isDrawDebugEnabled() {
+  if (typeof window === 'undefined') return false
+  return Boolean((window as unknown as { __WORKBENCH_DRAW_DEBUG__?: boolean }).__WORKBENCH_DRAW_DEBUG__)
 }
 
 function assertNoRemountForDrawOps(
@@ -128,6 +146,9 @@ function operationLogContext(operation: OperationSpec, index: number) {
 }
 
 function resolveDataInputSeed(operation: OperationSpec, phaseWorkingBase: DatumValue[]): DatumValue[] {
+  // `filter` uses `meta.inputs` for threshold refs (e.g., value: "ref:n1"), not for replacing the data source.
+  // Keep filtering against the current working dataset to avoid collapsing input into scalar dependency rows.
+  if (operation.op === OperationOp.Filter) return phaseWorkingBase
   const inputs = (Array.isArray(operation.meta?.inputs) ? operation.meta.inputs : []).filter(
     (depId): depId is string | number => typeof depId === 'string' || typeof depId === 'number',
   )
@@ -142,6 +163,7 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     spec,
     opsSpec,
     render,
+    initialRenderMode = 'always',
     postRender,
     getWorkingData,
     createHandler,
@@ -177,19 +199,83 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     await onOperationCompleted({ operation, operationIndex })
   }
 
-  await render(container, spec)
-  if (postRender) {
-    await postRender(container, spec)
+  const opsArray = normalizeOpsList(opsSpec)
+  const executableOps = opsArray.filter((operation) => operation.op !== OperationOp.Sleep)
+  const drawOpsInRun = executableOps.filter((operation): operation is DrawOp => isDrawOp(operation))
+  const hasDataOps = executableOps.some((operation) => !isDrawOp(operation))
+  const isDrawOnlyRun = executableOps.length > 0 && !hasDataOps
+  const hasStructuralDrawInRun = drawOpsInRun.some((drawOp) => STRUCTURAL_DRAW_ACTIONS.has(drawOp.action))
+  const initialIdentity = getRenderIdentity(container)
+  const autoReuseForDrawOnly = initialRenderMode !== 'reuse-existing' && isDrawOnlyRun && !hasStructuralDrawInRun && !!initialIdentity.svg
+  const effectiveInitialRenderMode: 'always' | 'reuse-existing' =
+    initialRenderMode === 'reuse-existing' || autoReuseForDrawOnly ? 'reuse-existing' : 'always'
+  const reuseExistingRender = effectiveInitialRenderMode === 'reuse-existing'
+  const drawDebugEnabled = isDrawDebugEnabled()
+
+  const runRender = async (reason: string) => {
+    await render(container, spec)
+    if (postRender) {
+      await postRender(container, spec)
+    }
+    if (drawDebugEnabled) {
+      const after = getRenderIdentity(container)
+      console.info('[draw:render]', {
+        mode: effectiveInitialRenderMode,
+        reason,
+        hasSvg: Boolean(after.svg),
+        epoch: after.epoch,
+      })
+    }
   }
 
-  const baseData = getWorkingData(container, spec)
-  const opsArray = normalizeOpsList(opsSpec)
+  if (drawDebugEnabled) {
+    console.info('[draw:render-decision]', {
+      requestedMode: initialRenderMode,
+      effectiveMode: effectiveInitialRenderMode,
+      autoReuseForDrawOnly,
+      isDrawOnlyRun,
+      hasStructuralDrawInRun,
+      hasExistingSvg: Boolean(initialIdentity.svg),
+      beforeEpoch: initialIdentity.epoch,
+    })
+  }
+
+  if (!reuseExistingRender) {
+    await runRender('always')
+  } else {
+    const beforeRender = getRenderIdentity(container)
+    if (!beforeRender.svg) {
+      await runRender('reuse-existing:no-svg')
+    } else if (postRender) {
+      await postRender(container, spec)
+    }
+  }
+
+  let baseData = getWorkingData(container, spec)
+  if (reuseExistingRender && hasDataOps && baseData.length === 0) {
+    await runRender('reuse-existing:empty-working-data')
+    baseData = getWorkingData(container, spec)
+  }
+
   const phases = buildExecutionPhases(opsArray)
   let working: DatumValue[] = baseData
   let handler = createHandler(container)
 
-  const svg = (getSvg ?? defaultGetSvg)(container)
-  clearAnnotations?.({ container, svg })
+  if (resetRuntime) {
+    const svg = (getSvg ?? defaultGetSvg)(container)
+    clearAnnotations?.({ container, svg })
+  }
+
+  const logReuseExistingDraw = (drawOp: DrawOp, before: RenderIdentity) => {
+    if (!(drawDebugEnabled && reuseExistingRender && isDrawOnlyRun)) return
+    const after = getRenderIdentity(container)
+    console.info('[draw:reuse-existing]', {
+      action: drawOp.action,
+      beforeEpoch: before.epoch,
+      afterEpoch: after.epoch,
+      sameSvg: before.svg === after.svg,
+    })
+  }
 
   let globalIndex = 0
   const nextIndex = () => {
@@ -270,6 +356,7 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
       const before = getRenderIdentity(container)
       if (splitHandler && (await splitHandler(container, spec, handler, drawOp))) {
         assertNoRemountForDrawOps(container, before, [drawOp], `draw-op:${drawOp.action}`)
+        logReuseExistingDraw(drawOp, before)
         handler = createHandler(container)
         await notifyOperationCompleted(operation, index)
         return
@@ -277,11 +364,13 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
       if (handleDrawOp) {
         await handleDrawOp(container, handler, drawOp)
         assertNoRemountForDrawOps(container, before, [drawOp], `draw-op:${drawOp.action}`)
+        logReuseExistingDraw(drawOp, before)
         await notifyOperationCompleted(operation, index)
         return
       }
       await handler.run(drawOp)
       assertNoRemountForDrawOps(container, before, [drawOp], `draw-op:${drawOp.action}`)
+      logReuseExistingDraw(drawOp, before)
       await notifyOperationCompleted(operation, index)
     }
 

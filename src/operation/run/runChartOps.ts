@@ -19,6 +19,7 @@ export type RunChartOpsOptions = {
   onOperationCompleted?: (event: OperationCompletedEvent) => Promise<void> | void
   runtimeScope?: string
   resetRuntime?: boolean
+  initialRenderMode?: 'always' | 'reuse-existing'
 }
 
 async function runChartOpsForSingleGroup(

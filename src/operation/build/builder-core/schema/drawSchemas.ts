@@ -34,6 +34,13 @@ export const baseSelectFields: FieldSchema[] = [
         optional: true,
         optionsSource: 'dataKey',
       },
+      {
+        key: 'field',
+        label: 'Field',
+        kind: 'string',
+        optional: true,
+        optionsSource: 'field',
+      },
     ],
   },
 ]
@@ -248,7 +255,7 @@ export const sumField: FieldSchema = {
   kind: 'object',
   optional: true,
   fields: [
-    { key: 'value', label: 'Value', kind: 'number', optional: false },
+    { key: 'value', label: 'Value', kind: 'number', optional: true },
     { key: 'label', label: 'Label', kind: 'string', optional: true },
   ],
 }

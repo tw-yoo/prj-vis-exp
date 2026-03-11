@@ -223,6 +223,7 @@ function normalizeSplitGroups(split: { groups: Record<string, Array<string | num
   const entries = Object.entries(split.groups ?? {})
   if (entries.length === 0) return null
   const [idA, listA] = entries[0]
+  const hasExplicitSecondGroup = entries.length >= 2
   const idB = entries[1]?.[0] ?? split.restTo ?? 'B'
   const listB = entries[1]?.[1] ?? []
 
@@ -233,7 +234,7 @@ function normalizeSplitGroups(split: { groups: Record<string, Array<string | num
   xDomain.forEach((label) => {
     if (setA.has(label)) domainA.push(label)
     else if (setB.has(label)) domainB.push(label)
-    else domainB.push(label)
+    else if (!hasExplicitSecondGroup) domainB.push(label)
   })
   return { ids: [idA, idB] as [string, string], domains: [domainA, domainB] as [string[], string[]] }
 }
@@ -446,6 +447,7 @@ export async function tagMultipleLineMarks(container: HTMLElement, spec: MultiLi
   }
   const xField = encoding.xField
   const yField = encoding.yField
+  const colorField = encoding.colorField ?? null
   const xType = encoding.xType ?? 'nominal'
   // wait up to 5 frames for marks to exist
   for (let i = 0; i < 5; i += 1) {
@@ -455,6 +457,10 @@ export async function tagMultipleLineMarks(container: HTMLElement, spec: MultiLi
     await new Promise((resolve) => requestAnimationFrame(resolve))
   }
   const svg = d3.select(container).select(SvgElements.Svg)
+  svg
+    .attr(DataAttributes.XField, xField)
+    .attr(DataAttributes.YField, yField)
+    .attr(DataAttributes.ColorField, colorField)
   svg.selectAll<SVGGraphicsElement, unknown>('path, circle, rect').each(function (rawDatum: unknown) {
     const ownerData = getDatumRecord(rawDatum)
     const embeddedDatum = getDatumRecord(ownerData.datum)

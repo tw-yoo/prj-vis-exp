@@ -65,7 +65,7 @@ const DRAW_OP_KEYS = [
 
 const DRAW_OP_KEY_SET = new Set<string>(DRAW_OP_KEYS)
 
-const DRAW_SELECT_KEYS = ['mark', 'keys'] satisfies ReadonlyArray<keyof DrawSelect>
+const DRAW_SELECT_KEYS = ['mark', 'field', 'keys'] satisfies ReadonlyArray<keyof DrawSelect>
 const DRAW_OP_STYLE_KEYS = ['color', 'opacity'] satisfies ReadonlyArray<keyof DrawOpStyle>
 const DRAW_TEXT_KEYS = ['value', 'mode', 'position', 'offset', 'style'] satisfies ReadonlyArray<keyof DrawTextSpec>
 const DRAW_TEXT_POSITION_KEYS = ['x', 'y'] satisfies ReadonlyArray<keyof TextPosition>

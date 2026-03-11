@@ -123,4 +123,5 @@ export type DrawSplitSpecOneAndRest = DrawSplitSpec &
 
 export type DrawSegmentSpecThreshold = DrawBarSegmentSpec & Brand<'draw.segmentSpec.threshold'>
 export type DrawSumSpecValue = DrawSumSpec & Brand<'draw.sumSpec.value'>
+export type DrawSumSpecLabel = DrawSumSpec & Brand<'draw.sumSpec.label'>
 export type DrawStackGroupSpecBuild = DrawStackGroupSpec & Brand<'draw.stackGroupSpec.build'>

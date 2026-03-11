@@ -329,6 +329,7 @@ function normalizeSplitGroups(split: DrawSplitSpec, xDomain: Array<string | numb
   if (entries.length === 0) return null
 
   const [idA, listA] = entries[0]
+  const hasExplicitSecondGroup = entries.length >= 2
   const idB = entries[1]?.[0] ?? split.restTo ?? 'B'
   const listB = entries[1]?.[1] ?? []
 
@@ -342,7 +343,7 @@ function normalizeSplitGroups(split: DrawSplitSpec, xDomain: Array<string | numb
     const s = String(label)
     if (setA.has(s)) domainA.push(label)
     else if (setB.has(s)) domainB.push(label)
-    else domainB.push(label)
+    else if (!hasExplicitSecondGroup) domainB.push(label)
   })
 
   return {

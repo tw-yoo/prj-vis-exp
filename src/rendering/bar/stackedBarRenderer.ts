@@ -129,6 +129,7 @@ function normalizeSplitGroups(split: DrawSplitSpec, xDomain: Array<string | numb
   if (entries.length === 0) return null
 
   const [idA, listA] = entries[0]
+  const hasExplicitSecondGroup = entries.length >= 2
   const idB = entries[1]?.[0] ?? split.restTo ?? 'B'
   const listB = entries[1]?.[1] ?? []
   const setA = new Set((listA ?? []).map(String))
@@ -140,7 +141,7 @@ function normalizeSplitGroups(split: DrawSplitSpec, xDomain: Array<string | numb
     const key = String(label)
     if (setA.has(key)) domainA.push(label)
     else if (setB.has(key)) domainB.push(label)
-    else domainB.push(label)
+    else if (!hasExplicitSecondGroup) domainB.push(label)
   })
 
   return {
@@ -391,6 +392,10 @@ async function tagBarMarks(container: HTMLElement, xField: string, yField: strin
     await new Promise((resolve) => requestAnimationFrame(resolve))
   }
   const svg = d3.select(container).select(SvgElements.Svg)
+  svg
+    .attr(DataAttributes.XField, xField)
+    .attr(DataAttributes.YField, yField)
+    .attr(DataAttributes.ColorField, colorField ?? null)
   const rows: RawDatum[] = []
   svg.selectAll<SVGGraphicsElement, unknown>('rect,path').each(function (this: SVGGraphicsElement, _d: unknown) {
     const datum = resolveDatum(_d, this)
@@ -398,6 +403,7 @@ async function tagBarMarks(container: HTMLElement, xField: string, yField: strin
     const yVal = datum?.[yField] ?? datum?.[yField?.toLowerCase?.()] ?? datum?.y ?? null
     const colorVal = colorField ? datum?.[colorField] ?? datum?.[colorField?.toLowerCase?.()] : null
     if (xVal == null || yVal == null) return
+    const fill = d3.select(this as Element).attr(SvgAttributes.Fill)
     const keyParts = [xVal, colorVal]
       .map((value) => (value == null ? '' : String(value).trim()))
       .filter((value) => value.length > 0)
@@ -410,6 +416,8 @@ async function tagBarMarks(container: HTMLElement, xField: string, yField: strin
     const numY = Number(yVal)
     if (!Number.isFinite(numY)) return
     const row: RawDatum = {
+      ...datum,
+      __fill: typeof fill === 'string' ? fill : null,
       [xField]: xVal,
       [yField]: numY,
     }

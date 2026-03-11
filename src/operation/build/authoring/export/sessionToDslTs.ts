@@ -193,8 +193,12 @@ const formatDrawStep = (step: TimelineStep): string | null => {
       return `ops.draw.lineTrace(${formatArgs(chartId, formatSelect(op))})`
     case DrawAction.Sort:
       return `ops.draw.sort(${formatArgs(chartId, op.sort?.by ? formatScalar(op.sort.by) : undefined, op.sort?.order ? formatScalar(op.sort.order) : undefined)})`
-    case DrawAction.Sum:
-      return `ops.draw.sum(${chartId}, draw.sumSpec.value(${op.sum?.value ?? 0}, ${op.sum?.label ? formatScalar(op.sum.label) : 'undefined'}))`
+    case DrawAction.Sum: {
+      if (op.sum?.value != null) {
+        return `ops.draw.sum(${chartId}, draw.sumSpec.value(${op.sum.value}, ${op.sum?.label ? formatScalar(op.sum.label) : 'undefined'}))`
+      }
+      return `ops.draw.sum(${chartId}, draw.sumSpec.label(${op.sum?.label ? formatScalar(op.sum.label) : 'undefined'}))`
+    }
     case DrawAction.ScalarPanel:
       return `ops.draw.scalarPanel(${chartId}, ${stringify(op.scalarPanel)})`
     default:

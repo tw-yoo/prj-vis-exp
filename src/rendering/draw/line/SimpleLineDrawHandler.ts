@@ -19,6 +19,8 @@ type LinePointEntry = {
   y: number
 }
 
+type AnySelection = d3.Selection<any, unknown, any, any>
+
 async function waitTransition(transition: d3.Transition<any, any, any, any>) {
   try {
     await transition.end()
@@ -37,28 +39,32 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
   protected override selectElements(_select?: DrawSelect, chartId?: string) {
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const scope = chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(chartId)}"]`) : svg
-    const selection = scope
+    const candidates = scope
       .selectAll<SVGElement, JsonValue>(`${SvgElements.Path}, ${SvgElements.Circle}, ${SvgElements.Rect}`)
       .filter(SvgSelectors.DataTargets)
-    return this.filterByKeys(selection, _select?.keys)
+    const selection = this.filterDataMarks(
+      candidates as unknown as d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>,
+    )
+    return this.filterBySelect(selection, _select)
   }
 
   protected override allMarks(chartId?: string) {
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const scope = chartId ? svg.selectAll(`[${DataAttributes.ChartId}="${String(chartId)}"]`) : svg
-    return scope
+    const candidates = scope
       .selectAll<SVGElement, JsonValue>(`${SvgElements.Path}, ${SvgElements.Circle}, ${SvgElements.Rect}`)
       .filter(SvgSelectors.DataTargets)
+    return this.filterDataMarks(candidates as unknown as d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>)
   }
 
   private drawPointCircle(
-    svg: d3.Selection<SVGSVGElement, JsonValue, d3.BaseType, JsonValue>,
+    svg: AnySelection,
     x: number,
     y: number,
     style?: { fill?: string; opacity?: number; stroke?: string; strokeWidth?: number; radius?: number },
     chartId?: string,
   ) {
-    svg
+    return svg
       .append(SvgElements.Circle)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} point-annotation`)
       .attr(DataAttributes.ChartId, chartId ?? null)
@@ -72,47 +78,14 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
   }
 
   override highlight(op: DrawOp) {
-    const svg = d3.select(this.container).select(SvgElements.Svg)
-    if (svg.empty()) return
-    const color = op.style?.color || '#ef4444'
-    const points = this.selectElements(op.select, op.chartId)
-    if (points.empty()) return
-    // 그룹별(타겟)로 bbox가 가장 작은 요소를 선택해서 라인 path를 배제
-    const grouped: Record<string, Element[]> = {}
-    points.each(function () {
-      const el = this as Element
-      const t = el.getAttribute(DataAttributes.Target) ?? ''
-      if (!grouped[t]) grouped[t] = []
-      grouped[t].push(el)
-    })
-
-    Object.entries(grouped).forEach(([target, nodes]) => {
-      const best = nodes.reduce<Element | null>((acc, el) => {
-        const bbox = (el as SVGGraphicsElement).getBBox?.()
-        const area = bbox ? Math.abs(bbox.width * bbox.height) : Number.POSITIVE_INFINITY
-        if (!acc) return el
-        const accB = (acc as SVGGraphicsElement).getBBox?.()
-        const accArea = accB ? Math.abs(accB.width * accB.height) : Number.POSITIVE_INFINITY
-        return area < accArea ? el : acc
-      }, null)
-      if (!best) return
-      // 가장 작은 bbox 중심을 SVG 좌표로 변환하고 annotation circle을 추가
-      const { x, y } = this.toSvgCenter(best, svg.node() as SVGSVGElement)
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return
-      this.drawPointCircle(svg as any, x, y, { fill: color }, op.chartId)
-    })
+    super.highlight(op)
   }
 
   override dim(op: DrawOp) {
-    const opacity = op.style?.opacity ?? 0.25
-    const selectedNodes = new Set(this.selectElements(op.select, op.chartId).nodes())
-    this.allMarks(op.chartId).attr(SvgAttributes.Opacity, function () {
-      // 하이라이트 대상은 불투명하게, 나머지는 투명도 감소
-      return selectedNodes.has(this as SVGElement) ? 1 : opacity
-    })
+    super.dim(op)
   }
 
-  private lineTrace(op: DrawOp) {
+  private async lineTrace(op: DrawOp) {
     const trace = (op as unknown as { trace?: TraceSpec }).trace
     let pair: [string, string] | null = null
     if (trace?.pair?.x && trace.pair.x.length === 2) {
@@ -171,7 +144,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
       .y((d) => d.y)
 
     const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null)) as any
-    layer
+    const tracePath = layer
       .append(SvgElements.Path)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
       .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -179,9 +152,37 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
       .attr(SvgAttributes.Stroke, stroke)
       .attr(SvgAttributes.StrokeWidth, strokeWidth)
       .attr(SvgAttributes.Fill, 'none')
-      .attr(SvgAttributes.Opacity, opacity)
+      .attr(SvgAttributes.Opacity, 0)
+    await waitTransition(
+      tracePath
+        .transition()
+        .duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS)
+        .attr(SvgAttributes.Opacity, opacity),
+    )
 
-    pointsWithin.forEach((p) => this.drawPointCircle(layer, p.x, p.y, { fill, radius, stroke }, op.chartId))
+    const endpointIndices = new Set([0, pointsWithin.length - 1])
+    const pointTransitions = pointsWithin.map((point, index) => {
+      const isEndpoint = endpointIndices.has(index)
+      const circle = this.drawPointCircle(
+        layer,
+        point.x,
+        point.y,
+        {
+          fill,
+          radius: isEndpoint ? radius * 1.2 : radius,
+          stroke,
+          strokeWidth: isEndpoint ? 2 : 1,
+          opacity: 0,
+        },
+        op.chartId,
+      )
+      const targetOpacity = isEndpoint ? opacity : Math.min(opacity, 0.75)
+      return circle
+        .transition()
+        .duration(NON_SPLIT_ENTER_MS)
+        .attr(SvgAttributes.Opacity, targetOpacity)
+    })
+    await Promise.all(pointTransitions.map((transition) => waitTransition(transition)))
   }
 
   private collectPointEntries(chartId?: string) {
@@ -434,8 +435,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     }
 
     if (op.action === DrawAction.LineTrace || (op as any).trace) {
-      this.lineTrace(op)
-      return
+      return this.lineTrace(op)
     }
     if (op.action === DrawAction.Filter) {
       return this.filter(op)
@@ -528,7 +528,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
       const y = toPos(yValues[0])
       if (y == null) return
       const height = Math.max(10 * scaleY, Math.min(18 * scaleY, (maxTextH || svgRect.height * 0.04) * scaleY))
-      layer
+      const rectNode = layer
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -537,9 +537,10 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
         .attr(SvgAttributes.Width, bandWidth)
         .attr(SvgAttributes.Height, height)
         .attr(SvgAttributes.Fill, rectSpec.style?.fill ?? 'none')
-        .attr(SvgAttributes.Opacity, rectSpec.style?.opacity ?? 1)
+        .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.Stroke, rectSpec.style?.stroke ?? '#111827')
         .attr(SvgAttributes.StrokeWidth, rectSpec.style?.strokeWidth ?? 1)
+      this.applyTransition(rectNode).attr(SvgAttributes.Opacity, rectSpec.style?.opacity ?? 1)
       return
     }
 
@@ -549,7 +550,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
       if (y1 == null || y2 == null) return
       const yTop = Math.min(y1, y2)
       const yBottom = Math.max(y1, y2)
-      layer
+      const rectNode = layer
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
@@ -558,9 +559,10 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
         .attr(SvgAttributes.Width, bandWidth)
         .attr(SvgAttributes.Height, yBottom - yTop)
         .attr(SvgAttributes.Fill, rectSpec.style?.fill ?? 'none')
-        .attr(SvgAttributes.Opacity, rectSpec.style?.opacity ?? 1)
+        .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.Stroke, rectSpec.style?.stroke ?? '#111827')
         .attr(SvgAttributes.StrokeWidth, rectSpec.style?.strokeWidth ?? 1)
+      this.applyTransition(rectNode).attr(SvgAttributes.Opacity, rectSpec.style?.opacity ?? 1)
     }
   }
 }

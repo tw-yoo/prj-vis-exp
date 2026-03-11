@@ -16,6 +16,7 @@ export type DrawRectMode = (typeof DrawRectModes)[keyof typeof DrawRectModes]
 export const DrawLineModes = {
   Angle: 'angle',
   Connect: 'connect',
+  ConnectPanelScalar: 'connect-panel-scalar',
   HorizontalFromX: 'hline-x',
   HorizontalFromY: 'hline-y',
 } as const

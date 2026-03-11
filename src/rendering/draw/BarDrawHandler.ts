@@ -10,8 +10,10 @@ import {
   type DrawOp,
   type DrawSelect,
 } from './types'
+import { resolveAnnotationKeyForDrawOp } from './annotationKey'
 import { normalizeComparisonCondition } from './utils/comparison'
 import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from './animationPolicy'
+import { ensureAnnotationLayer } from './utils/annotationLayer'
 
 async function waitTransition(transition: d3.Transition<any, any, any, any>) {
   try {
@@ -26,29 +28,37 @@ async function waitTransition(transition: d3.Transition<any, any, any, any>) {
  * Relies on data-target / data-id attributes set on rect marks.
  */
 export class BarDrawHandler extends BaseDrawHandler {
+  protected formatNumber(value: number) {
+    if (!Number.isFinite(value)) return ''
+    let text = value.toFixed(2)
+    text = text.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '')
+    return text === '-0' ? '0' : text
+  }
+
   protected selectElements(select?: DrawSelect, chartId?: string) {
     const scope = this.selectScope(chartId)
-    const mark = select?.mark || DrawMark.Rect
-    const selection = scope.selectAll<SVGElement, JsonValue>(mark)
-    return this.filterByKeys(selection, select?.keys)
+    const mark = !select?.mark || select.mark === DrawMark.Rect ? `${SvgElements.Rect},${SvgElements.Path}` : select.mark
+    const selection = this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(mark))
+    return this.filterBySelect(selection, select)
   }
 
   protected allMarks(chartId?: string) {
     const scope = this.selectScope(chartId)
-    return scope
-      .selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path}`)
-      .filter(function () {
-        const el = this as SVGElement
-        if (el.classList.contains('background') || el.classList.contains(SvgClassNames.Annotation)) return false
-        const hasTarget = (el.getAttribute(DataAttributes.Target) ?? '').trim().length > 0
-        if (hasTarget) return true
-        const roleDescription = (el.getAttribute('aria-roledescription') ?? '').toLowerCase()
-        return roleDescription === 'bar'
-      })
+    return this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path}`))
   }
 
   protected defaultColor() {
     return '#69b3a2'
+  }
+
+  protected getLocalAnnotationLayer(
+    scope: d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>,
+    chartId?: string,
+  ) {
+    const firstBar = this.selectBarMarks(scope).node()
+    const parent = (firstBar?.parentElement as Element | null) ?? (scope.node() as Element | null)
+    if (!parent) return null
+    return d3.select(ensureAnnotationLayer(parent, chartId))
   }
 
   private async sort(op: DrawOp) {
@@ -117,6 +127,7 @@ export class BarDrawHandler extends BaseDrawHandler {
   private barSegment(op: DrawOp) {
     const segment: DrawBarSegmentSpec | undefined = op.segment
     if (!segment) return
+    const annotationKey = resolveAnnotationKeyForDrawOp(op)
 
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
@@ -133,13 +144,13 @@ export class BarDrawHandler extends BaseDrawHandler {
 
     const barsAll = this.selectBarMarks(scope)
     const bars =
-      (this.filterByKeys(
+      (this.filterBySelect(
         barsAll as unknown as d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>,
-        op.select?.keys,
+        op.select,
       ) as unknown as d3.Selection<SVGRectElement, JsonValue, d3.BaseType, JsonValue>)
 
-    bars.each(function () {
-      const el = this as SVGRectElement
+    bars.each((_, index, nodes) => {
+      const el = nodes[index] as SVGRectElement
 
       const valueAttr = el.getAttribute(DataAttributes.Value)
       const v = valueAttr != null ? Number(valueAttr) : NaN
@@ -179,18 +190,20 @@ export class BarDrawHandler extends BaseDrawHandler {
       if (!Number.isFinite(segY) || !Number.isFinite(segH) || segH <= 0) return
 
       // Coordinates are computed in the SVG(viewBox) coordinate system, so append to the SVG root.
-      svg
+      const segmentRect = svg
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.BarSegmentAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
+        .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, segY)
         .attr(SvgAttributes.Width, width)
         .attr(SvgAttributes.Height, segH)
         .attr(SvgAttributes.Fill, style?.fill ?? '#ef4444')
-        .attr(SvgAttributes.Opacity, style?.opacity ?? 1)
+        .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.Stroke, style?.stroke ?? null)
         .attr(SvgAttributes.StrokeWidth, style?.strokeWidth ?? null)
+      this.applyTransition(segmentRect).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
     })
   }
 
@@ -364,9 +377,7 @@ export class BarDrawHandler extends BaseDrawHandler {
       .filter((entry): entry is { el: SVGRectElement; x: number; width: number; y: number; height: number; value: number; label: string } => entry != null)
     if (!entries.length) return
 
-    const computedTotal = entries.reduce((acc, entry) => acc + entry.value, 0)
-    const requestedTotal = Number(op.sum?.value)
-    const total = Number.isFinite(requestedTotal) ? requestedTotal : computedTotal
+    const total = entries.reduce((acc, entry) => acc + entry.value, 0)
     if (!Number.isFinite(total)) return
 
     const minLeft = d3.min(entries.map((entry) => entry.x)) ?? 0
@@ -374,16 +385,15 @@ export class BarDrawHandler extends BaseDrawHandler {
     if (!Number.isFinite(minLeft) || !Number.isFinite(maxRight) || maxRight <= minLeft) return
 
     const sumLabel = String(op.sum?.label ?? 'Sum')
-    const anchor = entries.slice().sort((a, b) => a.x - b.x)[0]
-    const hiddenEntries = entries.filter((entry) => entry.el !== anchor.el)
-    const hiddenSelection = d3.selectAll<SVGRectElement, unknown>(hiddenEntries.map((entry) => entry.el) as SVGRectElement[])
 
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const svgNode = svg.node() as SVGSVGElement | null
     if (!svgNode) return
+    const yScale = this.buildNiceYScale(scope, [total])
     const mapY = this.yValueToSvgY(scope, svgNode)
-    const zeroY = mapY(0) ?? (d3.max(entries.map((entry) => entry.y + entry.height)) ?? 0)
-    const sumY = mapY(total) ?? zeroY
+    const resolveY = (value: number) => (yScale ? yScale(value) : mapY(value))
+    const zeroY = resolveY(0) ?? (d3.max(entries.map((entry) => entry.y + entry.height)) ?? 0)
+    const sumY = resolveY(total) ?? zeroY
     const barTop = Math.min(sumY, zeroY)
     const barHeight = Math.abs(sumY - zeroY)
 
@@ -391,32 +401,57 @@ export class BarDrawHandler extends BaseDrawHandler {
     const targetX = targetScale(sumLabel) ?? minLeft
     const targetWidth = targetScale.bandwidth() || maxRight - minLeft
 
-    const hideTransition = hiddenSelection
-      .style('display', null)
-      .transition()
-      .duration(NON_SPLIT_EXIT_MS)
-      .attr(SvgAttributes.Opacity, 0)
-      .attr(SvgAttributes.Y, zeroY)
-      .attr(SvgAttributes.Height, 0)
+    // Preserve each bar color and animate bars into a stacked single-column composition.
+    const ordered = entries.slice().sort((a, b) => a.x - b.x)
+    const stackedLayout = new Map<SVGRectElement, { y: number; height: number }>()
+    let positiveBase = 0
+    let negativeBase = 0
+    ordered.forEach((entry) => {
+      const value = entry.value
+      const start = value >= 0 ? positiveBase : negativeBase
+      const end = start + value
+      if (value >= 0) positiveBase = end
+      else negativeBase = end
+      const yStart = resolveY(start)
+      const yEnd = resolveY(end)
+      if (yStart == null || yEnd == null) return
+      const y = Math.min(yStart, yEnd)
+      const height = Math.abs(yEnd - yStart)
+      stackedLayout.set(entry.el, { y, height })
+    })
 
-    const anchorSelection = d3.select(anchor.el).style('display', null).attr(SvgAttributes.Opacity, 1)
-    anchorSelection
-      .attr(DataAttributes.Target, sumLabel)
-      .attr(DataAttributes.Id, sumLabel)
-      .attr(DataAttributes.Value, String(total))
-    const morphTransition = anchorSelection
+    const allSelection = d3.selectAll<SVGRectElement, unknown>(ordered.map((entry) => entry.el) as SVGRectElement[])
+    allSelection.style('display', null).attr(SvgAttributes.Opacity, 1)
+    const morphTransition = allSelection
       .transition()
       .duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS)
       .attr(SvgAttributes.X, targetX)
       .attr(SvgAttributes.Width, targetWidth)
-      .attr(SvgAttributes.Y, barTop)
-      .attr(SvgAttributes.Height, barHeight)
+      .attr(SvgAttributes.Y, function () {
+        const layout = stackedLayout.get(this as SVGRectElement)
+        return layout ? layout.y : barTop
+      })
+      .attr(SvgAttributes.Height, function () {
+        const layout = stackedLayout.get(this as SVGRectElement)
+        return layout ? layout.height : barHeight
+      })
       .attr(SvgAttributes.Opacity, 1)
+
+    // Treat the stacked column as a single semantic target/value for later ops.
+    allSelection
+      .attr(DataAttributes.Target, sumLabel)
+      .attr(DataAttributes.Id, sumLabel)
+      .attr(DataAttributes.Value, String(total))
 
     const ticks = scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
     const tickNodes = ticks.nodes()
     const primaryTick = tickNodes.length ? tickNodes[0] : null
     const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
+    const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
+    const yAxisTransition =
+      yScale && !yAxis.empty()
+        ? yAxis.transition().duration(NON_SPLIT_UPDATE_MS).call(d3.axisLeft(yScale).ticks(5) as any)
+        : null
     ticks.each(function () {
       const tick = d3.select(this)
       const isPrimary = this === primaryTick
@@ -437,8 +472,31 @@ export class BarDrawHandler extends BaseDrawHandler {
         .attr(SvgAttributes.Transform, `translate(${targetX + targetWidth / 2},0)`)
     })
 
-    await Promise.all([waitTransition(hideTransition), waitTransition(morphTransition), waitTransition(tickTransition)])
-    hiddenSelection.style('display', 'none')
+    await Promise.all([
+      waitTransition(morphTransition),
+      waitTransition(tickTransition),
+      yAxisTransition ? waitTransition(yAxisTransition) : Promise.resolve(),
+    ])
+
+    const textValue = this.formatNumber(total)
+    if (!textValue) return
+    const annotationLayer = this.getLocalAnnotationLayer(scope, op.chartId)
+    if (!annotationLayer) return
+    annotationLayer.selectAll<SVGTextElement, unknown>('text.sum-value-annotation').remove()
+    const label = annotationLayer
+      .append(SvgElements.Text)
+      .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation} sum-value-annotation`)
+      .attr(DataAttributes.ChartId, op.chartId ?? null)
+      .attr(SvgAttributes.X, targetX + targetWidth / 2)
+      .attr(SvgAttributes.Y, barTop - 5)
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.DominantBaseline, 'ideographic')
+      .attr(SvgAttributes.Fill, '#111827')
+      .attr(SvgAttributes.FontSize, 12)
+      .attr(SvgAttributes.FontWeight, 'bold')
+      .attr(SvgAttributes.Opacity, 0)
+      .text(textValue)
+    this.applyTransition(label).attr(SvgAttributes.Opacity, 1)
   }
 
   run(op: DrawOp): void | Promise<void> {

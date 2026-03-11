@@ -49,6 +49,8 @@ export const DrawMarkOptions = [DrawMark.Rect, DrawMark.Path, DrawMark.Circle] a
 
 export type DrawSelect = {
   mark?: DrawMark
+  /** Select keys from a specific data field (x/y/color or id/target/value/series aliases). */
+  field?: string
   keys?: Array<string | number>
 }
 
@@ -98,6 +100,7 @@ export type { DrawLineMode, DrawRectMode, DrawTextMode }
 export const DrawLineModeOptions = [
   DrawLineModes.Angle,
   DrawLineModes.Connect,
+  DrawLineModes.ConnectPanelScalar,
   DrawLineModes.HorizontalFromX,
   DrawLineModes.HorizontalFromY,
 ] as const
@@ -143,6 +146,11 @@ export type DrawLineSpec = {
   connectBy?: {
     start: { target: string | number; series?: string | number }
     end: { target: string | number; series?: string | number }
+  }
+  panelScalar?: {
+    start: { chartId: string; value: number; nodeId?: string }
+    end: { chartId: string; value: number; nodeId?: string }
+    orientationHint?: 'vertical' | 'horizontal'
   }
   hline?: { x?: string; y?: number }
   angle?: number
@@ -214,7 +222,7 @@ export type DrawSplitSpec = {
 }
 
 export type DrawSumSpec = {
-  value: number
+  value?: number
   label?: string
 }
 

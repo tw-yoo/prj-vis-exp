@@ -73,6 +73,27 @@ body.survey-light-mode {
   background: #1d4ed8;
 }
 
+.section-toggle-btn {
+  background: #334155;
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.section-toggle-btn:hover {
+  background: #475569;
+}
+
+.section-collapsed-line {
+  border: 1px dashed #334155;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 textarea {
   width: 100%;
   box-sizing: border-box;

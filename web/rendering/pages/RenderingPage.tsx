@@ -3,6 +3,7 @@ import '../../App.css'
 import './rendering.css'
 import type { VegaLiteSpec } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
+import { buttonClickAction } from "./RenderingTestCode.ts";
 
 // Hardcoded spec file path
 const SPEC_FILE_PATH = '/ChartQA/data/vlSpec/bar/simple/0baf5ch9y4z8914p.json'
@@ -61,27 +62,23 @@ export default function RenderingPage() {
   }, [spec])
 
   const handleButtonClick = async () => {
-    // Placeholder for future functionality
-    console.log('Button clicked')
+    if (!chartRef.current) return
+    buttonClickAction(chartRef.current)
   }
 
   return (
     <div className="app-shell rendering-shell">
       <section className="rendering-container">
         <div className="rendering-content">
-          {loading ? (
-            <div className="rendering-status">Loading chart...</div>
-          ) : error ? (
-            <div className="rendering-error">Error: {error}</div>
-          ) : (
-            <>
-              <div className="chart-host" ref={chartRef} />
-              <div className="rendering-controls">
-                <button className="pill-btn" onClick={handleButtonClick}>
-                  Execute Action
-                </button>
-              </div>
-            </>
+          {loading && <div className="rendering-status">Loading chart...</div>}
+          {error && <div className="rendering-error">Error: {error}</div>}
+          <div className="chart-host" ref={chartRef} style={{ display: loading || !!error ? 'none' : 'block' }} />
+          {!loading && !error && (
+            <div className="rendering-controls">
+              <button className="pill-btn" onClick={handleButtonClick}>
+                Execute Action
+              </button>
+            </div>
           )}
         </div>
       </section>

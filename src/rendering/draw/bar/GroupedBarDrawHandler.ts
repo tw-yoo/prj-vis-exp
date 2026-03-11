@@ -1,10 +1,11 @@
 import * as d3 from 'd3'
 import type { JsonValue } from '../../../types'
-import { DataAttributes, SvgAttributes, SvgSelectors, SvgElements } from '../../interfaces'
+import { DataAttributes, SvgAttributes, SvgClassNames, SvgSelectors, SvgElements } from '../../interfaces'
 import { BarDrawHandler } from '../BarDrawHandler'
 import {
   DrawAction,
   DrawComparisonOperators,
+  DrawMark,
   type DrawOp,
   type DrawSelect,
 } from '../types'
@@ -33,13 +34,14 @@ type GroupedBarEntry = {
 export class GroupedBarDrawHandler extends BarDrawHandler {
   protected override selectElements(select?: DrawSelect, chartId?: string) {
     const scope = this.selectScope(chartId)
-    const selection = scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path}`)
-    return this.filterByKeys(selection, select?.keys)
+    const mark = !select?.mark || select.mark === DrawMark.Rect ? `${SvgElements.Rect},${SvgElements.Path}` : select.mark
+    const selection = this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(mark))
+    return this.filterBySelect(selection, select)
   }
 
   protected override allMarks(chartId?: string) {
     const scope = this.selectScope(chartId)
-    return scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path}`)
+    return this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path}`))
   }
 
   private collectGroupedBarEntries(scope: d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>) {
@@ -378,12 +380,10 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
     entries.forEach((entry) => {
       bySeries.set(entry.series, (bySeries.get(entry.series) ?? 0) + entry.value)
     })
-    const computedTotal = Array.from(bySeries.values()).reduce((acc, value) => acc + value, 0)
-    const requestedTotal = Number(op.sum?.value)
-    const total = Number.isFinite(requestedTotal) ? requestedTotal : computedTotal
+    const total = Array.from(bySeries.values()).reduce((acc, value) => acc + value, 0)
     if (!Number.isFinite(total)) return
 
-    const scaleFactor = Math.abs(computedTotal) > Number.EPSILON ? total / computedTotal : 1
+    const scaleFactor = 1
     const sumLabel = String(op.sum?.label ?? 'Sum')
     const minLeft = d3.min(entries.map((entry) => entry.baseX)) ?? 0
     const maxRight = d3.max(entries.map((entry) => entry.baseX + entry.width)) ?? 0
@@ -395,8 +395,17 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const svgNode = svg.node() as SVGSVGElement | null
     if (!svgNode) return
+    let positiveTotal = 0
+    let negativeTotal = 0
+    seriesDomain.forEach((series) => {
+      const value = (bySeries.get(series) ?? 0) * scaleFactor
+      if (value >= 0) positiveTotal += value
+      else negativeTotal += value
+    })
+    const yScale = this.buildNiceYScale(scope, [negativeTotal, positiveTotal])
     const mapY = this.yValueToSvgY(scope, svgNode)
-    const zeroY = mapY(0) ?? 0
+    const resolveY = (value: number) => (yScale ? yScale(value) : mapY(value))
+    const zeroY = resolveY(0) ?? 0
 
     const anchorBySeries = new Map<string, GroupedBarEntry>()
     entries
@@ -428,8 +437,8 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
       const end = start + value
       if (value >= 0) positive = end
       else negative = end
-      const y0 = mapY(start) ?? zeroY
-      const y1 = mapY(end) ?? zeroY
+      const y0 = resolveY(start) ?? zeroY
+      const y1 = resolveY(end) ?? zeroY
       shownEntries.push({
         entry: anchor,
         y: Math.min(y0, y1),
@@ -465,6 +474,11 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
     const tickNodes = ticks.nodes()
     const primaryTick = tickNodes.length ? tickNodes[0] : null
     const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
+    const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
+    const yAxisTransition =
+      yScale && !yAxis.empty()
+        ? yAxis.transition().duration(NON_SPLIT_UPDATE_MS).call(d3.axisLeft(yScale).ticks(5) as any)
+        : null
     ticks.each(function () {
       const tick = d3.select(this)
       const isPrimary = this === primaryTick
@@ -485,7 +499,38 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
         .attr(SvgAttributes.Transform, `translate(${targetX + targetWidth / 2},0)`)
     })
 
-    await Promise.all([waitTransition(hideTransition), waitTransition(shownTransition), waitTransition(tickTransition)])
+    await Promise.all([
+      waitTransition(hideTransition),
+      waitTransition(shownTransition),
+      waitTransition(tickTransition),
+      yAxisTransition ? waitTransition(yAxisTransition) : Promise.resolve(),
+    ])
+
+    const textValue = this.formatNumber(total)
+    const stackedTopY = d3.min(shownEntries.map((item) => item.y))
+    if (textValue && Number.isFinite(stackedTopY ?? NaN)) {
+      const annotationLayer = this.getLocalAnnotationLayer(scope, op.chartId)
+      if (!annotationLayer) {
+        hiddenSelection.style('display', 'none')
+        return
+      }
+      annotationLayer.selectAll<SVGTextElement, unknown>('text.sum-value-annotation').remove()
+      const label = annotationLayer
+        .append(SvgElements.Text)
+        .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation} sum-value-annotation`)
+        .attr(DataAttributes.ChartId, op.chartId ?? null)
+        .attr(SvgAttributes.X, targetX + targetWidth / 2)
+        .attr(SvgAttributes.Y, Number(stackedTopY) - 5)
+        .attr(SvgAttributes.TextAnchor, 'middle')
+        .attr(SvgAttributes.DominantBaseline, 'ideographic')
+        .attr(SvgAttributes.Fill, '#111827')
+        .attr(SvgAttributes.FontSize, 12)
+        .attr(SvgAttributes.FontWeight, 'bold')
+        .attr(SvgAttributes.Opacity, 0)
+        .text(textValue)
+      label.transition().duration(NON_SPLIT_UPDATE_MS).attr(SvgAttributes.Opacity, 1)
+    }
+
     hiddenSelection.style('display', 'none')
   }
 

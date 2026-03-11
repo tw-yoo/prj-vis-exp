@@ -2,7 +2,7 @@ import type { DatumValue, OperationSpec } from '../../types'
 import { BarDrawHandler } from '../../rendering/draw/BarDrawHandler.ts'
 import { DrawAction, type DrawSplitSpec, type DrawOp } from '../../rendering/draw/types.ts'
 import { runSimpleBarDrawPlan } from '../../rendering/ops/executor/runSimpleBarDrawPlan.ts'
-import { SIMPLE_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/simple/autoDrawPlanRegistry.ts'
+import { SIMPLE_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/simple/simpleBarAutoDrawPlanBuilder.ts'
 import { normalizeOpsList, type OpsSpecInput } from '../../rendering/ops/common/opsSpec.ts'
 import { getPlotContext } from '../../rendering/ops/common/chartContext.ts'
 import { toWorkingDatumValuesFromStore } from '../../rendering/ops/common/workingData.ts'
@@ -106,5 +106,6 @@ export async function runSimpleBarOps(
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,
+    initialRenderMode: options?.initialRenderMode ?? 'always',
   })
 }

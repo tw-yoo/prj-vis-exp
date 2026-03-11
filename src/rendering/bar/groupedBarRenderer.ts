@@ -149,6 +149,7 @@ function normalizeSplitGroups(split: DrawSplitSpec, categoryDomain: Array<string
   if (entries.length === 0) return null
 
   const [idA, listA] = entries[0]
+  const hasExplicitSecondGroup = entries.length >= 2
   const idB = entries[1]?.[0] ?? split.restTo ?? 'B'
   const listB = entries[1]?.[1] ?? []
   const setA = new Set((listA ?? []).map(String))
@@ -160,7 +161,7 @@ function normalizeSplitGroups(split: DrawSplitSpec, categoryDomain: Array<string
     const key = String(label)
     if (setA.has(key)) domainA.push(label)
     else if (setB.has(key)) domainB.push(label)
-    else domainB.push(label)
+    else if (!hasExplicitSecondGroup) domainB.push(label)
   })
 
   return {
@@ -445,6 +446,11 @@ async function tagBarMarks(
     await new Promise((resolve) => requestAnimationFrame(resolve))
   }
   const svg = d3.select(container).select(SvgElements.Svg)
+  svg
+    .attr(DataAttributes.XField, xField)
+    .attr(DataAttributes.YField, yField)
+    .attr(DataAttributes.ColorField, colorField ?? null)
+    .attr(DataAttributes.FacetField, facetField ?? null)
   const rows: RawDatum[] = []
   svg.selectAll<SVGGraphicsElement, unknown>('rect,path').each(function (this: SVGGraphicsElement, _d: unknown) {
     const datum = resolveDatum(_d, this)

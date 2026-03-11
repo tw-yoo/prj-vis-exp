@@ -40,6 +40,7 @@ import type {
   DrawSplitSpecOneAndRest,
   DrawSplitSpecTwo,
   DrawStackGroupSpecBuild,
+  DrawSumSpecLabel,
   DrawSumSpecValue,
   DrawTextSpecAnchor,
   DrawTextSpecNormalized,
@@ -64,6 +65,7 @@ export type {
   DrawSplitSpecOneAndRest,
   DrawSplitSpecTwo,
   DrawStackGroupSpecBuild,
+  DrawSumSpecLabel,
   DrawSumSpecValue,
   DrawTextSpecAnchor,
   DrawTextSpecNormalized,
@@ -95,8 +97,14 @@ export const draw = {
     keys(...keys: Array<string | number>): DrawSelectKeys {
       return { keys: [...keys] } as DrawSelectKeys
     },
+    fieldKeys(field: string, ...keys: Array<string | number>): DrawSelectKeys {
+      return { field, keys: [...keys] } as DrawSelectKeys
+    },
     markKeys(mark: DrawMark, ...keys: Array<string | number>): DrawSelectMarkKeys {
       return { mark, keys: [...keys] } as DrawSelectMarkKeys
+    },
+    markFieldKeys(mark: DrawMark, field: string, ...keys: Array<string | number>): DrawSelectMarkKeys {
+      return { mark, field, keys: [...keys] } as DrawSelectMarkKeys
     },
   },
 
@@ -342,6 +350,9 @@ export const draw = {
   sumSpec: {
     value(value: number, label?: string): DrawSumSpecValue {
       return { value, label } as DrawSumSpecValue
+    },
+    label(label?: string): DrawSumSpecLabel {
+      return { label } as DrawSumSpecLabel
     },
   },
 

@@ -418,6 +418,21 @@ function resolveSelectorScalar(
   return aggregate(values, agg)
 }
 
+export function resolveFilterRefThreshold(
+  value: JsonValue | undefined,
+  aggregateHint?: string,
+): number | null {
+  if (typeof value !== 'string' || !value.startsWith('ref:')) return null
+  const refKey = value.slice('ref:'.length).trim()
+  if (!refKey) return null
+  const runtime = getRuntimeResultsById(refKey)
+  if (!runtime.length) return null
+  const values = runtime.map((item) => Number(item.value)).filter(Number.isFinite)
+  if (!values.length) return null
+  const resolved = aggregate(values, aggregateHint)
+  return Number.isFinite(resolved) ? Number(resolved) : null
+}
+
 function targetKeyForPairDiff(item: DatumValue, byField: string) {
   if (byField === 'target' || byField === item.category) return String(item.target)
   if (byField === 'id') return String(item.id ?? '')
@@ -472,6 +487,17 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
   const arr = cloneData(data)
   const spec = assertFilterSpec(op)
   const { field, operator, value, group, include, exclude } = spec
+  let resolvedValue: JsonValue | undefined = value
+  if (typeof value === 'string' && value.startsWith('ref:')) {
+    const resolved = resolveFilterRefThreshold(
+      value,
+      typeof spec.aggregate === 'string' ? spec.aggregate : undefined,
+    )
+    if (!Number.isFinite(resolved ?? NaN)) {
+      throw new Error(`filter: unresolved ref value "${value}"`)
+    }
+    resolvedValue = resolved
+  }
   const byGroup = sliceByGroup(arr, group ?? null)
   const includeSet = new Set((include ?? []).map(String))
   const excludeSet = new Set((exclude ?? []).map(String))
@@ -510,7 +536,7 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
   const inField = byTarget.filter(predicateByField(field, kind))
 
   if (operator === 'between') {
-    const [start, end] = Array.isArray(value) ? value : []
+    const [start, end] = Array.isArray(resolvedValue) ? resolvedValue : []
     if (start === undefined || end === undefined) {
       throw new Error('filter: "between" requires [start, end]')
     }
@@ -530,10 +556,10 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
 
   // Numeric vs categorical dispatch
   if (kind === 'measure') {
-    return inField.filter((d) => evalOperator(operator, d.value, value ?? d.value))
+    return inField.filter((d) => evalOperator(operator, d.value, resolvedValue ?? d.value))
   }
   // category
-  return inField.filter((d) => evalOperator(operator, d.target, value ?? d.target))
+  return inField.filter((d) => evalOperator(operator, d.target, resolvedValue ?? d.target))
 }
 
 /** 3.3 compare — returns the winning datum (array of one) */

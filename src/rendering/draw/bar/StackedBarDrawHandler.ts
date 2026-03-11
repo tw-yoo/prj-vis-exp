@@ -2,7 +2,8 @@ import * as d3 from 'd3'
 import type { JsonValue } from '../../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../../interfaces'
 import { BarDrawHandler } from '../BarDrawHandler'
-import { DrawAction, DrawComparisonOperators, type DrawBarSegmentSpec, type DrawOp, type DrawSelect } from '../types'
+import { DrawAction, DrawComparisonOperators, DrawMark, type DrawBarSegmentSpec, type DrawOp, type DrawSelect } from '../types'
+import { resolveAnnotationKeyForDrawOp } from '../annotationKey'
 import { ensureAnnotationLayer } from '../utils/annotationLayer'
 import { normalizeComparisonCondition } from '../utils/comparison'
 import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from '../animationPolicy'
@@ -27,6 +28,29 @@ type StackedEntry = {
 }
 
 export class StackedBarDrawHandler extends BarDrawHandler {
+  private pathRectD(x: number, y: number, width: number, height: number) {
+    const w = Number.isFinite(width) ? width : 0
+    const h = Number.isFinite(height) ? height : 0
+    return `M${x},${y}h${w}v${h}h${-w}Z`
+  }
+
+  private transitionEntryBox(
+    transition: d3.Transition<SVGGraphicsElement, unknown, any, any>,
+    entry: StackedEntry,
+    box: { x: number; y: number; width: number; height: number },
+  ) {
+    const t = transition.filter(function () {
+      return this === entry.el
+    })
+    t.attr(SvgAttributes.X, box.x)
+      .attr(SvgAttributes.Y, box.y)
+      .attr(SvgAttributes.Width, box.width)
+      .attr(SvgAttributes.Height, box.height)
+    if (entry.el.tagName.toLowerCase() === SvgElements.Path) {
+      t.attr(SvgAttributes.D, this.pathRectD(box.x, box.y, box.width, box.height))
+    }
+  }
+
   private collectBarsByTarget(
     scope: d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>,
     targetFilter?: Set<string>,
@@ -137,7 +161,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       .slice()
       .sort((a, b) => {
         if (a.x !== b.x) return a.x - b.x
-        if (a.y !== b.y) return a.y - b.y
+        if (a.y !== b.y) return b.y - a.y
         return 0
       })
       .forEach((entry) => {
@@ -197,7 +221,14 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       .transition()
       .duration(NON_SPLIT_EXIT_MS)
       .attr(SvgAttributes.Opacity, 0)
-      .attr(SvgAttributes.Height, 0)
+    hiddenEntries.forEach((entry) => {
+      this.transitionEntryBox(hideTransition, entry, {
+        x: entry.x,
+        y: entry.y + entry.height,
+        width: entry.width,
+        height: 0,
+      })
+    })
 
     const showSelection = d3
       .selectAll<SVGGraphicsElement, unknown>(shownEntries.map((entry) => entry.el) as SVGGraphicsElement[])
@@ -207,14 +238,16 @@ export class StackedBarDrawHandler extends BarDrawHandler {
     shownEntries.forEach((entry) => {
       const x = xScale(entry.target)
       if (x == null) return
+      this.transitionEntryBox(showTransition, entry, {
+        x,
+        y: entry.y,
+        width: xScale.bandwidth(),
+        height: entry.height,
+      })
       showTransition
         .filter(function () {
           return this === entry.el
         })
-        .attr(SvgAttributes.X, x)
-        .attr(SvgAttributes.Width, xScale.bandwidth())
-        .attr(SvgAttributes.Y, entry.y)
-        .attr(SvgAttributes.Height, entry.height)
         .attr(SvgAttributes.Opacity, 1)
     })
 
@@ -273,6 +306,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
   private barSegmentByAggregate(op: DrawOp) {
     const segment: DrawBarSegmentSpec | undefined = op.segment
     if (!segment) return
+    const annotationKey = resolveAnnotationKeyForDrawOp(op)
     const threshold = Number(segment.threshold)
     if (!Number.isFinite(threshold)) return
 
@@ -341,6 +375,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.BarSegmentAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
+        .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, segY)
         .attr(SvgAttributes.Width, width)
@@ -407,9 +442,6 @@ export class StackedBarDrawHandler extends BarDrawHandler {
     if (op.action !== DrawAction.StackedFilterGroups) return
     const groupFilter = op.groupFilter
     if (!groupFilter) return
-    const svg = d3.select(this.container).select(SvgElements.Svg)
-    const svgNode = svg.node() as SVGSVGElement | null
-    if (!svgNode) return
     const scope = this.selectScope(op.chartId)
     const entries = this.collectEntries(scope)
     if (!entries.length) return
@@ -441,8 +473,6 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       }
     }
 
-    const mapY = this.yValueToSvgY(scope, svgNode)
-    const zeroY = mapY(0) ?? (d3.max(entries.map((entry) => entry.y + entry.height)) ?? 0)
     const grouped = d3.group(entries, (entry) => entry.target)
     const hiddenEntries: StackedEntry[] = []
     const shownEntries: Array<{ entry: StackedEntry; y: number; height: number }> = []
@@ -450,31 +480,43 @@ export class StackedBarDrawHandler extends BarDrawHandler {
     grouped.forEach((targetEntries) => {
       const bySeries = new Map<string, StackedEntry>()
       targetEntries.forEach((entry) => bySeries.set(entry.series, entry))
-      let positive = 0
-      let negative = 0
-      seriesDomain.forEach((series) => {
-        const entry = bySeries.get(series)
-        if (!entry) return
-        if (!visibleSeries.has(series)) {
-          hiddenEntries.push(entry)
-          return
-        }
-        const value = entry.value
-        const start = value >= 0 ? positive : negative
-        const end = start + value
-        if (value >= 0) positive = end
-        else negative = end
-        const y0 = mapY(start)
-        const y1 = mapY(end)
-        if (y0 == null || y1 == null) {
-          shownEntries.push({ entry, y: entry.y, height: entry.height })
-          return
-        }
-        shownEntries.push({
-          entry,
-          y: Math.min(y0, y1),
-          height: Math.abs(y0 - y1),
+
+      const zeroY = d3.max(targetEntries.map((entry) => entry.y + entry.height)) ?? 0
+      let positiveBottom = zeroY
+      let negativeTop = zeroY
+
+      const positiveVisible = seriesDomain
+        .map((series) => bySeries.get(series))
+        .filter((entry): entry is StackedEntry => {
+          if (!entry) return false
+          return visibleSeries.has(entry.series) && entry.value >= 0
         })
+        .sort((a, b) => b.y - a.y)
+
+      const negativeVisible = seriesDomain
+        .map((series) => bySeries.get(series))
+        .filter((entry): entry is StackedEntry => {
+          if (!entry) return false
+          return visibleSeries.has(entry.series) && entry.value < 0
+        })
+        .sort((a, b) => a.y - b.y)
+
+      targetEntries.forEach((entry) => {
+        if (!visibleSeries.has(entry.series)) hiddenEntries.push(entry)
+      })
+
+      positiveVisible.forEach((entry) => {
+        const h = Math.max(0, entry.height)
+        const y = positiveBottom - h
+        shownEntries.push({ entry, y, height: h })
+        positiveBottom = y
+      })
+
+      negativeVisible.forEach((entry) => {
+        const h = Math.max(0, entry.height)
+        const y = negativeTop
+        shownEntries.push({ entry, y, height: h })
+        negativeTop += h
       })
     })
 
@@ -484,8 +526,19 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       .transition()
       .duration(NON_SPLIT_EXIT_MS)
       .attr(SvgAttributes.Opacity, 0)
-      .attr(SvgAttributes.Y, zeroY)
-      .attr(SvgAttributes.Height, 0)
+    hiddenEntries.forEach((entry) => {
+      const targetZero = d3
+        .max(
+          (grouped.get(entry.target) ?? []).map((targetEntry) => targetEntry.y + targetEntry.height),
+        )
+        ?? entry.y + entry.height
+      this.transitionEntryBox(hideTransition, entry, {
+        x: entry.x,
+        y: targetZero,
+        width: entry.width,
+        height: 0,
+      })
+    })
 
     const shownSelection = d3
       .selectAll<SVGGraphicsElement, unknown>(shownEntries.map((item) => item.entry.el) as SVGGraphicsElement[])
@@ -493,12 +546,16 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       .attr(SvgAttributes.Opacity, 1)
     const shownTransition = shownSelection.transition().duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS)
     shownEntries.forEach((item) => {
+      this.transitionEntryBox(shownTransition, item.entry, {
+        x: item.entry.x,
+        y: item.y,
+        width: item.entry.width,
+        height: item.height,
+      })
       shownTransition
         .filter(function () {
           return this === item.entry.el
         })
-        .attr(SvgAttributes.Y, item.y)
-        .attr(SvgAttributes.Height, item.height)
         .attr(SvgAttributes.Opacity, 1)
     })
 
@@ -520,12 +577,10 @@ export class StackedBarDrawHandler extends BarDrawHandler {
     entries.forEach((entry) => {
       bySeries.set(entry.series, (bySeries.get(entry.series) ?? 0) + entry.value)
     })
-    const computedTotal = Array.from(bySeries.values()).reduce((acc, value) => acc + value, 0)
-    const requestedTotal = Number(op.sum?.value)
-    const total = Number.isFinite(requestedTotal) ? requestedTotal : computedTotal
+    const total = Array.from(bySeries.values()).reduce((acc, value) => acc + value, 0)
     if (!Number.isFinite(total)) return
 
-    const scaleFactor = Math.abs(computedTotal) > Number.EPSILON ? total / computedTotal : 1
+    const scaleFactor = 1
     const sumLabel = String(op.sum?.label ?? 'Sum')
     const minLeft = d3.min(entries.map((entry) => entry.x)) ?? 0
     const maxRight = d3.max(entries.map((entry) => entry.x + entry.width)) ?? 0
@@ -537,8 +592,17 @@ export class StackedBarDrawHandler extends BarDrawHandler {
     const svg = d3.select(this.container).select(SvgElements.Svg)
     const svgNode = svg.node() as SVGSVGElement | null
     if (!svgNode) return
+    let positiveTotal = 0
+    let negativeTotal = 0
+    seriesDomain.forEach((series) => {
+      const value = (bySeries.get(series) ?? 0) * scaleFactor
+      if (value >= 0) positiveTotal += value
+      else negativeTotal += value
+    })
+    const yScale = this.buildNiceYScale(scope, [negativeTotal, positiveTotal])
     const mapY = this.yValueToSvgY(scope, svgNode)
-    const zeroY = mapY(0) ?? (d3.max(entries.map((entry) => entry.y + entry.height)) ?? 0)
+    const resolveY = (value: number) => (yScale ? yScale(value) : mapY(value))
+    const zeroY = resolveY(0) ?? (d3.max(entries.map((entry) => entry.y + entry.height)) ?? 0)
 
     const anchorBySeries = new Map<string, StackedEntry>()
     entries
@@ -560,8 +624,14 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       .transition()
       .duration(NON_SPLIT_EXIT_MS)
       .attr(SvgAttributes.Opacity, 0)
-      .attr(SvgAttributes.Y, zeroY)
-      .attr(SvgAttributes.Height, 0)
+    hiddenEntries.forEach((entry) => {
+      this.transitionEntryBox(hideTransition, entry, {
+        x: entry.x,
+        y: zeroY,
+        width: entry.width,
+        height: 0,
+      })
+    })
 
     let positive = 0
     let negative = 0
@@ -575,8 +645,8 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       const end = start + value
       if (value >= 0) positive = end
       else negative = end
-      const y0 = mapY(start) ?? zeroY
-      const y1 = mapY(end) ?? zeroY
+      const y0 = resolveY(start) ?? zeroY
+      const y1 = resolveY(end) ?? zeroY
       shownEntries.push({
         entry: anchor,
         y: Math.min(y0, y1),
@@ -600,17 +670,24 @@ export class StackedBarDrawHandler extends BarDrawHandler {
         .filter(function () {
           return this === item.entry.el
         })
-        .attr(SvgAttributes.X, targetX)
-        .attr(SvgAttributes.Width, targetWidth)
-        .attr(SvgAttributes.Y, item.y)
-        .attr(SvgAttributes.Height, item.height)
         .attr(SvgAttributes.Opacity, 1)
+      this.transitionEntryBox(shownTransition, item.entry, {
+        x: targetX,
+        y: item.y,
+        width: targetWidth,
+        height: item.height,
+      })
     })
 
     const ticks = scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
     const tickNodes = ticks.nodes()
     const primaryTick = tickNodes.length ? tickNodes[0] : null
     const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
+    const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
+    const yAxisTransition =
+      yScale && !yAxis.empty()
+        ? yAxis.transition().duration(NON_SPLIT_UPDATE_MS).call(d3.axisLeft(yScale).ticks(5) as any)
+        : null
     ticks.each(function () {
       const tick = d3.select(this)
       const isPrimary = this === primaryTick
@@ -631,19 +708,51 @@ export class StackedBarDrawHandler extends BarDrawHandler {
         .attr(SvgAttributes.Transform, `translate(${targetX + targetWidth / 2},0)`)
     })
 
-    await Promise.all([waitTransition(hideTransition), waitTransition(shownTransition), waitTransition(tickTransition)])
+    await Promise.all([
+      waitTransition(hideTransition),
+      waitTransition(shownTransition),
+      waitTransition(tickTransition),
+      yAxisTransition ? waitTransition(yAxisTransition) : Promise.resolve(),
+    ])
+
+    const textValue = this.formatNumber(total)
+    const stackedTopY = d3.min(shownEntries.map((item) => item.y))
+    if (textValue && Number.isFinite(stackedTopY ?? NaN)) {
+      const annotationLayer = this.getLocalAnnotationLayer(scope, op.chartId)
+      if (!annotationLayer) {
+        hiddenSelection.style('display', 'none')
+        return
+      }
+      annotationLayer.selectAll<SVGTextElement, unknown>('text.sum-value-annotation').remove()
+      const label = annotationLayer
+        .append(SvgElements.Text)
+        .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation} sum-value-annotation`)
+        .attr(DataAttributes.ChartId, op.chartId ?? null)
+        .attr(SvgAttributes.X, targetX + targetWidth / 2)
+        .attr(SvgAttributes.Y, Number(stackedTopY) - 5)
+        .attr(SvgAttributes.TextAnchor, 'middle')
+        .attr(SvgAttributes.DominantBaseline, 'ideographic')
+        .attr(SvgAttributes.Fill, '#111827')
+        .attr(SvgAttributes.FontSize, 12)
+        .attr(SvgAttributes.FontWeight, 'bold')
+        .attr(SvgAttributes.Opacity, 0)
+        .text(textValue)
+      label.transition().duration(NON_SPLIT_UPDATE_MS).attr(SvgAttributes.Opacity, 1)
+    }
+
     hiddenSelection.style('display', 'none')
   }
 
   protected override selectElements(select?: DrawSelect, chartId?: string) {
     const scope = this.selectScope(chartId)
-    const selection = scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path}`)
-    return this.filterByKeys(selection, select?.keys)
+    const mark = !select?.mark || select.mark === DrawMark.Rect ? `${SvgElements.Rect},${SvgElements.Path}` : select.mark
+    const selection = this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(mark))
+    return this.filterBySelect(selection, select)
   }
 
   protected override allMarks(chartId?: string) {
     const scope = this.selectScope(chartId)
-    return scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path}`)
+    return this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path}`))
   }
 
   override run(op: DrawOp): void | Promise<void> {
@@ -657,7 +766,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
     if (op.action === DrawAction.StackedFilterGroups) {
       return this.filterBySeries(op)
     }
-    if (!hasGroup && op.action === DrawAction.Sum) {
+    if (op.action === DrawAction.Sum) {
       return this.sumStacked(op)
     }
     if (!hasGroup && op.action === DrawAction.BarSegment) {
