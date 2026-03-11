@@ -3,10 +3,14 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
-import { formatDrawNumber } from '../../helpers'
+import { AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
+import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
 type TargetPoint = { target: string; series?: string }
 type ScalarRefValue = { refKey: string; label: string; value: number; target: string | null }
+type TargetMetric = { value: number; x: number; y: number }
+
+const EMPHASIS_RED = '#ef4444'
 
 function lineAt(value: number, color = '#0ea5e9') {
   return draw.lineSpec.horizontalFromY(value, draw.style.line(color, 2, 0.85))
@@ -30,8 +34,7 @@ function resolveRefPoint(ref: string, fallbackSeries?: string | null): TargetPoi
   const first = runtimeRows[0]
   return {
     target: String(first.target),
-    series: first.group != null ? String(first.group) : fallbackSeries ?? undefined,
-  }
+    series: first.group != null ? String(first.group) : fallbackSeries ?? undefined }
 }
 
 function toPoint(selector: TargetSelector, fallbackSeries?: string | null): TargetPoint | null {
@@ -103,8 +106,7 @@ function resolveScalarRef(selector: TargetSelector | TargetSelector[] | undefine
     refKey,
     label: preferred,
     value: numeric,
-    target: runtimeRows[0]?.target != null ? String(runtimeRows[0].target) : null,
-  }
+    target: runtimeRows[0]?.target != null ? String(runtimeRows[0].target) : null }
 }
 
 function resolveDiffScalarPair(op: OperationSpec): { left: ScalarRefValue; right: ScalarRefValue } | null {
@@ -164,6 +166,104 @@ function highlightTargets(op: OperationSpec, targets: string[], color = '#0ea5e9
   return [ops.draw.highlight(op.chartId, draw.select.markKeys('rect', ...targets), color)]
 }
 
+function resolveNodeChartId(node: Element) {
+  const direct = node.getAttribute('data-chart-id')
+  if (direct && direct.trim().length > 0) return direct.trim()
+  const scopedParent = node.closest('[data-chart-id]')
+  if (!scopedParent) return null
+  const inherited = scopedParent.getAttribute('data-chart-id')
+  return inherited && inherited.trim().length > 0 ? inherited.trim() : null
+}
+
+function collectTargetMetrics(context: AutoDrawPlanContext, chartId?: string) {
+  const out = new Map<string, TargetMetric>()
+  const nodes = Array.from(context.container.querySelectorAll<SVGGraphicsElement>('svg [data-target][data-value]'))
+  nodes.forEach((node) => {
+    if (!(node instanceof Element)) return
+    if (node.classList.contains('annotation')) return
+    const tagName = node.tagName.toLowerCase()
+    if (tagName !== 'rect' && tagName !== 'path') return
+    const target = node.getAttribute('data-target')
+    if (!target || target.trim().length === 0) return
+    if (chartId) {
+      const nodeChartId = resolveNodeChartId(node)
+      if (nodeChartId && nodeChartId !== chartId) return
+    }
+    const rawValue = Number(node.getAttribute('data-value'))
+    if (!Number.isFinite(rawValue)) return
+    const ownerSvg = node.ownerSVGElement
+    if (!ownerSvg) return
+    const svgRect = ownerSvg.getBoundingClientRect()
+    if (!(svgRect.width > 0 && svgRect.height > 0)) return
+    const rect = node.getBoundingClientRect()
+    const x = (rect.left + rect.width / 2 - svgRect.left) / svgRect.width
+    const y = 1 - (rect.top - svgRect.top) / svgRect.height
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return
+    const key = target.trim()
+    const prev = out.get(key)
+    if (!prev || rect.width * rect.height > 0) {
+      out.set(key, {
+        value: rawValue,
+        x: Math.max(0, Math.min(1, x)),
+        y: Math.max(0, Math.min(1, y)),
+      })
+    }
+  })
+  return out
+}
+
+function inferNormalizedYForValue(value: number, metrics: Map<string, TargetMetric>, fallbackData: DatumValue[]) {
+  const points = Array.from(metrics.values())
+    .map((metric) => ({ value: Number(metric.value), y: Number(metric.y) }))
+    .filter((point) => Number.isFinite(point.value) && Number.isFinite(point.y))
+    .sort((a, b) => a.value - b.value)
+  if (points.length === 1) return points[0].y
+  if (points.length > 1) {
+    if (value <= points[0].value) return points[0].y
+    if (value >= points[points.length - 1].value) return points[points.length - 1].y
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const left = points[i]
+      const right = points[i + 1]
+      if (value < left.value || value > right.value) continue
+      const span = right.value - left.value
+      if (!(span > 0)) return (left.y + right.y) / 2
+      const t = (value - left.value) / span
+      return left.y + t * (right.y - left.y)
+    }
+    return points[points.length - 1].y
+  }
+
+  const numeric = fallbackData.map((row) => Number(row.value)).filter(Number.isFinite)
+  if (!numeric.length) return null
+  const lo = Math.min(...numeric)
+  const hi = Math.max(...numeric)
+  if (!(hi > lo)) return 0.5
+  return Math.max(0, Math.min(1, (value - lo) / (hi - lo)))
+}
+
+function buildPairBarValueTexts(op: OperationSpec, targetA: string, valueA: number | null, targetB: string, valueB: number | null) {
+  const plan: any[] = []
+  if (Number.isFinite(valueA ?? NaN)) {
+    plan.push(
+      ops.draw.text(
+        op.chartId,
+        draw.select.markKeys('rect', targetA),
+        draw.textSpec.anchor(formatDrawNumber(Number(valueA)), draw.style.text('#111827', 12, 'bold')),
+      ),
+    )
+  }
+  if (Number.isFinite(valueB ?? NaN)) {
+    plan.push(
+      ops.draw.text(
+        op.chartId,
+        draw.select.markKeys('rect', targetB),
+        draw.textSpec.anchor(formatDrawNumber(Number(valueB)), draw.style.text('#111827', 12, 'bold')),
+      ),
+    )
+  }
+  return plan
+}
+
 function textTargets(result: DatumValue[], op: OperationSpec, precision = 2) {
   const plan: any[] = []
   result.forEach((entry) => {
@@ -214,8 +314,7 @@ function buildSetOpPlan(result: DatumValue[], op: OperationSpec, context: AutoDr
         fill: 'rgba(59,130,246,0.16)',
         stroke: '#3b82f6',
         strokeWidth: 1.5,
-        opacity: 1,
-      }),
+        opacity: 1 }),
     )
   })
   plan.push(ops.draw.text(op.chartId, undefined, textScore(targets.length, label)))
@@ -236,8 +335,7 @@ function buildRangePlan(result: DatumValue[], op: OperationSpec) {
         fill: 'rgba(59,130,246,0.16)',
         stroke: '#3b82f6',
         strokeWidth: 1.5,
-        opacity: 1,
-      }),
+        opacity: 1 }),
     ]
   }
 
@@ -251,8 +349,7 @@ function buildRangePlan(result: DatumValue[], op: OperationSpec) {
       fill: 'rgba(59,130,246,0.14)',
       stroke: '#3b82f6',
       strokeWidth: 1.5,
-      opacity: 1,
-    }),
+      opacity: 1 }),
   ]
 }
 
@@ -286,7 +383,7 @@ function buildThresholdFilterPlan(result: DatumValue[], op: OperationSpec) {
   ]
 }
 
-export const SIMPLE_BAR_AUTO_DRAW_PLANS: Record<
+export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   string,
   (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => any[] | null
 > = {
@@ -314,23 +411,55 @@ export const SIMPLE_BAR_AUTO_DRAW_PLANS: Record<
     return [...highlightTargets(op, Array.from(new Set(result.map((d) => String(d.target)))), '#ef4444'), ...textTargets(result, op)]
   },
   [OperationOp.DetermineRange]: (result, op) => buildRangePlan(result, op),
-  [OperationOp.Compare]: (result, op) => {
+  [OperationOp.Compare]: (result, op, context) => {
     if (!result.length) return null
     const plan: any[] = []
     const pair = firstPair(op)
-    if (pair) {
-      plan.push(...highlightTargets(op, [pair.a.target, pair.b.target]))
-      plan.push(
-        ops.draw.line(
-          op.chartId,
-          draw.lineSpec.connect(pair.a.target, pair.b.target, draw.style.line('#0ea5e9', 2, 0.9), draw.arrow.endOnly()),
-        ),
-      )
+    if (!pair) return null
+    const valueA = targetAggregate(context.prevWorking, pair.a.target)
+    const valueB = targetAggregate(context.prevWorking, pair.b.target)
+    const maxValue = Number.isFinite(valueA ?? NaN) && Number.isFinite(valueB ?? NaN) ? Math.max(Number(valueA), Number(valueB)) : null
+    const minValue = Number.isFinite(valueA ?? NaN) && Number.isFinite(valueB ?? NaN) ? Math.min(Number(valueA), Number(valueB)) : null
+    const metrics = collectTargetMetrics(context, op.chartId)
+
+    plan.push(...highlightTargets(op, [pair.a.target, pair.b.target], EMPHASIS_RED))
+    plan.push(...buildPairBarValueTexts(op, pair.a.target, valueA, pair.b.target, valueB))
+
+    if (Number.isFinite(valueA ?? NaN)) {
+      plan.push(ops.draw.line(op.chartId, lineAt(Number(valueA), EMPHASIS_RED)))
     }
-    const scalar = scalarFromResult(result)
-    if (scalar != null) {
-      plan.push(ops.draw.line(op.chartId, lineAt(scalar)))
-      plan.push(ops.draw.text(op.chartId, undefined, textScore(scalar, 'compare')))
+    if (Number.isFinite(valueB ?? NaN) && Number(valueB) !== Number(valueA)) {
+      plan.push(ops.draw.line(op.chartId, lineAt(Number(valueB), EMPHASIS_RED)))
+    }
+
+    if (maxValue != null && minValue != null && maxValue > minValue) {
+      const smallerTarget = Number(valueA) <= Number(valueB) ? pair.a.target : pair.b.target
+      const smallerMetric = metrics.get(smallerTarget)
+      const startX = smallerMetric?.x
+      const startY = smallerMetric?.y ?? inferNormalizedYForValue(minValue, metrics, context.prevWorking)
+      const endY = inferNormalizedYForValue(maxValue, metrics, context.prevWorking)
+      if (
+        Number.isFinite(startX ?? NaN) &&
+        Number.isFinite(startY ?? NaN) &&
+        Number.isFinite(endY ?? NaN) &&
+        Number(endY) > Number(startY)
+      ) {
+        plan.push(
+          ops.draw.line(
+            op.chartId,
+            draw.lineSpec.normalized(Number(startX), Number(startY), Number(startX), Number(endY), draw.style.line(EMPHASIS_RED, 2, 0.95)),
+          ),
+        )
+      }
+    }
+
+    const compareValue = scalarFromResult(result) ?? (maxValue != null && minValue != null ? maxValue - minValue : null)
+    if (compareValue != null && maxValue != null) {
+      const compareText = makeAverageTextOp(op.chartId, maxValue, context)
+      if (compareText.text) {
+        compareText.text.value = `Difference: ${formatDrawNumber(compareValue)}`
+      }
+      plan.push(compareText)
     }
     return plan.length ? plan : null
   },
@@ -344,10 +473,10 @@ export const SIMPLE_BAR_AUTO_DRAW_PLANS: Record<
     if (scalar == null) return null
     return [ops.draw.sum(op.chartId, draw.sumSpec.value(scalar, op.targetName ?? 'Sum'))]
   },
-  [OperationOp.Average]: (result, op) => {
+  [OperationOp.Average]: (result, op, context) => {
     const scalar = scalarFromResult(result)
     if (scalar == null) return null
-    return [ops.draw.line(op.chartId, lineAt(scalar)), ops.draw.text(op.chartId, undefined, textScore(scalar, 'avg'))]
+    return [ops.draw.line(op.chartId, lineAt(scalar, AVERAGE_LINE_COLOR)), makeAverageTextOp(op.chartId, scalar, context)]
   },
   [OperationOp.Diff]: (result, op, context) => {
     const scalarPair = resolveDiffScalarPair(op)
@@ -359,8 +488,7 @@ export const SIMPLE_BAR_AUTO_DRAW_PLANS: Record<
         console.warn('[autoDraw:diff] mixed chart-backed refs; keeping mark-diff fallback', {
           nodeId: op.meta?.nodeId ?? null,
           leftTarget: scalarPair.left.target,
-          rightTarget: scalarPair.right.target,
-        })
+          rightTarget: scalarPair.right.target })
       }
 
       if (!leftBacked && !rightBacked) {
@@ -375,8 +503,7 @@ export const SIMPLE_BAR_AUTO_DRAW_PLANS: Record<
           arrowStroke: '#0ea5e9',
           textColor: '#111827',
           panelFill: '#ffffff',
-          panelStroke: '#cbd5e1',
-        } as const
+          panelStroke: '#cbd5e1' } as const
 
         const nodeBase = `${op.meta?.nodeId ?? 'diff'}`
         const panelBaseNode = `${nodeBase}_scalar_base`
@@ -401,15 +528,14 @@ export const SIMPLE_BAR_AUTO_DRAW_PLANS: Record<
             scalarPair.right.label,
             rightAbs,
             deltaValue,
-            'Δ',
+            'Difference',
             style,
           ),
         )
         diffPanel.meta = {
           nodeId: panelDiffNode,
           inputs: [panelBaseNode],
-          sentenceIndex: op.meta?.sentenceIndex ?? 0,
-        }
+          sentenceIndex: op.meta?.sentenceIndex ?? 0 }
         return [basePanel, diffPanel]
       }
 
@@ -418,80 +544,61 @@ export const SIMPLE_BAR_AUTO_DRAW_PLANS: Record<
 
     const pair = firstPair(op)
     if (!pair) return null
-    const nodeBase = `${op.meta?.nodeId ?? 'diff'}`
-    const lineNode = `${nodeBase}_line`
-    const arrowNode = `${nodeBase}_arrow`
-    const textNode = `${nodeBase}_text`
-
-    const connector = ops.draw.line(
-      op.chartId,
-      draw.lineSpec.connect(pair.a.target, pair.b.target, draw.style.line('#0ea5e9', 2, 0.9)),
-    )
-    connector.meta = { nodeId: lineNode, inputs: [], sentenceIndex: op.meta?.sentenceIndex ?? 0 }
-
-    // Render only arrowhead in phase 2 (line stroke hidden, arrow style visible).
-    const arrowOnly = ops.draw.line(
-      op.chartId,
-      draw.lineSpec.connect(
-        pair.a.target,
-        pair.b.target,
-        draw.style.line('#0ea5e9', 2, 0.9),
-        draw.arrow.endOnly(
-          undefined,
-          undefined,
-          draw.style.arrow('#0ea5e9', '#0ea5e9', 2, 0.9),
-        ),
-      ),
-    )
-    arrowOnly.meta = {
-      nodeId: arrowNode,
-      inputs: [lineNode],
-      sentenceIndex: op.meta?.sentenceIndex ?? 0,
-    }
-
-    const plan: any[] = [
-      ...highlightTargets(op, [pair.a.target, pair.b.target], '#ef4444'),
-      connector,
-      arrowOnly,
-    ]
     const valueA = targetAggregate(context.prevWorking, pair.a.target)
     const valueB = targetAggregate(context.prevWorking, pair.b.target)
-    if (valueA != null && valueB != null) {
-      plan.push(ops.draw.line(op.chartId, lineAt(Math.min(valueA, valueB), '#94a3b8')))
-      const deltaText = ops.draw.text(op.chartId, undefined, textScore(Math.abs(valueA - valueB), 'Δ'))
-      deltaText.meta = {
-        nodeId: textNode,
-        inputs: [lineNode],
-        sentenceIndex: op.meta?.sentenceIndex ?? 0,
+    const maxValue = Number.isFinite(valueA ?? NaN) && Number.isFinite(valueB ?? NaN) ? Math.max(Number(valueA), Number(valueB)) : null
+    const minValue = Number.isFinite(valueA ?? NaN) && Number.isFinite(valueB ?? NaN) ? Math.min(Number(valueA), Number(valueB)) : null
+    const metrics = collectTargetMetrics(context, op.chartId)
+
+    const plan: any[] = [...highlightTargets(op, [pair.a.target, pair.b.target], EMPHASIS_RED)]
+    plan.push(...buildPairBarValueTexts(op, pair.a.target, valueA, pair.b.target, valueB))
+
+    if (Number.isFinite(valueA ?? NaN)) {
+      plan.push(ops.draw.line(op.chartId, lineAt(Number(valueA), EMPHASIS_RED)))
+    }
+    if (Number.isFinite(valueB ?? NaN) && Number(valueB) !== Number(valueA)) {
+      plan.push(ops.draw.line(op.chartId, lineAt(Number(valueB), EMPHASIS_RED)))
+    }
+
+    if (maxValue != null && minValue != null && maxValue > minValue) {
+      const smallerTarget = Number(valueA) <= Number(valueB) ? pair.a.target : pair.b.target
+      const smallerMetric = metrics.get(smallerTarget)
+      const startX = smallerMetric?.x
+      const startY = smallerMetric?.y ?? inferNormalizedYForValue(minValue, metrics, context.prevWorking)
+      const endY = inferNormalizedYForValue(maxValue, metrics, context.prevWorking)
+      if (
+        Number.isFinite(startX ?? NaN) &&
+        Number.isFinite(startY ?? NaN) &&
+        Number.isFinite(endY ?? NaN) &&
+        Number(endY) > Number(startY)
+      ) {
+        plan.push(
+          ops.draw.line(
+            op.chartId,
+            draw.lineSpec.normalized(Number(startX), Number(startY), Number(startX), Number(endY), draw.style.line(EMPHASIS_RED, 2, 0.95)),
+          ),
+        )
+      }
+    }
+
+    const signed = (op as { signed?: unknown }).signed === true
+    const scalar = scalarFromResult(result)
+    let deltaValue: number | null = null
+    if (scalar != null) {
+      deltaValue = signed ? scalar : Math.abs(scalar)
+    } else if (Number.isFinite(valueA ?? NaN) && Number.isFinite(valueB ?? NaN)) {
+      const raw = Number(valueA) - Number(valueB)
+      deltaValue = signed ? raw : Math.abs(raw)
+    }
+
+    if (deltaValue != null && maxValue != null) {
+      const deltaText = makeAverageTextOp(op.chartId, maxValue, context)
+      if (deltaText.text) {
+        deltaText.text.value = `Δ: ${formatDrawNumber(deltaValue)}`
       }
       plan.push(deltaText)
     }
     return plan
-  },
-  [OperationOp.LagDiff]: (result, op) => {
-    if (!result.length) return null
-    const plan: any[] = []
-    result.forEach((entry) => {
-      const prevTarget = entry.prevTarget ? String(entry.prevTarget) : null
-      const target = String(entry.target)
-      if (prevTarget) {
-        plan.push(
-          ops.draw.line(
-            op.chartId,
-            draw.lineSpec.connect(prevTarget, target, draw.style.line('#0ea5e9', 2, 0.85), draw.arrow.endOnly()),
-          ),
-        )
-      }
-    })
-    return [...plan, ...highlightTargets(op, Array.from(new Set(result.map((d) => String(d.target))))), ...textTargets(result, op)]
-  },
-  [OperationOp.PairDiff]: (result, op) => {
-    if (!result.length) return null
-    return [
-      ...highlightTargets(op, Array.from(new Set(result.map((d) => String(d.target))))),
-      ...textTargets(result, op),
-      ops.draw.text(op.chartId, undefined, textScore(result.length, 'pairDiff')),
-    ]
   },
   [OperationOp.Nth]: (result, op) => {
     if (!result.length) return null
@@ -500,17 +607,44 @@ export const SIMPLE_BAR_AUTO_DRAW_PLANS: Record<
   [OperationOp.Count]: (result, op) => {
     const scalar = scalarFromResult(result)
     if (scalar == null) return null
-    return [ops.draw.text(op.chartId, undefined, textScore(scalar, 'count'))]
+    return [
+      ops.draw.text(
+        op.chartId,
+        undefined,
+        draw.textSpec.normalized(`count: ${formatDrawNumber(scalar)}`, 0.5, 0.92, draw.style.text('#111827', 12, 'bold')),
+      ),
+    ]
   },
-  [OperationOp.Add]: (result, op) => {
+  [OperationOp.Scale]: (result, op, context) => {
     const scalar = scalarFromResult(result)
     if (scalar == null) return null
-    return [ops.draw.line(op.chartId, lineAt(scalar)), ops.draw.text(op.chartId, undefined, textScore(scalar, 'add'))]
+    const plan: any[] = [ops.draw.line(op.chartId, lineAt(scalar, EMPHASIS_RED))]
+    const scaleText = makeAverageTextOp(op.chartId, scalar, context)
+    if (scaleText.text) {
+      scaleText.text.value = `scale: ${formatDrawNumber(scalar)}`
+    }
+    plan.push(scaleText)
+
+    const targetPoint = toPoint((op as { target?: TargetSelector }).target as TargetSelector)
+    if (targetPoint?.target) {
+      const metrics = collectTargetMetrics(context, op.chartId)
+      const targetActualValue = metrics.get(targetPoint.target)?.value
+      plan.push(
+        ops.draw.text(
+          op.chartId,
+          draw.select.markKeys('rect', targetPoint.target),
+          draw.textSpec.anchor(
+            formatDrawNumber(Number.isFinite(targetActualValue ?? NaN) ? Number(targetActualValue) : scalar),
+            draw.style.text('#111827', 12, 'bold'),
+          ),
+        ),
+      )
+    }
+    return plan
   },
-  [OperationOp.Scale]: (result, op) => {
-    const scalar = scalarFromResult(result)
-    if (scalar == null) return null
-    return [ops.draw.line(op.chartId, lineAt(scalar)), ops.draw.text(op.chartId, undefined, textScore(scalar, 'scale'))]
-  },
-  [OperationOp.SetOp]: (result, op, context) => buildSetOpPlan(result, op, context),
-}
+  [OperationOp.SetOp]: (result, op, context) => buildSetOpPlan(result, op, context) }
+
+export const SIMPLE_BAR_AUTO_DRAW_PLANS = withStagedAutoDrawPlanRegistry(
+  'simple-bar',
+  SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS,
+)

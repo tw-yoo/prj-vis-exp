@@ -3,7 +3,8 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
-import { buildHighlightPlan, buildTextPlan, formatDrawNumber } from '../../helpers'
+import { AVERAGE_LINE_COLOR, buildHighlightPlan, buildTextPlan, formatDrawNumber } from '../../helpers'
+import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
 type TargetPoint = { target: string; series?: string }
 
@@ -28,8 +29,7 @@ function resolveRefPoint(ref: string, fallbackSeries?: string | null): TargetPoi
   const first = runtimeRows[0]
   return {
     target: String(first.target),
-    series: first.group != null ? String(first.group) : fallbackSeries ?? undefined,
-  }
+    series: first.group != null ? String(first.group) : fallbackSeries ?? undefined }
 }
 
 function toPoint(selector: TargetSelector, fallbackSeries?: string | null): TargetPoint | null {
@@ -77,11 +77,7 @@ function firstPair(op: OperationSpec): { a: TargetPoint; b: TargetPoint } | null
   const left = selectorPoints(op.targetA ?? fallback.targetA, op.groupA ?? op.group)
   const right = selectorPoints(op.targetB ?? fallback.targetB, op.groupB ?? op.group)
   if (!left.length || !right.length) return null
-
-  // For explicit group-pair comparisons, require same target to render strict series-level connector.
-  if ((op.groupA || op.groupB) && left[0].target !== right[0].target) {
-    return null
-  }
+  if ((op.groupA || op.groupB) && left[0].target !== right[0].target) return null
   return { a: left[0], b: right[0] }
 }
 
@@ -142,8 +138,7 @@ function buildSetOpPlan(result: DatumValue[], op: OperationSpec, context: AutoDr
         fill: 'rgba(59,130,246,0.16)',
         stroke: '#3b82f6',
         strokeWidth: 1.5,
-        opacity: 1,
-      }),
+        opacity: 1 }),
     )
   })
   plan.push(ops.draw.text(op.chartId, undefined, textScore(targets.length, label)))
@@ -165,8 +160,7 @@ function buildRangePlan(result: DatumValue[], op: OperationSpec) {
       fill: 'rgba(59,130,246,0.14)',
       stroke: '#3b82f6',
       strokeWidth: 1.5,
-      opacity: 1,
-    }),
+      opacity: 1 }),
   ]
 }
 
@@ -198,7 +192,7 @@ function parseThresholdCondition(operator: string | undefined) {
 
 function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
   if (typeof op.group === 'string' && op.group.trim().length > 0) {
-    return [ops.draw.stackedToSimple(op.chartId, op.group)]
+    return [ops.draw.groupedFilterGroups(op.chartId, [op.group], 'include')]
   }
   if (Array.isArray(op.include) && op.include.length > 0) {
     const includeTargets = op.include.map((item) => String(item))
@@ -234,7 +228,7 @@ function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
   ]
 }
 
-export const STACKED_BAR_AUTO_DRAW_PLANS: Record<
+export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   string,
   (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => any[] | null
 > = {
@@ -263,13 +257,12 @@ export const STACKED_BAR_AUTO_DRAW_PLANS: Record<
   [OperationOp.Average]: (result, op) => {
     const value = scalarFromResult(result)
     if (value == null) return null
-    return [ops.draw.line(op.chartId, lineAt(value))]
+    return [ops.draw.line(op.chartId, lineAt(value, AVERAGE_LINE_COLOR))]
   },
   [OperationOp.DetermineRange]: (result, op) => buildRangePlan(result, op),
-  [OperationOp.Compare]: (result, op, context) => {
+  [OperationOp.Compare]: (result, op) => {
     if (!result.length) return null
-    const winnerTargets = Array.from(new Set(result.map((d) => String(d.target))))
-    const plan = buildHighlightPlan(winnerTargets)
+    const plan = buildHighlightPlan(Array.from(new Set(result.map((d) => String(d.target)))))
     const pair = firstPair(op)
     if (pair) {
       plan.push(seriesPairLine(op, pair, '#0ea5e9'))
@@ -292,8 +285,7 @@ export const STACKED_BAR_AUTO_DRAW_PLANS: Record<
   [OperationOp.CompareBool]: (result, op) => {
     const value = scalarFromResult(result)
     if (value == null) return null
-    const boolLabel = value >= 1 ? 'true' : 'false'
-    return [ops.draw.text(op.chartId, undefined, textScore(value, boolLabel))]
+    return [ops.draw.text(op.chartId, undefined, textScore(value, value >= 1 ? 'true' : 'false'))]
   },
   [OperationOp.Diff]: (result, op, context) => {
     const pair = firstPair(op)
@@ -389,5 +381,10 @@ export const STACKED_BAR_AUTO_DRAW_PLANS: Record<
     if (value == null) return null
     return [ops.draw.line(op.chartId, lineAt(value)), ops.draw.text(op.chartId, undefined, textScore(value, 'scale'))]
   },
-  [OperationOp.SetOp]: (result, op, context) => buildSetOpPlan(result, op, context),
-}
+  [OperationOp.SetOp]: (result, op, context) => buildSetOpPlan(result, op, context) }
+
+
+export const GROUPED_BAR_AUTO_DRAW_PLANS = withStagedAutoDrawPlanRegistry(
+  'grouped-bar',
+  GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS,
+)

@@ -3,7 +3,8 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
-import { formatDrawNumber } from '../../helpers'
+import { AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
+import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
 function scalarFromResult(result: DatumValue[]) {
   const value = result?.length ? Number(result[0]?.value) : NaN
@@ -118,17 +119,17 @@ function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
   ]
 }
 
-export const SIMPLE_LINE_AUTO_DRAW_PLANS: Record<
+export const SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
   string,
   (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => any[] | null
 > = {
   [OperationOp.RetrieveValue]: (result, op) => highlightSeriesPoints(result, op.chartId),
   [OperationOp.FindExtremum]: (result, op) => highlightSeriesPoints(result, op.chartId),
   [OperationOp.Filter]: (result, op) => buildFilterPlan(result, op),
-  [OperationOp.Average]: (result, op) => {
+  [OperationOp.Average]: (result, op, context) => {
     const avg = scalarFromResult(result)
     if (avg == null) return null
-    return [hLine(op.chartId, avg), textAtTopRight(op.chartId, `avg: ${formatDrawNumber(avg)}`)]
+    return [hLine(op.chartId, avg, AVERAGE_LINE_COLOR), makeAverageTextOp(op.chartId, avg, context)]
   },
   [OperationOp.DetermineRange]: (result, op) => rangeBandPlan(result, op),
   [OperationOp.Diff]: (result, op) => {
@@ -251,5 +252,10 @@ export const SIMPLE_LINE_AUTO_DRAW_PLANS: Record<
     })
     plan.push(textAtTopRight(op.chartId, `${op.fn ?? 'setOp'}: ${targets.length}`))
     return plan
-  },
-}
+  } }
+
+
+export const SIMPLE_LINE_AUTO_DRAW_PLANS = withStagedAutoDrawPlanRegistry(
+  'simple-line',
+  SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS,
+)
