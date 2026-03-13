@@ -144,6 +144,31 @@ function collectDomain(rows: RawDatum[], field: string): Array<string | number> 
 }
 
 function normalizeSplitGroups(split: DrawSplitSpec, categoryDomain: Array<string | number>): SplitGroupResult | null {
+  const selectorEntries = Object.entries(split.selectors ?? {})
+  if ((split.mode === 'selector' || selectorEntries.length > 0) && selectorEntries.length >= 2) {
+    const [idA, selectorA] = selectorEntries[0]
+    const [idB, selectorB] = selectorEntries[1]
+    const buildDomain = (selectorRaw: unknown) => {
+      const selector = (selectorRaw && typeof selectorRaw === 'object'
+        ? (selectorRaw as { include?: Array<string | number>; exclude?: Array<string | number>; all?: boolean })
+        : {}) as { include?: Array<string | number>; exclude?: Array<string | number>; all?: boolean }
+      const includeSet = new Set((selector.include ?? []).map(String))
+      const excludeSet = new Set((selector.exclude ?? []).map(String))
+      const includeMode = includeSet.size > 0
+      const allMode = selector.all === true || (!includeMode && excludeSet.size === 0)
+      return categoryDomain.filter((label) => {
+        const token = String(label)
+        if (allMode) return !excludeSet.has(token)
+        if (includeMode) return includeSet.has(token)
+        return !excludeSet.has(token)
+      })
+    }
+    return {
+      ids: [idA, idB] as [string, string],
+      domains: [buildDomain(selectorA), buildDomain(selectorB)] as [Array<string | number>, Array<string | number>],
+    }
+  }
+
   if (!split.groups || typeof split.groups !== 'object') return null
   const entries = Object.entries(split.groups).filter((entry) => Array.isArray(entry[1]))
   if (entries.length === 0) return null
@@ -172,6 +197,13 @@ function normalizeSplitGroups(split: DrawSplitSpec, categoryDomain: Array<string
 
 function splitValueSet(split: DrawSplitSpec) {
   const values = new Set<string>()
+  Object.values(split.selectors ?? {}).forEach((selector) => {
+    if (!selector || typeof selector !== 'object') return
+    const include = (selector as { include?: Array<string | number> }).include
+    const exclude = (selector as { exclude?: Array<string | number> }).exclude
+    if (Array.isArray(include)) include.forEach((item) => values.add(String(item)))
+    if (Array.isArray(exclude)) exclude.forEach((item) => values.add(String(item)))
+  })
   Object.values(split.groups ?? {}).forEach((items) => {
     if (!Array.isArray(items)) return
     items.forEach((item) => values.add(String(item)))
@@ -365,6 +397,11 @@ export async function renderSplitGroupedBarChart(container: HTMLElement, spec: G
     const panel = svg
       .append(SvgElements.Group)
       .attr(DataAttributes.ChartId, id)
+      .attr(DataAttributes.ChartPanel, 'true')
+      .attr(DataAttributes.PanelPlotX, 0)
+      .attr(DataAttributes.PanelPlotY, 0)
+      .attr(DataAttributes.PanelPlotWidth, subW)
+      .attr(DataAttributes.PanelPlotHeight, subH)
       .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
 
     const xScale = d3.scaleBand<string | number>().domain(domain).range([0, subW]).paddingInner(0.18).paddingOuter(0.08)

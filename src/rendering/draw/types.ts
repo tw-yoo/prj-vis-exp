@@ -212,9 +212,19 @@ export type DrawBarSegmentSpec = {
 }
 
 export type DrawSplitSpec = {
+  mode?: 'domain' | 'selector'
   by?: 'x'
   /** User-defined group ids mapped to x labels. Provide 2 groups, or 1 group + restTo. */
-  groups: Record<string, Array<string | number>>
+  groups?: Record<string, Array<string | number>>
+  /** Selector-based split that allows overlapping panels (e.g., subset vs all). */
+  selectors?: Record<
+    string,
+    {
+      include?: Array<string | number>
+      exclude?: Array<string | number>
+      all?: boolean
+    }
+  >
   /** If only one group is provided, remaining labels go to this group id. */
   restTo?: string
   /** Layout direction of the two charts. */

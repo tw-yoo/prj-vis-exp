@@ -92,6 +92,7 @@ const EXPORT_SCALE = 3
 const renderChartDispatch = browserEngine.renderChart
 const runChartOps = browserEngine.runChartOps
 const parseToOperationSpec = browserEngine.parseToOperationSpec
+const compileOpsPlan = browserEngine.compileOpsPlan
 const runPythonPlan = browserEngine.runPythonPlan
 const OPS_PLAN_MODULES = import.meta.glob('../../../data/expert/**/*.ts')
 const DRAW_TOOL_OPTIONS: Array<{ value: DrawInteractionTool; label: string }> = [
@@ -209,13 +210,152 @@ const normalizeOpsGroupsForWorkbench = (opsSpec: unknown): Array<{ name: string;
   }))
 }
 
-type OpsJsonExecutionSource = 'draw_plan' | 'ops'
+type OpsJsonExecutionSource = 'draw_plan' | 'ops' | 'compiled_draw_plan'
+
+type WorkbenchExecutionPlanStep = {
+  id: string
+  sentenceIndex: number
+  groupNames: string[]
+  drawGroupNames: string[]
+  splitGroup?: string
+  splitLifecycle?: 'enter' | 'keep' | 'merge'
+  panelIds?: string[]
+  joinOp?: string
+  joinPolicy?: 'keep-split' | 'merge'
+  parallel?: boolean
+}
+
+type WorkbenchExecutionPlan = {
+  mode: 'sentence-step'
+  steps: WorkbenchExecutionPlanStep[]
+}
 
 type ParsedOpsJsonInput = {
   groups: OperationSpec[][]
   groupNames: string[]
   executionSource: OpsJsonExecutionSource
+  executionMode: 'group' | 'sentence-step'
+  hasSplitIntent: boolean
+  opsSpecGroupMap: Record<string, OperationSpec[]>
+  executionPlan?: WorkbenchExecutionPlan
   warnings: string[]
+}
+
+const normalizeExecutionPlanForWorkbench = (value: unknown): WorkbenchExecutionPlan | undefined => {
+  if (!isPlainObject(value)) return undefined
+  if (value.mode !== 'sentence-step') return undefined
+  if (!Array.isArray(value.steps)) return undefined
+  const steps: WorkbenchExecutionPlanStep[] = []
+  value.steps.forEach((entry, index) => {
+    if (!isPlainObject(entry)) return
+    const sentenceIndex = Number(entry.sentenceIndex)
+    if (!Number.isFinite(sentenceIndex) || sentenceIndex < 1) return
+    const groupNames = Array.isArray(entry.groupNames)
+      ? entry.groupNames.filter((token): token is string => typeof token === 'string' && token.trim().length > 0)
+      : []
+    const drawGroupNames = Array.isArray(entry.drawGroupNames)
+      ? entry.drawGroupNames.filter((token): token is string => typeof token === 'string' && token.trim().length > 0)
+      : []
+    const id = typeof entry.id === 'string' && entry.id.trim().length > 0 ? entry.id : `s${index + 1}`
+    const step: WorkbenchExecutionPlanStep = {
+      id,
+      sentenceIndex: Math.floor(sentenceIndex),
+      groupNames,
+      drawGroupNames,
+      parallel: entry.parallel !== false,
+    }
+    if (typeof entry.splitGroup === 'string' && entry.splitGroup.trim().length > 0) {
+      step.splitGroup = entry.splitGroup.trim()
+    }
+    if (entry.splitLifecycle === 'enter' || entry.splitLifecycle === 'keep' || entry.splitLifecycle === 'merge') {
+      step.splitLifecycle = entry.splitLifecycle
+    }
+    if (Array.isArray(entry.panelIds)) {
+      step.panelIds = entry.panelIds.filter((token): token is string => typeof token === 'string' && token.trim().length > 0)
+    }
+    if (typeof entry.joinOp === 'string' && entry.joinOp.trim().length > 0) {
+      step.joinOp = entry.joinOp.trim()
+    }
+    if (entry.joinPolicy === 'keep-split' || entry.joinPolicy === 'merge') {
+      step.joinPolicy = entry.joinPolicy
+    }
+    steps.push(step)
+  })
+  return {
+    mode: 'sentence-step',
+    steps,
+  }
+}
+
+const summarizeExecutionPlanForWorkbench = (plan: WorkbenchExecutionPlan | undefined) => {
+  if (!plan || plan.mode !== 'sentence-step' || !plan.steps.length) return [] as string[]
+  return plan.steps.map((step) => {
+    const parts: string[] = [`s${step.sentenceIndex}`]
+    if (step.splitGroup) {
+      const lifecycle = step.splitLifecycle ?? 'keep'
+      parts.push(`split:${step.splitGroup}(${lifecycle})`)
+    }
+    if (step.joinPolicy) {
+      parts.push(`join:${step.joinOp ?? 'op'}(${step.joinPolicy})`)
+    }
+    if (step.panelIds && step.panelIds.length > 0) {
+      parts.push(`panels:${step.panelIds.join('|')}`)
+    }
+    return parts.join(' · ')
+  })
+}
+
+const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
+  const out: Record<string, OperationSpec[]> = {}
+  groups.forEach((group) => {
+    out[group.name] = group.ops
+  })
+  if (!Array.isArray(out.ops)) out.ops = []
+  return out
+}
+
+const materializeExecutionSteps = (
+  groups: Array<{ name: string; ops: OperationSpec[] }>,
+  executionPlan: WorkbenchExecutionPlan | undefined,
+  preferDrawGroups: boolean,
+): { groups: OperationSpec[][]; groupNames: string[]; mode: 'group' | 'sentence-step' } => {
+  if (!executionPlan || executionPlan.mode !== 'sentence-step') {
+    return {
+      groups: groups.map((group) => group.ops),
+      groupNames: groups.map((group) => group.name),
+      mode: 'group',
+    }
+  }
+  const map = new Map(groups.map((group) => [group.name, group.ops] as const))
+  const stepGroups: OperationSpec[][] = []
+  const stepNames: string[] = []
+  executionPlan.steps.forEach((step, index) => {
+    const rawNames =
+      preferDrawGroups && step.drawGroupNames.length > 0 ? step.drawGroupNames : step.groupNames.length > 0 ? step.groupNames : step.drawGroupNames
+    const selectedNames = rawNames.filter((name) => map.has(name))
+    if (!selectedNames.length) return
+    const merged: OperationSpec[] = []
+    selectedNames.forEach((name) => {
+      const ops = map.get(name) ?? []
+      merged.push(...ops)
+    })
+    if (!merged.length) return
+    const label = `sentence:${step.sentenceIndex}:${step.id || `s${index + 1}`}`
+    stepGroups.push(merged)
+    stepNames.push(label)
+  })
+  if (!stepGroups.length) {
+    return {
+      groups: groups.map((group) => group.ops),
+      groupNames: groups.map((group) => group.name),
+      mode: 'group',
+    }
+  }
+  return {
+    groups: stepGroups,
+    groupNames: stepNames,
+    mode: 'sentence-step',
+  }
 }
 
 const hasSplitIntentInMetaView = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
@@ -230,6 +370,56 @@ const hasSplitIntentInMetaView = (groups: Array<{ name: string; ops: OperationSp
       return splitGroup.length > 0 || panelId.length > 0 || joinBarrier
     }),
   )
+}
+
+const normalizeRowForCompile = (value: unknown): Record<string, unknown> | null => {
+  if (!isPlainObject(value)) return null
+  const out: Record<string, unknown> = {}
+  Object.entries(value).forEach(([key, entry]) => {
+    if (entry === null || entry === undefined) {
+      out[key] = null
+      return
+    }
+    if (typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean') {
+      out[key] = entry
+      return
+    }
+    out[key] = String(entry)
+  })
+  return out
+}
+
+const loadDataRowsForCompile = async (spec: VegaLiteSpec): Promise<Record<string, unknown>[]> => {
+  const record = spec as unknown as Record<string, unknown>
+  const data = isPlainObject(record.data) ? (record.data as Record<string, unknown>) : null
+  const values = data?.values
+  if (Array.isArray(values)) {
+    return values.map((entry) => normalizeRowForCompile(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
+  }
+
+  const url = typeof data?.url === 'string' ? data.url.trim() : ''
+  if (!url) return []
+  const response = await fetch(url, { method: 'GET' })
+  if (!response.ok) return []
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
+  if (contentType.includes('application/json') || url.toLowerCase().endsWith('.json')) {
+    const payload = await response.json()
+    if (Array.isArray(payload)) {
+      return payload.map((entry) => normalizeRowForCompile(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
+    }
+    if (isPlainObject(payload) && Array.isArray(payload.values)) {
+      return payload.values
+        .map((entry) => normalizeRowForCompile(entry))
+        .filter((entry): entry is Record<string, unknown> => !!entry)
+    }
+    return []
+  }
+
+  const text = await response.text()
+  const lowerUrl = url.toLowerCase()
+  const parsed =
+    lowerUrl.endsWith('.tsv') || contentType.includes('text/tab-separated-values') ? d3.tsvParse(text) : d3.csvParse(text)
+  return parsed.map((entry) => normalizeRowForCompile(entry)).filter((entry): entry is Record<string, unknown> => !!entry)
 }
 
 const withInteractionMeta = (operation: OperationSpec): OperationSpec => ({
@@ -504,6 +694,8 @@ function ChartWorkbenchPage() {
   const [opsJsonError, setOpsJsonError] = useState<string | null>(null)
   const [opsJsonGroupNames, setOpsJsonGroupNames] = useState<string[]>([])
   const [opsJsonExecutionSource, setOpsJsonExecutionSource] = useState<OpsJsonExecutionSource | null>(null)
+  const [opsJsonExecutionMode, setOpsJsonExecutionMode] = useState<'group' | 'sentence-step' | null>(null)
+  const [opsJsonExecutionPlanSummary, setOpsJsonExecutionPlanSummary] = useState<string[]>([])
   const [opsJsonWarnings, setOpsJsonWarnings] = useState<string[]>([])
   const [isVlSectionExpanded, setIsVlSectionExpanded] = useState(false)
   const [isNlSectionExpanded, setIsNlSectionExpanded] = useState(false)
@@ -1224,17 +1416,22 @@ function ChartWorkbenchPage() {
     }
 
     const topLevelGroups = normalizeOpsGroupsForWorkbench(parsed)
+    const topLevelGroupMap = toGroupMap(topLevelGroups)
     const parsedRecord = isPlainObject(parsed) ? parsed : null
     const warnings: string[] = []
+    const splitIntent = hasSplitIntentInMetaView(topLevelGroups)
+    let executionPlan = normalizeExecutionPlanForWorkbench(parsedRecord?.execution_plan)
 
     let selectedGroups = topLevelGroups
     let executionSource: OpsJsonExecutionSource = 'ops'
+    let preferDrawGroupNames = false
 
     if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'draw_plan')) {
       const drawPlanGroups = normalizeOpsGroupsForWorkbench(parsedRecord.draw_plan)
       if (drawPlanGroups.length > 0) {
         selectedGroups = drawPlanGroups
         executionSource = 'draw_plan'
+        preferDrawGroupNames = true
       } else if (topLevelGroups.length > 0) {
         warnings.push('draw_plan detected but invalid; falling back to top-level ops groups.')
       } else {
@@ -1246,14 +1443,23 @@ function ChartWorkbenchPage() {
       throw new Error('Ops JSON must include at least one executable group (e.g., "ops", "firstStep").')
     }
 
-    if (executionSource === 'ops' && hasSplitIntentInMetaView(topLevelGroups)) {
-      warnings.push('Split intent found in meta.view; use draw_plan for split visual execution.')
+    if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'execution_plan') && !executionPlan) {
+      warnings.push('execution_plan detected but invalid; falling back to group-order execution.')
+    }
+    const materialized = materializeExecutionSteps(selectedGroups, executionPlan, preferDrawGroupNames)
+
+    if (executionSource === 'ops' && splitIntent) {
+      warnings.push('Split intent found in meta.view; draw_plan compilation will be attempted for split visual execution.')
     }
 
     return {
-      groups: selectedGroups.map((group) => group.ops),
-      groupNames: selectedGroups.map((group) => group.name),
+      groups: materialized.groups,
+      groupNames: materialized.groupNames,
       executionSource,
+      executionMode: materialized.mode,
+      hasSplitIntent: splitIntent,
+      opsSpecGroupMap: topLevelGroupMap,
+      executionPlan,
       warnings,
     }
   }, [opsJsonText])
@@ -1433,14 +1639,28 @@ function ChartWorkbenchPage() {
         throw new Error('Converted opsSpec is invalid: "ops" group is missing.')
       }
       const drawPlanNormalized = result.drawPlan ? normalizeOpsGroupsForWorkbench(result.drawPlan) : []
+      const normalizedExecutionPlan = normalizeExecutionPlanForWorkbench(result.executionPlan as unknown)
       const jsonText = JSON.stringify(nextOpsSpec, null, 2)
-      const groupNames = drawPlanNormalized.length
-        ? drawPlanNormalized.map((group) => group.name)
-        : Object.keys(nextOpsSpec)
+      const drawMaterialized = drawPlanNormalized.length
+        ? materializeExecutionSteps(drawPlanNormalized, normalizedExecutionPlan, true)
+        : null
+      const groupNames = drawMaterialized ? drawMaterialized.groupNames : drawPlanNormalized.length ? drawPlanNormalized.map((group) => group.name) : Object.keys(nextOpsSpec)
 
       handleClearPlan()
-      if (drawPlanNormalized.length) {
+      if (drawMaterialized) {
+        setPlanGroups(drawMaterialized.groups)
+        setOpsJsonExecutionSource('draw_plan')
+        setOpsJsonExecutionMode(drawMaterialized.mode)
+        setOpsJsonExecutionPlanSummary(summarizeExecutionPlanForWorkbench(normalizedExecutionPlan))
+      } else if (drawPlanNormalized.length) {
         setPlanGroups(drawPlanNormalized.map((group) => group.ops))
+        setOpsJsonExecutionSource('draw_plan')
+        setOpsJsonExecutionMode('group')
+        setOpsJsonExecutionPlanSummary(summarizeExecutionPlanForWorkbench(normalizedExecutionPlan))
+      } else {
+        setOpsJsonExecutionSource('ops')
+        setOpsJsonExecutionMode('group')
+        setOpsJsonExecutionPlanSummary([])
       }
       setOpsInputMode('builder')
       setOpsJsonText(jsonText)
@@ -1506,7 +1726,7 @@ function ChartWorkbenchPage() {
     }
   }
 
-  const handleRunOperations = () => {
+  const handleRunOperations = async () => {
     opsSessionActiveRef.current = false
     setPendingTextPlacement(null)
     if (chartRef.current) {
@@ -1516,16 +1736,57 @@ function ChartWorkbenchPage() {
     if (!planGroups && opsInputMode === 'json') {
       try {
         const parsed = parseOpsJsonInput()
+        let nextGroups = parsed.groups
+        let nextGroupNames = parsed.groupNames
+        let nextExecutionSource: OpsJsonExecutionSource = parsed.executionSource
+        let nextExecutionMode: 'group' | 'sentence-step' = parsed.executionMode
+        let nextExecutionPlan = parsed.executionPlan
+        const nextWarnings = [...parsed.warnings]
+
+        if (parsed.executionSource === 'ops') {
+          const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
+          const sanitizedVlSpec = sanitizeJsonInput(specString)
+          const parsedVlSpec = JSON.parse(sanitizedVlSpec) as VegaLiteSpec
+          try {
+            const dataRows = await loadDataRowsForCompile(parsedVlSpec)
+            const compiled = await compileOpsPlan({
+              spec: parsedVlSpec,
+              dataRows,
+              opsSpec: parsed.opsSpecGroupMap,
+            })
+            nextWarnings.push(...(compiled.warnings ?? []))
+            const compiledDrawGroups = compiled.drawPlan ? normalizeOpsGroupsForWorkbench(compiled.drawPlan) : []
+            if (compiledDrawGroups.length > 0) {
+              const compiledPlan = normalizeExecutionPlanForWorkbench(compiled.executionPlan as unknown)
+              const materialized = materializeExecutionSteps(compiledDrawGroups, compiledPlan, true)
+              nextGroups = materialized.groups
+              nextGroupNames = materialized.groupNames
+              nextExecutionMode = materialized.mode
+              nextExecutionSource = 'compiled_draw_plan'
+              nextExecutionPlan = compiledPlan
+            } else {
+              nextWarnings.push('compile_ops_plan completed, but draw_plan is empty; using top-level ops execution.')
+            }
+          } catch (compileError) {
+            const detail = compileError instanceof Error ? compileError.message : 'compile_ops_plan failed'
+            nextWarnings.push(`compile_ops_plan failed; falling back to top-level ops groups. (${detail})`)
+          }
+        }
+
         setOpsJsonError(null)
-        setOpsJsonGroupNames(parsed.groupNames)
-        setOpsJsonExecutionSource(parsed.executionSource)
-        setOpsJsonWarnings(parsed.warnings)
-        setOpsGroups(parsed.groups)
+        setOpsJsonGroupNames(nextGroupNames)
+        setOpsJsonExecutionSource(nextExecutionSource)
+        setOpsJsonExecutionMode(nextExecutionMode)
+        setOpsJsonExecutionPlanSummary(summarizeExecutionPlanForWorkbench(nextExecutionPlan))
+        setOpsJsonWarnings(nextWarnings)
+        setOpsGroups(nextGroups)
         setCurrentOpsIndex(-1)
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to parse Ops JSON.'
         setOpsJsonError(message)
         setOpsJsonExecutionSource(null)
+        setOpsJsonExecutionMode(null)
+        setOpsJsonExecutionPlanSummary([])
         setOpsJsonWarnings([])
         setOpsGroups([])
         setCurrentOpsIndex(-1)
@@ -2080,6 +2341,8 @@ function ChartWorkbenchPage() {
                       setOpsJsonText(event.target.value)
                       setOpsJsonError(null)
                       setOpsJsonExecutionSource(null)
+                      setOpsJsonExecutionMode(null)
+                      setOpsJsonExecutionPlanSummary([])
                       setOpsJsonWarnings([])
                     }}
                   />
@@ -2090,6 +2353,14 @@ function ChartWorkbenchPage() {
                     <div className="nl-status" data-testid="ops-json-status">
                       Execution source: {opsJsonExecutionSource}
                     </div>
+                  ) : null}
+                  {opsJsonExecutionMode ? <div className="nl-status">Execution mode: {opsJsonExecutionMode}</div> : null}
+                  {opsJsonExecutionPlanSummary.length > 0 ? (
+                    <ul className="nl-status-list" data-testid="ops-json-execution-plan">
+                      {opsJsonExecutionPlanSummary.map((line, index) => (
+                        <li key={`${line}-${index}`}>{line}</li>
+                      ))}
+                    </ul>
                   ) : null}
                   {opsJsonWarnings.length > 0 ? (
                     <ul className="nl-warning-list" data-testid="ops-json-warning-list">

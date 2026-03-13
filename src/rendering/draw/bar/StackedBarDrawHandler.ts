@@ -46,6 +46,10 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       .attr(SvgAttributes.Y, box.y)
       .attr(SvgAttributes.Width, box.width)
       .attr(SvgAttributes.Height, box.height)
+      .attr('data-layout-x', box.x)
+      .attr('data-layout-y', box.y)
+      .attr('data-layout-width', box.width)
+      .attr('data-layout-height', box.height)
     if (entry.el.tagName.toLowerCase() === SvgElements.Path) {
       t.attr(SvgAttributes.D, this.pathRectD(box.x, box.y, box.width, box.height))
     }
@@ -307,6 +311,10 @@ export class StackedBarDrawHandler extends BarDrawHandler {
     const segment: DrawBarSegmentSpec | undefined = op.segment
     if (!segment) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
+    const annotationNodeId =
+      (typeof op.meta?.nodeId === 'string' && op.meta.nodeId.trim()) ||
+      (typeof (op as { id?: unknown }).id === 'string' ? String((op as { id?: string }).id ?? '').trim() : '') ||
+      null
     const threshold = Number(segment.threshold)
     if (!Number.isFinite(threshold)) return
 
@@ -376,6 +384,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.BarSegmentAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
         .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+        .attr(DataAttributes.AnnotationNodeId, annotationNodeId)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, segY)
         .attr(SvgAttributes.Width, width)
@@ -475,16 +484,36 @@ export class StackedBarDrawHandler extends BarDrawHandler {
 
     const grouped = d3.group(entries, (entry) => entry.target)
     const hiddenEntries: StackedEntry[] = []
-    const shownEntries: Array<{ entry: StackedEntry; y: number; height: number }> = []
+    const totalsForScale: number[] = []
+    const svg = d3.select(this.container).select(SvgElements.Svg)
+    const svgNode = svg.node() as SVGSVGElement | null
+    const mapY = svgNode ? this.yValueToSvgY(scope, svgNode) : (_value: number) => null
 
+    grouped.forEach((targetEntries) => {
+      let positiveTotal = 0
+      let negativeTotal = 0
+      targetEntries.forEach((entry) => {
+        if (!visibleSeries.has(entry.series)) return
+        if (entry.value >= 0) positiveTotal += entry.value
+        else negativeTotal += entry.value
+      })
+      totalsForScale.push(positiveTotal, negativeTotal)
+      targetEntries.forEach((entry) => {
+        if (!visibleSeries.has(entry.series)) hiddenEntries.push(entry)
+      })
+    })
+
+    const yScale = this.buildNiceYScale(scope, totalsForScale)
+    const resolveY = (value: number) => {
+      if (yScale) return yScale(value)
+      return mapY(value)
+    }
+    const fallbackZeroY = d3.max(entries.map((entry) => entry.y + entry.height)) ?? 0
+    const zeroY = resolveY(0) ?? fallbackZeroY
+    const shownEntries: Array<{ entry: StackedEntry; y: number; height: number }> = []
     grouped.forEach((targetEntries) => {
       const bySeries = new Map<string, StackedEntry>()
       targetEntries.forEach((entry) => bySeries.set(entry.series, entry))
-
-      const zeroY = d3.max(targetEntries.map((entry) => entry.y + entry.height)) ?? 0
-      let positiveBottom = zeroY
-      let negativeTop = zeroY
-
       const positiveVisible = seriesDomain
         .map((series) => bySeries.get(series))
         .filter((entry): entry is StackedEntry => {
@@ -492,7 +521,6 @@ export class StackedBarDrawHandler extends BarDrawHandler {
           return visibleSeries.has(entry.series) && entry.value >= 0
         })
         .sort((a, b) => b.y - a.y)
-
       const negativeVisible = seriesDomain
         .map((series) => bySeries.get(series))
         .filter((entry): entry is StackedEntry => {
@@ -500,23 +528,23 @@ export class StackedBarDrawHandler extends BarDrawHandler {
           return visibleSeries.has(entry.series) && entry.value < 0
         })
         .sort((a, b) => a.y - b.y)
-
-      targetEntries.forEach((entry) => {
-        if (!visibleSeries.has(entry.series)) hiddenEntries.push(entry)
-      })
-
+      let positive = 0
+      let negative = 0
       positiveVisible.forEach((entry) => {
-        const h = Math.max(0, entry.height)
-        const y = positiveBottom - h
-        shownEntries.push({ entry, y, height: h })
-        positiveBottom = y
+        const start = positive
+        const end = start + entry.value
+        positive = end
+        const y0 = resolveY(start) ?? zeroY
+        const y1 = resolveY(end) ?? zeroY
+        shownEntries.push({ entry, y: Math.min(y0, y1), height: Math.abs(y0 - y1) })
       })
-
       negativeVisible.forEach((entry) => {
-        const h = Math.max(0, entry.height)
-        const y = negativeTop
-        shownEntries.push({ entry, y, height: h })
-        negativeTop += h
+        const start = negative
+        const end = start + entry.value
+        negative = end
+        const y0 = resolveY(start) ?? zeroY
+        const y1 = resolveY(end) ?? zeroY
+        shownEntries.push({ entry, y: Math.min(y0, y1), height: Math.abs(y0 - y1) })
       })
     })
 
@@ -527,14 +555,9 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       .duration(NON_SPLIT_EXIT_MS)
       .attr(SvgAttributes.Opacity, 0)
     hiddenEntries.forEach((entry) => {
-      const targetZero = d3
-        .max(
-          (grouped.get(entry.target) ?? []).map((targetEntry) => targetEntry.y + targetEntry.height),
-        )
-        ?? entry.y + entry.height
       this.transitionEntryBox(hideTransition, entry, {
         x: entry.x,
-        y: targetZero,
+        y: zeroY,
         width: entry.width,
         height: 0,
       })
@@ -559,7 +582,17 @@ export class StackedBarDrawHandler extends BarDrawHandler {
         .attr(SvgAttributes.Opacity, 1)
     })
 
-    await Promise.all([waitTransition(hideTransition), waitTransition(shownTransition)])
+    const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
+    const yAxisTransition =
+      yScale && !yAxis.empty()
+        ? yAxis.transition().duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS).call(d3.axisLeft(yScale).ticks(5) as any)
+        : null
+
+    await Promise.all([
+      waitTransition(hideTransition),
+      waitTransition(shownTransition),
+      yAxisTransition ? waitTransition(yAxisTransition) : Promise.resolve(),
+    ])
     d3.selectAll<SVGGraphicsElement, unknown>(hiddenEntries.map((entry) => entry.el) as SVGGraphicsElement[]).style(
       'display',
       'none',

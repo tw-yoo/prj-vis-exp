@@ -21,6 +21,42 @@ export type ParseToOpsResult = {
   resolvedText: string
   opsSpec: OpsSpecGroupMap
   drawPlan?: OpsSpecGroupMap
+  executionPlan?: ExecutionPlan
+  warnings: string[]
+}
+
+export type ExecutionPlanJoinPolicy = 'keep-split' | 'merge'
+
+export type ExecutionPlanStep = {
+  id: string
+  sentenceIndex: number
+  groupNames: string[]
+  drawGroupNames: string[]
+  splitGroup?: string
+  splitLifecycle?: 'enter' | 'keep' | 'merge'
+  panelIds?: string[]
+  joinOp?: string
+  joinPolicy?: ExecutionPlanJoinPolicy
+  parallel?: boolean
+}
+
+export type ExecutionPlan = {
+  mode: 'sentence-step'
+  steps: ExecutionPlanStep[]
+}
+
+export type CompileOpsPlanCommand = {
+  spec: VegaLiteSpec
+  dataRows: UnknownRecord[]
+  opsSpec: OpsSpecGroupMap
+  endpoint?: string
+  fetcher?: FetchLike
+}
+
+export type CompileOpsPlanResult = {
+  opsSpec: OpsSpecGroupMap
+  drawPlan?: OpsSpecGroupMap
+  executionPlan?: ExecutionPlan
   warnings: string[]
 }
 
@@ -35,6 +71,7 @@ type GenerateGrammarRequest = {
 type GenerateGrammarResponse = Record<string, unknown> & {
   ops1?: unknown
   draw_plan?: unknown
+  execution_plan?: unknown
   resolvedText?: unknown
   resolved_text?: unknown
   warnings?: unknown
@@ -148,6 +185,58 @@ function normalizeOptionalDrawPlan(raw: unknown): OpsSpecGroupMap | undefined {
   return out
 }
 
+function normalizeExecutionPlan(raw: unknown): ExecutionPlan | undefined {
+  const record = asRecord(raw)
+  if (!record) return undefined
+  const mode = record.mode
+  if (mode !== 'sentence-step') return undefined
+  const stepsRaw = record.steps
+  if (!Array.isArray(stepsRaw)) return undefined
+
+  const steps: ExecutionPlanStep[] = []
+  stepsRaw.forEach((value, index) => {
+    const step = asRecord(value)
+    if (!step) return
+    const sentenceIndex = Number(step.sentenceIndex)
+    if (!Number.isFinite(sentenceIndex) || sentenceIndex < 1) return
+    const groupNames = Array.isArray(step.groupNames)
+      ? step.groupNames.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+      : []
+    const drawGroupNames = Array.isArray(step.drawGroupNames)
+      ? step.drawGroupNames.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+      : []
+    const id = typeof step.id === 'string' && step.id.trim().length > 0 ? step.id : `s${index + 1}`
+    const out: ExecutionPlanStep = {
+      id,
+      sentenceIndex: Math.floor(sentenceIndex),
+      groupNames,
+      drawGroupNames,
+      parallel: step.parallel !== false,
+    }
+    if (typeof step.splitGroup === 'string' && step.splitGroup.trim().length > 0) {
+      out.splitGroup = step.splitGroup
+    }
+    if (step.splitLifecycle === 'enter' || step.splitLifecycle === 'keep' || step.splitLifecycle === 'merge') {
+      out.splitLifecycle = step.splitLifecycle
+    }
+    if (Array.isArray(step.panelIds)) {
+      out.panelIds = step.panelIds.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    }
+    if (typeof step.joinOp === 'string' && step.joinOp.trim().length > 0) {
+      out.joinOp = step.joinOp
+    }
+    if (step.joinPolicy === 'keep-split' || step.joinPolicy === 'merge') {
+      out.joinPolicy = step.joinPolicy
+    }
+    steps.push(out)
+  })
+
+  return {
+    mode: 'sentence-step',
+    steps,
+  }
+}
+
 export async function parseToOperationSpec(command: ParseToOperationSpecCommand): Promise<ParseToOpsResult> {
   const endpoint = (command.endpoint ?? resolveDefaultEndpoint()).replace(/\/+$/, '')
   const fetcher = command.fetcher ?? fetch.bind(globalThis)
@@ -183,12 +272,43 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
   const groupSource = maybeWrapped ?? body
   const opsSpec = normalizeGroupMap(groupSource)
   const drawPlan = normalizeOptionalDrawPlan((body as UnknownRecord).draw_plan)
+  const executionPlan = normalizeExecutionPlan((body as UnknownRecord).execution_plan)
   const resolvedTextRaw = typeof body.resolvedText === 'string' ? body.resolvedText : body.resolved_text
 
   return {
     resolvedText: typeof resolvedTextRaw === 'string' && resolvedTextRaw.trim().length > 0 ? resolvedTextRaw : text,
     opsSpec,
     drawPlan,
+    executionPlan,
+    warnings: normalizeWarnings(body.warnings),
+  }
+}
+
+export async function compileOpsPlan(command: CompileOpsPlanCommand): Promise<CompileOpsPlanResult> {
+  const endpoint = (command.endpoint ?? resolveDefaultEndpoint()).replace(/\/+$/, '')
+  const fetcher = command.fetcher ?? fetch.bind(globalThis)
+  const response = await fetcher(`${endpoint}/compile_ops_plan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      vega_lite_spec: command.spec,
+      data_rows: command.dataRows,
+      ops_spec: command.opsSpec,
+    }),
+  })
+  if (!response.ok) {
+    const detail = await response.text()
+    throw new Error(`Ops plan compile failed (${response.status}): ${detail || response.statusText}`)
+  }
+
+  const body = (await response.json()) as Record<string, unknown>
+  const opsSpec = normalizeGroupMap(body.ops_spec ?? {})
+  const drawPlan = normalizeOptionalDrawPlan(body.draw_plan)
+  const executionPlan = normalizeExecutionPlan(body.execution_plan)
+  return {
+    opsSpec,
+    drawPlan,
+    executionPlan,
     warnings: normalizeWarnings(body.warnings),
   }
 }

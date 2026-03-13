@@ -21,32 +21,43 @@ export function buildExecutionPhases(ops: OperationSpec[]): OperationSpec[][] {
     return ops.map((op) => [op])
   }
 
-  const remaining = new Map<string, OperationSpec>()
-  ops.forEach((op) => {
-    const id = idFor(op)
-    remaining.set(id || `__idx_${remaining.size}`, op)
+  type PendingEntry = {
+    key: string
+    op: OperationSpec
+    nodeId: string
+    inputs: string[]
+  }
+  const remaining = new Map<string, PendingEntry>()
+  ops.forEach((op, index) => {
+    const nodeId = idFor(op)
+    const inputs = inputsFor(op)
+    const keyBase = nodeId || `__idx_${index}`
+    const key = `${keyBase}#${index}`
+    remaining.set(key, { key, op, nodeId, inputs })
   })
 
   const phases: OperationSpec[][] = []
-  const satisfied = new Set<string>()
+  const satisfiedNodeIds = new Set<string>()
 
   while (remaining.size) {
     const phase: OperationSpec[] = []
-    for (const [id, op] of Array.from(remaining.entries())) {
-      const inputs = inputsFor(op)
-      const ready = inputs.every((dep) => satisfied.has(dep))
+    for (const [key, entry] of Array.from(remaining.entries())) {
+      const ready = entry.inputs.every((dep) => satisfiedNodeIds.has(dep))
       if (ready) {
-        phase.push(op)
-        remaining.delete(id)
+        phase.push(entry.op)
+        remaining.delete(key)
       }
     }
     if (phase.length === 0) {
       // Cycle or missing deps; emit all remaining in one phase to avoid deadlock.
-      phases.push(Array.from(remaining.values()))
+      phases.push(Array.from(remaining.values()).map((entry) => entry.op))
       break
     }
     phases.push(phase)
-    phase.forEach((op) => satisfied.add(idFor(op)))
+    phase.forEach((op) => {
+      const nodeId = idFor(op)
+      if (nodeId) satisfiedNodeIds.add(nodeId)
+    })
   }
 
   return phases

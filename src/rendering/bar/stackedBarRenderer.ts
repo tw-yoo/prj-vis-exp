@@ -124,6 +124,31 @@ export async function renderSumStackedBarChart(
 }
 
 function normalizeSplitGroups(split: DrawSplitSpec, xDomain: Array<string | number>) {
+  const selectorEntries = Object.entries(split.selectors ?? {})
+  if ((split.mode === 'selector' || selectorEntries.length > 0) && selectorEntries.length >= 2) {
+    const [idA, selectorA] = selectorEntries[0]
+    const [idB, selectorB] = selectorEntries[1]
+    const buildDomain = (selectorRaw: unknown) => {
+      const selector = (selectorRaw && typeof selectorRaw === 'object'
+        ? (selectorRaw as { include?: Array<string | number>; exclude?: Array<string | number>; all?: boolean })
+        : {}) as { include?: Array<string | number>; exclude?: Array<string | number>; all?: boolean }
+      const includeSet = new Set((selector.include ?? []).map(String))
+      const excludeSet = new Set((selector.exclude ?? []).map(String))
+      const includeMode = includeSet.size > 0
+      const allMode = selector.all === true || (!includeMode && excludeSet.size === 0)
+      return xDomain.filter((label) => {
+        const token = String(label)
+        if (allMode) return !excludeSet.has(token)
+        if (includeMode) return includeSet.has(token)
+        return !excludeSet.has(token)
+      })
+    }
+    return {
+      ids: [idA, idB] as [string, string],
+      domains: [buildDomain(selectorA), buildDomain(selectorB)] as [Array<string | number>, Array<string | number>],
+    }
+  }
+
   if (!split.groups || typeof split.groups !== 'object') return null
   const entries = Object.entries(split.groups).filter((entry) => Array.isArray(entry[1]))
   if (entries.length === 0) return null
@@ -325,6 +350,11 @@ export async function renderSplitStackedBarChart(container: HTMLElement, spec: S
     const panel = svg
       .append(SvgElements.Group)
       .attr(DataAttributes.ChartId, id)
+      .attr(DataAttributes.ChartPanel, 'true')
+      .attr(DataAttributes.PanelPlotX, 0)
+      .attr(DataAttributes.PanelPlotY, 0)
+      .attr(DataAttributes.PanelPlotWidth, subW)
+      .attr(DataAttributes.PanelPlotHeight, subH)
       .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
 
     const xScale = d3.scaleBand<string | number>().domain(domain).range([0, subW]).padding(0.2)

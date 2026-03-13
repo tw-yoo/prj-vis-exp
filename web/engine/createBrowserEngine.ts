@@ -7,10 +7,10 @@ import {
 import { runChartOps as runChartOpsApi } from '../../src/api/operation-run'
 import { buildOps } from '../../src/api/operation-build'
 import { draw, ops } from '../../src/api/authoring'
-import { parseToOperationSpec as parseToOperationSpecApi } from '../../src/api/nlp-ops'
+import { compileOpsPlan as compileOpsPlanApi, parseToOperationSpec as parseToOperationSpecApi } from '../../src/api/nlp-ops'
 import type { OpsSpecInput, ParseToOpsResult } from '../../src/api/types'
 import type { RunChartOpsOptions } from '../../src/api/operation-run'
-import type { ParseToOperationSpecCommand } from '../../src/api/nlp-ops'
+import type { CompileOpsPlanCommand, CompileOpsPlanResult, ParseToOperationSpecCommand } from '../../src/api/nlp-ops'
 import { buildDemoSentenceBindings as buildDemoSentenceBindingsApi } from '../../src/api/demo-binding'
 import type { DemoSentenceBinding } from '../../src/api/demo-binding'
 import { runPythonPlan as runPythonPlanApi } from '../../src/api/python-plan'
@@ -27,6 +27,7 @@ export type BrowserEngine = {
   ) => Promise<unknown>
   buildDemoSentenceBindings: (sentences: string[], opsSpec: OpsSpecInput) => DemoSentenceBinding[]
   parseToOperationSpec: (command: ParseToOperationSpecCommand) => Promise<ParseToOpsResult>
+  compileOpsPlan: (command: CompileOpsPlanCommand) => Promise<CompileOpsPlanResult>
   runPythonPlan: (command: RunPythonPlanCommand) => Promise<RunPythonPlanResult>
   buildOps: typeof buildOps
   draw: typeof draw
@@ -49,6 +50,9 @@ export function createBrowserEngine(): BrowserEngine {
     },
     async parseToOperationSpec(command) {
       return parseToOperationSpecApi(command)
+    },
+    async compileOpsPlan(command) {
+      return compileOpsPlanApi(command)
     },
     async runPythonPlan(command) {
       return runPythonPlanApi(command)

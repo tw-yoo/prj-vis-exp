@@ -219,7 +219,33 @@ function normalizeLineXValue(raw: JsonValue, xType: string) {
   return { label, id: label, value: label, sort: label }
 }
 
-function normalizeSplitGroups(split: { groups: Record<string, Array<string | number>>; restTo?: string }, xDomain: string[]) {
+function normalizeSplitGroups(
+  split: {
+    mode?: 'domain' | 'selector'
+    groups?: Record<string, Array<string | number>>
+    selectors?: Record<string, { include?: Array<string | number>; exclude?: Array<string | number>; all?: boolean }>
+    restTo?: string
+  },
+  xDomain: string[],
+) {
+  const selectorEntries = Object.entries(split.selectors ?? {})
+  if ((split.mode === 'selector' || selectorEntries.length > 0) && selectorEntries.length >= 2) {
+    const [idA, selectorA] = selectorEntries[0]
+    const [idB, selectorB] = selectorEntries[1]
+    const buildDomain = (selector: { include?: Array<string | number>; exclude?: Array<string | number>; all?: boolean }) => {
+      const includeSet = new Set((selector.include ?? []).map(String))
+      const excludeSet = new Set((selector.exclude ?? []).map(String))
+      const includeMode = includeSet.size > 0
+      const allMode = selector.all === true || (!includeMode && excludeSet.size === 0)
+      return xDomain.filter((label) => {
+        if (allMode) return !excludeSet.has(label)
+        if (includeMode) return includeSet.has(label)
+        return !excludeSet.has(label)
+      })
+    }
+    return { ids: [idA, idB] as [string, string], domains: [buildDomain(selectorA), buildDomain(selectorB)] as [string[], string[]] }
+  }
+
   const entries = Object.entries(split.groups ?? {})
   if (entries.length === 0) return null
   const [idA, listA] = entries[0]
@@ -267,7 +293,13 @@ function normalizeMultiLinePoints(values: RawDatum[], encoding: ResolvedMultiLin
 export async function renderSplitMultipleLineChart(
   container: HTMLElement,
   spec: MultiLineSpec,
-  split: { groups: Record<string, Array<string | number>>; restTo?: string; orientation?: 'vertical' | 'horizontal' },
+  split: {
+    mode?: 'domain' | 'selector'
+    groups?: Record<string, Array<string | number>>
+    selectors?: Record<string, { include?: Array<string | number>; exclude?: Array<string | number>; all?: boolean }>
+    restTo?: string
+    orientation?: 'vertical' | 'horizontal'
+  },
 ) {
   const renderEpoch = bumpRenderEpoch(container)
   const stored = (getMultipleLineStoredData(container) || []) as RawDatum[]
@@ -361,6 +393,11 @@ export async function renderSplitMultipleLineChart(
     const g = svg
       .append(SvgElements.Group)
       .attr(DataAttributes.ChartId, id)
+      .attr(DataAttributes.ChartPanel, 'true')
+      .attr(DataAttributes.PanelPlotX, 0)
+      .attr(DataAttributes.PanelPlotY, 0)
+      .attr(DataAttributes.PanelPlotWidth, subW)
+      .attr(DataAttributes.PanelPlotHeight, subH)
       .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
 
     const xScale = buildXScale(domain)
@@ -414,6 +451,7 @@ export async function renderSplitMultipleLineChart(
         .attr(SvgAttributes.Fill, 'none')
         .attr(SvgAttributes.Stroke, stroke)
         .attr(SvgAttributes.StrokeWidth, 2)
+        .attr(DataAttributes.ChartId, id)
         .attr(DataAttributes.Series, seriesKey || null)
 
       const pointsGroup = g.append(SvgElements.Group).attr(DataAttributes.Series, seriesKey || null)
@@ -431,6 +469,7 @@ export async function renderSplitMultipleLineChart(
         .attr(SvgAttributes.CY, (d) => yScale(d.yValue))
         .attr(SvgAttributes.R, 3)
         .attr(SvgAttributes.Fill, stroke)
+        .attr(DataAttributes.ChartId, id)
         .attr(DataAttributes.Target, (d) => d.xLabel)
         .attr(DataAttributes.Id, (d) => d.xId)
         .attr(DataAttributes.Value, (d) => String(d.yValue))

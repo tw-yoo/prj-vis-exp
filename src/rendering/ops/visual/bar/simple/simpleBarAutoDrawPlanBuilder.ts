@@ -5,6 +5,7 @@ import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
 import { AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
+import { getSimpleBarSplitDomain } from '../../../../bar/simpleBarRenderer'
 
 type TargetPoint = { target: string; series?: string }
 type ScalarRefValue = { refKey: string; label: string; value: number; target: string | null }
@@ -166,6 +167,35 @@ function highlightTargets(op: OperationSpec, targets: string[], color = '#0ea5e9
   return [ops.draw.highlight(op.chartId, draw.select.markKeys('rect', ...targets), color)]
 }
 
+function uniqueResultTargets(result: DatumValue[]) {
+  return Array.from(new Set(result.map((item) => String(item.target))))
+}
+
+function isSplitRootFilterHighlightSuppressed(
+  op: OperationSpec,
+  context: AutoDrawPlanContext,
+  candidateTargets: string[],
+  result: DatumValue[],
+) {
+  const view = (op.meta as { view?: { splitGroup?: string; panelId?: string } } | undefined)?.view
+  if (!view?.splitGroup || !view?.panelId) return false
+  if (!op.chartId || op.chartId !== view.panelId) return false
+  const metaInputs = Array.isArray(op.meta?.inputs) ? op.meta.inputs : []
+  if (metaInputs.length > 0) return false
+
+  const panelDomain = getSimpleBarSplitDomain(context.container, op.chartId)
+  if (!panelDomain || panelDomain.size === 0) return false
+
+  const requestedTargets = candidateTargets.length ? candidateTargets : uniqueResultTargets(result)
+  if (!requestedTargets.length) return false
+  if (requestedTargets.length !== panelDomain.size) return false
+  const requestedSet = new Set(requestedTargets.map((target) => String(target)))
+  for (const domainValue of panelDomain) {
+    if (!requestedSet.has(String(domainValue))) return false
+  }
+  return true
+}
+
 function resolveNodeChartId(node: Element) {
   const direct = node.getAttribute('data-chart-id')
   if (direct && direct.trim().length > 0) return direct.trim()
@@ -195,9 +225,24 @@ function collectTargetMetrics(context: AutoDrawPlanContext, chartId?: string) {
     if (!ownerSvg) return
     const svgRect = ownerSvg.getBoundingClientRect()
     if (!(svgRect.width > 0 && svgRect.height > 0)) return
+    let viewportRect = svgRect
+    if (chartId) {
+      const quotedChartId = chartId.replace(/"/g, '\\"')
+      const explicitPanel = ownerSvg.querySelector<SVGGElement>(
+        `g[data-chart-id="${quotedChartId}"][data-chart-panel="true"]`,
+      )
+      const fallbackPanel = node.closest<SVGGElement>(`[data-chart-id="${quotedChartId}"]`)
+      const panelNode = explicitPanel ?? fallbackPanel
+      if (panelNode) {
+        const panelRect = panelNode.getBoundingClientRect()
+        if (panelRect.width > 0 && panelRect.height > 0) {
+          viewportRect = panelRect
+        }
+      }
+    }
     const rect = node.getBoundingClientRect()
-    const x = (rect.left + rect.width / 2 - svgRect.left) / svgRect.width
-    const y = 1 - (rect.top - svgRect.top) / svgRect.height
+    const x = (rect.left + rect.width / 2 - viewportRect.left) / viewportRect.width
+    const y = 1 - (rect.top - viewportRect.top) / viewportRect.height
     if (!Number.isFinite(x) || !Number.isFinite(y)) return
     const key = target.trim()
     const prev = out.get(key)
@@ -391,17 +436,23 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     if (!result.length) return null
     return [...highlightTargets(op, Array.from(new Set(result.map((d) => String(d.target)))), '#ef4444'), ...textTargets(result, op)]
   },
-  [OperationOp.Filter]: (result, op) => {
+  [OperationOp.Filter]: (result, op, context) => {
     if (Array.isArray(op.include) && op.include.length > 0) {
       const includeTargets = op.include.map((item) => String(item))
-      return [...highlightTargets(op, includeTargets, '#ef4444'), ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...op.include))]
+      const highlightPlan = isSplitRootFilterHighlightSuppressed(op, context, includeTargets, result)
+        ? []
+        : highlightTargets(op, includeTargets, '#ef4444')
+      return [...highlightPlan, ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...op.include))]
     }
     if (Array.isArray(op.exclude) && op.exclude.length > 0) {
       const excluded = new Set(op.exclude.map((item) => String(item)))
       const pass = result
         .map((item) => String(item.target))
         .filter((target, idx, arr) => arr.indexOf(target) === idx && !excluded.has(target))
-      return [...highlightTargets(op, pass, '#ef4444'), ops.draw.filter(op.chartId, draw.filterSpec.xExclude(...op.exclude))]
+      const highlightPlan = isSplitRootFilterHighlightSuppressed(op, context, pass, result)
+        ? []
+        : highlightTargets(op, pass, '#ef4444')
+      return [...highlightPlan, ops.draw.filter(op.chartId, draw.filterSpec.xExclude(...op.exclude))]
     }
     return buildThresholdFilterPlan(result, op)
   },

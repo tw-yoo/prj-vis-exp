@@ -139,6 +139,13 @@ textarea {
   font-size: 12px;
 }
 
+.nl-status-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
 .nl-error {
   margin-top: 8px;
   font-size: 12px;

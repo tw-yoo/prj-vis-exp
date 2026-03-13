@@ -18,12 +18,9 @@ const STRUCTURAL_ACTIONS = new Set<DrawAction>([
   DrawAction.Unsplit,
   DrawAction.Sum,
 ])
-const CLEAR_ANNOTATIONS_BEFORE_ACTIONS = new Set<DrawAction>([
-  DrawAction.Filter,
-  DrawAction.StackedFilterGroups,
-  DrawAction.GroupedFilterGroups,
-])
+const CLEANUP_AFTER_ACTIONS = new Set<DrawAction>([DrawAction.Filter])
 const ANNOTATION_FADE_OUT_MS = 180
+const MERGE_ANNOTATION_OPACITY = 0.5
 const ALL_CHART_SCOPE = '__all__'
 
 type HandlerLike = {
@@ -126,18 +123,33 @@ function buildReconcileState(container: HTMLElement, drawOps: DrawOp[]): Reconci
   return { redundantOps, keepKeysByScope }
 }
 
-function isInChartScope(node: Element, chartId: string | undefined) {
-  if (!chartId) return true
-  const nodeChartId = node.getAttribute(DataAttributes.ChartId)
-  if (!nodeChartId) return false
-  return nodeChartId === chartId
+function resolveOpNodeId(op: DrawOp) {
+  const nodeId = typeof op.meta?.nodeId === 'string' ? op.meta.nodeId.trim() : ''
+  if (nodeId.length > 0) return nodeId
+  const rawId = typeof (op as { id?: unknown }).id === 'string' ? ((op as { id?: string }).id ?? '').trim() : ''
+  return rawId.length > 0 ? rawId : null
 }
 
-function fadeOutAnnotationsBeforeStructuralDraw(container: HTMLElement, op: DrawOp, state: ReconcileState) {
-  if (!CLEAR_ANNOTATIONS_BEFORE_ACTIONS.has(op.action)) return Promise.resolve()
+function collectDirectParentNodeIds(op: DrawOp) {
+  const ids = new Set<string>()
+  const inputs = Array.isArray(op.meta?.inputs) ? op.meta.inputs : []
+  inputs.forEach((input) => {
+    if (typeof input !== 'string') return
+    const normalized = input.trim()
+    if (!normalized) return
+    ids.add(normalized)
+  })
+  return ids
+}
+
+function cleanupForNode(container: HTMLElement, op: DrawOp, state: ReconcileState) {
+  if (!CLEANUP_AFTER_ACTIONS.has(op.action)) return Promise.resolve()
 
   const selectors = DEFAULT_ANNOTATION_SELECTORS.join(', ')
-  const keepKeys = collectKeepKeysForScope(state.keepKeysByScope, op.chartId)
+  const keepKeys = collectKeepKeysForScope(state.keepKeysByScope, undefined)
+  const keepNodeIds = collectDirectParentNodeIds(op)
+  const currentNodeId = resolveOpNodeId(op)
+  if (currentNodeId) keepNodeIds.add(currentNodeId)
   const svgs = d3.select(container).selectAll<SVGSVGElement, unknown>('svg')
   const tasks: Array<Promise<void>> = []
 
@@ -145,10 +157,20 @@ function fadeOutAnnotationsBeforeStructuralDraw(container: HTMLElement, op: Draw
     const svg = d3.select(this as SVGSVGElement)
     const annotations = svg.selectAll<SVGElement, unknown>(selectors).filter(function () {
       const node = this as Element
-      if (!isInChartScope(node, op.chartId)) return false
-      const key = node.getAttribute(DataAttributes.AnnotationKey)
-      if (!key) return true
-      return !keepKeys.has(key)
+      const key = (node.getAttribute(DataAttributes.AnnotationKey) ?? '').trim()
+      if (key && keepKeys.has(key)) return false
+      const nodeId = (node.getAttribute(DataAttributes.AnnotationNodeId) ?? '').trim()
+      if (nodeId && keepNodeIds.has(nodeId)) return false
+      if (!nodeId) {
+        let parent: Element | null = node.parentElement
+        while (parent) {
+          const parentNodeId = (parent.getAttribute(DataAttributes.AnnotationNodeId) ?? '').trim()
+          if (parentNodeId && keepNodeIds.has(parentNodeId)) return false
+          if (parent.tagName.toLowerCase() === 'svg') break
+          parent = parent.parentElement
+        }
+      }
+      return true
     })
     if (annotations.empty()) return
 
@@ -167,6 +189,53 @@ function fadeOutAnnotationsBeforeStructuralDraw(container: HTMLElement, op: Draw
   })
 
   return Promise.all(tasks).then(() => undefined)
+}
+
+function applyMergeAnnotationOpacity(container: HTMLElement) {
+  const selectors = DEFAULT_ANNOTATION_SELECTORS.join(', ')
+  if (!selectors) return
+  const svgs = d3.select(container).selectAll<SVGSVGElement, unknown>('svg')
+  svgs.each(function () {
+    const svg = d3.select(this as SVGSVGElement)
+    svg
+      .selectAll<SVGElement, unknown>(selectors)
+      .interrupt()
+      .attr(SvgAttributes.Opacity, MERGE_ANNOTATION_OPACITY)
+  })
+}
+
+function isStructuralDependencyNodeId(nodeId: string) {
+  const token = String(nodeId).trim().toLowerCase()
+  if (!token) return false
+  return /(?:^|_)split(?:_|$)/.test(token) || /(?:^|_)unsplit(?:_|$)/.test(token)
+}
+
+function isJoinNodeOp(op: DrawOp) {
+  const inputs = Array.isArray(op.meta?.inputs) ? op.meta.inputs : []
+  const semanticInputs = Array.from(
+    new Set(
+      inputs
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0 && !isStructuralDependencyNodeId(item)),
+    ),
+  )
+  return semanticInputs.length >= 2
+}
+
+function applyJoinAnnotationOpacity(container: HTMLElement, currentNodeId: string | null) {
+  const selectors = DEFAULT_ANNOTATION_SELECTORS.join(', ')
+  if (!selectors) return
+  const svgs = d3.select(container).selectAll<SVGSVGElement, unknown>('svg')
+  svgs.each(function () {
+    const svg = d3.select(this as SVGSVGElement)
+    svg.selectAll<SVGElement, unknown>(selectors).each(function () {
+      const node = this as SVGElement
+      const nodeId = (node.getAttribute(DataAttributes.AnnotationNodeId) ?? '').trim()
+      if (currentNodeId && nodeId === currentNodeId) return
+      d3.select(node).interrupt().attr(SvgAttributes.Opacity, MERGE_ANNOTATION_OPACITY)
+    })
+  })
 }
 
 function buildDrawPlanPhases(drawPlan: DrawOp[]): DrawOp[][] {
@@ -220,17 +289,29 @@ export async function runDrawPlan<H extends HandlerLike>(options: RunDrawPlanOpt
   const phases = buildDrawPlanPhases(drawPlan)
   const executionOrder = phases.flatMap((phase) => phase)
   const reconcileState = buildReconcileState(container, executionOrder)
+  const joinOpacityAppliedNodeIds = new Set<string>()
   for (const phase of phases) {
     await Promise.all(
       phase.map(async (op) => {
         const startedAt = Date.now()
+        if (op.action === DrawAction.Unsplit) {
+          applyMergeAnnotationOpacity(container)
+        }
+        const currentNodeId = resolveOpNodeId(op)
+        if (isJoinNodeOp(op)) {
+          const joinKey = currentNodeId ?? '__join__'
+          if (!joinOpacityAppliedNodeIds.has(joinKey)) {
+            applyJoinAnnotationOpacity(container, currentNodeId)
+            joinOpacityAppliedNodeIds.add(joinKey)
+          }
+        }
         if (!reconcileState.redundantOps.has(op)) {
-          const annotationFade = fadeOutAnnotationsBeforeStructuralDraw(container, op, reconcileState)
-          await Promise.all([handler.run(op), annotationFade])
+          await handler.run(op)
           if (ACTIONS_REQUIRING_GENERIC.has(op.action ?? ('' as DrawAction))) {
             runGenericDraw(container, op as DrawOp)
           }
         }
+        await cleanupForNode(container, op, reconcileState)
         const elapsed = Date.now() - startedAt
         if (elapsed < MIN_DRAW_DURATION_MS) {
           await new Promise((resolve) => setTimeout(resolve, MIN_DRAW_DURATION_MS - elapsed))

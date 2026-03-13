@@ -194,30 +194,25 @@ function parseThresholdCondition(operator: string | undefined) {
   return null
 }
 
-function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
+function buildFilterPlan(_result: DatumValue[], op: OperationSpec) {
   if (typeof op.group === 'string' && op.group.trim().length > 0) {
     // Data-op filter.group means series filtering in-place, not chart-type conversion.
     return [ops.draw.stackedFilterGroups(op.chartId, [op.group], 'include')]
   }
   if (Array.isArray(op.include) && op.include.length > 0) {
-    const includeTargets = op.include.map((item) => String(item))
     return [
-      ...buildHighlightPlan(includeTargets, '#ef4444'),
       ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...op.include)),
     ]
   }
   if (Array.isArray(op.exclude) && op.exclude.length > 0) {
-    const excluded = new Set(op.exclude.map((item) => String(item)))
-    const pass = uniqueTargets(result).filter((target) => !excluded.has(target))
     return [
-      ...buildHighlightPlan(pass, '#ef4444'),
       ops.draw.filter(op.chartId, draw.filterSpec.xExclude(...op.exclude)),
     ]
   }
   const threshold = Number(op.value)
   const condition = parseThresholdCondition(op.operator)
   if (!Number.isFinite(threshold) || !condition) return null
-  const targets = uniqueTargets(result)
+  const targets = uniqueTargets(_result)
   return [
     ops.draw.line(op.chartId, lineAt(threshold, '#ef4444')),
     ops.draw.barSegment(
@@ -244,7 +239,18 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   [OperationOp.Filter]: (result, op) => buildFilterPlan(result, op),
   [OperationOp.FindExtremum]: (result, op) => {
     if (!result.length) return null
-    return [...buildHighlightPlan(uniqueTargets(result), '#ef4444'), ...buildTextPlan(toTargetValueEntries(result), '#111827', 2)]
+    const value = scalarFromResult(result)
+    const entries = toTargetValueEntries(result)
+    const whichLabel = op.which === 'min' ? 'min' : 'max'
+    const plan: any[] = []
+    if (value != null) {
+      plan.push(ops.draw.line(op.chartId, lineAt(value, '#ef4444')))
+      plan.push(ops.draw.text(op.chartId, undefined, textScore(value, whichLabel)))
+    }
+    if (entries.length) {
+      plan.push(...buildTextPlan(entries, '#111827', 2))
+    }
+    return plan.length ? plan : null
   },
   [OperationOp.Sort]: (_result, op) => [
     ops.draw.clear(op.chartId),

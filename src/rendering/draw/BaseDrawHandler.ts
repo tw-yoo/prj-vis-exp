@@ -23,6 +23,13 @@ import { ensureAnnotationLayer } from './utils/annotationLayer'
 import { MIN_DRAW_DURATION_MS } from './animationPolicy'
 
 type AnySelection = d3.Selection<any, unknown, any, any>
+type DrawViewport = {
+  x: number
+  y: number
+  width: number
+  height: number
+  layerParent: Element
+}
 
 const addArrowHead = (
   layer: AnySelection,
@@ -32,6 +39,7 @@ const addArrowHead = (
   style: { stroke?: string; strokeWidth?: number; opacity?: number },
   arrowSpec: DrawArrowSpec,
   annotationKey?: string | null,
+  annotationNodeId?: string | null,
 ) => {
   const length = Math.max(arrowSpec.length ?? 12, 1)
   const width = Math.max(arrowSpec.width ?? length * 0.6, 1)
@@ -53,6 +61,7 @@ const addArrowHead = (
     .append(SvgElements.Path)
     .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation} arrowhead`)
     .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+    .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
     .attr(SvgAttributes.D, path)
     .attr(SvgAttributes.Fill, fill)
     .attr(SvgAttributes.Stroke, stroke)
@@ -67,6 +76,7 @@ const drawLineWithArrow = (
   lineSpec: DrawLineSpec,
   coords: { x1: number; y1: number; x2: number; y2: number },
   annotationKey?: string | null,
+  annotationNodeId?: string | null,
 ) => {
   const stroke = lineSpec.style?.stroke ?? '#111827'
   const strokeWidth = lineSpec.style?.strokeWidth ?? 2
@@ -77,6 +87,7 @@ const drawLineWithArrow = (
     .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
     .attr(DataAttributes.ChartId, chartId ?? null)
     .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+    .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
     .attr(SvgAttributes.X1, coords.x1)
     .attr(SvgAttributes.Y1, coords.y1)
     .attr(SvgAttributes.X2, coords.x2)
@@ -103,10 +114,20 @@ const drawLineWithArrow = (
       { stroke, strokeWidth, opacity },
       arrowSpec,
       annotationKey,
+      annotationNodeId,
     )
   }
   if (arrowSpec.end) {
-    addArrowHead(layer, coords.x2, coords.y2, direction, { stroke, strokeWidth, opacity }, arrowSpec, annotationKey)
+    addArrowHead(
+      layer,
+      coords.x2,
+      coords.y2,
+      direction,
+      { stroke, strokeWidth, opacity },
+      arrowSpec,
+      annotationKey,
+      annotationNodeId,
+    )
   }
 }
 
@@ -138,6 +159,13 @@ function normalizeLineMode(mode: unknown): DrawLineMode | null {
     return DrawLineModes.HorizontalFromY
   }
   return null
+}
+
+function resolveAnnotationNodeId(op: DrawOp): string | null {
+  const nodeId = typeof op.meta?.nodeId === 'string' ? op.meta.nodeId.trim() : ''
+  if (nodeId.length > 0) return nodeId
+  const rawId = typeof (op as { id?: unknown }).id === 'string' ? ((op as { id?: string }).id ?? '').trim() : ''
+  return rawId.length > 0 ? rawId : null
 }
 
 function formatScalarPanelNumber(value: number) {
@@ -212,15 +240,202 @@ export abstract class BaseDrawHandler {
     return '#69b3a2'
   }
 
+  private parsePathNumbers(pathValue: string | null | undefined) {
+    if (!pathValue) return [] as number[]
+    return pathValue.match(/-?\d+(?:\.\d+)?/g)?.map(Number).filter(Number.isFinite) ?? []
+  }
+
+  private resolveSvgSize(svgNode: SVGSVGElement) {
+    const viewBox = svgNode.viewBox?.baseVal
+    const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
+    const height = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
+    return { width, height }
+  }
+
+  private computeGlobalTextMinNormalizedY(svgNode: SVGSVGElement) {
+    const svgSize = this.resolveSvgSize(svgNode)
+    if (!svgSize || !(svgSize.height > 0)) return 0
+    const marginTopRaw = svgNode.getAttribute(DataAttributes.MarginTop)
+    const plotHeightRaw = svgNode.getAttribute(DataAttributes.PlotHeight)
+    if (marginTopRaw == null || plotHeightRaw == null) return 0
+    const marginTop = Number(marginTopRaw)
+    const plotHeight = Number(plotHeightRaw)
+    if (!(Number.isFinite(marginTop) && Number.isFinite(plotHeight))) return 0
+    const axisBaselinePx = marginTop + plotHeight
+    if (!(axisBaselinePx >= 0 && axisBaselinePx <= svgSize.height)) return 0
+    const axisBaselineNorm = (svgSize.height - axisBaselinePx) / svgSize.height
+    const clearanceNorm = 8 / svgSize.height
+    return Math.max(0, Math.min(1, axisBaselineNorm + clearanceNorm))
+  }
+
+  private resolveLineAnchorY(
+    svgNode: SVGSVGElement,
+    annotationNodeId: string,
+    chartId?: string | null,
+  ) {
+    const quotedNodeId = String(annotationNodeId).replace(/"/g, '\\"')
+    const candidates = Array.from(
+      svgNode.querySelectorAll<SVGLineElement>(
+        `${SvgElements.Line}.${SvgClassNames.Annotation}.${SvgClassNames.LineAnnotation}[${DataAttributes.AnnotationNodeId}="${quotedNodeId}"]`,
+      ),
+    ).filter((line) => {
+      if (chartId == null || chartId === '') return true
+      return (line.getAttribute(DataAttributes.ChartId) ?? '') === chartId
+    })
+    if (!candidates.length) return null
+    const last = candidates[candidates.length - 1]
+    const y1 = Number(last.getAttribute(SvgAttributes.Y1))
+    const y2 = Number(last.getAttribute(SvgAttributes.Y2))
+    if (!Number.isFinite(y1) || !Number.isFinite(y2)) return null
+    return Math.min(y1, y2)
+  }
+
+  private isPanelGroupNode(node: Element) {
+    if (!(node instanceof SVGGElement)) return false
+    if (node.classList.contains(SvgClassNames.AnnotationLayer)) return false
+    const explicit = (node.getAttribute(DataAttributes.ChartPanel) ?? '').trim().toLowerCase()
+    if (explicit === 'true') return true
+    if (node.querySelector(SvgSelectors.XAxisGroup) || node.querySelector(SvgSelectors.YAxisGroup)) return true
+    return node.querySelector(SvgSelectors.DataTargets) != null
+  }
+
+  private resolvePanelGroup(svgNode: SVGSVGElement, chartId?: string) {
+    if (!chartId) return null
+    const quotedChartId = chartId.replace(/"/g, '\\"')
+    const explicitGroups = Array.from(
+      svgNode.querySelectorAll<SVGGElement>(
+        `${SvgElements.Group}[${DataAttributes.ChartId}="${quotedChartId}"][${DataAttributes.ChartPanel}="true"]`,
+      ),
+    ).filter((node) => !node.classList.contains(SvgClassNames.AnnotationLayer))
+    if (explicitGroups.length) return explicitGroups[0]
+
+    const candidates = Array.from(
+      svgNode.querySelectorAll<SVGGElement>(`${SvgElements.Group}[${DataAttributes.ChartId}="${quotedChartId}"]`),
+    ).filter((node) => this.isPanelGroupNode(node))
+    if (!candidates.length) return null
+    let picked = candidates[0]
+    let maxArea = -1
+    candidates.forEach((candidate) => {
+      const rect = candidate.getBoundingClientRect()
+      const area = rect.width * rect.height
+      if (Number.isFinite(area) && area > maxArea) {
+        maxArea = area
+        picked = candidate
+      }
+    })
+    return picked
+  }
+
+  private resolvePanelViewport(svgNode: SVGSVGElement, chartId?: string): DrawViewport {
+    const svgSize = this.resolveSvgSize(svgNode)
+    const fallbackWidth = svgSize?.width ?? 0
+    const fallbackHeight = svgSize?.height ?? 0
+    if (!chartId) {
+      return {
+        x: 0,
+        y: 0,
+        width: fallbackWidth,
+        height: fallbackHeight,
+        layerParent: svgNode,
+      }
+    }
+
+    const panel = this.resolvePanelGroup(svgNode, chartId)
+    if (!panel) {
+      return {
+        x: 0,
+        y: 0,
+        width: fallbackWidth,
+        height: fallbackHeight,
+        layerParent: svgNode,
+      }
+    }
+
+    const readNumber = (attr: string) => {
+      const raw = Number(panel.getAttribute(attr))
+      return Number.isFinite(raw) ? raw : null
+    }
+    const metaX = readNumber(DataAttributes.PanelPlotX)
+    const metaY = readNumber(DataAttributes.PanelPlotY)
+    const metaW = readNumber(DataAttributes.PanelPlotWidth)
+    const metaH = readNumber(DataAttributes.PanelPlotHeight)
+    if (metaX != null && metaY != null && metaW != null && metaH != null && metaW > 0 && metaH > 0) {
+      return {
+        x: metaX,
+        y: metaY,
+        width: metaW,
+        height: metaH,
+        layerParent: panel,
+      }
+    }
+
+    const xAxisPath = panel.querySelector<SVGPathElement>(`${SvgSelectors.XAxisGroup} path.domain`)
+    const yAxisPath = panel.querySelector<SVGPathElement>(`${SvgSelectors.YAxisGroup} path.domain`)
+    const xNums = this.parsePathNumbers(xAxisPath?.getAttribute(SvgAttributes.D))
+    const yNums = this.parsePathNumbers(yAxisPath?.getAttribute(SvgAttributes.D))
+    if (xNums.length >= 4 && yNums.length >= 4) {
+      const xValues = xNums.filter((_, idx) => idx % 2 === 0)
+      const yAxisYValues = yNums.filter((_, idx) => idx % 2 === 1)
+      const width = Math.max(...xValues) - Math.min(...xValues)
+      const top = Math.min(...yAxisYValues)
+      const bottom = Math.max(...yAxisYValues)
+      const height = bottom - top
+      if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+        return {
+          x: Math.min(...xValues),
+          y: top,
+          width,
+          height,
+          layerParent: panel,
+        }
+      }
+    }
+
+    let bbox: { x: number; y: number; width: number; height: number } | null = null
+    try {
+      const panelBox = panel.getBBox()
+      if (panelBox.width > 0 && panelBox.height > 0) {
+        bbox = { x: panelBox.x, y: panelBox.y, width: panelBox.width, height: panelBox.height }
+      }
+    } catch {
+      bbox = null
+    }
+    if (bbox && Number.isFinite(bbox.width) && Number.isFinite(bbox.height) && bbox.width > 0 && bbox.height > 0) {
+      return {
+        x: bbox.x,
+        y: bbox.y,
+        width: bbox.width,
+        height: bbox.height,
+        layerParent: panel,
+      }
+    }
+
+    return {
+      x: 0,
+      y: 0,
+      width: fallbackWidth,
+      height: fallbackHeight,
+      layerParent: panel,
+    }
+  }
+
   protected selectScope(chartId?: string) {
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (!chartId) return svg as unknown as d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>
-    const groups = svg.selectAll<SVGGElement, JsonValue>(
-      `${SvgSelectors.ChartGroup}[${DataAttributes.ChartId}="${String(chartId)}"]`,
-    )
-    return groups.empty()
+    const svgNode = svg.node() as SVGSVGElement | null
+    if (!svgNode) return d3.select(null) as unknown as d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>
+    const panel = this.resolvePanelGroup(svgNode, chartId)
+    if (panel) {
+      return d3.select(panel) as unknown as d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>
+    }
+    const quotedChartId = String(chartId).replace(/"/g, '\\"')
+    const candidates = svg
+      .selectAll<SVGGElement, JsonValue>(`${SvgElements.Group}[${DataAttributes.ChartId}="${quotedChartId}"]`)
+      .filter((_, index, nodes) => this.isPanelGroupNode(nodes[index] as Element))
+    return candidates.empty()
       ? (d3.select(null) as unknown as d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>)
-      : (groups as unknown as d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>)
+      : (candidates as unknown as d3.Selection<d3.BaseType, JsonValue, d3.BaseType, JsonValue>)
   }
 
   protected isDataMarkElement(el: Element) {
@@ -659,6 +874,7 @@ export abstract class BaseDrawHandler {
     const value = textSpec?.value
     if (!value) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
+    const annotationNodeId = resolveAnnotationNodeId(op)
 
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
@@ -722,6 +938,7 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
           .attr(DataAttributes.ChartId, op.chartId ?? null)
           .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+          .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
           .attr(SvgAttributes.X, x)
           .attr(SvgAttributes.Y, y)
           .attr(SvgAttributes.TextAnchor, 'middle')
@@ -743,24 +960,39 @@ export abstract class BaseDrawHandler {
         console.warn('draw:text requires text.position when mode=normalized', op)
         return
       }
-      const viewBox = svgNode.viewBox?.baseVal
-      const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
-      const height = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
+      const viewport = this.resolvePanelViewport(svgNode, op.chartId)
+      const width = viewport.width
+      const height = viewport.height
       if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return
 
       const clamp = (n: number) => Math.max(0, Math.min(1, n))
-      const x = clamp(pos.x) * width + offsetX
-      const y = (1 - clamp(pos.y)) * height + offsetY
-
       const textValue = typeof value === 'string' ? value : null
       if (!textValue) return
 
-      const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
+      const normalizedX = clamp(pos.x)
+      let normalizedY = clamp(pos.y)
+      if (!op.chartId) {
+        const minY = this.computeGlobalTextMinNormalizedY(svgNode)
+        if (normalizedY < minY) {
+          normalizedY = minY
+        }
+      }
+      const x = viewport.x + normalizedX * width + offsetX
+      const yFromNormalized = viewport.y + (1 - normalizedY) * height + offsetY
+      const lineAnchorY =
+        annotationNodeId != null ? this.resolveLineAnchorY(svgNode, annotationNodeId, op.chartId ?? null) : null
+      const y =
+        lineAnchorY == null
+          ? yFromNormalized
+          : Math.max(viewport.y + 8, Math.min(viewport.y + viewport.height - 2, lineAnchorY - 8 + offsetY))
+
+      const layer = d3.select(ensureAnnotationLayer(viewport.layerParent, op.chartId ?? null))
       const textNode = layer
         .append(SvgElements.Text)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
         .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+        .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, y)
         .attr(SvgAttributes.TextAnchor, 'middle')
@@ -780,11 +1012,14 @@ export abstract class BaseDrawHandler {
     const rectSpec: DrawRectSpec | undefined = op.rect
     if (!rectSpec) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
+    const annotationNodeId = resolveAnnotationNodeId(op)
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
 
     const svgNode = svg.node() as SVGSVGElement | null
     if (!svgNode) return
+    const viewport = this.resolvePanelViewport(svgNode, op.chartId)
+    const normalizedLayer = d3.select(ensureAnnotationLayer(viewport.layerParent, op.chartId ?? null))
     const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
     const viewBox = svgNode.viewBox?.baseVal
     const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
@@ -802,8 +1037,8 @@ export abstract class BaseDrawHandler {
         console.warn('draw:rect requires rect.position and rect.size when mode=normalized', op)
         return
       }
-      centerX = clamp(pos.x) * width
-      centerY = (1 - clamp(pos.y)) * height
+      centerX = viewport.x + clamp(pos.x) * viewport.width
+      centerY = viewport.y + (1 - clamp(pos.y)) * viewport.height
     } else if (mode === DrawRectModes.DataPoint) {
       const pointX = rectSpec.point?.x
       const size = rectSpec.size
@@ -1165,6 +1400,7 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
           .attr(DataAttributes.ChartId, op.chartId ?? null)
           .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+          .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
           .attr(SvgAttributes.X, x)
           .attr(SvgAttributes.Y, y)
           .attr(SvgAttributes.Width, rectWidth)
@@ -1181,6 +1417,7 @@ export abstract class BaseDrawHandler {
             .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
             .attr(DataAttributes.ChartId, op.chartId ?? null)
             .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+            .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
             .attr(SvgAttributes.X, centerX)
             .attr(SvgAttributes.Y, centerY)
             .attr(SvgAttributes.TextAnchor, 'middle')
@@ -1200,8 +1437,10 @@ export abstract class BaseDrawHandler {
     }
 
     if (centerX == null || centerY == null) return
-    const rectWidth = (rectSpec.size?.width ?? 0) * width
-    const rectHeight = (rectSpec.size?.height ?? 0) * height
+    const sizeWidthBase = mode === DrawRectModes.Normalized ? viewport.width : width
+    const sizeHeightBase = mode === DrawRectModes.Normalized ? viewport.height : height
+    const rectWidth = (rectSpec.size?.width ?? 0) * sizeWidthBase
+    const rectHeight = (rectSpec.size?.height ?? 0) * sizeHeightBase
     if (!rectWidth || !rectHeight) {
       console.warn('draw:rect size is required for normalized mode', op)
       return
@@ -1210,11 +1449,13 @@ export abstract class BaseDrawHandler {
     const x = centerX - rectWidth / 2
     const y = centerY - rectHeight / 2
 
-    const rectNode = layer
+    const drawLayer = mode === DrawRectModes.Normalized ? normalizedLayer : layer
+    const rectNode = drawLayer
       .append(SvgElements.Rect)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
       .attr(DataAttributes.ChartId, op.chartId ?? null)
       .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+      .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
       .attr(SvgAttributes.X, x)
       .attr(SvgAttributes.Y, y)
       .attr(SvgAttributes.Width, rectWidth)
@@ -1230,28 +1471,33 @@ export abstract class BaseDrawHandler {
     const lineSpec: DrawLineSpec | undefined = op.line
     if (!lineSpec) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
+    const annotationNodeId = resolveAnnotationNodeId(op)
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
 
     const svgNode = svg.node() as SVGSVGElement | null
     if (!svgNode) return
-    const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
     const viewBox = svgNode.viewBox?.baseVal
     const width = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svgNode.getBoundingClientRect().width
     const height = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return
 
+    const hasNormalizedPosition = Boolean(lineSpec.position?.start && lineSpec.position?.end && !lineSpec.mode)
+    const normalizedViewport = hasNormalizedPosition ? this.resolvePanelViewport(svgNode, op.chartId) : null
+    const layerParent = normalizedViewport?.layerParent ?? svgNode
+    const layer = d3.select(ensureAnnotationLayer(layerParent, op.chartId ?? null))
+
     const scope = this.selectScope(op.chartId)
     const mapY = this.yValueToSvgY(scope, svgNode)
 
     // Normalized position line (used by JSON ops / interaction snapshots without mode).
-    if (lineSpec.position?.start && lineSpec.position?.end && !lineSpec.mode) {
+    if (hasNormalizedPosition && normalizedViewport) {
       const clamp = (value: number) => Math.max(0, Math.min(1, value))
-      const x1 = clamp(lineSpec.position.start.x) * width
-      const y1 = (1 - clamp(lineSpec.position.start.y)) * height
-      const x2 = clamp(lineSpec.position.end.x) * width
-      const y2 = (1 - clamp(lineSpec.position.end.y)) * height
-      drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1, x2, y2 }, annotationKey)
+      const x1 = normalizedViewport.x + clamp(lineSpec.position!.start.x) * normalizedViewport.width
+      const y1 = normalizedViewport.y + (1 - clamp(lineSpec.position!.start.y)) * normalizedViewport.height
+      const x2 = normalizedViewport.x + clamp(lineSpec.position!.end.x) * normalizedViewport.width
+      const y2 = normalizedViewport.y + (1 - clamp(lineSpec.position!.end.y)) * normalizedViewport.height
+      drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1, x2, y2 }, annotationKey, annotationNodeId)
       return
     }
 
@@ -1292,9 +1538,19 @@ export abstract class BaseDrawHandler {
       })
 
       const panelRectForChart = (chartId: string) => {
-        const groups = Array.from(svgNode.querySelectorAll<SVGGElement>(`g[${DataAttributes.ChartId}]`)).filter(
-          (node) => node.getAttribute(DataAttributes.ChartId) === chartId,
+        const quotedChartId = chartId.replace(/"/g, '\\"')
+        const explicit = Array.from(
+          svgNode.querySelectorAll<SVGGElement>(
+            `${SvgElements.Group}[${DataAttributes.ChartId}="${quotedChartId}"][${DataAttributes.ChartPanel}="true"]`,
+          ),
         )
+        const groups = explicit.length
+          ? explicit
+          : Array.from(svgNode.querySelectorAll<SVGGElement>(`${SvgElements.Group}[${DataAttributes.ChartId}]`)).filter(
+              (node) =>
+                node.getAttribute(DataAttributes.ChartId) === chartId &&
+                !node.classList.contains(SvgClassNames.AnnotationLayer),
+            )
         if (!groups.length) return null
         let picked: SVGGElement | null = null
         let maxArea = -1
@@ -1371,7 +1627,14 @@ export abstract class BaseDrawHandler {
         const [leftRect, rightRect] =
           startRect.centerX <= endRect.centerX ? [startRect, endRect] : [endRect, startRect]
         const xMid = (leftRect.right + rightRect.left) / 2
-        drawLineWithArrow(layer, undefined, lineSpec, { x1: xMid, y1: yStart, x2: xMid, y2: yEnd }, annotationKey)
+        drawLineWithArrow(
+          layer,
+          undefined,
+          lineSpec,
+          { x1: xMid, y1: yStart, x2: xMid, y2: yEnd },
+          annotationKey,
+          annotationNodeId,
+        )
         return
       }
 
@@ -1384,6 +1647,7 @@ export abstract class BaseDrawHandler {
         lineSpec,
         { x1: startRect.centerX, y1: yMid, x2: endRect.centerX, y2: yMid },
         annotationKey,
+        annotationNodeId,
       )
       return
     }
@@ -1405,12 +1669,19 @@ export abstract class BaseDrawHandler {
       const dx = Math.cos(rad) * lengthPx
       const dy = Math.sin(rad) * lengthPx
 
-      drawLineWithArrow(layer, op.chartId, lineSpec, {
-        x1: xPt.x,
-        y1: startY,
-        x2: xPt.x + dx,
-        y2: startY + dy,
-      }, annotationKey)
+      drawLineWithArrow(
+        layer,
+        op.chartId,
+        lineSpec,
+        {
+          x1: xPt.x,
+          y1: startY,
+          x2: xPt.x + dx,
+          y2: startY + dy,
+        },
+        annotationKey,
+        annotationNodeId,
+      )
       return
     }
 
@@ -1504,19 +1775,35 @@ export abstract class BaseDrawHandler {
         ? pointFor(String(connectBy.end.target), connectBy.end.series)
         : pointFor(String(pair!.x[1]))
       if (!a || !b) return
-      drawLineWithArrow(layer, op.chartId, lineSpec, { x1: a.x, y1: a.y, x2: b.x, y2: b.y }, annotationKey)
+      drawLineWithArrow(layer, op.chartId, lineSpec, { x1: a.x, y1: a.y, x2: b.x, y2: b.y }, annotationKey, annotationNodeId)
       return
     }
 
     if (mode === DrawLineModes.HorizontalFromX || mode === DrawLineModes.HorizontalFromY) {
       let y: number | null = null
-      const nodes = scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).nodes()
+      const nodes = this
+        .filterDataMarks(scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets))
+        .nodes()
+        .filter((node) => {
+          const el = node as SVGGraphicsElement
+          const display = (el.getAttribute('display') ?? '').trim().toLowerCase()
+          if (display === 'none') return false
+          const styleDisplay = (el as SVGGraphicsElement).style?.display ?? ''
+          if (styleDisplay.toLowerCase() === 'none') return false
+          const rect = el.getBoundingClientRect()
+          return Number.isFinite(rect.left) && Number.isFinite(rect.right) && rect.width > 0 && rect.height >= 0
+        })
       if (!nodes.length) return
       const svgRect = svgNode.getBoundingClientRect()
       const viewBoxLocal = svgNode.viewBox?.baseVal
       const scaleX = viewBoxLocal && svgRect.width > 0 ? viewBoxLocal.width / svgRect.width : 1
-      const left = Math.min(...nodes.map((n) => (n.getBoundingClientRect().left - svgRect.left) * scaleX))
-      const right = Math.max(...nodes.map((n) => (n.getBoundingClientRect().right - svgRect.left) * scaleX))
+      const viewBoxX = viewBoxLocal?.x ?? 0
+      const left = Math.min(
+        ...nodes.map((n) => viewBoxX + (n.getBoundingClientRect().left - svgRect.left) * scaleX),
+      )
+      const right = Math.max(
+        ...nodes.map((n) => viewBoxX + (n.getBoundingClientRect().right - svgRect.left) * scaleX),
+      )
       let x1 = left
       const x2 = right
       const numericMarkValues = nodes
@@ -1545,7 +1832,7 @@ export abstract class BaseDrawHandler {
         return clamped <= domainMin ? mapY(domainMin) : mapY(domainMax)
       }
 
-      const axisGroup = svgNode.querySelector<SVGGraphicsElement>(SvgSelectors.YAxisGroup)
+      const axisGroup = scope.select<SVGGraphicsElement>(SvgSelectors.YAxisGroup).node()
       if (axisGroup) {
         const axisRect = axisGroup.getBoundingClientRect()
         if (axisRect.width > 0) {
@@ -1590,7 +1877,7 @@ export abstract class BaseDrawHandler {
         }
         return
       }
-      drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1: y, x2, y2: y }, annotationKey)
+      drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1: y, x2, y2: y }, annotationKey, annotationNodeId)
     }
   }
 
@@ -1598,6 +1885,7 @@ export abstract class BaseDrawHandler {
     const spec: DrawBandSpec | undefined = op.band
     if (!spec) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
+    const annotationNodeId = resolveAnnotationNodeId(op)
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
     const svgNode = svg.node() as SVGSVGElement | null
@@ -1643,6 +1931,7 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
         .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+        .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
         .attr(SvgAttributes.X, left)
         .attr(SvgAttributes.Y, 0)
         .attr(SvgAttributes.Width, right - left)
@@ -1657,6 +1946,7 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
           .attr(DataAttributes.ChartId, op.chartId ?? null)
           .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+          .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
           .attr(SvgAttributes.X, left + (right - left) / 2)
           .attr(SvgAttributes.Y, 12)
           .attr(SvgAttributes.TextAnchor, 'middle')
@@ -1687,6 +1977,7 @@ export abstract class BaseDrawHandler {
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
       .attr(DataAttributes.ChartId, op.chartId ?? null)
       .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+      .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
       .attr(SvgAttributes.X, 0)
       .attr(SvgAttributes.Y, top)
       .attr(SvgAttributes.Width, width)
@@ -1701,6 +1992,7 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
         .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+        .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
         .attr(SvgAttributes.X, width - 8)
         .attr(SvgAttributes.Y, top - 4)
         .attr(SvgAttributes.TextAnchor, 'end')
@@ -1717,6 +2009,7 @@ export abstract class BaseDrawHandler {
   protected scalarPanel(op: DrawOp) {
     const spec: DrawScalarPanelSpec | undefined = op.scalarPanel
     if (!spec) return
+    const annotationNodeId = resolveAnnotationNodeId(op)
     const absolute = spec.absolute ?? true
     const leftRaw = Number(spec.left?.value)
     const rightRaw = Number(spec.right?.value)
@@ -1777,6 +2070,7 @@ export abstract class BaseDrawHandler {
             .append(SvgElements.Group)
             .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${panelClass}`)
             .attr(DataAttributes.ChartId, chartId)
+            .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
             .attr('data-panel-key', panelKey)
             .attr('opacity', 0)
         : targetPanels
@@ -1784,6 +2078,7 @@ export abstract class BaseDrawHandler {
 
     panel
       .attr(SvgAttributes.Transform, `translate(${panelX},${panelY})`)
+      .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
 
     if (targetPanels.empty()) {
       this.applyTransition(panel).attr('opacity', 1)

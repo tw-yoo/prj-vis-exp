@@ -47,6 +47,15 @@ function selectSvgForChart(container: HTMLElement, chartId?: string) {
   return (matched ?? svgs[0]) as SVGSVGElement
 }
 
+function resolveNodeChartId(node: Element) {
+  const direct = node.getAttribute('data-chart-id')
+  if (direct && direct.trim().length > 0) return direct.trim()
+  const scopedParent = node.closest('[data-chart-id]')
+  if (!scopedParent) return null
+  const inherited = scopedParent.getAttribute('data-chart-id')
+  return inherited && inherited.trim().length > 0 ? inherited.trim() : null
+}
+
 function inferAverageLabelYFromChart(container: HTMLElement, chartId: string | undefined, value: number) {
   const svg = selectSvgForChart(container, chartId)
   if (!svg) return null
@@ -56,8 +65,8 @@ function inferAverageLabelYFromChart(container: HTMLElement, chartId: string | u
   const points: Array<{ value: number; y: number }> = []
   const nodes = Array.from(svg.querySelectorAll<SVGGraphicsElement>('[data-value]'))
   nodes.forEach((node) => {
-    const nodeChartId = node.getAttribute('data-chart-id')
-    if (chartId && nodeChartId && nodeChartId !== chartId) return
+    const nodeChartId = resolveNodeChartId(node)
+    if (chartId && nodeChartId !== chartId) return
     if (node.classList.contains('annotation')) return
     const raw = node.getAttribute('data-value')
     const numeric = raw != null ? Number(raw) : NaN

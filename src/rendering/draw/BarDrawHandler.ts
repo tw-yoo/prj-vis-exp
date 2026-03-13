@@ -128,6 +128,10 @@ export class BarDrawHandler extends BaseDrawHandler {
     const segment: DrawBarSegmentSpec | undefined = op.segment
     if (!segment) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
+    const annotationNodeId =
+      (typeof op.meta?.nodeId === 'string' && op.meta.nodeId.trim()) ||
+      (typeof (op as { id?: unknown }).id === 'string' ? String((op as { id?: string }).id ?? '').trim() : '') ||
+      null
 
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
@@ -195,6 +199,7 @@ export class BarDrawHandler extends BaseDrawHandler {
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.BarSegmentAnnotation}`)
         .attr(DataAttributes.ChartId, op.chartId ?? null)
         .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+        .attr(DataAttributes.AnnotationNodeId, annotationNodeId)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, segY)
         .attr(SvgAttributes.Width, width)

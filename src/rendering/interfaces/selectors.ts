@@ -35,6 +35,7 @@ export const SvgSelectors = {
   XAxisTicks: `.${SvgClassNames.XAxis} .${SvgClassNames.Tick}`,
   Annotation: `.${SvgClassNames.Annotation}`,
   ChartGroup: `[${DataAttributes.ChartId}]`,
+  ChartPanelGroup: `${SvgElements.Group}[${DataAttributes.ChartId}][${DataAttributes.ChartPanel}="true"]`,
   DataTargets: `[${DataAttributes.Target}], [${DataAttributes.Id}], [${DataAttributes.Value}]`,
   MainBars: `${SvgElements.Rect}.${SvgClassNames.MainBar}`,
   VegaRoleAxisLabelText: '.role-axis-label text, text.role-axis-label',
