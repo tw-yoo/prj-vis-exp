@@ -1,0 +1,298 @@
+{
+  "spec": "data/test/spec/bar_simple_ver.json",
+  "data": "data/test/data/bar_simple_ver.csv",
+  "notes": [
+    "These cases are ordered from simple source-chart execution to derived-chart-heavy execution.",
+    "All cases are designed for the current linear visual player.",
+    "filtered-operands-chart is intentionally excluded because this spec has no group/series encoding."
+  ],
+  "cases": [
+    {
+      "id": "simple-retrieve-usa",
+      "level": 1,
+      "title": "Single retrieveValue on source chart",
+      "goal": "Check the simplest source-chart execution path.",
+      "expected_surface": "source-chart",
+      "expected_result": "USA = 53",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          }
+        ]
+      }
+    },
+    {
+      "id": "simple-compare-usa-jpn",
+      "level": 1,
+      "title": "Direct compare on source chart",
+      "goal": "Check source-chart compare rendering without derived surface.",
+      "expected_surface": "source-chart",
+      "expected_result": "USA (53) beats JPN (42)",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "compare",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "targetA": "USA",
+            "targetB": "JPN"
+          }
+        ]
+      }
+    },
+    {
+      "id": "simple-diff-nld-prt",
+      "level": 1,
+      "title": "Direct diff on source chart",
+      "goal": "Check source-chart diff rendering on two extreme bars.",
+      "expected_surface": "source-chart",
+      "expected_result": "NLD (76) - PRT (0) = 76",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "diff",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "targetA": "NLD",
+            "targetB": "PRT",
+            "signed": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "derived-two-value-diff",
+      "level": 2,
+      "title": "Two retrieveValue nodes feeding a diff",
+      "goal": "Exercise two-value-chart materialization.",
+      "expected_surface": "two-value-chart",
+      "expected_result": "USA (53) - JPN (42) = 11",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "retrieveValue",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "JPN"
+          },
+          {
+            "op": "diff",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
+            "field": "rating",
+            "signed": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "derived-operand-only-average",
+      "level": 3,
+      "title": "Two chart-backed values feeding average",
+      "goal": "Exercise operand-only-chart materialization.",
+      "expected_surface": "operand-only-chart",
+      "expected_result": "average(USA, JPN) = 47.5",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "retrieveValue",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "JPN"
+          },
+          {
+            "op": "average",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
+            "field": "rating"
+          }
+        ]
+      }
+    },
+    {
+      "id": "derived-scalar-reference-scale",
+      "level": 3,
+      "title": "Average feeding scale",
+      "goal": "Exercise scalar-reference-chart materialization.",
+      "expected_surface": "scalar-reference-chart",
+      "expected_result": "average(all) = 56.45, scaled by 1.1 -> 62.095",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "average",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating"
+          },
+          {
+            "op": "scale",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "ref:n1",
+            "factor": 1.1
+          }
+        ]
+      }
+    },
+    {
+      "id": "derived-mixed-diff",
+      "level": 4,
+      "title": "Chart-backed value versus scalar average",
+      "goal": "Exercise mixed-operands-chart materialization.",
+      "expected_surface": "mixed-operands-chart",
+      "expected_result": "USA (53) - average(all 56.45) = -3.45",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "average",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating"
+          },
+          {
+            "op": "diff",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1"], "sentenceIndex": 1 },
+            "field": "rating",
+            "targetA": "USA",
+            "targetB": "ref:n2",
+            "signed": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "multi-sentence-reuse-mixed",
+      "level": 5,
+      "title": "Cross-sentence reuse from diff to extremum to mixed diff",
+      "goal": "Check sentence navigation and result-only reuse across sentences.",
+      "expected_surface": "sentence1 two-value-chart, sentence2 source-chart, sentence3 mixed-operands-chart",
+      "expected_result": "sentence1: 11, sentence2: NLD = 76, sentence3: 76 - 11 = 65",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "retrieveValue",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "JPN"
+          },
+          {
+            "op": "diff",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
+            "field": "rating",
+            "signed": true
+          }
+        ],
+        "ops2": [
+          {
+            "op": "findExtremum",
+            "id": "n4",
+            "meta": { "nodeId": "n4", "inputs": [], "sentenceIndex": 2 },
+            "field": "rating",
+            "which": "max"
+          }
+        ],
+        "ops3": [
+          {
+            "op": "diff",
+            "id": "n5",
+            "meta": { "nodeId": "n5", "inputs": ["n4"], "sentenceIndex": 3 },
+            "field": "rating",
+            "targetA": "NLD",
+            "targetB": "ref:n3",
+            "signed": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "multi-sentence-reuse-two-value-add",
+      "level": 6,
+      "title": "Cross-sentence scalar reuse with add",
+      "goal": "Check chained derived surfaces with scalar reuse only.",
+      "expected_surface": "sentence1 operand-only-chart, sentence2 two-value-chart",
+      "expected_result": "sentence1 average(USA,JPN)=47.5, sentence2 47.5 + 11 = 58.5",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "retrieveValue",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "JPN"
+          },
+          {
+            "op": "average",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
+            "field": "rating"
+          },
+          {
+            "op": "diff",
+            "id": "n4",
+            "meta": { "nodeId": "n4", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
+            "field": "rating",
+            "signed": true
+          }
+        ],
+        "ops2": [
+          {
+            "op": "add",
+            "id": "n5",
+            "meta": { "nodeId": "n5", "inputs": [], "sentenceIndex": 2 },
+            "field": "rating",
+            "targetA": "ref:n3",
+            "targetB": "ref:n4"
+          }
+        ]
+      }
+    }
+  ]
+}

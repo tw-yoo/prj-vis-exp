@@ -1,4 +1,4 @@
-import { OperationOp, type DatumValue, type OperationSpec, type JsonValue } from '../../types'
+import { type DatumValue, type OperationSpec, type JsonValue } from '../../types'
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { StackedBarDrawHandler } from '../../rendering/draw/bar/StackedBarDrawHandler.ts'
@@ -23,8 +23,11 @@ import { STACKED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/stac
 import {
   handleGroupFilter,
   shouldAggregateWhenMultipleGroups,
+  shouldUseSeriesScopedInput,
 } from './barOpsCommon.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
+import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS } from './drawActionPolicy.ts'
 
 function toStackedDatumValues(raw: JsonValue[], spec: StackedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
@@ -51,6 +54,18 @@ async function handleStackedBarDraw(
   drawOp: DrawOp,
   spec: StackedSpec,
 ) {
+  if (drawOp.action === DrawAction.Split) {
+    if (!drawOp.split || typeof drawOp.split !== 'object') {
+      console.warn('draw:split requires split spec', drawOp)
+      return
+    }
+    await renderSplitStackedBarChart(container, spec, drawOp.split as DrawSplitSpec)
+    return
+  }
+  if (drawOp.action === DrawAction.Unsplit) {
+    await renderStackedBarChart(container, spec)
+    return
+  }
   if (drawOp.action === DrawAction.StackedToGrouped) {
     await convertStackedToGrouped(container, spec, drawOp.stackGroup)
     return
@@ -70,50 +85,26 @@ async function handleStackedBarDraw(
   await handler.run(drawOp)
 }
 
-function shouldUseSeriesScopedInput(operation: OperationSpec) {
-  if (operation.op === OperationOp.SetOp || operation.op === OperationOp.PairDiff) return true
-  if (operation.op === OperationOp.Compare || operation.op === OperationOp.Diff) {
-    return Boolean(operation.groupA || operation.groupB || operation.seriesField)
-  }
-  return false
-}
-
 export async function runStackedBarOps(
   container: HTMLElement,
   vlSpec: StackedSpec,
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
-  const chartWorking = new Map<string, DatumValue[]>()
-  const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
-    const domain = getStackedBarSplitDomain(container, chartId)
-    if (!domain || domain.size === 0) return currentWorking
-    const domainSet = new Set(domain)
-    return currentWorking.filter((datum) => domainSet.has(String(datum.target)))
-  }
-
-  const getOperationInput = (operation: OperationSpec, currentWorking: DatumValue[]) => {
-    const chartId = operation.chartId
-    const hasGroup = operation.group != null && String(operation.group).trim() !== ''
-    const chartScoped = chartId
-      ? chartWorking.get(chartId) ?? filterByChartDomain(chartId, currentWorking)
-      : currentWorking
-    if (chartId && !chartWorking.has(chartId)) {
-      chartWorking.set(chartId, chartScoped)
-    }
-    if (hasGroup || shouldUseSeriesScopedInput(operation)) return chartScoped
-    return shouldAggregateWhenMultipleGroups(chartScoped) ? aggregateDatumValuesByTarget(chartScoped) : chartScoped
-  }
-
-  const handleOperationResult = (operation: OperationSpec, result: DatumValue[], currentWorking: DatumValue[]) => {
-    const chartId = operation.chartId
-    if (chartId) {
-      chartWorking.set(chartId, result)
-      return currentWorking
-    }
-    chartWorking.clear()
-    return result
-  }
+  const { getOperationInput, handleOperationResult, clearChartWorking } = createChartScopedWorkingSet({
+    getChartScopedData: (chartId, currentWorking) => {
+      const domain = getStackedBarSplitDomain(container, chartId)
+      if (!domain || domain.size === 0) return currentWorking
+      const domainSet = new Set(domain)
+      return currentWorking.filter((datum) => domainSet.has(String(datum.target)))
+    },
+    selectOperationInput: ({ operation, currentWorking, chartScoped }) => {
+      if (!operation.chartId) return currentWorking
+      const hasGroup = operation.group != null && String(operation.group).trim() !== ''
+      if (hasGroup || shouldUseSeriesScopedInput(operation)) return chartScoped
+      return shouldAggregateWhenMultipleGroups(chartScoped) ? aggregateDatumValuesByTarget(chartScoped) : chartScoped
+    },
+  })
 
   return runChartOperationsCommon<StackedSpec>({
     container,
@@ -126,25 +117,12 @@ export async function runStackedBarOps(
       return toStackedDatumValues(raw, vlSpec)
     },
     createHandler: () => new StackedBarDrawHandler(container),
-    splitHandler: async (host, spec, handler, drawOp) => {
-      if (drawOp.action === DrawAction.Split) {
-        if (!drawOp.split || typeof drawOp.split !== 'object') {
-          console.warn('draw:split requires split spec', drawOp)
-          return true
-        }
-        await renderSplitStackedBarChart(host, spec, drawOp.split as DrawSplitSpec)
-        chartWorking.clear()
-        return true
+    handleDrawOp: async (host, handler, drawOp) => {
+      await handleStackedBarDraw(host, handler as StackedBarDrawHandler, drawOp, vlSpec)
+      if (LEGACY_SPLIT_DRAW_ACTIONS.has(drawOp.action)) {
+        clearChartWorking()
       }
-      if (drawOp.action === DrawAction.Unsplit) {
-        await renderStackedBarChart(host, spec)
-        chartWorking.clear()
-        return true
-      }
-      return false
     },
-    handleDrawOp: async (host, handler, drawOp) =>
-      handleStackedBarDraw(host, handler as StackedBarDrawHandler, drawOp, vlSpec),
     clearAnnotations: ({ svg }) => clearAnnotations(svg),
     getOperationInput,
     handleOperationResult,

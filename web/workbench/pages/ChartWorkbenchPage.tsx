@@ -78,6 +78,21 @@ import {
   type VegaLiteSpec,
 } from '../../../src/api/legacy'
 import * as d3 from 'd3'
+import {
+  materializeExecutionGroups,
+  normalizeExecutionPlan,
+  normalizeVisualExecutionPlan,
+  summarizeExecutionPlan,
+  summarizeVisualExecutionPlan,
+  type ExecutionPlan,
+  type VisualExecutionPlan,
+} from '../../../src/api/nlp-ops'
+import {
+  runVisualExecutionPlan,
+  type VisualSentencePlaybackResult,
+  type VisualSurfaceState,
+} from '../../../src/api/visual-execution-player'
+import { STRUCTURAL_DRAW_ACTIONS } from '../../../src/operation/run/drawActionPolicy'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
@@ -121,25 +136,6 @@ const DRAW_TOOL_ACTION_MAP: Partial<Record<DrawInteractionTool, DrawAction>> = {
   [DrawInteractionTools.Split]: DrawAction.Split,
   [DrawInteractionTools.BarSegment]: DrawAction.BarSegment,
 }
-
-const STRUCTURAL_DRAW_ACTIONS = new Set<DrawAction>([
-  DrawAction.Clear,
-  DrawAction.Filter,
-  DrawAction.Sort,
-  DrawAction.Split,
-  DrawAction.Unsplit,
-  DrawAction.Sum,
-  DrawAction.LineToBar,
-  DrawAction.MultiLineToStacked,
-  DrawAction.MultiLineToGrouped,
-  DrawAction.StackedToGrouped,
-  DrawAction.GroupedToStacked,
-  DrawAction.StackedToSimple,
-  DrawAction.GroupedToSimple,
-  DrawAction.StackedToDiverging,
-  DrawAction.StackedFilterGroups,
-  DrawAction.GroupedFilterGroups,
-])
 
 const cloneOperationForRecord = (operation: OperationSpec): OperationSpec => {
   try {
@@ -210,99 +206,18 @@ const normalizeOpsGroupsForWorkbench = (opsSpec: unknown): Array<{ name: string;
   }))
 }
 
-type OpsJsonExecutionSource = 'draw_plan' | 'ops' | 'compiled_draw_plan'
-
-type WorkbenchExecutionPlanStep = {
-  id: string
-  sentenceIndex: number
-  groupNames: string[]
-  drawGroupNames: string[]
-  splitGroup?: string
-  splitLifecycle?: 'enter' | 'keep' | 'merge'
-  panelIds?: string[]
-  joinOp?: string
-  joinPolicy?: 'keep-split' | 'merge'
-  parallel?: boolean
-}
-
-type WorkbenchExecutionPlan = {
-  mode: 'sentence-step'
-  steps: WorkbenchExecutionPlanStep[]
-}
+type OpsJsonExecutionSource = 'visual_plan' | 'draw_plan' | 'ops'
 
 type ParsedOpsJsonInput = {
   groups: OperationSpec[][]
   groupNames: string[]
   executionSource: OpsJsonExecutionSource
   executionMode: 'group' | 'sentence-step'
-  hasSplitIntent: boolean
   opsSpecGroupMap: Record<string, OperationSpec[]>
-  executionPlan?: WorkbenchExecutionPlan
+  drawPlanGroupMap?: Record<string, OperationSpec[]>
+  executionPlan?: ExecutionPlan
+  visualExecutionPlan?: VisualExecutionPlan
   warnings: string[]
-}
-
-const normalizeExecutionPlanForWorkbench = (value: unknown): WorkbenchExecutionPlan | undefined => {
-  if (!isPlainObject(value)) return undefined
-  if (value.mode !== 'sentence-step') return undefined
-  if (!Array.isArray(value.steps)) return undefined
-  const steps: WorkbenchExecutionPlanStep[] = []
-  value.steps.forEach((entry, index) => {
-    if (!isPlainObject(entry)) return
-    const sentenceIndex = Number(entry.sentenceIndex)
-    if (!Number.isFinite(sentenceIndex) || sentenceIndex < 1) return
-    const groupNames = Array.isArray(entry.groupNames)
-      ? entry.groupNames.filter((token): token is string => typeof token === 'string' && token.trim().length > 0)
-      : []
-    const drawGroupNames = Array.isArray(entry.drawGroupNames)
-      ? entry.drawGroupNames.filter((token): token is string => typeof token === 'string' && token.trim().length > 0)
-      : []
-    const id = typeof entry.id === 'string' && entry.id.trim().length > 0 ? entry.id : `s${index + 1}`
-    const step: WorkbenchExecutionPlanStep = {
-      id,
-      sentenceIndex: Math.floor(sentenceIndex),
-      groupNames,
-      drawGroupNames,
-      parallel: entry.parallel !== false,
-    }
-    if (typeof entry.splitGroup === 'string' && entry.splitGroup.trim().length > 0) {
-      step.splitGroup = entry.splitGroup.trim()
-    }
-    if (entry.splitLifecycle === 'enter' || entry.splitLifecycle === 'keep' || entry.splitLifecycle === 'merge') {
-      step.splitLifecycle = entry.splitLifecycle
-    }
-    if (Array.isArray(entry.panelIds)) {
-      step.panelIds = entry.panelIds.filter((token): token is string => typeof token === 'string' && token.trim().length > 0)
-    }
-    if (typeof entry.joinOp === 'string' && entry.joinOp.trim().length > 0) {
-      step.joinOp = entry.joinOp.trim()
-    }
-    if (entry.joinPolicy === 'keep-split' || entry.joinPolicy === 'merge') {
-      step.joinPolicy = entry.joinPolicy
-    }
-    steps.push(step)
-  })
-  return {
-    mode: 'sentence-step',
-    steps,
-  }
-}
-
-const summarizeExecutionPlanForWorkbench = (plan: WorkbenchExecutionPlan | undefined) => {
-  if (!plan || plan.mode !== 'sentence-step' || !plan.steps.length) return [] as string[]
-  return plan.steps.map((step) => {
-    const parts: string[] = [`s${step.sentenceIndex}`]
-    if (step.splitGroup) {
-      const lifecycle = step.splitLifecycle ?? 'keep'
-      parts.push(`split:${step.splitGroup}(${lifecycle})`)
-    }
-    if (step.joinPolicy) {
-      parts.push(`join:${step.joinOp ?? 'op'}(${step.joinPolicy})`)
-    }
-    if (step.panelIds && step.panelIds.length > 0) {
-      parts.push(`panels:${step.panelIds.join('|')}`)
-    }
-    return parts.join(' · ')
-  })
 }
 
 const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
@@ -312,64 +227,6 @@ const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
   })
   if (!Array.isArray(out.ops)) out.ops = []
   return out
-}
-
-const materializeExecutionSteps = (
-  groups: Array<{ name: string; ops: OperationSpec[] }>,
-  executionPlan: WorkbenchExecutionPlan | undefined,
-  preferDrawGroups: boolean,
-): { groups: OperationSpec[][]; groupNames: string[]; mode: 'group' | 'sentence-step' } => {
-  if (!executionPlan || executionPlan.mode !== 'sentence-step') {
-    return {
-      groups: groups.map((group) => group.ops),
-      groupNames: groups.map((group) => group.name),
-      mode: 'group',
-    }
-  }
-  const map = new Map(groups.map((group) => [group.name, group.ops] as const))
-  const stepGroups: OperationSpec[][] = []
-  const stepNames: string[] = []
-  executionPlan.steps.forEach((step, index) => {
-    const rawNames =
-      preferDrawGroups && step.drawGroupNames.length > 0 ? step.drawGroupNames : step.groupNames.length > 0 ? step.groupNames : step.drawGroupNames
-    const selectedNames = rawNames.filter((name) => map.has(name))
-    if (!selectedNames.length) return
-    const merged: OperationSpec[] = []
-    selectedNames.forEach((name) => {
-      const ops = map.get(name) ?? []
-      merged.push(...ops)
-    })
-    if (!merged.length) return
-    const label = `sentence:${step.sentenceIndex}:${step.id || `s${index + 1}`}`
-    stepGroups.push(merged)
-    stepNames.push(label)
-  })
-  if (!stepGroups.length) {
-    return {
-      groups: groups.map((group) => group.ops),
-      groupNames: groups.map((group) => group.name),
-      mode: 'group',
-    }
-  }
-  return {
-    groups: stepGroups,
-    groupNames: stepNames,
-    mode: 'sentence-step',
-  }
-}
-
-const hasSplitIntentInMetaView = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
-  return groups.some((group) =>
-    group.ops.some((operation) => {
-      const view = (operation as { meta?: { view?: unknown } }).meta?.view
-      if (!view || typeof view !== 'object' || Array.isArray(view)) return false
-      const viewRecord = view as Record<string, unknown>
-      const splitGroup = typeof viewRecord.splitGroup === 'string' ? viewRecord.splitGroup.trim() : ''
-      const panelId = typeof viewRecord.panelId === 'string' ? viewRecord.panelId.trim() : ''
-      const joinBarrier = viewRecord.joinBarrier === true
-      return splitGroup.length > 0 || panelId.length > 0 || joinBarrier
-    }),
-  )
 }
 
 const normalizeRowForCompile = (value: unknown): Record<string, unknown> | null => {
@@ -697,6 +554,11 @@ function ChartWorkbenchPage() {
   const [opsJsonExecutionMode, setOpsJsonExecutionMode] = useState<'group' | 'sentence-step' | null>(null)
   const [opsJsonExecutionPlanSummary, setOpsJsonExecutionPlanSummary] = useState<string[]>([])
   const [opsJsonWarnings, setOpsJsonWarnings] = useState<string[]>([])
+  const [opsJsonDrawPlan, setOpsJsonDrawPlan] = useState<Record<string, OperationSpec[]> | null>(null)
+  const [opsJsonLogicalOpsSpec, setOpsJsonLogicalOpsSpec] = useState<Record<string, OperationSpec[]> | null>(null)
+  const [opsJsonDataRows, setOpsJsonDataRows] = useState<Record<string, unknown>[] | null>(null)
+  const [opsJsonExecutionPlanState, setOpsJsonExecutionPlanState] = useState<ExecutionPlan | undefined>(undefined)
+  const [opsJsonVisualExecutionPlanState, setOpsJsonVisualExecutionPlanState] = useState<VisualExecutionPlan | undefined>(undefined)
   const [isVlSectionExpanded, setIsVlSectionExpanded] = useState(false)
   const [isNlSectionExpanded, setIsNlSectionExpanded] = useState(false)
   const [isOpsSectionExpanded, setIsOpsSectionExpanded] = useState(true)
@@ -706,6 +568,7 @@ function ChartWorkbenchPage() {
   const [captureScenesStatus, setCaptureScenesStatus] = useState<string | null>(null)
   const [captureScenesRunning, setCaptureScenesRunning] = useState(false)
   const opsSessionActiveRef = useRef(false)
+  const visualPlaybackSurfaceRef = useRef<VisualSurfaceState>('unknown')
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
   const [recordQueue, setRecordQueue] = useState<Array<{ id: string; op: OperationSpec }>>([])
   const recordSequenceRef = useRef(0)
@@ -967,23 +830,7 @@ function ChartWorkbenchPage() {
 
       const drawOp = opWithMeta as DrawOp
       const action = drawOp.action
-      const actionsRequiringRunner = new Set<DrawAction>([
-        DrawAction.Split,
-        DrawAction.Unsplit,
-        DrawAction.Filter,
-        DrawAction.LineToBar,
-        DrawAction.MultiLineToStacked,
-        DrawAction.MultiLineToGrouped,
-        DrawAction.StackedToGrouped,
-        DrawAction.GroupedToStacked,
-        DrawAction.StackedToSimple,
-        DrawAction.GroupedToSimple,
-        DrawAction.StackedFilterGroups,
-        DrawAction.GroupedFilterGroups,
-        DrawAction.Sum,
-      ])
-
-      if (actionsRequiringRunner.has(action)) {
+      if (STRUCTURAL_DRAW_ACTIONS.has(action)) {
         const currentSpec = currentSpecRef.current
         if (!currentSpec) {
           console.warn('Skipped draw operation: chart spec is not initialized.', drawOp)
@@ -1419,24 +1266,35 @@ function ChartWorkbenchPage() {
     const topLevelGroupMap = toGroupMap(topLevelGroups)
     const parsedRecord = isPlainObject(parsed) ? parsed : null
     const warnings: string[] = []
-    const splitIntent = hasSplitIntentInMetaView(topLevelGroups)
-    let executionPlan = normalizeExecutionPlanForWorkbench(parsedRecord?.execution_plan)
+    let executionPlan = normalizeExecutionPlan(parsedRecord?.execution_plan)
+    let visualExecutionPlan = normalizeVisualExecutionPlan(parsedRecord?.visual_execution_plan)
+    let drawPlanGroupMap: Record<string, OperationSpec[]> | undefined
 
     let selectedGroups = topLevelGroups
     let executionSource: OpsJsonExecutionSource = 'ops'
     let preferDrawGroupNames = false
+    let drawPlanGroups: Array<{ name: string; ops: OperationSpec[] }> = []
 
     if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'draw_plan')) {
-      const drawPlanGroups = normalizeOpsGroupsForWorkbench(parsedRecord.draw_plan)
+      drawPlanGroups = normalizeOpsGroupsForWorkbench(parsedRecord.draw_plan)
       if (drawPlanGroups.length > 0) {
-        selectedGroups = drawPlanGroups
-        executionSource = 'draw_plan'
-        preferDrawGroupNames = true
+        drawPlanGroupMap = toGroupMap(drawPlanGroups)
       } else if (topLevelGroups.length > 0) {
         warnings.push('draw_plan detected but invalid; falling back to top-level ops groups.')
       } else {
         throw new Error('Ops JSON includes "draw_plan", but it has no executable groups.')
       }
+    }
+
+    if (visualExecutionPlan?.steps?.length && topLevelGroups.length > 0) {
+      selectedGroups = topLevelGroups
+      executionSource = 'visual_plan'
+    } else if (drawPlanGroups.length > 0) {
+      selectedGroups = drawPlanGroups
+      executionSource = 'draw_plan'
+      preferDrawGroupNames = true
+    } else if (visualExecutionPlan?.steps?.length) {
+      warnings.push('visual_execution_plan detected without logical ops groups; falling back to draw_plan/group order.')
     }
 
     if (!selectedGroups.length) {
@@ -1446,20 +1304,25 @@ function ChartWorkbenchPage() {
     if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'execution_plan') && !executionPlan) {
       warnings.push('execution_plan detected but invalid; falling back to group-order execution.')
     }
-    const materialized = materializeExecutionSteps(selectedGroups, executionPlan, preferDrawGroupNames)
-
-    if (executionSource === 'ops' && splitIntent) {
-      warnings.push('Split intent found in meta.view; draw_plan compilation will be attempted for split visual execution.')
+    if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'visual_execution_plan') && !visualExecutionPlan) {
+      warnings.push('visual_execution_plan detected but invalid; execution summary will use execution_plan.')
     }
+    const materialized = materializeExecutionGroups({
+      opsSpec: toGroupMap(selectedGroups),
+      executionPlan,
+      visualExecutionPlan,
+      preferDrawGroupNames,
+    })
 
     return {
-      groups: materialized.groups,
-      groupNames: materialized.groupNames,
+      groups: materialized.groups.map((group) => group.ops),
+      groupNames: materialized.groups.map((group) => group.name),
       executionSource,
       executionMode: materialized.mode,
-      hasSplitIntent: splitIntent,
       opsSpecGroupMap: topLevelGroupMap,
+      drawPlanGroupMap,
       executionPlan,
+      visualExecutionPlan,
       warnings,
     }
   }, [opsJsonText])
@@ -1530,6 +1393,12 @@ function ChartWorkbenchPage() {
     setCaptureScenesStatus(null)
     setLoadedPlanResolvedKey(null)
     setLoadedPlanStem(null)
+    setOpsJsonDrawPlan(null)
+    setOpsJsonLogicalOpsSpec(null)
+    setOpsJsonDataRows(null)
+    setOpsJsonExecutionPlanState(undefined)
+    setOpsJsonVisualExecutionPlanState(undefined)
+    visualPlaybackSurfaceRef.current = 'unknown'
     setPlanLoading(true)
     try {
       const trimmedPath = planPath.trim()
@@ -1606,6 +1475,12 @@ function ChartWorkbenchPage() {
     setLoadedPlanStem(null)
     setCaptureScenesEnabled(false)
     setCaptureScenesStatus(null)
+    setOpsJsonDrawPlan(null)
+    setOpsJsonLogicalOpsSpec(null)
+    setOpsJsonDataRows(null)
+    setOpsJsonExecutionPlanState(undefined)
+    setOpsJsonVisualExecutionPlanState(undefined)
+    visualPlaybackSurfaceRef.current = 'unknown'
   }
 
   const handleConvertToOpsSpec = async () => {
@@ -1639,36 +1514,74 @@ function ChartWorkbenchPage() {
         throw new Error('Converted opsSpec is invalid: "ops" group is missing.')
       }
       const drawPlanNormalized = result.drawPlan ? normalizeOpsGroupsForWorkbench(result.drawPlan) : []
-      const normalizedExecutionPlan = normalizeExecutionPlanForWorkbench(result.executionPlan as unknown)
+      const normalizedExecutionPlan = normalizeExecutionPlan(result.executionPlan as unknown)
+      const normalizedVisualExecutionPlan = normalizeVisualExecutionPlan(result.visualExecutionPlan as unknown)
       const jsonText = JSON.stringify(nextOpsSpec, null, 2)
-      const drawMaterialized = drawPlanNormalized.length
-        ? materializeExecutionSteps(drawPlanNormalized, normalizedExecutionPlan, true)
+      const semanticMaterialized = normalizedVisualExecutionPlan?.steps?.length
+        ? materializeExecutionGroups({
+            opsSpec: nextOpsSpec,
+            executionPlan: normalizedExecutionPlan,
+            visualExecutionPlan: normalizedVisualExecutionPlan,
+          })
         : null
-      const groupNames = drawMaterialized ? drawMaterialized.groupNames : drawPlanNormalized.length ? drawPlanNormalized.map((group) => group.name) : Object.keys(nextOpsSpec)
+      const drawMaterialized = result.drawPlan && !semanticMaterialized
+        ? materializeExecutionGroups({
+            opsSpec: result.drawPlan,
+            executionPlan: normalizedExecutionPlan,
+            visualExecutionPlan: normalizedVisualExecutionPlan,
+            preferDrawGroupNames: true,
+          })
+        : null
+      const groupNames = semanticMaterialized
+        ? semanticMaterialized.groups.map((group) => group.name)
+        : drawMaterialized
+          ? drawMaterialized.groups.map((group) => group.name)
+          : drawPlanNormalized.length
+          ? drawPlanNormalized.map((group) => group.name)
+          : Object.keys(nextOpsSpec)
+      const executionSummary =
+        summarizeVisualExecutionPlan(normalizedVisualExecutionPlan).length > 0
+          ? summarizeVisualExecutionPlan(normalizedVisualExecutionPlan)
+          : summarizeExecutionPlan(normalizedExecutionPlan)
 
       handleClearPlan()
-      if (drawMaterialized) {
-        setPlanGroups(drawMaterialized.groups)
+      if (semanticMaterialized) {
+        setPlanGroups(semanticMaterialized.groups.map((group) => group.ops))
+        setOpsJsonExecutionSource('visual_plan')
+        setOpsJsonExecutionMode(semanticMaterialized.mode)
+        setOpsJsonExecutionPlanSummary(executionSummary)
+      } else if (drawMaterialized) {
+        setPlanGroups(drawMaterialized.groups.map((group) => group.ops))
         setOpsJsonExecutionSource('draw_plan')
         setOpsJsonExecutionMode(drawMaterialized.mode)
-        setOpsJsonExecutionPlanSummary(summarizeExecutionPlanForWorkbench(normalizedExecutionPlan))
+        setOpsJsonExecutionPlanSummary(executionSummary)
       } else if (drawPlanNormalized.length) {
         setPlanGroups(drawPlanNormalized.map((group) => group.ops))
         setOpsJsonExecutionSource('draw_plan')
         setOpsJsonExecutionMode('group')
-        setOpsJsonExecutionPlanSummary(summarizeExecutionPlanForWorkbench(normalizedExecutionPlan))
+        setOpsJsonExecutionPlanSummary(executionSummary)
       } else {
         setOpsJsonExecutionSource('ops')
         setOpsJsonExecutionMode('group')
-        setOpsJsonExecutionPlanSummary([])
+        setOpsJsonExecutionPlanSummary(executionSummary)
       }
+      setOpsJsonDrawPlan(result.drawPlan ? (result.drawPlan as Record<string, OperationSpec[]>) : null)
+      setOpsJsonLogicalOpsSpec(nextOpsSpec as Record<string, OperationSpec[]>)
+      setOpsJsonDataRows(await loadDataRowsForCompile(parsedSpec))
+      setOpsJsonExecutionPlanState(normalizedExecutionPlan)
+      setOpsJsonVisualExecutionPlanState(normalizedVisualExecutionPlan)
+      visualPlaybackSurfaceRef.current = 'unknown'
       setOpsInputMode('builder')
       setOpsJsonText(jsonText)
       setOpsJsonError(null)
       setOpsJsonGroupNames(groupNames)
       setNlResolvedText(result.resolvedText || text)
       setNlWarnings(result.warnings ?? [])
-      if (drawPlanNormalized.length) {
+      if (semanticMaterialized) {
+        setNlStatus(
+          `Converted ${Object.keys(nextOpsSpec).length} ops group(s), visual plan ${groupNames.length} sentence step(s): ${groupNames.join(', ')}`,
+        )
+      } else if (drawPlanNormalized.length) {
         setNlStatus(
           `Converted ${Object.keys(nextOpsSpec).length} ops group(s), draw_plan ${groupNames.length} group(s): ${groupNames.join(', ')}`,
         )
@@ -1684,6 +1597,12 @@ function ChartWorkbenchPage() {
       setNlResolvedText(null)
       setNlWarnings([])
       setNlImportCommand(null)
+      setOpsJsonDrawPlan(null)
+      setOpsJsonLogicalOpsSpec(null)
+      setOpsJsonDataRows(null)
+      setOpsJsonExecutionPlanState(undefined)
+      setOpsJsonVisualExecutionPlanState(undefined)
+      visualPlaybackSurfaceRef.current = 'unknown'
     } finally {
       setNlLoading(false)
     }
@@ -1741,6 +1660,10 @@ function ChartWorkbenchPage() {
         let nextExecutionSource: OpsJsonExecutionSource = parsed.executionSource
         let nextExecutionMode: 'group' | 'sentence-step' = parsed.executionMode
         let nextExecutionPlan = parsed.executionPlan
+        let nextVisualExecutionPlan = parsed.visualExecutionPlan
+        let nextDrawPlan: Record<string, OperationSpec[]> | null = parsed.drawPlanGroupMap ?? null
+        let nextLogicalOpsSpec: Record<string, OperationSpec[]> | null = parsed.opsSpecGroupMap
+        let nextDataRows: Record<string, unknown>[] | null = null
         const nextWarnings = [...parsed.warnings]
 
         if (parsed.executionSource === 'ops') {
@@ -1749,21 +1672,47 @@ function ChartWorkbenchPage() {
           const parsedVlSpec = JSON.parse(sanitizedVlSpec) as VegaLiteSpec
           try {
             const dataRows = await loadDataRowsForCompile(parsedVlSpec)
+            nextDataRows = dataRows
             const compiled = await compileOpsPlan({
               spec: parsedVlSpec,
               dataRows,
               opsSpec: parsed.opsSpecGroupMap,
             })
             nextWarnings.push(...(compiled.warnings ?? []))
+            const compiledPlan = normalizeExecutionPlan(compiled.executionPlan as unknown)
+            const compiledVisualPlan = normalizeVisualExecutionPlan(compiled.visualExecutionPlan as unknown)
+            const semanticMaterialized = compiledVisualPlan?.steps?.length
+              ? materializeExecutionGroups({
+                  opsSpec: compiled.opsSpec,
+                  executionPlan: compiledPlan,
+                  visualExecutionPlan: compiledVisualPlan,
+                })
+              : null
             const compiledDrawGroups = compiled.drawPlan ? normalizeOpsGroupsForWorkbench(compiled.drawPlan) : []
-            if (compiledDrawGroups.length > 0) {
-              const compiledPlan = normalizeExecutionPlanForWorkbench(compiled.executionPlan as unknown)
-              const materialized = materializeExecutionSteps(compiledDrawGroups, compiledPlan, true)
-              nextGroups = materialized.groups
-              nextGroupNames = materialized.groupNames
-              nextExecutionMode = materialized.mode
-              nextExecutionSource = 'compiled_draw_plan'
+            if (semanticMaterialized) {
+              nextGroups = semanticMaterialized.groups.map((group) => group.ops)
+              nextGroupNames = semanticMaterialized.groups.map((group) => group.name)
+              nextExecutionMode = semanticMaterialized.mode
+              nextExecutionSource = 'visual_plan'
               nextExecutionPlan = compiledPlan
+              nextVisualExecutionPlan = compiledVisualPlan
+              nextDrawPlan = compiled.drawPlan ? (compiled.drawPlan as Record<string, OperationSpec[]>) : null
+              nextLogicalOpsSpec = compiled.opsSpec as Record<string, OperationSpec[]>
+            } else if (compiledDrawGroups.length > 0) {
+              const materialized = materializeExecutionGroups({
+                opsSpec: compiled.drawPlan,
+                executionPlan: compiledPlan,
+                visualExecutionPlan: compiledVisualPlan,
+                preferDrawGroupNames: true,
+              })
+              nextGroups = materialized.groups.map((group) => group.ops)
+              nextGroupNames = materialized.groups.map((group) => group.name)
+              nextExecutionMode = materialized.mode
+              nextExecutionSource = 'draw_plan'
+              nextExecutionPlan = compiledPlan
+              nextVisualExecutionPlan = compiledVisualPlan
+              nextDrawPlan = compiled.drawPlan ? (compiled.drawPlan as Record<string, OperationSpec[]>) : null
+              nextLogicalOpsSpec = compiled.opsSpec as Record<string, OperationSpec[]>
             } else {
               nextWarnings.push('compile_ops_plan completed, but draw_plan is empty; using top-level ops execution.')
             }
@@ -1777,8 +1726,18 @@ function ChartWorkbenchPage() {
         setOpsJsonGroupNames(nextGroupNames)
         setOpsJsonExecutionSource(nextExecutionSource)
         setOpsJsonExecutionMode(nextExecutionMode)
-        setOpsJsonExecutionPlanSummary(summarizeExecutionPlanForWorkbench(nextExecutionPlan))
+        const executionSummary =
+          summarizeVisualExecutionPlan(nextVisualExecutionPlan).length > 0
+            ? summarizeVisualExecutionPlan(nextVisualExecutionPlan)
+            : summarizeExecutionPlan(nextExecutionPlan)
+        setOpsJsonExecutionPlanSummary(executionSummary)
         setOpsJsonWarnings(nextWarnings)
+        setOpsJsonDrawPlan(nextDrawPlan)
+        setOpsJsonLogicalOpsSpec(nextLogicalOpsSpec)
+        setOpsJsonDataRows(nextDataRows)
+        setOpsJsonExecutionPlanState(nextExecutionPlan)
+        setOpsJsonVisualExecutionPlanState(nextVisualExecutionPlan)
+        visualPlaybackSurfaceRef.current = 'unknown'
         setOpsGroups(nextGroups)
         setCurrentOpsIndex(-1)
       } catch (error) {
@@ -1788,6 +1747,12 @@ function ChartWorkbenchPage() {
         setOpsJsonExecutionMode(null)
         setOpsJsonExecutionPlanSummary([])
         setOpsJsonWarnings([])
+        setOpsJsonDrawPlan(null)
+        setOpsJsonLogicalOpsSpec(null)
+        setOpsJsonDataRows(null)
+        setOpsJsonExecutionPlanState(undefined)
+        setOpsJsonVisualExecutionPlanState(undefined)
+        visualPlaybackSurfaceRef.current = 'unknown'
         setOpsGroups([])
         setCurrentOpsIndex(-1)
         alert(message)
@@ -1798,22 +1763,20 @@ function ChartWorkbenchPage() {
     setOpsValidationTick((value) => value + 1)
   }
 
-  const runOpsGroup = async (
-    groupIndex: number,
+  const executeOpsArray = async (
+    opsArray: OperationSpec[],
     options?: {
       onOperationCompleted?: (event: { operation: OperationSpec; operationIndex: number }) => Promise<void> | void
       resetRuntime?: boolean
       runtimeScope?: string
+      executionSpec?: VegaLiteSpec
     },
   ) => {
     if (!chartRef.current) return
-    const opsArray = opsGroups[groupIndex] ?? []
     if (!opsArray.length) return
     setOpsJsonError(null)
 
-    const runtimeScope =
-      options?.runtimeScope ??
-      (opsJsonGroupNames[groupIndex] || (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`))
+    const runtimeScope = options?.runtimeScope ?? 'ops'
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
     const sanitizedVlSpec = sanitizeJsonInput(specString)
     let parsedVlSpec: VegaLiteSpec
@@ -1829,7 +1792,7 @@ function ChartWorkbenchPage() {
     const drawOnlyGroup = isDrawOnlyGroup(opsArray)
     const hasSvg = !!chartRef.current.querySelector('svg')
     const currentSpec = currentSpecRef.current
-    let executionSpec: VegaLiteSpec = parsedVlSpec
+    let executionSpec: VegaLiteSpec = options?.executionSpec ?? parsedVlSpec
 
     if (drawOnlyGroup) {
       if (!hasSvg || !currentSpec) {
@@ -1844,15 +1807,19 @@ function ChartWorkbenchPage() {
         currentSpec != null &&
         (() => {
           try {
-            return JSON.stringify(currentSpec) === JSON.stringify(parsedVlSpec)
+            return JSON.stringify(currentSpec) === JSON.stringify(executionSpec)
           } catch {
             return false
           }
         })()
       if (!hasSvg || !hasSameSpec) {
-        await renderChart(specString)
+        if (options?.executionSpec) {
+          await renderChart(JSON.stringify(options.executionSpec, null, 2))
+        } else {
+          await renderChart(specString)
+        }
       }
-      executionSpec = currentSpecRef.current ?? parsedVlSpec
+      executionSpec = currentSpecRef.current ?? executionSpec
     }
 
     if (!planGroups && opsInputMode === 'builder' && Object.keys(opsErrors).length > 0) {
@@ -1888,8 +1855,92 @@ function ChartWorkbenchPage() {
     }
   }
 
+  const renderSourceChartForVisualPlayback = useCallback(async () => {
+    const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
+    const rendered = await renderChart(specString)
+    if (!rendered) {
+      throw new Error('Failed to render source chart for visual playback.')
+    }
+  }, [renderChart, vlSpec])
+
+  const renderPlaybackChartForVisualPlayback = useCallback(
+    async (spec: VegaLiteSpec) => {
+      const rendered = await renderChart(JSON.stringify(spec, null, 2))
+      if (!rendered) {
+        throw new Error('Failed to render playback chart.')
+      }
+    },
+    [renderChart],
+  )
+
+  const runVisualSentenceGroup = async (
+    groupIndex: number,
+    options?: {
+      resetRuntime?: boolean
+    },
+  ): Promise<VisualSentencePlaybackResult | null> => {
+    if (!chartRef.current) return null
+    if (!opsJsonDrawPlan || !opsJsonVisualExecutionPlanState) return null
+    try {
+      const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
+      const sanitizedVlSpec = sanitizeJsonInput(specString)
+      const parsedVlSpec = JSON.parse(sanitizedVlSpec) as VegaLiteSpec
+
+      const result = await runVisualExecutionPlan({
+        container: chartRef.current,
+        spec: parsedVlSpec,
+        dataRows: opsJsonDataRows ?? undefined,
+        logicalOpsSpec: opsJsonLogicalOpsSpec ?? undefined,
+        drawPlan: opsJsonDrawPlan,
+        executionPlan: opsJsonExecutionPlanState,
+        visualExecutionPlan: opsJsonVisualExecutionPlanState,
+        stepIndex: groupIndex,
+        currentSurface: visualPlaybackSurfaceRef.current,
+        resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
+        renderSourceChart: renderSourceChartForVisualPlayback,
+        renderPlaybackChart: renderPlaybackChartForVisualPlayback,
+        runOps: async (ops, runOptions) => {
+          await executeOpsArray(ops, runOptions)
+        },
+      })
+
+      visualPlaybackSurfaceRef.current = result.finalSurface
+      opsSessionActiveRef.current = true
+      return result
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to run visual execution plan.'
+      console.error('Visual execution plan failed', error)
+      setOpsJsonError(message)
+      alert(message)
+      return null
+    }
+  }
+
+  const runOpsGroup = async (
+    groupIndex: number,
+    options?: {
+      onOperationCompleted?: (event: { operation: OperationSpec; operationIndex: number }) => Promise<void> | void
+      resetRuntime?: boolean
+      runtimeScope?: string
+    },
+  ) => {
+    const opsArray = opsGroups[groupIndex] ?? []
+    if (!opsArray.length) return
+    return executeOpsArray(opsArray, {
+      ...options,
+      runtimeScope:
+        options?.runtimeScope ??
+        (opsJsonGroupNames[groupIndex] || (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`)),
+    })
+  }
+
+  const canUseVisualExecutionPlayer =
+    opsJsonExecutionSource === 'visual_plan' &&
+    !!opsJsonDrawPlan &&
+    !!opsJsonVisualExecutionPlanState
+
   const handleStartOps = async () => {
-    if (captureScenesEnabled && planGroups) {
+    if (captureScenesEnabled && planGroups && !canUseVisualExecutionPlayer) {
       if (!chartRef.current) {
         alert('Chart container is not ready.')
         return
@@ -1930,20 +1981,29 @@ function ChartWorkbenchPage() {
     }
 
     opsSessionActiveRef.current = false
-    await runOpsGroup(0, {
-      resetRuntime: true,
-      runtimeScope: opsJsonGroupNames[0] || 'ops',
-    })
+    visualPlaybackSurfaceRef.current = 'unknown'
+    if (canUseVisualExecutionPlayer) {
+      await runVisualSentenceGroup(0, { resetRuntime: true })
+    } else {
+      await runOpsGroup(0, {
+        resetRuntime: true,
+        runtimeScope: opsJsonGroupNames[0] || 'ops',
+      })
+    }
     setCurrentOpsIndex(0)
   }
 
   const handleNextOps = async () => {
     const nextIndex = currentOpsIndex + 1
     if (nextIndex >= opsGroups.length) return
-    await runOpsGroup(nextIndex, {
-      resetRuntime: false,
-      runtimeScope: opsJsonGroupNames[nextIndex] || (nextIndex === 0 ? 'ops' : `ops${nextIndex + 1}`),
-    })
+    if (canUseVisualExecutionPlayer) {
+      await runVisualSentenceGroup(nextIndex, { resetRuntime: false })
+    } else {
+      await runOpsGroup(nextIndex, {
+        resetRuntime: false,
+        runtimeScope: opsJsonGroupNames[nextIndex] || (nextIndex === 0 ? 'ops' : `ops${nextIndex + 1}`),
+      })
+    }
     setCurrentOpsIndex(nextIndex)
   }
 
@@ -1951,11 +2011,16 @@ function ChartWorkbenchPage() {
     const prevIndex = currentOpsIndex - 1
     if (prevIndex < 0) return
     opsSessionActiveRef.current = false
+    visualPlaybackSurfaceRef.current = 'unknown'
     for (let index = 0; index <= prevIndex; index += 1) {
-      await runOpsGroup(index, {
-        resetRuntime: index === 0,
-        runtimeScope: opsJsonGroupNames[index] || (index === 0 ? 'ops' : `ops${index + 1}`),
-      })
+      if (canUseVisualExecutionPlayer) {
+        await runVisualSentenceGroup(index, { resetRuntime: index === 0 })
+      } else {
+        await runOpsGroup(index, {
+          resetRuntime: index === 0,
+          runtimeScope: opsJsonGroupNames[index] || (index === 0 ? 'ops' : `ops${index + 1}`),
+        })
+      }
     }
     setCurrentOpsIndex(prevIndex)
   }
@@ -2109,6 +2174,14 @@ function ChartWorkbenchPage() {
       setCurrentOpsIndex(-1)
       setPendingRunOps(false)
       return
+    }
+    if (!planGroups && opsInputMode === 'builder') {
+      setOpsJsonDrawPlan(null)
+      setOpsJsonLogicalOpsSpec(null)
+      setOpsJsonDataRows(null)
+      setOpsJsonExecutionPlanState(undefined)
+      setOpsJsonVisualExecutionPlanState(undefined)
+      visualPlaybackSurfaceRef.current = 'unknown'
     }
     setOpsGroups(nextGroups)
     setCurrentOpsIndex(-1)
@@ -2344,6 +2417,12 @@ function ChartWorkbenchPage() {
                       setOpsJsonExecutionMode(null)
                       setOpsJsonExecutionPlanSummary([])
                       setOpsJsonWarnings([])
+                      setOpsJsonDrawPlan(null)
+                      setOpsJsonLogicalOpsSpec(null)
+                      setOpsJsonDataRows(null)
+                      setOpsJsonExecutionPlanState(undefined)
+                      setOpsJsonVisualExecutionPlanState(undefined)
+                      visualPlaybackSurfaceRef.current = 'unknown'
                     }}
                   />
                   {opsJsonGroupNames.length > 0 ? (

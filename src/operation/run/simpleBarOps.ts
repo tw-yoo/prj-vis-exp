@@ -16,6 +16,8 @@ import {
 } from '../../rendering/bar/simpleBarRenderer.ts'
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
+import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS } from './drawActionPolicy.ts'
 
 function toWorkingDatumValues(container: HTMLElement, vlSpec: SimpleBarSpec) {
   const ctx = getPlotContext(container)
@@ -29,24 +31,25 @@ function toWorkingDatumValues(container: HTMLElement, vlSpec: SimpleBarSpec) {
   })
 }
 
-async function handleSimpleBarSplit(
+async function handleSimpleBarDraw(
   container: HTMLElement,
+  handler: BarDrawHandler,
   spec: SimpleBarSpec,
   drawOp: DrawOp,
 ) {
   if (drawOp.action === DrawAction.Split) {
     if (!drawOp.split) {
       console.warn('draw:split requires split spec', drawOp)
-      return true
+      return
     }
     await renderSplitSimpleBarChart(container, spec, drawOp.split as DrawSplitSpec)
-    return true
+    return
   }
   if (drawOp.action === DrawAction.Unsplit) {
     await renderSimpleBarChart(container, spec)
-    return true
+    return
   }
-  return false
+  await handler.run(drawOp)
 }
 
 export async function runSimpleBarOps(
@@ -55,30 +58,14 @@ export async function runSimpleBarOps(
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
-  const chartWorking = new Map<string, DatumValue[]>()
-  const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
-    const domain = getSimpleBarSplitDomain(container, chartId)
-    if (!domain || domain.size === 0) return currentWorking
-    const domainSet = new Set(domain)
-    return currentWorking.filter((datum) => domainSet.has(String(datum.target)))
-  }
-  const deriveOperationInput = (operation: OperationSpec, currentWorking: DatumValue[]) => {
-    const chartId = operation.chartId
-    if (!chartId) return currentWorking
-    if (chartWorking.has(chartId)) return chartWorking.get(chartId)!
-    const subset = filterByChartDomain(chartId, currentWorking)
-    chartWorking.set(chartId, subset)
-    return subset
-  }
-  const handleOperationResult = (operation: OperationSpec, result: DatumValue[], currentWorking: DatumValue[]) => {
-    const chartId = operation.chartId
-    if (chartId) {
-      chartWorking.set(chartId, result)
-      return currentWorking
-    }
-    chartWorking.clear()
-    return result
-  }
+  const { getOperationInput, handleOperationResult, clearChartWorking } = createChartScopedWorkingSet({
+    getChartScopedData: (chartId, currentWorking) => {
+      const domain = getSimpleBarSplitDomain(container, chartId)
+      if (!domain || domain.size === 0) return currentWorking
+      const domainSet = new Set(domain)
+      return currentWorking.filter((datum) => domainSet.has(String(datum.target)))
+    },
+  })
 
   return runChartOperationsCommon<SimpleBarSpec>({
     container,
@@ -88,17 +75,15 @@ export async function runSimpleBarOps(
     postRender: async () => {},
     getWorkingData: (host, spec) => toWorkingDatumValues(host, spec),
     createHandler: (host) => new BarDrawHandler(host),
-    splitHandler: async (host, spec, handler, drawOp) => {
-      const handled = await handleSimpleBarSplit(host, spec, drawOp)
-      if (handled) {
-        handler = new BarDrawHandler(host)
-        chartWorking.clear()
+    handleDrawOp: async (host, handler, drawOp) => {
+      await handleSimpleBarDraw(host, handler as BarDrawHandler, vlSpec, drawOp)
+      if (LEGACY_SPLIT_DRAW_ACTIONS.has(drawOp.action)) {
+        clearChartWorking()
       }
-      return handled
     },
     clearAnnotations: ({ container: host }) => clearAnnotations(getPlotContext(host).svg),
     autoDrawPlans: SIMPLE_BAR_AUTO_DRAW_PLANS,
-    getOperationInput: deriveOperationInput,
+    getOperationInput,
     handleOperationResult,
     runDrawPlan: async (drawPlan, handler) => {
       await runSimpleBarDrawPlan(container, drawPlan, { handler: handler as BarDrawHandler })

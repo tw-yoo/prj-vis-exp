@@ -18,6 +18,8 @@ import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { runSimpleLineDrawPlan } from '../../rendering/ops/executor/runSimpleLineDrawPlan.ts'
 import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/simple/simpleLineAutoDrawPlanBuilder.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
+import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS } from './drawActionPolicy.ts'
 
 function toDatumValues(rawData: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(rawData, { xField, yField })
@@ -118,6 +120,18 @@ async function handleSimpleLineDraw(
   drawOp: DrawOp,
   spec: LineSpec,
 ) {
+  if (drawOp.action === DrawAction.Split) {
+    if (!drawOp.split) {
+      console.warn('draw:split requires split spec', drawOp)
+      return
+    }
+    await renderSplitSimpleLineChart(container, spec, drawOp.split)
+    return
+  }
+  if (drawOp.action === DrawAction.Unsplit) {
+    await renderSimpleLineChart(container, spec)
+    return
+  }
   if (drawOp.action === DrawAction.LineToBar) {
     await convertLineChartToBars(container, spec)
     return
@@ -143,52 +157,20 @@ async function handleSimpleLineDraw(
   console.warn('draw: unsupported action for simple line', drawOp.action)
 }
 
-async function handleSimpleLineSplit(container: HTMLElement, spec: LineSpec, drawOp: DrawOp) {
-  if (drawOp.action === DrawAction.Split) {
-    if (!drawOp.split) {
-      console.warn('draw:split requires split spec', drawOp)
-      return true
-    }
-    await renderSplitSimpleLineChart(container, spec, drawOp.split)
-    return true
-  }
-  if (drawOp.action === DrawAction.Unsplit) {
-    await renderSimpleLineChart(container, spec)
-    return true
-  }
-  return false
-}
-
 export async function runSimpleLineOps(
   container: HTMLElement,
   vlSpec: LineSpec,
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
-  const chartWorking = new Map<string, DatumValue[]>()
-  const filterByChartDomain = (chartId: string, currentWorking: DatumValue[]) => {
-    const domain = getSimpleLineSplitDomain(container, chartId)
-    if (!domain || domain.size === 0) return currentWorking
-    const domainSet = new Set(domain)
-    return currentWorking.filter((datum) => domainSet.has(String(datum.target)))
-  }
-  const deriveOperationInput = (operation: OperationSpec, currentWorking: DatumValue[]) => {
-    const chartId = operation.chartId
-    if (!chartId) return currentWorking
-    if (chartWorking.has(chartId)) return chartWorking.get(chartId)!
-    const subset = filterByChartDomain(chartId, currentWorking)
-    chartWorking.set(chartId, subset)
-    return subset
-  }
-  const handleOperationResult = (operation: OperationSpec, result: DatumValue[], currentWorking: DatumValue[]) => {
-    const chartId = operation.chartId
-    if (chartId) {
-      chartWorking.set(chartId, result)
-      return currentWorking
-    }
-    chartWorking.clear()
-    return result
-  }
+  const { getOperationInput, handleOperationResult, clearChartWorking } = createChartScopedWorkingSet({
+    getChartScopedData: (chartId, currentWorking) => {
+      const domain = getSimpleLineSplitDomain(container, chartId)
+      if (!domain || domain.size === 0) return currentWorking
+      const domainSet = new Set(domain)
+      return currentWorking.filter((datum) => domainSet.has(String(datum.target)))
+    },
+  })
 
   return runChartOperationsCommon<LineSpec>({
     container,
@@ -225,19 +207,15 @@ export async function runSimpleLineOps(
         .filter(Boolean) as DatumValue[]
     },
     createHandler: (host) => new SimpleLineDrawHandler(host),
-    splitHandler: async (host, spec, handler, drawOp) => {
-      const handled = await handleSimpleLineSplit(host, spec, drawOp)
-      if (handled) {
-        handler = new SimpleLineDrawHandler(host)
-        chartWorking.clear()
+    handleDrawOp: async (host, handler, drawOp) => {
+      await handleSimpleLineDraw(host, handler as SimpleLineDrawHandler, drawOp, vlSpec)
+      if (LEGACY_SPLIT_DRAW_ACTIONS.has(drawOp.action)) {
+        clearChartWorking()
       }
-      return handled
     },
-    handleDrawOp: (host, handler, drawOp) =>
-      handleSimpleLineDraw(host, handler as SimpleLineDrawHandler, drawOp, vlSpec),
     clearAnnotations: ({ svg }) => clearAnnotations(svg),
     autoDrawPlans: SIMPLE_LINE_AUTO_DRAW_PLANS,
-    getOperationInput: deriveOperationInput,
+    getOperationInput,
     handleOperationResult,
     runDrawPlan: async (drawPlan, handler) => {
       await runSimpleLineDrawPlan(container, drawPlan, { handler: handler as SimpleLineDrawHandler })

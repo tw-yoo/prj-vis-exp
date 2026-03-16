@@ -1,4 +1,4 @@
-import type { DatumValue, OperationSpec } from '../../types'
+import { OperationOp, type DatumValue, type OperationSpec } from '../../types'
 import { aggregateDatumValuesByTarget, countUniqueGroups } from '../../rendering/ops/common/workingData.ts'
 import { DrawAction, type DrawGroupFilterSpec, type DrawOp } from '../../rendering/draw/types.ts'
 
@@ -73,4 +73,12 @@ export function shouldAggregateWhenMultipleGroups(latest: DatumValue[]) {
 
 export function shouldAggregateWhenSingleGroup(latest: DatumValue[]) {
   return countUniqueGroups(latest) <= 1
+}
+
+export function shouldUseSeriesScopedInput(operation: OperationSpec) {
+  if (operation.op === OperationOp.SetOp || operation.op === OperationOp.PairDiff) return true
+  if (operation.op === OperationOp.Compare || operation.op === OperationOp.Diff) {
+    return Boolean(operation.groupA || operation.groupB || operation.seriesField)
+  }
+  return false
 }

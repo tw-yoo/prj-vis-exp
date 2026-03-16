@@ -10,8 +10,12 @@ export type {
   CompileOpsPlanResult,
   ExecutionPlan,
   ExecutionPlanStep,
+  MaterializedExecutionGroups,
   ParseToOpsResult,
   ParseToOperationSpecCommand,
+  VisualExecutionPlan,
+  VisualExecutionStep,
+  VisualExecutionSubstep,
 } from './nlp-ops'
 export type {
   FieldOptionsSource,

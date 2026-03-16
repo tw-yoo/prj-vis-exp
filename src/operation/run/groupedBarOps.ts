@@ -1,4 +1,4 @@
-import { OperationOp, type DatumValue, type OperationSpec, type JsonValue } from '../../types'
+import { type DatumValue, type OperationSpec, type JsonValue } from '../../types'
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { DrawAction, type DrawSplitSpec } from '../../rendering/draw/types.ts'
@@ -22,10 +22,11 @@ import { GROUPED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/grou
 import {
   handleGroupFilter,
   shouldAggregateWhenSingleGroup,
+  shouldUseSeriesScopedInput,
 } from './barOpsCommon.ts'
-import { normalizeComparisonCondition } from '../../rendering/draw/utils/comparison.ts'
-import { DrawComparisonOperators, type DrawFilterSpec, type DrawSortSpec } from '../../rendering/draw/types.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
+import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS } from './drawActionPolicy.ts'
 
 function toGroupedDatumValues(raw: JsonValue[], spec: GroupedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
@@ -42,6 +43,18 @@ async function handleGroupedBarDraw(
   drawOp: DrawOp,
   spec: GroupedSpec,
 ) {
+  if (drawOp.action === DrawAction.Split) {
+    if (!drawOp.split || typeof drawOp.split !== 'object') {
+      console.warn('draw:split requires split spec', drawOp)
+      return
+    }
+    await renderSplitGroupedBarChart(container, spec, drawOp.split as DrawSplitSpec)
+    return
+  }
+  if (drawOp.action === DrawAction.Unsplit) {
+    await renderGroupedBarChart(container, spec)
+    return
+  }
   if (drawOp.action === DrawAction.GroupedToStacked) {
     await convertGroupedToStacked(container, spec, drawOp.stackGroup)
     return
@@ -57,131 +70,34 @@ async function handleGroupedBarDraw(
   await handler.run(drawOp)
 }
 
-function filterGroupedRows(rawRows: RawRow[], spec: GroupedSpec, filterSpec: DrawFilterSpec) {
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const includeSet = filterSpec.x?.include?.length ? new Set(filterSpec.x.include.map(String)) : null
-  const excludeSet = filterSpec.x?.exclude?.length ? new Set(filterSpec.x.exclude.map(String)) : null
-
-  let filtered = rawRows.filter((row) => {
-    const label = row[xField]
-    const key = label == null ? '' : String(label)
-    if (includeSet && !includeSet.has(key)) return false
-    if (excludeSet && excludeSet.has(key)) return false
-    return true
-  })
-
-  if (filterSpec.y) {
-    const threshold = Number(filterSpec.y.value)
-    if (Number.isFinite(threshold)) {
-      const comparison = normalizeComparisonCondition(filterSpec.y.op ?? undefined)
-      const aggregate = new Map<string, number>()
-      filtered.forEach((row) => {
-        const key = row[xField] == null ? '' : String(row[xField])
-        const value = Number(row[yField])
-        if (!Number.isFinite(value) || key.length === 0) return
-        aggregate.set(key, (aggregate.get(key) ?? 0) + value)
-      })
-      const keepTargets = new Set(
-        Array.from(aggregate.entries())
-          .filter(([, value]) => {
-            switch (comparison) {
-              case DrawComparisonOperators.Greater:
-                return value > threshold
-              case DrawComparisonOperators.GreaterEqual:
-                return value >= threshold
-              case DrawComparisonOperators.Less:
-                return value < threshold
-              case DrawComparisonOperators.LessEqual:
-                return value <= threshold
-              default:
-                return true
-            }
-          })
-          .map(([target]) => target),
-      )
-      filtered = filtered.filter((row) => keepTargets.has(String(row[xField] ?? '')))
-    }
-  }
-
-  return filtered
-}
-
-function sortTargetsBySpec(rawRows: RawRow[], spec: GroupedSpec, sortSpec: DrawSortSpec | undefined) {
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const order = (sortSpec?.order ?? 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc'
-  const by = sortSpec?.by ?? 'y'
-
-  const targets = Array.from(new Set(rawRows.map((row) => String(row[xField] ?? '')).filter((target) => target.length > 0)))
-  if (by === 'x') {
-    targets.sort((a, b) => a.localeCompare(b))
-  } else {
-    const aggregate = new Map<string, number>()
-    rawRows.forEach((row) => {
-      const key = row[xField] == null ? '' : String(row[xField])
-      const value = Number(row[yField])
-      if (!Number.isFinite(value) || key.length === 0) return
-      aggregate.set(key, (aggregate.get(key) ?? 0) + value)
-    })
-    targets.sort((a, b) => (aggregate.get(a) ?? 0) - (aggregate.get(b) ?? 0))
-  }
-  if (order === 'desc') targets.reverse()
-  return targets
-}
-
-function shouldUseSeriesScopedInput(operation: OperationSpec) {
-  if (operation.op === OperationOp.SetOp || operation.op === OperationOp.PairDiff) return true
-  if (operation.op === OperationOp.Compare || operation.op === OperationOp.Diff) {
-    return Boolean(operation.groupA || operation.groupB || operation.seriesField)
-  }
-  return false
-}
-
 export async function runGroupedBarOps(
   container: HTMLElement,
   vlSpec: GroupedSpec,
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
-  const chartWorking = new Map<string, DatumValue[]>()
-  const filterRawByChartDomain = (chartId: string, rawRows: JsonValue[]) => {
-    const splitState = getGroupedBarSplitState(container)
-    if (!splitState) return rawRows
-    const domain = splitState.domains[chartId]
-    if (!domain || domain.size === 0) return rawRows
-    return rawRows.filter((row) => {
-      if (!row || typeof row !== 'object') return false
-      const value = (row as RawRow)[splitState.field]
-      if (value == null) return false
-      return domain.has(String(value))
-    })
-  }
-
-  const getOperationInput = (operation: OperationSpec, currentWorking: DatumValue[]) => {
-    const chartId = operation.chartId
-    const hasGroup = operation.group != null && String(operation.group).trim() !== ''
-    const chartScoped =
-      chartId == null
-        ? currentWorking
-        : chartWorking.get(chartId) ??
-          toGroupedDatumValues(filterRawByChartDomain(chartId, getGroupedBarStoredData(container) as JsonValue[]), vlSpec)
-    if (chartId && !chartWorking.has(chartId)) {
-      chartWorking.set(chartId, chartScoped)
-    }
-    if (hasGroup || shouldUseSeriesScopedInput(operation)) return chartScoped
-    return shouldAggregateWhenSingleGroup(chartScoped) ? aggregateDatumValuesByTarget(chartScoped) : chartScoped
-  }
-
-  const handleOperationResult = (operation: OperationSpec, result: DatumValue[], currentWorking: DatumValue[]) => {
-    const chartId = operation.chartId
-    if (chartId) {
-      chartWorking.set(chartId, result)
-      return currentWorking
-    }
-    chartWorking.clear()
-    return result
-  }
+  const { getOperationInput, handleOperationResult, clearChartWorking } = createChartScopedWorkingSet({
+    getChartScopedData: (chartId, currentWorking) => {
+      const splitState = getGroupedBarSplitState(container)
+      if (!splitState) return currentWorking
+      const domain = splitState.domains[chartId]
+      if (!domain || domain.size === 0) return currentWorking
+      const rawRows = (getGroupedBarStoredData(container) || []) as JsonValue[]
+      const filtered = rawRows.filter((row) => {
+        if (!row || typeof row !== 'object') return false
+        const value = (row as RawRow)[splitState.field]
+        if (value == null) return false
+        return domain.has(String(value))
+      })
+      return toGroupedDatumValues(filtered, vlSpec)
+    },
+    selectOperationInput: ({ operation, currentWorking, chartScoped }) => {
+      if (!operation.chartId) return currentWorking
+      const hasGroup = operation.group != null && String(operation.group).trim() !== ''
+      if (hasGroup || shouldUseSeriesScopedInput(operation)) return chartScoped
+      return shouldAggregateWhenSingleGroup(chartScoped) ? aggregateDatumValuesByTarget(chartScoped) : chartScoped
+    },
+  })
 
   return runChartOperationsCommon<GroupedSpec>({
     container,
@@ -194,25 +110,12 @@ export async function runGroupedBarOps(
       return toGroupedDatumValues(raw, vlSpec)
     },
     createHandler: () => new GroupedBarDrawHandler(container),
-    splitHandler: async (host, spec, handler, drawOp) => {
-      if (drawOp.action === DrawAction.Split) {
-        if (!drawOp.split || typeof drawOp.split !== 'object') {
-          console.warn('draw:split requires split spec', drawOp)
-          return true
-        }
-        await renderSplitGroupedBarChart(host, spec, drawOp.split as DrawSplitSpec)
-        chartWorking.clear()
-        return true
+    handleDrawOp: async (host, handler, drawOp) => {
+      await handleGroupedBarDraw(host, handler as GroupedBarDrawHandler, drawOp, vlSpec)
+      if (LEGACY_SPLIT_DRAW_ACTIONS.has(drawOp.action)) {
+        clearChartWorking()
       }
-      if (drawOp.action === DrawAction.Unsplit) {
-        await renderGroupedBarChart(host, spec)
-        chartWorking.clear()
-        return true
-      }
-      return false
     },
-    handleDrawOp: async (host, handler, drawOp) =>
-      handleGroupedBarDraw(host, handler as GroupedBarDrawHandler, drawOp, vlSpec),
     clearAnnotations: ({ svg }) => clearAnnotations(svg),
     getOperationInput,
     handleOperationResult,

@@ -7,11 +7,11 @@ import { executeDataOperation, type AutoDrawPlanContext } from '../services/exec
 import { STANDARD_DATA_OP_HANDLERS } from '../../rendering/ops/common/dataHandlers'
 import { isDrawOp } from '../services/operationPipeline'
 import { DrawAction, type DrawOp } from '../../rendering/draw/types'
-import { DataAttributes, SvgAttributes } from '../../rendering/interfaces'
+import { DataAttributes } from '../../rendering/interfaces'
 import type { D3Selection } from '../../rendering/common/d3Helpers'
-import { DEFAULT_ANNOTATION_SELECTORS } from '../../rendering/common/d3Helpers'
 import { runtimeKeyFor } from '../../rendering/ops/common/runtime'
 import { getRuntimeResultsById, resetRuntimeResults, storeRuntimeResult } from '../../operation/run/dataOps'
+import { REMOUNT_ALLOWED_DRAW_ACTIONS, STRUCTURAL_DRAW_ACTIONS } from '../../operation/run/drawActionPolicy'
 
 export type ChartHandler = { run: (op: DrawOp) => void | Promise<void> }
 export type OperationCompletedEvent = {
@@ -29,12 +29,6 @@ export type RunChartOperationsConfig<Spec> = {
   getWorkingData: (container: HTMLElement, spec: Spec) => DatumValue[]
   createHandler: (container: HTMLElement) => ChartHandler
   handleDrawOp?: (container: HTMLElement, handler: ChartHandler, drawOp: DrawOp) => void
-  splitHandler?: (
-    container: HTMLElement,
-    spec: Spec,
-    handler: ChartHandler,
-    drawOp: DrawOp,
-  ) => Promise<boolean>
   runDrawPlan?: (drawPlan: DrawOp[], handler: ChartHandler) => Promise<void>
   clearAnnotations?: (context: { container: HTMLElement; svg: D3Selection }) => void
   getSvg?: (container: HTMLElement) => D3Selection
@@ -52,41 +46,7 @@ export type RunChartOperationsConfig<Spec> = {
 
 const defaultGetSvg = (container: HTMLElement): D3Selection => d3.select(container).select('svg') as D3Selection
 
-const STRUCTURAL_DRAW_ACTIONS = new Set<DrawAction>([
-  DrawAction.Clear,
-  DrawAction.Filter,
-  DrawAction.Sort,
-  DrawAction.Split,
-  DrawAction.Unsplit,
-  DrawAction.Sum,
-  DrawAction.LineToBar,
-  DrawAction.MultiLineToStacked,
-  DrawAction.MultiLineToGrouped,
-  DrawAction.StackedToGrouped,
-  DrawAction.GroupedToStacked,
-  DrawAction.StackedToSimple,
-  DrawAction.GroupedToSimple,
-  DrawAction.StackedToDiverging,
-  DrawAction.StackedFilterGroups,
-  DrawAction.GroupedFilterGroups,
-])
-
-const REMOUNT_ALLOWED_ACTIONS = new Set<DrawAction>([
-  DrawAction.Split,
-  DrawAction.Unsplit,
-  // Chart-type conversion draws intentionally re-render and replace the SVG root.
-  DrawAction.LineToBar,
-  DrawAction.MultiLineToStacked,
-  DrawAction.MultiLineToGrouped,
-  DrawAction.StackedToGrouped,
-  DrawAction.GroupedToStacked,
-  DrawAction.StackedToSimple,
-  DrawAction.GroupedToSimple,
-  DrawAction.StackedToDiverging,
-])
 const STRICT_NON_SPLIT_NO_REMOUNT = false
-const JOIN_PREV_ANNOTATION_OPACITY = 0.5
-
 type RenderIdentity = {
   svg: SVGSVGElement | null
   epoch: number
@@ -114,7 +74,7 @@ function assertNoRemountForDrawOps(
   sourceLabel: string,
 ) {
   if (!drawOps.length) return
-  const requiresNoRemount = drawOps.some((drawOp) => !REMOUNT_ALLOWED_ACTIONS.has(drawOp.action))
+  const requiresNoRemount = drawOps.some((drawOp) => !REMOUNT_ALLOWED_DRAW_ACTIONS.has(drawOp.action))
   if (!requiresNoRemount) return
   const after = getRenderIdentity(container)
   const remounted =
@@ -147,47 +107,6 @@ function operationLogContext(operation: OperationSpec, index: number) {
   }
 }
 
-function resolveDrawOpNodeId(drawOp: DrawOp) {
-  const nodeId = typeof drawOp.meta?.nodeId === 'string' ? drawOp.meta.nodeId.trim() : ''
-  if (nodeId.length > 0) return nodeId
-  const rawId = typeof (drawOp as { id?: unknown }).id === 'string' ? ((drawOp as { id?: string }).id ?? '').trim() : ''
-  return rawId.length > 0 ? rawId : null
-}
-
-function isStructuralDependencyNodeId(nodeId: string) {
-  const token = String(nodeId).trim().toLowerCase()
-  if (!token) return false
-  return /(?:^|_)split(?:_|$)/.test(token) || /(?:^|_)unsplit(?:_|$)/.test(token)
-}
-
-function isJoinDrawOp(drawOp: DrawOp) {
-  const inputs = Array.isArray(drawOp.meta?.inputs) ? drawOp.meta.inputs : []
-  const semanticInputs = Array.from(
-    new Set(
-      inputs
-        .filter((item): item is string => typeof item === 'string')
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0 && !isStructuralDependencyNodeId(item)),
-    ),
-  )
-  return semanticInputs.length >= 2
-}
-
-function applyJoinPreviousAnnotationsOpacity(container: HTMLElement, currentNodeId: string | null) {
-  const selectors = DEFAULT_ANNOTATION_SELECTORS.join(', ')
-  if (!selectors) return
-  const svgs = d3.select(container).selectAll<SVGSVGElement, unknown>('svg')
-  svgs.each(function () {
-    const svg = d3.select(this as SVGSVGElement)
-    svg.selectAll<SVGElement, unknown>(selectors).each(function () {
-      const node = this as SVGElement
-      const nodeId = (node.getAttribute(DataAttributes.AnnotationNodeId) ?? '').trim()
-      if (currentNodeId && nodeId === currentNodeId) return
-      d3.select(node).interrupt().attr(SvgAttributes.Opacity, JOIN_PREV_ANNOTATION_OPACITY)
-    })
-  })
-}
-
 function resolveDataInputSeed(operation: OperationSpec, phaseWorkingBase: DatumValue[]): DatumValue[] {
   // `filter` uses `meta.inputs` for threshold refs (e.g., value: "ref:n1"), not for replacing the data source.
   // Keep filtering against the current working dataset to avoid collapsing input into scalar dependency rows.
@@ -211,7 +130,6 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     getWorkingData,
     createHandler,
     handleDrawOp,
-    splitHandler,
     runDrawPlan,
     clearAnnotations,
     getSvg,
@@ -321,7 +239,6 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
   }
 
   let globalIndex = 0
-  const joinOpacityAppliedNodeIds = new Set<string>()
   const nextIndex = () => {
     const index = globalIndex
     globalIndex += 1
@@ -397,26 +314,17 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
 
     const runDraw = async (item: { operation: OperationSpec; drawOp: DrawOp; index: number }) => {
       const { operation, drawOp, index } = item
-      if (isJoinDrawOp(drawOp)) {
-        const nodeId = resolveDrawOpNodeId(drawOp)
-        const key = nodeId ?? '__join__'
-        if (!joinOpacityAppliedNodeIds.has(key)) {
-          applyJoinPreviousAnnotationsOpacity(container, nodeId)
-          joinOpacityAppliedNodeIds.add(key)
-        }
-      }
       const before = getRenderIdentity(container)
-      if (splitHandler && (await splitHandler(container, spec, handler, drawOp))) {
-        assertNoRemountForDrawOps(container, before, [drawOp], `draw-op:${drawOp.action}`)
-        logReuseExistingDraw(drawOp, before)
-        handler = createHandler(container)
-        await notifyOperationCompleted(operation, index)
-        return
-      }
       if (handleDrawOp) {
         await handleDrawOp(container, handler, drawOp)
         assertNoRemountForDrawOps(container, before, [drawOp], `draw-op:${drawOp.action}`)
         logReuseExistingDraw(drawOp, before)
+        const after = getRenderIdentity(container)
+        const remounted =
+          (before.svg && after.svg && before.svg !== after.svg) || before.epoch !== after.epoch
+        if (remounted) {
+          handler = createHandler(container)
+        }
         await notifyOperationCompleted(operation, index)
         return
       }
