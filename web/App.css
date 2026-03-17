@@ -318,6 +318,7 @@ textarea {
 
 .chart-stage {
   position: relative;
+  padding-bottom: 84px;
 }
 
 .draw-timeline-panel {
@@ -426,18 +427,21 @@ textarea {
 
 .chart-sentence-summary-overlay {
   position: absolute;
-  top: 12px;
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
-  pointer-events: none;
   z-index: 18;
-  display: flex;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 120px minmax(0, 460px) 120px;
   align-items: center;
+  gap: 16px;
+  width: min(760px, calc(100% - 40px));
+  pointer-events: none;
 }
 
 .chart-sentence-summary-text {
-  max-width: min(720px, calc(100vw - 48px));
+  width: 100%;
+  max-width: 460px;
   padding: 8px 12px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.92);
@@ -447,6 +451,35 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.4;
+  text-align: center;
+  justify-self: center;
+}
+
+.chart-sentence-summary-control {
+  width: 120px;
+  min-height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.94);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease, opacity 0.2s ease;
+}
+
+.chart-sentence-summary-control:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(29, 78, 216, 0.96);
+}
+
+.chart-sentence-summary-control:disabled {
+  background: rgba(148, 163, 184, 0.78);
+  color: rgba(255, 255, 255, 0.88);
+  cursor: default;
+  box-shadow: none;
 }
 
 #ops-spec {

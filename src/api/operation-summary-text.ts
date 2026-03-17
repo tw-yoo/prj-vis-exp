@@ -17,6 +17,14 @@ export type SummaryGenerationContext = {
   logicalArtifacts: LogicalExecutionArtifacts | null
 }
 
+function opNodeId(op: OperationSpec, fallbackIndex: number): string {
+  const metaNodeId = typeof op.meta?.nodeId === 'string' ? op.meta.nodeId.trim() : ''
+  if (metaNodeId) return metaNodeId
+  const opId = typeof (op as { id?: unknown }).id === 'string' ? String((op as { id?: string }).id ?? '').trim() : ''
+  if (opId) return opId
+  return `__summary_${fallbackIndex}`
+}
+
 function inputNodeIds(op: OperationSpec): string[] {
   return (Array.isArray(op.meta?.inputs) ? op.meta.inputs : [])
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
@@ -405,55 +413,67 @@ function imperativeSentenceForOperation(args: {
 }
 
 export function buildSentenceSummaryText(context: SummaryGenerationContext): SentenceSummaryText | null {
-  const runNodeIds = context.step.substeps
+  const operations = context.step.substeps
     .filter((substep) => substep.kind === 'run-op' && substep.visible !== false)
-    .map((substep) => (typeof substep.nodeId === 'string' ? substep.nodeId.trim() : ''))
-    .filter((nodeId) => nodeId.length > 0)
+    .map((substep) =>
+      typeof substep.nodeId === 'string' ? context.logicalArtifacts?.nodeOps.get(substep.nodeId.trim()) ?? null : null,
+    )
+    .filter((op): op is OperationSpec => op != null)
 
-  if (runNodeIds.length === 0) return null
+  return buildSummaryTextForOperations({
+    operations,
+    logicalArtifacts: context.logicalArtifacts,
+  })
+}
 
-  const internalNodeIds = new Set(runNodeIds)
+export function buildSummaryTextForOperations(args: {
+  operations: OperationSpec[]
+  logicalArtifacts: LogicalExecutionArtifacts | null
+}): SentenceSummaryText | null {
+  const operations = args.operations.filter(
+    (op) => op.op && op.op !== OperationOp.Draw && op.op !== OperationOp.Sleep && op.op !== 'text',
+  )
+  if (operations.length === 0) return null
+
+  const entries = operations.map((op, index) => ({
+    nodeId: opNodeId(op, index),
+    op,
+  }))
+  const internalNodeIds = new Set(entries.map((entry) => entry.nodeId))
   const consumedByOtherRunOp = new Set<string>()
-  runNodeIds.forEach((nodeId) => {
-    const op = context.logicalArtifacts?.nodeOps.get(nodeId)
-    inputNodeIds(op ?? {}).forEach((inputId) => {
+  entries.forEach((entry) => {
+    inputNodeIds(entry.op).forEach((inputId) => {
       if (internalNodeIds.has(inputId)) {
         consumedByOtherRunOp.add(inputId)
       }
     })
   })
-  const sinkNodeIds = runNodeIds.filter((nodeId) => !consumedByOtherRunOp.has(nodeId))
-  const summaryNodeIds = sinkNodeIds.length > 0 ? sinkNodeIds : runNodeIds
+  const sinkEntries = entries.filter((entry) => !consumedByOtherRunOp.has(entry.nodeId))
+  const summaryEntries = sinkEntries.length > 0 ? sinkEntries : entries
 
-  const clauses = summaryNodeIds
-    .map((nodeId) => context.logicalArtifacts?.nodeOps.get(nodeId))
-    .filter((op): op is OperationSpec => op != null)
-    .map((op) =>
+  const initialText = joinClauses(
+    summaryEntries.map((entry) =>
       imperativeSentenceForOperation({
-        op,
-        artifacts: context.logicalArtifacts,
+        op: entry.op,
+        artifacts: args.logicalArtifacts,
         refine: false,
       }),
-    )
+    ),
+  )
+  if (!initialText) return null
 
-  if (clauses.length === 0) return null
-
-  const initialText = joinClauses(clauses)
-  const refinedClauses = summaryNodeIds
-    .map((nodeId) => context.logicalArtifacts?.nodeOps.get(nodeId))
-    .filter((op): op is OperationSpec => op != null)
-    .map((op) =>
+  const finalText = joinClauses(
+    summaryEntries.map((entry) =>
       imperativeSentenceForOperation({
-        op,
-        artifacts: context.logicalArtifacts,
+        op: entry.op,
+        artifacts: args.logicalArtifacts,
         refine: true,
       }),
-    )
-  const finalText = joinClauses(refinedClauses)
-  const refineOnNodeIds = summaryNodeIds.filter((nodeId) => {
-    const op = context.logicalArtifacts?.nodeOps.get(nodeId)
-    return op?.op === OperationOp.FindExtremum || op?.op === OperationOp.Nth
-  })
+    ),
+  )
+  const refineOnNodeIds = summaryEntries
+    .filter((entry) => entry.op.op === OperationOp.FindExtremum || entry.op.op === OperationOp.Nth)
+    .map((entry) => entry.nodeId)
 
   return {
     initialText,

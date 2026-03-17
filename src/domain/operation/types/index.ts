@@ -61,6 +61,7 @@ export type TargetSelector =
  */
 export interface OperationSpec {
   op?: string
+  text?: JsonValue
   meta?: {
     source?: 'interaction' | 'builder' | 'plan' | string
     [key: string]: JsonValue | undefined

@@ -92,10 +92,14 @@ import {
   type VisualSentencePlaybackResult,
   type VisualSurfaceState,
 } from '../../../src/api/visual-execution-player'
+import { buildSummaryTextForOperations, buildSentenceSummaryText } from '../../../src/api/operation-summary-text'
+import { buildLogicalExecutionArtifacts, type LogicalExecutionArtifacts } from '../../../src/api/visual-derived-chart'
 import { SPLIT_VIEW_ENABLED, STRUCTURAL_DRAW_ACTIONS } from '../../../src/api/draw-action-policy'
 import {
   clearSentenceSummaryOverlay,
   renderSentenceSummaryOverlay,
+  type SentenceSummaryOverlayControl,
+  type SentenceSummaryOverlayRenderInput,
 } from '../../../src/api/sentence-summary-overlay'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import OpsBuilder from '../opsBuilder/OpsBuilder'
@@ -155,6 +159,9 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 const isOperationSpecValue = (value: unknown): value is OperationSpec =>
   isPlainObject(value) && typeof value.op === 'string'
 
+const isTextOp = (value: unknown): value is OperationSpec & { op: 'text'; text?: string } =>
+  isPlainObject(value) && value.op === 'text'
+
 const isOperationSpecArray = (value: unknown): value is OperationSpec[] =>
   Array.isArray(value) && value.every((entry) => isOperationSpecValue(entry))
 
@@ -206,8 +213,27 @@ const normalizeOpsGroupsForWorkbench = (opsSpec: unknown): Array<{ name: string;
 
   return orderedGroupNames(Object.keys(groups)).map((name) => ({
     name,
-    ops: groups[name] ?? [],
+    ops: (groups[name] ?? []).filter((operation) => !isTextOp(operation)),
   }))
+}
+
+const extractGroupTextOverrides = (opsSpec: unknown): Record<string, string> => {
+  if (!opsSpec) return {}
+  if (isOperationSpecArray(opsSpec)) {
+    const first = opsSpec.find((operation) => isTextOp(operation) && typeof operation.text === 'string' && operation.text.trim())
+    return first && typeof first.text === 'string' ? { ops: first.text.trim() } : {}
+  }
+  if (!isPlainObject(opsSpec)) return {}
+
+  const overrides: Record<string, string> = {}
+  const groups = Object.entries(opsSpec).filter((entry): entry is [string, OperationSpec[]] => isOperationSpecArray(entry[1]))
+  groups.forEach(([name, value]) => {
+    const first = value.find((operation) => isTextOp(operation) && typeof operation.text === 'string' && operation.text.trim())
+    if (first && typeof first.text === 'string') {
+      overrides[name] = first.text.trim()
+    }
+  })
+  return overrides
 }
 
 type OpsJsonExecutionSource = 'visual_plan' | 'draw_plan' | 'ops'
@@ -215,6 +241,8 @@ type OpsJsonExecutionSource = 'visual_plan' | 'draw_plan' | 'ops'
 type ParsedOpsJsonInput = {
   groups: OperationSpec[][]
   groupNames: string[]
+  groupTextOverrides: string[]
+  groupTextOverrideByName: Record<string, string>
   executionSource: OpsJsonExecutionSource
   executionMode: 'group' | 'sentence-step'
   opsSpecGroupMap: Record<string, OperationSpec[]>
@@ -222,6 +250,27 @@ type ParsedOpsJsonInput = {
   executionPlan?: ExecutionPlan
   visualExecutionPlan?: VisualExecutionPlan
   warnings: string[]
+}
+
+const resolveAlignedGroupTextOverrides = (args: {
+  executionMode: 'group' | 'sentence-step'
+  groupNames: string[]
+  overrideByGroupName: Record<string, string>
+  executionPlan?: ExecutionPlan
+  visualExecutionPlan?: VisualExecutionPlan
+}): string[] => {
+  if (args.executionMode === 'group') {
+    return args.groupNames.map((name) => args.overrideByGroupName[name] ?? '')
+  }
+
+  const steps = args.visualExecutionPlan?.steps ?? args.executionPlan?.steps ?? []
+  return args.groupNames.map((_, index) => {
+    const stepGroupNames = steps[index]?.groupNames ?? []
+    const matched = stepGroupNames
+      .map((name) => args.overrideByGroupName[name]?.trim() ?? '')
+      .find((value) => value.length > 0)
+    return matched ?? ''
+  })
 }
 
 type ResolvedExecutionStrategy = {
@@ -235,6 +284,8 @@ type ResolvedExecutionStrategy = {
   visualExecutionPlan?: VisualExecutionPlan
   warnings: string[]
 }
+
+type OpsUiPhase = 'pre-run' | 'post-run'
 
 const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
   const out: Record<string, OperationSpec[]> = {}
@@ -612,7 +663,12 @@ function ChartWorkbenchPage() {
   const [vlSpec, setVlSpec] = useState(vlSpecPlaceholder)
   const [builderGroups, setBuilderGroups] = useState<OperationSpec[][]>([])
   const [opsGroups, setOpsGroups] = useState<OperationSpec[][]>([])
-  const [currentOpsIndex, setCurrentOpsIndex] = useState(-1)
+  const [opsUiSessionActive, setOpsUiSessionActive] = useState(false)
+  const [opsUiStartPending, setOpsUiStartPending] = useState(false)
+  const [opsUiGroupIndex, setOpsUiGroupIndex] = useState(-1)
+  const [opsUiGroupPhase, setOpsUiGroupPhase] = useState<OpsUiPhase>('pre-run')
+  const [opsUiResolvedText, setOpsUiResolvedText] = useState('')
+  const [opsGroupTextOverrides, setOpsGroupTextOverrides] = useState<string[]>([])
   const [opsRunning, setOpsRunning] = useState(false)
   const [nlQuestion, setNlQuestion] = useState('')
   const [nlInput, setNlInput] = useState('')
@@ -1356,6 +1412,7 @@ function ChartWorkbenchPage() {
 
     const topLevelGroups = normalizeOpsGroupsForWorkbench(parsed)
     const topLevelGroupMap = toGroupMap(topLevelGroups)
+    const topLevelTextOverrides = extractGroupTextOverrides(parsed)
     const parsedRecord = isPlainObject(parsed) ? parsed : null
     const warnings: string[] = []
     let executionPlan = normalizeExecutionPlan(parsedRecord?.execution_plan)
@@ -1390,6 +1447,14 @@ function ChartWorkbenchPage() {
     return {
       groups: resolved.groups,
       groupNames: resolved.groupNames,
+      groupTextOverrides: resolveAlignedGroupTextOverrides({
+        executionMode: resolved.executionMode,
+        groupNames: resolved.groupNames,
+        overrideByGroupName: topLevelTextOverrides,
+        executionPlan: resolved.executionPlan,
+        visualExecutionPlan: resolved.visualExecutionPlan,
+      }),
+      groupTextOverrideByName: topLevelTextOverrides,
       executionSource: resolved.executionSource,
       executionMode: resolved.executionMode,
       opsSpecGroupMap: resolved.logicalOpsSpec,
@@ -1419,7 +1484,9 @@ function ChartWorkbenchPage() {
 
       try {
         await renderChartDispatch(chartRef.current, parsed)
-        clearSentenceSummaryOverlay(chartRef.current)
+        if (!opsUiSessionActive && !opsUiStartPending) {
+          clearSentenceSummaryOverlay(chartRef.current)
+        }
         currentSpecRef.current = parsed
         setPendingTextPlacement(null)
         const inferred = getChartType(parsed as VegaLiteSpec)
@@ -1434,7 +1501,7 @@ function ChartWorkbenchPage() {
         return null
       }
     },
-    []
+    [opsUiSessionActive, opsUiStartPending]
   )
 
   const handleRenderChart = () => {
@@ -1447,6 +1514,54 @@ function ChartWorkbenchPage() {
     setOpsErrors(errors)
     setLastValidatedTick(opsValidationTick)
   }
+
+  const currentParsedVlSpec = useMemo(() => {
+    const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
+    try {
+      return JSON.parse(sanitizeJsonInput(specString)) as VegaLiteSpec
+    } catch {
+      return null
+    }
+  }, [vlSpec])
+
+  const logicalArtifacts = useMemo<LogicalExecutionArtifacts | null>(() => {
+    if (!currentParsedVlSpec || !opsJsonLogicalOpsSpec || !opsJsonDataRows) return null
+    return buildLogicalExecutionArtifacts({
+      spec: currentParsedVlSpec,
+      dataRows: opsJsonDataRows,
+      logicalOpsSpec: opsJsonLogicalOpsSpec,
+    })
+  }, [currentParsedVlSpec, opsJsonLogicalOpsSpec, opsJsonDataRows])
+
+  const resolveRuleBasedGroupText = useCallback(
+    (groupIndex: number) => {
+      if (groupIndex < 0) return ''
+      if (opsJsonVisualExecutionPlanState?.steps[groupIndex] && logicalArtifacts) {
+        const summary = buildSentenceSummaryText({
+          step: opsJsonVisualExecutionPlanState.steps[groupIndex],
+          logicalArtifacts,
+        })
+        return summary?.initialText ?? 'Process the selected values'
+      }
+      const operations = opsGroups[groupIndex] ?? []
+      const summary = buildSummaryTextForOperations({
+        operations,
+        logicalArtifacts,
+      })
+      return summary?.initialText ?? 'Process the selected values'
+    },
+    [logicalArtifacts, opsGroups, opsJsonVisualExecutionPlanState],
+  )
+
+  const resolveDisplayTextForGroup = useCallback(
+    (groupIndex: number) => {
+      if (groupIndex < 0 || groupIndex >= opsGroups.length) return ''
+      const override = opsGroupTextOverrides[groupIndex]?.trim()
+      if (override) return override
+      return resolveRuleBasedGroupText(groupIndex)
+    },
+    [opsGroupTextOverrides, opsGroups.length, resolveRuleBasedGroupText],
+  )
 
   const resolvePlanModuleKey = (input: string) => {
     const raw = input.trim()
@@ -1497,7 +1612,12 @@ function ChartWorkbenchPage() {
         setPlanGroups(normalized.map((group) => group.ops))
         setLoadedPlanResolvedKey(loaded.scenarioPath)
         setLoadedPlanStem(toPlanStem(loaded.scenarioPath))
-        setCurrentOpsIndex(-1)
+        setOpsGroupTextOverrides(normalized.map(() => ''))
+        setOpsUiSessionActive(false)
+        setOpsUiStartPending(false)
+        setOpsUiGroupIndex(-1)
+        setOpsUiGroupPhase('pre-run')
+        setOpsUiResolvedText('')
         return
       }
 
@@ -1533,7 +1653,12 @@ function ChartWorkbenchPage() {
       setPlanGroups(groups)
       setLoadedPlanResolvedKey(resolvedKey)
       setLoadedPlanStem(toPlanStem(resolvedKey))
-      setCurrentOpsIndex(-1)
+      setOpsGroupTextOverrides(groups.map(() => ''))
+      setOpsUiSessionActive(false)
+      setOpsUiStartPending(false)
+      setOpsUiGroupIndex(-1)
+      setOpsUiGroupPhase('pre-run')
+      setOpsUiResolvedText('')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load plan.'
       setPlanError(message)
@@ -1555,6 +1680,12 @@ function ChartWorkbenchPage() {
     setOpsJsonExecutionPlanState(undefined)
     setOpsJsonVisualExecutionPlanState(undefined)
     visualPlaybackSurfaceRef.current = 'unknown'
+    setOpsGroupTextOverrides([])
+    setOpsUiSessionActive(false)
+    setOpsUiStartPending(false)
+    setOpsUiGroupIndex(-1)
+    setOpsUiGroupPhase('pre-run')
+    setOpsUiResolvedText('')
   }
 
   const handleConvertToOpsSpec = async () => {
@@ -1614,6 +1745,12 @@ function ChartWorkbenchPage() {
       setOpsJsonExecutionPlanState(normalizedExecutionPlan)
       setOpsJsonVisualExecutionPlanState(normalizedVisualExecutionPlan)
       visualPlaybackSurfaceRef.current = 'unknown'
+      setOpsGroupTextOverrides(groupNames.map(() => ''))
+      setOpsUiSessionActive(false)
+      setOpsUiStartPending(false)
+      setOpsUiGroupIndex(-1)
+      setOpsUiGroupPhase('pre-run')
+      setOpsUiResolvedText('')
       setOpsInputMode('builder')
       setOpsJsonText(jsonText)
       setOpsJsonError(null)
@@ -1646,6 +1783,12 @@ function ChartWorkbenchPage() {
       setOpsJsonExecutionPlanState(undefined)
       setOpsJsonVisualExecutionPlanState(undefined)
       visualPlaybackSurfaceRef.current = 'unknown'
+      setOpsGroupTextOverrides([])
+      setOpsUiSessionActive(false)
+      setOpsUiStartPending(false)
+      setOpsUiGroupIndex(-1)
+      setOpsUiGroupPhase('pre-run')
+      setOpsUiResolvedText('')
     } finally {
       setNlLoading(false)
     }
@@ -1690,6 +1833,7 @@ function ChartWorkbenchPage() {
 
   const handleRunOperations = async () => {
     opsSessionActiveRef.current = false
+    setOpsUiStartPending(true)
     setPendingTextPlacement(null)
     if (chartRef.current) {
       const svg = d3.select(chartRef.current).select('svg')
@@ -1706,6 +1850,7 @@ function ChartWorkbenchPage() {
         let nextVisualExecutionPlan = parsed.visualExecutionPlan
         let nextDrawPlan: Record<string, OperationSpec[]> | null = parsed.drawPlanGroupMap ?? null
         let nextLogicalOpsSpec: Record<string, OperationSpec[]> | null = parsed.opsSpecGroupMap
+        let nextGroupTextOverrides = parsed.groupTextOverrides
         let nextDataRows: Record<string, unknown>[] | null = null
         const nextWarnings = [...parsed.warnings]
 
@@ -1738,6 +1883,13 @@ function ChartWorkbenchPage() {
             nextVisualExecutionPlan = strategy.visualExecutionPlan
             nextDrawPlan = strategy.drawPlanGroupMap ?? null
             nextLogicalOpsSpec = strategy.logicalOpsSpec
+            nextGroupTextOverrides = resolveAlignedGroupTextOverrides({
+              executionMode: strategy.executionMode,
+              groupNames: strategy.groupNames,
+              overrideByGroupName: parsed.groupTextOverrideByName,
+              executionPlan: strategy.executionPlan,
+              visualExecutionPlan: strategy.visualExecutionPlan,
+            })
           } catch (compileError) {
             const detail = compileError instanceof Error ? compileError.message : 'compile_ops_plan failed'
             nextWarnings.push(`compile_ops_plan failed; falling back to top-level ops groups. (${detail})`)
@@ -1761,7 +1913,13 @@ function ChartWorkbenchPage() {
         setOpsJsonVisualExecutionPlanState(nextVisualExecutionPlan)
         visualPlaybackSurfaceRef.current = 'unknown'
         setOpsGroups(nextGroups)
-        setCurrentOpsIndex(-1)
+        setOpsGroupTextOverrides(nextGroupTextOverrides)
+        await renderSourceChartForVisualPlayback()
+        setOpsUiSessionActive(true)
+        setOpsUiGroupIndex(nextGroups.length > 0 ? 0 : -1)
+        setOpsUiGroupPhase('pre-run')
+        setOpsUiResolvedText('')
+        setOpsUiStartPending(false)
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to parse Ops JSON.'
         setOpsJsonError(message)
@@ -1776,7 +1934,12 @@ function ChartWorkbenchPage() {
         setOpsJsonVisualExecutionPlanState(undefined)
         visualPlaybackSurfaceRef.current = 'unknown'
         setOpsGroups([])
-        setCurrentOpsIndex(-1)
+        setOpsGroupTextOverrides([])
+        setOpsUiSessionActive(false)
+        setOpsUiStartPending(false)
+        setOpsUiGroupIndex(-1)
+        setOpsUiGroupPhase('pre-run')
+        setOpsUiResolvedText('')
         alert(message)
       }
       return
@@ -1896,13 +2059,17 @@ function ChartWorkbenchPage() {
   )
 
   const renderSentenceSummaryForVisualPlayback = useCallback((text: string) => {
-    if (!chartRef.current) return
-    renderSentenceSummaryOverlay(chartRef.current, text)
-  }, [])
+    if (!opsUiSessionActive) return
+    const override = opsGroupTextOverrides[opsUiGroupIndex]?.trim()
+    if (override) {
+      setOpsUiResolvedText(override)
+      return
+    }
+    setOpsUiResolvedText(text)
+  }, [opsGroupTextOverrides, opsUiGroupIndex, opsUiSessionActive])
 
   const clearSentenceSummaryForVisualPlayback = useCallback(() => {
-    if (!chartRef.current) return
-    clearSentenceSummaryOverlay(chartRef.current)
+    if (!opsUiSessionActive) return
   }, [])
 
   const runVisualSentenceGroup = async (
@@ -1973,91 +2140,136 @@ function ChartWorkbenchPage() {
     !!opsJsonLogicalOpsSpec &&
     !!opsJsonVisualExecutionPlanState
 
-  const handleStartOps = async () => {
-    if (captureScenesEnabled && planGroups && !canUseVisualExecutionPlayer) {
-      if (!chartRef.current) {
-        alert('Chart container is not ready.')
-        return
-      }
-      const stem = loadedPlanStem ?? toPlanStem(loadedPlanResolvedKey ?? planPath)
-      let sceneIndex = 0
-      const writer = createSceneCaptureWriter(triggerDownload)
-      setCaptureScenesRunning(true)
-      setCaptureScenesStatus('Preparing scene capture...')
+  const resetChartToOpsPreRunState = useCallback(async () => {
+    opsSessionActiveRef.current = false
+    visualPlaybackSurfaceRef.current = 'unknown'
+    await renderSourceChartForVisualPlayback()
+  }, [renderSourceChartForVisualPlayback])
 
-      try {
-        opsSessionActiveRef.current = false
-        await writer.start(stem)
-        for (let groupIndex = 0; groupIndex < opsGroups.length; groupIndex += 1) {
-          await runOpsGroup(groupIndex, {
-            resetRuntime: groupIndex === 0,
-            runtimeScope: opsJsonGroupNames[groupIndex] || (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`),
-            onOperationCompleted: async ({ operation }) => {
-              if (!chartRef.current) return
-              sceneIndex += 1
-              const blob = await captureChartAsBlob(chartRef.current, EXPORT_SCALE)
-              await writer.write(sceneIndex, operation, blob)
-              setCaptureScenesStatus(`Captured ${sceneIndex} scene(s)...`)
-            },
-          })
-          setCurrentOpsIndex(groupIndex)
-        }
-        const finished = await writer.finish()
-        setCaptureScenesStatus(`Saved ${sceneIndex} scene(s) to ${finished.label}`)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to capture scenes.'
-        setCaptureScenesStatus(`Scene capture failed: ${message}`)
-        alert(`Scene capture failed: ${message}`)
-      } finally {
-        setCaptureScenesRunning(false)
-      }
+  const enterOpsGroupPreRun = useCallback(
+    async (groupIndex: number) => {
+      if (groupIndex < 0 || groupIndex >= opsGroups.length) return
+      await resetChartToOpsPreRunState()
+      setOpsUiGroupIndex(groupIndex)
+      setOpsUiGroupPhase('pre-run')
+      setOpsUiResolvedText(resolveDisplayTextForGroup(groupIndex))
+    },
+    [opsGroups.length, resetChartToOpsPreRunState, resolveDisplayTextForGroup],
+  )
+
+  const runCurrentOpsGroup = useCallback(async () => {
+    if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
+    if (canUseVisualExecutionPlayer) {
+      await runVisualSentenceGroup(opsUiGroupIndex, { resetRuntime: true })
+    } else {
+      await runOpsGroup(opsUiGroupIndex, {
+        resetRuntime: true,
+        runtimeScope: opsJsonGroupNames[opsUiGroupIndex] || (opsUiGroupIndex === 0 ? 'ops' : `ops${opsUiGroupIndex + 1}`),
+      })
+    }
+    setOpsUiGroupPhase('post-run')
+  }, [
+    canUseVisualExecutionPlayer,
+    opsGroups.length,
+    opsJsonGroupNames,
+    opsUiGroupIndex,
+    runOpsGroup,
+    runVisualSentenceGroup,
+  ])
+
+  const reloadCurrentOpsGroup = useCallback(async () => {
+    if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
+    await resetChartToOpsPreRunState()
+    setOpsUiResolvedText(resolveDisplayTextForGroup(opsUiGroupIndex))
+    await runCurrentOpsGroup()
+  }, [opsGroups.length, opsUiGroupIndex, resetChartToOpsPreRunState, resolveDisplayTextForGroup, runCurrentOpsGroup])
+
+  const goToPrevOpsGroup = useCallback(async () => {
+    const prevIndex = opsUiGroupIndex - 1
+    if (prevIndex < 0) return
+    await enterOpsGroupPreRun(prevIndex)
+  }, [enterOpsGroupPreRun, opsUiGroupIndex])
+
+  const goToNextOpsGroup = useCallback(async () => {
+    const nextIndex = opsUiGroupIndex + 1
+    if (nextIndex >= opsGroups.length) return
+    await enterOpsGroupPreRun(nextIndex)
+  }, [enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
+
+  const overlayRenderInput = useMemo<SentenceSummaryOverlayRenderInput | null>(() => {
+    if (!opsUiSessionActive || opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return null
+
+    const leftControl =
+      opsUiGroupPhase === 'post-run'
+        ? { label: '↻ Reload', disabled: opsRunning, onClick: () => reloadCurrentOpsGroup() }
+        : { label: 'Prev', disabled: opsRunning || opsUiGroupIndex === 0, onClick: () => goToPrevOpsGroup() }
+
+    let rightControl: SentenceSummaryOverlayControl
+    if (opsUiGroupPhase === 'post-run') {
+      rightControl =
+        opsUiGroupIndex >= opsGroups.length - 1
+          ? { label: 'End', disabled: true }
+          : { label: 'Next', disabled: opsRunning, onClick: () => goToNextOpsGroup() }
+    } else {
+      rightControl = { label: 'Run', disabled: opsRunning, onClick: () => runCurrentOpsGroup() }
+    }
+
+    return {
+      text: opsUiResolvedText,
+      leftControl,
+      rightControl,
+    }
+  }, [
+    goToNextOpsGroup,
+    goToPrevOpsGroup,
+    opsGroups.length,
+    opsRunning,
+    opsUiGroupIndex,
+    opsUiGroupPhase,
+    opsUiResolvedText,
+    opsUiSessionActive,
+    reloadCurrentOpsGroup,
+    runCurrentOpsGroup,
+  ])
+
+  useEffect(() => {
+    if (!chartRef.current) return
+    if (!overlayRenderInput) {
+      clearSentenceSummaryOverlay(chartRef.current)
       return
     }
+    renderSentenceSummaryOverlay(chartRef.current, overlayRenderInput)
+  }, [overlayRenderInput])
 
-    opsSessionActiveRef.current = false
-    visualPlaybackSurfaceRef.current = 'unknown'
-    if (canUseVisualExecutionPlayer) {
-      await runVisualSentenceGroup(0, { resetRuntime: true })
-    } else {
-      await runOpsGroup(0, {
-        resetRuntime: true,
-        runtimeScope: opsJsonGroupNames[0] || 'ops',
-      })
+  useEffect(() => {
+    if (!opsUiStartPending || opsGroups.length === 0) return
+    let cancelled = false
+    void (async () => {
+      await resetChartToOpsPreRunState()
+      if (cancelled) return
+      setOpsUiSessionActive(true)
+      setOpsUiGroupIndex(0)
+      setOpsUiGroupPhase('pre-run')
+      setOpsUiResolvedText(resolveDisplayTextForGroup(0))
+      setOpsUiStartPending(false)
+    })()
+    return () => {
+      cancelled = true
     }
-    setCurrentOpsIndex(0)
-  }
+  }, [opsGroups.length, opsUiStartPending, resetChartToOpsPreRunState, resolveDisplayTextForGroup])
 
-  const handleNextOps = async () => {
-    const nextIndex = currentOpsIndex + 1
-    if (nextIndex >= opsGroups.length) return
-    if (canUseVisualExecutionPlayer) {
-      await runVisualSentenceGroup(nextIndex, { resetRuntime: false })
-    } else {
-      await runOpsGroup(nextIndex, {
-        resetRuntime: false,
-        runtimeScope: opsJsonGroupNames[nextIndex] || (nextIndex === 0 ? 'ops' : `ops${nextIndex + 1}`),
-      })
-    }
-    setCurrentOpsIndex(nextIndex)
-  }
-
-  const handlePrevOps = async () => {
-    const prevIndex = currentOpsIndex - 1
-    if (prevIndex < 0) return
-    opsSessionActiveRef.current = false
-    visualPlaybackSurfaceRef.current = 'unknown'
-    for (let index = 0; index <= prevIndex; index += 1) {
-      if (canUseVisualExecutionPlayer) {
-        await runVisualSentenceGroup(index, { resetRuntime: index === 0 })
-      } else {
-        await runOpsGroup(index, {
-          resetRuntime: index === 0,
-          runtimeScope: opsJsonGroupNames[index] || (index === 0 ? 'ops' : `ops${index + 1}`),
-        })
-      }
-    }
-    setCurrentOpsIndex(prevIndex)
-  }
+  useEffect(() => {
+    if (!opsUiSessionActive || opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
+    if (opsUiGroupPhase !== 'pre-run' && opsUiResolvedText.trim().length > 0) return
+    setOpsUiResolvedText(resolveDisplayTextForGroup(opsUiGroupIndex))
+  }, [
+    opsGroups.length,
+    opsUiGroupIndex,
+    opsUiGroupPhase,
+    opsUiResolvedText,
+    opsUiSessionActive,
+    resolveDisplayTextForGroup,
+  ])
 
   const handleDownloadChart = useCallback(async () => {
     if (!chartRef.current) {
@@ -2199,13 +2411,19 @@ function ChartWorkbenchPage() {
     if (!planGroups && opsInputMode === 'builder' && Object.keys(opsErrors).length > 0) {
       alert('Fix operation errors before running.')
       setPendingRunOps(false)
+      setOpsUiStartPending(false)
       return
     }
     const nextGroups = planGroups ?? builderGroups
     if (!nextGroups.length) {
       alert('No operations found.')
       setOpsGroups([])
-      setCurrentOpsIndex(-1)
+      setOpsGroupTextOverrides([])
+      setOpsUiSessionActive(false)
+      setOpsUiGroupIndex(-1)
+      setOpsUiGroupPhase('pre-run')
+      setOpsUiResolvedText('')
+      setOpsUiStartPending(false)
       setPendingRunOps(false)
       return
     }
@@ -2218,8 +2436,12 @@ function ChartWorkbenchPage() {
       visualPlaybackSurfaceRef.current = 'unknown'
     }
     setOpsGroups(nextGroups)
-    setCurrentOpsIndex(-1)
+    setOpsGroupTextOverrides(nextGroups.map(() => ''))
     opsSessionActiveRef.current = false
+    setOpsUiSessionActive(false)
+    setOpsUiGroupIndex(-1)
+    setOpsUiGroupPhase('pre-run')
+    setOpsUiResolvedText('')
     setPendingRunOps(false)
   }, [pendingRunOps, opsErrors, builderGroups, planGroups, lastValidatedTick, opsValidationTick, opsInputMode])
 
@@ -2515,18 +2737,7 @@ function ChartWorkbenchPage() {
         <section className="card">
           <div className="card-header chart-header">
             <div className="card-title">Chart Preview</div>
-            <div className="chart-header-center">
-              {opsGroups.length > 0 && currentOpsIndex === -1 ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={handleStartOps}
-                  disabled={captureScenesRunning || opsRunning || hasBuilderValidationErrors}
-                >
-                  Start
-                </button>
-              ) : null}
-            </div>
+            <div className="chart-header-center" />
             <div className="chart-header-right">
               <button type="button" className="pill-btn" onClick={handleDownloadChart}>
                 Save as PNG
@@ -3023,32 +3234,6 @@ function ChartWorkbenchPage() {
               />
             ) : null}
           </div>
-          {opsGroups.length > 0 && (
-            <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-start' }}>
-              {currentOpsIndex > 0 ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={handlePrevOps}
-                  disabled={opsRunning || hasBuilderValidationErrors}
-                  style={{ marginLeft: 8 }}
-                >
-                  Prev
-                </button>
-              ) : null}
-              {currentOpsIndex >= 0 && currentOpsIndex < opsGroups.length - 1 ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={handleNextOps}
-                  disabled={opsRunning || hasBuilderValidationErrors}
-                  style={{ marginLeft: 8 }}
-                >
-                  Next
-                </button>
-              ) : null}
-            </div>
-          )}
         </section>
       </div>
     </div>
