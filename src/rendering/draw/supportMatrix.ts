@@ -83,17 +83,20 @@ export const RUNTIME_DRAW_SUPPORT_MATRIX: DrawSupportMatrix = {
   }),
   [DrawAction.LineTrace]: withSupported({
     [ChartType.SIMPLE_LINE]: 'supported',
+    [ChartType.MULTI_LINE]: 'supported',
   }),
   [DrawAction.Filter]: withSupported({
     [ChartType.SIMPLE_BAR]: 'supported',
     [ChartType.STACKED_BAR]: 'supported',
     [ChartType.GROUPED_BAR]: 'supported',
     [ChartType.SIMPLE_LINE]: 'supported',
+    [ChartType.MULTI_LINE]: 'partial',
   }),
   [DrawAction.Sort]: withSupported({
     [ChartType.SIMPLE_BAR]: 'supported',
     [ChartType.STACKED_BAR]: 'supported',
     [ChartType.GROUPED_BAR]: 'supported',
+    [ChartType.SIMPLE_LINE]: 'supported',
   }),
   [DrawAction.Split]: withSupported({
     [ChartType.SIMPLE_BAR]: 'supported',
@@ -113,6 +116,7 @@ export const RUNTIME_DRAW_SUPPORT_MATRIX: DrawSupportMatrix = {
     [ChartType.SIMPLE_BAR]: 'supported',
     [ChartType.STACKED_BAR]: 'supported',
     [ChartType.GROUPED_BAR]: 'supported',
+    [ChartType.SIMPLE_LINE]: 'supported',
   }),
   [DrawAction.BarSegment]: withSupported({
     [ChartType.SIMPLE_BAR]: 'supported',
@@ -121,6 +125,7 @@ export const RUNTIME_DRAW_SUPPORT_MATRIX: DrawSupportMatrix = {
   }),
   [DrawAction.LineToBar]: withSupported({
     [ChartType.SIMPLE_LINE]: 'supported',
+    [ChartType.MULTI_LINE]: 'partial',
   }),
   [DrawAction.MultiLineToStacked]: withSupported({
     [ChartType.MULTI_LINE]: 'supported',

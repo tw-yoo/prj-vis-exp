@@ -1,4 +1,4 @@
-import type { DatumValue, OperationSpec } from '../../types'
+import type { DatumValue, OperationSpec, JsonValue } from '../../types'
 import * as d3 from 'd3'
 import {
   renderSimpleLineChart,
@@ -20,6 +20,10 @@ import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/sim
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
 import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
+import { renderSimpleBarChart, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer.ts'
+import { SimpleBarDrawHandler } from '../../rendering/draw/bar/SimpleBarDrawHandler.ts'
+import { storeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
+import { ChartType } from '../../domain/chart'
 
 function toDatumValues(rawData: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(rawData, { xField, yField })
@@ -114,7 +118,41 @@ async function convertLineChartToBars(container: HTMLElement, spec: LineSpec) {
   await renderSimpleLineChart(container, barSpec)
 }
 
-async function handleSimpleLineDraw(
+async function convertLineToProperSimpleBar(
+  container: HTMLElement,
+  spec: LineSpec,
+): Promise<SimpleBarSpec> {
+  const stored = (getSimpleLineStoredData(container) || []) as RawRow[]
+  const resolved = resolveSimpleLineEncoding(spec as any)
+  if (!resolved || !stored.length) {
+    throw new Error('convertLineToProperSimpleBar: missing data or encoding')
+  }
+  const { xField, yField } = resolved
+  const xEncoding = spec.encoding?.x as Record<string, JsonValue> | undefined
+  const yEncoding = spec.encoding?.y as Record<string, JsonValue> | undefined
+  const simpleBarSpec: SimpleBarSpec = {
+    ...spec,
+    mark: 'bar',
+    data: { values: stored.map((row) => ({ ...row })) },
+    encoding: {
+      x: {
+        field: xField,
+        type: (xEncoding?.type as string) ?? 'nominal',
+        ...(xEncoding?.axis !== undefined ? { axis: xEncoding.axis } : {}),
+        ...(xEncoding?.sort !== undefined ? { sort: xEncoding.sort } : {}),
+      },
+      y: { field: yField, type: (yEncoding?.type as string) ?? 'quantitative' },
+    },
+  } as unknown as SimpleBarSpec
+  // Remove line-specific encoding hints
+  const encAny = simpleBarSpec.encoding as unknown as Record<string, unknown>
+  delete encAny.color
+  await renderSimpleBarChart(container, simpleBarSpec)
+  storeDerivedChartState(container, ChartType.SIMPLE_BAR, simpleBarSpec)
+  return simpleBarSpec
+}
+
+export async function handleSimpleLineDraw(
   container: HTMLElement,
   handler: SimpleLineDrawHandler,
   drawOp: DrawOp,
@@ -142,6 +180,19 @@ async function handleSimpleLineDraw(
   }
   if (drawOp.action === DrawAction.LineToBar) {
     await convertLineChartToBars(container, spec)
+    return
+  }
+
+  if (drawOp.action === DrawAction.Sort) {
+    await convertLineToProperSimpleBar(container, spec)
+    const barHandler = new SimpleBarDrawHandler(container)
+    await barHandler.run({ ...drawOp })
+    return
+  }
+  if (drawOp.action === DrawAction.Sum) {
+    await convertLineToProperSimpleBar(container, spec)
+    const barHandler = new SimpleBarDrawHandler(container)
+    await barHandler.run({ ...drawOp })
     return
   }
 

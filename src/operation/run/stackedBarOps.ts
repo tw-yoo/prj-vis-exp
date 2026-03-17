@@ -28,6 +28,8 @@ import {
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
 import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
+import { storeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
+import { ChartType } from '../../domain/chart'
 
 function toStackedDatumValues(raw: JsonValue[], spec: StackedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
@@ -88,6 +90,25 @@ async function handleStackedBarDraw(
       return
     }
     await convertStackedToSimple(container, spec, drawOp.toSimple)
+    return
+  }
+  if (drawOp.action === DrawAction.StackedFilterGroups) {
+    await handler.run(drawOp)
+    // Auto-convert to simple if group=1
+    const gf = (drawOp as any).groupFilter
+    const candidates = gf?.groups ?? gf?.include ?? gf?.keep
+    const selectedSeries: string | number | null =
+      candidates?.length === 1
+        ? candidates[0]
+        : drawOp.select?.keys?.length === 1
+          ? drawOp.select.keys[0]
+          : null
+    if (selectedSeries != null) {
+      const simpleSpec = await convertStackedToSimple(container, spec, { series: selectedSeries })
+      if (simpleSpec) {
+        storeDerivedChartState(container, ChartType.SIMPLE_BAR, simpleSpec)
+      }
+    }
     return
   }
   await handler.run(drawOp)

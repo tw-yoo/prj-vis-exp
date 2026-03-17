@@ -16,6 +16,7 @@ import type { MultiLineSpec } from '../../rendering/line/multipleLineRenderer.ts
 import type { OperationCompletedEvent } from '../../application/usecases/runChartOperationsUseCase'
 import { captureSvgSnapshot } from '../../rendering/utils/svgSnapshot.ts'
 import { SnapshotStrip } from '../../rendering/snapshotStrip.ts'
+import { consumeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
 
 export type GroupCompletedEvent = {
   groupName: string
@@ -64,8 +65,8 @@ export async function runChartOps(
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
-  const chartType = getChartType(spec)
-  const normalized = normalizeSpec(spec)
+  let chartType = getChartType(spec)
+  let normalized = normalizeSpec(spec)
   assertDrawCapabilities(chartType, opsSpec)
   const groups = normalizeOpsGroups(opsSpec)
 
@@ -115,6 +116,12 @@ export async function runChartOps(
           : undefined,
       },
     )
+    // After each group, consume any derived chart state (e.g. from stacked/grouped/multi-line → simple conversions)
+    const derived = consumeDerivedChartState(container)
+    if (derived) {
+      chartType = derived.chartType
+      normalized = derived.spec
+    }
     // 마지막 그룹 이후에는 스냅샷 불필요 (다음 그룹이 없으므로)
     if (index < groups.length - 1) {
       await captureAndNotify(groupName, index)

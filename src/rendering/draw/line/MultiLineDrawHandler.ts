@@ -1,9 +1,10 @@
 import * as d3 from 'd3'
 import type { JsonValue } from '../../../types'
-import { DataAttributes, SvgAttributes, SvgElements, SvgSelectors } from '../../interfaces'
+import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../../interfaces'
 import { LineDrawHandler } from '../LineDrawHandler'
 import { DrawAction, DrawComparisonOperators, type DrawOp, type DrawSelect } from '../types'
 import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from '../animationPolicy'
+import { ensureAnnotationLayer } from '../utils/annotationLayer'
 
 type LinePointEntry = {
   el: SVGElement
@@ -143,9 +144,111 @@ export class MultiLineDrawHandler extends LineDrawHandler {
     }
   }
 
+  private async lineTrace(op: DrawOp) {
+    const svg = d3.select(this.container).select<SVGSVGElement>(SvgElements.Svg)
+    if (svg.empty()) return
+    const svgNode = svg.node()
+    if (!svgNode) return
+
+    // Collect all point marks (circles) grouped by series
+    const allCircles = svg.selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Target}][${DataAttributes.Series}]`)
+
+    // Get all unique series
+    const seriesSet = new Set<string>()
+    allCircles.each(function () {
+      const s = this.getAttribute(DataAttributes.Series)
+      if (s) seriesSet.add(s)
+    })
+
+    const pair = op.select?.keys
+    const startLabel = pair?.[0] != null ? String(pair[0]) : null
+    const endLabel = pair?.[pair.length - 1] != null ? String(pair[pair.length - 1]) : null
+
+    const layer = d3.select(ensureAnnotationLayer(svgNode, op.chartId ?? null))
+    const svgBbox = svgNode.getBoundingClientRect()
+
+    for (const series of seriesSet) {
+      // Collect points for this series
+      const seriesCircles: Array<{ el: SVGCircleElement; target: string; cx: number; cy: number }> = []
+      allCircles.each(function () {
+        if (this.getAttribute(DataAttributes.Series) !== series) return
+        const target = this.getAttribute(DataAttributes.Target) || ''
+        const bbox = this.getBoundingClientRect()
+        const cx = bbox.left + bbox.width / 2 - svgBbox.left
+        const cy = bbox.top + bbox.height / 2 - svgBbox.top
+        seriesCircles.push({ el: this, target, cx, cy })
+      })
+
+      if (!seriesCircles.length) continue
+
+      // Sort by cx (left to right)
+      seriesCircles.sort((a, b) => a.cx - b.cx)
+
+      // Filter to range if pair specified
+      let inRange = seriesCircles
+      if (startLabel && endLabel) {
+        const startIdx = seriesCircles.findIndex((p) => p.target === startLabel)
+        const endIdx = seriesCircles.findIndex((p) => p.target === endLabel)
+        if (startIdx >= 0 && endIdx >= 0) {
+          const lo = Math.min(startIdx, endIdx)
+          const hi = Math.max(startIdx, endIdx)
+          inRange = seriesCircles.slice(lo, hi + 1)
+        }
+      }
+
+      if (inRange.length < 2) continue
+
+      const lineGen = d3
+        .line<{ cx: number; cy: number }>()
+        .x((d) => d.cx)
+        .y((d) => d.cy)
+        .curve(d3.curveMonotoneX)
+
+      const seriesColor = this.resolveMarkColor(series) ?? '#333'
+
+      const tracePath = layer
+        .append(SvgElements.Path)
+        .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
+        .attr(DataAttributes.ChartId, op.chartId ?? null)
+        .attr(SvgAttributes.D, lineGen(inRange) ?? null)
+        .attr(SvgAttributes.Fill, 'none')
+        .attr(SvgAttributes.Stroke, seriesColor)
+        .attr(SvgAttributes.StrokeWidth, 3)
+        .attr(SvgAttributes.Opacity, 0)
+
+      try {
+        await tracePath.transition().duration(NON_SPLIT_ENTER_MS).attr(SvgAttributes.Opacity, 1).end()
+      } catch {
+        // interrupted transitions are ok
+      }
+
+      // Add endpoint circles
+      for (const pt of [inRange[0], inRange[inRange.length - 1]]) {
+        layer
+          .append(SvgElements.Circle)
+          .attr(SvgAttributes.Class, `${SvgClassNames.Annotation}`)
+          .attr(DataAttributes.ChartId, op.chartId ?? null)
+          .attr(SvgAttributes.CX, pt.cx)
+          .attr(SvgAttributes.CY, pt.cy)
+          .attr(SvgAttributes.R, 6)
+          .attr(SvgAttributes.Fill, seriesColor)
+          .attr(SvgAttributes.Opacity, 0.85)
+      }
+    }
+  }
+
+  private resolveMarkColor(series: string): string | null {
+    const el = d3.select(this.container).select(`[${DataAttributes.Series}="${series}"]`)
+    if (el.empty()) return null
+    return (el.attr(SvgAttributes.Stroke) as string | null) || (el.attr(SvgAttributes.Fill) as string | null) || null
+  }
+
   override run(op: DrawOp): void | Promise<void> {
     if (op.action === DrawAction.Filter) {
       return this.filter(op)
+    }
+    if (op.action === DrawAction.LineTrace) {
+      return this.lineTrace(op)
     }
     return super.run(op)
   }

@@ -21,9 +21,20 @@ import { convertMultiLineToGroupedBar, convertMultiLineToStackedBar } from '../.
 import { resolveMultiLineEncoding } from '../../rendering/line/multipleLineRenderer.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
 import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
+import { convertMultiLineToSimpleLine } from '../../rendering/line/multiLineToSimpleLineTransform.ts'
+import { handleSimpleLineDraw } from './simpleLineOps.ts'
+import { SimpleLineDrawHandler } from '../../rendering/draw/line/SimpleLineDrawHandler.ts'
 
 function toDatumValues(raw: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(raw, { xField, yField })
+}
+
+function resolveTargetSeriesFromOp(op: DrawOp): string | null {
+  if (op.select?.keys?.length === 1) return String(op.select.keys[0])
+  if ((op as any).groupFilter?.groups?.length === 1) return String((op as any).groupFilter.groups[0])
+  if ((op as any).groupFilter?.include?.length === 1) return String((op as any).groupFilter.include[0])
+  if ((op as any).groupFilter?.keep?.length === 1) return String((op as any).groupFilter.keep[0])
+  return null
 }
 
 async function handleMultipleLineDraw(
@@ -32,6 +43,33 @@ async function handleMultipleLineDraw(
   drawOp: DrawOp,
   spec: MultiLineSpec,
 ) {
+  // Handle group=1 cases: convert to simple line then dispatch
+  if (
+    drawOp.action === DrawAction.Filter ||
+    drawOp.action === DrawAction.Sort ||
+    drawOp.action === DrawAction.Sum ||
+    drawOp.action === DrawAction.LineToBar ||
+    drawOp.action === DrawAction.LineTrace
+  ) {
+    const seriesKey = resolveTargetSeriesFromOp(drawOp)
+    if (seriesKey) {
+      const simpleLineSpec = await convertMultiLineToSimpleLine(container, spec, seriesKey)
+      const lineHandler = new SimpleLineDrawHandler(container)
+      await handleSimpleLineDraw(container, lineHandler, drawOp, simpleLineSpec)
+      return
+    }
+    // No group=1: for LineTrace fall through to handler.run(); for others → NA
+    if (drawOp.action === DrawAction.LineTrace) {
+      await handler.run(drawOp)
+      return
+    }
+    if (drawOp.action !== DrawAction.Filter) {
+      console.warn(`draw: multi-line ${drawOp.action} requires group=1 (NA otherwise)`, drawOp)
+      return
+    }
+    // Filter with no group=1: fall through to existing multi-line handler
+  }
+
   if (drawOp.action === DrawAction.Split) {
     if (!SPLIT_VIEW_ENABLED) {
       console.warn('draw:split is disabled in the active runtime', drawOp)

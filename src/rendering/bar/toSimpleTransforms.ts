@@ -130,16 +130,16 @@ export async function convertStackedToSimple(
   container: HTMLElement,
   spec: StackedSpec,
   toSimple: { series: string | number },
-) {
+): Promise<SimpleBarSpec | null> {
   const values = resolveDataset(getStackedBarStoredData(container) as RawDatum[], spec.data)
   if (!values.length) {
     console.warn('stacked-to-simple: no dataset available to re-render simple bar chart')
-    return
+    return null
   }
   const seriesField = spec.encoding.color?.field
   if (!seriesField) {
     console.warn('stacked-to-simple: stacked chart is missing a color/group field')
-    return
+    return null
   }
   const xField = spec.encoding.x.field
   const yField = spec.encoding.y.field
@@ -160,17 +160,18 @@ export async function convertStackedToSimple(
     explicitColor,
   })
   await renderSimpleBarChart(container, simple)
+  return simple
 }
 
 export async function convertGroupedToSimple(
   container: HTMLElement,
   spec: GroupedSpec,
   toSimple: { series: string | number },
-) {
+): Promise<SimpleBarSpec | null> {
   const values = resolveDataset(getGroupedBarStoredData(container) as RawDatum[], spec.data)
   if (!values.length) {
     console.warn('grouped-to-simple: no dataset available to re-render simple bar chart')
-    return
+    return null
   }
 
   const encodingAny = spec.encoding as unknown as Record<string, any>
@@ -178,7 +179,7 @@ export async function convertGroupedToSimple(
   const seriesField = xOffsetField ?? spec.encoding.color?.field
   if (!seriesField) {
     console.warn('grouped-to-simple: grouped chart is missing a series field (color or xOffset)')
-    return
+    return null
   }
 
   const xDef = spec.encoding.x
@@ -213,4 +214,5 @@ export async function convertGroupedToSimple(
     explicitColor,
   })
   await renderSimpleBarChart(container, simple)
+  return simple
 }
