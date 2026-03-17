@@ -17,7 +17,7 @@ import {
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS } from './drawActionPolicy.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
 
 function toWorkingDatumValues(container: HTMLElement, vlSpec: SimpleBarSpec) {
   const ctx = getPlotContext(container)
@@ -38,6 +38,10 @@ async function handleSimpleBarDraw(
   drawOp: DrawOp,
 ) {
   if (drawOp.action === DrawAction.Split) {
+    if (!SPLIT_VIEW_ENABLED) {
+      console.warn('draw:split is disabled in the active runtime', drawOp)
+      return
+    }
     if (!drawOp.split) {
       console.warn('draw:split requires split spec', drawOp)
       return
@@ -46,6 +50,10 @@ async function handleSimpleBarDraw(
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
+    if (!SPLIT_VIEW_ENABLED) {
+      console.warn('draw:unsplit is disabled in the active runtime', drawOp)
+      return
+    }
     await renderSimpleBarChart(container, spec)
     return
   }

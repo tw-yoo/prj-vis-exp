@@ -3,6 +3,7 @@ import type { JsonValue } from '../../types'
 import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 
 const localDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
 const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new WeakMap()
@@ -346,9 +347,7 @@ export async function renderSplitSimpleLineChart(
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)
       .call(xAxis)
-      .selectAll(SvgElements.Text)
-      .attr(SvgAttributes.Transform, 'rotate(-45)')
-      .style('text-anchor', 'end')
+    wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
     g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
 

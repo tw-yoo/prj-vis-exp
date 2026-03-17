@@ -4,6 +4,7 @@ import type { JsonValue } from '../../types'
 import { type DrawSplitSpec } from '../draw/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 
 type RawDatum = Record<string, JsonValue>
 type SplitState = { field: string; domains: Record<string, Set<string>> }
@@ -421,9 +422,7 @@ export async function renderSplitGroupedBarChart(container: HTMLElement, spec: G
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)
       .call(d3.axisBottom(xScale))
-      .selectAll(SvgElements.Text)
-      .attr(SvgAttributes.Transform, 'rotate(-35)')
-      .style('text-anchor', 'end')
+    wrapAxisTickLabels(panel.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
     panel.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
 

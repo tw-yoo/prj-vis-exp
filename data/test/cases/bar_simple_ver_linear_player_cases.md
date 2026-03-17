@@ -3,7 +3,13 @@
 Spec: `data/test/spec/bar_simple_ver.json`  
 Data: `data/test/data/bar_simple_ver.csv`
 
-This list is ordered from easy source-chart execution to more complex derived-chart execution.
+현재 기준에서 NLP linear player는 다음 규칙으로 실행된다.
+
+- `ref` 결과는 `source-backed`, `source-aggregate`, `synthetic-result`로 구분한다.
+- `source-backed`, `source-aggregate`만 쓰는 op는 `source-chart`에 남는다.
+- `synthetic-result`가 operand로 들어가면 `derived-chart`로 전환한다.
+- operand-only aggregate처럼 원본 차트에서 의미가 흐려지는 경우에도 `derived-chart`로 전환한다.
+- sentence 안에서 source op가 연속되면, 최종 derived 전환 전까지 annotation을 유지한다.
 
 ## Dataset checkpoints
 
@@ -16,18 +22,16 @@ This list is ordered from easy source-chart execution to more complex derived-ch
 
 ## Scope
 
-- Good for testing the current NLP-only linear player.
-- Good for checking sentence-level navigation and result-only reuse.
-- `filtered-operands-chart` is not included here because this spec has no `group` or `series` encoding.
+- 현재 NLP-only linear player의 source/derived 선택 규칙을 검증하기 위한 케이스들이다.
+- `filtered-operands-chart`는 이 spec에 `group`/`series` encoding이 없으므로 포함하지 않는다.
 
 ## Cases
 
 ### 1. Single retrieveValue on source chart
 
-- Goal: simplest source-chart execution
+- Goal: 가장 단순한 source 유지 케이스
 - Final surface: `source-chart`
-- Expected result: `USA = 53`
-- Paste into `JSON Ops`:
+- Expected result: 원본 차트 유지 + `USA` highlight/text
 
 ```json
 {
@@ -45,9 +49,9 @@ This list is ordered from easy source-chart execution to more complex derived-ch
 
 ### 2. Direct compare on source chart
 
-- Goal: compare without derived surface
+- Goal: explicit target compare는 derived로 가지 않아야 함
 - Final surface: `source-chart`
-- Expected result: `USA (53)` beats `JPN (42)`
+- Expected result: 원본 차트 유지 + `USA`, `JPN` compare visualization
 
 ```json
 {
@@ -66,9 +70,9 @@ This list is ordered from easy source-chart execution to more complex derived-ch
 
 ### 3. Direct diff on source chart
 
-- Goal: diff without derived surface
+- Goal: explicit target diff는 source-chart에서 실행
 - Final surface: `source-chart`
-- Expected result: `NLD (76) - PRT (0) = 76`
+- Expected result: 원본 차트 유지 + `NLD (76) - PRT (0) = 76`
 
 ```json
 {
@@ -86,11 +90,14 @@ This list is ordered from easy source-chart execution to more complex derived-ch
 }
 ```
 
-### 4. Two retrieveValue nodes feeding a diff
+### 4. Source-backed ref restoration for diff
 
-- Goal: `two-value-chart`
-- Final surface: `derived-chart`
-- Expected result: `53 - 42 = 11`
+- Goal: `ref:n1`, `ref:n2`가 source-backed이면 원본 차트 mark로 복원
+- Final surface: `source-chart`
+- Expected result:
+  - step 1: `USA` 표시
+  - step 2: `JPN` 표시
+  - step 3: 원본 차트에서 `USA`, `JPN` diff
 
 ```json
 {
@@ -114,17 +121,22 @@ This list is ordered from easy source-chart execution to more complex derived-ch
       "id": "n3",
       "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
       "field": "rating",
+      "targetA": "ref:n1",
+      "targetB": "ref:n2",
       "signed": true
     }
   ]
 }
 ```
 
-### 5. Two chart-backed values feeding average
+### 5. Operand-only average after two source retrieves
 
-- Goal: `operand-only-chart`
-- Final surface: `derived-chart`
-- Expected result: `average(53, 42) = 47.5`
+- Goal: 앞 retrieve들은 source-chart, 마지막 average만 derived-chart
+- Final surface: `operand-only-chart`
+- Expected result:
+  - step 1: `USA` 표시
+  - step 2: `JPN` 표시
+  - step 3: `USA`, `JPN`만 남은 chart에서 `average = 47.5`
 
 ```json
 {
@@ -153,11 +165,13 @@ This list is ordered from easy source-chart execution to more complex derived-ch
 }
 ```
 
-### 6. Average feeding scale
+### 6. Source average followed by source scale
 
-- Goal: `scalar-reference-chart`
-- Final surface: `derived-chart`
-- Expected result: `56.45 * 1.1 = 62.095`
+- Goal: `average(all)`과 `scale(ref:n1)` 모두 source-chart에서 유지
+- Final surface: `source-chart`
+- Expected result:
+  - step 1: 원본 차트에 `avg(all) = 56.45`
+  - step 2: 원본 차트에 `56.45 * 1.1 = 62.10`
 
 ```json
 {
@@ -180,10 +194,10 @@ This list is ordered from easy source-chart execution to more complex derived-ch
 }
 ```
 
-### 7. Chart-backed value versus scalar average
+### 7. Source diff with mark and scalar ref
 
-- Goal: `mixed-operands-chart`
-- Final surface: `derived-chart`
+- Goal: source mark + scalar ref도 원본 차트에서 자연스럽게 실행
+- Final surface: `source-chart`
 - Expected result: `USA (53) - avg(all 56.45) = -3.45`
 
 ```json
@@ -215,12 +229,13 @@ This list is ordered from easy source-chart execution to more complex derived-ch
 }
 ```
 
-### 8. Cross-sentence reuse from diff to extremum to mixed diff
+### 8. Cross-sentence reuse from diff to extremum to mixed provenance diff
 
-- Goal: sentence navigation plus result-only reuse
-- Sentence 1 expected: `11`
-- Sentence 2 expected: `NLD = 76`
-- Sentence 3 expected: `76 - 11 = 65`
+- Goal: `ref:n4`는 source-backed, `ref:n3`는 synthetic-result로 구분되어야 함
+- Expected result:
+  - sentence 1 final surface: `source-chart`
+  - sentence 2 final surface: `source-chart`
+  - sentence 3 final surface: `mixed-operands-chart`
 
 ```json
 {
@@ -244,6 +259,8 @@ This list is ordered from easy source-chart execution to more complex derived-ch
       "id": "n3",
       "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
       "field": "rating",
+      "targetA": "ref:n1",
+      "targetB": "ref:n2",
       "signed": true
     }
   ],
@@ -262,59 +279,9 @@ This list is ordered from easy source-chart execution to more complex derived-ch
       "id": "n5",
       "meta": { "nodeId": "n5", "inputs": ["n4"], "sentenceIndex": 3 },
       "field": "rating",
-      "targetA": "NLD",
+      "targetA": "ref:n4",
       "targetB": "ref:n3",
       "signed": true
-    }
-  ]
-}
-```
-
-### 9. Cross-sentence scalar reuse with add
-
-- Goal: derived surface chaining with scalar-only reuse
-- Sentence 1 expected: `average(USA, JPN) = 47.5`, `diff(USA, JPN) = 11`
-- Sentence 2 expected: `47.5 + 11 = 58.5`
-
-```json
-{
-  "ops": [
-    {
-      "op": "retrieveValue",
-      "id": "n1",
-      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
-      "field": "rating",
-      "target": "USA"
-    },
-    {
-      "op": "retrieveValue",
-      "id": "n2",
-      "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
-      "field": "rating",
-      "target": "JPN"
-    },
-    {
-      "op": "average",
-      "id": "n3",
-      "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
-      "field": "rating"
-    },
-    {
-      "op": "diff",
-      "id": "n4",
-      "meta": { "nodeId": "n4", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
-      "field": "rating",
-      "signed": true
-    }
-  ],
-  "ops2": [
-    {
-      "op": "add",
-      "id": "n5",
-      "meta": { "nodeId": "n5", "inputs": [], "sentenceIndex": 2 },
-      "field": "rating",
-      "targetA": "ref:n3",
-      "targetB": "ref:n4"
     }
   ]
 }

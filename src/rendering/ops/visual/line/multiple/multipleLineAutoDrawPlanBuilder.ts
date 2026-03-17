@@ -53,12 +53,12 @@ function getSelectorTarget(selector: any): string | null {
   if (typeof selector === 'string' || typeof selector === 'number') return String(selector)
   if (Array.isArray(selector)) return getSelectorTarget(selector[0])
   if (typeof selector === 'object') {
+    if (selector.target != null) return String(selector.target)
+    if (selector.category != null) return String(selector.category)
     if (typeof selector.id === 'string' && selector.id.startsWith('n')) {
       const runtimeRows = getRuntimeResultsById(selector.id)
       if (runtimeRows.length) return String(runtimeRows[0].target)
     }
-    if (selector.target != null) return String(selector.target)
-    if (selector.category != null) return String(selector.category)
     if (selector.id != null) return String(selector.id)
   }
   return null

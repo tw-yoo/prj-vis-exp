@@ -27,7 +27,7 @@ import {
 } from './barOpsCommon.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS } from './drawActionPolicy.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
 
 function toStackedDatumValues(raw: JsonValue[], spec: StackedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
@@ -55,6 +55,10 @@ async function handleStackedBarDraw(
   spec: StackedSpec,
 ) {
   if (drawOp.action === DrawAction.Split) {
+    if (!SPLIT_VIEW_ENABLED) {
+      console.warn('draw:split is disabled in the active runtime', drawOp)
+      return
+    }
     if (!drawOp.split || typeof drawOp.split !== 'object') {
       console.warn('draw:split requires split spec', drawOp)
       return
@@ -63,6 +67,10 @@ async function handleStackedBarDraw(
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
+    if (!SPLIT_VIEW_ENABLED) {
+      console.warn('draw:unsplit is disabled in the active runtime', drawOp)
+      return
+    }
     await renderStackedBarChart(container, spec)
     return
   }

@@ -67,6 +67,39 @@ export function formatGroupSuffix(group: JsonPrimitive | undefined) {
   return label ? ` (${label})` : ''
 }
 
+function isSyntheticResultTarget(value: string) {
+  return value.startsWith('__')
+}
+
+function runtimeLabelForRef(refId: string): string | null {
+  const runtimeRows = getRuntimeResultsById(refId)
+  if (!runtimeRows.length) return null
+
+  const explicitNames = Array.from(
+    new Set(
+      runtimeRows
+        .map((row) => (typeof row.name === 'string' ? row.name.trim() : ''))
+        .filter((value) => value.length > 0),
+    ),
+  )
+  if (explicitNames.length > 0) {
+    return explicitNames.join(' + ')
+  }
+
+  const readableTargets = Array.from(
+    new Set(
+      runtimeRows
+        .map((row) => String(row.target ?? '').trim())
+        .filter((value) => value.length > 0 && !isSyntheticResultTarget(value)),
+    ),
+  )
+  if (readableTargets.length > 0) {
+    return readableTargets.join(' + ')
+  }
+
+  return null
+}
+
 export function formatTargetLabel(selector: TargetSelector | TargetSelector[] | undefined): string {
   if (Array.isArray(selector)) {
     const labels: string[] = selector
@@ -76,8 +109,21 @@ export function formatTargetLabel(selector: TargetSelector | TargetSelector[] | 
     return labels.join(' + ')
   }
   if (selector == null) return ''
-  if (typeof selector === 'string' || typeof selector === 'number') return String(selector)
+  if (typeof selector === 'number') return String(selector)
+  if (typeof selector === 'string') {
+    if (selector.startsWith('ref:')) {
+      return runtimeLabelForRef(selector.slice('ref:'.length).trim()) ?? 'the previous result'
+    }
+    return String(selector)
+  }
   if (typeof selector === 'object') {
+    if (typeof (selector as { id?: JsonValue }).id === 'string') {
+      const id = String((selector as { id?: JsonValue }).id).trim()
+      if (/^n\d+$/i.test(id)) {
+        const resolved = runtimeLabelForRef(id)
+        if (resolved) return resolved
+      }
+    }
     if (selector.category && selector.series) return `${selector.category}/${selector.series}`
     if (selector.category) return String(selector.category)
     if ((selector as { target?: JsonValue }).target) return String((selector as { target?: JsonValue }).target)
@@ -149,6 +195,24 @@ export function getRuntimeResultsById(key: string | number | null | undefined): 
   const stored = runtimeResults.get(id)
   if (!stored || !stored.length) return []
   return stored.map(cloneDatumValue)
+}
+
+export function snapshotRuntimeResults(): Map<string, DatumValue[]> {
+  const snapshot = new Map<string, DatumValue[]>()
+  runtimeResults.forEach((rows, key) => {
+    snapshot.set(key, rows.map(cloneDatumValue))
+  })
+  return snapshot
+}
+
+export function restoreRuntimeResults(snapshot: Map<string, DatumValue[]>) {
+  runtimeResults.clear()
+  snapshot.forEach((rows, key) => {
+    runtimeResults.set(
+      key,
+      rows.map(cloneDatumValue).filter((datum) => Number.isFinite(datum.value)),
+    )
+  })
 }
 
 /** Build a stable runtime key from op identifier + index. */
@@ -264,9 +328,15 @@ function aggregate(values: JsonValue[], agg: string | undefined) {
 /** Normalize `targetA`/`targetB` form (string or {category, series}) */
 function normalizeTargetInput(target: TargetSelector | TargetSelector[] | undefined, opGroup: string | null | undefined) {
   if (target && typeof target === 'object' && !Array.isArray(target)) {
-    return { category: (target as { category?: TargetSelector }).category, series: (target as { series?: string }).series ?? opGroup ?? undefined }
+    return {
+      id: (target as { id?: string | number }).id,
+      category:
+        (target as { category?: TargetSelector; target?: TargetSelector }).category ??
+        (target as { target?: TargetSelector }).target,
+      series: (target as { series?: string }).series ?? opGroup ?? undefined,
+    }
   }
-  return { category: target as TargetSelector, series: opGroup ?? undefined }
+  return { id: undefined, category: target as TargetSelector, series: opGroup ?? undefined }
 }
 
 function parseComparableValue(raw: JsonValue | Date): number | string | null {
@@ -306,7 +376,7 @@ function compareComparableValues(a: number | string | null, b: number | string |
 
 /** Select slice for a (category, series) target within optional measure field constraint */
 function sliceForTarget(data: DatumValue[], opField: string | undefined, targetIn: TargetSelector | TargetSelector[] | undefined, opGroup: string | null | undefined) {
-  const { category, series } = normalizeTargetInput(targetIn, opGroup)
+  const { id, category, series } = normalizeTargetInput(targetIn, opGroup)
   let slice = data
   if (series !== undefined) slice = sliceByGroup(slice, series as string | null)
   // Constrain to requested measure if opField looks like measure
@@ -314,6 +384,40 @@ function sliceForTarget(data: DatumValue[], opField: string | undefined, targetI
   if (kind === 'measure') {
     slice = slice.filter((d) => (opField === 'value' ? true : d.measure === opField))
   }
+
+  if (id != null) {
+    const targetId = String(id)
+    const normalizedId = targetId.startsWith('ref:') ? targetId.slice('ref:'.length) : targetId
+    const byId = slice.filter((d) => d && (String(d.id) === targetId || String(d.lookupId) === targetId))
+    if (byId.length > 0) {
+      return byId
+    }
+    if (normalizedId !== targetId) {
+      const byNormalizedId = slice.filter((d) => d && (String(d.id) === normalizedId || String(d.lookupId) === normalizedId))
+      if (byNormalizedId.length > 0) {
+        return byNormalizedId
+      }
+    }
+    const runtimeMatchesPrimary = getRuntimeResultsById(targetId)
+    const runtimeMatchesFallback = normalizedId !== targetId ? getRuntimeResultsById(normalizedId) : []
+    const runtimeMatches = runtimeMatchesPrimary.length > 0 ? runtimeMatchesPrimary : runtimeMatchesFallback
+    if (runtimeMatches.length > 0) {
+      let runtimeSlice = runtimeMatches
+      if (series !== undefined) {
+        runtimeSlice = runtimeSlice.filter((d) => String(d.group) === String(series))
+      }
+      const runtimeKind = kind ?? inferFieldKind(runtimeSlice, opField)
+      if (runtimeKind === 'measure') {
+        runtimeSlice = runtimeSlice.filter((d) => (opField === 'value' ? true : d.measure === opField))
+      } else if (runtimeKind === 'category') {
+        runtimeSlice = runtimeSlice.filter((d) => (opField === 'target' ? true : d.category === opField))
+      }
+      if (runtimeSlice.length > 0) {
+        return runtimeSlice
+      }
+    }
+  }
+
   // Match category value (label)
   const byTarget = slice.filter((d) => d.target === String(category))
   if (byTarget.length > 0 || category == null) {

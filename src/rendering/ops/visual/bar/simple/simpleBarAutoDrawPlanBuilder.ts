@@ -46,17 +46,20 @@ function toPoint(selector: TargetSelector, fallbackSeries?: string | null): Targ
     }
     return { target: String(selector), series: fallbackSeries ?? undefined }
   }
-  if (typeof selector === 'object' && typeof selector.id === 'string' && selector.id.startsWith('n')) {
-    return resolveRefPoint(selector.id, fallbackSeries)
-  }
-  const target =
+  const explicitTarget =
     selector.target != null
       ? String(selector.target)
       : selector.category != null
         ? String(selector.category)
-        : selector.id != null
-          ? String(selector.id)
-          : null
+        : null
+  if (explicitTarget) {
+    const series = selector.series != null ? String(selector.series) : fallbackSeries ?? undefined
+    return { target: explicitTarget, series }
+  }
+  if (typeof selector === 'object' && typeof selector.id === 'string' && selector.id.startsWith('n')) {
+    return resolveRefPoint(selector.id, fallbackSeries)
+  }
+  const target = selector.id != null ? String(selector.id) : null
   if (!target) return null
   const series = selector.series != null ? String(selector.series) : fallbackSeries ?? undefined
   return { target, series }
@@ -88,6 +91,9 @@ function selectorRefKey(selector: TargetSelector | TargetSelector[] | undefined)
     return null
   }
   if (typeof selector === 'number') return null
+  if (selector.target != null || selector.category != null) {
+    return null
+  }
   if (typeof selector.id === 'string') {
     if (selector.id.startsWith('ref:')) return selector.id.slice('ref:'.length)
     if (/^n\d+$/i.test(selector.id)) return selector.id
@@ -165,6 +171,15 @@ function targetAggregate(data: DatumValue[], target: string) {
 function highlightTargets(op: OperationSpec, targets: string[], color = '#0ea5e9') {
   if (!targets.length) return [] as any[]
   return [ops.draw.highlight(op.chartId, draw.select.markKeys('rect', ...targets), color)]
+}
+
+function emphasizedTargets(op: OperationSpec, targets: string[]) {
+  const preserve = new Set(
+    (
+      (op.meta as { visualSurface?: { preserveTargets?: string[] } } | undefined)?.visualSurface?.preserveTargets ?? []
+    ).map((value) => String(value)),
+  )
+  return targets.filter((target) => !preserve.has(String(target)))
 }
 
 function uniqueResultTargets(result: DatumValue[]) {
@@ -473,7 +488,7 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     const minValue = Number.isFinite(valueA ?? NaN) && Number.isFinite(valueB ?? NaN) ? Math.min(Number(valueA), Number(valueB)) : null
     const metrics = collectTargetMetrics(context, op.chartId)
 
-    plan.push(...highlightTargets(op, [pair.a.target, pair.b.target], EMPHASIS_RED))
+    plan.push(...highlightTargets(op, emphasizedTargets(op, [pair.a.target, pair.b.target]), EMPHASIS_RED))
     plan.push(...buildPairBarValueTexts(op, pair.a.target, valueA, pair.b.target, valueB))
 
     if (Number.isFinite(valueA ?? NaN)) {
@@ -601,7 +616,7 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     const minValue = Number.isFinite(valueA ?? NaN) && Number.isFinite(valueB ?? NaN) ? Math.min(Number(valueA), Number(valueB)) : null
     const metrics = collectTargetMetrics(context, op.chartId)
 
-    const plan: any[] = [...highlightTargets(op, [pair.a.target, pair.b.target], EMPHASIS_RED)]
+    const plan: any[] = [...highlightTargets(op, emphasizedTargets(op, [pair.a.target, pair.b.target]), EMPHASIS_RED)]
     plan.push(...buildPairBarValueTexts(op, pair.a.target, valueA, pair.b.target, valueB))
 
     if (Number.isFinite(valueA ?? NaN)) {

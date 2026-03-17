@@ -40,17 +40,20 @@ function toPoint(selector: TargetSelector, fallbackSeries?: string | null): Targ
     }
     return { target: String(selector), series: fallbackSeries ?? undefined }
   }
-  if (typeof selector === 'object' && typeof selector.id === 'string' && selector.id.startsWith('n')) {
-    return resolveRefPoint(selector.id, fallbackSeries)
-  }
-  const target =
+  const explicitTarget =
     selector.target != null
       ? String(selector.target)
       : selector.category != null
         ? String(selector.category)
-        : selector.id != null
-          ? String(selector.id)
-          : null
+        : null
+  if (explicitTarget) {
+    const series = selector.series != null ? String(selector.series) : fallbackSeries ?? undefined
+    return { target: explicitTarget, series }
+  }
+  if (typeof selector === 'object' && typeof selector.id === 'string' && selector.id.startsWith('n')) {
+    return resolveRefPoint(selector.id, fallbackSeries)
+  }
+  const target = selector.id != null ? String(selector.id) : null
   if (!target) return null
   const series = selector.series != null ? String(selector.series) : fallbackSeries ?? undefined
   return { target, series }
@@ -166,6 +169,14 @@ function buildRangePlan(result: DatumValue[], op: OperationSpec) {
 
 function uniqueTargets(result: DatumValue[]) {
   return Array.from(new Set(result.map((row) => String(row.target))))
+}
+
+function emphasizedTargets(op: OperationSpec, targets: string[]) {
+  const preserve = new Set(
+    ((op.meta as { visualSurface?: { preserveTargets?: string[] } } | undefined)?.visualSurface?.preserveTargets ?? [])
+      .map((value) => String(value)),
+  )
+  return targets.filter((target) => !preserve.has(String(target)))
 }
 
 function toTargetValueEntries(result: DatumValue[]) {
@@ -297,14 +308,14 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
       if (valueA != null && valueB != null) {
         plan.push(ops.draw.line(op.chartId, lineAt(Math.min(valueA, valueB), '#94a3b8')))
       }
-      plan.push(...buildHighlightPlan([pair.a.target, pair.b.target], '#0ea5e9'))
+      plan.push(...buildHighlightPlan(emphasizedTargets(op, [pair.a.target, pair.b.target]), '#0ea5e9'))
     } else {
       const targetA = firstTarget(op.targetA)
       const targetB = firstTarget(op.targetB)
       if (!targetA || !targetB) return null
       const valueA = aggregateByTarget(context.prevWorking, targetA)
       const valueB = aggregateByTarget(context.prevWorking, targetB)
-      plan.push(...buildHighlightPlan([targetA, targetB], '#0ea5e9'))
+      plan.push(...buildHighlightPlan(emphasizedTargets(op, [targetA, targetB]), '#0ea5e9'))
       plan.push(
         ops.draw.line(
           op.chartId,

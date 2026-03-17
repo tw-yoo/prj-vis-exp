@@ -1,6 +1,7 @@
 export * from './chartRenderer'
 export * from './renderChart'
 export { clearAnnotations } from './common/d3Helpers'
+export { getChartContext } from './common/d3Helpers'
 export { runOpsPlan } from './ops/opsPlans'
 export { runGenericDraw } from './draw/genericDraw'
 export { drawOps } from './draw/drawOps'

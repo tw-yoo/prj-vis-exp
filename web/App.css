@@ -424,6 +424,31 @@ textarea {
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
 }
 
+.chart-sentence-summary-overlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 18;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.chart-sentence-summary-text {
+  max-width: min(720px, calc(100vw - 48px));
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111827;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 #ops-spec {
   min-height: 400px;
 }

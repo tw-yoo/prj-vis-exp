@@ -1,0 +1,96 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "id": "n11",
+      "meta": { "nodeId": "n11", "inputs": [], "sentenceIndex": 1 },
+      "field": "country",
+      "include": ["USA", "JPN", "FRA"]
+    },
+    {
+      "op": "average",
+      "id": "n8",
+      "meta": { "nodeId": "n8", "inputs": ["n11"], "sentenceIndex": 1 },
+      "field": "value"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "retrieveValue",
+      "id": "n9",
+      "meta": { "nodeId": "n9", "inputs": [], "sentenceIndex": 2 },
+      "field": "rating",
+      "target": "NLD"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "diff",
+      "id": "n4",
+      "meta": { "nodeId": "n4", "inputs": ["n8", "n9"], "sentenceIndex": 3 },
+      "field": "rating",
+      "targetA": "ref:n8",
+      "targetB": "ref:n9",
+      "signed": false
+    }
+  ],
+  "ops4": [
+    {
+      "op": "findExtremum",
+      "id": "n5",
+      "meta": { "nodeId": "n5", "inputs": [], "sentenceIndex": 4 },
+      "field": "rating",
+      "which": "max"
+    },
+    {
+      "op": "average",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": ["n4", "n5"], "sentenceIndex": 4 },
+      "field": "value"
+    }
+  ],
+  "ops5": [
+    {
+      "op": "filter",
+      "id": "n10",
+      "meta": { "nodeId": "n10", "inputs": [], "sentenceIndex": 5 },
+      "field": "country",
+      "include": ["DEU", "CAN", "AUS"]
+    },
+    {
+      "op": "average",
+      "id": "n6",
+      "meta": { "nodeId": "n6", "inputs": ["n10"], "sentenceIndex": 5 },
+      "field": "value"
+    }
+  ],
+  "ops6": [
+    {
+      "op": "findExtremum",
+      "id": "n7",
+      "meta": { "nodeId": "n7", "inputs": [], "sentenceIndex": 6 },
+      "field": "rating",
+      "which": "min"
+    },
+    {
+      "op": "diff",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": ["n6", "n7"], "sentenceIndex": 6 },
+      "field": "rating",
+      "targetA": "ref:n6",
+      "targetB": "ref:n7",
+      "signed": false
+    }
+  ],
+  "ops7": [
+    {
+      "op": "diff",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": ["n2", "n3"], "sentenceIndex": 7 },
+      "field": "rating",
+      "targetA": "ref:n2",
+      "targetB": "ref:n3",
+      "signed": false
+    }
+  ]
+}

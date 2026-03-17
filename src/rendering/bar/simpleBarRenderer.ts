@@ -3,6 +3,8 @@ import { bumpRenderEpoch, type VegaLiteSpec } from '../chartRenderer'
 import type { JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { type DrawSplitSpec } from '../draw/types'
+import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 
 type RawDatum = Record<string, JsonValue>
 
@@ -265,9 +267,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
     .attr(SvgAttributes.Class, SvgClassNames.XAxis)
     .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
     .call(d3.axisBottom(xScale))
-    .selectAll(SvgElements.Text)
-    .attr(SvgAttributes.Transform, 'rotate(-45)')
-    .style('text-anchor', 'end')
+  wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
   g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
 
@@ -309,6 +309,8 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
       .attr(SvgAttributes.FontSize, 14)
       .text(resolvedYAxisLabel)
   }
+
+  ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
 
   return svg
 }
@@ -475,9 +477,7 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)
       .call(d3.axisBottom(xScale))
-      .selectAll(SvgElements.Text)
-      .attr(SvgAttributes.Transform, 'rotate(-45)')
-      .style('text-anchor', 'end')
+    wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
     g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
 
@@ -524,6 +524,8 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
       .attr(SvgAttributes.FontSize, 14)
       .text(resolvedYAxisLabel)
   }
+
+  ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
 }
 
 export function getSimpleBarStoredData(container: HTMLElement) {

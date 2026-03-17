@@ -2,16 +2,17 @@
   "spec": "data/test/spec/bar_simple_ver.json",
   "data": "data/test/data/bar_simple_ver.csv",
   "notes": [
-    "These cases are ordered from simple source-chart execution to derived-chart-heavy execution.",
-    "All cases are designed for the current linear visual player.",
-    "filtered-operands-chart is intentionally excluded because this spec has no group/series encoding."
+    "Ref results are classified as source-backed, source-aggregate, or synthetic-result.",
+    "Source-backed/source-aggregate operands stay on the original chart; synthetic-result operands force a derived chart.",
+    "Operand-only aggregate and other semantically unclear cases also materialize a derived chart.",
+    "filtered-operands-chart is intentionally excluded because this spec has no group or series encoding."
   ],
   "cases": [
     {
-      "id": "simple-retrieve-usa",
+      "id": "source-retrieve-usa",
       "level": 1,
       "title": "Single retrieveValue on source chart",
-      "goal": "Check the simplest source-chart execution path.",
+      "goal": "Keep the original chart and highlight USA only.",
       "expected_surface": "source-chart",
       "expected_result": "USA = 53",
       "ops_spec": {
@@ -27,10 +28,10 @@
       }
     },
     {
-      "id": "simple-compare-usa-jpn",
+      "id": "source-compare-usa-jpn",
       "level": 1,
       "title": "Direct compare on source chart",
-      "goal": "Check source-chart compare rendering without derived surface.",
+      "goal": "Keep the original chart and compare USA/JPN directly.",
       "expected_surface": "source-chart",
       "expected_result": "USA (53) beats JPN (42)",
       "ops_spec": {
@@ -47,10 +48,10 @@
       }
     },
     {
-      "id": "simple-diff-nld-prt",
+      "id": "source-diff-nld-prt",
       "level": 1,
       "title": "Direct diff on source chart",
-      "goal": "Check source-chart diff rendering on two extreme bars.",
+      "goal": "Keep the original chart and render diff between explicit targets.",
       "expected_surface": "source-chart",
       "expected_result": "NLD (76) - PRT (0) = 76",
       "ops_spec": {
@@ -68,12 +69,12 @@
       }
     },
     {
-      "id": "derived-two-value-diff",
+      "id": "source-ref-restored-diff",
       "level": 2,
-      "title": "Two retrieveValue nodes feeding a diff",
-      "goal": "Exercise two-value-chart materialization.",
-      "expected_surface": "two-value-chart",
-      "expected_result": "USA (53) - JPN (42) = 11",
+      "title": "Source-backed ref restoration for diff",
+      "goal": "Restore ref:n1 and ref:n2 to source marks instead of materializing a derived chart.",
+      "expected_surface": "source-chart",
+      "expected_result": "USA (53) - JPN (42) = 11 on the original chart",
       "ops_spec": {
         "ops": [
           {
@@ -95,16 +96,18 @@
             "id": "n3",
             "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
             "field": "rating",
+            "targetA": "ref:n1",
+            "targetB": "ref:n2",
             "signed": true
           }
         ]
       }
     },
     {
-      "id": "derived-operand-only-average",
+      "id": "operand-only-average",
       "level": 3,
-      "title": "Two chart-backed values feeding average",
-      "goal": "Exercise operand-only-chart materialization.",
+      "title": "Operand-only average after two source retrieves",
+      "goal": "Keep source annotations for retrieve steps, then switch to derived for average.",
       "expected_surface": "operand-only-chart",
       "expected_result": "average(USA, JPN) = 47.5",
       "ops_spec": {
@@ -133,12 +136,12 @@
       }
     },
     {
-      "id": "derived-scalar-reference-scale",
+      "id": "source-average-then-scale",
       "level": 3,
-      "title": "Average feeding scale",
-      "goal": "Exercise scalar-reference-chart materialization.",
-      "expected_surface": "scalar-reference-chart",
-      "expected_result": "average(all) = 56.45, scaled by 1.1 -> 62.095",
+      "title": "Source average followed by source scale",
+      "goal": "Keep both average(all) and scale(ref:n1) on the original chart.",
+      "expected_surface": "source-chart",
+      "expected_result": "average(all) = 56.45, then 56.45 * 1.1 = 62.095 on the original chart",
       "ops_spec": {
         "ops": [
           {
@@ -159,11 +162,11 @@
       }
     },
     {
-      "id": "derived-mixed-diff",
+      "id": "mixed-diff-usa-vs-average",
       "level": 4,
-      "title": "Chart-backed value versus scalar average",
-      "goal": "Exercise mixed-operands-chart materialization.",
-      "expected_surface": "mixed-operands-chart",
+      "title": "Source diff with mark and scalar ref",
+      "goal": "Keep the final diff on the original chart even when one operand is a scalar ref.",
+      "expected_surface": "source-chart",
       "expected_result": "USA (53) - average(all 56.45) = -3.45",
       "ops_spec": {
         "ops": [
@@ -193,11 +196,11 @@
       }
     },
     {
-      "id": "multi-sentence-reuse-mixed",
+      "id": "cross-sentence-reuse-mixed",
       "level": 5,
-      "title": "Cross-sentence reuse from diff to extremum to mixed diff",
-      "goal": "Check sentence navigation and result-only reuse across sentences.",
-      "expected_surface": "sentence1 two-value-chart, sentence2 source-chart, sentence3 mixed-operands-chart",
+      "title": "Cross-sentence reuse from source diff to extremum to mixed provenance diff",
+      "goal": "Check sentence navigation when a source-backed ref and a synthetic-result ref are mixed.",
+      "expected_surface": "sentence1 source-chart, sentence2 source-chart, sentence3 mixed-operands-chart",
       "expected_result": "sentence1: 11, sentence2: NLD = 76, sentence3: 76 - 11 = 65",
       "ops_spec": {
         "ops": [
@@ -220,6 +223,8 @@
             "id": "n3",
             "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
             "field": "rating",
+            "targetA": "ref:n1",
+            "targetB": "ref:n2",
             "signed": true
           }
         ],
@@ -238,58 +243,9 @@
             "id": "n5",
             "meta": { "nodeId": "n5", "inputs": ["n4"], "sentenceIndex": 3 },
             "field": "rating",
-            "targetA": "NLD",
+            "targetA": "ref:n4",
             "targetB": "ref:n3",
             "signed": true
-          }
-        ]
-      }
-    },
-    {
-      "id": "multi-sentence-reuse-two-value-add",
-      "level": 6,
-      "title": "Cross-sentence scalar reuse with add",
-      "goal": "Check chained derived surfaces with scalar reuse only.",
-      "expected_surface": "sentence1 operand-only-chart, sentence2 two-value-chart",
-      "expected_result": "sentence1 average(USA,JPN)=47.5, sentence2 47.5 + 11 = 58.5",
-      "ops_spec": {
-        "ops": [
-          {
-            "op": "retrieveValue",
-            "id": "n1",
-            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
-            "field": "rating",
-            "target": "USA"
-          },
-          {
-            "op": "retrieveValue",
-            "id": "n2",
-            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
-            "field": "rating",
-            "target": "JPN"
-          },
-          {
-            "op": "average",
-            "id": "n3",
-            "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
-            "field": "rating"
-          },
-          {
-            "op": "diff",
-            "id": "n4",
-            "meta": { "nodeId": "n4", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
-            "field": "rating",
-            "signed": true
-          }
-        ],
-        "ops2": [
-          {
-            "op": "add",
-            "id": "n5",
-            "meta": { "nodeId": "n5", "inputs": [], "sentenceIndex": 2 },
-            "field": "rating",
-            "targetA": "ref:n3",
-            "targetB": "ref:n4"
           }
         ]
       }

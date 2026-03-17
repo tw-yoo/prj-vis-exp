@@ -19,7 +19,7 @@ import { runSimpleLineDrawPlan } from '../../rendering/ops/executor/runSimpleLin
 import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/simple/simpleLineAutoDrawPlanBuilder.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS } from './drawActionPolicy.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
 
 function toDatumValues(rawData: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(rawData, { xField, yField })
@@ -121,6 +121,10 @@ async function handleSimpleLineDraw(
   spec: LineSpec,
 ) {
   if (drawOp.action === DrawAction.Split) {
+    if (!SPLIT_VIEW_ENABLED) {
+      console.warn('draw:split is disabled in the active runtime', drawOp)
+      return
+    }
     if (!drawOp.split) {
       console.warn('draw:split requires split spec', drawOp)
       return
@@ -129,6 +133,10 @@ async function handleSimpleLineDraw(
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
+    if (!SPLIT_VIEW_ENABLED) {
+      console.warn('draw:unsplit is disabled in the active runtime', drawOp)
+      return
+    }
     await renderSimpleLineChart(container, spec)
     return
   }
@@ -142,6 +150,7 @@ async function handleSimpleLineDraw(
     handler.run(drawOp)
     return
   }
+  // Legacy inconsistency: line handlers still use an explicit allow-list until the shared draw dispatch is unified.
   if (
     drawOp.action === DrawAction.Highlight ||
     drawOp.action === DrawAction.Dim ||
@@ -189,7 +198,7 @@ export async function runSimpleLineOps(
       const values = toDatumValues(raw as any, resolved.xField, resolved.yField)
       if (values.length) return values
 
-      // Fallback: derive from tagged marks (works for data.url-backed charts).
+      // Legacy inconsistency: simple line still falls back to tagged DOM marks for data.url-backed charts.
       return Array.from(host.querySelectorAll<SVGGraphicsElement>('[data-target][data-value]'))
         .map((el) => {
           const target = el.getAttribute('data-target') ?? ''

@@ -1,10 +1,13 @@
 import { DrawAction, type DrawAction as DrawActionValue } from '../../rendering/draw/types'
 
-// Split/unsplit remains available for legacy/manual paths, but is not part of the active NLP linear flow.
-export const LEGACY_SPLIT_DRAW_ACTIONS = new Set<DrawActionValue>([
-  DrawAction.Split,
-  DrawAction.Unsplit,
-])
+// Split/unsplit remains available behind an explicit legacy flag and is not part of the active NLP linear flow.
+export const SPLIT_VIEW_ENABLED = false
+
+const ACTIVE_SPLIT_DRAW_ACTIONS = SPLIT_VIEW_ENABLED
+  ? ([DrawAction.Split, DrawAction.Unsplit] satisfies DrawActionValue[])
+  : ([] satisfies DrawActionValue[])
+
+export const LEGACY_SPLIT_DRAW_ACTIONS = new Set<DrawActionValue>(ACTIVE_SPLIT_DRAW_ACTIONS)
 
 export const STRUCTURAL_DRAW_ACTIONS = new Set<DrawActionValue>([
   DrawAction.Clear,

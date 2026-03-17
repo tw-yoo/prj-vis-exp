@@ -92,7 +92,11 @@ import {
   type VisualSentencePlaybackResult,
   type VisualSurfaceState,
 } from '../../../src/api/visual-execution-player'
-import { STRUCTURAL_DRAW_ACTIONS } from '../../../src/operation/run/drawActionPolicy'
+import { SPLIT_VIEW_ENABLED, STRUCTURAL_DRAW_ACTIONS } from '../../../src/api/draw-action-policy'
+import {
+  clearSentenceSummaryOverlay,
+  renderSentenceSummaryOverlay,
+} from '../../../src/api/sentence-summary-overlay'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
@@ -119,7 +123,7 @@ const DRAW_TOOL_OPTIONS: Array<{ value: DrawInteractionTool; label: string }> = 
   { value: DrawInteractionTools.Line, label: 'Line' },
   { value: DrawInteractionTools.LineTrace, label: 'Line Trace' },
   { value: DrawInteractionTools.Filter, label: 'Filter' },
-  { value: DrawInteractionTools.Split, label: 'Split' },
+  ...(SPLIT_VIEW_ENABLED ? [{ value: DrawInteractionTools.Split, label: 'Split' }] : []),
   { value: DrawInteractionTools.SeriesFilter, label: 'Series Filter' },
   { value: DrawInteractionTools.Convert, label: 'Convert' },
   { value: DrawInteractionTools.BarSegment, label: 'Bar Segment' },
@@ -220,6 +224,18 @@ type ParsedOpsJsonInput = {
   warnings: string[]
 }
 
+type ResolvedExecutionStrategy = {
+  groups: OperationSpec[][]
+  groupNames: string[]
+  executionSource: OpsJsonExecutionSource
+  executionMode: 'group' | 'sentence-step'
+  logicalOpsSpec: Record<string, OperationSpec[]>
+  drawPlanGroupMap?: Record<string, OperationSpec[]>
+  executionPlan?: ExecutionPlan
+  visualExecutionPlan?: VisualExecutionPlan
+  warnings: string[]
+}
+
 const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
   const out: Record<string, OperationSpec[]> = {}
   groups.forEach((group) => {
@@ -227,6 +243,82 @@ const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
   })
   if (!Array.isArray(out.ops)) out.ops = []
   return out
+}
+
+const resolveExecutionStrategy = (args: {
+  logicalOpsSpec: Record<string, OperationSpec[]>
+  drawPlanGroupMap?: Record<string, OperationSpec[]>
+  executionPlan?: ExecutionPlan
+  visualExecutionPlan?: VisualExecutionPlan
+  warnings?: string[]
+}): ResolvedExecutionStrategy => {
+  const warnings = [...(args.warnings ?? [])]
+  const logicalGroups = normalizeOpsGroupsForWorkbench(args.logicalOpsSpec)
+  const drawGroups = normalizeOpsGroupsForWorkbench(args.drawPlanGroupMap)
+
+  if (args.visualExecutionPlan?.steps?.length && logicalGroups.length > 0) {
+    const materialized = materializeExecutionGroups({
+      opsSpec: args.logicalOpsSpec,
+      executionPlan: args.executionPlan,
+      visualExecutionPlan: args.visualExecutionPlan,
+    })
+    return {
+      groups: materialized.groups.map((group) => group.ops),
+      groupNames: materialized.groups.map((group) => group.name),
+      executionSource: 'visual_plan',
+      executionMode: materialized.mode,
+      logicalOpsSpec: args.logicalOpsSpec,
+      drawPlanGroupMap: args.drawPlanGroupMap,
+      executionPlan: args.executionPlan,
+      visualExecutionPlan: args.visualExecutionPlan,
+      warnings,
+    }
+  }
+
+  if (args.visualExecutionPlan?.steps?.length) {
+    warnings.push('visual_execution_plan detected without logical ops groups; falling back to draw_plan/group order.')
+  }
+
+  if (drawGroups.length > 0 && args.drawPlanGroupMap) {
+    const materialized = materializeExecutionGroups({
+      opsSpec: args.drawPlanGroupMap,
+      executionPlan: args.executionPlan,
+      visualExecutionPlan: args.visualExecutionPlan,
+      preferDrawGroupNames: true,
+    })
+    return {
+      groups: materialized.groups.map((group) => group.ops),
+      groupNames: materialized.groups.map((group) => group.name),
+      executionSource: 'draw_plan',
+      executionMode: materialized.mode,
+      logicalOpsSpec: args.logicalOpsSpec,
+      drawPlanGroupMap: args.drawPlanGroupMap,
+      executionPlan: args.executionPlan,
+      visualExecutionPlan: args.visualExecutionPlan,
+      warnings,
+    }
+  }
+
+  if (logicalGroups.length === 0) {
+    throw new Error('Ops JSON must include at least one executable group (e.g., "ops", "firstStep").')
+  }
+
+  const materialized = materializeExecutionGroups({
+    opsSpec: args.logicalOpsSpec,
+    executionPlan: args.executionPlan,
+    visualExecutionPlan: args.visualExecutionPlan,
+  })
+  return {
+    groups: materialized.groups.map((group) => group.ops),
+    groupNames: materialized.groups.map((group) => group.name),
+    executionSource: 'ops',
+    executionMode: materialized.mode,
+    logicalOpsSpec: args.logicalOpsSpec,
+    drawPlanGroupMap: args.drawPlanGroupMap,
+    executionPlan: args.executionPlan,
+    visualExecutionPlan: args.visualExecutionPlan,
+    warnings,
+  }
 }
 
 const normalizeRowForCompile = (value: unknown): Record<string, unknown> | null => {
@@ -1270,13 +1362,8 @@ function ChartWorkbenchPage() {
     let visualExecutionPlan = normalizeVisualExecutionPlan(parsedRecord?.visual_execution_plan)
     let drawPlanGroupMap: Record<string, OperationSpec[]> | undefined
 
-    let selectedGroups = topLevelGroups
-    let executionSource: OpsJsonExecutionSource = 'ops'
-    let preferDrawGroupNames = false
-    let drawPlanGroups: Array<{ name: string; ops: OperationSpec[] }> = []
-
     if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'draw_plan')) {
-      drawPlanGroups = normalizeOpsGroupsForWorkbench(parsedRecord.draw_plan)
+      const drawPlanGroups = normalizeOpsGroupsForWorkbench(parsedRecord.draw_plan)
       if (drawPlanGroups.length > 0) {
         drawPlanGroupMap = toGroupMap(drawPlanGroups)
       } else if (topLevelGroups.length > 0) {
@@ -1286,44 +1373,30 @@ function ChartWorkbenchPage() {
       }
     }
 
-    if (visualExecutionPlan?.steps?.length && topLevelGroups.length > 0) {
-      selectedGroups = topLevelGroups
-      executionSource = 'visual_plan'
-    } else if (drawPlanGroups.length > 0) {
-      selectedGroups = drawPlanGroups
-      executionSource = 'draw_plan'
-      preferDrawGroupNames = true
-    } else if (visualExecutionPlan?.steps?.length) {
-      warnings.push('visual_execution_plan detected without logical ops groups; falling back to draw_plan/group order.')
-    }
-
-    if (!selectedGroups.length) {
-      throw new Error('Ops JSON must include at least one executable group (e.g., "ops", "firstStep").')
-    }
-
     if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'execution_plan') && !executionPlan) {
       warnings.push('execution_plan detected but invalid; falling back to group-order execution.')
     }
     if (parsedRecord && Object.prototype.hasOwnProperty.call(parsedRecord, 'visual_execution_plan') && !visualExecutionPlan) {
       warnings.push('visual_execution_plan detected but invalid; execution summary will use execution_plan.')
     }
-    const materialized = materializeExecutionGroups({
-      opsSpec: toGroupMap(selectedGroups),
-      executionPlan,
-      visualExecutionPlan,
-      preferDrawGroupNames,
-    })
-
-    return {
-      groups: materialized.groups.map((group) => group.ops),
-      groupNames: materialized.groups.map((group) => group.name),
-      executionSource,
-      executionMode: materialized.mode,
-      opsSpecGroupMap: topLevelGroupMap,
+    const resolved = resolveExecutionStrategy({
+      logicalOpsSpec: topLevelGroupMap,
       drawPlanGroupMap,
       executionPlan,
       visualExecutionPlan,
       warnings,
+    })
+
+    return {
+      groups: resolved.groups,
+      groupNames: resolved.groupNames,
+      executionSource: resolved.executionSource,
+      executionMode: resolved.executionMode,
+      opsSpecGroupMap: resolved.logicalOpsSpec,
+      drawPlanGroupMap: resolved.drawPlanGroupMap,
+      executionPlan: resolved.executionPlan,
+      visualExecutionPlan: resolved.visualExecutionPlan,
+      warnings: resolved.warnings,
     }
   }, [opsJsonText])
 
@@ -1346,6 +1419,7 @@ function ChartWorkbenchPage() {
 
       try {
         await renderChartDispatch(chartRef.current, parsed)
+        clearSentenceSummaryOverlay(chartRef.current)
         currentSpecRef.current = parsed
         setPendingTextPlacement(null)
         const inferred = getChartType(parsed as VegaLiteSpec)
@@ -1517,54 +1591,23 @@ function ChartWorkbenchPage() {
       const normalizedExecutionPlan = normalizeExecutionPlan(result.executionPlan as unknown)
       const normalizedVisualExecutionPlan = normalizeVisualExecutionPlan(result.visualExecutionPlan as unknown)
       const jsonText = JSON.stringify(nextOpsSpec, null, 2)
-      const semanticMaterialized = normalizedVisualExecutionPlan?.steps?.length
-        ? materializeExecutionGroups({
-            opsSpec: nextOpsSpec,
-            executionPlan: normalizedExecutionPlan,
-            visualExecutionPlan: normalizedVisualExecutionPlan,
-          })
-        : null
-      const drawMaterialized = result.drawPlan && !semanticMaterialized
-        ? materializeExecutionGroups({
-            opsSpec: result.drawPlan,
-            executionPlan: normalizedExecutionPlan,
-            visualExecutionPlan: normalizedVisualExecutionPlan,
-            preferDrawGroupNames: true,
-          })
-        : null
-      const groupNames = semanticMaterialized
-        ? semanticMaterialized.groups.map((group) => group.name)
-        : drawMaterialized
-          ? drawMaterialized.groups.map((group) => group.name)
-          : drawPlanNormalized.length
-          ? drawPlanNormalized.map((group) => group.name)
-          : Object.keys(nextOpsSpec)
+      const strategy = resolveExecutionStrategy({
+        logicalOpsSpec: nextOpsSpec as Record<string, OperationSpec[]>,
+        drawPlanGroupMap: result.drawPlan ? (result.drawPlan as Record<string, OperationSpec[]>) : undefined,
+        executionPlan: normalizedExecutionPlan,
+        visualExecutionPlan: normalizedVisualExecutionPlan,
+      })
+      const groupNames = strategy.groupNames
       const executionSummary =
         summarizeVisualExecutionPlan(normalizedVisualExecutionPlan).length > 0
           ? summarizeVisualExecutionPlan(normalizedVisualExecutionPlan)
           : summarizeExecutionPlan(normalizedExecutionPlan)
 
       handleClearPlan()
-      if (semanticMaterialized) {
-        setPlanGroups(semanticMaterialized.groups.map((group) => group.ops))
-        setOpsJsonExecutionSource('visual_plan')
-        setOpsJsonExecutionMode(semanticMaterialized.mode)
-        setOpsJsonExecutionPlanSummary(executionSummary)
-      } else if (drawMaterialized) {
-        setPlanGroups(drawMaterialized.groups.map((group) => group.ops))
-        setOpsJsonExecutionSource('draw_plan')
-        setOpsJsonExecutionMode(drawMaterialized.mode)
-        setOpsJsonExecutionPlanSummary(executionSummary)
-      } else if (drawPlanNormalized.length) {
-        setPlanGroups(drawPlanNormalized.map((group) => group.ops))
-        setOpsJsonExecutionSource('draw_plan')
-        setOpsJsonExecutionMode('group')
-        setOpsJsonExecutionPlanSummary(executionSummary)
-      } else {
-        setOpsJsonExecutionSource('ops')
-        setOpsJsonExecutionMode('group')
-        setOpsJsonExecutionPlanSummary(executionSummary)
-      }
+      setPlanGroups(strategy.groups)
+      setOpsJsonExecutionSource(strategy.executionSource)
+      setOpsJsonExecutionMode(strategy.executionMode)
+      setOpsJsonExecutionPlanSummary(executionSummary)
       setOpsJsonDrawPlan(result.drawPlan ? (result.drawPlan as Record<string, OperationSpec[]>) : null)
       setOpsJsonLogicalOpsSpec(nextOpsSpec as Record<string, OperationSpec[]>)
       setOpsJsonDataRows(await loadDataRowsForCompile(parsedSpec))
@@ -1577,7 +1620,7 @@ function ChartWorkbenchPage() {
       setOpsJsonGroupNames(groupNames)
       setNlResolvedText(result.resolvedText || text)
       setNlWarnings(result.warnings ?? [])
-      if (semanticMaterialized) {
+      if (strategy.executionSource === 'visual_plan') {
         setNlStatus(
           `Converted ${Object.keys(nextOpsSpec).length} ops group(s), visual plan ${groupNames.length} sentence step(s): ${groupNames.join(', ')}`,
         )
@@ -1681,41 +1724,20 @@ function ChartWorkbenchPage() {
             nextWarnings.push(...(compiled.warnings ?? []))
             const compiledPlan = normalizeExecutionPlan(compiled.executionPlan as unknown)
             const compiledVisualPlan = normalizeVisualExecutionPlan(compiled.visualExecutionPlan as unknown)
-            const semanticMaterialized = compiledVisualPlan?.steps?.length
-              ? materializeExecutionGroups({
-                  opsSpec: compiled.opsSpec,
-                  executionPlan: compiledPlan,
-                  visualExecutionPlan: compiledVisualPlan,
-                })
-              : null
-            const compiledDrawGroups = compiled.drawPlan ? normalizeOpsGroupsForWorkbench(compiled.drawPlan) : []
-            if (semanticMaterialized) {
-              nextGroups = semanticMaterialized.groups.map((group) => group.ops)
-              nextGroupNames = semanticMaterialized.groups.map((group) => group.name)
-              nextExecutionMode = semanticMaterialized.mode
-              nextExecutionSource = 'visual_plan'
-              nextExecutionPlan = compiledPlan
-              nextVisualExecutionPlan = compiledVisualPlan
-              nextDrawPlan = compiled.drawPlan ? (compiled.drawPlan as Record<string, OperationSpec[]>) : null
-              nextLogicalOpsSpec = compiled.opsSpec as Record<string, OperationSpec[]>
-            } else if (compiledDrawGroups.length > 0) {
-              const materialized = materializeExecutionGroups({
-                opsSpec: compiled.drawPlan,
-                executionPlan: compiledPlan,
-                visualExecutionPlan: compiledVisualPlan,
-                preferDrawGroupNames: true,
-              })
-              nextGroups = materialized.groups.map((group) => group.ops)
-              nextGroupNames = materialized.groups.map((group) => group.name)
-              nextExecutionMode = materialized.mode
-              nextExecutionSource = 'draw_plan'
-              nextExecutionPlan = compiledPlan
-              nextVisualExecutionPlan = compiledVisualPlan
-              nextDrawPlan = compiled.drawPlan ? (compiled.drawPlan as Record<string, OperationSpec[]>) : null
-              nextLogicalOpsSpec = compiled.opsSpec as Record<string, OperationSpec[]>
-            } else {
-              nextWarnings.push('compile_ops_plan completed, but draw_plan is empty; using top-level ops execution.')
-            }
+            const strategy = resolveExecutionStrategy({
+              logicalOpsSpec: compiled.opsSpec as Record<string, OperationSpec[]>,
+              drawPlanGroupMap: compiled.drawPlan ? (compiled.drawPlan as Record<string, OperationSpec[]>) : undefined,
+              executionPlan: compiledPlan,
+              visualExecutionPlan: compiledVisualPlan,
+            })
+            nextGroups = strategy.groups
+            nextGroupNames = strategy.groupNames
+            nextExecutionMode = strategy.executionMode
+            nextExecutionSource = strategy.executionSource
+            nextExecutionPlan = strategy.executionPlan
+            nextVisualExecutionPlan = strategy.visualExecutionPlan
+            nextDrawPlan = strategy.drawPlanGroupMap ?? null
+            nextLogicalOpsSpec = strategy.logicalOpsSpec
           } catch (compileError) {
             const detail = compileError instanceof Error ? compileError.message : 'compile_ops_plan failed'
             nextWarnings.push(`compile_ops_plan failed; falling back to top-level ops groups. (${detail})`)
@@ -1873,6 +1895,16 @@ function ChartWorkbenchPage() {
     [renderChart],
   )
 
+  const renderSentenceSummaryForVisualPlayback = useCallback((text: string) => {
+    if (!chartRef.current) return
+    renderSentenceSummaryOverlay(chartRef.current, text)
+  }, [])
+
+  const clearSentenceSummaryForVisualPlayback = useCallback(() => {
+    if (!chartRef.current) return
+    clearSentenceSummaryOverlay(chartRef.current)
+  }, [])
+
   const runVisualSentenceGroup = async (
     groupIndex: number,
     options?: {
@@ -1880,7 +1912,7 @@ function ChartWorkbenchPage() {
     },
   ): Promise<VisualSentencePlaybackResult | null> => {
     if (!chartRef.current) return null
-    if (!opsJsonDrawPlan || !opsJsonVisualExecutionPlanState) return null
+    if (!opsJsonVisualExecutionPlanState || !opsJsonLogicalOpsSpec) return null
     try {
       const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
       const sanitizedVlSpec = sanitizeJsonInput(specString)
@@ -1891,7 +1923,7 @@ function ChartWorkbenchPage() {
         spec: parsedVlSpec,
         dataRows: opsJsonDataRows ?? undefined,
         logicalOpsSpec: opsJsonLogicalOpsSpec ?? undefined,
-        drawPlan: opsJsonDrawPlan,
+        drawPlan: opsJsonDrawPlan ?? undefined,
         executionPlan: opsJsonExecutionPlanState,
         visualExecutionPlan: opsJsonVisualExecutionPlanState,
         stepIndex: groupIndex,
@@ -1899,6 +1931,8 @@ function ChartWorkbenchPage() {
         resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
         renderSourceChart: renderSourceChartForVisualPlayback,
         renderPlaybackChart: renderPlaybackChartForVisualPlayback,
+        renderSentenceSummary: renderSentenceSummaryForVisualPlayback,
+        clearSentenceSummary: clearSentenceSummaryForVisualPlayback,
         runOps: async (ops, runOptions) => {
           await executeOpsArray(ops, runOptions)
         },
@@ -1936,7 +1970,7 @@ function ChartWorkbenchPage() {
 
   const canUseVisualExecutionPlayer =
     opsJsonExecutionSource === 'visual_plan' &&
-    !!opsJsonDrawPlan &&
+    !!opsJsonLogicalOpsSpec &&
     !!opsJsonVisualExecutionPlanState
 
   const handleStartOps = async () => {

@@ -20,7 +20,7 @@ import type { RunChartOpsOptions } from './runChartOps.ts'
 import { convertMultiLineToGroupedBar, convertMultiLineToStackedBar } from '../../rendering/line/multiLineToBarTransforms.ts'
 import { resolveMultiLineEncoding } from '../../rendering/line/multipleLineRenderer.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS } from './drawActionPolicy.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
 
 function toDatumValues(raw: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(raw, { xField, yField })
@@ -33,6 +33,10 @@ async function handleMultipleLineDraw(
   spec: MultiLineSpec,
 ) {
   if (drawOp.action === DrawAction.Split) {
+    if (!SPLIT_VIEW_ENABLED) {
+      console.warn('draw:split is disabled in the active runtime', drawOp)
+      return
+    }
     if (!drawOp.split) {
       console.warn('draw:split requires split spec', drawOp)
       return
@@ -41,6 +45,10 @@ async function handleMultipleLineDraw(
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
+    if (!SPLIT_VIEW_ENABLED) {
+      console.warn('draw:unsplit is disabled in the active runtime', drawOp)
+      return
+    }
     await renderMultipleLineChart(container, spec)
     return
   }
@@ -57,6 +65,7 @@ async function handleMultipleLineDraw(
     await handler.run(drawOp)
     return
   }
+  // Legacy inconsistency: line handlers still use an explicit allow-list until the shared draw dispatch is unified.
   if (
     drawOp.action === DrawAction.Highlight ||
     drawOp.action === DrawAction.Dim ||
