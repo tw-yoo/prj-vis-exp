@@ -14,9 +14,20 @@ import type { GroupedSpec } from '../../rendering/bar/groupedBarRenderer.ts'
 import type { LineSpec } from '../../rendering/line/simpleLineRenderer.ts'
 import type { MultiLineSpec } from '../../rendering/line/multipleLineRenderer.ts'
 import type { OperationCompletedEvent } from '../../application/usecases/runChartOperationsUseCase'
+import { captureSvgSnapshot } from '../../rendering/utils/svgSnapshot.ts'
+import { SnapshotStrip } from '../../rendering/snapshotStrip.ts'
+
+export type GroupCompletedEvent = {
+  groupName: string
+  groupIndex: number
+  svgString: string
+}
 
 export type RunChartOpsOptions = {
   onOperationCompleted?: (event: OperationCompletedEvent) => Promise<void> | void
+  onGroupCompleted?: (event: GroupCompletedEvent) => Promise<void> | void
+  showSnapshotStrip?: boolean
+  snapshotScale?: number
   runtimeScope?: string
   resetRuntime?: boolean
   initialRenderMode?: 'always' | 'reuse-existing'
@@ -62,6 +73,24 @@ export async function runChartOps(
     return runChartOpsForSingleGroup(container, chartType, normalized, opsSpec, options)
   }
 
+  const scale = options?.snapshotScale ?? 0.2
+  let snapshotStrip: SnapshotStrip | undefined
+  if (options?.showSnapshotStrip) {
+    // 재실행 시 기존 strip 제거 후 새로 생성
+    container.querySelector('.snapshot-strip')?.remove()
+    snapshotStrip = new SnapshotStrip(container)
+  }
+
+  const captureAndNotify = async (groupName: string, groupIndex: number) => {
+    const svg = container.querySelector('svg')
+    if (!svg) return
+    const svgString = captureSvgSnapshot(svg as SVGSVGElement)
+    snapshotStrip?.addSnapshot(svgString, scale, groupName)
+    if (options?.onGroupCompleted) {
+      await options.onGroupCompleted({ groupName, groupIndex, svgString })
+    }
+  }
+
   let lastResult: unknown = normalized
   let operationOffset = 0
   for (let index = 0; index < groups.length; index += 1) {
@@ -86,6 +115,10 @@ export async function runChartOps(
           : undefined,
       },
     )
+    // 마지막 그룹 이후에는 스냅샷 불필요 (다음 그룹이 없으므로)
+    if (index < groups.length - 1) {
+      await captureAndNotify(groupName, index)
+    }
     operationOffset += group.ops.length
   }
   return lastResult

@@ -106,6 +106,8 @@ import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
 import { createSceneCaptureWriter } from '../scenes/sceneCapture'
 import { fetchLatestPythonDrawPlan } from '../services/pythonDrawPlan'
+import { SnapshotStrip } from '../../../src/rendering/snapshotStrip'
+import { captureSvgSnapshot } from '../../../src/rendering/utils/svgSnapshot'
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
@@ -717,6 +719,8 @@ function ChartWorkbenchPage() {
   const [captureScenesRunning, setCaptureScenesRunning] = useState(false)
   const opsSessionActiveRef = useRef(false)
   const visualPlaybackSurfaceRef = useRef<VisualSurfaceState>('unknown')
+  const snapshotStripRef = useRef<SnapshotStrip | null>(null)
+  const snapshotsRef = useRef<{ svgString: string; label: string }[]>([])
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
   const [recordQueue, setRecordQueue] = useState<Array<{ id: string; op: OperationSpec }>>([])
   const recordSequenceRef = useRef(0)
@@ -2135,6 +2139,39 @@ function ChartWorkbenchPage() {
     })
   }
 
+  const initSnapshotStrip = () => {
+    // strip은 .chart-host의 부모(.chart-stage)에 붙인다.
+    // .chart-host 내부는 렌더링 시 d3의 selectAll('*').remove()로 전부 삭제되기 때문.
+    snapshotsRef.current = []
+    const stageEl = chartRef.current?.parentElement
+    if (!stageEl || opsGroups.length <= 1) {
+      snapshotStripRef.current = null
+      return
+    }
+    stageEl.querySelector('.snapshot-strip')?.remove()
+    snapshotStripRef.current = new SnapshotStrip(stageEl)
+  }
+
+  const captureCurrentGroupSnapshot = (groupIndex: number) => {
+    if (!snapshotStripRef.current || !chartRef.current) return
+    const svg = chartRef.current.querySelector('svg') as SVGSVGElement | null
+    if (!svg) return
+    const label = opsJsonGroupNames[groupIndex] ?? (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`)
+    const svgString = captureSvgSnapshot(svg)
+    snapshotsRef.current.push({ svgString, label })
+    snapshotStripRef.current.addSnapshot(svgString, 0.2, label)
+  }
+
+  const removeLastSnapshot = () => {
+    if (!snapshotStripRef.current) return
+    snapshotsRef.current.pop()
+    // strip을 스냅샷 배열 기준으로 다시 그림
+    snapshotStripRef.current.clear()
+    snapshotsRef.current.forEach(({ svgString, label }) => {
+      snapshotStripRef.current!.addSnapshot(svgString, 0.2, label)
+    })
+  }
+
   const canUseVisualExecutionPlayer =
     opsJsonExecutionSource === 'visual_plan' &&
     !!opsJsonLogicalOpsSpec &&
@@ -2187,12 +2224,14 @@ function ChartWorkbenchPage() {
   const goToPrevOpsGroup = useCallback(async () => {
     const prevIndex = opsUiGroupIndex - 1
     if (prevIndex < 0) return
+    removeLastSnapshot()
     await enterOpsGroupPreRun(prevIndex)
   }, [enterOpsGroupPreRun, opsUiGroupIndex])
 
   const goToNextOpsGroup = useCallback(async () => {
     const nextIndex = opsUiGroupIndex + 1
     if (nextIndex >= opsGroups.length) return
+    captureCurrentGroupSnapshot(opsUiGroupIndex)
     await enterOpsGroupPreRun(nextIndex)
   }, [enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
 
@@ -2247,6 +2286,7 @@ function ChartWorkbenchPage() {
     void (async () => {
       await resetChartToOpsPreRunState()
       if (cancelled) return
+      initSnapshotStrip()
       setOpsUiSessionActive(true)
       setOpsUiGroupIndex(0)
       setOpsUiGroupPhase('pre-run')
