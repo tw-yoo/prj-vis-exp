@@ -516,12 +516,13 @@ export class BarDrawHandler extends BaseDrawHandler {
     const annotationLayer = this.getLocalAnnotationLayer(scope, op.chartId)
     if (!annotationLayer) return
     annotationLayer.selectAll<SVGTextElement, unknown>('text.sum-value-annotation').remove()
+    const initialY = barTop - 5
     const label = annotationLayer
       .append(SvgElements.Text)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation} sum-value-annotation`)
       .attr(DataAttributes.ChartId, op.chartId ?? null)
       .attr(SvgAttributes.X, targetX + targetWidth / 2)
-      .attr(SvgAttributes.Y, barTop - 5)
+      .attr(SvgAttributes.Y, initialY)
       .attr(SvgAttributes.TextAnchor, 'middle')
       .attr(SvgAttributes.DominantBaseline, 'ideographic')
       .attr(SvgAttributes.Fill, '#111827')
@@ -529,6 +530,11 @@ export class BarDrawHandler extends BaseDrawHandler {
       .attr(SvgAttributes.FontWeight, 'bold')
       .attr(SvgAttributes.Opacity, 0)
       .text(textValue)
+    this.nudgeAndRecordTextBox(
+      label as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+      initialY,
+      op.chartId,
+    )
     this.applyTransition(label).attr(SvgAttributes.Opacity, 1)
   }
 

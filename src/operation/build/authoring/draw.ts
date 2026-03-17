@@ -28,6 +28,7 @@ import type {
   DrawFilterSpecY,
   DrawLineSpecAngle,
   DrawLineSpecConnect,
+  DrawLineSpecDiffBracket,
   DrawLineSpecHorizontalFromY,
   DrawLineSpecNormalized,
   DrawRectSpecAxisX,
@@ -53,6 +54,7 @@ export type {
   DrawFilterSpecY,
   DrawLineSpecAngle,
   DrawLineSpecConnect,
+  DrawLineSpecDiffBracket,
   DrawLineSpecHorizontalFromY,
   DrawLineSpecNormalized,
   DrawRectSpecAxisX,
@@ -217,6 +219,26 @@ export const draw = {
         style,
         arrow,
       } as DrawLineSpecAngle
+    },
+    /**
+     * Draws a vertical bracket at the right edge of the chart showing the difference between
+     * two Y values (e.g. diff between two bars). Renders as:
+     *   - a vertical line at normalizedX with arrowheads at both ends
+     * Pair with `draw.lineSpec.normalized()` leader lines for a full bracket annotation.
+     */
+    diffBracket(
+      startY: number,
+      endY: number,
+      style?: LineStyleArgs,
+      arrow?: DrawArrowSpec,
+      normalizedX?: number,
+    ): DrawLineSpecDiffBracket {
+      return {
+        mode: DrawLineModes.DiffBracket,
+        bracket: { startY, endY, normalizedX },
+        style,
+        arrow,
+      } as DrawLineSpecDiffBracket
     },
   },
 
@@ -475,7 +497,12 @@ function drawSleep(seconds: number, chartId?: string): DrawOp {
 
 function drawLine(
   chartId: string | undefined,
-  lineSpec: DrawLineSpecHorizontalFromY | DrawLineSpecConnect | DrawLineSpecAngle | DrawLineSpecNormalized,
+  lineSpec:
+    | DrawLineSpecHorizontalFromY
+    | DrawLineSpecConnect
+    | DrawLineSpecAngle
+    | DrawLineSpecNormalized
+    | DrawLineSpecDiffBracket,
 ): DrawOp
 /** @deprecated Accepts raw DrawLineSpec. Prefer `draw.lineSpec.*` builders. */
 function drawLine(chartId: string | undefined, lineSpec: DrawLineSpec): DrawOp

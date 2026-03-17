@@ -121,6 +121,12 @@ export type DrawSplitSpecOneAndRest = DrawSplitSpec &
     orientation: NonNullable<DrawSplitSpec['orientation']>
   }
 
+export type DrawLineSpecDiffBracket = DrawLineSpec &
+  Brand<'draw.lineSpec.diffBracket'> & {
+    mode: typeof DrawLineModes.DiffBracket
+    bracket: { startY: number; endY: number; normalizedX?: number }
+  }
+
 export type DrawSegmentSpecThreshold = DrawBarSegmentSpec & Brand<'draw.segmentSpec.threshold'>
 export type DrawSumSpecValue = DrawSumSpec & Brand<'draw.sumSpec.value'>
 export type DrawSumSpecLabel = DrawSumSpec & Brand<'draw.sumSpec.label'>

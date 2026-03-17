@@ -19,6 +19,7 @@ export const DrawLineModes = {
   ConnectPanelScalar: 'connect-panel-scalar',
   HorizontalFromX: 'hline-x',
   HorizontalFromY: 'hline-y',
+  DiffBracket: 'diff-bracket',
 } as const
 
 export type DrawLineMode = (typeof DrawLineModes)[keyof typeof DrawLineModes]

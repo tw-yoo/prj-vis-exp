@@ -70,6 +70,49 @@ const addArrowHead = (
   arrow.transition().duration(MIN_DRAW_DURATION_MS).attr(SvgAttributes.Opacity, opacity)
 }
 
+// ─── Annotation collision-avoidance utilities ─────────────────────────────────
+
+type BoxBounds = { x: number; y: number; width: number; height: number }
+
+/** Returns true if boxes a and b overlap (with optional padding). */
+function overlapsBox(a: BoxBounds, b: BoxBounds, padding = 2): boolean {
+  return (
+    a.x < b.x + b.width + padding &&
+    a.x + a.width + padding > b.x &&
+    a.y < b.y + b.height + padding &&
+    a.y + a.height + padding > b.y
+  )
+}
+
+/**
+ * Greedy minimal-movement nudge: shifts `candidate` vertically by the
+ * smallest amount needed to avoid overlapping any box in `placed`.
+ * Caps total movement at `maxNudge` to preserve semantic meaning.
+ */
+function nudgeToAvoidOverlap(
+  candidate: BoxBounds,
+  placed: BoxBounds[],
+  maxNudge = 40,
+): { dx: number; dy: number } {
+  let totalDy = 0
+  for (let pass = 0; pass < 4; pass++) {
+    const shifted: BoxBounds = { ...candidate, y: candidate.y + totalDy }
+    const blocker = placed.find((p) => overlapsBox(shifted, p))
+    if (!blocker) break
+    const shiftUp = blocker.y - (shifted.y + shifted.height) - 2
+    const shiftDown = blocker.y + blocker.height - shifted.y + 2
+    const delta = Math.abs(shiftUp) <= Math.abs(shiftDown) ? shiftUp : shiftDown
+    totalDy += delta
+    if (Math.abs(totalDy) > maxNudge) {
+      totalDy = Math.sign(totalDy) * maxNudge
+      break
+    }
+  }
+  return { dx: 0, dy: totalDy }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 const drawLineWithArrow = (
   layer: AnySelection,
   chartId: string | undefined,
@@ -158,6 +201,9 @@ function normalizeLineMode(mode: unknown): DrawLineMode | null {
   ) {
     return DrawLineModes.HorizontalFromY
   }
+  if (raw === DrawLineModes.DiffBracket || raw === 'diff-bracket' || raw === 'diffbracket') {
+    return DrawLineModes.DiffBracket
+  }
   return null
 }
 
@@ -222,8 +268,44 @@ function toWrappedLines(label: string, maxCharsPerLine: number, maxLines: number
 export abstract class BaseDrawHandler {
   protected container: HTMLElement
 
+  /**
+   * Tracks bounding boxes of placed text annotations per chartId.
+   * Keyed by chartId (or '' for global). Reset in clearAnnotations().
+   */
+  private _placedAnnotationBoxes = new Map<string, BoxBounds[]>()
+
   constructor(container: HTMLElement) {
     this.container = container
+  }
+
+  /**
+   * After a text node is appended to the SVG, nudge it to avoid overlapping
+   * previously placed annotations, then record its final bounding box.
+   * Returns the final y coordinate used.
+   */
+  protected nudgeAndRecordTextBox(
+    textNode: d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+    y: number,
+    chartId?: string,
+  ): number {
+    const el = textNode.node() as SVGGraphicsElement | null
+    if (!el || typeof el.getBBox !== 'function') return y
+    try {
+      const rawBBox = el.getBBox()
+      if (rawBBox.width === 0) return y
+      const key = chartId ?? ''
+      const placed = this._placedAnnotationBoxes.get(key) ?? []
+      const { dy } = nudgeToAvoidOverlap(rawBBox, placed)
+      const finalY = y + dy
+      if (dy !== 0) {
+        textNode.attr(SvgAttributes.Y, finalY)
+      }
+      placed.push({ x: rawBBox.x, y: rawBBox.y + dy, width: rawBBox.width, height: rawBBox.height })
+      this._placedAnnotationBoxes.set(key, placed)
+      return finalY
+    } catch {
+      return y
+    }
   }
 
   /** Center of an element in SVG coordinates. Falls back to boundingClientRect if CTM is unavailable. */
@@ -949,6 +1031,11 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.Opacity, 0)
           .attr(SvgAttributes.FontFamily, style?.fontFamily ?? null)
           .text(textValue)
+        handler.nudgeAndRecordTextBox(
+          textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+          y,
+          op.chartId,
+        )
         handler.applyTransition(textNode).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
       })
       return
@@ -1003,6 +1090,11 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.FontFamily, style?.fontFamily ?? null)
         .text(textValue)
+      this.nudgeAndRecordTextBox(
+        textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+        y,
+        op.chartId,
+      )
       this.applyTransition(textNode).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
       return
     }
@@ -1879,6 +1971,51 @@ export abstract class BaseDrawHandler {
       }
       drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1: y, x2, y2: y }, annotationKey, annotationNodeId)
     }
+
+    // ─── DiffBracket mode ────────────────────────────────────────────────────
+    // Draws a vertical bracket line at the right edge of the chart, spanning
+    // from bracketSpec.startY to bracketSpec.endY (normalized 0=bottom,1=top).
+    if (mode === DrawLineModes.DiffBracket) {
+      const bracketSpec = lineSpec.bracket
+      if (!bracketSpec) return
+      const viewport = this.resolvePanelViewport(svgNode, op.chartId)
+      const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
+
+      let bracketX: number
+      if (bracketSpec.normalizedX != null) {
+        // Caller specified an exact normalized X — convert to SVG coords.
+        bracketX = viewport.x + clamp01(bracketSpec.normalizedX) * viewport.width
+      } else {
+        // Auto-compute: use the rightmost edge of all visible data marks + padding.
+        const visibleNodes = this.filterDataMarks(
+          scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets),
+        )
+          .nodes()
+          .filter((node) => {
+            const el = node as SVGGraphicsElement
+            const display = (el.getAttribute('display') ?? '').trim().toLowerCase()
+            if (display === 'none') return false
+            if ((el as SVGGraphicsElement).style?.display?.toLowerCase() === 'none') return false
+            const rect = el.getBoundingClientRect()
+            return rect.width > 0 && rect.height > 0
+          })
+        if (!visibleNodes.length) return
+        const svgRect = svgNode.getBoundingClientRect()
+        const viewBoxLocal = svgNode.viewBox?.baseVal
+        const scaleX = viewBoxLocal && svgRect.width > 0 ? viewBoxLocal.width / svgRect.width : 1
+        const vbX = viewBoxLocal?.x ?? 0
+        const marksRight = Math.max(
+          ...visibleNodes.map((n) => vbX + (n.getBoundingClientRect().right - svgRect.left) * scaleX),
+        )
+        bracketX = marksRight + 8
+      }
+
+      const toSvgY = (ny: number) => viewport.y + (1 - clamp01(ny)) * viewport.height
+      const y1 = toSvgY(bracketSpec.startY)
+      const y2 = toSvgY(bracketSpec.endY)
+
+      drawLineWithArrow(layer, op.chartId, lineSpec, { x1: bracketX, y1, x2: bracketX, y2 }, annotationKey, annotationNodeId)
+    }
   }
 
   protected band(op: DrawOp) {
@@ -2344,6 +2481,12 @@ export abstract class BaseDrawHandler {
   }
 
   protected clearAnnotations(chartId?: string) {
+    // Reset collision-avoidance state for the cleared scope.
+    if (!chartId) {
+      this._placedAnnotationBoxes.clear()
+    } else {
+      this._placedAnnotationBoxes.delete(chartId)
+    }
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (!chartId) {
       svg.selectAll(SvgSelectors.Annotation).remove()

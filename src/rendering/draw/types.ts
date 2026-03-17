@@ -103,6 +103,7 @@ export const DrawLineModeOptions = [
   DrawLineModes.ConnectPanelScalar,
   DrawLineModes.HorizontalFromX,
   DrawLineModes.HorizontalFromY,
+  DrawLineModes.DiffBracket,
 ] as const
 
 export const DrawRectModeOptions = [DrawRectModes.Normalized, DrawRectModes.DataPoint, DrawRectModes.Axis] as const
@@ -155,6 +156,18 @@ export type DrawLineSpec = {
   hline?: { x?: string; y?: number }
   angle?: number
   length?: number
+  /**
+   * Used when mode = 'diff-bracket'.
+   * Draws a vertical bracket at the right edge of the chart showing the diff between two Y values.
+   */
+  bracket?: {
+    /** Normalized Y of the lower endpoint (0 = chart bottom, 1 = chart top). */
+    startY: number
+    /** Normalized Y of the upper endpoint. */
+    endY: number
+    /** Normalized X position for the bracket (0–1). If omitted, auto-computed from data mark extents. */
+    normalizedX?: number
+  }
   style?: {
     stroke?: string
     strokeWidth?: number

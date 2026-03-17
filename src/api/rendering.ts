@@ -41,3 +41,6 @@ export async function renderVegaLiteChart(
 
 export { getChartType, normalizeSpec, ChartType }
 export type { VegaLiteSpec, ChartTypeValue }
+
+export { SnapshotStrip } from '../rendering/snapshotStrip'
+export { captureSvgSnapshot } from '../rendering/utils/svgSnapshot'

@@ -106,8 +106,7 @@ import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
 import { createSceneCaptureWriter } from '../scenes/sceneCapture'
 import { fetchLatestPythonDrawPlan } from '../services/pythonDrawPlan'
-import { SnapshotStrip } from '../../../src/rendering/snapshotStrip'
-import { captureSvgSnapshot } from '../../../src/rendering/utils/svgSnapshot'
+import { SnapshotStrip, captureSvgSnapshot } from '../../../src/api/rendering'
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw

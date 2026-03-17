@@ -1,4 +1,5 @@
 import type { DatumValue, OperationSpec, TargetSelector } from '../../../../../types'
+import type { DrawOp } from '../../../../draw/types'
 import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
@@ -12,9 +13,45 @@ type ScalarRefValue = { refKey: string; label: string; value: number; target: st
 type TargetMetric = { value: number; x: number; y: number }
 
 const EMPHASIS_RED = '#ef4444'
+/** Normalized X at which diff bracket lines are drawn (right of chart content). */
+const DIFF_BRACKET_NORM_X = 0.97
 
 function lineAt(value: number, color = '#0ea5e9') {
   return draw.lineSpec.horizontalFromY(value, draw.style.line(color, 2, 0.85))
+}
+
+/**
+ * Builds three draw ops for a right-edge diff bracket annotation:
+ *   1. Horizontal leader from smaller bar's center-X → bracket X
+ *   2. Horizontal leader from larger bar's center-X → bracket X
+ *   3. Vertical bracket line at bracket X with double-headed arrows
+ *
+ * This moves the diff annotation to the right of all bars to avoid overlapping bar labels.
+ */
+function buildDiffBracketOps(
+  chartId: string | undefined,
+  smallerBarNormX: number,
+  largerBarNormX: number,
+  smallerNormY: number,
+  largerNormY: number,
+  color: string,
+): DrawOp[] {
+  return [
+    ops.draw.line(chartId, draw.lineSpec.normalized(
+      smallerBarNormX, smallerNormY, DIFF_BRACKET_NORM_X, smallerNormY,
+      draw.style.line(color, 1, 0.5),
+    )),
+    ops.draw.line(chartId, draw.lineSpec.normalized(
+      largerBarNormX, largerNormY, DIFF_BRACKET_NORM_X, largerNormY,
+      draw.style.line(color, 1, 0.5),
+    )),
+    ops.draw.line(chartId, draw.lineSpec.diffBracket(
+      smallerNormY, largerNormY,
+      draw.style.line(color, 2, 0.95),
+      draw.arrow.both(),
+      DIFF_BRACKET_NORM_X,
+    )),
+  ]
 }
 
 function textScore(value: number | string, label?: string) {
@@ -500,22 +537,25 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
 
     if (maxValue != null && minValue != null && maxValue > minValue) {
       const smallerTarget = Number(valueA) <= Number(valueB) ? pair.a.target : pair.b.target
+      const largerTarget = Number(valueA) <= Number(valueB) ? pair.b.target : pair.a.target
       const smallerMetric = metrics.get(smallerTarget)
-      const startX = smallerMetric?.x
+      const largerMetric = metrics.get(largerTarget)
+      const smallerX = smallerMetric?.x
+      const largerX = largerMetric?.x ?? smallerX
       const startY = smallerMetric?.y ?? inferNormalizedYForValue(minValue, metrics, context.prevWorking)
       const endY = inferNormalizedYForValue(maxValue, metrics, context.prevWorking)
       if (
-        Number.isFinite(startX ?? NaN) &&
+        Number.isFinite(smallerX ?? NaN) &&
         Number.isFinite(startY ?? NaN) &&
         Number.isFinite(endY ?? NaN) &&
         Number(endY) > Number(startY)
       ) {
-        plan.push(
-          ops.draw.line(
-            op.chartId,
-            draw.lineSpec.normalized(Number(startX), Number(startY), Number(startX), Number(endY), draw.style.line(EMPHASIS_RED, 2, 0.95)),
-          ),
-        )
+        plan.push(...buildDiffBracketOps(
+          op.chartId,
+          Number(smallerX), Number(largerX ?? smallerX),
+          Number(startY), Number(endY),
+          EMPHASIS_RED,
+        ))
       }
     }
 
@@ -628,22 +668,25 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
 
     if (maxValue != null && minValue != null && maxValue > minValue) {
       const smallerTarget = Number(valueA) <= Number(valueB) ? pair.a.target : pair.b.target
+      const largerTarget = Number(valueA) <= Number(valueB) ? pair.b.target : pair.a.target
       const smallerMetric = metrics.get(smallerTarget)
-      const startX = smallerMetric?.x
+      const largerMetric = metrics.get(largerTarget)
+      const smallerX = smallerMetric?.x
+      const largerX = largerMetric?.x ?? smallerX
       const startY = smallerMetric?.y ?? inferNormalizedYForValue(minValue, metrics, context.prevWorking)
       const endY = inferNormalizedYForValue(maxValue, metrics, context.prevWorking)
       if (
-        Number.isFinite(startX ?? NaN) &&
+        Number.isFinite(smallerX ?? NaN) &&
         Number.isFinite(startY ?? NaN) &&
         Number.isFinite(endY ?? NaN) &&
         Number(endY) > Number(startY)
       ) {
-        plan.push(
-          ops.draw.line(
-            op.chartId,
-            draw.lineSpec.normalized(Number(startX), Number(startY), Number(startX), Number(endY), draw.style.line(EMPHASIS_RED, 2, 0.95)),
-          ),
-        )
+        plan.push(...buildDiffBracketOps(
+          op.chartId,
+          Number(smallerX), Number(largerX ?? smallerX),
+          Number(startY), Number(endY),
+          EMPHASIS_RED,
+        ))
       }
     }
 
