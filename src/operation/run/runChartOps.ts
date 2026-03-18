@@ -108,7 +108,16 @@ export async function runChartOps(
   const groups = normalizeOpsGroups(opsSpec)
 
   if (groups.length <= 1) {
-    return runChartOpsForSingleGroup(container, chartType, normalized, opsSpec, options)
+    // single-group에서도 split op이 있으면 SurfaceManager로 처리
+    const singleGroup = groups[0]
+    const hasSplitInSingle =
+      SURFACE_SPLIT_ENABLED &&
+      options?.surfaceManager &&
+      singleGroup &&
+      findSplitOpIndex(singleGroup.ops) !== -1
+    if (!hasSplitInSingle) {
+      return runChartOpsForSingleGroup(container, chartType, normalized, opsSpec, options)
+    }
   }
 
   const scale = options?.snapshotScale ?? 0.2
@@ -202,25 +211,24 @@ export async function runChartOps(
         const { surfaceA, surfaceB } = surfaceManager.splitSurface(orientation, { idA, idB })
         isSplit = true
 
-        // split 이후 ops를 각 surface에서 실행
+        // split 이후 ops를 각 surface에서 실행 (post-ops 없어도 기본 차트 렌더)
         const postOps = group.ops.slice(splitIdx + 1)
-        if (postOps.length > 0) {
-          const opsA = filterOpsByChartId(postOps, idA)
-          const opsB = filterOpsByChartId(postOps, idB)
-
-          if (opsA.length > 0) {
-            await runChartOpsForSingleGroup(surfaceA.hostElement, chartType, normalized, { ops: opsA }, {
-              ...groupOpts,
-              initialRenderMode: 'always',
-            })
-          }
-          if (opsB.length > 0) {
-            await runChartOpsForSingleGroup(surfaceB.hostElement, chartType, normalized, { ops: opsB }, {
-              ...groupOpts,
-              initialRenderMode: 'always',
-            })
-          }
-        }
+        const opsA = filterOpsByChartId(postOps, idA)
+        const opsB = filterOpsByChartId(postOps, idB)
+        // surface 자체가 chartId 범위이므로 op에서 chartId 제거
+        const stripChartId = (ops: OperationSpec[]): OperationSpec[] =>
+          ops.map((op) => {
+            const { chartId: _cid, ...rest } = op as OperationSpec & { chartId?: string }
+            return rest as OperationSpec
+          })
+        await runChartOpsForSingleGroup(surfaceA.hostElement, chartType, normalized, { ops: stripChartId(opsA) }, {
+          ...groupOpts,
+          initialRenderMode: 'always',
+        })
+        await runChartOpsForSingleGroup(surfaceB.hostElement, chartType, normalized, { ops: stripChartId(opsB) }, {
+          ...groupOpts,
+          initialRenderMode: 'always',
+        })
 
         operationOffset += group.ops.length
         if (index < groups.length - 1) {

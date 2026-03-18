@@ -114,8 +114,9 @@ export class SurfaceManager {
     const idA = options?.idA ?? 'A'
     const idB = options?.idB ?? 'B'
 
-    // root host는 숨기고 두 개의 새 host element를 생성
-    source.hostElement.style.display = 'none'
+    // root host의 기존 SVG 숨기기 (host 자체는 flex container로 유지)
+    const existingSvg = source.hostElement.querySelector<SVGElement>('svg')
+    if (existingSvg) existingSvg.style.display = 'none'
 
     const hostA = this.createSplitHost(idA)
     const hostB = this.createSplitHost(idB)
@@ -171,9 +172,10 @@ export class SurfaceManager {
       SurfaceManager.hostToSurface.delete(surfaceB.hostElement)
     }
 
-    // root host 복원
+    // root host 복원 (hidden SVG 다시 표시)
     const rootHost = this.ensureRootHost()
-    rootHost.style.display = ''
+    const hiddenSvg = rootHost.querySelector<SVGElement>('svg')
+    if (hiddenSvg) hiddenSvg.style.display = ''
 
     const mergedSurface = this.buildSurface('root', rootHost, mergedSpec, mergedChartType, mergedData)
     this.surfaces.set('root', mergedSurface)
