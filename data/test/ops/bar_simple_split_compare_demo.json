@@ -1,0 +1,153 @@
+{
+  "operationGroups": [
+    {
+      "groupId": "split_demo",
+      "description": "Split data into Asia vs Europe groups, then merge to compare averages",
+      "operations": [
+        {
+          "opId": "split_main",
+          "type": "split",
+          "targetMarks": "all",
+          "config": {
+            "splitKey": "country",
+            "groups": [
+              {
+                "groupId": "asia",
+                "splitIdA": "split_asia",
+                "name": "Asian Countries"
+              },
+              {
+                "groupId": "europe",
+                "splitIdB": "split_europe",
+                "name": "European Countries"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "groupId": "filter_asia",
+      "description": "Filter to show only Asian countries",
+      "operations": [
+        {
+          "opId": "filter_asia",
+          "type": "filter",
+          "targetMarks": "all",
+          "config": {
+            "field": "country",
+            "type": "nominal",
+            "domain": ["JPN", "KOR"],
+            "invert": false
+          }
+        }
+      ],
+      "splitIdA": "split_asia"
+    },
+    {
+      "groupId": "filter_europe",
+      "description": "Filter to show only European countries",
+      "operations": [
+        {
+          "opId": "filter_europe",
+          "type": "filter",
+          "targetMarks": "all",
+          "config": {
+            "field": "country",
+            "type": "nominal",
+            "domain": [
+              "FRA", "DEU", "GBR", "NLD", "BEL", "SWE",
+              "DNK", "CHE", "ITA", "IRL", "FIN", "AUT",
+              "ESP", "NOR", "PRT"
+            ],
+            "invert": false
+          }
+        }
+      ],
+      "splitIdB": "split_europe"
+    },
+    {
+      "groupId": "highlight_asia_avg",
+      "description": "Highlight Asian bars with blue to show lower average (47)",
+      "operations": [
+        {
+          "opId": "highlight_asia_bars",
+          "type": "highlight",
+          "targetMarks": "all",
+          "config": {
+            "color": "steelblue",
+            "opacity": 1.0
+          }
+        }
+      ],
+      "splitIdA": "split_asia"
+    },
+    {
+      "groupId": "highlight_europe_avg",
+      "description": "Highlight European bars with orange to show higher average (59.3)",
+      "operations": [
+        {
+          "opId": "highlight_europe_bars",
+          "type": "highlight",
+          "targetMarks": "all",
+          "config": {
+            "color": "darkorange",
+            "opacity": 1.0
+          }
+        }
+      ],
+      "splitIdB": "split_europe"
+    },
+    {
+      "groupId": "merge_and_compare",
+      "description": "Merge both surfaces and add reference lines for average comparison",
+      "operations": [
+        {
+          "opId": "merge_surfaces",
+          "type": "unsplit",
+          "targetMarks": "all",
+          "config": {}
+        },
+        {
+          "opId": "add_asia_avg_line",
+          "type": "reference-line",
+          "targetMarks": "all",
+          "config": {
+            "value": 47,
+            "color": "steelblue",
+            "opacity": 0.5,
+            "label": "Asia Avg: 47"
+          }
+        },
+        {
+          "opId": "add_europe_avg_line",
+          "type": "reference-line",
+          "targetMarks": "all",
+          "config": {
+            "value": 59.3,
+            "color": "darkorange",
+            "opacity": 0.5,
+            "label": "Europe Avg: 59.3"
+          }
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "title": "Simple Bar: Split & Compare (Asia vs Europe)",
+    "description": "Demonstrates split operation to compare average ratings between Asian and European countries. Split into two surfaces, filter each, apply different highlighting, then merge to show comparison with reference lines.",
+    "chartType": "simple-bar",
+    "expectedOutcome": {
+      "asia": {
+        "countries": ["JPN", "KOR"],
+        "averageRating": 47,
+        "color": "steelblue"
+      },
+      "europe": {
+        "countries": ["FRA", "DEU", "GBR", "NLD", "BEL", "SWE", "DNK", "CHE", "ITA", "IRL", "FIN", "AUT", "ESP", "NOR", "PRT"],
+        "averageRating": 59.3,
+        "color": "darkorange"
+      }
+    }
+  }
+}

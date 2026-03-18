@@ -1,0 +1,63 @@
+{
+  "split_demo": [
+    {
+      "op": "split",
+      "args": {
+        "targetData": [
+          { "country": "JPN", "rating": 42 },
+          { "country": "KOR", "rating": 52 }
+        ],
+        "splitIds": {
+          "left": "split_asia",
+          "right": "split_europe"
+        }
+      }
+    }
+  ],
+  "filter_asia": [
+    {
+      "op": "filter",
+      "args": {
+        "field": "country",
+        "domain": ["JPN", "KOR"]
+      }
+    },
+    {
+      "op": "highlight",
+      "args": {
+        "targetMarks": "all",
+        "color": "steelblue",
+        "fillOpacity": 0.8
+      }
+    }
+  ],
+  "filter_europe": [
+    {
+      "op": "filter",
+      "args": {
+        "field": "country",
+        "domain": [
+          "FRA", "DEU", "GBR", "NLD", "BEL", "SWE",
+          "DNK", "CHE", "ITA", "IRL", "FIN", "AUT",
+          "ESP", "NOR", "PRT"
+        ]
+      }
+    },
+    {
+      "op": "highlight",
+      "args": {
+        "targetMarks": "all",
+        "color": "darkorange",
+        "fillOpacity": 0.8
+      }
+    }
+  ],
+  "merge_and_compare": [
+    {
+      "op": "unsplit",
+      "args": {
+        "targetMarks": "all"
+      }
+    }
+  ]
+}

@@ -14,7 +14,8 @@ export type SentenceSummaryOverlayRenderInput =
       rightControl?: SentenceSummaryOverlayControl
     }
 
-function overlayHost(container: HTMLElement) {
+function overlayHost(container: HTMLElement | null): HTMLElement | null {
+  if (!container) return null
   return container.parentElement ?? container
 }
 
@@ -81,7 +82,8 @@ export function renderSentenceSummaryOverlay(
   applyControl(rightNode, input.rightControl)
 }
 
-export function clearSentenceSummaryOverlay(container: HTMLElement) {
+export function clearSentenceSummaryOverlay(container: HTMLElement | null) {
+  if (!container) return
   const host = overlayHost(container)
-  host.querySelector<HTMLElement>(`[${OVERLAY_ATTR}]`)?.remove()
+  host?.querySelector<HTMLElement>(`[${OVERLAY_ATTR}]`)?.remove()
 }

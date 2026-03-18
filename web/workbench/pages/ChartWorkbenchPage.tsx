@@ -294,7 +294,8 @@ const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
   groups.forEach((group) => {
     out[group.name] = group.ops
   })
-  if (!Array.isArray(out.ops)) out.ops = []
+  // ❌ 제거: 빈 'ops' 배열을 자동 추가하면 그룹 순서가 엉뚱해짐
+  // 사용자 정의 그룹이 있으면, 'ops' 키를 강제로 추가하지 않음
   return out
 }
 
@@ -1853,6 +1854,7 @@ function ChartWorkbenchPage() {
     if (!planGroups && opsInputMode === 'json') {
       try {
         const parsed = parseOpsJsonInput()
+        console.log('[DEBUG] Parsed groups:', { count: parsed.groups.length, names: parsed.groupNames, opsPerGroup: parsed.groups.map((g, i) => ({ name: parsed.groupNames[i], opsCount: g.length, firstOp: g[0] })) })
         let nextGroups = parsed.groups
         let nextGroupNames = parsed.groupNames
         let nextExecutionSource: OpsJsonExecutionSource = parsed.executionSource
@@ -1865,7 +1867,11 @@ function ChartWorkbenchPage() {
         let nextDataRows: Record<string, unknown>[] | null = null
         const nextWarnings = [...parsed.warnings]
 
-        if (parsed.executionSource === 'ops') {
+        const hasNonDrawOps = Object.values(parsed.opsSpecGroupMap ?? {})
+          .flat()
+          .some((op) => (op as { op?: string }).op !== 'draw')
+
+        if (parsed.executionSource === 'ops' && hasNonDrawOps) {
           const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
           const sanitizedVlSpec = sanitizeJsonInput(specString)
           const parsedVlSpec = JSON.parse(sanitizedVlSpec) as VegaLiteSpec
@@ -1923,14 +1929,24 @@ function ChartWorkbenchPage() {
         setOpsJsonExecutionPlanState(nextExecutionPlan)
         setOpsJsonVisualExecutionPlanState(nextVisualExecutionPlan)
         visualPlaybackSurfaceRef.current = 'unknown'
+        console.log('[DEBUG] About to setOpsGroups with', nextGroups.length, 'groups:', nextGroups.map((g, i) => ({ index: i, opsCount: g.length, firstOp: g[0]?.op })))
         setOpsGroups(nextGroups)
         setOpsGroupTextOverrides(nextGroupTextOverrides)
-        await renderSourceChartForVisualPlayback()
+        console.log('[DEBUG] After setOpsGroups, before renderSourceChartForVisualPlayback')
+        try {
+          await renderSourceChartForVisualPlayback()
+          console.log('[DEBUG] renderSourceChartForVisualPlayback succeeded')
+        } catch (renderError) {
+          console.warn('Source chart re-render failed, continuing with ops session:', renderError)
+        }
+        console.log('[DEBUG] About to setOpsUiSessionActive(true)')
         setOpsUiSessionActive(true)
+        console.log('[DEBUG] About to setOpsUiGroupIndex:', nextGroups.length > 0 ? 0 : -1)
         setOpsUiGroupIndex(nextGroups.length > 0 ? 0 : -1)
         setOpsUiGroupPhase('pre-run')
         setOpsUiResolvedText('')
         setOpsUiStartPending(false)
+        console.log('[DEBUG] handleRunOperations completed')
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to parse Ops JSON.'
         setOpsJsonError(message)
@@ -2244,7 +2260,11 @@ function ChartWorkbenchPage() {
   }, [enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
 
   const overlayRenderInput = useMemo<SentenceSummaryOverlayRenderInput | null>(() => {
-    if (!opsUiSessionActive || opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return null
+    console.log('[DEBUG] overlayRenderInput memoized:', { opsUiSessionActive, opsUiGroupIndex, opsGroupsLength: opsGroups.length })
+    if (!opsUiSessionActive || opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) {
+      console.log('[DEBUG] overlayRenderInput returning null because:', { opsUiSessionActive, opsUiGroupIndex, check: opsUiGroupIndex >= opsGroups.length })
+      return null
+    }
 
     const leftControl =
       opsUiGroupPhase === 'post-run'
@@ -2261,6 +2281,7 @@ function ChartWorkbenchPage() {
       rightControl = { label: 'Run', disabled: opsRunning, onClick: () => runCurrentOpsGroup() }
     }
 
+    console.log('[DEBUG] overlayRenderInput returning valid object with rightControl:', rightControl.label)
     return {
       text: opsUiResolvedText,
       leftControl,
@@ -2282,9 +2303,11 @@ function ChartWorkbenchPage() {
   useEffect(() => {
     if (!chartRef.current) return
     if (!overlayRenderInput) {
+      console.log('[DEBUG] useEffect: overlayRenderInput is null, clearing overlay')
       clearSentenceSummaryOverlay(chartRef.current)
       return
     }
+    console.log('[DEBUG] useEffect: rendering overlay with rightControl:', overlayRenderInput.rightControl.label)
     renderSentenceSummaryOverlay(chartRef.current, overlayRenderInput)
   }, [overlayRenderInput])
 
