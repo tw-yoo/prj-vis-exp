@@ -122,7 +122,7 @@ export function makeAverageTextOp(
     chartId,
     undefined,
     draw.textSpec.normalized(
-      `avg: ${formatDrawNumber(value)}`,
+      `Average: ${formatDrawNumber(value)}`,
       x,
       clamp01(inferredY),
       draw.style.text(DEFAULT_TEXT_COLOR, 12, 'bold'),

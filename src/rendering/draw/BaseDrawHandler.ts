@@ -31,6 +31,28 @@ type DrawViewport = {
   layerParent: Element
 }
 
+type MarkPresentationSnapshot = {
+  fill: string | null
+  stroke: string | null
+  opacity: string | null
+}
+
+const MARK_PRESENTATION_SNAPSHOTS = new WeakMap<SVGElement, MarkPresentationSnapshot>()
+
+function normalizeBandLabel(value: string | number) {
+  const raw = String(value).trim()
+  if (!raw) return []
+  const variants = new Set<string>([raw])
+  const parsed = Date.parse(raw)
+  if (Number.isFinite(parsed)) {
+    const iso = new Date(parsed).toISOString()
+    variants.add(iso)
+    variants.add(iso.slice(0, 10))
+    variants.add(iso.slice(0, 4))
+  }
+  return Array.from(variants)
+}
+
 const addArrowHead = (
   layer: AnySelection,
   tipX: number,
@@ -885,11 +907,39 @@ export abstract class BaseDrawHandler {
     return d3.scaleLinear().domain([domainMin, domainMax]).nice().range([range.bottom, range.top])
   }
 
+  protected rememberMarkPresentation(selection: d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>) {
+    selection.each(function () {
+      const node = this as SVGElement
+      if (MARK_PRESENTATION_SNAPSHOTS.has(node)) return
+      MARK_PRESENTATION_SNAPSHOTS.set(node, {
+        fill: node.getAttribute(SvgAttributes.Fill),
+        stroke: node.getAttribute(SvgAttributes.Stroke),
+        opacity: node.getAttribute(SvgAttributes.Opacity),
+      })
+    })
+  }
+
+  protected restoreMarkPresentation(selection: d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>) {
+    selection.each(function () {
+      const node = this as SVGElement
+      const snapshot = MARK_PRESENTATION_SNAPSHOTS.get(node)
+      if (!snapshot) return
+      const el = d3.select(node)
+      if (snapshot.fill == null) el.attr(SvgAttributes.Fill, null)
+      else el.attr(SvgAttributes.Fill, snapshot.fill)
+      if (snapshot.stroke == null) el.attr(SvgAttributes.Stroke, null)
+      else el.attr(SvgAttributes.Stroke, snapshot.stroke)
+      if (snapshot.opacity == null) el.attr(SvgAttributes.Opacity, null)
+      else el.attr(SvgAttributes.Opacity, snapshot.opacity)
+      MARK_PRESENTATION_SNAPSHOTS.delete(node)
+    })
+  }
+
   clear(chartId?: string) {
     // Non-split clear should only reset annotations to avoid visual flicker.
     const marks = this.allMarks(chartId)
     marks.interrupt()
-    marks.attr(SvgAttributes.Opacity, 1)
+    this.restoreMarkPresentation(marks)
     this.clearAnnotations(chartId)
   }
 
@@ -909,6 +959,7 @@ export abstract class BaseDrawHandler {
       return
     }
     selected.interrupt()
+    this.rememberMarkPresentation(selected)
     selected.each(function () {
       const node = this as SVGElement
       const el = d3.select(node)
@@ -945,6 +996,7 @@ export abstract class BaseDrawHandler {
     const all = this.allMarks(op.chartId)
     this.logSelectionDebug('dim:all', op, all)
     all.interrupt()
+    this.rememberMarkPresentation(all)
     const selectedNodes = new Set(selected.nodes())
     all.attr(SvgAttributes.Opacity, function () {
       return selectedNodes.has(this as SVGElement) ? 1 : opacity
@@ -2046,18 +2098,47 @@ export abstract class BaseDrawHandler {
       const ticks = scope.selectAll<SVGGElement, JsonValue>(SvgSelectors.XAxisTicks)
       const svgRect = svgNode.getBoundingClientRect()
       const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+      const positionsByLabel = new Map<string, number>()
       const positions: Array<{ label: string; x: number }> = []
       ticks.each(function () {
         const tick = this as SVGGElement
         const text = tick.querySelector('text')?.textContent?.trim()
         if (!text) return
         const bbox = tick.getBoundingClientRect()
-        positions.push({
-          label: text,
-          x: (viewBox?.x ?? 0) + (bbox.left - svgRect.left + bbox.width / 2) * scaleX,
-        })
+        const x = (viewBox?.x ?? 0) + (bbox.left - svgRect.left + bbox.width / 2) * scaleX
+        positions.push({ label: text, x })
+        normalizeBandLabel(text).forEach((variant) => positionsByLabel.set(variant, x))
       })
-      const resolveX = (label: string | number) => positions.find((p) => p.label === String(label))?.x ?? null
+      if (!positions.length) {
+        scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).each((_, index, nodes) => {
+          const node = nodes[index] as SVGElement
+          const label = node.getAttribute(DataAttributes.Target) ?? node.getAttribute(DataAttributes.Id)
+          if (!label) return
+          const center = this.toSvgCenter(node, svgNode)
+          if (!Number.isFinite(center.x)) return
+          positions.push({ label, x: center.x })
+          normalizeBandLabel(label).forEach((variant) => positionsByLabel.set(variant, center.x))
+        })
+      } else {
+        scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).each((_, index, nodes) => {
+          const node = nodes[index] as SVGElement
+          const label = node.getAttribute(DataAttributes.Target) ?? node.getAttribute(DataAttributes.Id)
+          if (!label) return
+          if (normalizeBandLabel(label).some((variant) => positionsByLabel.has(variant))) return
+          const center = this.toSvgCenter(node, svgNode)
+          if (!Number.isFinite(center.x)) return
+          positions.push({ label, x: center.x })
+          normalizeBandLabel(label).forEach((variant) => positionsByLabel.set(variant, center.x))
+        })
+      }
+      const resolveX = (label: string | number) => {
+        const normalized = normalizeBandLabel(label)
+        for (const variant of normalized) {
+          const x = positionsByLabel.get(variant)
+          if (x != null) return x
+        }
+        return positions.find((p) => normalizeBandLabel(p.label).includes(String(label)))?.x ?? null
+      }
       const xStart = resolveX(start)
       const xEnd = resolveX(end)
       if (xStart == null || xEnd == null) return

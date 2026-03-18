@@ -105,19 +105,7 @@ async function handleMultipleLineDraw(
     await handler.run(drawOp)
     return
   }
-  // Legacy inconsistency: line handlers still use an explicit allow-list until the shared draw dispatch is unified.
-  if (
-    drawOp.action === DrawAction.Highlight ||
-    drawOp.action === DrawAction.Dim ||
-    drawOp.action === DrawAction.Text ||
-    drawOp.action === DrawAction.Rect ||
-    drawOp.action === DrawAction.Line ||
-    drawOp.action === DrawAction.Filter
-  ) {
-    await handler.run(drawOp)
-    return
-  }
-  console.warn('draw: unsupported action for multiple line', drawOp.action)
+  await handler.run(drawOp)
 }
 
 export async function runMultipleLineOps(

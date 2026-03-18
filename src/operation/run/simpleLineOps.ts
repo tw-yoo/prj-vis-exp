@@ -108,14 +108,7 @@ function matchesFilterForRow(row: RawRow, filter: DrawFilterSpec, spec: LineSpec
 }
 
 async function convertLineChartToBars(container: HTMLElement, spec: LineSpec) {
-  const stored = (getSimpleLineStoredData(container) || []) as RawRow[]
-  if (!stored.length) return
-  const barSpec: LineSpec = {
-    ...spec,
-    mark: { type: 'bar', point: false },
-    data: { values: stored.map((row) => ({ ...row })) },
-  }
-  await renderSimpleLineChart(container, barSpec)
+  await convertLineToProperSimpleBar(container, spec)
 }
 
 async function convertLineToProperSimpleBar(
@@ -203,20 +196,7 @@ export async function handleSimpleLineDraw(
     handler.run(drawOp)
     return
   }
-  // Legacy inconsistency: line handlers still use an explicit allow-list until the shared draw dispatch is unified.
-  if (
-    drawOp.action === DrawAction.Highlight ||
-    drawOp.action === DrawAction.Dim ||
-    drawOp.action === DrawAction.LineTrace ||
-    drawOp.action === DrawAction.Text ||
-    drawOp.action === DrawAction.Rect ||
-    drawOp.action === DrawAction.Line ||
-    drawOp.action === DrawAction.Filter
-  ) {
-    await handler.run(drawOp)
-    return
-  }
-  console.warn('draw: unsupported action for simple line', drawOp.action)
+  await handler.run(drawOp)
 }
 
 export async function runSimpleLineOps(

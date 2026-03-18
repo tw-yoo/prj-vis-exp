@@ -703,7 +703,7 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     if (deltaValue != null && maxValue != null) {
       const deltaText = makeAverageTextOp(op.chartId, maxValue, context)
       if (deltaText.text) {
-        deltaText.text.value = `Δ: ${formatDrawNumber(deltaValue)}`
+        deltaText.text.value = `Difference: ${formatDrawNumber(deltaValue)}`
       }
       plan.push(deltaText)
     }
