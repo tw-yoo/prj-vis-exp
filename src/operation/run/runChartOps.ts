@@ -215,11 +215,17 @@ export async function runChartOps(
         const postOps = group.ops.slice(splitIdx + 1)
         const opsA = filterOpsByChartId(postOps, idA)
         const opsB = filterOpsByChartId(postOps, idB)
-        await runChartOpsForSingleGroup(surfaceA.hostElement, chartType, normalized, { ops: opsA }, {
+        // surface 자체가 chartId 범위이므로 op에서 chartId 제거
+        const stripChartId = (ops: OperationSpec[]): OperationSpec[] =>
+          ops.map((op) => {
+            const { chartId: _cid, ...rest } = op as OperationSpec & { chartId?: string }
+            return rest as OperationSpec
+          })
+        await runChartOpsForSingleGroup(surfaceA.hostElement, chartType, normalized, { ops: stripChartId(opsA) }, {
           ...groupOpts,
           initialRenderMode: 'always',
         })
-        await runChartOpsForSingleGroup(surfaceB.hostElement, chartType, normalized, { ops: opsB }, {
+        await runChartOpsForSingleGroup(surfaceB.hostElement, chartType, normalized, { ops: stripChartId(opsB) }, {
           ...groupOpts,
           initialRenderMode: 'always',
         })
