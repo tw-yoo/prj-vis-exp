@@ -228,6 +228,7 @@ function normalizeLinePoints(values: RawDatum[], xField: string, yField: string,
   return points
 }
 
+/** @deprecated SurfaceManager.splitSurface() + renderSimpleLineChart() 조합으로 대체됨. */
 export async function renderSplitSimpleLineChart(
   container: HTMLElement,
   spec: LineSpec,

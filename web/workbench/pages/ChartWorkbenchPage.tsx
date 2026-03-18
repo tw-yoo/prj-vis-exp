@@ -107,6 +107,7 @@ import DrawTimelinePanel from '../components/DrawTimelinePanel'
 import { createSceneCaptureWriter } from '../scenes/sceneCapture'
 import { fetchLatestPythonDrawPlan } from '../services/pythonDrawPlan'
 import { SnapshotStrip, captureSvgSnapshot } from '../../../src/api/rendering'
+import { SurfaceManager } from '../../../src/runtime/surfaceManager'
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
@@ -717,6 +718,7 @@ function ChartWorkbenchPage() {
   const [captureScenesStatus, setCaptureScenesStatus] = useState<string | null>(null)
   const [captureScenesRunning, setCaptureScenesRunning] = useState(false)
   const opsSessionActiveRef = useRef(false)
+  const surfaceManagerRef = useRef<SurfaceManager | null>(null)
   const visualPlaybackSurfaceRef = useRef<VisualSurfaceState>('unknown')
   const snapshotStripRef = useRef<SnapshotStrip | null>(null)
   const snapshotsRef = useRef<{ svgString: string; label: string }[]>([])
@@ -1495,6 +1497,12 @@ function ChartWorkbenchPage() {
         const inferred = getChartType(parsed as VegaLiteSpec)
         setChartType(inferred)
         setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec: parsed as VegaLiteSpec }))
+        // SurfaceManager 초기화: 기존 surfaces 정리 후 root surface 생성
+        if (chartRef.current && inferred) {
+          surfaceManagerRef.current?.cleanupAll()
+          surfaceManagerRef.current = new SurfaceManager(chartRef.current)
+          surfaceManagerRef.current.createRootSurface(parsed as VegaLiteSpec, inferred, [])
+        }
         return inferred
       } catch (error) {
         // Rendering can fail even when JSON is valid (e.g., renderer post-processing/tagging errors).
@@ -2032,6 +2040,7 @@ function ChartWorkbenchPage() {
         runtimeScope,
         resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
         initialRenderMode: 'reuse-existing',
+        surfaceManager: surfaceManagerRef.current ?? undefined,
       })
       opsSessionActiveRef.current = true
     } catch (error) {

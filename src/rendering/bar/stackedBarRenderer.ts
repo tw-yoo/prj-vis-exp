@@ -281,6 +281,7 @@ function writeDatasetAttrs(
     .attr(DataAttributes.ColorField, color?.field ?? null)
 }
 
+/** @deprecated SurfaceManager.splitSurface() + renderStackedBarChart() 조합으로 대체됨. */
 export async function renderSplitStackedBarChart(container: HTMLElement, spec: StackedSpec, split: DrawSplitSpec) {
   const renderEpoch = bumpRenderEpoch(container)
   const data = localDataStore.get(container) || []

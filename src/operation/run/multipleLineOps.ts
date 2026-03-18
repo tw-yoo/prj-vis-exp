@@ -20,7 +20,7 @@ import type { RunChartOpsOptions } from './runChartOps.ts'
 import { convertMultiLineToGroupedBar, convertMultiLineToStackedBar } from '../../rendering/line/multiLineToBarTransforms.ts'
 import { resolveMultiLineEncoding } from '../../rendering/line/multipleLineRenderer.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 import { convertMultiLineToSimpleLine } from '../../rendering/line/multiLineToSimpleLineTransform.ts'
 import { handleSimpleLineDraw } from './simpleLineOps.ts'
 import { SimpleLineDrawHandler } from '../../rendering/draw/line/SimpleLineDrawHandler.ts'
@@ -71,8 +71,9 @@ async function handleMultipleLineDraw(
   }
 
   if (drawOp.action === DrawAction.Split) {
-    if (!SPLIT_VIEW_ENABLED) {
-      console.warn('draw:split is disabled in the active runtime', drawOp)
+    if (SURFACE_SPLIT_ENABLED) {
+      // SurfaceManager 기반 split은 runChartOps 레벨에서 처리됨
+      console.debug('draw:split handled at runChartOps level', drawOp)
       return
     }
     if (!drawOp.split) {
@@ -83,8 +84,9 @@ async function handleMultipleLineDraw(
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
-    if (!SPLIT_VIEW_ENABLED) {
-      console.warn('draw:unsplit is disabled in the active runtime', drawOp)
+    if (SURFACE_SPLIT_ENABLED) {
+      // SurfaceManager 기반 unsplit은 runChartOps 레벨에서 처리됨
+      console.debug('draw:unsplit handled at runChartOps level', drawOp)
       return
     }
     await renderMultipleLineChart(container, spec)

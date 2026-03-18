@@ -1,7 +1,10 @@
 import { DrawAction, type DrawAction as DrawActionValue } from '../../rendering/draw/types'
 
-// Split/unsplit remains available behind an explicit legacy flag and is not part of the active NLP linear flow.
-export const SPLIT_VIEW_ENABLED = false
+// Split/unsplit is enabled; SurfaceManager-based split is handled at runChartOps level.
+export const SPLIT_VIEW_ENABLED = true
+
+/** When true, split is handled by SurfaceManager at runChartOps level (not per-ops-runner). */
+export const SURFACE_SPLIT_ENABLED = true
 
 const ACTIVE_SPLIT_DRAW_ACTIONS = SPLIT_VIEW_ENABLED
   ? ([DrawAction.Split, DrawAction.Unsplit] satisfies DrawActionValue[])

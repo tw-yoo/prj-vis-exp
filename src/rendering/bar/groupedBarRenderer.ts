@@ -304,6 +304,7 @@ function writeDatasetAttrs(
     .attr(DataAttributes.ColorField, color?.field ?? null)
 }
 
+/** @deprecated SurfaceManager.splitSurface() + renderGroupedBarChart() 조합으로 대체됨. */
 export async function renderSplitGroupedBarChart(container: HTMLElement, spec: GroupedSpec, split: DrawSplitSpec) {
   const renderEpoch = bumpRenderEpoch(container)
   const data = localDataStore.get(container) || []

@@ -19,7 +19,7 @@ import { runSimpleLineDrawPlan } from '../../rendering/ops/executor/runSimpleLin
 import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/simple/simpleLineAutoDrawPlanBuilder.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS, SPLIT_VIEW_ENABLED } from './drawActionPolicy.ts'
+import { LEGACY_SPLIT_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 import { renderSimpleBarChart, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer.ts'
 import { SimpleBarDrawHandler } from '../../rendering/draw/bar/SimpleBarDrawHandler.ts'
 import { storeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
@@ -159,8 +159,9 @@ export async function handleSimpleLineDraw(
   spec: LineSpec,
 ) {
   if (drawOp.action === DrawAction.Split) {
-    if (!SPLIT_VIEW_ENABLED) {
-      console.warn('draw:split is disabled in the active runtime', drawOp)
+    if (SURFACE_SPLIT_ENABLED) {
+      // SurfaceManager 기반 split은 runChartOps 레벨에서 처리됨
+      console.debug('draw:split handled at runChartOps level', drawOp)
       return
     }
     if (!drawOp.split) {
@@ -171,8 +172,9 @@ export async function handleSimpleLineDraw(
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
-    if (!SPLIT_VIEW_ENABLED) {
-      console.warn('draw:unsplit is disabled in the active runtime', drawOp)
+    if (SURFACE_SPLIT_ENABLED) {
+      // SurfaceManager 기반 unsplit은 runChartOps 레벨에서 처리됨
+      console.debug('draw:unsplit handled at runChartOps level', drawOp)
       return
     }
     await renderSimpleLineChart(container, spec)

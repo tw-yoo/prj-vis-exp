@@ -291,6 +291,7 @@ function normalizeMultiLinePoints(values: RawDatum[], encoding: ResolvedMultiLin
   return points
 }
 
+/** @deprecated SurfaceManager.splitSurface() + renderMultipleLineChart() 조합으로 대체됨. */
 export async function renderSplitMultipleLineChart(
   container: HTMLElement,
   spec: MultiLineSpec,

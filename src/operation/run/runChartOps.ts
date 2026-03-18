@@ -17,6 +17,11 @@ import type { OperationCompletedEvent } from '../../application/usecases/runChar
 import { captureSvgSnapshot } from '../../rendering/utils/svgSnapshot.ts'
 import { SnapshotStrip } from '../../rendering/snapshotStrip.ts'
 import { consumeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
+import { DrawAction } from '../../rendering/draw/types.ts'
+import type { DrawOp, DrawSplitSpec } from '../../rendering/draw/types.ts'
+import type { DatumValue, OperationSpec } from '../../domain/operation/types/index.ts'
+import type { SurfaceManager } from '../../runtime/surfaceManager.ts'
+import { SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 
 export type GroupCompletedEvent = {
   groupName: string
@@ -32,7 +37,39 @@ export type RunChartOpsOptions = {
   runtimeScope?: string
   resetRuntime?: boolean
   initialRenderMode?: 'always' | 'reuse-existing'
+  surfaceManager?: SurfaceManager
 }
+
+// ─── split helpers ────────────────────────────────────────────────────────────
+
+function findSplitOpIndex(ops: OperationSpec[]): number {
+  return ops.findIndex(
+    (op) => op.op === 'draw' && (op as { action?: string }).action === DrawAction.Split,
+  )
+}
+
+function getSplitSurfaceData(
+  split: DrawSplitSpec,
+  workingData: DatumValue[],
+): { idA: string; idB: string; dataA: DatumValue[]; dataB: DatumValue[] } {
+  const groupEntries = Object.entries(split.groups ?? {})
+  const idA = groupEntries[0]?.[0] ?? 'A'
+  const idB = groupEntries[1]?.[0] ?? 'B'
+  const domainA = new Set((groupEntries[0]?.[1] ?? []).map(String))
+  const domainB = new Set((groupEntries[1]?.[1] ?? []).map(String))
+  const dataA = domainA.size > 0 ? workingData.filter((d) => domainA.has(String(d.target))) : workingData
+  const dataB = domainB.size > 0 ? workingData.filter((d) => domainB.has(String(d.target))) : workingData
+  return { idA, idB, dataA, dataB }
+}
+
+function filterOpsByChartId(ops: OperationSpec[], chartId: string): OperationSpec[] {
+  return ops.filter((op) => {
+    const cid = (op as { chartId?: string }).chartId
+    return cid === undefined || cid === null || cid === chartId
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function runChartOpsForSingleGroup(
   container: HTMLElement,
@@ -94,28 +131,141 @@ export async function runChartOps(
 
   let lastResult: unknown = normalized
   let operationOffset = 0
+  const surfaceManager = options?.surfaceManager
+  let isSplit = false
+  let splitIdA = 'A'
+  let splitIdB = 'B'
+
   for (let index = 0; index < groups.length; index += 1) {
     const group = groups[index]
     const groupName = group.name || `ops${index + 1}`
-    lastResult = await runChartOpsForSingleGroup(
-      container,
-      chartType,
-      normalized,
-      group.ops,
-      {
-        ...options,
-        runtimeScope: groupName,
-        resetRuntime: index === 0 ? options?.resetRuntime ?? true : false,
-        onOperationCompleted: options?.onOperationCompleted
-          ? async (event) => {
-              await options.onOperationCompleted?.({
-                ...event,
-                operationIndex: operationOffset + event.operationIndex,
+    const groupOpts = {
+      ...options,
+      runtimeScope: groupName,
+      resetRuntime: index === 0 ? options?.resetRuntime ?? true : false,
+      onOperationCompleted: options?.onOperationCompleted
+        ? async (event: OperationCompletedEvent) => {
+            await options.onOperationCompleted?.({
+              ...event,
+              operationIndex: operationOffset + event.operationIndex,
+            })
+          }
+        : undefined,
+    }
+
+    // ── SurfaceManager split handling ────────────────────────────────────────
+    if (SURFACE_SPLIT_ENABLED && surfaceManager) {
+      const currentLayout = surfaceManager.getLayout()
+
+      // Check if this group has an Unsplit op
+      const hasUnsplit = group.ops.some(
+        (op) => op.op === 'draw' && (op as { action?: string }).action === DrawAction.Unsplit,
+      )
+      if (hasUnsplit && isSplit) {
+        const layout = surfaceManager.getLayout()
+        if (layout && layout.type !== 'single') {
+          surfaceManager.mergeSurfaces(splitIdA, splitIdB, normalized, chartType ?? ChartType.SIMPLE_BAR, [])
+          isSplit = false
+        }
+        lastResult = normalized
+        operationOffset += group.ops.length
+        if (index < groups.length - 1) {
+          await captureAndNotify(groupName, index)
+        }
+        continue
+      }
+
+      // Split op 감지
+      const splitIdx = findSplitOpIndex(group.ops)
+      if (splitIdx !== -1 && (!isSplit || (currentLayout && currentLayout.type === 'single'))) {
+        const splitOp = group.ops[splitIdx] as DrawOp
+        const splitSpec = splitOp.split as DrawSplitSpec | undefined
+        const orientation = splitSpec?.orientation === 'vertical' ? 'vertical' : 'horizontal'
+
+        // split 이전 ops 실행
+        if (splitIdx > 0) {
+          const preOps = group.ops.slice(0, splitIdx)
+          lastResult = await runChartOpsForSingleGroup(container, chartType, normalized, { ops: preOps }, groupOpts)
+          const derived = consumeDerivedChartState(container)
+          if (derived) {
+            chartType = derived.chartType
+            normalized = derived.spec
+          }
+        }
+
+        // surfaceManager.splitSurface 호출
+        const workingData: DatumValue[] = []
+        const { idA, idB } = splitSpec ? getSplitSurfaceData(splitSpec, workingData) : { idA: 'A', idB: 'B' }
+        splitIdA = idA
+        splitIdB = idB
+
+        const { surfaceA, surfaceB } = surfaceManager.splitSurface(orientation, { idA, idB })
+        isSplit = true
+
+        // split 이후 ops를 각 surface에서 실행
+        const postOps = group.ops.slice(splitIdx + 1)
+        if (postOps.length > 0) {
+          const opsA = filterOpsByChartId(postOps, idA)
+          const opsB = filterOpsByChartId(postOps, idB)
+
+          if (opsA.length > 0) {
+            await runChartOpsForSingleGroup(surfaceA.hostElement, chartType, normalized, { ops: opsA }, {
+              ...groupOpts,
+              initialRenderMode: 'always',
+            })
+          }
+          if (opsB.length > 0) {
+            await runChartOpsForSingleGroup(surfaceB.hostElement, chartType, normalized, { ops: opsB }, {
+              ...groupOpts,
+              initialRenderMode: 'always',
+            })
+          }
+        }
+
+        operationOffset += group.ops.length
+        if (index < groups.length - 1) {
+          await captureAndNotify(groupName, index)
+        }
+        continue
+      }
+
+      // 이미 split 상태인 경우: chartId별로 각 surface에서 실행
+      if (isSplit) {
+        const layout = surfaceManager.getLayout()
+        if (layout && layout.type !== 'single') {
+          const surfaceA = surfaceManager.getSurface(splitIdA)
+          const surfaceB = surfaceManager.getSurface(splitIdB)
+
+          if (surfaceA) {
+            const opsA = filterOpsByChartId(group.ops, splitIdA)
+            if (opsA.length > 0) {
+              await runChartOpsForSingleGroup(surfaceA.hostElement, chartType, normalized, { ops: opsA }, {
+                ...groupOpts,
+                initialRenderMode: 'reuse-existing',
               })
             }
-          : undefined,
-      },
-    )
+          }
+          if (surfaceB) {
+            const opsB = filterOpsByChartId(group.ops, splitIdB)
+            if (opsB.length > 0) {
+              await runChartOpsForSingleGroup(surfaceB.hostElement, chartType, normalized, { ops: opsB }, {
+                ...groupOpts,
+                initialRenderMode: 'reuse-existing',
+              })
+            }
+          }
+
+          operationOffset += group.ops.length
+          if (index < groups.length - 1) {
+            await captureAndNotify(groupName, index)
+          }
+          continue
+        }
+      }
+    }
+    // ── end SurfaceManager split handling ─────────────────────────────────────
+
+    lastResult = await runChartOpsForSingleGroup(container, chartType, normalized, group.ops, groupOpts)
     // After each group, consume any derived chart state (e.g. from stacked/grouped/multi-line → simple conversions)
     const derived = consumeDerivedChartState(container)
     if (derived) {

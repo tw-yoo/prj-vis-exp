@@ -399,6 +399,12 @@ export async function renderSumSimpleBarChart(
   })
 }
 
+/**
+ * @deprecated SurfaceManager 기반 split이 도입됨에 따라 이 함수는 사용되지 않는다.
+ * 대신 SurfaceManager.splitSurface()를 통해 두 개의 독립 hostElement를 만들고
+ * 각각에 renderSimpleBarChart()를 호출하는 방식을 사용한다.
+ * (src/runtime/surfaceManager.ts 참조)
+ */
 export async function renderSplitSimpleBarChart(container: HTMLElement, spec: SimpleBarSpec, split: DrawSplitSpec) {
   const renderEpoch = bumpRenderEpoch(container)
   const data = localDataStore.get(container) || []
