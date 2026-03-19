@@ -769,6 +769,9 @@ function ChartWorkbenchPage() {
   const visualPlaybackSnapshotsRef = useRef<Map<number, SurfaceGraphPlaybackSnapshot>>(new Map())
   // Snapshot strip: React state로 관리 (DOM 조작 대신 선언적 렌더링)
   const [svgSnapshots, setSvgSnapshots] = useState<{ svgString: string; label: string }[]>([])
+  // Split 레이아웃 변경 감지용 refs
+  const prevLayoutTypeRef = useRef<'single' | 'split-horizontal' | 'split-vertical'>('single')
+  const layoutChangedThisGroupRef = useRef(false)
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
   const [recordQueue, setRecordQueue] = useState<Array<{ id: string; op: OperationSpec }>>([])
   const recordSequenceRef = useRef(0)
@@ -2498,16 +2501,33 @@ function ChartWorkbenchPage() {
   // snapshot strip 초기화: React state 리셋만 하면 됨 (DOM 조작 불필요)
   const initSnapshotStrip = useCallback(() => {
     setSvgSnapshots([])
+    layoutChangedThisGroupRef.current = false
   }, [])
 
   const captureCurrentGroupSnapshot = useCallback(
     (groupIndex: number) => {
       if (!chartRef.current) return
-      const svg = chartRef.current.querySelector('svg') as SVGSVGElement | null
-      if (!svg) return
       const label = opsJsonGroupNames[groupIndex] ?? (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`)
-      const svgString = captureSvgSnapshot(svg)
-      setSvgSnapshots((prev) => [...prev, { svgString, label }])
+      const layout = surfaceManagerRef.current?.getLayout()
+
+      if (layout && layout.type !== 'single') {
+        // Split view: 두 패널을 composite 이미지로 합쳐 저장
+        const activeSurfaces = surfaceManagerRef.current!
+          .getActiveSurfaces()
+          .filter((s) => s.id !== 'root')
+        const svgEls = activeSurfaces
+          .map((s) => (s.hostElement as HTMLElement).querySelector('svg') as SVGSVGElement | null)
+          .filter((s): s is SVGSVGElement => s !== null)
+        if (svgEls.length === 0) return
+        const direction = layout.type === 'split-vertical' ? 'vertical' : 'horizontal'
+        const combined = combineSvgElements(svgEls, direction)
+        setSvgSnapshots((prev) => [...prev, { svgString: combined, label }])
+      } else {
+        // Single view: 기존 동작
+        const svg = chartRef.current.querySelector('svg') as SVGSVGElement | null
+        if (!svg) return
+        setSvgSnapshots((prev) => [...prev, { svgString: captureSvgSnapshot(svg), label }])
+      }
     },
     [opsJsonGroupNames],
   )
@@ -2560,6 +2580,11 @@ function ChartWorkbenchPage() {
 
   const runCurrentOpsGroup = useCallback(async () => {
     if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
+
+    // 실행 전 레이아웃 기록 + 플래그 초기화
+    prevLayoutTypeRef.current = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
+    layoutChangedThisGroupRef.current = false
+
     if (canUseVisualExecutionPlayer) {
       await runVisualSentenceGroup(opsUiGroupIndex, { resetRuntime: true })
     } else {
@@ -2568,9 +2593,18 @@ function ChartWorkbenchPage() {
         runtimeScope: opsJsonGroupNames[opsUiGroupIndex] || (opsUiGroupIndex === 0 ? 'ops' : `ops${opsUiGroupIndex + 1}`),
       })
     }
+
+    // 실행 후 레이아웃 비교 — split 구조 변경 시 자동 스냅샷
+    const layoutAfter = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
+    if (prevLayoutTypeRef.current !== layoutAfter) {
+      captureCurrentGroupSnapshot(opsUiGroupIndex)
+      layoutChangedThisGroupRef.current = true
+    }
+
     setOpsUiGroupPhase('post-run')
   }, [
     canUseVisualExecutionPlayer,
+    captureCurrentGroupSnapshot,
     opsGroups.length,
     opsJsonGroupNames,
     opsUiGroupIndex,
@@ -2588,6 +2622,7 @@ function ChartWorkbenchPage() {
   const goToPrevOpsGroup = useCallback(async () => {
     const prevIndex = opsUiGroupIndex - 1
     if (prevIndex < 0) return
+    layoutChangedThisGroupRef.current = false
     removeLastSnapshot()
     await enterOpsGroupPreRun(prevIndex)
   }, [enterOpsGroupPreRun, opsUiGroupIndex, removeLastSnapshot])
@@ -2595,7 +2630,11 @@ function ChartWorkbenchPage() {
   const goToNextOpsGroup = useCallback(async () => {
     const nextIndex = opsUiGroupIndex + 1
     if (nextIndex >= opsGroups.length) return
-    captureCurrentGroupSnapshot(opsUiGroupIndex)
+    // layout 변경으로 이미 자동 스냅샷이 저장됐으면 중복 캡처 생략
+    if (!layoutChangedThisGroupRef.current) {
+      captureCurrentGroupSnapshot(opsUiGroupIndex)
+    }
+    layoutChangedThisGroupRef.current = false
     await enterOpsGroupPreRun(nextIndex)
   }, [captureCurrentGroupSnapshot, enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
 
@@ -3720,4 +3759,57 @@ function SnapshotThumbnail({ svgString, label, scale = 0.2 }: { svgString: strin
       {label && <span style={{ fontSize: 10, color: '#666', marginTop: 4 }}>{label}</span>}
     </div>
   )
+}
+
+// ---------------------------------------------------------------------------
+// combineSvgElements: 여러 SVGElement를 하나의 composite SVG 문자열로 합침
+// split view 스냅샷 캡처에 사용
+// ---------------------------------------------------------------------------
+function combineSvgElements(svgEls: SVGSVGElement[], direction: 'horizontal' | 'vertical'): string {
+  const dims = svgEls.map((el) => {
+    const vb = el.getAttribute('viewBox')?.split(/\s+/)
+    return {
+      w: parseFloat(el.getAttribute('width') ?? vb?.[2] ?? '400'),
+      h: parseFloat(el.getAttribute('height') ?? vb?.[3] ?? '300'),
+    }
+  })
+
+  const GAP = 8
+  const totalW =
+    direction === 'horizontal'
+      ? dims.reduce((s, d, i) => s + d.w + (i > 0 ? GAP : 0), 0)
+      : Math.max(...dims.map((d) => d.w))
+  const totalH =
+    direction === 'vertical'
+      ? dims.reduce((s, d, i) => s + d.h + (i > 0 ? GAP : 0), 0)
+      : Math.max(...dims.map((d) => d.h))
+
+  const ns = 'http://www.w3.org/2000/svg'
+  const root = document.createElementNS(ns, 'svg')
+  root.setAttribute('xmlns', ns)
+  root.setAttribute('width', String(totalW))
+  root.setAttribute('height', String(totalH))
+  root.setAttribute('viewBox', `0 0 ${totalW} ${totalH}`)
+
+  // 흰 배경
+  const bg = document.createElementNS(ns, 'rect')
+  bg.setAttribute('x', '0')
+  bg.setAttribute('y', '0')
+  bg.setAttribute('width', String(totalW))
+  bg.setAttribute('height', String(totalH))
+  bg.setAttribute('fill', 'white')
+  root.appendChild(bg)
+
+  let offset = 0
+  svgEls.forEach((el, i) => {
+    const g = document.createElementNS(ns, 'g')
+    const tx = direction === 'horizontal' ? offset : 0
+    const ty = direction === 'vertical' ? offset : 0
+    g.setAttribute('transform', `translate(${tx},${ty})`)
+    Array.from(el.childNodes).forEach((child) => g.appendChild(child.cloneNode(true)))
+    root.appendChild(g)
+    offset += (direction === 'horizontal' ? dims[i].w : dims[i].h) + GAP
+  })
+
+  return new XMLSerializer().serializeToString(root)
 }
