@@ -399,7 +399,9 @@ function normalizeOperandRows(nodeId: string, rows: DatumValue[]) {
       cloned.lookupId = nodeId
       cloned.series = cloned.series ?? cloned.group ?? null
       if (isSyntheticTarget(cloned.target)) {
-        cloned.target = label
+        // Keep a stable internal playback key so synthetic operands with the
+        // same human-readable label do not collapse onto a single x-domain slot.
+        cloned.target = nodeId
       }
       if (!cloned.name || !String(cloned.name).trim()) {
         cloned.name = label
@@ -791,6 +793,13 @@ function buildSurfaceRows(args: {
   return { ok: true, rows: selected, family }
 }
 
+function buildAxisLabelExpr(values: Array<{ target: string; label: string }>) {
+  const labelMap = Object.fromEntries(
+    values.map((value) => [value.target, value.label]),
+  )
+  return `(${JSON.stringify(labelMap)})[datum.value] || datum.label || datum.value`
+}
+
 function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
   const values = rows.map((row, index) => ({
     id: row.id ?? row.lookupId ?? `bar_${index}`,
@@ -799,6 +808,7 @@ function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
     group: row.group ?? row.series ?? null,
     label: typeof row.name === 'string' && row.name.trim().length > 0 ? row.name.trim() : String(row.target),
   }))
+  const axisLabelExpr = buildAxisLabelExpr(values)
   const hasGroups = values.some((row) => row.group != null && String(row.group).trim().length > 0)
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
@@ -808,7 +818,7 @@ function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
     mark: { type: 'bar', cornerRadiusTopLeft: 6, cornerRadiusTopRight: 6 } as unknown as VegaLiteSpec['mark'],
     encoding: hasGroups
       ? ({
-          x: { field: 'target', type: 'nominal', axis: { title: null, labelAngle: 0 } },
+          x: { field: 'target', type: 'nominal', axis: { title: null, labelAngle: 0, labelExpr: axisLabelExpr } },
           y: { field: 'value', type: 'quantitative', axis: { title: null } },
           xOffset: { field: 'group', type: 'nominal' },
           color: { field: 'group', type: 'nominal', legend: { title: null } },
@@ -819,7 +829,7 @@ function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
           ],
         } as unknown as VegaLiteSpec['encoding'])
       : ({
-          x: { field: 'target', type: 'nominal', axis: { title: null, labelAngle: 0 } },
+          x: { field: 'target', type: 'nominal', axis: { title: null, labelAngle: 0, labelExpr: axisLabelExpr } },
           y: { field: 'value', type: 'quantitative', axis: { title: null } },
           tooltip: [
             { field: 'label', type: 'nominal', title: 'Label' },
@@ -842,6 +852,7 @@ function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
     series: row.group ?? row.series ?? null,
     label: typeof row.name === 'string' && row.name.trim().length > 0 ? row.name.trim() : String(row.target),
   }))
+  const axisLabelExpr = buildAxisLabelExpr(values)
   const hasSeries = values.some((row) => row.series != null && String(row.series).trim().length > 0)
   return {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
@@ -851,7 +862,7 @@ function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
     mark: { type: 'line', point: true, strokeWidth: 3 } as unknown as VegaLiteSpec['mark'],
     encoding: hasSeries
       ? ({
-          x: { field: 'target', type: 'ordinal', axis: { title: null, labelAngle: 0 } },
+          x: { field: 'target', type: 'ordinal', axis: { title: null, labelAngle: 0, labelExpr: axisLabelExpr } },
           y: { field: 'value', type: 'quantitative', axis: { title: null } },
           color: { field: 'series', type: 'nominal', legend: { title: null } },
           tooltip: [
@@ -861,7 +872,7 @@ function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
           ],
         } as unknown as VegaLiteSpec['encoding'])
       : ({
-          x: { field: 'target', type: 'ordinal', axis: { title: null, labelAngle: 0 } },
+          x: { field: 'target', type: 'ordinal', axis: { title: null, labelAngle: 0, labelExpr: axisLabelExpr } },
           y: { field: 'value', type: 'quantitative', axis: { title: null } },
           tooltip: [
             { field: 'label', type: 'nominal', title: 'Label' },

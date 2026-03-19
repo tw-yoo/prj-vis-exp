@@ -70,6 +70,7 @@ import {
   type DrawInteractionTool,
   type DrawOp,
   type DrawRectSpec,
+  type DatumValue,
   type NormalizedPoint,
   type OperationSpec,
   type PointerClientPoint,
@@ -101,13 +102,13 @@ import {
   type SentenceSummaryOverlayControl,
   type SentenceSummaryOverlayRenderInput,
 } from '../../../src/api/sentence-summary-overlay'
+import { SurfaceManager } from '../../../src/api/surface-manager'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
 import { createSceneCaptureWriter } from '../scenes/sceneCapture'
 import { fetchLatestPythonDrawPlan } from '../services/pythonDrawPlan'
-import { SnapshotStrip, captureSvgSnapshot } from '../../../src/api/rendering'
-import { SurfaceManager } from '../../../src/runtime/surfaceManager'
+import { SnapshotStrip, captureSvgSnapshot, consumeDerivedChartState } from '../../../src/api/rendering'
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
@@ -288,6 +289,44 @@ type ResolvedExecutionStrategy = {
 }
 
 type OpsUiPhase = 'pre-run' | 'post-run'
+
+type SurfaceSnapshot = {
+  id: string
+  spec: VegaLiteSpec
+  chartType: ChartTypeValue
+  data: DatumValue[]
+}
+
+type SurfaceGraphPlaybackSnapshot = {
+  finalSurface: VisualSurfaceState
+  layoutType: 'single' | 'split-horizontal' | 'split-vertical'
+  rootSurface: SurfaceSnapshot
+  activeSurfaces: SurfaceSnapshot[]
+}
+
+type SurfaceRenderCacheEntry = {
+  signature: string
+  surfaceId?: string
+}
+
+const cloneSpecValue = (spec: VegaLiteSpec): VegaLiteSpec => {
+  try {
+    return structuredClone(spec)
+  } catch {
+    return JSON.parse(JSON.stringify(spec)) as VegaLiteSpec
+  }
+}
+
+const cloneDatumValues = (rows: DatumValue[]): DatumValue[] =>
+  rows.map((row) => ({ ...row }))
+
+const specSignature = (spec: VegaLiteSpec) => {
+  try {
+    return JSON.stringify(spec)
+  } catch {
+    return ''
+  }
+}
 
 const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
   const out: Record<string, OperationSpec[]> = {}
@@ -720,7 +759,10 @@ function ChartWorkbenchPage() {
   const [captureScenesRunning, setCaptureScenesRunning] = useState(false)
   const opsSessionActiveRef = useRef(false)
   const surfaceManagerRef = useRef<SurfaceManager | null>(null)
+  const surfaceRenderCacheRef = useRef<WeakMap<HTMLElement, SurfaceRenderCacheEntry>>(new WeakMap())
   const visualPlaybackSurfaceRef = useRef<VisualSurfaceState>('unknown')
+  const visualPreRunRestoredRef = useRef(false)
+  const visualPlaybackSnapshotsRef = useRef<Map<number, SurfaceGraphPlaybackSnapshot>>(new Map())
   const snapshotStripRef = useRef<SnapshotStrip | null>(null)
   const snapshotsRef = useRef<{ svgString: string; label: string }[]>([])
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
@@ -1471,6 +1513,201 @@ function ChartWorkbenchPage() {
     }
   }, [opsJsonText])
 
+  const getCachedRenderEntry = useCallback((host: HTMLElement) => {
+    return surfaceRenderCacheRef.current.get(host) ?? null
+  }, [])
+
+  const cacheRenderedSpec = useCallback((host: HTMLElement, spec: VegaLiteSpec, surfaceId?: string) => {
+    surfaceRenderCacheRef.current.set(host, {
+      signature: specSignature(spec),
+      surfaceId,
+    })
+  }, [])
+
+  const isRenderedSpecCurrent = useCallback((host: HTMLElement, spec: VegaLiteSpec, surfaceId?: string) => {
+    const cached = getCachedRenderEntry(host)
+    if (!cached) return false
+    return cached.signature === specSignature(spec) && cached.surfaceId === surfaceId
+  }, [getCachedRenderEntry])
+
+  const renderSpecIfNeeded = useCallback(
+    async (host: HTMLElement, spec: VegaLiteSpec, options?: { surfaceId?: string }) => {
+      if (isRenderedSpecCurrent(host, spec, options?.surfaceId)) return false
+      await renderChartDispatch(host, spec)
+      cacheRenderedSpec(host, spec, options?.surfaceId)
+      return true
+    },
+    [cacheRenderedSpec, isRenderedSpecCurrent],
+  )
+
+  const initializeRootSurfaceManager = useCallback((spec: VegaLiteSpec, data: DatumValue[] = []) => {
+    const inferred = getChartType(spec)
+    if (!chartRef.current || !inferred) return inferred
+    const existingManager = surfaceManagerRef.current
+    const rootSurface = existingManager?.getSurface('root')
+    const layoutType = existingManager?.getLayout()?.type ?? 'single'
+    if (existingManager && rootSurface && layoutType === 'single') {
+      existingManager.updateSurface('root', {
+        spec,
+        chartType: inferred,
+        data: cloneDatumValues(data),
+      })
+      cacheRenderedSpec(chartRef.current, spec, 'root')
+      return inferred
+    }
+    surfaceManagerRef.current?.cleanupAll()
+    surfaceManagerRef.current = new SurfaceManager(chartRef.current)
+    surfaceManagerRef.current.createRootSurface(spec, inferred, cloneDatumValues(data))
+    cacheRenderedSpec(chartRef.current, spec, 'root')
+    return inferred
+  }, [cacheRenderedSpec])
+
+  const isSnapshotAlreadyVisible = useCallback((snapshot: SurfaceGraphPlaybackSnapshot) => {
+    const surfaceManager = surfaceManagerRef.current
+    if (!surfaceManager) return false
+    const layout = surfaceManager.getLayout()
+    const layoutType = layout?.type ?? 'single'
+    if (layoutType !== snapshot.layoutType) return false
+
+    const rootSurface = surfaceManager.getSurface('root')
+    if (!rootSurface || specSignature(rootSurface.spec) !== specSignature(snapshot.rootSurface.spec)) {
+      return false
+    }
+
+    const visibleSurfaces =
+      layoutType === 'single'
+        ? [rootSurface]
+        : surfaceManager.getActiveSurfaces().filter((surface) => surface.id !== 'root')
+    if (visibleSurfaces.length !== snapshot.activeSurfaces.length) return false
+
+    return snapshot.activeSurfaces.every((surfaceSnapshot) => {
+      const currentSurface = surfaceManager.getSurface(surfaceSnapshot.id)
+      if (!currentSurface) return false
+      return specSignature(currentSurface.spec) === specSignature(surfaceSnapshot.spec)
+    })
+  }, [])
+
+  const captureVisualPlaybackSnapshot = useCallback((): SurfaceGraphPlaybackSnapshot | null => {
+    const surfaceManager = surfaceManagerRef.current
+    if (!surfaceManager) return null
+    const rootSurface = surfaceManager.getSurface('root')
+    if (!rootSurface) return null
+    const layout = surfaceManager.getLayout()
+    const layoutType = layout?.type ?? 'single'
+    const activeSurfaces =
+      layoutType === 'single'
+        ? [rootSurface]
+        : surfaceManager.getActiveSurfaces().filter((surface) => surface.id !== 'root')
+
+    return {
+      finalSurface: visualPlaybackSurfaceRef.current,
+      layoutType,
+      rootSurface: {
+        id: rootSurface.id,
+        spec: cloneSpecValue(rootSurface.spec),
+        chartType: rootSurface.chartType,
+        data: cloneDatumValues(rootSurface.data),
+      },
+      activeSurfaces: activeSurfaces.map((surface) => ({
+        id: surface.id,
+        spec: cloneSpecValue(surface.spec),
+        chartType: surface.chartType,
+        data: cloneDatumValues(surface.data),
+      })),
+    }
+  }, [])
+
+  const restoreVisualPlaybackSnapshot = useCallback(
+    async (snapshot: SurfaceGraphPlaybackSnapshot) => {
+      if (!chartRef.current) return
+
+      opsSessionActiveRef.current = false
+      visualPreRunRestoredRef.current = false
+      if (isSnapshotAlreadyVisible(snapshot)) {
+        visualPlaybackSurfaceRef.current = snapshot.finalSurface
+        return
+      }
+
+      currentSpecRef.current = snapshot.rootSurface.spec
+      setPendingTextPlacement(null)
+      setChartType(snapshot.rootSurface.chartType)
+      setOptionSources(
+        collectOpsBuilderOptionSources({ container: chartRef.current, spec: snapshot.rootSurface.spec }),
+      )
+
+      const inferredRootType = snapshot.rootSurface.chartType ?? getChartType(snapshot.rootSurface.spec)
+      if (!inferredRootType) return
+
+      const existingManager = surfaceManagerRef.current
+      const existingLayoutType = existingManager?.getLayout()?.type ?? 'single'
+      const canReuseExistingLayout =
+        existingManager != null &&
+        existingLayoutType === snapshot.layoutType &&
+        (snapshot.layoutType === 'single' ||
+          snapshot.activeSurfaces.every((surface) => existingManager.getSurface(surface.id) != null))
+
+      if (!canReuseExistingLayout) {
+        surfaceManagerRef.current?.cleanupAll()
+        await renderSpecIfNeeded(chartRef.current, snapshot.rootSurface.spec, { surfaceId: 'root' })
+        surfaceManagerRef.current = new SurfaceManager(chartRef.current)
+        surfaceManagerRef.current.createRootSurface(
+          snapshot.rootSurface.spec,
+          inferredRootType,
+          cloneDatumValues(snapshot.rootSurface.data),
+        )
+      } else {
+        surfaceManagerRef.current!.updateSurface('root', {
+          spec: snapshot.rootSurface.spec,
+          chartType: inferredRootType,
+          data: cloneDatumValues(snapshot.rootSurface.data),
+        })
+        if (snapshot.layoutType === 'single') {
+          await renderSpecIfNeeded(chartRef.current, snapshot.rootSurface.spec, { surfaceId: 'root' })
+        }
+      }
+
+      if (snapshot.layoutType !== 'single' && snapshot.activeSurfaces.length >= 2) {
+        const [leftSurface, rightSurface] = snapshot.activeSurfaces
+        if (!canReuseExistingLayout) {
+          surfaceManagerRef.current!.splitSurface(
+            snapshot.layoutType === 'split-vertical' ? 'vertical' : 'horizontal',
+            {
+              idA: leftSurface.id,
+              idB: rightSurface.id,
+              specA: cloneSpecValue(leftSurface.spec),
+              specB: cloneSpecValue(rightSurface.spec),
+              dataA: cloneDatumValues(leftSurface.data),
+              dataB: cloneDatumValues(rightSurface.data),
+            },
+          )
+        }
+
+        const leftHost = surfaceManagerRef.current!.getSurface(leftSurface.id)?.hostElement as HTMLElement | null
+        const rightHost = surfaceManagerRef.current!.getSurface(rightSurface.id)?.hostElement as HTMLElement | null
+
+        if (leftHost) {
+          await renderSpecIfNeeded(leftHost, leftSurface.spec, { surfaceId: leftSurface.id })
+          surfaceManagerRef.current!.updateSurface(leftSurface.id, {
+            spec: leftSurface.spec,
+            chartType: leftSurface.chartType,
+            data: cloneDatumValues(leftSurface.data),
+          })
+        }
+        if (rightHost) {
+          await renderSpecIfNeeded(rightHost, rightSurface.spec, { surfaceId: rightSurface.id })
+          surfaceManagerRef.current!.updateSurface(rightSurface.id, {
+            spec: rightSurface.spec,
+            chartType: rightSurface.chartType,
+            data: cloneDatumValues(rightSurface.data),
+          })
+        }
+      }
+
+      visualPlaybackSurfaceRef.current = snapshot.finalSurface
+    },
+    [isSnapshotAlreadyVisible, renderSpecIfNeeded],
+  )
+
   const renderChart = useCallback(
     async (specString: string): Promise<ChartTypeValue | null> => {
       const sanitizedSpec = sanitizeJsonInput(specString)
@@ -1489,7 +1726,7 @@ function ChartWorkbenchPage() {
       }
 
       try {
-        await renderChartDispatch(chartRef.current, parsed)
+        await renderSpecIfNeeded(chartRef.current, parsed, { surfaceId: 'root' })
         if (!opsUiSessionActive && !opsUiStartPending) {
           clearSentenceSummaryOverlay(chartRef.current)
         }
@@ -1498,12 +1735,7 @@ function ChartWorkbenchPage() {
         const inferred = getChartType(parsed as VegaLiteSpec)
         setChartType(inferred)
         setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec: parsed as VegaLiteSpec }))
-        // SurfaceManager 초기화: 기존 surfaces 정리 후 root surface 생성
-        if (chartRef.current && inferred) {
-          surfaceManagerRef.current?.cleanupAll()
-          surfaceManagerRef.current = new SurfaceManager(chartRef.current)
-          surfaceManagerRef.current.createRootSurface(parsed as VegaLiteSpec, inferred, [])
-        }
+        initializeRootSurfaceManager(parsed as VegaLiteSpec, [])
         return inferred
       } catch (error) {
         // Rendering can fail even when JSON is valid (e.g., renderer post-processing/tagging errors).
@@ -1513,7 +1745,7 @@ function ChartWorkbenchPage() {
         return null
       }
     },
-    [opsUiSessionActive, opsUiStartPending]
+    [initializeRootSurfaceManager, opsUiSessionActive, opsUiStartPending, renderSpecIfNeeded]
   )
 
   const handleRenderChart = () => {
@@ -1928,6 +2160,7 @@ function ChartWorkbenchPage() {
         setOpsJsonDataRows(nextDataRows)
         setOpsJsonExecutionPlanState(nextExecutionPlan)
         setOpsJsonVisualExecutionPlanState(nextVisualExecutionPlan)
+        visualPlaybackSnapshotsRef.current.clear()
         visualPlaybackSurfaceRef.current = 'unknown'
         console.log('[DEBUG] About to setOpsGroups with', nextGroups.length, 'groups:', nextGroups.map((g, i) => ({ index: i, opsCount: g.length, firstOp: g[0]?.op })))
         setOpsGroups(nextGroups)
@@ -1959,6 +2192,7 @@ function ChartWorkbenchPage() {
         setOpsJsonDataRows(null)
         setOpsJsonExecutionPlanState(undefined)
         setOpsJsonVisualExecutionPlanState(undefined)
+        visualPlaybackSnapshotsRef.current.clear()
         visualPlaybackSurfaceRef.current = 'unknown'
         setOpsGroups([])
         setOpsGroupTextOverrides([])
@@ -1982,13 +2216,14 @@ function ChartWorkbenchPage() {
       resetRuntime?: boolean
       runtimeScope?: string
       executionSpec?: VegaLiteSpec
+      surfaceId?: string
     },
   ) => {
     if (!chartRef.current) return
-    if (!opsArray.length) return
     setOpsJsonError(null)
 
     const runtimeScope = options?.runtimeScope ?? 'ops'
+    const requestedSurfaceId = typeof options?.surfaceId === 'string' && options.surfaceId.trim().length > 0 ? options.surfaceId.trim() : undefined
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
     const sanitizedVlSpec = sanitizeJsonInput(specString)
     let parsedVlSpec: VegaLiteSpec
@@ -2002,9 +2237,46 @@ function ChartWorkbenchPage() {
     }
 
     const drawOnlyGroup = isDrawOnlyGroup(opsArray)
-    const hasSvg = !!chartRef.current.querySelector('svg')
+    const targetSurface = requestedSurfaceId && requestedSurfaceId !== 'root' ? surfaceManagerRef.current?.getSurface(requestedSurfaceId) ?? null : null
+    const targetHost = targetSurface ? (targetSurface.hostElement as HTMLElement) : chartRef.current
+    const executionContainer = requestedSurfaceId && requestedSurfaceId !== 'root' ? targetHost : chartRef.current
+    const hasSvg = !!targetHost?.querySelector('svg')
     const currentSpec = currentSpecRef.current
     let executionSpec: VegaLiteSpec = options?.executionSpec ?? parsedVlSpec
+    let renderedExecutionSpec = false
+    const scopedOps =
+      requestedSurfaceId != null
+        ? opsArray.map((operation) =>
+            typeof operation.surfaceId === 'string' && operation.surfaceId.trim().length > 0
+              ? operation
+              : { ...operation, surfaceId: requestedSurfaceId },
+          )
+        : opsArray
+
+    if (requestedSurfaceId && requestedSurfaceId !== 'root' && !targetSurface) {
+      throw new Error(`Surface "${requestedSurfaceId}" is not available.`)
+    }
+
+    const renderExecutionSpecOnSurface = async () => {
+      if (!targetHost || !options?.executionSpec) return
+      await renderSpecIfNeeded(targetHost, options.executionSpec, {
+        surfaceId: requestedSurfaceId ?? 'root',
+      })
+      renderedExecutionSpec = true
+      if (requestedSurfaceId && requestedSurfaceId !== 'root') {
+        const inferred = getChartType(options.executionSpec)
+        if (inferred && surfaceManagerRef.current) {
+          surfaceManagerRef.current.updateSurface(requestedSurfaceId, {
+            spec: options.executionSpec,
+            chartType: inferred,
+          })
+        }
+        return
+      }
+      currentSpecRef.current = options.executionSpec
+      setChartType(getChartType(options.executionSpec))
+      setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec: options.executionSpec }))
+    }
 
     if (drawOnlyGroup) {
       if (!hasSvg || !currentSpec) {
@@ -2016,22 +2288,39 @@ function ChartWorkbenchPage() {
       executionSpec = currentSpec
     } else {
       const hasSameSpec =
-        currentSpec != null &&
+        (requestedSurfaceId && requestedSurfaceId !== 'root' ? targetSurface?.spec : currentSpec) != null &&
         (() => {
           try {
-            return JSON.stringify(currentSpec) === JSON.stringify(executionSpec)
+            return JSON.stringify(requestedSurfaceId && requestedSurfaceId !== 'root' ? targetSurface?.spec : currentSpec) === JSON.stringify(executionSpec)
           } catch {
             return false
           }
         })()
       if (!hasSvg || !hasSameSpec) {
-        if (options?.executionSpec) {
+        if (requestedSurfaceId && requestedSurfaceId !== 'root') {
+          if (options?.executionSpec) {
+            await renderExecutionSpecOnSurface()
+          } else {
+            await renderSpecIfNeeded(targetHost, parsedVlSpec, { surfaceId: requestedSurfaceId })
+          }
+        } else if (options?.executionSpec) {
           await renderChart(JSON.stringify(options.executionSpec, null, 2))
         } else {
           await renderChart(specString)
         }
       }
-      executionSpec = currentSpecRef.current ?? executionSpec
+      executionSpec = requestedSurfaceId && requestedSurfaceId !== 'root' ? targetSurface?.spec ?? executionSpec : currentSpecRef.current ?? executionSpec
+    }
+
+    if (!scopedOps.length) {
+      if (options?.executionSpec && !renderedExecutionSpec) {
+        if (requestedSurfaceId && requestedSurfaceId !== 'root') {
+          await renderExecutionSpecOnSurface()
+        } else {
+          await renderChart(JSON.stringify(options.executionSpec, null, 2))
+        }
+      }
+      return
     }
 
     if (!planGroups && opsInputMode === 'builder' && Object.keys(opsErrors).length > 0) {
@@ -2051,13 +2340,42 @@ function ChartWorkbenchPage() {
 
     try {
       setOpsRunning(true)
-      await runChartOps(chartRef.current, executionSpec, { ops: opsArray }, {
+      const opsForExecution =
+        requestedSurfaceId && requestedSurfaceId !== 'root'
+          ? scopedOps.map((operation) => {
+              const { surfaceId: _surfaceId, ...rest } = operation as OperationSpec & { surfaceId?: string }
+              return rest as OperationSpec
+            })
+          : scopedOps
+      const runResult = await runChartOps(executionContainer!, executionSpec, { ops: opsForExecution }, {
         onOperationCompleted: options?.onOperationCompleted,
         runtimeScope,
         resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
         initialRenderMode: 'reuse-existing',
-        surfaceManager: surfaceManagerRef.current ?? undefined,
+        surfaceManager: requestedSurfaceId && requestedSurfaceId !== 'root' ? undefined : surfaceManagerRef.current ?? undefined,
       })
+      if (requestedSurfaceId && requestedSurfaceId !== 'root' && surfaceManagerRef.current) {
+        const derived = consumeDerivedChartState(executionContainer!)
+        if (derived) {
+          surfaceManagerRef.current.updateSurface(requestedSurfaceId, {
+            spec: derived.spec,
+            chartType: derived.chartType,
+          })
+        } else {
+          const inferred = getChartType(executionSpec)
+          if (inferred) {
+            surfaceManagerRef.current.updateSurface(requestedSurfaceId, {
+              spec: executionSpec,
+              chartType: inferred,
+            })
+          }
+        }
+        if (Array.isArray(runResult)) {
+          surfaceManagerRef.current.updateSurface(requestedSurfaceId, {
+            data: runResult as any,
+          })
+        }
+      }
       opsSessionActiveRef.current = true
     } catch (error) {
       console.error('Run Operations failed', error)
@@ -2104,6 +2422,8 @@ function ChartWorkbenchPage() {
     groupIndex: number,
     options?: {
       resetRuntime?: boolean
+      skipDelays?: boolean
+      silentSummary?: boolean
     },
   ): Promise<VisualSentencePlaybackResult | null> => {
     if (!chartRef.current) return null
@@ -2117,6 +2437,7 @@ function ChartWorkbenchPage() {
         container: chartRef.current,
         spec: parsedVlSpec,
         dataRows: opsJsonDataRows ?? undefined,
+        surfaceManager: surfaceManagerRef.current ?? undefined,
         logicalOpsSpec: opsJsonLogicalOpsSpec ?? undefined,
         drawPlan: opsJsonDrawPlan ?? undefined,
         executionPlan: opsJsonExecutionPlanState,
@@ -2124,10 +2445,11 @@ function ChartWorkbenchPage() {
         stepIndex: groupIndex,
         currentSurface: visualPlaybackSurfaceRef.current,
         resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
+        skipDelays: options?.skipDelays,
         renderSourceChart: renderSourceChartForVisualPlayback,
         renderPlaybackChart: renderPlaybackChartForVisualPlayback,
-        renderSentenceSummary: renderSentenceSummaryForVisualPlayback,
-        clearSentenceSummary: clearSentenceSummaryForVisualPlayback,
+        renderSentenceSummary: options?.silentSummary ? undefined : renderSentenceSummaryForVisualPlayback,
+        clearSentenceSummary: options?.silentSummary ? undefined : clearSentenceSummaryForVisualPlayback,
         runOps: async (ops, runOptions) => {
           await executeOpsArray(ops, runOptions)
         },
@@ -2135,6 +2457,10 @@ function ChartWorkbenchPage() {
 
       visualPlaybackSurfaceRef.current = result.finalSurface
       opsSessionActiveRef.current = true
+      const snapshot = captureVisualPlaybackSnapshot()
+      if (snapshot) {
+        visualPlaybackSnapshotsRef.current.set(groupIndex, snapshot)
+      }
       return result
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to run visual execution plan.'
@@ -2204,18 +2530,38 @@ function ChartWorkbenchPage() {
   const resetChartToOpsPreRunState = useCallback(async () => {
     opsSessionActiveRef.current = false
     visualPlaybackSurfaceRef.current = 'unknown'
+    visualPreRunRestoredRef.current = false
     await renderSourceChartForVisualPlayback()
   }, [renderSourceChartForVisualPlayback])
+
+  const restoreVisualStateBeforeStep = useCallback(
+    async (groupIndex: number) => {
+      if (canUseVisualExecutionPlayer && groupIndex > 0) {
+        const snapshot = visualPlaybackSnapshotsRef.current.get(groupIndex - 1)
+        if (snapshot) {
+          await restoreVisualPlaybackSnapshot(snapshot)
+          visualPreRunRestoredRef.current = true
+          return
+        }
+      }
+      await resetChartToOpsPreRunState()
+    },
+    [
+      canUseVisualExecutionPlayer,
+      resetChartToOpsPreRunState,
+      restoreVisualPlaybackSnapshot,
+    ],
+  )
 
   const enterOpsGroupPreRun = useCallback(
     async (groupIndex: number) => {
       if (groupIndex < 0 || groupIndex >= opsGroups.length) return
-      await resetChartToOpsPreRunState()
+      await restoreVisualStateBeforeStep(groupIndex)
       setOpsUiGroupIndex(groupIndex)
       setOpsUiGroupPhase('pre-run')
       setOpsUiResolvedText(resolveDisplayTextForGroup(groupIndex))
     },
-    [opsGroups.length, resetChartToOpsPreRunState, resolveDisplayTextForGroup],
+    [opsGroups.length, resolveDisplayTextForGroup, restoreVisualStateBeforeStep],
   )
 
   const runCurrentOpsGroup = useCallback(async () => {
@@ -2240,10 +2586,10 @@ function ChartWorkbenchPage() {
 
   const reloadCurrentOpsGroup = useCallback(async () => {
     if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
-    await resetChartToOpsPreRunState()
+    await restoreVisualStateBeforeStep(opsUiGroupIndex)
     setOpsUiResolvedText(resolveDisplayTextForGroup(opsUiGroupIndex))
     await runCurrentOpsGroup()
-  }, [opsGroups.length, opsUiGroupIndex, resetChartToOpsPreRunState, resolveDisplayTextForGroup, runCurrentOpsGroup])
+  }, [opsGroups.length, opsUiGroupIndex, resolveDisplayTextForGroup, restoreVisualStateBeforeStep, runCurrentOpsGroup])
 
   const goToPrevOpsGroup = useCallback(async () => {
     const prevIndex = opsUiGroupIndex - 1
@@ -2307,7 +2653,9 @@ function ChartWorkbenchPage() {
       clearSentenceSummaryOverlay(chartRef.current)
       return
     }
-    console.log('[DEBUG] useEffect: rendering overlay with rightControl:', overlayRenderInput.rightControl.label)
+    const rightControlLabel =
+      typeof overlayRenderInput === 'string' ? '' : (overlayRenderInput.rightControl?.label ?? '')
+    console.log('[DEBUG] useEffect: rendering overlay with rightControl:', rightControlLabel)
     renderSentenceSummaryOverlay(chartRef.current, overlayRenderInput)
   }, [overlayRenderInput])
 

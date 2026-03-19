@@ -13,8 +13,8 @@ import type { SurfaceRuntimeContext } from './surfaceRuntimeContext'
 export interface ChartSurfaceInstance {
   /** surface의 고유 id (예: 'root', 'A', 'B', 'merge-1') */
   id: string
-  /** 이 surface가 렌더링되는 전용 container div */
-  hostElement: HTMLElement
+  /** 이 surface가 렌더링되는 전용 host handle (browser runtime에서는 DOM host object) */
+  hostElement: unknown
   /** 현재 chart의 Vega-Lite spec */
   spec: VegaLiteSpec
   /** 현재 chart 타입 (SIMPLE_BAR, MULTI_LINE 등) */

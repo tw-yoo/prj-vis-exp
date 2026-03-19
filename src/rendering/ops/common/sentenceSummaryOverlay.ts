@@ -21,6 +21,9 @@ function overlayHost(container: HTMLElement | null): HTMLElement | null {
 
 function ensureOverlay(container: HTMLElement) {
   const host = overlayHost(container)
+  if (!host) {
+    throw new Error('renderSentenceSummaryOverlay: missing overlay host')
+  }
   let overlay = host.querySelector<HTMLElement>(`[${OVERLAY_ATTR}]`)
   if (overlay) return overlay
   overlay = document.createElement('div')
@@ -85,5 +88,6 @@ export function renderSentenceSummaryOverlay(
 export function clearSentenceSummaryOverlay(container: HTMLElement | null) {
   if (!container) return
   const host = overlayHost(container)
-  host?.querySelector<HTMLElement>(`[${OVERLAY_ATTR}]`)?.remove()
+  if (!host) return
+  host.querySelector<HTMLElement>(`[${OVERLAY_ATTR}]`)?.remove()
 }

@@ -35,6 +35,7 @@ function clamp01(value: number) {
 function selectSvgForChart(container: HTMLElement, chartId?: string) {
   const svgs = Array.from(container.querySelectorAll('svg'))
   if (!svgs.length) return null
+  if (svgs.length === 1) return svgs[0] as SVGSVGElement
   if (!chartId) return svgs[0] as SVGSVGElement
   const matched = svgs.find((svg) => {
     if (svg.getAttribute('data-chart-id') === chartId) return true

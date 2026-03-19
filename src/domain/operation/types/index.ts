@@ -67,6 +67,7 @@ export interface OperationSpec {
     [key: string]: JsonValue | undefined
   }
   chartId?: string
+  surfaceId?: string
   field?: string
   /** Target include/exclude list (used by filter op) */
   include?: Array<string | number>

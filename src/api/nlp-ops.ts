@@ -41,7 +41,7 @@ export type ExecutionPlan = {
 
 export type VisualExecutionSubstep = {
   id: string
-  kind: 'prefilter' | 'materialize-surface' | 'run-op' | 'fallback'
+  kind: 'prefilter' | 'materialize-surface' | 'run-op' | 'fallback' | 'surface-action'
   groupName: string
   nodeId?: string
   opName?: string
@@ -54,11 +54,36 @@ export type VisualExecutionSubstep = {
   }
   surface?: {
     surfaceType?: 'source-chart' | 'derived-chart' | 'scalar-panel' | 'text-only'
+    surfaceId?: string
+    parentSurfaceId?: string
+    surfaceAction?: 'split' | 'run' | 'materialize' | 'merge'
+    branchSurfaceIds?: {
+      left?: string
+      right?: string
+    }
+    mergeTargetSurfaceId?: string
+    layoutMode?: 'single' | 'split-horizontal' | 'split-vertical'
+    branchRole?: 'left' | 'right' | 'merged'
     templateType?: string
     sourceNodeIds?: string[]
     syntheticLabels?: 'semantic' | 'node'
     layout?: 'full-canvas'
     keepOnComplete?: boolean
+    splitSpec?: {
+      mode?: 'domain' | 'selector'
+      by?: 'x'
+      groups?: Record<string, Array<string | number>>
+      selectors?: Record<
+        string,
+        {
+          include?: Array<string | number>
+          exclude?: Array<string | number>
+          all?: boolean
+        }
+      >
+      restTo?: string
+      orientation?: 'vertical' | 'horizontal'
+    }
   }
 }
 
@@ -128,6 +153,10 @@ function resolveDefaultEndpoint(): string {
 function asRecord(value: unknown): UnknownRecord | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   return value as UnknownRecord
+}
+
+function isPlainObject(value: unknown): value is UnknownRecord {
+  return asRecord(value) !== null
 }
 
 function toSpecDataUrl(spec: UnknownRecord): string | null {
@@ -283,7 +312,13 @@ export function normalizeVisualExecutionPlan(raw: unknown): VisualExecutionPlan 
       if (!substep) return
       const id = typeof substep.id === 'string' && substep.id.trim().length > 0 ? substep.id : `ss${index + 1}_${substepIndex + 1}`
       const kind = substep.kind
-      if (kind !== 'prefilter' && kind !== 'materialize-surface' && kind !== 'run-op' && kind !== 'fallback') {
+      if (
+        kind !== 'prefilter' &&
+        kind !== 'materialize-surface' &&
+        kind !== 'run-op' &&
+        kind !== 'fallback' &&
+        kind !== 'surface-action'
+      ) {
         return
       }
       const out: VisualExecutionSubstep = {
@@ -325,6 +360,46 @@ export function normalizeVisualExecutionPlan(raw: unknown): VisualExecutionPlan 
         ) {
           normalizedSurface.surfaceType = surface.surfaceType
         }
+        if (typeof surface.surfaceId === 'string' && surface.surfaceId.trim().length > 0) {
+          normalizedSurface.surfaceId = surface.surfaceId.trim()
+        }
+        if (typeof surface.parentSurfaceId === 'string' && surface.parentSurfaceId.trim().length > 0) {
+          normalizedSurface.parentSurfaceId = surface.parentSurfaceId.trim()
+        }
+        const branchSurfaceIds = asRecord(surface.branchSurfaceIds)
+        if (branchSurfaceIds) {
+          const normalizedBranchSurfaceIds: NonNullable<NonNullable<typeof normalizedSurface>['branchSurfaceIds']> = {}
+          if (typeof branchSurfaceIds.left === 'string' && branchSurfaceIds.left.trim().length > 0) {
+            normalizedBranchSurfaceIds.left = branchSurfaceIds.left.trim()
+          }
+          if (typeof branchSurfaceIds.right === 'string' && branchSurfaceIds.right.trim().length > 0) {
+            normalizedBranchSurfaceIds.right = branchSurfaceIds.right.trim()
+          }
+          if (Object.keys(normalizedBranchSurfaceIds).length > 0) {
+            normalizedSurface.branchSurfaceIds = normalizedBranchSurfaceIds
+          }
+        }
+        if (typeof surface.mergeTargetSurfaceId === 'string' && surface.mergeTargetSurfaceId.trim().length > 0) {
+          normalizedSurface.mergeTargetSurfaceId = surface.mergeTargetSurfaceId.trim()
+        }
+        if (
+          surface.surfaceAction === 'split' ||
+          surface.surfaceAction === 'run' ||
+          surface.surfaceAction === 'materialize' ||
+          surface.surfaceAction === 'merge'
+        ) {
+          normalizedSurface.surfaceAction = surface.surfaceAction
+        }
+        if (
+          surface.layoutMode === 'single' ||
+          surface.layoutMode === 'split-horizontal' ||
+          surface.layoutMode === 'split-vertical'
+        ) {
+          normalizedSurface.layoutMode = surface.layoutMode
+        }
+        if (surface.branchRole === 'left' || surface.branchRole === 'right' || surface.branchRole === 'merged') {
+          normalizedSurface.branchRole = surface.branchRole
+        }
         if (typeof surface.templateType === 'string' && surface.templateType.trim().length > 0) {
           normalizedSurface.templateType = surface.templateType.trim()
         }
@@ -338,6 +413,66 @@ export function normalizeVisualExecutionPlan(raw: unknown): VisualExecutionPlan 
         }
         if (surface.layout === 'full-canvas') normalizedSurface.layout = 'full-canvas'
         if (typeof surface.keepOnComplete === 'boolean') normalizedSurface.keepOnComplete = surface.keepOnComplete
+        const splitSpec = asRecord(surface.splitSpec)
+        if (splitSpec) {
+          const normalizedSplitSpec: NonNullable<NonNullable<typeof normalizedSurface>['splitSpec']> = {}
+          if (splitSpec.mode === 'domain' || splitSpec.mode === 'selector') normalizedSplitSpec.mode = splitSpec.mode
+          if (splitSpec.by === 'x') normalizedSplitSpec.by = 'x'
+          if (splitSpec.orientation === 'vertical' || splitSpec.orientation === 'horizontal') {
+            normalizedSplitSpec.orientation = splitSpec.orientation
+          }
+          if (typeof splitSpec.restTo === 'string' && splitSpec.restTo.trim().length > 0) {
+            normalizedSplitSpec.restTo = splitSpec.restTo.trim()
+          }
+          if (isPlainObject(splitSpec.groups)) {
+            const groups: Record<string, Array<string | number>> = {}
+            Object.entries(splitSpec.groups).forEach(([key, value]) => {
+              if (!Array.isArray(value)) return
+              const normalizedValues = value.filter(
+                (entry): entry is string | number => typeof entry === 'string' || typeof entry === 'number',
+              )
+              if (normalizedValues.length > 0) groups[key] = normalizedValues
+            })
+            if (Object.keys(groups).length > 0) normalizedSplitSpec.groups = groups
+          }
+          if (isPlainObject(splitSpec.selectors)) {
+            const selectors: Record<
+              string,
+              {
+                include?: Array<string | number>
+                exclude?: Array<string | number>
+                all?: boolean
+              }
+            > = {}
+            Object.entries(splitSpec.selectors).forEach(([key, value]) => {
+              const selector = asRecord(value)
+              if (!selector) return
+              const normalizedSelector: {
+                include?: Array<string | number>
+                exclude?: Array<string | number>
+                all?: boolean
+              } = {}
+              if (Array.isArray(selector.include)) {
+                const include = selector.include.filter(
+                  (entry): entry is string | number => typeof entry === 'string' || typeof entry === 'number',
+                )
+                if (include.length > 0) normalizedSelector.include = include
+              }
+              if (Array.isArray(selector.exclude)) {
+                const exclude = selector.exclude.filter(
+                  (entry): entry is string | number => typeof entry === 'string' || typeof entry === 'number',
+                )
+                if (exclude.length > 0) normalizedSelector.exclude = exclude
+              }
+              if (typeof selector.all === 'boolean') normalizedSelector.all = selector.all
+              if (Object.keys(normalizedSelector).length > 0) selectors[key] = normalizedSelector
+            })
+            if (Object.keys(selectors).length > 0) normalizedSplitSpec.selectors = selectors
+          }
+          if (Object.keys(normalizedSplitSpec).length > 0) {
+            normalizedSurface.splitSpec = normalizedSplitSpec
+          }
+        }
         if (Object.keys(normalizedSurface).length > 0) out.surface = normalizedSurface
       }
       substeps.push(out)

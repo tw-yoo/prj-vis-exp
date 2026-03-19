@@ -44,3 +44,4 @@ export type { VegaLiteSpec, ChartTypeValue }
 
 export { SnapshotStrip } from '../rendering/snapshotStrip'
 export { captureSvgSnapshot } from '../rendering/utils/svgSnapshot'
+export { consumeDerivedChartState } from '../rendering/utils/derivedChartState'

@@ -80,16 +80,23 @@ function getSplitSurfaceData(
   return { idA, idB, dataA, dataB, mergedData: workingData }
 }
 
-function filterOpsByChartId(ops: OperationSpec[], chartId: string): OperationSpec[] {
+function resolveOperationSurfaceId(op: OperationSpec): string | undefined {
+  const surfaceId = typeof op.surfaceId === 'string' && op.surfaceId.trim().length > 0 ? op.surfaceId.trim() : undefined
+  if (surfaceId) return surfaceId
+  const chartId = typeof op.chartId === 'string' && op.chartId.trim().length > 0 ? op.chartId.trim() : undefined
+  return chartId
+}
+
+function filterOpsBySurfaceId(ops: OperationSpec[], surfaceId: string): OperationSpec[] {
   return ops.filter((op) => {
-    const cid = (op as { chartId?: string }).chartId
-    return cid === undefined || cid === null || cid === chartId
+    const scopedId = resolveOperationSurfaceId(op)
+    return scopedId === undefined || scopedId === null || scopedId === surfaceId
   })
 }
 
-function stripChartId(ops: OperationSpec[]): OperationSpec[] {
+function stripSurfaceScope(ops: OperationSpec[]): OperationSpec[] {
   return ops.map((op) => {
-    const { chartId: _cid, ...rest } = op as OperationSpec & { chartId?: string }
+    const { chartId: _cid, surfaceId: _sid, ...rest } = op as OperationSpec & { chartId?: string; surfaceId?: string }
     return rest as OperationSpec
   })
 }
@@ -287,9 +294,12 @@ export async function runChartOps(
   let lastResult: unknown = normalized
   let operationOffset = 0
   const surfaceManager = options?.surfaceManager
-  let isSplit = false
-  let splitIdA = 'A'
-  let splitIdB = 'B'
+  const initialLayout = surfaceManager?.getLayout()
+  let isSplit = Boolean(initialLayout && initialLayout.type !== 'single')
+  let splitIdA =
+    initialLayout && initialLayout.type !== 'single' ? initialLayout.surfaces[0]?.id ?? 'A' : 'A'
+  let splitIdB =
+    initialLayout && initialLayout.type !== 'single' ? initialLayout.surfaces[1]?.id ?? 'B' : 'B'
 
   for (let index = 0; index < groups.length; index += 1) {
     const group = groups[index]
@@ -325,14 +335,15 @@ export async function runChartOps(
         ops: OperationSpec[],
         initialRenderMode: 'always' | 'reuse-existing',
       ) => {
+        const host = surface.hostElement as HTMLElement
         const result = await runChartOpsForSingleGroup(
-          surface.hostElement,
+          host,
           surface.chartType,
           surface.spec,
           { ops },
           { ...groupOpts, initialRenderMode },
         )
-        const derived = consumeDerivedChartState(surface.hostElement)
+        const derived = consumeDerivedChartState(host)
         if (derived) {
           surfaceManager.updateSurface(surface.id, {
             spec: derived.spec,
@@ -394,8 +405,8 @@ export async function runChartOps(
         const unsplitIdx = findDrawActionIndex(postOps, DrawAction.Unsplit)
         const branchOps = unsplitIdx === -1 ? postOps : postOps.slice(0, unsplitIdx)
         const tailOps = unsplitIdx === -1 ? [] : postOps.slice(unsplitIdx + 1)
-        await runOpsOnSurface(surfaceA, stripChartId(filterOpsByChartId(branchOps, idA)), 'always')
-        await runOpsOnSurface(surfaceB, stripChartId(filterOpsByChartId(branchOps, idB)), 'always')
+        await runOpsOnSurface(surfaceA, stripSurfaceScope(filterOpsBySurfaceId(branchOps, idA)), 'always')
+        await runOpsOnSurface(surfaceB, stripSurfaceScope(filterOpsBySurfaceId(branchOps, idB)), 'always')
 
         if (unsplitIdx !== -1) {
           await rerenderMergedRoot(tailOps)
@@ -412,19 +423,21 @@ export async function runChartOps(
       if (isSplit) {
         const layout = surfaceManager.getLayout()
         if (layout && layout.type !== 'single') {
+          splitIdA = layout.surfaces[0]?.id ?? splitIdA
+          splitIdB = layout.surfaces[1]?.id ?? splitIdB
           const surfaceA = surfaceManager.getSurface(splitIdA)
           const surfaceB = surfaceManager.getSurface(splitIdB)
           const unsplitIdx = findDrawActionIndex(group.ops, DrawAction.Unsplit)
           const branchOps = unsplitIdx === -1 ? group.ops : group.ops.slice(0, unsplitIdx)
 
           if (surfaceA) {
-            const opsA = stripChartId(filterOpsByChartId(branchOps, splitIdA))
+            const opsA = stripSurfaceScope(filterOpsBySurfaceId(branchOps, splitIdA))
             if (opsA.length > 0 || unsplitIdx === -1) {
               await runOpsOnSurface(surfaceA, opsA, 'reuse-existing')
             }
           }
           if (surfaceB) {
-            const opsB = stripChartId(filterOpsByChartId(branchOps, splitIdB))
+            const opsB = stripSurfaceScope(filterOpsBySurfaceId(branchOps, splitIdB))
             if (opsB.length > 0 || unsplitIdx === -1) {
               await runOpsOnSurface(surfaceB, opsB, 'reuse-existing')
             }

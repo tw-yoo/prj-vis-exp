@@ -55,6 +55,10 @@ export class SurfaceManager {
     return SurfaceManager.hostToSurface.get(host) ?? null
   }
 
+  private asHostElement(surface: ChartSurfaceInstance): HTMLElement {
+    return surface.hostElement as HTMLElement
+  }
+
   // ─── surface 생성/제거 ────────────────────────────────────────────────────
 
   /**
@@ -115,7 +119,7 @@ export class SurfaceManager {
     const idB = options?.idB ?? 'B'
 
     // root host의 기존 SVG 숨기기 (host 자체는 flex container로 유지)
-    const existingSvg = source.hostElement.querySelector<SVGElement>('svg')
+    const existingSvg = this.asHostElement(source).querySelector<SVGElement>('svg')
     if (existingSvg) existingSvg.style.display = 'none'
 
     const hostA = this.createSplitHost(idA)
@@ -162,14 +166,14 @@ export class SurfaceManager {
 
     // split host들 제거
     if (surfaceA) {
-      surfaceA.hostElement.remove()
+      this.asHostElement(surfaceA).remove()
       this.surfaces.delete(surfaceAId)
-      SurfaceManager.hostToSurface.delete(surfaceA.hostElement)
+      SurfaceManager.hostToSurface.delete(this.asHostElement(surfaceA))
     }
     if (surfaceB) {
-      surfaceB.hostElement.remove()
+      this.asHostElement(surfaceB).remove()
       this.surfaces.delete(surfaceBId)
-      SurfaceManager.hostToSurface.delete(surfaceB.hostElement)
+      SurfaceManager.hostToSurface.delete(this.asHostElement(surfaceB))
     }
 
     // root host 복원 (hidden SVG 다시 표시)
@@ -192,9 +196,9 @@ export class SurfaceManager {
   cleanupAll(): void {
     for (const surface of this.surfaces.values()) {
       if (surface.id !== 'root') {
-        surface.hostElement.remove()
+        this.asHostElement(surface).remove()
       }
-      SurfaceManager.hostToSurface.delete(surface.hostElement)
+      SurfaceManager.hostToSurface.delete(this.asHostElement(surface))
     }
     this.surfaces.clear()
     this.layout = null
@@ -284,15 +288,17 @@ export class SurfaceManager {
       this.rootContainer.style.flexDirection = 'row'
       // 각 surface host가 동등한 너비를 갖도록
       this.layout.surfaces.forEach((surface) => {
-        surface.hostElement.style.flex = '1 1 0'
-        surface.hostElement.style.minWidth = '0'
+        const host = this.asHostElement(surface)
+        host.style.flex = '1 1 0'
+        host.style.minWidth = '0'
       })
     } else {
       // split-vertical
       this.rootContainer.style.flexDirection = 'column'
       this.layout.surfaces.forEach((surface) => {
-        surface.hostElement.style.flex = '1 1 0'
-        surface.hostElement.style.minHeight = '0'
+        const host = this.asHostElement(surface)
+        host.style.flex = '1 1 0'
+        host.style.minHeight = '0'
       })
     }
   }
