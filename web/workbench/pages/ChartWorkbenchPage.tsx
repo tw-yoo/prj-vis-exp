@@ -112,7 +112,7 @@ import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
 import { createSceneCaptureWriter } from '../scenes/sceneCapture'
 import { fetchLatestPythonDrawPlan } from '../services/pythonDrawPlan'
-import { SnapshotStrip, captureSvgSnapshot, consumeDerivedChartState } from '../../../src/api/rendering'
+import { captureSvgSnapshot, consumeDerivedChartState } from '../../../src/api/rendering'
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
@@ -767,8 +767,8 @@ function ChartWorkbenchPage() {
   const visualPlaybackSurfaceRef = useRef<VisualSurfaceState>('unknown')
   const visualPreRunRestoredRef = useRef(false)
   const visualPlaybackSnapshotsRef = useRef<Map<number, SurfaceGraphPlaybackSnapshot>>(new Map())
-  const snapshotStripRef = useRef<SnapshotStrip | null>(null)
-  const snapshotsRef = useRef<{ svgString: string; label: string }[]>([])
+  // Snapshot strip: React state로 관리 (DOM 조작 대신 선언적 렌더링)
+  const [svgSnapshots, setSvgSnapshots] = useState<{ svgString: string; label: string }[]>([])
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
   const [recordQueue, setRecordQueue] = useState<Array<{ id: string; op: OperationSpec }>>([])
   const recordSequenceRef = useRef(0)
@@ -2495,42 +2495,26 @@ function ChartWorkbenchPage() {
     })
   }
 
-  const initSnapshotStrip = () => {
-    // strip은 .chart-stage-viewport가 아닌 .chart-stage(상위 컨테이너)에 붙인다.
-    // .chart-stage-viewport는 grid row minmax(0, 1fr)로 overflow가 잘릴 수 있기 때문.
-    // closest()로 DOM 계층 변경에 무관하게 .chart-stage를 찾는다.
-    snapshotsRef.current = []
-    const stageEl =
-      (chartRef.current?.closest('.chart-stage') as HTMLElement | null) ??
-      chartRef.current?.parentElement?.parentElement ??
-      null
-    if (!stageEl || opsGroups.length <= 1) {
-      snapshotStripRef.current = null
-      return
-    }
-    stageEl.querySelector('.snapshot-strip')?.remove()
-    snapshotStripRef.current = new SnapshotStrip(stageEl)
-  }
+  // snapshot strip 초기화: React state 리셋만 하면 됨 (DOM 조작 불필요)
+  const initSnapshotStrip = useCallback(() => {
+    setSvgSnapshots([])
+  }, [])
 
-  const captureCurrentGroupSnapshot = (groupIndex: number) => {
-    if (!snapshotStripRef.current || !chartRef.current) return
-    const svg = chartRef.current.querySelector('svg') as SVGSVGElement | null
-    if (!svg) return
-    const label = opsJsonGroupNames[groupIndex] ?? (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`)
-    const svgString = captureSvgSnapshot(svg)
-    snapshotsRef.current.push({ svgString, label })
-    snapshotStripRef.current.addSnapshot(svgString, 0.2, label)
-  }
+  const captureCurrentGroupSnapshot = useCallback(
+    (groupIndex: number) => {
+      if (!chartRef.current) return
+      const svg = chartRef.current.querySelector('svg') as SVGSVGElement | null
+      if (!svg) return
+      const label = opsJsonGroupNames[groupIndex] ?? (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`)
+      const svgString = captureSvgSnapshot(svg)
+      setSvgSnapshots((prev) => [...prev, { svgString, label }])
+    },
+    [opsJsonGroupNames],
+  )
 
-  const removeLastSnapshot = () => {
-    if (!snapshotStripRef.current) return
-    snapshotsRef.current.pop()
-    // strip을 스냅샷 배열 기준으로 다시 그림
-    snapshotStripRef.current.clear()
-    snapshotsRef.current.forEach(({ svgString, label }) => {
-      snapshotStripRef.current!.addSnapshot(svgString, 0.2, label)
-    })
-  }
+  const removeLastSnapshot = useCallback(() => {
+    setSvgSnapshots((prev) => prev.slice(0, -1))
+  }, [])
 
   const canUseVisualExecutionPlayer =
     opsJsonExecutionSource === 'visual_plan' &&
@@ -2606,14 +2590,14 @@ function ChartWorkbenchPage() {
     if (prevIndex < 0) return
     removeLastSnapshot()
     await enterOpsGroupPreRun(prevIndex)
-  }, [enterOpsGroupPreRun, opsUiGroupIndex])
+  }, [enterOpsGroupPreRun, opsUiGroupIndex, removeLastSnapshot])
 
   const goToNextOpsGroup = useCallback(async () => {
     const nextIndex = opsUiGroupIndex + 1
     if (nextIndex >= opsGroups.length) return
     captureCurrentGroupSnapshot(opsUiGroupIndex)
     await enterOpsGroupPreRun(nextIndex)
-  }, [enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
+  }, [captureCurrentGroupSnapshot, enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
 
   const overlayRenderInput = useMemo<SentenceSummaryOverlayRenderInput | null>(() => {
     console.log('[DEBUG] overlayRenderInput memoized:', { opsUiSessionActive, opsUiGroupIndex, opsGroupsLength: opsGroups.length })
@@ -2671,9 +2655,7 @@ function ChartWorkbenchPage() {
 
   useEffect(() => {
     if (!opsUiStartPending || opsGroups.length === 0) return
-    // initSnapshotStrip은 await 이전에 동기적으로 호출해야 한다.
-    // handleRunOperations의 batch2가 opsUiStartPending=false로 바꾸면
-    // 이 effect의 cleanup(cancelled=true)이 먼저 실행되어 await 이후 코드가 스킵되기 때문.
+    // initSnapshotStrip은 React state reset이므로 타이밍 이슈 없음
     initSnapshotStrip()
     let cancelled = false
     void (async () => {
@@ -2688,7 +2670,7 @@ function ChartWorkbenchPage() {
     return () => {
       cancelled = true
     }
-  }, [opsGroups.length, opsUiStartPending, resetChartToOpsPreRunState, resolveDisplayTextForGroup])
+  }, [initSnapshotStrip, opsGroups.length, opsUiStartPending, resetChartToOpsPreRunState, resolveDisplayTextForGroup])
 
   useEffect(() => {
     if (!opsUiSessionActive || opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
@@ -3669,6 +3651,27 @@ function ChartWorkbenchPage() {
               />
             ) : null}
           </div>
+
+          {/* Snapshot strip: ops 그룹이 2개 이상이고 스냅샷이 있을 때 렌더링 */}
+          {opsGroups.length > 1 && svgSnapshots.length > 0 && (
+            <div
+              className="snapshot-strip"
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                flexWrap: 'nowrap',
+                overflowX: 'auto',
+                padding: '8px 0',
+                marginTop: '8px',
+                borderTop: '1px solid #eee',
+              }}
+            >
+              {svgSnapshots.map(({ svgString, label }, i) => (
+                <SnapshotThumbnail key={i} svgString={svgString} label={label} />
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>
@@ -3676,3 +3679,45 @@ function ChartWorkbenchPage() {
 }
 
 export default ChartWorkbenchPage
+
+// ---------------------------------------------------------------------------
+// SnapshotThumbnail: SVG 스냅샷을 축소 렌더링하는 인라인 React 컴포넌트
+// ---------------------------------------------------------------------------
+function SnapshotThumbnail({ svgString, label, scale = 0.2 }: { svgString: string; label?: string; scale?: number }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    container.innerHTML = ''
+
+    const parser = new DOMParser()
+    const svgDoc = parser.parseFromString(svgString, 'image/svg+xml')
+    const svgEl = svgDoc.documentElement as unknown as SVGSVGElement
+
+    const viewBox = svgEl.getAttribute('viewBox')?.split(/\s+/)
+    const origW = parseFloat(svgEl.getAttribute('width') ?? viewBox?.[2] ?? '400')
+    const origH = parseFloat(svgEl.getAttribute('height') ?? viewBox?.[3] ?? '300')
+    svgEl.setAttribute('width', String(origW * scale))
+    svgEl.setAttribute('height', String(origH * scale))
+    svgEl.style.cssText = 'border:1px solid #ddd;border-radius:4px;display:block;'
+
+    // 흰 배경
+    const bg = svgDoc.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    bg.setAttribute('x', '0')
+    bg.setAttribute('y', '0')
+    bg.setAttribute('width', String(origW))
+    bg.setAttribute('height', String(origH))
+    bg.setAttribute('fill', 'white')
+    svgEl.insertBefore(bg, svgEl.firstChild)
+
+    container.appendChild(svgEl)
+  }, [svgString, scale])
+
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', marginRight: 8 }}>
+      <div ref={containerRef} />
+      {label && <span style={{ fontSize: 10, color: '#666', marginTop: 4 }}>{label}</span>}
+    </div>
+  )
+}
