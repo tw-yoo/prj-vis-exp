@@ -2577,6 +2577,25 @@ function ChartWorkbenchPage() {
   const runCurrentOpsGroup = useCallback(async () => {
     if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
 
+    // 실행 전: split 상태면 현재 뷰를 pending snapshot으로 미리 캡처.
+    // 실행 후 split→single 전환이 확인된 경우에만 strip에 커밋 (merge 직전 split 상태 보존).
+    // ops(single 시작)는 layoutBefore=single이므로 pending 없음 → 캡처 안 됨.
+    const layoutBefore = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
+    let pendingSnapshot: { svgString: string; label: string } | null = null
+    if (layoutBefore !== 'single') {
+      const label =
+        opsJsonGroupNames[opsUiGroupIndex] ?? (opsUiGroupIndex === 0 ? 'ops' : `ops${opsUiGroupIndex + 1}`)
+      const activeSurfaces =
+        surfaceManagerRef.current?.getActiveSurfaces().filter((s) => s.id !== 'root') ?? []
+      const svgEls = activeSurfaces
+        .map((s) => (s.hostElement as HTMLElement).querySelector('svg') as SVGSVGElement | null)
+        .filter((s): s is SVGSVGElement => s !== null)
+      if (svgEls.length > 0) {
+        const direction = layoutBefore === 'split-vertical' ? 'vertical' : 'horizontal'
+        pendingSnapshot = { svgString: combineSvgElements(svgEls, direction), label }
+      }
+    }
+
     if (canUseVisualExecutionPlayer) {
       await runVisualSentenceGroup(opsUiGroupIndex, { resetRuntime: true })
     } else {
@@ -2584,6 +2603,12 @@ function ChartWorkbenchPage() {
         resetRuntime: true,
         runtimeScope: opsJsonGroupNames[opsUiGroupIndex] || (opsUiGroupIndex === 0 ? 'ops' : `ops${opsUiGroupIndex + 1}`),
       })
+    }
+
+    // 실행 후: split→single 전환 시에만 pending snapshot 커밋
+    const layoutAfter = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
+    if (layoutBefore !== 'single' && layoutAfter === 'single' && pendingSnapshot) {
+      setSvgSnapshots((prev) => [...prev, pendingSnapshot!])
     }
 
     setOpsUiGroupPhase('post-run')
@@ -2613,14 +2638,8 @@ function ChartWorkbenchPage() {
   const goToNextOpsGroup = useCallback(async () => {
     const nextIndex = opsUiGroupIndex + 1
     if (nextIndex >= opsGroups.length) return
-    // split 상태일 때만 스냅샷 저장 (단일 뷰는 skip).
-    // enterOpsGroupPreRun이 차트를 리셋하기 전에 캡처해야 하므로 먼저 호출.
-    const layout = surfaceManagerRef.current?.getLayout()
-    if (layout && layout.type !== 'single') {
-      captureCurrentGroupSnapshot(opsUiGroupIndex)
-    }
     await enterOpsGroupPreRun(nextIndex)
-  }, [captureCurrentGroupSnapshot, enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
+  }, [enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
 
   const overlayRenderInput = useMemo<SentenceSummaryOverlayRenderInput | null>(() => {
     console.log('[DEBUG] overlayRenderInput memoized:', { opsUiSessionActive, opsUiGroupIndex, opsGroupsLength: opsGroups.length })
