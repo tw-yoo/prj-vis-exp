@@ -17,6 +17,7 @@ export interface DatumValue {
   category: string | null
   measure: string | null
   target: string
+  displayTarget?: string | null
   group: string | null
   value: number
   id?: string | null

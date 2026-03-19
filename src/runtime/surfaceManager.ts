@@ -202,6 +202,7 @@ export class SurfaceManager {
     }
     this.surfaces.clear()
     this.layout = null
+    this.rootContainer.classList.remove('surface-layout--split')
     // root host display 복원
     const rootHost = this.rootContainer.querySelector<HTMLElement>('[data-surface-id="root"]')
     if (rootHost) rootHost.style.display = ''
@@ -274,12 +275,14 @@ export class SurfaceManager {
     if (!this.layout) return
 
     if (this.layout.type === 'single') {
+      this.rootContainer.classList.remove('surface-layout--split')
       this.rootContainer.style.display = ''
       this.rootContainer.style.flexDirection = ''
       this.rootContainer.style.gap = ''
       return
     }
 
+    this.rootContainer.classList.add('surface-layout--split')
     const gap = this.layout.gap ?? 16
     this.rootContainer.style.display = 'flex'
     this.rootContainer.style.gap = `${gap}px`

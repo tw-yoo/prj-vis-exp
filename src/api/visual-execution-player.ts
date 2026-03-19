@@ -8,6 +8,7 @@ import { resolveEncodingFields } from '../rendering/ops/common/resolveEncodingFi
 import type { ExecutionPlan, VisualExecutionPlan, VisualExecutionStep, VisualExecutionSubstep } from './nlp-ops'
 import { materializeExecutionGroups } from './nlp-ops'
 import type { SurfaceManager } from './surface-manager'
+import { SurfaceTransitionController, type MultiSurfaceLayoutTarget } from './surface-transition-controller'
 import {
   buildLogicalExecutionArtifacts,
   buildPreparedSurface,
@@ -17,6 +18,7 @@ import {
   type DerivedSurfaceSelection,
   type LogicalExecutionArtifacts,
   type PreparedSurface,
+  type PreparedSurfaceRevealPolicy,
 } from './visual-derived-chart'
 import { buildSentenceSummaryText } from './operation-summary-text'
 
@@ -53,6 +55,8 @@ export type VisualSubstepExecutionContext = {
   logicalArtifacts: LogicalExecutionArtifacts | null
   currentSurface: VisualSurfaceState
   preparedSurfaces: Map<string, PreparedSurface>
+  revealedPreparedSurfaces: Set<string>
+  skipDelays: boolean
 }
 
 type RunOpsCallback = (
@@ -66,6 +70,9 @@ type RunOpsCallback = (
 ) => Promise<void>
 
 const SPLIT_REVEAL_DELAY_MS = 1000
+const SURFACE_SPLIT_TRANSITION_MS = 440
+const SURFACE_TRANSITION_STAGGER_MS = 56
+const MIN_PREPARED_SURFACE_REVEAL_MS = 120
 
 type SentenceGroup = {
   name: string
@@ -195,6 +202,28 @@ function resolvePreparedSurface(context: VisualSubstepExecutionContext, substep:
   return context.preparedSurfaces.get(nodeId) ?? null
 }
 
+function preparedSurfaceRevealKey(prepared: PreparedSurface, surfaceId?: string) {
+  return `${surfaceId ?? 'root'}::${prepared.nodeId}`
+}
+
+async function ensurePreparedSurfaceReveal(args: {
+  context: VisualSubstepExecutionContext
+  prepared: PreparedSurface
+  surfaceId?: string
+}) {
+  const key = preparedSurfaceRevealKey(args.prepared, args.surfaceId)
+  if (args.context.revealedPreparedSurfaces.has(key)) return
+  args.context.revealedPreparedSurfaces.add(key)
+
+  const policy: PreparedSurfaceRevealPolicy | undefined = args.prepared.revealPolicy
+  const baseRevealDelayMs = Math.max(
+    MIN_PREPARED_SURFACE_REVEAL_MS,
+    Math.round(policy?.baseRevealDelayMs ?? 0),
+  )
+  if (args.context.skipDelays || !(baseRevealDelayMs > 0)) return
+  await sleepMs(baseRevealDelayMs)
+}
+
 function cloneRecordRows(rows: Array<Record<string, unknown>>): RawRow[] {
   return rows.map((row) => {
     const normalized: RawRow = {}
@@ -244,6 +273,28 @@ function resolveSurfaceChartType(context: VisualSubstepExecutionContext, surface
 function resolveSubstepSurfaceId(substep: VisualExecutionSubstep): string | undefined {
   const surfaceId = typeof substep.surface?.surfaceId === 'string' ? substep.surface.surfaceId.trim() : ''
   return surfaceId.length > 0 ? surfaceId : undefined
+}
+
+function resolveSurfaceHost(context: VisualSubstepExecutionContext, surfaceId?: string): HTMLElement | null {
+  if (!surfaceId || surfaceId === 'root') return context.container
+  return (context.surfaceManager?.getSurface(surfaceId)?.hostElement as HTMLElement | null) ?? null
+}
+
+function createMultiSurfaceLayoutTarget(args: {
+  layoutMode?: 'single' | 'split-horizontal' | 'split-vertical'
+  surfaceIds: string[]
+}): MultiSurfaceLayoutTarget {
+  return {
+    orientation: args.layoutMode === 'split-vertical' ? 'vertical' : 'horizontal',
+    surfaceIds: [...args.surfaceIds],
+  }
+}
+
+function createSurfaceTransitionController(context: VisualSubstepExecutionContext): SurfaceTransitionController | null {
+  const stageElement =
+    context.container.parentElement instanceof HTMLElement ? context.container.parentElement : context.container
+  if (!(stageElement instanceof HTMLElement)) return null
+  return new SurfaceTransitionController({ stageElement })
 }
 
 function applySurfaceScopeToOps(ops: OperationSpec[], surfaceId?: string): OperationSpec[] {
@@ -350,7 +401,11 @@ export async function executeSurfaceActionSubstep(args: {
       }
     }
     const baseRows = cloneRecordRows(args.context.dataRows ?? [])
-    const baseSpec = resolveSurfaceSpec(args.context, args.substep.surface?.parentSurfaceId ?? 'root')
+    const parentSurfaceId = args.substep.surface?.parentSurfaceId?.trim() || 'root'
+    const baseSpec = resolveSurfaceSpec(args.context, parentSurfaceId)
+    const sourceHost = resolveSurfaceHost(args.context, parentSurfaceId)
+    const transitionController = createSurfaceTransitionController(args.context)
+    const sourceSnapshot = transitionController && sourceHost ? transitionController.captureSurfaceSnapshot(sourceHost) : null
     const leftRows = cloneRecordRows(baseRows)
     const rightRows = cloneRecordRows(baseRows)
     const specA = buildFilteredPlaybackSpec(baseSpec, leftRows)
@@ -375,6 +430,21 @@ export async function executeSurfaceActionSubstep(args: {
       executionSpec: specB,
       surfaceId: rightId,
     })
+    const leftHost = resolveSurfaceHost(args.context, leftId)
+    const rightHost = resolveSurfaceHost(args.context, rightId)
+    if (transitionController && sourceHost && leftHost && rightHost) {
+      await transitionController.animateSplit({
+        sourceHost,
+        sourceSnapshot: sourceSnapshot ?? undefined,
+        targetHosts: [leftHost, rightHost],
+        layout: createMultiSurfaceLayoutTarget({
+          layoutMode: args.substep.surface?.layoutMode,
+          surfaceIds: [leftId, rightId],
+        }),
+        durationMs: SURFACE_SPLIT_TRANSITION_MS,
+        staggerMs: SURFACE_TRANSITION_STAGGER_MS,
+      })
+    }
     return {
       executed: true,
       nextSurface: 'source-chart',
@@ -622,6 +692,12 @@ export async function executeRunOpSubstep(args: {
     prepared = materialized.surface
   }
 
+  await ensurePreparedSurfaceReveal({
+    context: args.context,
+    prepared,
+    surfaceId,
+  })
+
   await args.runOps(applySurfaceScopeToOps(prepared.runOps, surfaceId), {
     resetRuntime: args.resetRuntime(),
     runtimeScope: `visual:${args.context.sentenceStep.id}:${args.substep.id}`,
@@ -685,6 +761,8 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     surfaceManager: args.surfaceManager,
     currentSurface,
     preparedSurfaces: new Map<string, PreparedSurface>(),
+    revealedPreparedSurfaces: new Set<string>(),
+    skipDelays: args.skipDelays ?? false,
   }
   const summary = buildSentenceSummaryText({
     step: sentenceStep,

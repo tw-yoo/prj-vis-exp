@@ -1,4 +1,5 @@
 const OVERLAY_ATTR = 'data-visual-sentence-summary'
+const OVERLAY_SLOT_ATTR = 'data-summary-overlay-slot'
 
 export type SentenceSummaryOverlayControl = {
   label: string
@@ -16,6 +17,11 @@ export type SentenceSummaryOverlayRenderInput =
 
 function overlayHost(container: HTMLElement | null): HTMLElement | null {
   if (!container) return null
+  const stage = container.closest<HTMLElement>('.chart-stage')
+  if (stage) {
+    const slot = stage.querySelector<HTMLElement>(`[${OVERLAY_SLOT_ATTR}]`)
+    if (slot) return slot
+  }
   return container.parentElement ?? container
 }
 

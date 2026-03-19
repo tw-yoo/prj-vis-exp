@@ -3,6 +3,7 @@ import type { JsonValue } from '../../types'
 import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 
 const localDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
@@ -195,6 +196,7 @@ export function getMultipleLineSplitDomain(container: HTMLElement, chartId: stri
 
 type NormalizedMultiLinePoint = {
   xLabel: string
+  xDisplayLabel: string
   xId: string
   xValue: string | number | Date
   xSort: number | string
@@ -271,6 +273,7 @@ function normalizeMultiLinePoints(values: RawDatum[], encoding: ResolvedMultiLin
   const yField = encoding.yField
   const xType = encoding.xType ?? 'nominal'
   const colorField = encoding.colorField ?? null
+  const labelMap = buildCategoricalDisplayLabelMap(values, xField)
   const points: NormalizedMultiLinePoint[] = []
   values.forEach((row) => {
     const rawX = row?.[xField]
@@ -281,6 +284,7 @@ function normalizeMultiLinePoints(values: RawDatum[], encoding: ResolvedMultiLin
     const series = colorField ? (row?.[colorField] != null ? String(row[colorField]) : null) : null
     points.push({
       xLabel: normalized.label,
+      xDisplayLabel: labelMap.get(normalized.label) ?? normalized.label,
       xId: normalized.id,
       xValue: normalized.value,
       xSort: normalized.sort,
@@ -410,7 +414,9 @@ export async function renderSplitMultipleLineChart(
         ? d3.axisBottom(xScale as d3.ScaleTime<number, number>).tickFormat(formatTemporalTick)
         : xType === 'quantitative'
           ? d3.axisBottom(xScale as d3.ScaleLinear<number, number>)
-          : d3.axisBottom(xScale as d3.ScalePoint<string>)
+          : d3.axisBottom(xScale as d3.ScalePoint<string>).tickFormat(
+              categoricalTickFormatter(new Map(points.map((point) => [point.xLabel, point.xDisplayLabel]))),
+            )
     g.append(SvgElements.Group)
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)

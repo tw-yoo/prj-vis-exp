@@ -4,6 +4,7 @@ import type { JsonValue } from '../../types'
 import { type DrawSplitSpec } from '../draw/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 
 type RawDatum = Record<string, JsonValue>
@@ -408,6 +409,7 @@ export async function renderSplitGroupedBarChart(container: HTMLElement, spec: G
 
     const xScale = d3.scaleBand<string | number>().domain(domain).range([0, subW]).paddingInner(0.18).paddingOuter(0.08)
     const groupScale = d3.scaleBand<string | number>().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.08)
+    const xLabelMap = buildCategoricalDisplayLabelMap(data, categoryField)
 
     panel
       .append(SvgElements.Text)
@@ -422,7 +424,7 @@ export async function renderSplitGroupedBarChart(container: HTMLElement, spec: G
       .append(SvgElements.Group)
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)
-      .call(d3.axisBottom(xScale))
+      .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
     wrapAxisTickLabels(panel.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
     panel.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))

@@ -2,6 +2,7 @@ import { ChartType, getChartType, type VegaLiteSpec } from '../domain/chart'
 import { normalizeOpsGroups, type OpsSpecGroupMap } from '../domain/operation/opsSpec'
 import type { DatumValue, OperationSpec, TargetSelector } from '../domain/operation/types'
 import { OperationOp } from '../domain/operation/types'
+import { buildValuesLabelFromRows } from '../domain/operation/semanticLabels'
 import { toDatumValuesFromRaw } from '../domain/data/datum'
 import { executeDataOperation } from '../application/services/executeDataOperation'
 import { restoreRuntimeResults, resetRuntimeResults, snapshotRuntimeResults, storeRuntimeResult } from '../domain/operation/dataOps'
@@ -48,6 +49,11 @@ export type PreparedSurface = {
   materializeOps: OperationSpec[]
   runOps: OperationSpec[]
   selectors: PreparedSurfaceSelectors
+  revealPolicy?: PreparedSurfaceRevealPolicy
+}
+
+export type PreparedSurfaceRevealPolicy = {
+  baseRevealDelayMs: number
 }
 
 export type SurfaceSchema = {
@@ -120,6 +126,7 @@ function cloneDatum(row: DatumValue): DatumValue {
     category: row.category ?? null,
     measure: row.measure ?? null,
     target: String(row.target),
+    displayTarget: row.displayTarget ?? null,
     group: row.group ?? null,
     value: Number(row.value),
     id: row.id ?? null,
@@ -386,6 +393,8 @@ function isSyntheticTarget(target: string) {
 function operandLabel(nodeId: string, rows: DatumValue[]) {
   const first = rows[0]
   if (typeof first?.name === 'string' && first.name.trim().length > 0) return first.name.trim()
+  const semanticValuesLabel = buildValuesLabelFromRows(rows)
+  if (semanticValuesLabel) return semanticValuesLabel
   if (rows.length === 1 && !isSyntheticTarget(String(first?.target ?? ''))) return String(first?.target ?? nodeId)
   return nodeId
 }
@@ -402,6 +411,10 @@ function normalizeOperandRows(nodeId: string, rows: DatumValue[]) {
         // Keep a stable internal playback key so synthetic operands with the
         // same human-readable label do not collapse onto a single x-domain slot.
         cloned.target = nodeId
+      }
+      if (!cloned.displayTarget || !String(cloned.displayTarget).trim()) {
+        cloned.displayTarget =
+          typeof cloned.name === 'string' && cloned.name.trim().length > 0 ? cloned.name.trim() : String(cloned.target)
       }
       if (!cloned.name || !String(cloned.name).trim()) {
         cloned.name = label
@@ -804,6 +817,12 @@ function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
   const values = rows.map((row, index) => ({
     id: row.id ?? row.lookupId ?? `bar_${index}`,
     target: String(row.target),
+    displayTarget:
+      typeof row.displayTarget === 'string' && row.displayTarget.trim().length > 0
+        ? row.displayTarget.trim()
+        : typeof row.name === 'string' && row.name.trim().length > 0
+          ? row.name.trim()
+          : String(row.target),
     value: Number(row.value),
     group: row.group ?? row.series ?? null,
     label: typeof row.name === 'string' && row.name.trim().length > 0 ? row.name.trim() : String(row.target),
@@ -848,6 +867,12 @@ function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
   const values = rows.map((row, index) => ({
     id: row.id ?? row.lookupId ?? `line_${index}`,
     target: String(row.target),
+    displayTarget:
+      typeof row.displayTarget === 'string' && row.displayTarget.trim().length > 0
+        ? row.displayTarget.trim()
+        : typeof row.name === 'string' && row.name.trim().length > 0
+          ? row.name.trim()
+          : String(row.target),
     value: Number(row.value),
     series: row.group ?? row.series ?? null,
     label: typeof row.name === 'string' && row.name.trim().length > 0 ? row.name.trim() : String(row.target),
@@ -1216,6 +1241,7 @@ export function buildPreparedSurface(args: {
       materializeOps: [],
       runOps,
       selectors,
+      revealPolicy: runOps.length > 0 ? { baseRevealDelayMs: 180 } : undefined,
     },
   }
 }

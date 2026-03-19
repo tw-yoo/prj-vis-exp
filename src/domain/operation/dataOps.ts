@@ -37,6 +37,14 @@ import {
   assertSortSpec,
   assertSumSpec,
 } from './types/operationValidators'
+import {
+  buildAggregateLabel,
+  buildBinaryLabel,
+  buildOrdinalLabel,
+  buildScaledLabel,
+  buildValuesLabelFromRows,
+  compactSemanticList,
+} from './semanticLabels'
 
 // ---------------------------------------------------------------------------
 // Shared helpers (ported from dataOpsCore.js)
@@ -83,18 +91,12 @@ function runtimeLabelForRef(refId: string): string | null {
     ),
   )
   if (explicitNames.length > 0) {
-    return explicitNames.join(' + ')
+    return explicitNames.length === 1 ? explicitNames[0] : compactSemanticList(explicitNames)
   }
 
-  const readableTargets = Array.from(
-    new Set(
-      runtimeRows
-        .map((row) => String(row.target ?? '').trim())
-        .filter((value) => value.length > 0 && !isSyntheticResultTarget(value)),
-    ),
-  )
-  if (readableTargets.length > 0) {
-    return readableTargets.join(' + ')
+  const rowLabel = buildValuesLabelFromRows(runtimeRows)
+  if (rowLabel) {
+    return rowLabel
   }
 
   return null
@@ -145,6 +147,18 @@ export function formatResultName(
   return `${kind} of ${baseField}${groupPart}${detailSuffix}`
 }
 
+function semanticSubjectFromRows(rows: DatumValue[], fallbackField: string) {
+  const valuesLabel = buildValuesLabelFromRows(rows)
+  return valuesLabel ?? formatFieldLabel(fallbackField)
+}
+
+function semanticLabelFromCompareTargets(targetA: TargetSelector | TargetSelector[] | undefined, targetB: TargetSelector | TargetSelector[] | undefined) {
+  return {
+    left: formatTargetLabel(targetA) || 'the previous result',
+    right: formatTargetLabel(targetB) || 'the previous result',
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Runtime result store (in-memory; pure JS, no DOM)
 // ---------------------------------------------------------------------------
@@ -156,6 +170,7 @@ function cloneDatumValue(datum: DatumValue): DatumValue {
     category: datum.category,
     measure: datum.measure,
     target: datum.target,
+    displayTarget: datum.displayTarget ?? null,
     group: datum.group ?? null,
     value: datum.value,
     id: datum.id ?? null,
@@ -565,6 +580,7 @@ function makeScalarDatum(
       category: categoryName ?? 'result',
       measure: measureName ?? 'value',
       target: targetLabel ?? '__result__',
+      displayTarget: name ?? targetLabel ?? '__result__',
       group: group ?? null,
       value: roundNumeric(Number(numericValue)),
       name: name ?? targetLabel ?? '__result__',
@@ -689,7 +705,14 @@ export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const vB = aggregate(sB.map((d) => d.value), agg as string | undefined)
   const pickA = which === 'max' ? vA >= vB : vA <= vB
   const chosen = pickA ? sA[sA.length - 1] : sB[sB.length - 1]
-  return [chosen]
+  const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
+  return [
+    {
+      ...chosen,
+      name: buildBinaryLabel('comparison', left, right),
+      displayTarget: buildBinaryLabel('comparison', left, right),
+    },
+  ]
 }
 
 /** 3.4 compareBool — returns a scalar DatumValue[] (value: 1 or 0) */
@@ -717,8 +740,8 @@ export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue
   const boolResult = evalOperator(operator, vA, vB)
   const fieldLabel = field || 'value'
   const groupLabel = op.group ?? gA ?? gB ?? null
-  const detail = [formatTargetLabel(targetA), formatTargetLabel(targetB)].filter(Boolean).join(' vs ')
-  const name = formatResultName('CompareBool', fieldLabel, { group: groupLabel, detail })
+  const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
+  const name = buildBinaryLabel('comparison', left, right)
   return makeScalarDatum(fieldLabel, groupLabel, 'bool', '__compareBool__', boolResult ? 1 : 0, name)
 }
 
@@ -742,7 +765,17 @@ export function findExtremum(data: DatumValue[], op: OperationSpec): DatumValue[
   const sorted = normalized.slice().sort((a, b) => compareComparableValues(a.value, b.value))
   const pickMax = which !== 'min'
   const chosen = pickMax ? sorted[sorted.length - 1] : sorted[0]
-  return [chosen.datum]
+  const label = buildAggregateLabel(
+    pickMax ? 'maximum' : 'minimum',
+    semanticSubjectFromRows(section, field || 'value'),
+  )
+  return [
+    {
+      ...chosen.datum,
+      name: label,
+      displayTarget: label,
+    },
+  ]
 }
 
 /** 3.6 sort */
@@ -781,8 +814,9 @@ export function determineRange(
   const inField = byGroup.filter(predicateByField(field, kind))
   const fieldLabel = field || (kind === 'measure' ? 'value' : 'target')
   const groupLabel = group ?? null
-  const nameMin = formatResultName('RangeMin', fieldLabel, { group: groupLabel })
-  const nameMax = formatResultName('RangeMax', fieldLabel, { group: groupLabel })
+  const subject = semanticSubjectFromRows(inField, fieldLabel)
+  const nameMin = buildAggregateLabel('minimum', subject)
+  const nameMax = buildAggregateLabel('maximum', subject)
   if (inField.length === 0) {
     return [
       ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', NaN, nameMin),
@@ -828,7 +862,7 @@ export function countData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const { group } = spec
   const byGroup = sliceByGroup(arr, group ?? null)
   const fieldLabel = op?.field || 'target'
-  const name = formatResultName('Count', fieldLabel, { group })
+  const name = buildAggregateLabel('count', semanticSubjectFromRows(byGroup, fieldLabel))
   return makeScalarDatum('value', group ?? null, 'count', '__count__', byGroup.length, name)
 }
 
@@ -841,7 +875,7 @@ export function sumData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
   const s = byGroup.reduce((acc, d) => acc + d.value, 0)
   const fieldLabel = field || 'value'
-  const name = formatResultName('Sum', fieldLabel, { group })
+  const name = buildAggregateLabel('sum', semanticSubjectFromRows(byGroup, fieldLabel))
   return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__sum__', s, name)
 }
 
@@ -853,7 +887,7 @@ export function averageData(data: DatumValue[], op: OperationSpec): DatumValue[]
   const { field, group } = spec
   const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
   const fieldLabel = field || 'value'
-  const name = formatResultName('Average', fieldLabel, { group })
+  const name = buildAggregateLabel('average', semanticSubjectFromRows(byGroup, fieldLabel))
   if (byGroup.length === 0) return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__avg__', NaN, name)
   const avg = byGroup.reduce((acc, d) => acc + d.value, 0) / byGroup.length
   return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__avg__', avg, name)
@@ -958,8 +992,8 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
 
   const fieldLabel = field || sA[0]?.measure || sB[0]?.measure || 'value'
   const groupLabel = op.group ?? gA ?? gB ?? null
-  const detail = [formatTargetLabel(targetA), formatTargetLabel(targetB)].filter(Boolean).join(' vs ')
-  const name = formatResultName('Diff', fieldLabel, { group: groupLabel, detail })
+  const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
+  const name = buildBinaryLabel('difference', left, right)
 
   return makeScalarDatum(fieldLabel, groupLabel, fieldLabel, targetLabel, resultValue, name)
 }
@@ -1006,6 +1040,7 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
     const labelCurr = formatTargetLabel(curr.target)
     if (labelPrev || labelCurr) {
       resultDatum.name = labelPrev && labelCurr ? `${labelPrev} → ${labelCurr}` : labelCurr || labelPrev || undefined
+      resultDatum.displayTarget = resultDatum.name
     }
     diffs.push(resultDatum)
   }
@@ -1079,9 +1114,10 @@ export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[
       category: by,
       measure: measureName,
       target: key,
+      displayTarget: buildBinaryLabel('difference', groupA, groupB),
       group: resultGroup,
       value: roundNumeric(delta),
-      name: '__pairDiff__',
+      name: buildBinaryLabel('difference', groupA, groupB),
     })
   })
   return out
@@ -1099,16 +1135,14 @@ export function addData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const left = resolveSelectorScalar(arr, spec.field, targetA, group, spec.aggregate as string | undefined)
   const right = resolveSelectorScalar(arr, spec.field, targetB, group, spec.aggregate as string | undefined)
   if (!Number.isFinite(left) || !Number.isFinite(right)) return []
+  const labels = semanticLabelFromCompareTargets(targetA, targetB)
   return makeScalarDatum(
     spec.field ?? 'value',
     group,
     'result',
     spec.targetName ?? '__add__',
     Number(left) + Number(right),
-    formatResultName('Add', spec.field ?? 'value', {
-      group,
-      detail: `${formatTargetLabel(targetA)} + ${formatTargetLabel(targetB)}`,
-    }),
+    buildBinaryLabel('sum', labels.left, labels.right),
   )
 }
 
@@ -1126,10 +1160,7 @@ export function scaleData(data: DatumValue[], op: OperationSpec): DatumValue[] {
     'result',
     spec.targetName ?? '__scale__',
     Number(base) * factor,
-    formatResultName('Scale', spec.field ?? 'value', {
-      group,
-      detail: `${formatTargetLabel(spec.target)} × ${factor}`,
-    }),
+    buildScaledLabel(formatTargetLabel(spec.target) || 'the previous result'),
   )
 }
 
@@ -1205,7 +1236,11 @@ export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   normalized.forEach((rank) => {
     const idx = rank - 1
     if (idx >= 0 && idx < baseSequence.length) {
-      results.push(baseSequence[idx])
+      results.push({
+        ...baseSequence[idx],
+        name: buildOrdinalLabel(rank, semanticSubjectFromRows(byGroup, op.field || 'value')),
+        displayTarget: buildOrdinalLabel(rank, semanticSubjectFromRows(byGroup, op.field || 'value')),
+      })
     }
   })
 

@@ -4,6 +4,7 @@ import type { JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { type DrawSplitSpec } from '../draw/types'
 import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 
 type RawDatum = Record<string, JsonValue>
@@ -252,6 +253,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
   const g = svg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
 
   const xDomain = resolveCategoricalDomain(data, xField, spec?.encoding?.x?.sort).map(String)
+  const xLabelMap = buildCategoricalDisplayLabelMap(data, xField)
   const xScale = d3.scaleBand<string>().domain(xDomain).range([0, plotW]).padding(0.2)
   const yValues = data.map((d) => Number(d[yField])).filter(Number.isFinite)
   const minY = d3.min(yValues)
@@ -266,7 +268,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
   g.append(SvgElements.Group)
     .attr(SvgAttributes.Class, SvgClassNames.XAxis)
     .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
-    .call(d3.axisBottom(xScale))
+    .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
   wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
   g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
@@ -476,13 +478,14 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
       .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
 
     const xScale = d3.scaleBand<string | number>().domain(domain).range([0, subW]).padding(0.2)
+    const xLabelMap = buildCategoricalDisplayLabelMap(data, xField)
     const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([subH, 0])
     const zeroY = yScale(0)
 
     g.append(SvgElements.Group)
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)
-      .call(d3.axisBottom(xScale))
+      .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
     wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
     g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))

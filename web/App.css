@@ -318,7 +318,25 @@ textarea {
 
 .chart-stage {
   position: relative;
-  padding-bottom: 84px;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  row-gap: 12px;
+  min-height: 404px;
+  width: 100%;
+}
+
+.chart-stage-viewport {
+  position: relative;
+  min-height: 320px;
+  padding: 12px 0;
+  display: block;
+  width: 100%;
+}
+
+.chart-stage-summary-slot {
+  position: relative;
+  min-height: 72px;
+  width: 100%;
 }
 
 .draw-timeline-panel {
@@ -426,8 +444,8 @@ textarea {
 }
 
 .chart-sentence-summary-overlay {
-  position: absolute;
-  bottom: 8px;
+  position: relative;
+  bottom: auto;
   left: 50%;
   transform: translateX(-50%);
   z-index: 18;
@@ -487,7 +505,10 @@ textarea {
 }
 
 .chart-host {
+  position: relative;
   min-height: 320px;
+  width: 100%;
+  max-width: 100%;
   border: 1px dashed #e5e7eb;
   border-radius: 12px;
   background: #ffffff;
@@ -496,9 +517,32 @@ textarea {
   box-sizing: border-box;
 }
 
+.chart-presentation-handoff-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.chart-presentation-handoff-overlay > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  overflow: visible;
+  background: transparent;
+}
+
 .chart-host .vega-embed,
 .chart-host svg {
   color: #000000 !important;
+}
+
+.chart-host > svg,
+.surface-host > svg {
+  display: block;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .chart-host .role-axis line,
@@ -530,6 +574,9 @@ textarea {
 }
 
 .surface-host--split {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1 1 0;
   min-width: 0;
   min-height: 0;
@@ -539,4 +586,61 @@ textarea {
 [data-surface-id] > .chart-host {
   width: 100%;
   height: 100%;
+}
+
+.surface-host--split > svg,
+.surface-host--split > .chart-host,
+.surface-host--split > .vega-embed {
+  align-self: center;
+  justify-self: center;
+}
+
+.surface-layout--split > .surface-host--split,
+.surface-layout--split > .surface-host--split > .chart-host,
+.surface-layout--split > .surface-host--split > .vega-embed {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.surface-transition-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
+
+.surface-transition-source-shell {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: hidden;
+  will-change: opacity, transform;
+  filter: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.12));
+}
+
+.surface-transition-source-shell > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background: transparent;
+}
+
+.surface-transition-clone-shell {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: hidden;
+  will-change: left, top, width, height, opacity;
+  filter: drop-shadow(0 10px 22px rgba(15, 23, 42, 0.14));
+}
+
+.surface-transition-clone-shell > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background: transparent;
 }

@@ -103,6 +103,10 @@ import {
   type SentenceSummaryOverlayRenderInput,
 } from '../../../src/api/sentence-summary-overlay'
 import { SurfaceManager } from '../../../src/api/surface-manager'
+import {
+  captureMarkPresentationSnapshot,
+  playPresentationTransition,
+} from '../../../src/api/presentation-transition-controller'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
@@ -1533,8 +1537,10 @@ function ChartWorkbenchPage() {
   const renderSpecIfNeeded = useCallback(
     async (host: HTMLElement, spec: VegaLiteSpec, options?: { surfaceId?: string }) => {
       if (isRenderedSpecCurrent(host, spec, options?.surfaceId)) return false
+      const outgoingPresentation = captureMarkPresentationSnapshot(host)
       await renderChartDispatch(host, spec)
       cacheRenderedSpec(host, spec, options?.surfaceId)
+      playPresentationTransition(host, outgoingPresentation, { durationMs: 260 })
       return true
     },
     [cacheRenderedSpec, isRenderedSpecCurrent],
@@ -3626,7 +3632,10 @@ function ChartWorkbenchPage() {
           />
 
           <div className="chart-stage">
-            <div className="chart-host" ref={chartRef} data-testid="chart-host" />
+            <div className="chart-stage-viewport">
+              <div className="chart-host" ref={chartRef} data-testid="chart-host" />
+            </div>
+            <div className="chart-stage-summary-slot" data-summary-overlay-slot="true" />
             {pendingTextPlacement && drawTool === DrawInteractionTools.Text ? (
               <input
                 ref={textInputRef}

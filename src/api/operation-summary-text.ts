@@ -1,4 +1,12 @@
 import { OperationOp, type DatumValue, type OperationSpec, type TargetSelector } from '../domain/operation/types'
+import {
+  buildAggregateLabel,
+  buildBinaryLabel,
+  buildOrdinalLabel,
+  buildScaledLabel,
+  buildValuesLabelFromTargets,
+  compactSemanticList,
+} from '../domain/operation/semanticLabels'
 import type { LogicalExecutionArtifacts, NodeResultKind } from './visual-derived-chart'
 import type { VisualExecutionStep } from './nlp-ops'
 
@@ -126,23 +134,6 @@ function resultTarget(rows: DatumValue[] | undefined): string | null {
   return first ? String(first.target) : null
 }
 
-function aggregatePhrase(op: OperationSpec): string {
-  switch (op.op) {
-    case OperationOp.Average:
-      return 'the average'
-    case OperationOp.Sum:
-      return 'the sum'
-    case OperationOp.Count:
-      return 'the count'
-    case OperationOp.FindExtremum:
-      return op.which === 'min' ? 'the minimum value' : 'the maximum value'
-    case OperationOp.DetermineRange:
-      return 'the range'
-    default:
-      return 'the previous result'
-  }
-}
-
 function nodeKind(nodeId: string, artifacts: LogicalExecutionArtifacts | null): NodeResultKind | null {
   return artifacts?.nodeKinds.get(nodeId) ?? null
 }
@@ -155,9 +146,32 @@ function sourceBackedPhrase(
   const selectors = artifacts?.nodeSourceSelectors.get(nodeId) ?? null
   const targets = extractSourceTargetsFromSelectors(selectors)
   if (targets.length === 0) return null
-  if (mode === 'bare-entity' && targets.length === 1) return targets[0]
-  if (mode === 'value' && targets.length === 1) return `the value of ${targets[0]}`
-  return joinPhrases(targets)
+  if (mode === 'bare-entity') return compactSemanticList(targets)
+  return buildValuesLabelFromTargets(targets, { article: true })
+}
+
+function aggregateSubjectPhrase(args: {
+  op: OperationSpec
+  artifacts: LogicalExecutionArtifacts | null
+  seen: Set<string>
+}) {
+  const { op, artifacts, seen } = args
+  const inputs = inputNodeIds(op)
+  if (inputs.length > 0) {
+    return phraseFromInputNodeIds({
+      nodeIds: inputs,
+      mode: 'bare-entity',
+      artifacts,
+      seen,
+    })
+  }
+  const nodeId = typeof op.meta?.nodeId === 'string' ? op.meta.nodeId.trim() : ''
+  if (nodeId) {
+    const sourceBacked = sourceBackedPhrase(nodeId, 'bare-entity', artifacts)
+    if (sourceBacked) return sourceBacked
+  }
+  const field = typeof op.field === 'string' && op.field.trim().length > 0 ? op.field.trim() : 'selected values'
+  return field
 }
 
 function phraseForRefNode(args: {
@@ -176,9 +190,6 @@ function phraseForRefNode(args: {
 
   if (kind === 'source-backed') {
     return sourceBackedPhrase(nodeId, context.mode, artifacts) ?? 'the previous result'
-  }
-  if (kind === 'source-aggregate') {
-    return aggregatePhrase(op)
   }
 
   return nounPhraseForOperation({
@@ -247,32 +258,42 @@ function nounPhraseForOperation(args: {
         artifacts,
         seen,
       })
-      return `the difference between ${left} and ${right}`
+      return buildBinaryLabel('difference', left, right, { article: true })
     }
     case OperationOp.Compare:
-      return `the comparison between ${phraseForSelector({
-        selector: op.targetA,
-        context: { mode: 'bare-entity' },
-        artifacts,
-        seen,
-      })} and ${phraseForSelector({
-        selector: op.targetB,
-        context: { mode: 'bare-entity' },
-        artifacts,
-        seen,
-      })}`
+      return buildBinaryLabel(
+        'comparison',
+        phraseForSelector({
+          selector: op.targetA,
+          context: { mode: 'bare-entity' },
+          artifacts,
+          seen,
+        }),
+        phraseForSelector({
+          selector: op.targetB,
+          context: { mode: 'bare-entity' },
+          artifacts,
+          seen,
+        }),
+        { article: true },
+      )
     case OperationOp.Add:
-      return `the sum of ${phraseForSelector({
-        selector: op.targetA,
-        context: { mode: 'summary' },
-        artifacts,
-        seen,
-      })} and ${phraseForSelector({
-        selector: op.targetB,
-        context: { mode: 'summary' },
-        artifacts,
-        seen,
-      })}`
+      return buildBinaryLabel(
+        'sum',
+        phraseForSelector({
+          selector: op.targetA,
+          context: { mode: 'summary' },
+          artifacts,
+          seen,
+        }),
+        phraseForSelector({
+          selector: op.targetB,
+          context: { mode: 'summary' },
+          artifacts,
+          seen,
+        }),
+        { article: true },
+      )
     case OperationOp.Scale: {
       const target = phraseForSelector({
         selector: op.target,
@@ -280,14 +301,29 @@ function nounPhraseForOperation(args: {
         artifacts,
         seen,
       })
-      return `the scaled value of ${target}`
+      return buildScaledLabel(target, { article: true })
     }
     case OperationOp.Average:
+      return buildAggregateLabel('average', aggregateSubjectPhrase({ op, artifacts, seen }), { article: true })
     case OperationOp.Sum:
+      return buildAggregateLabel('sum', aggregateSubjectPhrase({ op, artifacts, seen }), { article: true })
     case OperationOp.Count:
+      return buildAggregateLabel('count', aggregateSubjectPhrase({ op, artifacts, seen }), { article: true })
     case OperationOp.FindExtremum:
+      return buildAggregateLabel(
+        op.which === 'min' ? 'minimum' : 'maximum',
+        aggregateSubjectPhrase({ op, artifacts, seen }),
+        { article: true },
+      )
     case OperationOp.DetermineRange:
-      return aggregatePhrase(op)
+      return buildAggregateLabel('range', aggregateSubjectPhrase({ op, artifacts, seen }), { article: true })
+    case OperationOp.Nth: {
+      const rawRank = Array.isArray(op.n) ? Number(op.n[0]) : Number(op.n)
+      if (Number.isFinite(rawRank)) {
+        return buildOrdinalLabel(rawRank, aggregateSubjectPhrase({ op, artifacts, seen }), { article: true })
+      }
+      return 'the selected value'
+    }
     case OperationOp.RetrieveValue:
       return phraseForSelector({
         selector: op.target,
@@ -368,10 +404,13 @@ function imperativeSentenceForOperation(args: {
       return 'Calculate the average'
     case OperationOp.Sum:
       if (inputs.length > 0) {
-        return `Calculate the sum of ${phraseFromInputNodeIds({ nodeIds: inputs, mode: 'summary', artifacts, seen })}`
+        return `Calculate the sum of ${phraseFromInputNodeIds({ nodeIds: inputs, mode: 'bare-entity', artifacts, seen })}`
       }
       return 'Calculate the sum'
     case OperationOp.Count:
+      if (inputs.length > 0) {
+        return `Count ${phraseFromInputNodeIds({ nodeIds: inputs, mode: 'bare-entity', artifacts, seen })}`
+      }
       return 'Count the selected values'
     case OperationOp.FindExtremum: {
       const base = op.which === 'min' ? 'Get the minimum value' : 'Get the maximum value'
@@ -390,6 +429,15 @@ function imperativeSentenceForOperation(args: {
     case OperationOp.CompareBool:
       return `Check whether ${phraseForSelector({ selector: op.targetA, context: { mode: 'summary' }, artifacts, seen })} is greater than ${phraseForSelector({ selector: op.targetB, context: { mode: 'summary' }, artifacts, seen })}`
     case OperationOp.Filter:
+      if (Array.isArray(op.include) && op.include.length > 0) {
+        return `Filter the chart to show ${compactSemanticList(op.include)}`
+      }
+      if (Array.isArray(op.exclude) && op.exclude.length > 0) {
+        return `Filter the chart to exclude ${compactSemanticList(op.exclude)}`
+      }
+      if (Array.isArray(op.value) && op.value.length > 0) {
+        return `Filter the chart to show ${compactSemanticList(op.value as Array<string | number>)}`
+      }
       return 'Filter the chart'
     case OperationOp.Sort:
       return `Sort the chart in ${op.order === 'desc' ? 'descending' : 'ascending'} order`
