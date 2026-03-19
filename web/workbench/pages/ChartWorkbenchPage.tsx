@@ -2671,11 +2671,14 @@ function ChartWorkbenchPage() {
 
   useEffect(() => {
     if (!opsUiStartPending || opsGroups.length === 0) return
+    // initSnapshotStrip은 await 이전에 동기적으로 호출해야 한다.
+    // handleRunOperations의 batch2가 opsUiStartPending=false로 바꾸면
+    // 이 effect의 cleanup(cancelled=true)이 먼저 실행되어 await 이후 코드가 스킵되기 때문.
+    initSnapshotStrip()
     let cancelled = false
     void (async () => {
       await resetChartToOpsPreRunState()
       if (cancelled) return
-      initSnapshotStrip()
       setOpsUiSessionActive(true)
       setOpsUiGroupIndex(0)
       setOpsUiGroupPhase('pre-run')
