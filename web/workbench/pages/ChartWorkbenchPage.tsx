@@ -769,6 +769,9 @@ function ChartWorkbenchPage() {
   const visualPlaybackSnapshotsRef = useRef<Map<number, SurfaceGraphPlaybackSnapshot>>(new Map())
   // Snapshot strip: React state로 관리 (DOM 조작 대신 선언적 렌더링)
   const [svgSnapshots, setSvgSnapshots] = useState<{ svgString: string; label: string }[]>([])
+  // 현재 그룹 실행 중 split이 새로 생성됐는지 추적 (single→split 전환)
+  // Next 클릭 시 캡처 여부 결정에 사용: split을 생성한 그룹은 캡처 skip
+  const splitCreatedThisGroupRef = useRef(false)
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
   const [recordQueue, setRecordQueue] = useState<Array<{ id: string; op: OperationSpec }>>([])
   const recordSequenceRef = useRef(0)
@@ -2498,6 +2501,7 @@ function ChartWorkbenchPage() {
   // snapshot strip 초기화: React state 리셋만 하면 됨 (DOM 조작 불필요)
   const initSnapshotStrip = useCallback(() => {
     setSvgSnapshots([])
+    splitCreatedThisGroupRef.current = false
   }, [])
 
   const captureCurrentGroupSnapshot = useCallback(
@@ -2577,24 +2581,8 @@ function ChartWorkbenchPage() {
   const runCurrentOpsGroup = useCallback(async () => {
     if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
 
-    // 실행 전: split 상태면 현재 뷰를 pending snapshot으로 미리 캡처.
-    // 실행 후 split→single 전환이 확인된 경우에만 strip에 커밋 (merge 직전 split 상태 보존).
-    // ops(single 시작)는 layoutBefore=single이므로 pending 없음 → 캡처 안 됨.
+    // 실행 전 레이아웃 기록: 이 그룹이 split을 새로 만들었는지 추적하기 위해
     const layoutBefore = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
-    let pendingSnapshot: { svgString: string; label: string } | null = null
-    if (layoutBefore !== 'single') {
-      const label =
-        opsJsonGroupNames[opsUiGroupIndex] ?? (opsUiGroupIndex === 0 ? 'ops' : `ops${opsUiGroupIndex + 1}`)
-      const activeSurfaces =
-        surfaceManagerRef.current?.getActiveSurfaces().filter((s) => s.id !== 'root') ?? []
-      const svgEls = activeSurfaces
-        .map((s) => (s.hostElement as HTMLElement).querySelector('svg') as SVGSVGElement | null)
-        .filter((s): s is SVGSVGElement => s !== null)
-      if (svgEls.length > 0) {
-        const direction = layoutBefore === 'split-vertical' ? 'vertical' : 'horizontal'
-        pendingSnapshot = { svgString: combineSvgElements(svgEls, direction), label }
-      }
-    }
 
     if (canUseVisualExecutionPlayer) {
       await runVisualSentenceGroup(opsUiGroupIndex, { resetRuntime: true })
@@ -2605,11 +2593,10 @@ function ChartWorkbenchPage() {
       })
     }
 
-    // 실행 후: split→single 전환 시에만 pending snapshot 커밋
+    // 이 그룹이 split을 새로 생성했는지 기록 (single→split 전환).
+    // Next 클릭 시 이 플래그가 true이면 캡처 skip (split이 계속될 수 있으므로).
     const layoutAfter = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
-    if (layoutBefore !== 'single' && layoutAfter === 'single' && pendingSnapshot) {
-      setSvgSnapshots((prev) => [...prev, pendingSnapshot!])
-    }
+    splitCreatedThisGroupRef.current = layoutBefore === 'single' && layoutAfter !== 'single'
 
     setOpsUiGroupPhase('post-run')
   }, [
@@ -2631,6 +2618,7 @@ function ChartWorkbenchPage() {
   const goToPrevOpsGroup = useCallback(async () => {
     const prevIndex = opsUiGroupIndex - 1
     if (prevIndex < 0) return
+    splitCreatedThisGroupRef.current = false
     removeLastSnapshot()
     await enterOpsGroupPreRun(prevIndex)
   }, [enterOpsGroupPreRun, opsUiGroupIndex, removeLastSnapshot])
@@ -2638,8 +2626,16 @@ function ChartWorkbenchPage() {
   const goToNextOpsGroup = useCallback(async () => {
     const nextIndex = opsUiGroupIndex + 1
     if (nextIndex >= opsGroups.length) return
+    // split 상태이고 이 그룹이 split을 새로 만든 게 아니라면 캡처.
+    // (split을 새로 만든 그룹은 split이 계속되므로 skip)
+    const layout = surfaceManagerRef.current?.getLayout()
+    const isSplit = layout != null && layout.type !== 'single'
+    if (isSplit && !splitCreatedThisGroupRef.current) {
+      captureCurrentGroupSnapshot(opsUiGroupIndex)
+    }
+    splitCreatedThisGroupRef.current = false
     await enterOpsGroupPreRun(nextIndex)
-  }, [enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
+  }, [captureCurrentGroupSnapshot, enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
 
   const overlayRenderInput = useMemo<SentenceSummaryOverlayRenderInput | null>(() => {
     console.log('[DEBUG] overlayRenderInput memoized:', { opsUiSessionActive, opsUiGroupIndex, opsGroupsLength: opsGroups.length })
