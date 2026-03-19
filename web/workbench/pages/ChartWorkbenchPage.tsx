@@ -2496,10 +2496,14 @@ function ChartWorkbenchPage() {
   }
 
   const initSnapshotStrip = () => {
-    // strip은 .chart-host의 부모(.chart-stage)에 붙인다.
-    // .chart-host 내부는 렌더링 시 d3의 selectAll('*').remove()로 전부 삭제되기 때문.
+    // strip은 .chart-stage-viewport가 아닌 .chart-stage(상위 컨테이너)에 붙인다.
+    // .chart-stage-viewport는 grid row minmax(0, 1fr)로 overflow가 잘릴 수 있기 때문.
+    // closest()로 DOM 계층 변경에 무관하게 .chart-stage를 찾는다.
     snapshotsRef.current = []
-    const stageEl = chartRef.current?.parentElement
+    const stageEl =
+      (chartRef.current?.closest('.chart-stage') as HTMLElement | null) ??
+      chartRef.current?.parentElement?.parentElement ??
+      null
     if (!stageEl || opsGroups.length <= 1) {
       snapshotStripRef.current = null
       return
