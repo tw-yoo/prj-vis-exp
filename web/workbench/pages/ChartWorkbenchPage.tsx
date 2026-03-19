@@ -769,9 +769,6 @@ function ChartWorkbenchPage() {
   const visualPlaybackSnapshotsRef = useRef<Map<number, SurfaceGraphPlaybackSnapshot>>(new Map())
   // Snapshot strip: React state로 관리 (DOM 조작 대신 선언적 렌더링)
   const [svgSnapshots, setSvgSnapshots] = useState<{ svgString: string; label: string }[]>([])
-  // Split 레이아웃 변경 감지용 refs
-  const prevLayoutTypeRef = useRef<'single' | 'split-horizontal' | 'split-vertical'>('single')
-  const layoutChangedThisGroupRef = useRef(false)
   const [drawRecordEnabled, setDrawRecordEnabled] = useState(false)
   const [recordQueue, setRecordQueue] = useState<Array<{ id: string; op: OperationSpec }>>([])
   const recordSequenceRef = useRef(0)
@@ -2501,7 +2498,6 @@ function ChartWorkbenchPage() {
   // snapshot strip 초기화: React state 리셋만 하면 됨 (DOM 조작 불필요)
   const initSnapshotStrip = useCallback(() => {
     setSvgSnapshots([])
-    layoutChangedThisGroupRef.current = false
   }, [])
 
   const captureCurrentGroupSnapshot = useCallback(
@@ -2581,10 +2577,6 @@ function ChartWorkbenchPage() {
   const runCurrentOpsGroup = useCallback(async () => {
     if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
 
-    // 실행 전 레이아웃 기록 + 플래그 초기화
-    prevLayoutTypeRef.current = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
-    layoutChangedThisGroupRef.current = false
-
     if (canUseVisualExecutionPlayer) {
       await runVisualSentenceGroup(opsUiGroupIndex, { resetRuntime: true })
     } else {
@@ -2594,17 +2586,9 @@ function ChartWorkbenchPage() {
       })
     }
 
-    // 실행 후 레이아웃 비교 — split 구조 변경 시 자동 스냅샷
-    const layoutAfter = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
-    if (prevLayoutTypeRef.current !== layoutAfter) {
-      captureCurrentGroupSnapshot(opsUiGroupIndex)
-      layoutChangedThisGroupRef.current = true
-    }
-
     setOpsUiGroupPhase('post-run')
   }, [
     canUseVisualExecutionPlayer,
-    captureCurrentGroupSnapshot,
     opsGroups.length,
     opsJsonGroupNames,
     opsUiGroupIndex,
@@ -2622,7 +2606,6 @@ function ChartWorkbenchPage() {
   const goToPrevOpsGroup = useCallback(async () => {
     const prevIndex = opsUiGroupIndex - 1
     if (prevIndex < 0) return
-    layoutChangedThisGroupRef.current = false
     removeLastSnapshot()
     await enterOpsGroupPreRun(prevIndex)
   }, [enterOpsGroupPreRun, opsUiGroupIndex, removeLastSnapshot])
@@ -2630,11 +2613,12 @@ function ChartWorkbenchPage() {
   const goToNextOpsGroup = useCallback(async () => {
     const nextIndex = opsUiGroupIndex + 1
     if (nextIndex >= opsGroups.length) return
-    // layout 변경으로 이미 자동 스냅샷이 저장됐으면 중복 캡처 생략
-    if (!layoutChangedThisGroupRef.current) {
+    // split 상태일 때만 스냅샷 저장 (단일 뷰는 skip).
+    // enterOpsGroupPreRun이 차트를 리셋하기 전에 캡처해야 하므로 먼저 호출.
+    const layout = surfaceManagerRef.current?.getLayout()
+    if (layout && layout.type !== 'single') {
       captureCurrentGroupSnapshot(opsUiGroupIndex)
     }
-    layoutChangedThisGroupRef.current = false
     await enterOpsGroupPreRun(nextIndex)
   }, [captureCurrentGroupSnapshot, enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
 
