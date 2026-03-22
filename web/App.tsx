@@ -3,6 +3,7 @@ import DemoPage from './demo/pages/DemoPage'
 import SurveyRouter, { isSurveyView } from './survey/SurveyRouter'
 import SpecTestPage from './specTest/pages/SpecTestPage'
 import RenderingPage from './rendering/pages/RenderingPage'
+import DataPage from './data/pages/DataPage'
 
 export default function App() {
   const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/'
@@ -19,6 +20,10 @@ export default function App() {
 
   if (normalizedPath === '/rendering') {
     return <RenderingPage />
+  }
+
+  if (normalizedPath === '/data') {
+    return <DataPage />
   }
 
   if (isSurveyView(viewMode)) {

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:5174": "vite --port 5174",
+    "dev:5713": "vite --port 5713",
     "build": "npm run check:draw-support-sync && npm run check:authoring-style && npm run check:ide-hints && npm run check:src-boundary && npm run check:arch-boundary && tsc -b && vite build",
     "lint": "eslint .",
     "check:node": "node scripts/check-node-version.mjs",
