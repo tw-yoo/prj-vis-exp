@@ -95,42 +95,131 @@ const addArrowHead = (
 // ─── Annotation collision-avoidance utilities ─────────────────────────────────
 
 type BoxBounds = { x: number; y: number; width: number; height: number }
-
-/** Returns true if boxes a and b overlap (with optional padding). */
-function overlapsBox(a: BoxBounds, b: BoxBounds, padding = 2): boolean {
-  return (
-    a.x < b.x + b.width + padding &&
-    a.x + a.width + padding > b.x &&
-    a.y < b.y + b.height + padding &&
-    a.y + a.height + padding > b.y
-  )
+type TextPlacementResult = {
+  x: number
+  y: number
+  displacement: number
+  collisionScore: number
+  overlapArea: number
+  outsideArea: number
+  usedBarInsideFallback: boolean
+  anchorPoint: { x: number; y: number } | null
 }
 
-/**
- * Greedy minimal-movement nudge: shifts `candidate` vertically by the
- * smallest amount needed to avoid overlapping any box in `placed`.
- * Caps total movement at `maxNudge` to preserve semantic meaning.
- */
-function nudgeToAvoidOverlap(
-  candidate: BoxBounds,
-  placed: BoxBounds[],
-  maxNudge = 40,
-): { dx: number; dy: number } {
-  let totalDy = 0
-  for (let pass = 0; pass < 4; pass++) {
-    const shifted: BoxBounds = { ...candidate, y: candidate.y + totalDy }
-    const blocker = placed.find((p) => overlapsBox(shifted, p))
-    if (!blocker) break
-    const shiftUp = blocker.y - (shifted.y + shifted.height) - 2
-    const shiftDown = blocker.y + blocker.height - shifted.y + 2
-    const delta = Math.abs(shiftUp) <= Math.abs(shiftDown) ? shiftUp : shiftDown
-    totalDy += delta
-    if (Math.abs(totalDy) > maxNudge) {
-      totalDy = Math.sign(totalDy) * maxNudge
-      break
+type TextPlacementCandidateEval = {
+  x: number
+  y: number
+  displacement: number
+  overlapArea: number
+  outsideArea: number
+  collisionScore: number
+}
+
+type TextPlacementOptions = {
+  textNode: d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>
+  svgNode: SVGSVGElement
+  chartId?: string
+  mode: DrawTextMode
+  preferred: { x: number; y: number }
+  viewport?: DrawViewport
+  anchorElement?: Element | null
+  textValue: string
+  styleColor?: string
+  annotationKey?: string | null
+  annotationNodeId?: string | null
+  allowBarInsideFallback?: boolean
+}
+
+type RgbColor = { r: number; g: number; b: number }
+
+const TEXT_PLACEMENT_POLICY = {
+  obstaclePaddingPx: 2,
+  viewportPaddingPx: 2,
+  stepPx: 2,
+  maxRadiusAnchorPx: 32,
+  maxRadiusNormalizedPx: 48,
+  sideFlipPenalty: 120,
+  scoreWeightOverlap: 1000,
+  scoreWeightOutside: 1200,
+  leaderLineThresholdPx: 18,
+  barInsideFallbackCollisionArea: 16,
+} as const
+
+function clampNonNegative(value: number) {
+  return Number.isFinite(value) ? Math.max(0, value) : 0
+}
+
+function boxArea(box: BoxBounds) {
+  return clampNonNegative(box.width) * clampNonNegative(box.height)
+}
+
+function expandBox(box: BoxBounds, padding: number): BoxBounds {
+  if (!(padding > 0)) return box
+  return {
+    x: box.x - padding,
+    y: box.y - padding,
+    width: box.width + padding * 2,
+    height: box.height + padding * 2,
+  }
+}
+
+function intersectionArea(a: BoxBounds, b: BoxBounds) {
+  const x1 = Math.max(a.x, b.x)
+  const y1 = Math.max(a.y, b.y)
+  const x2 = Math.min(a.x + a.width, b.x + b.width)
+  const y2 = Math.min(a.y + a.height, b.y + b.height)
+  const w = x2 - x1
+  const h = y2 - y1
+  if (!(w > 0 && h > 0)) return 0
+  return w * h
+}
+
+function parseCssColorToRgb(raw: string | null | undefined): RgbColor | null {
+  if (!raw) return null
+  const value = raw.trim().toLowerCase()
+  if (!value || value === 'none' || value === 'transparent') return null
+
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value)
+  if (hex) {
+    const token = hex[1]
+    if (token.length === 3) {
+      return {
+        r: Number.parseInt(token[0] + token[0], 16),
+        g: Number.parseInt(token[1] + token[1], 16),
+        b: Number.parseInt(token[2] + token[2], 16),
+      }
+    }
+    return {
+      r: Number.parseInt(token.slice(0, 2), 16),
+      g: Number.parseInt(token.slice(2, 4), 16),
+      b: Number.parseInt(token.slice(4, 6), 16),
     }
   }
-  return { dx: 0, dy: totalDy }
+
+  const rgb = /^rgba?\(([^)]+)\)$/i.exec(value)
+  if (!rgb) return null
+  const channels = rgb[1]
+    .split(',')
+    .map((entry) => Number.parseFloat(entry.trim()))
+    .filter((entry) => Number.isFinite(entry))
+  if (channels.length < 3) return null
+  return {
+    r: Math.max(0, Math.min(255, channels[0])),
+    g: Math.max(0, Math.min(255, channels[1])),
+    b: Math.max(0, Math.min(255, channels[2])),
+  }
+}
+
+function relativeLuminance(rgb: RgbColor) {
+  const toLinear = (channel: number) => {
+    const normalized = channel / 255
+    if (normalized <= 0.03928) return normalized / 12.92
+    return ((normalized + 0.055) / 1.055) ** 2.4
+  }
+  const r = toLinear(rgb.r)
+  const g = toLinear(rgb.g)
+  const b = toLinear(rgb.b)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -290,43 +379,420 @@ function toWrappedLines(label: string, maxCharsPerLine: number, maxLines: number
 export abstract class BaseDrawHandler {
   protected container: HTMLElement
 
-  /**
-   * Tracks bounding boxes of placed text annotations per chartId.
-   * Keyed by chartId (or '' for global). Reset in clearAnnotations().
-   */
-  private _placedAnnotationBoxes = new Map<string, BoxBounds[]>()
-
   constructor(container: HTMLElement) {
     this.container = container
   }
 
-  /**
-   * After a text node is appended to the SVG, nudge it to avoid overlapping
-   * previously placed annotations, then record its final bounding box.
-   * Returns the final y coordinate used.
-   */
-  protected nudgeAndRecordTextBox(
+  private resolveSvgBoxFromClientRect(svgNode: SVGSVGElement, rect: DOMRect) {
+    if (!(rect.width >= 0 && rect.height >= 0)) return null
+    const svgRect = svgNode.getBoundingClientRect()
+    if (!(svgRect.width > 0 && svgRect.height > 0)) return null
+    const viewBox = svgNode.viewBox?.baseVal
+    const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+    const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
+    return {
+      x: (viewBox?.x ?? 0) + (rect.left - svgRect.left) * scaleX,
+      y: (viewBox?.y ?? 0) + (rect.top - svgRect.top) * scaleY,
+      width: rect.width * scaleX,
+      height: rect.height * scaleY,
+    } as BoxBounds
+  }
+
+  private resolveElementBoxInSvg(svgNode: SVGSVGElement, node: Element | null | undefined) {
+    if (!(node instanceof Element)) return null
+    const rect = node.getBoundingClientRect?.()
+    if (!rect) return null
+    return this.resolveSvgBoxFromClientRect(svgNode, rect)
+  }
+
+  private collectTextObstacleBoxes(
+    svgNode: SVGSVGElement,
+    chartId: string | undefined,
+    textNode: SVGTextElement,
+  ) {
+    const boxes: BoxBounds[] = []
+    const seen = new Set<string>()
+    const scope = this.selectScope(chartId)
+    if (scope.empty()) return boxes
+
+    const push = (node: Element | null) => {
+      if (!node || node === textNode) return
+      if (node.closest?.(`.${SvgClassNames.AnnotationLayer}`) && node === textNode) return
+      const box = this.resolveElementBoxInSvg(svgNode, node)
+      if (!box || !(box.width > 0 && box.height > 0)) return
+      const key = `${box.x.toFixed(2)}:${box.y.toFixed(2)}:${box.width.toFixed(2)}:${box.height.toFixed(2)}`
+      if (seen.has(key)) return
+      seen.add(key)
+      boxes.push(box)
+    }
+
+    const dataMarks = this.filterDataMarks(
+      scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Rect},${SvgElements.Path},${SvgElements.Circle}`),
+    )
+    dataMarks.each(function () {
+      push(this as Element)
+    })
+
+    scope.selectAll<SVGElement, JsonValue>(SvgSelectors.Annotation).each(function () {
+      push(this as Element)
+    })
+
+    const axisTextSelectors = [
+      SvgSelectors.XAxisText,
+      SvgSelectors.YAxisText,
+      SvgSelectors.VegaRoleAxisLabelText,
+      SvgSelectors.XAxisLabelText,
+      SvgSelectors.YAxisLabelText,
+    ].join(', ')
+    scope.selectAll<SVGElement, JsonValue>(axisTextSelectors).each(function () {
+      push(this as Element)
+    })
+
+    return boxes
+  }
+
+  private buildTextPlacementCandidates(
+    mode: DrawTextMode,
+    preferred: { x: number; y: number },
+    anchorPoint: { x: number; y: number } | null,
+  ) {
+    const candidates: Array<{ x: number; y: number }> = []
+    const seen = new Set<string>()
+    const push = (x: number, y: number) => {
+      const key = `${x.toFixed(2)}:${y.toFixed(2)}`
+      if (seen.has(key)) return
+      seen.add(key)
+      candidates.push({ x, y })
+    }
+    push(preferred.x, preferred.y)
+
+    const step = TEXT_PLACEMENT_POLICY.stepPx
+    const maxRadius = mode === DrawTextModes.Anchor
+      ? TEXT_PLACEMENT_POLICY.maxRadiusAnchorPx
+      : TEXT_PLACEMENT_POLICY.maxRadiusNormalizedPx
+    const preferUp =
+      mode === DrawTextModes.Anchor
+        ? (anchorPoint ? preferred.y <= anchorPoint.y : true)
+        : true
+    const preferredDySign = preferUp ? -1 : 1
+    const altDySign = -preferredDySign
+
+    for (let radius = step; radius <= maxRadius; radius += step) {
+      const primaryDy = preferredDySign * radius
+      const secondaryDy = altDySign * radius
+      const offsets: Array<{ dx: number; dy: number }> = [
+        { dx: 0, dy: primaryDy },
+        { dx: -radius, dy: primaryDy },
+        { dx: radius, dy: primaryDy },
+        { dx: -radius, dy: 0 },
+        { dx: radius, dy: 0 },
+        { dx: 0, dy: secondaryDy },
+        { dx: -radius, dy: secondaryDy },
+        { dx: radius, dy: secondaryDy },
+      ]
+      offsets.forEach(({ dx, dy }) => {
+        push(preferred.x + dx, preferred.y + dy)
+      })
+    }
+    return candidates
+  }
+
+  private evaluateTextPlacementCandidate(
     textNode: d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
-    y: number,
-    chartId?: string,
-  ): number {
-    const el = textNode.node() as SVGGraphicsElement | null
-    if (!el || typeof el.getBBox !== 'function') return y
-    try {
-      const rawBBox = el.getBBox()
-      if (rawBBox.width === 0) return y
-      const key = chartId ?? ''
-      const placed = this._placedAnnotationBoxes.get(key) ?? []
-      const { dy } = nudgeToAvoidOverlap(rawBBox, placed)
-      const finalY = y + dy
-      if (dy !== 0) {
-        textNode.attr(SvgAttributes.Y, finalY)
+    svgNode: SVGSVGElement,
+    candidate: { x: number; y: number },
+    preferred: { x: number; y: number },
+    viewportBox: BoxBounds,
+    obstacleBoxes: BoxBounds[],
+    mode: DrawTextMode,
+    anchorPoint: { x: number; y: number } | null,
+  ): TextPlacementCandidateEval {
+    textNode.attr(SvgAttributes.X, candidate.x).attr(SvgAttributes.Y, candidate.y)
+    const node = textNode.node()
+    if (!node) {
+      return {
+        x: candidate.x,
+        y: candidate.y,
+        displacement: Number.POSITIVE_INFINITY,
+        overlapArea: Number.POSITIVE_INFINITY,
+        outsideArea: Number.POSITIVE_INFINITY,
+        collisionScore: Number.POSITIVE_INFINITY,
       }
-      placed.push({ x: rawBBox.x, y: rawBBox.y + dy, width: rawBBox.width, height: rawBBox.height })
-      this._placedAnnotationBoxes.set(key, placed)
-      return finalY
+    }
+
+    const textBox = this.resolveElementBoxInSvg(svgNode, node)
+    if (!textBox || !(textBox.width > 0 && textBox.height > 0)) {
+      return {
+        x: candidate.x,
+        y: candidate.y,
+        displacement: Number.POSITIVE_INFINITY,
+        overlapArea: Number.POSITIVE_INFINITY,
+        outsideArea: Number.POSITIVE_INFINITY,
+        collisionScore: Number.POSITIVE_INFINITY,
+      }
+    }
+
+    const paddedText = expandBox(textBox, TEXT_PLACEMENT_POLICY.obstaclePaddingPx)
+    const overlapArea = obstacleBoxes.reduce((acc, obstacle) => {
+      const paddedObstacle = expandBox(obstacle, TEXT_PLACEMENT_POLICY.obstaclePaddingPx)
+      return acc + intersectionArea(paddedText, paddedObstacle)
+    }, 0)
+
+    const clampedViewport: BoxBounds = {
+      x: viewportBox.x + TEXT_PLACEMENT_POLICY.viewportPaddingPx,
+      y: viewportBox.y + TEXT_PLACEMENT_POLICY.viewportPaddingPx,
+      width: Math.max(0, viewportBox.width - TEXT_PLACEMENT_POLICY.viewportPaddingPx * 2),
+      height: Math.max(0, viewportBox.height - TEXT_PLACEMENT_POLICY.viewportPaddingPx * 2),
+    }
+    const insideArea = intersectionArea(textBox, clampedViewport)
+    const outsideArea = Math.max(0, boxArea(textBox) - insideArea)
+
+    const displacement = Math.hypot(candidate.x - preferred.x, candidate.y - preferred.y)
+    let semanticPenalty = 0
+    if (mode === DrawTextModes.Anchor && anchorPoint) {
+      const preferredSide = Math.sign(preferred.y - anchorPoint.y)
+      const candidateSide = Math.sign(candidate.y - anchorPoint.y)
+      if (preferredSide !== 0 && candidateSide !== 0 && preferredSide !== candidateSide) {
+        semanticPenalty += TEXT_PLACEMENT_POLICY.sideFlipPenalty
+      }
+    }
+
+    const collisionScore =
+      overlapArea * TEXT_PLACEMENT_POLICY.scoreWeightOverlap +
+      outsideArea * TEXT_PLACEMENT_POLICY.scoreWeightOutside +
+      displacement +
+      semanticPenalty
+
+    return {
+      x: candidate.x,
+      y: candidate.y,
+      displacement,
+      overlapArea,
+      outsideArea,
+      collisionScore,
+    }
+  }
+
+  private resolveTextContrastColor(anchorElement: Element | null | undefined) {
+    if (!(anchorElement instanceof Element)) {
+      return { text: '#111827', halo: '#f9fafb' }
+    }
+    const computed = typeof window !== 'undefined' ? window.getComputedStyle(anchorElement) : null
+    const rawFill =
+      computed?.fill ||
+      anchorElement.getAttribute(SvgAttributes.Fill) ||
+      computed?.stroke ||
+      anchorElement.getAttribute(SvgAttributes.Stroke)
+    const rgb = parseCssColorToRgb(rawFill)
+    if (!rgb) return { text: '#111827', halo: '#f9fafb' }
+    const luminance = relativeLuminance(rgb)
+    return luminance > 0.5
+      ? { text: '#111827', halo: '#f9fafb' }
+      : { text: '#f9fafb', halo: '#111827' }
+  }
+
+  private resolveBarInsideTextPosition(anchorElement: Element | null | undefined) {
+    if (!(anchorElement instanceof SVGGraphicsElement) || typeof anchorElement.getBBox !== 'function') return null
+    try {
+      const bbox = anchorElement.getBBox()
+      if (!(bbox.width > 0 && bbox.height > 0)) return null
+      const centerX = bbox.x + bbox.width / 2
+      const topInsetY = bbox.y + Math.min(14, Math.max(8, bbox.height * 0.26))
+      const centerY = bbox.y + bbox.height / 2
+      const y = bbox.height >= 20 ? topInsetY : centerY
+      return { x: centerX, y }
     } catch {
-      return y
+      return null
+    }
+  }
+
+  private isNumericTextValue(value: string) {
+    const numeric = Number(String(value).replace(/,/g, '').trim())
+    return Number.isFinite(numeric)
+  }
+
+  private isBarLikeAnchorElement(anchorElement: Element | null | undefined) {
+    if (!(anchorElement instanceof Element)) return false
+    const tag = anchorElement.tagName.toLowerCase()
+    if (tag !== SvgElements.Rect && tag !== SvgElements.Path) return false
+    return this.isDataMarkElement(anchorElement)
+  }
+
+  private appendTextLeaderLine(
+    svgNode: SVGSVGElement,
+    textNode: d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+    preferred: { x: number; y: number },
+    placed: { x: number; y: number },
+    chartId?: string,
+    styleColor?: string,
+    annotationKey?: string | null,
+    annotationNodeId?: string | null,
+  ) {
+    const textEl = textNode.node()
+    if (!textEl) return
+    const parent = (textEl.parentElement as Element | null) ?? svgNode
+    const layer = d3.select(parent)
+    const stroke = styleColor || textNode.attr(SvgAttributes.Fill) || '#111827'
+    const leader = layer
+      .append(SvgElements.Line)
+      .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation} text-leader-line`)
+      .attr(DataAttributes.ChartId, chartId ?? null)
+      .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
+      .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
+      .attr(SvgAttributes.X1, preferred.x)
+      .attr(SvgAttributes.Y1, preferred.y)
+      .attr(SvgAttributes.X2, placed.x)
+      .attr(SvgAttributes.Y2, placed.y)
+      .attr(SvgAttributes.Stroke, stroke)
+      .attr(SvgAttributes.StrokeWidth, 1)
+      .attr(SvgAttributes.Opacity, 0)
+    this.applyTransition(leader).attr(SvgAttributes.Opacity, 0.75)
+  }
+
+  protected placeTextWithCollisionPolicy(options: TextPlacementOptions): TextPlacementResult {
+    const {
+      textNode,
+      svgNode,
+      chartId,
+      mode,
+      preferred,
+      viewport,
+      anchorElement,
+      textValue,
+      styleColor,
+      annotationKey,
+      annotationNodeId,
+      allowBarInsideFallback = false,
+    } = options
+
+    const textEl = textNode.node()
+    if (!textEl) {
+      return {
+        x: preferred.x,
+        y: preferred.y,
+        displacement: 0,
+        collisionScore: 0,
+        overlapArea: 0,
+        outsideArea: 0,
+        usedBarInsideFallback: false,
+        anchorPoint: null,
+      }
+    }
+
+    const anchorPoint =
+      anchorElement && 'getBBox' in anchorElement && typeof (anchorElement as SVGGraphicsElement).getBBox === 'function'
+        ? (() => {
+            try {
+              const bbox = (anchorElement as SVGGraphicsElement).getBBox()
+              return { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 }
+            } catch {
+              return null
+            }
+          })()
+        : null
+
+    const fallbackViewport: DrawViewport = viewport ?? {
+      x: 0,
+      y: 0,
+      width: this.resolveSvgSize(svgNode)?.width ?? 0,
+      height: this.resolveSvgSize(svgNode)?.height ?? 0,
+      layerParent: svgNode,
+    }
+    const viewportBox =
+      this.resolveElementBoxInSvg(svgNode, fallbackViewport.layerParent) ?? {
+        x: fallbackViewport.x,
+        y: fallbackViewport.y,
+        width: fallbackViewport.width,
+        height: fallbackViewport.height,
+      }
+
+    const obstacleBoxes = this.collectTextObstacleBoxes(svgNode, chartId, textEl)
+    const candidates = this.buildTextPlacementCandidates(mode, preferred, anchorPoint)
+    const evaluated = candidates.map((candidate) =>
+      this.evaluateTextPlacementCandidate(textNode, svgNode, candidate, preferred, viewportBox, obstacleBoxes, mode, anchorPoint),
+    )
+    const perfect = evaluated
+      .filter((entry) => entry.overlapArea === 0 && entry.outsideArea === 0)
+      .sort((a, b) => a.displacement - b.displacement)
+    let best = perfect[0]
+    if (!best) {
+      best = evaluated.sort((a, b) => a.collisionScore - b.collisionScore)[0]
+    }
+    if (!best) {
+      best = {
+        x: preferred.x,
+        y: preferred.y,
+        displacement: 0,
+        overlapArea: 0,
+        outsideArea: 0,
+        collisionScore: 0,
+      }
+    }
+
+    let usedBarInsideFallback = false
+    const canUseBarInsideFallback =
+      allowBarInsideFallback &&
+      mode === DrawTextModes.Anchor &&
+      this.isBarLikeAnchorElement(anchorElement) &&
+      this.isNumericTextValue(textValue)
+    if (canUseBarInsideFallback) {
+      const shouldUseInside =
+        best.displacement > TEXT_PLACEMENT_POLICY.leaderLineThresholdPx ||
+        best.overlapArea > TEXT_PLACEMENT_POLICY.barInsideFallbackCollisionArea
+      if (shouldUseInside) {
+        const insidePos = this.resolveBarInsideTextPosition(anchorElement)
+        if (insidePos) {
+          best = {
+            x: insidePos.x,
+            y: insidePos.y,
+            displacement: Math.hypot(insidePos.x - preferred.x, insidePos.y - preferred.y),
+            overlapArea: 0,
+            outsideArea: 0,
+            collisionScore: 0,
+          }
+          usedBarInsideFallback = true
+          const contrast = this.resolveTextContrastColor(anchorElement)
+          textNode
+            .attr(SvgAttributes.Fill, contrast.text)
+            .attr(SvgAttributes.Stroke, contrast.halo)
+            .attr(SvgAttributes.StrokeWidth, 0.8)
+            .attr(SvgAttributes.PaintOrder, 'stroke')
+            .attr(SvgAttributes.DominantBaseline, 'middle')
+        }
+      }
+    }
+
+    textNode.attr(SvgAttributes.X, best.x).attr(SvgAttributes.Y, best.y)
+
+    if (!usedBarInsideFallback) {
+      textNode
+        .attr(SvgAttributes.Stroke, null)
+        .attr(SvgAttributes.StrokeWidth, null)
+        .attr(SvgAttributes.PaintOrder, null)
+    }
+
+    if (!usedBarInsideFallback && best.displacement > TEXT_PLACEMENT_POLICY.leaderLineThresholdPx) {
+      this.appendTextLeaderLine(
+        svgNode,
+        textNode,
+        preferred,
+        { x: best.x, y: best.y },
+        chartId,
+        styleColor,
+        annotationKey,
+        annotationNodeId,
+      )
+    }
+
+    return {
+      x: best.x,
+      y: best.y,
+      displacement: best.displacement,
+      collisionScore: best.collisionScore,
+      overlapArea: best.overlapArea,
+      outsideArea: best.outsideArea,
+      usedBarInsideFallback,
+      anchorPoint,
     }
   }
 
@@ -1057,6 +1523,7 @@ export abstract class BaseDrawHandler {
       const selection = this.selectElements(op.select, op.chartId)
       if (selection.empty()) return
       const handler = this
+      const viewport = this.resolvePanelViewport(svgNode, op.chartId)
       selection.each(function () {
         const el = this as SVGGraphicsElement
         if (!el || typeof el.getBBox !== 'function') return
@@ -1083,11 +1550,20 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.Opacity, 0)
           .attr(SvgAttributes.FontFamily, style?.fontFamily ?? null)
           .text(textValue)
-        handler.nudgeAndRecordTextBox(
-          textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
-          y,
-          op.chartId,
-        )
+        handler.placeTextWithCollisionPolicy({
+          textNode: textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+          svgNode,
+          chartId: op.chartId,
+          mode,
+          preferred: { x, y },
+          viewport,
+          anchorElement: el,
+          textValue,
+          styleColor: style?.color,
+          annotationKey,
+          annotationNodeId,
+          allowBarInsideFallback: true,
+        })
         handler.applyTransition(textNode).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
       })
       return
@@ -1142,11 +1618,18 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.FontFamily, style?.fontFamily ?? null)
         .text(textValue)
-      this.nudgeAndRecordTextBox(
-        textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
-        y,
-        op.chartId,
-      )
+      this.placeTextWithCollisionPolicy({
+        textNode: textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+        svgNode,
+        chartId: op.chartId,
+        mode,
+        preferred: { x, y },
+        viewport,
+        textValue,
+        styleColor: style?.color,
+        annotationKey,
+        annotationNodeId,
+      })
       this.applyTransition(textNode).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
       return
     }
@@ -2562,12 +3045,6 @@ export abstract class BaseDrawHandler {
   }
 
   protected clearAnnotations(chartId?: string) {
-    // Reset collision-avoidance state for the cleared scope.
-    if (!chartId) {
-      this._placedAnnotationBoxes.clear()
-    } else {
-      this._placedAnnotationBoxes.delete(chartId)
-    }
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (!chartId) {
       svg.selectAll(SvgSelectors.Annotation).remove()

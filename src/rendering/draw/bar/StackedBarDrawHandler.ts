@@ -2,7 +2,7 @@ import * as d3 from 'd3'
 import type { JsonValue } from '../../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../../interfaces'
 import { BarDrawHandler } from '../BarDrawHandler'
-import { DrawAction, DrawComparisonOperators, DrawMark, type DrawBarSegmentSpec, type DrawOp, type DrawSelect } from '../types'
+import { DrawAction, DrawComparisonOperators, DrawMark, DrawTextModes, type DrawBarSegmentSpec, type DrawOp, type DrawSelect } from '../types'
 import { resolveAnnotationKeyForDrawOp } from '../annotationKey'
 import { ensureAnnotationLayer } from '../utils/annotationLayer'
 import { normalizeComparisonCondition } from '../utils/comparison'
@@ -770,6 +770,17 @@ export class StackedBarDrawHandler extends BarDrawHandler {
         .attr(SvgAttributes.FontWeight, 'bold')
         .attr(SvgAttributes.Opacity, 0)
         .text(textValue)
+      this.placeTextWithCollisionPolicy({
+        textNode: label as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+        svgNode,
+        chartId: op.chartId,
+        mode: DrawTextModes.Anchor,
+        preferred: { x: targetX + targetWidth / 2, y: Number(stackedTopY) - 5 },
+        anchorElement: shownEntries[0]?.entry.el ?? null,
+        textValue,
+        styleColor: '#111827',
+        allowBarInsideFallback: true,
+      })
       label.transition().duration(NON_SPLIT_UPDATE_MS).attr(SvgAttributes.Opacity, 1)
     }
 

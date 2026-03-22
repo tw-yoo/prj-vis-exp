@@ -6,6 +6,7 @@ import {
   DrawAction,
   DrawComparisonOperators,
   DrawMark,
+  DrawTextModes,
   type DrawOp,
   type DrawSelect,
 } from '../types'
@@ -528,6 +529,17 @@ export class GroupedBarDrawHandler extends BarDrawHandler {
         .attr(SvgAttributes.FontWeight, 'bold')
         .attr(SvgAttributes.Opacity, 0)
         .text(textValue)
+      this.placeTextWithCollisionPolicy({
+        textNode: label as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+        svgNode,
+        chartId: op.chartId,
+        mode: DrawTextModes.Anchor,
+        preferred: { x: targetX + targetWidth / 2, y: Number(stackedTopY) - 5 },
+        anchorElement: shownEntries[0]?.entry.el ?? null,
+        textValue,
+        styleColor: '#111827',
+        allowBarInsideFallback: true,
+      })
       label.transition().duration(NON_SPLIT_UPDATE_MS).attr(SvgAttributes.Opacity, 1)
     }
 

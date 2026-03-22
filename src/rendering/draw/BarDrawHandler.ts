@@ -6,6 +6,7 @@ import {
   DrawAction,
   DrawComparisonOperators,
   DrawMark,
+  DrawTextModes,
   type DrawBarSegmentSpec,
   type DrawOp,
   type DrawSelect,
@@ -530,11 +531,17 @@ export class BarDrawHandler extends BaseDrawHandler {
       .attr(SvgAttributes.FontWeight, 'bold')
       .attr(SvgAttributes.Opacity, 0)
       .text(textValue)
-    this.nudgeAndRecordTextBox(
-      label as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
-      initialY,
-      op.chartId,
-    )
+    this.placeTextWithCollisionPolicy({
+      textNode: label as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
+      svgNode,
+      chartId: op.chartId,
+      mode: DrawTextModes.Anchor,
+      preferred: { x: targetX + targetWidth / 2, y: initialY },
+      anchorElement: allSelection.node() as Element | null,
+      textValue,
+      styleColor: '#111827',
+      allowBarInsideFallback: true,
+    })
     this.applyTransition(label).attr(SvgAttributes.Opacity, 1)
   }
 
