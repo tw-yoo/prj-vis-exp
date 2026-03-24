@@ -1,11 +1,12 @@
 import * as d3 from 'd3'
+import { autoRotateXAxisTickLabels, setXAxisTickLabelAngle } from './axisTickLabelRotation'
 
 type AxisTickSelection = d3.Selection<SVGTextElement, unknown, d3.BaseType, unknown>
 
 type WrapAxisTickLabelOptions = {
   maxCharsPerLine?: number
   lineHeightEm?: number
-  rotationDeg?: number
+  rotationDeg?: number | 'auto'
   maxLines?: number
 }
 
@@ -62,14 +63,16 @@ export function wrapAxisTickLabels(
   const {
     maxCharsPerLine = 18,
     lineHeightEm = 1.05,
-    rotationDeg = -35,
+    rotationDeg = 'auto',
     maxLines = 4,
   } = options
 
+  const labels: SVGTextElement[] = []
   selection.each(function () {
     const text = d3.select(this)
     const rawLabel = text.text().trim()
     const lines = wrapLabel(rawLabel, maxCharsPerLine, maxLines)
+    labels.push(this)
     text.text(null)
     lines.forEach((line, index) => {
       text
@@ -78,6 +81,11 @@ export function wrapAxisTickLabels(
         .attr('dy', index === 0 ? '0.71em' : `${lineHeightEm}em`)
         .text(line)
     })
-    text.attr('transform', `rotate(${rotationDeg})`).style('text-anchor', 'end')
   })
+
+  if (rotationDeg === 'auto') {
+    autoRotateXAxisTickLabels(labels)
+  } else {
+    setXAxisTickLabelAngle(labels, rotationDeg)
+  }
 }

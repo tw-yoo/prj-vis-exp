@@ -4,6 +4,7 @@ import { normalizeSpec as normalizeSpecDomain } from '../domain/chart/normalizeS
 import { loadRowsFromVegaLiteData, normalizeVegaLiteDataUrl } from './vegaLite/dataLoader'
 import { ensureStableOrdinalColorMapping } from './vegaLite/colorScaleStability'
 import { DataAttributes, SvgClassNames } from './interfaces'
+import { autoRotateXAxisTickLabels } from './common/axisTickLabelRotation'
 
 /**
  * Minimal Vega-Lite spec shape we care about for embedding/rendering.
@@ -401,45 +402,115 @@ async function applyAutoLineDomain(spec: VegaLiteSpec) {
 }
 
 function adjustSvgXAxisLabelClearance(svg: SVGElement, opts: { minGap?: number; maxShift?: number } = {}) {
-  const axisLabel = svg.querySelector('.x-axis-label')
-  if (!axisLabel) return true
-
-  const axisGroup = svg.querySelector('.x-axis')
-  if (!axisGroup) return false
-
-  const tickNodes = axisGroup.querySelectorAll('text')
-  if (!tickNodes || tickNodes.length === 0) return false
-
-  const labelRect = axisLabel.getBoundingClientRect()
-  if (!labelRect || !Number.isFinite(labelRect.top)) return false
-
-  let maxTickBottom = -Infinity
-  tickNodes.forEach((node) => {
-    const rect = node.getBoundingClientRect()
-    if (rect && Number.isFinite(rect.bottom)) {
-      maxTickBottom = Math.max(maxTickBottom, rect.bottom)
-    }
-  })
-
-  if (!Number.isFinite(maxTickBottom)) return false
-
   const minGapPx = Number.isFinite(opts.minGap as number) ? (opts.minGap as number) : 12
   const maxShiftPx = Number.isFinite(opts.maxShift as number) ? (opts.maxShift as number) : 120
-  const overlapPx = maxTickBottom + minGapPx - labelRect.top
-  if (overlapPx <= 0) return true
 
   const svgRect = svg.getBoundingClientRect()
-  const viewBox = (svg as SVGSVGElement).viewBox && (svg as SVGSVGElement).viewBox.baseVal ? (svg as SVGSVGElement).viewBox.baseVal : null
-  const currentY = parseFloat(axisLabel.getAttribute('y') || '0')
-  if (!Number.isFinite(currentY)) return true
-
-  const pxDelta = Math.min(overlapPx, maxShiftPx)
+  const viewBox =
+    (svg as SVGSVGElement).viewBox && (svg as SVGSVGElement).viewBox.baseVal
+      ? (svg as SVGSVGElement).viewBox.baseVal
+      : null
   let scaleY = 1
-  if (viewBox && Number.isFinite(viewBox.height) && svgRect && Number.isFinite(svgRect.height) && svgRect.height > 0) {
+  if (viewBox && Number.isFinite(viewBox.height) && Number.isFinite(svgRect.height) && svgRect.height > 0) {
     scaleY = viewBox.height / svgRect.height
   }
-  axisLabel.setAttribute('y', String(currentY + pxDelta * scaleY))
-  return true
+
+  const shiftTextDown = (node: SVGElement, deltaPx: number) => {
+    if (!(deltaPx > 0)) return
+    const pxDelta = Math.min(deltaPx, maxShiftPx)
+    const localDelta = pxDelta * scaleY
+
+    const transform = node.getAttribute('transform') ?? ''
+    const translateMatch = transform.match(/translate\(\s*([^\s,)]+)\s*(?:[, ]\s*([^\s,)]+))?\s*\)/)
+    if (translateMatch?.[1]) {
+      const rawX = Number.parseFloat(translateMatch[1])
+      const rawY = Number.parseFloat(translateMatch[2] ?? '0')
+      if (Number.isFinite(rawX) && Number.isFinite(rawY)) {
+        const replaced = transform.replace(translateMatch[0], `translate(${rawX},${rawY + localDelta})`)
+        node.setAttribute('transform', replaced)
+        return
+      }
+    }
+
+    const currentY = Number.parseFloat(node.getAttribute('y') ?? '')
+    if (Number.isFinite(currentY)) {
+      node.setAttribute('y', String(currentY + localDelta))
+      return
+    }
+
+    node.setAttribute('transform', `${transform} translate(0,${localDelta})`.trim())
+  }
+
+  const adjustCustomXAxisTitle = () => {
+    const axisLabel = svg.querySelector<SVGElement>('.x-axis-label')
+    if (!axisLabel) return true
+
+    const axisGroup = svg.querySelector<SVGElement>('.x-axis')
+    if (!axisGroup) return false
+
+    const tickNodes = axisGroup.querySelectorAll('text')
+    if (!tickNodes || tickNodes.length === 0) return false
+
+    const labelRect = axisLabel.getBoundingClientRect()
+    if (!labelRect || !Number.isFinite(labelRect.top)) return false
+
+    let maxTickBottom = -Infinity
+    tickNodes.forEach((node) => {
+      const rect = node.getBoundingClientRect()
+      if (rect && Number.isFinite(rect.bottom)) {
+        maxTickBottom = Math.max(maxTickBottom, rect.bottom)
+      }
+    })
+
+    if (!Number.isFinite(maxTickBottom)) return false
+
+    const overlapPx = maxTickBottom + minGapPx - labelRect.top
+    if (overlapPx > 0) shiftTextDown(axisLabel, overlapPx)
+    return true
+  }
+
+  const adjustVegaXAxisTitles = () => {
+    const selectors = [
+      '.role-axis[aria-label*="X-axis"]',
+      '.role-axis[aria-label*="x-axis"]',
+      '.role-axis[aria-label*="X axis"]',
+      '.role-axis[aria-label*="x axis"]',
+    ]
+    const axisGroups = new Set<SVGElement>()
+    selectors.forEach((selector) => {
+      svg.querySelectorAll<SVGElement>(selector).forEach((group) => axisGroups.add(group))
+    })
+    if (axisGroups.size === 0) return true
+
+    let measuredAny = false
+    axisGroups.forEach((axisGroup) => {
+      const tickNodes = axisGroup.querySelectorAll<SVGTextElement>('.role-axis-label text, text.role-axis-label')
+      const titleNode = axisGroup.querySelector<SVGElement>('.role-axis-title text, text.role-axis-title')
+      if (!titleNode || tickNodes.length === 0) return
+
+      const titleRect = titleNode.getBoundingClientRect()
+      if (!titleRect || !Number.isFinite(titleRect.top)) return
+
+      let maxTickBottom = -Infinity
+      tickNodes.forEach((tick) => {
+        const rect = tick.getBoundingClientRect()
+        if (rect && Number.isFinite(rect.bottom)) {
+          maxTickBottom = Math.max(maxTickBottom, rect.bottom)
+        }
+      })
+      if (!Number.isFinite(maxTickBottom)) return
+
+      measuredAny = true
+      const overlapPx = maxTickBottom + minGapPx - titleRect.top
+      if (overlapPx > 0) shiftTextDown(titleNode, overlapPx)
+    })
+
+    return measuredAny || axisGroups.size === 0
+  }
+
+  const handledCustom = adjustCustomXAxisTitle()
+  const handledVega = adjustVegaXAxisTitles()
+  return handledCustom && handledVega
 }
 
 function adjustSvgYAxisLabelClearance(svg: SVGElement, opts: { minGap?: number; maxShift?: number } = {}) {
@@ -514,60 +585,82 @@ function ensureXAxisLabelClearance(container: HTMLElement, opts: AxisClearanceOp
 }
 
 function adjustXAxisLabelAngle(container: HTMLElement) {
-  setTimeout(() => {
-    const svg = container.querySelector('svg')
-    if (!svg) return
+  const schedule =
+    typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: FrameRequestCallback) => setTimeout(cb, 16)
 
-    const xAxisLabels = svg.querySelectorAll('.mark-text.role-axis-label[aria-hidden="true"]')
-    if (!xAxisLabels || xAxisLabels.length === 0) return
+  const collectAxisLabelGroups = (svg: SVGElement) => {
+    const groups: SVGTextElement[][] = []
 
-    let maxLabelLength = 0
-    let totalOverlap = 0
-    const labels = Array.from(xAxisLabels)
-
-    labels.forEach((label) => {
-      const text = label.textContent || ''
-      maxLabelLength = Math.max(maxLabelLength, text.length)
+    svg.querySelectorAll<SVGGElement>(`.${SvgClassNames.XAxis}`).forEach((axisGroup) => {
+      const labels = Array.from(axisGroup.querySelectorAll<SVGTextElement>('.tick text')).filter(
+        (label) => (label.textContent ?? '').trim().length > 0,
+      )
+      if (labels.length) groups.push(labels)
     })
 
-    for (let i = 0; i < labels.length - 1; i++) {
-      const rect1 = labels[i].getBoundingClientRect()
-      const rect2 = labels[i + 1].getBoundingClientRect()
-      if (rect1.right > rect2.left) {
-        totalOverlap += rect1.right - rect2.left
+    const vegaAxisSelectors = [
+      '.role-axis[aria-label*="X-axis"]',
+      '.role-axis[aria-label*="x-axis"]',
+      '.role-axis[aria-label*="X axis"]',
+      '.role-axis[aria-label*="x axis"]',
+    ]
+    const vegaGroups = new Set<SVGGElement>()
+    vegaAxisSelectors.forEach((selector) => {
+      svg.querySelectorAll<SVGGElement>(selector).forEach((group) => vegaGroups.add(group))
+    })
+    vegaGroups.forEach((axisGroup) => {
+      const labels = Array.from(
+        axisGroup.querySelectorAll<SVGTextElement>('.role-axis-label text, text.role-axis-label'),
+      ).filter((label) => (label.textContent ?? '').trim().length > 0)
+      if (labels.length) groups.push(labels)
+    })
+
+    return groups
+  }
+
+  const resolveCurrentHeight = (svg: SVGElement) => {
+    const attrHeight = Number.parseFloat(svg.getAttribute('height') ?? '')
+    if (Number.isFinite(attrHeight) && attrHeight > 0) return attrHeight
+    const rect = svg.getBoundingClientRect()
+    return Number.isFinite(rect.height) && rect.height > 0 ? rect.height : 0
+  }
+
+  let remaining = 4
+  const step = () => {
+    if (remaining <= 0) return
+    remaining -= 1
+    schedule(() => {
+      const svg = container.querySelector('svg')
+      if (!svg) {
+        if (remaining > 0) step()
+        return
       }
-    }
 
-    let targetAngle = 0
-
-    if (totalOverlap > 20 || maxLabelLength > 12) {
-      if (maxLabelLength > 20) {
-        targetAngle = -90
-      } else {
-        targetAngle = -45
+      const axisLabelGroups = collectAxisLabelGroups(svg)
+      if (!axisLabelGroups.length) {
+        if (remaining > 0) step()
+        return
       }
-    }
 
-    if (targetAngle !== 0) {
-      labels.forEach((label) => {
-        const currentTransform = label.getAttribute('transform') || ''
-        const match = currentTransform.match(/translate\(([^,]+),([^)]+)\)/)
-
-        if (match) {
-          const x = parseFloat(match[1])
-          const y = parseFloat(match[2])
-
-          label.setAttribute('text-anchor', 'end')
-          label.setAttribute('transform', `translate(${x},${y}) rotate(${targetAngle})`)
-        }
+      let maxAbsAngle = 0
+      axisLabelGroups.forEach((labels) => {
+        const angle = autoRotateXAxisTickLabels(labels)
+        maxAbsAngle = Math.max(maxAbsAngle, Math.abs(angle))
       })
 
-      const chartRect = svg.getBoundingClientRect()
-      const currentHeight = parseFloat(svg.getAttribute('height') || '0') || chartRect.height
-      const additionalPadding = targetAngle === -90 ? 80 : 40
-      svg.setAttribute('height', String(currentHeight + additionalPadding))
-    }
-  }, 100)
+      const baseHeightKey = 'baseRenderHeight'
+      const baseline = Number.parseFloat(svg.dataset[baseHeightKey] ?? '')
+      const currentHeight = resolveCurrentHeight(svg)
+      const baseHeight = Number.isFinite(baseline) && baseline > 0 ? baseline : currentHeight
+      if (Number.isFinite(baseHeight) && baseHeight > 0) {
+        svg.dataset[baseHeightKey] = String(baseHeight)
+        const additionalPadding = maxAbsAngle >= 70 ? 80 : maxAbsAngle > 0 ? 40 : 0
+        svg.setAttribute('height', String(baseHeight + additionalPadding))
+      }
+    })
+  }
+
+  step()
 }
 
 function applyAxisContrast(container: HTMLElement) {

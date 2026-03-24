@@ -63,6 +63,109 @@ type PageState =
       csvColumns: string[]
     }
 
+const EXPORT_SCALE = 2
+
+const canvasToBlob = (canvas: HTMLCanvasElement, type = 'image/png'): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob)
+      else reject(new Error('Canvas export produced no data'))
+    }, type)
+  })
+
+const loadImage = (src: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = (event) => {
+      const type = typeof event === 'string' ? event : event?.type ?? 'error'
+      reject(new Error(`Failed to load exported image (${type})`))
+    }
+    image.src = src
+  })
+
+const getSvgDimensions = (svg: SVGSVGElement) => {
+  const rect = svg.getBoundingClientRect()
+  const widthAttr = svg.getAttribute('width')
+  const heightAttr = svg.getAttribute('height')
+  const attrWidth = widthAttr ? Number.parseFloat(widthAttr) : Number.NaN
+  const attrHeight = heightAttr ? Number.parseFloat(heightAttr) : Number.NaN
+  return {
+    width: rect.width || (Number.isFinite(attrWidth) ? attrWidth : 0) || 1,
+    height: rect.height || (Number.isFinite(attrHeight) ? attrHeight : 0) || 1,
+  }
+}
+
+async function createPngBlobFromSvg(svg: SVGSVGElement, scale: number) {
+  const clone = svg.cloneNode(true) as SVGSVGElement
+  const { width, height } = getSvgDimensions(svg)
+  clone.setAttribute('width', String(width))
+  clone.setAttribute('height', String(height))
+  if (!clone.getAttribute('xmlns')) {
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+  }
+
+  const serialized = new XMLSerializer().serializeToString(clone)
+  const blob = new Blob(['<?xml version="1.0" encoding="utf-8"?>\n', serialized], {
+    type: 'image/svg+xml;charset=utf-8',
+  })
+  const url = URL.createObjectURL(blob)
+  try {
+    const image = await loadImage(url)
+    const exportWidth = Math.round(image.width * scale) || Math.max(1, Math.round(width * scale))
+    const exportHeight = Math.round(image.height * scale) || Math.max(1, Math.round(height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = exportWidth
+    canvas.height = exportHeight
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Canvas context not available for export')
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, exportWidth, exportHeight)
+    ctx.drawImage(image, 0, 0, exportWidth, exportHeight)
+    return canvasToBlob(canvas)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+async function createPngBlobFromCanvas(canvasEl: HTMLCanvasElement, scale: number) {
+  const rect = canvasEl.getBoundingClientRect()
+  const baseWidth = canvasEl.width || Math.round(rect.width) || 1
+  const baseHeight = canvasEl.height || Math.round(rect.height) || 1
+  const exportWidth = Math.round(baseWidth * scale)
+  const exportHeight = Math.round(baseHeight * scale)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, exportWidth)
+  canvas.height = Math.max(1, exportHeight)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas context not available for export')
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.drawImage(canvasEl, 0, 0, canvas.width, canvas.height)
+  return canvasToBlob(canvas)
+}
+
+async function captureChartAsBlob(container: HTMLElement, scale: number) {
+  const svg = container.querySelector('svg')
+  if (svg instanceof SVGSVGElement) return createPngBlobFromSvg(svg, scale)
+
+  const canvasEl = container.querySelector('canvas')
+  if (canvasEl instanceof HTMLCanvasElement) return createPngBlobFromCanvas(canvasEl, scale)
+
+  throw new Error('No SVG or canvas found inside the chart container')
+}
+
+const triggerDownload = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
+}
+
 // ── CSV table sub-component ────────────────────────────────────────────────
 function CsvTable({
   rows,
@@ -132,6 +235,21 @@ export default function DataPage() {
   const [specOpen, setSpecOpen] = useState(true)
   const [showAllRows, setShowAllRows] = useState(false)
   const chartRef = useRef<HTMLDivElement | null>(null)
+
+  const handleDownloadChart = async () => {
+    if (!chartRef.current) {
+      alert('Chart container is not ready.')
+      return
+    }
+    try {
+      const blob = await captureChartAsBlob(chartRef.current, EXPORT_SCALE)
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      triggerDownload(blob, `data-chart-${timestamp}.png`)
+    } catch (error) {
+      console.error('Failed to export chart as PNG', error)
+      alert('Failed to generate PNG. Check the console for details.')
+    }
+  }
 
   async function handleSearch() {
     const id = inputId.trim()
@@ -226,6 +344,11 @@ export default function DataPage() {
             <div className="card">
               <div className="card-header">
                 <span className="card-title">Chart — {loaded.chartId}</span>
+                <div className="card-actions">
+                  <button className="pill-btn" onClick={() => void handleDownloadChart()}>
+                    Save as PNG
+                  </button>
+                </div>
               </div>
               <div className="chart-host" ref={chartRef} />
             </div>
