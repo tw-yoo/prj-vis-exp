@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-// import barSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
-import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
+import barSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
+// import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
 // import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/simple/0o12tngadmjjux2n.json?raw' // Simple bar1
 // import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/stacked/10t8o5vhethzeod1.json?raw' // Stacked bar1
 // import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/grouped/0prhtod4tli879nh.json?raw' // Grouped bar1
@@ -2095,7 +2095,6 @@ function ChartWorkbenchPage() {
     if (!planGroups && opsInputMode === 'json') {
       try {
         const parsed = parseOpsJsonInput()
-        console.log('[DEBUG] Parsed groups:', { count: parsed.groups.length, names: parsed.groupNames, opsPerGroup: parsed.groups.map((g, i) => ({ name: parsed.groupNames[i], opsCount: g.length, firstOp: g[0] })) })
         let nextGroups = parsed.groups
         let nextGroupNames = parsed.groupNames
         let nextExecutionSource: OpsJsonExecutionSource = parsed.executionSource
@@ -2171,24 +2170,18 @@ function ChartWorkbenchPage() {
         setOpsJsonVisualExecutionPlanState(nextVisualExecutionPlan)
         visualPlaybackSnapshotsRef.current.clear()
         visualPlaybackSurfaceRef.current = 'unknown'
-        console.log('[DEBUG] About to setOpsGroups with', nextGroups.length, 'groups:', nextGroups.map((g, i) => ({ index: i, opsCount: g.length, firstOp: g[0]?.op })))
         setOpsGroups(nextGroups)
         setOpsGroupTextOverrides(nextGroupTextOverrides)
-        console.log('[DEBUG] After setOpsGroups, before renderSourceChartForVisualPlayback')
         try {
           await renderSourceChartForVisualPlayback()
-          console.log('[DEBUG] renderSourceChartForVisualPlayback succeeded')
         } catch (renderError) {
           console.warn('Source chart re-render failed, continuing with ops session:', renderError)
         }
-        console.log('[DEBUG] About to setOpsUiSessionActive(true)')
         setOpsUiSessionActive(true)
-        console.log('[DEBUG] About to setOpsUiGroupIndex:', nextGroups.length > 0 ? 0 : -1)
         setOpsUiGroupIndex(nextGroups.length > 0 ? 0 : -1)
         setOpsUiGroupPhase('pre-run')
         setOpsUiResolvedText('')
         setOpsUiStartPending(false)
-        console.log('[DEBUG] handleRunOperations completed')
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to parse Ops JSON.'
         setOpsJsonError(message)
@@ -2638,9 +2631,7 @@ function ChartWorkbenchPage() {
   }, [captureCurrentGroupSnapshot, enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
 
   const overlayRenderInput = useMemo<SentenceSummaryOverlayRenderInput | null>(() => {
-    console.log('[DEBUG] overlayRenderInput memoized:', { opsUiSessionActive, opsUiGroupIndex, opsGroupsLength: opsGroups.length })
     if (!opsUiSessionActive || opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) {
-      console.log('[DEBUG] overlayRenderInput returning null because:', { opsUiSessionActive, opsUiGroupIndex, check: opsUiGroupIndex >= opsGroups.length })
       return null
     }
 
@@ -2659,7 +2650,6 @@ function ChartWorkbenchPage() {
       rightControl = { label: 'Run', disabled: opsRunning, onClick: () => runCurrentOpsGroup() }
     }
 
-    console.log('[DEBUG] overlayRenderInput returning valid object with rightControl:', rightControl.label)
     return {
       text: opsUiResolvedText,
       leftControl,
@@ -2681,13 +2671,9 @@ function ChartWorkbenchPage() {
   useEffect(() => {
     if (!chartRef.current) return
     if (!overlayRenderInput) {
-      console.log('[DEBUG] useEffect: overlayRenderInput is null, clearing overlay')
       clearSentenceSummaryOverlay(chartRef.current)
       return
     }
-    const rightControlLabel =
-      typeof overlayRenderInput === 'string' ? '' : (overlayRenderInput.rightControl?.label ?? '')
-    console.log('[DEBUG] useEffect: rendering overlay with rightControl:', rightControlLabel)
     renderSentenceSummaryOverlay(chartRef.current, overlayRenderInput)
   }, [overlayRenderInput])
 

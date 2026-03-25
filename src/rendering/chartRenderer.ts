@@ -69,6 +69,7 @@ type EncodingHint = {
   yType?: string
   colorField?: string
 }
+type RawDatum = Record<string, JsonValue>
 
 type AxisClearanceOptions = {
   attempts?: number
@@ -86,6 +87,7 @@ type GlobalWithVega = typeof globalThis & {
 type EncodingChannel = {
   field?: JsonValue
   type?: JsonValue
+  sort?: JsonValue
   stack?: JsonValue
   scale?: { domain?: JsonValue; domainMin?: JsonValue; domainMax?: JsonValue; nice?: JsonValue; zero?: JsonValue }
 }
@@ -269,6 +271,15 @@ function isLineMark(mark: VegaLiteSpec['mark']) {
   return false
 }
 
+function isBarMark(mark: VegaLiteSpec['mark']) {
+  if (!mark) return false
+  if (typeof mark === 'string') return mark === 'bar'
+  if (typeof mark === 'object' && typeof mark.type === 'string') {
+    return mark.type === 'bar'
+  }
+  return false
+}
+
 function collectLineEncodings(spec: VegaLiteSpec = {}) {
   const encodings: EncodingMap[] = []
   if (isLineMark(spec.mark) && spec.encoding) {
@@ -282,6 +293,170 @@ function collectLineEncodings(spec: VegaLiteSpec = {}) {
     })
   }
   return encodings
+}
+
+function collectBarEncodings(spec: VegaLiteSpec = {}) {
+  const encodings: EncodingMap[] = []
+  if (isBarMark(spec.mark) && spec.encoding) {
+    encodings.push(spec.encoding as EncodingMap)
+  }
+  if (Array.isArray(spec.layer)) {
+    spec.layer.forEach((layer) => {
+      if (isBarMark(layer?.mark as VegaLiteSpec['mark']) && layer?.encoding) {
+        encodings.push(layer.encoding as EncodingMap)
+      }
+    })
+  }
+  return encodings
+}
+
+function ensureLineCategoricalXInputOrder(spec: VegaLiteSpec) {
+  if (!spec || typeof spec !== 'object') return spec
+  const lineEncodings = collectLineEncodings(spec)
+  if (lineEncodings.length === 0) return spec
+
+  lineEncodings.forEach((enc) => {
+    const x = enc?.x
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return
+    const xType = typeof x.type === 'string' ? x.type.trim().toLowerCase() : ''
+    if (xType !== 'nominal' && xType !== 'ordinal') return
+    if (x.sort !== undefined) return
+    enc.x = { ...x, sort: null }
+  })
+
+  return spec
+}
+
+async function ensureBarCategoricalXInputOrder(spec: VegaLiteSpec) {
+  if (!spec || typeof spec !== 'object') return spec
+  const patchDiscreteSortNull = (channel: unknown) => {
+    if (!channel || typeof channel !== 'object' || Array.isArray(channel)) return channel
+    const channelRec = channel as Record<string, unknown>
+    const channelType = typeof channelRec.type === 'string' ? channelRec.type.trim().toLowerCase() : ''
+    if (channelType !== 'nominal' && channelType !== 'ordinal') return channel
+    if (channelRec.sort !== undefined) return channel
+    return { ...channelRec, sort: null }
+  }
+
+  const rowsCache = new WeakMap<object, Promise<RawDatum[]>>()
+  const orderedDomainCache = new WeakMap<object, Map<string, JsonValue[]>>()
+
+  const loadRowsCached = (dataRef: unknown) => {
+    if (!dataRef || typeof dataRef !== 'object' || Array.isArray(dataRef)) {
+      return Promise.resolve([] as RawDatum[])
+    }
+    const keyObj = dataRef as object
+    if (!rowsCache.has(keyObj)) {
+      rowsCache.set(keyObj, loadRowsForSpecData(dataRef as VegaLiteSpec['data']) as Promise<RawDatum[]>)
+    }
+    return rowsCache.get(keyObj)!
+  }
+
+  const resolveObservedDomain = async (dataRef: unknown, field: string) => {
+    const fieldKey = field.trim()
+    if (!fieldKey) return [] as JsonValue[]
+    if (!dataRef || typeof dataRef !== 'object' || Array.isArray(dataRef)) return [] as JsonValue[]
+    const dataObj = dataRef as object
+    const perDataCache = orderedDomainCache.get(dataObj) ?? new Map<string, JsonValue[]>()
+    orderedDomainCache.set(dataObj, perDataCache)
+    const cached = perDataCache.get(fieldKey)
+    if (cached) return cached
+    const rows = await loadRowsCached(dataRef)
+    const out: JsonValue[] = []
+    const seen = new Set<string>()
+    rows.forEach((row) => {
+      const value = row?.[fieldKey]
+      if (value == null) return
+      const token = String(value)
+      if (!token || seen.has(token)) return
+      seen.add(token)
+      out.push(value)
+    })
+    perDataCache.set(fieldKey, out)
+    return out
+  }
+
+  const applyOnEncoding = async (encoding: unknown, dataRef: unknown) => {
+    if (!encoding || typeof encoding !== 'object' || Array.isArray(encoding)) return
+    const encodingRec = encoding as Record<string, unknown>
+    for (const channelKey of ['x', 'column', 'row'] as const) {
+      const current = encodingRec[channelKey]
+      if (!current || typeof current !== 'object' || Array.isArray(current)) continue
+      const channelRec = current as Record<string, unknown>
+      if (channelRec.sort !== undefined) continue
+      const type = typeof channelRec.type === 'string' ? channelRec.type.trim().toLowerCase() : ''
+      if (type !== 'nominal' && type !== 'ordinal') continue
+
+      // x channel keeps the existing "sort: null" policy to preserve observed order.
+      if (channelKey === 'x') {
+        encodingRec[channelKey] = { ...channelRec, sort: null }
+        continue
+      }
+
+      // facet-like channels (column/row) are stabilized with explicit domain order.
+      const field = typeof channelRec.field === 'string' ? channelRec.field : ''
+      const observedDomain = await resolveObservedDomain(dataRef, field)
+      if (observedDomain.length > 0) {
+        encodingRec[channelKey] = { ...channelRec, sort: observedDomain }
+      } else {
+        const next = patchDiscreteSortNull(channelRec)
+        if (next !== channelRec) {
+          encodingRec[channelKey] = next
+        }
+      }
+    }
+  }
+
+  const applyOnFacet = async (facet: unknown, dataRef: unknown) => {
+    if (!facet || typeof facet !== 'object' || Array.isArray(facet)) return
+    const facetRec = facet as Record<string, unknown>
+    for (const channelKey of ['column', 'row'] as const) {
+      const current = facetRec[channelKey]
+      if (!current || typeof current !== 'object' || Array.isArray(current)) continue
+      const channelRec = current as Record<string, unknown>
+      if (channelRec.sort !== undefined) continue
+      const type = typeof channelRec.type === 'string' ? channelRec.type.trim().toLowerCase() : ''
+      if (type !== 'nominal' && type !== 'ordinal') continue
+      const field = typeof channelRec.field === 'string' ? channelRec.field : ''
+      const observedDomain = await resolveObservedDomain(dataRef, field)
+      if (observedDomain.length > 0) {
+        facetRec[channelKey] = { ...channelRec, sort: observedDomain }
+      } else {
+        const next = patchDiscreteSortNull(channelRec)
+        if (next !== channelRec) {
+          facetRec[channelKey] = next
+        }
+      }
+    }
+  }
+
+  const visitNode = async (node: unknown, inheritedDataRef: unknown): Promise<boolean> => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return false
+    const rec = node as Record<string, unknown>
+    const effectiveDataRef = rec.data ?? inheritedDataRef
+    let hasBarDescendant = isBarMark(rec.mark as VegaLiteSpec['mark'])
+
+    if (Array.isArray(rec.layer)) {
+      for (const layer of rec.layer) {
+        hasBarDescendant = (await visitNode(layer, effectiveDataRef)) || hasBarDescendant
+      }
+    }
+
+    if (rec.spec && typeof rec.spec === 'object' && !Array.isArray(rec.spec)) {
+      hasBarDescendant = (await visitNode(rec.spec, effectiveDataRef)) || hasBarDescendant
+    }
+
+    if (hasBarDescendant) {
+      await applyOnEncoding(rec.encoding, effectiveDataRef)
+      await applyOnFacet(rec.facet, effectiveDataRef)
+    }
+
+    return hasBarDescendant
+  }
+
+  await visitNode(spec, spec.data)
+
+  return spec
 }
 
 function parseCsvRows(text: string) {
@@ -1104,6 +1279,8 @@ export async function renderVegaLiteChart(
     return cloned
   })()
 
+  ensureLineCategoricalXInputOrder(enhancedSpec)
+  await ensureBarCategoricalXInputOrder(enhancedSpec)
   await applyAutoLineDomain(enhancedSpec)
 
   const schemaNormalizedSpec = normalizeSchemaForEmbed(enhancedSpec)

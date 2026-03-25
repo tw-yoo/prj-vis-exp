@@ -43,26 +43,355 @@
 
 ### SIMPLE_BAR operation JSON examples
 
+- Example 1 (retrieveValue)
+
 ```json
-[
-  { "op": "retrieveValue", "field": "rating", "target": "USA" },
-  { "op": "filter", "field": "rating", "operator": ">=", "value": 60 },
-  { "op": "sort", "field": "rating", "order": "desc" },
-  { "op": "findExtremum", "field": "rating", "which": "max" },
-  { "op": "determineRange", "field": "rating" },
-  { "op": "compare", "field": "rating", "targetA": "USA", "targetB": "JPN" },
-  { "op": "compareBool", "field": "rating", "targetA": "USA", "targetB": "JPN", "operator": ">" },
-  { "op": "sum", "field": "rating" },
-  { "op": "average", "field": "rating" },
-  { "op": "diff", "field": "rating", "targetA": "USA", "targetB": "JPN", "signed": true },
-  { "op": "lagDiff", "field": "rating", "orderField": "country", "order": "asc" },
-  { "op": "pairDiff", "by": "country", "field": "rating", "groupA": "USA", "groupB": "JPN", "signed": true },
-  { "op": "nth", "n": 3, "from": "left", "orderField": "country" },
-  { "op": "count", "field": "country" },
-  { "op": "add", "field": "rating", "targetA": "USA", "targetB": "JPN" },
-  { "op": "scale", "field": "rating", "target": "USA", "factor": 1.1 },
-  { "op": "setOp", "fn": "intersection", "meta": { "inputs": ["node-a", "node-b"] } }
-]
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "retrieveValue",
+      "field": "rating",
+      "target": "USA",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 2 (filter)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "rating",
+      "operator": ">=",
+      "value": 60,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 3 (sort)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sort",
+      "field": "rating",
+      "order": "desc",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 4 (findExtremum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "findExtremum",
+      "field": "rating",
+      "which": "max",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 5 (determineRange)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "determineRange",
+      "field": "rating",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 6 (compare)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compare",
+      "field": "rating",
+      "targetA": "USA",
+      "targetB": "JPN",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 7 (compareBool)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compareBool",
+      "field": "rating",
+      "targetA": "USA",
+      "targetB": "JPN",
+      "operator": ">",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 8 (sum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sum",
+      "field": "rating",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 9 (average)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "average",
+      "field": "rating",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 10 (diff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "diff",
+      "field": "rating",
+      "targetA": "USA",
+      "targetB": "JPN",
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 11 (lagDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "lagDiff",
+      "field": "rating",
+      "orderField": "country",
+      "order": "asc",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 12 (pairDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "pairDiff",
+      "by": "country",
+      "field": "rating",
+      "groupA": "USA",
+      "groupB": "JPN",
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 13 (nth)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "nth",
+      "n": 3,
+      "from": "left",
+      "orderField": "country",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 14 (count)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "count",
+      "field": "country",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 15 (add)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "add",
+      "field": "rating",
+      "targetA": "USA",
+      "targetB": "JPN",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 16 (scale)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "scale",
+      "field": "rating",
+      "target": "USA",
+      "factor": 1.1,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 17 (setOp)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n3",
+      "op": "setOp",
+      "fn": "intersection",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
 ```
 
 ---
@@ -95,26 +424,396 @@
 
 ### STACKED_BAR operation JSON examples
 
+- Example 1 (retrieveValue)
+
 ```json
-[
-  { "op": "retrieveValue", "field": "count", "target": { "target": "1", "series": "rain" } },
-  { "op": "filter", "field": "month", "include": [1, 2, 3] },
-  { "op": "findExtremum", "field": "count", "which": "max", "group": "rain" },
-  { "op": "sort", "field": "count", "order": "desc" },
-  { "op": "nth", "n": 1, "from": "left", "orderField": "month", "group": "rain" },
-  { "op": "sum", "field": "count", "group": "rain" },
-  { "op": "average", "field": "count", "group": "rain" },
-  { "op": "determineRange", "field": "count", "group": "rain" },
-  { "op": "compare", "field": "count", "targetA": { "target": "1", "series": "rain" }, "targetB": { "target": "2", "series": "rain" } },
-  { "op": "compareBool", "field": "count", "targetA": { "target": "1", "series": "sun" }, "targetB": { "target": "1", "series": "rain" }, "operator": ">" },
-  { "op": "diff", "field": "count", "targetA": { "target": "1", "series": "rain" }, "targetB": { "target": "1", "series": "sun" }, "signed": true },
-  { "op": "lagDiff", "field": "count", "orderField": "month", "order": "asc", "group": "rain" },
-  { "op": "pairDiff", "by": "month", "field": "count", "groupA": "rain", "groupB": "sun", "signed": true },
-  { "op": "count", "field": "month", "group": "rain" },
-  { "op": "add", "field": "count", "targetA": { "target": "1", "series": "rain" }, "targetB": { "target": "1", "series": "sun" } },
-  { "op": "scale", "field": "count", "target": { "target": "1", "series": "rain" }, "factor": 1.2 },
-  { "op": "setOp", "fn": "union", "group": "rain", "meta": { "inputs": ["node-a", "node-b"] } }
-]
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "retrieveValue",
+      "field": "count",
+      "target": {
+        "target": "1",
+        "series": "rain"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 2 (filter)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "month",
+      "include": [
+        1,
+        2,
+        3
+      ],
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 3 (findExtremum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "findExtremum",
+      "field": "count",
+      "which": "max",
+      "group": "rain",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 4 (sort)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sort",
+      "field": "count",
+      "order": "desc",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 5 (nth)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "nth",
+      "n": 1,
+      "from": "left",
+      "orderField": "month",
+      "group": "rain",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 6 (sum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sum",
+      "field": "count",
+      "group": "rain",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 7 (average)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "average",
+      "field": "count",
+      "group": "rain",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 8 (determineRange)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "determineRange",
+      "field": "count",
+      "group": "rain",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 9 (compare)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compare",
+      "field": "count",
+      "targetA": {
+        "target": "1",
+        "series": "rain"
+      },
+      "targetB": {
+        "target": "2",
+        "series": "rain"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 10 (compareBool)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compareBool",
+      "field": "count",
+      "targetA": {
+        "target": "1",
+        "series": "sun"
+      },
+      "targetB": {
+        "target": "1",
+        "series": "rain"
+      },
+      "operator": ">",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 11 (diff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "diff",
+      "field": "count",
+      "targetA": {
+        "target": "1",
+        "series": "rain"
+      },
+      "targetB": {
+        "target": "1",
+        "series": "sun"
+      },
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 12 (lagDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "lagDiff",
+      "field": "count",
+      "orderField": "month",
+      "order": "asc",
+      "group": "rain",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 13 (pairDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "pairDiff",
+      "by": "month",
+      "field": "count",
+      "groupA": "rain",
+      "groupB": "sun",
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 14 (count)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "count",
+      "field": "month",
+      "group": "rain",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 15 (add)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "add",
+      "field": "count",
+      "targetA": {
+        "target": "1",
+        "series": "rain"
+      },
+      "targetB": {
+        "target": "1",
+        "series": "sun"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 16 (scale)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "scale",
+      "field": "count",
+      "target": {
+        "target": "1",
+        "series": "rain"
+      },
+      "factor": 1.2,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 17 (setOp)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n3",
+      "op": "setOp",
+      "fn": "union",
+      "group": "rain",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
 ```
 
 ---
@@ -147,26 +846,397 @@
 
 ### GROUPED_BAR operation JSON examples
 
+- Example 1 (retrieveValue)
+
 ```json
-[
-  { "op": "retrieveValue", "field": "Media rights revenue in billion US dollars", "target": { "target": "2010", "series": "North America" } },
-  { "op": "filter", "field": "Year", "include": [2009, 2010, 2011] },
-  { "op": "findExtremum", "field": "Media rights revenue in billion US dollars", "which": "max", "group": "North America" },
-  { "op": "sort", "field": "Media rights revenue in billion US dollars", "order": "desc", "group": "North America" },
-  { "op": "nth", "n": 2, "from": "left", "orderField": "Year", "group": "North America" },
-  { "op": "sum", "field": "Media rights revenue in billion US dollars", "group": "North America" },
-  { "op": "average", "field": "Media rights revenue in billion US dollars", "group": "North America" },
-  { "op": "determineRange", "field": "Media rights revenue in billion US dollars", "group": "North America" },
-  { "op": "compare", "field": "Media rights revenue in billion US dollars", "targetA": { "target": "2010", "series": "North America" }, "targetB": { "target": "2010", "series": "Latin America" } },
-  { "op": "compareBool", "field": "Media rights revenue in billion US dollars", "targetA": { "target": "2013", "series": "Europe, Middle East and Africa" }, "targetB": { "target": "2013", "series": "Asia Pacific" }, "operator": ">" },
-  { "op": "diff", "field": "Media rights revenue in billion US dollars", "targetA": { "target": "2012", "series": "North America" }, "targetB": { "target": "2012", "series": "Latin America" }, "signed": true },
-  { "op": "lagDiff", "field": "Media rights revenue in billion US dollars", "orderField": "Year", "order": "asc", "group": "North America" },
-  { "op": "pairDiff", "by": "Year", "field": "Media rights revenue in billion US dollars", "groupA": "North America", "groupB": "Latin America", "signed": true },
-  { "op": "count", "field": "Year", "group": "North America" },
-  { "op": "add", "field": "Media rights revenue in billion US dollars", "targetA": { "target": "2010", "series": "North America" }, "targetB": { "target": "2010", "series": "Latin America" } },
-  { "op": "scale", "field": "Media rights revenue in billion US dollars", "target": { "target": "2013", "series": "North America" }, "factor": 1.1 },
-  { "op": "setOp", "fn": "union", "group": "North America", "meta": { "inputs": ["node-a", "node-b"] } }
-]
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "retrieveValue",
+      "field": "Media rights revenue in billion US dollars",
+      "target": {
+        "target": "2010",
+        "series": "North America"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 2 (filter)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "Year",
+      "include": [
+        2009,
+        2010,
+        2011
+      ],
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 3 (findExtremum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "findExtremum",
+      "field": "Media rights revenue in billion US dollars",
+      "which": "max",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 4 (sort)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sort",
+      "field": "Media rights revenue in billion US dollars",
+      "order": "desc",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 5 (nth)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "nth",
+      "n": 2,
+      "from": "left",
+      "orderField": "Year",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 6 (sum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sum",
+      "field": "Media rights revenue in billion US dollars",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 7 (average)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "average",
+      "field": "Media rights revenue in billion US dollars",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 8 (determineRange)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "determineRange",
+      "field": "Media rights revenue in billion US dollars",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 9 (compare)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compare",
+      "field": "Media rights revenue in billion US dollars",
+      "targetA": {
+        "target": "2010",
+        "series": "North America"
+      },
+      "targetB": {
+        "target": "2010",
+        "series": "Latin America"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 10 (compareBool)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compareBool",
+      "field": "Media rights revenue in billion US dollars",
+      "targetA": {
+        "target": "2013",
+        "series": "Europe, Middle East and Africa"
+      },
+      "targetB": {
+        "target": "2013",
+        "series": "Asia Pacific"
+      },
+      "operator": ">",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 11 (diff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "diff",
+      "field": "Media rights revenue in billion US dollars",
+      "targetA": {
+        "target": "2012",
+        "series": "North America"
+      },
+      "targetB": {
+        "target": "2012",
+        "series": "Latin America"
+      },
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 12 (lagDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "lagDiff",
+      "field": "Media rights revenue in billion US dollars",
+      "orderField": "Year",
+      "order": "asc",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 13 (pairDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "pairDiff",
+      "by": "Year",
+      "field": "Media rights revenue in billion US dollars",
+      "groupA": "North America",
+      "groupB": "Latin America",
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 14 (count)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "count",
+      "field": "Year",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 15 (add)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "add",
+      "field": "Media rights revenue in billion US dollars",
+      "targetA": {
+        "target": "2010",
+        "series": "North America"
+      },
+      "targetB": {
+        "target": "2010",
+        "series": "Latin America"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 16 (scale)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "scale",
+      "field": "Media rights revenue in billion US dollars",
+      "target": {
+        "target": "2013",
+        "series": "North America"
+      },
+      "factor": 1.1,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 17 (setOp)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n3",
+      "op": "setOp",
+      "fn": "union",
+      "group": "North America",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
 ```
 
 ---
@@ -198,25 +1268,335 @@
 
 ### SIMPLE_LINE operation JSON examples
 
+- Example 1 (retrieveValue)
+
 ```json
-[
-  { "op": "retrieveValue", "field": "research_and_development_expenditure", "target": "2010-01-01" },
-  { "op": "findExtremum", "field": "research_and_development_expenditure", "which": "max" },
-  { "op": "filter", "field": "research_and_development_expenditure", "operator": ">=", "value": 5000 },
-  { "op": "average", "field": "research_and_development_expenditure" },
-  { "op": "determineRange", "field": "research_and_development_expenditure" },
-  { "op": "diff", "field": "research_and_development_expenditure", "targetA": "2008-01-01", "targetB": "2007-01-01", "signed": true },
-  { "op": "compare", "field": "research_and_development_expenditure", "targetA": "2010-01-01", "targetB": "2009-01-01" },
-  { "op": "compareBool", "field": "research_and_development_expenditure", "targetA": "2010-01-01", "targetB": "2009-01-01", "operator": ">" },
-  { "op": "lagDiff", "field": "research_and_development_expenditure", "orderField": "year", "order": "asc" },
-  { "op": "pairDiff", "by": "year", "field": "research_and_development_expenditure", "groupA": "A", "groupB": "B", "signed": true },
-  { "op": "nth", "n": 5, "from": "left", "orderField": "year" },
-  { "op": "count", "field": "year" },
-  { "op": "add", "field": "research_and_development_expenditure", "targetA": "2011-01-01", "targetB": "2010-01-01" },
-  { "op": "scale", "field": "research_and_development_expenditure", "target": "2014-01-01", "factor": 0.9 },
-  { "op": "sum", "field": "research_and_development_expenditure" },
-  { "op": "setOp", "fn": "intersection", "meta": { "inputs": ["node-a", "node-b"] } }
-]
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "retrieveValue",
+      "field": "research_and_development_expenditure",
+      "target": "2010-01-01",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 2 (findExtremum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "findExtremum",
+      "field": "research_and_development_expenditure",
+      "which": "max",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 3 (filter)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "research_and_development_expenditure",
+      "operator": ">=",
+      "value": 5000,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 4 (average)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "average",
+      "field": "research_and_development_expenditure",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 5 (determineRange)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "determineRange",
+      "field": "research_and_development_expenditure",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 6 (diff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "diff",
+      "field": "research_and_development_expenditure",
+      "targetA": "2008-01-01",
+      "targetB": "2007-01-01",
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 7 (compare)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compare",
+      "field": "research_and_development_expenditure",
+      "targetA": "2010-01-01",
+      "targetB": "2009-01-01",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 8 (compareBool)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compareBool",
+      "field": "research_and_development_expenditure",
+      "targetA": "2010-01-01",
+      "targetB": "2009-01-01",
+      "operator": ">",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 9 (lagDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "lagDiff",
+      "field": "research_and_development_expenditure",
+      "orderField": "year",
+      "order": "asc",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 10 (pairDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "pairDiff",
+      "by": "year",
+      "field": "research_and_development_expenditure",
+      "groupA": "A",
+      "groupB": "B",
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 11 (nth)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "nth",
+      "n": 5,
+      "from": "left",
+      "orderField": "year",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 12 (count)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "count",
+      "field": "year",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 13 (add)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "add",
+      "field": "research_and_development_expenditure",
+      "targetA": "2011-01-01",
+      "targetB": "2010-01-01",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 14 (scale)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "scale",
+      "field": "research_and_development_expenditure",
+      "target": "2014-01-01",
+      "factor": 0.9,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 15 (sum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sum",
+      "field": "research_and_development_expenditure",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 16 (setOp)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n3",
+      "op": "setOp",
+      "fn": "intersection",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
 ```
 
 ---
@@ -248,25 +1628,373 @@
 
 ### MULTI_LINE operation JSON examples
 
+- Example 1 (retrieveValue)
+
 ```json
-[
-  { "op": "retrieveValue", "field": "price", "target": { "target": "2005-01-01", "series": "AAPL" } },
-  { "op": "findExtremum", "field": "price", "which": "max", "group": "AAPL" },
-  { "op": "filter", "field": "price", "operator": ">=", "value": 100 },
-  { "op": "average", "field": "price", "group": "AAPL" },
-  { "op": "determineRange", "field": "price", "group": "AAPL" },
-  { "op": "compare", "field": "price", "targetA": { "target": "2005-01-01", "series": "AAPL" }, "targetB": { "target": "2005-01-01", "series": "MSFT" } },
-  { "op": "diff", "field": "price", "targetA": { "target": "2005-01-01", "series": "AAPL" }, "targetB": { "target": "2005-01-01", "series": "MSFT" }, "signed": true },
-  { "op": "pairDiff", "by": "date", "field": "price", "groupA": "AAPL", "groupB": "MSFT", "signed": true },
-  { "op": "lagDiff", "field": "price", "orderField": "date", "order": "asc", "group": "AAPL" },
-  { "op": "nth", "n": 12, "from": "left", "orderField": "date", "group": "AAPL" },
-  { "op": "count", "field": "date", "group": "AAPL" },
-  { "op": "compareBool", "field": "price", "targetA": { "target": "2005-01-01", "series": "AAPL" }, "targetB": { "target": "2005-01-01", "series": "MSFT" }, "operator": ">" },
-  { "op": "add", "field": "price", "targetA": { "target": "2005-01-01", "series": "AAPL" }, "targetB": { "target": "2005-01-01", "series": "MSFT" } },
-  { "op": "scale", "field": "price", "target": { "target": "2005-01-01", "series": "AAPL" }, "factor": 1.05 },
-  { "op": "sum", "field": "price", "group": "AAPL" },
-  { "op": "setOp", "fn": "union", "group": "AAPL", "meta": { "inputs": ["node-a", "node-b"] } }
-]
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "retrieveValue",
+      "field": "price",
+      "target": {
+        "target": "2005-01-01",
+        "series": "AAPL"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 2 (findExtremum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "findExtremum",
+      "field": "price",
+      "which": "max",
+      "group": "AAPL",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 3 (filter)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "price",
+      "operator": ">=",
+      "value": 100,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 4 (average)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "average",
+      "field": "price",
+      "group": "AAPL",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 5 (determineRange)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "determineRange",
+      "field": "price",
+      "group": "AAPL",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 6 (compare)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compare",
+      "field": "price",
+      "targetA": {
+        "target": "2005-01-01",
+        "series": "AAPL"
+      },
+      "targetB": {
+        "target": "2005-01-01",
+        "series": "MSFT"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 7 (diff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "diff",
+      "field": "price",
+      "targetA": {
+        "target": "2005-01-01",
+        "series": "AAPL"
+      },
+      "targetB": {
+        "target": "2005-01-01",
+        "series": "MSFT"
+      },
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 8 (pairDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "pairDiff",
+      "by": "date",
+      "field": "price",
+      "groupA": "AAPL",
+      "groupB": "MSFT",
+      "signed": true,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 9 (lagDiff)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "lagDiff",
+      "field": "price",
+      "orderField": "date",
+      "order": "asc",
+      "group": "AAPL",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 10 (nth)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "nth",
+      "n": 12,
+      "from": "left",
+      "orderField": "date",
+      "group": "AAPL",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 11 (count)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "count",
+      "field": "date",
+      "group": "AAPL",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 12 (compareBool)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "compareBool",
+      "field": "price",
+      "targetA": {
+        "target": "2005-01-01",
+        "series": "AAPL"
+      },
+      "targetB": {
+        "target": "2005-01-01",
+        "series": "MSFT"
+      },
+      "operator": ">",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 13 (add)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "add",
+      "field": "price",
+      "targetA": {
+        "target": "2005-01-01",
+        "series": "AAPL"
+      },
+      "targetB": {
+        "target": "2005-01-01",
+        "series": "MSFT"
+      },
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 14 (scale)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "scale",
+      "field": "price",
+      "target": {
+        "target": "2005-01-01",
+        "series": "AAPL"
+      },
+      "factor": 1.05,
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 15 (sum)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sum",
+      "field": "price",
+      "group": "AAPL",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
+```
+
+- Example 16 (setOp)
+
+```json
+{
+  "ops": [
+    {
+      "id": "n3",
+      "op": "setOp",
+      "fn": "union",
+      "group": "AAPL",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 1
+      }
+    }
+  ]
+}
 ```
 
 ---
