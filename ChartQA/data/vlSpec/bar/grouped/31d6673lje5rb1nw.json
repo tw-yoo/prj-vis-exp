@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 31d6673lje5rb1nw.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/31d6673lje5rb1nw.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Type",
+      "type": "nominal",
+      "header": {}
+    },
+    "y": {
+      "field": "Number of soldiers",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "States",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "States",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

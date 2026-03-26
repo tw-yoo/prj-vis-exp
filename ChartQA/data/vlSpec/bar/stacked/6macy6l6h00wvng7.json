@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 6macy6l6h00wvng7.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/6macy6l6h00wvng7.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Revenue in million Euros",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Product Segment",
+      "type": "nominal"
+    }
+  }
+}

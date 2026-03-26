@@ -1,0 +1,99 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for b9vfcqsqid200mah.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/multiple/b9vfcqsqid200mah.csv"
+  },
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Date",
+          "type": "ordinal",
+          "axis": {
+            "title": "Date",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Share of respondents",
+          "type": "quantitative",
+          "axis": {
+            "title": "Share of respondents",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Type",
+          "type": "nominal",
+          "legend": {
+            "title": "Type",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Date",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Share of respondents",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Type",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Date",
+            "type": "ordinal",
+            "title": "Date"
+          },
+          {
+            "field": "Type",
+            "type": "nominal",
+            "title": "Type"
+          },
+          {
+            "field": "Share of respondents",
+            "type": "quantitative",
+            "title": "Share of respondents"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

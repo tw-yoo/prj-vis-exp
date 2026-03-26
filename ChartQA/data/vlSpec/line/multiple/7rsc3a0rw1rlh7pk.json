@@ -1,0 +1,99 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Multiple line chart for 7rsc3a0rw1rlh7pk.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/multiple/7rsc3a0rw1rlh7pk.csv"
+  },
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Period",
+          "type": "ordinal",
+          "axis": {
+            "title": "Period",
+            "labelAngle": 0,
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Number of news",
+          "type": "quantitative",
+          "axis": {
+            "title": "Number of news",
+            "labelFontSize": 11,
+            "titleFontSize": 13,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "color": {
+          "field": "Media",
+          "type": "nominal",
+          "legend": {
+            "title": "Media",
+            "titleFontSize": 12,
+            "labelFontSize": 11
+          }
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 80,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Period",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Number of news",
+          "type": "quantitative"
+        },
+        "color": {
+          "field": "Media",
+          "type": "nominal"
+        },
+        "tooltip": [
+          {
+            "field": "Period",
+            "type": "ordinal",
+            "title": "Period"
+          },
+          {
+            "field": "Media",
+            "type": "nominal",
+            "title": "Media"
+          },
+          {
+            "field": "Number of news",
+            "type": "quantitative",
+            "title": "Number of news"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

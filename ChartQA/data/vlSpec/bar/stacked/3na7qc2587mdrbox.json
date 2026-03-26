@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 3na7qc2587mdrbox.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/3na7qc2587mdrbox.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "World Region",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Share of regional population",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Age Group",
+      "type": "nominal"
+    }
+  }
+}

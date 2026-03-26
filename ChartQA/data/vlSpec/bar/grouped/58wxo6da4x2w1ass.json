@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 58wxo6da4x2w1ass.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/58wxo6da4x2w1ass.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Worker Type",
+      "type": "nominal",
+      "header": {}
+    },
+    "y": {
+      "field": "Share of Voters",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Candidate",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Candidate",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

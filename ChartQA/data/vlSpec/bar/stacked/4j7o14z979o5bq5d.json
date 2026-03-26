@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 4j7o14z979o5bq5d.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/4j7o14z979o5bq5d.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Share of Respondents(%)",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Status",
+      "type": "nominal"
+    }
+  }
+}
