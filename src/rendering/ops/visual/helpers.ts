@@ -2,10 +2,13 @@ import { OperationOp, type DatumValue, type OperationSpec } from '../../../types
 import { draw, ops } from '../../../operation/build/authoring'
 import { DrawAction, DrawLineModes, DrawMark, type DrawOp } from '../../draw/types.ts'
 import type { AutoDrawPlanContext } from '../common/executeDataOp'
+import { CHART_TEXT_SIZE } from '../../config/chartTextConfig'
 
 const DEFAULT_HIGHLIGHT_COLOR = '#ef4444'
 const DEFAULT_TEXT_COLOR = '#111827'
 export const AVERAGE_LINE_COLOR = '#ef4444'
+export const AUTO_DRAW_TEXT_FONT_SIZE = CHART_TEXT_SIZE.autoDraw
+export const AUTO_DRAW_TEXT_MINOR_FONT_SIZE = CHART_TEXT_SIZE.autoDrawMinor
 
 type AutoDrawChartKind = 'simple-bar' | 'stacked-bar' | 'grouped-bar' | 'simple-line' | 'multi-line'
 
@@ -126,7 +129,7 @@ export function makeAverageTextOp(
       `Average: ${formatDrawNumber(value)}`,
       x,
       clamp01(inferredY),
-      draw.style.text(DEFAULT_TEXT_COLOR, 12, 'bold'),
+      draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
       0,
       -5,
     ),
@@ -145,7 +148,7 @@ export function makeTextOp(target: string, value: number, color?: string, precis
     draw.select.markKeys(DrawMark.Rect, target),
     draw.textSpec.anchor(
       text,
-      draw.style.text(color ?? DEFAULT_TEXT_COLOR, 12, 'bold'),
+      draw.style.text(color ?? DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
     ),
   )
 }

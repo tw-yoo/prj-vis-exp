@@ -5,6 +5,7 @@ import { loadRowsFromVegaLiteData, normalizeVegaLiteDataUrl } from './vegaLite/d
 import { ensureStableOrdinalColorMapping } from './vegaLite/colorScaleStability'
 import { DataAttributes, SvgClassNames } from './interfaces'
 import { autoRotateXAxisTickLabels } from './common/axisTickLabelRotation'
+import { CHART_TEXT_SIZE } from './config/chartTextConfig'
 
 /**
  * Minimal Vega-Lite spec shape we care about for embedding/rendering.
@@ -764,13 +765,19 @@ function adjustXAxisLabelAngle(container: HTMLElement) {
     typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: FrameRequestCallback) => setTimeout(cb, 16)
 
   const collectAxisLabelGroups = (svg: SVGElement) => {
-    const groups: SVGTextElement[][] = []
+    const groups: Array<{ labels: SVGTextElement[]; ticks: SVGElement[] }> = []
 
     svg.querySelectorAll<SVGGElement>(`.${SvgClassNames.XAxis}`).forEach((axisGroup) => {
-      const labels = Array.from(axisGroup.querySelectorAll<SVGTextElement>('.tick text')).filter(
-        (label) => (label.textContent ?? '').trim().length > 0,
-      )
-      if (labels.length) groups.push(labels)
+      const tickGroups = Array.from(axisGroup.querySelectorAll<SVGGElement>('.tick'))
+      const labels: SVGTextElement[] = []
+      const ticks: SVGElement[] = []
+      tickGroups.forEach((tick) => {
+        const label = tick.querySelector<SVGTextElement>('text')
+        if (!label || (label.textContent ?? '').trim().length === 0) return
+        labels.push(label)
+        ticks.push(tick)
+      })
+      if (labels.length) groups.push({ labels, ticks })
     })
 
     const vegaAxisSelectors = [
@@ -787,7 +794,11 @@ function adjustXAxisLabelAngle(container: HTMLElement) {
       const labels = Array.from(
         axisGroup.querySelectorAll<SVGTextElement>('.role-axis-label text, text.role-axis-label'),
       ).filter((label) => (label.textContent ?? '').trim().length > 0)
-      if (labels.length) groups.push(labels)
+      if (!labels.length) return
+      const ticks = Array.from(
+        axisGroup.querySelectorAll<SVGElement>('.mark-rule.role-axis-tick line, .role-axis-tick line, .role-axis-tick path'),
+      )
+      groups.push({ labels, ticks })
     })
 
     return groups
@@ -818,10 +829,19 @@ function adjustXAxisLabelAngle(container: HTMLElement) {
       }
 
       let maxAbsAngle = 0
-      axisLabelGroups.forEach((labels) => {
-        const angle = autoRotateXAxisTickLabels(labels)
-        maxAbsAngle = Math.max(maxAbsAngle, Math.abs(angle))
+      let maxDensityStep = 1
+      axisLabelGroups.forEach((group) => {
+        const layout = autoRotateXAxisTickLabels(group.labels, {
+          candidateAngles: [-25, -35, -45, -60, -75, -90],
+          allowDensityReduction: true,
+          maxDensityStep: 12,
+          tickElements: group.ticks,
+        })
+        maxAbsAngle = Math.max(maxAbsAngle, Math.abs(layout.angleDeg))
+        maxDensityStep = Math.max(maxDensityStep, layout.densityStep)
       })
+      svg.setAttribute(DataAttributes.AxisRotation, String(maxAbsAngle))
+      svg.setAttribute(DataAttributes.TickDensityStep, String(maxDensityStep))
 
       const baseHeightKey = 'baseRenderHeight'
       const baseline = Number.parseFloat(svg.dataset[baseHeightKey] ?? '')
@@ -829,7 +849,7 @@ function adjustXAxisLabelAngle(container: HTMLElement) {
       const baseHeight = Number.isFinite(baseline) && baseline > 0 ? baseline : currentHeight
       if (Number.isFinite(baseHeight) && baseHeight > 0) {
         svg.dataset[baseHeightKey] = String(baseHeight)
-        const additionalPadding = maxAbsAngle >= 70 ? 80 : maxAbsAngle > 0 ? 40 : 0
+        const additionalPadding = maxAbsAngle >= 85 ? 120 : maxAbsAngle >= 70 ? 90 : maxAbsAngle > 0 ? 50 : 0
         svg.setAttribute('height', String(baseHeight + additionalPadding))
       }
     })
@@ -953,6 +973,45 @@ async function enforceSvgRenderer(target: HTMLElement, result: VegaEmbedResult, 
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   return value as Record<string, unknown>
+}
+
+function applyEncodingTypographyOverrides(spec: VegaLiteSpec) {
+  const patchChannel = (channel: unknown) => {
+    if (!channel || typeof channel !== 'object' || Array.isArray(channel)) return
+    const channelRec = channel as Record<string, unknown>
+    if (channelRec.axis && typeof channelRec.axis === 'object' && !Array.isArray(channelRec.axis)) {
+      channelRec.axis = {
+        ...(channelRec.axis as Record<string, unknown>),
+        labelFontSize: CHART_TEXT_SIZE.axisLabel,
+        titleFontSize: CHART_TEXT_SIZE.axisTitle,
+      }
+    }
+    if (channelRec.legend && typeof channelRec.legend === 'object' && !Array.isArray(channelRec.legend)) {
+      channelRec.legend = {
+        ...(channelRec.legend as Record<string, unknown>),
+        labelFontSize: CHART_TEXT_SIZE.legendLabel,
+        titleFontSize: CHART_TEXT_SIZE.legendTitle,
+      }
+    }
+  }
+
+  const patchEncoding = (encoding: unknown) => {
+    if (!encoding || typeof encoding !== 'object' || Array.isArray(encoding)) return
+    Object.values(encoding as Record<string, unknown>).forEach((channel) => patchChannel(channel))
+  }
+
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return
+    const rec = node as Record<string, unknown>
+    patchEncoding(rec.encoding)
+    if (Array.isArray(rec.layer)) rec.layer.forEach((entry) => walk(entry))
+    if (rec.spec && typeof rec.spec === 'object' && !Array.isArray(rec.spec)) walk(rec.spec)
+    if (Array.isArray(rec.concat)) rec.concat.forEach((entry) => walk(entry))
+    if (Array.isArray(rec.hconcat)) rec.hconcat.forEach((entry) => walk(entry))
+    if (Array.isArray(rec.vconcat)) rec.vconcat.forEach((entry) => walk(entry))
+  }
+
+  walk(spec)
 }
 
 function extractField(channel: unknown): string | undefined {
@@ -1199,21 +1258,20 @@ export async function renderVegaLiteChart(
 
     const inferredType = getChartType(cloned)
     const isLineChart = inferredType === ChartType.SIMPLE_LINE || inferredType === ChartType.MULTI_LINE
-    const rawConfig = (spec && typeof spec === 'object' && (spec as VegaLiteSpec).config && typeof (spec as VegaLiteSpec).config === 'object'
-      ? ((spec as VegaLiteSpec).config as Record<string, JsonValue>)
-      : {}) as Record<string, JsonValue>
-    const rawAxis = (rawConfig.axis && typeof rawConfig.axis === 'object' ? rawConfig.axis : {}) as Record<string, JsonValue>
-    const rawAxisX = (rawConfig.axisX && typeof rawConfig.axisX === 'object' ? rawConfig.axisX : {}) as Record<string, JsonValue>
-    const rawAxisY = (rawConfig.axisY && typeof rawConfig.axisY === 'object' ? rawConfig.axisY : {}) as Record<string, JsonValue>
     const config = (cloned.config && typeof cloned.config === 'object' ? cloned.config : {}) as Record<string, JsonValue>
     const axis = (config.axis && typeof config.axis === 'object' ? config.axis : {}) as Record<string, JsonValue>
     const axisX = (config.axisX && typeof config.axisX === 'object' ? config.axisX : {}) as Record<string, JsonValue>
     const axisY = (config.axisY && typeof config.axisY === 'object' ? config.axisY : {}) as Record<string, JsonValue>
+    const legend = (config.legend && typeof config.legend === 'object' ? config.legend : {}) as Record<string, JsonValue>
+    const title = (config.title && typeof config.title === 'object' ? config.title : {}) as Record<string, JsonValue>
+    const header = (config.header && typeof config.header === 'object' ? config.header : {}) as Record<string, JsonValue>
+    const text = (config.text && typeof config.text === 'object' ? config.text : {}) as Record<string, JsonValue>
+    const mark = (config.mark && typeof config.mark === 'object' ? config.mark : {}) as Record<string, JsonValue>
     const view = (config.view && typeof config.view === 'object' ? config.view : {}) as Record<string, JsonValue>
 
     const nextAxis: Record<string, JsonValue> = {
-      labelFontSize: isLineChart ? 12 : 11,
-      titleFontSize: isLineChart ? 14 : 13,
+      labelFontSize: CHART_TEXT_SIZE.axisLabel,
+      titleFontSize: CHART_TEXT_SIZE.axisTitle,
       titlePadding: isLineChart ? 12 : 10,
       labelPadding: isLineChart ? 6 : 5,
       labelLimit: 0,
@@ -1231,18 +1289,47 @@ export async function renderVegaLiteChart(
       ...(axisY.grid === undefined ? { grid: false } : {}),
     }
 
-    // normalizeSpecDomain injects default axis font sizes (11/13). For line charts, keep
-    // larger readability defaults unless the user explicitly set axis typography.
-    if (isLineChart) {
-      const userSetAxisLabelFont = rawAxis.labelFontSize !== undefined || rawAxisX.labelFontSize !== undefined || rawAxisY.labelFontSize !== undefined
-      const userSetAxisTitleFont = rawAxis.titleFontSize !== undefined || rawAxisX.titleFontSize !== undefined || rawAxisY.titleFontSize !== undefined
-      const userSetAxisTitlePadding = rawAxis.titlePadding !== undefined || rawAxisX.titlePadding !== undefined || rawAxisY.titlePadding !== undefined
-      const userSetAxisLabelPadding = rawAxis.labelPadding !== undefined || rawAxisX.labelPadding !== undefined || rawAxisY.labelPadding !== undefined
-      if (!userSetAxisLabelFont) nextAxis.labelFontSize = 12
-      if (!userSetAxisTitleFont) nextAxis.titleFontSize = 14
-      if (!userSetAxisTitlePadding) nextAxis.titlePadding = 12
-      if (!userSetAxisLabelPadding) nextAxis.labelPadding = 6
+    // Always use the app-wide typography config for rendered charts.
+    nextAxis.labelFontSize = CHART_TEXT_SIZE.axisLabel
+    nextAxis.titleFontSize = CHART_TEXT_SIZE.axisTitle
+    nextAxis.titlePadding = isLineChart ? 12 : 10
+    nextAxis.labelPadding = isLineChart ? 6 : 5
+
+    const nextLegend: Record<string, JsonValue> = {
+      labelFontSize: CHART_TEXT_SIZE.legendLabel,
+      titleFontSize: CHART_TEXT_SIZE.legendTitle,
+      ...legend,
     }
+
+    const nextTitle: Record<string, JsonValue> = {
+      fontSize: CHART_TEXT_SIZE.chartTitle,
+      subtitleFontSize: CHART_TEXT_SIZE.chartSubtitle,
+      ...title,
+    }
+
+    const nextHeader: Record<string, JsonValue> = {
+      labelFontSize: CHART_TEXT_SIZE.facetLabel,
+      titleFontSize: CHART_TEXT_SIZE.facetTitle,
+      ...header,
+    }
+
+    const nextText: Record<string, JsonValue> = {
+      fontSize: CHART_TEXT_SIZE.annotation,
+      ...text,
+    }
+
+    const nextMark: Record<string, JsonValue> = {
+      fontSize: CHART_TEXT_SIZE.annotation,
+      ...mark,
+    }
+    nextLegend.labelFontSize = CHART_TEXT_SIZE.legendLabel
+    nextLegend.titleFontSize = CHART_TEXT_SIZE.legendTitle
+    nextTitle.fontSize = CHART_TEXT_SIZE.chartTitle
+    nextTitle.subtitleFontSize = CHART_TEXT_SIZE.chartSubtitle
+    nextHeader.labelFontSize = CHART_TEXT_SIZE.facetLabel
+    nextHeader.titleFontSize = CHART_TEXT_SIZE.facetTitle
+    nextText.fontSize = CHART_TEXT_SIZE.annotation
+    nextMark.fontSize = CHART_TEXT_SIZE.annotation
 
     const nextView: Record<string, JsonValue> = {
       ...view,
@@ -1254,8 +1341,14 @@ export async function renderVegaLiteChart(
       axis: nextAxis,
       axisX: nextAxisX,
       axisY: nextAxisY,
+      legend: nextLegend,
+      title: nextTitle,
+      header: nextHeader,
+      text: nextText,
+      mark: nextMark,
       view: nextView,
     }
+    applyEncodingTypographyOverrides(cloned)
 
     // Workbench design default: if a simple bar spec does not specify any color encoding
     // or mark/config color, use the historical default bar fill (#69b3a2) instead of
@@ -1337,7 +1430,13 @@ export async function renderVegaLiteChart(
 
   const result = await embed(target, finalSpec, embedOptions)
   syncSvgRenderEpoch(target, renderEpoch)
+  target.querySelectorAll('svg').forEach((svg) => {
+    svg.setAttribute(DataAttributes.RendererPath, 'vega')
+  })
   await enforceSvgRenderer(target, result, debugOpts)
+  target.querySelectorAll('svg').forEach((svg) => {
+    svg.setAttribute(DataAttributes.RendererPath, 'vega')
+  })
   annotateRenderedMarksForDraw(target, finalSpec)
   ;(container as any).__lastVegaEmbedResult = result
   if (canvas) {

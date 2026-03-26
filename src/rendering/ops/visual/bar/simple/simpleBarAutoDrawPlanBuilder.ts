@@ -4,7 +4,7 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
-import { AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
+import { AUTO_DRAW_TEXT_FONT_SIZE, AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 import { getSimpleBarSplitDomain } from '../../../../bar/simpleBarRenderer'
 
@@ -57,7 +57,7 @@ function buildDiffBracketOps(
 function textScore(value: number | string, label?: string) {
   const renderedValue = typeof value === 'number' ? formatDrawNumber(value) : String(value)
   const rendered = label ? `${label}: ${renderedValue}` : renderedValue
-  return draw.textSpec.normalized(rendered, 0.92, 0.08, draw.style.text('#111827', 12, 'bold'))
+  return draw.textSpec.normalized(rendered, 0.92, 0.08, draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'))
 }
 
 function scalarFromResult(result: DatumValue[]) {
@@ -345,7 +345,7 @@ function buildPairBarValueTexts(op: OperationSpec, targetA: string, valueA: numb
       ops.draw.text(
         op.chartId,
         draw.select.markKeys('rect', targetA),
-        draw.textSpec.anchor(formatDrawNumber(Number(valueA)), draw.style.text('#111827', 12, 'bold')),
+        draw.textSpec.anchor(formatDrawNumber(Number(valueA)), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
       ),
     )
   }
@@ -354,7 +354,7 @@ function buildPairBarValueTexts(op: OperationSpec, targetA: string, valueA: numb
       ops.draw.text(
         op.chartId,
         draw.select.markKeys('rect', targetB),
-        draw.textSpec.anchor(formatDrawNumber(Number(valueB)), draw.style.text('#111827', 12, 'bold')),
+        draw.textSpec.anchor(formatDrawNumber(Number(valueB)), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
       ),
     )
   }
@@ -370,7 +370,7 @@ function textTargets(result: DatumValue[], op: OperationSpec, precision = 2) {
       ops.draw.text(
         op.chartId,
         draw.select.markKeys('rect', String(entry.target)),
-        draw.textSpec.anchor(formatDrawNumber(numeric, precision), draw.style.text('#111827', 12, 'bold')),
+        draw.textSpec.anchor(formatDrawNumber(numeric, precision), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
       ),
     )
   })
@@ -720,7 +720,12 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
       ops.draw.text(
         op.chartId,
         undefined,
-        draw.textSpec.normalized(`count: ${formatDrawNumber(scalar)}`, 0.5, 0.92, draw.style.text('#111827', 12, 'bold')),
+        draw.textSpec.normalized(
+          `count: ${formatDrawNumber(scalar)}`,
+          0.5,
+          0.92,
+          draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+        ),
       ),
     ]
   },
@@ -744,7 +749,7 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
           draw.select.markKeys('rect', targetPoint.target),
           draw.textSpec.anchor(
             formatDrawNumber(Number.isFinite(targetActualValue ?? NaN) ? Number(targetActualValue) : scalar),
-            draw.style.text('#111827', 12, 'bold'),
+            draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
           ),
         ),
       )

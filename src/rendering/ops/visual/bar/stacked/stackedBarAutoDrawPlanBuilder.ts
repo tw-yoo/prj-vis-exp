@@ -3,7 +3,7 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
-import { AVERAGE_LINE_COLOR, buildHighlightPlan, buildTextPlan, formatDrawNumber } from '../../helpers'
+import { AUTO_DRAW_TEXT_FONT_SIZE, AVERAGE_LINE_COLOR, buildHighlightPlan, buildTextPlan, formatDrawNumber } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
 type TargetPoint = { target: string; series?: string }
@@ -14,7 +14,7 @@ function lineAt(value: number, color = '#0ea5e9') {
 
 function textScore(value: number, label?: string) {
   const rendered = label ? `${label}: ${formatDrawNumber(value)}` : formatDrawNumber(value)
-  return draw.textSpec.normalized(rendered, 0.92, 0.08, draw.style.text('#111827', 12, 'bold'))
+  return draw.textSpec.normalized(rendered, 0.92, 0.08, draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'))
 }
 
 function scalarFromResult(result: DatumValue[]) {

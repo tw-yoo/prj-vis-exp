@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { autoRotateXAxisTickLabels, setXAxisTickLabelAngle } from './axisTickLabelRotation'
+import { autoRotateXAxisTickLabels, setXAxisTickLabelAngle, type XAxisTickLabelLayoutResult } from './axisTickLabelRotation'
 
 type AxisTickSelection = d3.Selection<SVGTextElement, unknown, d3.BaseType, unknown>
 
@@ -8,6 +8,9 @@ type WrapAxisTickLabelOptions = {
   lineHeightEm?: number
   rotationDeg?: number | 'auto'
   maxLines?: number
+  allowDensityReduction?: boolean
+  maxDensityStep?: number
+  tickElements?: SVGElement[]
 }
 
 function chunkLongToken(token: string, maxCharsPerLine: number) {
@@ -65,6 +68,9 @@ export function wrapAxisTickLabels(
     lineHeightEm = 1.05,
     rotationDeg = 'auto',
     maxLines = 4,
+    allowDensityReduction = false,
+    maxDensityStep = 8,
+    tickElements = [],
   } = options
 
   const labels: SVGTextElement[] = []
@@ -84,8 +90,17 @@ export function wrapAxisTickLabels(
   })
 
   if (rotationDeg === 'auto') {
-    autoRotateXAxisTickLabels(labels)
+    return autoRotateXAxisTickLabels(labels, {
+      allowDensityReduction,
+      maxDensityStep,
+      tickElements,
+    })
   } else {
     setXAxisTickLabelAngle(labels, rotationDeg)
+    return {
+      angleDeg: rotationDeg,
+      overlapPx: 0,
+      densityStep: 1,
+    } satisfies XAxisTickLabelLayoutResult
   }
 }

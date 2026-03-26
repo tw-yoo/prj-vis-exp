@@ -3,6 +3,7 @@ import { DrawMark, type DrawLineSpec, type DrawRectSpec, type DrawOp } from '../
 import { ChartType, type ChartTypeValue } from '../../../chartRenderer'
 import type { BarSegmentCommit, DrawInteractionHit } from '../types'
 import { formatDrawNumber } from '../../../ops/visual/helpers'
+import { CHART_TEXT_SIZE } from '../../../config/chartTextConfig'
 
 type SegmentStyleInput = {
   fill: string
@@ -124,7 +125,7 @@ export type GroupedCompareMacroArgs = {
 export const createGroupedCompareMacroOps = (args: GroupedCompareMacroArgs): DrawOp[] => {
   const lineStyleA = draw.style.line('#dc2626', 2, 1)
   const lineStyleB = draw.style.line('#2563eb', 2, 1)
-  const textStyle = draw.style.text('#111827', 12, 700)
+  const textStyle = draw.style.text('#111827', CHART_TEXT_SIZE.autoDraw, 700)
   const diff = args.leftAverage - args.rightAverage
   const summary = `${args.leftSeries} avg=${formatDrawNumber(args.leftAverage)}, ${args.rightSeries} avg=${formatDrawNumber(args.rightAverage)}, diff=${formatDrawNumber(diff)}`
   return [
@@ -145,7 +146,7 @@ export const createStackedCompositionLabelOps = (
   chartId: string | undefined,
   labels: StackedCompositionLabel[],
 ): DrawOp[] => {
-  const textStyle = draw.style.text('#111827', 11, 700)
+  const textStyle = draw.style.text('#111827', CHART_TEXT_SIZE.autoDrawMinor, 700)
   return labels.map((label) =>
     ops.draw.text(
       chartId,

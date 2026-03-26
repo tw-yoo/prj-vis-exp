@@ -15,6 +15,7 @@ import { resolveAnnotationKeyForDrawOp } from './annotationKey'
 import { normalizeComparisonCondition } from './utils/comparison'
 import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from './animationPolicy'
 import { ensureAnnotationLayer } from './utils/annotationLayer'
+import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 
 async function waitTransition(transition: d3.Transition<any, any, any, any>) {
   try {
@@ -527,7 +528,7 @@ export class BarDrawHandler extends BaseDrawHandler {
       .attr(SvgAttributes.TextAnchor, 'middle')
       .attr(SvgAttributes.DominantBaseline, 'ideographic')
       .attr(SvgAttributes.Fill, '#111827')
-      .attr(SvgAttributes.FontSize, 12)
+      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.annotation)
       .attr(SvgAttributes.FontWeight, 'bold')
       .attr(SvgAttributes.Opacity, 0)
       .text(textValue)

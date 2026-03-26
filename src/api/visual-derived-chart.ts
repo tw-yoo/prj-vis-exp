@@ -8,6 +8,7 @@ import { executeDataOperation } from '../application/services/executeDataOperati
 import { restoreRuntimeResults, resetRuntimeResults, snapshotRuntimeResults, storeRuntimeResult } from '../domain/operation/dataOps'
 import { STANDARD_DATA_OP_HANDLERS } from '../rendering/ops/common/dataHandlers'
 import { resolveEncodingFields } from '../rendering/ops/common/resolveEncodingFields'
+import { CHART_TEXT_SIZE } from '../rendering/config/chartTextConfig'
 
 type DataRow = Record<string, unknown>
 
@@ -857,7 +858,7 @@ function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
         } as unknown as VegaLiteSpec['encoding']),
     config: {
       view: { stroke: '#e5e7eb' },
-      axis: { labelFontSize: 12, titleFontSize: 12 },
+      axis: { labelFontSize: CHART_TEXT_SIZE.axisLabel, titleFontSize: CHART_TEXT_SIZE.axisTitle },
       bar: { size: hasGroups ? 24 : 42 },
     } as VegaLiteSpec['config'],
   }
@@ -906,7 +907,7 @@ function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
         } as unknown as VegaLiteSpec['encoding']),
     config: {
       view: { stroke: '#e5e7eb' },
-      axis: { labelFontSize: 12, titleFontSize: 12 },
+      axis: { labelFontSize: CHART_TEXT_SIZE.axisLabel, titleFontSize: CHART_TEXT_SIZE.axisTitle },
       line: { point: { filled: true, size: 64 } },
     } as VegaLiteSpec['config'],
   }

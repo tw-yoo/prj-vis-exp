@@ -3,9 +3,10 @@ import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../char
 import type { JsonValue } from '../../types'
 import { type DrawSplitSpec } from '../draw/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
-import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { applyAxisTickLabelSize, ensureXAxisLabelClearance } from '../common/d3Helpers'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
+import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 
 type RawDatum = Record<string, JsonValue>
 
@@ -369,7 +370,7 @@ export async function renderSplitStackedBarChart(container: HTMLElement, spec: S
       .attr('x', subW / 2)
       .attr('y', -10)
       .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, 12)
+      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.splitPanelTitle)
       .attr('font-weight', 600)
       .text(id)
 
@@ -378,9 +379,11 @@ export async function renderSplitStackedBarChart(container: HTMLElement, spec: S
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)
       .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
+    applyAxisTickLabelSize(panel.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
     wrapAxisTickLabels(panel.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
     panel.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+    applyAxisTickLabelSize(panel.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
 
     const domainSet = new Set(domain.map(String))
     const panelSegments = stacked.segments.filter((segment) => domainSet.has(String(segment.target)))

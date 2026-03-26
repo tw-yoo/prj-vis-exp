@@ -5,6 +5,15 @@ type AutoXAxisTickLabelRotationOptions = {
   candidateAngles?: number[]
   overlapTolerancePx?: number
   maxUnrotatedLabelLength?: number
+  allowDensityReduction?: boolean
+  maxDensityStep?: number
+  tickElements?: SVGElement[]
+}
+
+export type XAxisTickLabelLayoutResult = {
+  angleDeg: number
+  overlapPx: number
+  densityStep: number
 }
 
 function ensureBaseTransform(label: SVGTextElement) {
@@ -29,6 +38,13 @@ function getRenderableLabels(labels: SVGTextElement[]) {
   return labels.filter((label) => (label.textContent ?? '').trim().length > 0)
 }
 
+function getVisibleRenderableLabels(labels: SVGTextElement[]) {
+  return getRenderableLabels(labels).filter((label) => {
+    const display = label.style.display || label.getAttribute('display')
+    return display !== 'none'
+  })
+}
+
 function calcTotalXOverlap(labels: SVGTextElement[]) {
   const positioned = labels
     .map((label) => ({ label, rect: label.getBoundingClientRect() }))
@@ -48,6 +64,24 @@ function calcTotalXOverlap(labels: SVGTextElement[]) {
     if (overlapX > 0 && overlapY > 1) total += overlapX
   }
   return total
+}
+
+function shouldShowByStep(index: number, total: number, step: number) {
+  if (step <= 1) return true
+  if (index === 0 || index === total - 1) return true
+  return index % step === 0
+}
+
+function setAxisTickDensity(labels: SVGTextElement[], tickElements: SVGElement[], step: number) {
+  const safeStep = Math.max(1, Math.floor(step))
+  labels.forEach((label, index) => {
+    const visible = shouldShowByStep(index, labels.length, safeStep)
+    label.style.display = visible ? '' : 'none'
+  })
+  tickElements.forEach((tick, index) => {
+    const visible = shouldShowByStep(index, tickElements.length, safeStep)
+    ;(tick as SVGElement).style.display = visible ? '' : 'none'
+  })
 }
 
 export function setXAxisTickLabelAngle(labels: SVGTextElement[], angleDeg: number) {
@@ -78,22 +112,39 @@ export function autoRotateXAxisTickLabels(
   options: AutoXAxisTickLabelRotationOptions = {},
 ) {
   const targetLabels = getRenderableLabels(labels)
-  if (targetLabels.length <= 1) return 0
+  const tickElements = (options.tickElements ?? []).filter((tick) => tick != null)
+  if (targetLabels.length <= 1) {
+    setAxisTickDensity(targetLabels, tickElements, 1)
+    return {
+      angleDeg: 0,
+      overlapPx: 0,
+      densityStep: 1,
+    } satisfies XAxisTickLabelLayoutResult
+  }
 
   const candidateAngles = options.candidateAngles ?? [-25, -35, -45, -60, -75, -90]
   const overlapTolerancePx = options.overlapTolerancePx ?? 1
   const maxUnrotatedLabelLength = options.maxUnrotatedLabelLength ?? 12
+  const allowDensityReduction = options.allowDensityReduction ?? false
+  const maxDensityStep = Math.max(1, Math.floor(options.maxDensityStep ?? 8))
   const maxLabelLength = targetLabels.reduce((maxLen, label) => {
     const len = (label.textContent ?? '').trim().length
     return len > maxLen ? len : maxLen
   }, 0)
 
+  setAxisTickDensity(targetLabels, tickElements, 1)
+
   let bestAngle = 0
   let bestOverlap = measureOverlapAtAngle(targetLabels, 0)
+  let bestDensityStep = 1
 
   if (bestOverlap <= overlapTolerancePx && maxLabelLength <= maxUnrotatedLabelLength) {
     setXAxisTickLabelAngle(targetLabels, 0)
-    return 0
+    return {
+      angleDeg: 0,
+      overlapPx: bestOverlap,
+      densityStep: 1,
+    } satisfies XAxisTickLabelLayoutResult
   }
 
   candidateAngles.forEach((angle) => {
@@ -104,11 +155,36 @@ export function autoRotateXAxisTickLabels(
     }
   })
 
-  if (bestAngle === 0) {
-    setXAxisTickLabelAngle(targetLabels, 0)
-    return 0
+  setXAxisTickLabelAngle(targetLabels, bestAngle)
+
+  if (allowDensityReduction && bestOverlap > overlapTolerancePx && targetLabels.length > 2) {
+    let selectedOverlap = bestOverlap
+    let selectedStep = 1
+    const maxStep = Math.min(maxDensityStep, Math.max(2, targetLabels.length - 1))
+    for (let step = 2; step <= maxStep; step += 1) {
+      setAxisTickDensity(targetLabels, tickElements, step)
+      setXAxisTickLabelAngle(targetLabels, bestAngle)
+      const overlap = calcTotalXOverlap(getVisibleRenderableLabels(targetLabels))
+      if (overlap < selectedOverlap) {
+        selectedOverlap = overlap
+        selectedStep = step
+      }
+      if (overlap <= overlapTolerancePx) {
+        selectedOverlap = overlap
+        selectedStep = step
+        break
+      }
+    }
+    setAxisTickDensity(targetLabels, tickElements, selectedStep)
+    bestOverlap = selectedOverlap
+    bestDensityStep = selectedStep
+  } else {
+    setAxisTickDensity(targetLabels, tickElements, 1)
   }
 
-  setXAxisTickLabelAngle(targetLabels, bestAngle)
-  return bestAngle
+  return {
+    angleDeg: bestAngle,
+    overlapPx: bestOverlap,
+    densityStep: bestDensityStep,
+  } satisfies XAxisTickLabelLayoutResult
 }

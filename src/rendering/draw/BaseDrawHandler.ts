@@ -21,6 +21,7 @@ import {
 import { toSvgCenter as toSvgCenterUtil } from './utils/coords'
 import { ensureAnnotationLayer } from './utils/annotationLayer'
 import { MIN_DRAW_DURATION_MS } from './animationPolicy'
+import { CHART_TEXT_COLLISION, CHART_TEXT_SIZE } from '../config/chartTextConfig'
 
 type AnySelection = d3.Selection<any, unknown, any, any>
 type DrawViewport = {
@@ -133,16 +134,16 @@ type TextPlacementOptions = {
 type RgbColor = { r: number; g: number; b: number }
 
 const TEXT_PLACEMENT_POLICY = {
-  obstaclePaddingPx: 2,
-  viewportPaddingPx: 2,
-  stepPx: 2,
-  maxRadiusAnchorPx: 32,
-  maxRadiusNormalizedPx: 48,
-  sideFlipPenalty: 120,
-  scoreWeightOverlap: 1000,
-  scoreWeightOutside: 1200,
-  leaderLineThresholdPx: 18,
-  barInsideFallbackCollisionArea: 16,
+  obstaclePaddingPx: CHART_TEXT_COLLISION.obstaclePaddingPx,
+  viewportPaddingPx: CHART_TEXT_COLLISION.viewportPaddingPx,
+  stepPx: CHART_TEXT_COLLISION.stepPx,
+  maxRadiusAnchorPx: CHART_TEXT_COLLISION.maxRadiusAnchorPx,
+  maxRadiusNormalizedPx: CHART_TEXT_COLLISION.maxRadiusNormalizedPx,
+  sideFlipPenalty: CHART_TEXT_COLLISION.sideFlipPenalty,
+  scoreWeightOverlap: CHART_TEXT_COLLISION.scoreWeightOverlap,
+  scoreWeightOutside: CHART_TEXT_COLLISION.scoreWeightOutside,
+  leaderLineThresholdPx: CHART_TEXT_COLLISION.leaderLineThresholdPx,
+  barInsideFallbackCollisionArea: CHART_TEXT_COLLISION.barInsideFallbackCollisionArea,
 } as const
 
 function clampNonNegative(value: number) {
@@ -1545,7 +1546,7 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.TextAnchor, 'middle')
           .attr(SvgAttributes.DominantBaseline, 'ideographic')
           .attr(SvgAttributes.Fill, style?.color ?? '#111827')
-          .attr(SvgAttributes.FontSize, style?.fontSize ?? 12)
+          .attr(SvgAttributes.FontSize, style?.fontSize ?? CHART_TEXT_SIZE.annotation)
           .attr(SvgAttributes.FontWeight, style?.fontWeight ?? 'bold')
           .attr(SvgAttributes.Opacity, 0)
           .attr(SvgAttributes.FontFamily, style?.fontFamily ?? null)
@@ -1613,7 +1614,7 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.TextAnchor, 'middle')
         .attr(SvgAttributes.DominantBaseline, 'middle')
         .attr(SvgAttributes.Fill, style?.color ?? '#111827')
-        .attr(SvgAttributes.FontSize, style?.fontSize ?? 12)
+        .attr(SvgAttributes.FontSize, style?.fontSize ?? CHART_TEXT_SIZE.annotation)
         .attr(SvgAttributes.FontWeight, style?.fontWeight ?? 'bold')
         .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.FontFamily, style?.fontFamily ?? null)
@@ -2050,7 +2051,7 @@ export abstract class BaseDrawHandler {
             .attr(SvgAttributes.TextAnchor, 'middle')
             .attr(SvgAttributes.DominantBaseline, 'middle')
             .attr(SvgAttributes.Fill, rectSpec.style?.stroke ?? '#111827')
-            .attr(SvgAttributes.FontSize, 12)
+            .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.annotation)
             .attr(SvgAttributes.FontWeight, 'bold')
             .attr(SvgAttributes.Opacity, 0)
             .attr(SvgAttributes.Stroke, 'white')
@@ -2652,7 +2653,7 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.Y, 12)
           .attr(SvgAttributes.TextAnchor, 'middle')
           .attr(SvgAttributes.Fill, stroke)
-          .attr(SvgAttributes.FontSize, 12)
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.annotation)
           .attr(SvgAttributes.FontWeight, 'bold')
           .attr(SvgAttributes.Opacity, 0)
           .text(spec.label)
@@ -2698,7 +2699,7 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.Y, top - 4)
         .attr(SvgAttributes.TextAnchor, 'end')
         .attr(SvgAttributes.Fill, stroke)
-        .attr(SvgAttributes.FontSize, 12)
+        .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.annotation)
         .attr(SvgAttributes.FontWeight, 'bold')
         .attr(SvgAttributes.Opacity, 0)
         .text(spec.label)
@@ -2866,7 +2867,7 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.TextAnchor, 'end')
           .attr(SvgAttributes.DominantBaseline, 'middle')
           .attr(SvgAttributes.Fill, '#111827')
-          .attr(SvgAttributes.FontSize, 11)
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.annotationMinor)
           .text(formatScalarPanelNumber(tickValue))
       }
       yAxis
@@ -2895,7 +2896,7 @@ export abstract class BaseDrawHandler {
       .attr(SvgAttributes.Y, Math.min(rightTopY, zeroY))
       .attr(SvgAttributes.Height, Math.abs(zeroY - rightTopY))
 
-    const labelFontSize = fullReplace ? 11 : 11
+    const labelFontSize = CHART_TEXT_SIZE.annotationMinor
     const labelYBase = fullReplace ? (axisY + 18) : (panelHeight - 4)
     const labelGap = Math.max(40, rightCenterX - leftCenterX)
     const labelMaxWidth = fullReplace ? Math.max(96, labelGap - 24) : Math.max(64, barWidth * 2.2)
@@ -2941,7 +2942,7 @@ export abstract class BaseDrawHandler {
       .attr(SvgAttributes.Y, Math.min(leftTopY, zeroY) - (fullReplace ? 8 : 4))
       .attr(SvgAttributes.TextAnchor, 'middle')
       .attr(SvgAttributes.Fill, textColor)
-      .attr(SvgAttributes.FontSize, fullReplace ? 16 : 11)
+      .attr(SvgAttributes.FontSize, fullReplace ? CHART_TEXT_SIZE.scalarPanelValueLarge : CHART_TEXT_SIZE.scalarPanelValue)
       .attr(SvgAttributes.FontWeight, 'bold')
       .text(formatScalarPanelNumber(leftValue))
 
@@ -2951,7 +2952,7 @@ export abstract class BaseDrawHandler {
       .attr(SvgAttributes.Y, Math.min(rightTopY, zeroY) - (fullReplace ? 8 : 4))
       .attr(SvgAttributes.TextAnchor, 'middle')
       .attr(SvgAttributes.Fill, textColor)
-      .attr(SvgAttributes.FontSize, fullReplace ? 16 : 11)
+      .attr(SvgAttributes.FontSize, fullReplace ? CHART_TEXT_SIZE.scalarPanelValueLarge : CHART_TEXT_SIZE.scalarPanelValue)
       .attr(SvgAttributes.FontWeight, 'bold')
       .text(formatScalarPanelNumber(rightValue))
 
@@ -2999,7 +3000,7 @@ export abstract class BaseDrawHandler {
       .attr(SvgAttributes.Y, Math.min(leftTopY, rightTopY) - (fullReplace ? 16 : 12))
       .attr(SvgAttributes.TextAnchor, 'middle')
       .attr(SvgAttributes.Fill, textColor)
-      .attr(SvgAttributes.FontSize, fullReplace ? 16 : 12)
+      .attr(SvgAttributes.FontSize, fullReplace ? CHART_TEXT_SIZE.scalarPanelValueLarge : CHART_TEXT_SIZE.annotation)
       .attr(SvgAttributes.FontWeight, 'bold')
       .attr(SvgAttributes.Opacity, 0)
       .text(`${deltaLabel}: ${formatScalarPanelNumber(deltaValue)}`)

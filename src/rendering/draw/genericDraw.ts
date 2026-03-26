@@ -1,6 +1,7 @@
 import * as d3 from 'd3'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { DrawAction, type DrawArrowSpec, type DrawLineSpec, type DrawRectSpec, type DrawTextSpec, type DrawOp } from './types'
+import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 
 type DrawSelect = DrawOp['select']
 
@@ -144,7 +145,7 @@ function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
     .attr(SvgAttributes.Y, y)
     .attr(SvgAttributes.TextAnchor, 'middle')
     .attr(SvgAttributes.Fill, textSpec.style?.color ?? '#111827')
-    .attr(SvgAttributes.FontSize, textSpec.style?.fontSize ?? 12)
+    .attr(SvgAttributes.FontSize, textSpec.style?.fontSize ?? CHART_TEXT_SIZE.annotation)
     .attr(SvgAttributes.FontWeight, textSpec.style?.fontWeight ?? 'bold')
     .attr(SvgAttributes.Opacity, textSpec.style?.opacity ?? 1)
     .text(typeof textSpec.value === 'string' ? textSpec.value : String(textSpec.value))

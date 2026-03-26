@@ -1,0 +1,31 @@
+export const CHART_TEXT_SIZE = Object.freeze({
+  axisLabel: 16,
+  axisTitle: 20,
+  legendLabel: 16,
+  legendTitle: 18,
+  chartTitle: 18,
+  chartSubtitle: 14,
+  facetLabel: 13,
+  facetTitle: 14,
+  annotation: 14,
+  annotationMinor: 13,
+  valueLabel: 14,
+  splitPanelTitle: 14,
+  autoDraw: 14,
+  autoDrawMinor: 13,
+  scalarPanelValue: 13,
+  scalarPanelValueLarge: 18,
+})
+
+export const CHART_TEXT_COLLISION = Object.freeze({
+  obstaclePaddingPx: 3,
+  viewportPaddingPx: 3,
+  stepPx: 2,
+  maxRadiusAnchorPx: 44,
+  maxRadiusNormalizedPx: 64,
+  sideFlipPenalty: 120,
+  scoreWeightOverlap: 1000,
+  scoreWeightOutside: 1200,
+  leaderLineThresholdPx: 24,
+  barInsideFallbackCollisionArea: 24,
+})

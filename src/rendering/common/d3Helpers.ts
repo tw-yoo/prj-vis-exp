@@ -1,6 +1,7 @@
 import * as d3 from 'd3'
 import type { JsonObject, JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../interfaces'
+import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 
 // Loosen d3 selection typing to reduce downstream generic incompatibilities
 export type D3Datum = unknown
@@ -45,7 +46,7 @@ export const STYLES = {
     opacity: 1,
   },
   VALUE_LABEL: {
-    fontSize: 12,
+    fontSize: CHART_TEXT_SIZE.valueLabel,
     fontWeight: 'bold',
     textAnchor: 'middle' as const,
     stroke: 'white',
@@ -53,7 +54,7 @@ export const STYLES = {
     paintOrder: 'stroke',
   },
   AGGREGATE_LABEL: {
-    fontSize: 12,
+    fontSize: CHART_TEXT_SIZE.valueLabel,
     fontWeight: 'bold',
     stroke: 'white',
     strokeWidth: 3,
@@ -335,6 +336,13 @@ export async function sequence(...animations: Array<Promise<void> | (() => Promi
 }
 
 export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+export function applyAxisTickLabelSize<T extends d3.BaseType, D>(
+  axisGroup: d3.Selection<T, D, d3.BaseType, unknown>,
+  fontSize = CHART_TEXT_SIZE.axisLabel,
+) {
+  axisGroup.selectAll<SVGTextElement, unknown>(SvgElements.Text).attr(SvgAttributes.FontSize, fontSize)
+}
 
 // ---------------------------------------------------------------------------
 // Chart context helpers (ported/refactored from chartContext.js)

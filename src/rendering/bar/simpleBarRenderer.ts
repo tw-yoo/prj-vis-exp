@@ -3,9 +3,10 @@ import { bumpRenderEpoch, type VegaLiteSpec } from '../chartRenderer'
 import type { JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { type DrawSplitSpec } from '../draw/types'
-import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { applyAxisTickLabelSize, ensureXAxisLabelClearance } from '../common/d3Helpers'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
+import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 
 type RawDatum = Record<string, JsonValue>
 
@@ -269,9 +270,11 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
     .attr(SvgAttributes.Class, SvgClassNames.XAxis)
     .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
     .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
+  applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
   wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
   g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+  applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
 
   g.selectAll<SVGRectElement, RawDatum>(SvgElements.Rect)
     .data(data)
@@ -296,7 +299,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
       .attr(SvgAttributes.X, margin.left + plotW / 2)
       .attr(SvgAttributes.Y, height - margin.bottom + 40)
       .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, 14)
+      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
       .text(resolvedXAxisLabel)
   }
 
@@ -308,7 +311,7 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
       .attr(SvgAttributes.X, -(margin.top + plotH / 2))
       .attr(SvgAttributes.Y, margin.left - 45)
       .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, 14)
+      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
       .text(resolvedYAxisLabel)
   }
 
@@ -486,9 +489,11 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)
       .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
+    applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
     wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
 
     g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+    applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
 
     const domainSet = new Set(domain.map(String))
     const rows = data.filter((d) => domainSet.has(String(d[xField])))
@@ -518,7 +523,7 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
       .attr(SvgAttributes.X, margin.left + plotW / 2)
       .attr(SvgAttributes.Y, height - margin.bottom + 40)
       .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, 14)
+      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
       .text(resolvedXAxisLabel)
   }
 
@@ -530,7 +535,7 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
       .attr(SvgAttributes.X, -(margin.top + plotH / 2))
       .attr(SvgAttributes.Y, margin.left - 45)
       .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, 14)
+      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
       .text(resolvedYAxisLabel)
   }
 

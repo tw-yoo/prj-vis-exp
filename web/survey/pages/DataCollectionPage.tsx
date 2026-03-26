@@ -11,7 +11,7 @@ import {
 import { tutorialExamplesData } from '../engine/tutorialExamplesData'
 import './dataCollection.css'
 
-const renderVegaLiteChart = browserEngine.renderVegaLiteChart
+const renderChart = browserEngine.renderChart
 
 const DATA_COLLECTION_BASE = '/survey/data_collection'
 const FIRESTORE_COLLECTION = 'data_collection'
@@ -364,7 +364,7 @@ function StaticPage({ path }: StaticPageProps) {
       try {
         const spec = await fetchSurveyJson<VegaLiteSpec>(`data_collection/${rawSpecPath}`, false)
         if (cancelled || !chartElement) return
-        await renderVegaLiteChart(chartElement, patchSpecDataUrls(spec))
+        await renderChart(chartElement, patchSpecDataUrls(spec))
         fitChartToContainer(chartElement)
       } catch (chartError) {
         if (!cancelled && chartElement) {
@@ -401,7 +401,7 @@ function TutorialExamplePage({ exampleId }: TutorialExamplePageProps) {
       try {
         const spec = await fetchSurveyJson<VegaLiteSpec>(`data_collection/${example.specPath}`, false)
         if (cancelled || !chartRef.current) return
-        await renderVegaLiteChart(chartRef.current, patchSpecDataUrls(spec))
+        await renderChart(chartRef.current, patchSpecDataUrls(spec))
         fitChartToContainer(chartRef.current)
       } catch (error) {
         if (!cancelled && chartRef.current) {
@@ -522,7 +522,7 @@ function TaskPage({
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const spec = (await res.json()) as VegaLiteSpec
         if (cancelled || !chartRef.current) return
-        await renderVegaLiteChart(chartRef.current, patchSpecDataUrls(spec))
+        await renderChart(chartRef.current, patchSpecDataUrls(spec))
         fitChartToContainer(chartRef.current)
       } catch (error) {
         if (!cancelled && chartRef.current) {

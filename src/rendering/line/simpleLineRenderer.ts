@@ -1,10 +1,11 @@
 import * as d3 from 'd3'
 import type { JsonValue } from '../../types'
-import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
+import { bumpRenderEpoch, type VegaLiteSpec } from '../chartRenderer'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
-import { ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { applyAxisTickLabelSize, ensureXAxisLabelClearance } from '../common/d3Helpers'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
+import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 
 const localDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
 const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new WeakMap()
@@ -100,6 +101,226 @@ function getDatumRecord(value: unknown): Record<string, unknown> {
   return {}
 }
 
+function normalizeOptionalLabel(value: JsonValue | undefined) {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  const str = String(value).trim()
+  return str.length > 0 ? str : null
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
+}
+
+function extractAxisTitle(channel: unknown): string | null | undefined {
+  const rec = asRecord(channel)
+  if (Object.prototype.hasOwnProperty.call(rec, 'title')) {
+    const title = rec.title
+    if (title == null) return null
+    if (typeof title === 'string') return title.trim().length > 0 ? title.trim() : null
+  }
+  const axis = asRecord(rec.axis)
+  if (Object.prototype.hasOwnProperty.call(axis, 'title')) {
+    const title = axis.title
+    if (title == null) return null
+    if (typeof title === 'string') return title.trim().length > 0 ? title.trim() : null
+  }
+  return undefined
+}
+
+function resolveSimpleLineAxisLabels(spec: LineSpec, resolved: ResolvedLineEncoding) {
+  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
+  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
+  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
+  if (xAxisLabelOverride !== undefined || yAxisLabelOverride !== undefined) {
+    return {
+      xAxisLabel: xAxisLabelOverride === undefined ? resolved.xField : xAxisLabelOverride,
+      yAxisLabel: yAxisLabelOverride === undefined ? resolved.yField : yAxisLabelOverride,
+    }
+  }
+
+  const layers = normalizeLayers(spec as VegaLiteSpec)
+  let xTitle: string | null | undefined
+  let yTitle: string | null | undefined
+  for (const layer of layers) {
+    const encoding = asRecord(layer.encoding)
+    if (xTitle === undefined) {
+      xTitle = extractAxisTitle(encoding.x)
+    }
+    if (yTitle === undefined) {
+      yTitle = extractAxisTitle(encoding.y)
+    }
+    if (xTitle !== undefined && yTitle !== undefined) break
+  }
+
+  return {
+    xAxisLabel: xTitle === undefined ? resolved.xField : xTitle,
+    yAxisLabel: yTitle === undefined ? resolved.yField : yTitle,
+  }
+}
+
+function resolveSimpleLineStyle(spec: LineSpec) {
+  const fallbackStroke = '#4f46e5'
+  const fallbackStrokeWidth = 2
+  const fallbackPointRadius = 4
+  let stroke = fallbackStroke
+  let strokeWidth = fallbackStrokeWidth
+  let pointRadius = fallbackPointRadius
+  let showPoints = true
+
+  const applyMarkStyle = (mark: unknown) => {
+    if (!mark || typeof mark !== 'object' || Array.isArray(mark)) return
+    const markRec = mark as Record<string, unknown>
+    if (typeof markRec.stroke === 'string' && markRec.stroke.trim().length > 0) {
+      stroke = markRec.stroke
+    } else if (typeof markRec.color === 'string' && markRec.color.trim().length > 0) {
+      stroke = markRec.color
+    }
+    const width = Number(markRec.strokeWidth)
+    if (Number.isFinite(width) && width > 0) strokeWidth = width
+    const size = Number(markRec.size)
+    if (Number.isFinite(size) && size > 0) {
+      pointRadius = Math.max(2, Math.sqrt(size / Math.PI))
+    }
+  }
+
+  applyMarkStyle((spec as { mark?: unknown }).mark)
+
+  if (Array.isArray(spec.layer)) {
+    spec.layer.forEach((layer) => {
+      const layerMark = (layer as { mark?: unknown }).mark
+      const markType = normalizeMarkType(layerMark as VegaLiteSpec['mark'])
+      if (markType === 'line') applyMarkStyle(layerMark)
+      if (markType === 'point') showPoints = true
+    })
+  }
+
+  const configMark = asRecord((spec as { config?: { mark?: unknown } }).config?.mark)
+  if (stroke === fallbackStroke) {
+    const cfgColor = configMark.color
+    if (typeof cfgColor === 'string' && cfgColor.trim().length > 0) stroke = cfgColor
+  }
+
+  return { stroke, strokeWidth, pointRadius, showPoints }
+}
+
+function resolveLineYDomainMinZero(spec: LineSpec, resolved: ResolvedLineEncoding) {
+  const layers = normalizeLayers(spec as VegaLiteSpec)
+  for (const layer of layers) {
+    const encoding = asRecord(layer.encoding)
+    const yChannel = asRecord(encoding.y)
+    const yField = typeof yChannel.field === 'string' ? yChannel.field.trim() : ''
+    if (yField && yField !== resolved.yField) continue
+    const scale = asRecord(yChannel.scale)
+    if (typeof scale.zero === 'boolean') return scale.zero
+  }
+  return false
+}
+
+function normalizeLinePointIdentifier(rawX: JsonValue, xType: string) {
+  if (xType === 'temporal') {
+    const dt = toDateValue(rawX)
+    const isoFull = dt.toISOString()
+    return { target: isoFull.slice(0, 10), id: isoFull }
+  }
+  const label = String(rawX)
+  return { target: label, id: label }
+}
+
+function shouldKeepByFilter(row: RawDatum, filterSpec: unknown): boolean {
+  if (filterSpec == null) return true
+  if (typeof filterSpec === 'string') {
+    const expr = filterSpec.replace(/\bdatum\./g, 'd.')
+    try {
+      const fn = new Function('d', `return (${expr});`) as (d: RawDatum) => boolean
+      return Boolean(fn(row))
+    } catch {
+      return true
+    }
+  }
+  if (!filterSpec || typeof filterSpec !== 'object' || Array.isArray(filterSpec)) return true
+
+  const rec = filterSpec as Record<string, unknown>
+  if (Array.isArray(rec.and)) {
+    return rec.and.every((entry) => shouldKeepByFilter(row, entry))
+  }
+  if (Array.isArray(rec.or)) {
+    return rec.or.some((entry) => shouldKeepByFilter(row, entry))
+  }
+  if (rec.not !== undefined) {
+    return !shouldKeepByFilter(row, rec.not)
+  }
+
+  const field = typeof rec.field === 'string' ? rec.field : null
+  if (!field) return true
+  const value = row[field]
+
+  if (Array.isArray(rec.oneOf)) {
+    const tokenSet = new Set(rec.oneOf.map((entry) => String(entry)))
+    return tokenSet.has(String(value))
+  }
+  if (rec.equal !== undefined) return String(value) === String(rec.equal)
+  if (Array.isArray(rec.range) && rec.range.length >= 2) {
+    const lower = Number(rec.range[0])
+    const upper = Number(rec.range[1])
+    const numeric = Number(value)
+    if (!Number.isFinite(numeric) || !Number.isFinite(lower) || !Number.isFinite(upper)) return false
+    return numeric >= lower && numeric <= upper
+  }
+
+  const numeric = Number(value)
+  if (rec.lt !== undefined) {
+    const threshold = Number(rec.lt)
+    return Number.isFinite(numeric) && Number.isFinite(threshold) ? numeric < threshold : false
+  }
+  if (rec.lte !== undefined) {
+    const threshold = Number(rec.lte)
+    return Number.isFinite(numeric) && Number.isFinite(threshold) ? numeric <= threshold : false
+  }
+  if (rec.gt !== undefined) {
+    const threshold = Number(rec.gt)
+    return Number.isFinite(numeric) && Number.isFinite(threshold) ? numeric > threshold : false
+  }
+  if (rec.gte !== undefined) {
+    const threshold = Number(rec.gte)
+    return Number.isFinite(numeric) && Number.isFinite(threshold) ? numeric >= threshold : false
+  }
+
+  return true
+}
+
+function applyLineTransforms(data: RawDatum[], spec: LineSpec) {
+  let result = data
+  const transforms = (spec as { transform?: unknown }).transform
+  if (!Array.isArray(transforms)) return result
+
+  transforms.forEach((transform) => {
+    if (!transform || typeof transform !== 'object' || Array.isArray(transform)) return
+    const filterSpec = (transform as { filter?: unknown }).filter
+    if (filterSpec === undefined) return
+    result = result.filter((row) => shouldKeepByFilter(row, filterSpec))
+  })
+
+  return result
+}
+
+async function loadLineData(spec: LineSpec): Promise<RawDatum[]> {
+  if (spec.data && Array.isArray((spec.data as { values?: JsonValue[] }).values)) {
+    return (spec.data as { values: JsonValue[] }).values.map((row) => ({ ...(row as RawDatum) }))
+  }
+  if (spec.data && typeof (spec.data as { url?: JsonValue }).url === 'string') {
+    const url = (spec.data as { url: string }).url
+    if (url.endsWith('.json')) {
+      const loaded = await d3.json(url)
+      return Array.isArray(loaded) ? (loaded as RawDatum[]) : []
+    }
+    const loaded = await d3.csv(url)
+    return Array.isArray(loaded) ? (loaded as RawDatum[]) : []
+  }
+  return []
+}
+
 export type LineSpec = VegaLiteSpec & {
   // Some "simple line" specs encode x/y at layer-level (e.g. line + point layering).
   // Keep encoding optional and resolve effective fields via `resolveSimpleLineEncoding`.
@@ -110,13 +331,225 @@ export type LineSpec = VegaLiteSpec & {
 
 export async function renderSimpleLineChart(container: HTMLElement, spec: LineSpec) {
   clearSimpleLineSplitDomains(container)
-  const mark = resolveLineMark(spec.mark)
-  const withPoints = { ...spec, mark }
-  const result = await renderVegaLiteChart(container, withPoints)
-  const tagged = await tagSimpleLineMarks(container, spec as VegaLiteSpec)
-  localDataStore.set(container, tagged)
+
+  const resolved = resolveSimpleLineEncoding(spec as VegaLiteSpec)
+  if (!resolved) {
+    console.warn('renderSimpleLineChart: missing x/y encoding')
+    return null
+  }
+
+  const rawData = await loadLineData(spec)
+  const filteredData = applyLineTransforms(rawData, spec)
+  const xLabelMap = buildCategoricalDisplayLabelMap(filteredData, resolved.xField)
+  const yMinZero = resolveLineYDomainMinZero(spec, resolved)
+  const { xAxisLabel, yAxisLabel } = resolveSimpleLineAxisLabels(spec, resolved)
+  const style = resolveSimpleLineStyle(spec)
+  const renderEpoch = bumpRenderEpoch(container)
+
+  type RenderDatum = {
+    row: RawDatum
+    xLabel: string
+    xDisplayLabel: string
+    xValue: string | number | Date
+    xSort: number | string
+    target: string
+    id: string
+    yValue: number
+  }
+
+  const points: RenderDatum[] = []
+  filteredData.forEach((rawRow) => {
+    const row = { ...rawRow }
+    const rawX = row[resolved.xField]
+    const rawY = row[resolved.yField]
+    const yValue = Number(rawY)
+    if (rawX == null || !Number.isFinite(yValue)) return
+
+    if (resolved.xType === 'quantitative') {
+      const numericX = Number(rawX)
+      if (!Number.isFinite(numericX)) return
+      row[resolved.xField] = numericX
+    }
+    row[resolved.yField] = yValue
+
+    const normalized = normalizeLineXValue(row[resolved.xField], resolved.xType)
+    const identity = normalizeLinePointIdentifier(row[resolved.xField], resolved.xType)
+    points.push({
+      row,
+      xLabel: normalized.label,
+      xDisplayLabel: xLabelMap.get(normalized.label) ?? normalized.label,
+      xValue: normalized.value,
+      xSort: normalized.sort,
+      target: identity.target,
+      id: identity.id,
+      yValue,
+    })
+  })
+
+  localDataStore.set(
+    container,
+    points.map((point) => ({ ...point.row })),
+  )
+
+  const margin = { top: 60, right: 20, bottom: 80, left: 60 }
+  const width = 600
+  const height = 400
+  const plotW = width - margin.left - margin.right
+  const plotH = height - margin.top - margin.bottom
+
+  const containerSelection = d3.select(container)
+  containerSelection.selectAll('*').remove()
+
+  const svg = containerSelection
+    .append(SvgElements.Svg)
+    .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+    .attr(DataAttributes.RenderEpoch, renderEpoch)
+    .attr(DataAttributes.RendererPath, 'd3-line')
+    .attr(DataAttributes.MarginLeft, margin.left)
+    .attr(DataAttributes.MarginTop, margin.top)
+    .attr(DataAttributes.PlotWidth, plotW)
+    .attr(DataAttributes.PlotHeight, plotH)
+    .attr(DataAttributes.XField, resolved.xField)
+    .attr(DataAttributes.YField, resolved.yField)
+    .attr(DataAttributes.ColorField, resolved.colorField ?? null)
+    .style('overflow', 'visible')
+
+  const g = svg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
+
+  const xDomainLabels = Array.from(new Set(points.map((point) => point.xLabel)))
+  if (resolved.xType === 'temporal' || resolved.xType === 'quantitative') {
+    xDomainLabels.sort((a, b) => {
+      const aPoint = points.find((point) => point.xLabel === a)
+      const bPoint = points.find((point) => point.xLabel === b)
+      return Number(aPoint?.xSort ?? 0) - Number(bPoint?.xSort ?? 0)
+    })
+  }
+  const xSortIndex = new Map(xDomainLabels.map((label, index) => [label, index]))
+
+  const buildXScale = () => {
+    if (resolved.xType === 'temporal') {
+      const timestamps = points
+        .map((point) => (point.xValue instanceof Date ? point.xValue.getTime() : NaN))
+        .filter(Number.isFinite)
+      const minX = d3.min(timestamps) ?? Date.now()
+      const maxX = d3.max(timestamps) ?? minX + 1
+      return d3.scaleTime().domain([new Date(minX), new Date(maxX)]).range([0, plotW])
+    }
+    if (resolved.xType === 'quantitative') {
+      const numbers = points
+        .map((point) => (typeof point.xValue === 'number' ? point.xValue : NaN))
+        .filter(Number.isFinite)
+      let minX = d3.min(numbers) ?? 0
+      let maxX = d3.max(numbers) ?? minX + 1
+      if (minX === maxX) maxX = minX + 1
+      return d3.scaleLinear().domain([minX, maxX]).range([0, plotW])
+    }
+    return d3.scalePoint<string>().domain(xDomainLabels).range([0, plotW]).padding(0.5)
+  }
+  const xScale = buildXScale()
+
+  const yValues = points.map((point) => point.yValue)
+  const minYRaw = d3.min(yValues)
+  const maxYRaw = d3.max(yValues)
+  let domainMin = Number.isFinite(minYRaw as number) ? (minYRaw as number) : 0
+  let domainMax = Number.isFinite(maxYRaw as number) ? (maxYRaw as number) : 1
+  if (yMinZero) {
+    domainMin = Math.min(domainMin, 0)
+    domainMax = Math.max(domainMax, 0)
+  }
+  if (domainMin === domainMax) domainMax = domainMin + 1
+  const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotH, 0])
+
+  const xAxis =
+    resolved.xType === 'temporal'
+      ? d3.axisBottom(xScale as d3.ScaleTime<number, number>).tickFormat(formatTemporalTick)
+      : resolved.xType === 'quantitative'
+        ? d3.axisBottom(xScale as d3.ScaleLinear<number, number>)
+        : d3.axisBottom(xScale as d3.ScalePoint<string>).tickFormat(categoricalTickFormatter(xLabelMap))
+
+  g.append(SvgElements.Group)
+    .attr(SvgAttributes.Class, SvgClassNames.XAxis)
+    .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
+    .call(xAxis)
+  applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
+  const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
+  const axisLayout = wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
+    allowDensityReduction: true,
+    maxDensityStep: 12,
+    tickElements: xTicks,
+  })
+  svg.attr(DataAttributes.AxisRotation, String(Math.abs(axisLayout.angleDeg)))
+  svg.attr(DataAttributes.TickDensityStep, String(axisLayout.densityStep))
+
+  g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(6))
+  applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+
+  const sorted = points.slice().sort((a, b) => {
+    if (resolved.xType === 'temporal' || resolved.xType === 'quantitative') {
+      return Number(a.xSort) - Number(b.xSort)
+    }
+    return (xSortIndex.get(a.xLabel) ?? 0) - (xSortIndex.get(b.xLabel) ?? 0)
+  })
+
+  const resolveX = (point: RenderDatum) => {
+    if (resolved.xType === 'temporal') return (xScale as d3.ScaleTime<number, number>)(point.xValue as Date) ?? 0
+    if (resolved.xType === 'quantitative') return (xScale as d3.ScaleLinear<number, number>)(point.xValue as number) ?? 0
+    return (xScale as d3.ScalePoint<string>)(point.xLabel) ?? 0
+  }
+
+  const line = d3
+    .line<RenderDatum>()
+    .x((point) => resolveX(point))
+    .y((point) => yScale(point.yValue))
+
+  g.append(SvgElements.Path)
+    .datum(sorted)
+    .attr(SvgAttributes.D, line)
+    .attr(SvgAttributes.Fill, 'none')
+    .attr(SvgAttributes.Stroke, style.stroke)
+    .attr(SvgAttributes.StrokeWidth, style.strokeWidth)
+
+  if (style.showPoints) {
+    g.selectAll<SVGCircleElement, RenderDatum>(SvgElements.Circle)
+      .data(sorted)
+      .join(SvgElements.Circle)
+      .attr(SvgAttributes.CX, (point) => resolveX(point))
+      .attr(SvgAttributes.CY, (point) => yScale(point.yValue))
+      .attr(SvgAttributes.R, style.pointRadius)
+      .attr(SvgAttributes.Fill, style.stroke)
+      .attr(SvgAttributes.Opacity, 0.85)
+      .attr(DataAttributes.Target, (point) => point.target)
+      .attr(DataAttributes.Id, (point) => point.id)
+      .attr(DataAttributes.Value, (point) => String(point.yValue))
+  }
+
+  if (xAxisLabel) {
+    svg
+      .append(SvgElements.Text)
+      .attr(SvgAttributes.Class, SvgClassNames.XAxisLabel)
+      .attr(SvgAttributes.X, margin.left + plotW / 2)
+      .attr(SvgAttributes.Y, height - margin.bottom + 44)
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+      .attr(SvgAttributes.FontWeight, 'bold')
+      .text(xAxisLabel)
+  }
+
+  if (yAxisLabel) {
+    svg
+      .append(SvgElements.Text)
+      .attr(SvgAttributes.Class, SvgClassNames.YAxisLabel)
+      .attr(SvgAttributes.Transform, 'rotate(-90)')
+      .attr(SvgAttributes.X, -(margin.top + plotH / 2))
+      .attr(SvgAttributes.Y, margin.left - 46)
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+      .attr(SvgAttributes.FontWeight, 'bold')
+      .text(yAxisLabel)
+  }
+
   ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
-  return result
+  return svg
 }
 
 export function getSimpleLineStoredData(container: HTMLElement) {
@@ -293,6 +726,7 @@ export async function renderSplitSimpleLineChart(
     .append(SvgElements.Svg)
     .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
     .attr(DataAttributes.RenderEpoch, renderEpoch)
+    .attr(DataAttributes.RendererPath, 'd3-line')
     .style('overflow', 'visible')
 
   const [idA, idB] = splitGroups.ids
@@ -354,9 +788,16 @@ export async function renderSplitSimpleLineChart(
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${subH})`)
       .call(xAxis)
-    wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
+    applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
+    const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
+    wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
+      allowDensityReduction: true,
+      maxDensityStep: 12,
+      tickElements: xTicks,
+    })
 
     g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+    applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
 
     const domainSet = new Set(domain)
     const rows = points.filter((p) => domainSet.has(p.xLabel))

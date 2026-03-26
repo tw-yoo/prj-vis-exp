@@ -3,7 +3,7 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
-import { AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
+import { AUTO_DRAW_TEXT_FONT_SIZE, AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
 function scalarFromResult(result: DatumValue[]) {
@@ -26,7 +26,11 @@ function highlightSeriesPoints(result: DatumValue[], chartId?: string, color = '
 }
 
 function textAtTopRight(chartId: string | undefined, value: string) {
-  return ops.draw.text(chartId, undefined, draw.textSpec.normalized(value, 0.92, 0.08, draw.style.text('#111827', 12, 'bold')))
+  return ops.draw.text(
+    chartId,
+    undefined,
+    draw.textSpec.normalized(value, 0.92, 0.08, draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+  )
 }
 
 function hLine(chartId: string | undefined, value: number, color = '#0ea5e9') {
