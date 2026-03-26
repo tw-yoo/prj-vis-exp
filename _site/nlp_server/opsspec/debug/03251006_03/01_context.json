@@ -1,0 +1,111 @@
+{
+  "chart_context": {
+    "fields": [
+      "Month",
+      "Growth rate of HICP (%)"
+    ],
+    "dimension_fields": [
+      "Month"
+    ],
+    "measure_fields": [
+      "Growth rate of HICP (%)"
+    ],
+    "primary_dimension": "Month",
+    "primary_measure": "Growth rate of HICP (%)",
+    "categorical_values": {
+      "Month": [
+        "Apr '18",
+        "Aug '18",
+        "Dec '18",
+        "Feb '18",
+        "Jan '18",
+        "Jul '18",
+        "Jun '18",
+        "Mar '18",
+        "May '18",
+        "Nov '18",
+        "Oct '18",
+        "Sep '18"
+      ]
+    },
+    "field_types": {
+      "Month": "categorical",
+      "Growth rate of HICP (%)": "numeric"
+    },
+    "numeric_stats": {
+      "Growth rate of HICP (%)": {
+        "min": 0.7,
+        "max": 1.6,
+        "mean": 1.1916666666666667
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Month",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Growth rate of HICP (%)",
+        "type": "quantitative"
+      },
+      "tooltip": {
+        "field": "Month",
+        "type": "ordinal",
+        "title": "Month"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Month": "Jan '18",
+      "Growth rate of HICP (%)": "1.6"
+    },
+    {
+      "Month": "Feb '18",
+      "Growth rate of HICP (%)": "0.7"
+    },
+    {
+      "Month": "Mar '18",
+      "Growth rate of HICP (%)": "0.7"
+    },
+    {
+      "Month": "Apr '18",
+      "Growth rate of HICP (%)": "0.9"
+    },
+    {
+      "Month": "May '18",
+      "Growth rate of HICP (%)": "1.2"
+    },
+    {
+      "Month": "Jun '18",
+      "Growth rate of HICP (%)": "1.4"
+    },
+    {
+      "Month": "Jul '18",
+      "Growth rate of HICP (%)": "1.4"
+    },
+    {
+      "Month": "Aug '18",
+      "Growth rate of HICP (%)": "1.4"
+    },
+    {
+      "Month": "Sep '18",
+      "Growth rate of HICP (%)": "1.5"
+    },
+    {
+      "Month": "Oct '18",
+      "Growth rate of HICP (%)": "1.5"
+    },
+    {
+      "Month": "Nov '18",
+      "Growth rate of HICP (%)": "1.1"
+    },
+    {
+      "Month": "Dec '18",
+      "Growth rate of HICP (%)": "0.9"
+    }
+  ]
+}

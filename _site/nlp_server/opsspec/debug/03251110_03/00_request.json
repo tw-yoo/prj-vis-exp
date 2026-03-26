@@ -1,0 +1,144 @@
+{
+  "request_id": "test_1sf5c8wqw1192q6b_389f3dfd",
+  "question": "How many dates was the growth rate below the average?",
+  "explanation": "1. calculate average growth rate\n2. filter for the date for which the growth rate was below the average\n3. count the number of filtered dates ",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Simple line chart for 1sf5c8wqw1192q6b.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/simple/1sf5c8wqw1192q6b.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Month",
+            "type": "ordinal",
+            "axis": {
+              "title": "Month",
+              "labelAngle": 0,
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Growth rate of HICP (%)",
+            "type": "quantitative",
+            "axis": {
+              "title": "Growth rate of HICP (%)",
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 80,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Month",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Growth rate of HICP (%)",
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "Month",
+              "type": "ordinal",
+              "title": "Month"
+            },
+            {
+              "field": "Growth rate of HICP (%)",
+              "type": "quantitative",
+              "title": "Growth rate of HICP (%)"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Month": "Jan '18",
+      "Growth rate of HICP (%)": "1.6"
+    },
+    {
+      "Month": "Feb '18",
+      "Growth rate of HICP (%)": "0.7"
+    },
+    {
+      "Month": "Mar '18",
+      "Growth rate of HICP (%)": "0.7"
+    },
+    {
+      "Month": "Apr '18",
+      "Growth rate of HICP (%)": "0.9"
+    },
+    {
+      "Month": "May '18",
+      "Growth rate of HICP (%)": "1.2"
+    },
+    {
+      "Month": "Jun '18",
+      "Growth rate of HICP (%)": "1.4"
+    },
+    {
+      "Month": "Jul '18",
+      "Growth rate of HICP (%)": "1.4"
+    },
+    {
+      "Month": "Aug '18",
+      "Growth rate of HICP (%)": "1.4"
+    },
+    {
+      "Month": "Sep '18",
+      "Growth rate of HICP (%)": "1.5"
+    },
+    {
+      "Month": "Oct '18",
+      "Growth rate of HICP (%)": "1.5"
+    },
+    {
+      "Month": "Nov '18",
+      "Growth rate of HICP (%)": "1.1"
+    },
+    {
+      "Month": "Dec '18",
+      "Growth rate of HICP (%)": "0.9"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__diff__",
+      "value": 55.0
+    },
+    "preview": [
+      {
+        "target": "__diff__",
+        "value": 55.0,
+        "category": "result",
+        "measure": "Installed base in million units"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Installed base in million units"
+  },
+  "warnings": []
+}

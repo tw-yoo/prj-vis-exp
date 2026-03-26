@@ -1,0 +1,17 @@
+{
+  "op": "filter",
+  "id": "n1",
+  "meta": {
+    "nodeId": "n1",
+    "inputs": [],
+    "sentenceIndex": 1,
+    "source": "recursive_step=1;taskId=o1"
+  },
+  "field": "Month/Year",
+  "include": [
+    "Dec 1896",
+    "Nov 1896",
+    "Oct 1896",
+    "Sep 1896"
+  ]
+}

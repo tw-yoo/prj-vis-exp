@@ -1,0 +1,22 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "Counting the number of values above 3670 on the Boys graph",
+    "paramsHint": {
+      "field": "Average weight in metric grams",
+      "operator": ">",
+      "value": 3670,
+      "group": "Boys"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Average weight in metric grams",
+    "operator": ">",
+    "value": 3670,
+    "group": "Boys"
+  },
+  "scalar_ref_deps": []
+}

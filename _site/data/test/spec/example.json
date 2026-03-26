@@ -1,0 +1,19 @@
+{
+  "firstStep":
+  [
+    { "op": "filter",
+      "params":
+      { "field": "weather", "operator": "in",
+        "values": ["fog", "rain"] }
+  },
+    {
+      "op": "transform",
+      "params":
+      { "from": "stacked", "to": "grouped",
+        "groupField": "weather",
+        "xField":  "month",
+        "yField":  "count"
+      }
+    }
+  ]
+}

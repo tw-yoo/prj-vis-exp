@@ -1,0 +1,25 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2014",
+      "value": 0.14
+    },
+    "preview": [
+      {
+        "target": "2014",
+        "value": 0.14,
+        "category": "Year",
+        "measure": "Operating_Profit_Margin"
+      }
+    ],
+    "targets_preview": [
+      "2014"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Operating_Profit_Margin"
+  },
+  "warnings": []
+}

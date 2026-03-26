@@ -1,0 +1,60 @@
+{
+  "artifact": {
+    "count": 5,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2020",
+      "group": "Girls",
+      "value": 3555.0
+    },
+    "preview": [
+      {
+        "target": "2010",
+        "group": "Girls",
+        "value": 3580.0,
+        "category": "Year",
+        "measure": "Average weight in metric grams"
+      },
+      {
+        "target": "2011",
+        "group": "Girls",
+        "value": 3553.0,
+        "category": "Year",
+        "measure": "Average weight in metric grams"
+      },
+      {
+        "target": "2014",
+        "group": "Girls",
+        "value": 3554.0,
+        "category": "Year",
+        "measure": "Average weight in metric grams"
+      },
+      {
+        "target": "2017",
+        "group": "Girls",
+        "value": 3555.0,
+        "category": "Year",
+        "measure": "Average weight in metric grams"
+      },
+      {
+        "target": "2020",
+        "group": "Girls",
+        "value": 3555.0,
+        "category": "Year",
+        "measure": "Average weight in metric grams"
+      }
+    ],
+    "targets_preview": [
+      "2010",
+      "2011",
+      "2014",
+      "2017",
+      "2020"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average weight in metric grams",
+    "series_field": "Group"
+  },
+  "warnings": []
+}

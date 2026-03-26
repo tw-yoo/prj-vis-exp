@@ -1,0 +1,21 @@
+Race_Ethnicity,Interest_Level,Share_of_Respondents
+White,Very interested,0.2
+White,Somewhat interested,0.35
+White,Not very interested,0.11
+White,Not interested at all,0.28
+White,Don't know/no opinion,0.05
+Hispanic,Very interested,0.16
+Hispanic,Somewhat interested,0.43
+Hispanic,Not very interested,0.05
+Hispanic,Not interested at all,0.28
+Hispanic,Don't know/no opinion,0.08
+Black,Very interested,0.19
+Black,Somewhat interested,0.33
+Black,Not very interested,0.19
+Black,Not interested at all,0.22
+Black,Don't know/no opinion,0.07
+Other,Very interested,0.21
+Other,Somewhat interested,0.34
+Other,Not very interested,0.1
+Other,Not interested at all,0.19
+Other,Don't know/no opinion,0.16

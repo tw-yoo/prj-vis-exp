@@ -1,0 +1,111 @@
+{
+  "stage": "step_retry_exhausted",
+  "step": 3,
+  "errors": [
+    "[Attempt 3/3 FAILED — fix and retry]",
+    "[Type: Ref Rule] Scalar reference rule violated; use \"ref:nX\" string format only, never {\"id\":\"nX\"}.",
+    "[Detail] op \"findExtremum\" can have at most 1 data parent input (got ['n1', 'n2']). Use scalar refs for scalar dependencies.",
+    "[Action Required] Fix the specific issue above and return valid JSON only.",
+    "[Selected Task] taskId=o3, op=findExtremum",
+    "[Constraint] Do not select taskId in output. Compose op_spec/inputs for the selected task only."
+  ],
+  "attempts": 3,
+  "selected_task": {
+    "taskId": "o3",
+    "op": "findExtremum",
+    "sentenceIndex": 3,
+    "mention": "Check the values of 1 and 2 which are greater",
+    "paramsHint": {
+      "field": "Installed_Base_Millions",
+      "which": "max"
+    }
+  },
+  "remaining_tasks": [
+    {
+      "taskId": "o3",
+      "op": "findExtremum",
+      "sentenceIndex": 3,
+      "mention": "Check the values of 1 and 2 which are greater",
+      "paramsHint": {
+        "field": "Installed_Base_Millions",
+        "which": "max"
+      }
+    },
+    {
+      "taskId": "o4",
+      "op": "diff",
+      "sentenceIndex": 4,
+      "mention": "Subtract small value from large value",
+      "paramsHint": {
+        "field": "Installed_Base_Millions",
+        "targetA": "ref:n1",
+        "targetB": "ref:n2",
+        "signed": false
+      }
+    }
+  ],
+  "executed_nodes": [
+    {
+      "nodeId": "n1",
+      "op": "retrieveValue",
+      "sentenceIndex": 1,
+      "groupName": "ops",
+      "artifact": {
+        "count": 1,
+        "kind": "table",
+        "scalarRefOk": false,
+        "last": {
+          "target": "2017",
+          "group": "Tablets",
+          "value": 173.56
+        },
+        "preview": [
+          {
+            "target": "2017",
+            "group": "Tablets",
+            "value": 173.56,
+            "category": "Year",
+            "measure": "Installed_Base_Millions"
+          }
+        ],
+        "targets_preview": [
+          "2017"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Installed_Base_Millions",
+        "series_field": "Device_Type"
+      }
+    },
+    {
+      "nodeId": "n2",
+      "op": "retrieveValue",
+      "sentenceIndex": 2,
+      "groupName": "ops2",
+      "artifact": {
+        "count": 1,
+        "kind": "table",
+        "scalarRefOk": false,
+        "last": {
+          "target": "2022",
+          "group": "Mobile PCs",
+          "value": 244.43
+        },
+        "preview": [
+          {
+            "target": "2022",
+            "group": "Mobile PCs",
+            "value": 244.43,
+            "category": "Year",
+            "measure": "Installed_Base_Millions"
+          }
+        ],
+        "targets_preview": [
+          "2022"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Installed_Base_Millions",
+        "series_field": "Device_Type"
+      }
+    }
+  ]
+}

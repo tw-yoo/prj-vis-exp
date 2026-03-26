@@ -1,0 +1,56 @@
+{
+  "artifact": {
+    "count": 5,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "England & Wales",
+      "group": "England & Wales",
+      "value": 2.0
+    },
+    "preview": [
+      {
+        "target": "England & Wales",
+        "group": "England & Wales",
+        "value": 2.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      },
+      {
+        "target": "England & Wales",
+        "group": "England & Wales",
+        "value": 16.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      },
+      {
+        "target": "England & Wales",
+        "group": "England & Wales",
+        "value": 17.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      },
+      {
+        "target": "England & Wales",
+        "group": "England & Wales",
+        "value": 18.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      },
+      {
+        "target": "England & Wales",
+        "group": "England & Wales",
+        "value": 25.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      }
+    ],
+    "targets_preview": [
+      "England & Wales"
+    ],
+    "primary_dimension": "Region",
+    "primary_measure": "SharePercentage",
+    "series_field": "Region"
+  },
+  "warnings": []
+}

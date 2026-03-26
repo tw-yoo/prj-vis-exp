@@ -1,0 +1,528 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Month/Year",
+        "include": [
+          "Dec 1896",
+          "Nov 1896",
+          "Oct 1896",
+          "Sep 1896"
+        ]
+      },
+      {
+        "op": "average",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Fatality rate among plague cases"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Month/Year",
+        "include": [
+          "Apr 1897",
+          "Feb 1897",
+          "Jan 1897",
+          "Mar 1897"
+        ]
+      },
+      {
+        "op": "average",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "field": "Fatality rate among plague cases"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "diff",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n2",
+            "n4"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=5;taskId=o5"
+        },
+        "targetA": "ref:n2",
+        "targetB": "ref:n4",
+        "signed": false
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Month/Year",
+      "Fatality rate among plague cases"
+    ],
+    "dimension_fields": [
+      "Month/Year"
+    ],
+    "measure_fields": [
+      "Fatality rate among plague cases"
+    ],
+    "primary_dimension": "Month/Year",
+    "primary_measure": "Fatality rate among plague cases",
+    "categorical_values": {
+      "Month/Year": [
+        "Apr 1897",
+        "Average",
+        "Dec 1896",
+        "Feb 1897",
+        "Jan 1897",
+        "Mar 1897",
+        "May 1897",
+        "Nov 1896",
+        "Oct 1896",
+        "Sep 1896"
+      ]
+    },
+    "field_types": {
+      "Month/Year": "categorical",
+      "Fatality rate among plague cases": "numeric"
+    },
+    "numeric_stats": {
+      "Fatality rate among plague cases": {
+        "min": 0.3846,
+        "max": 0.8164,
+        "mean": 0.61986
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Fatality rate among plague cases",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Month/Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Month/Year",
+          "Fatality rate among plague cases"
+        ],
+        "dimension_fields": [
+          "Month/Year"
+        ],
+        "measure_fields": [
+          "Fatality rate among plague cases"
+        ],
+        "primary_dimension": "Month/Year",
+        "primary_measure": "Fatality rate among plague cases",
+        "categorical_values": {
+          "Month/Year": [
+            "Apr 1897",
+            "Average",
+            "Dec 1896",
+            "Feb 1897",
+            "Jan 1897",
+            "Mar 1897",
+            "May 1897",
+            "Nov 1896",
+            "Oct 1896",
+            "Sep 1896"
+          ]
+        },
+        "field_types": {
+          "Month/Year": "categorical",
+          "Fatality rate among plague cases": "numeric"
+        },
+        "numeric_stats": {
+          "Fatality rate among plague cases": {
+            "min": 0.3846,
+            "max": 0.8164,
+            "mean": 0.61986
+          }
+        },
+        "mark": "bar",
+        "is_stacked": false,
+        "encoding_summary": {
+          "y": {
+            "field": "Fatality rate among plague cases",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Month/Year",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 10
+    },
+    "inventory": {
+      "tasks_count": 5,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "calculate the average of sep 1896 until dec 1896",
+          "paramsHint": {
+            "field": "Month/Year",
+            "include": [
+              "Sep 1896",
+              "Oct 1896",
+              "Nov 1896",
+              "Dec 1896"
+            ]
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "average",
+          "sentenceIndex": 1,
+          "mention": "calculate the average of sep 1896 until dec 1896",
+          "paramsHint": {
+            "field": "Fatality rate among plague cases"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "filter",
+          "sentenceIndex": 2,
+          "mention": "calculate the average of jan 1897 until april 1897",
+          "paramsHint": {
+            "field": "Month/Year",
+            "include": [
+              "Jan 1897",
+              "Feb 1897",
+              "Mar 1897",
+              "Apr 1897"
+            ]
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "average",
+          "sentenceIndex": 2,
+          "mention": "calculate the average of jan 1897 until april 1897",
+          "paramsHint": {
+            "field": "Fatality rate among plague cases"
+          }
+        },
+        {
+          "taskId": "o5",
+          "op": "diff",
+          "sentenceIndex": 3,
+          "mention": "compare the two averages",
+          "paramsHint": {
+            "field": "Fatality rate among plague cases",
+            "targetA": "ref:n2",
+            "targetB": "ref:n4",
+            "signed": false
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Month/Year",
+          "include": [
+            "Sep 1896",
+            "Oct 1896",
+            "Nov 1896",
+            "Dec 1896"
+          ]
+        },
+        "artifact": {
+          "count": 4,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Dec 1896",
+            "value": 0.7412
+          },
+          "preview": [
+            {
+              "target": "Dec 1896",
+              "value": 0.7412,
+              "category": "Month/Year",
+              "measure": "Fatality rate among plague cases"
+            },
+            {
+              "target": "Nov 1896",
+              "value": 0.6667,
+              "category": "Month/Year",
+              "measure": "Fatality rate among plague cases"
+            },
+            {
+              "target": "Oct 1896",
+              "value": 0.5223,
+              "category": "Month/Year",
+              "measure": "Fatality rate among plague cases"
+            },
+            {
+              "target": "Sep 1896",
+              "value": 0.5223,
+              "category": "Month/Year",
+              "measure": "Fatality rate among plague cases"
+            }
+          ],
+          "targets_preview": [
+            "Dec 1896",
+            "Nov 1896",
+            "Oct 1896",
+            "Sep 1896"
+          ],
+          "primary_dimension": "Month/Year",
+          "primary_measure": "Fatality rate among plague cases"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops",
+        "op": "average",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Fatality rate among plague cases"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 0.6131249999999999
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 0.6131249999999999,
+              "category": "result",
+              "measure": "Fatality rate among plague cases"
+            }
+          ],
+          "primary_dimension": "Month/Year",
+          "primary_measure": "Fatality rate among plague cases"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops2",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Month/Year",
+          "include": [
+            "Jan 1897",
+            "Feb 1897",
+            "Mar 1897",
+            "Apr 1897"
+          ]
+        },
+        "artifact": {
+          "count": 4,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Apr 1897",
+            "value": 0.5666
+          },
+          "preview": [
+            {
+              "target": "Apr 1897",
+              "value": 0.5666,
+              "category": "Month/Year",
+              "measure": "Fatality rate among plague cases"
+            },
+            {
+              "target": "Feb 1897",
+              "value": 0.8164,
+              "category": "Month/Year",
+              "measure": "Fatality rate among plague cases"
+            },
+            {
+              "target": "Jan 1897",
+              "value": 0.69,
+              "category": "Month/Year",
+              "measure": "Fatality rate among plague cases"
+            },
+            {
+              "target": "Mar 1897",
+              "value": 0.6735,
+              "category": "Month/Year",
+              "measure": "Fatality rate among plague cases"
+            }
+          ],
+          "targets_preview": [
+            "Apr 1897",
+            "Feb 1897",
+            "Jan 1897",
+            "Mar 1897"
+          ],
+          "primary_dimension": "Month/Year",
+          "primary_measure": "Fatality rate among plague cases"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops2",
+        "op": "average",
+        "inputs": [
+          "n3"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Fatality rate among plague cases"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 0.686625
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 0.686625,
+              "category": "result",
+              "measure": "Fatality rate among plague cases"
+            }
+          ],
+          "primary_dimension": "Month/Year",
+          "primary_measure": "Fatality rate among plague cases"
+        },
+        "warnings": []
+      },
+      {
+        "step": 5,
+        "taskId": "o5",
+        "nodeId": "n5",
+        "groupName": "ops3",
+        "op": "diff",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "scalarRefs": [
+          "n2",
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "diff",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__diff__",
+            "value": 0.07350000000000012
+          },
+          "preview": [
+            {
+              "target": "__diff__",
+              "value": 0.07350000000000012,
+              "category": "result",
+              "measure": "Fatality rate among plague cases"
+            }
+          ],
+          "primary_dimension": "Month/Year",
+          "primary_measure": "Fatality rate among plague cases"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 2,
+        "ops2": 2,
+        "ops3": 1
+      },
+      "warnings": []
+    }
+  }
+}

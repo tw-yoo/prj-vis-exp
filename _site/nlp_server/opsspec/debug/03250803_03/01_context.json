@@ -1,0 +1,195 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Opinion_Type",
+      "Percentage_of_Respondents"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Opinion_Type"
+    ],
+    "measure_fields": [
+      "Percentage_of_Respondents"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage_of_Respondents",
+    "series_field": "Opinion_Type",
+    "categorical_values": {
+      "Year": [
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017"
+      ],
+      "Opinion_Type": [
+        "Confidence in US President",
+        "Favorable view of US"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Opinion_Type": "categorical",
+      "Percentage_of_Respondents": "numeric"
+    },
+    "numeric_stats": {
+      "Percentage_of_Respondents": {
+        "min": 24.0,
+        "max": 85.0,
+        "mean": 62.25
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Percentage_of_Respondents",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Opinion_Type",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2006",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "63"
+    },
+    {
+      "Year": "2006",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "32"
+    },
+    {
+      "Year": "2007",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "61"
+    },
+    {
+      "Year": "2007",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "35"
+    },
+    {
+      "Year": "2008",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "50"
+    },
+    {
+      "Year": "2008",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "25"
+    },
+    {
+      "Year": "2009",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "59"
+    },
+    {
+      "Year": "2009",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "85"
+    },
+    {
+      "Year": "2010",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "66"
+    },
+    {
+      "Year": "2010",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "76"
+    },
+    {
+      "Year": "2011",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "85"
+    },
+    {
+      "Year": "2011",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "81"
+    },
+    {
+      "Year": "2012",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "72"
+    },
+    {
+      "Year": "2012",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "74"
+    },
+    {
+      "Year": "2013",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "69"
+    },
+    {
+      "Year": "2013",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "70"
+    },
+    {
+      "Year": "2014",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "66"
+    },
+    {
+      "Year": "2014",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "60"
+    },
+    {
+      "Year": "2015",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "68"
+    },
+    {
+      "Year": "2015",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "66"
+    },
+    {
+      "Year": "2016",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "72"
+    },
+    {
+      "Year": "2016",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "78"
+    },
+    {
+      "Year": "2017",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "57"
+    },
+    {
+      "Year": "2017",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "24"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__count__",
+      "value": 2.0
+    },
+    "preview": [
+      {
+        "target": "__count__",
+        "value": 2.0,
+        "category": "result",
+        "measure": "Favorable_View_Percentage"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Favorable_View_Percentage",
+    "series_field": "Country"
+  },
+  "warnings": []
+}

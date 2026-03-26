@@ -1,0 +1,22 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__diff__",
+      "value": 0.2200000000000002
+    },
+    "preview": [
+      {
+        "target": "__diff__",
+        "value": 0.2200000000000002,
+        "category": "result",
+        "measure": "Production in billion heads"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in billion heads"
+  },
+  "warnings": []
+}

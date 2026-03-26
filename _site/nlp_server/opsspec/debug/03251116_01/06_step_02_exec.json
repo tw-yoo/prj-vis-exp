@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "England & Wales",
+      "group": "England & Wales",
+      "value": 2.0
+    },
+    "preview": [
+      {
+        "target": "England & Wales",
+        "group": "England & Wales",
+        "value": 2.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      }
+    ],
+    "targets_preview": [
+      "England & Wales"
+    ],
+    "primary_dimension": "Region",
+    "primary_measure": "SharePercentage",
+    "series_field": "Region"
+  },
+  "warnings": []
+}

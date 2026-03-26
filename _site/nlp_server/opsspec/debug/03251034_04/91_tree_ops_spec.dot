@@ -1,0 +1,32 @@
+digraph OpsSpecTree {
+  graph [rankdir=LR, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="white", fontname="Helvetica"];
+  edge [color="#666666"];
+  subgraph "cluster_ops" {
+    label="ops";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f0fe";
+    "n1" [label="n1 filter (ops) field=Month/Year"];
+    "n2" [label="n2 average (ops) field=Fatality rate among plague cases"];
+  }
+  subgraph "cluster_ops2" {
+    label="ops2";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n3" [label="n3 filter (ops2) field=Month/Year"];
+    "n4" [label="n4 average (ops2) field=Fatality rate among plague cases"];
+  }
+  subgraph "cluster_ops3" {
+    label="ops3";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n5" [label="n5 diff (ops3) field=Fatality rate among plague cases"];
+  }
+  "n1" -> "n2";
+  "n3" -> "n4";
+  "n2" -> "n5";
+  "n4" -> "n5";
+}

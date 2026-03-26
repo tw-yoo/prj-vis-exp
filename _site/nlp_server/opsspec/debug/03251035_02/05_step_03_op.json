@@ -1,0 +1,13 @@
+{
+  "op": "count",
+  "id": "n3",
+  "meta": {
+    "nodeId": "n3",
+    "inputs": [
+      "n2"
+    ],
+    "sentenceIndex": 2,
+    "source": "recursive_step=3;taskId=o3"
+  },
+  "field": "Favorable_View_Percentage"
+}

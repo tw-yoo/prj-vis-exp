@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o4",
+    "op": "findExtremum",
+    "sentenceIndex": 2,
+    "mention": "Determine the second largest value after the largest value between 2000 and 2009",
+    "paramsHint": {
+      "field": "Percentage_of_Population",
+      "which": "max",
+      "rank": 2
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "Percentage_of_Population",
+    "which": "max",
+    "rank": 2
+  },
+  "scalar_ref_deps": []
+}

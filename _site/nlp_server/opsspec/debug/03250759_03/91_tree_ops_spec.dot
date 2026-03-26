@@ -1,0 +1,41 @@
+digraph OpsSpecTree {
+  graph [rankdir=LR, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="white", fontname="Helvetica"];
+  edge [color="#666666"];
+  subgraph "cluster_ops" {
+    label="ops";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f0fe";
+    "n1" [label="n1 filter (ops) field=Year"];
+    "n2" [label="n2 findExtremum (ops) field=Percentage_of_Population"];
+  }
+  subgraph "cluster_ops2" {
+    label="ops2";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n3" [label="n3 filter (ops2) field=Year"];
+    "n4" [label="n4 findExtremum (ops2) field=Percentage_of_Population"];
+  }
+  subgraph "cluster_ops3" {
+    label="ops3";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n5" [label="n5 filter (ops3) field=Year"];
+    "n6" [label="n6 findExtremum (ops3) field=Percentage_of_Population"];
+  }
+  subgraph "cluster_ops4" {
+    label="ops4";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n7" [label="n7 diff (ops4) field=Percentage_of_Population"];
+  }
+  "n1" -> "n2";
+  "n3" -> "n4";
+  "n5" -> "n6";
+  "n4" -> "n7";
+  "n6" -> "n7";
+}

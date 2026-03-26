@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2010",
+      "group": "Favor-Oppose",
+      "value": -6.0
+    },
+    "preview": [
+      {
+        "target": "2010",
+        "group": "Favor-Oppose",
+        "value": -6.0,
+        "category": "Year",
+        "measure": "Percentage"
+      }
+    ],
+    "targets_preview": [
+      "2010"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage",
+    "series_field": "Opinion"
+  },
+  "warnings": []
+}

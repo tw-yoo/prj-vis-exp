@@ -1,0 +1,33 @@
+{
+  "ops": [
+    {
+      "op": "draw",
+      "action": "clear",
+      "meta": {
+        "source": "python-draw-plan",
+        "inputs": []
+      }
+    },
+    {
+      "op": "draw",
+      "action": "line",
+      "meta": {
+        "source": "python-draw-plan",
+        "nodeId": "n1",
+        "sentenceIndex": 1,
+        "inputs": []
+      },
+      "line": {
+        "mode": "horizontal-from-y",
+        "hline": {
+          "y": 220.0
+        },
+        "style": {
+          "stroke": "#ef4444",
+          "strokeWidth": 2.0,
+          "opacity": 1.0
+        }
+      }
+    }
+  ]
+}

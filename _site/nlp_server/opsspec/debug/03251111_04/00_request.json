@@ -1,0 +1,91 @@
+{
+  "request_id": "test_0s6zi9dyw22qo4rp_88dae3b9",
+  "question": "What is the difference between the average of September 1896 until December 1896 and the average of January 1897 until April 1897?",
+  "explanation": "1. calculate the average of sep 1896 until dec 1896\n2. calculate the average of jan 1897 until april 1897\n3. compare the two averages",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "title": {
+      "text": "Plague Fatality Rate by Month (1896-1897)",
+      "fontSize": 26,
+      "anchor": "middle"
+    },
+    "description": "Simple Bar chart for 0s6zi9dyw22qo4rp.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/simple/0s6zi9dyw22qo4rp.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "y": {
+        "field": "Fatality rate among plague cases",
+        "type": "quantitative",
+        "axis": {
+          "title": "Fatality Rate (proportion)",
+          "labelFontSize": 16,
+          "titleFontSize": 20,
+          "titlePadding": 10
+        }
+      },
+      "x": {
+        "field": "Month/Year",
+        "type": "nominal",
+        "axis": {
+          "title": "Month/Year",
+          "labelAngle": -45,
+          "labelFontSize": 16,
+          "titleFontSize": 20,
+          "labelAlign": "right"
+        }
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Month/Year": "Sep 1896",
+      "Fatality rate among plague cases": "0.5223"
+    },
+    {
+      "Month/Year": "Oct 1896",
+      "Fatality rate among plague cases": "0.5223"
+    },
+    {
+      "Month/Year": "Nov 1896",
+      "Fatality rate among plague cases": "0.6667"
+    },
+    {
+      "Month/Year": "Dec 1896",
+      "Fatality rate among plague cases": "0.7412"
+    },
+    {
+      "Month/Year": "Jan 1897",
+      "Fatality rate among plague cases": "0.69"
+    },
+    {
+      "Month/Year": "Feb 1897",
+      "Fatality rate among plague cases": "0.8164"
+    },
+    {
+      "Month/Year": "Mar 1897",
+      "Fatality rate among plague cases": "0.6735"
+    },
+    {
+      "Month/Year": "Apr 1897",
+      "Fatality rate among plague cases": "0.5666"
+    },
+    {
+      "Month/Year": "May 1897",
+      "Fatality rate among plague cases": "0.3846"
+    },
+    {
+      "Month/Year": "Average",
+      "Fatality rate among plague cases": "0.615"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

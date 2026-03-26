@@ -1,0 +1,25 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2018",
+      "value": 3.7
+    },
+    "preview": [
+      {
+        "target": "2018",
+        "value": 3.7,
+        "category": "Year",
+        "measure": "Production in billion heads"
+      }
+    ],
+    "targets_preview": [
+      "2018"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in billion heads"
+  },
+  "warnings": []
+}

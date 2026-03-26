@@ -1,0 +1,32 @@
+{
+  "ops": [
+    {
+      "op": "pairDiff",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "by": "Period",
+      "seriesField": "Country",
+      "field": "Share_of_Import_Value",
+      "groupA": "South Korea",
+      "groupB": "France",
+      "signed": true,
+      "absolute": false
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Share_of_Import_Value",
+      "operator": ">",
+      "value": 0
+    }
+  ]
+}

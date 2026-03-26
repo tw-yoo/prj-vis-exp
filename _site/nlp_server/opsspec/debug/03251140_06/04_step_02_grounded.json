@@ -1,0 +1,24 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "calculate the difference in 2002 and 2017",
+    "paramsHint": {
+      "field": "Year",
+      "include": [
+        "2002",
+        "2017"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Year",
+    "include": [
+      "2002",
+      "2017"
+    ]
+  },
+  "scalar_ref_deps": []
+}

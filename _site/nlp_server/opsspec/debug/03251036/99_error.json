@@ -1,0 +1,96 @@
+{
+  "stage": "step_retry_exhausted",
+  "step": 3,
+  "errors": [
+    "[Attempt 3/3 FAILED — fix and retry]",
+    "[Type: Semantic] A semantic or contract constraint was violated.",
+    "[Detail] sum is allowed only for bar charts (chart_context.mark must be \"bar\")",
+    "[Action Required] Fix the specific issue above and return valid JSON only.",
+    "[Selected Task] taskId=o3, op=sum",
+    "[Constraint] Do not select taskId in output. Compose op_spec/inputs for the selected task only."
+  ],
+  "attempts": 3,
+  "selected_task": {
+    "taskId": "o3",
+    "op": "sum",
+    "sentenceIndex": 3,
+    "mention": "Add all values of number 2",
+    "paramsHint": {
+      "field": "Percentage",
+      "group": "Confidence in US president"
+    }
+  },
+  "remaining_tasks": [
+    {
+      "taskId": "o3",
+      "op": "sum",
+      "sentenceIndex": 3,
+      "mention": "Add all values of number 2",
+      "paramsHint": {
+        "field": "Percentage",
+        "group": "Confidence in US president"
+      }
+    }
+  ],
+  "executed_nodes": [
+    {
+      "nodeId": "n1",
+      "op": "filter",
+      "sentenceIndex": 1,
+      "groupName": "ops",
+      "artifact": {
+        "count": 3,
+        "kind": "table",
+        "scalarRefOk": false,
+        "last": {
+          "target": "2011",
+          "group": "Favorable view of US",
+          "value": 72.0
+        },
+        "preview": [
+          {
+            "target": "2009",
+            "group": "Favorable view of US",
+            "value": 71.0,
+            "category": "Year",
+            "measure": "Percentage"
+          },
+          {
+            "target": "2010",
+            "group": "Favorable view of US",
+            "value": 72.0,
+            "category": "Year",
+            "measure": "Percentage"
+          },
+          {
+            "target": "2011",
+            "group": "Favorable view of US",
+            "value": 72.0,
+            "category": "Year",
+            "measure": "Percentage"
+          }
+        ],
+        "targets_preview": [
+          "2009",
+          "2010",
+          "2011"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Percentage",
+        "series_field": "Metric"
+      }
+    },
+    {
+      "nodeId": "n2",
+      "op": "retrieveValue",
+      "sentenceIndex": 2,
+      "groupName": "ops2",
+      "artifact": {
+        "count": 0,
+        "kind": "empty",
+        "scalarRefOk": false,
+        "preview": []
+      }
+    }
+  ]
+}

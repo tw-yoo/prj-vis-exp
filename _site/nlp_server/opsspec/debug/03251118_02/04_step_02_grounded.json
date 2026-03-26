@@ -1,0 +1,17 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "average",
+    "sentenceIndex": 2,
+    "mention": "Obtaining the mean of the values found in number 1",
+    "paramsHint": {
+      "field": "Share_of_Respondents",
+      "group": "Poor"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Share_of_Respondents"
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,14 @@
+digraph OpsSpecTree {
+  graph [rankdir=LR, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="white", fontname="Helvetica"];
+  edge [color="#666666"];
+  subgraph "cluster_ops" {
+    label="ops";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f0fe";
+    "n1" [label="n1 filter (ops) field=Industry Sector"];
+    "n2" [label="n2 findExtremum (ops) field=Share of SMEs"];
+  }
+  "n1" -> "n2";
+}

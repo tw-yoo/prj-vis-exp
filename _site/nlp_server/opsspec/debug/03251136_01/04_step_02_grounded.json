@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "findExtremum",
+    "sentenceIndex": 1,
+    "mention": "Check Scotland's Biggest Value",
+    "paramsHint": {
+      "field": "SharePercentage",
+      "which": "max"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "SharePercentage",
+    "which": "max"
+  },
+  "scalar_ref_deps": []
+}

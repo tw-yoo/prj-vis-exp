@@ -1,0 +1,16 @@
+{
+  "op": "diff",
+  "id": "n7",
+  "meta": {
+    "nodeId": "n7",
+    "inputs": [
+      "n5",
+      "n6"
+    ],
+    "sentenceIndex": 3,
+    "source": "recursive_step=7;taskId=o7"
+  },
+  "targetA": "ref:n5",
+  "targetB": "ref:n6",
+  "signed": false
+}

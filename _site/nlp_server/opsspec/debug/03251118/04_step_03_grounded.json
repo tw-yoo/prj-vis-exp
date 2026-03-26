@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "average",
+    "sentenceIndex": 3,
+    "mention": "Calculate the average.",
+    "paramsHint": {
+      "field": "Revenue_Million_USD"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Revenue_Million_USD"
+  },
+  "scalar_ref_deps": []
+}

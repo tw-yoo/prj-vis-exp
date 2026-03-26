@@ -1,0 +1,326 @@
+{
+  "request_id": "test_0vw6ydim9cff8ji6_8ea787fd",
+  "question": "In which year did construction record the highest percentage?",
+  "explanation": "- Compare the percentage values for all years in the construction sector to each other",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+    "description": "Grouped bar chart for 0vw6ydim9cff8ji6.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/grouped/0vw6ydim9cff8ji6.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "column": {
+        "field": "Industry Sector",
+        "type": "ordinal",
+        "header": {}
+      },
+      "y": {
+        "field": "Share of SMEs",
+        "type": "quantitative",
+        "axis": {
+          "grid": false
+        }
+      },
+      "x": {
+        "field": "Period",
+        "type": "nominal",
+        "axis": {
+          "title": ""
+        }
+      },
+      "color": {
+        "field": "Period",
+        "type": "nominal"
+      }
+    },
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.07"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.13"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.22"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.15"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.15"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.16"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.15"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.04"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.13"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.07"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.03"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.03"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.05"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.13"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Hotels and Restaurants",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Hotels and Restaurants",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.07"
+    },
+    {
+      "Industry Sector": "Hotels and Restaurants",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.05"
+    },
+    {
+      "Industry Sector": "Hotels and Restaurants",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Hotels and Restaurants",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Hotels and Restaurants",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Agriculture, Hunting and Forestry; Fishing",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Agriculture, Hunting and Forestry; Fishing",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.05"
+    },
+    {
+      "Industry Sector": "Agriculture, Hunting and Forestry; Fishing",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.13"
+    },
+    {
+      "Industry Sector": "Agriculture, Hunting and Forestry; Fishing",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Agriculture, Hunting and Forestry; Fishing",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Agriculture, Hunting and Forestry; Fishing",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.07"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "request_id": "test_0dglnk2wbf5ll15t_dd3ddeea",
+  "question": "What is the difference between the average of values corresponding to Poor and the average of values corresponding to Good?",
+  "explanation": "1. Check the values for each year's Poor\n2. Obtaining the mean of the values found in number 1\n3. Check the value corresponding to Good for each year\n4. Obtaining the mean of the values found in number 3\n5. Find the difference between the two mean values",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Stacked Bar chart for 0dglnk2wbf5ll15t.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/stacked/0dglnk2wbf5ll15t.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {
+        "field": "Year",
+        "type": "nominal",
+        "axis": {
+          "title": "Year",
+          "labelFontSize": 16,
+          "titleFontSize": 20
+        }
+      },
+      "y": {
+        "field": "Share_of_Respondents",
+        "type": "quantitative",
+        "axis": {
+          "title": "Share of Respondents (%)",
+          "labelFontSize": 16,
+          "titleFontSize": 20,
+          "titlePadding": 10
+        }
+      },
+      "color": {
+        "field": "Rating",
+        "type": "nominal",
+        "legend": {
+          "title": "Rating",
+          "titleFontSize": 18,
+          "labelFontSize": 16
+        }
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2014",
+      "Rating": "Very good",
+      "Share_of_Respondents": "22"
+    },
+    {
+      "Year": "2014",
+      "Rating": "Good",
+      "Share_of_Respondents": "58"
+    },
+    {
+      "Year": "2014",
+      "Rating": "Fair",
+      "Share_of_Respondents": "14"
+    },
+    {
+      "Year": "2014",
+      "Rating": "Poor",
+      "Share_of_Respondents": "4"
+    },
+    {
+      "Year": "2014",
+      "Rating": "Very poor",
+      "Share_of_Respondents": "2"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Very good",
+      "Share_of_Respondents": "15"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Good",
+      "Share_of_Respondents": "62"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Fair",
+      "Share_of_Respondents": "22"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Poor",
+      "Share_of_Respondents": "1"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Very poor",
+      "Share_of_Respondents": "0"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Very good",
+      "Share_of_Respondents": "27"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Good",
+      "Share_of_Respondents": "42"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Fair",
+      "Share_of_Respondents": "27"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Poor",
+      "Share_of_Respondents": "2"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Very poor",
+      "Share_of_Respondents": "2"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Very good",
+      "Share_of_Respondents": "35"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Good",
+      "Share_of_Respondents": "44"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Fair",
+      "Share_of_Respondents": "15"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Poor",
+      "Share_of_Respondents": "6"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Very poor",
+      "Share_of_Respondents": "0"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

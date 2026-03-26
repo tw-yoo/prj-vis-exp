@@ -1,0 +1,520 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "group": [
+          "Thailand",
+          "Philippines"
+        ]
+      }
+    ],
+    "ops2": [
+      {
+        "op": "pairDiff",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "by": "Year",
+        "seriesField": "Country_Region",
+        "field": "Revenue_Million_USD",
+        "groupA": "Thailand",
+        "groupB": "Philippines",
+        "signed": true,
+        "absolute": false
+      }
+    ],
+    "ops3": [
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [
+            "n2"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Revenue_Million_USD",
+        "operator": ">",
+        "value": 0
+      },
+      {
+        "op": "count",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 4
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "field": "Revenue_Million_USD"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Country_Region",
+      "Revenue_Million_USD"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Country_Region"
+    ],
+    "measure_fields": [
+      "Revenue_Million_USD"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Revenue_Million_USD",
+    "series_field": "Country_Region",
+    "categorical_values": {
+      "Year": [
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020",
+        "2021"
+      ],
+      "Country_Region": [
+        "China",
+        "Japan",
+        "Malaysia",
+        "Others",
+        "Philippines",
+        "Thailand",
+        "United States"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Country_Region": "categorical",
+      "Revenue_Million_USD": "numeric"
+    },
+    "numeric_stats": {
+      "Revenue_Million_USD": {
+        "min": 0.0,
+        "max": 1471.18,
+        "mean": 377.7792857142857
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_USD",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Country_Region",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Country_Region",
+          "Revenue_Million_USD"
+        ],
+        "dimension_fields": [
+          "Year",
+          "Country_Region"
+        ],
+        "measure_fields": [
+          "Revenue_Million_USD"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Revenue_Million_USD",
+        "series_field": "Country_Region",
+        "categorical_values": {
+          "Year": [
+            "2016",
+            "2017",
+            "2018",
+            "2019",
+            "2020",
+            "2021"
+          ],
+          "Country_Region": [
+            "China",
+            "Japan",
+            "Malaysia",
+            "Others",
+            "Philippines",
+            "Thailand",
+            "United States"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Country_Region": "categorical",
+          "Revenue_Million_USD": "numeric"
+        },
+        "numeric_stats": {
+          "Revenue_Million_USD": {
+            "min": 0.0,
+            "max": 1471.18,
+            "mean": 377.7792857142857
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "x": {
+            "field": "Year",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "Revenue_Million_USD",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Country_Region",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 40
+    },
+    "inventory": {
+      "tasks_count": 4,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "Filter for the revenue of Thailand and the Philippines",
+          "paramsHint": {
+            "group": [
+              "Thailand",
+              "Philippines"
+            ]
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "pairDiff",
+          "sentenceIndex": 2,
+          "mention": "Compare the revenue of Thailand and the Philippines",
+          "paramsHint": {
+            "by": "Year",
+            "seriesField": "Country_Region",
+            "field": "Revenue_Million_USD",
+            "groupA": "Thailand",
+            "groupB": "Philippines",
+            "signed": true,
+            "absolute": false
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "filter",
+          "sentenceIndex": 3,
+          "mention": "count the years for which Thailand's revenue was higher.",
+          "paramsHint": {
+            "field": "Revenue_Million_USD",
+            "operator": ">",
+            "value": 0
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "count",
+          "sentenceIndex": 3,
+          "mention": "count the years for which Thailand's revenue was higher.",
+          "paramsHint": {}
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "group": [
+            "Thailand",
+            "Philippines"
+          ]
+        },
+        "artifact": {
+          "count": 12,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2021",
+            "group": "Thailand",
+            "value": 251.41
+          },
+          "preview": [
+            {
+              "target": "2016",
+              "group": "Philippines",
+              "value": 211.6,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2017",
+              "group": "Philippines",
+              "value": 283.35,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2018",
+              "group": "Philippines",
+              "value": 270.1,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2019",
+              "group": "Philippines",
+              "value": 235.92,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2020",
+              "group": "Philippines",
+              "value": 221.57,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            }
+          ],
+          "targets_preview": [
+            "2016",
+            "2017",
+            "2018",
+            "2019",
+            "2020"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Revenue_Million_USD",
+          "series_field": "Country_Region"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "pairDiff",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "pairDiff",
+          "by": "Year",
+          "seriesField": "Country_Region",
+          "field": "Revenue_Million_USD",
+          "groupA": "Thailand",
+          "groupB": "Philippines",
+          "signed": true,
+          "absolute": false
+        },
+        "artifact": {
+          "count": 6,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2021",
+            "group": "Thailand-Philippines",
+            "value": 84.68
+          },
+          "preview": [
+            {
+              "target": "2016",
+              "group": "Thailand-Philippines",
+              "value": -22.299999999999983,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2017",
+              "group": "Thailand-Philippines",
+              "value": -169.57000000000002,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2018",
+              "group": "Thailand-Philippines",
+              "value": -112.24000000000001,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2019",
+              "group": "Thailand-Philippines",
+              "value": -70.0,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2020",
+              "group": "Thailand-Philippines",
+              "value": 8.650000000000006,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            }
+          ],
+          "targets_preview": [
+            "2016",
+            "2017",
+            "2018",
+            "2019",
+            "2020"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Revenue_Million_USD",
+          "series_field": "Country_Region"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops3",
+        "op": "filter",
+        "inputs": [
+          "n2"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Revenue_Million_USD",
+          "operator": ">",
+          "value": 0
+        },
+        "artifact": {
+          "count": 2,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2021",
+            "group": "Thailand-Philippines",
+            "value": 84.68
+          },
+          "preview": [
+            {
+              "target": "2020",
+              "group": "Thailand-Philippines",
+              "value": 8.650000000000006,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            },
+            {
+              "target": "2021",
+              "group": "Thailand-Philippines",
+              "value": 84.68,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            }
+          ],
+          "targets_preview": [
+            "2020",
+            "2021"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Revenue_Million_USD",
+          "series_field": "Country_Region"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops3",
+        "op": "count",
+        "inputs": [
+          "n3"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "count",
+          "field": "Revenue_Million_USD"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__count__",
+            "value": 2.0
+          },
+          "preview": [
+            {
+              "target": "__count__",
+              "value": 2.0,
+              "category": "result",
+              "measure": "Revenue_Million_USD"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Revenue_Million_USD",
+          "series_field": "Country_Region"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1,
+        "ops3": 2
+      },
+      "warnings": []
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "Check the section with the lowest favorite view of U.S. value (2009, 2010, 2011)",
+    "paramsHint": {
+      "field": "Year",
+      "include": [
+        "2009",
+        "2010",
+        "2011"
+      ],
+      "group": "Favorable view of US"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Year",
+    "include": [
+      "2009",
+      "2010",
+      "2011"
+    ],
+    "group": "Favorable view of US"
+  },
+  "scalar_ref_deps": []
+}

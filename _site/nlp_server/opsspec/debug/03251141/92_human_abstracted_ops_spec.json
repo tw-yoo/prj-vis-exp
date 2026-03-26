@@ -1,0 +1,44 @@
+{
+  "ops": [
+    {
+      "op": "pairDiff",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "by": "Year",
+      "seriesField": "Favorability_Direction",
+      "field": "Favorable_View_Percentage",
+      "groupA": "Russia favorability in US",
+      "groupB": "US favorability in Russia",
+      "signed": true,
+      "absolute": false
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Favorable_View_Percentage",
+      "operator": ">",
+      "value": 0
+    },
+    {
+      "op": "count",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n2"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Year"
+    }
+  ]
+}

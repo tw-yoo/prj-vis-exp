@@ -1,0 +1,6 @@
+{
+  "stage": "executor_failed",
+  "step": 1,
+  "nodeId": "n1",
+  "error": "'LagDiffOp' object has no attribute 'absolute'"
+}

@@ -1,0 +1,24 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "compare",
+    "sentenceIndex": 3,
+    "mention": "Check if the value is greater than the value of number 1 or number 2",
+    "paramsHint": {
+      "field": "SharePercentage",
+      "targetA": "ref:n1",
+      "targetB": "ref:n2",
+      "which": "max"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "compare",
+    "targetA": "ref:n1",
+    "targetB": "ref:n2",
+    "which": "max"
+  },
+  "scalar_ref_deps": [
+    "n1",
+    "n2"
+  ]
+}

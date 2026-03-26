@@ -1,0 +1,151 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Percentage_of_Population"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Percentage_of_Population"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage_of_Population",
+    "categorical_values": {
+      "Year": [
+        "2000",
+        "2001",
+        "2002",
+        "2003",
+        "2004",
+        "2005",
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Percentage_of_Population": "numeric"
+    },
+    "numeric_stats": {
+      "Percentage_of_Population": {
+        "min": 0.086,
+        "max": 0.135,
+        "mean": 0.10715
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Percentage_of_Population",
+        "type": "quantitative"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2000",
+      "Percentage_of_Population": "0.088"
+    },
+    {
+      "Year": "2001",
+      "Percentage_of_Population": "0.086"
+    },
+    {
+      "Year": "2002",
+      "Percentage_of_Population": "0.105"
+    },
+    {
+      "Year": "2003",
+      "Percentage_of_Population": "0.109"
+    },
+    {
+      "Year": "2004",
+      "Percentage_of_Population": "0.109"
+    },
+    {
+      "Year": "2005",
+      "Percentage_of_Population": "0.102"
+    },
+    {
+      "Year": "2006",
+      "Percentage_of_Population": "0.106"
+    },
+    {
+      "Year": "2007",
+      "Percentage_of_Population": "0.097"
+    },
+    {
+      "Year": "2008",
+      "Percentage_of_Population": "0.096"
+    },
+    {
+      "Year": "2009",
+      "Percentage_of_Population": "0.115"
+    },
+    {
+      "Year": "2010",
+      "Percentage_of_Population": "0.132"
+    },
+    {
+      "Year": "2011",
+      "Percentage_of_Population": "0.135"
+    },
+    {
+      "Year": "2012",
+      "Percentage_of_Population": "0.128"
+    },
+    {
+      "Year": "2013",
+      "Percentage_of_Population": "0.127"
+    },
+    {
+      "Year": "2014",
+      "Percentage_of_Population": "0.117"
+    },
+    {
+      "Year": "2015",
+      "Percentage_of_Population": "0.113"
+    },
+    {
+      "Year": "2016",
+      "Percentage_of_Population": "0.102"
+    },
+    {
+      "Year": "2017",
+      "Percentage_of_Population": "0.097"
+    },
+    {
+      "Year": "2018",
+      "Percentage_of_Population": "0.09"
+    },
+    {
+      "Year": "2019",
+      "Percentage_of_Population": "0.089"
+    }
+  ]
+}

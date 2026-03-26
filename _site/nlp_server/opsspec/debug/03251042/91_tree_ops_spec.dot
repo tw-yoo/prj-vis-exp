@@ -1,0 +1,22 @@
+digraph OpsSpecTree {
+  graph [rankdir=LR, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="white", fontname="Helvetica"];
+  edge [color="#666666"];
+  subgraph "cluster_ops2" {
+    label="ops2";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n1" [label="n1 pairDiff (ops2) field=Revenue_Million_USD"];
+  }
+  subgraph "cluster_ops3" {
+    label="ops3";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n2" [label="n2 filter (ops3) field=Revenue_Million_USD"];
+    "n3" [label="n3 count (ops3) field=Revenue_Million_USD"];
+  }
+  "n1" -> "n2";
+  "n2" -> "n3";
+}

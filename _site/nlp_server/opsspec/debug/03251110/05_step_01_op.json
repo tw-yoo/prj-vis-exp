@@ -1,0 +1,17 @@
+{
+  "op": "pairDiff",
+  "id": "n1",
+  "meta": {
+    "nodeId": "n1",
+    "inputs": [],
+    "sentenceIndex": 1,
+    "source": "recursive_step=1;taskId=o1"
+  },
+  "by": "City",
+  "seriesField": "Year",
+  "field": "Population in millions",
+  "groupA": "2025",
+  "groupB": "2010",
+  "signed": true,
+  "absolute": false
+}

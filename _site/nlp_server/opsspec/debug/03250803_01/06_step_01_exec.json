@@ -1,0 +1,25 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__sum__",
+      "group": "Commercial",
+      "value": 8394.0
+    },
+    "preview": [
+      {
+        "target": "__sum__",
+        "group": "Commercial",
+        "value": 8394.0,
+        "category": "result",
+        "measure": "Revenue_Million_Euros"
+      }
+    ],
+    "primary_dimension": "Season",
+    "primary_measure": "Revenue_Million_Euros",
+    "series_field": "Revenue_Type"
+  },
+  "warnings": []
+}

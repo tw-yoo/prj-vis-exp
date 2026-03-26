@@ -1,0 +1,235 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Sector",
+      "Share_of_GDP"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Sector"
+    ],
+    "measure_fields": [
+      "Share_of_GDP"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Share_of_GDP",
+    "series_field": "Sector",
+    "categorical_values": {
+      "Year": [
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019"
+      ],
+      "Sector": [
+        "Agriculture",
+        "Industry",
+        "Services"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Sector": "categorical",
+      "Share_of_GDP": "numeric"
+    },
+    "numeric_stats": {
+      "Share_of_GDP": {
+        "min": 0.131,
+        "max": 0.5102,
+        "mean": 0.30839696969696967
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Share_of_GDP",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Sector",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2009",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3132"
+    },
+    {
+      "Year": "2009",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1507"
+    },
+    {
+      "Year": "2009",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4861"
+    },
+    {
+      "Year": "2010",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3318"
+    },
+    {
+      "Year": "2010",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.142"
+    },
+    {
+      "Year": "2010",
+      "Sector": "Services",
+      "Share_of_GDP": "0.464"
+    },
+    {
+      "Year": "2011",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3498"
+    },
+    {
+      "Year": "2011",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1411"
+    },
+    {
+      "Year": "2011",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4529"
+    },
+    {
+      "Year": "2012",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3315"
+    },
+    {
+      "Year": "2012",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.141"
+    },
+    {
+      "Year": "2012",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4687"
+    },
+    {
+      "Year": "2013",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3153"
+    },
+    {
+      "Year": "2013",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1415"
+    },
+    {
+      "Year": "2013",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4755"
+    },
+    {
+      "Year": "2014",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3027"
+    },
+    {
+      "Year": "2014",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1383"
+    },
+    {
+      "Year": "2014",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4865"
+    },
+    {
+      "Year": "2015",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2938"
+    },
+    {
+      "Year": "2015",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1372"
+    },
+    {
+      "Year": "2015",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4946"
+    },
+    {
+      "Year": "2016",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2915"
+    },
+    {
+      "Year": "2016",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.131"
+    },
+    {
+      "Year": "2016",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4996"
+    },
+    {
+      "Year": "2017",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2708"
+    },
+    {
+      "Year": "2017",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1324"
+    },
+    {
+      "Year": "2017",
+      "Sector": "Services",
+      "Share_of_GDP": "0.5102"
+    },
+    {
+      "Year": "2018",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2576"
+    },
+    {
+      "Year": "2018",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1341"
+    },
+    {
+      "Year": "2018",
+      "Sector": "Services",
+      "Share_of_GDP": "0.51"
+    },
+    {
+      "Year": "2019",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2426"
+    },
+    {
+      "Year": "2019",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.133"
+    },
+    {
+      "Year": "2019",
+      "Sector": "Services",
+      "Share_of_GDP": "0.5061"
+    }
+  ]
+}

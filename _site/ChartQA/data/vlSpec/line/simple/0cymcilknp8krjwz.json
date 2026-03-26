@@ -1,0 +1,86 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "title": {
+    "text": "Average Price Trend (2010-2021)",
+    "fontSize": 26,
+    "anchor": "middle"
+  },
+  "description": "Simple line chart for 0cymcilknp8krjwz.csv",
+  "data": {
+    "url": "ChartQA/data/csv/line/simple/0cymcilknp8krjwz.csv"
+  },
+  "width": 600,
+  "height": 400,
+  "layer": [
+    {
+      "mark": {
+        "type": "line",
+        "point": false,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal",
+          "axis": {
+            "title": "Year",
+            "labelAngle": 0,
+            "labelFontSize": 16,
+            "titleFontSize": 20,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        },
+        "y": {
+          "field": "Average price in US dollars",
+          "type": "quantitative",
+          "axis": {
+            "title": "Average Price (USD)",
+            "labelFontSize": 16,
+            "titleFontSize": 20,
+            "titlePadding": 10,
+            "labelPadding": 5
+          }
+        }
+      }
+    },
+    {
+      "mark": {
+        "type": "point",
+        "filled": true,
+        "size": 150,
+        "tooltip": true
+      },
+      "encoding": {
+        "x": {
+          "field": "Year",
+          "type": "ordinal"
+        },
+        "y": {
+          "field": "Average price in US dollars",
+          "type": "quantitative"
+        },
+        "tooltip": [
+          {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          },
+          {
+            "field": "Average price in US dollars",
+            "type": "quantitative",
+            "title": "Price (USD)"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

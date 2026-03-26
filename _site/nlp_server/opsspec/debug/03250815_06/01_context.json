@@ -1,0 +1,81 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "In millions"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "In millions"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "In millions",
+    "categorical_values": {
+      "Year": [
+        "1970",
+        "1980",
+        "1990",
+        "2000",
+        "2010",
+        "2019"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "In millions": "numeric"
+    },
+    "numeric_stats": {
+      "In millions": {
+        "min": 9.6,
+        "max": 60.6,
+        "mean": 32.28333333333334
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "In millions",
+        "type": "quantitative"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "1970",
+      "In millions": "9.6"
+    },
+    {
+      "Year": "1980",
+      "In millions": "14.5"
+    },
+    {
+      "Year": "1990",
+      "In millions": "22.6"
+    },
+    {
+      "Year": "2000",
+      "In millions": "35.7"
+    },
+    {
+      "Year": "2010",
+      "In millions": "50.7"
+    },
+    {
+      "Year": "2019",
+      "In millions": "60.6"
+    }
+  ]
+}

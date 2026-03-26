@@ -1,0 +1,363 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "pairDiff",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "by": "Period",
+        "seriesField": "Country",
+        "field": "Share_of_Import_Value",
+        "groupA": "South Korea",
+        "groupB": "France",
+        "signed": true,
+        "absolute": false
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Share_of_Import_Value",
+        "operator": ">",
+        "value": 0
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Period",
+      "Country",
+      "Share_of_Import_Value"
+    ],
+    "dimension_fields": [
+      "Period",
+      "Country"
+    ],
+    "measure_fields": [
+      "Share_of_Import_Value"
+    ],
+    "primary_dimension": "Period",
+    "primary_measure": "Share_of_Import_Value",
+    "series_field": "Country",
+    "categorical_values": {
+      "Period": [
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "Jan-Oct 2019"
+      ],
+      "Country": [
+        "France",
+        "Japan",
+        "South Korea",
+        "UK",
+        "US"
+      ]
+    },
+    "field_types": {
+      "Period": "categorical",
+      "Country": "categorical",
+      "Share_of_Import_Value": "numeric"
+    },
+    "numeric_stats": {
+      "Share_of_Import_Value": {
+        "min": 0.047,
+        "max": 0.368,
+        "mean": 0.17263333333333333
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Period",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Share_of_Import_Value",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Country",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Period",
+          "Country",
+          "Share_of_Import_Value"
+        ],
+        "dimension_fields": [
+          "Period",
+          "Country"
+        ],
+        "measure_fields": [
+          "Share_of_Import_Value"
+        ],
+        "primary_dimension": "Period",
+        "primary_measure": "Share_of_Import_Value",
+        "series_field": "Country",
+        "categorical_values": {
+          "Period": [
+            "2014",
+            "2015",
+            "2016",
+            "2017",
+            "2018",
+            "Jan-Oct 2019"
+          ],
+          "Country": [
+            "France",
+            "Japan",
+            "South Korea",
+            "UK",
+            "US"
+          ]
+        },
+        "field_types": {
+          "Period": "categorical",
+          "Country": "categorical",
+          "Share_of_Import_Value": "numeric"
+        },
+        "numeric_stats": {
+          "Share_of_Import_Value": {
+            "min": 0.047,
+            "max": 0.368,
+            "mean": 0.17263333333333333
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "x": {
+            "field": "Period",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "Share_of_Import_Value",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Country",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 30
+    },
+    "inventory": {
+      "tasks_count": 2,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "pairDiff",
+          "sentenceIndex": 1,
+          "mention": "Get difference between south korea and france in every year",
+          "paramsHint": {
+            "by": "Period",
+            "seriesField": "Country",
+            "field": "Share_of_Import_Value",
+            "groupA": "South Korea",
+            "groupB": "France",
+            "signed": true,
+            "absolute": false
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "filter",
+          "sentenceIndex": 2,
+          "mention": "Filter the year with a positive value",
+          "paramsHint": {
+            "field": "Share_of_Import_Value",
+            "operator": ">",
+            "value": 0
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "pairDiff",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "pairDiff",
+          "by": "Period",
+          "seriesField": "Country",
+          "field": "Share_of_Import_Value",
+          "groupA": "South Korea",
+          "groupB": "France",
+          "signed": true,
+          "absolute": false
+        },
+        "artifact": {
+          "count": 6,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Jan-Oct 2019",
+            "group": "South Korea-France",
+            "value": 0.065
+          },
+          "preview": [
+            {
+              "target": "2014",
+              "group": "South Korea-France",
+              "value": -0.262,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            },
+            {
+              "target": "2015",
+              "group": "South Korea-France",
+              "value": -0.03999999999999998,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            },
+            {
+              "target": "2016",
+              "group": "South Korea-France",
+              "value": 0.035999999999999976,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            },
+            {
+              "target": "2017",
+              "group": "South Korea-France",
+              "value": 0.07799999999999999,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            },
+            {
+              "target": "2018",
+              "group": "South Korea-France",
+              "value": 0.11099999999999999,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            }
+          ],
+          "targets_preview": [
+            "2014",
+            "2015",
+            "2016",
+            "2017",
+            "2018"
+          ],
+          "primary_dimension": "Period",
+          "primary_measure": "Share_of_Import_Value",
+          "series_field": "Country"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "filter",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Share_of_Import_Value",
+          "operator": ">",
+          "value": 0
+        },
+        "artifact": {
+          "count": 4,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Jan-Oct 2019",
+            "group": "South Korea-France",
+            "value": 0.065
+          },
+          "preview": [
+            {
+              "target": "2016",
+              "group": "South Korea-France",
+              "value": 0.035999999999999976,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            },
+            {
+              "target": "2017",
+              "group": "South Korea-France",
+              "value": 0.07799999999999999,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            },
+            {
+              "target": "2018",
+              "group": "South Korea-France",
+              "value": 0.11099999999999999,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            },
+            {
+              "target": "Jan-Oct 2019",
+              "group": "South Korea-France",
+              "value": 0.065,
+              "category": "Period",
+              "measure": "Share_of_Import_Value"
+            }
+          ],
+          "targets_preview": [
+            "2016",
+            "2017",
+            "2018",
+            "Jan-Oct 2019"
+          ],
+          "primary_dimension": "Period",
+          "primary_measure": "Share_of_Import_Value",
+          "series_field": "Country"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1
+      },
+      "warnings": []
+    }
+  }
+}

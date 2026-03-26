@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__count__",
+      "value": 2.0
+    },
+    "preview": [
+      {
+        "target": "__count__",
+        "value": 2.0,
+        "category": "result",
+        "measure": "Revenue_Million_USD"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Revenue_Million_USD",
+    "series_field": "Country_Region"
+  },
+  "warnings": []
+}

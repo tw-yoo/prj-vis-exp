@@ -1,0 +1,60 @@
+{
+  "artifact": {
+    "count": 12,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2021",
+      "group": "Thailand",
+      "value": 251.41
+    },
+    "preview": [
+      {
+        "target": "2016",
+        "group": "Philippines",
+        "value": 211.6,
+        "category": "Year",
+        "measure": "Revenue_Million_USD"
+      },
+      {
+        "target": "2017",
+        "group": "Philippines",
+        "value": 283.35,
+        "category": "Year",
+        "measure": "Revenue_Million_USD"
+      },
+      {
+        "target": "2018",
+        "group": "Philippines",
+        "value": 270.1,
+        "category": "Year",
+        "measure": "Revenue_Million_USD"
+      },
+      {
+        "target": "2019",
+        "group": "Philippines",
+        "value": 235.92,
+        "category": "Year",
+        "measure": "Revenue_Million_USD"
+      },
+      {
+        "target": "2020",
+        "group": "Philippines",
+        "value": 221.57,
+        "category": "Year",
+        "measure": "Revenue_Million_USD"
+      }
+    ],
+    "targets_preview": [
+      "2016",
+      "2017",
+      "2018",
+      "2019",
+      "2020"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Revenue_Million_USD",
+    "series_field": "Country_Region"
+  },
+  "warnings": []
+}

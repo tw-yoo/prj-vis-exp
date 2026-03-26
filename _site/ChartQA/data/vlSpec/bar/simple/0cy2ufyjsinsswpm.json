@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0cy2ufyjsinsswpm.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0cy2ufyjsinsswpm.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Number of single men households",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Age Group",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "artifact": {
+    "count": 3,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2020",
+      "value": 374.0
+    },
+    "preview": [
+      {
+        "target": "2008",
+        "value": 312.1,
+        "category": "Year",
+        "measure": "Production in million liters"
+      },
+      {
+        "target": "2019",
+        "value": 351.7,
+        "category": "Year",
+        "measure": "Production in million liters"
+      },
+      {
+        "target": "2020",
+        "value": 374.0,
+        "category": "Year",
+        "measure": "Production in million liters"
+      }
+    ],
+    "targets_preview": [
+      "2008",
+      "2019",
+      "2020"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in million liters"
+  },
+  "warnings": []
+}

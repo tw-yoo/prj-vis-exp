@@ -1,0 +1,98 @@
+{
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "data": {
+        "url": "ChartQA/data/csv/line/multiple/4623mdsdv9ewvlb7.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+        {
+            "mark": {
+                "type": "line",
+                "point": false,
+                "tooltip": true
+            },
+            "encoding": {
+                "x": {
+                    "field": "Year",
+                    "type": "ordinal",
+                    "axis": {
+                        "title": "Year",
+                        "labelAngle": 0,
+                        "labelFontSize": 11,
+                        "titleFontSize": 13,
+                        "titlePadding": 10,
+                        "labelPadding": 5
+                    }
+                },
+                "y": {
+                    "field": "Healthcare expenditure (in billion GBP)",
+                    "type": "quantitative",
+                    "axis": {
+                        "title": "Healthcare expenditure (in billion GBP)",
+                        "labelFontSize": 11,
+                        "titleFontSize": 13,
+                        "titlePadding": 10,
+                        "labelPadding": 5
+                    }
+                },
+                "color": {
+                    "field": "Sector",
+                    "type": "nominal",
+                    "legend": {
+                        "title": "Sector",
+                        "titleFontSize": 12,
+                        "labelFontSize": 11
+                    }
+                }
+            }
+        },
+        {
+            "mark": {
+                "type": "point",
+                "filled": true,
+                "size": 50,
+                "tooltip": true
+            },
+            "encoding": {
+                "x": {
+                    "field": "Year",
+                    "type": "ordinal"
+                },
+                "y": {
+                    "field": "Healthcare expenditure (in billion GBP)",
+                    "type": "quantitative"
+                },
+                "color": {
+                    "field": "Sector",
+                    "type": "nominal"
+                },
+                "tooltip": [
+                    {
+                        "field": "Year",
+                        "type": "ordinal",
+                        "title": "Year"
+                    },
+                    {
+                        "field": "Sector",
+                        "type": "nominal",
+                        "title": "Sector"
+                    },
+                    {
+                        "field": "Healthcare expenditure (in billion GBP)",
+                        "type": "quantitative",
+                        "title": "Healthcare expenditure (in billion GBP)"
+                    }
+                ]
+            }
+        }
+    ],
+    "config": {
+        "view": {
+            "stroke": "transparent"
+        },
+        "axis": {
+            "domainWidth": 1
+        }
+    }
+}

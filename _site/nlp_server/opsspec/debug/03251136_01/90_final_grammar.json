@@ -1,0 +1,637 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "group": "Scotland"
+      },
+      {
+        "op": "findExtremum",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "SharePercentage",
+        "which": "max"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "group": "England & Wales"
+      },
+      {
+        "op": "findExtremum",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "field": "SharePercentage",
+        "which": "min"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "compare",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n2",
+            "n4"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 3,
+            "parallelGroup": "p3"
+          },
+          "source": "recursive_step=5;taskId=o5"
+        },
+        "targetA": "ref:n2",
+        "targetB": "ref:n4",
+        "which": "max"
+      }
+    ],
+    "ops4": [
+      {
+        "op": "diff",
+        "id": "n6",
+        "meta": {
+          "nodeId": "n6",
+          "inputs": [
+            "n2",
+            "n4"
+          ],
+          "sentenceIndex": 4,
+          "view": {
+            "phase": 3,
+            "parallelGroup": "p3"
+          },
+          "source": "recursive_step=6;taskId=o6"
+        },
+        "field": "SharePercentage",
+        "targetA": "ref:n4",
+        "targetB": "ref:n2",
+        "signed": false
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "ResponseCategory",
+      "Region",
+      "SharePercentage"
+    ],
+    "dimension_fields": [
+      "ResponseCategory",
+      "Region"
+    ],
+    "measure_fields": [
+      "SharePercentage"
+    ],
+    "primary_dimension": "Region",
+    "primary_measure": "SharePercentage",
+    "series_field": "Region",
+    "categorical_values": {
+      "ResponseCategory": [
+        "Neither in favour nor against",
+        "Somewhat against",
+        "Somewhat in favour",
+        "Strongly against",
+        "Strongly in favour"
+      ],
+      "Region": [
+        "England & Wales",
+        "Scotland"
+      ]
+    },
+    "field_types": {
+      "ResponseCategory": "categorical",
+      "Region": "categorical",
+      "SharePercentage": "numeric"
+    },
+    "numeric_stats": {
+      "SharePercentage": {
+        "min": 2.0,
+        "max": 28.0,
+        "mean": 17.7
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "ResponseCategory",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "SharePercentage",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Region",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Region",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "ResponseCategory",
+          "Region",
+          "SharePercentage"
+        ],
+        "dimension_fields": [
+          "ResponseCategory",
+          "Region"
+        ],
+        "measure_fields": [
+          "SharePercentage"
+        ],
+        "primary_dimension": "Region",
+        "primary_measure": "SharePercentage",
+        "series_field": "Region",
+        "categorical_values": {
+          "ResponseCategory": [
+            "Neither in favour nor against",
+            "Somewhat against",
+            "Somewhat in favour",
+            "Strongly against",
+            "Strongly in favour"
+          ],
+          "Region": [
+            "England & Wales",
+            "Scotland"
+          ]
+        },
+        "field_types": {
+          "ResponseCategory": "categorical",
+          "Region": "categorical",
+          "SharePercentage": "numeric"
+        },
+        "numeric_stats": {
+          "SharePercentage": {
+            "min": 2.0,
+            "max": 28.0,
+            "mean": 17.7
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "column": {
+            "field": "ResponseCategory",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "SharePercentage",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Region",
+            "type": "nominal"
+          },
+          "color": {
+            "field": "Region",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 10
+    },
+    "inventory": {
+      "tasks_count": 6,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "Check Scotland's Biggest Value",
+          "paramsHint": {
+            "group": "Scotland"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "findExtremum",
+          "sentenceIndex": 1,
+          "mention": "Check Scotland's Biggest Value",
+          "paramsHint": {
+            "field": "SharePercentage",
+            "which": "max"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "filter",
+          "sentenceIndex": 2,
+          "mention": "Check the smallest value for England & Wales",
+          "paramsHint": {
+            "group": "England & Wales"
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "findExtremum",
+          "sentenceIndex": 2,
+          "mention": "Check the smallest value for England & Wales",
+          "paramsHint": {
+            "field": "SharePercentage",
+            "which": "min"
+          }
+        },
+        {
+          "taskId": "o5",
+          "op": "compare",
+          "sentenceIndex": 3,
+          "mention": "Check if the value is greater than the value of number 1 or number 2",
+          "paramsHint": {
+            "which": "max",
+            "targetA": "ref:n2",
+            "targetB": "ref:n4"
+          }
+        },
+        {
+          "taskId": "o6",
+          "op": "diff",
+          "sentenceIndex": 4,
+          "mention": "Subtract small value from large value",
+          "paramsHint": {
+            "field": "SharePercentage",
+            "targetA": "ref:n4",
+            "targetB": "ref:n2",
+            "signed": false
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "group": "Scotland"
+        },
+        "artifact": {
+          "count": 5,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Scotland",
+            "group": "Scotland",
+            "value": 28.0
+          },
+          "preview": [
+            {
+              "target": "Scotland",
+              "group": "Scotland",
+              "value": 13.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            },
+            {
+              "target": "Scotland",
+              "group": "Scotland",
+              "value": 16.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            },
+            {
+              "target": "Scotland",
+              "group": "Scotland",
+              "value": 18.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            },
+            {
+              "target": "Scotland",
+              "group": "Scotland",
+              "value": 24.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            },
+            {
+              "target": "Scotland",
+              "group": "Scotland",
+              "value": 28.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            }
+          ],
+          "targets_preview": [
+            "Scotland"
+          ],
+          "primary_dimension": "Region",
+          "primary_measure": "SharePercentage",
+          "series_field": "Region"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops",
+        "op": "findExtremum",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "findExtremum",
+          "field": "SharePercentage",
+          "which": "max"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Scotland",
+            "group": "Scotland",
+            "value": 28.0
+          },
+          "preview": [
+            {
+              "target": "Scotland",
+              "group": "Scotland",
+              "value": 28.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            }
+          ],
+          "targets_preview": [
+            "Scotland"
+          ],
+          "primary_dimension": "Region",
+          "primary_measure": "SharePercentage",
+          "series_field": "Region"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops2",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "group": "England & Wales"
+        },
+        "artifact": {
+          "count": 5,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "England & Wales",
+            "group": "England & Wales",
+            "value": 2.0
+          },
+          "preview": [
+            {
+              "target": "England & Wales",
+              "group": "England & Wales",
+              "value": 2.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            },
+            {
+              "target": "England & Wales",
+              "group": "England & Wales",
+              "value": 16.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            },
+            {
+              "target": "England & Wales",
+              "group": "England & Wales",
+              "value": 17.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            },
+            {
+              "target": "England & Wales",
+              "group": "England & Wales",
+              "value": 18.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            },
+            {
+              "target": "England & Wales",
+              "group": "England & Wales",
+              "value": 25.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            }
+          ],
+          "targets_preview": [
+            "England & Wales"
+          ],
+          "primary_dimension": "Region",
+          "primary_measure": "SharePercentage",
+          "series_field": "Region"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops2",
+        "op": "findExtremum",
+        "inputs": [
+          "n3"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "findExtremum",
+          "field": "SharePercentage",
+          "which": "min"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "England & Wales",
+            "group": "England & Wales",
+            "value": 2.0
+          },
+          "preview": [
+            {
+              "target": "England & Wales",
+              "group": "England & Wales",
+              "value": 2.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            }
+          ],
+          "targets_preview": [
+            "England & Wales"
+          ],
+          "primary_dimension": "Region",
+          "primary_measure": "SharePercentage",
+          "series_field": "Region"
+        },
+        "warnings": []
+      },
+      {
+        "step": 5,
+        "taskId": "o5",
+        "nodeId": "n5",
+        "groupName": "ops3",
+        "op": "compare",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "scalarRefs": [
+          "n2",
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "compare",
+          "which": "max",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Scotland",
+            "group": "Scotland",
+            "value": 28.0
+          },
+          "preview": [
+            {
+              "target": "Scotland",
+              "group": "Scotland",
+              "value": 28.0,
+              "category": "Region",
+              "measure": "SharePercentage"
+            }
+          ],
+          "targets_preview": [
+            "Scotland"
+          ],
+          "primary_dimension": "Region",
+          "primary_measure": "SharePercentage",
+          "series_field": "Region"
+        },
+        "warnings": []
+      },
+      {
+        "step": 6,
+        "taskId": "o6",
+        "nodeId": "n6",
+        "groupName": "ops4",
+        "op": "diff",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "scalarRefs": [
+          "n2",
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "diff",
+          "field": "SharePercentage",
+          "targetA": "ref:n4",
+          "targetB": "ref:n2",
+          "signed": false
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__diff__",
+            "value": 26.0
+          },
+          "preview": [
+            {
+              "target": "__diff__",
+              "value": 26.0,
+              "category": "result",
+              "measure": "SharePercentage"
+            }
+          ],
+          "primary_dimension": "Region",
+          "primary_measure": "SharePercentage",
+          "series_field": "Region"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 2,
+        "ops2": 2,
+        "ops3": 1,
+        "ops4": 1
+      },
+      "warnings": []
+    }
+  }
+}

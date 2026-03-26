@@ -1,0 +1,58 @@
+{
+  "artifact": {
+    "count": 6,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2011",
+      "group": "Confidence in US president",
+      "value": 49.0
+    },
+    "preview": [
+      {
+        "target": "2009",
+        "group": "Confidence in US president",
+        "value": 56.0,
+        "category": "Year",
+        "measure": "Percentage"
+      },
+      {
+        "target": "2010",
+        "group": "Confidence in US president",
+        "value": 49.0,
+        "category": "Year",
+        "measure": "Percentage"
+      },
+      {
+        "target": "2011",
+        "group": "Confidence in US president",
+        "value": 49.0,
+        "category": "Year",
+        "measure": "Percentage"
+      },
+      {
+        "target": "2009",
+        "group": "Favorable view of US",
+        "value": 71.0,
+        "category": "Year",
+        "measure": "Percentage"
+      },
+      {
+        "target": "2010",
+        "group": "Favorable view of US",
+        "value": 72.0,
+        "category": "Year",
+        "measure": "Percentage"
+      }
+    ],
+    "targets_preview": [
+      "2009",
+      "2010",
+      "2011"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage",
+    "series_field": "Metric"
+  },
+  "warnings": []
+}

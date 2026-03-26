@@ -1,0 +1,17 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "findExtremum",
+    "sentenceIndex": 2,
+    "mention": "find the extremum",
+    "paramsHint": {
+      "which": "max"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "Population in millions",
+    "which": "max"
+  },
+  "scalar_ref_deps": []
+}

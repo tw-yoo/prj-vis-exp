@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "filter",
+    "sentenceIndex": 2,
+    "mention": "Check the smallest value for England & Wales",
+    "paramsHint": {
+      "group": "England & Wales"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "group": "England & Wales"
+  },
+  "scalar_ref_deps": []
+}

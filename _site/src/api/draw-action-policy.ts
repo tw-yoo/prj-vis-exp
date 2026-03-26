@@ -1,0 +1,6 @@
+export {
+  LEGACY_SPLIT_DRAW_ACTIONS,
+  REMOUNT_ALLOWED_DRAW_ACTIONS,
+  SPLIT_VIEW_ENABLED,
+  STRUCTURAL_DRAW_ACTIONS,
+} from '../operation/run/drawActionPolicy'

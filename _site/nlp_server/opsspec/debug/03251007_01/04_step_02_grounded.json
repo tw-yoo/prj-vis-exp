@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "average",
+    "sentenceIndex": 2,
+    "mention": "Average the the percentage of responses of Favourable views of U.S from filtered data",
+    "paramsHint": {
+      "field": "Percentage_of_Respondents",
+      "group": "Favorable view of US"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Percentage_of_Respondents",
+    "group": "Favorable view of US"
+  },
+  "scalar_ref_deps": []
+}

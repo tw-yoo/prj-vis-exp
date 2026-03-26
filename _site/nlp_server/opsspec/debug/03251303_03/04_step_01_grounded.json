@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "average",
+    "sentenceIndex": 1,
+    "mention": "Find average",
+    "paramsHint": {
+      "field": "Production in million units"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Production in million units"
+  },
+  "scalar_ref_deps": []
+}

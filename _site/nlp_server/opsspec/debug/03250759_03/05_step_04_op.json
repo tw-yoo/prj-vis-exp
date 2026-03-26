@@ -1,0 +1,15 @@
+{
+  "op": "findExtremum",
+  "id": "n4",
+  "meta": {
+    "nodeId": "n4",
+    "inputs": [
+      "n3"
+    ],
+    "sentenceIndex": 2,
+    "source": "recursive_step=4;taskId=o4"
+  },
+  "field": "Percentage_of_Population",
+  "which": "max",
+  "rank": 2
+}

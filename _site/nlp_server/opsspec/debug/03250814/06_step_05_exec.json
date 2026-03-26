@@ -1,0 +1,53 @@
+{
+  "artifact": {
+    "count": 10,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2009",
+      "value": 0.115
+    },
+    "preview": [
+      {
+        "target": "2000",
+        "value": 0.088,
+        "category": "Year",
+        "measure": "Percentage_of_Population"
+      },
+      {
+        "target": "2001",
+        "value": 0.086,
+        "category": "Year",
+        "measure": "Percentage_of_Population"
+      },
+      {
+        "target": "2002",
+        "value": 0.105,
+        "category": "Year",
+        "measure": "Percentage_of_Population"
+      },
+      {
+        "target": "2003",
+        "value": 0.109,
+        "category": "Year",
+        "measure": "Percentage_of_Population"
+      },
+      {
+        "target": "2004",
+        "value": 0.109,
+        "category": "Year",
+        "measure": "Percentage_of_Population"
+      }
+    ],
+    "targets_preview": [
+      "2000",
+      "2001",
+      "2002",
+      "2003",
+      "2004"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage_of_Population"
+  },
+  "warnings": []
+}

@@ -1,0 +1,307 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "sum",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Decrease_in_GDP_Percentage",
+        "group": [
+          "Germany – exports",
+          "Italy – exports"
+        ]
+      }
+    ],
+    "ops2": [
+      {
+        "op": "findExtremum",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Decrease_in_GDP_Percentage",
+        "which": "max"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Country",
+      "Factor",
+      "Decrease_in_GDP_Percentage"
+    ],
+    "dimension_fields": [
+      "Country",
+      "Factor"
+    ],
+    "measure_fields": [
+      "Decrease_in_GDP_Percentage"
+    ],
+    "primary_dimension": "Country",
+    "primary_measure": "Decrease_in_GDP_Percentage",
+    "series_field": "Factor",
+    "categorical_values": {
+      "Country": [
+        "Czechia",
+        "Hungary",
+        "Poland",
+        "Romania"
+      ],
+      "Factor": [
+        "China – exports",
+        "China – supply chain",
+        "Germany – exports",
+        "Italy – exports",
+        "Total"
+      ]
+    },
+    "field_types": {
+      "Country": "categorical",
+      "Factor": "categorical",
+      "Decrease_in_GDP_Percentage": "numeric"
+    },
+    "numeric_stats": {
+      "Decrease_in_GDP_Percentage": {
+        "min": 0.001,
+        "max": 0.069,
+        "mean": 0.028100000000000003
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Country",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Decrease_in_GDP_Percentage",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Factor",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [
+    "Series restriction for 'germany and italy' was expressed via sum(group=...) rather than a filter on the series field."
+  ],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Country",
+          "Factor",
+          "Decrease_in_GDP_Percentage"
+        ],
+        "dimension_fields": [
+          "Country",
+          "Factor"
+        ],
+        "measure_fields": [
+          "Decrease_in_GDP_Percentage"
+        ],
+        "primary_dimension": "Country",
+        "primary_measure": "Decrease_in_GDP_Percentage",
+        "series_field": "Factor",
+        "categorical_values": {
+          "Country": [
+            "Czechia",
+            "Hungary",
+            "Poland",
+            "Romania"
+          ],
+          "Factor": [
+            "China – exports",
+            "China – supply chain",
+            "Germany – exports",
+            "Italy – exports",
+            "Total"
+          ]
+        },
+        "field_types": {
+          "Country": "categorical",
+          "Factor": "categorical",
+          "Decrease_in_GDP_Percentage": "numeric"
+        },
+        "numeric_stats": {
+          "Decrease_in_GDP_Percentage": {
+            "min": 0.001,
+            "max": 0.069,
+            "mean": 0.028100000000000003
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "x": {
+            "field": "Country",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "Decrease_in_GDP_Percentage",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Factor",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 20
+    },
+    "inventory": {
+      "tasks_count": 2,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "sum",
+          "sentenceIndex": 1,
+          "mention": "Get the sum of germany and italy for each country",
+          "paramsHint": {
+            "field": "Decrease_in_GDP_Percentage",
+            "group": [
+              "Germany \u0003\u000b exports",
+              "Italy \u0003\u000b exports"
+            ]
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "findExtremum",
+          "sentenceIndex": 2,
+          "mention": "Get the country with the highest value",
+          "paramsHint": {
+            "field": "Decrease_in_GDP_Percentage",
+            "which": "max"
+          }
+        }
+      ],
+      "warnings": [
+        "Series restriction for 'germany and italy' was expressed via sum(group=...) rather than a filter on the series field."
+      ],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "sum",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "sum",
+          "field": "Decrease_in_GDP_Percentage",
+          "group": [
+            "Germany – exports",
+            "Italy – exports"
+          ]
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "group": [
+              "Germany – exports",
+              "Italy – exports"
+            ],
+            "value": 0.562
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "group": [
+                "Germany – exports",
+                "Italy – exports"
+              ],
+              "value": 0.562,
+              "category": "result",
+              "measure": "Decrease_in_GDP_Percentage"
+            }
+          ],
+          "primary_dimension": "Country",
+          "primary_measure": "Decrease_in_GDP_Percentage",
+          "series_field": "Factor"
+        },
+        "warnings": [
+          "group=\"Germany \u0003\u000b exports\" -> \"Germany – exports\" (fuzzy)",
+          "group=\"Italy \u0003\u000b exports\" -> \"Italy – exports\" (fuzzy)"
+        ]
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "findExtremum",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "findExtremum",
+          "field": "Decrease_in_GDP_Percentage",
+          "which": "max"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "group": [
+              "Germany – exports",
+              "Italy – exports"
+            ],
+            "value": 0.562
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "group": [
+                "Germany – exports",
+                "Italy – exports"
+              ],
+              "value": 0.562,
+              "category": "result",
+              "measure": "Decrease_in_GDP_Percentage"
+            }
+          ],
+          "primary_dimension": "Country",
+          "primary_measure": "Decrease_in_GDP_Percentage",
+          "series_field": "Factor"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1
+      },
+      "warnings": []
+    }
+  }
+}

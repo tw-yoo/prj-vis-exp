@@ -1,0 +1,247 @@
+{
+  "request_id": "test_0gzowodb2py0d1s9_1cf5e4e5",
+  "question": "How many years did Thailand's revenue exceed that of the Philippines'?",
+  "explanation": "1. Filter for the revenue of Thailand and the Philippines\n2. Compare the revenue of Thailand and the Philippines\n3. count the years for which Thailand's revenue was higher.",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Stacked Bar chart for 0gzowodb2py0d1s9.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/stacked/0gzowodb2py0d1s9.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_USD",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Country_Region",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2016",
+      "Country_Region": "China",
+      "Revenue_Million_USD": "1471.18"
+    },
+    {
+      "Year": "2016",
+      "Country_Region": "Malaysia",
+      "Revenue_Million_USD": "302.95"
+    },
+    {
+      "Year": "2016",
+      "Country_Region": "Philippines",
+      "Revenue_Million_USD": "211.6"
+    },
+    {
+      "Year": "2016",
+      "Country_Region": "Thailand",
+      "Revenue_Million_USD": "189.3"
+    },
+    {
+      "Year": "2016",
+      "Country_Region": "United States",
+      "Revenue_Million_USD": "60.12"
+    },
+    {
+      "Year": "2016",
+      "Country_Region": "Japan",
+      "Revenue_Million_USD": "0"
+    },
+    {
+      "Year": "2016",
+      "Country_Region": "Others",
+      "Revenue_Million_USD": "367.34"
+    },
+    {
+      "Year": "2017",
+      "Country_Region": "China",
+      "Revenue_Million_USD": "1224.03"
+    },
+    {
+      "Year": "2017",
+      "Country_Region": "Malaysia",
+      "Revenue_Million_USD": "286.27"
+    },
+    {
+      "Year": "2017",
+      "Country_Region": "Philippines",
+      "Revenue_Million_USD": "283.35"
+    },
+    {
+      "Year": "2017",
+      "Country_Region": "Thailand",
+      "Revenue_Million_USD": "113.78"
+    },
+    {
+      "Year": "2017",
+      "Country_Region": "United States",
+      "Revenue_Million_USD": "51.42"
+    },
+    {
+      "Year": "2017",
+      "Country_Region": "Japan",
+      "Revenue_Million_USD": "0"
+    },
+    {
+      "Year": "2017",
+      "Country_Region": "Others",
+      "Revenue_Million_USD": "342.15"
+    },
+    {
+      "Year": "2018",
+      "Country_Region": "China",
+      "Revenue_Million_USD": "1205.2"
+    },
+    {
+      "Year": "2018",
+      "Country_Region": "Malaysia",
+      "Revenue_Million_USD": "388.47"
+    },
+    {
+      "Year": "2018",
+      "Country_Region": "Philippines",
+      "Revenue_Million_USD": "270.1"
+    },
+    {
+      "Year": "2018",
+      "Country_Region": "Thailand",
+      "Revenue_Million_USD": "157.86"
+    },
+    {
+      "Year": "2018",
+      "Country_Region": "United States",
+      "Revenue_Million_USD": "42.56"
+    },
+    {
+      "Year": "2018",
+      "Country_Region": "Japan",
+      "Revenue_Million_USD": "0"
+    },
+    {
+      "Year": "2018",
+      "Country_Region": "Others",
+      "Revenue_Million_USD": "365.18"
+    },
+    {
+      "Year": "2019",
+      "Country_Region": "China",
+      "Revenue_Million_USD": "1189.93"
+    },
+    {
+      "Year": "2019",
+      "Country_Region": "Malaysia",
+      "Revenue_Million_USD": "372.82"
+    },
+    {
+      "Year": "2019",
+      "Country_Region": "Philippines",
+      "Revenue_Million_USD": "235.92"
+    },
+    {
+      "Year": "2019",
+      "Country_Region": "Thailand",
+      "Revenue_Million_USD": "165.92"
+    },
+    {
+      "Year": "2019",
+      "Country_Region": "United States",
+      "Revenue_Million_USD": "251.91"
+    },
+    {
+      "Year": "2019",
+      "Country_Region": "Japan",
+      "Revenue_Million_USD": "162.77"
+    },
+    {
+      "Year": "2019",
+      "Country_Region": "Others",
+      "Revenue_Million_USD": "486.53"
+    },
+    {
+      "Year": "2020",
+      "Country_Region": "China",
+      "Revenue_Million_USD": "1071.03"
+    },
+    {
+      "Year": "2020",
+      "Country_Region": "Malaysia",
+      "Revenue_Million_USD": "226.36"
+    },
+    {
+      "Year": "2020",
+      "Country_Region": "Philippines",
+      "Revenue_Million_USD": "221.57"
+    },
+    {
+      "Year": "2020",
+      "Country_Region": "Thailand",
+      "Revenue_Million_USD": "230.22"
+    },
+    {
+      "Year": "2020",
+      "Country_Region": "United States",
+      "Revenue_Million_USD": "258.83"
+    },
+    {
+      "Year": "2020",
+      "Country_Region": "Japan",
+      "Revenue_Million_USD": "162.4"
+    },
+    {
+      "Year": "2020",
+      "Country_Region": "Others",
+      "Revenue_Million_USD": "528.77"
+    },
+    {
+      "Year": "2021",
+      "Country_Region": "China",
+      "Revenue_Million_USD": "1268.82"
+    },
+    {
+      "Year": "2021",
+      "Country_Region": "Malaysia",
+      "Revenue_Million_USD": "254.05"
+    },
+    {
+      "Year": "2021",
+      "Country_Region": "Philippines",
+      "Revenue_Million_USD": "166.73"
+    },
+    {
+      "Year": "2021",
+      "Country_Region": "Thailand",
+      "Revenue_Million_USD": "251.41"
+    },
+    {
+      "Year": "2021",
+      "Country_Region": "United States",
+      "Revenue_Million_USD": "321.45"
+    },
+    {
+      "Year": "2021",
+      "Country_Region": "Japan",
+      "Revenue_Million_USD": "142.55"
+    },
+    {
+      "Year": "2021",
+      "Country_Region": "Others",
+      "Revenue_Million_USD": "563.88"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

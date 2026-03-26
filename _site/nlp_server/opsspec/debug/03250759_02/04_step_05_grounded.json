@@ -1,0 +1,22 @@
+{
+  "task": {
+    "taskId": "o5",
+    "op": "add",
+    "sentenceIndex": 3,
+    "mention": "Add the number of 1 and 2",
+    "paramsHint": {
+      "targetA": "ref:n2",
+      "targetB": "ref:n4"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "add",
+    "targetA": "ref:n2",
+    "targetB": "ref:n4",
+    "field": "Average weight in metric grams"
+  },
+  "scalar_ref_deps": [
+    "n2",
+    "n4"
+  ]
+}

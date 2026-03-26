@@ -1,0 +1,12 @@
+{
+  "op": "retrieveValue",
+  "id": "n2",
+  "meta": {
+    "nodeId": "n2",
+    "inputs": [],
+    "sentenceIndex": 1,
+    "source": "recursive_step=2;taskId=o2"
+  },
+  "field": "Year",
+  "target": "2017"
+}

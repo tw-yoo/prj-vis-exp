@@ -1,0 +1,17 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "field": "Gender",
+      "operator": "==",
+      "value": "females"
+    },
+    {
+      "op": "average",
+      "field": "Population"
+    }
+  ],
+  "text": {
+    "ops": "First, filter the dataset to highlight only entries for 'females'. Then, compute the average of their populations, which totals approximately 156,399.33."
+  }
+}

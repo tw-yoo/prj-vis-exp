@@ -1,0 +1,60 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Connecticut Osprey Population",
+  "title": "CT Osprey Nest Count",
+  "data": {
+    "values": [
+      {
+        "year": "2014",
+        "nests": 174
+      },
+      {
+        "year": "2015",
+        "nests": 322
+      },
+      {
+        "year": "2016",
+        "nests": 420
+      },
+      {
+        "year": "2017",
+        "nests": 540
+      },
+      {
+        "year": "2018",
+        "nests": 603
+      },
+      {
+        "year": "2019",
+        "nests": 732
+      },
+      {
+        "year": "2020",
+        "nests": 733
+      }
+    ]
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "year",
+      "type": "nominal",
+      "axis": {
+        "labelAngle": 0
+      }
+    },
+    "x": {
+      "field": "nests",
+      "type": "quantitative",
+      "axis": {
+        "grid": false,
+        "titleColor": "red"
+      }
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    }
+  }
+}

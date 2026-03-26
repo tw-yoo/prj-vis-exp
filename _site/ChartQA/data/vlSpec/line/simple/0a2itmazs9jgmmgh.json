@@ -1,0 +1,18 @@
+{
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "data": {
+        "url": "ChartQA/data/csv/bar/simple/0a2itmazs9jgmmgh.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+        "y": {
+            "field": "Value of M&A in million euros",
+            "type": "quantitative"
+        },
+        "x": {
+            "field": "Company",
+            "type": "nominal",
+            "sort": null
+        }
+    }
+}

@@ -1,0 +1,58 @@
+{
+  "ops": [
+    {
+      "op": "findExtremum",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "SharePercentage",
+      "group": "Scotland",
+      "which": "max"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 2 },
+      "field": "SharePercentage",
+      "group": "England & Wales",
+      "which": "min"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "compare",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 3
+      },
+      "field": "SharePercentage",
+      "targetA": "ref:n1",
+      "targetB": "ref:n2",
+      "which": "max"
+    }
+  ],
+  "ops4": [
+    {
+      "op": "diff",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 4
+      },
+      "field": "SharePercentage",
+      "targetA": "ref:n2",
+      "targetB": "ref:n1",
+      "signed": false
+    }
+  ]
+}

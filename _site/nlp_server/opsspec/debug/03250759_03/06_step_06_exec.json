@@ -1,0 +1,25 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2001",
+      "value": 0.086
+    },
+    "preview": [
+      {
+        "target": "2001",
+        "value": 0.086,
+        "category": "Year",
+        "measure": "Percentage_of_Population"
+      }
+    ],
+    "targets_preview": [
+      "2001"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage_of_Population"
+  },
+  "warnings": []
+}

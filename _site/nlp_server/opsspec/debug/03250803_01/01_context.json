@@ -1,0 +1,155 @@
+{
+  "chart_context": {
+    "fields": [
+      "Season",
+      "Revenue_Type",
+      "Revenue_Million_Euros"
+    ],
+    "dimension_fields": [
+      "Season",
+      "Revenue_Type"
+    ],
+    "measure_fields": [
+      "Revenue_Million_Euros"
+    ],
+    "primary_dimension": "Season",
+    "primary_measure": "Revenue_Million_Euros",
+    "series_field": "Revenue_Type",
+    "categorical_values": {
+      "Season": [
+        "2015/16",
+        "2016/17",
+        "2017/18",
+        "2018/19",
+        "2019/20",
+        "2020/21"
+      ],
+      "Revenue_Type": [
+        "Broadcasting",
+        "Commercial",
+        "Matchday"
+      ]
+    },
+    "field_types": {
+      "Season": "categorical",
+      "Revenue_Type": "categorical",
+      "Revenue_Million_Euros": "numeric"
+    },
+    "numeric_stats": {
+      "Revenue_Million_Euros": {
+        "min": 391.0,
+        "max": 4133.0,
+        "mean": 1644.9444444444443
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Season",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_Euros",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Revenue_Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Season": "2015/16",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1090"
+    },
+    {
+      "Season": "2015/16",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "622"
+    },
+    {
+      "Season": "2015/16",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "1927"
+    },
+    {
+      "Season": "2016/17",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1168"
+    },
+    {
+      "Season": "2016/17",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "620"
+    },
+    {
+      "Season": "2016/17",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "2768"
+    },
+    {
+      "Season": "2017/18",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1305"
+    },
+    {
+      "Season": "2017/18",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "670"
+    },
+    {
+      "Season": "2017/18",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "2844"
+    },
+    {
+      "Season": "2018/19",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1592"
+    },
+    {
+      "Season": "2018/19",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "763"
+    },
+    {
+      "Season": "2018/19",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "3406"
+    },
+    {
+      "Season": "2019/20",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1731"
+    },
+    {
+      "Season": "2019/20",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "614"
+    },
+    {
+      "Season": "2019/20",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "2457"
+    },
+    {
+      "Season": "2020/21",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1508"
+    },
+    {
+      "Season": "2020/21",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "391"
+    },
+    {
+      "Season": "2020/21",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "4133"
+    }
+  ]
+}

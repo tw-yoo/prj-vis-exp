@@ -1,0 +1,172 @@
+{
+  "chart_context": {
+    "fields": [
+      "City",
+      "Year",
+      "Population in millions"
+    ],
+    "dimension_fields": [
+      "City",
+      "Year"
+    ],
+    "measure_fields": [
+      "Population in millions"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Population in millions",
+    "series_field": "Year",
+    "categorical_values": {
+      "City": [
+        "Calcutta",
+        "Delhi",
+        "Dhaka",
+        "Karachi",
+        "Mexico City",
+        "Mumbai",
+        "New York-Newark",
+        "Shanghai",
+        "São Paulo",
+        "Tokyo"
+      ],
+      "Year": [
+        "2010",
+        "2025"
+      ]
+    },
+    "field_types": {
+      "City": "categorical",
+      "Year": "categorical",
+      "Population in millions": "numeric"
+    },
+    "numeric_stats": {
+      "Population in millions": {
+        "min": 13.1,
+        "max": 37.1,
+        "mean": 21.61
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "City",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Population in millions",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "City": "Tokyo",
+      "Year": "2025",
+      "Population in millions": "37.1"
+    },
+    {
+      "City": "Tokyo",
+      "Year": "2010",
+      "Population in millions": "36.7"
+    },
+    {
+      "City": "Delhi",
+      "Year": "2025",
+      "Population in millions": "28.6"
+    },
+    {
+      "City": "Delhi",
+      "Year": "2010",
+      "Population in millions": "22.2"
+    },
+    {
+      "City": "São Paulo",
+      "Year": "2025",
+      "Population in millions": "21.7"
+    },
+    {
+      "City": "São Paulo",
+      "Year": "2010",
+      "Population in millions": "20.3"
+    },
+    {
+      "City": "Mumbai",
+      "Year": "2025",
+      "Population in millions": "25.8"
+    },
+    {
+      "City": "Mumbai",
+      "Year": "2010",
+      "Population in millions": "20"
+    },
+    {
+      "City": "Mexico City",
+      "Year": "2025",
+      "Population in millions": "20.7"
+    },
+    {
+      "City": "Mexico City",
+      "Year": "2010",
+      "Population in millions": "19.5"
+    },
+    {
+      "City": "New York-Newark",
+      "Year": "2025",
+      "Population in millions": "20.6"
+    },
+    {
+      "City": "New York-Newark",
+      "Year": "2010",
+      "Population in millions": "19.4"
+    },
+    {
+      "City": "Shanghai",
+      "Year": "2025",
+      "Population in millions": "20"
+    },
+    {
+      "City": "Shanghai",
+      "Year": "2010",
+      "Population in millions": "16.6"
+    },
+    {
+      "City": "Calcutta",
+      "Year": "2025",
+      "Population in millions": "20.1"
+    },
+    {
+      "City": "Calcutta",
+      "Year": "2010",
+      "Population in millions": "15.6"
+    },
+    {
+      "City": "Dhaka",
+      "Year": "2025",
+      "Population in millions": "20.9"
+    },
+    {
+      "City": "Dhaka",
+      "Year": "2010",
+      "Population in millions": "14.6"
+    },
+    {
+      "City": "Karachi",
+      "Year": "2025",
+      "Population in millions": "18.7"
+    },
+    {
+      "City": "Karachi",
+      "Year": "2010",
+      "Population in millions": "13.1"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "task": {
+    "taskId": "o5",
+    "op": "diff",
+    "sentenceIndex": 3,
+    "mention": "Calculate the difference between the two averages.",
+    "paramsHint": {
+      "field": "Installed base in million units",
+      "targetA": "ref:n2",
+      "targetB": "ref:n4",
+      "signed": false
+    }
+  },
+  "grounded_op_spec": {
+    "op": "diff",
+    "field": "Installed base in million units",
+    "targetA": "ref:n2",
+    "targetB": "ref:n4",
+    "signed": false
+  },
+  "scalar_ref_deps": [
+    "n2",
+    "n4"
+  ]
+}

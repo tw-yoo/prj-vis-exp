@@ -1,0 +1,60 @@
+{
+  "artifact": {
+    "count": 10,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Tokyo",
+      "group": "2025-2010",
+      "value": 0.3999999999999986
+    },
+    "preview": [
+      {
+        "target": "Calcutta",
+        "group": "2025-2010",
+        "value": 4.500000000000002,
+        "category": "City",
+        "measure": "Population in millions"
+      },
+      {
+        "target": "Delhi",
+        "group": "2025-2010",
+        "value": 6.400000000000002,
+        "category": "City",
+        "measure": "Population in millions"
+      },
+      {
+        "target": "Dhaka",
+        "group": "2025-2010",
+        "value": 6.299999999999999,
+        "category": "City",
+        "measure": "Population in millions"
+      },
+      {
+        "target": "Karachi",
+        "group": "2025-2010",
+        "value": 5.6,
+        "category": "City",
+        "measure": "Population in millions"
+      },
+      {
+        "target": "Mexico City",
+        "group": "2025-2010",
+        "value": 1.1999999999999993,
+        "category": "City",
+        "measure": "Population in millions"
+      }
+    ],
+    "targets_preview": [
+      "Calcutta",
+      "Delhi",
+      "Dhaka",
+      "Karachi",
+      "Mexico City"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Population in millions",
+    "series_field": "Year"
+  },
+  "warnings": []
+}

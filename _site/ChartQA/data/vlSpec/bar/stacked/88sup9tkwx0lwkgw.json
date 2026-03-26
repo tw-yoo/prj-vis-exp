@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 88sup9tkwx0lwkgw.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/88sup9tkwx0lwkgw.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Sales in million US dollars",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Region",
+      "type": "nominal"
+    }
+  }
+}

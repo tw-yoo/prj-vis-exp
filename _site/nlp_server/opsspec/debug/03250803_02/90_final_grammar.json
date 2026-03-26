@@ -1,0 +1,340 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Industry Sector",
+        "include": [
+          "Construction"
+        ]
+      },
+      {
+        "op": "findExtremum",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Share of SMEs",
+        "which": "max"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Industry Sector",
+      "Period",
+      "Share of SMEs"
+    ],
+    "dimension_fields": [
+      "Industry Sector",
+      "Period"
+    ],
+    "measure_fields": [
+      "Share of SMEs"
+    ],
+    "primary_dimension": "Period",
+    "primary_measure": "Share of SMEs",
+    "series_field": "Period",
+    "categorical_values": {
+      "Industry Sector": [
+        "Agriculture, Hunting and Forestry; Fishing",
+        "Construction",
+        "Health and Social work",
+        "Hotels and Restaurants",
+        "Manufacturing",
+        "Other Community, Social and Personal Service Activities",
+        "Real Estate, Renting and Business Activities",
+        "Transport, Storage and Communication",
+        "Wholesale and Retail Trade; Repairs"
+      ],
+      "Period": [
+        "Q2 2014",
+        "Q2 2015",
+        "Q2 2016",
+        "Q2 2017",
+        "Q2 2018",
+        "Q2 2019"
+      ]
+    },
+    "field_types": {
+      "Industry Sector": "categorical",
+      "Period": "categorical",
+      "Share of SMEs": "numeric"
+    },
+    "numeric_stats": {
+      "Share of SMEs": {
+        "min": 0.03,
+        "max": 0.22,
+        "mean": 0.09592592592592591
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "Industry Sector",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Share of SMEs",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Period",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Period",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Industry Sector",
+          "Period",
+          "Share of SMEs"
+        ],
+        "dimension_fields": [
+          "Industry Sector",
+          "Period"
+        ],
+        "measure_fields": [
+          "Share of SMEs"
+        ],
+        "primary_dimension": "Period",
+        "primary_measure": "Share of SMEs",
+        "series_field": "Period",
+        "categorical_values": {
+          "Industry Sector": [
+            "Agriculture, Hunting and Forestry; Fishing",
+            "Construction",
+            "Health and Social work",
+            "Hotels and Restaurants",
+            "Manufacturing",
+            "Other Community, Social and Personal Service Activities",
+            "Real Estate, Renting and Business Activities",
+            "Transport, Storage and Communication",
+            "Wholesale and Retail Trade; Repairs"
+          ],
+          "Period": [
+            "Q2 2014",
+            "Q2 2015",
+            "Q2 2016",
+            "Q2 2017",
+            "Q2 2018",
+            "Q2 2019"
+          ]
+        },
+        "field_types": {
+          "Industry Sector": "categorical",
+          "Period": "categorical",
+          "Share of SMEs": "numeric"
+        },
+        "numeric_stats": {
+          "Share of SMEs": {
+            "min": 0.03,
+            "max": 0.22,
+            "mean": 0.09592592592592591
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "column": {
+            "field": "Industry Sector",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Share of SMEs",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Period",
+            "type": "nominal"
+          },
+          "color": {
+            "field": "Period",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 40
+    },
+    "inventory": {
+      "tasks_count": 2,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "Compare the percentage values for all years in the construction sector to each other",
+          "paramsHint": {
+            "field": "Industry Sector",
+            "include": [
+              "Construction"
+            ]
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "findExtremum",
+          "sentenceIndex": 1,
+          "mention": "Compare the percentage values for all years in the construction sector to each other",
+          "paramsHint": {
+            "field": "Share of SMEs",
+            "which": "max"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Industry Sector",
+          "include": [
+            "Construction"
+          ]
+        },
+        "artifact": {
+          "count": 6,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Q2 2019",
+            "group": "Q2 2019",
+            "value": 0.22
+          },
+          "preview": [
+            {
+              "target": "Q2 2014",
+              "group": "Q2 2014",
+              "value": 0.1,
+              "category": "Period",
+              "measure": "Share of SMEs"
+            },
+            {
+              "target": "Q2 2015",
+              "group": "Q2 2015",
+              "value": 0.1,
+              "category": "Period",
+              "measure": "Share of SMEs"
+            },
+            {
+              "target": "Q2 2016",
+              "group": "Q2 2016",
+              "value": 0.07,
+              "category": "Period",
+              "measure": "Share of SMEs"
+            },
+            {
+              "target": "Q2 2017",
+              "group": "Q2 2017",
+              "value": 0.09,
+              "category": "Period",
+              "measure": "Share of SMEs"
+            },
+            {
+              "target": "Q2 2018",
+              "group": "Q2 2018",
+              "value": 0.13,
+              "category": "Period",
+              "measure": "Share of SMEs"
+            }
+          ],
+          "targets_preview": [
+            "Q2 2014",
+            "Q2 2015",
+            "Q2 2016",
+            "Q2 2017",
+            "Q2 2018"
+          ],
+          "primary_dimension": "Period",
+          "primary_measure": "Share of SMEs",
+          "series_field": "Period"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops",
+        "op": "findExtremum",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "findExtremum",
+          "field": "Share of SMEs",
+          "which": "max"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Q2 2019",
+            "group": "Q2 2019",
+            "value": 0.22
+          },
+          "preview": [
+            {
+              "target": "Q2 2019",
+              "group": "Q2 2019",
+              "value": 0.22,
+              "category": "Period",
+              "measure": "Share of SMEs"
+            }
+          ],
+          "targets_preview": [
+            "Q2 2019"
+          ],
+          "primary_dimension": "Period",
+          "primary_measure": "Share of SMEs",
+          "series_field": "Period"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 2
+      },
+      "warnings": []
+    }
+  }
+}

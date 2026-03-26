@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2017",
+      "group": "Tablets",
+      "value": 173.56
+    },
+    "preview": [
+      {
+        "target": "2017",
+        "group": "Tablets",
+        "value": 173.56,
+        "category": "Year",
+        "measure": "Installed_Base_Millions"
+      }
+    ],
+    "targets_preview": [
+      "2017"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Installed_Base_Millions",
+    "series_field": "Device_Type"
+  },
+  "warnings": []
+}

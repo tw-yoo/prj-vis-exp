@@ -1,0 +1,25 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2016",
+      "value": 3.74
+    },
+    "preview": [
+      {
+        "target": "2016",
+        "value": 3.74,
+        "category": "Year",
+        "measure": "Average price in US dollars"
+      }
+    ],
+    "targets_preview": [
+      "2016"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average price in US dollars"
+  },
+  "warnings": []
+}

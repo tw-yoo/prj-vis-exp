@@ -1,0 +1,96 @@
+{
+  "chart_context": {
+    "fields": [
+      "Month/Year",
+      "Fatality rate among plague cases"
+    ],
+    "dimension_fields": [
+      "Month/Year"
+    ],
+    "measure_fields": [
+      "Fatality rate among plague cases"
+    ],
+    "primary_dimension": "Month/Year",
+    "primary_measure": "Fatality rate among plague cases",
+    "categorical_values": {
+      "Month/Year": [
+        "Apr 1897",
+        "Average",
+        "Dec 1896",
+        "Feb 1897",
+        "Jan 1897",
+        "Mar 1897",
+        "May 1897",
+        "Nov 1896",
+        "Oct 1896",
+        "Sep 1896"
+      ]
+    },
+    "field_types": {
+      "Month/Year": "categorical",
+      "Fatality rate among plague cases": "numeric"
+    },
+    "numeric_stats": {
+      "Fatality rate among plague cases": {
+        "min": 0.3846,
+        "max": 0.8164,
+        "mean": 0.61986
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Fatality rate among plague cases",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Month/Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Month/Year": "Sep 1896",
+      "Fatality rate among plague cases": "0.5223"
+    },
+    {
+      "Month/Year": "Oct 1896",
+      "Fatality rate among plague cases": "0.5223"
+    },
+    {
+      "Month/Year": "Nov 1896",
+      "Fatality rate among plague cases": "0.6667"
+    },
+    {
+      "Month/Year": "Dec 1896",
+      "Fatality rate among plague cases": "0.7412"
+    },
+    {
+      "Month/Year": "Jan 1897",
+      "Fatality rate among plague cases": "0.69"
+    },
+    {
+      "Month/Year": "Feb 1897",
+      "Fatality rate among plague cases": "0.8164"
+    },
+    {
+      "Month/Year": "Mar 1897",
+      "Fatality rate among plague cases": "0.6735"
+    },
+    {
+      "Month/Year": "Apr 1897",
+      "Fatality rate among plague cases": "0.5666"
+    },
+    {
+      "Month/Year": "May 1897",
+      "Fatality rate among plague cases": "0.3846"
+    },
+    {
+      "Month/Year": "Average",
+      "Fatality rate among plague cases": "0.615"
+    }
+  ]
+}

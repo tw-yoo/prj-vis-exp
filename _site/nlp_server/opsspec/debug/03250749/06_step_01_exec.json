@@ -1,0 +1,60 @@
+{
+  "artifact": {
+    "count": 11,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2019",
+      "group": "Agriculture",
+      "value": 0.2426
+    },
+    "preview": [
+      {
+        "target": "2009",
+        "group": "Agriculture",
+        "value": 0.3132,
+        "category": "Year",
+        "measure": "Share_of_GDP"
+      },
+      {
+        "target": "2010",
+        "group": "Agriculture",
+        "value": 0.3318,
+        "category": "Year",
+        "measure": "Share_of_GDP"
+      },
+      {
+        "target": "2011",
+        "group": "Agriculture",
+        "value": 0.3498,
+        "category": "Year",
+        "measure": "Share_of_GDP"
+      },
+      {
+        "target": "2012",
+        "group": "Agriculture",
+        "value": 0.3315,
+        "category": "Year",
+        "measure": "Share_of_GDP"
+      },
+      {
+        "target": "2013",
+        "group": "Agriculture",
+        "value": 0.3153,
+        "category": "Year",
+        "measure": "Share_of_GDP"
+      }
+    ],
+    "targets_preview": [
+      "2009",
+      "2010",
+      "2011",
+      "2012",
+      "2013"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Share_of_GDP",
+    "series_field": "Sector"
+  },
+  "warnings": []
+}

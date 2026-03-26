@@ -1,0 +1,17 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "findExtremum",
+    "sentenceIndex": 2,
+    "mention": "Find the extremum (lowest)",
+    "paramsHint": {
+      "which": "min"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "Number of suicides",
+    "which": "min"
+  },
+  "scalar_ref_deps": []
+}

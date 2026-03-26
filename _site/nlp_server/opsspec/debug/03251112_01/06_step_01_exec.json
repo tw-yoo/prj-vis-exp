@@ -1,0 +1,60 @@
+{
+  "artifact": {
+    "count": 9,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2017",
+      "group": "Russia favorability in US-US favorability in Russia",
+      "value": -12.0
+    },
+    "preview": [
+      {
+        "target": "2007",
+        "group": "Russia favorability in US-US favorability in Russia",
+        "value": 3.0,
+        "category": "Year",
+        "measure": "Favorable_View_Percentage"
+      },
+      {
+        "target": "2009",
+        "group": "Russia favorability in US-US favorability in Russia",
+        "value": -1.0,
+        "category": "Year",
+        "measure": "Favorable_View_Percentage"
+      },
+      {
+        "target": "2010",
+        "group": "Russia favorability in US-US favorability in Russia",
+        "value": -8.0,
+        "category": "Year",
+        "measure": "Favorable_View_Percentage"
+      },
+      {
+        "target": "2011",
+        "group": "Russia favorability in US-US favorability in Russia",
+        "value": -7.0,
+        "category": "Year",
+        "measure": "Favorable_View_Percentage"
+      },
+      {
+        "target": "2012",
+        "group": "Russia favorability in US-US favorability in Russia",
+        "value": -15.0,
+        "category": "Year",
+        "measure": "Favorable_View_Percentage"
+      }
+    ],
+    "targets_preview": [
+      "2007",
+      "2009",
+      "2010",
+      "2011",
+      "2012"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Favorable_View_Percentage",
+    "series_field": "Country"
+  },
+  "warnings": []
+}

@@ -1,0 +1,26 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "find the top three values",
+    "paramsHint": {
+      "field": "Year",
+      "include": [
+        "2020",
+        "2019",
+        "2008"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Year",
+    "include": [
+      "2020",
+      "2019",
+      "2008"
+    ]
+  },
+  "scalar_ref_deps": []
+}

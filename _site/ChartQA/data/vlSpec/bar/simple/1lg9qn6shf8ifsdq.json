@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 1lg9qn6shf8ifsdq.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/1lg9qn6shf8ifsdq.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Listener hours in billions",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Time Period",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

@@ -1,0 +1,303 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "sort",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Average price in US dollars",
+        "order": "asc"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "nth",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "n": 2
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Average price in US dollars"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Average price in US dollars"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average price in US dollars",
+    "categorical_values": {
+      "Year": [
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020",
+        "2021"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Average price in US dollars": "numeric"
+    },
+    "numeric_stats": {
+      "Average price in US dollars": {
+        "min": 3.32,
+        "max": 5.45,
+        "mean": 4.4750000000000005
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Average price in US dollars",
+        "type": "quantitative"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "warnings": [
+    "step 2 attempt 1/3 failed with 6 feedback lines"
+  ],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Average price in US dollars"
+        ],
+        "dimension_fields": [
+          "Year"
+        ],
+        "measure_fields": [
+          "Average price in US dollars"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Average price in US dollars",
+        "categorical_values": {
+          "Year": [
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014",
+            "2015",
+            "2016",
+            "2017",
+            "2018",
+            "2019",
+            "2020",
+            "2021"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Average price in US dollars": "numeric"
+        },
+        "numeric_stats": {
+          "Average price in US dollars": {
+            "min": 3.32,
+            "max": 5.45,
+            "mean": 4.4750000000000005
+          }
+        },
+        "mark": "line",
+        "is_stacked": false,
+        "encoding_summary": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Average price in US dollars",
+            "type": "quantitative"
+          },
+          "tooltip": {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 12
+    },
+    "inventory": {
+      "tasks_count": 2,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "sort",
+          "sentenceIndex": 1,
+          "mention": "sort the values from lowest to highest",
+          "paramsHint": {
+            "field": "Average price in US dollars",
+            "order": "asc"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "nth",
+          "sentenceIndex": 2,
+          "mention": "find the second lowest",
+          "paramsHint": {
+            "n": 2,
+            "from": "ref:n1"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "sort",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "sort",
+          "field": "Average price in US dollars",
+          "order": "asc"
+        },
+        "artifact": {
+          "count": 12,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2013",
+            "value": 5.45
+          },
+          "preview": [
+            {
+              "target": "2010",
+              "value": 3.32,
+              "category": "Year",
+              "measure": "Average price in US dollars"
+            },
+            {
+              "target": "2011",
+              "value": 4.88,
+              "category": "Year",
+              "measure": "Average price in US dollars"
+            },
+            {
+              "target": "2012",
+              "value": 4.63,
+              "category": "Year",
+              "measure": "Average price in US dollars"
+            },
+            {
+              "target": "2013",
+              "value": 5.45,
+              "category": "Year",
+              "measure": "Average price in US dollars"
+            },
+            {
+              "target": "2014",
+              "value": 4.91,
+              "category": "Year",
+              "measure": "Average price in US dollars"
+            }
+          ],
+          "targets_preview": [
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Average price in US dollars"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "nth",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "nth",
+          "n": 2
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2016",
+            "value": 3.74
+          },
+          "preview": [
+            {
+              "target": "2016",
+              "value": 3.74,
+              "category": "Year",
+              "measure": "Average price in US dollars"
+            }
+          ],
+          "targets_preview": [
+            "2016"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Average price in US dollars"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1
+      },
+      "warnings": []
+    }
+  }
+}

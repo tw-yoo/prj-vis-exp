@@ -1,0 +1,21 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "data": {
+    "url": "survey/data/csv/line/multiple/line_multiple_203_396.csv"
+  },
+  "mark": "line",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "temporal"
+    },
+    "y": {
+      "field": "Passengers",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Type",
+      "type": "nominal"
+    }
+  }
+}

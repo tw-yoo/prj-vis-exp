@@ -1,0 +1,120 @@
+{
+  "request_id": "test_2o3fyauxv32p571i_05fc0081",
+  "question": "Which year had the second-lowest value?",
+  "explanation": "1. Sort  in ascending order by year\n2. find the second lowest",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Simple line chart for 2o3fyauxv32p571i.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/simple/2o3fyauxv32p571i.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal",
+            "axis": {
+              "title": "Year",
+              "labelAngle": 0,
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Operating_Profit_Margin",
+            "type": "quantitative",
+            "axis": {
+              "title": "Operating_Profit_Margin",
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 80,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Operating_Profit_Margin",
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "Year",
+              "type": "ordinal",
+              "title": "Year"
+            },
+            {
+              "field": "Operating_Profit_Margin",
+              "type": "quantitative",
+              "title": "Operating_Profit_Margin"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2013",
+      "Operating_Profit_Margin": "0.15"
+    },
+    {
+      "Year": "2014",
+      "Operating_Profit_Margin": "0.14"
+    },
+    {
+      "Year": "2015",
+      "Operating_Profit_Margin": "0.14"
+    },
+    {
+      "Year": "2016",
+      "Operating_Profit_Margin": "0.07"
+    },
+    {
+      "Year": "2017",
+      "Operating_Profit_Margin": "0.16"
+    },
+    {
+      "Year": "2018",
+      "Operating_Profit_Margin": "0.16"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

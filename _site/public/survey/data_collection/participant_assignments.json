@@ -1,0 +1,63 @@
+{
+  "TUTORIAL": [
+    "bar_simple_zztutorialsimplebar",
+    "bar_stacked_zztutorialstackedbar",
+    "line_simple_zztutorialsimpleline",
+    "line_multiple_zztutorialmultipleline"
+  ],
+  "ABCDEFG": [
+    "bar_simple_0a5npu4o61dz4r5f",
+    "bar_grouped_0bgcjlbz7nv5vnjc",
+    "line_simple_0cymcilknp8krjwz"
+  ],
+  "BBBBBB": [
+    "bar_simple_0v0l4wdbx7orkqz1",
+    "bar_stacked_14jud3ymyoonba4e",
+    "bar_grouped_0vw6ydim9cff8ji6",
+    "line_simple_5lhrulhnl0io2r81",
+    "line_multiple_2hjkdo5w242alvjd",
+
+    "bar_simple_0vmvmj77j3p6vcy7",
+    "bar_stacked_174uq759pluu079w",
+    "bar_grouped_0w5jptak9peti0mj",
+    "line_simple_5po479f2ju9lqv16",
+    "line_multiple_2kmpy10btl65kr2j",
+
+    "bar_simple_0vqxnzu0mpbz12ch",
+    "bar_stacked_19msoowya2szdynd",
+    "bar_grouped_0wgqpso2vnilpym6",
+    "line_simple_651x1l1swysyy6vp",
+    "line_multiple_2s65jcap9pn289qx",
+
+    "bar_simple_0vvz9mdgdiazke5o",
+    "bar_stacked_19xwo5oscmgpcdyl",
+    "bar_grouped_0xc7sx6ll8fl5rgh",
+    "line_simple_66va2s35es5t86l3",
+    "line_multiple_3tc31k5k2o6wmvyp"
+  ],
+  "DAGEWS": [
+    "bar_simple_1bv05pu9d8jnidty",
+    "bar_stacked_2bhsybiilde28j87",
+    "bar_grouped_1hokbw2gmzar9ye8",
+    "line_simple_82aqt0k0jnbj3irf",
+    "line_multiple_5p6g89v7l99aes05",
+
+    "bar_simple_1bywaj7stsb3060c",
+    "bar_stacked_2mi8b2r0oalayl6g",
+    "bar_grouped_1j7gx35h6i9mpi6j",
+    "line_simple_8chfa8n079zpfigi",
+    "line_multiple_5wpw8detqynmqv1s",
+
+    "bar_simple_1ce802l2rdg98d7d",
+    "bar_stacked_2n0g3tsz1rsz6fgr",
+    "bar_grouped_1jatwi94v2d8cr9u",
+    "line_simple_8e9wp443ff1i6snq",
+    "line_multiple_64ue1v00wj8vg48e",
+
+    "bar_simple_1dm30xw1gpjo8ke5",
+    "bar_stacked_2yech0pea1xihind",
+    "bar_grouped_1mzcynif2s4mm6ps",
+    "line_simple_8hiwwys6qkrbtapb",
+    "line_multiple_6ah60yba8o7rw0i9"
+  ]
+}

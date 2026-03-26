@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o6",
+    "op": "findExtremum",
+    "sentenceIndex": 3,
+    "mention": "Determine the smallest value between 2000 and 2009",
+    "paramsHint": {
+      "field": "Percentage_of_Population",
+      "which": "min"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "Percentage_of_Population",
+    "which": "min"
+  },
+  "scalar_ref_deps": []
+}

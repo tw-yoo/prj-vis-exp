@@ -1,0 +1,25 @@
+{
+  "task": {
+    "taskId": "o5",
+    "op": "diff",
+    "sentenceIndex": 5,
+    "mention": "Find the difference between the two computed values.",
+    "paramsHint": {
+      "field": "Revenue_Million_Euros",
+      "targetA": "ref:n2",
+      "targetB": "ref:n4",
+      "signed": true
+    }
+  },
+  "grounded_op_spec": {
+    "op": "diff",
+    "field": "Revenue_Million_Euros",
+    "targetA": "ref:n2",
+    "targetB": "ref:n4",
+    "signed": true
+  },
+  "scalar_ref_deps": [
+    "n2",
+    "n4"
+  ]
+}

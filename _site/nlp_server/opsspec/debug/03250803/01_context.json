@@ -1,0 +1,127 @@
+{
+  "chart_context": {
+    "fields": [
+      "Frequency",
+      "Race/Ethnicity",
+      "Share of respondents"
+    ],
+    "dimension_fields": [
+      "Frequency",
+      "Race/Ethnicity"
+    ],
+    "measure_fields": [
+      "Share of respondents"
+    ],
+    "primary_dimension": "Race/Ethnicity",
+    "primary_measure": "Share of respondents",
+    "series_field": "Race/Ethnicity",
+    "categorical_values": {
+      "Frequency": [
+        "Frequently (one or more times per month)",
+        "Infrequently (once a year or less)",
+        "Occasionally (less than once a month)"
+      ],
+      "Race/Ethnicity": [
+        "African–American",
+        "Hispanic",
+        "Other",
+        "White"
+      ]
+    },
+    "field_types": {
+      "Frequency": "categorical",
+      "Race/Ethnicity": "categorical",
+      "Share of respondents": "numeric"
+    },
+    "numeric_stats": {
+      "Share of respondents": {
+        "min": 0.12,
+        "max": 0.48,
+        "mean": 0.3333333333333333
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "Frequency",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Share of respondents",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Race/Ethnicity",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Race/Ethnicity",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Frequency": "Frequently (one or more times per month)",
+      "Race/Ethnicity": "White",
+      "Share of respondents": "0.12"
+    },
+    {
+      "Frequency": "Frequently (one or more times per month)",
+      "Race/Ethnicity": "Hispanic",
+      "Share of respondents": "0.27"
+    },
+    {
+      "Frequency": "Frequently (one or more times per month)",
+      "Race/Ethnicity": "African–American",
+      "Share of respondents": "0.22"
+    },
+    {
+      "Frequency": "Frequently (one or more times per month)",
+      "Race/Ethnicity": "Other",
+      "Share of respondents": "0.16"
+    },
+    {
+      "Frequency": "Occasionally (less than once a month)",
+      "Race/Ethnicity": "White",
+      "Share of respondents": "0.4"
+    },
+    {
+      "Frequency": "Occasionally (less than once a month)",
+      "Race/Ethnicity": "Hispanic",
+      "Share of respondents": "0.43"
+    },
+    {
+      "Frequency": "Occasionally (less than once a month)",
+      "Race/Ethnicity": "African–American",
+      "Share of respondents": "0.41"
+    },
+    {
+      "Frequency": "Occasionally (less than once a month)",
+      "Race/Ethnicity": "Other",
+      "Share of respondents": "0.47"
+    },
+    {
+      "Frequency": "Infrequently (once a year or less)",
+      "Race/Ethnicity": "White",
+      "Share of respondents": "0.48"
+    },
+    {
+      "Frequency": "Infrequently (once a year or less)",
+      "Race/Ethnicity": "Hispanic",
+      "Share of respondents": "0.3"
+    },
+    {
+      "Frequency": "Infrequently (once a year or less)",
+      "Race/Ethnicity": "African–American",
+      "Share of respondents": "0.37"
+    },
+    {
+      "Frequency": "Infrequently (once a year or less)",
+      "Race/Ethnicity": "Other",
+      "Share of respondents": "0.37"
+    }
+  ]
+}

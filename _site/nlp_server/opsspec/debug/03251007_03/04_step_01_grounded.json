@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "average",
+    "sentenceIndex": 1,
+    "mention": "Calculate the average value for all fiscal years",
+    "paramsHint": {
+      "field": "Number of days in thousands"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Number of days in thousands"
+  },
+  "scalar_ref_deps": []
+}

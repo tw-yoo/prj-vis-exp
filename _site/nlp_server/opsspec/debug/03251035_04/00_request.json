@@ -1,0 +1,142 @@
+{
+  "request_id": "test_0gf8ugj84bs1ko2k_164847bb",
+  "question": "What is the average value for each service area in the year when the data center's revenue was highest?",
+  "explanation": "1. Check the graph for the data center with the highest value.\n2. Check the value for each service area.\n3. Calculate the average.",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Stacked Bar chart for 0gf8ugj84bs1ko2k.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/stacked/0gf8ugj84bs1ko2k.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_USD",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Service_Area",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2016",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "602"
+    },
+    {
+      "Year": "2016",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "197"
+    },
+    {
+      "Year": "2016",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "602"
+    },
+    {
+      "Year": "2017",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "825"
+    },
+    {
+      "Year": "2017",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "275"
+    },
+    {
+      "Year": "2017",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "825"
+    },
+    {
+      "Year": "2018",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1047"
+    },
+    {
+      "Year": "2018",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "345"
+    },
+    {
+      "Year": "2018",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "998"
+    },
+    {
+      "Year": "2019",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1279"
+    },
+    {
+      "Year": "2019",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "407"
+    },
+    {
+      "Year": "2019",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "1154"
+    },
+    {
+      "Year": "2020",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1486"
+    },
+    {
+      "Year": "2020",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "461"
+    },
+    {
+      "Year": "2020",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "1286"
+    },
+    {
+      "Year": "2021",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1679"
+    },
+    {
+      "Year": "2021",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "514"
+    },
+    {
+      "Year": "2021",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "1437"
+    },
+    {
+      "Year": "2022",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1848"
+    },
+    {
+      "Year": "2022",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "564"
+    },
+    {
+      "Year": "2022",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "1545"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

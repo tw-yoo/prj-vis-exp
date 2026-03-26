@@ -1,0 +1,28 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "calculate the average of sep 1896 until dec 1896",
+    "paramsHint": {
+      "field": "Month/Year",
+      "include": [
+        "Sep 1896",
+        "Oct 1896",
+        "Nov 1896",
+        "Dec 1896"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Month/Year",
+    "include": [
+      "Sep 1896",
+      "Oct 1896",
+      "Nov 1896",
+      "Dec 1896"
+    ]
+  },
+  "scalar_ref_deps": []
+}

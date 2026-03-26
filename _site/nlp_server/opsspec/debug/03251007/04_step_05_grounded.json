@@ -1,0 +1,25 @@
+{
+  "task": {
+    "taskId": "o5",
+    "op": "compare",
+    "sentenceIndex": 2,
+    "mention": "find the maximum",
+    "paramsHint": {
+      "field": "Share of respondents",
+      "targetA": "ref:n2",
+      "targetB": "ref:n4",
+      "which": "max"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "compare",
+    "field": "Share of respondents",
+    "targetA": "ref:n2",
+    "targetB": "ref:n4",
+    "which": "max"
+  },
+  "scalar_ref_deps": [
+    "n2",
+    "n4"
+  ]
+}

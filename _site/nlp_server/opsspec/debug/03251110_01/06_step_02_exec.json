@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2022",
+      "group": "Mobile PCs",
+      "value": 244.43
+    },
+    "preview": [
+      {
+        "target": "2022",
+        "group": "Mobile PCs",
+        "value": 244.43,
+        "category": "Year",
+        "measure": "Installed_Base_Millions"
+      }
+    ],
+    "targets_preview": [
+      "2022"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Installed_Base_Millions",
+    "series_field": "Device_Type"
+  },
+  "warnings": []
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "encoding": {
+    "x": {
+      "field": "Country",
+      "type": "nominal",
+      "sort":null
+
+    },
+    "color": {
+      "field": "Product",
+      "type": "nominal"
+    },
+    "y": {
+      "field": "Exports in Million US Dollar",
+      "type": "quantitative"
+    }
+  },
+  "data": {
+    "url": "data/test/data/paper.csv"
+  },
+  "mark": "bar"
+}

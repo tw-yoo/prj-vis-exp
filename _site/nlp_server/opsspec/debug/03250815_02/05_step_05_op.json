@@ -1,0 +1,17 @@
+{
+  "op": "compare",
+  "id": "n5",
+  "meta": {
+    "nodeId": "n5",
+    "inputs": [
+      "n2",
+      "n4"
+    ],
+    "sentenceIndex": 2,
+    "source": "recursive_step=5;taskId=o5"
+  },
+  "field": "Share of respondents",
+  "targetA": "ref:n2",
+  "targetB": "ref:n4",
+  "which": "max"
+}

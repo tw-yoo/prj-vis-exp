@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Q2 2019",
+      "group": "Q2 2019",
+      "value": 0.22
+    },
+    "preview": [
+      {
+        "target": "Q2 2019",
+        "group": "Q2 2019",
+        "value": 0.22,
+        "category": "Period",
+        "measure": "Share of SMEs"
+      }
+    ],
+    "targets_preview": [
+      "Q2 2019"
+    ],
+    "primary_dimension": "Period",
+    "primary_measure": "Share of SMEs",
+    "series_field": "Period"
+  },
+  "warnings": []
+}

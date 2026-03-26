@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__scale__",
+      "value": 613.3333333333333
+    },
+    "preview": [
+      {
+        "target": "__scale__",
+        "value": 613.3333333333333,
+        "category": "result",
+        "measure": "Revenue_Million_Euros"
+      }
+    ],
+    "primary_dimension": "Season",
+    "primary_measure": "Revenue_Million_Euros",
+    "series_field": "Revenue_Type"
+  },
+  "warnings": []
+}

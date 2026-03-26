@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "retrieveValue",
+    "sentenceIndex": 2,
+    "mention": "Check the value for each service area.",
+    "paramsHint": {
+      "field": "Revenue_Million_USD",
+      "target": "ref:n1"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "retrieveValue",
+    "field": "Year",
+    "target": "ref:n1"
+  },
+  "scalar_ref_deps": [
+    "n1"
+  ]
+}

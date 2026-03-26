@@ -1,0 +1,133 @@
+{
+  "stage": "step_retry_exhausted",
+  "step": 3,
+  "errors": [
+    "[Attempt 3/3 FAILED — fix and retry]",
+    "[Type: Semantic] A semantic or contract constraint was violated.",
+    "[Detail] compare meta.inputs에 정확히 2개의 nodeId가 필요합니다 (현재 1개)",
+    "[Action Required] Fix the specific issue above and return valid JSON only.",
+    "[Selected Task] taskId=o3, op=compare",
+    "[Constraint] Do not select taskId in output. Compose op_spec/inputs for the selected task only."
+  ],
+  "attempts": 3,
+  "selected_task": {
+    "taskId": "o3",
+    "op": "compare",
+    "sentenceIndex": 2,
+    "mention": "find the year which has the bigger difference",
+    "paramsHint": {
+      "field": "Percentage",
+      "targetA": "2002",
+      "targetB": "2017",
+      "which": "max"
+    }
+  },
+  "remaining_tasks": [
+    {
+      "taskId": "o3",
+      "op": "compare",
+      "sentenceIndex": 2,
+      "mention": "find the year which has the bigger difference",
+      "paramsHint": {
+        "field": "Percentage",
+        "targetA": "2002",
+        "targetB": "2017",
+        "which": "max"
+      }
+    }
+  ],
+  "executed_nodes": [
+    {
+      "nodeId": "n1",
+      "op": "filter",
+      "sentenceIndex": 1,
+      "groupName": "ops",
+      "artifact": {
+        "count": 4,
+        "kind": "table",
+        "scalarRefOk": false,
+        "last": {
+          "target": "2017",
+          "group": "Satisfied",
+          "value": 13.0
+        },
+        "preview": [
+          {
+            "target": "2002",
+            "group": "Dissatisfied",
+            "value": 79.0,
+            "category": "Year",
+            "measure": "Percentage"
+          },
+          {
+            "target": "2017",
+            "group": "Dissatisfied",
+            "value": 85.0,
+            "category": "Year",
+            "measure": "Percentage"
+          },
+          {
+            "target": "2002",
+            "group": "Satisfied",
+            "value": 16.0,
+            "category": "Year",
+            "measure": "Percentage"
+          },
+          {
+            "target": "2017",
+            "group": "Satisfied",
+            "value": 13.0,
+            "category": "Year",
+            "measure": "Percentage"
+          }
+        ],
+        "targets_preview": [
+          "2002",
+          "2017"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Percentage",
+        "series_field": "Opinion"
+      }
+    },
+    {
+      "nodeId": "n2",
+      "op": "pairDiff",
+      "sentenceIndex": 1,
+      "groupName": "ops",
+      "artifact": {
+        "count": 2,
+        "kind": "table",
+        "scalarRefOk": false,
+        "last": {
+          "target": "2017",
+          "group": "Dissatisfied-Satisfied",
+          "value": 72.0
+        },
+        "preview": [
+          {
+            "target": "2002",
+            "group": "Dissatisfied-Satisfied",
+            "value": 63.0,
+            "category": "Year",
+            "measure": "Percentage"
+          },
+          {
+            "target": "2017",
+            "group": "Dissatisfied-Satisfied",
+            "value": 72.0,
+            "category": "Year",
+            "measure": "Percentage"
+          }
+        ],
+        "targets_preview": [
+          "2002",
+          "2017"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Percentage",
+        "series_field": "Opinion"
+      }
+    }
+  ]
+}

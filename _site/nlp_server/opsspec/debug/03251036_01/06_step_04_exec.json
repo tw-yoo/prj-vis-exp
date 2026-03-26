@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__avg__",
+      "value": 51.5
+    },
+    "preview": [
+      {
+        "target": "__avg__",
+        "value": 51.5,
+        "category": "result",
+        "measure": "Share_of_Respondents"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Share_of_Respondents",
+    "series_field": "Rating"
+  },
+  "warnings": []
+}

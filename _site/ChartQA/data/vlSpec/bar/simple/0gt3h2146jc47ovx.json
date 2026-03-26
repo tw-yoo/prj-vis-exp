@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0gt3h2146jc47ovx.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0gt3h2146jc47ovx.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Share of composites(%)",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Components",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

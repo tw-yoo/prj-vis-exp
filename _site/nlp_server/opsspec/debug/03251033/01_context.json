@@ -1,0 +1,155 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Device_Type",
+      "Installed_Base_Millions"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Device_Type"
+    ],
+    "measure_fields": [
+      "Installed_Base_Millions"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Installed_Base_Millions",
+    "series_field": "Device_Type",
+    "categorical_values": {
+      "Year": [
+        "2017",
+        "2018",
+        "2019",
+        "2020",
+        "2021",
+        "2022"
+      ],
+      "Device_Type": [
+        "Desktop PCs",
+        "Mobile PCs",
+        "Tablets"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Device_Type": "categorical",
+      "Installed_Base_Millions": "numeric"
+    },
+    "numeric_stats": {
+      "Installed_Base_Millions": {
+        "min": 61.76,
+        "max": 244.43,
+        "mean": 162.98555555555555
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Installed_Base_Millions",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Device_Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2017",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "89.64"
+    },
+    {
+      "Year": "2017",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "218.85"
+    },
+    {
+      "Year": "2017",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "173.56"
+    },
+    {
+      "Year": "2018",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "84.46"
+    },
+    {
+      "Year": "2018",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "225.26"
+    },
+    {
+      "Year": "2018",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "178.51"
+    },
+    {
+      "Year": "2019",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "78.9"
+    },
+    {
+      "Year": "2019",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "231.67"
+    },
+    {
+      "Year": "2019",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "180.57"
+    },
+    {
+      "Year": "2020",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "73.16"
+    },
+    {
+      "Year": "2020",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "237.2"
+    },
+    {
+      "Year": "2020",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "181.57"
+    },
+    {
+      "Year": "2021",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "67.4"
+    },
+    {
+      "Year": "2021",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "241.42"
+    },
+    {
+      "Year": "2021",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "182.27"
+    },
+    {
+      "Year": "2022",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "61.76"
+    },
+    {
+      "Year": "2022",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "244.43"
+    },
+    {
+      "Year": "2022",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "183.11"
+    }
+  ]
+}

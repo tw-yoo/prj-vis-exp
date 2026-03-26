@@ -1,0 +1,22 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__avg__",
+      "value": 114.0
+    },
+    "preview": [
+      {
+        "target": "__avg__",
+        "value": 114.0,
+        "category": "result",
+        "measure": "Installed base in million units"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Installed base in million units"
+  },
+  "warnings": []
+}

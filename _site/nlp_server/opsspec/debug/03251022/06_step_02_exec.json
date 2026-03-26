@@ -1,0 +1,52 @@
+{
+  "artifact": {
+    "count": 4,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Jan-Oct 2019",
+      "group": "South Korea-France",
+      "value": 0.065
+    },
+    "preview": [
+      {
+        "target": "2016",
+        "group": "South Korea-France",
+        "value": 0.035999999999999976,
+        "category": "Period",
+        "measure": "Share_of_Import_Value"
+      },
+      {
+        "target": "2017",
+        "group": "South Korea-France",
+        "value": 0.07799999999999999,
+        "category": "Period",
+        "measure": "Share_of_Import_Value"
+      },
+      {
+        "target": "2018",
+        "group": "South Korea-France",
+        "value": 0.11099999999999999,
+        "category": "Period",
+        "measure": "Share_of_Import_Value"
+      },
+      {
+        "target": "Jan-Oct 2019",
+        "group": "South Korea-France",
+        "value": 0.065,
+        "category": "Period",
+        "measure": "Share_of_Import_Value"
+      }
+    ],
+    "targets_preview": [
+      "2016",
+      "2017",
+      "2018",
+      "Jan-Oct 2019"
+    ],
+    "primary_dimension": "Period",
+    "primary_measure": "Share_of_Import_Value",
+    "series_field": "Country"
+  },
+  "warnings": []
+}

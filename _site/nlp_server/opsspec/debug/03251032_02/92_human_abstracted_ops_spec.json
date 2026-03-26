@@ -1,0 +1,31 @@
+{
+  "ops": [
+    {
+      "op": "pairDiff",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "by": "Year",
+      "seriesField": "Opinion",
+      "field": "Percentage",
+      "groupA": "Favor",
+      "groupB": "Oppose",
+      "signed": true,
+      "absolute": false
+    }
+  ],
+  "ops2": [
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Percentage",
+      "which": "max"
+    }
+  ]
+}

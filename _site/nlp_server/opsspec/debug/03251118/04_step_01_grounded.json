@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "findExtremum",
+    "sentenceIndex": 1,
+    "mention": "Check the graph for the data center with the highest value.",
+    "paramsHint": {
+      "field": "Revenue_Million_USD",
+      "group": "Data Centers",
+      "which": "max"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "Revenue_Million_USD",
+    "group": "Data Centers",
+    "which": "max"
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,187 @@
+{
+  "request_id": "test_11e148qcs7x70t8v_8eb36bb8",
+  "question": "in which years does south korea have a bigger value than france?",
+  "explanation": "1. Get difference between south korea and france in every year\n2. Filter the year with a positive value",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Stacked Bar chart for 11e148qcs7x70t8v.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/stacked/11e148qcs7x70t8v.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {
+        "field": "Period",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Share_of_Import_Value",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Country",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Period": "2014",
+      "Country": "UK",
+      "Share_of_Import_Value": "0.084"
+    },
+    {
+      "Period": "2014",
+      "Country": "US",
+      "Share_of_Import_Value": "0.15"
+    },
+    {
+      "Period": "2014",
+      "Country": "France",
+      "Share_of_Import_Value": "0.368"
+    },
+    {
+      "Period": "2014",
+      "Country": "South Korea",
+      "Share_of_Import_Value": "0.106"
+    },
+    {
+      "Period": "2014",
+      "Country": "Japan",
+      "Share_of_Import_Value": "0.163"
+    },
+    {
+      "Period": "2015",
+      "Country": "UK",
+      "Share_of_Import_Value": "0.061"
+    },
+    {
+      "Period": "2015",
+      "Country": "US",
+      "Share_of_Import_Value": "0.111"
+    },
+    {
+      "Period": "2015",
+      "Country": "France",
+      "Share_of_Import_Value": "0.285"
+    },
+    {
+      "Period": "2015",
+      "Country": "South Korea",
+      "Share_of_Import_Value": "0.245"
+    },
+    {
+      "Period": "2015",
+      "Country": "Japan",
+      "Share_of_Import_Value": "0.161"
+    },
+    {
+      "Period": "2016",
+      "Country": "UK",
+      "Share_of_Import_Value": "0.068"
+    },
+    {
+      "Period": "2016",
+      "Country": "US",
+      "Share_of_Import_Value": "0.099"
+    },
+    {
+      "Period": "2016",
+      "Country": "France",
+      "Share_of_Import_Value": "0.251"
+    },
+    {
+      "Period": "2016",
+      "Country": "South Korea",
+      "Share_of_Import_Value": "0.287"
+    },
+    {
+      "Period": "2016",
+      "Country": "Japan",
+      "Share_of_Import_Value": "0.173"
+    },
+    {
+      "Period": "2017",
+      "Country": "UK",
+      "Share_of_Import_Value": "0.05"
+    },
+    {
+      "Period": "2017",
+      "Country": "US",
+      "Share_of_Import_Value": "0.098"
+    },
+    {
+      "Period": "2017",
+      "Country": "France",
+      "Share_of_Import_Value": "0.21"
+    },
+    {
+      "Period": "2017",
+      "Country": "South Korea",
+      "Share_of_Import_Value": "0.288"
+    },
+    {
+      "Period": "2017",
+      "Country": "Japan",
+      "Share_of_Import_Value": "0.221"
+    },
+    {
+      "Period": "2018",
+      "Country": "UK",
+      "Share_of_Import_Value": "0.047"
+    },
+    {
+      "Period": "2018",
+      "Country": "US",
+      "Share_of_Import_Value": "0.093"
+    },
+    {
+      "Period": "2018",
+      "Country": "France",
+      "Share_of_Import_Value": "0.177"
+    },
+    {
+      "Period": "2018",
+      "Country": "South Korea",
+      "Share_of_Import_Value": "0.288"
+    },
+    {
+      "Period": "2018",
+      "Country": "Japan",
+      "Share_of_Import_Value": "0.247"
+    },
+    {
+      "Period": "Jan-Oct 2019",
+      "Country": "UK",
+      "Share_of_Import_Value": "0.057"
+    },
+    {
+      "Period": "Jan-Oct 2019",
+      "Country": "US",
+      "Share_of_Import_Value": "0.097"
+    },
+    {
+      "Period": "Jan-Oct 2019",
+      "Country": "France",
+      "Share_of_Import_Value": "0.187"
+    },
+    {
+      "Period": "Jan-Oct 2019",
+      "Country": "South Korea",
+      "Share_of_Import_Value": "0.252"
+    },
+    {
+      "Period": "Jan-Oct 2019",
+      "Country": "Japan",
+      "Share_of_Import_Value": "0.255"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

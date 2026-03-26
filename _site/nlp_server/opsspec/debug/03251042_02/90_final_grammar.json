@@ -1,0 +1,597 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Year",
+        "include": [
+          "2008",
+          "2019",
+          "2020"
+        ]
+      }
+    ],
+    "ops2": [
+      {
+        "op": "average",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Production in million liters"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Year",
+        "include": [
+          "1995",
+          "2000",
+          "2005"
+        ]
+      }
+    ],
+    "ops4": [
+      {
+        "op": "average",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 4,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "field": "Production in million liters"
+      }
+    ],
+    "ops5": [
+      {
+        "op": "scale",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n4"
+          ],
+          "sentenceIndex": 5,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=5;taskId=o5"
+        },
+        "target": "ref:n4",
+        "factor": 2.0
+      }
+    ],
+    "ops6": [
+      {
+        "op": "compareBool",
+        "id": "n6",
+        "meta": {
+          "nodeId": "n6",
+          "inputs": [
+            "n2",
+            "n5"
+          ],
+          "sentenceIndex": 6,
+          "view": {
+            "phase": 4
+          },
+          "source": "recursive_step=6;taskId=o6"
+        },
+        "targetA": "ref:n2",
+        "targetB": "ref:n5",
+        "operator": ">"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Production in million liters"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Production in million liters"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in million liters",
+    "categorical_values": {
+      "Year": [
+        "1995",
+        "2000",
+        "2005",
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Production in million liters": "numeric"
+    },
+    "numeric_stats": {
+      "Production in million liters": {
+        "min": 104.3,
+        "max": 374.0,
+        "mean": 257.34444444444443
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Production in million liters",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Production in million liters"
+        ],
+        "dimension_fields": [
+          "Year"
+        ],
+        "measure_fields": [
+          "Production in million liters"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Production in million liters",
+        "categorical_values": {
+          "Year": [
+            "1995",
+            "2000",
+            "2005",
+            "2006",
+            "2007",
+            "2008",
+            "2009",
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014",
+            "2015",
+            "2016",
+            "2017",
+            "2018",
+            "2019",
+            "2020"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Production in million liters": "numeric"
+        },
+        "numeric_stats": {
+          "Production in million liters": {
+            "min": 104.3,
+            "max": 374.0,
+            "mean": 257.34444444444443
+          }
+        },
+        "mark": "bar",
+        "is_stacked": false,
+        "encoding_summary": {
+          "y": {
+            "field": "Production in million liters",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Year",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 18
+    },
+    "inventory": {
+      "tasks_count": 6,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "find the top three values",
+          "paramsHint": {
+            "field": "Year",
+            "include": [
+              "2020",
+              "2019",
+              "2008"
+            ]
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "average",
+          "sentenceIndex": 2,
+          "mention": "calculate the average",
+          "paramsHint": {
+            "field": "Production in million liters"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "filter",
+          "sentenceIndex": 3,
+          "mention": "find the lowest three values",
+          "paramsHint": {
+            "field": "Year",
+            "include": [
+              "1995",
+              "2000",
+              "2005"
+            ]
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "average",
+          "sentenceIndex": 4,
+          "mention": "calculate the average",
+          "paramsHint": {
+            "field": "Production in million liters"
+          }
+        },
+        {
+          "taskId": "o5",
+          "op": "scale",
+          "sentenceIndex": 5,
+          "mention": "double the lowest average",
+          "paramsHint": {
+            "target": "ref:n4",
+            "factor": 2.0
+          }
+        },
+        {
+          "taskId": "o6",
+          "op": "compareBool",
+          "sentenceIndex": 6,
+          "mention": "compare the two values to find which one is bigger",
+          "paramsHint": {
+            "operator": ">",
+            "targetA": "ref:n2",
+            "targetB": "ref:n5"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Year",
+          "include": [
+            "2020",
+            "2019",
+            "2008"
+          ]
+        },
+        "artifact": {
+          "count": 3,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2020",
+            "value": 374.0
+          },
+          "preview": [
+            {
+              "target": "2008",
+              "value": 312.1,
+              "category": "Year",
+              "measure": "Production in million liters"
+            },
+            {
+              "target": "2019",
+              "value": 351.7,
+              "category": "Year",
+              "measure": "Production in million liters"
+            },
+            {
+              "target": "2020",
+              "value": 374.0,
+              "category": "Year",
+              "measure": "Production in million liters"
+            }
+          ],
+          "targets_preview": [
+            "2008",
+            "2019",
+            "2020"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million liters"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "average",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Production in million liters"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 345.93333333333334
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 345.93333333333334,
+              "category": "result",
+              "measure": "Production in million liters"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million liters"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops3",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Year",
+          "include": [
+            "1995",
+            "2000",
+            "2005"
+          ]
+        },
+        "artifact": {
+          "count": 3,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2005",
+            "value": 209.7
+          },
+          "preview": [
+            {
+              "target": "1995",
+              "value": 104.3,
+              "category": "Year",
+              "measure": "Production in million liters"
+            },
+            {
+              "target": "2000",
+              "value": 181.6,
+              "category": "Year",
+              "measure": "Production in million liters"
+            },
+            {
+              "target": "2005",
+              "value": 209.7,
+              "category": "Year",
+              "measure": "Production in million liters"
+            }
+          ],
+          "targets_preview": [
+            "1995",
+            "2000",
+            "2005"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million liters"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops4",
+        "op": "average",
+        "inputs": [
+          "n3"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Production in million liters"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 165.2
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 165.2,
+              "category": "result",
+              "measure": "Production in million liters"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million liters"
+        },
+        "warnings": []
+      },
+      {
+        "step": 5,
+        "taskId": "o5",
+        "nodeId": "n5",
+        "groupName": "ops5",
+        "op": "scale",
+        "inputs": [
+          "n4"
+        ],
+        "scalarRefs": [
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "scale",
+          "factor": 2.0,
+          "target": "ref:n4"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__scale__",
+            "value": 330.4
+          },
+          "preview": [
+            {
+              "target": "__scale__",
+              "value": 330.4,
+              "category": "result",
+              "measure": "Production in million liters"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million liters"
+        },
+        "warnings": []
+      },
+      {
+        "step": 6,
+        "taskId": "o6",
+        "nodeId": "n6",
+        "groupName": "ops6",
+        "op": "compareBool",
+        "inputs": [
+          "n2",
+          "n5"
+        ],
+        "scalarRefs": [
+          "n2",
+          "n5"
+        ],
+        "grounded_op_spec": {
+          "op": "compareBool",
+          "operator": ">",
+          "targetA": "ref:n2",
+          "targetB": "ref:n5"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__compareBool__",
+            "value": 1.0
+          },
+          "preview": [
+            {
+              "target": "__compareBool__",
+              "value": 1.0,
+              "category": "result",
+              "measure": "Production in million liters"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million liters"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1,
+        "ops3": 1,
+        "ops4": 1,
+        "ops5": 1,
+        "ops6": 1
+      },
+      "warnings": []
+    }
+  }
+}

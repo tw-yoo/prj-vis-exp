@@ -1,0 +1,67 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "title": {
+    "text": "Obesity Share by Age Group Across Periods",
+    "fontSize": 26,
+    "anchor": "middle"
+  },
+  "description": "Grouped bar chart for 0bgcjlbz7nv5vnjc.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/0bgcjlbz7nv5vnjc.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Period",
+      "type": "ordinal",
+      "header": {
+        "labelOrient": "bottom",
+        "labelPadding": 10,
+        "labelFontSize": 16,
+        "titleOrient": "top",
+        "titleFontSize": 20,
+        "title": "Period"
+      }
+    },
+    "y": {
+      "field": "SharePercentage",
+      "type": "quantitative",
+      "axis": {
+        "grid": false,
+        "title": "Share (%)",
+        "labelFontSize": 16,
+        "titleFontSize": 20,
+        "titlePadding": 10
+      }
+    },
+    "x": {
+      "field": "AgeGroup",
+      "type": "nominal",
+      "axis": {
+        "title": "",
+        "labelAngle": -45,
+        "labelAlign": "right",
+        "labelBaseline": "middle",
+        "labelPadding": 5,
+        "labelFontSize": 16
+      }
+    },
+    "color": {
+      "field": "AgeGroup",
+      "type": "nominal",
+      "legend": {
+        "title": "Age Group",
+        "titleFontSize": 18,
+        "labelFontSize": 16
+      }
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

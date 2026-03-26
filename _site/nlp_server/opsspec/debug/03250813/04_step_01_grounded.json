@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "get the all values from the agriculture sector",
+    "paramsHint": {
+      "group": "Agriculture"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "group": "Agriculture"
+  },
+  "scalar_ref_deps": []
+}

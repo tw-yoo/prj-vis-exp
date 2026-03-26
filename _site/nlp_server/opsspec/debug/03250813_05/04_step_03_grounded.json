@@ -1,0 +1,22 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "filter",
+    "sentenceIndex": 2,
+    "mention": "Counting the number of values above 3550 on the Girls graph",
+    "paramsHint": {
+      "field": "Average weight in metric grams",
+      "operator": ">",
+      "value": 3550,
+      "group": "Girls"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Average weight in metric grams",
+    "operator": ">",
+    "value": 3550,
+    "group": "Girls"
+  },
+  "scalar_ref_deps": []
+}

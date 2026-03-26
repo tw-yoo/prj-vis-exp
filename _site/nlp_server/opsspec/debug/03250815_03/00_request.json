@@ -1,0 +1,127 @@
+{
+  "request_id": "test_004fhteah0l9kud2_17d1aa83",
+  "question": "What is the difference between the average of Commercial and the average of Matchday?",
+  "explanation": "1. Add all the Commercial values for each year.\n2. Divide the value by six.\n3. Add all the values of the matchday for each year.\n4. Divide the value by six.\n5. Find the difference between the two computed values.",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Stacked Bar chart for 004fhteah0l9kud2.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/stacked/004fhteah0l9kud2.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {
+        "field": "Season",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_Euros",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Revenue_Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Season": "2015/16",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1090"
+    },
+    {
+      "Season": "2015/16",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "622"
+    },
+    {
+      "Season": "2015/16",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "1927"
+    },
+    {
+      "Season": "2016/17",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1168"
+    },
+    {
+      "Season": "2016/17",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "620"
+    },
+    {
+      "Season": "2016/17",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "2768"
+    },
+    {
+      "Season": "2017/18",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1305"
+    },
+    {
+      "Season": "2017/18",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "670"
+    },
+    {
+      "Season": "2017/18",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "2844"
+    },
+    {
+      "Season": "2018/19",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1592"
+    },
+    {
+      "Season": "2018/19",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "763"
+    },
+    {
+      "Season": "2018/19",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "3406"
+    },
+    {
+      "Season": "2019/20",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1731"
+    },
+    {
+      "Season": "2019/20",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "614"
+    },
+    {
+      "Season": "2019/20",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "2457"
+    },
+    {
+      "Season": "2020/21",
+      "Revenue_Type": "Commercial",
+      "Revenue_Million_Euros": "1508"
+    },
+    {
+      "Season": "2020/21",
+      "Revenue_Type": "Matchday",
+      "Revenue_Million_Euros": "391"
+    },
+    {
+      "Season": "2020/21",
+      "Revenue_Type": "Broadcasting",
+      "Revenue_Million_Euros": "4133"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

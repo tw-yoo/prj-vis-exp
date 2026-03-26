@@ -1,0 +1,291 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "sum",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Number of suicides"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "findExtremum",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Number of suicides",
+        "which": "min"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Age Group",
+      "Number of suicides"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Age Group"
+    ],
+    "measure_fields": [
+      "Number of suicides"
+    ],
+    "primary_dimension": "Age Group",
+    "primary_measure": "Number of suicides",
+    "series_field": "Age Group",
+    "categorical_values": {
+      "Year": [
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019"
+      ],
+      "Age Group": [
+        "0–19 years",
+        "20–39 years",
+        "40–64 years",
+        "65 years and older"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Age Group": "categorical",
+      "Number of suicides": "numeric"
+    },
+    "numeric_stats": {
+      "Number of suicides": {
+        "min": 22.0,
+        "max": 517.0,
+        "mean": 212.4318181818182
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Number of suicides",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Age Group",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Age Group",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Age Group",
+          "Number of suicides"
+        ],
+        "dimension_fields": [
+          "Year",
+          "Age Group"
+        ],
+        "measure_fields": [
+          "Number of suicides"
+        ],
+        "primary_dimension": "Age Group",
+        "primary_measure": "Number of suicides",
+        "series_field": "Age Group",
+        "categorical_values": {
+          "Year": [
+            "2009",
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014",
+            "2015",
+            "2016",
+            "2017",
+            "2018",
+            "2019"
+          ],
+          "Age Group": [
+            "0–19 years",
+            "20–39 years",
+            "40–64 years",
+            "65 years and older"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Age Group": "categorical",
+          "Number of suicides": "numeric"
+        },
+        "numeric_stats": {
+          "Number of suicides": {
+            "min": 22.0,
+            "max": 517.0,
+            "mean": 212.4318181818182
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "column": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Number of suicides",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Age Group",
+            "type": "nominal"
+          },
+          "color": {
+            "field": "Age Group",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 40
+    },
+    "inventory": {
+      "tasks_count": 2,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "sum",
+          "sentenceIndex": 1,
+          "mention": "Sum of all the age ranges for every year",
+          "paramsHint": {
+            "field": "Number of suicides"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "findExtremum",
+          "sentenceIndex": 2,
+          "mention": "Find the extremum (lowest)",
+          "paramsHint": {
+            "which": "min"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "sum",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "sum",
+          "field": "Number of suicides"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "value": 9347.0
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "value": 9347.0,
+              "category": "result",
+              "measure": "Number of suicides"
+            }
+          ],
+          "primary_dimension": "Age Group",
+          "primary_measure": "Number of suicides",
+          "series_field": "Age Group"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "findExtremum",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "findExtremum",
+          "field": "Number of suicides",
+          "which": "min"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "value": 9347.0
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "value": 9347.0,
+              "category": "result",
+              "measure": "Number of suicides"
+            }
+          ],
+          "primary_dimension": "Age Group",
+          "primary_measure": "Number of suicides",
+          "series_field": "Age Group"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1
+      },
+      "warnings": []
+    }
+  }
+}

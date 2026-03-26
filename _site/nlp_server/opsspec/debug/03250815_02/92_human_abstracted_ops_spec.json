@@ -1,0 +1,64 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Frequency",
+      "include": [
+        "Occasionally (less than once a month)"
+      ]
+    },
+    {
+      "op": "sum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 1
+      },
+      "field": "Share of respondents"
+    },
+    {
+      "op": "filter",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": [], "sentenceIndex": 1 },
+      "field": "Frequency",
+      "include": [
+        "Infrequently (once a year or less)"
+      ]
+    },
+    {
+      "op": "sum",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n3"
+        ],
+        "sentenceIndex": 1
+      },
+      "field": "Share of respondents"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "compare",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Share of respondents",
+      "targetA": "ref:n2",
+      "targetB": "ref:n4",
+      "which": "max"
+    }
+  ]
+}

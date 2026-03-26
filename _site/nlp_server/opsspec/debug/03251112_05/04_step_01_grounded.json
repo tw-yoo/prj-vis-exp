@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "Check the values for each year's Poor",
+    "paramsHint": {
+      "group": "Poor"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "group": "Poor"
+  },
+  "scalar_ref_deps": []
+}

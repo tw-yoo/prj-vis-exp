@@ -1,0 +1,19 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "retrieveValue",
+    "sentenceIndex": 2,
+    "mention": "Check Confidence in U.S. present value corresponding to section 1",
+    "paramsHint": {
+      "field": "Percentage",
+      "group": "Confidence in US president"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "retrieveValue",
+    "field": "Percentage",
+    "group": "Confidence in US president",
+    "target": "2009"
+  },
+  "scalar_ref_deps": []
+}

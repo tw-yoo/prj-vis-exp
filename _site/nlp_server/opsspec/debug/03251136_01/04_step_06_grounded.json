@@ -1,0 +1,25 @@
+{
+  "task": {
+    "taskId": "o6",
+    "op": "diff",
+    "sentenceIndex": 4,
+    "mention": "Subtract small value from large value",
+    "paramsHint": {
+      "field": "SharePercentage",
+      "targetA": "ref:n4",
+      "targetB": "ref:n2",
+      "signed": false
+    }
+  },
+  "grounded_op_spec": {
+    "op": "diff",
+    "field": "SharePercentage",
+    "targetA": "ref:n4",
+    "targetB": "ref:n2",
+    "signed": false
+  },
+  "scalar_ref_deps": [
+    "n2",
+    "n4"
+  ]
+}

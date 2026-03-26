@@ -1,0 +1,275 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Age Group",
+      "Number of suicides"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Age Group"
+    ],
+    "measure_fields": [
+      "Number of suicides"
+    ],
+    "primary_dimension": "Age Group",
+    "primary_measure": "Number of suicides",
+    "series_field": "Age Group",
+    "categorical_values": {
+      "Year": [
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019"
+      ],
+      "Age Group": [
+        "0–19 years",
+        "20–39 years",
+        "40–64 years",
+        "65 years and older"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Age Group": "categorical",
+      "Number of suicides": "numeric"
+    },
+    "numeric_stats": {
+      "Number of suicides": {
+        "min": 22.0,
+        "max": 517.0,
+        "mean": 212.4318181818182
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Number of suicides",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Age Group",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Age Group",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2009",
+      "Age Group": "0–19 years",
+      "Number of suicides": "37"
+    },
+    {
+      "Year": "2009",
+      "Age Group": "20–39 years",
+      "Number of suicides": "309"
+    },
+    {
+      "Year": "2009",
+      "Age Group": "40–64 years",
+      "Number of suicides": "517"
+    },
+    {
+      "Year": "2009",
+      "Age Group": "65 years and older",
+      "Number of suicides": "171"
+    },
+    {
+      "Year": "2010",
+      "Age Group": "0–19 years",
+      "Number of suicides": "40"
+    },
+    {
+      "Year": "2010",
+      "Age Group": "20–39 years",
+      "Number of suicides": "311"
+    },
+    {
+      "Year": "2010",
+      "Age Group": "40–64 years",
+      "Number of suicides": "442"
+    },
+    {
+      "Year": "2010",
+      "Age Group": "65 years and older",
+      "Number of suicides": "161"
+    },
+    {
+      "Year": "2011",
+      "Age Group": "0–19 years",
+      "Number of suicides": "45"
+    },
+    {
+      "Year": "2011",
+      "Age Group": "20–39 years",
+      "Number of suicides": "265"
+    },
+    {
+      "Year": "2011",
+      "Age Group": "40–64 years",
+      "Number of suicides": "435"
+    },
+    {
+      "Year": "2011",
+      "Age Group": "65 years and older",
+      "Number of suicides": "167"
+    },
+    {
+      "Year": "2012",
+      "Age Group": "0–19 years",
+      "Number of suicides": "44"
+    },
+    {
+      "Year": "2012",
+      "Age Group": "20–39 years",
+      "Number of suicides": "249"
+    },
+    {
+      "Year": "2012",
+      "Age Group": "40–64 years",
+      "Number of suicides": "418"
+    },
+    {
+      "Year": "2012",
+      "Age Group": "65 years and older",
+      "Number of suicides": "162"
+    },
+    {
+      "Year": "2013",
+      "Age Group": "0–19 years",
+      "Number of suicides": "34"
+    },
+    {
+      "Year": "2013",
+      "Age Group": "20–39 years",
+      "Number of suicides": "283"
+    },
+    {
+      "Year": "2013",
+      "Age Group": "40–64 years",
+      "Number of suicides": "391"
+    },
+    {
+      "Year": "2013",
+      "Age Group": "65 years and older",
+      "Number of suicides": "179"
+    },
+    {
+      "Year": "2014",
+      "Age Group": "0–19 years",
+      "Number of suicides": "30"
+    },
+    {
+      "Year": "2014",
+      "Age Group": "20–39 years",
+      "Number of suicides": "255"
+    },
+    {
+      "Year": "2014",
+      "Age Group": "40–64 years",
+      "Number of suicides": "341"
+    },
+    {
+      "Year": "2014",
+      "Age Group": "65 years and older",
+      "Number of suicides": "163"
+    },
+    {
+      "Year": "2015",
+      "Age Group": "0–19 years",
+      "Number of suicides": "22"
+    },
+    {
+      "Year": "2015",
+      "Age Group": "20–39 years",
+      "Number of suicides": "225"
+    },
+    {
+      "Year": "2015",
+      "Age Group": "40–64 years",
+      "Number of suicides": "328"
+    },
+    {
+      "Year": "2015",
+      "Age Group": "65 years and older",
+      "Number of suicides": "156"
+    },
+    {
+      "Year": "2016",
+      "Age Group": "0–19 years",
+      "Number of suicides": "26"
+    },
+    {
+      "Year": "2016",
+      "Age Group": "20–39 years",
+      "Number of suicides": "253"
+    },
+    {
+      "Year": "2016",
+      "Age Group": "40–64 years",
+      "Number of suicides": "324"
+    },
+    {
+      "Year": "2016",
+      "Age Group": "65 years and older",
+      "Number of suicides": "184"
+    },
+    {
+      "Year": "2017",
+      "Age Group": "0–19 years",
+      "Number of suicides": "37"
+    },
+    {
+      "Year": "2017",
+      "Age Group": "20–39 years",
+      "Number of suicides": "281"
+    },
+    {
+      "Year": "2017",
+      "Age Group": "40–64 years",
+      "Number of suicides": "321"
+    },
+    {
+      "Year": "2017",
+      "Age Group": "65 years and older",
+      "Number of suicides": "185"
+    },
+    {
+      "Year": "2018",
+      "Age Group": "0–19 years",
+      "Number of suicides": "36"
+    },
+    {
+      "Year": "2018",
+      "Age Group": "20–39 years",
+      "Number of suicides": "267"
+    },
+    {
+      "Year": "2018",
+      "Age Group": "40–64 years",
+      "Number of suicides": "304"
+    },
+    {
+      "Year": "2018",
+      "Age Group": "65 years and older",
+      "Number of suicides": "203"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "op": "sum",
+  "id": "n3",
+  "meta": {
+    "nodeId": "n3",
+    "inputs": [],
+    "sentenceIndex": 3,
+    "source": "recursive_step=3;taskId=o3"
+  },
+  "field": "Revenue_Million_Euros",
+  "group": "Matchday"
+}

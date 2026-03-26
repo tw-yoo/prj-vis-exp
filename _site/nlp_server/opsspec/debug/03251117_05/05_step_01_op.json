@@ -1,0 +1,17 @@
+{
+  "op": "pairDiff",
+  "id": "n1",
+  "meta": {
+    "nodeId": "n1",
+    "inputs": [],
+    "sentenceIndex": 1,
+    "source": "recursive_step=1;taskId=o1"
+  },
+  "by": "Year",
+  "seriesField": "Favorability_Direction",
+  "field": "Favorable_View_Percentage",
+  "groupA": "Russia favorability in US",
+  "groupB": "US favorability in Russia",
+  "signed": true,
+  "absolute": false
+}

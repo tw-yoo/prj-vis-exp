@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o5",
+    "op": "scale",
+    "sentenceIndex": 5,
+    "mention": "double the lowest average",
+    "paramsHint": {
+      "target": "ref:n4",
+      "factor": 2.0
+    }
+  },
+  "grounded_op_spec": {
+    "op": "scale",
+    "factor": 2.0,
+    "target": "ref:n4"
+  },
+  "scalar_ref_deps": [
+    "n4"
+  ]
+}

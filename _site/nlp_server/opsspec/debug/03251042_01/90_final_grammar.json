@@ -1,0 +1,363 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "average",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Growth rate of HICP (%)"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Growth rate of HICP (%)",
+        "operator": "<",
+        "value": "ref:n1"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "count",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [
+            "n2"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Month"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Month",
+      "Growth rate of HICP (%)"
+    ],
+    "dimension_fields": [
+      "Month"
+    ],
+    "measure_fields": [
+      "Growth rate of HICP (%)"
+    ],
+    "primary_dimension": "Month",
+    "primary_measure": "Growth rate of HICP (%)",
+    "categorical_values": {
+      "Month": [
+        "Apr '18",
+        "Aug '18",
+        "Dec '18",
+        "Feb '18",
+        "Jan '18",
+        "Jul '18",
+        "Jun '18",
+        "Mar '18",
+        "May '18",
+        "Nov '18",
+        "Oct '18",
+        "Sep '18"
+      ]
+    },
+    "field_types": {
+      "Month": "categorical",
+      "Growth rate of HICP (%)": "numeric"
+    },
+    "numeric_stats": {
+      "Growth rate of HICP (%)": {
+        "min": 0.7,
+        "max": 1.6,
+        "mean": 1.1916666666666667
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Month",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Growth rate of HICP (%)",
+        "type": "quantitative"
+      },
+      "tooltip": {
+        "field": "Month",
+        "type": "ordinal",
+        "title": "Month"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Month",
+          "Growth rate of HICP (%)"
+        ],
+        "dimension_fields": [
+          "Month"
+        ],
+        "measure_fields": [
+          "Growth rate of HICP (%)"
+        ],
+        "primary_dimension": "Month",
+        "primary_measure": "Growth rate of HICP (%)",
+        "categorical_values": {
+          "Month": [
+            "Apr '18",
+            "Aug '18",
+            "Dec '18",
+            "Feb '18",
+            "Jan '18",
+            "Jul '18",
+            "Jun '18",
+            "Mar '18",
+            "May '18",
+            "Nov '18",
+            "Oct '18",
+            "Sep '18"
+          ]
+        },
+        "field_types": {
+          "Month": "categorical",
+          "Growth rate of HICP (%)": "numeric"
+        },
+        "numeric_stats": {
+          "Growth rate of HICP (%)": {
+            "min": 0.7,
+            "max": 1.6,
+            "mean": 1.1916666666666667
+          }
+        },
+        "mark": "line",
+        "is_stacked": false,
+        "encoding_summary": {
+          "x": {
+            "field": "Month",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Growth rate of HICP (%)",
+            "type": "quantitative"
+          },
+          "tooltip": {
+            "field": "Month",
+            "type": "ordinal",
+            "title": "Month"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 12
+    },
+    "inventory": {
+      "tasks_count": 3,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "average",
+          "sentenceIndex": 1,
+          "mention": "calculate average growth rate",
+          "paramsHint": {
+            "field": "Growth rate of HICP (%)"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "filter",
+          "sentenceIndex": 2,
+          "mention": "filter for the date for which the growth rate was below the average",
+          "paramsHint": {
+            "field": "Growth rate of HICP (%)",
+            "operator": "<",
+            "value": "ref:n1"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "count",
+          "sentenceIndex": 3,
+          "mention": "count the number of filtered dates",
+          "paramsHint": {}
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "average",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Growth rate of HICP (%)"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 1.1916666666666667
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 1.1916666666666667,
+              "category": "result",
+              "measure": "Growth rate of HICP (%)"
+            }
+          ],
+          "primary_dimension": "Month",
+          "primary_measure": "Growth rate of HICP (%)"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "filter",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [
+          "n1"
+        ],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Growth rate of HICP (%)",
+          "operator": "<",
+          "value": "ref:n1"
+        },
+        "artifact": {
+          "count": 5,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Dec '18",
+            "value": 0.9
+          },
+          "preview": [
+            {
+              "target": "Apr '18",
+              "value": 0.9,
+              "category": "Month",
+              "measure": "Growth rate of HICP (%)"
+            },
+            {
+              "target": "Dec '18",
+              "value": 0.9,
+              "category": "Month",
+              "measure": "Growth rate of HICP (%)"
+            },
+            {
+              "target": "Feb '18",
+              "value": 0.7,
+              "category": "Month",
+              "measure": "Growth rate of HICP (%)"
+            },
+            {
+              "target": "Mar '18",
+              "value": 0.7,
+              "category": "Month",
+              "measure": "Growth rate of HICP (%)"
+            },
+            {
+              "target": "Nov '18",
+              "value": 1.1,
+              "category": "Month",
+              "measure": "Growth rate of HICP (%)"
+            }
+          ],
+          "targets_preview": [
+            "Apr '18",
+            "Dec '18",
+            "Feb '18",
+            "Mar '18",
+            "Nov '18"
+          ],
+          "primary_dimension": "Month",
+          "primary_measure": "Growth rate of HICP (%)"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops3",
+        "op": "count",
+        "inputs": [
+          "n2"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "count",
+          "field": "Month"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__count__",
+            "value": 5.0
+          },
+          "preview": [
+            {
+              "target": "__count__",
+              "value": 5.0,
+              "category": "result",
+              "measure": "Month"
+            }
+          ],
+          "primary_dimension": "Month",
+          "primary_measure": "Growth rate of HICP (%)"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1,
+        "ops3": 1
+      },
+      "warnings": []
+    }
+  }
+}

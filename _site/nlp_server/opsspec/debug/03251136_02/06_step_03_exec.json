@@ -1,0 +1,22 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__count__",
+      "value": 5.0
+    },
+    "preview": [
+      {
+        "target": "__count__",
+        "value": 5.0,
+        "category": "result",
+        "measure": "Month"
+      }
+    ],
+    "primary_dimension": "Month",
+    "primary_measure": "Growth rate of HICP (%)"
+  },
+  "warnings": []
+}

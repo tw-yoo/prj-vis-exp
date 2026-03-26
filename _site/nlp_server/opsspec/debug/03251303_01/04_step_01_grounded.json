@@ -1,0 +1,24 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "sum",
+    "sentenceIndex": 1,
+    "mention": "Get the sum of germany and italy for each country",
+    "paramsHint": {
+      "field": "Decrease_in_GDP_Percentage",
+      "group": [
+        "Germany \u0003\u000b exports",
+        "Italy \u0003\u000b exports"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "sum",
+    "field": "Decrease_in_GDP_Percentage",
+    "group": [
+      "Germany – exports",
+      "Italy – exports"
+    ]
+  },
+  "scalar_ref_deps": []
+}

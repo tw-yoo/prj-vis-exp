@@ -1,0 +1,26 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Industry Sector",
+      "include": [
+        "Construction"
+      ]
+    },
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 1
+      },
+      "field": "Share of SMEs",
+      "which": "max"
+    }
+  ]
+}

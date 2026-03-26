@@ -1,0 +1,546 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Frequency",
+        "include": [
+          "Occasionally (less than once a month)"
+        ]
+      },
+      {
+        "op": "sum",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Share of respondents"
+      },
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Frequency",
+        "include": [
+          "Infrequently (once a year or less)"
+        ]
+      },
+      {
+        "op": "sum",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "field": "Share of respondents"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "compare",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n2",
+            "n4"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=5;taskId=o5"
+        },
+        "field": "Share of respondents",
+        "targetA": "ref:n2",
+        "targetB": "ref:n4",
+        "which": "max"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Frequency",
+      "Race/Ethnicity",
+      "Share of respondents"
+    ],
+    "dimension_fields": [
+      "Frequency",
+      "Race/Ethnicity"
+    ],
+    "measure_fields": [
+      "Share of respondents"
+    ],
+    "primary_dimension": "Race/Ethnicity",
+    "primary_measure": "Share of respondents",
+    "series_field": "Race/Ethnicity",
+    "categorical_values": {
+      "Frequency": [
+        "Frequently (one or more times per month)",
+        "Infrequently (once a year or less)",
+        "Occasionally (less than once a month)"
+      ],
+      "Race/Ethnicity": [
+        "African–American",
+        "Hispanic",
+        "Other",
+        "White"
+      ]
+    },
+    "field_types": {
+      "Frequency": "categorical",
+      "Race/Ethnicity": "categorical",
+      "Share of respondents": "numeric"
+    },
+    "numeric_stats": {
+      "Share of respondents": {
+        "min": 0.12,
+        "max": 0.48,
+        "mean": 0.3333333333333333
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "Frequency",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Share of respondents",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Race/Ethnicity",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Race/Ethnicity",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Frequency",
+          "Race/Ethnicity",
+          "Share of respondents"
+        ],
+        "dimension_fields": [
+          "Frequency",
+          "Race/Ethnicity"
+        ],
+        "measure_fields": [
+          "Share of respondents"
+        ],
+        "primary_dimension": "Race/Ethnicity",
+        "primary_measure": "Share of respondents",
+        "series_field": "Race/Ethnicity",
+        "categorical_values": {
+          "Frequency": [
+            "Frequently (one or more times per month)",
+            "Infrequently (once a year or less)",
+            "Occasionally (less than once a month)"
+          ],
+          "Race/Ethnicity": [
+            "African–American",
+            "Hispanic",
+            "Other",
+            "White"
+          ]
+        },
+        "field_types": {
+          "Frequency": "categorical",
+          "Race/Ethnicity": "categorical",
+          "Share of respondents": "numeric"
+        },
+        "numeric_stats": {
+          "Share of respondents": {
+            "min": 0.12,
+            "max": 0.48,
+            "mean": 0.3333333333333333
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "column": {
+            "field": "Frequency",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Share of respondents",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Race/Ethnicity",
+            "type": "nominal"
+          },
+          "color": {
+            "field": "Race/Ethnicity",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 12
+    },
+    "inventory": {
+      "tasks_count": 5,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "calculate the sum of each value of occasionally and infrequently",
+          "paramsHint": {
+            "field": "Frequency",
+            "include": [
+              "Occasionally (less than once a month)"
+            ]
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "sum",
+          "sentenceIndex": 1,
+          "mention": "calculate the sum of each value of occasionally and infrequently",
+          "paramsHint": {
+            "field": "Share of respondents"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "calculate the sum of each value of occasionally and infrequently",
+          "paramsHint": {
+            "field": "Frequency",
+            "include": [
+              "Infrequently (once a year or less)"
+            ]
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "sum",
+          "sentenceIndex": 1,
+          "mention": "calculate the sum of each value of occasionally and infrequently",
+          "paramsHint": {
+            "field": "Share of respondents"
+          }
+        },
+        {
+          "taskId": "o5",
+          "op": "compare",
+          "sentenceIndex": 2,
+          "mention": "find the maximum",
+          "paramsHint": {
+            "field": "Share of respondents",
+            "targetA": "ref:n2",
+            "targetB": "ref:n4",
+            "which": "max"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Frequency",
+          "include": [
+            "Occasionally (less than once a month)"
+          ]
+        },
+        "artifact": {
+          "count": 4,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Other",
+            "group": "Other",
+            "value": 0.47
+          },
+          "preview": [
+            {
+              "target": "African–American",
+              "group": "African–American",
+              "value": 0.41,
+              "category": "Race/Ethnicity",
+              "measure": "Share of respondents"
+            },
+            {
+              "target": "Hispanic",
+              "group": "Hispanic",
+              "value": 0.43,
+              "category": "Race/Ethnicity",
+              "measure": "Share of respondents"
+            },
+            {
+              "target": "Other",
+              "group": "Other",
+              "value": 0.47,
+              "category": "Race/Ethnicity",
+              "measure": "Share of respondents"
+            },
+            {
+              "target": "White",
+              "group": "White",
+              "value": 0.4,
+              "category": "Race/Ethnicity",
+              "measure": "Share of respondents"
+            }
+          ],
+          "targets_preview": [
+            "African–American",
+            "Hispanic",
+            "Other",
+            "White"
+          ],
+          "primary_dimension": "Race/Ethnicity",
+          "primary_measure": "Share of respondents",
+          "series_field": "Race/Ethnicity"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops",
+        "op": "sum",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "sum",
+          "field": "Share of respondents"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "value": 1.71
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "value": 1.71,
+              "category": "result",
+              "measure": "Share of respondents"
+            }
+          ],
+          "primary_dimension": "Race/Ethnicity",
+          "primary_measure": "Share of respondents",
+          "series_field": "Race/Ethnicity"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Frequency",
+          "include": [
+            "Infrequently (once a year or less)"
+          ]
+        },
+        "artifact": {
+          "count": 4,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Other",
+            "group": "Other",
+            "value": 0.37
+          },
+          "preview": [
+            {
+              "target": "African–American",
+              "group": "African–American",
+              "value": 0.37,
+              "category": "Race/Ethnicity",
+              "measure": "Share of respondents"
+            },
+            {
+              "target": "Hispanic",
+              "group": "Hispanic",
+              "value": 0.3,
+              "category": "Race/Ethnicity",
+              "measure": "Share of respondents"
+            },
+            {
+              "target": "Other",
+              "group": "Other",
+              "value": 0.37,
+              "category": "Race/Ethnicity",
+              "measure": "Share of respondents"
+            },
+            {
+              "target": "White",
+              "group": "White",
+              "value": 0.48,
+              "category": "Race/Ethnicity",
+              "measure": "Share of respondents"
+            }
+          ],
+          "targets_preview": [
+            "African–American",
+            "Hispanic",
+            "Other",
+            "White"
+          ],
+          "primary_dimension": "Race/Ethnicity",
+          "primary_measure": "Share of respondents",
+          "series_field": "Race/Ethnicity"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops",
+        "op": "sum",
+        "inputs": [
+          "n3"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "sum",
+          "field": "Share of respondents"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "value": 1.52
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "value": 1.52,
+              "category": "result",
+              "measure": "Share of respondents"
+            }
+          ],
+          "primary_dimension": "Race/Ethnicity",
+          "primary_measure": "Share of respondents",
+          "series_field": "Race/Ethnicity"
+        },
+        "warnings": []
+      },
+      {
+        "step": 5,
+        "taskId": "o5",
+        "nodeId": "n5",
+        "groupName": "ops2",
+        "op": "compare",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "scalarRefs": [
+          "n2",
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "compare",
+          "field": "Share of respondents",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "which": "max"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "value": 1.71
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "value": 1.71,
+              "category": "result",
+              "measure": "Share of respondents"
+            }
+          ],
+          "primary_dimension": "Race/Ethnicity",
+          "primary_measure": "Share of respondents",
+          "series_field": "Race/Ethnicity"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 4,
+        "ops2": 1
+      },
+      "warnings": []
+    }
+  }
+}

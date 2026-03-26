@@ -1,0 +1,275 @@
+{
+  "chart_context": {
+    "fields": [
+      "Industry Sector",
+      "Period",
+      "Share of SMEs"
+    ],
+    "dimension_fields": [
+      "Industry Sector",
+      "Period"
+    ],
+    "measure_fields": [
+      "Share of SMEs"
+    ],
+    "primary_dimension": "Period",
+    "primary_measure": "Share of SMEs",
+    "series_field": "Period",
+    "categorical_values": {
+      "Industry Sector": [
+        "Agriculture, Hunting and Forestry; Fishing",
+        "Construction",
+        "Health and Social work",
+        "Hotels and Restaurants",
+        "Manufacturing",
+        "Other Community, Social and Personal Service Activities",
+        "Real Estate, Renting and Business Activities",
+        "Transport, Storage and Communication",
+        "Wholesale and Retail Trade; Repairs"
+      ],
+      "Period": [
+        "Q2 2014",
+        "Q2 2015",
+        "Q2 2016",
+        "Q2 2017",
+        "Q2 2018",
+        "Q2 2019"
+      ]
+    },
+    "field_types": {
+      "Industry Sector": "categorical",
+      "Period": "categorical",
+      "Share of SMEs": "numeric"
+    },
+    "numeric_stats": {
+      "Share of SMEs": {
+        "min": 0.03,
+        "max": 0.22,
+        "mean": 0.09592592592592591
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "Industry Sector",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Share of SMEs",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Period",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Period",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.07"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.13"
+    },
+    {
+      "Industry Sector": "Construction",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.22"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.15"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.15"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.16"
+    },
+    {
+      "Industry Sector": "Manufacturing",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.15"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.04"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Other Community, Social and Personal Service Activities",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.13"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.09"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.07"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Transport, Storage and Communication",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Wholesale and Retail Trade; Repairs",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.12"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.03"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.03"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.05"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2018",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Health and Social work",
+      "Period": "Q2 2019",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2014",
+      "Share of SMEs": "0.1"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2015",
+      "Share of SMEs": "0.11"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2016",
+      "Share of SMEs": "0.06"
+    },
+    {
+      "Industry Sector": "Real Estate, Renting and Business Activities",
+      "Period": "Q2 2017",
+      "Share of SMEs": "0.09"
+    }
+  ]
+}

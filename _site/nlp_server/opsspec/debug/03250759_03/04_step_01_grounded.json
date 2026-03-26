@@ -1,0 +1,26 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "Check the largest value between 2000 and 2009",
+    "paramsHint": {
+      "field": "Year",
+      "operator": "between",
+      "value": [
+        "2000",
+        "2009"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Year",
+    "operator": "between",
+    "value": [
+      "2000",
+      "2009"
+    ]
+  },
+  "scalar_ref_deps": []
+}

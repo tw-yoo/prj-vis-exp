@@ -1,0 +1,52 @@
+{
+  "artifact": {
+    "count": 4,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2017",
+      "group": "Poor",
+      "value": 6.0
+    },
+    "preview": [
+      {
+        "target": "2014",
+        "group": "Poor",
+        "value": 4.0,
+        "category": "Year",
+        "measure": "Share_of_Respondents"
+      },
+      {
+        "target": "2015",
+        "group": "Poor",
+        "value": 1.0,
+        "category": "Year",
+        "measure": "Share_of_Respondents"
+      },
+      {
+        "target": "2016",
+        "group": "Poor",
+        "value": 2.0,
+        "category": "Year",
+        "measure": "Share_of_Respondents"
+      },
+      {
+        "target": "2017",
+        "group": "Poor",
+        "value": 6.0,
+        "category": "Year",
+        "measure": "Share_of_Respondents"
+      }
+    ],
+    "targets_preview": [
+      "2014",
+      "2015",
+      "2016",
+      "2017"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Share_of_Respondents",
+    "series_field": "Rating"
+  },
+  "warnings": []
+}

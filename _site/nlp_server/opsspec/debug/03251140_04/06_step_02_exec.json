@@ -1,0 +1,22 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__avg__",
+      "value": 0.6131249999999999
+    },
+    "preview": [
+      {
+        "target": "__avg__",
+        "value": 0.6131249999999999,
+        "category": "result",
+        "measure": "Fatality rate among plague cases"
+      }
+    ],
+    "primary_dimension": "Month/Year",
+    "primary_measure": "Fatality rate among plague cases"
+  },
+  "warnings": []
+}

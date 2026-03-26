@@ -1,0 +1,41 @@
+{
+  "ops": [
+    {
+      "op": "findExtremum",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Revenue_Million_USD",
+      "group": "Data Centers",
+      "which": "max"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "retrieveValue",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Year",
+      "target": "ref:n1"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "average",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n2"
+        ],
+        "sentenceIndex": 3
+      },
+      "field": "Revenue_Million_USD"
+    }
+  ]
+}

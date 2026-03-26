@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2013-2015",
+      "group": "Canada-Newfoundland and Labrador",
+      "value": 2.6000000000000085
+    },
+    "preview": [
+      {
+        "target": "2013-2015",
+        "group": "Canada-Newfoundland and Labrador",
+        "value": 2.6000000000000085,
+        "category": "Year",
+        "measure": "Life expectancy in years"
+      }
+    ],
+    "targets_preview": [
+      "2013-2015"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Life expectancy in years",
+    "series_field": "Region"
+  },
+  "warnings": []
+}

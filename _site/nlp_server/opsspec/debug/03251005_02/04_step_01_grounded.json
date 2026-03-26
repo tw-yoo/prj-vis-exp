@@ -1,0 +1,28 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "pairDiff",
+    "sentenceIndex": 1,
+    "mention": "calculate difference between the values of favor and oppose",
+    "paramsHint": {
+      "by": "Year",
+      "seriesField": "Opinion",
+      "field": "Percentage",
+      "groupA": "Favor",
+      "groupB": "Oppose",
+      "signed": true,
+      "absolute": false
+    }
+  },
+  "grounded_op_spec": {
+    "op": "pairDiff",
+    "by": "Year",
+    "seriesField": "Opinion",
+    "field": "Percentage",
+    "groupA": "Favor",
+    "groupB": "Oppose",
+    "signed": true,
+    "absolute": false
+  },
+  "scalar_ref_deps": []
+}

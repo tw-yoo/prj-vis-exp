@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__count__",
+      "value": 5.0
+    },
+    "preview": [
+      {
+        "target": "__count__",
+        "value": 5.0,
+        "category": "result",
+        "measure": "Average weight in metric grams"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average weight in metric grams",
+    "series_field": "Group"
+  },
+  "warnings": []
+}

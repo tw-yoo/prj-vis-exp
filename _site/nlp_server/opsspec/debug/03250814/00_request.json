@@ -1,0 +1,176 @@
+{
+  "request_id": "test_10gtgmmgh599jnr7_f1be164c",
+  "question": "What is the difference between the second largest and the smallest values between 2000 and 2008?",
+  "explanation": "1. Check the largest value between 2000 and 2009\n2. Determine the second largest value after the largest value between 2000 and 2009\n3. Determine the smallest value between 2000 and 2009 \n4. Subtract small value from large value",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Simple line chart for 10gtgmmgh599jnr7.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/simple/10gtgmmgh599jnr7.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal",
+            "axis": {
+              "title": "Year",
+              "labelAngle": 0,
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Percentage_of_Population",
+            "type": "quantitative",
+            "axis": {
+              "title": "Percentage_of_Population",
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 80,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Percentage_of_Population",
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "Year",
+              "type": "ordinal",
+              "title": "Year"
+            },
+            {
+              "field": "Percentage_of_Population",
+              "type": "quantitative",
+              "title": "Percentage_of_Population"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2000",
+      "Percentage_of_Population": "0.088"
+    },
+    {
+      "Year": "2001",
+      "Percentage_of_Population": "0.086"
+    },
+    {
+      "Year": "2002",
+      "Percentage_of_Population": "0.105"
+    },
+    {
+      "Year": "2003",
+      "Percentage_of_Population": "0.109"
+    },
+    {
+      "Year": "2004",
+      "Percentage_of_Population": "0.109"
+    },
+    {
+      "Year": "2005",
+      "Percentage_of_Population": "0.102"
+    },
+    {
+      "Year": "2006",
+      "Percentage_of_Population": "0.106"
+    },
+    {
+      "Year": "2007",
+      "Percentage_of_Population": "0.097"
+    },
+    {
+      "Year": "2008",
+      "Percentage_of_Population": "0.096"
+    },
+    {
+      "Year": "2009",
+      "Percentage_of_Population": "0.115"
+    },
+    {
+      "Year": "2010",
+      "Percentage_of_Population": "0.132"
+    },
+    {
+      "Year": "2011",
+      "Percentage_of_Population": "0.135"
+    },
+    {
+      "Year": "2012",
+      "Percentage_of_Population": "0.128"
+    },
+    {
+      "Year": "2013",
+      "Percentage_of_Population": "0.127"
+    },
+    {
+      "Year": "2014",
+      "Percentage_of_Population": "0.117"
+    },
+    {
+      "Year": "2015",
+      "Percentage_of_Population": "0.113"
+    },
+    {
+      "Year": "2016",
+      "Percentage_of_Population": "0.102"
+    },
+    {
+      "Year": "2017",
+      "Percentage_of_Population": "0.097"
+    },
+    {
+      "Year": "2018",
+      "Percentage_of_Population": "0.09"
+    },
+    {
+      "Year": "2019",
+      "Percentage_of_Population": "0.089"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

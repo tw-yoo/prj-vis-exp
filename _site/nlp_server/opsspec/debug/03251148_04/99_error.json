@@ -1,0 +1,6 @@
+{
+  "stage": "executor_failed",
+  "step": 1,
+  "nodeId": "n1",
+  "error": "filter between end \"61\" not found after start \"51\" in selected slice"
+}

@@ -1,0 +1,30 @@
+{
+  "ops": [
+    {
+      "op": "retrieveValue",
+      "field": "year",
+      "target": "2006-01-01"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "retrieveValue",
+      "field": "year",
+      "target": "2008-01-01"
+    }
+  ],
+  "last": [
+    {
+      "op": "diff",
+      "field": "research_and_development_expenditure",
+      "targetA": "ops2_0",
+      "targetB": "ops_0",
+      "signed": true
+    }
+  ],
+  "text": {
+    "ops": "Highlight the research and development expenditure for the year 2006, showing 5009.7.",
+    "ops2": "Next, highlight the research and development expenditure for the year 2008, showing 7128.11.",
+    "last": "Finally, calculate the difference between the highlighted 2008 value and the 2006 value, which is 7128.11 minus 5009.7, resulting in 2118.41."
+  }
+}

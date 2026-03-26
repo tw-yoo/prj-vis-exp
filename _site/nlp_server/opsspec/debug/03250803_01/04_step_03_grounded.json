@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "sum",
+    "sentenceIndex": 3,
+    "mention": "Add all the values of the matchday for each year.",
+    "paramsHint": {
+      "field": "Revenue_Million_Euros",
+      "group": "Matchday"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "sum",
+    "field": "Revenue_Million_Euros",
+    "group": "Matchday"
+  },
+  "scalar_ref_deps": []
+}

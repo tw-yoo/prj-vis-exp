@@ -1,0 +1,16 @@
+{
+  "op": "compareBool",
+  "id": "n6",
+  "meta": {
+    "nodeId": "n6",
+    "inputs": [
+      "n2",
+      "n5"
+    ],
+    "sentenceIndex": 6,
+    "source": "recursive_step=6;taskId=o6"
+  },
+  "targetA": "ref:n2",
+  "targetB": "ref:n5",
+  "operator": ">"
+}

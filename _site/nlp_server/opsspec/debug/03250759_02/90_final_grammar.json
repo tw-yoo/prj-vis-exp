@@ -1,0 +1,561 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Average weight in metric grams",
+        "operator": ">",
+        "value": 3670,
+        "group": "Boys"
+      },
+      {
+        "op": "count",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Average weight in metric grams"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Average weight in metric grams",
+        "operator": ">",
+        "value": 3550,
+        "group": "Girls"
+      },
+      {
+        "op": "count",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "field": "Average weight in metric grams"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "add",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n2",
+            "n4"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=5;taskId=o5"
+        },
+        "targetA": "ref:n2",
+        "targetB": "ref:n4",
+        "field": "Average weight in metric grams"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Group",
+      "Average weight in metric grams"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Group"
+    ],
+    "measure_fields": [
+      "Average weight in metric grams"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average weight in metric grams",
+    "series_field": "Group",
+    "categorical_values": {
+      "Year": [
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020"
+      ],
+      "Group": [
+        "Boys",
+        "Girls",
+        "Total"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Group": "categorical",
+      "Average weight in metric grams": "numeric"
+    },
+    "numeric_stats": {
+      "Average weight in metric grams": {
+        "min": 3531.0,
+        "max": 3677.0,
+        "mean": 3603.6666666666665
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Average weight in metric grams",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Group",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Group",
+          "Average weight in metric grams"
+        ],
+        "dimension_fields": [
+          "Year",
+          "Group"
+        ],
+        "measure_fields": [
+          "Average weight in metric grams"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Average weight in metric grams",
+        "series_field": "Group",
+        "categorical_values": {
+          "Year": [
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014",
+            "2015",
+            "2016",
+            "2017",
+            "2018",
+            "2019",
+            "2020"
+          ],
+          "Group": [
+            "Boys",
+            "Girls",
+            "Total"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Group": "categorical",
+          "Average weight in metric grams": "numeric"
+        },
+        "numeric_stats": {
+          "Average weight in metric grams": {
+            "min": 3531.0,
+            "max": 3677.0,
+            "mean": 3603.6666666666665
+          }
+        },
+        "mark": "line",
+        "is_stacked": false,
+        "encoding_summary": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Average weight in metric grams",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Group",
+            "type": "nominal"
+          },
+          "tooltip": {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 33
+    },
+    "inventory": {
+      "tasks_count": 5,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "Counting the number of values above 3670 on the Boys graph",
+          "paramsHint": {
+            "field": "Average weight in metric grams",
+            "operator": ">",
+            "value": 3670,
+            "group": "Boys"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "count",
+          "sentenceIndex": 1,
+          "mention": "Counting the number of values above 3670 on the Boys graph",
+          "paramsHint": {
+            "field": "Average weight in metric grams"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "filter",
+          "sentenceIndex": 2,
+          "mention": "Counting the number of values above 3550 on the Girls graph",
+          "paramsHint": {
+            "field": "Average weight in metric grams",
+            "operator": ">",
+            "value": 3550,
+            "group": "Girls"
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "count",
+          "sentenceIndex": 2,
+          "mention": "Counting the number of values above 3550 on the Girls graph",
+          "paramsHint": {
+            "field": "Average weight in metric grams"
+          }
+        },
+        {
+          "taskId": "o5",
+          "op": "add",
+          "sentenceIndex": 3,
+          "mention": "Add the number of 1 and 2",
+          "paramsHint": {
+            "targetA": "ref:n2",
+            "targetB": "ref:n4"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Average weight in metric grams",
+          "operator": ">",
+          "value": 3670,
+          "group": "Boys"
+        },
+        "artifact": {
+          "count": 3,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2014",
+            "group": "Boys",
+            "value": 3675.0
+          },
+          "preview": [
+            {
+              "target": "2010",
+              "group": "Boys",
+              "value": 3672.0,
+              "category": "Year",
+              "measure": "Average weight in metric grams"
+            },
+            {
+              "target": "2011",
+              "group": "Boys",
+              "value": 3677.0,
+              "category": "Year",
+              "measure": "Average weight in metric grams"
+            },
+            {
+              "target": "2014",
+              "group": "Boys",
+              "value": 3675.0,
+              "category": "Year",
+              "measure": "Average weight in metric grams"
+            }
+          ],
+          "targets_preview": [
+            "2010",
+            "2011",
+            "2014"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Average weight in metric grams",
+          "series_field": "Group"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops",
+        "op": "count",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "count",
+          "field": "Average weight in metric grams"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__count__",
+            "value": 3.0
+          },
+          "preview": [
+            {
+              "target": "__count__",
+              "value": 3.0,
+              "category": "result",
+              "measure": "Average weight in metric grams"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Average weight in metric grams",
+          "series_field": "Group"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops2",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Average weight in metric grams",
+          "operator": ">",
+          "value": 3550,
+          "group": "Girls"
+        },
+        "artifact": {
+          "count": 5,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2020",
+            "group": "Girls",
+            "value": 3555.0
+          },
+          "preview": [
+            {
+              "target": "2010",
+              "group": "Girls",
+              "value": 3580.0,
+              "category": "Year",
+              "measure": "Average weight in metric grams"
+            },
+            {
+              "target": "2011",
+              "group": "Girls",
+              "value": 3553.0,
+              "category": "Year",
+              "measure": "Average weight in metric grams"
+            },
+            {
+              "target": "2014",
+              "group": "Girls",
+              "value": 3554.0,
+              "category": "Year",
+              "measure": "Average weight in metric grams"
+            },
+            {
+              "target": "2017",
+              "group": "Girls",
+              "value": 3555.0,
+              "category": "Year",
+              "measure": "Average weight in metric grams"
+            },
+            {
+              "target": "2020",
+              "group": "Girls",
+              "value": 3555.0,
+              "category": "Year",
+              "measure": "Average weight in metric grams"
+            }
+          ],
+          "targets_preview": [
+            "2010",
+            "2011",
+            "2014",
+            "2017",
+            "2020"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Average weight in metric grams",
+          "series_field": "Group"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops2",
+        "op": "count",
+        "inputs": [
+          "n3"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "count",
+          "field": "Average weight in metric grams"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__count__",
+            "value": 5.0
+          },
+          "preview": [
+            {
+              "target": "__count__",
+              "value": 5.0,
+              "category": "result",
+              "measure": "Average weight in metric grams"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Average weight in metric grams",
+          "series_field": "Group"
+        },
+        "warnings": []
+      },
+      {
+        "step": 5,
+        "taskId": "o5",
+        "nodeId": "n5",
+        "groupName": "ops3",
+        "op": "add",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "scalarRefs": [
+          "n2",
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "add",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "field": "Average weight in metric grams"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__add__",
+            "value": 8.0
+          },
+          "preview": [
+            {
+              "target": "__add__",
+              "value": 8.0,
+              "category": "result",
+              "measure": "Average weight in metric grams"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Average weight in metric grams",
+          "series_field": "Group"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 2,
+        "ops2": 2,
+        "ops3": 1
+      },
+      "warnings": []
+    }
+  }
+}

@@ -1,0 +1,215 @@
+{
+  "request_id": "test_2eiyyw562tcvjypp_0adf089e",
+  "question": "How many years has Russia had higher favorability than the US?",
+  "explanation": "1. calculate the difference between Russia and the US\n2. count the number of years that Russia is higher than the US",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "title": {
+      "text": "US and Russia Mutual Favorability (2007-2017)",
+      "fontSize": 26,
+      "anchor": "middle"
+    },
+    "description": "Multiple line chart for 2eiyyw562tcvjypp.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/multiple/2eiyyw562tcvjypp.csv"
+    },
+    "transform": [
+      {
+        "calculate": "datum.Favorability_Direction == 'US favorability in Russia' ? 'US' : 'Russia'",
+        "as": "Country"
+      }
+    ],
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal",
+            "axis": {
+              "title": "Year",
+              "labelAngle": 0,
+              "labelFontSize": 16,
+              "titleFontSize": 20,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Favorable_View_Percentage",
+            "type": "quantitative",
+            "axis": {
+              "title": "Favorable View (%)",
+              "labelFontSize": 16,
+              "titleFontSize": 20,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "color": {
+            "field": "Country",
+            "type": "nominal",
+            "legend": {
+              "title": "Country",
+              "titleFontSize": 18,
+              "labelFontSize": 16
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 150,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Favorable_View_Percentage",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Country",
+            "type": "nominal"
+          },
+          "tooltip": [
+            {
+              "field": "Year",
+              "type": "ordinal",
+              "title": "Year"
+            },
+            {
+              "field": "Country",
+              "type": "nominal",
+              "title": "Country"
+            },
+            {
+              "field": "Favorable_View_Percentage",
+              "type": "quantitative",
+              "title": "Favorable View (%)"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2007",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "41"
+    },
+    {
+      "Year": "2007",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "44"
+    },
+    {
+      "Year": "2009",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "44"
+    },
+    {
+      "Year": "2009",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "43"
+    },
+    {
+      "Year": "2010",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "57"
+    },
+    {
+      "Year": "2010",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "49"
+    },
+    {
+      "Year": "2011",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "56"
+    },
+    {
+      "Year": "2011",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "49"
+    },
+    {
+      "Year": "2012",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "52"
+    },
+    {
+      "Year": "2012",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "37"
+    },
+    {
+      "Year": "2013",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "51"
+    },
+    {
+      "Year": "2013",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "37"
+    },
+    {
+      "Year": "2014",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "23"
+    },
+    {
+      "Year": "2014",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "19"
+    },
+    {
+      "Year": "2015",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "15"
+    },
+    {
+      "Year": "2015",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "22"
+    },
+    {
+      "Year": "2017",
+      "Favorability_Direction": "US favorability in Russia",
+      "Favorable_View_Percentage": "41"
+    },
+    {
+      "Year": "2017",
+      "Favorability_Direction": "Russia favorability in US",
+      "Favorable_View_Percentage": "29"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

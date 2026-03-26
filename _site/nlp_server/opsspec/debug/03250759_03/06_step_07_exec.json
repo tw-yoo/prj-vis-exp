@@ -1,0 +1,22 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__diff__",
+      "value": 0.023000000000000007
+    },
+    "preview": [
+      {
+        "target": "__diff__",
+        "value": 0.023000000000000007,
+        "category": "result",
+        "measure": "Percentage_of_Population"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage_of_Population"
+  },
+  "warnings": []
+}

@@ -1,0 +1,13 @@
+{
+  "op": "sum",
+  "id": "n4",
+  "meta": {
+    "nodeId": "n4",
+    "inputs": [
+      "n3"
+    ],
+    "sentenceIndex": 1,
+    "source": "recursive_step=4;taskId=o4"
+  },
+  "field": "Share of respondents"
+}

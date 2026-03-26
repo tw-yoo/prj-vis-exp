@@ -1,0 +1,22 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "calculate the sum of each value of occasionally and infrequently",
+    "paramsHint": {
+      "field": "Frequency",
+      "include": [
+        "Infrequently (once a year or less)"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Frequency",
+    "include": [
+      "Infrequently (once a year or less)"
+    ]
+  },
+  "scalar_ref_deps": []
+}

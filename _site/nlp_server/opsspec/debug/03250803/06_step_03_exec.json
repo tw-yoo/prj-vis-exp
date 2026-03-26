@@ -1,0 +1,52 @@
+{
+  "artifact": {
+    "count": 4,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Other",
+      "group": "Other",
+      "value": 0.37
+    },
+    "preview": [
+      {
+        "target": "African–American",
+        "group": "African–American",
+        "value": 0.37,
+        "category": "Race/Ethnicity",
+        "measure": "Share of respondents"
+      },
+      {
+        "target": "Hispanic",
+        "group": "Hispanic",
+        "value": 0.3,
+        "category": "Race/Ethnicity",
+        "measure": "Share of respondents"
+      },
+      {
+        "target": "Other",
+        "group": "Other",
+        "value": 0.37,
+        "category": "Race/Ethnicity",
+        "measure": "Share of respondents"
+      },
+      {
+        "target": "White",
+        "group": "White",
+        "value": 0.48,
+        "category": "Race/Ethnicity",
+        "measure": "Share of respondents"
+      }
+    ],
+    "targets_preview": [
+      "African–American",
+      "Hispanic",
+      "Other",
+      "White"
+    ],
+    "primary_dimension": "Race/Ethnicity",
+    "primary_measure": "Share of respondents",
+    "series_field": "Race/Ethnicity"
+  },
+  "warnings": []
+}

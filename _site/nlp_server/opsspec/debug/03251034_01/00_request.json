@@ -1,0 +1,124 @@
+{
+  "request_id": "test_2jromeq5u9lloh1s_8cde6bf8",
+  "question": "Which years has the biggest jump?",
+  "explanation": "1. Get the difference between every year\n2. Get the extremum ",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Simple line chart for 2jromeq5u9lloh1s.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/simple/2jromeq5u9lloh1s.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal",
+            "axis": {
+              "title": "Year",
+              "labelAngle": 0,
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Audience_Millions",
+            "type": "quantitative",
+            "axis": {
+              "title": "Audience_Millions",
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 80,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Audience_Millions",
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "Year",
+              "type": "ordinal",
+              "title": "Year"
+            },
+            {
+              "field": "Audience_Millions",
+              "type": "quantitative",
+              "title": "Audience_Millions"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2009",
+      "Audience_Millions": "12.9"
+    },
+    {
+      "Year": "2010",
+      "Audience_Millions": "22.9"
+    },
+    {
+      "Year": "2011",
+      "Audience_Millions": "35"
+    },
+    {
+      "Year": "2012",
+      "Audience_Millions": "45.5"
+    },
+    {
+      "Year": "2013",
+      "Audience_Millions": "48.5"
+    },
+    {
+      "Year": "2014",
+      "Audience_Millions": "58.2"
+    },
+    {
+      "Year": "2015",
+      "Audience_Millions": "69.5"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

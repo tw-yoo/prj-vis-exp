@@ -1,0 +1,91 @@
+{
+  "chart_context": {
+    "fields": [
+      "Fiscal Year",
+      "Number of days in thousands"
+    ],
+    "dimension_fields": [
+      "Fiscal Year"
+    ],
+    "measure_fields": [
+      "Number of days in thousands"
+    ],
+    "primary_dimension": "Fiscal Year",
+    "primary_measure": "Number of days in thousands",
+    "categorical_values": {
+      "Fiscal Year": [
+        "2010/11",
+        "2011/12",
+        "2012/13",
+        "2013/14",
+        "2014/15",
+        "2015/16",
+        "2016/17",
+        "2017/18",
+        "2018/19"
+      ]
+    },
+    "field_types": {
+      "Fiscal Year": "categorical",
+      "Number of days in thousands": "numeric"
+    },
+    "numeric_stats": {
+      "Number of days in thousands": {
+        "min": 3915.0,
+        "max": 5532.0,
+        "mean": 4597.0
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Number of days in thousands",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Fiscal Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Fiscal Year": "2010/11",
+      "Number of days in thousands": "4503"
+    },
+    {
+      "Fiscal Year": "2011/12",
+      "Number of days in thousands": "4533"
+    },
+    {
+      "Fiscal Year": "2012/13",
+      "Number of days in thousands": "5186"
+    },
+    {
+      "Fiscal Year": "2013/14",
+      "Number of days in thousands": "4436"
+    },
+    {
+      "Fiscal Year": "2014/15",
+      "Number of days in thousands": "4073"
+    },
+    {
+      "Fiscal Year": "2015/16",
+      "Number of days in thousands": "4489"
+    },
+    {
+      "Fiscal Year": "2016/17",
+      "Number of days in thousands": "5532"
+    },
+    {
+      "Fiscal Year": "2017/18",
+      "Number of days in thousands": "3915"
+    },
+    {
+      "Fiscal Year": "2018/19",
+      "Number of days in thousands": "4706"
+    }
+  ]
+}

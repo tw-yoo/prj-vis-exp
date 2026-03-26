@@ -1,0 +1,28 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "pairDiff",
+    "sentenceIndex": 1,
+    "mention": "get the difference of every city in every year",
+    "paramsHint": {
+      "by": "City",
+      "seriesField": "Year",
+      "field": "Population in millions",
+      "groupA": "2025",
+      "groupB": "2010",
+      "signed": true,
+      "absolute": false
+    }
+  },
+  "grounded_op_spec": {
+    "op": "pairDiff",
+    "by": "City",
+    "seriesField": "Year",
+    "field": "Population in millions",
+    "groupA": "2025",
+    "groupB": "2010",
+    "signed": true,
+    "absolute": false
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,116 @@
+{
+  "request_id": "test_0opt5fjw2xphdgp2_4b785302",
+  "question": "Which group shows the highest value in the sum of occasionally and infrequently answered?",
+  "explanation": "1. calculate the sum of each value of occasionally and infrequently\n2. find the maximum",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+    "description": "Grouped bar chart for 0opt5fjw2xphdgp2.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/grouped/0opt5fjw2xphdgp2.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "column": {
+        "field": "Frequency",
+        "type": "ordinal",
+        "header": {}
+      },
+      "y": {
+        "field": "Share of respondents",
+        "type": "quantitative",
+        "axis": {
+          "grid": false
+        }
+      },
+      "x": {
+        "field": "Race/Ethnicity",
+        "type": "nominal",
+        "axis": {
+          "title": ""
+        }
+      },
+      "color": {
+        "field": "Race/Ethnicity",
+        "type": "nominal"
+      }
+    },
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Frequency": "Frequently (one or more times per month)",
+      "Race/Ethnicity": "White",
+      "Share of respondents": "0.12"
+    },
+    {
+      "Frequency": "Frequently (one or more times per month)",
+      "Race/Ethnicity": "Hispanic",
+      "Share of respondents": "0.27"
+    },
+    {
+      "Frequency": "Frequently (one or more times per month)",
+      "Race/Ethnicity": "African–American",
+      "Share of respondents": "0.22"
+    },
+    {
+      "Frequency": "Frequently (one or more times per month)",
+      "Race/Ethnicity": "Other",
+      "Share of respondents": "0.16"
+    },
+    {
+      "Frequency": "Occasionally (less than once a month)",
+      "Race/Ethnicity": "White",
+      "Share of respondents": "0.4"
+    },
+    {
+      "Frequency": "Occasionally (less than once a month)",
+      "Race/Ethnicity": "Hispanic",
+      "Share of respondents": "0.43"
+    },
+    {
+      "Frequency": "Occasionally (less than once a month)",
+      "Race/Ethnicity": "African–American",
+      "Share of respondents": "0.41"
+    },
+    {
+      "Frequency": "Occasionally (less than once a month)",
+      "Race/Ethnicity": "Other",
+      "Share of respondents": "0.47"
+    },
+    {
+      "Frequency": "Infrequently (once a year or less)",
+      "Race/Ethnicity": "White",
+      "Share of respondents": "0.48"
+    },
+    {
+      "Frequency": "Infrequently (once a year or less)",
+      "Race/Ethnicity": "Hispanic",
+      "Share of respondents": "0.3"
+    },
+    {
+      "Frequency": "Infrequently (once a year or less)",
+      "Race/Ethnicity": "African–American",
+      "Share of respondents": "0.37"
+    },
+    {
+      "Frequency": "Infrequently (once a year or less)",
+      "Race/Ethnicity": "Other",
+      "Share of respondents": "0.37"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

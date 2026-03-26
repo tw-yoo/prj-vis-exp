@@ -1,0 +1,41 @@
+digraph OpsSpecTree {
+  graph [rankdir=LR, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="white", fontname="Helvetica"];
+  edge [color="#666666"];
+  subgraph "cluster_ops" {
+    label="ops";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f0fe";
+    "n1" [label="n1 filter (ops) group=Scotland"];
+    "n2" [label="n2 findExtremum (ops) field=SharePercentage"];
+  }
+  subgraph "cluster_ops2" {
+    label="ops2";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n3" [label="n3 filter (ops2) group=England & Wales"];
+    "n4" [label="n4 findExtremum (ops2) field=SharePercentage"];
+  }
+  subgraph "cluster_ops3" {
+    label="ops3";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n5" [label="n5 compare (ops3) field=SharePercentage"];
+  }
+  subgraph "cluster_ops4" {
+    label="ops4";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n6" [label="n6 diff (ops4) field=SharePercentage"];
+  }
+  "n1" -> "n2";
+  "n3" -> "n4";
+  "n2" -> "n5";
+  "n4" -> "n5";
+  "n2" -> "n6";
+  "n4" -> "n6";
+}

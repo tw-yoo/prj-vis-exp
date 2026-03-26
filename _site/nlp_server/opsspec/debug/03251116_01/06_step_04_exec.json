@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__diff__",
+      "value": 26.0
+    },
+    "preview": [
+      {
+        "target": "__diff__",
+        "value": 26.0,
+        "category": "result",
+        "measure": "SharePercentage"
+      }
+    ],
+    "primary_dimension": "Region",
+    "primary_measure": "SharePercentage",
+    "series_field": "Region"
+  },
+  "warnings": []
+}

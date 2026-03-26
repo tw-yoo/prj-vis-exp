@@ -1,0 +1,234 @@
+{
+  "request_id": "test_2kmpy10btl65kr2j_89b1aa78",
+  "question": "What is the average of the percentage of responses in the last three years of Favourable views of the US?",
+  "explanation": "- Filters data from 2015 to 2017\n- Average the the percentage of responses of Favourable views of U.S from filtered data",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Multiple line chart for 2kmpy10btl65kr2j.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/multiple/2kmpy10btl65kr2j.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal",
+            "axis": {
+              "title": "Year",
+              "labelAngle": 0,
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Percentage_of_Respondents",
+            "type": "quantitative",
+            "axis": {
+              "title": "Percentage_of_Respondents",
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "color": {
+            "field": "Opinion_Type",
+            "type": "nominal",
+            "legend": {
+              "title": "Opinion_Type",
+              "titleFontSize": 12,
+              "labelFontSize": 11
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 80,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Percentage_of_Respondents",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Opinion_Type",
+            "type": "nominal"
+          },
+          "tooltip": [
+            {
+              "field": "Year",
+              "type": "ordinal",
+              "title": "Year"
+            },
+            {
+              "field": "Opinion_Type",
+              "type": "nominal",
+              "title": "Opinion_Type"
+            },
+            {
+              "field": "Percentage_of_Respondents",
+              "type": "quantitative",
+              "title": "Percentage_of_Respondents"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2006",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "63"
+    },
+    {
+      "Year": "2006",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "32"
+    },
+    {
+      "Year": "2007",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "61"
+    },
+    {
+      "Year": "2007",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "35"
+    },
+    {
+      "Year": "2008",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "50"
+    },
+    {
+      "Year": "2008",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "25"
+    },
+    {
+      "Year": "2009",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "59"
+    },
+    {
+      "Year": "2009",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "85"
+    },
+    {
+      "Year": "2010",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "66"
+    },
+    {
+      "Year": "2010",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "76"
+    },
+    {
+      "Year": "2011",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "85"
+    },
+    {
+      "Year": "2011",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "81"
+    },
+    {
+      "Year": "2012",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "72"
+    },
+    {
+      "Year": "2012",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "74"
+    },
+    {
+      "Year": "2013",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "69"
+    },
+    {
+      "Year": "2013",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "70"
+    },
+    {
+      "Year": "2014",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "66"
+    },
+    {
+      "Year": "2014",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "60"
+    },
+    {
+      "Year": "2015",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "68"
+    },
+    {
+      "Year": "2015",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "66"
+    },
+    {
+      "Year": "2016",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "72"
+    },
+    {
+      "Year": "2016",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "78"
+    },
+    {
+      "Year": "2017",
+      "Opinion_Type": "Favorable view of US",
+      "Percentage_of_Respondents": "57"
+    },
+    {
+      "Year": "2017",
+      "Opinion_Type": "Confidence in US President",
+      "Percentage_of_Respondents": "24"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "op": "compare",
+  "id": "n3",
+  "meta": {
+    "nodeId": "n3",
+    "inputs": [
+      "n1",
+      "n2"
+    ],
+    "sentenceIndex": 3,
+    "source": "recursive_step=3;taskId=o3"
+  },
+  "field": "SharePercentage",
+  "targetA": "ref:n1",
+  "targetB": "ref:n2",
+  "which": "max"
+}

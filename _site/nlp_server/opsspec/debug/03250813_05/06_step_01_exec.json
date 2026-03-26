@@ -1,0 +1,44 @@
+{
+  "artifact": {
+    "count": 3,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2014",
+      "group": "Boys",
+      "value": 3675.0
+    },
+    "preview": [
+      {
+        "target": "2010",
+        "group": "Boys",
+        "value": 3672.0,
+        "category": "Year",
+        "measure": "Average weight in metric grams"
+      },
+      {
+        "target": "2011",
+        "group": "Boys",
+        "value": 3677.0,
+        "category": "Year",
+        "measure": "Average weight in metric grams"
+      },
+      {
+        "target": "2014",
+        "group": "Boys",
+        "value": 3675.0,
+        "category": "Year",
+        "measure": "Average weight in metric grams"
+      }
+    ],
+    "targets_preview": [
+      "2010",
+      "2011",
+      "2014"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average weight in metric grams",
+    "series_field": "Group"
+  },
+  "warnings": []
+}

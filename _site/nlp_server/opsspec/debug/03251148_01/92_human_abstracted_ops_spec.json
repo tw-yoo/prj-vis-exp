@@ -1,0 +1,71 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Month/Year",
+      "include": [
+        "Dec 1896",
+        "Nov 1896",
+        "Oct 1896",
+        "Sep 1896"
+      ]
+    },
+    {
+      "op": "average",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 1
+      },
+      "field": "Fatality rate among plague cases"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": [], "sentenceIndex": 2 },
+      "field": "Month/Year",
+      "include": [
+        "Apr 1897",
+        "Feb 1897",
+        "Jan 1897",
+        "Mar 1897"
+      ]
+    },
+    {
+      "op": "average",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n3"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Fatality rate among plague cases"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "diff",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "sentenceIndex": 3
+      },
+      "targetA": "ref:n2",
+      "targetB": "ref:n4",
+      "signed": false
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "request_id": "test_1bbe64wpvq06sknm_c302468e",
+  "question": "For each fiscal year, find the difference between the corresponding year value and the overall average\n",
+  "explanation": "1. Calculate the average value for all fiscal years\n2. Get the differences between each year's value and average value",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Simple Bar chart for 1bbe64wpvq06sknm.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/simple/1bbe64wpvq06sknm.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "y": {
+        "field": "Number of days in thousands",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Fiscal Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Fiscal Year": "2010/11",
+      "Number of days in thousands": "4503"
+    },
+    {
+      "Fiscal Year": "2011/12",
+      "Number of days in thousands": "4533"
+    },
+    {
+      "Fiscal Year": "2012/13",
+      "Number of days in thousands": "5186"
+    },
+    {
+      "Fiscal Year": "2013/14",
+      "Number of days in thousands": "4436"
+    },
+    {
+      "Fiscal Year": "2014/15",
+      "Number of days in thousands": "4073"
+    },
+    {
+      "Fiscal Year": "2015/16",
+      "Number of days in thousands": "4489"
+    },
+    {
+      "Fiscal Year": "2016/17",
+      "Number of days in thousands": "5532"
+    },
+    {
+      "Fiscal Year": "2017/18",
+      "Number of days in thousands": "3915"
+    },
+    {
+      "Fiscal Year": "2018/19",
+      "Number of days in thousands": "4706"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

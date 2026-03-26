@@ -1,0 +1,184 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Opinion",
+      "Percentage"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Opinion"
+    ],
+    "measure_fields": [
+      "Percentage"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage",
+    "series_field": "Opinion",
+    "categorical_values": {
+      "Year": [
+        "2002",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2017"
+      ],
+      "Opinion": [
+        "Dissatisfied",
+        "Satisfied"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Opinion": "categorical",
+      "Percentage": "numeric"
+    },
+    "numeric_stats": {
+      "Percentage": {
+        "min": 13.0,
+        "max": 85.0,
+        "mean": 48.72727272727273
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Percentage",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Opinion",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2002",
+      "Opinion": "Dissatisfied",
+      "Percentage": "79"
+    },
+    {
+      "Year": "2002",
+      "Opinion": "Satisfied",
+      "Percentage": "16"
+    },
+    {
+      "Year": "2007",
+      "Opinion": "Dissatisfied",
+      "Percentage": "66"
+    },
+    {
+      "Year": "2007",
+      "Opinion": "Satisfied",
+      "Percentage": "30"
+    },
+    {
+      "Year": "2008",
+      "Opinion": "Dissatisfied",
+      "Percentage": "68"
+    },
+    {
+      "Year": "2008",
+      "Opinion": "Satisfied",
+      "Percentage": "30"
+    },
+    {
+      "Year": "2009",
+      "Opinion": "Dissatisfied",
+      "Percentage": "78"
+    },
+    {
+      "Year": "2009",
+      "Opinion": "Satisfied",
+      "Percentage": "20"
+    },
+    {
+      "Year": "2010",
+      "Opinion": "Dissatisfied",
+      "Percentage": "79"
+    },
+    {
+      "Year": "2010",
+      "Opinion": "Satisfied",
+      "Percentage": "19"
+    },
+    {
+      "Year": "2011",
+      "Opinion": "Dissatisfied",
+      "Percentage": "76"
+    },
+    {
+      "Year": "2011",
+      "Opinion": "Satisfied",
+      "Percentage": "22"
+    },
+    {
+      "Year": "2012",
+      "Opinion": "Dissatisfied",
+      "Percentage": "63"
+    },
+    {
+      "Year": "2012",
+      "Opinion": "Satisfied",
+      "Percentage": "34"
+    },
+    {
+      "Year": "2013",
+      "Opinion": "Dissatisfied",
+      "Percentage": "69"
+    },
+    {
+      "Year": "2013",
+      "Opinion": "Satisfied",
+      "Percentage": "29"
+    },
+    {
+      "Year": "2014",
+      "Opinion": "Dissatisfied",
+      "Percentage": "67"
+    },
+    {
+      "Year": "2014",
+      "Opinion": "Satisfied",
+      "Percentage": "30"
+    },
+    {
+      "Year": "2015",
+      "Opinion": "Dissatisfied",
+      "Percentage": "72"
+    },
+    {
+      "Year": "2015",
+      "Opinion": "Satisfied",
+      "Percentage": "27"
+    },
+    {
+      "Year": "2017",
+      "Opinion": "Dissatisfied",
+      "Percentage": "85"
+    },
+    {
+      "Year": "2017",
+      "Opinion": "Satisfied",
+      "Percentage": "13"
+    }
+  ]
+}

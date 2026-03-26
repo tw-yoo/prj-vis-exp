@@ -1,0 +1,63 @@
+{
+  "ops": [
+    {
+      "op": "draw",
+      "action": "clear",
+      "meta": {
+        "source": "python-draw-plan",
+        "inputs": []
+      }
+    },
+    {
+      "op": "draw",
+      "action": "highlight",
+      "meta": {
+        "source": "python-draw-plan",
+        "nodeId": "n1",
+        "sentenceIndex": 1,
+        "inputs": []
+      },
+      "select": {
+        "keys": [
+          "2010",
+          "2025"
+        ]
+      },
+      "style": {
+        "color": "#ef4444",
+        "opacity": 1.0
+      }
+    }
+  ],
+  "ops2": [
+    {
+      "op": "draw",
+      "action": "clear",
+      "meta": {
+        "source": "python-draw-plan",
+        "inputs": []
+      }
+    },
+    {
+      "op": "draw",
+      "action": "highlight",
+      "meta": {
+        "source": "python-draw-plan",
+        "nodeId": "n2",
+        "sentenceIndex": 2,
+        "inputs": [
+          "n1"
+        ]
+      },
+      "select": {
+        "keys": [
+          "2025"
+        ]
+      },
+      "style": {
+        "color": "#ef4444",
+        "opacity": 1.0
+      }
+    }
+  ]
+}

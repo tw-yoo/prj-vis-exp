@@ -1,0 +1,56 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "field": "month",
+      "operator": "in",
+      "value": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "op": "filter",
+      "group": "sun"
+    },
+    {
+      "op": "sum",
+      "field": "count"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "field": "month",
+      "operator": "in",
+      "value": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "op": "filter",
+      "group": "rain"
+    },
+    {
+      "op": "sum",
+      "field": "count"
+    }
+  ],
+  "last": [
+    {
+      "op": "diff",
+      "field": "value",
+      "targetA": "ops_0",
+      "targetB": "ops2_0",
+      "signed": false
+    }
+  ],
+  "text": {
+    "ops": "Filter data for sunny weather in months 1-3, then sum their counts.",
+    "ops2": "Filter data for rainy weather in months 1-3, then sum their counts.",
+    "last": "Calculate the absolute difference between the total sunny days and total rainy days."
+  }
+}

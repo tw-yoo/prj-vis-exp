@@ -1,0 +1,171 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Service_Area",
+      "Revenue_Million_USD"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Service_Area"
+    ],
+    "measure_fields": [
+      "Revenue_Million_USD"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Revenue_Million_USD",
+    "series_field": "Service_Area",
+    "categorical_values": {
+      "Year": [
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020",
+        "2021",
+        "2022"
+      ],
+      "Service_Area": [
+        "BPO",
+        "Cloud",
+        "Data Centers"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Service_Area": "categorical",
+      "Revenue_Million_USD": "numeric"
+    },
+    "numeric_stats": {
+      "Revenue_Million_USD": {
+        "min": 197.0,
+        "max": 1848.0,
+        "mean": 922.6666666666666
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_USD",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Service_Area",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2016",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "602"
+    },
+    {
+      "Year": "2016",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "197"
+    },
+    {
+      "Year": "2016",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "602"
+    },
+    {
+      "Year": "2017",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "825"
+    },
+    {
+      "Year": "2017",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "275"
+    },
+    {
+      "Year": "2017",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "825"
+    },
+    {
+      "Year": "2018",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1047"
+    },
+    {
+      "Year": "2018",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "345"
+    },
+    {
+      "Year": "2018",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "998"
+    },
+    {
+      "Year": "2019",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1279"
+    },
+    {
+      "Year": "2019",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "407"
+    },
+    {
+      "Year": "2019",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "1154"
+    },
+    {
+      "Year": "2020",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1486"
+    },
+    {
+      "Year": "2020",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "461"
+    },
+    {
+      "Year": "2020",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "1286"
+    },
+    {
+      "Year": "2021",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1679"
+    },
+    {
+      "Year": "2021",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "514"
+    },
+    {
+      "Year": "2021",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "1437"
+    },
+    {
+      "Year": "2022",
+      "Service_Area": "Data Centers",
+      "Revenue_Million_USD": "1848"
+    },
+    {
+      "Year": "2022",
+      "Service_Area": "Cloud",
+      "Revenue_Million_USD": "564"
+    },
+    {
+      "Year": "2022",
+      "Service_Area": "BPO",
+      "Revenue_Million_USD": "1545"
+    }
+  ]
+}

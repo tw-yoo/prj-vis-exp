@@ -1,0 +1,69 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Year",
+      "include": [
+        "1995",
+        "1999"
+      ]
+    },
+    {
+      "op": "average",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 1
+      },
+      "field": "Installed base in million units"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": [], "sentenceIndex": 2 },
+      "field": "Year",
+      "include": [
+        "2010",
+        "2013",
+        "2017"
+      ]
+    },
+    {
+      "op": "average",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n3"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Installed base in million units"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "diff",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "sentenceIndex": 3
+      },
+      "field": "Installed base in million units",
+      "targetA": "ref:n2",
+      "targetB": "ref:n4",
+      "signed": false
+    }
+  ]
+}

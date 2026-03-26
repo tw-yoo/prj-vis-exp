@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__add__",
+      "value": 3.23
+    },
+    "preview": [
+      {
+        "target": "__add__",
+        "value": 3.23,
+        "category": "result",
+        "measure": "Share of respondents"
+      }
+    ],
+    "primary_dimension": "Race/Ethnicity",
+    "primary_measure": "Share of respondents",
+    "series_field": "Race/Ethnicity"
+  },
+  "warnings": []
+}

@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "average",
+    "sentenceIndex": 1,
+    "mention": "Find the average of the values for 1995 and 1999.",
+    "paramsHint": {
+      "field": "Installed base in million units"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Installed base in million units"
+  },
+  "scalar_ref_deps": []
+}

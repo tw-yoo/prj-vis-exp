@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2022",
+      "group": "Data Centers",
+      "value": 1848.0
+    },
+    "preview": [
+      {
+        "target": "2022",
+        "group": "Data Centers",
+        "value": 1848.0,
+        "category": "Year",
+        "measure": "Revenue_Million_USD"
+      }
+    ],
+    "targets_preview": [
+      "2022"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Revenue_Million_USD",
+    "series_field": "Service_Area"
+  },
+  "warnings": []
+}

@@ -1,0 +1,13 @@
+{
+  "op": "findExtremum",
+  "id": "n1",
+  "meta": {
+    "nodeId": "n1",
+    "inputs": [],
+    "sentenceIndex": 1,
+    "source": "recursive_step=1;taskId=o1"
+  },
+  "field": "Revenue_Million_USD",
+  "group": "Data Centers",
+  "which": "max"
+}

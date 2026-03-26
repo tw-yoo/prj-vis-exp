@@ -1,0 +1,24 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "Find the average of the values for 1995 and 1999.",
+    "paramsHint": {
+      "field": "Year",
+      "include": [
+        "1995",
+        "1999"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Year",
+    "include": [
+      "1995",
+      "1999"
+    ]
+  },
+  "scalar_ref_deps": []
+}

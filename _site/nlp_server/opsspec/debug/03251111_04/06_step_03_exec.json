@@ -1,0 +1,46 @@
+{
+  "artifact": {
+    "count": 4,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Apr 1897",
+      "value": 0.5666
+    },
+    "preview": [
+      {
+        "target": "Apr 1897",
+        "value": 0.5666,
+        "category": "Month/Year",
+        "measure": "Fatality rate among plague cases"
+      },
+      {
+        "target": "Feb 1897",
+        "value": 0.8164,
+        "category": "Month/Year",
+        "measure": "Fatality rate among plague cases"
+      },
+      {
+        "target": "Jan 1897",
+        "value": 0.69,
+        "category": "Month/Year",
+        "measure": "Fatality rate among plague cases"
+      },
+      {
+        "target": "Mar 1897",
+        "value": 0.6735,
+        "category": "Month/Year",
+        "measure": "Fatality rate among plague cases"
+      }
+    ],
+    "targets_preview": [
+      "Apr 1897",
+      "Feb 1897",
+      "Jan 1897",
+      "Mar 1897"
+    ],
+    "primary_dimension": "Month/Year",
+    "primary_measure": "Fatality rate among plague cases"
+  },
+  "warnings": []
+}

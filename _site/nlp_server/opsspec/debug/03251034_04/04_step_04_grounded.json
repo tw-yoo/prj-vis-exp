@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o4",
+    "op": "average",
+    "sentenceIndex": 2,
+    "mention": "calculate the average of jan 1897 until april 1897",
+    "paramsHint": {
+      "field": "Fatality rate among plague cases"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Fatality rate among plague cases"
+  },
+  "scalar_ref_deps": []
+}

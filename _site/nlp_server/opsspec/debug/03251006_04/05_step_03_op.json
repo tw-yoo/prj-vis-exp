@@ -1,0 +1,16 @@
+{
+  "op": "filter",
+  "id": "n3",
+  "meta": {
+    "nodeId": "n3",
+    "inputs": [],
+    "sentenceIndex": 3,
+    "source": "recursive_step=3;taskId=o3"
+  },
+  "field": "Year",
+  "include": [
+    "1995",
+    "2000",
+    "2005"
+  ]
+}

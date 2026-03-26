@@ -1,0 +1,276 @@
+{
+  "request_id": "test_0q8vqyb35mbq0efx_12be7dca",
+  "question": "Which year had the lowest amount of suicides of all ages combined?",
+  "explanation": "1. Sum of all the age ranges for every year\n2. Find the extremum (lowest)",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+    "description": "Grouped bar chart for 0q8vqyb35mbq0efx.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/grouped/0q8vqyb35mbq0efx.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "column": {
+        "field": "Year",
+        "type": "ordinal",
+        "header": {}
+      },
+      "y": {
+        "field": "Number of suicides",
+        "type": "quantitative",
+        "axis": {
+          "grid": false
+        }
+      },
+      "x": {
+        "field": "Age Group",
+        "type": "nominal",
+        "axis": {
+          "title": ""
+        }
+      },
+      "color": {
+        "field": "Age Group",
+        "type": "nominal"
+      }
+    },
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2009",
+      "Age Group": "0–19 years",
+      "Number of suicides": "37"
+    },
+    {
+      "Year": "2009",
+      "Age Group": "20–39 years",
+      "Number of suicides": "309"
+    },
+    {
+      "Year": "2009",
+      "Age Group": "40–64 years",
+      "Number of suicides": "517"
+    },
+    {
+      "Year": "2009",
+      "Age Group": "65 years and older",
+      "Number of suicides": "171"
+    },
+    {
+      "Year": "2010",
+      "Age Group": "0–19 years",
+      "Number of suicides": "40"
+    },
+    {
+      "Year": "2010",
+      "Age Group": "20–39 years",
+      "Number of suicides": "311"
+    },
+    {
+      "Year": "2010",
+      "Age Group": "40–64 years",
+      "Number of suicides": "442"
+    },
+    {
+      "Year": "2010",
+      "Age Group": "65 years and older",
+      "Number of suicides": "161"
+    },
+    {
+      "Year": "2011",
+      "Age Group": "0–19 years",
+      "Number of suicides": "45"
+    },
+    {
+      "Year": "2011",
+      "Age Group": "20–39 years",
+      "Number of suicides": "265"
+    },
+    {
+      "Year": "2011",
+      "Age Group": "40–64 years",
+      "Number of suicides": "435"
+    },
+    {
+      "Year": "2011",
+      "Age Group": "65 years and older",
+      "Number of suicides": "167"
+    },
+    {
+      "Year": "2012",
+      "Age Group": "0–19 years",
+      "Number of suicides": "44"
+    },
+    {
+      "Year": "2012",
+      "Age Group": "20–39 years",
+      "Number of suicides": "249"
+    },
+    {
+      "Year": "2012",
+      "Age Group": "40–64 years",
+      "Number of suicides": "418"
+    },
+    {
+      "Year": "2012",
+      "Age Group": "65 years and older",
+      "Number of suicides": "162"
+    },
+    {
+      "Year": "2013",
+      "Age Group": "0–19 years",
+      "Number of suicides": "34"
+    },
+    {
+      "Year": "2013",
+      "Age Group": "20–39 years",
+      "Number of suicides": "283"
+    },
+    {
+      "Year": "2013",
+      "Age Group": "40–64 years",
+      "Number of suicides": "391"
+    },
+    {
+      "Year": "2013",
+      "Age Group": "65 years and older",
+      "Number of suicides": "179"
+    },
+    {
+      "Year": "2014",
+      "Age Group": "0–19 years",
+      "Number of suicides": "30"
+    },
+    {
+      "Year": "2014",
+      "Age Group": "20–39 years",
+      "Number of suicides": "255"
+    },
+    {
+      "Year": "2014",
+      "Age Group": "40–64 years",
+      "Number of suicides": "341"
+    },
+    {
+      "Year": "2014",
+      "Age Group": "65 years and older",
+      "Number of suicides": "163"
+    },
+    {
+      "Year": "2015",
+      "Age Group": "0–19 years",
+      "Number of suicides": "22"
+    },
+    {
+      "Year": "2015",
+      "Age Group": "20–39 years",
+      "Number of suicides": "225"
+    },
+    {
+      "Year": "2015",
+      "Age Group": "40–64 years",
+      "Number of suicides": "328"
+    },
+    {
+      "Year": "2015",
+      "Age Group": "65 years and older",
+      "Number of suicides": "156"
+    },
+    {
+      "Year": "2016",
+      "Age Group": "0–19 years",
+      "Number of suicides": "26"
+    },
+    {
+      "Year": "2016",
+      "Age Group": "20–39 years",
+      "Number of suicides": "253"
+    },
+    {
+      "Year": "2016",
+      "Age Group": "40–64 years",
+      "Number of suicides": "324"
+    },
+    {
+      "Year": "2016",
+      "Age Group": "65 years and older",
+      "Number of suicides": "184"
+    },
+    {
+      "Year": "2017",
+      "Age Group": "0–19 years",
+      "Number of suicides": "37"
+    },
+    {
+      "Year": "2017",
+      "Age Group": "20–39 years",
+      "Number of suicides": "281"
+    },
+    {
+      "Year": "2017",
+      "Age Group": "40–64 years",
+      "Number of suicides": "321"
+    },
+    {
+      "Year": "2017",
+      "Age Group": "65 years and older",
+      "Number of suicides": "185"
+    },
+    {
+      "Year": "2018",
+      "Age Group": "0–19 years",
+      "Number of suicides": "36"
+    },
+    {
+      "Year": "2018",
+      "Age Group": "20–39 years",
+      "Number of suicides": "267"
+    },
+    {
+      "Year": "2018",
+      "Age Group": "40–64 years",
+      "Number of suicides": "304"
+    },
+    {
+      "Year": "2018",
+      "Age Group": "65 years and older",
+      "Number of suicides": "203"
+    },
+    {
+      "Year": "2019",
+      "Age Group": "0–19 years",
+      "Number of suicides": "38"
+    },
+    {
+      "Year": "2019",
+      "Age Group": "20–39 years",
+      "Number of suicides": "267"
+    },
+    {
+      "Year": "2019",
+      "Age Group": "40–64 years",
+      "Number of suicides": "272"
+    },
+    {
+      "Year": "2019",
+      "Age Group": "65 years and older",
+      "Number of suicides": "169"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

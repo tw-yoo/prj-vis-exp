@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Scotland",
+      "group": "Scotland",
+      "value": 28.0
+    },
+    "preview": [
+      {
+        "target": "Scotland",
+        "group": "Scotland",
+        "value": 28.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      }
+    ],
+    "targets_preview": [
+      "Scotland"
+    ],
+    "primary_dimension": "Region",
+    "primary_measure": "SharePercentage",
+    "series_field": "Region"
+  },
+  "warnings": []
+}

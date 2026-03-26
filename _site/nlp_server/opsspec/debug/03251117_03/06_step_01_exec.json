@@ -1,0 +1,53 @@
+{
+  "artifact": {
+    "count": 12,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2013",
+      "value": 5.45
+    },
+    "preview": [
+      {
+        "target": "2010",
+        "value": 3.32,
+        "category": "Year",
+        "measure": "Average price in US dollars"
+      },
+      {
+        "target": "2011",
+        "value": 4.88,
+        "category": "Year",
+        "measure": "Average price in US dollars"
+      },
+      {
+        "target": "2012",
+        "value": 4.63,
+        "category": "Year",
+        "measure": "Average price in US dollars"
+      },
+      {
+        "target": "2013",
+        "value": 5.45,
+        "category": "Year",
+        "measure": "Average price in US dollars"
+      },
+      {
+        "target": "2014",
+        "value": 4.91,
+        "category": "Year",
+        "measure": "Average price in US dollars"
+      }
+    ],
+    "targets_preview": [
+      "2010",
+      "2011",
+      "2012",
+      "2013",
+      "2014"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average price in US dollars"
+  },
+  "warnings": []
+}

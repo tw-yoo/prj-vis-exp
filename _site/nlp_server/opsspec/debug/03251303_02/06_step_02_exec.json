@@ -1,0 +1,23 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__sum__",
+      "value": 9347.0
+    },
+    "preview": [
+      {
+        "target": "__sum__",
+        "value": 9347.0,
+        "category": "result",
+        "measure": "Number of suicides"
+      }
+    ],
+    "primary_dimension": "Age Group",
+    "primary_measure": "Number of suicides",
+    "series_field": "Age Group"
+  },
+  "warnings": []
+}

@@ -1,0 +1,23 @@
+{
+  "task": {
+    "taskId": "o6",
+    "op": "compareBool",
+    "sentenceIndex": 6,
+    "mention": "compare the two values to find which one is bigger",
+    "paramsHint": {
+      "operator": ">",
+      "targetA": "ref:n2",
+      "targetB": "ref:n5"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "compareBool",
+    "operator": ">",
+    "targetA": "ref:n2",
+    "targetB": "ref:n5"
+  },
+  "scalar_ref_deps": [
+    "n2",
+    "n5"
+  ]
+}

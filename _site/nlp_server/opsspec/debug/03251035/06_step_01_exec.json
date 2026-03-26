@@ -1,0 +1,60 @@
+{
+  "artifact": {
+    "count": 13,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2017-2019",
+      "group": "Canada-Newfoundland and Labrador",
+      "value": 2.0999999999999943
+    },
+    "preview": [
+      {
+        "target": "2005-2007",
+        "group": "Canada-Newfoundland and Labrador",
+        "value": 2.299999999999997,
+        "category": "Year",
+        "measure": "Life expectancy in years"
+      },
+      {
+        "target": "2006-2008",
+        "group": "Canada-Newfoundland and Labrador",
+        "value": 2.200000000000003,
+        "category": "Year",
+        "measure": "Life expectancy in years"
+      },
+      {
+        "target": "2007-2009",
+        "group": "Canada-Newfoundland and Labrador",
+        "value": 1.7999999999999972,
+        "category": "Year",
+        "measure": "Life expectancy in years"
+      },
+      {
+        "target": "2008-2010",
+        "group": "Canada-Newfoundland and Labrador",
+        "value": 1.7999999999999972,
+        "category": "Year",
+        "measure": "Life expectancy in years"
+      },
+      {
+        "target": "2009-2011",
+        "group": "Canada-Newfoundland and Labrador",
+        "value": 1.8000000000000114,
+        "category": "Year",
+        "measure": "Life expectancy in years"
+      }
+    ],
+    "targets_preview": [
+      "2005-2007",
+      "2006-2008",
+      "2007-2009",
+      "2008-2010",
+      "2009-2011"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Life expectancy in years",
+    "series_field": "Region"
+  },
+  "warnings": []
+}

@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "Check Scotland's Biggest Value",
+    "paramsHint": {
+      "group": "Scotland"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "group": "Scotland"
+  },
+  "scalar_ref_deps": []
+}

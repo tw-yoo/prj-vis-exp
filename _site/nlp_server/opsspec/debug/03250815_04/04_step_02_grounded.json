@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "findExtremum",
+    "sentenceIndex": 1,
+    "mention": "Compare the percentage values for all years in the construction sector to each other",
+    "paramsHint": {
+      "field": "Share of SMEs",
+      "which": "max"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "Share of SMEs",
+    "which": "max"
+  },
+  "scalar_ref_deps": []
+}

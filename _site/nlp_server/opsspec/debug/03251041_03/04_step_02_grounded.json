@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "retrieveValue",
+    "sentenceIndex": 2,
+    "mention": "Check Mobile PCs' Installed Base Millions value for 2022",
+    "paramsHint": {
+      "field": "Year",
+      "target": "2022",
+      "group": "Mobile PCs"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "retrieveValue",
+    "field": "Year",
+    "target": "2022",
+    "group": "Mobile PCs"
+  },
+  "scalar_ref_deps": []
+}

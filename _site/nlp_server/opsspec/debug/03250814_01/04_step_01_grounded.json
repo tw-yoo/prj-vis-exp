@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "retrieveValue",
+    "sentenceIndex": 1,
+    "mention": "Check the value of the installed Base Millions in Tablets for 2017",
+    "paramsHint": {
+      "field": "Year",
+      "target": "2017",
+      "group": "Tablets"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "retrieveValue",
+    "field": "Year",
+    "target": "2017",
+    "group": "Tablets"
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,17 @@
+{
+  "op": "filter",
+  "id": "n3",
+  "meta": {
+    "nodeId": "n3",
+    "inputs": [],
+    "sentenceIndex": 2,
+    "source": "recursive_step=3;taskId=o3"
+  },
+  "field": "Month/Year",
+  "include": [
+    "Apr 1897",
+    "Feb 1897",
+    "Jan 1897",
+    "Mar 1897"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "average",
+    "sentenceIndex": 1,
+    "mention": "calculate average growth rate",
+    "paramsHint": {
+      "field": "Growth rate of HICP (%)"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Growth rate of HICP (%)"
+  },
+  "scalar_ref_deps": []
+}

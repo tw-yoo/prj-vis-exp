@@ -1,0 +1,202 @@
+{
+  "request_id": "test_10t8o5vhethzeod1_ed99dab1",
+  "question": "In which year was the agriculture sector the highest",
+  "explanation": "1. get the all values from the agriculture sector\n2. find the maximum value",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Stacked Bar chart for 10t8o5vhethzeod1.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/stacked/10t8o5vhethzeod1.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Share_of_GDP",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Sector",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2009",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3132"
+    },
+    {
+      "Year": "2009",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1507"
+    },
+    {
+      "Year": "2009",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4861"
+    },
+    {
+      "Year": "2010",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3318"
+    },
+    {
+      "Year": "2010",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.142"
+    },
+    {
+      "Year": "2010",
+      "Sector": "Services",
+      "Share_of_GDP": "0.464"
+    },
+    {
+      "Year": "2011",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3498"
+    },
+    {
+      "Year": "2011",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1411"
+    },
+    {
+      "Year": "2011",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4529"
+    },
+    {
+      "Year": "2012",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3315"
+    },
+    {
+      "Year": "2012",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.141"
+    },
+    {
+      "Year": "2012",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4687"
+    },
+    {
+      "Year": "2013",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3153"
+    },
+    {
+      "Year": "2013",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1415"
+    },
+    {
+      "Year": "2013",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4755"
+    },
+    {
+      "Year": "2014",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.3027"
+    },
+    {
+      "Year": "2014",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1383"
+    },
+    {
+      "Year": "2014",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4865"
+    },
+    {
+      "Year": "2015",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2938"
+    },
+    {
+      "Year": "2015",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1372"
+    },
+    {
+      "Year": "2015",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4946"
+    },
+    {
+      "Year": "2016",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2915"
+    },
+    {
+      "Year": "2016",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.131"
+    },
+    {
+      "Year": "2016",
+      "Sector": "Services",
+      "Share_of_GDP": "0.4996"
+    },
+    {
+      "Year": "2017",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2708"
+    },
+    {
+      "Year": "2017",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1324"
+    },
+    {
+      "Year": "2017",
+      "Sector": "Services",
+      "Share_of_GDP": "0.5102"
+    },
+    {
+      "Year": "2018",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2576"
+    },
+    {
+      "Year": "2018",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.1341"
+    },
+    {
+      "Year": "2018",
+      "Sector": "Services",
+      "Share_of_GDP": "0.51"
+    },
+    {
+      "Year": "2019",
+      "Sector": "Agriculture",
+      "Share_of_GDP": "0.2426"
+    },
+    {
+      "Year": "2019",
+      "Sector": "Industry",
+      "Share_of_GDP": "0.133"
+    },
+    {
+      "Year": "2019",
+      "Sector": "Services",
+      "Share_of_GDP": "0.5061"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

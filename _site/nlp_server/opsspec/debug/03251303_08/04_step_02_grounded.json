@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "nth",
+    "sentenceIndex": 2,
+    "mention": "find the second lowest",
+    "paramsHint": {
+      "n": 2,
+      "field": "Average price in US dollars"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "nth",
+    "n": 2,
+    "field": "Average price in US dollars"
+  },
+  "scalar_ref_deps": []
+}

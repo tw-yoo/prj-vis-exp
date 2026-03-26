@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 1mzcynif2s4mm6ps.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/1mzcynif2s4mm6ps.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Item",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "Share of respondents",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Respondent Group",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Respondent Group",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "op": "findExtremum",
+  "id": "n6",
+  "meta": {
+    "nodeId": "n6",
+    "inputs": [
+      "n5"
+    ],
+    "sentenceIndex": 3,
+    "source": "recursive_step=6;taskId=o6"
+  },
+  "field": "Percentage_of_Population",
+  "which": "min"
+}

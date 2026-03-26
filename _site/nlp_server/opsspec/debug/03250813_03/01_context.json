@@ -1,0 +1,96 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Production in billion heads"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Production in billion heads"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in billion heads",
+    "categorical_values": {
+      "Year": [
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Production in billion heads": "numeric"
+    },
+    "numeric_stats": {
+      "Production in billion heads": {
+        "min": 1.35,
+        "max": 3.73,
+        "mean": 2.321
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Production in billion heads",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2010",
+      "Production in billion heads": "1.35"
+    },
+    {
+      "Year": "2011",
+      "Production in billion heads": "1.57"
+    },
+    {
+      "Year": "2012",
+      "Production in billion heads": "1.66"
+    },
+    {
+      "Year": "2013",
+      "Production in billion heads": "1.79"
+    },
+    {
+      "Year": "2014",
+      "Production in billion heads": "1.87"
+    },
+    {
+      "Year": "2015",
+      "Production in billion heads": "1.97"
+    },
+    {
+      "Year": "2016",
+      "Production in billion heads": "2.09"
+    },
+    {
+      "Year": "2017",
+      "Production in billion heads": "3.48"
+    },
+    {
+      "Year": "2018",
+      "Production in billion heads": "3.7"
+    },
+    {
+      "Year": "2019",
+      "Production in billion heads": "3.73"
+    }
+  ]
+}

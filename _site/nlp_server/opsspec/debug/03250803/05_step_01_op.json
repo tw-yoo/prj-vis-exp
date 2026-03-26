@@ -1,0 +1,14 @@
+{
+  "op": "filter",
+  "id": "n1",
+  "meta": {
+    "nodeId": "n1",
+    "inputs": [],
+    "sentenceIndex": 1,
+    "source": "recursive_step=1;taskId=o1"
+  },
+  "field": "Frequency",
+  "include": [
+    "Occasionally (less than once a month)"
+  ]
+}

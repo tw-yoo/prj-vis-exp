@@ -1,0 +1,99 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Year",
+      "operator": "between",
+      "value": [
+        "2000",
+        "2009"
+      ]
+    },
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 1
+      },
+      "field": "Percentage_of_Population",
+      "which": "max"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": [], "sentenceIndex": 2 },
+      "field": "Year",
+      "operator": "between",
+      "value": [
+        "2000",
+        "2009"
+      ]
+    },
+    {
+      "op": "findExtremum",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n3"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Percentage_of_Population",
+      "which": "max",
+      "rank": 2
+    }
+  ],
+  "ops3": [
+    {
+      "op": "filter",
+      "id": "n5",
+      "meta": { "nodeId": "n5", "inputs": [], "sentenceIndex": 3 },
+      "field": "Year",
+      "operator": "between",
+      "value": [
+        "2000",
+        "2009"
+      ]
+    },
+    {
+      "op": "findExtremum",
+      "id": "n6",
+      "meta": {
+        "nodeId": "n6",
+        "inputs": [
+          "n5"
+        ],
+        "sentenceIndex": 3
+      },
+      "field": "Percentage_of_Population",
+      "which": "min"
+    }
+  ],
+  "ops4": [
+    {
+      "op": "diff",
+      "id": "n7",
+      "meta": {
+        "nodeId": "n7",
+        "inputs": [
+          "n4",
+          "n6"
+        ],
+        "sentenceIndex": 4
+      },
+      "field": "Percentage_of_Population",
+      "targetA": "ref:n4",
+      "targetB": "ref:n6",
+      "signed": false
+    }
+  ]
+}

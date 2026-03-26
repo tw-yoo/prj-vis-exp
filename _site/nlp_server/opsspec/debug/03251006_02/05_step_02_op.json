@@ -1,0 +1,19 @@
+{
+  "op": "pairDiff",
+  "id": "n2",
+  "meta": {
+    "nodeId": "n2",
+    "inputs": [
+      "n1"
+    ],
+    "sentenceIndex": 2,
+    "source": "recursive_step=2;taskId=o2"
+  },
+  "by": "Year",
+  "seriesField": "Country_Region",
+  "field": "Revenue_Million_USD",
+  "groupA": "Thailand",
+  "groupB": "Philippines",
+  "signed": true,
+  "absolute": false
+}

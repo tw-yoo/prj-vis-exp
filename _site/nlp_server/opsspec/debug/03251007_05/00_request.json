@@ -1,0 +1,137 @@
+{
+  "request_id": "test_13guplcbmfu1tjzu_a307a77e",
+  "question": "Which country has the highest european factor?",
+  "explanation": "1. Get the sum of germany and italy for each country\n2. Get the country with the highest value",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Stacked Bar chart for 13guplcbmfu1tjzu.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/stacked/13guplcbmfu1tjzu.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {
+        "field": "Country",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Decrease_in_GDP_Percentage",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Factor",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Country": "Czechia",
+      "Factor": "China – exports",
+      "Decrease_in_GDP_Percentage": "0.011"
+    },
+    {
+      "Country": "Czechia",
+      "Factor": "China – supply chain",
+      "Decrease_in_GDP_Percentage": "0.036"
+    },
+    {
+      "Country": "Czechia",
+      "Factor": "Germany – exports",
+      "Decrease_in_GDP_Percentage": "0.003"
+    },
+    {
+      "Country": "Czechia",
+      "Factor": "Italy – exports",
+      "Decrease_in_GDP_Percentage": "0.064"
+    },
+    {
+      "Country": "Czechia",
+      "Factor": "Total",
+      "Decrease_in_GDP_Percentage": "0.064"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "China – exports",
+      "Decrease_in_GDP_Percentage": "0.015"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "China – supply chain",
+      "Decrease_in_GDP_Percentage": "0.031"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "Germany – exports",
+      "Decrease_in_GDP_Percentage": "0.004"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "Italy – exports",
+      "Decrease_in_GDP_Percentage": "0.069"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "Total",
+      "Decrease_in_GDP_Percentage": "0.069"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "China – exports",
+      "Decrease_in_GDP_Percentage": "0.004"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "China – supply chain",
+      "Decrease_in_GDP_Percentage": "0.015"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "Germany – exports",
+      "Decrease_in_GDP_Percentage": "0.002"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "Italy – exports",
+      "Decrease_in_GDP_Percentage": "0.038"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "Total",
+      "Decrease_in_GDP_Percentage": "0.038"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "China – exports",
+      "Decrease_in_GDP_Percentage": "0.004"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "China – supply chain",
+      "Decrease_in_GDP_Percentage": "0.023"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "Germany – exports",
+      "Decrease_in_GDP_Percentage": "0.001"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "Italy – exports",
+      "Decrease_in_GDP_Percentage": "0.038"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "Total",
+      "Decrease_in_GDP_Percentage": "0.033"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

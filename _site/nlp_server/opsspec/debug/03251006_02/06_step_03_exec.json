@@ -1,0 +1,36 @@
+{
+  "artifact": {
+    "count": 2,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2021",
+      "group": "Thailand-Philippines",
+      "value": 84.68
+    },
+    "preview": [
+      {
+        "target": "2020",
+        "group": "Thailand-Philippines",
+        "value": 8.650000000000006,
+        "category": "Year",
+        "measure": "Revenue_Million_USD"
+      },
+      {
+        "target": "2021",
+        "group": "Thailand-Philippines",
+        "value": 84.68,
+        "category": "Year",
+        "measure": "Revenue_Million_USD"
+      }
+    ],
+    "targets_preview": [
+      "2020",
+      "2021"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Revenue_Million_USD",
+    "series_field": "Country_Region"
+  },
+  "warnings": []
+}

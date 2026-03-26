@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "findExtremum",
+    "sentenceIndex": 2,
+    "mention": "Get the country with the highest value",
+    "paramsHint": {
+      "field": "Decrease_in_GDP_Percentage",
+      "which": "max"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "Decrease_in_GDP_Percentage",
+    "which": "max"
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,13 @@
+{
+  "op": "count",
+  "id": "n3",
+  "meta": {
+    "nodeId": "n3",
+    "inputs": [
+      "n2"
+    ],
+    "sentenceIndex": 3,
+    "source": "recursive_step=3;taskId=o3"
+  },
+  "field": "Month"
+}

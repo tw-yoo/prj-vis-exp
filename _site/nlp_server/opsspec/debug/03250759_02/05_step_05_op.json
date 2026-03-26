@@ -1,0 +1,16 @@
+{
+  "op": "add",
+  "id": "n5",
+  "meta": {
+    "nodeId": "n5",
+    "inputs": [
+      "n2",
+      "n4"
+    ],
+    "sentenceIndex": 3,
+    "source": "recursive_step=5;taskId=o5"
+  },
+  "targetA": "ref:n2",
+  "targetB": "ref:n4",
+  "field": "Average weight in metric grams"
+}

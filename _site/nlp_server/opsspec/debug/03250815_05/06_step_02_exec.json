@@ -1,0 +1,25 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__avg__",
+      "group": "Favorable view of US",
+      "value": 65.66666666666667
+    },
+    "preview": [
+      {
+        "target": "__avg__",
+        "group": "Favorable view of US",
+        "value": 65.66666666666667,
+        "category": "result",
+        "measure": "Percentage_of_Respondents"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage_of_Respondents",
+    "series_field": "Opinion_Type"
+  },
+  "warnings": []
+}

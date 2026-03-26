@@ -1,0 +1,173 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Opinion",
+      "Percentage"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Opinion"
+    ],
+    "measure_fields": [
+      "Percentage"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage",
+    "series_field": "Opinion",
+    "categorical_values": {
+      "Year": [
+        "1996",
+        "2001",
+        "2003",
+        "2004",
+        "2005",
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010"
+      ],
+      "Opinion": [
+        "Favor",
+        "Oppose"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Opinion": "categorical",
+      "Percentage": "numeric"
+    },
+    "numeric_stats": {
+      "Percentage": {
+        "min": 27.0,
+        "max": 65.0,
+        "mean": 45.35
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Percentage",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Opinion",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "1996",
+      "Opinion": "Oppose",
+      "Percentage": "65"
+    },
+    {
+      "Year": "1996",
+      "Opinion": "Favor",
+      "Percentage": "27"
+    },
+    {
+      "Year": "2001",
+      "Opinion": "Oppose",
+      "Percentage": "57"
+    },
+    {
+      "Year": "2001",
+      "Opinion": "Favor",
+      "Percentage": "35"
+    },
+    {
+      "Year": "2003",
+      "Opinion": "Oppose",
+      "Percentage": "58"
+    },
+    {
+      "Year": "2003",
+      "Opinion": "Favor",
+      "Percentage": "33"
+    },
+    {
+      "Year": "2004",
+      "Opinion": "Oppose",
+      "Percentage": "60"
+    },
+    {
+      "Year": "2004",
+      "Opinion": "Favor",
+      "Percentage": "31"
+    },
+    {
+      "Year": "2005",
+      "Opinion": "Oppose",
+      "Percentage": "53"
+    },
+    {
+      "Year": "2005",
+      "Opinion": "Favor",
+      "Percentage": "36"
+    },
+    {
+      "Year": "2006",
+      "Opinion": "Oppose",
+      "Percentage": "55"
+    },
+    {
+      "Year": "2006",
+      "Opinion": "Favor",
+      "Percentage": "35"
+    },
+    {
+      "Year": "2007",
+      "Opinion": "Oppose",
+      "Percentage": "54"
+    },
+    {
+      "Year": "2007",
+      "Opinion": "Favor",
+      "Percentage": "37"
+    },
+    {
+      "Year": "2008",
+      "Opinion": "Oppose",
+      "Percentage": "51"
+    },
+    {
+      "Year": "2008",
+      "Opinion": "Favor",
+      "Percentage": "39"
+    },
+    {
+      "Year": "2009",
+      "Opinion": "Oppose",
+      "Percentage": "54"
+    },
+    {
+      "Year": "2009",
+      "Opinion": "Favor",
+      "Percentage": "37"
+    },
+    {
+      "Year": "2010",
+      "Opinion": "Oppose",
+      "Percentage": "48"
+    },
+    {
+      "Year": "2010",
+      "Opinion": "Favor",
+      "Percentage": "42"
+    }
+  ]
+}

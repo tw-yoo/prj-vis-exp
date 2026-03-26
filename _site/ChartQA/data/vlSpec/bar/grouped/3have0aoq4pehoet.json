@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 3have0aoq4pehoet.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/3have0aoq4pehoet.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Company",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "User engagement",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Month",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Month",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

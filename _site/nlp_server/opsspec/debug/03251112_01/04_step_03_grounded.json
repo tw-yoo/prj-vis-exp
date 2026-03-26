@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "count",
+    "sentenceIndex": 2,
+    "mention": "count the number of years that Russia is higher than the US",
+    "paramsHint": {
+      "field": "Year"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "count",
+    "field": "Year"
+  },
+  "scalar_ref_deps": []
+}

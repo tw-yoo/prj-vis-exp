@@ -1,0 +1,53 @@
+{
+  "artifact": {
+    "count": 9,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2011",
+      "value": 3.16
+    },
+    "preview": [
+      {
+        "target": "2002",
+        "value": 2.89,
+        "category": "Year",
+        "measure": "Production in million units"
+      },
+      {
+        "target": "2003",
+        "value": 2.93,
+        "category": "Year",
+        "measure": "Production in million units"
+      },
+      {
+        "target": "2004",
+        "value": 3.0,
+        "category": "Year",
+        "measure": "Production in million units"
+      },
+      {
+        "target": "2005",
+        "value": 2.98,
+        "category": "Year",
+        "measure": "Production in million units"
+      },
+      {
+        "target": "2006",
+        "value": 2.96,
+        "category": "Year",
+        "measure": "Production in million units"
+      }
+    ],
+    "targets_preview": [
+      "2002",
+      "2003",
+      "2004",
+      "2005",
+      "2006"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in million units"
+  },
+  "warnings": []
+}

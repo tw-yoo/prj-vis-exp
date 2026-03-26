@@ -1,0 +1,53 @@
+{
+  "artifact": {
+    "count": 5,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Dec '18",
+      "value": 0.9
+    },
+    "preview": [
+      {
+        "target": "Apr '18",
+        "value": 0.9,
+        "category": "Month",
+        "measure": "Growth rate of HICP (%)"
+      },
+      {
+        "target": "Dec '18",
+        "value": 0.9,
+        "category": "Month",
+        "measure": "Growth rate of HICP (%)"
+      },
+      {
+        "target": "Feb '18",
+        "value": 0.7,
+        "category": "Month",
+        "measure": "Growth rate of HICP (%)"
+      },
+      {
+        "target": "Mar '18",
+        "value": 0.7,
+        "category": "Month",
+        "measure": "Growth rate of HICP (%)"
+      },
+      {
+        "target": "Nov '18",
+        "value": 1.1,
+        "category": "Month",
+        "measure": "Growth rate of HICP (%)"
+      }
+    ],
+    "targets_preview": [
+      "Apr '18",
+      "Dec '18",
+      "Feb '18",
+      "Mar '18",
+      "Nov '18"
+    ],
+    "primary_dimension": "Month",
+    "primary_measure": "Growth rate of HICP (%)"
+  },
+  "warnings": []
+}

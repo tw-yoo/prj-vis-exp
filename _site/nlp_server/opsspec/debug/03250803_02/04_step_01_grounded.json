@@ -1,0 +1,22 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "Compare the percentage values for all years in the construction sector to each other",
+    "paramsHint": {
+      "field": "Industry Sector",
+      "include": [
+        "Construction"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Industry Sector",
+    "include": [
+      "Construction"
+    ]
+  },
+  "scalar_ref_deps": []
+}

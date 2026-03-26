@@ -1,0 +1,81 @@
+{
+  "ops": [
+    {
+      "op": "retrieveValue",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Year",
+      "target": "2016"
+    },
+    {
+      "op": "retrieveValue",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+      "field": "Year",
+      "target": "2017"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "retrieveValue",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": [], "sentenceIndex": 2 },
+      "field": "Year",
+      "target": "2017"
+    },
+    {
+      "op": "retrieveValue",
+      "id": "n4",
+      "meta": { "nodeId": "n4", "inputs": [], "sentenceIndex": 2 },
+      "field": "Year",
+      "target": "2018"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "diff",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 3
+      },
+      "targetA": "ref:n1",
+      "targetB": "ref:n2",
+      "signed": false
+    },
+    {
+      "op": "diff",
+      "id": "n6",
+      "meta": {
+        "nodeId": "n6",
+        "inputs": [
+          "n3",
+          "n4"
+        ],
+        "sentenceIndex": 3
+      },
+      "targetA": "ref:n3",
+      "targetB": "ref:n4",
+      "signed": false
+    },
+    {
+      "op": "diff",
+      "id": "n7",
+      "meta": {
+        "nodeId": "n7",
+        "inputs": [
+          "n5",
+          "n6"
+        ],
+        "sentenceIndex": 3
+      },
+      "targetA": "ref:n5",
+      "targetB": "ref:n6",
+      "signed": false
+    }
+  ]
+}

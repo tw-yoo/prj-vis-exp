@@ -1,0 +1,117 @@
+{
+  "chart_context": {
+    "fields": [
+      "ResponseCategory",
+      "Region",
+      "SharePercentage"
+    ],
+    "dimension_fields": [
+      "ResponseCategory",
+      "Region"
+    ],
+    "measure_fields": [
+      "SharePercentage"
+    ],
+    "primary_dimension": "Region",
+    "primary_measure": "SharePercentage",
+    "series_field": "Region",
+    "categorical_values": {
+      "ResponseCategory": [
+        "Neither in favour nor against",
+        "Somewhat against",
+        "Somewhat in favour",
+        "Strongly against",
+        "Strongly in favour"
+      ],
+      "Region": [
+        "England & Wales",
+        "Scotland"
+      ]
+    },
+    "field_types": {
+      "ResponseCategory": "categorical",
+      "Region": "categorical",
+      "SharePercentage": "numeric"
+    },
+    "numeric_stats": {
+      "SharePercentage": {
+        "min": 2.0,
+        "max": 28.0,
+        "mean": 17.7
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "ResponseCategory",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "SharePercentage",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Region",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Region",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "ResponseCategory": "Strongly in favour",
+      "Region": "England & Wales",
+      "SharePercentage": "18"
+    },
+    {
+      "ResponseCategory": "Strongly in favour",
+      "Region": "Scotland",
+      "SharePercentage": "13"
+    },
+    {
+      "ResponseCategory": "Somewhat in favour",
+      "Region": "England & Wales",
+      "SharePercentage": "25"
+    },
+    {
+      "ResponseCategory": "Somewhat in favour",
+      "Region": "Scotland",
+      "SharePercentage": "24"
+    },
+    {
+      "ResponseCategory": "Neither in favour nor against",
+      "Region": "England & Wales",
+      "SharePercentage": "17"
+    },
+    {
+      "ResponseCategory": "Neither in favour nor against",
+      "Region": "Scotland",
+      "SharePercentage": "16"
+    },
+    {
+      "ResponseCategory": "Somewhat against",
+      "Region": "England & Wales",
+      "SharePercentage": "16"
+    },
+    {
+      "ResponseCategory": "Somewhat against",
+      "Region": "Scotland",
+      "SharePercentage": "18"
+    },
+    {
+      "ResponseCategory": "Strongly against",
+      "Region": "England & Wales",
+      "SharePercentage": "2"
+    },
+    {
+      "ResponseCategory": "Strongly against",
+      "Region": "Scotland",
+      "SharePercentage": "28"
+    }
+  ]
+}

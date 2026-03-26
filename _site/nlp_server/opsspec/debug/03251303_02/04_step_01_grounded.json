@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "sum",
+    "sentenceIndex": 1,
+    "mention": "Sum of all the age ranges for every year",
+    "paramsHint": {
+      "field": "Number of suicides"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "sum",
+    "field": "Number of suicides"
+  },
+  "scalar_ref_deps": []
+}

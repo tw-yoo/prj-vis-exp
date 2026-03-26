@@ -1,0 +1,61 @@
+{
+  "request_id": "test_0w88bu7qm4ilsqmh_1991eaaa",
+  "question": "What is the difference between the average of before 2000 and from 2010?",
+  "explanation": "1. Find the average of the values for 1995 and 1999.\n2. Find the average of the values for 2010, 2013, and 2017.\n3. Calculate the difference between the two averages.",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Simple Bar chart for 0w88bu7qm4ilsqmh.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/simple/0w88bu7qm4ilsqmh.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "y": {
+        "field": "Installed base in million units",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "1995",
+      "Installed base in million units": "64"
+    },
+    {
+      "Year": "1999",
+      "Installed base in million units": "54"
+    },
+    {
+      "Year": "2006",
+      "Installed base in million units": "64"
+    },
+    {
+      "Year": "2008",
+      "Installed base in million units": "63"
+    },
+    {
+      "Year": "2010",
+      "Installed base in million units": "109"
+    },
+    {
+      "Year": "2013",
+      "Installed base in million units": "128"
+    },
+    {
+      "Year": "2017",
+      "Installed base in million units": "105"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

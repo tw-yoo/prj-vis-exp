@@ -1,0 +1,111 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Average price in US dollars"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Average price in US dollars"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average price in US dollars",
+    "categorical_values": {
+      "Year": [
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020",
+        "2021"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Average price in US dollars": "numeric"
+    },
+    "numeric_stats": {
+      "Average price in US dollars": {
+        "min": 3.32,
+        "max": 5.45,
+        "mean": 4.4750000000000005
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Average price in US dollars",
+        "type": "quantitative"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2010",
+      "Average price in US dollars": "3.32"
+    },
+    {
+      "Year": "2011",
+      "Average price in US dollars": "4.88"
+    },
+    {
+      "Year": "2012",
+      "Average price in US dollars": "4.63"
+    },
+    {
+      "Year": "2013",
+      "Average price in US dollars": "5.45"
+    },
+    {
+      "Year": "2014",
+      "Average price in US dollars": "4.91"
+    },
+    {
+      "Year": "2015",
+      "Average price in US dollars": "4.63"
+    },
+    {
+      "Year": "2016",
+      "Average price in US dollars": "3.74"
+    },
+    {
+      "Year": "2017",
+      "Average price in US dollars": "4.35"
+    },
+    {
+      "Year": "2018",
+      "Average price in US dollars": "4.9"
+    },
+    {
+      "Year": "2019",
+      "Average price in US dollars": "4.31"
+    },
+    {
+      "Year": "2020",
+      "Average price in US dollars": "4.78"
+    },
+    {
+      "Year": "2021",
+      "Average price in US dollars": "3.8"
+    }
+  ]
+}

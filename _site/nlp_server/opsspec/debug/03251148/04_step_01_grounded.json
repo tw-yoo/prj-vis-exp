@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "sort",
+    "sentenceIndex": 1,
+    "mention": "Sort in ascending order by year",
+    "paramsHint": {
+      "field": "Year",
+      "order": "asc"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "sort",
+    "field": "Operating_Profit_Margin",
+    "order": "asc"
+  },
+  "scalar_ref_deps": []
+}

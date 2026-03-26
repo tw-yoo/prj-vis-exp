@@ -1,0 +1,28 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "pairDiff",
+    "sentenceIndex": 2,
+    "mention": "Compare the revenue of Thailand and the Philippines",
+    "paramsHint": {
+      "by": "Year",
+      "seriesField": "Country_Region",
+      "field": "Revenue_Million_USD",
+      "groupA": "Thailand",
+      "groupB": "Philippines",
+      "signed": true,
+      "absolute": false
+    }
+  },
+  "grounded_op_spec": {
+    "op": "pairDiff",
+    "by": "Year",
+    "seriesField": "Country_Region",
+    "field": "Revenue_Million_USD",
+    "groupA": "Thailand",
+    "groupB": "Philippines",
+    "signed": true,
+    "absolute": false
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,28 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "filter",
+    "sentenceIndex": 2,
+    "mention": "calculate the average of jan 1897 until april 1897",
+    "paramsHint": {
+      "field": "Month/Year",
+      "include": [
+        "Jan 1897",
+        "Feb 1897",
+        "Mar 1897",
+        "Apr 1897"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Month/Year",
+    "include": [
+      "Jan 1897",
+      "Feb 1897",
+      "Mar 1897",
+      "Apr 1897"
+    ]
+  },
+  "scalar_ref_deps": []
+}

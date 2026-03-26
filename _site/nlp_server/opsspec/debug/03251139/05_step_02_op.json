@@ -1,0 +1,14 @@
+{
+  "op": "findExtremum",
+  "id": "n2",
+  "meta": {
+    "nodeId": "n2",
+    "inputs": [
+      "n1"
+    ],
+    "sentenceIndex": 1,
+    "source": "recursive_step=2;taskId=o2"
+  },
+  "field": "SharePercentage",
+  "which": "max"
+}

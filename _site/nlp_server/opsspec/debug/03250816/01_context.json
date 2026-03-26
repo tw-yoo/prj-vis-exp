@@ -1,0 +1,81 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Installed base in million units"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Installed base in million units"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Installed base in million units",
+    "categorical_values": {
+      "Year": [
+        "1995",
+        "1999",
+        "2006",
+        "2008",
+        "2010",
+        "2013",
+        "2017"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Installed base in million units": "numeric"
+    },
+    "numeric_stats": {
+      "Installed base in million units": {
+        "min": 54.0,
+        "max": 128.0,
+        "mean": 83.85714285714286
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Installed base in million units",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "1995",
+      "Installed base in million units": "64"
+    },
+    {
+      "Year": "1999",
+      "Installed base in million units": "54"
+    },
+    {
+      "Year": "2006",
+      "Installed base in million units": "64"
+    },
+    {
+      "Year": "2008",
+      "Installed base in million units": "63"
+    },
+    {
+      "Year": "2010",
+      "Installed base in million units": "109"
+    },
+    {
+      "Year": "2013",
+      "Installed base in million units": "128"
+    },
+    {
+      "Year": "2017",
+      "Installed base in million units": "105"
+    }
+  ]
+}

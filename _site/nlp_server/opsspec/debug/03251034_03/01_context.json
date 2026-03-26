@@ -1,0 +1,81 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Operating_Profit_Margin"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Operating_Profit_Margin"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Operating_Profit_Margin",
+    "categorical_values": {
+      "Year": [
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Operating_Profit_Margin": "numeric"
+    },
+    "numeric_stats": {
+      "Operating_Profit_Margin": {
+        "min": 0.07,
+        "max": 0.16,
+        "mean": 0.1366666666666667
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Operating_Profit_Margin",
+        "type": "quantitative"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2013",
+      "Operating_Profit_Margin": "0.15"
+    },
+    {
+      "Year": "2014",
+      "Operating_Profit_Margin": "0.14"
+    },
+    {
+      "Year": "2015",
+      "Operating_Profit_Margin": "0.14"
+    },
+    {
+      "Year": "2016",
+      "Operating_Profit_Margin": "0.07"
+    },
+    {
+      "Year": "2017",
+      "Operating_Profit_Margin": "0.16"
+    },
+    {
+      "Year": "2018",
+      "Operating_Profit_Margin": "0.16"
+    }
+  ]
+}

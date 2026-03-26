@@ -1,0 +1,23 @@
+{
+  "task": {
+    "taskId": "o5",
+    "op": "diff",
+    "sentenceIndex": 3,
+    "mention": "get the difference of the retrieved values",
+    "paramsHint": {
+      "targetA": "ref:n1",
+      "targetB": "ref:n2",
+      "signed": false
+    }
+  },
+  "grounded_op_spec": {
+    "op": "diff",
+    "targetA": "ref:n1",
+    "targetB": "ref:n2",
+    "signed": false
+  },
+  "scalar_ref_deps": [
+    "n1",
+    "n2"
+  ]
+}

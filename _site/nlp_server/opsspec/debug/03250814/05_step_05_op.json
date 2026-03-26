@@ -1,0 +1,16 @@
+{
+  "op": "filter",
+  "id": "n5",
+  "meta": {
+    "nodeId": "n5",
+    "inputs": [],
+    "sentenceIndex": 3,
+    "source": "recursive_step=5;taskId=o5"
+  },
+  "field": "Year",
+  "operator": "between",
+  "value": [
+    "2000",
+    "2009"
+  ]
+}

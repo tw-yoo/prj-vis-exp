@@ -1,0 +1,39 @@
+{
+  "artifact": {
+    "count": 3,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2017",
+      "value": 105.0
+    },
+    "preview": [
+      {
+        "target": "2010",
+        "value": 109.0,
+        "category": "Year",
+        "measure": "Installed base in million units"
+      },
+      {
+        "target": "2013",
+        "value": 128.0,
+        "category": "Year",
+        "measure": "Installed base in million units"
+      },
+      {
+        "target": "2017",
+        "value": 105.0,
+        "category": "Year",
+        "measure": "Installed base in million units"
+      }
+    ],
+    "targets_preview": [
+      "2010",
+      "2013",
+      "2017"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Installed base in million units"
+  },
+  "warnings": []
+}

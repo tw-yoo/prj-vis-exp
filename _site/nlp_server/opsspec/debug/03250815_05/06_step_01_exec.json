@@ -1,0 +1,58 @@
+{
+  "artifact": {
+    "count": 5,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2017",
+      "group": "Favorable view of US",
+      "value": 57.0
+    },
+    "preview": [
+      {
+        "target": "2015",
+        "group": "Confidence in US President",
+        "value": 66.0,
+        "category": "Year",
+        "measure": "Percentage_of_Respondents"
+      },
+      {
+        "target": "2016",
+        "group": "Confidence in US President",
+        "value": 78.0,
+        "category": "Year",
+        "measure": "Percentage_of_Respondents"
+      },
+      {
+        "target": "2015",
+        "group": "Favorable view of US",
+        "value": 68.0,
+        "category": "Year",
+        "measure": "Percentage_of_Respondents"
+      },
+      {
+        "target": "2016",
+        "group": "Favorable view of US",
+        "value": 72.0,
+        "category": "Year",
+        "measure": "Percentage_of_Respondents"
+      },
+      {
+        "target": "2017",
+        "group": "Favorable view of US",
+        "value": 57.0,
+        "category": "Year",
+        "measure": "Percentage_of_Respondents"
+      }
+    ],
+    "targets_preview": [
+      "2015",
+      "2016",
+      "2017"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage_of_Respondents",
+    "series_field": "Opinion_Type"
+  },
+  "warnings": []
+}

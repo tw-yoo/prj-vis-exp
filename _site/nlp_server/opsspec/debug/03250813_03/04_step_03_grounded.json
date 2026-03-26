@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "retrieveValue",
+    "sentenceIndex": 2,
+    "mention": "retrieve value of 2017 and 2018",
+    "paramsHint": {
+      "field": "Year",
+      "target": "2017"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "retrieveValue",
+    "field": "Year",
+    "target": "2017"
+  },
+  "scalar_ref_deps": []
+}

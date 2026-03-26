@@ -1,0 +1,22 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "filter",
+    "sentenceIndex": 2,
+    "mention": "filter for the date for which the growth rate was below the average",
+    "paramsHint": {
+      "field": "Growth rate of HICP (%)",
+      "operator": "<",
+      "value": "ref:n1"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Growth rate of HICP (%)",
+    "operator": "<",
+    "value": "ref:n1"
+  },
+  "scalar_ref_deps": [
+    "n1"
+  ]
+}

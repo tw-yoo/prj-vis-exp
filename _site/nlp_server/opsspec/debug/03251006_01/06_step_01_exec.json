@@ -1,0 +1,56 @@
+{
+  "artifact": {
+    "count": 5,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Scotland",
+      "group": "Scotland",
+      "value": 28.0
+    },
+    "preview": [
+      {
+        "target": "Scotland",
+        "group": "Scotland",
+        "value": 13.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      },
+      {
+        "target": "Scotland",
+        "group": "Scotland",
+        "value": 16.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      },
+      {
+        "target": "Scotland",
+        "group": "Scotland",
+        "value": 18.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      },
+      {
+        "target": "Scotland",
+        "group": "Scotland",
+        "value": 24.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      },
+      {
+        "target": "Scotland",
+        "group": "Scotland",
+        "value": 28.0,
+        "category": "Region",
+        "measure": "SharePercentage"
+      }
+    ],
+    "targets_preview": [
+      "Scotland"
+    ],
+    "primary_dimension": "Region",
+    "primary_measure": "SharePercentage",
+    "series_field": "Region"
+  },
+  "warnings": []
+}

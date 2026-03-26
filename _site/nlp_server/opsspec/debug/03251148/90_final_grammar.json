@@ -1,0 +1,294 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "sort",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Operating_Profit_Margin",
+        "order": "asc"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "nth",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "n": 2
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Operating_Profit_Margin"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Operating_Profit_Margin"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Operating_Profit_Margin",
+    "categorical_values": {
+      "Year": [
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Operating_Profit_Margin": "numeric"
+    },
+    "numeric_stats": {
+      "Operating_Profit_Margin": {
+        "min": 0.07,
+        "max": 0.16,
+        "mean": 0.1366666666666667
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Operating_Profit_Margin",
+        "type": "quantitative"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "warnings": [
+    "Sentence 1 says to sort by Year, but the question asks for the second-lowest value of Operating_Profit_Margin; resolving 'second lowest' requires ordering by Operating_Profit_Margin."
+  ],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Operating_Profit_Margin"
+        ],
+        "dimension_fields": [
+          "Year"
+        ],
+        "measure_fields": [
+          "Operating_Profit_Margin"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Operating_Profit_Margin",
+        "categorical_values": {
+          "Year": [
+            "2013",
+            "2014",
+            "2015",
+            "2016",
+            "2017",
+            "2018"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Operating_Profit_Margin": "numeric"
+        },
+        "numeric_stats": {
+          "Operating_Profit_Margin": {
+            "min": 0.07,
+            "max": 0.16,
+            "mean": 0.1366666666666667
+          }
+        },
+        "mark": "line",
+        "is_stacked": false,
+        "encoding_summary": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Operating_Profit_Margin",
+            "type": "quantitative"
+          },
+          "tooltip": {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 6
+    },
+    "inventory": {
+      "tasks_count": 2,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "sort",
+          "sentenceIndex": 1,
+          "mention": "Sort in ascending order by year",
+          "paramsHint": {
+            "field": "Year",
+            "order": "asc"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "nth",
+          "sentenceIndex": 2,
+          "mention": "find the second lowest",
+          "paramsHint": {
+            "n": 2,
+            "order": "asc",
+            "orderField": "Operating_Profit_Margin"
+          }
+        }
+      ],
+      "warnings": [
+        "Sentence 1 says to sort by Year, but the question asks for the second-lowest value of Operating_Profit_Margin; resolving 'second lowest' requires ordering by Operating_Profit_Margin."
+      ],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "sort",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "sort",
+          "field": "Operating_Profit_Margin",
+          "order": "asc"
+        },
+        "artifact": {
+          "count": 6,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2018",
+            "value": 0.16
+          },
+          "preview": [
+            {
+              "target": "2013",
+              "value": 0.15,
+              "category": "Year",
+              "measure": "Operating_Profit_Margin"
+            },
+            {
+              "target": "2014",
+              "value": 0.14,
+              "category": "Year",
+              "measure": "Operating_Profit_Margin"
+            },
+            {
+              "target": "2015",
+              "value": 0.14,
+              "category": "Year",
+              "measure": "Operating_Profit_Margin"
+            },
+            {
+              "target": "2016",
+              "value": 0.07,
+              "category": "Year",
+              "measure": "Operating_Profit_Margin"
+            },
+            {
+              "target": "2017",
+              "value": 0.16,
+              "category": "Year",
+              "measure": "Operating_Profit_Margin"
+            }
+          ],
+          "targets_preview": [
+            "2013",
+            "2014",
+            "2015",
+            "2016",
+            "2017"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Operating_Profit_Margin"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "nth",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "nth",
+          "n": 2
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2014",
+            "value": 0.14
+          },
+          "preview": [
+            {
+              "target": "2014",
+              "value": 0.14,
+              "category": "Year",
+              "measure": "Operating_Profit_Margin"
+            }
+          ],
+          "targets_preview": [
+            "2014"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Operating_Profit_Margin"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1
+      },
+      "warnings": []
+    }
+  }
+}

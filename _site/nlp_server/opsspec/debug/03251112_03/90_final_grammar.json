@@ -1,0 +1,356 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "findExtremum",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Revenue_Million_USD",
+        "group": "Data Centers",
+        "which": "max"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "retrieveValue",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Year",
+        "target": "ref:n1"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "average",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [
+            "n2"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Revenue_Million_USD"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Service_Area",
+      "Revenue_Million_USD"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Service_Area"
+    ],
+    "measure_fields": [
+      "Revenue_Million_USD"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Revenue_Million_USD",
+    "series_field": "Service_Area",
+    "categorical_values": {
+      "Year": [
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020",
+        "2021",
+        "2022"
+      ],
+      "Service_Area": [
+        "BPO",
+        "Cloud",
+        "Data Centers"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Service_Area": "categorical",
+      "Revenue_Million_USD": "numeric"
+    },
+    "numeric_stats": {
+      "Revenue_Million_USD": {
+        "min": 197.0,
+        "max": 1848.0,
+        "mean": 922.6666666666666
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_USD",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Service_Area",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Service_Area",
+          "Revenue_Million_USD"
+        ],
+        "dimension_fields": [
+          "Year",
+          "Service_Area"
+        ],
+        "measure_fields": [
+          "Revenue_Million_USD"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Revenue_Million_USD",
+        "series_field": "Service_Area",
+        "categorical_values": {
+          "Year": [
+            "2016",
+            "2017",
+            "2018",
+            "2019",
+            "2020",
+            "2021",
+            "2022"
+          ],
+          "Service_Area": [
+            "BPO",
+            "Cloud",
+            "Data Centers"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Service_Area": "categorical",
+          "Revenue_Million_USD": "numeric"
+        },
+        "numeric_stats": {
+          "Revenue_Million_USD": {
+            "min": 197.0,
+            "max": 1848.0,
+            "mean": 922.6666666666666
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "x": {
+            "field": "Year",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "Revenue_Million_USD",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Service_Area",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 21
+    },
+    "inventory": {
+      "tasks_count": 3,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "findExtremum",
+          "sentenceIndex": 1,
+          "mention": "Check the graph for the data center with the highest value.",
+          "paramsHint": {
+            "field": "Revenue_Million_USD",
+            "group": "Data Centers",
+            "which": "max"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "retrieveValue",
+          "sentenceIndex": 2,
+          "mention": "Check the value for each service area.",
+          "paramsHint": {
+            "field": "Year",
+            "target": "ref:n1"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "average",
+          "sentenceIndex": 3,
+          "mention": "Calculate the average.",
+          "paramsHint": {
+            "field": "Revenue_Million_USD"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "findExtremum",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "findExtremum",
+          "field": "Revenue_Million_USD",
+          "group": "Data Centers",
+          "which": "max"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2022",
+            "group": "Data Centers",
+            "value": 1848.0
+          },
+          "preview": [
+            {
+              "target": "2022",
+              "group": "Data Centers",
+              "value": 1848.0,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            }
+          ],
+          "targets_preview": [
+            "2022"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Revenue_Million_USD",
+          "series_field": "Service_Area"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "retrieveValue",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [
+          "n1"
+        ],
+        "grounded_op_spec": {
+          "op": "retrieveValue",
+          "field": "Year",
+          "target": "ref:n1"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2022",
+            "group": "Data Centers",
+            "value": 1848.0
+          },
+          "preview": [
+            {
+              "target": "2022",
+              "group": "Data Centers",
+              "value": 1848.0,
+              "category": "Year",
+              "measure": "Revenue_Million_USD"
+            }
+          ],
+          "targets_preview": [
+            "2022"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Revenue_Million_USD",
+          "series_field": "Service_Area"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops3",
+        "op": "average",
+        "inputs": [
+          "n2"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Revenue_Million_USD"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 1848.0
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 1848.0,
+              "category": "result",
+              "measure": "Revenue_Million_USD"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Revenue_Million_USD",
+          "series_field": "Service_Area"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1,
+        "ops3": 1
+      },
+      "warnings": []
+    }
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "request_id": "test_1h4rj9i2jtzq589y_5bb24cba",
+  "question": "Which of the most recent years is the value of the EU 5-country media with y-axis values between 51 and 61?\n",
+  "explanation": "1. Check y-axis number\n2. Check the points between 51 and 61\n3. Check the year of values corresponding to the EU 5-country media between 51 and 61 \n4. Choose the largest year",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Multiple line chart for 1h4rj9i2jtzq589y.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/multiple/1h4rj9i2jtzq589y.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal",
+            "axis": {
+              "title": "Year",
+              "labelAngle": 0,
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Favorable_View_Percentage",
+            "type": "quantitative",
+            "axis": {
+              "title": "Favorable_View_Percentage",
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "color": {
+            "field": "Country_Group",
+            "type": "nominal",
+            "legend": {
+              "title": "Country_Group",
+              "titleFontSize": 12,
+              "labelFontSize": 11
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 80,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Favorable_View_Percentage",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Country_Group",
+            "type": "nominal"
+          },
+          "tooltip": [
+            {
+              "field": "Year",
+              "type": "ordinal",
+              "title": "Year"
+            },
+            {
+              "field": "Country_Group",
+              "type": "nominal",
+              "title": "Country_Group"
+            },
+            {
+              "field": "Favorable_View_Percentage",
+              "type": "quantitative",
+              "title": "Favorable_View_Percentage"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2007",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "78"
+    },
+    {
+      "Year": "2007",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "52"
+    },
+    {
+      "Year": "2012",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "60"
+    },
+    {
+      "Year": "2012",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "45"
+    },
+    {
+      "Year": "2013",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "58"
+    },
+    {
+      "Year": "2013",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "43"
+    },
+    {
+      "Year": "2014",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "54"
+    },
+    {
+      "Year": "2014",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "52"
+    },
+    {
+      "Year": "2015",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "63"
+    },
+    {
+      "Year": "2015",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "51"
+    },
+    {
+      "Year": "2016",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "50"
+    },
+    {
+      "Year": "2016",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "44"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

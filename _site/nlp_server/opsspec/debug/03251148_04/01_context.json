@@ -1,0 +1,129 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Country_Group",
+      "Favorable_View_Percentage"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Country_Group"
+    ],
+    "measure_fields": [
+      "Favorable_View_Percentage"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Favorable_View_Percentage",
+    "series_field": "Country_Group",
+    "categorical_values": {
+      "Year": [
+        "2007",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016"
+      ],
+      "Country_Group": [
+        "EU 5-country median",
+        "UK"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Country_Group": "categorical",
+      "Favorable_View_Percentage": "numeric"
+    },
+    "numeric_stats": {
+      "Favorable_View_Percentage": {
+        "min": 43.0,
+        "max": 78.0,
+        "mean": 54.166666666666664
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Favorable_View_Percentage",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Country_Group",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2007",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "78"
+    },
+    {
+      "Year": "2007",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "52"
+    },
+    {
+      "Year": "2012",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "60"
+    },
+    {
+      "Year": "2012",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "45"
+    },
+    {
+      "Year": "2013",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "58"
+    },
+    {
+      "Year": "2013",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "43"
+    },
+    {
+      "Year": "2014",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "54"
+    },
+    {
+      "Year": "2014",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "52"
+    },
+    {
+      "Year": "2015",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "63"
+    },
+    {
+      "Year": "2015",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "51"
+    },
+    {
+      "Year": "2016",
+      "Country_Group": "EU 5-country median",
+      "Favorable_View_Percentage": "50"
+    },
+    {
+      "Year": "2016",
+      "Country_Group": "UK",
+      "Favorable_View_Percentage": "44"
+    }
+  ]
+}

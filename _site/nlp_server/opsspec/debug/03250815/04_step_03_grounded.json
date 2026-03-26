@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "count",
+    "sentenceIndex": 3,
+    "mention": "count the number of filtered dates",
+    "paramsHint": {
+      "field": "Month"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "count",
+    "field": "Month"
+  },
+  "scalar_ref_deps": []
+}

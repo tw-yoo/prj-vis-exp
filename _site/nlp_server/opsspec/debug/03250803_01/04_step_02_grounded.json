@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "scale",
+    "sentenceIndex": 2,
+    "mention": "Divide the value by six.",
+    "paramsHint": {
+      "target": "ref:n1",
+      "factor": 0.16666666666666666
+    }
+  },
+  "grounded_op_spec": {
+    "op": "scale",
+    "target": "ref:n1",
+    "factor": 0.16666666666666666
+  },
+  "scalar_ref_deps": [
+    "n1"
+  ]
+}

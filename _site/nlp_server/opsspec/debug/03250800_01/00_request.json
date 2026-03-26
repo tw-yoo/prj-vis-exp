@@ -1,0 +1,106 @@
+{
+  "request_id": "test_0egzejn5mejtnfdm_82d832f8",
+  "question": "What is the difference between Scotland's largest value and England and Wales's smallest value?",
+  "explanation": "1. Check Scotland's Biggest Value\n2. Check the smallest value for England & Wales\n3. Check if the value is greater than the value of number 1 or number 2\n4. Subtract small value from large value\n",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+    "description": "Grouped bar chart for 0egzejn5mejtnfdm.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/grouped/0egzejn5mejtnfdm.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "column": {
+        "field": "ResponseCategory",
+        "type": "ordinal",
+        "header": {}
+      },
+      "y": {
+        "field": "SharePercentage",
+        "type": "quantitative",
+        "axis": {
+          "grid": false
+        }
+      },
+      "x": {
+        "field": "Region",
+        "type": "nominal",
+        "axis": {
+          "title": ""
+        }
+      },
+      "color": {
+        "field": "Region",
+        "type": "nominal"
+      }
+    },
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "ResponseCategory": "Strongly in favour",
+      "Region": "England & Wales",
+      "SharePercentage": "18"
+    },
+    {
+      "ResponseCategory": "Strongly in favour",
+      "Region": "Scotland",
+      "SharePercentage": "13"
+    },
+    {
+      "ResponseCategory": "Somewhat in favour",
+      "Region": "England & Wales",
+      "SharePercentage": "25"
+    },
+    {
+      "ResponseCategory": "Somewhat in favour",
+      "Region": "Scotland",
+      "SharePercentage": "24"
+    },
+    {
+      "ResponseCategory": "Neither in favour nor against",
+      "Region": "England & Wales",
+      "SharePercentage": "17"
+    },
+    {
+      "ResponseCategory": "Neither in favour nor against",
+      "Region": "Scotland",
+      "SharePercentage": "16"
+    },
+    {
+      "ResponseCategory": "Somewhat against",
+      "Region": "England & Wales",
+      "SharePercentage": "16"
+    },
+    {
+      "ResponseCategory": "Somewhat against",
+      "Region": "Scotland",
+      "SharePercentage": "18"
+    },
+    {
+      "ResponseCategory": "Strongly against",
+      "Region": "England & Wales",
+      "SharePercentage": "2"
+    },
+    {
+      "ResponseCategory": "Strongly against",
+      "Region": "Scotland",
+      "SharePercentage": "28"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

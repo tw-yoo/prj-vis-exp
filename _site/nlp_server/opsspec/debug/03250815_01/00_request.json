@@ -1,0 +1,105 @@
+{
+  "request_id": "test_0k7bm9iqewnrzj47_5ab7e5cb",
+  "question": "Is the average of the top three greater than twice the average of the lowest three?",
+  "explanation": "1. find the top three values\n2. calculate the average\n3. find the lowest three values\n4. calculate the average\n5. double the lowest average\n6. compare the two values to find which one is bigger",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Simple Bar chart for 0k7bm9iqewnrzj47.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/simple/0k7bm9iqewnrzj47.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "y": {
+        "field": "Production in million liters",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "1995",
+      "Production in million liters": "104.3"
+    },
+    {
+      "Year": "2000",
+      "Production in million liters": "181.6"
+    },
+    {
+      "Year": "2005",
+      "Production in million liters": "209.7"
+    },
+    {
+      "Year": "2006",
+      "Production in million liters": "242.7"
+    },
+    {
+      "Year": "2007",
+      "Production in million liters": "284.1"
+    },
+    {
+      "Year": "2008",
+      "Production in million liters": "312.1"
+    },
+    {
+      "Year": "2009",
+      "Production in million liters": "249"
+    },
+    {
+      "Year": "2010",
+      "Production in million liters": "257.5"
+    },
+    {
+      "Year": "2011",
+      "Production in million liters": "261.1"
+    },
+    {
+      "Year": "2012",
+      "Production in million liters": "253.2"
+    },
+    {
+      "Year": "2013",
+      "Production in million liters": "226.5"
+    },
+    {
+      "Year": "2014",
+      "Production in million liters": "242.4"
+    },
+    {
+      "Year": "2015",
+      "Production in million liters": "228.5"
+    },
+    {
+      "Year": "2016",
+      "Production in million liters": "273.3"
+    },
+    {
+      "Year": "2017",
+      "Production in million liters": "271.4"
+    },
+    {
+      "Year": "2018",
+      "Production in million liters": "309.1"
+    },
+    {
+      "Year": "2019",
+      "Production in million liters": "351.7"
+    },
+    {
+      "Year": "2020",
+      "Production in million liters": "374"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

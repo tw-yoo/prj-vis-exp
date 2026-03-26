@@ -1,0 +1,22 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__avg__",
+      "value": 4597.0
+    },
+    "preview": [
+      {
+        "target": "__avg__",
+        "value": 4597.0,
+        "category": "result",
+        "measure": "Number of days in thousands"
+      }
+    ],
+    "primary_dimension": "Fiscal Year",
+    "primary_measure": "Number of days in thousands"
+  },
+  "warnings": []
+}

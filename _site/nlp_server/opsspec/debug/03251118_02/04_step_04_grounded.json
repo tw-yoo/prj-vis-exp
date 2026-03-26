@@ -1,0 +1,17 @@
+{
+  "task": {
+    "taskId": "o4",
+    "op": "average",
+    "sentenceIndex": 4,
+    "mention": "Obtaining the mean of the values found in number 3",
+    "paramsHint": {
+      "field": "Share_of_Respondents",
+      "group": "Good"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Share_of_Respondents"
+  },
+  "scalar_ref_deps": []
+}

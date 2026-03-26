@@ -1,0 +1,17 @@
+{
+  "op": "diff",
+  "id": "n7",
+  "meta": {
+    "nodeId": "n7",
+    "inputs": [
+      "n4",
+      "n6"
+    ],
+    "sentenceIndex": 4,
+    "source": "recursive_step=7;taskId=o7"
+  },
+  "field": "Percentage_of_Population",
+  "targetA": "ref:n4",
+  "targetB": "ref:n6",
+  "signed": false
+}

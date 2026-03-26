@@ -1,0 +1,240 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Group",
+      "Average weight in metric grams"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Group"
+    ],
+    "measure_fields": [
+      "Average weight in metric grams"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Average weight in metric grams",
+    "series_field": "Group",
+    "categorical_values": {
+      "Year": [
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020"
+      ],
+      "Group": [
+        "Boys",
+        "Girls",
+        "Total"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Group": "categorical",
+      "Average weight in metric grams": "numeric"
+    },
+    "numeric_stats": {
+      "Average weight in metric grams": {
+        "min": 3531.0,
+        "max": 3677.0,
+        "mean": 3603.6666666666665
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Average weight in metric grams",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Group",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2010",
+      "Group": "Total",
+      "Average weight in metric grams": "3627"
+    },
+    {
+      "Year": "2010",
+      "Group": "Girls",
+      "Average weight in metric grams": "3580"
+    },
+    {
+      "Year": "2010",
+      "Group": "Boys",
+      "Average weight in metric grams": "3672"
+    },
+    {
+      "Year": "2011",
+      "Group": "Total",
+      "Average weight in metric grams": "3618"
+    },
+    {
+      "Year": "2011",
+      "Group": "Girls",
+      "Average weight in metric grams": "3553"
+    },
+    {
+      "Year": "2011",
+      "Group": "Boys",
+      "Average weight in metric grams": "3677"
+    },
+    {
+      "Year": "2012",
+      "Group": "Total",
+      "Average weight in metric grams": "3604"
+    },
+    {
+      "Year": "2012",
+      "Group": "Girls",
+      "Average weight in metric grams": "3550"
+    },
+    {
+      "Year": "2012",
+      "Group": "Boys",
+      "Average weight in metric grams": "3654"
+    },
+    {
+      "Year": "2013",
+      "Group": "Total",
+      "Average weight in metric grams": "3590"
+    },
+    {
+      "Year": "2013",
+      "Group": "Girls",
+      "Average weight in metric grams": "3531"
+    },
+    {
+      "Year": "2013",
+      "Group": "Boys",
+      "Average weight in metric grams": "3650"
+    },
+    {
+      "Year": "2014",
+      "Group": "Total",
+      "Average weight in metric grams": "3616"
+    },
+    {
+      "Year": "2014",
+      "Group": "Girls",
+      "Average weight in metric grams": "3554"
+    },
+    {
+      "Year": "2014",
+      "Group": "Boys",
+      "Average weight in metric grams": "3675"
+    },
+    {
+      "Year": "2015",
+      "Group": "Total",
+      "Average weight in metric grams": "3599"
+    },
+    {
+      "Year": "2015",
+      "Group": "Girls",
+      "Average weight in metric grams": "3540"
+    },
+    {
+      "Year": "2015",
+      "Group": "Boys",
+      "Average weight in metric grams": "3655"
+    },
+    {
+      "Year": "2016",
+      "Group": "Total",
+      "Average weight in metric grams": "3596"
+    },
+    {
+      "Year": "2016",
+      "Group": "Girls",
+      "Average weight in metric grams": "3538"
+    },
+    {
+      "Year": "2016",
+      "Group": "Boys",
+      "Average weight in metric grams": "3653"
+    },
+    {
+      "Year": "2017",
+      "Group": "Total",
+      "Average weight in metric grams": "3598"
+    },
+    {
+      "Year": "2017",
+      "Group": "Girls",
+      "Average weight in metric grams": "3555"
+    },
+    {
+      "Year": "2017",
+      "Group": "Boys",
+      "Average weight in metric grams": "3638"
+    },
+    {
+      "Year": "2018",
+      "Group": "Total",
+      "Average weight in metric grams": "3596"
+    },
+    {
+      "Year": "2018",
+      "Group": "Girls",
+      "Average weight in metric grams": "3531"
+    },
+    {
+      "Year": "2018",
+      "Group": "Boys",
+      "Average weight in metric grams": "3655"
+    },
+    {
+      "Year": "2019",
+      "Group": "Total",
+      "Average weight in metric grams": "3597"
+    },
+    {
+      "Year": "2019",
+      "Group": "Girls",
+      "Average weight in metric grams": "3534"
+    },
+    {
+      "Year": "2019",
+      "Group": "Boys",
+      "Average weight in metric grams": "3658"
+    },
+    {
+      "Year": "2020",
+      "Group": "Total",
+      "Average weight in metric grams": "3611"
+    },
+    {
+      "Year": "2020",
+      "Group": "Girls",
+      "Average weight in metric grams": "3555"
+    },
+    {
+      "Year": "2020",
+      "Group": "Boys",
+      "Average weight in metric grams": "3661"
+    }
+  ]
+}

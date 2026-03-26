@@ -1,0 +1,345 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "pairDiff",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "by": "City",
+        "seriesField": "Year",
+        "field": "Population in millions",
+        "groupA": "2025",
+        "groupB": "2010",
+        "signed": true,
+        "absolute": false
+      }
+    ],
+    "ops2": [
+      {
+        "op": "findExtremum",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Population in millions",
+        "which": "max"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "City",
+      "Year",
+      "Population in millions"
+    ],
+    "dimension_fields": [
+      "City",
+      "Year"
+    ],
+    "measure_fields": [
+      "Population in millions"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Population in millions",
+    "series_field": "Year",
+    "categorical_values": {
+      "City": [
+        "Calcutta",
+        "Delhi",
+        "Dhaka",
+        "Karachi",
+        "Mexico City",
+        "Mumbai",
+        "New York-Newark",
+        "Shanghai",
+        "São Paulo",
+        "Tokyo"
+      ],
+      "Year": [
+        "2010",
+        "2025"
+      ]
+    },
+    "field_types": {
+      "City": "categorical",
+      "Year": "categorical",
+      "Population in millions": "numeric"
+    },
+    "numeric_stats": {
+      "Population in millions": {
+        "min": 13.1,
+        "max": 37.1,
+        "mean": 21.61
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "column": {
+        "field": "City",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Population in millions",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "color": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "City",
+          "Year",
+          "Population in millions"
+        ],
+        "dimension_fields": [
+          "City",
+          "Year"
+        ],
+        "measure_fields": [
+          "Population in millions"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Population in millions",
+        "series_field": "Year",
+        "categorical_values": {
+          "City": [
+            "Calcutta",
+            "Delhi",
+            "Dhaka",
+            "Karachi",
+            "Mexico City",
+            "Mumbai",
+            "New York-Newark",
+            "Shanghai",
+            "São Paulo",
+            "Tokyo"
+          ],
+          "Year": [
+            "2010",
+            "2025"
+          ]
+        },
+        "field_types": {
+          "City": "categorical",
+          "Year": "categorical",
+          "Population in millions": "numeric"
+        },
+        "numeric_stats": {
+          "Population in millions": {
+            "min": 13.1,
+            "max": 37.1,
+            "mean": 21.61
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "column": {
+            "field": "City",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Population in millions",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Year",
+            "type": "nominal"
+          },
+          "color": {
+            "field": "Year",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 20
+    },
+    "inventory": {
+      "tasks_count": 2,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "pairDiff",
+          "sentenceIndex": 1,
+          "mention": "get the difference of every city in every year",
+          "paramsHint": {
+            "by": "City",
+            "seriesField": "Year",
+            "field": "Population in millions",
+            "groupA": "2010",
+            "groupB": "2025",
+            "signed": true,
+            "absolute": false
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "findExtremum",
+          "sentenceIndex": 2,
+          "mention": "find the extremum",
+          "paramsHint": {
+            "which": "max"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "pairDiff",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "pairDiff",
+          "by": "City",
+          "seriesField": "Year",
+          "field": "Population in millions",
+          "groupA": "2025",
+          "groupB": "2010",
+          "signed": true,
+          "absolute": false
+        },
+        "artifact": {
+          "count": 10,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Tokyo",
+            "group": "2025-2010",
+            "value": 0.3999999999999986
+          },
+          "preview": [
+            {
+              "target": "Calcutta",
+              "group": "2025-2010",
+              "value": 4.500000000000002,
+              "category": "City",
+              "measure": "Population in millions"
+            },
+            {
+              "target": "Delhi",
+              "group": "2025-2010",
+              "value": 6.400000000000002,
+              "category": "City",
+              "measure": "Population in millions"
+            },
+            {
+              "target": "Dhaka",
+              "group": "2025-2010",
+              "value": 6.299999999999999,
+              "category": "City",
+              "measure": "Population in millions"
+            },
+            {
+              "target": "Karachi",
+              "group": "2025-2010",
+              "value": 5.6,
+              "category": "City",
+              "measure": "Population in millions"
+            },
+            {
+              "target": "Mexico City",
+              "group": "2025-2010",
+              "value": 1.1999999999999993,
+              "category": "City",
+              "measure": "Population in millions"
+            }
+          ],
+          "targets_preview": [
+            "Calcutta",
+            "Delhi",
+            "Dhaka",
+            "Karachi",
+            "Mexico City"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Population in millions",
+          "series_field": "Year"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "findExtremum",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "findExtremum",
+          "field": "Population in millions",
+          "which": "max"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "Delhi",
+            "group": "2025-2010",
+            "value": 6.400000000000002
+          },
+          "preview": [
+            {
+              "target": "Delhi",
+              "group": "2025-2010",
+              "value": 6.400000000000002,
+              "category": "City",
+              "measure": "Population in millions"
+            }
+          ],
+          "targets_preview": [
+            "Delhi"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Population in millions",
+          "series_field": "Year"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1
+      },
+      "warnings": []
+    }
+  }
+}

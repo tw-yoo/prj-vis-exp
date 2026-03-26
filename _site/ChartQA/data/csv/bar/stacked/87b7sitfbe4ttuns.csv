@@ -1,0 +1,21 @@
+Restaurant_Type,Activity_Level,Share_of_Respondents
+Family dining,Very active,0.32
+Family dining,Somewhat active,0.48
+Family dining,Not active,0.2
+Family dining,Plan to be more active in 2015,0.41
+Casual dining,Very active,0.34
+Casual dining,Somewhat active,0.55
+Casual dining,Not active,0.11
+Casual dining,Plan to be more active in 2015,0.46
+Fine dining,Very active,0.4
+Fine dining,Somewhat active,0.43
+Fine dining,Not active,0.16
+Fine dining,Plan to be more active in 2015,0.51
+Quick service,Very active,0.39
+Quick service,Somewhat active,0.42
+Quick service,Not active,0.17
+Quick service,Plan to be more active in 2015,0.47
+Fast casual,Very active,0.29
+Fast casual,Somewhat active,0.51
+Fast casual,Not active,0.19
+Fast casual,Plan to be more active in 2015,0.47

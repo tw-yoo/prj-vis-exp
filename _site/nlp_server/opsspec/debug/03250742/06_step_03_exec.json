@@ -1,0 +1,22 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__count__",
+      "value": 9.0
+    },
+    "preview": [
+      {
+        "target": "__count__",
+        "value": 9.0,
+        "category": "result",
+        "measure": "Production in million units"
+      }
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in million units"
+  },
+  "warnings": []
+}

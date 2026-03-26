@@ -1,0 +1,60 @@
+{
+  "artifact": {
+    "count": 10,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2010",
+      "group": "Favor-Oppose",
+      "value": -6.0
+    },
+    "preview": [
+      {
+        "target": "1996",
+        "group": "Favor-Oppose",
+        "value": -38.0,
+        "category": "Year",
+        "measure": "Percentage"
+      },
+      {
+        "target": "2001",
+        "group": "Favor-Oppose",
+        "value": -22.0,
+        "category": "Year",
+        "measure": "Percentage"
+      },
+      {
+        "target": "2003",
+        "group": "Favor-Oppose",
+        "value": -25.0,
+        "category": "Year",
+        "measure": "Percentage"
+      },
+      {
+        "target": "2004",
+        "group": "Favor-Oppose",
+        "value": -29.0,
+        "category": "Year",
+        "measure": "Percentage"
+      },
+      {
+        "target": "2005",
+        "group": "Favor-Oppose",
+        "value": -17.0,
+        "category": "Year",
+        "measure": "Percentage"
+      }
+    ],
+    "targets_preview": [
+      "1996",
+      "2001",
+      "2003",
+      "2004",
+      "2005"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage",
+    "series_field": "Opinion"
+  },
+  "warnings": []
+}

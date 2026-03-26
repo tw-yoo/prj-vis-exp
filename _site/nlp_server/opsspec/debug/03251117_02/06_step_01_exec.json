@@ -1,0 +1,46 @@
+{
+  "artifact": {
+    "count": 4,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Dec 1896",
+      "value": 0.7412
+    },
+    "preview": [
+      {
+        "target": "Dec 1896",
+        "value": 0.7412,
+        "category": "Month/Year",
+        "measure": "Fatality rate among plague cases"
+      },
+      {
+        "target": "Nov 1896",
+        "value": 0.6667,
+        "category": "Month/Year",
+        "measure": "Fatality rate among plague cases"
+      },
+      {
+        "target": "Oct 1896",
+        "value": 0.5223,
+        "category": "Month/Year",
+        "measure": "Fatality rate among plague cases"
+      },
+      {
+        "target": "Sep 1896",
+        "value": 0.5223,
+        "category": "Month/Year",
+        "measure": "Fatality rate among plague cases"
+      }
+    ],
+    "targets_preview": [
+      "Dec 1896",
+      "Nov 1896",
+      "Oct 1896",
+      "Sep 1896"
+    ],
+    "primary_dimension": "Month/Year",
+    "primary_measure": "Fatality rate among plague cases"
+  },
+  "warnings": []
+}

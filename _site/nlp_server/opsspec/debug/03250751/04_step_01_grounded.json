@@ -1,0 +1,28 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "pairDiff",
+    "sentenceIndex": 1,
+    "mention": "Get difference between south korea and france in every year",
+    "paramsHint": {
+      "by": "Period",
+      "seriesField": "Country",
+      "field": "Share_of_Import_Value",
+      "groupA": "South Korea",
+      "groupB": "France",
+      "signed": true,
+      "absolute": false
+    }
+  },
+  "grounded_op_spec": {
+    "op": "pairDiff",
+    "by": "Period",
+    "seriesField": "Country",
+    "field": "Share_of_Import_Value",
+    "groupA": "South Korea",
+    "groupB": "France",
+    "signed": true,
+    "absolute": false
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,13 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "count",
+    "sentenceIndex": 2,
+    "mention": "How many years are above the average",
+    "paramsHint": {}
+  },
+  "grounded_op_spec": {
+    "op": "count"
+  },
+  "scalar_ref_deps": []
+}

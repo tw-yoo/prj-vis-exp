@@ -1,0 +1,214 @@
+{
+  "request_id": "test_23wg8zio5ahp40tg_ba393823",
+  "question": "Which year had the biggest gap between favor and oppose?",
+  "explanation": "1. calculate difference between the values of favor and oppose\n2. find extremum",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Multiple line chart for 23wg8zio5ahp40tg.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/multiple/23wg8zio5ahp40tg.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal",
+            "axis": {
+              "title": "Year",
+              "labelAngle": 0,
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Percentage",
+            "type": "quantitative",
+            "axis": {
+              "title": "Percentage",
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "color": {
+            "field": "Opinion",
+            "type": "nominal",
+            "legend": {
+              "title": "Opinion",
+              "titleFontSize": 12,
+              "labelFontSize": 11
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 80,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Percentage",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Opinion",
+            "type": "nominal"
+          },
+          "tooltip": [
+            {
+              "field": "Year",
+              "type": "ordinal",
+              "title": "Year"
+            },
+            {
+              "field": "Opinion",
+              "type": "nominal",
+              "title": "Opinion"
+            },
+            {
+              "field": "Percentage",
+              "type": "quantitative",
+              "title": "Percentage"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "1996",
+      "Opinion": "Oppose",
+      "Percentage": "65"
+    },
+    {
+      "Year": "1996",
+      "Opinion": "Favor",
+      "Percentage": "27"
+    },
+    {
+      "Year": "2001",
+      "Opinion": "Oppose",
+      "Percentage": "57"
+    },
+    {
+      "Year": "2001",
+      "Opinion": "Favor",
+      "Percentage": "35"
+    },
+    {
+      "Year": "2003",
+      "Opinion": "Oppose",
+      "Percentage": "58"
+    },
+    {
+      "Year": "2003",
+      "Opinion": "Favor",
+      "Percentage": "33"
+    },
+    {
+      "Year": "2004",
+      "Opinion": "Oppose",
+      "Percentage": "60"
+    },
+    {
+      "Year": "2004",
+      "Opinion": "Favor",
+      "Percentage": "31"
+    },
+    {
+      "Year": "2005",
+      "Opinion": "Oppose",
+      "Percentage": "53"
+    },
+    {
+      "Year": "2005",
+      "Opinion": "Favor",
+      "Percentage": "36"
+    },
+    {
+      "Year": "2006",
+      "Opinion": "Oppose",
+      "Percentage": "55"
+    },
+    {
+      "Year": "2006",
+      "Opinion": "Favor",
+      "Percentage": "35"
+    },
+    {
+      "Year": "2007",
+      "Opinion": "Oppose",
+      "Percentage": "54"
+    },
+    {
+      "Year": "2007",
+      "Opinion": "Favor",
+      "Percentage": "37"
+    },
+    {
+      "Year": "2008",
+      "Opinion": "Oppose",
+      "Percentage": "51"
+    },
+    {
+      "Year": "2008",
+      "Opinion": "Favor",
+      "Percentage": "39"
+    },
+    {
+      "Year": "2009",
+      "Opinion": "Oppose",
+      "Percentage": "54"
+    },
+    {
+      "Year": "2009",
+      "Opinion": "Favor",
+      "Percentage": "37"
+    },
+    {
+      "Year": "2010",
+      "Opinion": "Oppose",
+      "Percentage": "48"
+    },
+    {
+      "Year": "2010",
+      "Opinion": "Favor",
+      "Percentage": "42"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

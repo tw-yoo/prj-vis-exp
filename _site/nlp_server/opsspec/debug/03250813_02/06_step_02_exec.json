@@ -1,0 +1,28 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "Delhi",
+      "group": "2025-2010",
+      "value": 6.400000000000002
+    },
+    "preview": [
+      {
+        "target": "Delhi",
+        "group": "2025-2010",
+        "value": 6.400000000000002,
+        "category": "City",
+        "measure": "Population in millions"
+      }
+    ],
+    "targets_preview": [
+      "Delhi"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Population in millions",
+    "series_field": "Year"
+  },
+  "warnings": []
+}

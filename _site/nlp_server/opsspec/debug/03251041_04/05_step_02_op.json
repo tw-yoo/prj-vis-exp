@@ -1,0 +1,13 @@
+{
+  "op": "findExtremum",
+  "id": "n2",
+  "meta": {
+    "nodeId": "n2",
+    "inputs": [],
+    "sentenceIndex": 2,
+    "source": "recursive_step=2;taskId=o2"
+  },
+  "field": "SharePercentage",
+  "group": "England & Wales",
+  "which": "min"
+}

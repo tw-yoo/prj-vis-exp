@@ -1,0 +1,15 @@
+{
+  "op": "findExtremum",
+  "id": "n2",
+  "meta": {
+    "nodeId": "n2",
+    "inputs": [
+      "n1"
+    ],
+    "sentenceIndex": 2,
+    "source": "recursive_step=2;taskId=o2"
+  },
+  "field": "Operating_Profit_Margin",
+  "which": "min",
+  "rank": 2
+}

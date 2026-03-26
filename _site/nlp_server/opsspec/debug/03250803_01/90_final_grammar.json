@@ -1,0 +1,495 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "sum",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Revenue_Million_Euros",
+        "group": "Commercial"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "scale",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "target": "ref:n1",
+        "factor": 0.16666666666666666
+      }
+    ],
+    "ops3": [
+      {
+        "op": "sum",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Revenue_Million_Euros",
+        "group": "Matchday"
+      }
+    ],
+    "ops4": [
+      {
+        "op": "scale",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 4,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "target": "ref:n3",
+        "factor": 0.16666666666666666
+      }
+    ],
+    "ops5": [
+      {
+        "op": "diff",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n2",
+            "n4"
+          ],
+          "sentenceIndex": 5,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=5;taskId=o5"
+        },
+        "field": "Revenue_Million_Euros",
+        "targetA": "ref:n2",
+        "targetB": "ref:n4",
+        "signed": true
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Season",
+      "Revenue_Type",
+      "Revenue_Million_Euros"
+    ],
+    "dimension_fields": [
+      "Season",
+      "Revenue_Type"
+    ],
+    "measure_fields": [
+      "Revenue_Million_Euros"
+    ],
+    "primary_dimension": "Season",
+    "primary_measure": "Revenue_Million_Euros",
+    "series_field": "Revenue_Type",
+    "categorical_values": {
+      "Season": [
+        "2015/16",
+        "2016/17",
+        "2017/18",
+        "2018/19",
+        "2019/20",
+        "2020/21"
+      ],
+      "Revenue_Type": [
+        "Broadcasting",
+        "Commercial",
+        "Matchday"
+      ]
+    },
+    "field_types": {
+      "Season": "categorical",
+      "Revenue_Type": "categorical",
+      "Revenue_Million_Euros": "numeric"
+    },
+    "numeric_stats": {
+      "Revenue_Million_Euros": {
+        "min": 391.0,
+        "max": 4133.0,
+        "mean": 1644.9444444444443
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Season",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Revenue_Million_Euros",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Revenue_Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Season",
+          "Revenue_Type",
+          "Revenue_Million_Euros"
+        ],
+        "dimension_fields": [
+          "Season",
+          "Revenue_Type"
+        ],
+        "measure_fields": [
+          "Revenue_Million_Euros"
+        ],
+        "primary_dimension": "Season",
+        "primary_measure": "Revenue_Million_Euros",
+        "series_field": "Revenue_Type",
+        "categorical_values": {
+          "Season": [
+            "2015/16",
+            "2016/17",
+            "2017/18",
+            "2018/19",
+            "2019/20",
+            "2020/21"
+          ],
+          "Revenue_Type": [
+            "Broadcasting",
+            "Commercial",
+            "Matchday"
+          ]
+        },
+        "field_types": {
+          "Season": "categorical",
+          "Revenue_Type": "categorical",
+          "Revenue_Million_Euros": "numeric"
+        },
+        "numeric_stats": {
+          "Revenue_Million_Euros": {
+            "min": 391.0,
+            "max": 4133.0,
+            "mean": 1644.9444444444443
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "x": {
+            "field": "Season",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "Revenue_Million_Euros",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Revenue_Type",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 18
+    },
+    "inventory": {
+      "tasks_count": 5,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "sum",
+          "sentenceIndex": 1,
+          "mention": "Add all the Commercial values for each year.",
+          "paramsHint": {
+            "field": "Revenue_Million_Euros",
+            "group": "Commercial"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "scale",
+          "sentenceIndex": 2,
+          "mention": "Divide the value by six.",
+          "paramsHint": {
+            "target": "ref:n1",
+            "factor": 0.16666666666666666
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "sum",
+          "sentenceIndex": 3,
+          "mention": "Add all the values of the matchday for each year.",
+          "paramsHint": {
+            "field": "Revenue_Million_Euros",
+            "group": "Matchday"
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "scale",
+          "sentenceIndex": 4,
+          "mention": "Divide the value by six.",
+          "paramsHint": {
+            "target": "ref:n3",
+            "factor": 0.16666666666666666
+          }
+        },
+        {
+          "taskId": "o5",
+          "op": "diff",
+          "sentenceIndex": 5,
+          "mention": "Find the difference between the two computed values.",
+          "paramsHint": {
+            "field": "Revenue_Million_Euros",
+            "targetA": "ref:n2",
+            "targetB": "ref:n4",
+            "signed": true
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "sum",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "sum",
+          "field": "Revenue_Million_Euros",
+          "group": "Commercial"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "group": "Commercial",
+            "value": 8394.0
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "group": "Commercial",
+              "value": 8394.0,
+              "category": "result",
+              "measure": "Revenue_Million_Euros"
+            }
+          ],
+          "primary_dimension": "Season",
+          "primary_measure": "Revenue_Million_Euros",
+          "series_field": "Revenue_Type"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "scale",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [
+          "n1"
+        ],
+        "grounded_op_spec": {
+          "op": "scale",
+          "target": "ref:n1",
+          "factor": 0.16666666666666666
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__scale__",
+            "value": 1399.0
+          },
+          "preview": [
+            {
+              "target": "__scale__",
+              "value": 1399.0,
+              "category": "result",
+              "measure": "Revenue_Million_Euros"
+            }
+          ],
+          "primary_dimension": "Season",
+          "primary_measure": "Revenue_Million_Euros",
+          "series_field": "Revenue_Type"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops3",
+        "op": "sum",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "sum",
+          "field": "Revenue_Million_Euros",
+          "group": "Matchday"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__sum__",
+            "group": "Matchday",
+            "value": 3680.0
+          },
+          "preview": [
+            {
+              "target": "__sum__",
+              "group": "Matchday",
+              "value": 3680.0,
+              "category": "result",
+              "measure": "Revenue_Million_Euros"
+            }
+          ],
+          "primary_dimension": "Season",
+          "primary_measure": "Revenue_Million_Euros",
+          "series_field": "Revenue_Type"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops4",
+        "op": "scale",
+        "inputs": [
+          "n3"
+        ],
+        "scalarRefs": [
+          "n3"
+        ],
+        "grounded_op_spec": {
+          "op": "scale",
+          "target": "ref:n3",
+          "factor": 0.16666666666666666
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__scale__",
+            "value": 613.3333333333333
+          },
+          "preview": [
+            {
+              "target": "__scale__",
+              "value": 613.3333333333333,
+              "category": "result",
+              "measure": "Revenue_Million_Euros"
+            }
+          ],
+          "primary_dimension": "Season",
+          "primary_measure": "Revenue_Million_Euros",
+          "series_field": "Revenue_Type"
+        },
+        "warnings": []
+      },
+      {
+        "step": 5,
+        "taskId": "o5",
+        "nodeId": "n5",
+        "groupName": "ops5",
+        "op": "diff",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "scalarRefs": [
+          "n2",
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "diff",
+          "field": "Revenue_Million_Euros",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": true
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__diff__",
+            "value": 785.6666666666667
+          },
+          "preview": [
+            {
+              "target": "__diff__",
+              "value": 785.6666666666667,
+              "category": "result",
+              "measure": "Revenue_Million_Euros"
+            }
+          ],
+          "primary_dimension": "Season",
+          "primary_measure": "Revenue_Million_Euros",
+          "series_field": "Revenue_Type"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1,
+        "ops3": 1,
+        "ops4": 1,
+        "ops5": 1
+      },
+      "warnings": []
+    }
+  }
+}

@@ -1,0 +1,535 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "group": "Poor"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "average",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Share_of_Respondents"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "filter",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "group": "Good"
+      }
+    ],
+    "ops4": [
+      {
+        "op": "average",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [
+            "n3"
+          ],
+          "sentenceIndex": 4,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "field": "Share_of_Respondents"
+      }
+    ],
+    "ops5": [
+      {
+        "op": "diff",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n2",
+            "n4"
+          ],
+          "sentenceIndex": 5,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=5;taskId=o5"
+        },
+        "field": "Share_of_Respondents",
+        "targetA": "ref:n2",
+        "targetB": "ref:n4",
+        "signed": true
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Rating",
+      "Share_of_Respondents"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Rating"
+    ],
+    "measure_fields": [
+      "Share_of_Respondents"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Share_of_Respondents",
+    "series_field": "Rating",
+    "categorical_values": {
+      "Year": [
+        "2014",
+        "2015",
+        "2016",
+        "2017"
+      ],
+      "Rating": [
+        "Fair",
+        "Good",
+        "Poor",
+        "Very good",
+        "Very poor"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Rating": "categorical",
+      "Share_of_Respondents": "numeric"
+    },
+    "numeric_stats": {
+      "Share_of_Respondents": {
+        "min": 0.0,
+        "max": 62.0,
+        "mean": 20.0
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Share_of_Respondents",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Rating",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Rating",
+          "Share_of_Respondents"
+        ],
+        "dimension_fields": [
+          "Year",
+          "Rating"
+        ],
+        "measure_fields": [
+          "Share_of_Respondents"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Share_of_Respondents",
+        "series_field": "Rating",
+        "categorical_values": {
+          "Year": [
+            "2014",
+            "2015",
+            "2016",
+            "2017"
+          ],
+          "Rating": [
+            "Fair",
+            "Good",
+            "Poor",
+            "Very good",
+            "Very poor"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Rating": "categorical",
+          "Share_of_Respondents": "numeric"
+        },
+        "numeric_stats": {
+          "Share_of_Respondents": {
+            "min": 0.0,
+            "max": 62.0,
+            "mean": 20.0
+          }
+        },
+        "mark": "bar",
+        "is_stacked": true,
+        "encoding_summary": {
+          "x": {
+            "field": "Year",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "Share_of_Respondents",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Rating",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 20
+    },
+    "inventory": {
+      "tasks_count": 5,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "Check the values for each year's Poor",
+          "paramsHint": {
+            "group": "Poor"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "average",
+          "sentenceIndex": 2,
+          "mention": "Obtaining the mean of the values found in number 1",
+          "paramsHint": {
+            "field": "Share_of_Respondents",
+            "group": "Poor"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "filter",
+          "sentenceIndex": 3,
+          "mention": "Check the value corresponding to Good for each year",
+          "paramsHint": {
+            "group": "Good"
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "average",
+          "sentenceIndex": 4,
+          "mention": "Obtaining the mean of the values found in number 3",
+          "paramsHint": {
+            "field": "Share_of_Respondents",
+            "group": "Good"
+          }
+        },
+        {
+          "taskId": "o5",
+          "op": "diff",
+          "sentenceIndex": 5,
+          "mention": "Find the difference between the two mean values",
+          "paramsHint": {
+            "field": "Share_of_Respondents",
+            "targetA": "ref:n2",
+            "targetB": "ref:n4",
+            "signed": true
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "group": "Poor"
+        },
+        "artifact": {
+          "count": 4,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2017",
+            "group": "Poor",
+            "value": 6.0
+          },
+          "preview": [
+            {
+              "target": "2014",
+              "group": "Poor",
+              "value": 4.0,
+              "category": "Year",
+              "measure": "Share_of_Respondents"
+            },
+            {
+              "target": "2015",
+              "group": "Poor",
+              "value": 1.0,
+              "category": "Year",
+              "measure": "Share_of_Respondents"
+            },
+            {
+              "target": "2016",
+              "group": "Poor",
+              "value": 2.0,
+              "category": "Year",
+              "measure": "Share_of_Respondents"
+            },
+            {
+              "target": "2017",
+              "group": "Poor",
+              "value": 6.0,
+              "category": "Year",
+              "measure": "Share_of_Respondents"
+            }
+          ],
+          "targets_preview": [
+            "2014",
+            "2015",
+            "2016",
+            "2017"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Share_of_Respondents",
+          "series_field": "Rating"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "average",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Share_of_Respondents"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 3.25
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 3.25,
+              "category": "result",
+              "measure": "Share_of_Respondents"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Share_of_Respondents",
+          "series_field": "Rating"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops3",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "group": "Good"
+        },
+        "artifact": {
+          "count": 4,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2017",
+            "group": "Good",
+            "value": 44.0
+          },
+          "preview": [
+            {
+              "target": "2014",
+              "group": "Good",
+              "value": 58.0,
+              "category": "Year",
+              "measure": "Share_of_Respondents"
+            },
+            {
+              "target": "2015",
+              "group": "Good",
+              "value": 62.0,
+              "category": "Year",
+              "measure": "Share_of_Respondents"
+            },
+            {
+              "target": "2016",
+              "group": "Good",
+              "value": 42.0,
+              "category": "Year",
+              "measure": "Share_of_Respondents"
+            },
+            {
+              "target": "2017",
+              "group": "Good",
+              "value": 44.0,
+              "category": "Year",
+              "measure": "Share_of_Respondents"
+            }
+          ],
+          "targets_preview": [
+            "2014",
+            "2015",
+            "2016",
+            "2017"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Share_of_Respondents",
+          "series_field": "Rating"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops4",
+        "op": "average",
+        "inputs": [
+          "n3"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Share_of_Respondents"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 51.5
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 51.5,
+              "category": "result",
+              "measure": "Share_of_Respondents"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Share_of_Respondents",
+          "series_field": "Rating"
+        },
+        "warnings": []
+      },
+      {
+        "step": 5,
+        "taskId": "o5",
+        "nodeId": "n5",
+        "groupName": "ops5",
+        "op": "diff",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "scalarRefs": [
+          "n2",
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "diff",
+          "field": "Share_of_Respondents",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": true
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__diff__",
+            "value": -48.25
+          },
+          "preview": [
+            {
+              "target": "__diff__",
+              "value": -48.25,
+              "category": "result",
+              "measure": "Share_of_Respondents"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Share_of_Respondents",
+          "series_field": "Rating"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1,
+        "ops3": 1,
+        "ops4": 1,
+        "ops5": 1
+      },
+      "warnings": []
+    }
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "request_id": "test_0aj7na7tkqb7iomu_92925d86",
+  "question": "What is the difference between the installed base million value of Tablets in 2017 and the installed base million value of Mobile PCs in 2022?",
+  "explanation": "1. Check the value of the installed Base Millions in Tablets for 2017\n2. Check Mobile PCs' Installed Base Millions value for 2022\n3. Check the values of 1 and 2 which are greater\n4. Subtract small value from large value",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+    "description": "Stacked Bar chart for 0aj7na7tkqb7iomu.csv",
+    "data": {
+      "url": "ChartQA/data/csv/bar/stacked/0aj7na7tkqb7iomu.csv"
+    },
+    "mark": "bar",
+    "encoding": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Installed_Base_Millions",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Device_Type",
+        "type": "nominal"
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2017",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "89.64"
+    },
+    {
+      "Year": "2017",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "218.85"
+    },
+    {
+      "Year": "2017",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "173.56"
+    },
+    {
+      "Year": "2018",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "84.46"
+    },
+    {
+      "Year": "2018",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "225.26"
+    },
+    {
+      "Year": "2018",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "178.51"
+    },
+    {
+      "Year": "2019",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "78.9"
+    },
+    {
+      "Year": "2019",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "231.67"
+    },
+    {
+      "Year": "2019",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "180.57"
+    },
+    {
+      "Year": "2020",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "73.16"
+    },
+    {
+      "Year": "2020",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "237.2"
+    },
+    {
+      "Year": "2020",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "181.57"
+    },
+    {
+      "Year": "2021",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "67.4"
+    },
+    {
+      "Year": "2021",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "241.42"
+    },
+    {
+      "Year": "2021",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "182.27"
+    },
+    {
+      "Year": "2022",
+      "Device_Type": "Desktop PCs",
+      "Installed_Base_Millions": "61.76"
+    },
+    {
+      "Year": "2022",
+      "Device_Type": "Mobile PCs",
+      "Installed_Base_Millions": "244.43"
+    },
+    {
+      "Year": "2022",
+      "Device_Type": "Tablets",
+      "Installed_Base_Millions": "183.11"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}

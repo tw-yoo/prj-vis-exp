@@ -1,0 +1,603 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "retrieveValue",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Year",
+        "target": "2016"
+      },
+      {
+        "op": "retrieveValue",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Year",
+        "target": "2017"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "retrieveValue",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Year",
+        "target": "2017"
+      },
+      {
+        "op": "retrieveValue",
+        "id": "n4",
+        "meta": {
+          "nodeId": "n4",
+          "inputs": [],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 1,
+            "parallelGroup": "p1"
+          },
+          "source": "recursive_step=4;taskId=o4"
+        },
+        "field": "Year",
+        "target": "2018"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "diff",
+        "id": "n5",
+        "meta": {
+          "nodeId": "n5",
+          "inputs": [
+            "n1",
+            "n2"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=5;taskId=o5"
+        },
+        "targetA": "ref:n1",
+        "targetB": "ref:n2",
+        "signed": false
+      },
+      {
+        "op": "diff",
+        "id": "n6",
+        "meta": {
+          "nodeId": "n6",
+          "inputs": [
+            "n3",
+            "n4"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 2,
+            "parallelGroup": "p2"
+          },
+          "source": "recursive_step=6;taskId=o6"
+        },
+        "targetA": "ref:n3",
+        "targetB": "ref:n4",
+        "signed": false
+      },
+      {
+        "op": "diff",
+        "id": "n7",
+        "meta": {
+          "nodeId": "n7",
+          "inputs": [
+            "n5",
+            "n6"
+          ],
+          "sentenceIndex": 3,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=7;taskId=o7"
+        },
+        "targetA": "ref:n5",
+        "targetB": "ref:n6",
+        "signed": false
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Production in billion heads"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Production in billion heads"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in billion heads",
+    "categorical_values": {
+      "Year": [
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Production in billion heads": "numeric"
+    },
+    "numeric_stats": {
+      "Production in billion heads": {
+        "min": 1.35,
+        "max": 3.73,
+        "mean": 2.321
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Production in billion heads",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Production in billion heads"
+        ],
+        "dimension_fields": [
+          "Year"
+        ],
+        "measure_fields": [
+          "Production in billion heads"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Production in billion heads",
+        "categorical_values": {
+          "Year": [
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014",
+            "2015",
+            "2016",
+            "2017",
+            "2018",
+            "2019"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Production in billion heads": "numeric"
+        },
+        "numeric_stats": {
+          "Production in billion heads": {
+            "min": 1.35,
+            "max": 3.73,
+            "mean": 2.321
+          }
+        },
+        "mark": "bar",
+        "is_stacked": false,
+        "encoding_summary": {
+          "y": {
+            "field": "Production in billion heads",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Year",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 10
+    },
+    "inventory": {
+      "tasks_count": 7,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "retrieveValue",
+          "sentenceIndex": 1,
+          "mention": "retrieve value of 2016 and 2017",
+          "paramsHint": {
+            "field": "Year",
+            "target": "2016"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "retrieveValue",
+          "sentenceIndex": 1,
+          "mention": "retrieve value of 2016 and 2017",
+          "paramsHint": {
+            "field": "Year",
+            "target": "2017"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "retrieveValue",
+          "sentenceIndex": 2,
+          "mention": "retrieve value of 2017 and 2018",
+          "paramsHint": {
+            "field": "Year",
+            "target": "2017"
+          }
+        },
+        {
+          "taskId": "o4",
+          "op": "retrieveValue",
+          "sentenceIndex": 2,
+          "mention": "retrieve value of 2017 and 2018",
+          "paramsHint": {
+            "field": "Year",
+            "target": "2018"
+          }
+        },
+        {
+          "taskId": "o5",
+          "op": "diff",
+          "sentenceIndex": 3,
+          "mention": "get the difference of the retrieved values",
+          "paramsHint": {
+            "targetA": "ref:n1",
+            "targetB": "ref:n2",
+            "signed": false
+          }
+        },
+        {
+          "taskId": "o6",
+          "op": "diff",
+          "sentenceIndex": 3,
+          "mention": "get the difference of the retrieved values",
+          "paramsHint": {
+            "targetA": "ref:n3",
+            "targetB": "ref:n4",
+            "signed": false
+          }
+        },
+        {
+          "taskId": "o7",
+          "op": "diff",
+          "sentenceIndex": 3,
+          "mention": "get the difference of the retrieved values",
+          "paramsHint": {
+            "targetA": "ref:n5",
+            "targetB": "ref:n6",
+            "signed": false
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "retrieveValue",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "retrieveValue",
+          "field": "Year",
+          "target": "2016"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2016",
+            "value": 2.09
+          },
+          "preview": [
+            {
+              "target": "2016",
+              "value": 2.09,
+              "category": "Year",
+              "measure": "Production in billion heads"
+            }
+          ],
+          "targets_preview": [
+            "2016"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in billion heads"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops",
+        "op": "retrieveValue",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "retrieveValue",
+          "field": "Year",
+          "target": "2017"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2017",
+            "value": 3.48
+          },
+          "preview": [
+            {
+              "target": "2017",
+              "value": 3.48,
+              "category": "Year",
+              "measure": "Production in billion heads"
+            }
+          ],
+          "targets_preview": [
+            "2017"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in billion heads"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops2",
+        "op": "retrieveValue",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "retrieveValue",
+          "field": "Year",
+          "target": "2017"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2017",
+            "value": 3.48
+          },
+          "preview": [
+            {
+              "target": "2017",
+              "value": 3.48,
+              "category": "Year",
+              "measure": "Production in billion heads"
+            }
+          ],
+          "targets_preview": [
+            "2017"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in billion heads"
+        },
+        "warnings": []
+      },
+      {
+        "step": 4,
+        "taskId": "o4",
+        "nodeId": "n4",
+        "groupName": "ops2",
+        "op": "retrieveValue",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "retrieveValue",
+          "field": "Year",
+          "target": "2018"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2018",
+            "value": 3.7
+          },
+          "preview": [
+            {
+              "target": "2018",
+              "value": 3.7,
+              "category": "Year",
+              "measure": "Production in billion heads"
+            }
+          ],
+          "targets_preview": [
+            "2018"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in billion heads"
+        },
+        "warnings": []
+      },
+      {
+        "step": 5,
+        "taskId": "o5",
+        "nodeId": "n5",
+        "groupName": "ops3",
+        "op": "diff",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "scalarRefs": [
+          "n1",
+          "n2"
+        ],
+        "grounded_op_spec": {
+          "op": "diff",
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__diff__",
+            "value": 1.3900000000000001
+          },
+          "preview": [
+            {
+              "target": "__diff__",
+              "value": 1.3900000000000001,
+              "category": "result",
+              "measure": "Production in billion heads"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in billion heads"
+        },
+        "warnings": []
+      },
+      {
+        "step": 6,
+        "taskId": "o6",
+        "nodeId": "n6",
+        "groupName": "ops3",
+        "op": "diff",
+        "inputs": [
+          "n3",
+          "n4"
+        ],
+        "scalarRefs": [
+          "n3",
+          "n4"
+        ],
+        "grounded_op_spec": {
+          "op": "diff",
+          "targetA": "ref:n3",
+          "targetB": "ref:n4",
+          "signed": false
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__diff__",
+            "value": 0.2200000000000002
+          },
+          "preview": [
+            {
+              "target": "__diff__",
+              "value": 0.2200000000000002,
+              "category": "result",
+              "measure": "Production in billion heads"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in billion heads"
+        },
+        "warnings": []
+      },
+      {
+        "step": 7,
+        "taskId": "o7",
+        "nodeId": "n7",
+        "groupName": "ops3",
+        "op": "diff",
+        "inputs": [
+          "n5",
+          "n6"
+        ],
+        "scalarRefs": [
+          "n5",
+          "n6"
+        ],
+        "grounded_op_spec": {
+          "op": "diff",
+          "targetA": "ref:n5",
+          "targetB": "ref:n6",
+          "signed": false
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__diff__",
+            "value": 1.17
+          },
+          "preview": [
+            {
+              "target": "__diff__",
+              "value": 1.17,
+              "category": "result",
+              "measure": "Production in billion heads"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in billion heads"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 2,
+        "ops2": 2,
+        "ops3": 3
+      },
+      "warnings": []
+    }
+  }
+}

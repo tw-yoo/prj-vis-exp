@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 3nayzu649p458g9n.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/3nayzu649p458g9n.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "Age Group",
+      "type": "nominal",
+      "header": {}
+    },
+    "y": {
+      "field": "Visits in thousands",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Gender",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Gender",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

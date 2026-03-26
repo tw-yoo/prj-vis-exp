@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "average",
+    "sentenceIndex": 1,
+    "mention": "calculate the average of sep 1896 until dec 1896",
+    "paramsHint": {
+      "field": "Fatality rate among plague cases"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Fatality rate among plague cases"
+  },
+  "scalar_ref_deps": []
+}

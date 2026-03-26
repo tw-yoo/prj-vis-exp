@@ -1,0 +1,14 @@
+{
+  "task": {
+    "taskId": "o4",
+    "op": "count",
+    "sentenceIndex": 3,
+    "mention": "count the years for which Thailand's revenue was higher.",
+    "paramsHint": {}
+  },
+  "grounded_op_spec": {
+    "op": "count",
+    "field": "Revenue_Million_USD"
+  },
+  "scalar_ref_deps": []
+}

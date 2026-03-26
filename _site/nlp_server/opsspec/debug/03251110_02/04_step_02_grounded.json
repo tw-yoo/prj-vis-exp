@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "findExtremum",
+    "sentenceIndex": 2,
+    "mention": "Check the smallest value for England & Wales",
+    "paramsHint": {
+      "field": "SharePercentage",
+      "group": "England & Wales",
+      "which": "min"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "SharePercentage",
+    "group": "England & Wales",
+    "which": "min"
+  },
+  "scalar_ref_deps": []
+}

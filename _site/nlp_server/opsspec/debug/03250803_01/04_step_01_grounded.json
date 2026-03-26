@@ -1,0 +1,18 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "sum",
+    "sentenceIndex": 1,
+    "mention": "Add all the Commercial values for each year.",
+    "paramsHint": {
+      "field": "Revenue_Million_Euros",
+      "group": "Commercial"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "sum",
+    "field": "Revenue_Million_Euros",
+    "group": "Commercial"
+  },
+  "scalar_ref_deps": []
+}

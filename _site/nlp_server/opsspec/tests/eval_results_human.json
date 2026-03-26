@@ -1,0 +1,3557 @@
+[
+  {
+    "spec_id": "spec_0o12tngadmjjux2n",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0o12tngadmjjux2n",
+    "success": true,
+    "question": "How many years are above the average?",
+    "explanation": "1. Find average\n2. filter which countries are above the average",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "average",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Production in million units"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Production in million units",
+          "operator": ">",
+          "value": "ref:n1"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "average",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Production in million units"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Production in million units",
+          "operator": ">",
+          "value": "ref:n1"
+        },
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 2
+          }
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-24T23:12:58.104627+00:00"
+  },
+  {
+    "spec_id": "spec_10t8o5vhethzeod1",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "10t8o5vhethzeod1",
+    "success": true,
+    "question": "In which year was the agriculture sector the highest",
+    "explanation": "1. get the all values from the agriculture sector\n2. find the maximum value",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "group": "Agriculture"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share_of_GDP",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "group": "Agriculture"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share_of_GDP",
+          "which": "max"
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-24T23:13:03.764872+00:00"
+  },
+  {
+    "spec_id": "spec_0pzdf7hfbxgjghsa",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0pzdf7hfbxgjghsa",
+    "success": true,
+    "question": "How big was the change from 2016 to 2017 compared to the change from 2017 to 2018?",
+    "explanation": "1. retrieve value of 2016 and 2017\n2. retrieve value of 2017 and 2018\n3. get the difference of the retrieved values",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "retrieveValue",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2016"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2017"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "retrieveValue",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "2017"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "2018"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        },
+        {
+          "op": "diff",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n3",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n3",
+          "targetB": "ref:n4",
+          "signed": false
+        },
+        {
+          "op": "diff",
+          "id": "n7",
+          "meta": {
+            "nodeId": "n7",
+            "inputs": [
+              "n5",
+              "n6"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n5",
+          "targetB": "ref:n6",
+          "signed": false
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "retrieveValue",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2016"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2017"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "retrieveValue",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "2017"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "2018"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        },
+        {
+          "op": "diff",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n3",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n3",
+          "targetB": "ref:n4",
+          "signed": false
+        },
+        {
+          "op": "diff",
+          "id": "n7",
+          "meta": {
+            "nodeId": "n7",
+            "inputs": [
+              "n5",
+              "n6"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n5",
+          "targetB": "ref:n6",
+          "signed": false
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-24T23:13:34.797111+00:00"
+  },
+  {
+    "spec_id": "spec_16aphfabldrpgcmd",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "16aphfabldrpgcmd",
+    "success": true,
+    "question": "What is the sum of the number of weights exceeding 3670 in the Boys group and the number of weights exceeding 3550 in the Girls group?",
+    "explanation": "1. Counting the number of values above 3670 on the Boys graph\n2. Counting the number of values above 3550 on the Girls graph\n3. Add the number of 1 and 2",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Average weight in metric grams",
+          "operator": ">",
+          "value": 3670,
+          "group": "Boys"
+        },
+        {
+          "op": "count",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Average weight in metric grams"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Average weight in metric grams",
+          "operator": ">",
+          "value": 3550,
+          "group": "Girls"
+        },
+        {
+          "op": "count",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Average weight in metric grams"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "add",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "field": "Average weight in metric grams"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Average weight in metric grams",
+          "operator": ">",
+          "value": 3670,
+          "group": "Boys"
+        },
+        {
+          "op": "count",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Average weight in metric grams"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Average weight in metric grams",
+          "operator": ">",
+          "value": 3550,
+          "group": "Girls"
+        },
+        {
+          "op": "count",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Average weight in metric grams"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "add",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "field": "Average weight in metric grams"
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-24T23:13:54.862938+00:00"
+  },
+  {
+    "spec_id": "spec_10gtgmmgh599jnr7",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "10gtgmmgh599jnr7",
+    "success": true,
+    "question": "What is the difference between the second largest and the smallest values between 2000 and 2008?",
+    "explanation": "1. Check the largest value between 2000 and 2009\n2. Determine the second largest value after the largest value between 2000 and 2009\n3. Determine the smallest value between 2000 and 2009 \n4. Subtract small value from large value",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2000",
+            "2009"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Percentage_of_Population",
+          "which": "max"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2000",
+            "2009"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage_of_Population",
+          "which": "max",
+          "rank": 2
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2000",
+            "2009"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n5"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Percentage_of_Population",
+          "which": "min"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "diff",
+          "id": "n7",
+          "meta": {
+            "nodeId": "n7",
+            "inputs": [
+              "n4",
+              "n6"
+            ],
+            "sentenceIndex": 4
+          },
+          "field": "Percentage_of_Population",
+          "targetA": "ref:n4",
+          "targetB": "ref:n6",
+          "signed": false
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2000",
+            "2009"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Percentage_of_Population",
+          "which": "max"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2000",
+            "2009"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage_of_Population",
+          "which": "max",
+          "rank": 2
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2000",
+            "2009"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n5"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Percentage_of_Population",
+          "which": "min"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "diff",
+          "id": "n7",
+          "meta": {
+            "nodeId": "n7",
+            "inputs": [
+              "n4",
+              "n6"
+            ],
+            "sentenceIndex": 4
+          },
+          "field": "Percentage_of_Population",
+          "targetA": "ref:n4",
+          "targetB": "ref:n6",
+          "signed": false
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-24T23:14:15.249588+00:00"
+  },
+  {
+    "spec_id": "spec_004fhteah0l9kud2",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "004fhteah0l9kud2",
+    "success": true,
+    "question": "What is the difference between the average of Commercial and the average of Matchday?",
+    "explanation": "1. Add all the Commercial values for each year.\n2. Divide the value by six.\n3. Add all the values of the matchday for each year.\n4. Divide the value by six.\n5. Find the difference between the two computed values.",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "sum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Revenue_Million_Euros",
+          "group": "Commercial"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "scale",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "target": "ref:n1",
+          "factor": 0.16666666666666666
+        }
+      ],
+      "ops3": [
+        {
+          "op": "sum",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue_Million_Euros",
+          "group": "Matchday"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "scale",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 4
+          },
+          "target": "ref:n3",
+          "factor": 0.16666666666666666
+        }
+      ],
+      "ops5": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 5
+          },
+          "field": "Revenue_Million_Euros",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": true
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "sum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Revenue_Million_Euros",
+          "group": "Commercial"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "scale",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "target": "ref:n1",
+          "factor": 0.16666666666666666
+        }
+      ],
+      "ops3": [
+        {
+          "op": "sum",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue_Million_Euros",
+          "group": "Matchday"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "scale",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 4
+          },
+          "target": "ref:n3",
+          "factor": 0.16666666666666666
+        }
+      ],
+      "ops5": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 5
+          },
+          "field": "Revenue_Million_Euros",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": true
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-24T23:15:38.922914+00:00"
+  },
+  {
+    "spec_id": "spec_0vw6ydim9cff8ji6",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0vw6ydim9cff8ji6",
+    "success": true,
+    "question": "In which year did construction record the highest percentage?",
+    "explanation": "- Compare the percentage values for all years in the construction sector to each other",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Industry Sector",
+          "include": [
+            "Construction"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Share of SMEs",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Industry Sector",
+          "include": [
+            "Construction"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Share of SMEs",
+          "which": "max"
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-24T23:15:47.407757+00:00"
+  },
+  {
+    "spec_id": "spec_0w88bu7qm4ilsqmh",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0w88bu7qm4ilsqmh",
+    "success": true,
+    "question": "What is the difference between the average of before 2000 and from 2010?",
+    "explanation": "1. Find the average of the values for 1995 and 1999.\n2. Find the average of the values for 2010, 2013, and 2017.\n3. Calculate the difference between the two averages.",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "include": [
+            "1995",
+            "1999"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Installed base in million units"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "include": [
+            "2010",
+            "2013",
+            "2017"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Installed base in million units"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Installed base in million units",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "include": [
+            "1995",
+            "1999"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Installed base in million units"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "include": [
+            "2010",
+            "2013",
+            "2017"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Installed base in million units"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Installed base in million units",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-24T23:16:10.366699+00:00"
+  },
+  {
+    "spec_id": "spec_0opt5fjw2xphdgp2",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0opt5fjw2xphdgp2",
+    "success": true,
+    "question": "Which group shows the highest value in the sum of occasionally and infrequently answered?",
+    "explanation": "1. calculate the sum of each value of occasionally and infrequently\n2. find the maximum",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Frequency",
+          "include": [
+            "Occasionally (less than once a month)"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Share of respondents"
+        },
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Frequency",
+          "include": [
+            "Infrequently (once a year or less)"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Share of respondents"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "compare",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share of respondents",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Frequency",
+          "include": [
+            "Occasionally (less than once a month)"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Share of respondents"
+        },
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Frequency",
+          "include": [
+            "Infrequently (once a year or less)"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Share of respondents"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "compare",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share of respondents",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "which": "max"
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-25T01:07:18.376050+00:00"
+  },
+  {
+    "spec_id": "spec_2kmpy10btl65kr2j",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "2kmpy10btl65kr2j",
+    "success": true,
+    "question": "What is the average of the percentage of responses in the last three years of Favourable views of the US?",
+    "explanation": "- Filters data from 2015 to 2017\n- Average the the percentage of responses of Favourable views of U.S from filtered data",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2015",
+            "2017"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage_of_Respondents",
+          "group": "Favorable view of US"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2015",
+            "2017"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage_of_Respondents",
+          "group": "Favorable view of US"
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-25T01:07:23.760253+00:00"
+  },
+  {
+    "spec_id": "spec_11e148qcs7x70t8v",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "11e148qcs7x70t8v",
+    "success": true,
+    "question": "in which years does south korea have a bigger value than france?",
+    "explanation": "1. Get difference between south korea and france in every year\n2. Filter the year with a positive value",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "Period",
+          "seriesField": "Country",
+          "field": "Share_of_Import_Value",
+          "groupA": "South Korea",
+          "groupB": "France",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share_of_Import_Value",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "Period",
+          "seriesField": "Country",
+          "field": "Share_of_Import_Value",
+          "groupA": "South Korea",
+          "groupB": "France",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share_of_Import_Value",
+          "operator": ">",
+          "value": 0
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-25T01:22:57.827306+00:00"
+  },
+  {
+    "spec_id": "spec_13guplcbmfu1tjzu",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "13guplcbmfu1tjzu",
+    "success": false,
+    "question": "Which country has the highest european factor?",
+    "explanation": "1. Get the sum of germany and italy for each country\n2. Get the country with the highest value",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "include": [
+            "Germany – exports",
+            "Italy – exports"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Decrease_in_GDP_Percentage",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "sum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Decrease_in_GDP_Percentage",
+          "group": [
+            "Germany – exports",
+            "Italy – exports"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Decrease_in_GDP_Percentage",
+          "which": "max"
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 1/2 (50.0%)\ngroup 일치: 1/2\n  ops[0]: 불일치\n    .field: 기대=None / 실제='Decrease_in_GDP_Percentage'\n    .op: 기대='filter' / 실제='sum'\n    .include: 기대=['Germany – exports', 'Italy – exports'] / 실제=None\n    .group: 기대=None / 실제=['Germany – exports', 'Italy – exports']",
+    "timestamp": "2026-03-25T01:34:18.349179+00:00"
+  },
+  {
+    "spec_id": "spec_28bxxhd6omv2l2h1",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "28bxxhd6omv2l2h1",
+    "success": true,
+    "question": "What is the difference between the maximum and minimum gap between the two groups?",
+    "explanation": "1. calculate the difference for each value\n2. find the maximum value",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "Year",
+          "seriesField": "Region",
+          "field": "Life expectancy in years",
+          "groupA": "Canada",
+          "groupB": "Newfoundland and Labrador",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Life expectancy in years",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "Year",
+          "seriesField": "Region",
+          "field": "Life expectancy in years",
+          "groupA": "Canada",
+          "groupB": "Newfoundland and Labrador",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Life expectancy in years",
+          "which": "max"
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-25T01:35:05.544194+00:00"
+  },
+  {
+    "spec_id": "spec_23wg8zio5ahp40tg",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "23wg8zio5ahp40tg",
+    "success": false,
+    "question": "Which year had the biggest gap between favor and oppose?",
+    "explanation": "1. calculate difference between the values of favor and oppose\n2. find extremum",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "Year",
+          "seriesField": "Opinion",
+          "field": "Percentage",
+          "groupA": "Favor",
+          "groupB": "Oppose",
+          "signed": false,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "Year",
+          "seriesField": "Opinion",
+          "field": "Percentage",
+          "groupA": "Favor",
+          "groupB": "Oppose",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage",
+          "which": "max"
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 1/2 (50.0%)\ngroup 일치: 1/2\n  ops[0]: 불일치\n    .signed: 기대=False / 실제=True",
+    "timestamp": "2026-03-25T01:41:36.114473+00:00"
+  },
+  {
+    "spec_id": "spec_0gzowodb2py0d1s9",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0gzowodb2py0d1s9",
+    "success": false,
+    "question": "How many years did Thailand's revenue exceed that of the Philippines'?",
+    "explanation": "1. Filter for the revenue of Thailand and the Philippines\n2. Compare the revenue of Thailand and the Philippines\n3. count the years for which Thailand's revenue was higher.",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "group": [
+            "Philippines",
+            "Thailand"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "pairDiff",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "by": "Country_Region",
+          "seriesField": "Country_Region",
+          "field": "Revenue_Million_USD",
+          "groupA": "Thailand",
+          "groupB": "Philippines",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue_Million_USD",
+          "operator": ">",
+          "value": 0
+        },
+        {
+          "op": "count",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue_Million_USD"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops2": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "by": "Year",
+          "seriesField": "Country_Region",
+          "field": "Revenue_Million_USD",
+          "groupA": "Thailand",
+          "groupB": "Philippines",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue_Million_USD",
+          "operator": ">",
+          "value": 0
+        },
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue_Million_USD"
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 0/4 (0.0%)\ngroup 일치: 0/3\n  ops: op 개수 불일치 (정답=1, 예측=0)\n  ops2[0]: 불일치\n    .by: 기대='Country_Region' / 실제='Year'\n    .meta.inputs: 기대=['n1'] / 실제=[]\n  ops3[0]: 불일치\n    .meta.inputs: 기대=['n2'] / 실제=['n1']\n  ops3[1]: 불일치\n    .meta.inputs: 기대=['n3'] / 실제=['n2']",
+    "timestamp": "2026-03-25T01:42:06.063841+00:00"
+  },
+  {
+    "spec_id": "spec_0prhtod4tli879nh",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0prhtod4tli879nh",
+    "success": true,
+    "question": "Which city had the biggest jump in population from 2010 to 2025?",
+    "explanation": "1. get the difference of every city in every year\n2. find the extremum",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "City",
+          "seriesField": "Year",
+          "field": "Population in millions",
+          "groupA": "2025",
+          "groupB": "2010",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Population in millions",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "City",
+          "seriesField": "Year",
+          "field": "Population in millions",
+          "groupA": "2025",
+          "groupB": "2010",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Population in millions",
+          "which": "max"
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-25T02:10:22.632317+00:00"
+  },
+  {
+    "spec_id": "spec_0gf8ugj84bs1ko2k",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0gf8ugj84bs1ko2k",
+    "success": false,
+    "question": "What is the average value for each service area in the year when the data center's revenue was highest?",
+    "explanation": "1. Check the graph for the data center with the highest value.\n2. Check the value for each service area.\n3. Calculate the average.",
+    "gt_spec": {
+      "ops1": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "group": [
+            "Data Centers"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Revenue_Million_USD",
+          "which": "max"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "retrieveValue",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Revenue_Million_USD",
+          "target": "2022",
+          "group": "Data Centers"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Revenue_Million_USD",
+          "target": "2022",
+          "group": "Cloud"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Revenue_Million_USD",
+          "target": "2022",
+          "group": "BPO"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "average",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n3",
+              "n4",
+              "n5"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue_Million_USD"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "findExtremum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Revenue_Million_USD",
+          "group": "Data Centers",
+          "which": "max"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "ref:n1"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "average",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue_Million_USD"
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 0/6 (0.0%)\ngroup 일치: 0/4\n  ops: op 개수 불일치 (정답=0, 예측=1)\n  ops1: op 개수 불일치 (정답=2, 예측=0)\n  ops2: op 개수 불일치 (정답=3, 예측=1)\n  ops2[0]: 불일치\n    .target: 기대='2022' / 실제='ref:n1'\n    .field: 기대='Revenue_Million_USD' / 실제='Year'\n    .group: 기대='Data Centers' / 실제=None\n    .meta.inputs: 기대=[] / 실제=['n1']\n  ops3[0]: 불일치\n    .meta.inputs: 기대=['n3', 'n4', 'n5'] / 실제=['n2']",
+    "timestamp": "2026-03-25T02:18:06.514478+00:00"
+  },
+  {
+    "spec_id": "spec_0dglnk2wbf5ll15t",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0dglnk2wbf5ll15t",
+    "success": false,
+    "question": "What is the difference between the average of values corresponding to Poor and the average of values corresponding to Good?",
+    "explanation": "1. Check the values for each year's Poor\n2. Obtaining the mean of the values found in number 1\n3. Check the value corresponding to Good for each year\n4. Obtaining the mean of the values found in number 3\n5. Find the difference between the two mean values",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "group": "Poor"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share_of_Respondents"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "group": "Good"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 4
+          },
+          "field": "Share_of_Respondents"
+        }
+      ],
+      "ops5": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 5
+          },
+          "field": "Share_of_Respondents",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "group": "Poor"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share_of_Respondents"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "group": "Good"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 4
+          },
+          "field": "Share_of_Respondents"
+        }
+      ],
+      "ops5": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 5
+          },
+          "field": "Share_of_Respondents",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": true
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 4/5 (80.0%)\ngroup 일치: 4/5\n  ops5[0]: 불일치\n    .signed: 기대=False / 실제=True",
+    "timestamp": "2026-03-25T02:18:32.021121+00:00"
+  },
+  {
+    "spec_id": "spec_0aj7na7tkqb7iomu",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0aj7na7tkqb7iomu",
+    "success": false,
+    "question": "What is the difference between the installed base million value of Tablets in 2017 and the installed base million value of Mobile PCs in 2022?",
+    "explanation": "1. Check the value of the installed Base Millions in Tablets for 2017\n2. Check Mobile PCs' Installed Base Millions value for 2022\n3. Check the values of 1 and 2 which are greater\n4. Subtract small value from large value",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "retrieveValue",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2017",
+          "group": "Tablets"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "2022",
+          "group": "Mobile PCs"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "findExtremum",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Installed_Base_Millions",
+          "which": "max"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "diff",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 4
+          },
+          "field": "Installed_Base_Millions",
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        }
+      ]
+    },
+    "pred_output": {},
+    "failure_reason": "RuntimeError: step-compose failed after strict retries (step=3): [Attempt 3/3 FAILED — fix and retry]; [Type: Ref Rule] Scalar reference rule violated; use \"ref:nX\" string format only, never {\"id\":\"nX\"}.; [Detail] op \"findExtremum\" can have at most 1 data parent input (got ['n1', 'n2']). Use scalar refs for scalar dependencies.; [Action Required] Fix the specific issue above and return valid JSON only.; [Selected Task] taskId=o3, op=findExtremum; [Constraint] Do not select taskId in output. Compose op_spec/inputs for the selected task only. (debug_bundle=/Users/taewon_1/Desktop/vis-exp/explainable_chart_qa/prj-vis-exp/prj-vis-exp/nlp_server/opsspec/debug/03251136)",
+    "timestamp": "2026-03-25T02:36:18.168282+00:00"
+  },
+  {
+    "spec_id": "spec_0k7bm9iqewnrzj47",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0k7bm9iqewnrzj47",
+    "success": false,
+    "question": "Is the average of the top three greater than twice the average of the lowest three?",
+    "explanation": "1. find the top three values\n2. calculate the average\n3. find the lowest three values\n4. calculate the average\n5. double the lowest average\n6. compare the two values to find which one is bigger",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "include": [
+            "2008",
+            "2019",
+            "2020"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Production in million liters"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "field": "Year",
+          "include": [
+            "1995",
+            "2000",
+            "2005"
+          ]
+        }
+      ],
+      "ops4": [
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 4
+          },
+          "field": "Production in million liters"
+        }
+      ],
+      "ops5": [
+        {
+          "op": "scale",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n4"
+            ],
+            "sentenceIndex": 5
+          },
+          "target": "ref:n4",
+          "factor": 2.0
+        }
+      ],
+      "ops6": [
+        {
+          "op": "compareBool",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n8",
+            "inputs": [
+              "n2",
+              "n5"
+            ],
+            "sentenceIndex": 6
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n5",
+          "operator": ">"
+        }
+      ]
+    },
+    "pred_output": {},
+    "failure_reason": "",
+    "timestamp": "2026-03-25T02:36:44.346740+00:00"
+  },
+  {
+    "spec_id": "spec_0egzejn5mejtnfdm",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0egzejn5mejtnfdm",
+    "success": false,
+    "question": "What is the difference between Scotland's largest value and England and Wales's smallest value?",
+    "explanation": "1. Check Scotland's Biggest Value\n2. Check the smallest value for England & Wales\n3. Check if the value is greater than the value of number 1 or number 2\n4. Subtract small value from large value\n",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "findExtremum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "SharePercentage",
+          "group": "Scotland",
+          "which": "max"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "SharePercentage",
+          "group": "England & Wales",
+          "which": "min"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "compare",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "SharePercentage",
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "which": "max"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "diff",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 4
+          },
+          "field": "SharePercentage",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "group": "Scotland"
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "SharePercentage",
+          "which": "max"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "group": "England & Wales"
+        },
+        {
+          "op": "findExtremum",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "SharePercentage",
+          "which": "min"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "compare",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "which": "max"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "diff",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 4
+          },
+          "field": "SharePercentage",
+          "targetA": "ref:n4",
+          "targetB": "ref:n2",
+          "signed": false
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 0/4 (0.0%)\ngroup 일치: 0/4\n  ops: op 개수 불일치 (정답=1, 예측=2)\n  ops[0]: 불일치\n    .which: 기대='max' / 실제=None\n    .op: 기대='findExtremum' / 실제='filter'\n    .field: 기대='SharePercentage' / 실제=None\n  ops2: op 개수 불일치 (정답=1, 예측=2)\n  ops2[0]: 불일치\n    .which: 기대='min' / 실제=None\n    .op: 기대='findExtremum' / 실제='filter'\n    .field: 기대='SharePercentage' / 실제=None\n  ops3[0]: 불일치\n    .targetA: 기대='ref:n1' / 실제='ref:n2'\n    .targetB: 기대='ref:n2' / 실제='ref:n4'\n    .field: 기대='SharePercentage' / 실제=None\n    .meta.inputs: 기대=['n1', 'n2'] / 실제=['n2', 'n4']\n  ops4[0]: 불일치\n    .targetA: 기대='ref:n2' / 실제='ref:n4'\n    .targetB: 기대='ref:n4' / 실제='ref:n2'\n    .meta.inputs: 기대=['n1', 'n2'] / 실제=['n2', 'n4']",
+    "timestamp": "2026-03-25T02:39:58.690768+00:00"
+  },
+  {
+    "spec_id": "spec_1sf5c8wqw1192q6b",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "1sf5c8wqw1192q6b",
+    "success": true,
+    "question": "How many dates was the growth rate below the average?",
+    "explanation": "1. calculate average growth rate\n2. filter for the date for which the growth rate was below the average\n3. count the number of filtered dates ",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "average",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Growth rate of HICP (%)"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Growth rate of HICP (%)",
+          "operator": "<",
+          "value": "ref:n1"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Month"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "average",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Growth rate of HICP (%)"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Growth rate of HICP (%)",
+          "operator": "<",
+          "value": "ref:n1"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Month"
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-25T02:40:05.723618+00:00"
+  },
+  {
+    "spec_id": "spec_66va2s35es5t86l3",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "66va2s35es5t86l3",
+    "success": false,
+    "question": "What is the year with the largest increase compared to the previous year?",
+    "explanation": "- Find the difference between the current value and the previous data value for all years with previous years.\n- Find the year in which the highest value was recorded among the differences.",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "lagDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "In millions"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "In millions",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {},
+    "failure_reason": "AttributeError: 'LagDiffOp' object has no attribute 'absolute'",
+    "timestamp": "2026-03-25T02:40:09.203858+00:00"
+  },
+  {
+    "spec_id": "spec_2jromeq5u9lloh1s",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "2jromeq5u9lloh1s",
+    "success": false,
+    "question": "Which years has the biggest jump?",
+    "explanation": "1. Get the difference between every year\n2. Get the extremum ",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "lagDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Audience_Millions"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Audience_Millions",
+          "which": "max"
+        }
+      ]
+    },
+    "pred_output": {},
+    "failure_reason": "AttributeError: 'LagDiffOp' object has no attribute 'absolute'",
+    "timestamp": "2026-03-25T02:40:13.484109+00:00"
+  },
+  {
+    "spec_id": "spec_0s6zi9dyw22qo4rp",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0s6zi9dyw22qo4rp",
+    "success": false,
+    "question": "What is the difference between the average of September 1896 until December 1896 and the average of January 1897 until April 1897?",
+    "explanation": "1. calculate the average of sep 1896 until dec 1896\n2. calculate the average of jan 1897 until april 1897\n3. compare the two averages",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Month/Year",
+          "operator": "between",
+          "value": [
+            "Sep 1896",
+            "Dec 1896"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Month/Year",
+          "operator": "between",
+          "value": [
+            "Jan 1897",
+            "Apr 1897"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Fatality rate among plague cases",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Month/Year",
+          "include": [
+            "Dec 1896",
+            "Nov 1896",
+            "Oct 1896",
+            "Sep 1896"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Month/Year",
+          "include": [
+            "Apr 1897",
+            "Feb 1897",
+            "Jan 1897",
+            "Mar 1897"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Fatality rate among plague cases",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 1/5 (20.0%)\ngroup 일치: 0/3\n  ops[0]: 불일치\n    .value: 기대=['Sep 1896', 'Dec 1896'] / 실제=None\n    .operator: 기대='between' / 실제=None\n    .include: 기대=None / 실제=['Dec 1896', 'Nov 1896', 'Oct 1896', 'Sep 1896']\n  ops2[0]: 불일치\n    .value: 기대=['Jan 1897', 'Apr 1897'] / 실제=None\n    .operator: 기대='between' / 실제=None\n    .include: 기대=None / 실제=['Apr 1897', 'Feb 1897', 'Jan 1897', 'Mar 1897']\n    .meta.sentenceIndex: 기대=1 / 실제=2\n  ops2[1]: 불일치\n    .meta.sentenceIndex: 기대=1 / 실제=2\n  ops3[0]: 불일치\n    .meta.sentenceIndex: 기대=2 / 실제=3",
+    "timestamp": "2026-03-25T02:40:34.094128+00:00"
+  },
+  {
+    "spec_id": "spec_29rxoltwhongoday",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "29rxoltwhongoday",
+    "success": false,
+    "question": "In 2002 and 2017, which year shows the highest gap between two opinion?",
+    "explanation": "1. calculate the difference in 2002 and 2017\n2. find the year which has the bigger difference",
+    "gt_spec": {
+      "ops1": [
+        {
+          "op": "retrieveValue",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Percentage",
+          "target": "2002",
+          "group": "Dissatisfied"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Percentage",
+          "target": "2002",
+          "group": "Satisfied"
+        },
+        {
+          "op": "diff",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Percentage",
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Percentage",
+          "target": "2002",
+          "group": "Dissatisfied"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Percentage",
+          "target": "2017",
+          "group": "Satisfied"
+        },
+        {
+          "op": "diff",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n4",
+              "n5"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Percentage",
+          "targetA": "ref:n4",
+          "targetB": "ref:n5",
+          "signed": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n7",
+          "meta": {
+            "nodeId": "n7",
+            "inputs": [
+              "n3",
+              "n6"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage"
+        }
+      ]
+    },
+    "pred_output": {},
+    "failure_reason": "RuntimeError: step-compose failed after strict retries (step=3): [Attempt 3/3 FAILED — fix and retry]; [Type: Semantic] A semantic or contract constraint was violated.; [Detail] compare meta.inputs에 정확히 2개의 nodeId가 필요합니다 (현재 1개); [Action Required] Fix the specific issue above and return valid JSON only.; [Selected Task] taskId=o3, op=compare; [Constraint] Do not select taskId in output. Compose op_spec/inputs for the selected task only. (debug_bundle=/Users/taewon_1/Desktop/vis-exp/explainable_chart_qa/prj-vis-exp/prj-vis-exp/nlp_server/opsspec/debug/03251140_06)",
+    "timestamp": "2026-03-25T02:40:52.505437+00:00"
+  },
+  {
+    "spec_id": "spec_2o3fyauxv32p571i",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "2o3fyauxv32p571i",
+    "success": true,
+    "question": "Which year had the second-lowest value?",
+    "explanation": "1. Sort  in ascending order by year\n2. find the second lowest",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "sort",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Operating_Profit_Margin",
+          "order": "asc"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "nth",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "n": 2
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "sort",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Operating_Profit_Margin",
+          "order": "asc"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "nth",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "n": 2
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-25T02:48:05.615421+00:00"
+  },
+  {
+    "spec_id": "spec_0s6zi9dyw22qo4rp",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "0s6zi9dyw22qo4rp",
+    "success": false,
+    "question": "What is the difference between the average of September 1896 until December 1896 and the average of January 1897 until April 1897?",
+    "explanation": "1. calculate the average of sep 1896 until dec 1896\n2. calculate the average of jan 1897 until april 1897\n3. compare the two averages",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Month/Year",
+          "operator": "between",
+          "value": [
+            "Sep 1896",
+            "Dec 1896"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Month/Year",
+          "operator": "between",
+          "value": [
+            "Jan 1897",
+            "Apr 1897"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Fatality rate among plague cases",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Month/Year",
+          "include": [
+            "Dec 1896",
+            "Nov 1896",
+            "Oct 1896",
+            "Sep 1896"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Month/Year",
+          "include": [
+            "Apr 1897",
+            "Feb 1897",
+            "Jan 1897",
+            "Mar 1897"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 2/5 (40.0%)\ngroup 일치: 0/3\n  ops[0]: 불일치\n    .operator: 기대='between' / 실제=None\n    .value: 기대=['Sep 1896', 'Dec 1896'] / 실제=None\n    .include: 기대=None / 실제=['Dec 1896', 'Nov 1896', 'Oct 1896', 'Sep 1896']\n  ops2[0]: 불일치\n    .operator: 기대='between' / 실제=None\n    .value: 기대=['Jan 1897', 'Apr 1897'] / 실제=None\n    .include: 기대=None / 실제=['Apr 1897', 'Feb 1897', 'Jan 1897', 'Mar 1897']\n  ops3[0]: 불일치\n    .field: 기대='Fatality rate among plague cases' / 실제=None",
+    "timestamp": "2026-03-25T02:48:19.083111+00:00"
+  },
+  {
+    "spec_id": "spec_2ebtadc07b7bo277",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "2ebtadc07b7bo277",
+    "success": true,
+    "question": "Which year had the second lowest value?",
+    "explanation": "1. sort the values from lowest to highest\n2. find the second lowest ",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "sort",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Average price in US dollars",
+          "order": "asc"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "nth",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "n": 2
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "sort",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Average price in US dollars",
+          "order": "asc"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "nth",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "n": 2
+        }
+      ]
+    },
+    "failure_reason": "",
+    "timestamp": "2026-03-25T02:48:24.493375+00:00"
+  },
+  {
+    "spec_id": "spec_1h4rj9i2jtzq589y",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "1h4rj9i2jtzq589y",
+    "success": false,
+    "question": "Which of the most recent years is the value of the EU 5-country media with y-axis values between 51 and 61?\n",
+    "explanation": "1. Check y-axis number\n2. Check the points between 51 and 61\n3. Check the year of values corresponding to the EU 5-country media between 51 and 61 \n4. Choose the largest year",
+    "gt_spec": {
+      "ops1": [],
+      "ops2": [],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "51",
+            "61"
+          ]
+        }
+      ],
+      "ops4": [
+        {
+          "op": "findExtremum",
+          "meta": {
+            "inputs": []
+          }
+        }
+      ]
+    },
+    "pred_output": {},
+    "failure_reason": "ValueError: filter between end \"61\" not found after start \"51\" in selected slice",
+    "timestamp": "2026-03-25T02:48:38.044737+00:00"
+  },
+  {
+    "spec_id": "spec_2eiyyw562tcvjypp",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "2eiyyw562tcvjypp",
+    "success": false,
+    "question": "How many years has Russia had higher favorability than the US?",
+    "explanation": "1. calculate the difference between Russia and the US\n2. count the number of years that Russia is higher than the US",
+    "gt_spec": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "Year",
+          "seriesField": "Favorability_Direction",
+          "field": "Favorable_View_Percentage",
+          "groupA": "Russia favorability in US",
+          "groupB": "US favorability in Russia",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Favorable_View_Percentage",
+          "operator": ">",
+          "value": 0
+        },
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Year"
+        }
+      ]
+    },
+    "pred_output": {
+      "ops": [
+        {
+          "op": "pairDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "by": "Year",
+          "seriesField": "Favorability_Direction",
+          "field": "Favorable_View_Percentage",
+          "groupA": "Russia favorability in US",
+          "groupB": "US favorability in Russia",
+          "signed": true,
+          "absolute": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Favorable_View_Percentage",
+          "operator": ">",
+          "value": 0
+        },
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Favorable_View_Percentage"
+        }
+      ]
+    },
+    "failure_reason": "op 일치: 2/3 (66.7%)\ngroup 일치: 1/2\n  ops2[1]: 불일치\n    .field: 기대='Year' / 실제='Favorable_View_Percentage'",
+    "timestamp": "2026-03-25T02:52:47.625523+00:00"
+  },
+  {
+    "spec_id": "spec_14jt6jor7iknkjkl",
+    "backend": "unknown",
+    "model": "llama3.1:8b",
+    "chart_id": "14jt6jor7iknkjkl",
+    "success": false,
+    "question": "What is the sum of the Confidence in U.S. present values for the period in which the favorite view of the U.S. is the lowest?",
+    "explanation": "1. Check the section with the lowest favorite view of U.S. value (2009, 2010, 2011)\n2. Check Confidence in U.S. present value corresponding to section 1\n3. Add all values of number 2",
+    "gt_spec": {
+      "ops1": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2009",
+            "2011"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage",
+          "target": "2009",
+          "group": "Confidence in US President"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage",
+          "target": "2010",
+          "group": "Confidence in US President"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Percentage",
+          "target": "2011",
+          "group": "Confidence in US President"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "sum",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n3",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Percentage"
+        }
+      ]
+    },
+    "pred_output": {},
+    "failure_reason": "RuntimeError: step-compose failed after strict retries (step=3): [Attempt 3/3 FAILED — fix and retry]; [Type: Semantic] A semantic or contract constraint was violated.; [Detail] sum is allowed only for bar charts (chart_context.mark must be \"bar\"); [Action Required] Fix the specific issue above and return valid JSON only.; [Selected Task] taskId=o3, op=sum; [Constraint] Do not select taskId in output. Compose op_spec/inputs for the selected task only. (debug_bundle=/Users/taewon_1/Desktop/vis-exp/explainable_chart_qa/prj-vis-exp/prj-vis-exp/nlp_server/opsspec/debug/03251153)",
+    "timestamp": "2026-03-25T02:53:06.895572+00:00"
+  }
+]

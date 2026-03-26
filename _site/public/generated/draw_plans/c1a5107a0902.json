@@ -1,0 +1,94 @@
+{
+  "ops": [
+    {
+      "op": "draw",
+      "action": "clear",
+      "meta": {
+        "source": "python-draw-plan",
+        "inputs": []
+      }
+    },
+    {
+      "op": "draw",
+      "action": "highlight",
+      "meta": {
+        "source": "python-draw-plan",
+        "nodeId": "n1",
+        "sentenceIndex": 1,
+        "inputs": []
+      },
+      "select": {
+        "keys": [
+          "Investment"
+        ]
+      },
+      "style": {
+        "color": "#ef4444",
+        "opacity": 1.0
+      }
+    },
+    {
+      "op": "draw",
+      "action": "highlight",
+      "meta": {
+        "source": "python-draw-plan",
+        "nodeId": "n2",
+        "sentenceIndex": 1,
+        "inputs": []
+      },
+      "select": {
+        "keys": [
+          "Lending"
+        ]
+      },
+      "style": {
+        "color": "#ef4444",
+        "opacity": 1.0
+      }
+    }
+  ],
+  "ops2": [
+    {
+      "op": "draw",
+      "action": "clear",
+      "meta": {
+        "source": "python-draw-plan",
+        "inputs": []
+      }
+    },
+    {
+      "op": "draw",
+      "action": "line",
+      "meta": {
+        "source": "python-draw-plan",
+        "nodeId": "n3",
+        "sentenceIndex": 2,
+        "inputs": [
+          "n1",
+          "n2"
+        ]
+      },
+      "line": {
+        "mode": "horizontal-from-y",
+        "hline": {
+          "y": 10.0
+        },
+        "style": {
+          "stroke": "#ef4444",
+          "strokeWidth": 2.0,
+          "opacity": 1.0
+        }
+      }
+    }
+  ],
+  "ops3": [
+    {
+      "op": "draw",
+      "action": "clear",
+      "meta": {
+        "source": "python-draw-plan",
+        "inputs": []
+      }
+    }
+  ]
+}

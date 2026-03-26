@@ -1,0 +1,22 @@
+{
+  "task": {
+    "taskId": "o1",
+    "op": "filter",
+    "sentenceIndex": 1,
+    "mention": "Filter for the revenue of Thailand and the Philippines",
+    "paramsHint": {
+      "group": [
+        "Thailand",
+        "Philippines"
+      ]
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "group": [
+      "Thailand",
+      "Philippines"
+    ]
+  },
+  "scalar_ref_deps": []
+}

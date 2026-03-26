@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "average",
+    "sentenceIndex": 2,
+    "mention": "calculate the average",
+    "paramsHint": {
+      "field": "Production in million liters"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Production in million liters"
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,98 @@
+{
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "data": {
+        "url": "ChartQA/data/csv/line/multiple/8mntkwdil1gq6xzh.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+        {
+            "mark": {
+                "type": "line",
+                "point": false,
+                "tooltip": true
+            },
+            "encoding": {
+                "x": {
+                    "field": "Year",
+                    "type": "ordinal",
+                    "axis": {
+                        "title": "Year",
+                        "labelAngle": 0,
+                        "labelFontSize": 11,
+                        "titleFontSize": 13,
+                        "titlePadding": 10,
+                        "labelPadding": 5
+                    }
+                },
+                "y": {
+                    "field": "Median weekly earnings in GBP",
+                    "type": "quantitative",
+                    "axis": {
+                        "title": "Median weekly earnings in GBP",
+                        "labelFontSize": 11,
+                        "titleFontSize": 13,
+                        "titlePadding": 10,
+                        "labelPadding": 5
+                    }
+                },
+                "color": {
+                    "field": "Gender",
+                    "type": "nominal",
+                    "legend": {
+                        "title": "Gender",
+                        "titleFontSize": 12,
+                        "labelFontSize": 11
+                    }
+                }
+            }
+        },
+        {
+            "mark": {
+                "type": "point",
+                "filled": true,
+                "size": 50,
+                "tooltip": true
+            },
+            "encoding": {
+                "x": {
+                    "field": "Year",
+                    "type": "ordinal"
+                },
+                "y": {
+                    "field": "Median weekly earnings in GBP",
+                    "type": "quantitative"
+                },
+                "color": {
+                    "field": "Gender",
+                    "type": "nominal"
+                },
+                "tooltip": [
+                    {
+                        "field": "Year",
+                        "type": "ordinal",
+                        "title": "Year"
+                    },
+                    {
+                        "field": "Gender",
+                        "type": "nominal",
+                        "title": "Gender"
+                    },
+                    {
+                        "field": "Median weekly earnings in GBP",
+                        "type": "quantitative",
+                        "title": "Median weekly earnings in GBP"
+                    }
+                ]
+            }
+        }
+    ],
+    "config": {
+        "view": {
+            "stroke": "transparent"
+        },
+        "axis": {
+            "domainWidth": 1
+        }
+    }
+}

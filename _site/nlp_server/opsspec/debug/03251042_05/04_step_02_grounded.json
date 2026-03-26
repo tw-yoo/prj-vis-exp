@@ -1,0 +1,20 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "findExtremum",
+    "sentenceIndex": 2,
+    "mention": "find the second lowest",
+    "paramsHint": {
+      "field": "Operating_Profit_Margin",
+      "which": "min",
+      "rank": 2
+    }
+  },
+  "grounded_op_spec": {
+    "op": "findExtremum",
+    "field": "Operating_Profit_Margin",
+    "which": "min",
+    "rank": 2
+  },
+  "scalar_ref_deps": []
+}

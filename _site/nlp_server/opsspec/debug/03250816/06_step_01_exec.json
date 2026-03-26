@@ -1,0 +1,32 @@
+{
+  "artifact": {
+    "count": 2,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "1999",
+      "value": 54.0
+    },
+    "preview": [
+      {
+        "target": "1995",
+        "value": 64.0,
+        "category": "Year",
+        "measure": "Installed base in million units"
+      },
+      {
+        "target": "1999",
+        "value": 54.0,
+        "category": "Year",
+        "measure": "Installed base in million units"
+      }
+    ],
+    "targets_preview": [
+      "1995",
+      "1999"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Installed base in million units"
+  },
+  "warnings": []
+}

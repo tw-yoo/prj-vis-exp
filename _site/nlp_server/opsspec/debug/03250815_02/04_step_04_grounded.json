@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o4",
+    "op": "sum",
+    "sentenceIndex": 1,
+    "mention": "calculate the sum of each value of occasionally and infrequently",
+    "paramsHint": {
+      "field": "Share of respondents"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "sum",
+    "field": "Share of respondents"
+  },
+  "scalar_ref_deps": []
+}

@@ -1,0 +1,52 @@
+digraph OpsSpecTree {
+  graph [rankdir=LR, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="white", fontname="Helvetica"];
+  edge [color="#666666"];
+  subgraph "cluster_ops" {
+    label="ops";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f0fe";
+    "n1" [label="n1 filter (ops) field=Year"];
+  }
+  subgraph "cluster_ops2" {
+    label="ops2";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n2" [label="n2 average (ops2) field=Production in million liters"];
+  }
+  subgraph "cluster_ops3" {
+    label="ops3";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n3" [label="n3 filter (ops3) field=Year"];
+  }
+  subgraph "cluster_ops4" {
+    label="ops4";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n4" [label="n4 average (ops4) field=Production in million liters"];
+  }
+  subgraph "cluster_ops5" {
+    label="ops5";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n5" [label="n5 scale (ops5)"];
+  }
+  subgraph "cluster_ops6" {
+    label="ops6";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n6" [label="n6 compareBool (ops6)"];
+  }
+  "n1" -> "n2";
+  "n3" -> "n4";
+  "n4" -> "n5";
+  "n2" -> "n6";
+  "n5" -> "n6";
+}

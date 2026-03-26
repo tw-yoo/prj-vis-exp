@@ -1,0 +1,17 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "nth",
+    "sentenceIndex": 2,
+    "mention": "find the second lowest",
+    "paramsHint": {
+      "n": 2,
+      "from": "ref:n1"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "nth",
+    "n": 2
+  },
+  "scalar_ref_deps": []
+}

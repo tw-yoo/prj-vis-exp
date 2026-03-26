@@ -1,0 +1,344 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Year",
+        "operator": "between",
+        "value": [
+          "2015",
+          "2017"
+        ]
+      }
+    ],
+    "ops2": [
+      {
+        "op": "average",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Percentage_of_Respondents",
+        "group": "Favorable view of US"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Opinion_Type",
+      "Percentage_of_Respondents"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Opinion_Type"
+    ],
+    "measure_fields": [
+      "Percentage_of_Respondents"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Percentage_of_Respondents",
+    "series_field": "Opinion_Type",
+    "categorical_values": {
+      "Year": [
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017"
+      ],
+      "Opinion_Type": [
+        "Confidence in US President",
+        "Favorable view of US"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Opinion_Type": "categorical",
+      "Percentage_of_Respondents": "numeric"
+    },
+    "numeric_stats": {
+      "Percentage_of_Respondents": {
+        "min": 24.0,
+        "max": 85.0,
+        "mean": 62.25
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Percentage_of_Respondents",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Opinion_Type",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Opinion_Type",
+          "Percentage_of_Respondents"
+        ],
+        "dimension_fields": [
+          "Year",
+          "Opinion_Type"
+        ],
+        "measure_fields": [
+          "Percentage_of_Respondents"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Percentage_of_Respondents",
+        "series_field": "Opinion_Type",
+        "categorical_values": {
+          "Year": [
+            "2006",
+            "2007",
+            "2008",
+            "2009",
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014",
+            "2015",
+            "2016",
+            "2017"
+          ],
+          "Opinion_Type": [
+            "Confidence in US President",
+            "Favorable view of US"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Opinion_Type": "categorical",
+          "Percentage_of_Respondents": "numeric"
+        },
+        "numeric_stats": {
+          "Percentage_of_Respondents": {
+            "min": 24.0,
+            "max": 85.0,
+            "mean": 62.25
+          }
+        },
+        "mark": "line",
+        "is_stacked": false,
+        "encoding_summary": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Percentage_of_Respondents",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Opinion_Type",
+            "type": "nominal"
+          },
+          "tooltip": {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 24
+    },
+    "inventory": {
+      "tasks_count": 2,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "filter",
+          "sentenceIndex": 1,
+          "mention": "Filters data from 2015 to 2017",
+          "paramsHint": {
+            "field": "Year",
+            "operator": "between",
+            "value": [
+              "2015",
+              "2017"
+            ]
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "average",
+          "sentenceIndex": 2,
+          "mention": "Average the the percentage of responses of Favourable views of U.S from filtered data",
+          "paramsHint": {
+            "field": "Percentage_of_Respondents",
+            "group": "Favorable view of US"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "filter",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2015",
+            "2017"
+          ]
+        },
+        "artifact": {
+          "count": 5,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2017",
+            "group": "Favorable view of US",
+            "value": 57.0
+          },
+          "preview": [
+            {
+              "target": "2015",
+              "group": "Confidence in US President",
+              "value": 66.0,
+              "category": "Year",
+              "measure": "Percentage_of_Respondents"
+            },
+            {
+              "target": "2016",
+              "group": "Confidence in US President",
+              "value": 78.0,
+              "category": "Year",
+              "measure": "Percentage_of_Respondents"
+            },
+            {
+              "target": "2015",
+              "group": "Favorable view of US",
+              "value": 68.0,
+              "category": "Year",
+              "measure": "Percentage_of_Respondents"
+            },
+            {
+              "target": "2016",
+              "group": "Favorable view of US",
+              "value": 72.0,
+              "category": "Year",
+              "measure": "Percentage_of_Respondents"
+            },
+            {
+              "target": "2017",
+              "group": "Favorable view of US",
+              "value": 57.0,
+              "category": "Year",
+              "measure": "Percentage_of_Respondents"
+            }
+          ],
+          "targets_preview": [
+            "2015",
+            "2016",
+            "2017"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Percentage_of_Respondents",
+          "series_field": "Opinion_Type"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "average",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Percentage_of_Respondents",
+          "group": "Favorable view of US"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "group": "Favorable view of US",
+            "value": 65.66666666666667
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "group": "Favorable view of US",
+              "value": 65.66666666666667,
+              "category": "result",
+              "measure": "Percentage_of_Respondents"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Percentage_of_Respondents",
+          "series_field": "Opinion_Type"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 1
+      },
+      "warnings": []
+    }
+  }
+}

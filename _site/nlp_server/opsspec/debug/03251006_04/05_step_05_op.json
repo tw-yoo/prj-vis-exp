@@ -1,0 +1,14 @@
+{
+  "op": "scale",
+  "id": "n5",
+  "meta": {
+    "nodeId": "n5",
+    "inputs": [
+      "n4"
+    ],
+    "sentenceIndex": 5,
+    "source": "recursive_step=5;taskId=o5"
+  },
+  "target": "ref:n4",
+  "factor": 2.0
+}

@@ -1,0 +1,356 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "average",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "field": "Production in million units"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Production in million units",
+        "operator": ">",
+        "value": "ref:n1"
+      },
+      {
+        "op": "count",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [
+            "n2"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=3;taskId=o3"
+        }
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Production in million units"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Production in million units"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in million units",
+    "categorical_values": {
+      "Year": [
+        "1999",
+        "2000",
+        "2001",
+        "2002",
+        "2003",
+        "2004",
+        "2005",
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Production in million units": "numeric"
+    },
+    "numeric_stats": {
+      "Production in million units": {
+        "min": 2.04,
+        "max": 3.21,
+        "mean": 2.7825
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Production in million units",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Production in million units"
+        ],
+        "dimension_fields": [
+          "Year"
+        ],
+        "measure_fields": [
+          "Production in million units"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Production in million units",
+        "categorical_values": {
+          "Year": [
+            "1999",
+            "2000",
+            "2001",
+            "2002",
+            "2003",
+            "2004",
+            "2005",
+            "2006",
+            "2007",
+            "2008",
+            "2009",
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014"
+          ]
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Production in million units": "numeric"
+        },
+        "numeric_stats": {
+          "Production in million units": {
+            "min": 2.04,
+            "max": 3.21,
+            "mean": 2.7825
+          }
+        },
+        "mark": "bar",
+        "is_stacked": false,
+        "encoding_summary": {
+          "y": {
+            "field": "Production in million units",
+            "type": "quantitative"
+          },
+          "x": {
+            "field": "Year",
+            "type": "nominal"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 16
+    },
+    "inventory": {
+      "tasks_count": 3,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "average",
+          "sentenceIndex": 1,
+          "mention": "Find average",
+          "paramsHint": {
+            "field": "Production in million units"
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "filter",
+          "sentenceIndex": 2,
+          "mention": "filter which countries are above the average",
+          "paramsHint": {
+            "field": "Production in million units",
+            "operator": ">",
+            "value": "ref:n1"
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "count",
+          "sentenceIndex": 2,
+          "mention": "How many years are above the average",
+          "paramsHint": {}
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "average",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "average",
+          "field": "Production in million units"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__avg__",
+            "value": 2.7825
+          },
+          "preview": [
+            {
+              "target": "__avg__",
+              "value": 2.7825,
+              "category": "result",
+              "measure": "Production in million units"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million units"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "filter",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [
+          "n1"
+        ],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Production in million units",
+          "operator": ">",
+          "value": "ref:n1"
+        },
+        "artifact": {
+          "count": 9,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2011",
+            "value": 3.16
+          },
+          "preview": [
+            {
+              "target": "2002",
+              "value": 2.89,
+              "category": "Year",
+              "measure": "Production in million units"
+            },
+            {
+              "target": "2003",
+              "value": 2.93,
+              "category": "Year",
+              "measure": "Production in million units"
+            },
+            {
+              "target": "2004",
+              "value": 3.0,
+              "category": "Year",
+              "measure": "Production in million units"
+            },
+            {
+              "target": "2005",
+              "value": 2.98,
+              "category": "Year",
+              "measure": "Production in million units"
+            },
+            {
+              "target": "2006",
+              "value": 2.96,
+              "category": "Year",
+              "measure": "Production in million units"
+            }
+          ],
+          "targets_preview": [
+            "2002",
+            "2003",
+            "2004",
+            "2005",
+            "2006"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million units"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops2",
+        "op": "count",
+        "inputs": [
+          "n2"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "count"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__count__",
+            "value": 9.0
+          },
+          "preview": [
+            {
+              "target": "__count__",
+              "value": 9.0,
+              "category": "result",
+              "measure": "Production in million units"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Production in million units"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 2
+      },
+      "warnings": []
+    }
+  }
+}

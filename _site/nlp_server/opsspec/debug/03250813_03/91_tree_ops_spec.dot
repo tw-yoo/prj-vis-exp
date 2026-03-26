@@ -1,0 +1,36 @@
+digraph OpsSpecTree {
+  graph [rankdir=LR, bgcolor="white"];
+  node [shape=box, style="rounded,filled", fillcolor="white", fontname="Helvetica"];
+  edge [color="#666666"];
+  subgraph "cluster_ops" {
+    label="ops";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f0fe";
+    "n1" [label="n1 retrieveValue (ops) field=Year"];
+    "n2" [label="n2 retrieveValue (ops) field=Year"];
+  }
+  subgraph "cluster_ops2" {
+    label="ops2";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n3" [label="n3 retrieveValue (ops2) field=Year"];
+    "n4" [label="n4 retrieveValue (ops2) field=Year"];
+  }
+  subgraph "cluster_ops3" {
+    label="ops3";
+    color="#bbbbbb";
+    style="rounded,filled";
+    fillcolor="#e8f5e9";
+    "n5" [label="n5 diff (ops3)"];
+    "n6" [label="n6 diff (ops3)"];
+    "n7" [label="n7 diff (ops3)"];
+  }
+  "n1" -> "n5";
+  "n2" -> "n5";
+  "n3" -> "n6";
+  "n4" -> "n6";
+  "n5" -> "n7";
+  "n6" -> "n7";
+}

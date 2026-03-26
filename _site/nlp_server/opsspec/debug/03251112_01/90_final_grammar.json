@@ -1,0 +1,424 @@
+{
+  "ops_spec": {
+    "ops": [
+      {
+        "op": "pairDiff",
+        "id": "n1",
+        "meta": {
+          "nodeId": "n1",
+          "inputs": [],
+          "sentenceIndex": 1,
+          "view": {
+            "phase": 1
+          },
+          "source": "recursive_step=1;taskId=o1"
+        },
+        "by": "Year",
+        "seriesField": "Favorability_Direction",
+        "field": "Favorable_View_Percentage",
+        "groupA": "Russia favorability in US",
+        "groupB": "US favorability in Russia",
+        "signed": true,
+        "absolute": false
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n2",
+        "meta": {
+          "nodeId": "n2",
+          "inputs": [
+            "n1"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 2
+          },
+          "source": "recursive_step=2;taskId=o2"
+        },
+        "field": "Favorable_View_Percentage",
+        "operator": ">",
+        "value": 0
+      },
+      {
+        "op": "count",
+        "id": "n3",
+        "meta": {
+          "nodeId": "n3",
+          "inputs": [
+            "n2"
+          ],
+          "sentenceIndex": 2,
+          "view": {
+            "phase": 3
+          },
+          "source": "recursive_step=3;taskId=o3"
+        },
+        "field": "Year"
+      }
+    ]
+  },
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Favorability_Direction",
+      "Favorable_View_Percentage"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Favorability_Direction",
+      "Country"
+    ],
+    "measure_fields": [
+      "Favorable_View_Percentage"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Favorable_View_Percentage",
+    "series_field": "Country",
+    "categorical_values": {
+      "Year": [
+        "2007",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2017"
+      ],
+      "Favorability_Direction": [
+        "Russia favorability in US",
+        "US favorability in Russia"
+      ],
+      "Country": []
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Favorability_Direction": "categorical",
+      "Favorable_View_Percentage": "numeric",
+      "Country": "categorical"
+    },
+    "numeric_stats": {
+      "Favorable_View_Percentage": {
+        "min": 15.0,
+        "max": 57.0,
+        "mean": 39.388888888888886
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Favorable_View_Percentage",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Country",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "warnings": [],
+  "trace": {
+    "context_built": {
+      "chart_context": {
+        "fields": [
+          "Year",
+          "Favorability_Direction",
+          "Favorable_View_Percentage"
+        ],
+        "dimension_fields": [
+          "Year",
+          "Favorability_Direction",
+          "Country"
+        ],
+        "measure_fields": [
+          "Favorable_View_Percentage"
+        ],
+        "primary_dimension": "Year",
+        "primary_measure": "Favorable_View_Percentage",
+        "series_field": "Country",
+        "categorical_values": {
+          "Year": [
+            "2007",
+            "2009",
+            "2010",
+            "2011",
+            "2012",
+            "2013",
+            "2014",
+            "2015",
+            "2017"
+          ],
+          "Favorability_Direction": [
+            "Russia favorability in US",
+            "US favorability in Russia"
+          ],
+          "Country": []
+        },
+        "field_types": {
+          "Year": "categorical",
+          "Favorability_Direction": "categorical",
+          "Favorable_View_Percentage": "numeric",
+          "Country": "categorical"
+        },
+        "numeric_stats": {
+          "Favorable_View_Percentage": {
+            "min": 15.0,
+            "max": 57.0,
+            "mean": 39.388888888888886
+          }
+        },
+        "mark": "line",
+        "is_stacked": false,
+        "encoding_summary": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Favorable_View_Percentage",
+            "type": "quantitative"
+          },
+          "color": {
+            "field": "Country",
+            "type": "nominal"
+          },
+          "tooltip": {
+            "field": "Year",
+            "type": "ordinal",
+            "title": "Year"
+          }
+        }
+      },
+      "context_warnings": [],
+      "rows_preview_count": 18
+    },
+    "inventory": {
+      "tasks_count": 3,
+      "tasks": [
+        {
+          "taskId": "o1",
+          "op": "pairDiff",
+          "sentenceIndex": 1,
+          "mention": "calculate the difference between Russia and the US",
+          "paramsHint": {
+            "by": "Year",
+            "seriesField": "Favorability_Direction",
+            "field": "Favorable_View_Percentage",
+            "groupA": "Russia favorability in US",
+            "groupB": "US favorability in Russia",
+            "signed": true,
+            "absolute": false
+          }
+        },
+        {
+          "taskId": "o2",
+          "op": "filter",
+          "sentenceIndex": 2,
+          "mention": "count the number of years that Russia is higher than the US",
+          "paramsHint": {
+            "field": "Favorable_View_Percentage",
+            "operator": ">",
+            "value": 0
+          }
+        },
+        {
+          "taskId": "o3",
+          "op": "count",
+          "sentenceIndex": 2,
+          "mention": "count the number of years that Russia is higher than the US",
+          "paramsHint": {
+            "field": "Year"
+          }
+        }
+      ],
+      "warnings": [],
+      "retry_notes": []
+    },
+    "steps": [
+      {
+        "step": 1,
+        "taskId": "o1",
+        "nodeId": "n1",
+        "groupName": "ops",
+        "op": "pairDiff",
+        "inputs": [],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "pairDiff",
+          "by": "Year",
+          "seriesField": "Favorability_Direction",
+          "field": "Favorable_View_Percentage",
+          "groupA": "Russia favorability in US",
+          "groupB": "US favorability in Russia",
+          "signed": true,
+          "absolute": false
+        },
+        "artifact": {
+          "count": 9,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2017",
+            "group": "Russia favorability in US-US favorability in Russia",
+            "value": -12.0
+          },
+          "preview": [
+            {
+              "target": "2007",
+              "group": "Russia favorability in US-US favorability in Russia",
+              "value": 3.0,
+              "category": "Year",
+              "measure": "Favorable_View_Percentage"
+            },
+            {
+              "target": "2009",
+              "group": "Russia favorability in US-US favorability in Russia",
+              "value": -1.0,
+              "category": "Year",
+              "measure": "Favorable_View_Percentage"
+            },
+            {
+              "target": "2010",
+              "group": "Russia favorability in US-US favorability in Russia",
+              "value": -8.0,
+              "category": "Year",
+              "measure": "Favorable_View_Percentage"
+            },
+            {
+              "target": "2011",
+              "group": "Russia favorability in US-US favorability in Russia",
+              "value": -7.0,
+              "category": "Year",
+              "measure": "Favorable_View_Percentage"
+            },
+            {
+              "target": "2012",
+              "group": "Russia favorability in US-US favorability in Russia",
+              "value": -15.0,
+              "category": "Year",
+              "measure": "Favorable_View_Percentage"
+            }
+          ],
+          "targets_preview": [
+            "2007",
+            "2009",
+            "2010",
+            "2011",
+            "2012"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Favorable_View_Percentage",
+          "series_field": "Country"
+        },
+        "warnings": []
+      },
+      {
+        "step": 2,
+        "taskId": "o2",
+        "nodeId": "n2",
+        "groupName": "ops2",
+        "op": "filter",
+        "inputs": [
+          "n1"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "filter",
+          "field": "Favorable_View_Percentage",
+          "operator": ">",
+          "value": 0
+        },
+        "artifact": {
+          "count": 2,
+          "kind": "table",
+          "scalarRefOk": false,
+          "last": {
+            "target": "2015",
+            "group": "Russia favorability in US-US favorability in Russia",
+            "value": 7.0
+          },
+          "preview": [
+            {
+              "target": "2007",
+              "group": "Russia favorability in US-US favorability in Russia",
+              "value": 3.0,
+              "category": "Year",
+              "measure": "Favorable_View_Percentage"
+            },
+            {
+              "target": "2015",
+              "group": "Russia favorability in US-US favorability in Russia",
+              "value": 7.0,
+              "category": "Year",
+              "measure": "Favorable_View_Percentage"
+            }
+          ],
+          "targets_preview": [
+            "2007",
+            "2015"
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Favorable_View_Percentage",
+          "series_field": "Country"
+        },
+        "warnings": []
+      },
+      {
+        "step": 3,
+        "taskId": "o3",
+        "nodeId": "n3",
+        "groupName": "ops2",
+        "op": "count",
+        "inputs": [
+          "n2"
+        ],
+        "scalarRefs": [],
+        "grounded_op_spec": {
+          "op": "count",
+          "field": "Year"
+        },
+        "artifact": {
+          "count": 1,
+          "kind": "scalar",
+          "scalarRefOk": true,
+          "last": {
+            "target": "__count__",
+            "value": 2.0
+          },
+          "preview": [
+            {
+              "target": "__count__",
+              "value": 2.0,
+              "category": "result",
+              "measure": "Year"
+            }
+          ],
+          "primary_dimension": "Year",
+          "primary_measure": "Favorable_View_Percentage",
+          "series_field": "Country"
+        },
+        "warnings": []
+      }
+    ],
+    "finalized": {
+      "groups": {
+        "ops": 1,
+        "ops2": 2
+      },
+      "warnings": []
+    }
+  }
+}

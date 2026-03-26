@@ -1,0 +1,206 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Region",
+      "Life expectancy in years"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Region"
+    ],
+    "measure_fields": [
+      "Life expectancy in years"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Life expectancy in years",
+    "series_field": "Region",
+    "categorical_values": {
+      "Year": [
+        "2005-2007",
+        "2006-2008",
+        "2007-2009",
+        "2008-2010",
+        "2009-2011",
+        "2010-2012",
+        "2011-2013",
+        "2012-2014",
+        "2013-2015",
+        "2014-2016",
+        "2015-2017",
+        "2016-2018",
+        "2017-2019"
+      ],
+      "Region": [
+        "Canada",
+        "Newfoundland and Labrador"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Region": "categorical",
+      "Life expectancy in years": "numeric"
+    },
+    "numeric_stats": {
+      "Life expectancy in years": {
+        "min": 78.2,
+        "max": 82.1,
+        "mean": 80.41153846153846
+      }
+    },
+    "mark": "line",
+    "is_stacked": false,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "ordinal"
+      },
+      "y": {
+        "field": "Life expectancy in years",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Region",
+        "type": "nominal"
+      },
+      "tooltip": {
+        "field": "Year",
+        "type": "ordinal",
+        "title": "Year"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2005-2007",
+      "Region": "Canada",
+      "Life expectancy in years": "80.5"
+    },
+    {
+      "Year": "2005-2007",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "78.2"
+    },
+    {
+      "Year": "2006-2008",
+      "Region": "Canada",
+      "Life expectancy in years": "80.7"
+    },
+    {
+      "Year": "2006-2008",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "78.5"
+    },
+    {
+      "Year": "2007-2009",
+      "Region": "Canada",
+      "Life expectancy in years": "80.8"
+    },
+    {
+      "Year": "2007-2009",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79"
+    },
+    {
+      "Year": "2008-2010",
+      "Region": "Canada",
+      "Life expectancy in years": "81.1"
+    },
+    {
+      "Year": "2008-2010",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.3"
+    },
+    {
+      "Year": "2009-2011",
+      "Region": "Canada",
+      "Life expectancy in years": "81.4"
+    },
+    {
+      "Year": "2009-2011",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.6"
+    },
+    {
+      "Year": "2010-2012",
+      "Region": "Canada",
+      "Life expectancy in years": "81.6"
+    },
+    {
+      "Year": "2010-2012",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.6"
+    },
+    {
+      "Year": "2011-2013",
+      "Region": "Canada",
+      "Life expectancy in years": "81.7"
+    },
+    {
+      "Year": "2011-2013",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.6"
+    },
+    {
+      "Year": "2012-2014",
+      "Region": "Canada",
+      "Life expectancy in years": "81.8"
+    },
+    {
+      "Year": "2012-2014",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.4"
+    },
+    {
+      "Year": "2013-2015",
+      "Region": "Canada",
+      "Life expectancy in years": "81.9"
+    },
+    {
+      "Year": "2013-2015",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.3"
+    },
+    {
+      "Year": "2014-2016",
+      "Region": "Canada",
+      "Life expectancy in years": "81.9"
+    },
+    {
+      "Year": "2014-2016",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.4"
+    },
+    {
+      "Year": "2015-2017",
+      "Region": "Canada",
+      "Life expectancy in years": "81.9"
+    },
+    {
+      "Year": "2015-2017",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.6"
+    },
+    {
+      "Year": "2016-2018",
+      "Region": "Canada",
+      "Life expectancy in years": "82"
+    },
+    {
+      "Year": "2016-2018",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "79.8"
+    },
+    {
+      "Year": "2017-2019",
+      "Region": "Canada",
+      "Life expectancy in years": "82.1"
+    },
+    {
+      "Year": "2017-2019",
+      "Region": "Newfoundland and Labrador",
+      "Life expectancy in years": "80"
+    }
+  ]
+}

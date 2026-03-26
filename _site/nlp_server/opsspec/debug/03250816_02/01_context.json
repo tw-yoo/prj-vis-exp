@@ -1,0 +1,165 @@
+{
+  "chart_context": {
+    "fields": [
+      "Country",
+      "Factor",
+      "Decrease_in_GDP_Percentage"
+    ],
+    "dimension_fields": [
+      "Country",
+      "Factor"
+    ],
+    "measure_fields": [
+      "Decrease_in_GDP_Percentage"
+    ],
+    "primary_dimension": "Country",
+    "primary_measure": "Decrease_in_GDP_Percentage",
+    "series_field": "Factor",
+    "categorical_values": {
+      "Country": [
+        "Czechia",
+        "Hungary",
+        "Poland",
+        "Romania"
+      ],
+      "Factor": [
+        "China – exports",
+        "China – supply chain",
+        "Germany – exports",
+        "Italy – exports",
+        "Total"
+      ]
+    },
+    "field_types": {
+      "Country": "categorical",
+      "Factor": "categorical",
+      "Decrease_in_GDP_Percentage": "numeric"
+    },
+    "numeric_stats": {
+      "Decrease_in_GDP_Percentage": {
+        "min": 0.001,
+        "max": 0.069,
+        "mean": 0.028100000000000003
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Country",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Decrease_in_GDP_Percentage",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Factor",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Country": "Czechia",
+      "Factor": "China – exports",
+      "Decrease_in_GDP_Percentage": "0.011"
+    },
+    {
+      "Country": "Czechia",
+      "Factor": "China – supply chain",
+      "Decrease_in_GDP_Percentage": "0.036"
+    },
+    {
+      "Country": "Czechia",
+      "Factor": "Germany – exports",
+      "Decrease_in_GDP_Percentage": "0.003"
+    },
+    {
+      "Country": "Czechia",
+      "Factor": "Italy – exports",
+      "Decrease_in_GDP_Percentage": "0.064"
+    },
+    {
+      "Country": "Czechia",
+      "Factor": "Total",
+      "Decrease_in_GDP_Percentage": "0.064"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "China – exports",
+      "Decrease_in_GDP_Percentage": "0.015"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "China – supply chain",
+      "Decrease_in_GDP_Percentage": "0.031"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "Germany – exports",
+      "Decrease_in_GDP_Percentage": "0.004"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "Italy – exports",
+      "Decrease_in_GDP_Percentage": "0.069"
+    },
+    {
+      "Country": "Hungary",
+      "Factor": "Total",
+      "Decrease_in_GDP_Percentage": "0.069"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "China – exports",
+      "Decrease_in_GDP_Percentage": "0.004"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "China – supply chain",
+      "Decrease_in_GDP_Percentage": "0.015"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "Germany – exports",
+      "Decrease_in_GDP_Percentage": "0.002"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "Italy – exports",
+      "Decrease_in_GDP_Percentage": "0.038"
+    },
+    {
+      "Country": "Romania",
+      "Factor": "Total",
+      "Decrease_in_GDP_Percentage": "0.038"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "China – exports",
+      "Decrease_in_GDP_Percentage": "0.004"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "China – supply chain",
+      "Decrease_in_GDP_Percentage": "0.023"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "Germany – exports",
+      "Decrease_in_GDP_Percentage": "0.001"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "Italy – exports",
+      "Decrease_in_GDP_Percentage": "0.038"
+    },
+    {
+      "Country": "Poland",
+      "Factor": "Total",
+      "Decrease_in_GDP_Percentage": "0.033"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o4",
+    "op": "average",
+    "sentenceIndex": 2,
+    "mention": "Find the average of the values for 2010, 2013, and 2017.",
+    "paramsHint": {
+      "field": "Installed base in million units"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "average",
+    "field": "Installed base in million units"
+  },
+  "scalar_ref_deps": []
+}

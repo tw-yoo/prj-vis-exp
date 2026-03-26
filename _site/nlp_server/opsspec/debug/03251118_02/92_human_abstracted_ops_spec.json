@@ -1,0 +1,64 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "group": "Poor"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "average",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "field": "Share_of_Respondents"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "filter",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": [], "sentenceIndex": 3 },
+      "group": "Good"
+    }
+  ],
+  "ops4": [
+    {
+      "op": "average",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n3"
+        ],
+        "sentenceIndex": 4
+      },
+      "field": "Share_of_Respondents"
+    }
+  ],
+  "ops5": [
+    {
+      "op": "diff",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n2",
+          "n4"
+        ],
+        "sentenceIndex": 5
+      },
+      "field": "Share_of_Respondents",
+      "targetA": "ref:n2",
+      "targetB": "ref:n4",
+      "signed": true
+    }
+  ]
+}

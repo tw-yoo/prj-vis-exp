@@ -1,0 +1,21 @@
+Country,Procedure Type,Number of procedures
+Brazil,Surgical,1493673
+Brazil,Nonsurgical,1072002
+United States,Surgical,1351917
+United States,Nonsurgical,2630832
+Mexico,Surgical,580659
+Mexico,Nonsurgical,619804
+Russia,Surgical,93735
+Russia,Nonsurgical,483152
+India,Surgical,394728
+India,Nonsurgical,249024
+Turkey,Surgical,351930
+Turkey,Nonsurgical,402462
+Germany,Surgical,336244
+Germany,Nonsurgical,647188
+France,Surgical,320997
+France,Nonsurgical,423084
+Italy,Surgical,314432
+Italy,Nonsurgical,774272
+Japan,Surgical,249543
+Japan,Nonsurgical,1223678

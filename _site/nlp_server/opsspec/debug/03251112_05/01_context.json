@@ -1,0 +1,165 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Rating",
+      "Share_of_Respondents"
+    ],
+    "dimension_fields": [
+      "Year",
+      "Rating"
+    ],
+    "measure_fields": [
+      "Share_of_Respondents"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Share_of_Respondents",
+    "series_field": "Rating",
+    "categorical_values": {
+      "Year": [
+        "2014",
+        "2015",
+        "2016",
+        "2017"
+      ],
+      "Rating": [
+        "Fair",
+        "Good",
+        "Poor",
+        "Very good",
+        "Very poor"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Rating": "categorical",
+      "Share_of_Respondents": "numeric"
+    },
+    "numeric_stats": {
+      "Share_of_Respondents": {
+        "min": 0.0,
+        "max": 62.0,
+        "mean": 20.0
+      }
+    },
+    "mark": "bar",
+    "is_stacked": true,
+    "encoding_summary": {
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      },
+      "y": {
+        "field": "Share_of_Respondents",
+        "type": "quantitative"
+      },
+      "color": {
+        "field": "Rating",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "2014",
+      "Rating": "Very good",
+      "Share_of_Respondents": "22"
+    },
+    {
+      "Year": "2014",
+      "Rating": "Good",
+      "Share_of_Respondents": "58"
+    },
+    {
+      "Year": "2014",
+      "Rating": "Fair",
+      "Share_of_Respondents": "14"
+    },
+    {
+      "Year": "2014",
+      "Rating": "Poor",
+      "Share_of_Respondents": "4"
+    },
+    {
+      "Year": "2014",
+      "Rating": "Very poor",
+      "Share_of_Respondents": "2"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Very good",
+      "Share_of_Respondents": "15"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Good",
+      "Share_of_Respondents": "62"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Fair",
+      "Share_of_Respondents": "22"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Poor",
+      "Share_of_Respondents": "1"
+    },
+    {
+      "Year": "2015",
+      "Rating": "Very poor",
+      "Share_of_Respondents": "0"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Very good",
+      "Share_of_Respondents": "27"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Good",
+      "Share_of_Respondents": "42"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Fair",
+      "Share_of_Respondents": "27"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Poor",
+      "Share_of_Respondents": "2"
+    },
+    {
+      "Year": "2016",
+      "Rating": "Very poor",
+      "Share_of_Respondents": "2"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Very good",
+      "Share_of_Respondents": "35"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Good",
+      "Share_of_Respondents": "44"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Fair",
+      "Share_of_Respondents": "15"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Poor",
+      "Share_of_Respondents": "6"
+    },
+    {
+      "Year": "2017",
+      "Rating": "Very poor",
+      "Share_of_Respondents": "0"
+    }
+  ]
+}

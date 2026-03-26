@@ -1,0 +1,254 @@
+{
+  "spec": "data/test/spec/bar_simple_ver.json",
+  "data": "data/test/data/bar_simple_ver.csv",
+  "notes": [
+    "Ref results are classified as source-backed, source-aggregate, or synthetic-result.",
+    "Source-backed/source-aggregate operands stay on the original chart; synthetic-result operands force a derived chart.",
+    "Operand-only aggregate and other semantically unclear cases also materialize a derived chart.",
+    "filtered-operands-chart is intentionally excluded because this spec has no group or series encoding."
+  ],
+  "cases": [
+    {
+      "id": "source-retrieve-usa",
+      "level": 1,
+      "title": "Single retrieveValue on source chart",
+      "goal": "Keep the original chart and highlight USA only.",
+      "expected_surface": "source-chart",
+      "expected_result": "USA = 53",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-compare-usa-jpn",
+      "level": 1,
+      "title": "Direct compare on source chart",
+      "goal": "Keep the original chart and compare USA/JPN directly.",
+      "expected_surface": "source-chart",
+      "expected_result": "USA (53) beats JPN (42)",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "compare",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "targetA": "USA",
+            "targetB": "JPN"
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-diff-nld-prt",
+      "level": 1,
+      "title": "Direct diff on source chart",
+      "goal": "Keep the original chart and render diff between explicit targets.",
+      "expected_surface": "source-chart",
+      "expected_result": "NLD (76) - PRT (0) = 76",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "diff",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "targetA": "NLD",
+            "targetB": "PRT",
+            "signed": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-ref-restored-diff",
+      "level": 2,
+      "title": "Source-backed ref restoration for diff",
+      "goal": "Restore ref:n1 and ref:n2 to source marks instead of materializing a derived chart.",
+      "expected_surface": "source-chart",
+      "expected_result": "USA (53) - JPN (42) = 11 on the original chart",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "retrieveValue",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "JPN"
+          },
+          {
+            "op": "diff",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
+            "field": "rating",
+            "targetA": "ref:n1",
+            "targetB": "ref:n2",
+            "signed": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "operand-only-average",
+      "level": 3,
+      "title": "Operand-only average after two source retrieves",
+      "goal": "Keep source annotations for retrieve steps, then switch to derived for average.",
+      "expected_surface": "operand-only-chart",
+      "expected_result": "average(USA, JPN) = 47.5",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "retrieveValue",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "JPN"
+          },
+          {
+            "op": "average",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
+            "field": "rating"
+          }
+        ]
+      }
+    },
+    {
+      "id": "source-average-then-scale",
+      "level": 3,
+      "title": "Source average followed by source scale",
+      "goal": "Keep both average(all) and scale(ref:n1) on the original chart.",
+      "expected_surface": "source-chart",
+      "expected_result": "average(all) = 56.45, then 56.45 * 1.1 = 62.095 on the original chart",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "average",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating"
+          },
+          {
+            "op": "scale",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "ref:n1",
+            "factor": 1.1
+          }
+        ]
+      }
+    },
+    {
+      "id": "mixed-diff-usa-vs-average",
+      "level": 4,
+      "title": "Source diff with mark and scalar ref",
+      "goal": "Keep the final diff on the original chart even when one operand is a scalar ref.",
+      "expected_surface": "source-chart",
+      "expected_result": "USA (53) - average(all 56.45) = -3.45",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "average",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating"
+          },
+          {
+            "op": "diff",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1"], "sentenceIndex": 1 },
+            "field": "rating",
+            "targetA": "USA",
+            "targetB": "ref:n2",
+            "signed": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "cross-sentence-reuse-mixed",
+      "level": 5,
+      "title": "Cross-sentence reuse from source diff to extremum to mixed provenance diff",
+      "goal": "Check sentence navigation when a source-backed ref and a synthetic-result ref are mixed.",
+      "expected_surface": "sentence1 source-chart, sentence2 source-chart, sentence3 mixed-operands-chart",
+      "expected_result": "sentence1: 11, sentence2: NLD = 76, sentence3: 76 - 11 = 65",
+      "ops_spec": {
+        "ops": [
+          {
+            "op": "retrieveValue",
+            "id": "n1",
+            "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "USA"
+          },
+          {
+            "op": "retrieveValue",
+            "id": "n2",
+            "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+            "field": "rating",
+            "target": "JPN"
+          },
+          {
+            "op": "diff",
+            "id": "n3",
+            "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1 },
+            "field": "rating",
+            "targetA": "ref:n1",
+            "targetB": "ref:n2",
+            "signed": true
+          }
+        ],
+        "ops2": [
+          {
+            "op": "findExtremum",
+            "id": "n4",
+            "meta": { "nodeId": "n4", "inputs": [], "sentenceIndex": 2 },
+            "field": "rating",
+            "which": "max"
+          }
+        ],
+        "ops3": [
+          {
+            "op": "diff",
+            "id": "n5",
+            "meta": { "nodeId": "n5", "inputs": ["n4"], "sentenceIndex": 3 },
+            "field": "rating",
+            "targetA": "ref:n4",
+            "targetB": "ref:n3",
+            "signed": true
+          }
+        ]
+      }
+    }
+  ]
+}

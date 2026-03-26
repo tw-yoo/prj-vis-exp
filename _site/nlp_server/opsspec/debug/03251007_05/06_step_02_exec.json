@@ -1,0 +1,31 @@
+{
+  "artifact": {
+    "count": 1,
+    "kind": "scalar",
+    "scalarRefOk": true,
+    "last": {
+      "target": "__sum__",
+      "group": [
+        "Germany – exports",
+        "Italy – exports"
+      ],
+      "value": 0.562
+    },
+    "preview": [
+      {
+        "target": "__sum__",
+        "group": [
+          "Germany – exports",
+          "Italy – exports"
+        ],
+        "value": 0.562,
+        "category": "result",
+        "measure": "Decrease_in_GDP_Percentage"
+      }
+    ],
+    "primary_dimension": "Country",
+    "primary_measure": "Decrease_in_GDP_Percentage",
+    "series_field": "Factor"
+  },
+  "warnings": []
+}

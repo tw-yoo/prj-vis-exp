@@ -1,0 +1,136 @@
+{
+  "chart_context": {
+    "fields": [
+      "Year",
+      "Production in million liters"
+    ],
+    "dimension_fields": [
+      "Year"
+    ],
+    "measure_fields": [
+      "Production in million liters"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in million liters",
+    "categorical_values": {
+      "Year": [
+        "1995",
+        "2000",
+        "2005",
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014",
+        "2015",
+        "2016",
+        "2017",
+        "2018",
+        "2019",
+        "2020"
+      ]
+    },
+    "field_types": {
+      "Year": "categorical",
+      "Production in million liters": "numeric"
+    },
+    "numeric_stats": {
+      "Production in million liters": {
+        "min": 104.3,
+        "max": 374.0,
+        "mean": 257.34444444444443
+      }
+    },
+    "mark": "bar",
+    "is_stacked": false,
+    "encoding_summary": {
+      "y": {
+        "field": "Production in million liters",
+        "type": "quantitative"
+      },
+      "x": {
+        "field": "Year",
+        "type": "nominal"
+      }
+    }
+  },
+  "context_warnings": [],
+  "rows_preview": [
+    {
+      "Year": "1995",
+      "Production in million liters": "104.3"
+    },
+    {
+      "Year": "2000",
+      "Production in million liters": "181.6"
+    },
+    {
+      "Year": "2005",
+      "Production in million liters": "209.7"
+    },
+    {
+      "Year": "2006",
+      "Production in million liters": "242.7"
+    },
+    {
+      "Year": "2007",
+      "Production in million liters": "284.1"
+    },
+    {
+      "Year": "2008",
+      "Production in million liters": "312.1"
+    },
+    {
+      "Year": "2009",
+      "Production in million liters": "249"
+    },
+    {
+      "Year": "2010",
+      "Production in million liters": "257.5"
+    },
+    {
+      "Year": "2011",
+      "Production in million liters": "261.1"
+    },
+    {
+      "Year": "2012",
+      "Production in million liters": "253.2"
+    },
+    {
+      "Year": "2013",
+      "Production in million liters": "226.5"
+    },
+    {
+      "Year": "2014",
+      "Production in million liters": "242.4"
+    },
+    {
+      "Year": "2015",
+      "Production in million liters": "228.5"
+    },
+    {
+      "Year": "2016",
+      "Production in million liters": "273.3"
+    },
+    {
+      "Year": "2017",
+      "Production in million liters": "271.4"
+    },
+    {
+      "Year": "2018",
+      "Production in million liters": "309.1"
+    },
+    {
+      "Year": "2019",
+      "Production in million liters": "351.7"
+    },
+    {
+      "Year": "2020",
+      "Production in million liters": "374"
+    }
+  ]
+}

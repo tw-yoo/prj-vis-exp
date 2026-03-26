@@ -1,0 +1,22 @@
+{
+  "task": {
+    "taskId": "o2",
+    "op": "filter",
+    "sentenceIndex": 2,
+    "mention": "filter which countries are above the average",
+    "paramsHint": {
+      "field": "Production in million units",
+      "operator": ">",
+      "value": "ref:n1"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "field": "Production in million units",
+    "operator": ">",
+    "value": "ref:n1"
+  },
+  "scalar_ref_deps": [
+    "n1"
+  ]
+}

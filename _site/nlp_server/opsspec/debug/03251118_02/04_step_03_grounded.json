@@ -1,0 +1,16 @@
+{
+  "task": {
+    "taskId": "o3",
+    "op": "filter",
+    "sentenceIndex": 3,
+    "mention": "Check the value corresponding to Good for each year",
+    "paramsHint": {
+      "group": "Good"
+    }
+  },
+  "grounded_op_spec": {
+    "op": "filter",
+    "group": "Good"
+  },
+  "scalar_ref_deps": []
+}

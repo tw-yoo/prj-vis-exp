@@ -1,0 +1,39 @@
+{
+  "artifact": {
+    "count": 3,
+    "kind": "table",
+    "scalarRefOk": false,
+    "last": {
+      "target": "2005",
+      "value": 209.7
+    },
+    "preview": [
+      {
+        "target": "1995",
+        "value": 104.3,
+        "category": "Year",
+        "measure": "Production in million liters"
+      },
+      {
+        "target": "2000",
+        "value": 181.6,
+        "category": "Year",
+        "measure": "Production in million liters"
+      },
+      {
+        "target": "2005",
+        "value": 209.7,
+        "category": "Year",
+        "measure": "Production in million liters"
+      }
+    ],
+    "targets_preview": [
+      "1995",
+      "2000",
+      "2005"
+    ],
+    "primary_dimension": "Year",
+    "primary_measure": "Production in million liters"
+  },
+  "warnings": []
+}

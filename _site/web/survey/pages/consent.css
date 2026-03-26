@@ -1,0 +1,68 @@
+.consent-shell {
+  min-height: 100vh;
+  background: #f3f4f6;
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px;
+  box-sizing: border-box;
+}
+
+.consent-card {
+  width: 100%;
+  max-width: 860px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.consent-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.consent-input {
+  width: 100%;
+  max-width: 420px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+.consent-fieldset {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.consent-actions {
+  margin-top: 12px;
+}
+
+.consent-btn {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.consent-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.consent-error {
+  color: #dc2626;
+  margin: 8px 0 0;
+}
+

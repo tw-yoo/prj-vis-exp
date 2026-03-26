@@ -1,0 +1,144 @@
+{
+  "request_id": "test_2ebtadc07b7bo277_e70e73f3",
+  "question": "Which year had the second lowest value?",
+  "explanation": "1. sort the values from lowest to highest\n2. find the second lowest ",
+  "vega_lite_spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "description": "Simple line chart for 2ebtadc07b7bo277.csv",
+    "data": {
+      "url": "ChartQA/data/csv/line/simple/2ebtadc07b7bo277.csv"
+    },
+    "width": 600,
+    "height": 400,
+    "layer": [
+      {
+        "mark": {
+          "type": "line",
+          "point": false,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal",
+            "axis": {
+              "title": "Year",
+              "labelAngle": 0,
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          },
+          "y": {
+            "field": "Average price in US dollars",
+            "type": "quantitative",
+            "axis": {
+              "title": "Average price in US dollars",
+              "labelFontSize": 11,
+              "titleFontSize": 13,
+              "titlePadding": 10,
+              "labelPadding": 5
+            }
+          }
+        }
+      },
+      {
+        "mark": {
+          "type": "point",
+          "filled": true,
+          "size": 80,
+          "tooltip": true
+        },
+        "encoding": {
+          "x": {
+            "field": "Year",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "Average price in US dollars",
+            "type": "quantitative"
+          },
+          "tooltip": [
+            {
+              "field": "Year",
+              "type": "ordinal",
+              "title": "Year"
+            },
+            {
+              "field": "Average price in US dollars",
+              "type": "quantitative",
+              "title": "Average price in US dollars"
+            }
+          ]
+        }
+      }
+    ],
+    "config": {
+      "view": {
+        "stroke": "transparent"
+      },
+      "axis": {
+        "domainWidth": 1
+      }
+    }
+  },
+  "data_rows": [
+    {
+      "Year": "2010",
+      "Average price in US dollars": "3.32"
+    },
+    {
+      "Year": "2011",
+      "Average price in US dollars": "4.88"
+    },
+    {
+      "Year": "2012",
+      "Average price in US dollars": "4.63"
+    },
+    {
+      "Year": "2013",
+      "Average price in US dollars": "5.45"
+    },
+    {
+      "Year": "2014",
+      "Average price in US dollars": "4.91"
+    },
+    {
+      "Year": "2015",
+      "Average price in US dollars": "4.63"
+    },
+    {
+      "Year": "2016",
+      "Average price in US dollars": "3.74"
+    },
+    {
+      "Year": "2017",
+      "Average price in US dollars": "4.35"
+    },
+    {
+      "Year": "2018",
+      "Average price in US dollars": "4.9"
+    },
+    {
+      "Year": "2019",
+      "Average price in US dollars": "4.31"
+    },
+    {
+      "Year": "2020",
+      "Average price in US dollars": "4.78"
+    },
+    {
+      "Year": "2021",
+      "Average price in US dollars": "3.8"
+    }
+  ],
+  "debug": true,
+  "env": {
+    "RECURSIVE_MAX_STEPS": 25,
+    "RECURSIVE_MAX_RETRIES": 3,
+    "ARTIFACT_PREVIEW_N": 5,
+    "DRAW_PLAN_MODE": "off",
+    "DRAW_PLAN_FAILURE_POLICY": "warn"
+  }
+}
