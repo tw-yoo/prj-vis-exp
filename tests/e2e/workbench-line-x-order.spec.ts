@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 const EXPECTED_QUARTER_ORDER = ['Q1 2019', 'Q2 2019', 'Q3 2019', 'Q4 2019', 'Q1 2020', 'Q2 2020', 'Q3 2020', 'Q4 2020']
 
-async function renderSpec(page: Page, spec: Record<string, unknown>) {
+async function renderSpec(page: Page, spec: Record<string, unknown>, xField?: string) {
   await page.goto('/')
   const specInput = page.getByTestId('vl-spec-input')
   const inputVisible = await specInput.isVisible().catch(() => false)
@@ -14,35 +14,54 @@ async function renderSpec(page: Page, spec: Record<string, unknown>) {
   }
   await page.getByTestId('vl-spec-input').fill(JSON.stringify(spec, null, 2))
   await page.getByTestId('render-chart-button').click()
-  await expect(page.locator('[data-testid="chart-host"] svg')).toBeVisible()
+  await page.waitForFunction((targetXField) => {
+    const host = document.querySelector('[data-testid="chart-host"]')
+    if (!host) return false
+    const svgs = Array.from(host.querySelectorAll<SVGSVGElement>('svg'))
+    return svgs.some((svg) => {
+      if (typeof targetXField === 'string' && targetXField.length > 0) {
+        const field = svg.getAttribute('data-x-field')
+        if (field !== targetXField) return false
+      }
+      return Number(svg.getAttribute('data-render-epoch') ?? '0') > 0
+    })
+  }, xField ?? null)
 }
 
-async function collectXTicks(page: Page) {
-  return page.evaluate(() => {
+async function collectXTicks(page: Page, xField?: string) {
+  return page.evaluate((targetXField) => {
+    const resolvePrimarySvg = (host: Element | null) => {
+      const svgs = host ? Array.from(host.querySelectorAll<SVGSVGElement>('svg')) : []
+      const filtered = typeof targetXField === 'string' && targetXField.length > 0
+        ? svgs.filter((svg) => svg.getAttribute('data-x-field') === targetXField)
+        : svgs
+      const targetSvgs = filtered.length > 0 ? filtered : svgs
+      return targetSvgs.reduce<SVGSVGElement | null>((best, svg) => {
+        const epoch = Number(svg.getAttribute('data-render-epoch') ?? '0')
+        const bestEpoch = Number(best?.getAttribute('data-render-epoch') ?? '0')
+        return epoch >= bestEpoch ? svg : best
+      }, null)
+    }
+    const readSvgText = (node: SVGTextElement) => {
+      const tspans = Array.from(node.querySelectorAll('tspan'))
+      if (tspans.length > 0) {
+        return tspans
+          .map((tspan) => (tspan.textContent ?? '').trim())
+          .filter((value) => value.length > 0)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      }
+      return (node.textContent ?? '').replace(/\s+/g, ' ').trim()
+    }
     const host = document.querySelector('[data-testid="chart-host"]')
-    const svg = host?.querySelector('svg')
+    const svg = resolvePrimarySvg(host)
     if (!svg) return []
 
-    const fromCustomAxis = Array.from(svg.querySelectorAll<SVGTextElement>('.x-axis .tick text'))
-      .map((node) => (node.textContent ?? '').trim())
+    return Array.from(svg.querySelectorAll<SVGTextElement>('.x-axis .tick text'))
+      .map((node) => readSvgText(node))
       .filter((value) => value.length > 0)
-    if (fromCustomAxis.length > 0) return fromCustomAxis
-
-    const axisGroups = Array.from(svg.querySelectorAll<SVGGElement>('.role-axis')).filter((group) => {
-      const label = (group.getAttribute('aria-label') ?? '').toLowerCase()
-      return label.includes('x-axis') || label.includes('x axis')
-    })
-    const out: string[] = []
-    axisGroups.forEach((group) => {
-      const texts = Array.from(group.querySelectorAll<SVGTextElement>('.role-axis-label text, text.role-axis-label'))
-      texts.forEach((node) => {
-        const value = (node.textContent ?? '').trim()
-        if (!value) return
-        if (!out.includes(value)) out.push(value)
-      })
-    })
-    return out
-  })
+  }, xField ?? null)
 }
 
 test('워크벤치: simple line(ordinal, sort 미지정)은 CSV 입력 순서로 x축이 그려진다', async ({ page }) => {
@@ -57,8 +76,8 @@ test('워크벤치: simple line(ordinal, sort 미지정)은 CSV 입력 순서로
     },
   }
 
-  await renderSpec(page, spec)
-  const ticks = await collectXTicks(page)
+  await renderSpec(page, spec, 'Quarter')
+  const ticks = await collectXTicks(page, 'Quarter')
   expect(ticks).toEqual(EXPECTED_QUARTER_ORDER)
 })
 
@@ -75,8 +94,8 @@ test('워크벤치: multiple line(ordinal, sort 미지정)은 CSV 입력 순서�
     },
   }
 
-  await renderSpec(page, spec)
-  const ticks = await collectXTicks(page)
+  await renderSpec(page, spec, 'Quarter')
+  const ticks = await collectXTicks(page, 'Quarter')
   expect(ticks).toEqual(EXPECTED_QUARTER_ORDER)
 })
 
@@ -92,8 +111,8 @@ test('워크벤치: explicit x.sort(descending)는 보존되고 자동 sort:null
     },
   }
 
-  await renderSpec(page, spec)
-  const ticks = await collectXTicks(page)
+  await renderSpec(page, spec, 'Quarter')
+  const ticks = await collectXTicks(page, 'Quarter')
   const expectedDescending = EXPECTED_QUARTER_ORDER.slice().sort((a, b) =>
     b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' }),
   )

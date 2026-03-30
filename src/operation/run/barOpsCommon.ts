@@ -1,6 +1,7 @@
 import { OperationOp, type DatumValue, type OperationSpec } from '../../types'
 import { aggregateDatumValuesByTarget, countUniqueGroups } from '../../rendering/ops/common/workingData.ts'
 import { DrawAction, type DrawGroupFilterSpec, type DrawOp } from '../../rendering/draw/types.ts'
+import { normalizeGroupSelection } from '../../domain/operation/groupSelection.ts'
 
 const cloneDataset = (rows: any[]) => rows.map((row) => ({ ...row }))
 
@@ -61,7 +62,7 @@ export function createGroupAwareOperationInput(
 ) {
   return (operation: OperationSpec, _current: DatumValue[]) => {
     const latest = getLatestWorking()
-    const hasGroup = operation.group != null && String(operation.group).trim() !== ''
+    const hasGroup = normalizeGroupSelection((operation as OperationSpec & { group?: unknown }).group).kind !== 'none'
     if (hasGroup) return latest
     return shouldAggregate(latest, operation) ? aggregateDatumValuesByTarget(latest) : latest
   }

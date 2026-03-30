@@ -1,4 +1,4 @@
-import { ChartType, type ChartTypeValue } from '../chartRenderer'
+import { ChartType, type ChartTypeValue } from '../../domain/chart'
 import { DrawAction, type DrawAction as DrawActionValue } from './types'
 
 export type DrawSupportStatus = 'supported' | 'partial' | 'unsupported'

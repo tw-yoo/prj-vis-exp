@@ -38,8 +38,6 @@ export const SvgSelectors = {
   ChartPanelGroup: `${SvgElements.Group}[${DataAttributes.ChartId}][${DataAttributes.ChartPanel}="true"]`,
   DataTargets: `[${DataAttributes.Target}], [${DataAttributes.Id}], [${DataAttributes.Value}]`,
   MainBars: `${SvgElements.Rect}.${SvgClassNames.MainBar}`,
-  VegaRoleAxisLabelText: '.role-axis-label text, text.role-axis-label',
-  VegaAxisLabelCandidates: 'text, .role-axis-label',
 } as const
 
 export type SvgSelector = (typeof SvgSelectors)[keyof typeof SvgSelectors]

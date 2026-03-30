@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-import barSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
-// import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
-// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/simple/0o12tngadmjjux2n.json?raw' // Simple bar1
-// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/stacked/10t8o5vhethzeod1.json?raw' // Stacked bar1
-// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/grouped/0prhtod4tli879nh.json?raw' // Grouped bar1
-// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/line/simple/10gtgmmgh599jnr7.json?raw' // Simple line1
-// import barSimpleSpecRaw from '../../../ChartQa/data/vlSpec/bar/simple/0w88bu7qm4ilsqmh.json?raw' // Simple bar 2
-// ChartQA/data/vlSpec/bar/simple/0o12tngadmjjux2n.json
-// ../ChartQA/data/vlSpec/bar/grouped/0gacqohbzj07n25s.json?raw
+import barSimpleSpecRaw from '../../../data/test/spec/bar_stacked_ver.json?raw'
 import lineSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
 import {
   assertDrawCapabilityForOp,
@@ -118,7 +110,7 @@ const vlSpecPlaceholder = barSimpleSpecRaw
 // const vlSpecPlaceholder = lineSimpleSpecRaw
 
 const EXPORT_SCALE = 3
-// Workbench: always use our chart-type-specific renderers (D3-first) instead of raw vega-embed.
+// Workbench: always use our chart-type-specific D3 renderers.
 const renderChartDispatch = browserEngine.renderChart
 const runChartOps = browserEngine.runChartOps
 const parseToOperationSpec = browserEngine.parseToOperationSpec
@@ -753,7 +745,7 @@ function ChartWorkbenchPage() {
   const [opsJsonDataRows, setOpsJsonDataRows] = useState<Record<string, unknown>[] | null>(null)
   const [opsJsonExecutionPlanState, setOpsJsonExecutionPlanState] = useState<ExecutionPlan | undefined>(undefined)
   const [opsJsonVisualExecutionPlanState, setOpsJsonVisualExecutionPlanState] = useState<VisualExecutionPlan | undefined>(undefined)
-  const [isVlSectionExpanded, setIsVlSectionExpanded] = useState(false)
+  const [isVlSectionExpanded, setIsVlSectionExpanded] = useState(true)
   const [isNlSectionExpanded, setIsNlSectionExpanded] = useState(false)
   const [isOpsSectionExpanded, setIsOpsSectionExpanded] = useState(true)
   const [loadedPlanResolvedKey, setLoadedPlanResolvedKey] = useState<string | null>(null)
@@ -767,6 +759,7 @@ function ChartWorkbenchPage() {
   const visualPlaybackSurfaceRef = useRef<VisualSurfaceState>('unknown')
   const visualPreRunRestoredRef = useRef(false)
   const visualPlaybackSnapshotsRef = useRef<Map<number, SurfaceGraphPlaybackSnapshot>>(new Map())
+  const initialWorkbenchRenderRef = useRef(false)
   // Snapshot strip: React state로 관리 (DOM 조작 대신 선언적 렌더링)
   const [svgSnapshots, setSvgSnapshots] = useState<{ svgString: string; label: string }[]>([])
   // 현재 그룹 실행 중 split이 새로 생성됐는지 추적 (single→split 전환)
@@ -1724,7 +1717,7 @@ function ChartWorkbenchPage() {
       try {
         parsed = JSON.parse(sanitizedSpec) as VegaLiteSpec
       } catch (error) {
-        console.error('Failed to parse Vega-Lite spec JSON', error)
+        console.error('Failed to parse chart spec JSON', error)
         alert('Invalid JSON')
         return null
       }
@@ -1749,7 +1742,7 @@ function ChartWorkbenchPage() {
       } catch (error) {
         // Rendering can fail even when JSON is valid (e.g., renderer post-processing/tagging errors).
         // Do not mislabel these failures as "Invalid JSON".
-        console.error('Failed to render Vega-Lite spec', error)
+        console.error('Failed to render chart spec', error)
         alert('Failed to render chart. Check the console for details.')
         return null
       }
@@ -2172,11 +2165,6 @@ function ChartWorkbenchPage() {
         visualPlaybackSurfaceRef.current = 'unknown'
         setOpsGroups(nextGroups)
         setOpsGroupTextOverrides(nextGroupTextOverrides)
-        try {
-          await renderSourceChartForVisualPlayback()
-        } catch (renderError) {
-          console.warn('Source chart re-render failed, continuing with ops session:', renderError)
-        }
         setOpsUiSessionActive(true)
         setOpsUiGroupIndex(nextGroups.length > 0 ? 0 : -1)
         setOpsUiGroupPhase('pre-run')
@@ -2233,8 +2221,8 @@ function ChartWorkbenchPage() {
     try {
       parsedVlSpec = JSON.parse(sanitizedVlSpec) as VegaLiteSpec
     } catch (error) {
-      console.error('Failed to parse Vega-Lite spec for operations', error)
-      alert('Invalid Vega-Lite JSON')
+      console.error('Failed to parse chart spec for operations', error)
+      alert('Invalid chart spec JSON')
       return
     }
 
@@ -2389,8 +2377,10 @@ function ChartWorkbenchPage() {
   }
 
   const renderSourceChartForVisualPlayback = useCallback(async () => {
-    const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
-    const rendered = await renderChart(specString)
+    const sourceSpec =
+      currentSpecRef.current ??
+      (JSON.parse(sanitizeJsonInput(vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec)) as VegaLiteSpec)
+    const rendered = await renderChart(JSON.stringify(sourceSpec, null, 2))
     if (!rendered) {
       throw new Error('Failed to render source chart for visual playback.')
     }
@@ -2647,7 +2637,7 @@ function ChartWorkbenchPage() {
           ? { label: 'End', disabled: true }
           : { label: 'Next', disabled: opsRunning, onClick: () => goToNextOpsGroup() }
     } else {
-      rightControl = { label: 'Run', disabled: opsRunning, onClick: () => runCurrentOpsGroup() }
+      rightControl = { label: 'Start', disabled: opsRunning, onClick: () => runCurrentOpsGroup() }
     }
 
     return {
@@ -2834,12 +2824,14 @@ function ChartWorkbenchPage() {
   }, [enqueueOpsBuilderRecordCommands, interactionSession])
 
   useEffect(() => {
+    if (initialWorkbenchRenderRef.current) return
+    initialWorkbenchRenderRef.current = true
     void renderChart(vlSpecPlaceholder)
   }, [renderChart])
 
   useEffect(() => {
-    ;(window as any).__WORKBENCH_VEGA_DEBUG__ = {
-      ...(typeof (window as any).__WORKBENCH_VEGA_DEBUG__ === 'object' ? (window as any).__WORKBENCH_VEGA_DEBUG__ : {}),
+    ;(window as any).__WORKBENCH_SPEC_DEBUG__ = {
+      ...(typeof (window as any).__WORKBENCH_SPEC_DEBUG__ === 'object' ? (window as any).__WORKBENCH_SPEC_DEBUG__ : {}),
       logEmbedSpec: debugLogEmbedSpec,
     }
   }, [debugLogEmbedSpec])
@@ -2883,7 +2875,7 @@ function ChartWorkbenchPage() {
     setPendingRunOps(false)
   }, [pendingRunOps, opsErrors, builderGroups, planGroups, lastValidatedTick, opsValidationTick, opsInputMode])
 
-  const vlCollapsedSummary = `Vega-Lite 입력 숨김 (${vlSpec.length} chars)`
+  const vlCollapsedSummary = `차트 스펙 입력 숨김 (${vlSpec.length} chars)`
   const nlCollapsedSummary = `NL 입력 숨김${nlQuestion ? ` · Q: ${nlQuestion}` : ''}`
   const opsCollapsedSummary = `Operations 입력 숨김 · mode=${opsInputMode}${planGroups ? ' · plan=loaded' : ''}`
 
@@ -2893,7 +2885,7 @@ function ChartWorkbenchPage() {
         <section className="card ops-card">
           <div className="card-header">
             <label className="card-title" htmlFor="vl-spec">
-              Vega-Lite Spec
+              Chart Spec
             </label>
             <div className="card-actions">
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>

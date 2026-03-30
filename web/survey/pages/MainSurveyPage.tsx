@@ -11,7 +11,7 @@ import {
   saveSurveyTiming,
   validateSurveyCode,
 } from '../services'
-import type { VegaLiteSpec, JsonValue, OpsSpecInput } from '../../../src/api/types'
+import type { ChartSpec, JsonValue, OpsSpecInput } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import { buildMainSurveyPageDescriptors, type QuestionPageConfig, type SurveyPageDescriptor } from '../engine/mainSurveyConfig'
 import type { MainSessionResponseItem, PostSessionExample, PostSessionResponse, SystemId } from '../types'
@@ -352,7 +352,7 @@ function MainQuestionCard({ config, value, onChange }: MainQuestionCardProps) {
       if (!primaryChartRef.current) return
       const chartPath = `data/vlSpec/ch_${config.questionId}.json`
       try {
-        const spec = await fetchSurveyJson<VegaLiteSpec>(chartPath, false)
+        const spec = await fetchSurveyJson<ChartSpec>(chartPath, false)
         if (cancelled || !primaryChartRef.current) return
         await renderChart(primaryChartRef.current, spec)
       } catch (error) {
@@ -391,7 +391,7 @@ function MainQuestionCard({ config, value, onChange }: MainQuestionCardProps) {
 
       if (!explanationChartRef.current) return
       try {
-        const spec = await fetchSurveyJson<VegaLiteSpec>(`data/vlSpec/ch_${config.questionId}.json`, false)
+        const spec = await fetchSurveyJson<ChartSpec>(`data/vlSpec/ch_${config.questionId}.json`, false)
         if (cancelled || !explanationChartRef.current) return
 
         if (config.explanationType === 'OURS') {

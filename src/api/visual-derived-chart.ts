@@ -1,4 +1,4 @@
-import { ChartType, getChartType, type VegaLiteSpec } from '../domain/chart'
+import { ChartType, getChartType, type ChartSpec } from '../domain/chart'
 import { normalizeOpsGroups, type OpsSpecGroupMap } from '../domain/operation/opsSpec'
 import type { DatumValue, OperationSpec, TargetSelector } from '../domain/operation/types'
 import { OperationOp } from '../domain/operation/types'
@@ -44,7 +44,7 @@ export type PreparedSurface = {
   nodeId: string
   family: ChartFamily
   surfaceType: 'derived-chart'
-  playbackSpec: VegaLiteSpec
+  playbackSpec: ChartSpec
   surfaceRows: DatumValue[]
   surfaceSchema: SurfaceSchema
   materializeOps: OperationSpec[]
@@ -156,7 +156,7 @@ function uniqueRows(rows: DatumValue[]) {
   return out
 }
 
-function toBaseWorkingData(spec: VegaLiteSpec, dataRows: DataRow[]): DatumValue[] {
+function toBaseWorkingData(spec: ChartSpec, dataRows: DataRow[]): DatumValue[] {
   const resolved = resolveEncodingFields(spec)
   if (!resolved || !dataRows.length) return []
   return toDatumValuesFromRaw(
@@ -175,7 +175,7 @@ function toBaseWorkingData(spec: VegaLiteSpec, dataRows: DataRow[]): DatumValue[
   ).filter((row) => Number.isFinite(row.value))
 }
 
-function resolveChartFamily(spec: VegaLiteSpec): ChartFamily | null {
+function resolveChartFamily(spec: ChartSpec): ChartFamily | null {
   const chartType = getChartType(spec)
   if (
     chartType === ChartType.SIMPLE_BAR ||
@@ -301,7 +301,7 @@ function classifyNodeResult(args: {
 }
 
 export function buildLogicalExecutionArtifacts(args: {
-  spec: VegaLiteSpec
+  spec: ChartSpec
   dataRows: DataRow[]
   logicalOpsSpec?: OpsSpecGroupMap
 }): LogicalExecutionArtifacts | null {
@@ -759,7 +759,7 @@ function selectRowsForOperation(op: OperationSpec, inputRows: DatumValue[]) {
 }
 
 function buildSurfaceRows(args: {
-  spec: VegaLiteSpec
+  spec: ChartSpec
   artifacts: LogicalExecutionArtifacts
   op: OperationSpec
   nodeId: string
@@ -814,7 +814,7 @@ function buildAxisLabelExpr(values: Array<{ target: string; label: string }>) {
   return `(${JSON.stringify(labelMap)})[datum.value] || datum.label || datum.value`
 }
 
-function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
+function buildBarSurfaceSpec(rows: DatumValue[]): ChartSpec {
   const values = rows.map((row, index) => ({
     id: row.id ?? row.lookupId ?? `bar_${index}`,
     target: String(row.target),
@@ -835,7 +835,7 @@ function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
     width: 'container' as unknown as number,
     height: 360,
     data: { values },
-    mark: { type: 'bar', cornerRadiusTopLeft: 6, cornerRadiusTopRight: 6 } as unknown as VegaLiteSpec['mark'],
+    mark: { type: 'bar', cornerRadiusTopLeft: 6, cornerRadiusTopRight: 6 } as unknown as ChartSpec['mark'],
     encoding: hasGroups
       ? ({
           x: { field: 'target', type: 'nominal', axis: { title: null, labelAngle: 0, labelExpr: axisLabelExpr } },
@@ -847,7 +847,7 @@ function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
             { field: 'group', type: 'nominal', title: 'Group' },
             { field: 'value', type: 'quantitative', title: 'Value' },
           ],
-        } as unknown as VegaLiteSpec['encoding'])
+        } as unknown as ChartSpec['encoding'])
       : ({
           x: { field: 'target', type: 'nominal', axis: { title: null, labelAngle: 0, labelExpr: axisLabelExpr } },
           y: { field: 'value', type: 'quantitative', axis: { title: null } },
@@ -855,16 +855,16 @@ function buildBarSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
             { field: 'label', type: 'nominal', title: 'Label' },
             { field: 'value', type: 'quantitative', title: 'Value' },
           ],
-        } as unknown as VegaLiteSpec['encoding']),
+        } as unknown as ChartSpec['encoding']),
     config: {
       view: { stroke: '#e5e7eb' },
       axis: { labelFontSize: CHART_TEXT_SIZE.axisLabel, titleFontSize: CHART_TEXT_SIZE.axisTitle },
       bar: { size: hasGroups ? 24 : 42 },
-    } as VegaLiteSpec['config'],
+    } as ChartSpec['config'],
   }
 }
 
-function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
+function buildLineSurfaceSpec(rows: DatumValue[]): ChartSpec {
   const values = rows.map((row, index) => ({
     id: row.id ?? row.lookupId ?? `line_${index}`,
     target: String(row.target),
@@ -885,7 +885,7 @@ function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
     width: 'container' as unknown as number,
     height: 360,
     data: { values },
-    mark: { type: 'line', point: true, strokeWidth: 3 } as unknown as VegaLiteSpec['mark'],
+    mark: { type: 'line', point: true, strokeWidth: 3 } as unknown as ChartSpec['mark'],
     encoding: hasSeries
       ? ({
           x: { field: 'target', type: 'ordinal', axis: { title: null, labelAngle: 0, labelExpr: axisLabelExpr } },
@@ -896,7 +896,7 @@ function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
             { field: 'series', type: 'nominal', title: 'Series' },
             { field: 'value', type: 'quantitative', title: 'Value' },
           ],
-        } as unknown as VegaLiteSpec['encoding'])
+        } as unknown as ChartSpec['encoding'])
       : ({
           x: { field: 'target', type: 'ordinal', axis: { title: null, labelAngle: 0, labelExpr: axisLabelExpr } },
           y: { field: 'value', type: 'quantitative', axis: { title: null } },
@@ -904,12 +904,12 @@ function buildLineSurfaceSpec(rows: DatumValue[]): VegaLiteSpec {
             { field: 'label', type: 'nominal', title: 'Label' },
             { field: 'value', type: 'quantitative', title: 'Value' },
           ],
-        } as unknown as VegaLiteSpec['encoding']),
+        } as unknown as ChartSpec['encoding']),
     config: {
       view: { stroke: '#e5e7eb' },
       axis: { labelFontSize: CHART_TEXT_SIZE.axisLabel, titleFontSize: CHART_TEXT_SIZE.axisTitle },
       line: { point: { filled: true, size: 64 } },
-    } as VegaLiteSpec['config'],
+    } as ChartSpec['config'],
   }
 }
 
@@ -918,7 +918,7 @@ function buildPlaybackSpec(family: ChartFamily, rows: DatumValue[]) {
 }
 
 function buildSurfaceSchema(args: {
-  spec: VegaLiteSpec
+  spec: ChartSpec
   family: ChartFamily
 }): SurfaceSchema {
   const resolved = resolveEncodingFields(args.spec)
@@ -1169,7 +1169,7 @@ function validatePreparedRunOps(args: {
 }
 
 export function buildPreparedSurface(args: {
-  spec: VegaLiteSpec
+  spec: ChartSpec
   artifacts?: LogicalExecutionArtifacts | null
   surfaceType?: 'derived-chart' | 'scalar-panel' | 'source-chart' | 'text-only'
   nodeId?: string

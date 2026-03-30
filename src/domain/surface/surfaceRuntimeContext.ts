@@ -1,5 +1,5 @@
 import type { DatumValue } from '../operation/types'
-import type { VegaLiteSpec } from '../chart'
+import type { ChartSpec } from '../chart'
 
 /**
  * SurfaceRuntimeContext: 각 chart surface의 독립 실행 환경.
@@ -14,7 +14,7 @@ export interface SurfaceRuntimeContext {
   /** op 실행 결과로 생성된 operand들 (nodeId → result) */
   operandRegistry: Map<string, unknown>
   /** 이 surface에서 파생된 spec들 (derivedChartState 대체용) */
-  specStore: Map<string, VegaLiteSpec>
+  specStore: Map<string, ChartSpec>
 }
 
 export function createSurfaceRuntimeContext(surfaceId: string, data: DatumValue[]): SurfaceRuntimeContext {

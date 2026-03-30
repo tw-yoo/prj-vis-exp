@@ -52,7 +52,7 @@ test('워크벤치: v3 spec도 그대로 렌더링하고 (highlight + y domain)'
 
   const specMeta = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    const spec = host?.__lastVegaLiteSpec
+    const spec = host?.__chartRuntimeState?.spec
     return {
       schema: spec?.$schema,
       yScale: spec?.encoding?.y?.scale,
@@ -71,10 +71,7 @@ test('워크벤치: simple bar 기본 색은 #69b3a2를 사용한다', async ({ 
     const svg = host?.querySelector('svg')
     if (!svg) return null
 
-    const node =
-      svg.querySelector<SVGElement>('[data-target][role="graphics-symbol"]') ??
-      svg.querySelector<SVGElement>('[data-target]') ??
-      null
+    const node = svg.querySelector<SVGElement>('[data-target]') ?? null
     if (!node) return null
 
     const style = window.getComputedStyle(node)
@@ -96,7 +93,7 @@ test('워크벤치: stacked bar (color condition) + y domainMax를 보존한다'
 
   const yScale = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    return host?.__lastVegaLiteSpec?.encoding?.y?.scale
+    return host?.__chartRuntimeState?.spec?.encoding?.y?.scale
   })
   expect(yScale?.domainMax).toBe(20)
 })
@@ -107,7 +104,7 @@ test('워크벤치: grouped bar (color condition) + y domainMax를 보존한다'
 
   const yScale = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    return host?.__lastVegaLiteSpec?.encoding?.y?.scale
+    return host?.__chartRuntimeState?.spec?.encoding?.y?.scale
   })
   expect(yScale?.domainMax).toBe(200)
 })
@@ -118,7 +115,7 @@ test('워크벤치: layered line (point highlight) + y domainMax를 보존한다
 
   const yScale = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    return host?.__lastVegaLiteSpec?.encoding?.y?.scale
+    return host?.__chartRuntimeState?.spec?.encoding?.y?.scale
   })
   expect(yScale?.domainMax).toBe(20)
 })
@@ -129,7 +126,7 @@ test('워크벤치: layered multi-line (point highlight) + y domainMax를 보존
 
   const yScale = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    return host?.__lastVegaLiteSpec?.encoding?.y?.scale
+    return host?.__chartRuntimeState?.spec?.encoding?.y?.scale
   })
   expect(yScale?.domainMax).toBe(20)
 })

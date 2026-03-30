@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import '../../App.css'
 import './rendering.css'
-import type { VegaLiteSpec } from '../../../src/api/types'
+import type { ChartSpec } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import { buttonClickAction } from "./RenderingTestCode.ts";
 
@@ -10,7 +10,7 @@ const SPEC_FILE_PATH = '/ChartQA/data/vlSpec/bar/simple/0baf5ch9y4z8914p.json'
 
 export default function RenderingPage() {
   const chartRef = useRef<HTMLDivElement | null>(null)
-  const [spec, setSpec] = useState<VegaLiteSpec | null>(null)
+  const [spec, setSpec] = useState<ChartSpec | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,7 +26,7 @@ export default function RenderingPage() {
         if (!response.ok) {
           throw new Error(`Failed to load spec from ${SPEC_FILE_PATH} (${response.status})`)
         }
-        const loadedSpec = (await response.json()) as VegaLiteSpec
+        const loadedSpec = (await response.json()) as ChartSpec
         if (cancelled) return
         setSpec(loadedSpec)
       } catch (loadError) {

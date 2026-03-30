@@ -11,8 +11,8 @@ export const DataAttributes = {
   PanelPlotHeight: 'data-panel-plot-h',
   AnnotationKey: 'data-annotation-key',
   AnnotationNodeId: 'data-annotation-node-id',
+  AnnotationLifecycle: 'data-annotation-lifecycle',
   RenderEpoch: 'data-render-epoch',
-  RendererPath: 'data-renderer-path',
   AxisRotation: 'data-axis-rotation',
   TickDensityStep: 'data-tick-density-step',
   MarginLeft: 'data-m-left',
@@ -24,6 +24,12 @@ export const DataAttributes = {
   XSortOrder: 'data-x-sort-order',
   ColorField: 'data-color-field',
   FacetField: 'data-facet-field',
+  XLabel: 'data-x-label',
+  YLabel: 'data-y-label',
+  GroupLabel: 'data-group-label',
+  XValue: 'data-x-value',
+  YValue: 'data-y-value',
+  GroupValue: 'data-group-value',
 } as const
 
 export type DataAttribute = (typeof DataAttributes)[keyof typeof DataAttributes]

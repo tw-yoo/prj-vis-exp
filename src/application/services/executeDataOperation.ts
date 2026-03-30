@@ -7,6 +7,35 @@ export type AutoDrawPlanContext = {
   prevWorking: DatumValue[]
 }
 
+export function resolveAutoDrawVisualOp(op: OperationSpec): OperationSpec {
+  if (op.op !== OperationOp.CompareBool) return op
+  return { ...op, op: OperationOp.Diff }
+}
+
+function isUsableDrawPlan(plan: unknown) {
+  if (plan == null) return false
+  if (Array.isArray(plan)) return plan.length > 0
+  return true
+}
+
+function buildAutoDrawVisualOpCandidates(
+  op: OperationSpec,
+  autoDrawPlans: Record<
+    string,
+    ((result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => unknown[] | null) | undefined
+  >,
+) {
+  const candidates: OperationSpec[] = []
+  const primary = resolveAutoDrawVisualOp(op)
+  if (primary.op && autoDrawPlans[primary.op]) {
+    candidates.push(primary)
+  }
+  if (!candidates.some((candidate) => candidate.op === op.op)) {
+    candidates.push(op)
+  }
+  return candidates
+}
+
 export function executeDataOperation(
   input: DatumValue[],
   op: OperationSpec,
@@ -21,8 +50,18 @@ export function executeDataOperation(
   const fn = handlers[resolvedOp.op ?? '']
   if (!fn) return null
   const result = fn(input, resolvedOp)
-  const planBuilder = autoDrawPlans[resolvedOp.op ?? '']
-  const drawPlan = planBuilder && context ? planBuilder(result, resolvedOp, context) : null
+  let drawPlan: unknown[] | null = null
+  if (context) {
+    const candidates = buildAutoDrawVisualOpCandidates(resolvedOp, autoDrawPlans)
+    for (const candidate of candidates) {
+      const planBuilder = autoDrawPlans[candidate.op ?? '']
+      if (!planBuilder) continue
+      const candidatePlan = planBuilder(result, candidate, context)
+      if (!isUsableDrawPlan(candidatePlan)) continue
+      drawPlan = candidatePlan
+      break
+    }
+  }
   return { result, drawPlan }
 }
 

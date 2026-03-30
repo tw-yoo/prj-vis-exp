@@ -102,5 +102,6 @@ export async function runSimpleBarOps(
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,
     initialRenderMode: options?.initialRenderMode ?? 'always',
+    operationIndexStart: options?.operationIndexStart ?? 0,
   })
 }

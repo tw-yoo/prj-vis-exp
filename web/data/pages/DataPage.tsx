@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import '../../App.css'
-import type { VegaLiteSpec } from '../../../src/api/types'
+import type { ChartSpec } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import { csvParse } from 'd3'
 
@@ -26,8 +26,8 @@ function normalizeSpecDataUrl(rawUrl: string | undefined): string | undefined {
   return rawUrl
 }
 
-function patchSpecDataUrls(spec: VegaLiteSpec): VegaLiteSpec {
-  const clone: VegaLiteSpec = JSON.parse(JSON.stringify(spec)) as VegaLiteSpec
+function patchSpecDataUrls(spec: ChartSpec): ChartSpec {
+  const clone: ChartSpec = JSON.parse(JSON.stringify(spec)) as ChartSpec
   if (clone.data && typeof (clone.data as { url?: unknown }).url === 'string') {
     ;(clone.data as { url?: string }).url = normalizeSpecDataUrl(
       (clone.data as { url?: string }).url,
@@ -41,10 +41,10 @@ function patchSpecDataUrls(spec: VegaLiteSpec): VegaLiteSpec {
         nextLayer.data = {
           ...layerData,
           url: normalizeSpecDataUrl(layerData.url),
-        } as unknown as VegaLiteSpec['data']
+        } as unknown as ChartSpec['data']
       }
       return nextLayer
-    }) as unknown as VegaLiteSpec['layer']
+    }) as unknown as ChartSpec['layer']
   }
   return clone
 }
@@ -57,7 +57,7 @@ type PageState =
   | {
       status: 'loaded'
       chartId: string
-      spec: VegaLiteSpec
+      spec: ChartSpec
       specRaw: string
       csvRows: Record<string, string>[]
       csvColumns: string[]
@@ -266,7 +266,7 @@ export default function DataPage() {
 
     try {
       const raw = await loader()
-      const parsed = JSON.parse(raw) as VegaLiteSpec
+      const parsed = JSON.parse(raw) as ChartSpec
       const patched = patchSpecDataUrls(parsed)
 
       // Derive CSV URL from patched spec
@@ -294,7 +294,7 @@ export default function DataPage() {
   // Render chart whenever loaded state changes
   useEffect(() => {
     if (pageState.status !== 'loaded' || !chartRef.current) return
-    void browserEngine.renderVegaLiteChart(chartRef.current, pageState.spec)
+    void browserEngine.renderChart(chartRef.current, pageState.spec)
   }, [pageState])
 
   const loaded = pageState.status === 'loaded' ? pageState : null
@@ -373,10 +373,10 @@ export default function DataPage() {
               <CsvTable rows={visibleRows} columns={loaded.csvColumns} />
             </div>
 
-            {/* Vega-Lite spec card */}
+            {/* Chart spec card */}
             <div className="card">
               <div className="card-header">
-                <span className="card-title">Vega-Lite Spec</span>
+                <span className="card-title">Chart Spec</span>
                 <div className="card-actions">
                   <button
                     className="pill-btn section-toggle-btn"

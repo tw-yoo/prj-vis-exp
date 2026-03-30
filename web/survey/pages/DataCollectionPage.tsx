@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { JsonValue, VegaLiteSpec } from '../../../src/api/types'
+import type { JsonValue, ChartSpec } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import { OpenEndedInput, SurveyNav } from '../components'
 import { fetchSurveyJson, fetchSurveyText, getDocument, patchDocument } from '../services'
@@ -132,8 +132,8 @@ const DETAILED_OPS_OPTIONS: OpsOption[] = [
   },
 ]
 
-function applyTooltipConfig(spec: VegaLiteSpec) {
-  const clone: VegaLiteSpec = JSON.parse(JSON.stringify(spec))
+function applyTooltipConfig(spec: ChartSpec) {
+  const clone: ChartSpec = JSON.parse(JSON.stringify(spec))
   const config = (clone.config || {}) as Record<string, JsonValue>
 
   const patchMarkConfig = (key: 'mark' | 'bar' | 'line' | 'area' | 'point') => {
@@ -239,8 +239,8 @@ function normalizeSpecDataUrl(rawUrl: string | undefined) {
   return rawUrl
 }
 
-function patchSpecDataUrls(spec: VegaLiteSpec) {
-  const clone: VegaLiteSpec = applyTooltipConfig(JSON.parse(JSON.stringify(spec)))
+function patchSpecDataUrls(spec: ChartSpec) {
+  const clone: ChartSpec = applyTooltipConfig(JSON.parse(JSON.stringify(spec)))
   if (clone.data && typeof clone.data.url === 'string') {
     clone.data.url = normalizeSpecDataUrl(clone.data.url)
   }
@@ -362,7 +362,7 @@ function StaticPage({ path }: StaticPageProps) {
       if (!host || !chartElement) return
       const rawSpecPath = host.dataset.specPath || 'pages/tutorial/tutorial_chart.json'
       try {
-        const spec = await fetchSurveyJson<VegaLiteSpec>(`data_collection/${rawSpecPath}`, false)
+        const spec = await fetchSurveyJson<ChartSpec>(`data_collection/${rawSpecPath}`, false)
         if (cancelled || !chartElement) return
         await renderChart(chartElement, patchSpecDataUrls(spec))
         fitChartToContainer(chartElement)
@@ -399,7 +399,7 @@ function TutorialExamplePage({ exampleId }: TutorialExamplePageProps) {
     const run = async () => {
       if (!chartRef.current || !example) return
       try {
-        const spec = await fetchSurveyJson<VegaLiteSpec>(`data_collection/${example.specPath}`, false)
+        const spec = await fetchSurveyJson<ChartSpec>(`data_collection/${example.specPath}`, false)
         if (cancelled || !chartRef.current) return
         await renderChart(chartRef.current, patchSpecDataUrls(spec))
         fitChartToContainer(chartRef.current)
@@ -520,7 +520,7 @@ function TaskPage({
       try {
         const res = await fetch(specPath, { cache: 'no-store' })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const spec = (await res.json()) as VegaLiteSpec
+        const spec = (await res.json()) as ChartSpec
         if (cancelled || !chartRef.current) return
         await renderChart(chartRef.current, patchSpecDataUrls(spec))
         fitChartToContainer(chartRef.current)

@@ -13,12 +13,6 @@ async function getBarMarks(page: Page) {
   if ((await mainBars.count()) > 0) {
     return mainBars
   }
-  const symbolBars = page.locator(
-    `${chartHost} svg [role="graphics-symbol"][aria-roledescription="bar"][data-target]:not(.background)`,
-  )
-  if ((await symbolBars.count()) > 0) {
-    return symbolBars
-  }
   return page.locator(`${chartHost} svg rect[data-target]:not(.background), ${chartHost} svg path[data-target]:not(.background)`)
 }
 

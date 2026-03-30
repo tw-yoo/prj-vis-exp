@@ -1,5 +1,5 @@
 import type { ChartTypeValue } from '../domain/chart'
-import type { VegaLiteSpec } from '../domain/chart'
+import type { ChartSpec } from '../domain/chart'
 import type { DatumValue } from '../domain/operation/types'
 import type { ChartSurfaceInstance } from '../domain/surface/chartSurfaceInstance'
 import type { SurfaceLayout } from '../domain/surface/surfaceLayout'
@@ -65,7 +65,7 @@ export class SurfaceManager {
    * 단일 surface 생성 및 single layout 초기화.
    * workbench 세션 시작 시 또는 reset 시 호출한다.
    */
-  createRootSurface(spec: VegaLiteSpec, chartType: ChartTypeValue, data: DatumValue[]): ChartSurfaceInstance {
+  createRootSurface(spec: ChartSpec, chartType: ChartTypeValue, data: DatumValue[]): ChartSurfaceInstance {
     // 기존 layout 정리
     this.cleanupAll()
 
@@ -84,7 +84,7 @@ export class SurfaceManager {
   updateSurface(id: string, updates: Partial<Pick<ChartSurfaceInstance, 'spec' | 'chartType' | 'data'>>): void {
     const surface = this.surfaces.get(id)
     if (!surface) return
-    if (updates.spec !== undefined) (surface as { spec: VegaLiteSpec }).spec = updates.spec
+    if (updates.spec !== undefined) (surface as { spec: ChartSpec }).spec = updates.spec
     if (updates.chartType !== undefined) (surface as { chartType: ChartTypeValue }).chartType = updates.chartType
     if (updates.data !== undefined) (surface as { data: DatumValue[] }).data = updates.data
   }
@@ -104,8 +104,8 @@ export class SurfaceManager {
     options?: {
       idA?: string
       idB?: string
-      specA?: VegaLiteSpec
-      specB?: VegaLiteSpec
+      specA?: ChartSpec
+      specB?: ChartSpec
       dataA?: DatumValue[]
       dataB?: DatumValue[]
     },
@@ -157,7 +157,7 @@ export class SurfaceManager {
   mergeSurfaces(
     surfaceAId: string,
     surfaceBId: string,
-    mergedSpec: VegaLiteSpec,
+    mergedSpec: ChartSpec,
     mergedChartType: ChartTypeValue,
     mergedData: DatumValue[],
   ): ChartSurfaceInstance {
@@ -213,7 +213,7 @@ export class SurfaceManager {
   private buildSurface(
     id: string,
     host: HTMLElement,
-    spec: VegaLiteSpec,
+    spec: ChartSpec,
     chartType: ChartTypeValue,
     data: DatumValue[],
   ): ChartSurfaceInstance {
@@ -262,6 +262,7 @@ export class SurfaceManager {
   private createSplitHost(id: string): HTMLElement {
     const host = document.createElement('div')
     host.setAttribute('data-surface-id', id)
+    host.setAttribute('data-chart-id', id)
     host.className = `surface-host surface-host--split surface-host--${id.toLowerCase()}`
     this.rootContainer.appendChild(host)
     return host

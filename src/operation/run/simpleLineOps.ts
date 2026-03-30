@@ -228,25 +228,7 @@ export async function runSimpleLineOps(
       const resolved = resolveSimpleLineEncoding(spec as any)
       if (!resolved) return []
       const raw = getSimpleLineStoredData(host) || []
-      const values = toDatumValues(raw as any, resolved.xField, resolved.yField)
-      if (values.length) return values
-
-      // Legacy inconsistency: simple line still falls back to tagged DOM marks for data.url-backed charts.
-      return Array.from(host.querySelectorAll<SVGGraphicsElement>('[data-target][data-value]'))
-        .map((el) => {
-          const target = el.getAttribute('data-target') ?? ''
-          const value = Number(el.getAttribute('data-value'))
-          if (!target || !Number.isFinite(value)) return null
-          return {
-            category: resolved.xField,
-            measure: resolved.yField,
-            target,
-            group: null,
-            value,
-            id: el.getAttribute('data-id'),
-          }
-        })
-        .filter(Boolean) as DatumValue[]
+      return toDatumValues(raw as any, resolved.xField, resolved.yField)
     },
     createHandler: (host) => new SimpleLineDrawHandler(host),
     handleDrawOp: async (host, handler, drawOp) => {
@@ -266,5 +248,6 @@ export async function runSimpleLineOps(
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,
     initialRenderMode: options?.initialRenderMode ?? 'always',
+    operationIndexStart: options?.operationIndexStart ?? 0,
   })
 }

@@ -42,6 +42,7 @@ export type RunChartOperationsConfig<Spec> = {
   onOperationCompleted?: (event: OperationCompletedEvent) => Promise<void> | void
   runtimeScope?: string
   resetRuntime?: boolean
+  operationIndexStart?: number
 }
 
 const defaultGetSvg = (container: HTMLElement): D3Selection => d3.select(container).select('svg') as D3Selection
@@ -139,6 +140,7 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     onOperationCompleted,
     runtimeScope = 'ops',
     resetRuntime = true,
+    operationIndexStart = 0,
   } = config
 
   if (resetRuntime) {
@@ -238,7 +240,7 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     })
   }
 
-  let globalIndex = 0
+  let globalIndex = operationIndexStart
   const nextIndex = () => {
     const index = globalIndex
     globalIndex += 1

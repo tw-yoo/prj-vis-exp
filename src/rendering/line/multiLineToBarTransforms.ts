@@ -5,6 +5,8 @@ import { getMultipleLineStoredData, resolveMultiLineEncoding } from './multipleL
 import { renderGroupedBarChart, type GroupedSpec } from '../bar/groupedBarRenderer'
 import { renderStackedBarChart, type StackedSpec } from '../bar/stackedBarRenderer'
 import { SvgElements } from '../interfaces'
+import { storeDerivedChartState } from '../utils/derivedChartState'
+import { ChartType } from '../../domain/chart'
 
 type RawDatum = Record<string, JsonValue>
 
@@ -228,6 +230,7 @@ export async function convertMultiLineToStackedBar(container: HTMLElement, spec:
   }
 
   await renderStackedBarChart(container, stackedSpec)
+  storeDerivedChartState(container, ChartType.STACKED_BAR, stackedSpec)
 }
 
 export async function convertMultiLineToGroupedBar(container: HTMLElement, spec: MultiLineSpec) {
@@ -277,4 +280,5 @@ export async function convertMultiLineToGroupedBar(container: HTMLElement, spec:
   }
 
   await renderGroupedBarChart(container, groupedSpec)
+  storeDerivedChartState(container, ChartType.GROUPED_BAR, groupedSpec)
 }

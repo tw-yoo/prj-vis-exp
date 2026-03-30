@@ -209,7 +209,6 @@
 }
 
 .chart-host > .chart-canvas,
-.chart-host .vega-embed,
 .chart-host svg,
 .chart-host canvas {
   width: 100% !important;

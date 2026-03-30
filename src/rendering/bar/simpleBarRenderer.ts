@@ -1,12 +1,17 @@
 import * as d3 from 'd3'
-import { bumpRenderEpoch, type VegaLiteSpec } from '../chartRenderer'
+import { ChartType, type ChartSpec } from '../../domain/chart'
 import type { JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { type DrawSplitSpec } from '../draw/types'
-import { applyAxisTickLabelSize, ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { applyAxisTickLabelSize } from '../common/d3Helpers'
+import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } from '../common/chartHoverTooltip'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
+import { resolveLayoutModel } from '../common/chartLayout'
+import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
+import { bumpRenderEpoch } from '../common/renderEpoch'
+import { storeRuntimeChartState } from '../utils/runtimeChartState'
 
 type RawDatum = Record<string, JsonValue>
 
@@ -14,11 +19,28 @@ type RawDatum = Record<string, JsonValue>
 const localDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
 const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new WeakMap()
 
-export type SimpleBarSpec = VegaLiteSpec & {
+export type SimpleBarSpec = ChartSpec & {
   encoding: {
     x: { field: string; type: string; aggregate?: string; sort?: JsonValue }
     y: { field: string; type: string; aggregate?: string }
   }
+}
+
+export type SimpleBarRenderOptions = {
+  preserveSelectors?: string[]
+  stateHost?: HTMLElement
+  attachTooltip?: boolean
+}
+
+function clearRenderHostChildren(container: HTMLElement, preserveSelectors: string[] = []) {
+  const preserved = new Set<Element>()
+  preserveSelectors.forEach((selector) => {
+    container.querySelectorAll(selector).forEach((node) => preserved.add(node))
+  })
+  Array.from(container.children).forEach((child) => {
+    if (preserved.has(child)) return
+    child.remove()
+  })
 }
 
 function normalizeOptionalLabel(value: JsonValue | undefined) {
@@ -167,17 +189,24 @@ function writeDatasetAttrs(
 
 /**
  * Render a basic (non-animated) simple bar chart into the provided container.
- * Accepts a Vega-Lite-like spec (enc.x/y field/type; optional data url/values, sort, aggregate).
+ * Accepts the parsed chart spec shape (enc.x/y field/type; optional data url/values, sort, aggregate).
  * Stores raw data per container in a WeakMap for later ops.
  */
-export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleBarSpec) {
-  const renderEpoch = bumpRenderEpoch(container)
+export async function renderSimpleBarChart(
+  container: HTMLElement,
+  spec: SimpleBarSpec,
+  options: SimpleBarRenderOptions = {},
+) {
+  const stateHost = options.stateHost ?? container
+  const preserveSelectors = options.preserveSelectors ?? []
+  const attachTooltip = options.attachTooltip ?? true
+  const renderEpoch = bumpRenderEpoch(stateHost, container)
   const yField = spec.encoding.y.field
   const xField = spec.encoding.x.field
   const xType = spec.encoding.x.type
   const yType = spec.encoding.y.type
   const barFill = resolveBarFill(spec)
-  clearSimpleBarSplitDomains(container)
+  clearSimpleBarSplitDomains(stateHost)
   const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
   const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
   const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
@@ -232,90 +261,119 @@ export async function renderSimpleBarChart(container: HTMLElement, spec: SimpleB
     data = aggregateValues(data, groupField, valueField, agg)
   }
 
-  localDataStore.set(container, data)
-
-  const margin = { top: 60, right: 20, bottom: 80, left: 60 }
-  const width = 600
-  const height = 300
-  const plotW = width - margin.left - margin.right
-  const plotH = height - margin.top - margin.bottom
-
-  const containerSelection = d3.select(container)
-  containerSelection.selectAll('*').remove()
-
-  const svg = containerSelection
-    .append(SvgElements.Svg)
-    .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
-    .attr(DataAttributes.RenderEpoch, renderEpoch)
-    .style('overflow', 'visible')
-
-  writeDatasetAttrs(svg, spec, margin, plotW, plotH)
-
-  const g = svg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
+  localDataStore.set(stateHost, data)
+  storeRuntimeChartState(stateHost, { chartType: ChartType.SIMPLE_BAR, spec, renderer: 'd3' })
 
   const xDomain = resolveCategoricalDomain(data, xField, spec?.encoding?.x?.sort).map(String)
   const xLabelMap = buildCategoricalDisplayLabelMap(data, xField)
-  const xScale = d3.scaleBand<string>().domain(xDomain).range([0, plotW]).padding(0.2)
   const yValues = data.map((d) => Number(d[yField])).filter(Number.isFinite)
   const minY = d3.min(yValues)
   const maxY = d3.max(yValues)
   let domainMin = Math.min(0, Number.isFinite(minY) ? (minY as number) : 0)
   let domainMax = Math.max(0, Number.isFinite(maxY) ? (maxY as number) : 0)
   if (domainMin === domainMax) domainMax = domainMin + 1
+  const initialLayout = resolveLayoutModel({ container, chartType: ChartType.SIMPLE_BAR, spec })
+  const svg = renderWithMeasuredLayout(
+    container,
+    initialLayout,
+    (layout) => {
+      const margin = layout.padding
+      const width = layout.canvas.width
+      const height = layout.canvas.height
+      const plotW = layout.plot.width
+      const plotH = layout.plot.height
 
-  const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotH, 0])
-  const zeroY = yScale(0)
+      const containerSelection = d3.select(container)
+      clearRenderHostChildren(container, preserveSelectors)
 
-  g.append(SvgElements.Group)
-    .attr(SvgAttributes.Class, SvgClassNames.XAxis)
-    .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
-    .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
-  applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
-  wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
+      const nextSvg = containerSelection
+        .append(SvgElements.Svg)
+        .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+        .attr(DataAttributes.RenderEpoch, renderEpoch)
+        .style('overflow', 'visible')
 
-  g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
-  applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+      writeDatasetAttrs(nextSvg, spec, margin, plotW, plotH)
+      writeTooltipRootAttrs(nextSvg, {
+        xLabel: resolvedXAxisLabel ?? xField,
+        yLabel: resolvedYAxisLabel ?? yField,
+        groupLabel: null,
+      })
 
-  g.selectAll<SVGRectElement, RawDatum>(SvgElements.Rect)
-    .data(data)
-    .join(SvgElements.Rect)
-    .attr(SvgAttributes.Class, SvgClassNames.MainBar)
-    .attr(SvgAttributes.X, (d) => xScale(String(d[xField]))!)
-    .attr(SvgAttributes.Width, xScale.bandwidth())
-    .attr(SvgAttributes.Y, (d) => {
-      const value = Number(d[yField])
-      return value >= 0 ? yScale(value) : zeroY
-	    })
-	    .attr(SvgAttributes.Height, (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
-	    .attr(SvgAttributes.Fill, barFill)
-	    .attr(DataAttributes.Id, (d) => String((d as { id?: JsonValue }).id ?? d[xField]))
-	    .attr(DataAttributes.Target, (d) => String(d[xField]))
-	    .attr(DataAttributes.Value, (d) => Number(d[yField]))
+      const g = nextSvg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
+      const xScale = d3.scaleBand<string>().domain(xDomain).range([0, plotW]).padding(0.2)
+      const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotH, 0])
+      const zeroY = yScale(0)
 
-  if (resolvedXAxisLabel) {
-    svg
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, SvgClassNames.XAxisLabel)
-      .attr(SvgAttributes.X, margin.left + plotW / 2)
-      .attr(SvgAttributes.Y, height - margin.bottom + 40)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
-      .text(resolvedXAxisLabel)
-  }
+      g.append(SvgElements.Group)
+        .attr(SvgAttributes.Class, SvgClassNames.XAxis)
+        .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
+      applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
+      const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
+      const axisLayout = wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
+        showAllTicksByDefault: layout.tickLayout.showAllTicksByDefault,
+        rotationReferencePolicy: layout.tickLayout.rotationReferencePolicy,
+        maxCharsPerLine: layout.tickLayout.maxCharsPerLine,
+        maxLines: layout.tickLayout.maxLines,
+        allowDensityReduction: layout.tickLayout.allowDensityReduction,
+        maxDensityStep: layout.tickLayout.maxDensityStep,
+        overlapTolerancePx: layout.tickLayout.overlapTolerancePx,
+        maxUnrotatedLabelLength: layout.tickLayout.maxUnrotatedLabelLength,
+        candidateAngles: layout.tickLayout.candidateAngles,
+        rotatedAnchor: layout.tickLayout.rotatedAnchor,
+        tickElements: xTicks,
+      })
+      nextSvg.attr(DataAttributes.AxisRotation, String(Math.abs(axisLayout.angleDeg)))
+      nextSvg.attr(DataAttributes.TickDensityStep, String(axisLayout.densityStep))
 
-  if (resolvedYAxisLabel) {
-    svg
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, SvgClassNames.YAxisLabel)
-      .attr(SvgAttributes.Transform, 'rotate(-90)')
-      .attr(SvgAttributes.X, -(margin.top + plotH / 2))
-      .attr(SvgAttributes.Y, margin.left - 45)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
-      .text(resolvedYAxisLabel)
-  }
+      g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+      applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
 
-  ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
+      g.selectAll<SVGRectElement, RawDatum>(SvgElements.Rect)
+        .data(data)
+        .join(SvgElements.Rect)
+        .attr(SvgAttributes.Class, SvgClassNames.MainBar)
+        .attr(SvgAttributes.X, (d) => xScale(String(d[xField]))!)
+        .attr(SvgAttributes.Width, xScale.bandwidth())
+        .attr(SvgAttributes.Y, (d) => {
+          const value = Number(d[yField])
+          return value >= 0 ? yScale(value) : zeroY
+        })
+        .attr(SvgAttributes.Height, (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
+        .attr(SvgAttributes.Fill, barFill)
+        .attr(DataAttributes.Id, (d) => String((d as { id?: JsonValue }).id ?? d[xField]))
+        .attr(DataAttributes.Target, (d) => String(d[xField]))
+        .attr(DataAttributes.Value, (d) => Number(d[yField]))
+        .attr(DataAttributes.XValue, (d) => xLabelMap.get(String(d[xField])) ?? String(d[xField]))
+        .attr(DataAttributes.YValue, (d) => formatTooltipValue(Number(d[yField])))
+
+      if (resolvedXAxisLabel) {
+        nextSvg
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, SvgClassNames.XAxisLabel)
+          .attr(SvgAttributes.X, layout.axisTitles.x.x)
+          .attr(SvgAttributes.Y, layout.axisTitles.x.y)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+          .text(resolvedXAxisLabel)
+      }
+
+      if (resolvedYAxisLabel) {
+        nextSvg
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, SvgClassNames.YAxisLabel)
+          .attr(SvgAttributes.Transform, 'rotate(-90)')
+          .attr(SvgAttributes.X, layout.axisTitles.y.x)
+          .attr(SvgAttributes.Y, layout.axisTitles.y.y)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+          .text(resolvedYAxisLabel)
+      }
+
+      return nextSvg
+    },
+    { maxPasses: 4 },
+  )
 
   return svg
 }
@@ -418,13 +476,6 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
   const { resolvedXAxisLabel, resolvedYAxisLabel } = resolveAxisLabels(spec)
   const barFill = resolveBarFill(spec)
 
-  const margin = { top: 60, right: 20, bottom: 80, left: 60 }
-  const width = 600
-  const height = 300
-  const plotW = width - margin.left - margin.right
-  const plotH = height - margin.top - margin.bottom
-  const gap = 18
-
   const xDomain = resolveCategoricalDomain(data, xField, spec?.encoding?.x?.sort)
   const splitGroups = normalizeSplitGroups(split, xDomain)
   if (!splitGroups) return
@@ -436,21 +487,6 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
   let domainMax = Math.max(0, Number.isFinite(maxY) ? (maxY as number) : 0)
   if (domainMin === domainMax) domainMax = domainMin + 1
 
-  const orientation = split.orientation ?? 'vertical'
-  const subW = orientation === 'horizontal' ? (plotW - gap) / 2 : plotW
-  const subH = orientation === 'vertical' ? (plotH - gap) / 2 : plotH
-
-  const containerSelection = d3.select(container)
-  containerSelection.selectAll('*').remove()
-
-  const svg = containerSelection
-    .append(SvgElements.Svg)
-    .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
-    .attr(DataAttributes.RenderEpoch, renderEpoch)
-    .style('overflow', 'visible')
-
-  writeDatasetAttrs(svg, spec, margin, plotW, plotH)
-
   const [idA, idB] = splitGroups.ids
   const [domainA, domainB] = splitGroups.domains
   const splitDomains: Record<string, Set<string>> = {
@@ -458,92 +494,150 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
     [idB]: new Set(domainB.map(String)),
   }
   setSimpleBarSplitDomains(container, splitDomains)
-
-  const groups: Array<{ id: string; domain: Array<string | number>; offsetX: number; offsetY: number }> = [
-    { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },
-    {
-      id: idB,
-      domain: domainB,
-      offsetX: orientation === 'horizontal' ? subW + gap : 0,
-      offsetY: orientation === 'vertical' ? subH + gap : 0,
-    },
-  ]
-
-  groups.forEach(({ id, domain, offsetX, offsetY }) => {
-    const g = svg
-      .append(SvgElements.Group)
-      .attr(DataAttributes.ChartId, id)
-      .attr(DataAttributes.ChartPanel, 'true')
-      .attr(DataAttributes.PanelPlotX, 0)
-      .attr(DataAttributes.PanelPlotY, 0)
-      .attr(DataAttributes.PanelPlotWidth, subW)
-      .attr(DataAttributes.PanelPlotHeight, subH)
-      .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
-
-    const xScale = d3.scaleBand<string | number>().domain(domain).range([0, subW]).padding(0.2)
-    const xLabelMap = buildCategoricalDisplayLabelMap(data, xField)
-    const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([subH, 0])
-    const zeroY = yScale(0)
-
-    g.append(SvgElements.Group)
-      .attr(SvgAttributes.Class, SvgClassNames.XAxis)
-      .attr(SvgAttributes.Transform, `translate(0,${subH})`)
-      .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
-    applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
-    wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
-
-    g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
-    applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
-
-    const domainSet = new Set(domain.map(String))
-    const rows = data.filter((d) => domainSet.has(String(d[xField])))
-
-    g.selectAll<SVGRectElement, RawDatum>(SvgElements.Rect)
-      .data(rows)
-      .join(SvgElements.Rect)
-      .attr(SvgAttributes.Class, SvgClassNames.MainBar)
-      .attr(SvgAttributes.X, (d) => xScale(d[xField] as string | number)!)
-      .attr(SvgAttributes.Width, xScale.bandwidth())
-      .attr(SvgAttributes.Y, (d) => {
-        const value = Number(d[yField])
-        return value >= 0 ? yScale(value) : zeroY
-	    })
-	    .attr(SvgAttributes.Height, (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
-	    .attr(SvgAttributes.Fill, barFill)
-      .attr(DataAttributes.ChartId, id)
-	    .attr(DataAttributes.Id, (d, i) => String((d as { id?: JsonValue }).id ?? d[xField] ?? i))
-	    .attr(DataAttributes.Target, (d) => String(d[xField]))
-	    .attr(DataAttributes.Value, (d) => Number(d[yField]))
+  const initialLayout = resolveLayoutModel({
+    container,
+    chartType: ChartType.SIMPLE_BAR,
+    spec,
+    split: { enabled: true, orientation: split.orientation },
   })
+  const svg = renderWithMeasuredLayout(
+    container,
+    initialLayout,
+    (layout) => {
+      const margin = layout.padding
+      const width = layout.canvas.width
+      const height = layout.canvas.height
+      const plotW = layout.plot.width
+      const plotH = layout.plot.height
+      const gap = layout.splitPanels.gap
+      const orientation = layout.splitPanels.orientation
+      const subW = layout.splitPanels.panelWidth
+      const subH = layout.splitPanels.panelHeight
 
-  if (resolvedXAxisLabel) {
-    svg
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, SvgClassNames.XAxisLabel)
-      .attr(SvgAttributes.X, margin.left + plotW / 2)
-      .attr(SvgAttributes.Y, height - margin.bottom + 40)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
-      .text(resolvedXAxisLabel)
-  }
+      const containerSelection = d3.select(container)
+      containerSelection.selectAll('*').remove()
 
-  if (resolvedYAxisLabel) {
-    svg
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, SvgClassNames.YAxisLabel)
-      .attr(SvgAttributes.Transform, 'rotate(-90)')
-      .attr(SvgAttributes.X, -(margin.top + plotH / 2))
-      .attr(SvgAttributes.Y, margin.left - 45)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
-      .text(resolvedYAxisLabel)
-  }
+      const nextSvg = containerSelection
+        .append(SvgElements.Svg)
+        .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+        .attr(DataAttributes.RenderEpoch, renderEpoch)
+        .style('overflow', 'visible')
 
-  ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
+      writeDatasetAttrs(nextSvg, spec, margin, plotW, plotH)
+
+      const groups: Array<{ id: string; domain: Array<string | number>; offsetX: number; offsetY: number }> = [
+        { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },
+        {
+          id: idB,
+          domain: domainB,
+          offsetX: orientation === 'horizontal' ? subW + gap : 0,
+          offsetY: orientation === 'vertical' ? subH + gap : 0,
+        },
+      ]
+
+      let maxAxisRotation = 0
+      let maxDensityStep = 1
+      groups.forEach(({ id, domain, offsetX, offsetY }) => {
+        const g = nextSvg
+          .append(SvgElements.Group)
+          .attr(DataAttributes.ChartId, id)
+          .attr(DataAttributes.ChartPanel, 'true')
+          .attr(DataAttributes.PanelPlotX, 0)
+          .attr(DataAttributes.PanelPlotY, 0)
+          .attr(DataAttributes.PanelPlotWidth, subW)
+          .attr(DataAttributes.PanelPlotHeight, subH)
+          .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
+
+        const xScale = d3.scaleBand<string | number>().domain(domain).range([0, subW]).padding(0.2)
+        const xLabelMap = buildCategoricalDisplayLabelMap(data, xField)
+        const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([subH, 0])
+        const zeroY = yScale(0)
+
+        g.append(SvgElements.Group)
+          .attr(SvgAttributes.Class, SvgClassNames.XAxis)
+          .attr(SvgAttributes.Transform, `translate(0,${subH})`)
+          .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
+        applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
+        const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
+        const axisLayout = wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
+          showAllTicksByDefault: layout.tickLayout.showAllTicksByDefault,
+          rotationReferencePolicy: layout.tickLayout.rotationReferencePolicy,
+          maxCharsPerLine: layout.tickLayout.maxCharsPerLine,
+          maxLines: layout.tickLayout.maxLines,
+          allowDensityReduction: layout.tickLayout.allowDensityReduction,
+          maxDensityStep: layout.tickLayout.maxDensityStep,
+          overlapTolerancePx: layout.tickLayout.overlapTolerancePx,
+          maxUnrotatedLabelLength: layout.tickLayout.maxUnrotatedLabelLength,
+          candidateAngles: layout.tickLayout.candidateAngles,
+          rotatedAnchor: layout.tickLayout.rotatedAnchor,
+          tickElements: xTicks,
+        })
+        maxAxisRotation = Math.max(maxAxisRotation, Math.abs(axisLayout.angleDeg))
+        maxDensityStep = Math.max(maxDensityStep, axisLayout.densityStep)
+
+        g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+        applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+
+        const domainSet = new Set(domain.map(String))
+        const rows = data.filter((d) => domainSet.has(String(d[xField])))
+
+        g.selectAll<SVGRectElement, RawDatum>(SvgElements.Rect)
+          .data(rows)
+          .join(SvgElements.Rect)
+          .attr(SvgAttributes.Class, SvgClassNames.MainBar)
+          .attr(SvgAttributes.X, (d) => xScale(d[xField] as string | number)!)
+          .attr(SvgAttributes.Width, xScale.bandwidth())
+          .attr(SvgAttributes.Y, (d) => {
+            const value = Number(d[yField])
+            return value >= 0 ? yScale(value) : zeroY
+          })
+          .attr(SvgAttributes.Height, (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
+          .attr(SvgAttributes.Fill, barFill)
+          .attr(DataAttributes.ChartId, id)
+          .attr(DataAttributes.Id, (d, i) => String((d as { id?: JsonValue }).id ?? d[xField] ?? i))
+          .attr(DataAttributes.Target, (d) => String(d[xField]))
+          .attr(DataAttributes.Value, (d) => Number(d[yField]))
+      })
+
+      if (resolvedXAxisLabel) {
+        nextSvg
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, SvgClassNames.XAxisLabel)
+          .attr(SvgAttributes.X, layout.axisTitles.x.x)
+          .attr(SvgAttributes.Y, layout.axisTitles.x.y)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+          .text(resolvedXAxisLabel)
+      }
+
+      if (resolvedYAxisLabel) {
+        nextSvg
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, SvgClassNames.YAxisLabel)
+          .attr(SvgAttributes.Transform, 'rotate(-90)')
+          .attr(SvgAttributes.X, layout.axisTitles.y.x)
+          .attr(SvgAttributes.Y, layout.axisTitles.y.y)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+          .text(resolvedYAxisLabel)
+      }
+
+      nextSvg.attr(DataAttributes.AxisRotation, String(maxAxisRotation))
+      nextSvg.attr(DataAttributes.TickDensityStep, String(maxDensityStep))
+      return nextSvg
+    },
+    { maxPasses: 4 },
+  )
+  attachChartHoverTooltip(container)
+  return svg
 }
 
 export function getSimpleBarStoredData(container: HTMLElement) {
   return localDataStore.get(container) || []
+}
+
+export function setSimpleBarStoredData(container: HTMLElement, data: RawDatum[]) {
+  localDataStore.set(container, data.map((row) => ({ ...row })))
 }
 
 export function setSimpleBarSplitDomains(container: HTMLElement, domains: Record<string, Set<string>>) {

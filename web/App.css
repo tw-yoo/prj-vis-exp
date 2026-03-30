@@ -533,7 +533,6 @@ textarea {
   background: transparent;
 }
 
-.chart-host .vega-embed,
 .chart-host svg {
   color: #000000 !important;
 }
@@ -545,20 +544,63 @@ textarea {
   margin: 0 auto;
 }
 
-.chart-host .role-axis line,
-.chart-host .role-axis path,
-.chart-host .role-axis .mark-rule line,
-.chart-host .role-axis .mark-rule path {
+.chart-hover-tooltip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  min-width: 132px;
+  max-width: min(260px, calc(100% - 24px));
+  padding: 12px 14px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.chart-hover-tooltip[hidden] {
+  display: none;
+}
+
+.chart-hover-tooltip__row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  align-items: baseline;
+}
+
+.chart-hover-tooltip__row + .chart-hover-tooltip__row {
+  margin-top: 6px;
+}
+
+.chart-hover-tooltip__label {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.chart-hover-tooltip__value {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: right;
+  word-break: break-word;
+}
+
+.chart-host .x-axis line,
+.chart-host .x-axis path,
+.chart-host .y-axis line,
+.chart-host .y-axis path {
   stroke: #000000 !important;
   stroke-opacity: 1 !important;
 }
 
-.chart-host .role-axis .mark-text,
-.chart-host .role-axis .mark-text text,
-.chart-host .mark-text.role-axis-label,
-.chart-host .mark-text.role-axis-label text,
-.chart-host .mark-text.role-axis-title,
-.chart-host .mark-text.role-axis-title text,
+.chart-host .x-axis text,
+.chart-host .y-axis text,
 .chart-host .x-axis-label,
 .chart-host .y-axis-label {
   fill: #000000 !important;
@@ -589,15 +631,13 @@ textarea {
 }
 
 .surface-host--split > svg,
-.surface-host--split > .chart-host,
-.surface-host--split > .vega-embed {
+.surface-host--split > .chart-host {
   align-self: center;
   justify-self: center;
 }
 
 .surface-layout--split > .surface-host--split,
-.surface-layout--split > .surface-host--split > .chart-host,
-.surface-layout--split > .surface-host--split > .vega-embed {
+.surface-layout--split > .surface-host--split > .chart-host {
   background: transparent;
   border-color: transparent;
   box-shadow: none;

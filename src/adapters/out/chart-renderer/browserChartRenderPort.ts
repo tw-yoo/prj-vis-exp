@@ -1,7 +1,6 @@
 import type { ChartRenderPort, ChartSurfaceRef } from '../../../application/ports/outbound'
-import type { VegaLiteSpec } from '../../../domain/chart'
+import type { ChartSpec } from '../../../domain/chart'
 import { renderChart } from '../../../rendering/renderChart'
-import { renderVegaLiteChart } from '../../../rendering/chartRenderer'
 
 function toContainer(surface: ChartSurfaceRef): HTMLElement {
   if (surface.kind !== 'dom' || !(surface.handle instanceof HTMLElement)) {
@@ -10,14 +9,8 @@ function toContainer(surface: ChartSurfaceRef): HTMLElement {
   return surface.handle
 }
 
-export class BrowserChartRenderPort implements ChartRenderPort<VegaLiteSpec> {
-  async render(surface: ChartSurfaceRef, spec: VegaLiteSpec) {
+export class BrowserChartRenderPort implements ChartRenderPort<ChartSpec> {
+  async render(surface: ChartSurfaceRef, spec: ChartSpec) {
     await renderChart(toContainer(surface), spec)
-  }
-}
-
-export class BrowserVegaLiteRenderPort implements ChartRenderPort<VegaLiteSpec> {
-  async render(surface: ChartSurfaceRef, spec: VegaLiteSpec) {
-    await renderVegaLiteChart(toContainer(surface), spec)
   }
 }

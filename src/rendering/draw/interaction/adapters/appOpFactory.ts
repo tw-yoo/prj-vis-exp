@@ -1,6 +1,6 @@
 import { draw, ops } from '../../../../operation/build/authoring'
 import { DrawMark, type DrawLineSpec, type DrawRectSpec, type DrawOp } from '../../types'
-import { ChartType, type ChartTypeValue } from '../../../chartRenderer'
+import { ChartType, type ChartTypeValue } from '../../../../domain/chart'
 import type { BarSegmentCommit, DrawInteractionHit } from '../types'
 import { formatDrawNumber } from '../../../ops/visual/helpers'
 import { CHART_TEXT_SIZE } from '../../../config/chartTextConfig'

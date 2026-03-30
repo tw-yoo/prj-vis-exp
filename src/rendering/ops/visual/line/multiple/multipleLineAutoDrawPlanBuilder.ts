@@ -5,6 +5,7 @@ import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
 import { AUTO_DRAW_TEXT_FONT_SIZE, AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
+import { buildMultiLinePointId } from '../../../../../rendering/line/multipleLineRenderer'
 
 function scalarFromResult(result: DatumValue[]) {
   const value = result?.length ? Number(result[0]?.value) : NaN
@@ -12,17 +13,21 @@ function scalarFromResult(result: DatumValue[]) {
 }
 
 function pointHighlights(result: DatumValue[], chartId?: string, color = '#ef4444') {
-  const seen = new Set<string>()
+  const seenPoints = new Set<string>()
+  const seenSeries = new Set<string>()
   const out: any[] = []
   result.forEach((datum) => {
     const target = String(datum.target)
     const series = datum.group != null ? String(datum.group) : ''
-    const key = `${series}::${target}`
-    if (!target || seen.has(key)) return
-    seen.add(key)
-    out.push(ops.draw.highlight(chartId, draw.select.markKeys('circle', target), color))
-    out.push(ops.draw.highlight(chartId, draw.select.markKeys('path', target), color))
-    out.push(ops.draw.highlight(chartId, draw.select.markKeys('rect', target), color))
+    const pointId = buildMultiLinePointId(target, series)
+    if (target && !seenPoints.has(pointId)) {
+      seenPoints.add(pointId)
+      out.push(ops.draw.highlight(chartId, draw.select.markFieldKeys('circle', 'id', pointId), color))
+    }
+    if (series && !seenSeries.has(series)) {
+      seenSeries.add(series)
+      out.push(ops.draw.highlight(chartId, draw.select.markFieldKeys('path', 'series', series), color))
+    }
   })
   return out
 }

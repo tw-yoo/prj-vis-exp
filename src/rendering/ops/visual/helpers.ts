@@ -136,16 +136,28 @@ export function makeAverageTextOp(
   )
 }
 
-export function makeHighlightOp(target: string, color?: string): DrawOp {
-  return ops.draw.highlight(undefined, draw.select.markKeys(DrawMark.Rect, target), color ?? DEFAULT_HIGHLIGHT_COLOR)
+export function makeHighlightOp(target: string, color?: string, selectField = 'target'): DrawOp {
+  const select = selectField
+    ? draw.select.markFieldKeys(DrawMark.Rect, selectField, target)
+    : draw.select.markKeys(DrawMark.Rect, target)
+  return ops.draw.highlight(undefined, select, color ?? DEFAULT_HIGHLIGHT_COLOR)
 }
 
-export function makeTextOp(target: string, value: number, color?: string, precision?: number): DrawOp {
+export function makeTextOp(
+  target: string,
+  value: number,
+  color?: string,
+  precision?: number,
+  selectField = 'target',
+): DrawOp {
   const text = formatDrawNumber(value, precision)
-  if (!text) return makeHighlightOp(target, color)
+  if (!text) return makeHighlightOp(target, color, selectField)
+  const select = selectField
+    ? draw.select.markFieldKeys(DrawMark.Rect, selectField, target)
+    : draw.select.markKeys(DrawMark.Rect, target)
   return ops.draw.text(
     undefined,
-    draw.select.markKeys(DrawMark.Rect, target),
+    select,
     draw.textSpec.anchor(
       text,
       draw.style.text(color ?? DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
@@ -153,16 +165,17 @@ export function makeTextOp(target: string, value: number, color?: string, precis
   )
 }
 
-export function buildHighlightPlan(targets: string[], color?: string): DrawOp[] {
-  return targets.map((target) => makeHighlightOp(target, color))
+export function buildHighlightPlan(targets: string[], color?: string, selectField = 'target'): DrawOp[] {
+  return targets.map((target) => makeHighlightOp(target, color, selectField))
 }
 
 export function buildTextPlan(
   result: Array<{ target: string; value: number }>,
   color?: string,
   precision?: number,
+  selectField = 'target',
 ): DrawOp[] {
-  return result.map((entry) => makeTextOp(entry.target, entry.value, color, precision))
+  return result.map((entry) => makeTextOp(entry.target, entry.value, color, precision, selectField))
 }
 
 function isDrawOp(value: unknown): value is DrawOp {

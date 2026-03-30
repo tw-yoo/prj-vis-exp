@@ -1,6 +1,6 @@
 import type { OperationSpec } from '../../../../types'
 import type { DrawOp } from '../../types'
-import type { ChartTypeValue } from '../../../chartRenderer'
+import type { ChartTypeValue } from '../../../../domain/chart'
 import type { DrawInteractionTool } from '../types'
 
 export const TimelineStepKind = {

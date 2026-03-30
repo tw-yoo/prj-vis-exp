@@ -1,7 +1,5 @@
-import { ChartType, getChartType, type VegaLiteSpec, type ChartTypeValue } from '../../domain/chart'
-import { renderVegaLiteChart } from '../../rendering/chartRenderer.ts'
+import { ChartType, getChartType, prepareChartRuntimeSpec, type ChartSpec, type ChartTypeValue } from '../../domain/chart'
 import { assertDrawCapabilities } from '../../rendering/draw/capabilityGuard.ts'
-import { normalizeSpec } from '../../domain/chart/normalizeSpec'
 import { normalizeOpsGroups, type OpsSpecInput } from '../../domain/operation/opsSpec'
 import { runSimpleBarOps } from './simpleBarOps.ts'
 import { runStackedBarOps } from './stackedBarOps.ts'
@@ -17,13 +15,18 @@ import type { OperationCompletedEvent } from '../../application/usecases/runChar
 import { captureSvgSnapshot } from '../../rendering/utils/svgSnapshot.ts'
 import { SnapshotStrip } from '../../rendering/snapshotStrip.ts'
 import { consumeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
+import { getRuntimeChartState } from '../../rendering/utils/runtimeChartState.ts'
 import { DrawAction } from '../../rendering/draw/types.ts'
 import type { DrawOp, DrawSplitSpec } from '../../rendering/draw/types.ts'
 import type { DatumValue, OperationSpec } from '../../domain/operation/types/index.ts'
 import type { SurfaceManager } from '../../runtime/surfaceManager.ts'
-import { SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
+import { STRUCTURAL_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/datum.ts'
 import type { ChartSurfaceInstance } from '../../domain/surface/chartSurfaceInstance.ts'
+import { normalizeGroupSelection, normalizeOpForSingleGroupDelegation } from '../../domain/operation/groupSelection.ts'
+import { convertMultiLineToSimpleLine } from '../../rendering/line/multiLineToSimpleLineTransform.ts'
+import { SINGLE_GROUP_DELEGATION_ANIMATION } from '../../rendering/draw/animationPolicy.ts'
+import { ops } from '../build/authoring/index.ts'
 
 export type GroupCompletedEvent = {
   groupName: string
@@ -40,6 +43,12 @@ export type RunChartOpsOptions = {
   resetRuntime?: boolean
   initialRenderMode?: 'always' | 'reuse-existing'
   surfaceManager?: SurfaceManager
+  operationIndexStart?: number
+}
+
+type ChartExecutionState = {
+  chartType: ChartTypeValue | null
+  spec: ChartSpec
 }
 
 // ─── split helpers ────────────────────────────────────────────────────────────
@@ -56,14 +65,37 @@ function findDrawActionIndex(ops: OperationSpec[], action: DrawAction): number {
   )
 }
 
+function isStructuralBarrierOperation(op: OperationSpec): boolean {
+  if (op.op !== 'draw') return false
+  const action = (op as { action?: string }).action
+  return typeof action === 'string' && STRUCTURAL_DRAW_ACTIONS.has(action as DrawAction)
+}
+
+function splitOpsAtStructuralBoundaries(ops: OperationSpec[]): OperationSpec[][] {
+  if (!ops.length) return []
+  const segments: OperationSpec[][] = []
+  let current: OperationSpec[] = []
+  ops.forEach((op) => {
+    current.push(op)
+    if (isStructuralBarrierOperation(op)) {
+      segments.push(current)
+      current = []
+    }
+  })
+  if (current.length > 0) {
+    segments.push(current)
+  }
+  return segments
+}
+
 type SplitSurfaceSetup = {
   idA: string
   idB: string
   dataA: DatumValue[]
   dataB: DatumValue[]
   mergedData: DatumValue[]
-  specA?: VegaLiteSpec
-  specB?: VegaLiteSpec
+  specA?: ChartSpec
+  specB?: ChartSpec
 }
 
 function getSplitSurfaceData(
@@ -183,7 +215,7 @@ function buildSimpleLineSplitSurfaceSetup(
 function buildSplitSurfaceSetup(
   host: HTMLElement,
   chartType: ChartTypeValue | null,
-  normalized: VegaLiteSpec,
+  normalized: ChartSpec,
   split: DrawSplitSpec,
   workingData: DatumValue[],
 ): SplitSurfaceSetup {
@@ -197,7 +229,7 @@ function buildSplitSurfaceSetup(
 function syncSingleSurfaceState(
   surfaceManager: SurfaceManager | undefined,
   chartType: ChartTypeValue | null,
-  normalized: VegaLiteSpec,
+  normalized: ChartSpec,
   data?: DatumValue[],
 ) {
   if (!surfaceManager || !chartType) return
@@ -210,12 +242,39 @@ function syncSingleSurfaceState(
   })
 }
 
+function syncChartExecutionState(
+  container: HTMLElement,
+  currentChartType: ChartTypeValue | null,
+  currentSpec: ChartSpec,
+): ChartExecutionState {
+  const derived = consumeDerivedChartState(container)
+  if (derived) {
+    return {
+      chartType: derived.chartType,
+      spec: derived.spec,
+    }
+  }
+
+  const runtime = getRuntimeChartState(container)
+  if (runtime) {
+    return {
+      chartType: runtime.chartType,
+      spec: runtime.spec,
+    }
+  }
+
+  return {
+    chartType: currentChartType,
+    spec: currentSpec,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function runChartOpsForSingleGroup(
   container: HTMLElement,
   chartType: ChartTypeValue | null,
-  normalized: VegaLiteSpec,
+  normalized: ChartSpec,
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
@@ -231,21 +290,248 @@ async function runChartOpsForSingleGroup(
     case ChartType.MULTI_LINE:
       return runMultipleLineOps(container, normalized as MultiLineSpec, opsSpec, options)
     default:
-      console.warn('runChartOps: unknown chart type, running plain render then no-op ops')
-      await renderVegaLiteChart(container, normalized)
-      return normalized
+      throw new Error(`Unsupported chart type: ${String(chartType)}`)
   }
+}
+
+function isDataOperation(operation: OperationSpec) {
+  if (operation.op === 'draw') return false
+  if (operation.op === 'sleep') return false
+  return true
+}
+
+function isSingleGroupDelegationChartType(chartType: ChartTypeValue | null) {
+  return chartType === ChartType.STACKED_BAR || chartType === ChartType.GROUPED_BAR || chartType === ChartType.MULTI_LINE
+}
+
+function findSingleGroupDelegationCandidate(
+  chartType: ChartTypeValue | null,
+  ops: OperationSpec[],
+): { index: number; series: string } | null {
+  if (!isSingleGroupDelegationChartType(chartType)) return null
+  for (let index = 0; index < ops.length; index += 1) {
+    const op = ops[index]
+    if (!isDataOperation(op)) continue
+    const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
+    if (groupSelection.kind !== 'single') continue
+    return { index, series: groupSelection.values[0] }
+  }
+  return null
+}
+
+function normalizeOpsForSingleGroupDelegation(ops: OperationSpec[]): OperationSpec[] {
+  return ops.map((op) => {
+    if (!isDataOperation(op)) return op
+    const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
+    if (groupSelection.kind !== 'single') return op
+    return normalizeOpForSingleGroupDelegation(op, groupSelection.values[0])
+  })
+}
+
+const INTERNAL_DELEGATION_RUNTIME_SCOPE = '__single_group_delegation_transition__'
+
+function delayMs(ms: number) {
+  if (!Number.isFinite(ms) || ms <= 0) return Promise.resolve()
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}
+
+function buildSingleGroupFocusDrawOp(chartType: ChartTypeValue | null, series: string): DrawOp | null {
+  if (chartType === ChartType.STACKED_BAR) {
+    return ops.draw.stackedFilterGroups(undefined, [series], 'include')
+  }
+  if (chartType === ChartType.GROUPED_BAR) {
+    return ops.draw.groupedFilterGroups(undefined, [series], 'include')
+  }
+  return null
+}
+
+function buildSingleGroupToSimpleDrawOp(chartType: ChartTypeValue | null, series: string): DrawOp | null {
+  if (chartType === ChartType.STACKED_BAR) {
+    return ops.draw.stackedToSimple(undefined, series)
+  }
+  if (chartType === ChartType.GROUPED_BAR) {
+    return ops.draw.groupedToSimple(undefined, series)
+  }
+  return null
+}
+
+function internalDelegationRunOptions(options?: RunChartOpsOptions): RunChartOpsOptions {
+  return {
+    ...options,
+    onOperationCompleted: undefined,
+    runtimeScope: INTERNAL_DELEGATION_RUNTIME_SCOPE,
+    operationIndexStart: 0,
+    initialRenderMode: 'reuse-existing',
+    resetRuntime: false,
+  }
+}
+
+async function runSingleGroupTransitionDrawOp(
+  container: HTMLElement,
+  state: ChartExecutionState,
+  drawOp: DrawOp,
+  options?: RunChartOpsOptions,
+): Promise<ChartExecutionState> {
+  await runChartOpsForSingleGroup(
+    container,
+    state.chartType,
+    state.spec,
+    { ops: [drawOp] },
+    internalDelegationRunOptions(options),
+  )
+  return syncChartExecutionState(container, state.chartType, state.spec)
+}
+
+async function runSingleGroupDelegationTransition(
+  container: HTMLElement,
+  chartType: ChartTypeValue | null,
+  spec: ChartSpec,
+  series: string,
+  options?: RunChartOpsOptions,
+): Promise<ChartExecutionState | null> {
+  if (chartType === ChartType.STACKED_BAR || chartType === ChartType.GROUPED_BAR) {
+    const focusDrawOp = buildSingleGroupFocusDrawOp(chartType, series)
+    const toSimpleDrawOp = buildSingleGroupToSimpleDrawOp(chartType, series)
+    if (!focusDrawOp || !toSimpleDrawOp) return null
+
+    let state: ChartExecutionState = { chartType, spec }
+    state = await runSingleGroupTransitionDrawOp(container, state, focusDrawOp, options)
+    await delayMs(SINGLE_GROUP_DELEGATION_ANIMATION.focusSettleMs)
+    state = await runSingleGroupTransitionDrawOp(container, state, toSimpleDrawOp, options)
+    if (state.chartType !== ChartType.SIMPLE_BAR) return null
+    await delayMs(SINGLE_GROUP_DELEGATION_ANIMATION.minHoldAfterConvertMs)
+    return state
+  }
+
+  if (chartType === ChartType.MULTI_LINE) {
+    const simple = await convertMultiLineToSimpleLine(container, spec as MultiLineSpec, series)
+    await delayMs(SINGLE_GROUP_DELEGATION_ANIMATION.minHoldAfterConvertMs)
+    return { chartType: ChartType.SIMPLE_LINE, spec: simple }
+  }
+  return null
+}
+
+async function runChartOpsForSegmentedGroupBase(
+  container: HTMLElement,
+  initialChartType: ChartTypeValue | null,
+  initialSpec: ChartSpec,
+  ops: OperationSpec[],
+  options?: RunChartOpsOptions,
+): Promise<{ result: unknown; chartType: ChartTypeValue | null; spec: ChartSpec }> {
+  const segments = splitOpsAtStructuralBoundaries(ops)
+  let chartType = initialChartType
+  let spec = initialSpec
+  let result: unknown = initialSpec
+  let nextOperationIndex = options?.operationIndexStart ?? 0
+
+  for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
+    const segmentOps = segments[segmentIndex] ?? []
+    if (!segmentOps.length) continue
+    assertDrawCapabilities(chartType, { ops: segmentOps })
+    result = await runChartOpsForSingleGroup(container, chartType, spec, { ops: segmentOps }, {
+      ...options,
+      initialRenderMode:
+        segmentIndex === 0 ? options?.initialRenderMode ?? 'always' : 'reuse-existing',
+      resetRuntime:
+        segmentIndex === 0 ? options?.resetRuntime ?? true : false,
+      operationIndexStart: nextOperationIndex,
+    })
+    nextOperationIndex += segmentOps.length
+    const synced = syncChartExecutionState(container, chartType, spec)
+    chartType = synced.chartType
+    spec = synced.spec
+  }
+
+  const lastOp = ops.length ? ops[ops.length - 1] : null
+  if (lastOp && isStructuralBarrierOperation(lastOp)) {
+    result = await runChartOpsForSingleGroup(container, chartType, spec, { ops: [] }, {
+      ...options,
+      initialRenderMode: 'reuse-existing',
+      resetRuntime: false,
+      operationIndexStart: nextOperationIndex,
+    })
+    const synced = syncChartExecutionState(container, chartType, spec)
+    chartType = synced.chartType
+    spec = synced.spec
+  }
+
+  return { result, chartType, spec }
+}
+
+async function runChartOpsForSegmentedGroup(
+  container: HTMLElement,
+  initialChartType: ChartTypeValue | null,
+  initialSpec: ChartSpec,
+  ops: OperationSpec[],
+  options?: RunChartOpsOptions,
+): Promise<{ result: unknown; chartType: ChartTypeValue | null; spec: ChartSpec }> {
+  const delegation = findSingleGroupDelegationCandidate(initialChartType, ops)
+  if (!delegation) {
+    return runChartOpsForSegmentedGroupBase(container, initialChartType, initialSpec, ops, options)
+  }
+
+  let chartType = initialChartType
+  let spec = initialSpec
+  let result: unknown = initialSpec
+  let operationIndexStart = options?.operationIndexStart ?? 0
+
+  if (delegation.index > 0) {
+    const prefixOps = ops.slice(0, delegation.index)
+    const prefixResult = await runChartOpsForSegmentedGroupBase(container, chartType, spec, prefixOps, {
+      ...options,
+      operationIndexStart,
+    })
+    result = prefixResult.result
+    chartType = prefixResult.chartType
+    spec = prefixResult.spec
+    operationIndexStart += prefixOps.length
+  }
+
+  const remainingOps = ops.slice(delegation.index)
+  const tailResetRuntime = delegation.index > 0 ? false : options?.resetRuntime ?? true
+  const transitioned = await runSingleGroupDelegationTransition(container, chartType, spec, delegation.series, options)
+  if (!transitioned) {
+    console.warn('single-group delegation: failed to convert to simple chart, falling back to original runner', {
+      chartType,
+      series: delegation.series,
+    })
+    const fallback = await runChartOpsForSegmentedGroupBase(container, chartType, spec, remainingOps, {
+      ...options,
+      operationIndexStart,
+      initialRenderMode: 'reuse-existing',
+      resetRuntime: tailResetRuntime,
+    })
+    return fallback
+  }
+
+  const delegatedOps = normalizeOpsForSingleGroupDelegation(remainingOps)
+  const delegatedResult = await runChartOpsForSegmentedGroupBase(
+    container,
+    transitioned.chartType,
+    transitioned.spec,
+    delegatedOps,
+    {
+      ...options,
+      operationIndexStart,
+      initialRenderMode: 'reuse-existing',
+      resetRuntime: tailResetRuntime,
+    },
+  )
+  result = delegatedResult.result
+  chartType = delegatedResult.chartType
+  spec = delegatedResult.spec
+  return { result, chartType, spec }
 }
 
 export async function runChartOps(
   container: HTMLElement,
-  spec: VegaLiteSpec,
+  spec: ChartSpec,
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
-  let chartType = getChartType(spec)
-  let normalized = normalizeSpec(spec)
-  assertDrawCapabilities(chartType, opsSpec)
+  const prepared = await prepareChartRuntimeSpec(spec)
+  let chartType = prepared.chartType
+  let normalized = prepared.spec
   const groups = normalizeOpsGroups(opsSpec)
 
   if (groups.length <= 1) {
@@ -257,12 +543,19 @@ export async function runChartOps(
       singleGroup &&
       findSplitOpIndex(singleGroup.ops) !== -1
     if (!hasSplitInSingle) {
-      const result = await runChartOpsForSingleGroup(container, chartType, normalized, opsSpec, options)
-      const derived = consumeDerivedChartState(container)
-      if (derived) {
-        chartType = derived.chartType
-        normalized = derived.spec
-      }
+      const executed = await runChartOpsForSegmentedGroup(
+        container,
+        chartType,
+        normalized,
+        singleGroup?.ops ?? [],
+        {
+          ...options,
+          operationIndexStart: options?.operationIndexStart ?? 0,
+        },
+      )
+      const result = executed.result
+      chartType = executed.chartType ?? chartType
+      normalized = executed.spec
       syncSingleSurfaceState(
         options?.surfaceManager,
         chartType,
@@ -308,22 +601,14 @@ export async function runChartOps(
       ...options,
       runtimeScope: groupName,
       resetRuntime: index === 0 ? options?.resetRuntime ?? true : false,
-      onOperationCompleted: options?.onOperationCompleted
-        ? async (event: OperationCompletedEvent) => {
-            await options.onOperationCompleted?.({
-              ...event,
-              operationIndex: operationOffset + event.operationIndex,
-            })
-          }
-        : undefined,
+      operationIndexStart: operationOffset,
+      onOperationCompleted: options?.onOperationCompleted,
     }
 
     const applyRootDerivedState = (data?: DatumValue[]) => {
-      const derived = consumeDerivedChartState(container)
-      if (derived) {
-        chartType = derived.chartType
-        normalized = derived.spec
-      }
+      const synced = syncChartExecutionState(container, chartType, normalized)
+      chartType = synced.chartType ?? chartType
+      normalized = synced.spec
       syncSingleSurfaceState(surfaceManager, chartType, normalized, data)
     }
 
@@ -336,20 +621,15 @@ export async function runChartOps(
         initialRenderMode: 'always' | 'reuse-existing',
       ) => {
         const host = surface.hostElement as HTMLElement
-        const result = await runChartOpsForSingleGroup(
-          host,
-          surface.chartType,
-          surface.spec,
-          { ops },
-          { ...groupOpts, initialRenderMode },
-        )
-        const derived = consumeDerivedChartState(host)
-        if (derived) {
-          surfaceManager.updateSurface(surface.id, {
-            spec: derived.spec,
-            chartType: derived.chartType,
-          })
-        }
+        const executed = await runChartOpsForSegmentedGroup(host, surface.chartType, surface.spec, ops, {
+          ...groupOpts,
+          initialRenderMode,
+        })
+        const result = executed.result
+        surfaceManager.updateSurface(surface.id, {
+          spec: executed.spec,
+          chartType: executed.chartType ?? surface.chartType,
+        })
         if (Array.isArray(result)) {
           surfaceManager.updateSurface(surface.id, { data: result })
         }
@@ -367,10 +647,13 @@ export async function runChartOps(
           )
         surfaceManager.mergeSurfaces(splitIdA, splitIdB, normalized, chartType ?? ChartType.SIMPLE_BAR, mergedData)
         isSplit = false
-        lastResult = await runChartOpsForSingleGroup(container, chartType, normalized, { ops: tailOps }, {
+        const executed = await runChartOpsForSegmentedGroup(container, chartType, normalized, tailOps, {
           ...groupOpts,
           initialRenderMode: 'always',
         })
+        lastResult = executed.result
+        chartType = executed.chartType ?? chartType
+        normalized = executed.spec
         applyRootDerivedState(Array.isArray(lastResult) ? lastResult : undefined)
       }
 
@@ -384,7 +667,10 @@ export async function runChartOps(
         // split 이전 ops 실행
         if (splitIdx > 0) {
           const preOps = group.ops.slice(0, splitIdx)
-          lastResult = await runChartOpsForSingleGroup(container, chartType, normalized, { ops: preOps }, groupOpts)
+          const executed = await runChartOpsForSegmentedGroup(container, chartType, normalized, preOps, groupOpts)
+          lastResult = executed.result
+          chartType = executed.chartType ?? chartType
+          normalized = executed.spec
           applyRootDerivedState(Array.isArray(lastResult) ? lastResult : undefined)
         }
 
@@ -457,8 +743,10 @@ export async function runChartOps(
     }
     // ── end SurfaceManager split handling ─────────────────────────────────────
 
-    lastResult = await runChartOpsForSingleGroup(container, chartType, normalized, group.ops, groupOpts)
-    // After each group, consume any derived chart state (e.g. from stacked/grouped/multi-line → simple conversions)
+    const executed = await runChartOpsForSegmentedGroup(container, chartType, normalized, group.ops, groupOpts)
+    lastResult = executed.result
+    chartType = executed.chartType ?? chartType
+    normalized = executed.spec
     applyRootDerivedState(Array.isArray(lastResult) ? lastResult : undefined)
     // 마지막 그룹 이후에는 스냅샷 불필요 (다음 그룹이 없으므로)
     if (index < groups.length - 1) {

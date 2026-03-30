@@ -3,9 +3,9 @@ import { clearAnnotations, DEFAULT_ANNOTATION_SELECTORS } from '../../common/d3H
 import { resolveAnnotationKeyForDrawOp } from '../../draw/annotationKey.ts'
 import { runGenericDraw } from '../../draw/genericDraw.ts'
 import type { DrawOp } from '../../draw/types.ts'
-import { DrawAction } from '../../draw/types.ts'
+import { DrawAction, DrawAnnotationLifecycles } from '../../draw/types.ts'
 import { MIN_DRAW_DURATION_MS } from '../../draw/animationPolicy.ts'
-import { DataAttributes, SvgAttributes } from '../../interfaces'
+import { DataAttributes, SvgAttributes, SvgClassNames } from '../../interfaces'
 import { buildExecutionPhases } from '../common/timeline'
 
 // Chart draw handlers already implement text/rect/line; generic fallback duplicates annotations.
@@ -142,6 +142,42 @@ function collectDirectParentNodeIds(op: DrawOp) {
   return ids
 }
 
+function resolveNodeChartId(node: Element) {
+  const direct = (node.getAttribute(DataAttributes.ChartId) ?? '').trim()
+  if (direct.length > 0) return direct
+  const scoped = node.closest(`[${DataAttributes.ChartId}]`)
+  if (!scoped) return null
+  const inherited = (scoped.getAttribute(DataAttributes.ChartId) ?? '').trim()
+  return inherited.length > 0 ? inherited : null
+}
+
+function isInChartScope(node: Element, chartId?: string) {
+  if (!chartId) return true
+  const nodeChartId = resolveNodeChartId(node)
+  return nodeChartId === chartId
+}
+
+function isTransientAnnotation(node: Element) {
+  const lifecycle = (node.getAttribute(DataAttributes.AnnotationLifecycle) ?? '').trim().toLowerCase()
+  if (lifecycle === DrawAnnotationLifecycles.Transient) return true
+  return node.classList.contains(SvgClassNames.BarSegmentAnnotation)
+}
+
+function removeTransientAnnotations(container: HTMLElement, chartId?: string) {
+  const selectors = DEFAULT_ANNOTATION_SELECTORS.join(', ')
+  if (!selectors) return
+  const nodes = d3
+    .select(container)
+    .selectAll<SVGElement, unknown>(selectors)
+    .filter(function () {
+      const node = this as Element
+      if (!isInChartScope(node, chartId)) return false
+      return isTransientAnnotation(node)
+    })
+  if (nodes.empty()) return
+  nodes.interrupt().remove()
+}
+
 function cleanupForNode(container: HTMLElement, op: DrawOp, state: ReconcileState) {
   if (!CLEANUP_AFTER_ACTIONS.has(op.action)) return Promise.resolve()
 
@@ -157,6 +193,8 @@ function cleanupForNode(container: HTMLElement, op: DrawOp, state: ReconcileStat
     const svg = d3.select(this as SVGSVGElement)
     const annotations = svg.selectAll<SVGElement, unknown>(selectors).filter(function () {
       const node = this as Element
+      if (!isInChartScope(node, op.chartId)) return false
+      if (isTransientAnnotation(node)) return true
       const key = (node.getAttribute(DataAttributes.AnnotationKey) ?? '').trim()
       if (key && keepKeys.has(key)) return false
       const nodeId = (node.getAttribute(DataAttributes.AnnotationNodeId) ?? '').trim()
@@ -294,6 +332,9 @@ export async function runDrawPlan<H extends HandlerLike>(options: RunDrawPlanOpt
     await Promise.all(
       phase.map(async (op) => {
         const startedAt = Date.now()
+        if (op.action === DrawAction.Filter) {
+          removeTransientAnnotations(container, op.chartId)
+        }
         if (op.action === DrawAction.Unsplit) {
           applyMergeAnnotationOpacity(container)
         }
@@ -312,6 +353,9 @@ export async function runDrawPlan<H extends HandlerLike>(options: RunDrawPlanOpt
           }
         }
         await cleanupForNode(container, op, reconcileState)
+        if (op.action === DrawAction.Filter) {
+          removeTransientAnnotations(container, op.chartId)
+        }
         const elapsed = Date.now() - startedAt
         if (elapsed < MIN_DRAW_DURATION_MS) {
           await new Promise((resolve) => setTimeout(resolve, MIN_DRAW_DURATION_MS - elapsed))

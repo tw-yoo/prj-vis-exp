@@ -1,3 +1,5 @@
 export * from './types'
 export * from './chartType'
 export * from './normalizeSpec'
+export * from './errors'
+export * from './runtimeSpec'

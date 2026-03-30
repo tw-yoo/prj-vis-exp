@@ -4,6 +4,7 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors
 import { BaseDrawHandler } from './BaseDrawHandler'
 import {
   DrawAction,
+  DrawAnnotationLifecycles,
   DrawComparisonOperators,
   DrawMark,
   DrawTextModes,
@@ -16,6 +17,7 @@ import { normalizeComparisonCondition } from './utils/comparison'
 import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from './animationPolicy'
 import { ensureAnnotationLayer } from './utils/annotationLayer'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
+import { applyAxisTickLabelSize } from '../common/d3Helpers'
 
 async function waitTransition(transition: d3.Transition<any, any, any, any>) {
   try {
@@ -23,6 +25,17 @@ async function waitTransition(transition: d3.Transition<any, any, any, any>) {
   } catch {
     // interrupted transitions are acceptable in interactive workflows
   }
+}
+
+function transitionYAxis(
+  yAxis: d3.Selection<SVGGElement, JsonValue, d3.BaseType, JsonValue>,
+  yScale: d3.ScaleLinear<number, number>,
+  duration: number,
+) {
+  if (yAxis.empty()) return null
+  const transition = yAxis.transition().duration(duration).call(d3.axisLeft(yScale).ticks(5) as any)
+  applyAxisTickLabelSize(yAxis)
+  return transition
 }
 
 /**
@@ -147,6 +160,7 @@ export class BarDrawHandler extends BaseDrawHandler {
     if (mapY(0) == null) return
 
     const style = segment.style
+    const lifecycle = op.annotation?.lifecycle ?? DrawAnnotationLifecycles.Transient
 
     const barsAll = this.selectBarMarks(scope)
     const bars =
@@ -202,6 +216,7 @@ export class BarDrawHandler extends BaseDrawHandler {
         .attr(DataAttributes.ChartId, op.chartId ?? null)
         .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
         .attr(DataAttributes.AnnotationNodeId, annotationNodeId)
+        .attr(DataAttributes.AnnotationLifecycle, lifecycle)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, segY)
         .attr(SvgAttributes.Width, width)
@@ -349,10 +364,7 @@ export class BarDrawHandler extends BaseDrawHandler {
 
     const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
     const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
-    const yAxisTransition =
-      !yAxis.empty()
-        ? yAxis.transition().duration(NON_SPLIT_UPDATE_MS).call(d3.axisLeft(yScale).ticks(5) as any)
-        : null
+    const yAxisTransition = transitionYAxis(yAxis, yScale, NON_SPLIT_UPDATE_MS)
     ticks.each(function () {
       const tick = d3.select(this)
       const text = tick.select(SvgElements.Text).text().trim()
@@ -483,10 +495,7 @@ export class BarDrawHandler extends BaseDrawHandler {
     const primaryTick = tickNodes.length ? tickNodes[0] : null
     const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
     const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
-    const yAxisTransition =
-      yScale && !yAxis.empty()
-        ? yAxis.transition().duration(NON_SPLIT_UPDATE_MS).call(d3.axisLeft(yScale).ticks(5) as any)
-        : null
+    const yAxisTransition = yScale ? transitionYAxis(yAxis, yScale, NON_SPLIT_UPDATE_MS) : null
     ticks.each(function () {
       const tick = d3.select(this)
       const isPrimary = this === primaryTick

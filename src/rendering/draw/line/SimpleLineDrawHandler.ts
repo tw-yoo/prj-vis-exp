@@ -473,17 +473,7 @@ export class SimpleLineDrawHandler extends LineDrawHandler {
     const axisTexts: SVGGraphicsElement[] = Array.from(
       svgNode.querySelectorAll<SVGGraphicsElement>(`.${SvgClassNames.YAxisLabel}`),
     )
-    const fallbackAxisTexts =
-      axisTexts.length === 0
-        ? Array.from(
-            svgNode.querySelectorAll<SVGGraphicsElement>(SvgSelectors.VegaRoleAxisLabelText),
-          ).filter((el) => {
-            const axisGroup = el.closest('[aria-label]')
-            const aria = axisGroup?.getAttribute('aria-label')?.toLowerCase() || ''
-            return aria.includes('y-axis')
-          })
-        : []
-    const combinedAxisTexts = axisTexts.length ? axisTexts : fallbackAxisTexts
+    const combinedAxisTexts = axisTexts
     let minX = Number.POSITIVE_INFINITY
     let maxX = Number.NEGATIVE_INFINITY
     let maxTextH = 0

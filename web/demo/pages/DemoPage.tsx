@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import '../../App.css'
 import './demo.css'
 import type { DemoSentenceBinding } from '../../../src/api/demo-binding'
-import type { VegaLiteSpec } from '../../../src/api/types'
+import type { ChartSpec } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import { loadDemoAssets } from '../services/demoAssets'
 
 export default function DemoPage() {
   const chartRef = useRef<HTMLDivElement | null>(null)
-  const [vlSpec, setVlSpec] = useState<VegaLiteSpec | null>(null)
+  const [vlSpec, setVlSpec] = useState<ChartSpec | null>(null)
   const [bindings, setBindings] = useState<DemoSentenceBinding[]>([])
   const [activeSentenceIndex, setActiveSentenceIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)

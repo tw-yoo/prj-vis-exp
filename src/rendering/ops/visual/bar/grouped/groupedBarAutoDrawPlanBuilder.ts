@@ -3,6 +3,7 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
+import { normalizeGroupSelection } from '../../../../../domain/operation/groupSelection'
 import { AUTO_DRAW_TEXT_FONT_SIZE, AVERAGE_LINE_COLOR, buildHighlightPlan, buildTextPlan, formatDrawNumber } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
@@ -202,8 +203,9 @@ function parseThresholdCondition(operator: string | undefined) {
 }
 
 function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
-  if (typeof op.group === 'string' && op.group.trim().length > 0) {
-    return [ops.draw.groupedFilterGroups(op.chartId, [op.group], 'include')]
+  const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
+  if (groupSelection.kind === 'single') {
+    return [ops.draw.groupedFilterGroups(op.chartId, [groupSelection.values[0]], 'include')]
   }
   if (Array.isArray(op.include) && op.include.length > 0) {
     const includeTargets = op.include.map((item) => String(item))

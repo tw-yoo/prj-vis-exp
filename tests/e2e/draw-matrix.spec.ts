@@ -19,7 +19,6 @@ async function renderSpec(page: Page, spec: string) {
 async function firstMark(page: Page) {
   const candidates = [
     `${chartHost} svg rect.main-bar`,
-    `${chartHost} svg [role="graphics-symbol"][data-target]`,
     `${chartHost} svg rect[data-target]:not(.background)`,
     `${chartHost} svg circle[data-target]:not(.background)`,
     `${chartHost} svg path[data-target]:not(.background)`,
@@ -54,7 +53,6 @@ async function splitMarkerCounts(page: Page, idA = 'A', idB = 'B') {
 async function countVisibleBars(page: Page) {
   const selector = [
     `${chartHost} svg rect.main-bar`,
-    `${chartHost} svg [role="graphics-symbol"][aria-roledescription="bar"][data-target]:not(.background)`,
   ].join(', ')
   return page.locator(selector).evaluateAll((nodes) => {
     return nodes.filter((node) => {
@@ -149,7 +147,7 @@ async function dragOnSvg(
 test('TC7 line-trace (simple line)', async ({ page }) => {
   await renderSpec(page, SIMPLE_LINE_SPEC)
   await page.getByTestId('draw-tool-line-trace').click()
-  const marks = page.locator(`${chartHost} svg [role="graphics-symbol"][data-target]`)
+  const marks = page.locator(`${chartHost} svg circle[data-target], ${chartHost} svg path[data-target]`)
   await expect(marks.first()).toBeVisible()
   const keyValues = await marks.evaluateAll((nodes) => {
     return nodes
@@ -159,8 +157,8 @@ test('TC7 line-trace (simple line)', async ({ page }) => {
   expect(keyValues.length).toBeGreaterThanOrEqual(2)
   const firstKey = keyValues[0]
   const secondKey = keyValues[1]
-  await dispatchClick(page.locator(`${chartHost} svg [role="graphics-symbol"][data-target="${firstKey}"]`))
-  await dispatchClick(page.locator(`${chartHost} svg [role="graphics-symbol"][data-target="${secondKey}"]`))
+  await dispatchClick(page.locator(`${chartHost} svg circle[data-target="${firstKey}"], ${chartHost} svg path[data-target="${firstKey}"]`))
+  await dispatchClick(page.locator(`${chartHost} svg circle[data-target="${secondKey}"], ${chartHost} svg path[data-target="${secondKey}"]`))
   await expect(page.locator(`${chartHost} svg path.line-annotation`)).toHaveCount(1)
 })
 

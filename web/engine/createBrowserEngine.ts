@@ -1,8 +1,7 @@
 import {
   renderChart as renderChartApi,
-  renderVegaLiteChart as renderVegaLiteChartApi,
   toDomSurface,
-  type VegaLiteSpec,
+  type ChartSpec,
 } from '../../src/api/rendering'
 import { runChartOps as runChartOpsApi } from '../../src/api/operation-run'
 import { buildOps } from '../../src/api/operation-build'
@@ -17,11 +16,10 @@ import { runPythonPlan as runPythonPlanApi } from '../../src/api/python-plan'
 import type { RunPythonPlanCommand, RunPythonPlanResult } from '../../src/api/python-plan'
 
 export type BrowserEngine = {
-  renderChart: (container: HTMLElement, spec: VegaLiteSpec) => Promise<unknown>
-  renderVegaLiteChart: (container: HTMLElement, spec: VegaLiteSpec) => Promise<unknown>
+  renderChart: (container: HTMLElement, spec: ChartSpec) => Promise<unknown>
   runChartOps: (
     container: HTMLElement,
-    spec: VegaLiteSpec,
+    spec: ChartSpec,
     opsSpec: OpsSpecInput,
     options?: RunChartOpsOptions,
   ) => Promise<unknown>
@@ -38,9 +36,6 @@ export function createBrowserEngine(): BrowserEngine {
   return {
     async renderChart(container, spec) {
       return renderChartApi({ surface: toDomSurface(container), spec })
-    },
-    async renderVegaLiteChart(container, spec) {
-      return renderVegaLiteChartApi({ surface: toDomSurface(container), spec })
     },
     async runChartOps(container, spec, opsSpec, options) {
       return runChartOpsApi({ container, spec, opsSpec, options })

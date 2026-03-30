@@ -1,5 +1,5 @@
 import type { DatumValue } from '../../../types'
-import { ChartType, getChartType, type VegaLiteSpec } from '../../chartRenderer'
+import { ChartType, getChartType, type ChartSpec } from '../../../domain/chart'
 import { getPlotContext } from '../common/chartContext'
 import { toDatumValuesFromRaw, type RawRow } from '../common/datum'
 import { toWorkingDatumValuesFromStore } from '../common/workingData'
@@ -84,7 +84,7 @@ function buildMultipleLineWorkingData(container: HTMLElement, spec: MultiLineSpe
   )
 }
 
-export function buildOpsPlanContext(container: HTMLElement, spec: VegaLiteSpec): OpsPlanContext {
+export function buildOpsPlanContext(container: HTMLElement, spec: ChartSpec): OpsPlanContext {
   const chartType = getChartType(spec)
   let workingData: DatumValue[] = []
 

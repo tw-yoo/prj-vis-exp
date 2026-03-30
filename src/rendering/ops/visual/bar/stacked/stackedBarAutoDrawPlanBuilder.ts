@@ -3,6 +3,7 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
+import { normalizeGroupSelection } from '../../../../../domain/operation/groupSelection'
 import { AUTO_DRAW_TEXT_FONT_SIZE, AVERAGE_LINE_COLOR, buildHighlightPlan, buildTextPlan, formatDrawNumber } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
@@ -196,6 +197,97 @@ function toTargetValueEntries(result: DatumValue[]) {
   return out
 }
 
+function aggregateTargetValues(result: DatumValue[]) {
+  const totals = new Map<string, number>()
+  result.forEach((row) => {
+    const target = String(row.target)
+    const value = Number(row.value)
+    if (!target || !Number.isFinite(value)) return
+    totals.set(target, (totals.get(target) ?? 0) + value)
+  })
+  return Array.from(totals.entries()).map(([target, value]) => ({ target, value }))
+}
+
+function resolveNodeChartId(node: Element) {
+  const direct = node.getAttribute('data-chart-id')
+  if (direct && direct.trim().length > 0) return direct.trim()
+  const scopedParent = node.closest('[data-chart-id]')
+  if (!scopedParent) return null
+  const inherited = scopedParent.getAttribute('data-chart-id')
+  return inherited && inherited.trim().length > 0 ? inherited.trim() : null
+}
+
+function resolveTopSegmentIdsByTarget(container: HTMLElement, chartId: string | undefined, targets: string[]) {
+  const targetSet = new Set(targets.map((target) => String(target)))
+  const picks = new Map<string, { id: string; y: number }>()
+  const bars = Array.from(container.querySelectorAll<SVGRectElement>('svg rect.main-bar[data-target][data-id]'))
+  bars.forEach((bar) => {
+    const target = (bar.getAttribute('data-target') ?? '').trim()
+    const id = (bar.getAttribute('data-id') ?? '').trim()
+    if (!target || !id || !targetSet.has(target)) return
+    if (chartId) {
+      const nodeChartId = resolveNodeChartId(bar)
+      if (nodeChartId && nodeChartId !== chartId) return
+    }
+    const y = Number(bar.getAttribute('y'))
+    const normalizedY = Number.isFinite(y) ? y : Number.POSITIVE_INFINITY
+    const existing = picks.get(target)
+    if (!existing || normalizedY < existing.y) {
+      picks.set(target, { id, y: normalizedY })
+    }
+  })
+  const out = new Map<string, string>()
+  picks.forEach((pick, target) => out.set(target, pick.id))
+  return out
+}
+
+function buildRetrieveValuePlan(result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) {
+  if (!result.length) return null
+
+  const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
+  if (groupSelection.kind === 'single') {
+    const groupToken = groupSelection.values[0]
+    const segmentEntries = result
+      .map((row) => {
+        const target = String(row.target)
+        const group = row.group != null ? String(row.group) : groupToken
+        const id = (row.id != null ? String(row.id) : `${target}|${group}`).trim()
+        const value = Number(row.value)
+        if (!id || !Number.isFinite(value)) return null
+        return { id, value }
+      })
+      .filter((entry): entry is { id: string; value: number } => entry !== null)
+    if (!segmentEntries.length) return null
+    return [
+      ...buildHighlightPlan(segmentEntries.map((entry) => entry.id), '#ef4444', 'data-id'),
+      ...buildTextPlan(
+        segmentEntries.map((entry) => ({ target: entry.id, value: entry.value })),
+        '#111827',
+        2,
+        'data-id',
+      ),
+    ]
+  }
+
+  const aggregatedEntries = aggregateTargetValues(result)
+  if (!aggregatedEntries.length) return null
+  const targets = aggregatedEntries.map((entry) => entry.target)
+  const topSegmentIds = resolveTopSegmentIdsByTarget(context.container, op.chartId, targets)
+  const textEntries = aggregatedEntries
+    .map((entry) => {
+      const id = topSegmentIds.get(entry.target)
+      if (!id) return null
+      return { target: id, value: entry.value }
+    })
+    .filter((entry): entry is { target: string; value: number } => entry !== null)
+
+  const plan: any[] = [...buildHighlightPlan(targets, '#ef4444', 'target')]
+  if (textEntries.length) {
+    plan.push(...buildTextPlan(textEntries, '#111827', 2, 'data-id'))
+  }
+  return plan
+}
+
 function parseThresholdCondition(operator: string | undefined) {
   const token = String(operator ?? '').toLowerCase()
   if (token === '>' || token === 'gt') return 'gt' as const
@@ -206,9 +298,10 @@ function parseThresholdCondition(operator: string | undefined) {
 }
 
 function buildFilterPlan(_result: DatumValue[], op: OperationSpec) {
-  if (typeof op.group === 'string' && op.group.trim().length > 0) {
+  const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
+  if (groupSelection.kind === 'single') {
     // Data-op filter.group means series filtering in-place, not chart-type conversion.
-    return [ops.draw.stackedFilterGroups(op.chartId, [op.group], 'include')]
+    return [ops.draw.stackedFilterGroups(op.chartId, [groupSelection.values[0]], 'include')]
   }
   if (Array.isArray(op.include) && op.include.length > 0) {
     return [
@@ -243,23 +336,31 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   string,
   (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => any[] | null
 > = {
-  [OperationOp.RetrieveValue]: (result, op) => {
-    if (!result.length) return null
-    return [...buildHighlightPlan(uniqueTargets(result), '#ef4444'), ...buildTextPlan(toTargetValueEntries(result), '#111827', 2)]
-  },
+  [OperationOp.RetrieveValue]: (result, op, context) => buildRetrieveValuePlan(result, op, context),
   [OperationOp.Filter]: (result, op) => buildFilterPlan(result, op),
-  [OperationOp.FindExtremum]: (result, op) => {
+  [OperationOp.FindExtremum]: (result, op, context) => {
     if (!result.length) return null
     const value = scalarFromResult(result)
-    const entries = toTargetValueEntries(result)
+    const targets = uniqueTargets(result)
+    const textEntries = targets.map((target) => ({ target, value: Number(value ?? NaN) }))
     const whichLabel = op.which === 'min' ? 'min' : 'max'
     const plan: any[] = []
     if (value != null) {
       plan.push(ops.draw.line(op.chartId, lineAt(value, '#ef4444')))
       plan.push(ops.draw.text(op.chartId, undefined, textScore(value, whichLabel)))
     }
-    if (entries.length) {
-      plan.push(...buildTextPlan(entries, '#111827', 2))
+    if (targets.length) {
+      const topSegmentIds = resolveTopSegmentIdsByTarget(context.container, op.chartId, targets)
+      const anchored = textEntries
+        .map((entry) => {
+          const id = topSegmentIds.get(entry.target)
+          if (!id || !Number.isFinite(entry.value)) return null
+          return { target: id, value: entry.value }
+        })
+        .filter((entry): entry is { target: string; value: number } => entry !== null)
+      if (anchored.length) {
+        plan.push(...buildTextPlan(anchored, '#111827', 2, 'data-id'))
+      }
     }
     return plan.length ? plan : null
   },

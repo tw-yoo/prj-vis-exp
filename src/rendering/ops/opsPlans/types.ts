@@ -1,12 +1,12 @@
 import type { DatumValue, OperationSpec } from '../../../types'
-import type { ChartTypeValue, VegaLiteSpec } from '../../chartRenderer'
+import type { ChartTypeValue, ChartSpec } from '../../../domain/chart'
 
 export type OpsPlanGroups = OperationSpec[][]
 export type OpsPlanObject = Record<string, OperationSpec[]>
 
 export type OpsPlanContext = {
   container: HTMLElement
-  spec: VegaLiteSpec
+  spec: ChartSpec
   chartType: ChartTypeValue | null
   workingData: DatumValue[]
 }

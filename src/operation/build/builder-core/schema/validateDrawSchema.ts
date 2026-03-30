@@ -16,6 +16,7 @@ import type {
 } from '../../../../rendering/draw/types'
 
 type DrawOpStyle = NonNullable<DrawOp['style']>
+type DrawAnnotation = NonNullable<DrawOp['annotation']>
 type TextPosition = NonNullable<DrawTextSpec['position']>
 type TextOffset = NonNullable<DrawTextSpec['offset']>
 type TextStyle = NonNullable<DrawTextSpec['style']>
@@ -47,6 +48,7 @@ const DRAW_OP_KEYS = [
   'action',
   'chartId',
   'select',
+  'annotation',
   'style',
   'text',
   'rect',
@@ -66,6 +68,7 @@ const DRAW_OP_KEYS = [
 const DRAW_OP_KEY_SET = new Set<string>(DRAW_OP_KEYS)
 
 const DRAW_SELECT_KEYS = ['mark', 'field', 'keys'] satisfies ReadonlyArray<keyof DrawSelect>
+const DRAW_ANNOTATION_KEYS = ['lifecycle'] satisfies ReadonlyArray<keyof DrawAnnotation>
 const DRAW_OP_STYLE_KEYS = ['color', 'opacity'] satisfies ReadonlyArray<keyof DrawOpStyle>
 const DRAW_TEXT_KEYS = ['value', 'mode', 'position', 'offset', 'style'] satisfies ReadonlyArray<keyof DrawTextSpec>
 const DRAW_TEXT_POSITION_KEYS = ['x', 'y'] satisfies ReadonlyArray<keyof TextPosition>
@@ -134,6 +137,7 @@ const DRAW_SCALAR_PANEL_STYLE_KEYS = [
 
 const DRAW_FIELD_KEY_MAP: Record<string, readonly string[]> = {
   select: DRAW_SELECT_KEYS,
+  annotation: DRAW_ANNOTATION_KEYS,
   style: DRAW_OP_STYLE_KEYS,
   text: DRAW_TEXT_KEYS,
   'text.position': DRAW_TEXT_POSITION_KEYS,

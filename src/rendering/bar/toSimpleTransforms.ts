@@ -1,9 +1,68 @@
 import type { JsonObject, JsonValue } from '../../types'
-import { renderSimpleBarChart, type SimpleBarSpec } from './simpleBarRenderer'
+import { ChartType } from '../../domain/chart'
+import { type SimpleBarSpec, setSimpleBarStoredData } from './simpleBarRenderer'
 import { getGroupedBarStoredData, type GroupedSpec } from './groupedBarRenderer'
 import { getStackedBarStoredData, type StackedSpec } from './stackedBarRenderer'
+import { storeDerivedChartState } from '../utils/derivedChartState'
+import { storeRuntimeChartState } from '../utils/runtimeChartState'
+import { DataAttributes } from '../interfaces'
 
 type RawDatum = JsonObject
+
+function getLiveSvg(container: HTMLElement) {
+  return container.querySelector('svg')
+}
+
+function isNodeHidden(node: Element) {
+  const attrDisplay = (node.getAttribute('display') ?? '').trim().toLowerCase()
+  if (attrDisplay === 'none') return true
+  const styleDisplay = ((node as HTMLElement | SVGElement).style?.display ?? '').trim().toLowerCase()
+  return styleDisplay === 'none'
+}
+
+function pruneHiddenSvgNodes(container: HTMLElement) {
+  const svg = getLiveSvg(container)
+  if (!svg) return
+  Array.from(svg.querySelectorAll('*')).forEach((node) => {
+    if (!isNodeHidden(node)) return
+    node.remove()
+  })
+}
+
+function normalizeSimpleBarDom(container: HTMLElement) {
+  const svg = getLiveSvg(container)
+  if (!svg) return
+
+  svg.removeAttribute(DataAttributes.ColorField)
+  svg.removeAttribute(DataAttributes.GroupLabel)
+  svg.removeAttribute(DataAttributes.FacetField)
+
+  Array.from(svg.querySelectorAll<SVGElement>('rect, path')).forEach((mark) => {
+    if (isNodeHidden(mark)) {
+      mark.remove()
+      return
+    }
+    const target = (mark.getAttribute(DataAttributes.Target) ?? mark.getAttribute(DataAttributes.Id) ?? '').trim()
+    if (!target) return
+    mark.setAttribute(DataAttributes.Target, target)
+    mark.setAttribute(DataAttributes.Id, target)
+    mark.removeAttribute(DataAttributes.Series)
+    mark.removeAttribute(DataAttributes.GroupValue)
+  })
+}
+
+function finalizeSimpleBarHandoff(container: HTMLElement, spec: SimpleBarSpec, rows: RawDatum[]) {
+  const svg = getLiveSvg(container)
+  pruneHiddenSvgNodes(container)
+  normalizeSimpleBarDom(container)
+  if (svg) {
+    svg.setAttribute(DataAttributes.XField, spec.encoding.x.field)
+    svg.setAttribute(DataAttributes.YField, spec.encoding.y.field)
+  }
+  setSimpleBarStoredData(container, rows)
+  storeRuntimeChartState(container, { chartType: ChartType.SIMPLE_BAR, spec, renderer: 'd3' })
+  storeDerivedChartState(container, ChartType.SIMPLE_BAR, spec)
+}
 
 function cloneRows(rows: RawDatum[]) {
   return rows.map((row) => ({ ...row }))
@@ -133,7 +192,7 @@ export async function convertStackedToSimple(
 ): Promise<SimpleBarSpec | null> {
   const values = resolveDataset(getStackedBarStoredData(container) as RawDatum[], spec.data)
   if (!values.length) {
-    console.warn('stacked-to-simple: no dataset available to re-render simple bar chart')
+    console.warn('stacked-to-simple: no dataset available to hand off simple bar chart state')
     return null
   }
   const seriesField = spec.encoding.color?.field
@@ -159,7 +218,7 @@ export async function convertStackedToSimple(
     baseSort,
     explicitColor,
   })
-  await renderSimpleBarChart(container, simple)
+  finalizeSimpleBarHandoff(container, simple, (simple.data?.values as RawDatum[] | undefined) ?? [])
   return simple
 }
 
@@ -170,7 +229,7 @@ export async function convertGroupedToSimple(
 ): Promise<SimpleBarSpec | null> {
   const values = resolveDataset(getGroupedBarStoredData(container) as RawDatum[], spec.data)
   if (!values.length) {
-    console.warn('grouped-to-simple: no dataset available to re-render simple bar chart')
+    console.warn('grouped-to-simple: no dataset available to hand off simple bar chart state')
     return null
   }
 
@@ -213,6 +272,6 @@ export async function convertGroupedToSimple(
     baseSort,
     explicitColor,
   })
-  await renderSimpleBarChart(container, simple)
+  finalizeSimpleBarHandoff(container, simple, (simple.data?.values as RawDatum[] | undefined) ?? [])
   return simple
 }

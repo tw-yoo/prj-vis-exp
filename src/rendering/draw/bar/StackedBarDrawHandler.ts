@@ -2,12 +2,23 @@ import * as d3 from 'd3'
 import type { JsonValue } from '../../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../../interfaces'
 import { BarDrawHandler } from '../BarDrawHandler'
-import { DrawAction, DrawComparisonOperators, DrawMark, DrawTextModes, type DrawBarSegmentSpec, type DrawOp, type DrawSelect } from '../types'
+import {
+  DrawAction,
+  DrawAnnotationLifecycles,
+  DrawComparisonOperators,
+  DrawMark,
+  DrawTextModes,
+  type DrawBarSegmentSpec,
+  type DrawOp,
+  type DrawSelect,
+} from '../types'
 import { resolveAnnotationKeyForDrawOp } from '../annotationKey'
 import { ensureAnnotationLayer } from '../utils/annotationLayer'
 import { normalizeComparisonCondition } from '../utils/comparison'
 import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from '../animationPolicy'
 import { CHART_TEXT_SIZE } from '../../config/chartTextConfig'
+import { normalizeGroupSelection } from '../../../domain/operation/groupSelection.ts'
+import { applyAxisTickLabelSize } from '../../common/d3Helpers'
 
 async function waitTransition(transition: d3.Transition<any, any, any, any>) {
   try {
@@ -15,6 +26,17 @@ async function waitTransition(transition: d3.Transition<any, any, any, any>) {
   } catch {
     // interrupted transitions are acceptable in interactive workflows
   }
+}
+
+function transitionYAxis(
+  yAxis: d3.Selection<SVGGElement, JsonValue, d3.BaseType, JsonValue>,
+  yScale: d3.ScaleLinear<number, number>,
+  duration: number,
+) {
+  if (yAxis.empty()) return null
+  const transition = yAxis.transition().duration(duration).call(d3.axisLeft(yScale).ticks(5) as any)
+  applyAxisTickLabelSize(yAxis)
+  return transition
 }
 
 type StackedEntry = {
@@ -346,6 +368,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
 
     const style = segment.style
     const condition = normalizeComparisonCondition(segment.when ?? undefined)
+    const lifecycle = op.annotation?.lifecycle ?? DrawAnnotationLifecycles.Transient
 
     filteredTargets.forEach((rects, target) => {
       const first = rects[0]
@@ -386,6 +409,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
         .attr(DataAttributes.ChartId, op.chartId ?? null)
         .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
         .attr(DataAttributes.AnnotationNodeId, annotationNodeId)
+        .attr(DataAttributes.AnnotationLifecycle, lifecycle)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, segY)
         .attr(SvgAttributes.Width, width)
@@ -585,9 +609,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
 
     const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
     const yAxisTransition =
-      yScale && !yAxis.empty()
-        ? yAxis.transition().duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS).call(d3.axisLeft(yScale).ticks(5) as any)
-        : null
+      yScale ? transitionYAxis(yAxis, yScale, NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS) : null
 
     await Promise.all([
       waitTransition(hideTransition),
@@ -718,10 +740,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
     const primaryTick = tickNodes.length ? tickNodes[0] : null
     const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
     const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
-    const yAxisTransition =
-      yScale && !yAxis.empty()
-        ? yAxis.transition().duration(NON_SPLIT_UPDATE_MS).call(d3.axisLeft(yScale).ticks(5) as any)
-        : null
+    const yAxisTransition = yScale ? transitionYAxis(yAxis, yScale, NON_SPLIT_UPDATE_MS) : null
     ticks.each(function () {
       const tick = d3.select(this)
       const isPrimary = this === primaryTick
@@ -801,7 +820,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
   }
 
   override run(op: DrawOp): void | Promise<void> {
-    const hasGroup = op.group != null && String(op.group).trim() !== ''
+    const hasGroup = normalizeGroupSelection((op as DrawOp & { group?: unknown }).group).kind !== 'none'
     if (!hasGroup && op.action === DrawAction.Sort) {
       return this.sortByAggregate(op)
     }

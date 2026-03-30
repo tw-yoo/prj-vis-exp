@@ -1,4 +1,4 @@
-import type { VegaLiteSpec } from './types'
+import type { ChartSpec } from './types'
 
 type PaddingSpec = { left?: number; right?: number; top?: number; bottom?: number }
 type AxisSpec = {
@@ -16,7 +16,7 @@ type LegendSpec = { labelColor?: string; titleColor?: string; labelFontSize?: nu
 type ViewSpec = { stroke?: string }
 type RangeSpec = { category?: string[] }
 
-type NormalizableSpec = VegaLiteSpec & {
+type NormalizableSpec = ChartSpec & {
   encoding?: Record<string, unknown>
   facet?: Record<string, unknown>
   repeat?: Record<string, unknown>
@@ -45,7 +45,7 @@ function hasFacet(spec: NormalizableSpec) {
   return !!encoding?.column || !!facet?.column || !!facet?.row || !!repeat?.column
 }
 
-export function normalizeSpec(spec: VegaLiteSpec): VegaLiteSpec {
+export function normalizeSpec(spec: ChartSpec): ChartSpec {
   const clone: NormalizableSpec = { ...(spec as NormalizableSpec) }
   clone.width = clone.width ?? 600
   clone.height = clone.height ?? 300

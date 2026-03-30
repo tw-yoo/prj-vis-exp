@@ -1,4 +1,4 @@
-import type { VegaLiteSpec } from '../domain/chart'
+import type { ChartSpec } from '../domain/chart'
 import { ChartType, getChartType, type ChartTypeValue } from '../domain/chart'
 import { toDatumValuesFromRaw, type RawRow } from '../domain/data/datum'
 import type { OpsSpecGroupMap } from '../domain/operation/opsSpec'
@@ -44,7 +44,7 @@ export type VisualSentencePlaybackResult = {
 
 export type VisualSubstepExecutionContext = {
   container: HTMLElement
-  spec: VegaLiteSpec
+  spec: ChartSpec
   dataRows?: Array<Record<string, unknown>>
   surfaceManager?: SurfaceManager
   logicalOpsSpec?: OpsSpecGroupMap
@@ -64,7 +64,7 @@ type RunOpsCallback = (
   options: {
     resetRuntime: boolean
     runtimeScope: string
-    executionSpec?: VegaLiteSpec
+    executionSpec?: ChartSpec
     surfaceId?: string
   },
 ) => Promise<void>
@@ -85,12 +85,12 @@ type ExecutionStrategy = {
 }
 
 type SourcePreview = {
-  playbackSpec: VegaLiteSpec
+  playbackSpec: ChartSpec
 }
 
 export type RunVisualSentenceStepArgs = {
   container: HTMLElement
-  spec: VegaLiteSpec
+  spec: ChartSpec
   dataRows?: Array<Record<string, unknown>>
   logicalOpsSpec?: OpsSpecGroupMap
   drawPlan?: OpsSpecGroupMap
@@ -101,7 +101,7 @@ export type RunVisualSentenceStepArgs = {
   currentSurface?: VisualSurfaceState
   resetRuntime?: boolean
   renderSourceChart: () => Promise<void>
-  renderPlaybackChart: (spec: VegaLiteSpec) => Promise<void>
+  renderPlaybackChart: (spec: ChartSpec) => Promise<void>
   runOps: RunOpsCallback
   surfaceManager?: SurfaceManager
   skipDelays?: boolean
@@ -111,11 +111,11 @@ export type RunVisualSentenceStepArgs = {
 
 export type RunVisualExecutionPlanArgs = RunVisualSentenceStepArgs
 
-function cloneSpec(spec: VegaLiteSpec): VegaLiteSpec {
+function cloneSpec(spec: ChartSpec): ChartSpec {
   try {
     return structuredClone(spec)
   } catch {
-    return JSON.parse(JSON.stringify(spec)) as VegaLiteSpec
+    return JSON.parse(JSON.stringify(spec)) as ChartSpec
   }
 }
 
@@ -177,7 +177,7 @@ function detectSurfaceFromOps(ops: OperationSpec[]): VisualSurfaceState {
 }
 
 function buildPrefilterPreview(args: {
-  spec: VegaLiteSpec
+  spec: ChartSpec
   dataRows?: Array<Record<string, unknown>>
   substep: VisualExecutionSubstep
 }): SourcePreview | null {
@@ -192,7 +192,7 @@ function buildPrefilterPreview(args: {
   const includeSet = new Set(groups.map((value) => value.trim()))
   const filteredValues = args.dataRows.filter((row) => includeSet.has(String(row[resolved.groupField!] ?? '')))
   const playbackSpec = cloneSpec(args.spec)
-  playbackSpec.data = { values: filteredValues } as VegaLiteSpec['data']
+  playbackSpec.data = { values: filteredValues } as ChartSpec['data']
   return { playbackSpec }
 }
 
@@ -240,7 +240,7 @@ function cloneRecordRows(rows: Array<Record<string, unknown>>): RawRow[] {
   })
 }
 
-function buildDatumValuesForSpec(spec: VegaLiteSpec, rows: RawRow[]): DatumValue[] {
+function buildDatumValuesForSpec(spec: ChartSpec, rows: RawRow[]): DatumValue[] {
   const resolved = resolveEncodingFields(spec)
   if (!resolved) return []
   return toDatumValuesFromRaw(rows, {
@@ -250,9 +250,9 @@ function buildDatumValuesForSpec(spec: VegaLiteSpec, rows: RawRow[]): DatumValue
   })
 }
 
-function buildFilteredPlaybackSpec(spec: VegaLiteSpec, rows: RawRow[]): VegaLiteSpec {
+function buildFilteredPlaybackSpec(spec: ChartSpec, rows: RawRow[]): ChartSpec {
   const playbackSpec = cloneSpec(spec)
-  playbackSpec.data = { values: cloneRecordRows(rows) } as VegaLiteSpec['data']
+  playbackSpec.data = { values: cloneRecordRows(rows) } as ChartSpec['data']
   return playbackSpec
 }
 
@@ -260,7 +260,7 @@ function sleepMs(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function resolveSurfaceSpec(context: VisualSubstepExecutionContext, surfaceId?: string): VegaLiteSpec {
+function resolveSurfaceSpec(context: VisualSubstepExecutionContext, surfaceId?: string): ChartSpec {
   if (!surfaceId || surfaceId === 'root') return context.spec
   return context.surfaceManager?.getSurface(surfaceId)?.spec ?? context.spec
 }
@@ -335,7 +335,7 @@ function buildSurfaceActionOps(substep: VisualExecutionSubstep): OperationSpec[]
 async function materializePreparedSurface(args: {
   substep: VisualExecutionSubstep
   context: VisualSubstepExecutionContext
-  renderPlaybackChart: (spec: VegaLiteSpec) => Promise<void>
+  renderPlaybackChart: (spec: ChartSpec) => Promise<void>
   runOps: RunOpsCallback
   resetRuntime: () => boolean
   selectedSurface?: DerivedSurfaceSelection | null
@@ -536,7 +536,7 @@ function resolveExecutionSurface(args: {
 export async function executePrefilterSubstep(args: {
   substep: VisualExecutionSubstep
   context: VisualSubstepExecutionContext
-  renderPlaybackChart: (spec: VegaLiteSpec) => Promise<void>
+  renderPlaybackChart: (spec: ChartSpec) => Promise<void>
 }): Promise<{
   executed: boolean
   nextSurface: VisualSurfaceState
@@ -563,7 +563,7 @@ export async function executeMaterializeSurfaceSubstep(args: {
   substep: VisualExecutionSubstep
   context: VisualSubstepExecutionContext
   renderSourceChart: () => Promise<void>
-  renderPlaybackChart: (spec: VegaLiteSpec) => Promise<void>
+  renderPlaybackChart: (spec: ChartSpec) => Promise<void>
   runOps: RunOpsCallback
   resetRuntime: () => boolean
 }): Promise<{
@@ -629,7 +629,7 @@ export async function executeRunOpSubstep(args: {
   substep: VisualExecutionSubstep
   context: VisualSubstepExecutionContext
   renderSourceChart: () => Promise<void>
-  renderPlaybackChart: (spec: VegaLiteSpec) => Promise<void>
+  renderPlaybackChart: (spec: ChartSpec) => Promise<void>
   runOps: RunOpsCallback
   resetRuntime: () => boolean
   restartSourceLayer: boolean
@@ -784,7 +784,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
       await args.renderSentenceSummary(currentSummaryText)
     }
   }
-  const renderPlaybackChartWithSummary = async (spec: VegaLiteSpec) => {
+  const renderPlaybackChartWithSummary = async (spec: ChartSpec) => {
     await args.renderPlaybackChart(spec)
     if (currentSummaryText && args.renderSentenceSummary) {
       await args.renderSentenceSummary(currentSummaryText)

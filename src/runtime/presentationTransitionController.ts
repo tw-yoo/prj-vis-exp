@@ -31,7 +31,9 @@ function hasEmphasisOpacity(node: Element) {
   const raw = node.getAttribute('opacity')
   if (raw == null || raw.trim().length === 0) return false
   const opacity = Number(raw)
-  return Number.isFinite(opacity) && opacity < 0.999
+  // Native chart marks legitimately use partial opacity (e.g. line points at 0.85).
+  // Treat only stronger fades/dims as "emphasis" that deserves handoff preservation.
+  return Number.isFinite(opacity) && opacity < 0.75
 }
 
 function hostContainsEmphasis(host: HTMLElement) {

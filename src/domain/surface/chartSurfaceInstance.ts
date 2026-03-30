@@ -1,5 +1,5 @@
 import type { ChartTypeValue } from '../chart'
-import type { VegaLiteSpec } from '../chart'
+import type { ChartSpec } from '../chart'
 import type { DatumValue } from '../operation/types'
 import type { SurfaceRuntimeContext } from './surfaceRuntimeContext'
 
@@ -15,8 +15,8 @@ export interface ChartSurfaceInstance {
   id: string
   /** 이 surface가 렌더링되는 전용 host handle (browser runtime에서는 DOM host object) */
   hostElement: unknown
-  /** 현재 chart의 Vega-Lite spec */
-  spec: VegaLiteSpec
+  /** 현재 chart의 입력 spec */
+  spec: ChartSpec
   /** 현재 chart 타입 (SIMPLE_BAR, MULTI_LINE 등) */
   chartType: ChartTypeValue
   /** 이 surface의 원본 데이터 (split 전 전체 or 해당 domain) */

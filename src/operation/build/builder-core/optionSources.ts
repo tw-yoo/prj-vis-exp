@@ -1,4 +1,4 @@
-import type { VegaLiteSpec } from '../../../domain/chart'
+import type { ChartSpec } from '../../../domain/chart'
 import { DataAttributes } from '../../../rendering/interfaces/attributes'
 import type { OpsBuilderOptionSources } from './types'
 
@@ -40,7 +40,7 @@ const collectFromContainer = (container: HTMLElement | null) => {
   return { targets, series, ids, values }
 }
 
-const collectEncodingFields = (spec: VegaLiteSpec | null) => {
+const collectEncodingFields = (spec: ChartSpec | null) => {
   const fields = new Set<string>()
   if (!spec) return fields
   const specRecord = spec as Record<string, unknown>
@@ -63,7 +63,7 @@ const collectEncodingFields = (spec: VegaLiteSpec | null) => {
   return fields
 }
 
-const collectFromSpecData = (spec: VegaLiteSpec | null) => {
+const collectFromSpecData = (spec: ChartSpec | null) => {
   const targets = new Set<string>()
   const series = new Set<string>()
   const values = new Set<string>()
@@ -90,7 +90,7 @@ export const getEmptyOptionSources = () => ({ ...emptySources })
 
 export const collectOpsBuilderOptionSources = (params: {
   container: HTMLElement | null
-  spec: VegaLiteSpec | null
+  spec: ChartSpec | null
 }): OpsBuilderOptionSources => {
   const { container, spec } = params
   const fromContainer = collectFromContainer(container)

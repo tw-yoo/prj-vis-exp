@@ -1,30 +1,26 @@
 import type { ChartTypeValue } from '../../domain/chart'
-import type { VegaLiteSpec } from '../../domain/chart'
+import type { ChartSpec } from '../../domain/chart'
 
-const DERIVED_CHART_TYPE_KEY = 'derivedChartType'
-const DERIVED_SPEC_KEY = 'derivedSpec'
+type DerivedChartState = {
+  chartType: ChartTypeValue
+  spec: ChartSpec
+}
+
+const derivedChartStateStore = new WeakMap<HTMLElement, DerivedChartState>()
 
 export function storeDerivedChartState(
   container: HTMLElement,
   chartType: ChartTypeValue,
-  spec: VegaLiteSpec,
+  spec: ChartSpec,
 ): void {
-  container.dataset[DERIVED_CHART_TYPE_KEY] = chartType
-  container.dataset[DERIVED_SPEC_KEY] = JSON.stringify(spec)
+  derivedChartStateStore.set(container, { chartType, spec })
 }
 
 export function consumeDerivedChartState(
   container: HTMLElement,
-): { chartType: ChartTypeValue; spec: VegaLiteSpec } | null {
-  const chartType = container.dataset[DERIVED_CHART_TYPE_KEY] as ChartTypeValue | undefined
-  const specJson = container.dataset[DERIVED_SPEC_KEY]
-  if (!chartType || !specJson) return null
-  delete container.dataset[DERIVED_CHART_TYPE_KEY]
-  delete container.dataset[DERIVED_SPEC_KEY]
-  try {
-    const spec = JSON.parse(specJson) as VegaLiteSpec
-    return { chartType, spec }
-  } catch {
-    return null
-  }
+): { chartType: ChartTypeValue; spec: ChartSpec } | null {
+  const state = derivedChartStateStore.get(container) ?? null
+  if (!state) return null
+  derivedChartStateStore.delete(container)
+  return state
 }

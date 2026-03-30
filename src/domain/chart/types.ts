@@ -1,6 +1,6 @@
 import type { JsonValue } from '../operation/types'
 
-export interface VegaLiteSpec {
+export interface ChartSpec {
   $schema?: string
   data?: {
     url?: string
@@ -13,8 +13,12 @@ export interface VegaLiteSpec {
   config?: Record<string, JsonValue>
   width?: number
   height?: number
+  padding?: number | { left?: number; right?: number; top?: number; bottom?: number }
+  autosize?: unknown
   [key: string]: unknown
 }
+
+export type VegaLiteSpec = ChartSpec
 
 export const ChartType = Object.freeze({
   SIMPLE_BAR: 'Simple bar chart',

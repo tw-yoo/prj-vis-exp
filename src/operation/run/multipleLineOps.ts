@@ -25,8 +25,8 @@ import { convertMultiLineToSimpleLine } from '../../rendering/line/multiLineToSi
 import { handleSimpleLineDraw } from './simpleLineOps.ts'
 import { SimpleLineDrawHandler } from '../../rendering/draw/line/SimpleLineDrawHandler.ts'
 
-function toDatumValues(raw: RawRow[], xField: string, yField: string): DatumValue[] {
-  return toDatumValuesFromRaw(raw, { xField, yField })
+function toDatumValues(raw: RawRow[], xField: string, yField: string, groupField?: string | null): DatumValue[] {
+  return toDatumValuesFromRaw(raw, { xField, yField, ...(groupField ? { groupField } : {}) })
 }
 
 function resolveTargetSeriesFromOp(op: DrawOp): string | null {
@@ -114,8 +114,8 @@ export async function runMultipleLineOps(
   opsSpec: OpsSpecInput,
   options?: RunChartOpsOptions,
 ) {
-  const encoding = resolveMultiLineEncoding(vlSpec)
-  if (!encoding) {
+  const initialEncoding = resolveMultiLineEncoding(vlSpec)
+  if (!initialEncoding) {
     console.warn('runMultipleLineOps: missing x/y encoding; some operations may be unavailable')
   }
   const { getOperationInput, handleOperationResult, clearChartWorking } = createChartScopedWorkingSet({
@@ -135,8 +135,9 @@ export async function runMultipleLineOps(
     postRender: async (host, spec) => tagMultipleLineMarks(host, spec),
     getWorkingData: (_, spec) => {
       const raw = getMultipleLineStoredData(container) || []
+      const encoding = resolveMultiLineEncoding(spec)
       if (!encoding) return []
-      return toDatumValues(raw, encoding.xField, encoding.yField)
+      return toDatumValues(raw, encoding.xField, encoding.yField, encoding.colorField)
     },
     createHandler: () => new MultiLineDrawHandler(container),
     handleDrawOp: async (host, handler, drawOp) => {
@@ -156,5 +157,6 @@ export async function runMultipleLineOps(
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,
     initialRenderMode: options?.initialRenderMode ?? 'always',
+    operationIndexStart: options?.operationIndexStart ?? 0,
   })
 }

@@ -1,4 +1,4 @@
-import type { JsonObject, JsonValue, OperationSpec, VegaLiteSpec } from '../../../src/api/legacy'
+import type { JsonObject, JsonValue, OperationSpec, ChartSpec } from '../../../src/api/legacy'
 
 /** Canonical page keys used by survey flows. */
 export type SurveyPageKey =
@@ -79,7 +79,7 @@ export interface SurveySubmission {
 export interface SurveyChartTask {
   id: string
   title?: string
-  vlSpec: VegaLiteSpec
+  vlSpec: ChartSpec
   opsSpec?: OperationSpec[] | { ops: OperationSpec[] } | JsonObject
 }
 

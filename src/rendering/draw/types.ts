@@ -224,6 +224,17 @@ export type DrawBarSegmentSpec = {
   style?: { fill?: string; opacity?: number; stroke?: string; strokeWidth?: number }
 }
 
+export const DrawAnnotationLifecycles = {
+  Persistent: 'persistent',
+  Transient: 'transient',
+} as const
+
+export type DrawAnnotationLifecycle = (typeof DrawAnnotationLifecycles)[keyof typeof DrawAnnotationLifecycles]
+
+export type DrawAnnotationSpec = {
+  lifecycle?: DrawAnnotationLifecycle
+}
+
 export type DrawSplitSpec = {
   mode?: 'domain' | 'selector'
   by?: 'x'
@@ -316,6 +327,7 @@ export type DrawOp = OperationSpec & {
   /** When the chart is split, targets a specific sub-chart group id. */
   chartId?: string
   select?: DrawSelect
+  annotation?: DrawAnnotationSpec
   style?: { color?: string; opacity?: number }
   text?: DrawTextSpec
   rect?: DrawRectSpec

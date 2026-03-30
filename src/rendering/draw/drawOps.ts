@@ -1,6 +1,8 @@
 import { OperationOp } from '../../types'
 import {
   DrawAction,
+  DrawAnnotationLifecycles,
+  type DrawAnnotationSpec,
   type DrawBarSegmentSpec,
   type DrawComparisonOperator,
   type DrawFilterSpec,
@@ -24,6 +26,7 @@ type BaseDrawArgs = {
   chartId?: string
   select?: DrawSelect
   selectKeys?: Array<string | number>
+  annotation?: DrawAnnotationSpec
   meta?: OperationSpec['meta']
 }
 
@@ -41,6 +44,7 @@ const buildSelect = (args: BaseDrawArgs): DrawSelect | undefined => {
 const buildDrawBase = (action: DrawAction, args: BaseDrawArgs = {}): DrawOp => ({
   op: OperationOp.Draw,
   action,
+  annotation: args.annotation,
   meta: args.meta,
   chartId: args.chartId,
   select: buildSelect(args),
@@ -102,7 +106,14 @@ export const drawOps = {
   },
 
   barSegment(args: DrawBarSegmentArgs): DrawOp {
-    return { ...buildDrawBase(DrawAction.BarSegment, args), segment: args.segment }
+    const annotation: DrawAnnotationSpec = {
+      ...(args.annotation ?? {}),
+      lifecycle: args.annotation?.lifecycle ?? DrawAnnotationLifecycles.Transient,
+    }
+    return {
+      ...buildDrawBase(DrawAction.BarSegment, { ...args, annotation }),
+      segment: args.segment,
+    }
   },
 
   split(args: DrawSplitArgs): DrawOp {

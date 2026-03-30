@@ -1,4 +1,3 @@
-export * from './chartRenderer'
 export * from './renderChart'
 export { clearAnnotations } from './common/d3Helpers'
 export { getChartContext } from './common/d3Helpers'

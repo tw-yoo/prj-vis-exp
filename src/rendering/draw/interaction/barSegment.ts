@@ -64,7 +64,7 @@ function parseNumericLabel(text: string): number | null {
 }
 
 function collectBars(scopeElement: Element, svg: SVGSVGElement): BarSpan[] {
-  // Vega can render bars as <rect> or <path> depending on configuration/stacking.
+  // Bar marks may be rendered as <rect> or <path> depending on the chart geometry.
   const selector = [
     `${SvgElements.Rect}[${DataAttributes.Target}]`,
     `${SvgElements.Path}[${DataAttributes.Target}]`,

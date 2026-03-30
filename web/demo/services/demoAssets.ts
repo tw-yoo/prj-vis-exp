@@ -1,11 +1,11 @@
-import type { OpsSpecInput, VegaLiteSpec } from '../../../src/api/types'
+import type { OpsSpecInput, ChartSpec } from '../../../src/api/types'
 
-export const DEMO_VL_SPEC_PATH = '/survey/data/vlSpec/ch_bar_grouped_203_88.json'
+export const DEMO_VL_SPEC_PATH = 'ChartQA/data/vlSpec/bar/simple/0a5npu4o61dz4r5f.json'
 export const DEMO_OPS_SPEC_PATH = '/survey/data/opsSpec/op_bar_grouped_203_88.json'
 export const DEMO_SENTENCES_PATH = '/survey/data/demo/sentences_bar_grouped_203_88.json'
 
 export type DemoAssets = {
-  vlSpec: VegaLiteSpec
+  vlSpec: ChartSpec
   opsSpec: OpsSpecInput
   sentences: string[]
 }
@@ -17,7 +17,7 @@ function normalizeStaticDataUrl(url: string) {
   return `/${trimmed.replace(/^\.?\//, '')}`
 }
 
-function normalizeSpecDataPath(spec: VegaLiteSpec): VegaLiteSpec {
+function normalizeSpecDataPath(spec: ChartSpec): ChartSpec {
   if (!spec.data?.url || typeof spec.data.url !== 'string') {
     return spec
   }
@@ -47,7 +47,7 @@ function assertSentenceList(value: unknown): string[] {
 
 export async function loadDemoAssets(): Promise<DemoAssets> {
   const [vlSpecRaw, opsSpec, sentencesRaw] = await Promise.all([
-    fetchJson<VegaLiteSpec>(DEMO_VL_SPEC_PATH),
+    fetchJson<ChartSpec>(DEMO_VL_SPEC_PATH),
     fetchJson<OpsSpecInput>(DEMO_OPS_SPEC_PATH),
     fetchJson<unknown>(DEMO_SENTENCES_PATH),
   ])

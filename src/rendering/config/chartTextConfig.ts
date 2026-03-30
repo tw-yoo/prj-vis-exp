@@ -1,6 +1,6 @@
 export const CHART_TEXT_SIZE = Object.freeze({
-  axisLabel: 16,
-  axisTitle: 20,
+  axisLabel: 20,
+  axisTitle: 30,
   legendLabel: 16,
   legendTitle: 18,
   chartTitle: 18,

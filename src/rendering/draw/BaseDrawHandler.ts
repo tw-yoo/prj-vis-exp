@@ -441,7 +441,6 @@ export abstract class BaseDrawHandler {
     const axisTextSelectors = [
       SvgSelectors.XAxisText,
       SvgSelectors.YAxisText,
-      SvgSelectors.VegaRoleAxisLabelText,
       SvgSelectors.XAxisLabelText,
       SvgSelectors.YAxisLabelText,
     ].join(', ')
@@ -1214,13 +1213,16 @@ export abstract class BaseDrawHandler {
     const numeric = Number(value)
     if (Number.isFinite(numeric)) tokens.add(String(numeric))
 
-    const date = new Date(value)
-    if (Number.isFinite(date.getTime())) {
-      const iso = date.toISOString()
-      tokens.add(iso)
-      tokens.add(iso.slice(0, 10))
-      tokens.add(iso.slice(0, 7))
-      tokens.add(String(date.getUTCFullYear()))
+    const numericOnly = /^[+-]?(?:\d+|\d+\.\d+)$/.test(value)
+    if (!numericOnly) {
+      const date = new Date(value)
+      if (Number.isFinite(date.getTime())) {
+        const iso = date.toISOString()
+        tokens.add(iso)
+        tokens.add(iso.slice(0, 10))
+        tokens.add(iso.slice(0, 7))
+        tokens.add(String(date.getUTCFullYear()))
+      }
     }
 
     const plainDate = /^(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?$/.exec(value)
@@ -1262,31 +1264,6 @@ export abstract class BaseDrawHandler {
       const y = (viewBox?.y ?? 0) + (elRect.top - svgRect.top + elRect.height / 2) * scaleY
       tickCenters.push({ value, y })
     })
-    if (tickCenters.length < 2) {
-      scope
-        .selectAll<SVGTextElement, JsonValue>(SvgSelectors.VegaAxisLabelCandidates)
-        .filter(function () {
-          const el = this as SVGTextElement
-          const hasYAxisAria = (node: Element | null) => {
-            let cur: Element | null = node
-            while (cur) {
-              const aria = (cur.getAttribute('aria-label') ?? '').toLowerCase()
-              if (aria.includes('y-axis') || aria.includes('y axis')) return true
-              cur = cur.parentElement
-            }
-            return false
-          }
-          return hasYAxisAria(el)
-        })
-        .each(function () {
-          const text = (this as SVGTextElement).textContent?.trim().replace(/,/g, '') ?? ''
-          const value = Number(text)
-          if (!Number.isFinite(value)) return
-          const elRect = (this as Element).getBoundingClientRect()
-          const y = (viewBox?.y ?? 0) + (elRect.top - svgRect.top + elRect.height / 2) * scaleY
-          tickCenters.push({ value, y })
-        })
-    }
     const markCenters: Array<{ value: number; y: number }> = []
     scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).each((_, i, nodes) => {
       const el = nodes[i] as Element
@@ -1842,7 +1819,7 @@ export abstract class BaseDrawHandler {
           maxX: number
           height: number
         }> = []
-        let tickSource: 'y-axis-class' | 'role-axis-label' | 'marks' | 'unknown' = 'unknown'
+        let tickSource: 'y-axis-class' | 'marks' | 'unknown' = 'unknown'
         // 1) Preferred: explicit y-axis class (bar charts)
         scope.selectAll<SVGGElement, JsonValue>(`.${SvgClassNames.YAxis} .${SvgClassNames.Tick}`).each(function () {
           const tick = this as SVGGElement
@@ -1864,40 +1841,6 @@ export abstract class BaseDrawHandler {
           })
           tickSource = 'y-axis-class'
         })
-        // 2) Vega-Lite axes often use role/aria-label / role-axis-label classes; capture them (y-axis only)
-        if (!tickInfos.length) {
-          scope
-            .selectAll<SVGTextElement, any>(SvgSelectors.VegaAxisLabelCandidates)
-            .filter(function () {
-              const el = this as SVGTextElement
-              const cls = (el.getAttribute('class') || '').toLowerCase()
-              const parent = el.parentElement
-              const ariaSelf = el.getAttribute('aria-label')?.toLowerCase() || ''
-              const ariaParent = parent?.getAttribute('aria-label')?.toLowerCase() || ''
-              const axisAncestor = el.closest('[aria-label*=\"y-axis\"], [aria-label*=\"y axis\"]')
-              const isAxisLabel = cls.includes('role-axis-label') || ariaSelf.includes('y-axis') || ariaParent.includes('y-axis') || axisAncestor
-              return Boolean(isAxisLabel)
-            })
-            .each(function () {
-              const el = this as SVGTextElement
-              const str = String(el.textContent ?? '').trim().replace(/,/g, '')
-              const num = Number(str)
-              if (!Number.isFinite(num)) return
-              const bbox = el.getBoundingClientRect()
-              const minX = (bbox.left - svgRect.left) * scaleX
-              const maxX = (bbox.right - svgRect.left) * scaleX
-              tickInfos.push({
-                value: num,
-                centerY: (viewBox?.y ?? 0) + (bbox.top - svgRect.top + bbox.height / 2) * scaleY,
-                minY: (viewBox?.y ?? 0) + (bbox.top - svgRect.top) * scaleY,
-                maxY: (viewBox?.y ?? 0) + (bbox.bottom - svgRect.top) * scaleY,
-                minX: (viewBox?.x ?? 0) + minX,
-                maxX: (viewBox?.x ?? 0) + maxX,
-                height: bbox.height * scaleY,
-              })
-              tickSource = 'role-axis-label'
-            })
-        }
         if (!tickInfos.length) {
           const markInfos: Array<{ value: number; centerY: number; minX: number; maxX: number }> = []
           scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets).each((_, i, nodes) => {
@@ -2347,7 +2290,7 @@ export abstract class BaseDrawHandler {
           const cy = Number(node.getAttribute(SvgAttributes.CY))
           if (Number.isFinite(cx) && Number.isFinite(cy)) return { x: cx, y: cy, exact: true as const }
         }
-        // Vega/custom bar marks may be <path> or other shapes. Use visual bbox top/bottom edge.
+        // Non-rect bar marks may be <path> or other shapes. Use the visual bbox edge.
         const nodeRect = node.getBoundingClientRect()
         if (Number.isFinite(nodeRect.width) && Number.isFinite(nodeRect.height) && nodeRect.width > 0 && nodeRect.height > 0) {
           const center = toViewBoxPoint(nodeRect.left + nodeRect.width / 2, nodeRect.top + nodeRect.height / 2)

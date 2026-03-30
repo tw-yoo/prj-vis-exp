@@ -1,5 +1,5 @@
 import type { DrawOp } from '../../types'
-import type { ChartTypeValue } from '../../../chartRenderer'
+import type { ChartTypeValue } from '../../../../domain/chart'
 import type { DrawInteractionTool } from '../types'
 import {
   type DrawTimelineStep,

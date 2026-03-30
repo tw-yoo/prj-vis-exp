@@ -45,12 +45,7 @@ test('워크벤치: draw stacked-to-diverging op가 centered(diverging) stacked 
 
   const lastSpec = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    const candidates: any[] = [host, ...(host ? Array.from(host.querySelectorAll('*')) : [])]
-    for (const el of candidates) {
-      const spec = (el as any).__lastVegaLiteSpec
-      if (spec && spec.encoding && spec.encoding.y) return spec
-    }
-    return null
+    return host?.__chartRuntimeState?.spec ?? null
   })
 
   expect(lastSpec).toBeTruthy()

@@ -425,7 +425,10 @@ export function makeGetSvgAndSetup(opts: { preferPlotArea?: boolean } = {}) {
 }
 
 /** Adjust x/y-axis label clearance by nudging titles if they overlap ticks. */
-export function ensureXAxisLabelClearance(chartId: string, opts: { attempts?: number; minGap?: number; maxShift?: number } = {}) {
+export function ensureXAxisLabelClearance(
+  chartTarget: string | HTMLElement,
+  opts: { attempts?: number; minGap?: number; maxShift?: number } = {},
+) {
   const attempts = Math.max(1, Math.floor(opts.attempts ?? 3))
   let remaining = attempts
   const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: FrameRequestCallback) => setTimeout(cb, 16)
@@ -434,7 +437,12 @@ export function ensureXAxisLabelClearance(chartId: string, opts: { attempts?: nu
     if (remaining <= 0) return
     remaining -= 1
     schedule(() => {
-      const container = document.getElementById(chartId)
+      const container =
+        typeof chartTarget === 'string'
+          ? document.getElementById(chartTarget)
+          : chartTarget instanceof HTMLElement
+            ? chartTarget
+            : null
       if (!container) return
       const svg = container.querySelector('svg')
       if (!svg) return
@@ -490,6 +498,7 @@ export function shrinkSvgViewBox(container: HTMLElement | SVGSVGElement | null, 
 
 export const DEFAULT_ANNOTATION_SELECTORS = [
   SvgSelectors.Annotation,
+  `.${SvgClassNames.BarSegmentAnnotation}`,
   '.filter-label',
   '.sort-label',
   '.value-tag',

@@ -1,5 +1,5 @@
 import type { OperationSpec } from '../../types'
-import type { ChartTypeValue } from '../chartRenderer'
+import type { ChartTypeValue } from '../../domain/chart'
 import { normalizeOpsList, type OpsSpecInput } from '../ops/common/opsSpec'
 import { isDrawOp } from '../ops/operationPipeline'
 import { DrawAction, type DrawAction as DrawActionValue, type DrawOp } from './types'

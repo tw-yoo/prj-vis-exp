@@ -207,7 +207,7 @@ function targetAggregate(data: DatumValue[], target: string) {
 
 function highlightTargets(op: OperationSpec, targets: string[], color = '#0ea5e9') {
   if (!targets.length) return [] as any[]
-  return [ops.draw.highlight(op.chartId, draw.select.markKeys('rect', ...targets), color)]
+  return [ops.draw.highlight(op.chartId, draw.select.markFieldKeys('rect', 'target', ...targets), color)]
 }
 
 function emphasizedTargets(op: OperationSpec, targets: string[]) {
@@ -344,7 +344,7 @@ function buildPairBarValueTexts(op: OperationSpec, targetA: string, valueA: numb
     plan.push(
       ops.draw.text(
         op.chartId,
-        draw.select.markKeys('rect', targetA),
+        draw.select.markFieldKeys('rect', 'target', targetA),
         draw.textSpec.anchor(formatDrawNumber(Number(valueA)), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
       ),
     )
@@ -353,7 +353,7 @@ function buildPairBarValueTexts(op: OperationSpec, targetA: string, valueA: numb
     plan.push(
       ops.draw.text(
         op.chartId,
-        draw.select.markKeys('rect', targetB),
+        draw.select.markFieldKeys('rect', 'target', targetB),
         draw.textSpec.anchor(formatDrawNumber(Number(valueB)), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
       ),
     )
@@ -369,7 +369,7 @@ function textTargets(result: DatumValue[], op: OperationSpec, precision = 2) {
     plan.push(
       ops.draw.text(
         op.chartId,
-        draw.select.markKeys('rect', String(entry.target)),
+        draw.select.markFieldKeys('rect', 'target', String(entry.target)),
         draw.textSpec.anchor(formatDrawNumber(numeric, precision), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
       ),
     )
@@ -746,7 +746,7 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
       plan.push(
         ops.draw.text(
           op.chartId,
-          draw.select.markKeys('rect', targetPoint.target),
+          draw.select.markFieldKeys('rect', 'target', targetPoint.target),
           draw.textSpec.anchor(
             formatDrawNumber(Number.isFinite(targetActualValue ?? NaN) ? Number(targetActualValue) : scalar),
             draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),

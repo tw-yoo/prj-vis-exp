@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { JsonValue, VegaLiteSpec } from '../../../src/api/types'
+import type { JsonValue, ChartSpec } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import { listDocuments } from '../services'
 import './resultViewer.css'
@@ -33,7 +33,7 @@ function parseQuestions(fields: Record<string, JsonValue>): Record<string, Quest
   return out
 }
 
-async function loadChartSpecById(chartId: string): Promise<VegaLiteSpec> {
+async function loadChartSpecById(chartId: string): Promise<ChartSpec> {
   const candidates = [
     `/survey/data/vlSpec/${chartId}.json`,
     `/survey/data/vlSpec/ch_${chartId}.json`,
@@ -49,7 +49,7 @@ async function loadChartSpecById(chartId: string): Promise<VegaLiteSpec> {
         lastError = new Error(`Failed to load spec ${url} (HTTP ${res.status})`)
         continue
       }
-      return (await res.json()) as VegaLiteSpec
+      return (await res.json()) as ChartSpec
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
     }

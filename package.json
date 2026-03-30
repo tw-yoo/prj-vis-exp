@@ -31,14 +31,11 @@
     "d3": "^7.9.0",
     "nodejs-polars": "^0.21.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "vega": "^5.30.0",
-    "vega-embed": "^6.25.0",
-    "vega-lite": "^5.17.0"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.54.2",
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.54.2",
     "@types/d3": "^7.4.3",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",

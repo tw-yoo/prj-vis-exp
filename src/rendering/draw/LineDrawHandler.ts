@@ -13,10 +13,9 @@ export class LineDrawHandler extends BaseDrawHandler {
   protected lineMarkSelector(mark?: DrawMark) {
     switch (mark) {
       case DrawMark.Circle:
-        // Vega-Lite line points are commonly rendered as <path aria-roledescription="point">.
-        return `${SvgElements.Circle}[aria-roledescription="point"], ${SvgElements.Path}[aria-roledescription="point"], .mark-symbol path`
+        return `${SvgElements.Circle}[${DataAttributes.Target}]`
       case DrawMark.Path:
-        return `${SvgElements.Path}[aria-roledescription="line mark"], ${SvgElements.Path}[aria-roledescription="line"], ${SvgElements.Path}`
+        return `${SvgElements.Path}[${DataAttributes.Series}], ${SvgElements.Path}`
       case DrawMark.Rect:
         return `${SvgElements.Rect}`
       default:

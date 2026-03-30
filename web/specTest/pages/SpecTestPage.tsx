@@ -97,8 +97,7 @@ function normalizeSpecDataUrl(rawUrl: string | undefined) {
   if (rawUrl.startsWith('ChartQA/')) return `/${rawUrl}`
   // TEMP: repo-local test fixtures live under /data/test/** (not under /ChartQA/**).
   // Without this, "data/test/..." would be incorrectly rewritten to "/ChartQA/data/test/..."
-  // and the dev server might return HTML (SPA fallback), causing empty/invalid data and
-  // Vega warnings like "Infinite extent for field ...".
+  // and the dev server might return HTML (SPA fallback), causing empty/invalid data.
   if (rawUrl.startsWith('data/test/')) return `/${rawUrl}`
   if (rawUrl.startsWith('data/')) return `/ChartQA/${rawUrl}`
   return rawUrl
@@ -268,7 +267,7 @@ async function loadDataRowsFromSpec(spec: VegaLiteSpec): Promise<UnknownRecord[]
 
   const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
   // If the dev server returns SPA HTML for an unknown path, parsing it as CSV silently
-  // produces empty/invalid rows and Vega ends up with "Infinite extent" warnings.
+  // produces empty/invalid rows.
   if (contentType.includes('text/html')) {
     throw new Error(`Chart data URL resolved to HTML (likely wrong path mapping): ${url}`)
   }

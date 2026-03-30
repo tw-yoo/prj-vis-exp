@@ -19,8 +19,6 @@ function highlightSeriesPoints(result: DatumValue[], chartId?: string, color = '
     if (!target || seen.has(target)) return
     seen.add(target)
     out.push(ops.draw.highlight(chartId, draw.select.markKeys('circle', target), color))
-    out.push(ops.draw.highlight(chartId, draw.select.markKeys('path', target), color))
-    out.push(ops.draw.highlight(chartId, draw.select.markKeys('rect', target), color))
   })
   return out
 }

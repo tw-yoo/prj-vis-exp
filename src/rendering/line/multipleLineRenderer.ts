@@ -1,11 +1,18 @@
 import * as d3 from 'd3'
 import type { JsonValue } from '../../types'
-import { bumpRenderEpoch, type VegaLiteSpec } from '../chartRenderer'
+import { ChartType, type ChartSpec } from '../../domain/chart'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
-import { applyAxisTickLabelSize, ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { applyAxisTickLabelSize } from '../common/d3Helpers'
+import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } from '../common/chartHoverTooltip'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
+import { renderColorLegend, resolveColorLegendTitle as resolveChannelLegendTitle } from '../common/colorLegend'
+import { resolveLayoutModel } from '../common/chartLayout'
+import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
+import { createTemporalTickFormatter } from '../common/temporalTicks'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
+import { bumpRenderEpoch } from '../common/renderEpoch'
+import { storeRuntimeChartState } from '../utils/runtimeChartState'
 
 const localDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
 const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new WeakMap()
@@ -13,7 +20,7 @@ const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new 
 type RawDatum = Record<string, JsonValue>
 type AxisScale = d3.ScaleTime<number, number> | d3.ScaleLinear<number, number> | d3.ScalePoint<string>
 
-function resolveLineMark(mark: VegaLiteSpec['mark']) {
+function resolveLineMark(mark: ChartSpec['mark']) {
   if (typeof mark === 'string') return { type: mark, point: true }
   const markObj = mark && typeof mark === 'object' ? mark : {}
   const type = typeof markObj.type === 'string' ? markObj.type : 'line'
@@ -31,11 +38,6 @@ function toDateValue(raw: JsonValue) {
   return new Date(String(raw))
 }
 
-function formatTemporalTick(value: Date | d3.NumberValue) {
-  const date = value instanceof Date ? value : new Date(Number(value))
-  return d3.timeFormat('%Y-%m-%d')(date)
-}
-
 function getDatumRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value as Record<string, unknown>
@@ -50,7 +52,7 @@ function normalizeOptionalLabel(value: JsonValue | undefined) {
   return str.length > 0 ? str : null
 }
 
-export type MultiLineSpec = VegaLiteSpec & {
+export type MultiLineSpec = ChartSpec & {
   encoding?: {
     x?: { field?: string; type?: string }
     y?: { field?: string; type?: string }
@@ -87,7 +89,7 @@ function extractAxisTitle(channel: unknown): string | null | undefined {
   return undefined
 }
 
-function normalizeLayers(spec: VegaLiteSpec) {
+function normalizeLayers(spec: ChartSpec) {
   const baseEncoding = asRecord((spec as { encoding?: unknown }).encoding)
   if (Array.isArray(spec.layer) && spec.layer.length > 0) {
     return spec.layer.map((layer) => ({
@@ -121,7 +123,7 @@ function resolveMultiLineAxisLabels(spec: MultiLineSpec, encoding: ResolvedMulti
     }
   }
 
-  const layers = normalizeLayers(spec as VegaLiteSpec)
+  const layers = normalizeLayers(spec as ChartSpec)
   let xTitle: string | null | undefined
   let yTitle: string | null | undefined
   for (const layer of layers) {
@@ -137,20 +139,55 @@ function resolveMultiLineAxisLabels(spec: MultiLineSpec, encoding: ResolvedMulti
   }
 }
 
+function compareDomainLabel(a: string, b: string) {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+}
+
+function applyDiscreteSortOrder(labels: string[], sortSpec: JsonValue | undefined) {
+  if (!sortSpec) return labels
+  const next = labels.slice()
+  if (Array.isArray(sortSpec)) {
+    const order = new Map(sortSpec.map((entry, index) => [String(entry), index]))
+    next.sort((a, b) => (order.get(a) ?? Number.MAX_SAFE_INTEGER) - (order.get(b) ?? Number.MAX_SAFE_INTEGER) || compareDomainLabel(a, b))
+    return next
+  }
+  if (typeof sortSpec === 'string') {
+    if (sortSpec === 'descending') {
+      next.sort((a, b) => compareDomainLabel(b, a))
+      return next
+    }
+    if (sortSpec === 'ascending') {
+      next.sort(compareDomainLabel)
+      return next
+    }
+  }
+  return next
+}
+
+function resolveMultiLineXSort(spec: MultiLineSpec, encoding: ResolvedMultiLineEncoding) {
+  const layers = normalizeLayers(spec as ChartSpec)
+  for (const layer of layers) {
+    const layerEncoding = asRecord(layer.encoding)
+    const xChannel = asRecord(layerEncoding.x)
+    const field = typeof xChannel.field === 'string' ? xChannel.field.trim() : ''
+    if (!field || field !== encoding.xField) continue
+    if (Object.prototype.hasOwnProperty.call(xChannel, 'sort')) {
+      return xChannel.sort as JsonValue | undefined
+    }
+  }
+  return undefined
+}
+
 function resolveColorLegendTitle(spec: MultiLineSpec, encoding: ResolvedMultiLineEncoding) {
   const topColor = asRecord(asRecord((spec as { encoding?: unknown }).encoding).color)
   if (Object.prototype.hasOwnProperty.call(topColor, 'title')) {
-    const title = topColor.title
-    if (title == null) return null
-    if (typeof title === 'string') return title.trim().length > 0 ? title.trim() : null
+    return resolveChannelLegendTitle(topColor, null)
   }
-  const layers = normalizeLayers(spec as VegaLiteSpec)
+  const layers = normalizeLayers(spec as ChartSpec)
   for (const layer of layers) {
     const layerColor = asRecord(asRecord(layer.encoding).color)
     if (!Object.prototype.hasOwnProperty.call(layerColor, 'title')) continue
-    const title = layerColor.title
-    if (title == null) return null
-    if (typeof title === 'string') return title.trim().length > 0 ? title.trim() : null
+    return resolveChannelLegendTitle(layerColor, null)
   }
   return encoding.colorField ?? null
 }
@@ -186,7 +223,7 @@ function resolveMultiLineStyle(spec: MultiLineSpec) {
 }
 
 function resolveLineYDomainMinZero(spec: MultiLineSpec, encoding: ResolvedMultiLineEncoding) {
-  const layers = normalizeLayers(spec as VegaLiteSpec)
+  const layers = normalizeLayers(spec as ChartSpec)
   for (const layer of layers) {
     const layerEncoding = asRecord(layer.encoding)
     const yChannel = asRecord(layerEncoding.y)
@@ -206,6 +243,13 @@ function normalizeLinePointIdentifier(rawX: JsonValue, xType: string) {
   }
   const label = String(rawX)
   return { target: label, id: label }
+}
+
+export function buildMultiLinePointId(target: string | number, series?: string | null) {
+  const normalizedTarget = String(target ?? '').trim()
+  const normalizedSeries = series != null ? String(series).trim() : ''
+  if (!normalizedSeries) return normalizedTarget
+  return `${normalizedSeries}::${normalizedTarget}`
 }
 
 function resolveColorPalette(spec: MultiLineSpec) {
@@ -332,7 +376,7 @@ function extractType(channel: unknown): string | undefined {
  * Multi-line specs in the wild often place x/y encoding at the layer level (especially layered line+point charts).
  * Resolve the effective x/y/color fields without requiring top-level `spec.encoding`.
  */
-export function resolveMultiLineEncoding(spec: VegaLiteSpec): ResolvedMultiLineEncoding | null {
+export function resolveMultiLineEncoding(spec: ChartSpec): ResolvedMultiLineEncoding | null {
   const baseEnc = asRecord((spec as { encoding?: unknown }).encoding)
   const baseX = baseEnc.x
   const baseY = baseEnc.y
@@ -443,7 +487,7 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
       xValue: normalized.value,
       xSort: normalized.sort,
       target: identity.target,
-      id: identity.id,
+      id: buildMultiLinePointId(identity.target, series),
       yValue,
       series,
     })
@@ -453,35 +497,11 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
     container,
     points.map((point) => ({ ...point.row })),
   )
+  storeRuntimeChartState(container, { chartType: ChartType.MULTI_LINE, spec, renderer: 'd3' })
 
   const uniqueSeries = Array.from(new Set(points.map((point) => point.series).filter((series): series is string => !!series)))
   const showLegend = Boolean(encoding.colorField) && uniqueSeries.length > 0
   const legendTitle = showLegend ? resolveColorLegendTitle(spec, encoding) : null
-  const margin = { top: 60, right: showLegend ? 180 : 20, bottom: 80, left: 60 }
-  const width = showLegend ? 760 : 600
-  const height = 400
-  const plotW = width - margin.left - margin.right
-  const plotH = height - margin.top - margin.bottom
-
-  const containerSelection = d3.select(container)
-  containerSelection.selectAll('*').remove()
-
-  const svg = containerSelection
-    .append(SvgElements.Svg)
-    .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
-    .attr(DataAttributes.RenderEpoch, renderEpoch)
-    .attr(DataAttributes.RendererPath, 'd3-line')
-    .attr(DataAttributes.MarginLeft, margin.left)
-    .attr(DataAttributes.MarginTop, margin.top)
-    .attr(DataAttributes.PlotWidth, plotW)
-    .attr(DataAttributes.PlotHeight, plotH)
-    .attr(DataAttributes.XField, encoding.xField)
-    .attr(DataAttributes.YField, encoding.yField)
-    .attr(DataAttributes.ColorField, encoding.colorField ?? null)
-    .style('overflow', 'visible')
-
-  const g = svg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
-
   const xType = encoding.xType ?? 'nominal'
   const xDomainLabels = Array.from(new Set(points.map((point) => point.xLabel)))
   if (xType === 'temporal' || xType === 'quantitative') {
@@ -490,31 +510,12 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
       const bPoint = points.find((point) => point.xLabel === b)
       return Number(aPoint?.xSort ?? 0) - Number(bPoint?.xSort ?? 0)
     })
+  } else {
+    const xSort = resolveMultiLineXSort(spec, encoding)
+    const ordered = applyDiscreteSortOrder(xDomainLabels, xSort)
+    xDomainLabels.splice(0, xDomainLabels.length, ...ordered)
   }
   const xSortIndex = new Map(xDomainLabels.map((label, index) => [label, index]))
-
-  const buildXScale = (): AxisScale => {
-    if (xType === 'temporal') {
-      const timestamps = points
-        .map((point) => (point.xValue instanceof Date ? point.xValue.getTime() : NaN))
-        .filter(Number.isFinite)
-      const minX = d3.min(timestamps) ?? Date.now()
-      const maxX = d3.max(timestamps) ?? minX + 1
-      return d3.scaleTime().domain([new Date(minX), new Date(maxX)]).range([0, plotW])
-    }
-    if (xType === 'quantitative') {
-      const numbers = points
-        .map((point) => (typeof point.xValue === 'number' ? point.xValue : NaN))
-        .filter(Number.isFinite)
-      let minX = d3.min(numbers) ?? 0
-      let maxX = d3.max(numbers) ?? minX + 1
-      if (minX === maxX) maxX = minX + 1
-      return d3.scaleLinear().domain([minX, maxX]).range([0, plotW])
-    }
-    return d3.scalePoint<string>().domain(xDomainLabels).range([0, plotW]).padding(0.5)
-  }
-  const xScale = buildXScale()
-
   const yValues = points.map((point) => point.yValue)
   const minYRaw = d3.min(yValues)
   const maxYRaw = d3.max(yValues)
@@ -525,139 +526,200 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
     domainMax = Math.max(domainMax, 0)
   }
   if (domainMin === domainMax) domainMax = domainMin + 1
-  const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotH, 0])
-
-  const xAxis =
-    xType === 'temporal'
-      ? d3.axisBottom(xScale as d3.ScaleTime<number, number>).tickFormat(formatTemporalTick)
-      : xType === 'quantitative'
-        ? d3.axisBottom(xScale as d3.ScaleLinear<number, number>)
-        : d3.axisBottom(xScale as d3.ScalePoint<string>).tickFormat(categoricalTickFormatter(xLabelMap))
-  g.append(SvgElements.Group)
-    .attr(SvgAttributes.Class, SvgClassNames.XAxis)
-    .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
-    .call(xAxis)
-  applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
-  const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
-  const axisLayout = wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
-    allowDensityReduction: true,
-    maxDensityStep: 12,
-    tickElements: xTicks,
-  })
-  svg.attr(DataAttributes.AxisRotation, String(Math.abs(axisLayout.angleDeg)))
-  svg.attr(DataAttributes.TickDensityStep, String(axisLayout.densityStep))
-
-  g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(6))
-  applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+  const temporalTickFormatter = createTemporalTickFormatter(
+    points
+      .map((point) => point.xValue)
+      .filter((value): value is Date | number => value instanceof Date || typeof value === 'number'),
+  )
 
   const colorScale = d3.scaleOrdinal<string, string>(resolveColorPalette(spec)).domain(uniqueSeries)
-  const grouped = d3.group(points, (point) => point.series ?? '')
-  const resolveX = (point: RenderDatum) => {
-    if (xType === 'temporal') return (xScale as d3.ScaleTime<number, number>)(point.xValue as Date) ?? 0
-    if (xType === 'quantitative') return (xScale as d3.ScaleLinear<number, number>)(point.xValue as number) ?? 0
-    return (xScale as d3.ScalePoint<string>)(point.xLabel) ?? 0
-  }
-
-  grouped.forEach((seriesRows, seriesKey) => {
-    const sorted = seriesRows.slice().sort((a, b) => {
-      if (xType === 'temporal' || xType === 'quantitative') {
-        return Number(a.xSort) - Number(b.xSort)
-      }
-      return (xSortIndex.get(a.xLabel) ?? 0) - (xSortIndex.get(b.xLabel) ?? 0)
-    })
-    const stroke = seriesKey && uniqueSeries.includes(seriesKey) ? colorScale(seriesKey) : '#4f46e5'
-
-    const line = d3
-      .line<RenderDatum>()
-      .x((point) => resolveX(point))
-      .y((point) => yScale(point.yValue))
-    g.append(SvgElements.Path)
-      .datum(sorted)
-      .attr(SvgAttributes.D, line)
-      .attr(SvgAttributes.Fill, 'none')
-      .attr(SvgAttributes.Stroke, stroke)
-      .attr(SvgAttributes.StrokeWidth, style.strokeWidth)
-      .attr(DataAttributes.Series, seriesKey || null)
-
-    if (style.showPoints) {
-      const pointsGroup = g.append(SvgElements.Group).attr(DataAttributes.Series, seriesKey || null)
-      pointsGroup
-        .selectAll<SVGCircleElement, RenderDatum>(SvgElements.Circle)
-        .data(sorted)
-        .join(SvgElements.Circle)
-        .attr(SvgAttributes.CX, (point) => resolveX(point))
-        .attr(SvgAttributes.CY, (point) => yScale(point.yValue))
-        .attr(SvgAttributes.R, style.pointRadius)
-        .attr(SvgAttributes.Fill, stroke)
-        .attr(SvgAttributes.Opacity, 0.85)
-        .attr(DataAttributes.Target, (point) => point.target)
-        .attr(DataAttributes.Id, (point) => point.id)
-        .attr(DataAttributes.Value, (point) => String(point.yValue))
-        .attr(DataAttributes.Series, seriesKey || null)
-    }
+  const initialLayout = resolveLayoutModel({
+    container,
+    chartType: ChartType.MULTI_LINE,
+    spec,
+    legend: { visible: showLegend },
   })
 
-  if (showLegend) {
-    const legend = svg
-      .append(SvgElements.Group)
-      .attr(SvgAttributes.Transform, `translate(${margin.left + plotW + 20},${margin.top})`)
+  const svg = renderWithMeasuredLayout(
+    container,
+    initialLayout,
+    (layout) => {
+      const margin = layout.padding
+      const width = layout.canvas.width
+      const height = layout.canvas.height
+      const plotW = layout.plot.width
+      const plotH = layout.plot.height
 
-    if (legendTitle) {
-      legend
-        .append(SvgElements.Text)
-        .attr(SvgAttributes.X, 0)
-        .attr(SvgAttributes.Y, 0)
-        .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.legendTitle)
-        .attr(SvgAttributes.FontWeight, 'bold')
-        .attr(SvgAttributes.DominantBaseline, 'hanging')
-        .text(legendTitle)
-    }
+      const containerSelection = d3.select(container)
+      containerSelection.selectAll('*').remove()
 
-    uniqueSeries.forEach((series, index) => {
-      const rowY = (legendTitle ? CHART_TEXT_SIZE.legendTitle + 8 : 0) + index * (CHART_TEXT_SIZE.legendLabel + 10)
-      legend
-        .append(SvgElements.Circle)
-        .attr(SvgAttributes.CX, 8)
-        .attr(SvgAttributes.CY, rowY + CHART_TEXT_SIZE.legendLabel / 2)
-        .attr(SvgAttributes.R, 5)
-        .attr(SvgAttributes.Fill, colorScale(series))
-        .attr(SvgAttributes.Opacity, 0.85)
-      legend
-        .append(SvgElements.Text)
-        .attr(SvgAttributes.X, 20)
-        .attr(SvgAttributes.Y, rowY + CHART_TEXT_SIZE.legendLabel / 2)
-        .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.legendLabel)
-        .attr(SvgAttributes.DominantBaseline, 'middle')
-        .text(series)
-    })
-  }
+      const nextSvg = containerSelection
+        .append(SvgElements.Svg)
+        .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+        .attr(DataAttributes.RenderEpoch, renderEpoch)
+        .attr(DataAttributes.MarginLeft, margin.left)
+        .attr(DataAttributes.MarginTop, margin.top)
+        .attr(DataAttributes.PlotWidth, plotW)
+        .attr(DataAttributes.PlotHeight, plotH)
+        .attr(DataAttributes.XField, encoding.xField)
+        .attr(DataAttributes.YField, encoding.yField)
+        .attr(DataAttributes.ColorField, encoding.colorField ?? null)
+        .style('overflow', 'visible')
+      writeTooltipRootAttrs(nextSvg, {
+        xLabel: xAxisLabel ?? encoding.xField,
+        yLabel: yAxisLabel ?? encoding.yField,
+        groupLabel: encoding.colorField ? legendTitle ?? encoding.colorField : null,
+      })
 
-  if (xAxisLabel) {
-    svg
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, SvgClassNames.XAxisLabel)
-      .attr(SvgAttributes.X, margin.left + plotW / 2)
-      .attr(SvgAttributes.Y, height - margin.bottom + 44)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
-      .attr(SvgAttributes.FontWeight, 'bold')
-      .text(xAxisLabel)
-  }
+      const g = nextSvg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
 
-  if (yAxisLabel) {
-    svg
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, SvgClassNames.YAxisLabel)
-      .attr(SvgAttributes.Transform, 'rotate(-90)')
-      .attr(SvgAttributes.X, -(margin.top + plotH / 2))
-      .attr(SvgAttributes.Y, margin.left - 46)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
-      .attr(SvgAttributes.FontWeight, 'bold')
-      .text(yAxisLabel)
-  }
+      const buildXScale = (): AxisScale => {
+        if (xType === 'temporal') {
+          const timestamps = points
+            .map((point) => (point.xValue instanceof Date ? point.xValue.getTime() : NaN))
+            .filter(Number.isFinite)
+          const minX = d3.min(timestamps) ?? Date.now()
+          const maxX = d3.max(timestamps) ?? minX + 1
+          return d3.scaleTime().domain([new Date(minX), new Date(maxX)]).range([0, plotW])
+        }
+        if (xType === 'quantitative') {
+          const numbers = points
+            .map((point) => (typeof point.xValue === 'number' ? point.xValue : NaN))
+            .filter(Number.isFinite)
+          let minX = d3.min(numbers) ?? 0
+          let maxX = d3.max(numbers) ?? minX + 1
+          if (minX === maxX) maxX = minX + 1
+          return d3.scaleLinear().domain([minX, maxX]).range([0, plotW])
+        }
+        return d3.scalePoint<string>().domain(xDomainLabels).range([0, plotW]).padding(0.5)
+      }
 
-  ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
+      const xScale = buildXScale()
+      const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotH, 0])
+      const xAxis =
+        xType === 'temporal'
+          ? d3.axisBottom(xScale as d3.ScaleTime<number, number>).tickFormat(temporalTickFormatter)
+          : xType === 'quantitative'
+            ? d3.axisBottom(xScale as d3.ScaleLinear<number, number>)
+            : d3.axisBottom(xScale as d3.ScalePoint<string>).tickFormat(categoricalTickFormatter(xLabelMap))
+      g.append(SvgElements.Group)
+        .attr(SvgAttributes.Class, SvgClassNames.XAxis)
+        .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
+        .call(xAxis)
+      applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
+      const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
+      const axisLayout = wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
+        showAllTicksByDefault: layout.tickLayout.showAllTicksByDefault,
+        rotationReferencePolicy: layout.tickLayout.rotationReferencePolicy,
+        maxCharsPerLine: layout.tickLayout.maxCharsPerLine,
+        maxLines: layout.tickLayout.maxLines,
+        allowDensityReduction: layout.tickLayout.allowDensityReduction,
+        maxDensityStep: layout.tickLayout.maxDensityStep,
+        overlapTolerancePx: layout.tickLayout.overlapTolerancePx,
+        maxUnrotatedLabelLength: layout.tickLayout.maxUnrotatedLabelLength,
+        candidateAngles: layout.tickLayout.candidateAngles,
+        rotatedAnchor: layout.tickLayout.rotatedAnchor,
+        tickElements: xTicks,
+      })
+      nextSvg.attr(DataAttributes.AxisRotation, String(Math.abs(axisLayout.angleDeg)))
+      nextSvg.attr(DataAttributes.TickDensityStep, String(axisLayout.densityStep))
+
+      g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(6))
+      applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+
+      const resolveX = (point: RenderDatum) => {
+        if (xType === 'temporal') return (xScale as d3.ScaleTime<number, number>)(point.xValue as Date) ?? 0
+        if (xType === 'quantitative') return (xScale as d3.ScaleLinear<number, number>)(point.xValue as number) ?? 0
+        return (xScale as d3.ScalePoint<string>)(point.xLabel) ?? 0
+      }
+
+      const grouped = d3.group(points, (point) => point.series ?? '')
+      grouped.forEach((seriesRows, seriesKey) => {
+        const sorted = seriesRows.slice().sort((a, b) => {
+          if (xType === 'temporal' || xType === 'quantitative') {
+            return Number(a.xSort) - Number(b.xSort)
+          }
+          return (xSortIndex.get(a.xLabel) ?? 0) - (xSortIndex.get(b.xLabel) ?? 0)
+        })
+        const stroke = seriesKey && uniqueSeries.includes(seriesKey) ? colorScale(seriesKey) : '#4f46e5'
+
+        const line = d3
+          .line<RenderDatum>()
+          .x((point) => resolveX(point))
+          .y((point) => yScale(point.yValue))
+        g.append(SvgElements.Path)
+          .datum(sorted)
+          .attr(SvgAttributes.D, line)
+          .attr(SvgAttributes.Fill, 'none')
+          .attr(SvgAttributes.Stroke, stroke)
+          .attr(SvgAttributes.StrokeWidth, style.strokeWidth)
+          .attr(DataAttributes.Series, seriesKey || null)
+
+        if (style.showPoints) {
+          const pointsGroup = g.append(SvgElements.Group).attr(DataAttributes.Series, seriesKey || null)
+          pointsGroup
+            .selectAll<SVGCircleElement, RenderDatum>(SvgElements.Circle)
+            .data(sorted)
+            .join(SvgElements.Circle)
+            .attr(SvgAttributes.CX, (point) => resolveX(point))
+            .attr(SvgAttributes.CY, (point) => yScale(point.yValue))
+            .attr(SvgAttributes.R, style.pointRadius)
+            .attr(SvgAttributes.Fill, stroke)
+            .attr(SvgAttributes.Opacity, 0.85)
+            .attr(DataAttributes.Target, (point) => point.target)
+            .attr(DataAttributes.Id, (point) => point.id)
+            .attr(DataAttributes.Value, (point) => String(point.yValue))
+            .attr(DataAttributes.Series, seriesKey || null)
+            .attr(DataAttributes.XValue, (point) => point.xDisplayLabel)
+            .attr(DataAttributes.YValue, (point) => formatTooltipValue(point.yValue))
+            .attr(DataAttributes.GroupValue, seriesKey || null)
+        }
+      })
+
+      if (showLegend) {
+        renderColorLegend({
+          svg: nextSvg,
+          layout,
+          margin,
+          plotWidth: plotW,
+          title: legendTitle,
+          items: uniqueSeries.map((series) => ({
+            label: series,
+            color: colorScale(series),
+          })),
+        })
+      }
+
+      if (xAxisLabel) {
+        nextSvg
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, SvgClassNames.XAxisLabel)
+          .attr(SvgAttributes.X, layout.axisTitles.x.x)
+          .attr(SvgAttributes.Y, layout.axisTitles.x.y)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+          .attr(SvgAttributes.FontWeight, 'bold')
+          .text(xAxisLabel)
+      }
+
+      if (yAxisLabel) {
+        nextSvg
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, SvgClassNames.YAxisLabel)
+          .attr(SvgAttributes.Transform, 'rotate(-90)')
+          .attr(SvgAttributes.X, layout.axisTitles.y.x)
+          .attr(SvgAttributes.Y, layout.axisTitles.y.y)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+          .attr(SvgAttributes.FontWeight, 'bold')
+          .text(yAxisLabel)
+      }
+
+      return nextSvg
+    },
+    { maxPasses: 4 },
+  )
+  attachChartHoverTooltip(container)
   return svg
 }
 
@@ -799,7 +861,7 @@ function normalizeMultiLinePoints(values: RawDatum[], encoding: ResolvedMultiLin
     points.push({
       xLabel: normalized.label,
       xDisplayLabel: labelMap.get(normalized.label) ?? normalized.label,
-      xId: normalized.id,
+      xId: buildMultiLinePointId(normalized.label, series),
       xValue: normalized.value,
       xSort: normalized.sort,
       yValue,
@@ -854,156 +916,194 @@ export async function renderSplitMultipleLineChart(
   let domainMax = Math.max(0, maxY)
   if (domainMin === domainMax) domainMax = domainMin + 1
 
-  const orientation = split.orientation ?? 'vertical'
-  const margin = { top: 60, right: 20, bottom: 80, left: 60 }
-  const width = 600
-  const height = 300
-  const plotW = width - margin.left - margin.right
-  const plotH = height - margin.top - margin.bottom
-  const gap = 18
-  const subW = orientation === 'horizontal' ? (plotW - gap) / 2 : plotW
-  const subH = orientation === 'vertical' ? (plotH - gap) / 2 : plotH
-
-  const containerSelection = d3.select(container)
-  containerSelection.selectAll('*').remove()
-
-  const svg = containerSelection
-    .append(SvgElements.Svg)
-    .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
-    .attr(DataAttributes.RenderEpoch, renderEpoch)
-    .attr(DataAttributes.RendererPath, 'd3-line')
-    .style('overflow', 'visible')
-
   const [idA, idB] = splitGroups.ids
   const [domainA, domainB] = splitGroups.domains
   setMultipleLineSplitDomains(container, {
     [idA]: new Set(domainA),
     [idB]: new Set(domainB),
   })
-
-  const groups: Array<{ id: string; domain: string[]; offsetX: number; offsetY: number }> = [
-    { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },
-    {
-      id: idB,
-      domain: domainB,
-      offsetX: orientation === 'horizontal' ? subW + gap : 0,
-      offsetY: orientation === 'vertical' ? subH + gap : 0,
-    },
-  ]
-
-  const buildXScale = (domain: string[]): AxisScale => {
-    if (xType === 'temporal') {
-      const times = points.map((p) => (p.xValue instanceof Date ? p.xValue.getTime() : NaN)).filter(Number.isFinite)
-      const minX = d3.min(times) ?? Date.now()
-      const maxX = d3.max(times) ?? minX + 1
-      return d3.scaleTime().domain([new Date(minX), new Date(maxX)]).range([0, subW])
-    }
-    if (xType === 'quantitative') {
-      const nums = points.map((p) => (typeof p.xValue === 'number' ? p.xValue : NaN)).filter(Number.isFinite)
-      const minX = d3.min(nums) ?? 0
-      const maxX = d3.max(nums) ?? minX + 1
-      return d3.scaleLinear().domain([minX, maxX]).range([0, subW])
-    }
-    return d3.scalePoint<string>().domain(domain).range([0, subW]).padding(0.5)
-  }
+  const temporalTickFormatter = createTemporalTickFormatter(
+    points
+      .map((point) => point.xValue)
+      .filter((value): value is Date | number => value instanceof Date || typeof value === 'number'),
+  )
 
   const seriesValues = Array.from(new Set(points.map((p) => p.series ?? ''))).filter((s) => s !== '')
   const colorScale = d3.scaleOrdinal<string, string>(d3.schemeCategory10).domain(seriesValues)
+  const initialLayout = resolveLayoutModel({
+    container,
+    chartType: ChartType.MULTI_LINE,
+    spec,
+    split: { enabled: true, orientation: split.orientation },
+  })
 
-  groups.forEach(({ id, domain, offsetX, offsetY }) => {
-    const g = svg
-      .append(SvgElements.Group)
-      .attr(DataAttributes.ChartId, id)
-      .attr(DataAttributes.ChartPanel, 'true')
-      .attr(DataAttributes.PanelPlotX, 0)
-      .attr(DataAttributes.PanelPlotY, 0)
-      .attr(DataAttributes.PanelPlotWidth, subW)
-      .attr(DataAttributes.PanelPlotHeight, subH)
-      .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
+  const svg = renderWithMeasuredLayout(
+    container,
+    initialLayout,
+    (layout) => {
+      const orientation = layout.splitPanels.orientation
+      const margin = layout.padding
+      const width = layout.canvas.width
+      const height = layout.canvas.height
+      const plotW = layout.plot.width
+      const plotH = layout.plot.height
+      const gap = layout.splitPanels.gap
+      const subW = layout.splitPanels.panelWidth
+      const subH = layout.splitPanels.panelHeight
 
-    const xScale = buildXScale(domain)
-    const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([subH, 0])
+      const containerSelection = d3.select(container)
+      containerSelection.selectAll('*').remove()
 
-    const xAxis =
-      xType === 'temporal'
-        ? d3.axisBottom(xScale as d3.ScaleTime<number, number>).tickFormat(formatTemporalTick)
-        : xType === 'quantitative'
-          ? d3.axisBottom(xScale as d3.ScaleLinear<number, number>)
-          : d3.axisBottom(xScale as d3.ScalePoint<string>).tickFormat(
-              categoricalTickFormatter(new Map(points.map((point) => [point.xLabel, point.xDisplayLabel]))),
-            )
-    g.append(SvgElements.Group)
-      .attr(SvgAttributes.Class, SvgClassNames.XAxis)
-      .attr(SvgAttributes.Transform, `translate(0,${subH})`)
-      .call(xAxis)
-    applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
-    const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
-    wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
-      allowDensityReduction: true,
-      maxDensityStep: 12,
-      tickElements: xTicks,
-    })
+      const nextSvg = containerSelection
+        .append(SvgElements.Svg)
+        .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+        .attr(DataAttributes.RenderEpoch, renderEpoch)
+        .attr(DataAttributes.MarginLeft, margin.left)
+        .attr(DataAttributes.MarginTop, margin.top)
+        .attr(DataAttributes.PlotWidth, plotW)
+        .attr(DataAttributes.PlotHeight, plotH)
+        .style('overflow', 'visible')
 
-    g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
-    applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+      const groups: Array<{ id: string; domain: string[]; offsetX: number; offsetY: number }> = [
+        { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },
+        {
+          id: idB,
+          domain: domainB,
+          offsetX: orientation === 'horizontal' ? subW + gap : 0,
+          offsetY: orientation === 'vertical' ? subH + gap : 0,
+        },
+      ]
 
-    const domainSet = new Set(domain)
-    const rows = points.filter((p) => domainSet.has(p.xLabel))
-    if (!rows.length) return
-
-    const sortIndex = new Map(domain.map((label, idx) => [label, idx]))
-    const grouped = d3.group(rows, (d) => d.series ?? '')
-
-    grouped.forEach((seriesRows, seriesKey) => {
-      const sorted = seriesRows.slice().sort((a, b) => {
-        if (xType === 'temporal' || xType === 'quantitative') {
-          return Number(a.xSort) - Number(b.xSort)
+      const buildXScale = (domain: string[]): AxisScale => {
+        if (xType === 'temporal') {
+          const times = points.map((p) => (p.xValue instanceof Date ? p.xValue.getTime() : NaN)).filter(Number.isFinite)
+          const minX = d3.min(times) ?? Date.now()
+          const maxX = d3.max(times) ?? minX + 1
+          return d3.scaleTime().domain([new Date(minX), new Date(maxX)]).range([0, subW])
         }
-        return (sortIndex.get(a.xLabel) ?? 0) - (sortIndex.get(b.xLabel) ?? 0)
+        if (xType === 'quantitative') {
+          const nums = points.map((p) => (typeof p.xValue === 'number' ? p.xValue : NaN)).filter(Number.isFinite)
+          const minX = d3.min(nums) ?? 0
+          const maxX = d3.max(nums) ?? minX + 1
+          return d3.scaleLinear().domain([minX, maxX]).range([0, subW])
+        }
+        return d3.scalePoint<string>().domain(domain).range([0, subW]).padding(0.5)
+      }
+
+      let maxAxisRotation = 0
+      let maxDensityStep = 1
+      groups.forEach(({ id, domain, offsetX, offsetY }) => {
+        const g = nextSvg
+          .append(SvgElements.Group)
+          .attr(DataAttributes.ChartId, id)
+          .attr(DataAttributes.ChartPanel, 'true')
+          .attr(DataAttributes.PanelPlotX, 0)
+          .attr(DataAttributes.PanelPlotY, 0)
+          .attr(DataAttributes.PanelPlotWidth, subW)
+          .attr(DataAttributes.PanelPlotHeight, subH)
+          .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
+
+        const xScale = buildXScale(domain)
+        const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([subH, 0])
+
+        const xAxis =
+          xType === 'temporal'
+            ? d3.axisBottom(xScale as d3.ScaleTime<number, number>).tickFormat(temporalTickFormatter)
+            : xType === 'quantitative'
+              ? d3.axisBottom(xScale as d3.ScaleLinear<number, number>)
+              : d3.axisBottom(xScale as d3.ScalePoint<string>).tickFormat(
+                  categoricalTickFormatter(new Map(points.map((point) => [point.xLabel, point.xDisplayLabel]))),
+                )
+        g.append(SvgElements.Group)
+          .attr(SvgAttributes.Class, SvgClassNames.XAxis)
+          .attr(SvgAttributes.Transform, `translate(0,${subH})`)
+          .call(xAxis)
+        applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
+        const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
+        const axisLayout = wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
+          showAllTicksByDefault: layout.tickLayout.showAllTicksByDefault,
+          rotationReferencePolicy: layout.tickLayout.rotationReferencePolicy,
+          maxCharsPerLine: layout.tickLayout.maxCharsPerLine,
+          maxLines: layout.tickLayout.maxLines,
+          allowDensityReduction: layout.tickLayout.allowDensityReduction,
+          maxDensityStep: layout.tickLayout.maxDensityStep,
+          overlapTolerancePx: layout.tickLayout.overlapTolerancePx,
+          maxUnrotatedLabelLength: layout.tickLayout.maxUnrotatedLabelLength,
+          candidateAngles: layout.tickLayout.candidateAngles,
+          rotatedAnchor: layout.tickLayout.rotatedAnchor,
+          tickElements: xTicks,
+        })
+        maxAxisRotation = Math.max(maxAxisRotation, Math.abs(axisLayout.angleDeg))
+        maxDensityStep = Math.max(maxDensityStep, axisLayout.densityStep)
+
+        g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+        applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+
+        const domainSet = new Set(domain)
+        const rows = points.filter((p) => domainSet.has(p.xLabel))
+        if (!rows.length) return
+
+        const sortIndex = new Map(domain.map((label, idx) => [label, idx]))
+        const grouped = d3.group(rows, (d) => d.series ?? '')
+
+        grouped.forEach((seriesRows, seriesKey) => {
+          const sorted = seriesRows.slice().sort((a, b) => {
+            if (xType === 'temporal' || xType === 'quantitative') {
+              return Number(a.xSort) - Number(b.xSort)
+            }
+            return (sortIndex.get(a.xLabel) ?? 0) - (sortIndex.get(b.xLabel) ?? 0)
+          })
+
+          const line = d3
+            .line<NormalizedMultiLinePoint>()
+            .x((d) => {
+              if (xType === 'temporal') return (xScale as d3.ScaleTime<number, number>)(d.xValue as Date) ?? 0
+              if (xType === 'quantitative') return (xScale as d3.ScaleLinear<number, number>)(d.xValue as number) ?? 0
+              return (xScale as d3.ScalePoint<string>)(d.xLabel) ?? 0
+            })
+            .y((d) => yScale(d.yValue))
+
+          const stroke = seriesKey ? colorScale(seriesKey) : '#4f46e5'
+
+          g.append(SvgElements.Path)
+            .datum(sorted)
+            .attr(SvgAttributes.D, line)
+            .attr(SvgAttributes.Fill, 'none')
+            .attr(SvgAttributes.Stroke, stroke)
+            .attr(SvgAttributes.StrokeWidth, 2)
+            .attr(DataAttributes.ChartId, id)
+            .attr(DataAttributes.Series, seriesKey || null)
+
+          const pointsGroup = g.append(SvgElements.Group).attr(DataAttributes.Series, seriesKey || null)
+          pointsGroup
+            .selectAll<SVGCircleElement, NormalizedMultiLinePoint>(SvgElements.Circle)
+            .data(sorted)
+            .join(SvgElements.Circle)
+            .attr(SvgAttributes.CX, (d) =>
+              xType === 'temporal'
+                ? (xScale as d3.ScaleTime<number, number>)(d.xValue as Date) ?? 0
+                : xType === 'quantitative'
+                  ? (xScale as d3.ScaleLinear<number, number>)(d.xValue as number) ?? 0
+                  : (xScale as d3.ScalePoint<string>)(d.xLabel) ?? 0,
+            )
+            .attr(SvgAttributes.CY, (d) => yScale(d.yValue))
+            .attr(SvgAttributes.R, 3)
+            .attr(SvgAttributes.Fill, stroke)
+            .attr(DataAttributes.ChartId, id)
+            .attr(DataAttributes.Target, (d) => d.xLabel)
+            .attr(DataAttributes.Id, (d) => d.xId)
+            .attr(DataAttributes.Value, (d) => String(d.yValue))
+            .attr(DataAttributes.Series, seriesKey || null)
+        })
       })
 
-      const line = d3
-        .line<NormalizedMultiLinePoint>()
-        .x((d) => {
-          if (xType === 'temporal') return (xScale as d3.ScaleTime<number, number>)(d.xValue as Date) ?? 0
-          if (xType === 'quantitative') return (xScale as d3.ScaleLinear<number, number>)(d.xValue as number) ?? 0
-          return (xScale as d3.ScalePoint<string>)(d.xLabel) ?? 0
-        })
-        .y((d) => yScale(d.yValue))
-
-      const stroke = seriesKey ? colorScale(seriesKey) : '#4f46e5'
-
-      g.append(SvgElements.Path)
-        .datum(sorted)
-        .attr(SvgAttributes.D, line)
-        .attr(SvgAttributes.Fill, 'none')
-        .attr(SvgAttributes.Stroke, stroke)
-        .attr(SvgAttributes.StrokeWidth, 2)
-        .attr(DataAttributes.ChartId, id)
-        .attr(DataAttributes.Series, seriesKey || null)
-
-      const pointsGroup = g.append(SvgElements.Group).attr(DataAttributes.Series, seriesKey || null)
-      pointsGroup
-        .selectAll<SVGCircleElement, NormalizedMultiLinePoint>(SvgElements.Circle)
-        .data(sorted)
-        .join(SvgElements.Circle)
-        .attr(SvgAttributes.CX, (d) =>
-          xType === 'temporal'
-            ? (xScale as d3.ScaleTime<number, number>)(d.xValue as Date) ?? 0
-            : xType === 'quantitative'
-              ? (xScale as d3.ScaleLinear<number, number>)(d.xValue as number) ?? 0
-              : (xScale as d3.ScalePoint<string>)(d.xLabel) ?? 0,
-        )
-        .attr(SvgAttributes.CY, (d) => yScale(d.yValue))
-        .attr(SvgAttributes.R, 3)
-        .attr(SvgAttributes.Fill, stroke)
-        .attr(DataAttributes.ChartId, id)
-        .attr(DataAttributes.Target, (d) => d.xLabel)
-        .attr(DataAttributes.Id, (d) => d.xId)
-        .attr(DataAttributes.Value, (d) => String(d.yValue))
-        .attr(DataAttributes.Series, seriesKey || null)
-    })
-  })
+      nextSvg.attr(DataAttributes.AxisRotation, String(maxAxisRotation))
+      nextSvg.attr(DataAttributes.TickDensityStep, String(maxDensityStep))
+      return nextSvg
+    },
+    { maxPasses: 4 },
+  )
+  return svg
 }
 
 export async function tagMultipleLineMarks(container: HTMLElement, spec: MultiLineSpec) {
@@ -1038,18 +1138,18 @@ export async function tagMultipleLineMarks(container: HTMLElement, spec: MultiLi
     if (!hasX || !hasY) return
     const rawTarget = datum?.[xField]
     const rawValue = datum?.[yField]
+    const rawSeries = colorField ? datum?.[colorField] : null
     if (rawTarget != null && rawValue != null) {
-      let isoFull = String(rawTarget)
       let isoDate = String(rawTarget)
       if (xType === 'temporal') {
         const dt = toDateValue(rawTarget as JsonValue)
-        isoFull = dt.toISOString()
-        isoDate = isoFull.slice(0, 10)
+        isoDate = dt.toISOString().slice(0, 10)
       }
       const valueVal = rawValue
+      const pointId = buildMultiLinePointId(isoDate, rawSeries != null ? String(rawSeries) : null)
       d3.select(this as Element)
         .attr(DataAttributes.Target, isoDate)
-        .attr(DataAttributes.Id, isoFull)
+        .attr(DataAttributes.Id, pointId)
         .attr(DataAttributes.Value, valueVal != null ? String(valueVal) : null)
     }
   })

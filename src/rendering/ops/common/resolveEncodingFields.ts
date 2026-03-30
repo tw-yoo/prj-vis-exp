@@ -1,4 +1,4 @@
-import { ChartType, getChartType, type VegaLiteSpec } from '../../../domain/chart'
+import { ChartType, getChartType, type ChartSpec } from '../../../domain/chart'
 import { resolveMultiLineEncoding } from '../../line/multipleLineRenderer'
 import { resolveSimpleLineEncoding } from '../../line/simpleLineRenderer'
 
@@ -22,7 +22,7 @@ function extractField(channel: unknown): string | null {
   return typeof field === 'string' && field.trim().length > 0 ? field.trim() : null
 }
 
-export function resolveEncodingFields(spec: VegaLiteSpec): ResolvedEncodingFields | null {
+export function resolveEncodingFields(spec: ChartSpec): ResolvedEncodingFields | null {
   const chartType = getChartType(spec)
   const topEncoding = asRecord(spec.encoding)
   const topX = extractField(topEncoding?.x)

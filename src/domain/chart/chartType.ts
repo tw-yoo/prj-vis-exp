@@ -1,5 +1,5 @@
 import type { JsonValue } from '../operation/types'
-import { ChartType, type ChartTypeValue, type VegaLiteSpec } from './types'
+import { ChartType, type ChartTypeValue, type ChartSpec } from './types'
 
 type EncodingChannel = {
   field?: JsonValue
@@ -9,7 +9,7 @@ type EncodingChannel = {
 
 type EncodingMap = Record<string, EncodingChannel | undefined>
 
-function normalizeMarkType(mark: VegaLiteSpec['mark']) {
+function normalizeMarkType(mark: ChartSpec['mark']) {
   if (!mark) return null
   if (typeof mark === 'string') return mark
   if (typeof mark === 'object' && typeof mark.type === 'string') {
@@ -32,12 +32,12 @@ function hasFieldChannel(channel: JsonValue | undefined) {
   return false
 }
 
-function normalizeLayers(spec: VegaLiteSpec = {}) {
+function normalizeLayers(spec: ChartSpec = {}) {
   const baseEncoding =
     spec.encoding && typeof spec.encoding === 'object' ? (spec.encoding as Record<string, JsonValue>) : {}
   if (Array.isArray(spec.layer) && spec.layer.length > 0) {
     return spec.layer.map((layer) => ({
-      mark: normalizeMarkType((layer?.mark as VegaLiteSpec['mark']) ?? spec.mark),
+      mark: normalizeMarkType((layer?.mark as ChartSpec['mark']) ?? spec.mark),
       encoding: {
         ...baseEncoding,
         ...(layer?.encoding && typeof layer.encoding === 'object' ? layer.encoding : {}),
@@ -52,11 +52,14 @@ function normalizeLayers(spec: VegaLiteSpec = {}) {
   ]
 }
 
-export function getChartType(spec: VegaLiteSpec): ChartTypeValue | null {
+export function getChartType(spec: ChartSpec): ChartTypeValue | null {
   if (!spec || typeof spec !== 'object') return null
 
-  const layers = normalizeLayers(spec)
-  const baseEnc = spec.encoding || {}
+  const nestedSpec =
+    spec.spec && typeof spec.spec === 'object' && !Array.isArray(spec.spec) ? (spec.spec as ChartSpec) : null
+  const typeSource = nestedSpec ?? spec
+  const layers = normalizeLayers(typeSource)
+  const baseEnc = (typeSource.encoding || spec.encoding || {}) as ChartSpec['encoding']
   const hasFacet = !!(
     (baseEnc as { column?: JsonValue }).column || (baseEnc as { row?: JsonValue }).row || spec.facet || spec.repeat
   )

@@ -5,14 +5,24 @@ import {
   type MultiLineSpec,
 } from './multipleLineRenderer'
 import {
-  renderSimpleLineChart,
+  setSimpleLineStoredData,
   tagSimpleLineMarks,
   type LineSpec,
 } from './simpleLineRenderer'
 import { storeDerivedChartState } from '../utils/derivedChartState'
+import { storeRuntimeChartState } from '../utils/runtimeChartState'
 import { ChartType } from '../../domain/chart'
 import type { JsonValue } from '../../types'
 import type { RawRow } from '../ops/common/datum'
+import { DataAttributes } from '../interfaces'
+
+function removeSeriesMetadata(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>) {
+  svg.attr(DataAttributes.ColorField, null).attr(DataAttributes.GroupLabel, null)
+  svg.selectAll<SVGElement, unknown>('[data-series]').each(function () {
+    ;(this as SVGElement).removeAttribute(DataAttributes.Series)
+    ;(this as SVGElement).removeAttribute(DataAttributes.GroupValue)
+  })
+}
 
 export async function convertMultiLineToSimpleLine(
   container: HTMLElement,
@@ -23,10 +33,10 @@ export async function convertMultiLineToSimpleLine(
   const colorField = encoding?.colorField
 
   // Phase 1: fade out other series marks
-  const svg = d3.select(container).select('svg')
+  const svg = d3.select(container).select<SVGSVGElement>('svg')
   if (!svg.empty() && colorField) {
     const otherMarks = svg
-      .selectAll<SVGElement, unknown>('path[data-series], circle[data-series]')
+      .selectAll<SVGElement, unknown>('path[data-series], circle[data-series], g[data-series]')
       .filter(function () {
         const s = (this as SVGElement).getAttribute('data-series')
         return s != null && s !== seriesKey
@@ -41,6 +51,7 @@ export async function convertMultiLineToSimpleLine(
       } catch {
         // interrupted transitions are ok
       }
+      otherMarks.remove()
     }
   }
 
@@ -75,8 +86,13 @@ export async function convertMultiLineToSimpleLine(
   delete encAny.column
   delete encAny.row
 
-  await renderSimpleLineChart(container, simpleLineSpec)
+  if (!svg.empty()) {
+    svg.attr(DataAttributes.XField, encoding?.xField ?? '').attr(DataAttributes.YField, encoding?.yField ?? '')
+  }
+  removeSeriesMetadata(svg)
+  setSimpleLineStoredData(container, filtered.map((row) => ({ ...row })))
   await tagSimpleLineMarks(container, simpleLineSpec)
+  storeRuntimeChartState(container, { chartType: ChartType.SIMPLE_LINE, spec: simpleLineSpec, renderer: 'd3' })
   storeDerivedChartState(container, ChartType.SIMPLE_LINE, simpleLineSpec)
 
   return simpleLineSpec

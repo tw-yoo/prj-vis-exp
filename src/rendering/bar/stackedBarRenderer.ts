@@ -1,52 +1,218 @@
 import * as d3 from 'd3'
-import { bumpRenderEpoch, renderVegaLiteChart, type VegaLiteSpec } from '../chartRenderer'
+import { ChartType, type ChartSpec } from '../../domain/chart'
 import type { JsonValue } from '../../types'
 import { type DrawSplitSpec } from '../draw/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
-import { applyAxisTickLabelSize, ensureXAxisLabelClearance } from '../common/d3Helpers'
+import { applyAxisTickLabelSize } from '../common/d3Helpers'
+import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } from '../common/chartHoverTooltip'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
+import {
+  isLegendVisible,
+  renderColorLegend,
+  resolveColorLegendTitle,
+  resolveTopLevelColorChannel,
+} from '../common/colorLegend'
+import { resolveLayoutModel } from '../common/chartLayout'
+import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
-
-type RawDatum = Record<string, JsonValue>
+import { bumpRenderEpoch } from '../common/renderEpoch'
+import { storeRuntimeChartState } from '../utils/runtimeChartState'
+import {
+  buildBarColorResolver,
+  cloneRows,
+  loadBarRows,
+  resolveCategoricalDomain,
+  resolveDiscreteDomainFromScale,
+  resolveScaleDomain,
+  type RawDatum,
+} from './barRuntime'
 
 const localDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
 const originalDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
 const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new WeakMap()
 
-const cloneRows = (rows: RawDatum[]) => rows.map((row) => ({ ...row }))
-
-function rowsFromSpecData(spec: StackedSpec): RawDatum[] {
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const colorField = spec.encoding.color?.field
-  const values = (spec.data as { values?: unknown })?.values
-  if (!Array.isArray(values)) return []
-  return values
-    .filter((row): row is RawDatum => !!row && typeof row === 'object' && !Array.isArray(row))
-    .map((row) => {
-      const xVal = row[xField]
-      const yVal = Number(row[yField])
-      if (xVal == null || !Number.isFinite(yVal)) return null
-      const next: RawDatum = { [xField]: xVal, [yField]: yVal }
-      if (colorField) {
-        const colorVal = row[colorField]
-        next[colorField] = colorVal == null ? null : String(colorVal)
-      }
-      return next
-    })
-    .filter((row): row is RawDatum => row !== null)
-}
-
-export type StackedSpec = VegaLiteSpec & {
+export type StackedSpec = ChartSpec & {
   encoding: {
-    x: { field: string; type: string; stack?: string | null }
-    y: { field: string; type: string; stack?: string | null }
-    color?: { field?: string; type?: string; scale?: JsonValue; legend?: JsonValue }
+    x: { field: string; type: string; stack?: string | null; sort?: JsonValue }
+    y: { field: string; type: string; stack?: string | null; scale?: JsonValue }
+    color?: { field?: string; type?: string; scale?: JsonValue; legend?: JsonValue; condition?: JsonValue }
   }
 }
 
-// Ops runner functions are in `src/renderer/bar/stackedBarOps.ts`.
+type StackedRuntime = {
+  renderSpec: ChartSpec
+  xField: string
+  yField: string
+  xSort?: JsonValue
+  colorField?: string
+  stackMode: string
+}
+
+type StackedSegment = {
+  target: string | number
+  series: string | number
+  value: number
+  y0: number
+  y1: number
+  rows: RawDatum[]
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
+}
+
+function extractField(channel: unknown): string | undefined {
+  const field = asRecord(channel).field
+  return typeof field === 'string' && field.trim().length > 0 ? field.trim() : undefined
+}
+
+function normalizeOptionalLabel(value: JsonValue | undefined) {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  const str = String(value).trim()
+  return str.length > 0 ? str : null
+}
+
+function resolveAxisLabels(spec: StackedSpec, xField: string, yField: string) {
+  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
+  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
+  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
+  return {
+    xAxisLabel: xAxisLabelOverride === undefined ? xField : xAxisLabelOverride,
+    yAxisLabel: yAxisLabelOverride === undefined ? yField : yAxisLabelOverride,
+  }
+}
+
+function resolveStackedRuntimeSpec(spec: StackedSpec): StackedRuntime | null {
+  const encoding = asRecord(spec.encoding)
+  const xField = extractField(encoding.x)
+  const yField = extractField(encoding.y)
+  if (!xField || !yField) return null
+  const yChannel = asRecord(encoding.y)
+  const xChannel = asRecord(encoding.x)
+  const stackModeRaw = yChannel.stack ?? xChannel.stack
+  const stackMode = typeof stackModeRaw === 'string' && stackModeRaw.trim().length > 0 ? stackModeRaw : 'zero'
+  return {
+    renderSpec: spec,
+    xField,
+    yField,
+    xSort: xChannel.sort as JsonValue | undefined,
+    colorField: extractField(encoding.color),
+    stackMode,
+  }
+}
+
+function buildStackedSegments(
+  rows: RawDatum[],
+  xField: string,
+  yField: string,
+  colorField: string,
+  xDomain: Array<string | number>,
+  colorDomain: Array<string | number>,
+  stackMode: string,
+) {
+  const valueMap = new Map<string, Map<string, { value: number; rows: RawDatum[] }>>()
+  rows.forEach((row) => {
+    const target = row[xField]
+    const series = row[colorField]
+    const numeric = Number(row[yField])
+    if (target == null || series == null || !Number.isFinite(numeric)) return
+    const targetKey = String(target)
+    const seriesKey = String(series)
+    if (!valueMap.has(targetKey)) valueMap.set(targetKey, new Map<string, { value: number; rows: RawDatum[] }>())
+    const bucket = valueMap.get(targetKey)!
+    const existing = bucket.get(seriesKey)
+    if (!existing) {
+      bucket.set(seriesKey, { value: numeric, rows: [{ ...row }] })
+      return
+    }
+    existing.value += numeric
+    existing.rows.push({ ...row })
+  })
+
+  const segments: StackedSegment[] = []
+  let minY = 0
+  let maxY = 0
+
+  xDomain.forEach((target) => {
+    const targetKey = String(target)
+    const bucket = valueMap.get(targetKey) ?? new Map<string, { value: number; rows: RawDatum[] }>()
+
+    if (stackMode === 'center') {
+      const total = colorDomain.reduce((sum, series) => Number(sum) + Number(bucket.get(String(series))?.value ?? 0), 0)
+      let cursor = -total / 2
+      colorDomain.forEach((series) => {
+        const entry = bucket.get(String(series))
+        const value = entry?.value ?? 0
+        if (!Number.isFinite(value) || value === 0) return
+        const y0 = Number(cursor)
+        const y1 = y0 + Number(value)
+        cursor = y1
+        segments.push({ target, series, value, y0, y1, rows: cloneRows(entry?.rows ?? []) })
+        minY = Math.min(minY, y0, y1)
+        maxY = Math.max(maxY, y0, y1)
+      })
+      return
+    }
+
+    let positive = 0
+    let negative = 0
+    colorDomain.forEach((series) => {
+      const entry = bucket.get(String(series))
+      const value = entry?.value ?? 0
+      if (!Number.isFinite(value) || value === 0) return
+      if (value >= 0) {
+        const y0 = positive
+        const y1 = positive + value
+        positive = y1
+        segments.push({ target, series, value, y0, y1, rows: cloneRows(entry?.rows ?? []) })
+      } else {
+        const y0 = negative
+        const y1 = negative + value
+        negative = y1
+        segments.push({ target, series, value, y0, y1, rows: cloneRows(entry?.rows ?? []) })
+      }
+    })
+    minY = Math.min(minY, negative)
+    maxY = Math.max(maxY, positive)
+  })
+
+  return { segments, minY, maxY }
+}
+
+function writeDatasetAttrs(
+  svg: d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>,
+  runtime: StackedRuntime,
+  margin: { top: number; right: number; bottom: number; left: number },
+  plotW: number,
+  plotH: number,
+) {
+  svg
+    .attr(DataAttributes.MarginLeft, margin.left)
+    .attr(DataAttributes.MarginTop, margin.top)
+    .attr(DataAttributes.PlotWidth, plotW)
+    .attr(DataAttributes.PlotHeight, plotH)
+    .attr(DataAttributes.XField, runtime.xField)
+    .attr(DataAttributes.YField, runtime.yField)
+    .attr(DataAttributes.ColorField, runtime.colorField ?? null)
+}
+
+function resolveLegendItems(
+  rows: RawDatum[],
+  colorDomain: Array<string | number>,
+  colorField: string,
+  resolveFill: (rows: RawDatum[], colorKey: string | number | null) => string,
+) {
+  return colorDomain.map((key) => {
+    const matchingRows = rows.filter((row) => String(row[colorField]) === String(key))
+    return {
+      label: String(key),
+      color: resolveFill(matchingRows, key),
+    }
+  })
+}
 
 export async function renderStackedBarChart(
   container: HTMLElement,
@@ -54,17 +220,199 @@ export async function renderStackedBarChart(
   options?: { preserveOriginal?: boolean },
 ) {
   clearStackedBarSplitState(container)
-  const result = await renderVegaLiteChart(container, spec)
-  const taggedRows = await tagBarMarks(container, spec.encoding.x.field, spec.encoding.y.field, spec.encoding.color?.field)
-  const specRows = rowsFromSpecData(spec)
-  const rows = specRows.length ? specRows : taggedRows
-  localDataStore.set(container, rows)
-  if (!options?.preserveOriginal || !originalDataStore.has(container)) {
-    originalDataStore.set(container, cloneRows(rows))
+
+  const runtime = resolveStackedRuntimeSpec(spec)
+  if (!runtime) {
+    console.warn('renderStackedBarChart: missing stacked bar encoding')
+    return null
   }
-  fitSvgToHost(container)
-  ensureXAxisLabelClearance(container.id || 'chart', { attempts: 5, minGap: 14, maxShift: 120 })
-  return result
+
+  const renderEpoch = bumpRenderEpoch(container)
+  const rawRows = await loadBarRows(runtime.renderSpec)
+  const normalizedRows = rawRows
+    .map((row) => {
+      const xValue = row[runtime.xField]
+      const yValue = Number(row[runtime.yField])
+      if (xValue == null || !Number.isFinite(yValue)) return null
+      const next: RawDatum = { ...row, [runtime.xField]: xValue, [runtime.yField]: yValue }
+      if (runtime.colorField) {
+        const colorValue = row[runtime.colorField]
+        next[runtime.colorField] = colorValue == null ? null : String(colorValue)
+      }
+      return next
+    })
+    .filter((row): row is RawDatum => row !== null)
+
+  localDataStore.set(container, normalizedRows)
+  if (!options?.preserveOriginal || !originalDataStore.has(container)) {
+    originalDataStore.set(container, cloneRows(normalizedRows))
+  }
+  storeRuntimeChartState(container, { chartType: ChartType.STACKED_BAR, spec, renderer: 'd3' })
+
+  const xDomain = resolveCategoricalDomain(normalizedRows, runtime.xField, runtime.xSort, runtime.yField)
+  const colorDomain = runtime.colorField
+    ? resolveDiscreteDomainFromScale(
+        normalizedRows,
+        runtime.colorField,
+        asRecord(asRecord(asRecord(runtime.renderSpec.encoding).color).scale),
+        runtime.colorField,
+      )
+    : ['__single__']
+  const colorForBar = buildBarColorResolver(runtime.renderSpec, runtime.colorField, colorDomain)
+  const colorChannel = resolveTopLevelColorChannel(runtime.renderSpec)
+  const showLegend = Boolean(runtime.colorField) && colorDomain.length > 1 && isLegendVisible(colorChannel)
+  const legendTitle = showLegend ? resolveColorLegendTitle(colorChannel, runtime.colorField ?? null) : null
+  normalizedRows.forEach((row) => {
+    const colorKey =
+      runtime.colorField && row[runtime.colorField] != null
+        ? (row[runtime.colorField] as string | number)
+        : (row[runtime.xField] as string | number)
+    row.__fill = colorForBar([row], colorKey)
+  })
+
+  const effectiveColorField = runtime.colorField ?? '__series'
+  const stackedRows =
+    runtime.colorField == null
+      ? normalizedRows.map((row) => ({ ...row, [effectiveColorField]: '__series' }))
+      : normalizedRows
+  const effectiveColorDomain = runtime.colorField ? colorDomain : ['__series']
+  const stacked = buildStackedSegments(
+    stackedRows,
+    runtime.xField,
+    runtime.yField,
+    effectiveColorField,
+    xDomain,
+    effectiveColorDomain,
+    runtime.stackMode,
+  )
+  const explicitScale = asRecord(asRecord(asRecord(runtime.renderSpec.encoding).y).scale)
+  const [domainMin, domainMax] = resolveScaleDomain(
+    [stacked.minY, stacked.maxY, ...stacked.segments.flatMap((segment) => [segment.y0, segment.y1])],
+    explicitScale,
+  )
+
+  const { xAxisLabel, yAxisLabel } = resolveAxisLabels(spec, runtime.xField, runtime.yField)
+  const layout = resolveLayoutModel({
+    container,
+    chartType: ChartType.STACKED_BAR,
+    spec: runtime.renderSpec,
+    legend: { visible: showLegend },
+  })
+  const xLabelMap = buildCategoricalDisplayLabelMap(normalizedRows, runtime.xField)
+  const svg = renderWithMeasuredLayout(
+    container,
+    layout,
+    (resolvedLayout) => {
+      const margin = resolvedLayout.padding
+      const width = resolvedLayout.canvas.width
+      const height = resolvedLayout.canvas.height
+      const plotW = resolvedLayout.plot.width
+      const plotH = resolvedLayout.plot.height
+
+      const containerSelection = d3.select(container)
+      containerSelection.selectAll('*').remove()
+
+      const nextSvg = containerSelection
+        .append(SvgElements.Svg)
+        .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+        .attr(DataAttributes.RenderEpoch, renderEpoch)
+        .style('overflow', 'visible')
+
+      writeDatasetAttrs(nextSvg, runtime, margin, plotW, plotH)
+      writeTooltipRootAttrs(nextSvg, {
+        xLabel: xAxisLabel ?? runtime.xField,
+        yLabel: yAxisLabel ?? runtime.yField,
+        groupLabel: runtime.colorField ? legendTitle ?? runtime.colorField : null,
+      })
+
+      const g = nextSvg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
+      const xScale = d3.scaleBand<string | number>().domain(xDomain).range([0, plotW]).padding(0.2)
+      const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotH, 0])
+
+      g.append(SvgElements.Group)
+        .attr(SvgAttributes.Class, SvgClassNames.XAxis)
+        .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
+      applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
+      const xTicks = Array.from(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
+      const axisLayout = wrapAxisTickLabels(g.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
+        showAllTicksByDefault: resolvedLayout.tickLayout.showAllTicksByDefault,
+        rotationReferencePolicy: resolvedLayout.tickLayout.rotationReferencePolicy,
+        maxCharsPerLine: resolvedLayout.tickLayout.maxCharsPerLine,
+        maxLines: resolvedLayout.tickLayout.maxLines,
+        allowDensityReduction: resolvedLayout.tickLayout.allowDensityReduction,
+        maxDensityStep: resolvedLayout.tickLayout.maxDensityStep,
+        overlapTolerancePx: resolvedLayout.tickLayout.overlapTolerancePx,
+        maxUnrotatedLabelLength: resolvedLayout.tickLayout.maxUnrotatedLabelLength,
+        candidateAngles: resolvedLayout.tickLayout.candidateAngles,
+        rotatedAnchor: resolvedLayout.tickLayout.rotatedAnchor,
+        tickElements: xTicks,
+      })
+      nextSvg.attr(DataAttributes.AxisRotation, String(Math.abs(axisLayout.angleDeg)))
+      nextSvg.attr(DataAttributes.TickDensityStep, String(axisLayout.densityStep))
+
+      g.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+      applyAxisTickLabelSize(g.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+
+      g.selectAll<SVGRectElement, StackedSegment>(SvgElements.Rect)
+        .data(stacked.segments)
+        .join(SvgElements.Rect)
+        .attr(SvgAttributes.Class, SvgClassNames.MainBar)
+        .attr(SvgAttributes.X, (segment) => xScale(segment.target) ?? 0)
+        .attr(SvgAttributes.Width, xScale.bandwidth())
+        .attr(SvgAttributes.Y, (segment) => yScale(Math.max(segment.y0, segment.y1)))
+        .attr(SvgAttributes.Height, (segment) => Math.abs(yScale(segment.y0) - yScale(segment.y1)))
+        .attr(SvgAttributes.Fill, (segment) => colorForBar(segment.rows, segment.series))
+        .attr(DataAttributes.Id, (segment) => `${String(segment.target)}|${String(segment.series)}`)
+        .attr(DataAttributes.Target, (segment) => String(segment.target))
+        .attr(DataAttributes.Value, (segment) => segment.value)
+        .attr(DataAttributes.Series, (segment) => (segment.series == null ? null : String(segment.series)))
+        .attr(DataAttributes.XValue, (segment) => xLabelMap.get(String(segment.target)) ?? String(segment.target))
+        .attr(DataAttributes.YValue, (segment) => formatTooltipValue(segment.value))
+        .attr(DataAttributes.GroupValue, (segment) => (segment.series == null ? null : String(segment.series)))
+
+      if (xAxisLabel) {
+        nextSvg
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, SvgClassNames.XAxisLabel)
+          .attr(SvgAttributes.X, resolvedLayout.axisTitles.x.x)
+          .attr(SvgAttributes.Y, resolvedLayout.axisTitles.x.y)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+          .attr(SvgAttributes.FontWeight, 'bold')
+          .text(xAxisLabel)
+      }
+
+      if (yAxisLabel) {
+        nextSvg
+          .append(SvgElements.Text)
+          .attr(SvgAttributes.Class, SvgClassNames.YAxisLabel)
+          .attr(SvgAttributes.Transform, 'rotate(-90)')
+          .attr(SvgAttributes.X, resolvedLayout.axisTitles.y.x)
+          .attr(SvgAttributes.Y, resolvedLayout.axisTitles.y.y)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.axisTitle)
+          .attr(SvgAttributes.FontWeight, 'bold')
+          .text(yAxisLabel)
+      }
+
+      if (showLegend && runtime.colorField) {
+        renderColorLegend({
+          svg: nextSvg,
+          layout: resolvedLayout,
+          margin,
+          plotWidth: plotW,
+          title: legendTitle,
+          items: resolveLegendItems(normalizedRows, colorDomain, runtime.colorField, colorForBar),
+        })
+      }
+
+      return nextSvg
+    },
+    { maxPasses: 4 },
+  )
+  attachChartHoverTooltip(container)
+  return svg
 }
 
 export async function renderSumStackedBarChart(
@@ -72,33 +420,33 @@ export async function renderSumStackedBarChart(
   spec: StackedSpec,
   config?: { label?: string; value?: number },
 ) {
+  const runtime = resolveStackedRuntimeSpec(spec)
+  if (!runtime) return
+
   const rows = localDataStore.get(container) || []
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const colorField = spec.encoding.color?.field
   const label = config?.label ?? 'Sum'
   const requestedTotal = Number(config?.value)
   const hasRequestedTotal = Number.isFinite(requestedTotal)
   if (!rows.length) return
 
-  if (!colorField) {
+  if (!runtime.colorField) {
     const computed = rows
-      .map((row) => Number(row[yField]))
+      .map((row) => Number(row[runtime.yField]))
       .filter(Number.isFinite)
       .reduce((acc, value) => acc + value, 0)
     const total = hasRequestedTotal ? requestedTotal : computed
     if (!Number.isFinite(total)) return
     await renderStackedBarChart(container, {
       ...spec,
-      data: { values: [{ [xField]: label, [yField]: total }] },
+      data: { values: [{ [runtime.xField]: label, [runtime.yField]: total }] },
     })
     return
   }
 
   const bySeries = new Map<string, number>()
   rows.forEach((row) => {
-    const seriesRaw = row[colorField]
-    const value = Number(row[yField])
+    const seriesRaw = row[runtime.colorField!]
+    const value = Number(row[runtime.yField])
     if (seriesRaw == null || !Number.isFinite(value)) return
     const series = String(seriesRaw)
     bySeries.set(series, (bySeries.get(series) ?? 0) + value)
@@ -108,18 +456,15 @@ export async function renderSumStackedBarChart(
   const computedTotal = Array.from(bySeries.values()).reduce((acc, value) => acc + value, 0)
   const canScale = hasRequestedTotal && Number.isFinite(computedTotal) && Math.abs(computedTotal) > Number.EPSILON
   const fallbackEven = hasRequestedTotal && (!Number.isFinite(computedTotal) || Math.abs(computedTotal) <= Number.EPSILON)
-  const values = Array.from(bySeries.entries()).map(([series, value], _index, list) => {
-    const scaledValue = canScale
+  const values = Array.from(bySeries.entries()).map(([series, value], _index, list) => ({
+    [runtime.xField]: label,
+    [runtime.yField]: canScale
       ? (value / computedTotal) * requestedTotal
       : fallbackEven
         ? requestedTotal / Math.max(1, list.length)
-        : value
-    return {
-    [xField]: label,
-      [yField]: scaledValue,
-    [colorField]: series,
-    }
-  })
+        : value,
+    [runtime.colorField!]: series,
+  }))
   await renderStackedBarChart(container, {
     ...spec,
     data: { values },
@@ -204,133 +549,40 @@ function resolveDomains(rows: RawDatum[], xField: string, colorField: string) {
   return { xDomain, colorDomain }
 }
 
-type StackedSegment = {
-  target: string | number
-  series: string | number
-  value: number
-  y0: number
-  y1: number
-}
-
-function buildStackedSegments(
-  rows: RawDatum[],
-  xField: string,
-  yField: string,
-  colorField: string,
-  xDomain: Array<string | number>,
-  colorDomain: Array<string | number>,
-) {
-  const valueMap = new Map<string, Map<string, number>>()
-  rows.forEach((row) => {
-    const target = row[xField]
-    const series = row[colorField]
-    const numeric = Number(row[yField])
-    if (target == null || series == null || !Number.isFinite(numeric)) return
-    const targetKey = String(target)
-    const seriesKey = String(series)
-    if (!valueMap.has(targetKey)) valueMap.set(targetKey, new Map<string, number>())
-    const bucket = valueMap.get(targetKey)!
-    bucket.set(seriesKey, (bucket.get(seriesKey) ?? 0) + numeric)
-  })
-
-  const segments: StackedSegment[] = []
-  let minY = 0
-  let maxY = 0
-
-  xDomain.forEach((target) => {
-    const targetKey = String(target)
-    const bucket = valueMap.get(targetKey) ?? new Map<string, number>()
-    let positive = 0
-    let negative = 0
-    colorDomain.forEach((series) => {
-      const seriesKey = String(series)
-      const value = bucket.get(seriesKey) ?? 0
-      if (!Number.isFinite(value) || value === 0) return
-      if (value >= 0) {
-        const y0 = positive
-        const y1 = positive + value
-        positive = y1
-        segments.push({ target, series, value, y0, y1 })
-      } else {
-        const y0 = negative
-        const y1 = negative + value
-        negative = y1
-        segments.push({ target, series, value, y0, y1 })
-      }
-    })
-    if (positive > maxY) maxY = positive
-    if (negative < minY) minY = negative
-  })
-
-  return { segments, minY: Math.min(0, minY), maxY: Math.max(0, maxY) }
-}
-
-function writeDatasetAttrs(
-  svg: d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>,
-  spec: StackedSpec,
-  margin: { top: number; right: number; bottom: number; left: number },
-  plotW: number,
-  plotH: number,
-) {
-  const { x, y, color } = spec.encoding
-  svg
-    .attr(DataAttributes.MarginLeft, margin.left)
-    .attr(DataAttributes.MarginTop, margin.top)
-    .attr(DataAttributes.PlotWidth, plotW)
-    .attr(DataAttributes.PlotHeight, plotH)
-    .attr(DataAttributes.XField, x.field)
-    .attr(DataAttributes.YField, y.field)
-    .attr(DataAttributes.ColorField, color?.field ?? null)
-}
-
 /** @deprecated SurfaceManager.splitSurface() + renderStackedBarChart() 조합으로 대체됨. */
 export async function renderSplitStackedBarChart(container: HTMLElement, spec: StackedSpec, split: DrawSplitSpec) {
-  const renderEpoch = bumpRenderEpoch(container)
-  const data = localDataStore.get(container) || []
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  const colorField = spec.encoding.color?.field
-  if (!colorField) {
+  const runtime = resolveStackedRuntimeSpec(spec)
+  if (!runtime || !runtime.colorField) {
     console.warn('draw:split requires stacked chart color field')
     return
   }
+
+  const renderEpoch = bumpRenderEpoch(container)
+  const data = localDataStore.get(container) || []
   if (!data.length) {
     console.warn('draw:split skipped: stacked chart has no data')
     return
   }
 
-  const { xDomain, colorDomain } = resolveDomains(data, xField, colorField)
+  const { xDomain, colorDomain } = resolveDomains(data, runtime.xField, runtime.colorField)
   const splitGroups = normalizeSplitGroups(split, xDomain)
   if (!splitGroups) {
     console.warn('draw:split invalid split.groups for stacked bar')
     return
   }
 
-  const stacked = buildStackedSegments(data, xField, yField, colorField, xDomain, colorDomain)
-  let domainMin = stacked.minY
-  let domainMax = stacked.maxY
-  if (domainMin === domainMax) domainMax = domainMin + 1
+  const stacked = buildStackedSegments(data, runtime.xField, runtime.yField, runtime.colorField, xDomain, colorDomain, runtime.stackMode)
+  const [domainMin, domainMax] = resolveScaleDomain(
+    [stacked.minY, stacked.maxY, ...stacked.segments.flatMap((segment) => [segment.y0, segment.y1])],
+    asRecord(asRecord(asRecord(runtime.renderSpec.encoding).y).scale),
+  )
 
-  const margin = { top: 36, right: 24, bottom: 90, left: 60 }
-  const width = 760
-  const height = 380
-  const plotW = width - margin.left - margin.right
-  const plotH = height - margin.top - margin.bottom
-  const gap = 22
-  const orientation = split.orientation ?? 'vertical'
-  const subW = orientation === 'horizontal' ? (plotW - gap) / 2 : plotW
-  const subH = orientation === 'vertical' ? (plotH - gap) / 2 : plotH
-
-  const containerSelection = d3.select(container)
-  containerSelection.selectAll('*').remove()
-
-  const svg = containerSelection
-    .append(SvgElements.Svg)
-    .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
-    .attr(DataAttributes.RenderEpoch, renderEpoch)
-    .style('overflow', 'visible')
-
-  writeDatasetAttrs(svg, spec, margin, plotW, plotH)
+  const layout = resolveLayoutModel({
+    container,
+    chartType: ChartType.STACKED_BAR,
+    spec: runtime.renderSpec,
+    split: { enabled: true, orientation: split.orientation },
+  })
 
   const [idA, idB] = splitGroups.ids
   const [domainA, domainB] = splitGroups.domains
@@ -340,153 +592,128 @@ export async function renderSplitStackedBarChart(container: HTMLElement, spec: S
   })
 
   const colorScale = d3.scaleOrdinal<string, string>(d3.schemeTableau10).domain(colorDomain.map(String))
-  const panels: Array<{ id: string; domain: Array<string | number>; offsetX: number; offsetY: number }> = [
-    { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },
-    {
-      id: idB,
-      domain: domainB,
-      offsetX: orientation === 'horizontal' ? subW + gap : 0,
-      offsetY: orientation === 'vertical' ? subH + gap : 0,
+  const svg = renderWithMeasuredLayout(
+    container,
+    layout,
+    (resolvedLayout) => {
+      const margin = resolvedLayout.padding
+      const width = resolvedLayout.canvas.width
+      const height = resolvedLayout.canvas.height
+      const plotW = resolvedLayout.plot.width
+      const plotH = resolvedLayout.plot.height
+      const gap = resolvedLayout.splitPanels.gap
+      const orientation = resolvedLayout.splitPanels.orientation
+      const subW = resolvedLayout.splitPanels.panelWidth
+      const subH = resolvedLayout.splitPanels.panelHeight
+
+      const containerSelection = d3.select(container)
+      containerSelection.selectAll('*').remove()
+
+      const nextSvg = containerSelection
+        .append(SvgElements.Svg)
+        .attr(SvgAttributes.ViewBox, `0 0 ${width} ${height}`)
+        .attr(DataAttributes.RenderEpoch, renderEpoch)
+        .style('overflow', 'visible')
+
+      writeDatasetAttrs(nextSvg, runtime, margin, plotW, plotH)
+
+      const panels: Array<{ id: string; domain: Array<string | number>; offsetX: number; offsetY: number }> = [
+        { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },
+        {
+          id: idB,
+          domain: domainB,
+          offsetX: orientation === 'horizontal' ? subW + gap : 0,
+          offsetY: orientation === 'vertical' ? subH + gap : 0,
+        },
+      ]
+
+      let maxAxisRotation = 0
+      let maxDensityStep = 1
+      panels.forEach(({ id, domain, offsetX, offsetY }) => {
+        const panel = nextSvg
+          .append(SvgElements.Group)
+          .attr(DataAttributes.ChartId, id)
+          .attr(DataAttributes.ChartPanel, 'true')
+          .attr(DataAttributes.PanelPlotX, 0)
+          .attr(DataAttributes.PanelPlotY, 0)
+          .attr(DataAttributes.PanelPlotWidth, subW)
+          .attr(DataAttributes.PanelPlotHeight, subH)
+          .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
+
+        const xScale = d3.scaleBand<string | number>().domain(domain).range([0, subW]).padding(0.2)
+        const xLabelMap = buildCategoricalDisplayLabelMap(data, runtime.xField)
+        const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([subH, 0])
+
+        panel
+          .append(SvgElements.Text)
+          .attr('x', subW / 2)
+          .attr('y', -resolvedLayout.splitPanels.titleOffsetY)
+          .attr(SvgAttributes.TextAnchor, 'middle')
+          .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.splitPanelTitle)
+          .attr('font-weight', 600)
+          .text(id)
+
+        panel
+          .append(SvgElements.Group)
+          .attr(SvgAttributes.Class, SvgClassNames.XAxis)
+          .attr(SvgAttributes.Transform, `translate(0,${subH})`)
+          .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
+        applyAxisTickLabelSize(panel.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
+        const xTicks = Array.from(panel.select(`.${SvgClassNames.XAxis}`).selectAll<SVGGElement, unknown>('.tick').nodes())
+        const axisLayout = wrapAxisTickLabels(panel.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text), {
+          showAllTicksByDefault: resolvedLayout.tickLayout.showAllTicksByDefault,
+          rotationReferencePolicy: resolvedLayout.tickLayout.rotationReferencePolicy,
+          maxCharsPerLine: resolvedLayout.tickLayout.maxCharsPerLine,
+          maxLines: resolvedLayout.tickLayout.maxLines,
+          allowDensityReduction: resolvedLayout.tickLayout.allowDensityReduction,
+          maxDensityStep: resolvedLayout.tickLayout.maxDensityStep,
+          overlapTolerancePx: resolvedLayout.tickLayout.overlapTolerancePx,
+          maxUnrotatedLabelLength: resolvedLayout.tickLayout.maxUnrotatedLabelLength,
+          candidateAngles: resolvedLayout.tickLayout.candidateAngles,
+          rotatedAnchor: resolvedLayout.tickLayout.rotatedAnchor,
+          tickElements: xTicks,
+        })
+        maxAxisRotation = Math.max(maxAxisRotation, Math.abs(axisLayout.angleDeg))
+        maxDensityStep = Math.max(maxDensityStep, axisLayout.densityStep)
+
+        panel.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
+        applyAxisTickLabelSize(panel.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
+
+        const domainSet = new Set(domain.map(String))
+        const panelSegments = stacked.segments.filter((segment) => domainSet.has(String(segment.target)))
+
+        panel
+          .selectAll<SVGRectElement, StackedSegment>(SvgElements.Rect)
+          .data(panelSegments)
+          .join(SvgElements.Rect)
+          .attr(SvgAttributes.Class, SvgClassNames.MainBar)
+          .attr(SvgAttributes.X, (segment) => xScale(segment.target) ?? 0)
+          .attr(SvgAttributes.Width, xScale.bandwidth())
+          .attr(SvgAttributes.Y, (segment) => yScale(Math.max(segment.y0, segment.y1)))
+          .attr(SvgAttributes.Height, (segment) => Math.abs(yScale(segment.y0) - yScale(segment.y1)))
+          .attr(SvgAttributes.Fill, (segment) => colorScale(String(segment.series)) || '#69b3a2')
+          .attr(DataAttributes.Id, (segment) => `${id}|${String(segment.target)}|${String(segment.series)}`)
+          .attr(DataAttributes.Target, (segment) => String(segment.target))
+          .attr(DataAttributes.Value, (segment) => segment.value)
+          .attr(DataAttributes.Series, (segment) => String(segment.series))
+          .attr(DataAttributes.ChartId, id)
+      })
+
+      nextSvg.attr(DataAttributes.AxisRotation, String(maxAxisRotation))
+      nextSvg.attr(DataAttributes.TickDensityStep, String(maxDensityStep))
+      return nextSvg
     },
-  ]
-
-  panels.forEach(({ id, domain, offsetX, offsetY }) => {
-    const panel = svg
-      .append(SvgElements.Group)
-      .attr(DataAttributes.ChartId, id)
-      .attr(DataAttributes.ChartPanel, 'true')
-      .attr(DataAttributes.PanelPlotX, 0)
-      .attr(DataAttributes.PanelPlotY, 0)
-      .attr(DataAttributes.PanelPlotWidth, subW)
-      .attr(DataAttributes.PanelPlotHeight, subH)
-      .attr(SvgAttributes.Transform, `translate(${margin.left + offsetX},${margin.top + offsetY})`)
-
-    const xScale = d3.scaleBand<string | number>().domain(domain).range([0, subW]).padding(0.2)
-    const xLabelMap = buildCategoricalDisplayLabelMap(data, xField)
-    const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([subH, 0])
-
-    panel
-      .append(SvgElements.Text)
-      .attr('x', subW / 2)
-      .attr('y', -10)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.splitPanelTitle)
-      .attr('font-weight', 600)
-      .text(id)
-
-    panel
-      .append(SvgElements.Group)
-      .attr(SvgAttributes.Class, SvgClassNames.XAxis)
-      .attr(SvgAttributes.Transform, `translate(0,${subH})`)
-      .call(d3.axisBottom(xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
-    applyAxisTickLabelSize(panel.select<SVGGElement>(`.${SvgClassNames.XAxis}`))
-    wrapAxisTickLabels(panel.select(`.${SvgClassNames.XAxis}`).selectAll<SVGTextElement, unknown>(SvgElements.Text))
-
-    panel.append(SvgElements.Group).attr(SvgAttributes.Class, SvgClassNames.YAxis).call(d3.axisLeft(yScale).ticks(5))
-    applyAxisTickLabelSize(panel.select<SVGGElement>(`.${SvgClassNames.YAxis}`))
-
-    const domainSet = new Set(domain.map(String))
-    const panelSegments = stacked.segments.filter((segment) => domainSet.has(String(segment.target)))
-
-    panel
-      .selectAll<SVGRectElement, StackedSegment>(SvgElements.Rect)
-      .data(panelSegments)
-      .join(SvgElements.Rect)
-      .attr(SvgAttributes.Class, SvgClassNames.MainBar)
-      .attr(SvgAttributes.X, (d) => xScale(d.target) ?? 0)
-      .attr(SvgAttributes.Width, xScale.bandwidth())
-      .attr(SvgAttributes.Y, (d) => yScale(Math.max(d.y0, d.y1)))
-      .attr(SvgAttributes.Height, (d) => Math.abs(yScale(d.y0) - yScale(d.y1)))
-      .attr(SvgAttributes.Fill, (d) => colorScale(String(d.series)) || '#69b3a2')
-      .attr(DataAttributes.Id, (d) => `${id}|${String(d.target)}|${String(d.series)}`)
-      .attr(DataAttributes.Target, (d) => String(d.target))
-      .attr(DataAttributes.Value, (d) => d.value)
-      .attr(DataAttributes.Series, (d) => String(d.series))
-      .attr(DataAttributes.ChartId, id)
-  })
-}
-
-function resolveDatum(raw: unknown, el: SVGGraphicsElement): RawDatum {
-  const wrapped =
-    raw && typeof raw === 'object' && 'datum' in raw ? (raw as { datum?: unknown }).datum : undefined
-  const candidates = [wrapped, raw, (el as SVGGraphicsElement & { __data__?: unknown }).__data__]
-  for (const candidate of candidates) {
-    if (candidate && typeof candidate === 'object') return candidate as RawDatum
-  }
-  return {}
-}
-
-async function tagBarMarks(container: HTMLElement, xField: string, yField: string, colorField?: string) {
-  for (let i = 0; i < 5; i += 1) {
-    const markCount = d3
-      .select(container)
-      .select(SvgElements.Svg)
-      .selectAll<SVGGraphicsElement, unknown>('rect,path')
-      .size()
-    if (markCount > 0) break
-    await new Promise((resolve) => requestAnimationFrame(resolve))
-  }
-  const svg = d3.select(container).select(SvgElements.Svg)
-  svg
-    .attr(DataAttributes.XField, xField)
-    .attr(DataAttributes.YField, yField)
-    .attr(DataAttributes.ColorField, colorField ?? null)
-  const rows: RawDatum[] = []
-  svg.selectAll<SVGGraphicsElement, unknown>('rect,path').each(function (this: SVGGraphicsElement, _d: unknown) {
-    const datum = resolveDatum(_d, this)
-    const xVal = datum?.[xField] ?? datum?.[xField?.toLowerCase?.()] ?? datum?.x ?? null
-    const yVal = datum?.[yField] ?? datum?.[yField?.toLowerCase?.()] ?? datum?.y ?? null
-    const colorVal = colorField ? datum?.[colorField] ?? datum?.[colorField?.toLowerCase?.()] : null
-    if (xVal == null || yVal == null) return
-    const fill = d3.select(this as Element).attr(SvgAttributes.Fill)
-    const keyParts = [xVal, colorVal]
-      .map((value) => (value == null ? '' : String(value).trim()))
-      .filter((value) => value.length > 0)
-    const uniqueId = keyParts.length > 0 ? keyParts.join('|') : String(xVal)
-    d3.select(this as Element)
-      .attr(DataAttributes.Target, String(xVal))
-      .attr(DataAttributes.Id, uniqueId)
-      .attr(DataAttributes.Value, String(yVal))
-      .attr(DataAttributes.Series, colorVal != null ? String(colorVal) : null)
-    const numY = Number(yVal)
-    if (!Number.isFinite(numY)) return
-    const row: RawDatum = {
-      ...datum,
-      __fill: typeof fill === 'string' ? fill : null,
-      [xField]: xVal,
-      [yField]: numY,
-    }
-    if (colorField) {
-      row[colorField] = colorVal != null ? String(colorVal) : null
-    }
-    rows.push(row)
-  })
-  return rows
-}
-
-function fitSvgToHost(container: HTMLElement) {
-  const svgSel = d3.select(container).select(SvgElements.Svg)
-  if (svgSel.empty()) return
-  const node = svgSel.node() as SVGSVGElement | null
-  if (!node || typeof node.getBBox !== 'function') return
-  const bbox = node.getBBox()
-  if (!bbox || !Number.isFinite(bbox.width) || bbox.width <= 0 || !Number.isFinite(bbox.height)) return
-  const hostWidth = Math.max(1, Math.min(container.clientWidth || bbox.width, 880))
-  const scale = hostWidth / bbox.width
-  const newHeight = Math.max(1, bbox.height * scale)
-  node.setAttribute(SvgAttributes.ViewBox, `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`)
-  node.setAttribute('width', String(hostWidth))
-  node.setAttribute('height', String(newHeight))
+    { maxPasses: 4 },
+  )
+  return svg
 }
 
 export function getStackedBarStoredData(container: HTMLElement) {
-  const rows = localDataStore.get(container) || []
-  return cloneRows(rows)
+  return cloneRows(localDataStore.get(container) || [])
 }
 
 export function getStackedBarOriginalData(container: HTMLElement) {
-  const rows = originalDataStore.get(container) || []
-  return cloneRows(rows)
+  return cloneRows(originalDataStore.get(container) || [])
 }
 
 export function clearStackedBarSplitState(container: HTMLElement) {

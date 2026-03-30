@@ -9,6 +9,8 @@ import type { DrawStackGroupSpec } from '../draw/types'
 import type { JsonObject, JsonValue } from '../../types'
 import { loadRowsFromVegaLiteData } from '../vegaLite/dataLoader'
 import { applyVegaLiteTransforms } from '../vegaLite/transform'
+import { storeDerivedChartState } from '../utils/derivedChartState'
+import { ChartType } from '../../domain/chart'
 
 type RawDatum = JsonObject
 
@@ -123,20 +125,20 @@ export async function convertStackedToGrouped(
         type: xType,
         ...(xSortDomain.length > 0 ? { sort: xSortDomain } : {}),
       },
-      // IMPORTANT: grouped charts must disable stacking; otherwise Vega-Lite will keep stacking bars.
+      // IMPORTANT: grouped charts must disable stacking to keep bars side-by-side.
       y: { ...encoding.y, stack: null },
       color: {
         ...baseColor,
         field: colorField,
         type: colorType ?? 'nominal',
       },
-      // Workbench chart type inference + Vega-Lite grouped rendering hint.
-      // Vega-Lite v5 runtime supports xOffset; v3 schema may warn but still renders in our workbench.
+      // Keep the grouped-bar hint explicit so chart family inference stays stable.
       xOffset: { field: colorField, type: colorType ?? 'nominal' } as any,
     },
   }
 
   await renderGroupedBarChart(container, groupedSpec)
+  storeDerivedChartState(container, ChartType.GROUPED_BAR, groupedSpec)
 }
 
 export async function convertStackedToDiverging(container: HTMLElement, spec: StackedSpec) {
@@ -178,7 +180,7 @@ export async function convertStackedToDiverging(container: HTMLElement, spec: St
       ...encoding,
       y: {
         ...(encoding.y as any),
-        // Vega-Lite centered stacking: bars diverge around y=0 (middle of the axis).
+        // Centered stacking: bars diverge around y=0 (middle of the axis).
         stack: 'center',
         ...(half > 0 && !hasExplicitDomain ? { scale: { ...yScale, domain: [-half, half] } } : {}),
       } as any,
@@ -186,6 +188,7 @@ export async function convertStackedToDiverging(container: HTMLElement, spec: St
   }
 
   await renderStackedBarChart(container, divergingSpec)
+  storeDerivedChartState(container, ChartType.STACKED_BAR, divergingSpec)
 }
 
 export async function convertGroupedToStacked(
@@ -224,7 +227,7 @@ export async function convertGroupedToStacked(
   }
 
   const baseColor = encoding.color ?? {}
-  // Ensure Workbench + Vega-Lite treat this as stacked (remove grouped hints).
+  // Ensure the converted spec is treated as stacked by removing grouped hints.
   const { xOffset: _xOffset, yOffset: _yOffset, column: _column, row: _row, ...encodingNoGroupedHints } =
     encoding as unknown as Record<string, unknown>
 
@@ -244,4 +247,5 @@ export async function convertGroupedToStacked(
   }
 
   await renderStackedBarChart(container, stackedSpec)
+  storeDerivedChartState(container, ChartType.STACKED_BAR, stackedSpec)
 }

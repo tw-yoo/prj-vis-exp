@@ -17,7 +17,7 @@ async function renderSpec(page: Page, spec: string) {
   const readVisibilityMeta = async () =>
     page.evaluate(() => {
       const host = document.querySelector('[data-testid="chart-host"]') as HTMLElement | null
-      if (!host) return { svgVisible: 0, canvasVisible: 0, hostRect: null, firstSvg: null, embedOptions: null }
+      if (!host) return { svgVisible: 0, canvasVisible: 0, hostRect: null, firstSvg: null }
       const visible = (el: Element) => {
         const style = window.getComputedStyle(el as HTMLElement)
         if (style.display === 'none' || style.visibility === 'hidden') return false
@@ -30,15 +30,7 @@ async function renderSpec(page: Page, spec: string) {
       const canvasVisible = canvases.filter((el) => visible(el)).length
       const firstSvg = svgs[0]
       const firstSvgRect = firstSvg ? firstSvg.getBoundingClientRect() : null
-      const result = (host as any).__lastVegaEmbedResult
-      const view = result?.view
-      const signal = (name: string) => {
-        try {
-          return typeof view?.signal === 'function' ? view.signal(name) : undefined
-        } catch {
-          return undefined
-        }
-      }
+      const spec = (host as any).__chartRuntimeState?.spec
       return {
         svgVisible,
         canvasVisible,
@@ -52,19 +44,11 @@ async function renderSpec(page: Page, spec: string) {
               rect: firstSvgRect,
             }
           : null,
-        embedOptions: (host as any).__lastVegaEmbedOptions ?? null,
         finalSpecMeta: {
-          width: (host as any).__lastVegaLiteSpec?.width,
-          height: (host as any).__lastVegaLiteSpec?.height,
-          padding: (host as any).__lastVegaLiteSpec?.padding,
-          autosize: (host as any).__lastVegaLiteSpec?.autosize,
-        },
-        viewSignals: {
-          width: signal('width'),
-          height: signal('height'),
-          child_width: signal('child_width'),
-          child_height: signal('child_height'),
-          column_domain: signal('column_domain'),
+          width: spec?.width,
+          height: spec?.height,
+          padding: spec?.padding,
+          autosize: spec?.autosize,
         },
       }
     })
@@ -94,9 +78,9 @@ async function renderSpec(page: Page, spec: string) {
 async function expectDesignDefaultsIntact(page: Page) {
   const meta = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    const spec = host?.__lastVegaLiteSpec
+    const spec = host?.__chartRuntimeState?.spec
     const svg = document.querySelector('[data-testid="chart-host"] svg')
-    const axisPath = svg?.querySelector('.role-axis path') as SVGElement | null
+    const axisPath = svg?.querySelector('.x-axis path, .y-axis path') as SVGElement | null
     return {
       hasPadding: !!spec?.padding,
       viewStroke: spec?.config?.view?.stroke,
@@ -120,7 +104,7 @@ test('expert util: simple bar (highlight + y scale) 렌더링/디자인 유지',
 
   const yScale = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    return host?.__lastVegaLiteSpec?.encoding?.y?.scale
+    return host?.__chartRuntimeState?.spec?.encoding?.y?.scale
   })
   expect(yScale?.domainMax).toBe(30)
 })
@@ -131,7 +115,7 @@ test('expert util: stacked bar (filter + highlight + y scale) 렌더링/색 안�
 
   const info = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    const spec = host?.__lastVegaLiteSpec
+    const spec = host?.__chartRuntimeState?.spec
     return {
       yScale: spec?.encoding?.y?.scale,
       colorScale: spec?.encoding?.color?.scale,
@@ -150,7 +134,7 @@ test('expert util: grouped bar (filter + highlight + y domain) 렌더링/색 안
 
   const info = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    const spec = host?.__lastVegaLiteSpec
+    const spec = host?.__chartRuntimeState?.spec
     return {
       yScale: spec?.encoding?.y?.scale,
       colorScale: spec?.encoding?.color?.scale,
@@ -168,7 +152,7 @@ test('expert util: multi-line layered (filter + highlight points) 렌더링/색 
 
   const layerColorScales = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    const spec = host?.__lastVegaLiteSpec
+    const spec = host?.__chartRuntimeState?.spec
     return (spec?.layer ?? []).map((layer: any) => layer?.encoding?.color?.scale).filter(Boolean)
   })
   expect(layerColorScales.length).toBeGreaterThanOrEqual(1)
@@ -182,7 +166,7 @@ test('expert util-adjacent: explicit color scale(domain/range) is not overridden
 
   const colorScale = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
-    return host?.__lastVegaLiteSpec?.encoding?.color?.scale
+    return host?.__chartRuntimeState?.spec?.encoding?.color?.scale
   })
   expect(colorScale?.domain).toEqual(['normal', 'highlight'])
   expect(colorScale?.range).toEqual(['#60a5fa', '#ff0000'])
