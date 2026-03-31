@@ -3,12 +3,14 @@ import { draw, ops } from '../../../operation/build/authoring'
 import { DrawAction, DrawLineModes, DrawMark, type DrawOp } from '../../draw/types.ts'
 import type { AutoDrawPlanContext } from '../common/executeDataOp'
 import { CHART_TEXT_SIZE } from '../../config/chartTextConfig'
+import { DataAttributes, SvgAttributes } from '../../interfaces'
 
 const DEFAULT_HIGHLIGHT_COLOR = '#ef4444'
 const DEFAULT_TEXT_COLOR = '#111827'
 export const AVERAGE_LINE_COLOR = '#ef4444'
 export const AUTO_DRAW_TEXT_FONT_SIZE = CHART_TEXT_SIZE.autoDraw
 export const AUTO_DRAW_TEXT_MINOR_FONT_SIZE = CHART_TEXT_SIZE.autoDrawMinor
+export const COMPARISON_RAIL_X = 0.97
 
 type AutoDrawChartKind = 'simple-bar' | 'stacked-bar' | 'grouped-bar' | 'simple-line' | 'multi-line'
 
@@ -58,6 +60,75 @@ function resolveNodeChartId(node: Element) {
   if (!scopedParent) return null
   const inherited = scopedParent.getAttribute('data-chart-id')
   return inherited && inherited.trim().length > 0 ? inherited.trim() : null
+}
+
+function resolvePlotFrame(svg: SVGSVGElement) {
+  const viewBox = svg.viewBox?.baseVal
+  const fallbackWidth = viewBox && Number.isFinite(viewBox.width) ? viewBox.width : svg.getBoundingClientRect().width
+  const fallbackHeight = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svg.getBoundingClientRect().height
+  const plotXRaw = Number(svg.getAttribute(DataAttributes.MarginLeft))
+  const plotYRaw = Number(svg.getAttribute(DataAttributes.MarginTop))
+  const plotWidthRaw = Number(svg.getAttribute(DataAttributes.PlotWidth))
+  const plotHeightRaw = Number(svg.getAttribute(DataAttributes.PlotHeight))
+  return {
+    x: Number.isFinite(plotXRaw) ? plotXRaw : 0,
+    y: Number.isFinite(plotYRaw) ? plotYRaw : 0,
+    width: Number.isFinite(plotWidthRaw) && plotWidthRaw > 0 ? plotWidthRaw : fallbackWidth,
+    height: Number.isFinite(plotHeightRaw) && plotHeightRaw > 0 ? plotHeightRaw : fallbackHeight,
+  }
+}
+
+function resolveSvgPointFromNode(svg: SVGSVGElement, node: Element) {
+  if (node instanceof SVGCircleElement) {
+    const cx = Number(node.getAttribute(SvgAttributes.CX))
+    const cy = Number(node.getAttribute(SvgAttributes.CY))
+    if (Number.isFinite(cx) && Number.isFinite(cy)) return { x: cx, y: cy }
+  }
+
+  const rect = node.getBoundingClientRect()
+  const svgRect = svg.getBoundingClientRect()
+  const viewBox = svg.viewBox?.baseVal
+  const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+  const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
+  if (!(Number.isFinite(scaleX) && Number.isFinite(scaleY) && rect.width >= 0 && rect.height >= 0)) return null
+  return {
+    x: (rect.left - svgRect.left + rect.width / 2) * scaleX + (viewBox?.x ?? 0),
+    y: (rect.top - svgRect.top + rect.height / 2) * scaleY + (viewBox?.y ?? 0),
+  }
+}
+
+function inferNormalizedPointForTarget(
+  chartId: string | undefined,
+  target: string,
+  context: AutoDrawPlanContext,
+  series?: string,
+) {
+  const svg = selectSvgForChart(context.container, chartId)
+  if (!svg) return null
+  const plot = resolvePlotFrame(svg)
+  if (!(plot.width > 0 && plot.height > 0)) return null
+
+  const candidates = Array.from(svg.querySelectorAll<SVGElement>('[data-target], [data-id]')).filter((node) => {
+    if (node.classList.contains('annotation')) return false
+    const nodeChartId = resolveNodeChartId(node)
+    if (chartId && nodeChartId !== chartId) return false
+    if (series != null) {
+      const nodeSeries = (node.getAttribute(DataAttributes.Series) ?? '').trim()
+      if (nodeSeries !== String(series)) return false
+    }
+    const nodeTarget = (node.getAttribute(DataAttributes.Target) ?? '').trim()
+    const nodeId = (node.getAttribute(DataAttributes.Id) ?? '').trim()
+    return nodeTarget === target || nodeId === target
+  })
+  if (!candidates.length) return null
+
+  const chosen = candidates.find((node) => node.tagName.toLowerCase() === 'circle') ?? candidates[0]
+  const point = resolveSvgPointFromNode(svg, chosen)
+  if (!point) return null
+  return {
+    x: clamp01((point.x - plot.x) / plot.width),
+    y: clamp01(1 - (point.y - plot.y) / plot.height),
+  }
 }
 
 function inferAverageLabelYFromChart(container: HTMLElement, chartId: string | undefined, value: number) {
@@ -136,6 +207,184 @@ export function makeAverageTextOp(
   )
 }
 
+export function buildSelectedPointGuideOps(args: {
+  chartId: string | undefined
+  result: DatumValue[]
+  context: AutoDrawPlanContext
+  color?: string
+}) {
+  const color = args.color ?? DEFAULT_HIGHLIGHT_COLOR
+  const seen = new Set<string>()
+  const plan: DrawOp[] = []
+  args.result.forEach((datum) => {
+    const target = String(datum.target ?? '').trim()
+    if (!target || seen.has(target)) return
+    seen.add(target)
+    const point = inferNormalizedPointForTarget(args.chartId, target, args.context, datum.group != null ? String(datum.group) : undefined)
+    if (!point) return
+    plan.push(
+      ops.draw.line(
+        args.chartId,
+        draw.lineSpec.normalized(0, point.y, point.x, point.y, draw.style.line(color, 1.5, 0.75)),
+      ),
+    )
+    plan.push(
+      ops.draw.line(
+        args.chartId,
+        draw.lineSpec.normalized(point.x, point.y, point.x, 0, draw.style.line(color, 1.5, 0.75)),
+      ),
+    )
+  })
+  return plan
+}
+
+export function buildPointValueLabelOps(args: {
+  chartId: string | undefined
+  result: DatumValue[]
+  context: AutoDrawPlanContext
+  precision?: number
+  color?: string
+}) {
+  const color = args.color ?? DEFAULT_TEXT_COLOR
+  const seen = new Set<string>()
+  const plan: DrawOp[] = []
+  args.result.forEach((datum) => {
+    const target = String(datum.target ?? '').trim()
+    const value = Number(datum.value)
+    if (!target || !Number.isFinite(value) || seen.has(target)) return
+    seen.add(target)
+    const point = inferNormalizedPointForTarget(args.chartId, target, args.context, datum.group != null ? String(datum.group) : undefined)
+    if (!point) return
+    plan.push(
+      ops.draw.text(
+        args.chartId,
+        undefined,
+        draw.textSpec.normalized(
+          formatDrawNumber(value, args.precision),
+          point.x,
+          point.y,
+          draw.style.text(color, AUTO_DRAW_TEXT_FONT_SIZE, 'bold', undefined, 1),
+          0,
+          -12,
+        ),
+      ),
+    )
+  })
+  return plan
+}
+
+export function buildBinaryComparisonBracketOp(
+  chartId: string | undefined,
+  startY: number,
+  endY: number,
+  normalizedX: number,
+  color = DEFAULT_HIGHLIGHT_COLOR,
+): DrawOp {
+  return ops.draw.line(
+    chartId,
+    draw.lineSpec.diffBracket(
+      startY,
+      endY,
+      draw.style.line(color, 2, 0.95),
+      draw.arrow.both(),
+      Math.max(0.02, Math.min(0.98, normalizedX)),
+    ),
+  )
+}
+
+export function resolveBinaryComparisonBracketX(xs: number[], offset = 0.04) {
+  if (!xs.length) return 0.94
+  const maxX = Math.max(...xs.filter((value) => Number.isFinite(value)))
+  if (!Number.isFinite(maxX)) return 0.94
+  return Math.max(0.02, Math.min(0.98, maxX + offset))
+}
+
+export function makeComparisonGuideLineOp(
+  chartId: string | undefined,
+  value: number,
+  color = DEFAULT_HIGHLIGHT_COLOR,
+  railX = COMPARISON_RAIL_X,
+): DrawOp {
+  return ops.draw.line(
+    chartId,
+    draw.lineSpec.horizontalFromY(
+      value,
+      draw.style.line(color, 2, 0.85),
+      undefined,
+      { extent: 'plot', endNormalizedX: railX },
+    ),
+  )
+}
+
+export function inferNormalizedYForValue(
+  chartId: string | undefined,
+  value: number,
+  context: AutoDrawPlanContext,
+) {
+  return inferAverageLabelYFromChart(context.container, chartId, value)
+    ?? inferAverageLabelYFromData(value, context.prevWorking)
+    ?? null
+}
+
+export function buildBinaryComparisonRailPlan(args: {
+  chartId: string | undefined
+  color?: string
+  precision?: number
+  valueA: number | null
+  valueB: number | null
+  normalizedYA: number | null
+  normalizedYB: number | null
+  highlightOps?: DrawOp[]
+  valueLabelOps?: DrawOp[]
+  deltaTextLabel?: string
+  deltaValue?: number | null
+  railX?: number
+}) {
+  const color = args.color ?? DEFAULT_HIGHLIGHT_COLOR
+  const railX = args.railX ?? COMPARISON_RAIL_X
+  const plan: DrawOp[] = [...(args.highlightOps ?? []), ...(args.valueLabelOps ?? [])]
+
+  if (Number.isFinite(args.valueA ?? NaN)) {
+    plan.push(makeComparisonGuideLineOp(args.chartId, Number(args.valueA), color, railX))
+  }
+  if (Number.isFinite(args.valueB ?? NaN)) {
+    plan.push(makeComparisonGuideLineOp(args.chartId, Number(args.valueB), color, railX))
+  }
+
+  const yA = Number(args.normalizedYA)
+  const yB = Number(args.normalizedYB)
+  if (Number.isFinite(yA) && Number.isFinite(yB) && yA !== yB) {
+    plan.push(
+      buildBinaryComparisonBracketOp(
+        args.chartId,
+        Math.min(yA, yB),
+        Math.max(yA, yB),
+        railX,
+        color,
+      ),
+    )
+  }
+
+  const deltaValue = Number(args.deltaValue)
+  if (Number.isFinite(deltaValue) && Number.isFinite(yA) && Number.isFinite(yB)) {
+    plan.push(
+      ops.draw.text(
+        args.chartId,
+        undefined,
+        draw.textSpec.normalized(
+          `${args.deltaTextLabel ?? 'Difference'}: ${formatDrawNumber(deltaValue, args.precision)}`,
+          Math.max(0.08, railX - 0.09),
+          clamp01((yA + yB) / 2),
+          draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+          0,
+          -5,
+        ),
+      ),
+    )
+  }
+  return plan
+}
+
 export function makeHighlightOp(target: string, color?: string, selectField = 'target'): DrawOp {
   const select = selectField
     ? draw.select.markFieldKeys(DrawMark.Rect, selectField, target)
@@ -184,15 +433,6 @@ function isDrawOp(value: unknown): value is DrawOp {
   return candidate.op === OperationOp.Draw && typeof candidate.action === 'string'
 }
 
-function isConnectorLine(op: DrawOp) {
-  if (op.action !== DrawAction.Line) return false
-  const line = op.line
-  if (!line) return false
-  if (line.connectBy) return true
-  if (line.pair?.x?.length === 2) return true
-  return line.mode === DrawLineModes.Connect
-}
-
 function buildScalarPanelDiffStages(drawOps: DrawOp[]) {
   const scalarIndices = drawOps
     .map((drawOp, index) => ({ drawOp, index }))
@@ -225,9 +465,22 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
   switch (opName) {
     case OperationOp.RetrieveValue:
     case OperationOp.FindExtremum:
+      return drawOps.map((drawOp) => {
+        if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
+        if (drawOp.action === DrawAction.Line) return 1
+        if (drawOp.action === DrawAction.Text) return 2
+        return 0
+      })
     case OperationOp.Nth:
       return drawOps.map((drawOp) => (drawOp.action === DrawAction.Text ? 1 : 0))
     case OperationOp.Filter:
+      if (drawOps.some((drawOp) => drawOp.action === DrawAction.LineToBar)) {
+        return drawOps.map((drawOp) => {
+          if (drawOp.action === DrawAction.LineToBar) return 0
+          if (drawOp.action === DrawAction.Filter) return 2
+          return 1
+        })
+      }
       return drawOps.map((drawOp) => (drawOp.action === DrawAction.Filter ? 1 : 0))
     case OperationOp.Sort:
       return drawOps.map((drawOp) => (drawOp.action === DrawAction.Sort ? 1 : 0))
@@ -236,12 +489,21 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
     case OperationOp.Compare:
       return drawOps.map((drawOp) => {
         if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
-        if (isConnectorLine(drawOp)) return 1
-        if (drawOp.action === DrawAction.Line || drawOp.action === DrawAction.Text) return 2
+        if (drawOp.action === DrawAction.Text && drawOp.select) return 0
+        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.HorizontalFromY) return 1
+        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.DiffBracket) return 2
+        if (drawOp.action === DrawAction.Text) return 2
         return 2
       })
     case OperationOp.CompareBool:
-      return drawOps.map(() => 0)
+      return drawOps.map((drawOp) => {
+        if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
+        if (drawOp.action === DrawAction.Text && drawOp.select) return 0
+        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.HorizontalFromY) return 1
+        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.DiffBracket) return 2
+        if (drawOp.action === DrawAction.Text) return 2
+        return 2
+      })
     case OperationOp.Sum:
       if (hasStructuralSum) return drawOps.map(() => 0)
       if (!isLineChart) return drawOps.map(() => 0)
@@ -269,28 +531,18 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
       }
       return drawOps.map((drawOp) => {
         if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
-        if (drawOp.action === DrawAction.Line) return isConnectorLine(drawOp) ? 1 : 2
+        if (drawOp.action === DrawAction.Text && drawOp.select) return 0
+        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.HorizontalFromY) return 1
+        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.DiffBracket) return 2
+        if (drawOp.action === DrawAction.Line) return 2
         if (drawOp.action === DrawAction.Text) return 2
         return 2
       })
     }
     case OperationOp.LagDiff:
-      return drawOps.map((drawOp) => {
-        if (isConnectorLine(drawOp)) return 0
-        return 1
-      })
+      return drawOps.map(() => 0)
     case OperationOp.PairDiff:
-      return (() => {
-        const hasConnector = drawOps.some((drawOp) => isConnectorLine(drawOp))
-        return drawOps.map((drawOp) => {
-          if (isConnectorLine(drawOp)) return 0
-          if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) {
-            return hasConnector ? 1 : 0
-          }
-          if (drawOp.action === DrawAction.Text) return 1
-          return hasConnector ? 1 : 0
-        })
-      })()
+      return drawOps.map(() => 0)
     case OperationOp.Count:
       return drawOps.map(() => 0)
     case OperationOp.SetOp:

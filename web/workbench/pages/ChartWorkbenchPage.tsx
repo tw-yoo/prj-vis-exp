@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-import barSimpleSpecRaw from '../../../data/test/spec/bar_stacked_ver.json?raw'
+import barSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
 import lineSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
 import {
   assertDrawCapabilityForOp,
@@ -344,13 +344,30 @@ const resolveExecutionStrategy = (args: {
   const warnings = [...(args.warnings ?? [])]
   const logicalGroups = normalizeOpsGroupsForWorkbench(args.logicalOpsSpec)
   const drawGroups = normalizeOpsGroupsForWorkbench(args.drawPlanGroupMap)
+  const ensureMaterializedGroups = (
+    materialized: ReturnType<typeof materializeExecutionGroups>,
+    fallback: Array<{ name: string; ops: OperationSpec[] }>,
+    warning: string,
+  ) => {
+    if (materialized.groups.length > 0) return materialized
+    if (!fallback.length) return materialized
+    warnings.push(warning)
+    return {
+      groups: fallback,
+      mode: 'group' as const,
+    }
+  }
 
   if (args.visualExecutionPlan?.steps?.length && logicalGroups.length > 0) {
-    const materialized = materializeExecutionGroups({
-      opsSpec: args.logicalOpsSpec,
-      executionPlan: args.executionPlan,
-      visualExecutionPlan: args.visualExecutionPlan,
-    })
+    const materialized = ensureMaterializedGroups(
+      materializeExecutionGroups({
+        opsSpec: args.logicalOpsSpec,
+        executionPlan: args.executionPlan,
+        visualExecutionPlan: args.visualExecutionPlan,
+      }),
+      logicalGroups,
+      'visual_execution_plan produced no executable groups; falling back to logical ops groups.',
+    )
     return {
       groups: materialized.groups.map((group) => group.ops),
       groupNames: materialized.groups.map((group) => group.name),
@@ -369,12 +386,16 @@ const resolveExecutionStrategy = (args: {
   }
 
   if (drawGroups.length > 0 && args.drawPlanGroupMap) {
-    const materialized = materializeExecutionGroups({
-      opsSpec: args.drawPlanGroupMap,
-      executionPlan: args.executionPlan,
-      visualExecutionPlan: args.visualExecutionPlan,
-      preferDrawGroupNames: true,
-    })
+    const materialized = ensureMaterializedGroups(
+      materializeExecutionGroups({
+        opsSpec: args.drawPlanGroupMap,
+        executionPlan: args.executionPlan,
+        visualExecutionPlan: args.visualExecutionPlan,
+        preferDrawGroupNames: true,
+      }),
+      drawGroups,
+      'draw_plan execution metadata produced no executable groups; falling back to draw_plan group order.',
+    )
     return {
       groups: materialized.groups.map((group) => group.ops),
       groupNames: materialized.groups.map((group) => group.name),
@@ -392,11 +413,15 @@ const resolveExecutionStrategy = (args: {
     throw new Error('Ops JSON must include at least one executable group (e.g., "ops", "firstStep").')
   }
 
-  const materialized = materializeExecutionGroups({
-    opsSpec: args.logicalOpsSpec,
-    executionPlan: args.executionPlan,
-    visualExecutionPlan: args.visualExecutionPlan,
-  })
+  const materialized = ensureMaterializedGroups(
+    materializeExecutionGroups({
+      opsSpec: args.logicalOpsSpec,
+      executionPlan: args.executionPlan,
+      visualExecutionPlan: args.visualExecutionPlan,
+    }),
+    logicalGroups,
+    'execution metadata produced no executable groups; falling back to logical ops groups.',
+  )
   return {
     groups: materialized.groups.map((group) => group.ops),
     groupNames: materialized.groups.map((group) => group.name),
@@ -1033,7 +1058,7 @@ function ChartWorkbenchPage() {
           return
         }
         try {
-          await runChartOps(chartRef.current, currentSpec, { ops: [drawOp] }, { initialRenderMode: 'reuse-existing' })
+          await runChartOps(chartRef.current, currentSpec, { ops: [drawOp] }, { initialRenderMode: 'reuse-existing', resetRuntime: false })
         } catch (error) {
           console.error('Failed to apply interaction draw operation via runner', error)
           throw error
@@ -2396,20 +2421,6 @@ function ChartWorkbenchPage() {
     [renderChart],
   )
 
-  const renderSentenceSummaryForVisualPlayback = useCallback((text: string) => {
-    if (!opsUiSessionActive) return
-    const override = opsGroupTextOverrides[opsUiGroupIndex]?.trim()
-    if (override) {
-      setOpsUiResolvedText(override)
-      return
-    }
-    setOpsUiResolvedText(text)
-  }, [opsGroupTextOverrides, opsUiGroupIndex, opsUiSessionActive])
-
-  const clearSentenceSummaryForVisualPlayback = useCallback(() => {
-    if (!opsUiSessionActive) return
-  }, [])
-
   const runVisualSentenceGroup = async (
     groupIndex: number,
     options?: {
@@ -2440,8 +2451,6 @@ function ChartWorkbenchPage() {
         skipDelays: options?.skipDelays,
         renderSourceChart: renderSourceChartForVisualPlayback,
         renderPlaybackChart: renderPlaybackChartForVisualPlayback,
-        renderSentenceSummary: options?.silentSummary ? undefined : renderSentenceSummaryForVisualPlayback,
-        clearSentenceSummary: options?.silentSummary ? undefined : clearSentenceSummaryForVisualPlayback,
         runOps: async (ops, runOptions) => {
           await executeOpsArray(ops, runOptions)
         },
@@ -2641,7 +2650,7 @@ function ChartWorkbenchPage() {
     }
 
     return {
-      text: opsUiResolvedText,
+      text: '',
       leftControl,
       rightControl,
     }
@@ -2652,7 +2661,6 @@ function ChartWorkbenchPage() {
     opsRunning,
     opsUiGroupIndex,
     opsUiGroupPhase,
-    opsUiResolvedText,
     opsUiSessionActive,
     reloadCurrentOpsGroup,
     runCurrentOpsGroup,

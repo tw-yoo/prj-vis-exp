@@ -209,12 +209,17 @@ function writeDatasetAttrs(
   svg: d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>,
   runtime: ResolvedGroupedRuntime,
   margin: { top: number; right: number; bottom: number; left: number },
+  explanation: { top: number; height: number; bottom: number; annotationTopClearance: number },
   plotW: number,
   plotH: number,
 ) {
   svg
     .attr(DataAttributes.MarginLeft, margin.left)
     .attr(DataAttributes.MarginTop, margin.top)
+    .attr(DataAttributes.ExplanationTop, explanation.top)
+    .attr(DataAttributes.ExplanationHeight, explanation.height)
+    .attr(DataAttributes.ExplanationBottom, explanation.bottom)
+    .attr(DataAttributes.AnnotationTopClearance, explanation.annotationTopClearance)
     .attr(DataAttributes.PlotWidth, plotW)
     .attr(DataAttributes.PlotHeight, plotH)
     .attr(DataAttributes.XField, runtime.xField)
@@ -359,7 +364,7 @@ export async function renderGroupedBarChart(
         .attr(DataAttributes.RenderEpoch, renderEpoch)
         .style('overflow', 'visible')
 
-      writeDatasetAttrs(nextSvg, runtime, margin, plotW, plotH)
+      writeDatasetAttrs(nextSvg, runtime, margin, layout.explanation, plotW, plotH)
       writeTooltipRootAttrs(nextSvg, {
         xLabel: xAxisLabel ?? runtime.xField,
         yLabel: yAxisLabel ?? runtime.yField,
@@ -793,7 +798,7 @@ export async function renderSplitGroupedBarChart(container: HTMLElement, spec: G
         .attr(DataAttributes.RenderEpoch, renderEpoch)
         .style('overflow', 'visible')
 
-      writeDatasetAttrs(nextSvg, runtime, margin, plotW, plotH)
+      writeDatasetAttrs(nextSvg, runtime, margin, layout.explanation, plotW, plotH)
 
       const panels: Array<{ id: string; domain: Array<string | number>; offsetX: number; offsetY: number }> = [
         { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },

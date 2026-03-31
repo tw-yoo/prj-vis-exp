@@ -48,7 +48,7 @@ export type DrawLineSpecNormalized = DrawLineSpec &
 export type DrawLineSpecHorizontalFromY = DrawLineSpec &
   Brand<'draw.lineSpec.horizontalFromY'> & {
     mode: typeof DrawLineModes.HorizontalFromY
-    hline: { y: number }
+    hline: { y: number; extent?: 'marks' | 'plot'; endNormalizedX?: number }
   }
 
 export type DrawLineSpecConnect = DrawLineSpec &

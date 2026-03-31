@@ -74,7 +74,11 @@ const formatLineSpec = (op: DrawOp) => {
   const style = formatLineStyle(op)
   const arrow = formatLineArrow(op)
   if (line.hline?.y != null) {
-    return `draw.lineSpec.horizontalFromY(${line.hline.y}, ${style}, ${arrow})`
+    const options =
+      line.hline.extent || line.hline.endNormalizedX != null
+        ? `{ extent: ${line.hline.extent ? formatScalar(line.hline.extent) : 'undefined'}, endNormalizedX: ${line.hline.endNormalizedX ?? 'undefined'} }`
+        : 'undefined'
+    return `draw.lineSpec.horizontalFromY(${line.hline.y}, ${style}, ${arrow}, ${options})`
   }
   if (line.pair?.x?.length === 2) {
     return `draw.lineSpec.connect(${formatScalar(line.pair.x[0])}, ${formatScalar(line.pair.x[1])}, ${style}, ${arrow})`

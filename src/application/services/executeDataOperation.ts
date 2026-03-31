@@ -8,8 +8,7 @@ export type AutoDrawPlanContext = {
 }
 
 export function resolveAutoDrawVisualOp(op: OperationSpec): OperationSpec {
-  if (op.op !== OperationOp.CompareBool) return op
-  return { ...op, op: OperationOp.Diff }
+  return op
 }
 
 function isUsableDrawPlan(plan: unknown) {

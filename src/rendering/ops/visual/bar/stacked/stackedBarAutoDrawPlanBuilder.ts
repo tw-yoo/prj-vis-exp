@@ -4,10 +4,18 @@ import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
 import { normalizeGroupSelection } from '../../../../../domain/operation/groupSelection'
-import { AUTO_DRAW_TEXT_FONT_SIZE, AVERAGE_LINE_COLOR, buildHighlightPlan, buildTextPlan, formatDrawNumber } from '../../helpers'
+import {
+  AUTO_DRAW_TEXT_FONT_SIZE,
+  AVERAGE_LINE_COLOR,
+  buildBinaryComparisonRailPlan,
+  buildHighlightPlan,
+  buildTextPlan,
+  formatDrawNumber,
+} from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
 type TargetPoint = { target: string; series?: string }
+type StackedBarMetric = { id: string; target: string; series?: string; value: number; x: number; y: number }
 
 function lineAt(value: number, color = '#0ea5e9') {
   return draw.lineSpec.horizontalFromY(value, draw.style.line(color, 2, 0.85))
@@ -89,6 +97,14 @@ function firstPair(op: OperationSpec): { a: TargetPoint; b: TargetPoint } | null
   return { a: left[0], b: right[0] }
 }
 
+function firstComparisonPair(op: OperationSpec): { a: TargetPoint; b: TargetPoint } | null {
+  const fallback = resolveBinaryInputsFromMeta(op.meta?.inputs)
+  const left = selectorPoints(op.targetA ?? fallback.targetA, op.groupA ?? op.group)
+  const right = selectorPoints(op.targetB ?? fallback.targetB, op.groupB ?? op.group)
+  if (!left.length || !right.length) return null
+  return { a: left[0], b: right[0] }
+}
+
 function aggregateByTarget(data: DatumValue[], target: string) {
   const values = data
     .filter((item) => String(item.target) === target)
@@ -96,6 +112,20 @@ function aggregateByTarget(data: DatumValue[], target: string) {
     .filter(Number.isFinite)
   if (!values.length) return null
   return values.reduce((acc, value) => acc + value, 0)
+}
+
+function aggregateByPoint(data: DatumValue[], point: TargetPoint) {
+  const values = data
+    .filter((item) => String(item.target) === point.target)
+    .filter((item) => point.series == null || String(item.group ?? '') === String(point.series))
+    .map((item) => Number(item.value))
+    .filter(Number.isFinite)
+  if (!values.length) return null
+  return values.reduce((acc, value) => acc + value, 0)
+}
+
+function metricKey(point: TargetPoint) {
+  return `${point.target}::${point.series ?? ''}`
 }
 
 function seriesPairLine(op: OperationSpec, pair: { a: TargetPoint; b: TargetPoint }, color: string) {
@@ -241,8 +271,97 @@ function resolveTopSegmentIdsByTarget(container: HTMLElement, chartId: string | 
   return out
 }
 
+function collectStackedBarMetrics(context: AutoDrawPlanContext, chartId?: string) {
+  const out = new Map<string, StackedBarMetric>()
+  const nodes = Array.from(context.container.querySelectorAll<SVGRectElement>('svg rect.main-bar[data-target][data-value]'))
+  nodes.forEach((node) => {
+    const target = (node.getAttribute('data-target') ?? '').trim()
+    if (!target) return
+    if (chartId) {
+      const nodeChartId = resolveNodeChartId(node)
+      if (nodeChartId && nodeChartId !== chartId) return
+    }
+    const id = (node.getAttribute('data-id') ?? target).trim()
+    const series = (node.getAttribute('data-series') ?? node.getAttribute('data-group-value') ?? '').trim() || undefined
+    const value = Number(node.getAttribute('data-value'))
+    if (!id || !Number.isFinite(value)) return
+    const ownerSvg = node.ownerSVGElement
+    if (!ownerSvg) return
+    const svgRect = ownerSvg.getBoundingClientRect()
+    if (!(svgRect.width > 0 && svgRect.height > 0)) return
+    const rect = node.getBoundingClientRect()
+    const x = (rect.left + rect.width / 2 - svgRect.left) / svgRect.width
+    const y = 1 - (rect.top - svgRect.top) / svgRect.height
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return
+    out.set(metricKey({ target, series }), { id, target, series, value, x, y })
+  })
+  return out
+}
+
+function buildStackedBarValueTexts(op: OperationSpec, metrics: StackedBarMetric[]) {
+  return buildTextPlan(
+    metrics.map((metric) => ({ target: metric.id, value: metric.value })),
+    '#111827',
+    typeof op.precision === 'number' ? op.precision : 2,
+    'id',
+  )
+}
+
+function buildStackedBarDeltaText(op: OperationSpec, x: number, y: number, value: number) {
+  return ops.draw.text(
+    op.chartId,
+    undefined,
+    draw.textSpec.normalized(
+      formatDrawNumber(value, op.precision),
+      x,
+      y,
+      draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+      0,
+      -5,
+    ),
+  )
+}
+
+function comparisonTextPosition(a: StackedBarMetric, b: StackedBarMetric) {
+  return {
+    x: Math.max(0.05, Math.min(0.95, (a.x + b.x) / 2)),
+    y: Math.max(0.05, Math.min(0.95, Math.max(a.y, b.y) + 0.06)),
+  }
+}
+
+function buildBinaryStackedBarComparisonPlan(op: OperationSpec, context: AutoDrawPlanContext, color = '#ef4444') {
+  const pair = firstComparisonPair(op)
+  if (!pair) return null
+  const metrics = collectStackedBarMetrics(context, op.chartId)
+  const metricA = metrics.get(metricKey(pair.a))
+  const metricB = metrics.get(metricKey(pair.b))
+  const valueA = metricA?.value ?? aggregateByPoint(context.prevWorking, pair.a)
+  const valueB = metricB?.value ?? aggregateByPoint(context.prevWorking, pair.b)
+  const highlightKeys = [metricA?.id, metricB?.id].filter((value): value is string => typeof value === 'string' && value.length > 0)
+  const deltaValue = valueA == null || valueB == null
+    ? null
+    : op.op === OperationOp.Diff && op.signed
+      ? valueA - valueB
+      : Math.abs(valueA - valueB)
+  return buildBinaryComparisonRailPlan({
+    chartId: op.chartId,
+    color,
+    precision: typeof op.precision === 'number' ? op.precision : 2,
+    valueA,
+    valueB,
+    normalizedYA: metricA?.y ?? null,
+    normalizedYB: metricB?.y ?? null,
+    highlightOps: highlightKeys.length
+      ? buildHighlightPlan(highlightKeys, color, 'id')
+      : buildHighlightPlan(emphasizedTargets(op, [pair.a.target, pair.b.target]), color),
+    valueLabelOps: buildStackedBarValueTexts(op, [metricA, metricB].filter((value): value is StackedBarMetric => value != null)),
+    deltaValue,
+  })
+}
+
 function buildRetrieveValuePlan(result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) {
   if (!result.length) return null
+  const precision = typeof op.precision === 'number' ? op.precision : 2
 
   const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
   if (groupSelection.kind === 'single') {
@@ -259,12 +378,12 @@ function buildRetrieveValuePlan(result: DatumValue[], op: OperationSpec, context
       .filter((entry): entry is { id: string; value: number } => entry !== null)
     if (!segmentEntries.length) return null
     return [
-      ...buildHighlightPlan(segmentEntries.map((entry) => entry.id), '#ef4444', 'data-id'),
+      ...buildHighlightPlan(segmentEntries.map((entry) => entry.id), '#ef4444', 'id'),
       ...buildTextPlan(
         segmentEntries.map((entry) => ({ target: entry.id, value: entry.value })),
         '#111827',
-        2,
-        'data-id',
+        precision,
+        'id',
       ),
     ]
   }
@@ -283,7 +402,7 @@ function buildRetrieveValuePlan(result: DatumValue[], op: OperationSpec, context
 
   const plan: any[] = [...buildHighlightPlan(targets, '#ef4444', 'target')]
   if (textEntries.length) {
-    plan.push(...buildTextPlan(textEntries, '#111827', 2, 'data-id'))
+    plan.push(...buildTextPlan(textEntries, '#111827', precision, 'id'))
   }
   return plan
 }
@@ -297,7 +416,18 @@ function parseThresholdCondition(operator: string | undefined) {
   return null
 }
 
-function buildFilterPlan(_result: DatumValue[], op: OperationSpec) {
+function numericFilterBounds(op: OperationSpec) {
+  if (String(op.operator ?? '').toLowerCase() !== 'between' || !Array.isArray(op.value) || op.value.length < 2) {
+    return null
+  }
+  const [start, end] = op.value
+  const a = Number(start)
+  const b = Number(end)
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null
+  return [Math.min(a, b), Math.max(a, b)] as const
+}
+
+function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
   const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
   if (groupSelection.kind === 'single') {
     // Data-op filter.group means series filtering in-place, not chart-type conversion.
@@ -313,23 +443,39 @@ function buildFilterPlan(_result: DatumValue[], op: OperationSpec) {
       ops.draw.filter(op.chartId, draw.filterSpec.xExclude(...op.exclude)),
     ]
   }
-  const threshold = Number(op.value)
-  const condition = parseThresholdCondition(op.operator)
-  if (!Number.isFinite(threshold) || !condition) return null
-  const targets = uniqueTargets(_result)
-  return [
-    ops.draw.line(op.chartId, lineAt(threshold, '#ef4444')),
-    ops.draw.barSegment(
-      op.chartId,
-      targets,
-      draw.segmentSpec.threshold(
-        threshold,
-        condition,
-        draw.style.segment('rgba(239,68,68,0.28)', '#dc2626', 1.5, 0.8),
-      ),
-    ),
-    ops.draw.filter(op.chartId, draw.filterSpec.y(condition, threshold)),
-  ]
+  const targets = uniqueTargets(result)
+  const plan: any[] = []
+  const betweenBounds = numericFilterBounds(op)
+  if (betweenBounds) {
+    plan.push(
+      ops.draw.band(op.chartId, 'y', [betweenBounds[0], betweenBounds[1]], 'between', {
+        fill: 'rgba(239,68,68,0.12)',
+        stroke: '#dc2626',
+        strokeWidth: 1.5,
+        opacity: 1 }),
+    )
+  } else {
+    const threshold = Number(op.value)
+    const condition = parseThresholdCondition(op.operator)
+    if (Number.isFinite(threshold) && condition) {
+      plan.push(ops.draw.line(op.chartId, lineAt(threshold, '#ef4444')))
+      plan.push(
+        ops.draw.barSegment(
+          op.chartId,
+          targets,
+          draw.segmentSpec.threshold(
+            threshold,
+            condition,
+            draw.style.segment('rgba(239,68,68,0.28)', '#dc2626', 1.5, 0.8),
+          ),
+        ),
+      )
+    }
+  }
+  if (targets.length > 0) {
+    plan.push(ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...targets)))
+  }
+  return plan.length ? plan : null
 }
 
 export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
@@ -359,7 +505,7 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
         })
         .filter((entry): entry is { target: string; value: number } => entry !== null)
       if (anchored.length) {
-        plan.push(...buildTextPlan(anchored, '#111827', 2, 'data-id'))
+        plan.push(...buildTextPlan(anchored, '#111827', typeof op.precision === 'number' ? op.precision : 2, 'id'))
       }
     }
     return plan.length ? plan : null
@@ -370,7 +516,10 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   ],
   [OperationOp.Nth]: (result, op) => {
     if (!result.length) return null
-    return [...buildHighlightPlan(uniqueTargets(result), '#ef4444'), ...buildTextPlan(toTargetValueEntries(result), '#111827', 2)]
+    return [
+      ...buildHighlightPlan(uniqueTargets(result), '#ef4444'),
+      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2),
+    ]
   },
   [OperationOp.Sum]: (result, op) => {
     const value = scalarFromResult(result)
@@ -380,74 +529,22 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   [OperationOp.Average]: (result, op) => {
     const value = scalarFromResult(result)
     if (value == null) return null
-    return [ops.draw.line(op.chartId, lineAt(value, AVERAGE_LINE_COLOR))]
+    return [
+      ops.draw.line(op.chartId, lineAt(value, AVERAGE_LINE_COLOR)),
+      ops.draw.text(op.chartId, undefined, textScore(value, 'average')),
+    ]
   },
   [OperationOp.DetermineRange]: (result, op) => buildRangePlan(result, op),
-  [OperationOp.Compare]: (result, op, context) => {
-    if (!result.length) return null
-    const winnerTargets = Array.from(new Set(result.map((d) => String(d.target))))
-    const plan = buildHighlightPlan(winnerTargets)
-    const pair = firstPair(op)
-    if (pair) {
-      plan.push(seriesPairLine(op, pair, '#0ea5e9'))
-    } else {
-      const targetA = firstTarget(op.targetA)
-      const targetB = firstTarget(op.targetB)
-      if (targetA && targetB) {
-        plan.push(
-          ops.draw.line(
-            op.chartId,
-            draw.lineSpec.connect(targetA, targetB, draw.style.line('#0ea5e9', 2, 0.9), draw.arrow.endOnly()),
-          ),
-        )
-      }
-    }
-    const value = scalarFromResult(result)
-    if (value != null) plan.push(ops.draw.line(op.chartId, lineAt(value)))
-    return plan
-  },
-  [OperationOp.CompareBool]: (result, op) => {
-    const value = scalarFromResult(result)
-    if (value == null) return null
-    const boolLabel = value >= 1 ? 'true' : 'false'
-    return [ops.draw.text(op.chartId, undefined, textScore(value, boolLabel))]
-  },
+  [OperationOp.Compare]: (_result, op, context) => buildBinaryStackedBarComparisonPlan(op, context, '#0ea5e9'),
+  [OperationOp.CompareBool]: (_result, op, context) => buildBinaryStackedBarComparisonPlan(op, context, '#ef4444'),
   [OperationOp.Diff]: (result, op, context) => {
-    const pair = firstPair(op)
-    const plan = [] as any[]
-    if (pair) {
-      plan.push(seriesPairLine(op, pair, '#ef4444'))
-      const valueA = aggregateByTarget(context.prevWorking, pair.a.target)
-      const valueB = aggregateByTarget(context.prevWorking, pair.b.target)
-      if (valueA != null && valueB != null) {
-        plan.push(ops.draw.line(op.chartId, lineAt(Math.min(valueA, valueB), '#94a3b8')))
-      }
-      plan.push(...buildHighlightPlan(emphasizedTargets(op, [pair.a.target, pair.b.target]), '#0ea5e9'))
-    } else {
-      const targetA = firstTarget(op.targetA)
-      const targetB = firstTarget(op.targetB)
-      if (!targetA || !targetB) return null
-      const valueA = aggregateByTarget(context.prevWorking, targetA)
-      const valueB = aggregateByTarget(context.prevWorking, targetB)
-      plan.push(...buildHighlightPlan(emphasizedTargets(op, [targetA, targetB]), '#0ea5e9'))
-      plan.push(
-        ops.draw.line(
-          op.chartId,
-          draw.lineSpec.connect(targetA, targetB, draw.style.line('#ef4444', 2, 0.9), draw.arrow.endOnly()),
-        ),
-      )
-      if (valueA != null && valueB != null) {
-        plan.push(ops.draw.line(op.chartId, lineAt(Math.min(valueA, valueB), '#94a3b8')))
-      }
-    }
-    const scalar = scalarFromResult(result)
-    if (scalar != null) {
-      plan.push(ops.draw.text(op.chartId, undefined, textScore(scalar, 'Δ')))
-    }
-    return plan
+    return buildBinaryStackedBarComparisonPlan(op, context, '#ef4444')
   },
-  [OperationOp.LagDiff]: (result, op) => {
+  [OperationOp.LagDiff]: (result, op, context) => {
     if (!result.length) return null
+    const metrics = collectStackedBarMetrics(context, op.chartId)
+    const highlightIds: string[] = []
+    const textMetrics: StackedBarMetric[] = []
     const plan: any[] = []
     result.forEach((entry) => {
       if (entry.prevTarget) {
@@ -461,19 +558,30 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
               entry.group ?? undefined,
               draw.style.line('#0ea5e9', 2, 0.85),
               draw.arrow.endOnly(),
+              { start: 'top-right', end: 'top-left' },
             ),
           ),
         )
       }
+      const metric = metrics.get(metricKey({ target: String(entry.target), series: entry.group != null ? String(entry.group) : undefined }))
+      if (metric) {
+        highlightIds.push(metric.id)
+        textMetrics.push({ ...metric, value: Number(entry.value) })
+      }
     })
-    const entries = result.map((d) => ({ target: String(d.target), value: d.value }))
-    return [...plan, ...buildHighlightPlan(entries.map((d) => d.target), '#0ea5e9'), ...buildTextPlan(entries, '#111827', 2)]
+    return [...plan, ...buildHighlightPlan(highlightIds, '#0ea5e9', 'id'), ...buildStackedBarValueTexts(op, textMetrics)]
   },
-  [OperationOp.PairDiff]: (result, op) => {
+  [OperationOp.PairDiff]: (result, op, context) => {
     if (!result.length || !op.groupA || !op.groupB) return null
+    const metrics = collectStackedBarMetrics(context, op.chartId)
+    const highlightIds = new Set<string>()
     const plan: any[] = []
     result.forEach((entry) => {
       const target = String(entry.target)
+      const metricA = metrics.get(metricKey({ target, series: String(op.groupA) }))
+      const metricB = metrics.get(metricKey({ target, series: String(op.groupB) }))
+      if (metricA) highlightIds.add(metricA.id)
+      if (metricB) highlightIds.add(metricB.id)
       plan.push(
         ops.draw.line(
           op.chartId,
@@ -484,12 +592,23 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
             String(op.groupB),
             draw.style.line('#ef4444', 2, 0.9),
             draw.arrow.endOnly(),
+            { start: 'top-right', end: 'top-left' },
           ),
         ),
       )
+      if (metricA && metricB) {
+        const position = comparisonTextPosition(metricA, metricB)
+        plan.push(
+          buildStackedBarDeltaText(
+            op,
+            position.x,
+            position.y,
+            Number(entry.value),
+          ),
+        )
+      }
     })
-    const entries = result.map((d) => ({ target: String(d.target), value: d.value }))
-    return [...plan, ...buildTextPlan(entries, '#111827', 2)]
+    return [...plan, ...buildHighlightPlan(Array.from(highlightIds), '#ef4444', 'id')]
   },
   [OperationOp.Count]: (result, op) => {
     const value = scalarFromResult(result)
@@ -504,7 +623,12 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   [OperationOp.Scale]: (result, op) => {
     const value = scalarFromResult(result)
     if (value == null) return null
-    return [ops.draw.line(op.chartId, lineAt(value)), ops.draw.text(op.chartId, undefined, textScore(value, 'scale'))]
+    const factor = Number(op.factor)
+    const renderedFactor = Number.isFinite(factor) ? formatDrawNumber(factor, op.precision) : '1'
+    return [
+      ops.draw.line(op.chartId, lineAt(value)),
+      ops.draw.text(op.chartId, undefined, textScore(value, `scale ×${renderedFactor}`)),
+    ]
   },
   [OperationOp.SetOp]: (result, op, context) => buildSetOpPlan(result, op, context) }
 

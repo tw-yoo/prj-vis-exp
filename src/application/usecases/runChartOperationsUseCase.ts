@@ -12,12 +12,19 @@ import type { D3Selection } from '../../rendering/common/d3Helpers'
 import { runtimeKeyFor } from '../../rendering/ops/common/runtime'
 import { getRuntimeResultsById, resetRuntimeResults, storeRuntimeResult } from '../../operation/run/dataOps'
 import { REMOUNT_ALLOWED_DRAW_ACTIONS, STRUCTURAL_DRAW_ACTIONS } from '../../operation/run/drawActionPolicy'
+import {
+  captureMarkPresentationSnapshot,
+  playPresentationTransition,
+} from '../../runtime/presentationTransitionController'
 
 export type ChartHandler = { run: (op: DrawOp) => void | Promise<void> }
 export type OperationCompletedEvent = {
   operation: OperationSpec
   operationIndex: number
+  result?: DatumValue[]
 }
+
+export type OperationReadyEvent = OperationCompletedEvent
 
 export type RunChartOperationsConfig<Spec> = {
   container: HTMLElement
@@ -39,6 +46,7 @@ export type RunChartOperationsConfig<Spec> = {
     result: DatumValue[],
     currentWorking: DatumValue[],
   ) => Promise<DatumValue[]> | DatumValue[]
+  onOperationReady?: (event: OperationReadyEvent) => Promise<void> | void
   onOperationCompleted?: (event: OperationCompletedEvent) => Promise<void> | void
   runtimeScope?: string
   resetRuntime?: boolean
@@ -137,6 +145,7 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     autoDrawPlans = {},
     getOperationInput,
     handleOperationResult,
+    onOperationReady,
     onOperationCompleted,
     runtimeScope = 'ops',
     resetRuntime = true,
@@ -157,9 +166,21 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     (async (_: OperationSpec, result: DatumValue[]) => {
       return result
     })
-  const notifyOperationCompleted = async (operation: OperationSpec, operationIndex: number) => {
+  const notifyOperationCompleted = async (
+    operation: OperationSpec,
+    operationIndex: number,
+    result?: DatumValue[],
+  ) => {
     if (!onOperationCompleted) return
-    await onOperationCompleted({ operation, operationIndex })
+    await onOperationCompleted({ operation, operationIndex, result })
+  }
+  const notifyOperationReady = async (
+    operation: OperationSpec,
+    operationIndex: number,
+    result?: DatumValue[],
+  ) => {
+    if (!onOperationReady) return
+    await onOperationReady({ operation, operationIndex, result })
   }
 
   const opsArray = normalizeOpsList(opsSpec)
@@ -176,10 +197,12 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
   const drawDebugEnabled = isDrawDebugEnabled()
 
   const runRender = async (reason: string) => {
+    const preRenderSnapshot = captureMarkPresentationSnapshot(container)
     await render(container, spec)
     if (postRender) {
       await postRender(container, spec)
     }
+    playPresentationTransition(container, preRenderSnapshot, { durationMs: 260 })
     if (drawDebugEnabled) {
       const after = getRenderIdentity(container)
       console.info('[draw:render]', {
@@ -299,13 +322,14 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
         if (opId) {
           storeRuntimeResult(opId, executed.result)
         }
+        await notifyOperationReady(operation, index, executed.result)
         if (runDrawPlan && executed.drawPlan) {
           const drawOps = executed.drawPlan as DrawOp[]
           const before = getRenderIdentity(container)
           await runDrawPlan(drawOps, handler)
           assertNoRemountForDrawOps(container, before, drawOps, `data-op:${operation.op}`)
         }
-        await notifyOperationCompleted(operation, index)
+        await notifyOperationCompleted(operation, index, executed.result)
       } catch (error) {
         console.warn('[ops:data-op] post-processing failed; skipping operation', {
           ...context,
@@ -317,7 +341,10 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     const runDraw = async (item: { operation: OperationSpec; drawOp: DrawOp; index: number }) => {
       const { operation, drawOp, index } = item
       const before = getRenderIdentity(container)
+      await notifyOperationReady(operation, index)
       if (handleDrawOp) {
+        const isLikelyRemount = REMOUNT_ALLOWED_DRAW_ACTIONS.has(drawOp.action)
+        const preRemountSnapshot = isLikelyRemount ? captureMarkPresentationSnapshot(container) : null
         await handleDrawOp(container, handler, drawOp)
         assertNoRemountForDrawOps(container, before, [drawOp], `draw-op:${drawOp.action}`)
         logReuseExistingDraw(drawOp, before)
@@ -326,6 +353,7 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
           (before.svg && after.svg && before.svg !== after.svg) || before.epoch !== after.epoch
         if (remounted) {
           handler = createHandler(container)
+          playPresentationTransition(container, preRemountSnapshot, { durationMs: 260 })
         }
         await notifyOperationCompleted(operation, index)
         return

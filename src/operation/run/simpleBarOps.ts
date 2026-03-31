@@ -98,6 +98,7 @@ export async function runSimpleBarOps(
     runDrawPlan: async (drawPlan, handler) => {
       await runSimpleBarDrawPlan(container, drawPlan, { handler: handler as BarDrawHandler })
     },
+    onOperationReady: options?.onOperationReady,
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,

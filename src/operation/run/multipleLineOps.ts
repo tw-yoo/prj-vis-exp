@@ -153,6 +153,7 @@ export async function runMultipleLineOps(
     runDrawPlan: async (drawPlan, handler) => {
       await runMultipleLineDrawPlan(container, drawPlan, { handler: handler as MultiLineDrawHandler })
     },
+    onOperationReady: options?.onOperationReady,
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,

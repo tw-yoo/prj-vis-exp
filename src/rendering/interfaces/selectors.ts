@@ -3,6 +3,9 @@ import { DataAttributes, SvgElements } from './attributes'
 export const SvgClassNames = {
   Annotation: 'annotation',
   AnnotationLayer: 'annotation-layer',
+  ExplanationLayer: 'chart-explanation-layer',
+  ExplanationText: 'chart-explanation-text',
+  ExplanationBackground: 'chart-explanation-bg',
   PlotArea: 'plot-area',
   Guideline: 'guideline',
   LabelBackground: 'label-bg',
@@ -34,6 +37,8 @@ export const SvgSelectors = {
   YAxisText: `.${SvgClassNames.YAxis} ${SvgElements.Text}`,
   XAxisTicks: `.${SvgClassNames.XAxis} .${SvgClassNames.Tick}`,
   Annotation: `.${SvgClassNames.Annotation}`,
+  ExplanationLayer: `.${SvgClassNames.ExplanationLayer}`,
+  ExplanationText: `.${SvgClassNames.ExplanationText}`,
   ChartGroup: `[${DataAttributes.ChartId}]`,
   ChartPanelGroup: `${SvgElements.Group}[${DataAttributes.ChartId}][${DataAttributes.ChartPanel}="true"]`,
   DataTargets: `[${DataAttributes.Target}], [${DataAttributes.Id}], [${DataAttributes.Value}]`,

@@ -4,43 +4,53 @@ import './demo.css'
 import type { DemoSentenceBinding } from '../../../src/api/demo-binding'
 import type { ChartSpec } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
-import { loadDemoAssets } from '../services/demoAssets'
+import { buildDemoStepOpsSpec, DEMO_CHARTS, loadDemoChartSpec } from '../services/demoAssets'
+
+const initialChart = DEMO_CHARTS[0] ?? null
+const initialQuestion = initialChart?.questions[0] ?? null
 
 export default function DemoPage() {
   const chartRef = useRef<HTMLDivElement | null>(null)
-  const [vlSpec, setVlSpec] = useState<ChartSpec | null>(null)
+  const [selectedChartId, setSelectedChartId] = useState(initialChart?.id ?? '')
+  const [selectedQuestionId, setSelectedQuestionId] = useState(initialQuestion?.id ?? '')
+  const [selectedSpec, setSelectedSpec] = useState<ChartSpec | null>(null)
   const [bindings, setBindings] = useState<DemoSentenceBinding[]>([])
   const [activeSentenceIndex, setActiveSentenceIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
-  const [status, setStatus] = useState('Loading demo assets...')
+  const [status, setStatus] = useState('Preparing demo charts...')
   const [error, setError] = useState<string | null>(null)
+
+  const selectedChart = DEMO_CHARTS.find((chart) => chart.id === selectedChartId) ?? initialChart
+  const selectedQuestion =
+    selectedChart?.questions.find((question) => question.id === selectedQuestionId) ?? selectedChart?.questions[0] ?? null
 
   useEffect(() => {
     let cancelled = false
 
     const initialize = async () => {
+      if (!selectedChart || !selectedQuestion || !chartRef.current) return
+
       setLoading(true)
       setError(null)
-      setStatus('Loading demo assets...')
+      setStatus('Loading chart and question...')
+
       try {
-        const assets = await loadDemoAssets()
-        const nextBindings = browserEngine.buildDemoSentenceBindings(assets.sentences, assets.opsSpec)
+        const [nextSpec] = await Promise.all([loadDemoChartSpec(selectedChart.specPath)])
+        const nextBindings = browserEngine.buildDemoSentenceBindings(selectedQuestion.sentences, selectedQuestion.opsSpec)
         if (cancelled) return
-        setVlSpec(assets.vlSpec)
+
+        setSelectedSpec(nextSpec)
         setBindings(nextBindings)
         setActiveSentenceIndex(null)
-        if (!chartRef.current) {
-          throw new Error('Chart host is not ready.')
-        }
-        await browserEngine.renderChart(chartRef.current, assets.vlSpec)
+        await browserEngine.renderChart(chartRef.current, nextSpec)
         if (cancelled) return
-        setStatus(`Loaded ${nextBindings.length} sentence(s). Click a sentence to run its group.`)
+        setStatus(`Loaded ${selectedChart.title} / ${selectedQuestion.title}. ${nextBindings.length} step(s) ready.`)
       } catch (initError) {
         if (cancelled) return
         const message = initError instanceof Error ? initError.message : String(initError)
         setError(message)
-        setStatus('Failed to load demo assets.')
+        setStatus('Failed to prepare the demo.')
       } finally {
         if (!cancelled) {
           setLoading(false)
@@ -52,33 +62,55 @@ export default function DemoPage() {
     return () => {
       cancelled = true
     }
+  }, [selectedChart, selectedQuestion])
+
+  const handleChartChange = useCallback((chartId: string) => {
+    const nextChart = DEMO_CHARTS.find((chart) => chart.id === chartId)
+    setSelectedChartId(chartId)
+    setSelectedQuestionId(nextChart?.questions[0]?.id ?? '')
+  }, [])
+
+  const handleQuestionChange = useCallback((questionId: string) => {
+    setSelectedQuestionId(questionId)
   }, [])
 
   const handleSentenceClick = useCallback(
     async (index: number) => {
-      if (!vlSpec || !chartRef.current || running) return
-      const selected = bindings[index]
-      if (!selected) return
+      if (!selectedChart || !selectedQuestion || !selectedSpec || !chartRef.current || running) return
 
       setRunning(true)
       setError(null)
-      setStatus(`Running group: ${selected.groupName}`)
+      setStatus(`Running step ${index + 1} of ${bindings.length}...`)
 
       try {
-        await browserEngine.renderChart(chartRef.current, vlSpec)
-        await browserEngine.runChartOps(chartRef.current, vlSpec, selected.ops)
+        await browserEngine.renderChart(chartRef.current, selectedSpec)
+        await browserEngine.runChartOps(
+          chartRef.current,
+          selectedSpec,
+          buildDemoStepOpsSpec(selectedQuestion.opsSpec, index + 1),
+        )
         setActiveSentenceIndex(index)
-        setStatus(`Executed group: ${selected.groupName}`)
+        setStatus(`Executed step ${index + 1} of ${bindings.length} for ${selectedQuestion.title}.`)
       } catch (runError) {
         const message = runError instanceof Error ? runError.message : String(runError)
-        setError(`Failed to execute group "${selected.groupName}": ${message}`)
-        setStatus('Group execution failed.')
+        setError(`Failed to execute step ${index + 1}: ${message}`)
+        setStatus('Step execution failed.')
       } finally {
         setRunning(false)
       }
     },
-    [bindings, running, vlSpec],
+    [bindings.length, running, selectedChart, selectedQuestion, selectedSpec],
   )
+
+  if (!selectedChart || !selectedQuestion) {
+    return (
+      <div className="app-shell demo-shell">
+        <section className="card demo-card">
+          <div className="demo-error">No demo charts are configured.</div>
+        </section>
+      </div>
+    )
+  }
 
   return (
     <div className="app-shell demo-shell">
@@ -86,6 +118,54 @@ export default function DemoPage() {
         <div className="card-header">
           <div className="card-title">Demo</div>
         </div>
+
+        <section className="demo-toolbar">
+          <div className="demo-toolbar-group">
+            <div className="demo-toolbar-label">Chart Types</div>
+            <div className="demo-chip-row">
+              {DEMO_CHARTS.map((chart, index) => (
+                <button
+                  key={chart.id}
+                  type="button"
+                  className={`demo-chip ${chart.id === selectedChart.id ? 'is-active' : ''}`}
+                  data-testid={`demo-chart-tab-${index}`}
+                  onClick={() => handleChartChange(chart.id)}
+                >
+                  {chart.title}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="demo-toolbar-group">
+            <div className="demo-toolbar-label">Questions</div>
+            <div className="demo-question-grid">
+              {selectedChart.questions.map((question, index) => (
+                <button
+                  key={question.id}
+                  type="button"
+                  className={`demo-question-card ${question.id === selectedQuestion.id ? 'is-active' : ''}`}
+                  data-testid={`demo-question-item-${index}`}
+                  onClick={() => handleQuestionChange(question.id)}
+                >
+                  <span className="demo-question-card-index">Q{index + 1}</span>
+                  <span className="demo-question-card-title">{question.title}</span>
+                  <span className="demo-question-card-body">{question.question}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="demo-brief">
+          <div className="demo-brief-eyebrow">{selectedChart.subtitle}</div>
+          <div className="demo-brief-question" data-testid="demo-question-text">
+            {selectedQuestion.question}
+          </div>
+          <div className="demo-brief-description" data-testid="demo-description-text">
+            {selectedQuestion.description}
+          </div>
+        </section>
 
         <div className="demo-status" data-testid="demo-status">
           {status}
@@ -97,16 +177,16 @@ export default function DemoPage() {
         ) : null}
 
         <div className="demo-split">
-          <section className="demo-pane">
+          <section className="demo-pane demo-pane-chart">
             <div className="demo-pane-header">Chart</div>
-            <div className="demo-pane-body">
+            <div className="demo-pane-body demo-pane-body-chart">
               <div ref={chartRef} className="chart-host demo-chart-host" data-testid="demo-chart-host" />
             </div>
           </section>
 
-          <section className="demo-pane">
-            <div className="demo-pane-header">Explanation Sentences</div>
-            <div className="demo-pane-body">
+          <section className="demo-pane demo-pane-steps">
+            <div className="demo-pane-header">Explanation Steps</div>
+            <div className="demo-pane-body demo-pane-body-steps">
               <ol className="demo-sentence-list" data-testid="demo-sentence-list">
                 {bindings.map((binding, index) => (
                   <li key={`${binding.groupName}-${index}`}>
@@ -115,7 +195,7 @@ export default function DemoPage() {
                       className={`demo-sentence-item ${activeSentenceIndex === index ? 'is-active' : ''}`}
                       data-testid={`demo-sentence-item-${index}`}
                       onClick={() => void handleSentenceClick(index)}
-                      disabled={loading || running || !vlSpec}
+                      disabled={loading || running}
                     >
                       <span className="demo-sentence-index">{index + 1}.</span>
                       <span>{binding.sentence}</span>

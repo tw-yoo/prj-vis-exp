@@ -15,7 +15,6 @@ import { DrawAction, type DrawOp, type DrawFilterSpec } from '../../rendering/dr
 import { SimpleLineDrawHandler } from '../../rendering/draw/line/SimpleLineDrawHandler.ts'
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
-import { runSimpleLineDrawPlan } from '../../rendering/ops/executor/runSimpleLineDrawPlan.ts'
 import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/simple/simpleLineAutoDrawPlanBuilder.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
@@ -24,6 +23,7 @@ import { renderSimpleBarChart, type SimpleBarSpec } from '../../rendering/bar/si
 import { SimpleBarDrawHandler } from '../../rendering/draw/bar/SimpleBarDrawHandler.ts'
 import { storeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
 import { ChartType } from '../../domain/chart'
+import { getRuntimeChartState } from '../../rendering/utils/runtimeChartState.ts'
 
 function toDatumValues(rawData: RawRow[], xField: string, yField: string): DatumValue[] {
   return toDatumValuesFromRaw(rawData, { xField, yField })
@@ -111,6 +111,12 @@ async function convertLineChartToBars(container: HTMLElement, spec: LineSpec) {
   await convertLineToProperSimpleBar(container, spec)
 }
 
+async function ensureSimpleBarSurface(container: HTMLElement, spec: LineSpec) {
+  const runtimeState = getRuntimeChartState(container)
+  if (runtimeState?.chartType === ChartType.SIMPLE_BAR) return runtimeState.spec as SimpleBarSpec
+  return convertLineToProperSimpleBar(container, spec)
+}
+
 async function convertLineToProperSimpleBar(
   container: HTMLElement,
   spec: LineSpec,
@@ -179,13 +185,19 @@ export async function handleSimpleLineDraw(
   }
 
   if (drawOp.action === DrawAction.Sort) {
-    await convertLineToProperSimpleBar(container, spec)
+    await ensureSimpleBarSurface(container, spec)
     const barHandler = new SimpleBarDrawHandler(container)
     await barHandler.run({ ...drawOp })
     return
   }
   if (drawOp.action === DrawAction.Sum) {
-    await convertLineToProperSimpleBar(container, spec)
+    await ensureSimpleBarSurface(container, spec)
+    const barHandler = new SimpleBarDrawHandler(container)
+    await barHandler.run({ ...drawOp })
+    return
+  }
+  if (drawOp.action === DrawAction.Filter) {
+    await ensureSimpleBarSurface(container, spec)
     const barHandler = new SimpleBarDrawHandler(container)
     await barHandler.run({ ...drawOp })
     return
@@ -242,8 +254,11 @@ export async function runSimpleLineOps(
     getOperationInput,
     handleOperationResult,
     runDrawPlan: async (drawPlan, handler) => {
-      await runSimpleLineDrawPlan(container, drawPlan, { handler: handler as SimpleLineDrawHandler })
+      for (const drawOp of drawPlan) {
+        await handleSimpleLineDraw(container, handler as SimpleLineDrawHandler, drawOp, vlSpec)
+      }
     },
+    onOperationReady: options?.onOperationReady,
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,

@@ -423,7 +423,7 @@
       "id": "n1",
       "op": "filter",
       "field": "country",
-      "exclude": ["CHN"],
+      "exclude": ["DNK"],
       "meta": {
         "nodeId": "n1",
         "inputs": [],
@@ -444,7 +444,7 @@
       "op": "filter",
       "field": "rating",
       "operator": "between",
-      "value": [40, 80],
+      "value": [60, 70],
       "meta": {
         "nodeId": "n1",
         "inputs": [],

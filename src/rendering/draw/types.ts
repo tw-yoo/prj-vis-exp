@@ -145,15 +145,20 @@ export type DrawLineSpec = {
   axis?: { x: string; y: number }
   pair?: { x: [string, string] }
   connectBy?: {
-    start: { target: string | number; series?: string | number }
-    end: { target: string | number; series?: string | number }
+    start: { target: string | number; series?: string | number; anchor?: 'center' | 'top' | 'top-left' | 'top-right' }
+    end: { target: string | number; series?: string | number; anchor?: 'center' | 'top' | 'top-left' | 'top-right' }
   }
   panelScalar?: {
     start: { chartId: string; value: number; nodeId?: string }
     end: { chartId: string; value: number; nodeId?: string }
     orientationHint?: 'vertical' | 'horizontal'
   }
-  hline?: { x?: string; y?: number }
+  hline?: {
+    x?: string
+    y?: number
+    extent?: 'marks' | 'plot'
+    endNormalizedX?: number
+  }
   angle?: number
   length?: number
   /**

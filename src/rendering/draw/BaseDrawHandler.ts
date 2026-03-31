@@ -763,6 +763,17 @@ export abstract class BaseDrawHandler {
     }
 
     textNode.attr(SvgAttributes.X, best.x).attr(SvgAttributes.Y, best.y)
+    const minPlacedY = viewportBox.y + TEXT_PLACEMENT_POLICY.viewportPaddingPx
+    const placedBox = this.resolveElementBoxInSvg(svgNode, textNode.node())
+    if (placedBox && placedBox.y < minPlacedY) {
+      const shiftY = minPlacedY - placedBox.y
+      best = {
+        ...best,
+        y: best.y + shiftY,
+        displacement: Math.hypot(best.x - preferred.x, best.y + shiftY - preferred.y),
+      }
+      textNode.attr(SvgAttributes.Y, best.y)
+    }
 
     if (!usedBarInsideFallback) {
       textNode
@@ -821,6 +832,14 @@ export abstract class BaseDrawHandler {
     const height = viewBox && Number.isFinite(viewBox.height) ? viewBox.height : svgNode.getBoundingClientRect().height
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null
     return { width, height }
+  }
+
+  private resolveGlobalAnnotationTopBoundary(svgNode: SVGSVGElement) {
+    const clearanceRaw = Number(svgNode.getAttribute(DataAttributes.AnnotationTopClearance))
+    if (Number.isFinite(clearanceRaw) && clearanceRaw >= 0) return clearanceRaw
+    const explanationBottomRaw = Number(svgNode.getAttribute(DataAttributes.ExplanationBottom))
+    if (Number.isFinite(explanationBottomRaw) && explanationBottomRaw >= 0) return explanationBottomRaw + 8
+    return 0
   }
 
   private computeGlobalTextMinNormalizedY(svgNode: SVGSVGElement) {
@@ -901,23 +920,47 @@ export abstract class BaseDrawHandler {
     const svgSize = this.resolveSvgSize(svgNode)
     const fallbackWidth = svgSize?.width ?? 0
     const fallbackHeight = svgSize?.height ?? 0
+    const topBoundary = this.resolveGlobalAnnotationTopBoundary(svgNode)
     if (!chartId) {
+      const marginLeft = Number(svgNode.getAttribute(DataAttributes.MarginLeft))
+      const marginTop = Number(svgNode.getAttribute(DataAttributes.MarginTop))
+      const plotWidth = Number(svgNode.getAttribute(DataAttributes.PlotWidth))
+      const plotHeight = Number(svgNode.getAttribute(DataAttributes.PlotHeight))
+      if (
+        Number.isFinite(marginLeft) &&
+        Number.isFinite(marginTop) &&
+        Number.isFinite(plotWidth) &&
+        Number.isFinite(plotHeight) &&
+        plotWidth > 0 &&
+        plotHeight > 0
+      ) {
+        const clampedY = Math.max(marginTop, topBoundary)
+        return {
+          x: marginLeft,
+          y: clampedY,
+          width: plotWidth,
+          height: Math.max(0, plotHeight - (clampedY - marginTop)),
+          layerParent: svgNode,
+        }
+      }
+      const boundedHeight = Math.max(0, fallbackHeight - topBoundary)
       return {
         x: 0,
-        y: 0,
+        y: topBoundary,
         width: fallbackWidth,
-        height: fallbackHeight,
+        height: boundedHeight,
         layerParent: svgNode,
       }
     }
 
     const panel = this.resolvePanelGroup(svgNode, chartId)
     if (!panel) {
+      const boundedHeight = Math.max(0, fallbackHeight - topBoundary)
       return {
         x: 0,
-        y: 0,
+        y: topBoundary,
         width: fallbackWidth,
-        height: fallbackHeight,
+        height: boundedHeight,
         layerParent: svgNode,
       }
     }
@@ -931,11 +974,12 @@ export abstract class BaseDrawHandler {
     const metaW = readNumber(DataAttributes.PanelPlotWidth)
     const metaH = readNumber(DataAttributes.PanelPlotHeight)
     if (metaX != null && metaY != null && metaW != null && metaH != null && metaW > 0 && metaH > 0) {
+      const clampedY = Math.max(metaY, topBoundary)
       return {
         x: metaX,
-        y: metaY,
+        y: clampedY,
         width: metaW,
-        height: metaH,
+        height: Math.max(0, metaH - (clampedY - metaY)),
         layerParent: panel,
       }
     }
@@ -952,11 +996,12 @@ export abstract class BaseDrawHandler {
       const bottom = Math.max(...yAxisYValues)
       const height = bottom - top
       if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+        const clampedTop = Math.max(top, topBoundary)
         return {
           x: Math.min(...xValues),
-          y: top,
+          y: clampedTop,
           width,
-          height,
+          height: Math.max(0, bottom - clampedTop),
           layerParent: panel,
         }
       }
@@ -972,20 +1017,21 @@ export abstract class BaseDrawHandler {
       bbox = null
     }
     if (bbox && Number.isFinite(bbox.width) && Number.isFinite(bbox.height) && bbox.width > 0 && bbox.height > 0) {
+      const clampedY = Math.max(bbox.y, topBoundary)
       return {
         x: bbox.x,
-        y: bbox.y,
+        y: clampedY,
         width: bbox.width,
-        height: bbox.height,
+        height: Math.max(0, bbox.y + bbox.height - clampedY),
         layerParent: panel,
       }
     }
 
     return {
       x: 0,
-      y: 0,
+      y: topBoundary,
       width: fallbackWidth,
-      height: fallbackHeight,
+      height: Math.max(0, fallbackHeight - topBoundary),
       layerParent: panel,
     }
   }
@@ -2268,7 +2314,11 @@ export abstract class BaseDrawHandler {
         }
       }
 
-      const resolveAnchorPoint = (node: Element, yValue: number) => {
+      const resolveAnchorPoint = (
+        node: Element,
+        yValue: number,
+        anchor: 'center' | 'top' | 'top-left' | 'top-right' = 'top',
+      ) => {
         if (node instanceof SVGRectElement) {
           const svgRect = svgNode.getBoundingClientRect()
           const nodeRect = node.getBoundingClientRect()
@@ -2277,9 +2327,20 @@ export abstract class BaseDrawHandler {
           const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
           if (Number.isFinite(scaleX) && Number.isFinite(scaleY) && scaleX > 0 && scaleY > 0) {
             const centerX = (nodeRect.left - svgRect.left + nodeRect.width / 2) * scaleX + (viewBox?.x ?? 0)
-            // Bars: use top edge for positive values, bottom edge for negative values.
-            const edgeY = yValue >= 0 ? nodeRect.top : nodeRect.bottom
-            const anchorY = (edgeY - svgRect.top) * scaleY + (viewBox?.y ?? 0)
+            const centerY = (nodeRect.top - svgRect.top + nodeRect.height / 2) * scaleY + (viewBox?.y ?? 0)
+            const topY = (yValue >= 0 ? nodeRect.top : nodeRect.bottom) - svgRect.top
+            const topLeftX = (nodeRect.left - svgRect.left) * scaleX + (viewBox?.x ?? 0)
+            const topRightX = (nodeRect.right - svgRect.left) * scaleX + (viewBox?.x ?? 0)
+            const anchorY = topY * scaleY + (viewBox?.y ?? 0)
+            if (anchor === 'center' && Number.isFinite(centerX) && Number.isFinite(centerY)) {
+              return { x: centerX, y: centerY, exact: true as const }
+            }
+            if (anchor === 'top-left' && Number.isFinite(topLeftX) && Number.isFinite(anchorY)) {
+              return { x: topLeftX, y: anchorY, exact: true as const }
+            }
+            if (anchor === 'top-right' && Number.isFinite(topRightX) && Number.isFinite(anchorY)) {
+              return { x: topRightX, y: anchorY, exact: true as const }
+            }
             if (Number.isFinite(centerX) && Number.isFinite(anchorY)) {
               return { x: centerX, y: anchorY, exact: true as const }
             }
@@ -2294,9 +2355,20 @@ export abstract class BaseDrawHandler {
         const nodeRect = node.getBoundingClientRect()
         if (Number.isFinite(nodeRect.width) && Number.isFinite(nodeRect.height) && nodeRect.width > 0 && nodeRect.height > 0) {
           const center = toViewBoxPoint(nodeRect.left + nodeRect.width / 2, nodeRect.top + nodeRect.height / 2)
+          const topLeft = toViewBoxPoint(nodeRect.left, nodeRect.top)
+          const topRight = toViewBoxPoint(nodeRect.right, nodeRect.top)
           const edge = yValue >= 0
             ? toViewBoxPoint(nodeRect.left + nodeRect.width / 2, nodeRect.top)
             : toViewBoxPoint(nodeRect.left + nodeRect.width / 2, nodeRect.bottom)
+          if (anchor === 'center' && Number.isFinite(center.x) && Number.isFinite(center.y)) {
+            return { x: center.x, y: center.y, exact: true as const }
+          }
+          if (anchor === 'top-left' && Number.isFinite(topLeft.x) && Number.isFinite(topLeft.y)) {
+            return { x: topLeft.x, y: topLeft.y, exact: true as const }
+          }
+          if (anchor === 'top-right' && Number.isFinite(topRight.x) && Number.isFinite(topRight.y)) {
+            return { x: topRight.x, y: topRight.y, exact: true as const }
+          }
           if (Number.isFinite(center.x) && Number.isFinite(edge.y)) {
             return { x: center.x, y: edge.y, exact: true as const }
           }
@@ -2305,7 +2377,11 @@ export abstract class BaseDrawHandler {
         return { x: pt.x, y: pt.y, exact: false as const }
       }
 
-      const pointFor = (label: string, series?: string | number) => {
+      const pointFor = (
+        label: string,
+        series?: string | number,
+        anchor: 'center' | 'top' | 'top-left' | 'top-right' = 'top',
+      ) => {
         const matchesTarget = function (this: SVGElement) {
           const el = this as Element
           const target = el.getAttribute(DataAttributes.Target) || el.getAttribute(DataAttributes.Id)
@@ -2328,7 +2404,7 @@ export abstract class BaseDrawHandler {
         const valueAttr = node.getAttribute(DataAttributes.Value)
         const yValue = valueAttr != null ? Number(valueAttr) : NaN
         if (!Number.isFinite(yValue)) return null
-        const shapeAnchor = resolveAnchorPoint(node, yValue)
+        const shapeAnchor = resolveAnchorPoint(node, yValue, anchor)
         const mappedY = mapY(yValue)
         // For bars/points, the DOM anchor is already exact and should win.
         // mapY interpolation can drift when axis/tick extraction is noisy.
@@ -2340,10 +2416,10 @@ export abstract class BaseDrawHandler {
       const pair = lineSpec.pair
       if (!connectBy && (!pair || pair.x.length !== 2)) return
       const a = connectBy
-        ? pointFor(String(connectBy.start.target), connectBy.start.series)
+        ? pointFor(String(connectBy.start.target), connectBy.start.series, connectBy.start.anchor ?? 'top')
         : pointFor(String(pair!.x[0]))
       const b = connectBy
-        ? pointFor(String(connectBy.end.target), connectBy.end.series)
+        ? pointFor(String(connectBy.end.target), connectBy.end.series, connectBy.end.anchor ?? 'top')
         : pointFor(String(pair!.x[1]))
       if (!a || !b) return
       drawLineWithArrow(layer, op.chartId, lineSpec, { x1: a.x, y1: a.y, x2: b.x, y2: b.y }, annotationKey, annotationNodeId)
@@ -2375,8 +2451,9 @@ export abstract class BaseDrawHandler {
       const right = Math.max(
         ...nodes.map((n) => viewBoxX + (n.getBoundingClientRect().right - svgRect.left) * scaleX),
       )
+      const viewport = this.resolvePanelViewport(svgNode, op.chartId)
       let x1 = left
-      const x2 = right
+      let x2 = right
       const numericMarkValues = nodes
         .map((node) => Number((node as Element).getAttribute(DataAttributes.Value)))
         .filter(Number.isFinite)
@@ -2411,6 +2488,17 @@ export abstract class BaseDrawHandler {
           if (Number.isFinite(axisRight) && axisRight < x1) {
             x1 = axisRight
           }
+        }
+      }
+
+      if (mode === DrawLineModes.HorizontalFromY) {
+        const extent = lineSpec.hline?.extent
+        if (extent === 'plot') {
+          x1 = viewport.x
+          const endNormalizedX = Number(lineSpec.hline?.endNormalizedX)
+          x2 = Number.isFinite(endNormalizedX)
+            ? viewport.x + Math.max(0, Math.min(1, endNormalizedX)) * viewport.width
+            : viewport.x + viewport.width
         }
       }
 

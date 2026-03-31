@@ -70,6 +70,13 @@ function applyControl(node: HTMLButtonElement | null, control?: SentenceSummaryO
   node.style.visibility = label.length > 0 ? 'visible' : 'hidden'
 }
 
+function applyText(node: HTMLElement | null, text: string) {
+  if (!node) return
+  const value = text.trim()
+  node.textContent = value
+  node.style.display = value.length > 0 ? '' : 'none'
+}
+
 export function renderSentenceSummaryOverlay(
   container: HTMLElement,
   input: SentenceSummaryOverlayRenderInput,
@@ -80,13 +87,13 @@ export function renderSentenceSummaryOverlay(
   const rightNode = overlay.querySelector<HTMLButtonElement>('.chart-sentence-summary-control.is-right')
   if (!textNode) return
   if (typeof input === 'string') {
-    textNode.textContent = input
+    applyText(textNode, input)
     applyControl(leftNode, undefined)
     applyControl(rightNode, undefined)
     return
   }
 
-  textNode.textContent = input.text
+  applyText(textNode, input.text)
   applyControl(leftNode, input.leftControl)
   applyControl(rightNode, input.rightControl)
 }

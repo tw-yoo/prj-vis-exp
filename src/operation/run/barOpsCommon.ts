@@ -78,7 +78,11 @@ export function shouldAggregateWhenSingleGroup(latest: DatumValue[]) {
 
 export function shouldUseSeriesScopedInput(operation: OperationSpec) {
   if (operation.op === OperationOp.SetOp || operation.op === OperationOp.PairDiff) return true
-  if (operation.op === OperationOp.Compare || operation.op === OperationOp.Diff) {
+  if (
+    operation.op === OperationOp.Compare ||
+    operation.op === OperationOp.Diff ||
+    operation.op === OperationOp.CompareBool
+  ) {
     return Boolean(operation.groupA || operation.groupB || operation.seriesField)
   }
   return false

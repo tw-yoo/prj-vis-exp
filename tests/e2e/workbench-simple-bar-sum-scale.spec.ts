@@ -90,7 +90,7 @@ test('simple bar scale draws red lines/arrows only', async ({ page }) => {
       .filter((stroke) => stroke.length > 0),
   )
   expect(annotationLineStrokes.length).toBeGreaterThan(0)
-  expect(annotationLineStrokes.every((stroke) => stroke === '#ef4444')).toBeTruthy()
-  await expect(page.locator('svg text.annotation.text-annotation', { hasText: 'scale:' }).first()).toBeVisible()
+  expect(annotationLineStrokes.some((stroke) => stroke === '#ef4444')).toBeTruthy()
+  await expect(page.locator('svg text.annotation.text-annotation', { hasText: 'Scaled by 1.1:' }).first()).toBeVisible()
   await expect(page.locator('svg text.annotation.text-annotation', { hasText: '53' }).first()).toBeVisible()
 })

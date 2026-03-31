@@ -354,6 +354,15 @@ function normalizeTargetInput(target: TargetSelector | TargetSelector[] | undefi
   return { id: undefined, category: target as TargetSelector, series: opGroup ?? undefined }
 }
 
+function datumIdentityKey(datum: DatumValue) {
+  const id = datum.id != null ? String(datum.id) : ''
+  const lookupId = datum.lookupId != null ? String(datum.lookupId) : ''
+  const target = String(datum.target ?? '')
+  const group = datum.group != null ? String(datum.group) : ''
+  const measure = datum.measure != null ? String(datum.measure) : ''
+  return [id, lookupId, target, group, measure].join('::')
+}
+
 function parseComparableValue(raw: JsonValue | Date): number | string | null {
   if (raw instanceof Date) {
     const ts = +raw
@@ -391,6 +400,21 @@ function compareComparableValues(a: number | string | null, b: number | string |
 
 /** Select slice for a (category, series) target within optional measure field constraint */
 function sliceForTarget(data: DatumValue[], opField: string | undefined, targetIn: TargetSelector | TargetSelector[] | undefined, opGroup: string | null | undefined) {
+  if (Array.isArray(targetIn)) {
+    const seen = new Set<string>()
+    const merged: DatumValue[] = []
+    targetIn.forEach((entry) => {
+      const slice = sliceForTarget(data, opField, entry, opGroup)
+      slice.forEach((datum) => {
+        const key = datumIdentityKey(datum)
+        if (seen.has(key)) return
+        seen.add(key)
+        merged.push(datum)
+      })
+    })
+    return merged
+  }
+
   const { id, category, series } = normalizeTargetInput(targetIn, opGroup)
   let slice = data
   if (series !== undefined) slice = sliceByGroup(slice, series as string | null)
@@ -518,8 +542,6 @@ function resolveSelectorScalar(
 ): number | null {
   if (target == null) return null
   if (typeof target === 'number' && Number.isFinite(target)) return target
-  const numericText = typeof target === 'string' ? Number(target) : NaN
-  if (Number.isFinite(numericText)) return numericText
 
   const refKey = selectorRefKey(target)
   if (refKey) {
@@ -553,17 +575,23 @@ export function resolveFilterRefThreshold(
 }
 
 function targetKeyForPairDiff(item: DatumValue, byField: string) {
-  if (byField === 'target' || byField === item.category) return String(item.target)
-  if (byField === 'id') return String(item.id ?? '')
-  const runtimeLookupKey = item.lookupId ?? item.id ?? null
-  if (runtimeLookupKey) {
-    const runtimeRows = getRuntimeResultsById(runtimeLookupKey)
-    if (runtimeRows.length > 0) {
-      const key = runtimeRows[0]?.target
-      if (key) return String(key)
-    }
+  const normalized = String(byField ?? '').trim()
+  if (!normalized) return null
+  if (normalized === 'target' || normalized === 'category') return String(item.target)
+  if (item.category != null && normalized === String(item.category)) return String(item.target)
+  if (normalized === 'id') {
+    const id = item.id ?? item.lookupId ?? null
+    return id != null ? String(id) : null
   }
-  return String(item.target)
+  if (normalized === 'displayTarget') {
+    const displayTarget = item.displayTarget ?? item.target ?? null
+    return displayTarget != null ? String(displayTarget) : null
+  }
+  if (normalized === 'name') {
+    const name = item.name ?? item.displayTarget ?? item.target ?? null
+    return name != null ? String(name) : null
+  }
+  return null
 }
 
 /** Factory for a single numeric DatumValue result */
@@ -660,17 +688,31 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
     if (start === undefined || end === undefined) {
       throw new Error('filter: "between" requires [start, end]')
     }
-    // Apply to label (category) domain — inclusive
+    if (kind === 'measure') {
+      const lo = Number(start)
+      const hi = Number(end)
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+        throw new Error('filter: "between" requires numeric bounds for measure fields')
+      }
+      const min = Math.min(lo, hi)
+      const max = Math.max(lo, hi)
+      return inField.filter((d) => Number.isFinite(Number(d.value)) && Number(d.value) >= min && Number(d.value) <= max)
+    }
     return inField.filter((d) => {
       const t = d.target
       const ts = Date.parse(t)
       const s = Date.parse(String(start))
       const e = Date.parse(String(end))
       if (!Number.isNaN(ts) && !Number.isNaN(s) && !Number.isNaN(e)) {
-        return ts >= s && ts <= e
+        const min = Math.min(s, e)
+        const max = Math.max(s, e)
+        return ts >= min && ts <= max
       }
-      // fallback to string compare
-      return t >= String(start) && t <= String(end)
+      const lo = String(start)
+      const hi = String(end)
+      const min = lo <= hi ? lo : hi
+      const max = lo <= hi ? hi : lo
+      return t >= min && t <= max
     })
   }
 
@@ -1062,6 +1104,10 @@ export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[
     group,
   } = spec
   const scoped = sliceByGroup(arr, group ?? null)
+  const hasSeriesData = scoped.some((item) => item.group != null || item.series != null)
+  if (!hasSeriesData) {
+    throw new Error('pairDiff requires grouped or multi-series data')
+  }
   const keyA = String(groupA)
   const keyB = String(groupB)
   const seriesField = spec.seriesField
@@ -1080,21 +1126,28 @@ export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[
   const measureName = field ?? left[0]?.measure ?? right[0]?.measure ?? 'value'
   const buildMap = (items: DatumValue[]) => {
     const out = new Map<string, number[]>()
+    let supportedKeyCount = 0
     items.forEach((item) => {
       if (measureName !== 'value' && item.measure != null && item.measure !== measureName) return
       const key = targetKeyForPairDiff(item, by)
       if (!key) return
+      supportedKeyCount += 1
       const value = Number(item.value)
       if (!Number.isFinite(value)) return
       const bucket = out.get(key) ?? []
       bucket.push(value)
       out.set(key, bucket)
     })
-    return out
+    return { out, supportedKeyCount }
   }
 
-  const mapA = buildMap(left)
-  const mapB = buildMap(right)
+  const mapAResult = buildMap(left)
+  const mapBResult = buildMap(right)
+  if (mapAResult.supportedKeyCount === 0 || mapBResult.supportedKeyCount === 0) {
+    throw new Error(`pairDiff: unsupported "by" field "${by}"`)
+  }
+  const mapA = mapAResult.out
+  const mapB = mapBResult.out
   const keys = Array.from(mapA.keys()).filter((key) => mapB.has(key)).sort(cmpStrAsc)
   const resultGroup = `${keyA}-${keyB}`
   const out: DatumValue[] = []
@@ -1215,7 +1268,7 @@ export function setOpData(_data: DatumValue[], op: OperationSpec): DatumValue[] 
 export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
   const spec = assertNthSpec(op)
-  const { n, from = 'left', group } = spec
+  const { n, from = 'left', group, orderField } = spec
   const byGroup = sliceByGroup(arr, group ?? null)
   if (byGroup.length === 0) return []
   const queryIndices = Array.isArray(n) ? n : [n]
@@ -1230,7 +1283,30 @@ export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 
   if (normalized.length === 0) return []
 
-  const baseSequence = from === 'right' ? [...byGroup].reverse() : byGroup.slice()
+  const decorated = byGroup.map((datum, index) => {
+    const normalizedOrderField = typeof orderField === 'string' ? orderField.trim() : ''
+    let orderValue: number | string | null = index
+    if (!normalizedOrderField || normalizedOrderField === 'target' || normalizedOrderField === datum.category) {
+      orderValue = parseComparableValue(datum.target)
+    } else if (normalizedOrderField === 'value' || normalizedOrderField === datum.measure) {
+      orderValue = parseComparableValue(datum.value)
+    } else if (normalizedOrderField === 'group' || normalizedOrderField === 'series') {
+      orderValue = parseComparableValue(datum.group ?? '')
+    } else if (normalizedOrderField === 'id') {
+      orderValue = parseComparableValue(datum.id ?? '')
+    }
+    return { datum, orderValue, index }
+  })
+
+  decorated.sort((a, b) => {
+    const cmp = compareComparableValues(a.orderValue, b.orderValue)
+    if (cmp !== 0) return cmp
+    return a.index - b.index
+  })
+
+  const baseSequence = from === 'right'
+    ? decorated.map((entry) => entry.datum).reverse()
+    : decorated.map((entry) => entry.datum)
 
   const results: DatumValue[] = []
   normalized.forEach((rank) => {

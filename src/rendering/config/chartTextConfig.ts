@@ -5,6 +5,8 @@ export const CHART_TEXT_SIZE = Object.freeze({
   legendTitle: 18,
   chartTitle: 18,
   chartSubtitle: 14,
+  explanationPrimary: 15,
+  explanationSecondary: 13,
   facetLabel: 13,
   facetTitle: 14,
   annotation: 14,

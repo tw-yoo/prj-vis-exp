@@ -164,10 +164,15 @@ export const draw = {
         arrow,
       } as DrawLineSpecNormalized
     },
-    horizontalFromY(y: number, style?: LineStyleArgs, arrow?: DrawArrowSpec): DrawLineSpecHorizontalFromY {
+    horizontalFromY(
+      y: number,
+      style?: LineStyleArgs,
+      arrow?: DrawArrowSpec,
+      options?: { extent?: 'marks' | 'plot'; endNormalizedX?: number },
+    ): DrawLineSpecHorizontalFromY {
       return {
         mode: DrawLineModes.HorizontalFromY,
-        hline: { y },
+        hline: { y, extent: options?.extent, endNormalizedX: options?.endNormalizedX },
         style,
         arrow,
       } as DrawLineSpecHorizontalFromY
@@ -192,12 +197,16 @@ export const draw = {
       endSeries?: string | number,
       style?: LineStyleArgs,
       arrow?: DrawArrowSpec,
+      anchors?: {
+        start?: 'center' | 'top' | 'top-left' | 'top-right'
+        end?: 'center' | 'top' | 'top-left' | 'top-right'
+      },
     ): DrawLineSpec {
       return {
         mode: DrawLineModes.Connect,
         connectBy: {
-          start: { target: String(startTarget), series: startSeries },
-          end: { target: String(endTarget), series: endSeries },
+          start: { target: String(startTarget), series: startSeries, anchor: anchors?.start },
+          end: { target: String(endTarget), series: endSeries, anchor: anchors?.end },
         },
         style,
         arrow,

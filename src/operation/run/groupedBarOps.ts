@@ -138,6 +138,7 @@ export async function runGroupedBarOps(
       await runGroupedBarDrawPlan(container, drawPlan, { handler: handler as GroupedBarDrawHandler })
     },
     autoDrawPlans: GROUPED_BAR_AUTO_DRAW_PLANS,
+    onOperationReady: options?.onOperationReady,
     onOperationCompleted: options?.onOperationCompleted,
     runtimeScope: options?.runtimeScope ?? 'ops',
     resetRuntime: options?.resetRuntime ?? true,

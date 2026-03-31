@@ -3,7 +3,17 @@ import { OperationOp } from '../../../../../types'
 import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
-import { AUTO_DRAW_TEXT_FONT_SIZE, AVERAGE_LINE_COLOR, formatDrawNumber, makeAverageTextOp } from '../../helpers'
+import {
+  AUTO_DRAW_TEXT_FONT_SIZE,
+  AVERAGE_LINE_COLOR,
+  buildHighlightPlan,
+  buildBinaryComparisonRailPlan,
+  buildPointValueLabelOps,
+  buildSelectedPointGuideOps,
+  formatDrawNumber,
+  inferNormalizedYForValue,
+  makeAverageTextOp,
+} from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
 function scalarFromResult(result: DatumValue[]) {
@@ -21,6 +31,78 @@ function highlightSeriesPoints(result: DatumValue[], chartId?: string, color = '
     out.push(ops.draw.highlight(chartId, draw.select.markKeys('circle', target), color))
   })
   return out
+}
+
+function pointValueTexts(result: DatumValue[], chartId: string | undefined, precision?: number) {
+  const seen = new Set<string>()
+  const plan: any[] = []
+  result.forEach((datum) => {
+    const target = String(datum.target)
+    const value = Number(datum.value)
+    if (!target || !Number.isFinite(value) || seen.has(target)) return
+    seen.add(target)
+    plan.push(
+      ops.draw.text(
+        chartId,
+        draw.select.markKeys('circle', target),
+        draw.textSpec.anchor(formatDrawNumber(value, precision), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+      ),
+    )
+  })
+  return plan
+}
+
+function resolveSimpleLineComparisonRows(op: OperationSpec, context: AutoDrawPlanContext) {
+  const fallback = resolveBinaryInputsFromMeta(op.meta?.inputs)
+  const targetA = getSelectorTarget(op.targetA ?? fallback.targetA)
+  const targetB = getSelectorTarget(op.targetB ?? fallback.targetB)
+  if (!targetA || !targetB) return null
+  const source = context.prevWorking
+  const rowA =
+    source.find((row) => String(row.target) === targetA) ??
+    ({ target: targetA, value: Number.NaN } as DatumValue)
+  const rowB =
+    source.find((row) => String(row.target) === targetB) ??
+    ({ target: targetB, value: Number.NaN } as DatumValue)
+  return {
+    targetA,
+    targetB,
+    rows: [rowA, rowB],
+  }
+}
+
+function buildBinarySimpleLineComparisonPlan(
+  op: OperationSpec,
+  context: AutoDrawPlanContext,
+  color = '#ef4444',
+) {
+  const resolved = resolveSimpleLineComparisonRows(op, context)
+  if (!resolved) return null
+  const { rows } = resolved
+  const valueA = Number(rows[0]?.value)
+  const valueB = Number(rows[1]?.value)
+  return buildBinaryComparisonRailPlan({
+    chartId: op.chartId,
+    color,
+    precision: typeof op.precision === 'number' ? op.precision : 2,
+    valueA: Number.isFinite(valueA) ? valueA : null,
+    valueB: Number.isFinite(valueB) ? valueB : null,
+    normalizedYA: Number.isFinite(valueA) ? inferNormalizedYForValue(op.chartId, valueA, context) : null,
+    normalizedYB: Number.isFinite(valueB) ? inferNormalizedYForValue(op.chartId, valueB, context) : null,
+    highlightOps: highlightSeriesPoints(rows, op.chartId, color),
+    valueLabelOps: buildPointValueLabelOps({
+      chartId: op.chartId,
+      result: rows,
+      context,
+      precision: op.precision,
+    }),
+    deltaValue:
+      Number.isFinite(valueA) && Number.isFinite(valueB)
+        ? op.op === OperationOp.Diff && op.signed
+          ? valueA - valueB
+          : Math.abs(valueA - valueB)
+        : null,
+  })
 }
 
 function textAtTopRight(chartId: string | undefined, value: string) {
@@ -100,33 +182,57 @@ function rangeBandPlan(result: DatumValue[], op: OperationSpec) {
 }
 
 function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
+  const targets = Array.from(new Set(result.map((row) => String(row.target))))
+  const highlightPlan = buildHighlightPlan(targets, '#ef4444')
+  const plan: any[] = [ops.draw.lineToBar(op.chartId)]
+
   if (Array.isArray(op.include) && op.include.length > 0) {
     const includeTargets = op.include.map((item) => String(item))
-    return [...highlightSeriesPoints(result, op.chartId, '#ef4444'), ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...includeTargets))]
+    return [...plan, ...highlightPlan, ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...includeTargets))]
   }
   if (Array.isArray(op.exclude) && op.exclude.length > 0) {
     const excludeTargets = op.exclude.map((item) => String(item))
     return [
-      ...highlightSeriesPoints(result, op.chartId, '#ef4444'),
+      ...plan,
+      ...highlightPlan,
       ops.draw.filter(op.chartId, draw.filterSpec.xExclude(...excludeTargets)),
     ]
   }
-  const threshold = Number(op.value)
-  const condition = parseThresholdCondition(op.operator)
-  if (!Number.isFinite(threshold) || !condition) return null
-  return [
-    hLine(op.chartId, threshold, '#ef4444'),
-    ops.draw.filter(op.chartId, draw.filterSpec.y(condition, threshold)),
-    ...highlightSeriesPoints(result, op.chartId, '#ef4444'),
-  ]
+  if (String(op.operator ?? '').toLowerCase() === 'between' && Array.isArray(op.value) && op.value.length >= 2) {
+    const [start, end] = op.value
+    const low = Number(start)
+    const high = Number(end)
+    if (Number.isFinite(low) && Number.isFinite(high)) {
+      plan.push(ops.draw.band(op.chartId, 'y', [Math.min(low, high), Math.max(low, high)], 'between'))
+    }
+  } else {
+    const threshold = Number(op.value)
+    const condition = parseThresholdCondition(op.operator)
+    if (Number.isFinite(threshold) && condition) {
+      plan.push(hLine(op.chartId, threshold, '#ef4444'))
+    }
+  }
+  if (targets.length > 0) {
+    plan.push(ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...targets)))
+    plan.push(...highlightPlan)
+  }
+  return plan.length ? plan : null
 }
 
 export const SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
   string,
   (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => any[] | null
 > = {
-  [OperationOp.RetrieveValue]: (result, op) => highlightSeriesPoints(result, op.chartId),
-  [OperationOp.FindExtremum]: (result, op) => highlightSeriesPoints(result, op.chartId),
+  [OperationOp.RetrieveValue]: (result, op, context) => [
+    ...highlightSeriesPoints(result, op.chartId),
+    ...buildSelectedPointGuideOps({ chartId: op.chartId, result, context }),
+    ...pointValueTexts(result, op.chartId, op.precision),
+  ],
+  [OperationOp.FindExtremum]: (result, op, context) => [
+    ...highlightSeriesPoints(result, op.chartId),
+    ...buildSelectedPointGuideOps({ chartId: op.chartId, result, context }),
+    ...pointValueTexts(result, op.chartId, op.precision),
+  ],
   [OperationOp.Filter]: (result, op) => buildFilterPlan(result, op),
   [OperationOp.Average]: (result, op, context) => {
     const avg = scalarFromResult(result)
@@ -134,51 +240,9 @@ export const SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
     return [hLine(op.chartId, avg, AVERAGE_LINE_COLOR), makeAverageTextOp(op.chartId, avg, context)]
   },
   [OperationOp.DetermineRange]: (result, op) => rangeBandPlan(result, op),
-  [OperationOp.Diff]: (result, op) => {
-    const fallback = resolveBinaryInputsFromMeta(op.meta?.inputs)
-    const targetA = getSelectorTarget(op.targetA ?? fallback.targetA)
-    const targetB = getSelectorTarget(op.targetB ?? fallback.targetB)
-    if (!targetA || !targetB) return null
-    const scalar = scalarFromResult(result)
-    const plan: any[] = [
-      ops.draw.line(
-        op.chartId,
-        draw.lineSpec.connect(targetA, targetB, draw.style.line('#ef4444', 2, 0.9), draw.arrow.endOnly()),
-      ),
-    ]
-    if (scalar != null) {
-      plan.push(hLine(op.chartId, scalar, '#94a3b8'))
-      plan.push(textAtTopRight(op.chartId, `Δ ${formatDrawNumber(scalar)}`))
-    }
-    return plan
-  },
-  [OperationOp.Compare]: (result, op) => {
-    const fallback = resolveBinaryInputsFromMeta(op.meta?.inputs)
-    const targetA = getSelectorTarget(op.targetA ?? fallback.targetA)
-    const targetB = getSelectorTarget(op.targetB ?? fallback.targetB)
-    const plan = [
-      ...highlightSeriesPoints(result, op.chartId, '#0ea5e9'),
-    ] as any[]
-    if (targetA && targetB) {
-      plan.push(
-        ops.draw.line(
-          op.chartId,
-          draw.lineSpec.connect(targetA, targetB, draw.style.line('#0ea5e9', 2, 0.9), draw.arrow.endOnly()),
-        ),
-      )
-    }
-    const scalar = scalarFromResult(result)
-    if (scalar != null) {
-      plan.push(hLine(op.chartId, scalar))
-      plan.push(textAtTopRight(op.chartId, `compare: ${formatDrawNumber(scalar)}`))
-    }
-    return plan.length ? plan : null
-  },
-  [OperationOp.CompareBool]: (result, op) => {
-    const scalar = scalarFromResult(result)
-    if (scalar == null) return null
-    return [textAtTopRight(op.chartId, scalar >= 1 ? 'true' : 'false')]
-  },
+  [OperationOp.Diff]: (_result, op, context) => buildBinarySimpleLineComparisonPlan(op, context, '#ef4444'),
+  [OperationOp.Compare]: (_result, op, context) => buildBinarySimpleLineComparisonPlan(op, context, '#0ea5e9'),
+  [OperationOp.CompareBool]: (_result, op, context) => buildBinarySimpleLineComparisonPlan(op, context, '#ef4444'),
   [OperationOp.LagDiff]: (result, op) => {
     if (!result.length) return null
     const plan = [] as any[]
@@ -196,28 +260,11 @@ export const SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
         ),
       )
     })
-    return [...plan, ...highlightSeriesPoints(result, op.chartId, '#0ea5e9')]
+    return [...plan, ...highlightSeriesPoints(result, op.chartId, '#0ea5e9'), ...pointValueTexts(result, op.chartId, op.precision)]
   },
-  [OperationOp.PairDiff]: (result, op) => {
-    if (!result.length || !op.groupA || !op.groupB) return null
-    const plan = [] as any[]
-    result.forEach((entry) => {
-      const target = String(entry.target)
-      plan.push(
-        ops.draw.line(
-          op.chartId,
-          draw.lineSpec.connectBy(
-            target,
-            target,
-            String(op.groupA),
-            String(op.groupB),
-            draw.style.line('#ef4444', 2, 0.9),
-            draw.arrow.endOnly(),
-          ),
-        ),
-      )
-    })
-    return [...plan, textAtTopRight(op.chartId, `pairDiff: ${result.length}`)]
+  [OperationOp.PairDiff]: (_result, op) => {
+    console.warn('pairDiff is not supported for simple line charts', { op })
+    return null
   },
   [OperationOp.Nth]: (result, op) => highlightSeriesPoints(result, op.chartId),
   [OperationOp.Count]: (result, op) => {
@@ -233,7 +280,9 @@ export const SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
   [OperationOp.Scale]: (result, op) => {
     const value = scalarFromResult(result)
     if (value == null) return null
-    return [hLine(op.chartId, value), textAtTopRight(op.chartId, `scale: ${formatDrawNumber(value)}`)]
+    const factor = Number(op.factor)
+    const renderedFactor = Number.isFinite(factor) ? formatDrawNumber(factor, op.precision) : '1'
+    return [hLine(op.chartId, value), textAtTopRight(op.chartId, `scale ×${renderedFactor}: ${formatDrawNumber(value, op.precision)}`)]
   },
   [OperationOp.Sum]: (result, op) => {
     const value = scalarFromResult(result)

@@ -1,6 +1,6 @@
 import type { JsonObject, JsonValue } from '../../types'
 import { ChartType } from '../../domain/chart'
-import { type SimpleBarSpec, setSimpleBarStoredData } from './simpleBarRenderer'
+import { renderSimpleBarChart, type SimpleBarSpec, setSimpleBarStoredData } from './simpleBarRenderer'
 import { getGroupedBarStoredData, type GroupedSpec } from './groupedBarRenderer'
 import { getStackedBarStoredData, type StackedSpec } from './stackedBarRenderer'
 import { storeDerivedChartState } from '../utils/derivedChartState'
@@ -8,6 +8,12 @@ import { storeRuntimeChartState } from '../utils/runtimeChartState'
 import { DataAttributes } from '../interfaces'
 
 type RawDatum = JsonObject
+type SimpleSurfaceDatum = {
+  target: string
+  displayTarget: string
+  value: number
+  group?: string | null
+}
 
 function getLiveSvg(container: HTMLElement) {
   return container.querySelector('svg')
@@ -114,6 +120,82 @@ function resolveSeriesColorFromRenderedMarks(container: HTMLElement, seriesValue
     if (stroke.length > 0 && stroke.toLowerCase() !== 'none' && stroke.toLowerCase() !== 'transparent') return stroke
   }
   return null
+}
+
+function normalizeSimpleSurfaceRows(rows: SimpleSurfaceDatum[], yField: string, xField: string) {
+  return rows.map((row) => ({
+    [xField]: row.target,
+    [yField]: row.value,
+    target: row.target,
+    displayTarget: row.displayTarget,
+    name: row.displayTarget,
+    value: row.value,
+    group: row.group ?? null,
+  })) as RawDatum[]
+}
+
+function simpleAxisLabelsFromSpec(spec: GroupedSpec | StackedSpec) {
+  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
+  return {
+    x: axisLabelsMeta.x ?? spec.encoding.x.field,
+    y: axisLabelsMeta.y ?? spec.encoding.y.field,
+  }
+}
+
+export async function renderBarSelectionAsSimpleSurface(
+  container: HTMLElement,
+  spec: GroupedSpec | StackedSpec,
+  rows: SimpleSurfaceDatum[],
+): Promise<SimpleBarSpec | null> {
+  if (!rows.length) return null
+  const yField = spec.encoding.y.field
+  const yType = spec.encoding.y.type
+  const xField = '__surface_target__'
+  const normalizedRows = normalizeSimpleSurfaceRows(rows, yField, xField)
+  const axisLabels = simpleAxisLabelsFromSpec(spec)
+  const baseMeta = ((spec as { meta?: Record<string, unknown> }).meta ?? {}) as Record<string, unknown>
+  const baseAxisLabels = (baseMeta.axisLabels as Record<string, JsonValue> | undefined) ?? {}
+  const simpleSpec: SimpleBarSpec = {
+    ...spec,
+    mark: 'bar',
+    data: { values: normalizedRows },
+    encoding: {
+      x: {
+        field: xField,
+        type: 'nominal',
+        sort: normalizedRows.map((row) => String(row[xField] ?? '')),
+      },
+      y: {
+        field: yField,
+        type: yType,
+      },
+    },
+    meta: {
+      ...baseMeta,
+      axisLabels: {
+        ...baseAxisLabels,
+        x: axisLabels.x,
+        y: axisLabels.y,
+      },
+    },
+  }
+
+  const simpleAny = simpleSpec as unknown as Record<string, unknown>
+  delete simpleAny.facet
+  delete simpleAny.spec
+  delete simpleAny.repeat
+  const encAny = simpleAny.encoding as Record<string, unknown>
+  delete encAny.color
+  delete encAny.column
+  delete encAny.row
+  delete encAny.xOffset
+  delete encAny.yOffset
+
+  await renderSimpleBarChart(container, simpleSpec)
+  setSimpleBarStoredData(container, normalizedRows)
+  storeRuntimeChartState(container, { chartType: ChartType.SIMPLE_BAR, spec: simpleSpec, renderer: 'd3' })
+  storeDerivedChartState(container, ChartType.SIMPLE_BAR, simpleSpec)
+  return simpleSpec
 }
 
 function setBarMarkColor(spec: SimpleBarSpec, color: string | null) {

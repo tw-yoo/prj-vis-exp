@@ -163,6 +163,7 @@ function writeDatasetAttrs(
   svg: d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>,
   spec: SimpleBarSpec,
   margin: { top: number; right: number; bottom: number; left: number },
+  explanation: { top: number; height: number; bottom: number; annotationTopClearance: number },
   plotW: number,
   plotH: number,
 ) {
@@ -170,6 +171,10 @@ function writeDatasetAttrs(
   svg
     .attr(DataAttributes.MarginLeft, margin.left)
     .attr(DataAttributes.MarginTop, margin.top)
+    .attr(DataAttributes.ExplanationTop, explanation.top)
+    .attr(DataAttributes.ExplanationHeight, explanation.height)
+    .attr(DataAttributes.ExplanationBottom, explanation.bottom)
+    .attr(DataAttributes.AnnotationTopClearance, explanation.annotationTopClearance)
     .attr(DataAttributes.PlotWidth, plotW)
     .attr(DataAttributes.PlotHeight, plotH)
     .attr(DataAttributes.XField, x.field)
@@ -292,7 +297,7 @@ export async function renderSimpleBarChart(
         .attr(DataAttributes.RenderEpoch, renderEpoch)
         .style('overflow', 'visible')
 
-      writeDatasetAttrs(nextSvg, spec, margin, plotW, plotH)
+      writeDatasetAttrs(nextSvg, spec, margin, layout.explanation, plotW, plotH)
       writeTooltipRootAttrs(nextSvg, {
         xLabel: resolvedXAxisLabel ?? xField,
         yLabel: resolvedYAxisLabel ?? yField,
@@ -523,7 +528,7 @@ export async function renderSplitSimpleBarChart(container: HTMLElement, spec: Si
         .attr(DataAttributes.RenderEpoch, renderEpoch)
         .style('overflow', 'visible')
 
-      writeDatasetAttrs(nextSvg, spec, margin, plotW, plotH)
+      writeDatasetAttrs(nextSvg, spec, margin, layout.explanation, plotW, plotH)
 
       const groups: Array<{ id: string; domain: Array<string | number>; offsetX: number; offsetY: number }> = [
         { id: idA, domain: domainA, offsetX: 0, offsetY: 0 },

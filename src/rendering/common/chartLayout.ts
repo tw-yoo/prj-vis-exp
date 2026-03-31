@@ -12,6 +12,12 @@ export type LayoutPadding = {
 export type LayoutModel = {
   canvas: { width: number; height: number }
   padding: LayoutPadding
+  explanation: {
+    top: number
+    height: number
+    bottom: number
+    annotationTopClearance: number
+  }
   plot: { x: number; y: number; width: number; height: number }
   legend: {
     visible: boolean
@@ -178,7 +184,17 @@ export function resolveLayoutModel(input: ResolveLayoutModelInput): LayoutModel 
   const facetOrientation = input.facet?.orientation ?? null
   const facetCount = Math.max(1, Math.floor(input.facet?.count ?? 1))
   const legendVisible = input.legend?.visible === true
-  const padding = resolvePadding(spec, hints, { isLine, isBar, facetEnabled })
+  const basePadding = resolvePadding(spec, hints, { isLine, isBar, facetEnabled })
+  const explanationTop = CHART_LAYOUT_SIZE.explanation.topInset
+  const explanationHeight = CHART_LAYOUT_SIZE.explanation.bandHeight
+  const explanationBottom = explanationTop + explanationHeight
+  const annotationTopClearance = explanationBottom + CHART_LAYOUT_SIZE.explanation.annotationGap
+  const minimumTopPadding = annotationTopClearance + CHART_LAYOUT_SIZE.explanation.plotGap
+  const padding = {
+    ...basePadding,
+    top: Math.max(basePadding.top, minimumTopPadding),
+  }
+  const topPaddingDelta = padding.top - basePadding.top
 
   const legendWidth = legendVisible ? 136 : 0
   const legendOffsetX = legendVisible ? 24 : 0
@@ -223,14 +239,16 @@ export function resolveLayoutModel(input: ResolveLayoutModelInput): LayoutModel 
     const legendReserve = legendVisible ? legendWidth + legendOffsetX : 0
     canvasWidth = clamp(baseLineWidth + legendReserve, 280, Math.max(280, hostWidth - 10))
     canvasHeight =
-      explicitHeight ??
-      padding.top + padding.bottom + CHART_LAYOUT_SIZE.line.defaultPlotHeight
+      explicitHeight != null
+        ? explicitHeight + topPaddingDelta
+        : padding.top + padding.bottom + CHART_LAYOUT_SIZE.line.defaultPlotHeight
     plotWidth = Math.max(160, canvasWidth - padding.left - padding.right - legendReserve)
     plotHeight = Math.max(CHART_LAYOUT_SIZE.line.minPlotHeight, canvasHeight - padding.top - padding.bottom)
   } else {
     const preferredWidth = hints.explicitWidth ? toPositiveNumber(spec.width, 600) : Math.min(toPositiveNumber(spec.width, 600), maxCanvasWidth)
     canvasWidth = clamp(preferredWidth, 240, Math.max(240, maxCanvasWidth))
-    canvasHeight = hints.explicitHeight ? toPositiveNumber(spec.height, 300) : toPositiveNumber(spec.height, 300)
+    const baseCanvasHeight = hints.explicitHeight ? toPositiveNumber(spec.height, 300) : toPositiveNumber(spec.height, 300)
+    canvasHeight = baseCanvasHeight + topPaddingDelta
     plotWidth = Math.max(140, canvasWidth - padding.left - padding.right)
     plotHeight = Math.max(120, canvasHeight - padding.top - padding.bottom)
   }
@@ -242,6 +260,12 @@ export function resolveLayoutModel(input: ResolveLayoutModelInput): LayoutModel 
   return {
     canvas: { width: canvasWidth, height: canvasHeight },
     padding,
+    explanation: {
+      top: explanationTop,
+      height: explanationHeight,
+      bottom: explanationBottom,
+      annotationTopClearance,
+    },
     plot: {
       x: padding.left,
       y: padding.top,

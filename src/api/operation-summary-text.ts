@@ -529,3 +529,552 @@ export function buildSummaryTextForOperations(args: {
     refineOnNodeIds: refineOnNodeIds.length > 0 ? refineOnNodeIds : undefined,
   }
 }
+
+export type ExplanationSummaryText = {
+  initialText: string
+  finalText?: string
+  refineOnNodeIds?: string[]
+}
+
+function formatExplanationNumber(value: number, precision?: number) {
+  if (!Number.isFinite(value)) return ''
+  const digits = typeof precision === 'number' && Number.isFinite(precision)
+    ? Math.max(0, Math.min(2, Math.trunc(precision)))
+    : 2
+  const rounded = Number(value.toFixed(digits))
+  let text = rounded.toFixed(digits)
+  text = text.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '')
+  if (text === '-0') return '0'
+  return text
+}
+
+type SummaryEntry = {
+  nodeId: string
+  op: OperationSpec
+}
+
+function collectSummaryEntries(operations: OperationSpec[]) {
+  const filtered = operations.filter(
+    (op) => op.op && op.op !== OperationOp.Draw && op.op !== OperationOp.Sleep && op.op !== 'text',
+  )
+  const entries = filtered.map((op, index) => ({
+    nodeId: opNodeId(op, index),
+    op,
+  }))
+  const internalNodeIds = new Set(entries.map((entry) => entry.nodeId))
+  const consumedByOtherRunOp = new Set<string>()
+  entries.forEach((entry) => {
+    inputNodeIds(entry.op).forEach((inputId) => {
+      if (internalNodeIds.has(inputId)) {
+        consumedByOtherRunOp.add(inputId)
+      }
+    })
+  })
+  const sinkEntries = entries.filter((entry) => !consumedByOtherRunOp.has(entry.nodeId))
+  return sinkEntries.length > 0 ? sinkEntries : entries
+}
+
+function explanationEntriesMap(operations: OperationSpec[]) {
+  const summaryEntries = collectSummaryEntries(operations)
+  const allEntries = operations
+    .filter((op) => op.op && op.op !== OperationOp.Draw && op.op !== OperationOp.Sleep && op.op !== 'text')
+    .map((op, index) => ({
+      nodeId: opNodeId(op, index),
+      op,
+    }))
+  return {
+    summaryEntries,
+    entryMap: new Map(allEntries.map((entry) => [entry.nodeId, entry])),
+  }
+}
+
+function firstFiniteValue(rows: DatumValue[] | undefined) {
+  const row = rows?.find((item) => Number.isFinite(Number(item?.value)))
+  return row ? Number(row.value) : null
+}
+
+function readableTarget(row: DatumValue | undefined) {
+  if (!row) return null
+  const target = typeof row.displayTarget === 'string' && row.displayTarget.trim().length > 0
+    ? row.displayTarget.trim()
+    : typeof row.target === 'string' && row.target.trim().length > 0
+      ? row.target.trim()
+      : null
+  return target && !target.startsWith('__') ? target : null
+}
+
+function readableCategory(row: DatumValue | undefined) {
+  const category = typeof row?.category === 'string' ? row.category.trim() : ''
+  return category.length > 0 && category !== 'value' && category !== 'result' ? category : null
+}
+
+function valueDescriptor(op: OperationSpec) {
+  const group = typeof op.group === 'string' && op.group.trim().length > 0 ? op.group.trim() : ''
+  const field = typeof op.field === 'string' && op.field.trim().length > 0 ? op.field.trim() : ''
+  if (group && field) return `${group} ${field}`
+  if (group) return `${group} value`
+  if (field) return `${field} value`
+  return 'value'
+}
+
+function directionDescriptor(op: OperationSpec) {
+  return op.from === 'right' ? 'right' : 'left'
+}
+
+function aggregateSubjectDescriptor(op: OperationSpec) {
+  const group = typeof op.group === 'string' && op.group.trim().length > 0 ? op.group.trim() : ''
+  const field = typeof op.field === 'string' && op.field.trim().length > 0 ? op.field.trim() : ''
+  if (group && field) return `${group} ${field} values`
+  if (group) return `${group} values`
+  if (field) return `${field} values`
+  return 'selected values'
+}
+
+function averageSubjectDescriptor(op: OperationSpec) {
+  const groups = Array.isArray(op.group)
+    ? op.group.map((value) => String(value).trim()).filter((value) => value.length > 0)
+    : typeof op.group === 'string' && op.group.trim().length > 0
+      ? [op.group.trim()]
+      : []
+  if (groups.length === 1) return groups[0]
+  if (groups.length > 1) return joinPhrases(groups)
+  return ''
+}
+
+function normalizeExplanationList(value: unknown): string[] {
+  const entries = Array.isArray(value) ? value : value == null ? [] : [value]
+  return entries
+    .map((entry) => String(entry).trim())
+    .filter((entry) => entry.length > 0)
+}
+
+function quoteExplanationValue(value: string) {
+  return `"${value.replaceAll('"', '\\"')}"`
+}
+
+function filterFieldDescriptor(op: OperationSpec) {
+  const field = typeof op.field === 'string' ? op.field.trim() : ''
+  if (!field) return 'values'
+  return `${field} values`
+}
+
+function compactFilterList(values: string[], fallback: string) {
+  if (values.length === 0) return fallback
+  if (values.length <= 3) return joinPhrases(values)
+  return fallback
+}
+
+function inferFilterSelectionKind(args: {
+  values: string[]
+  rows?: DatumValue[]
+  field?: string
+}) {
+  const fieldHint = String(args.field ?? '').trim().toLowerCase()
+  if (fieldHint.includes('group') || fieldHint.includes('series')) return 'groups'
+  if (fieldHint.includes('target') || fieldHint.includes('category') || fieldHint.includes('country')) return 'values'
+
+  const rowTargetSet = new Set(
+    (args.rows ?? [])
+      .map((row) => readableTarget(row))
+      .filter((value): value is string => typeof value === 'string' && value.length > 0),
+  )
+  const rowGroupSet = new Set(
+    (args.rows ?? [])
+      .map((row) => (typeof row.group === 'string' ? row.group.trim() : ''))
+      .filter((value) => value.length > 0),
+  )
+
+  const targetMatches = args.values.filter((value) => rowTargetSet.has(value)).length
+  const groupMatches = args.values.filter((value) => rowGroupSet.has(value)).length
+  if (groupMatches > targetMatches) return 'groups'
+  return 'values'
+}
+
+function chooseFilterSentence(candidates: string[]) {
+  const cleaned = candidates
+    .map((candidate) => candidate.trim())
+    .filter((candidate, index, list) => candidate.length > 0 && list.indexOf(candidate) === index)
+  if (cleaned.length === 0) return 'The chart is filtered.'
+  const withinBudget = cleaned.find((candidate) => candidate.length <= 80)
+  return withinBudget ?? cleaned.reduce((shortest, candidate) => (candidate.length < shortest.length ? candidate : shortest))
+}
+
+function buildFilterExplanationText(op: OperationSpec, rows?: DatumValue[]) {
+  const fieldLabel = filterFieldDescriptor(op)
+  const operator = String(op.operator ?? '').trim().toLowerCase()
+  const include = normalizeExplanationList((op as { include?: unknown }).include)
+  const exclude = normalizeExplanationList((op as { exclude?: unknown }).exclude)
+  const rawValueList = normalizeExplanationList((op as { value?: unknown }).value)
+  const groupList = normalizeExplanationList((op as { group?: unknown }).group)
+
+  if (include.length > 0) {
+    const semanticKind = inferFilterSelectionKind({ values: include, rows, field: op.field })
+    const fallback = semanticKind === 'groups' ? 'selected groups' : 'selected values'
+    return `The chart shows ${compactFilterList(include, fallback)} only.`
+  }
+
+  if (exclude.length > 0) {
+    const semanticKind = inferFilterSelectionKind({ values: exclude, rows, field: op.field })
+    const fallback = semanticKind === 'groups' ? 'selected groups' : 'selected values'
+    return `The chart excludes ${compactFilterList(exclude, fallback)}.`
+  }
+
+  if (!operator && groupList.length > 0) {
+    return `The chart shows ${compactFilterList(groupList, 'selected groups')} only.`
+  }
+
+  if (operator === 'between' && rawValueList.length >= 2) {
+    const [start, end] = rawValueList
+    const shortSentence = `The chart shows values between ${formatExplanationNumber(Number(start), op.precision)} and ${formatExplanationNumber(Number(end), op.precision)}.`
+    const longSentence = `The chart shows ${fieldLabel} between ${formatExplanationNumber(Number(start), op.precision)} and ${formatExplanationNumber(Number(end), op.precision)}.`
+    return chooseFilterSentence([shortSentence, longSentence])
+  }
+
+  if (!operator && rawValueList.length > 0) {
+    const semanticKind = inferFilterSelectionKind({ values: rawValueList, rows, field: op.field })
+    const fallback = semanticKind === 'groups' ? 'selected groups' : 'selected values'
+    return `The chart shows ${compactFilterList(rawValueList, fallback)} only.`
+  }
+
+  const rawScalarValue = (op as { value?: unknown }).value
+  const numericValue = Number(rawScalarValue)
+  const hasNumericValue = Number.isFinite(numericValue)
+  const renderedValue = hasNumericValue
+    ? formatExplanationNumber(numericValue, op.precision)
+    : rawScalarValue == null
+      ? ''
+      : quoteExplanationValue(String(rawScalarValue).trim())
+
+  switch (operator) {
+    case '>':
+    case 'gt':
+      return chooseFilterSentence([`The chart shows values above ${renderedValue}.`, `The chart shows ${fieldLabel} above ${renderedValue}.`])
+    case '>=':
+    case 'gte':
+      return chooseFilterSentence([`The chart shows values at least ${renderedValue}.`, `The chart shows ${fieldLabel} at least ${renderedValue}.`])
+    case '<':
+    case 'lt':
+      return chooseFilterSentence([`The chart shows values below ${renderedValue}.`, `The chart shows ${fieldLabel} below ${renderedValue}.`])
+    case '<=':
+    case 'lte':
+      return chooseFilterSentence([`The chart shows values at most ${renderedValue}.`, `The chart shows ${fieldLabel} at most ${renderedValue}.`])
+    case '==':
+    case 'eq':
+      return chooseFilterSentence([`The chart shows values equal to ${renderedValue}.`, `The chart shows ${fieldLabel} equal to ${renderedValue}.`])
+    case '!=':
+      return chooseFilterSentence([`The chart excludes values equal to ${renderedValue}.`, `The chart excludes ${fieldLabel} equal to ${renderedValue}.`])
+    case 'in': {
+      const semanticKind = inferFilterSelectionKind({ values: rawValueList, rows, field: op.field })
+      const fallback = semanticKind === 'groups' ? 'selected groups' : 'selected values'
+      return `The chart shows ${compactFilterList(rawValueList, fallback)}.`
+    }
+    case 'not-in': {
+      const semanticKind = inferFilterSelectionKind({ values: rawValueList, rows, field: op.field })
+      const fallback = semanticKind === 'groups' ? 'selected groups' : 'selected values'
+      return `The chart excludes ${compactFilterList(rawValueList, fallback)}.`
+    }
+    case 'contains':
+      return chooseFilterSentence([
+        `The chart shows values containing ${renderedValue}.`,
+        `The chart shows ${fieldLabel} containing ${renderedValue}.`,
+      ])
+    default:
+      return 'The chart is filtered.'
+  }
+}
+
+function compareOperatorLabel(operator: string | undefined) {
+  switch (String(operator ?? '').toLowerCase()) {
+    case '>':
+    case 'gt':
+      return 'greater than'
+    case '>=':
+    case 'gte':
+      return 'greater than or equal to'
+    case '<':
+    case 'lt':
+      return 'less than'
+    case '<=':
+    case 'lte':
+      return 'less than or equal to'
+    case '==':
+    case 'eq':
+      return 'equal to'
+    case '!=':
+    case 'neq':
+      return 'not equal to'
+    default:
+      return 'greater than'
+  }
+}
+
+function binaryOperandSelector(
+  op: OperationSpec,
+  side: 'left' | 'right',
+): TargetSelector | TargetSelector[] | undefined {
+  if (side === 'left' && op.targetA != null) return op.targetA
+  if (side === 'right' && op.targetB != null) return op.targetB
+  const inputs = inputNodeIds(op)
+  const fallbackNodeId = side === 'left' ? inputs[0] : inputs[1]
+  return fallbackNodeId ? `ref:${fallbackNodeId}` : undefined
+}
+
+function phraseForSelectorFromEntries(args: {
+  selector: TargetSelector | TargetSelector[] | undefined
+  entryMap: Map<string, SummaryEntry>
+  seen: Set<string>
+  mode: 'entity' | 'summary'
+}): string {
+  const { selector, entryMap, seen, mode } = args
+  if (Array.isArray(selector)) {
+    return joinPhrases(
+      selector.map((item) =>
+        phraseForSelectorFromEntries({
+          selector: item,
+          entryMap,
+          seen: new Set(seen),
+          mode,
+        }),
+      ),
+    )
+  }
+
+  const refNodeId = selectorNodeId(selector)
+  if (refNodeId) {
+    if (seen.has(refNodeId)) return 'the previous result'
+    const entry = entryMap.get(refNodeId)
+    if (!entry) return 'the previous result'
+    seen.add(refNodeId)
+    return shortPhraseForOperation(entry.op, entryMap, seen)
+  }
+
+  const literal = selectorTarget(selector)
+  if (!literal) return mode === 'entity' ? 'the selected value' : 'the previous result'
+  return mode === 'entity' ? literal : `the value of ${literal}`
+}
+
+function shortPhraseForOperation(
+  op: OperationSpec,
+  entryMap: Map<string, SummaryEntry>,
+  seen: Set<string>,
+): string {
+  switch (op.op) {
+    case OperationOp.RetrieveValue:
+      return phraseForSelectorFromEntries({ selector: op.target, entryMap, seen, mode: 'entity' })
+    case OperationOp.FindExtremum:
+      return `the ${op.which === 'min' ? 'minimum' : 'maximum'} ${valueDescriptor(op)}`
+    case OperationOp.Nth: {
+      const rawRank = Array.isArray(op.n) ? Number(op.n[0]) : Number(op.n)
+      return Number.isFinite(rawRank) ? `the ${ordinal(rawRank)} value from ${directionDescriptor(op)}` : 'the selected value'
+    }
+    case OperationOp.Average:
+      return `the average of ${aggregateSubjectDescriptor(op)}`
+    case OperationOp.Sum:
+      return `the sum of ${aggregateSubjectDescriptor(op)}`
+    case OperationOp.Count:
+      return `the count of ${aggregateSubjectDescriptor(op)}`
+    case OperationOp.Diff:
+      return `the difference between ${phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'left'), entryMap, seen, mode: 'entity' })} and ${phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen, mode: 'entity' })}`
+    case OperationOp.Add:
+      return `the sum of ${phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'left'), entryMap, seen, mode: 'entity' })} and ${phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen, mode: 'entity' })}`
+    case OperationOp.Scale:
+      return `the value of ${phraseForSelectorFromEntries({ selector: op.target, entryMap, seen, mode: 'entity' })} scaled by ${formatExplanationNumber(Number(op.factor ?? 1))}`
+    default:
+      return 'the previous result'
+  }
+}
+
+function initialExplanationForOperation(op: OperationSpec, entryMap: Map<string, SummaryEntry>) {
+  switch (op.op) {
+    case OperationOp.RetrieveValue:
+      return `Looking up the value of ${phraseForSelectorFromEntries({ selector: op.target, entryMap, seen: new Set(), mode: 'entity' })}.`
+    case OperationOp.FindExtremum:
+      return `Finding the ${op.which === 'min' ? 'minimum' : 'maximum'} ${valueDescriptor(op)}.`
+    case OperationOp.Nth: {
+      const rawRank = Array.isArray(op.n) ? Number(op.n[0]) : Number(op.n)
+      return Number.isFinite(rawRank)
+        ? `Finding the ${ordinal(rawRank)} ${valueDescriptor(op)}.`
+        : 'Finding the selected value.'
+    }
+    case OperationOp.Average:
+      return `Calculating the average of ${aggregateSubjectDescriptor(op)}.`
+    case OperationOp.Sum:
+      return `Calculating the sum of ${aggregateSubjectDescriptor(op)}.`
+    case OperationOp.Count:
+      return `Counting ${aggregateSubjectDescriptor(op)}.`
+    case OperationOp.Diff:
+      return `Calculating the difference between ${phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'left'), entryMap, seen: new Set(), mode: 'entity' })} and ${phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen: new Set(), mode: 'entity' })}.`
+    case OperationOp.Filter:
+      return 'Filtering the chart.'
+    case OperationOp.Sort:
+      return `Sorting the chart in ${op.order === 'desc' ? 'descending' : 'ascending'} order.`
+    case OperationOp.CompareBool:
+      return 'Checking the comparison.'
+    case OperationOp.PairDiff:
+      return `Calculating the pairwise difference between ${compactSemanticList([String(op.groupA ?? 'A'), String(op.groupB ?? 'B')])}.`
+    case OperationOp.LagDiff:
+      return 'Calculating the lag difference.'
+    case OperationOp.Add:
+      return `Calculating the sum of ${phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'left'), entryMap, seen: new Set(), mode: 'entity' })} and ${phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen: new Set(), mode: 'entity' })}.`
+    case OperationOp.Scale:
+      return `Scaling ${phraseForSelectorFromEntries({ selector: op.target, entryMap, seen: new Set(), mode: 'entity' })}.`
+    default:
+      return imperativeSentenceForOperation({ op, artifacts: null, refine: false })
+    }
+}
+
+function finalExplanationForOperation(args: {
+  op: OperationSpec
+  rows: DatumValue[] | undefined
+  entryMap: Map<string, SummaryEntry>
+}): string | undefined {
+  const { op, rows, entryMap } = args
+  switch (op.op) {
+    case OperationOp.RetrieveValue: {
+      const numericRows = (rows ?? []).filter((row) => Number.isFinite(Number(row?.value)))
+      if (numericRows.length === 0) return undefined
+      if (numericRows.length === 1) {
+        const target = phraseForSelectorFromEntries({ selector: op.target, entryMap, seen: new Set(), mode: 'entity' })
+        return `The value of ${target} is ${formatExplanationNumber(Number(numericRows[0].value), op.precision)}.`
+      }
+      const targets = numericRows
+        .map((row) => readableTarget(row))
+        .filter((value): value is string => typeof value === 'string' && value.length > 0)
+      const values = numericRows
+        .map((row) => formatExplanationNumber(Number(row.value), op.precision))
+        .filter((value) => value.length > 0)
+      if (!targets.length || !values.length) return undefined
+      return `The values of ${joinPhrases(targets)} are ${joinPhrases(values)}.`
+    }
+    case OperationOp.FindExtremum: {
+      const row = rows?.find((item) => Number.isFinite(Number(item?.value)))
+      if (!row) return undefined
+      return `The ${op.which === 'min' ? 'minimum' : 'maximum'} ${valueDescriptor(op)} is ${formatExplanationNumber(Number(row.value), op.precision)}.`
+    }
+    case OperationOp.Nth: {
+      const row = rows?.find((item) => Number.isFinite(Number(item?.value)))
+      const rawRank = Array.isArray(op.n) ? Number(op.n[0]) : Number(op.n)
+      if (!row || !Number.isFinite(rawRank)) return undefined
+      return `The ${ordinal(rawRank)} value from ${directionDescriptor(op)} is ${formatExplanationNumber(Number(row.value), op.precision)}.`
+    }
+    case OperationOp.Average: {
+      const value = firstFiniteValue(rows)
+      if (value == null) return undefined
+      const subject = averageSubjectDescriptor(op)
+      if (subject) {
+        return `The average of ${subject} is ${formatExplanationNumber(value, op.precision)}.`
+      }
+      return `The average is ${formatExplanationNumber(value, op.precision)}.`
+    }
+    case OperationOp.Sum: {
+      const value = firstFiniteValue(rows)
+      if (value == null) return undefined
+      return `The sum of ${aggregateSubjectDescriptor(op)} is ${formatExplanationNumber(value)}.`
+    }
+    case OperationOp.Count: {
+      const value = firstFiniteValue(rows)
+      if (value == null) return undefined
+      return `The count of ${aggregateSubjectDescriptor(op)} is ${formatExplanationNumber(value)}.`
+    }
+    case OperationOp.Diff: {
+      const value = firstFiniteValue(rows)
+      if (value == null) return undefined
+      const left = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'left'), entryMap, seen: new Set(), mode: 'entity' })
+      const right = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen: new Set(), mode: 'entity' })
+      return `The difference between ${left} and ${right} is ${formatExplanationNumber(value, op.precision)}.`
+    }
+    case OperationOp.Compare: {
+      const value = firstFiniteValue(rows)
+      if (value == null) return undefined
+      const left = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'left'), entryMap, seen: new Set(), mode: 'entity' })
+      const right = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen: new Set(), mode: 'entity' })
+      return `The ${op.which === 'min' ? 'minimum' : 'maximum'} value between ${left} and ${right} is ${formatExplanationNumber(value, op.precision)}.`
+    }
+    case OperationOp.Add: {
+      const value = firstFiniteValue(rows)
+      if (value == null) return undefined
+      const left = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'left'), entryMap, seen: new Set(), mode: 'entity' })
+      const right = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen: new Set(), mode: 'entity' })
+      return `The sum of ${left} and ${right} is ${formatExplanationNumber(value)}.`
+    }
+    case OperationOp.Scale: {
+      const value = firstFiniteValue(rows)
+      if (value == null) return undefined
+      const target = phraseForSelectorFromEntries({ selector: op.target, entryMap, seen: new Set(), mode: 'entity' })
+      const factor = Number(op.factor)
+      const renderedFactor = Number.isFinite(factor) ? formatExplanationNumber(factor, op.precision) : '1'
+      return `The value of ${target} scaled by ${renderedFactor} is ${formatExplanationNumber(value, op.precision)}.`
+    }
+    case OperationOp.CompareBool: {
+      const value = firstFiniteValue(rows)
+      if (value == null) return undefined
+      const left = phraseForSelectorFromEntries({ selector: op.targetA, entryMap, seen: new Set(), mode: 'entity' })
+      const right = phraseForSelectorFromEntries({ selector: op.targetB, entryMap, seen: new Set(), mode: 'entity' })
+      const comparison = compareOperatorLabel(op.operator)
+      return value > 0 ? `${left} is ${comparison} ${right}.` : `${left} is not ${comparison} ${right}.`
+    }
+    case OperationOp.PairDiff: {
+      if (!rows?.length) return undefined
+      if (rows.length === 1) {
+        const row = rows[0]
+        const target = readableTarget(row) ?? 'the selected key'
+        return `The difference between ${String(op.groupA)} and ${String(op.groupB)} at ${target} is ${formatExplanationNumber(Number(row.value), op.precision)}.`
+      }
+      const keyLabel = typeof op.by === 'string' && op.by.trim().length > 0 ? op.by.trim() : 'target'
+      return `The pairwise differences between ${String(op.groupA)} and ${String(op.groupB)} are shown for each ${keyLabel}.`
+    }
+    case OperationOp.LagDiff: {
+      if (!rows?.length) return undefined
+      if (rows.length === 1) {
+        const row = rows[0]
+        const target = readableTarget(row) ?? 'the selected value'
+        return `The lag difference at ${target} is ${formatExplanationNumber(Number(row.value), op.precision)}.`
+      }
+      const orderLabel = typeof op.orderField === 'string' && op.orderField.trim().length > 0 ? op.orderField.trim() : 'ordered value'
+      return `The lag differences are shown across adjacent ${orderLabel} values.`
+    }
+    case OperationOp.Filter:
+      return buildFilterExplanationText(op, rows)
+    case OperationOp.Sort:
+      return `The chart is sorted in ${op.order === 'desc' ? 'descending' : 'ascending'} order.`
+    case OperationOp.DetermineRange: {
+      const minRow = rows?.find((row) => String(row.target) === '__min__')
+      const maxRow = rows?.find((row) => String(row.target) === '__max__')
+      if (!minRow || !maxRow) return undefined
+      return `The range is from ${formatExplanationNumber(Number(minRow.value))} to ${formatExplanationNumber(Number(maxRow.value))}.`
+    }
+    default:
+      return undefined
+  }
+}
+
+export function buildExplanationTextForOperations(args: {
+  operations: OperationSpec[]
+  logicalArtifacts?: LogicalExecutionArtifacts | null
+  resultsByNodeId?: Map<string, DatumValue[]>
+}): ExplanationSummaryText | null {
+  const operations = args.operations.filter(
+    (op) => op.op && op.op !== OperationOp.Draw && op.op !== OperationOp.Sleep && op.op !== 'text',
+  )
+  if (operations.length === 0) return null
+
+  const { summaryEntries, entryMap } = explanationEntriesMap(operations)
+  if (summaryEntries.length === 0) return null
+
+  const initialText = joinClauses(summaryEntries.map((entry) => initialExplanationForOperation(entry.op, entryMap)))
+  if (!initialText) return null
+
+  const resultsByNodeId = args.resultsByNodeId ?? new Map<string, DatumValue[]>()
+  const finalSentences = summaryEntries
+    .map((entry) => finalExplanationForOperation({ op: entry.op, rows: resultsByNodeId.get(entry.nodeId), entryMap }))
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+
+  const finalText = finalSentences.length > 0 ? joinClauses(finalSentences) : undefined
+  const refineOnNodeIds = summaryEntries.map((entry) => entry.nodeId).filter((value) => value.length > 0)
+
+  return {
+    initialText,
+    finalText,
+    refineOnNodeIds: refineOnNodeIds.length > 0 ? refineOnNodeIds : undefined,
+  }
+}

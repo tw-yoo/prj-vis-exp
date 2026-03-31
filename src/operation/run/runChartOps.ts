@@ -11,14 +11,14 @@ import type { StackedSpec } from '../../rendering/bar/stackedBarRenderer.ts'
 import type { GroupedSpec } from '../../rendering/bar/groupedBarRenderer.ts'
 import { getSimpleLineStoredData, resolveSimpleLineEncoding, type LineSpec } from '../../rendering/line/simpleLineRenderer.ts'
 import type { MultiLineSpec } from '../../rendering/line/multipleLineRenderer.ts'
-import type { OperationCompletedEvent } from '../../application/usecases/runChartOperationsUseCase'
+import type { OperationCompletedEvent, OperationReadyEvent } from '../../application/usecases/runChartOperationsUseCase'
 import { captureSvgSnapshot } from '../../rendering/utils/svgSnapshot.ts'
 import { SnapshotStrip } from '../../rendering/snapshotStrip.ts'
 import { consumeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
 import { getRuntimeChartState } from '../../rendering/utils/runtimeChartState.ts'
 import { DrawAction } from '../../rendering/draw/types.ts'
 import type { DrawOp, DrawSplitSpec } from '../../rendering/draw/types.ts'
-import type { DatumValue, OperationSpec } from '../../domain/operation/types/index.ts'
+import { OperationOp, type DatumValue, type OperationSpec, type TargetSelector } from '../../domain/operation/types/index.ts'
 import type { SurfaceManager } from '../../runtime/surfaceManager.ts'
 import { STRUCTURAL_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/datum.ts'
@@ -27,6 +27,13 @@ import { normalizeGroupSelection, normalizeOpForSingleGroupDelegation } from '..
 import { convertMultiLineToSimpleLine } from '../../rendering/line/multiLineToSimpleLineTransform.ts'
 import { SINGLE_GROUP_DELEGATION_ANIMATION } from '../../rendering/draw/animationPolicy.ts'
 import { ops } from '../build/authoring/index.ts'
+import { draw } from '../build/authoring/draw.ts'
+import { buildExplanationTextForOperations } from '../../api/operation-summary-text.ts'
+import { clearChartExplanation, renderChartExplanation } from '../../rendering/explanation/chartExplanation.ts'
+import { resolveBinaryInputsFromMeta, getRuntimeResultsById } from '../../domain/operation/dataOps.ts'
+import { getGroupedBarStoredData } from '../../rendering/bar/groupedBarRenderer.ts'
+import { getStackedBarStoredData } from '../../rendering/bar/stackedBarRenderer.ts'
+import { renderBarSelectionAsSimpleSurface } from '../../rendering/bar/toSimpleTransforms.ts'
 
 export type GroupCompletedEvent = {
   groupName: string
@@ -35,6 +42,7 @@ export type GroupCompletedEvent = {
 }
 
 export type RunChartOpsOptions = {
+  onOperationReady?: (event: OperationReadyEvent) => Promise<void> | void
   onOperationCompleted?: (event: OperationCompletedEvent) => Promise<void> | void
   onGroupCompleted?: (event: GroupCompletedEvent) => Promise<void> | void
   showSnapshotStrip?: boolean
@@ -49,6 +57,101 @@ export type RunChartOpsOptions = {
 type ChartExecutionState = {
   chartType: ChartTypeValue | null
   spec: ChartSpec
+}
+
+type BarComparePoint = {
+  target: string
+  series?: string | null
+}
+
+type BarCompareOperand = BarComparePoint & {
+  series: string | null
+  value: number
+  surfaceTarget: string
+  displayTarget: string
+}
+
+function isExplainableOperation(op: OperationSpec) {
+  return Boolean(op.op && op.op !== DrawAction.Sleep && op.op !== 'draw' && op.op !== 'text')
+}
+
+function stableExplanationNodeId(op: OperationSpec) {
+  const metaNodeId = typeof op.meta?.nodeId === 'string' ? op.meta.nodeId.trim() : ''
+  if (metaNodeId) return metaNodeId
+  const opId = typeof (op as { id?: unknown }).id === 'string' ? String((op as { id?: string }).id ?? '').trim() : ''
+  return opId || null
+}
+
+function createGroupExplanationController(container: HTMLElement, ops: OperationSpec[]) {
+  const explainableOps = ops.filter((op) => isExplainableOperation(op))
+  const resultByNodeId = new Map<string, DatumValue[]>()
+  const nodeIdByOperation = new Map<OperationSpec, string>()
+  const nodeIdByOperationIndex = new Map<number, string>()
+
+  explainableOps.forEach((op, index) => {
+    const nodeId = stableExplanationNodeId(op) ?? `__summary_${index}`
+    nodeIdByOperation.set(op, nodeId)
+    nodeIdByOperationIndex.set(index, nodeId)
+  })
+
+  let lastSignature = ''
+  const hasVisibleExplanation = () =>
+    container.querySelector('.chart-explanation-layer .chart-explanation-text') != null
+  const renderSummary = () => {
+    if (!explainableOps.length) {
+      clearChartExplanation(container)
+      lastSignature = ''
+      return
+    }
+    const summary = buildExplanationTextForOperations({
+      operations: explainableOps,
+      resultsByNodeId: resultByNodeId,
+    })
+    if (!summary) {
+      clearChartExplanation(container)
+      lastSignature = ''
+      return
+    }
+
+    const canRenderFinal =
+      Boolean(summary.finalText) &&
+      (!summary.refineOnNodeIds?.length || summary.refineOnNodeIds.every((nodeId) => resultByNodeId.has(nodeId)))
+
+    const text = canRenderFinal && summary.finalText ? summary.finalText : ''
+    const signature = text
+    if (signature === lastSignature && hasVisibleExplanation()) return
+    if (!text) {
+      clearChartExplanation(container)
+      lastSignature = ''
+      return
+    }
+    renderChartExplanation(container, { text })
+    lastSignature = signature
+  }
+
+  return {
+    start() {
+      clearChartExplanation(container)
+      lastSignature = ''
+    },
+    ready(event: OperationReadyEvent) {
+      if (!isExplainableOperation(event.operation)) return
+      const nodeId =
+        nodeIdByOperation.get(event.operation) ??
+        nodeIdByOperationIndex.get(event.operationIndex) ??
+        stableExplanationNodeId(event.operation)
+      if (nodeId && Array.isArray(event.result)) {
+        resultByNodeId.set(nodeId, event.result)
+      }
+      renderSummary()
+    },
+    complete(_event: OperationCompletedEvent) {
+      if (!hasVisibleExplanation()) {
+        lastSignature = ''
+      }
+      renderSummary()
+    },
+  }
 }
 
 // ─── split helpers ────────────────────────────────────────────────────────────
@@ -300,6 +403,258 @@ function isDataOperation(operation: OperationSpec) {
   return true
 }
 
+function isBarCompareSurfaceChartType(chartType: ChartTypeValue | null) {
+  return chartType === ChartType.STACKED_BAR || chartType === ChartType.GROUPED_BAR
+}
+
+function isBarCompareSurfaceOp(op: OperationSpec) {
+  return op.op === OperationOp.Compare || op.op === OperationOp.CompareBool || op.op === OperationOp.Diff
+}
+
+function firstTargetSelector(selector: TargetSelector | TargetSelector[] | undefined): TargetSelector | undefined {
+  if (Array.isArray(selector)) return selector[0]
+  return selector
+}
+
+function resolveRefComparePoint(refKey: string, fallbackSeries?: string | null): BarComparePoint | null {
+  const runtimeRows = getRuntimeResultsById(refKey)
+  if (!runtimeRows.length) return null
+  const first = runtimeRows[0]
+  return {
+    target: String(first.target),
+    series: first.group != null ? String(first.group) : fallbackSeries ?? undefined,
+  }
+}
+
+function selectorComparePoint(
+  selector: TargetSelector | TargetSelector[] | undefined,
+  fallbackSeries?: string | null,
+): BarComparePoint | null {
+  const item = firstTargetSelector(selector)
+  if (item == null) return null
+  if (typeof item === 'string') {
+    if (item.startsWith('ref:')) return resolveRefComparePoint(item.slice('ref:'.length).trim(), fallbackSeries)
+    return { target: item, series: fallbackSeries ?? undefined }
+  }
+  if (typeof item === 'number') {
+    return { target: String(item), series: fallbackSeries ?? undefined }
+  }
+  const explicitTarget =
+    item.target != null
+      ? String(item.target)
+      : item.category != null
+        ? String(item.category)
+        : typeof item.id === 'string' && /^n\d+$/i.test(item.id)
+          ? null
+          : item.id != null
+            ? String(item.id)
+            : null
+  if (!explicitTarget) {
+    if (typeof item.id === 'string' && /^n\d+$/i.test(item.id)) {
+      return resolveRefComparePoint(item.id, fallbackSeries)
+    }
+    return null
+  }
+  return {
+    target: explicitTarget,
+    series: item.series != null ? String(item.series) : fallbackSeries ?? undefined,
+  }
+}
+
+function toGroupedLikeDatumValues(container: HTMLElement, spec: GroupedSpec) {
+  const raw = (getGroupedBarStoredData(container) || []) as RawRow[]
+  const seriesField =
+    (typeof spec.encoding.xOffset?.field === 'string' && spec.encoding.xOffset.field) ||
+    (typeof spec.encoding.color?.field === 'string' && spec.encoding.color.field) ||
+    undefined
+  return toDatumValuesFromRaw(raw, {
+    xField: spec.encoding.x.field,
+    yField: spec.encoding.y.field,
+    groupField: seriesField,
+  })
+}
+
+function toStackedLikeDatumValues(container: HTMLElement, spec: StackedSpec) {
+  const raw = (getStackedBarStoredData(container) || []) as RawRow[]
+  return toDatumValuesFromRaw(
+    raw,
+    {
+      xField: spec.encoding.x.field,
+      yField: spec.encoding.y.field,
+      groupField: spec.encoding.color?.field,
+    },
+    {
+      groupFallback: (row: RawRow) => {
+        const candidate = row?.group ?? row?.color ?? row?.series ?? null
+        if (candidate == null) return null
+        return String(candidate)
+      },
+    },
+  )
+}
+
+function currentBarDatumValues(container: HTMLElement, chartType: ChartTypeValue | null, spec: ChartSpec) {
+  if (chartType === ChartType.GROUPED_BAR) return toGroupedLikeDatumValues(container, spec as GroupedSpec)
+  if (chartType === ChartType.STACKED_BAR) return toStackedLikeDatumValues(container, spec as StackedSpec)
+  return [] as DatumValue[]
+}
+
+function resolveCompareOperandsFromOp(
+  data: DatumValue[],
+  op: OperationSpec,
+): { left: BarComparePoint; right: BarComparePoint } | null {
+  const fallbackTargets = resolveBinaryInputsFromMeta(op.meta?.inputs)
+  const left = selectorComparePoint(op.targetA ?? fallbackTargets.targetA, op.groupA ?? op.group)
+  const right = selectorComparePoint(op.targetB ?? fallbackTargets.targetB, op.groupB ?? op.group)
+  if (!left || !right) return null
+  const resolvePoint = (point: BarComparePoint) => {
+    const exact = data.find((row) => String(row.target) === point.target && (point.series == null || String(row.group ?? '') === String(point.series)))
+    if (exact) return { target: String(exact.target), series: exact.group != null ? String(exact.group) : point.series ?? undefined }
+    const fallback = data.find((row) => String(row.target) === point.target)
+    if (!fallback) return null
+    return { target: String(fallback.target), series: fallback.group != null ? String(fallback.group) : point.series ?? undefined }
+  }
+  const resolvedLeft = resolvePoint(left)
+  const resolvedRight = resolvePoint(right)
+  if (!resolvedLeft || !resolvedRight) return null
+  return { left: resolvedLeft, right: resolvedRight }
+}
+
+function findDatumForPoint(data: DatumValue[], point: BarComparePoint) {
+  const exact = data.find((row) => String(row.target) === point.target && (point.series == null || String(row.group ?? '') === String(point.series)))
+  if (exact) return exact
+  if (point.series != null) return null
+  return data.find((row) => String(row.target) === point.target) ?? null
+}
+
+function comparisonSurfaceDisplayTarget(point: BarComparePoint, useSeriesDisambiguation: boolean, index: number) {
+  const target = String(point.target)
+  const series = point.series != null ? String(point.series) : ''
+  if (useSeriesDisambiguation && series) return `${target} (${series})`
+  return target || `value ${index + 1}`
+}
+
+function comparisonSurfaceTarget(point: BarComparePoint, displayTarget: string, index: number, hasCollision: boolean) {
+  if (!hasCollision && point.target.trim().length > 0) return point.target.trim()
+  return displayTarget.trim().length > 0 ? displayTarget.trim() : `operand_${index + 1}`
+}
+
+function buildCompareSurfaceOperands(
+  data: DatumValue[],
+  pair: { left: BarComparePoint; right: BarComparePoint },
+): { operands: BarCompareOperand[]; remap: Map<string, string> } | null {
+  const leftDatum = findDatumForPoint(data, pair.left)
+  const rightDatum = findDatumForPoint(data, pair.right)
+  if (!leftDatum || !rightDatum) return null
+  const basePoints = [
+    { point: pair.left, datum: leftDatum },
+    { point: pair.right, datum: rightDatum },
+  ]
+  const targetCounts = new Map<string, number>()
+  basePoints.forEach(({ point }) => {
+    targetCounts.set(point.target, (targetCounts.get(point.target) ?? 0) + 1)
+  })
+
+  const operands: BarCompareOperand[] = []
+  basePoints.forEach(({ point, datum }, index) => {
+    const value = Number(datum.value)
+    if (!Number.isFinite(value)) return
+    const duplicateTarget = (targetCounts.get(point.target) ?? 0) > 1
+    const displayTarget = comparisonSurfaceDisplayTarget(point, duplicateTarget || Boolean(point.series), index)
+    const surfaceTarget = comparisonSurfaceTarget(point, displayTarget, index, duplicateTarget)
+    operands.push({
+      target: point.target,
+      series: point.series ?? null,
+      value,
+      surfaceTarget,
+      displayTarget,
+    })
+  })
+
+  if (operands.length !== 2) return null
+
+  const remap = new Map<string, string>()
+  operands.forEach((operand) => {
+    remap.set(`${operand.target}::${operand.series ?? ''}`, operand.surfaceTarget)
+    if (!operands.some((candidate) => candidate !== operand && candidate.target === operand.target)) {
+      remap.set(`${operand.target}::`, operand.surfaceTarget)
+    }
+  })
+  return { operands, remap }
+}
+
+function remapSelectorForSimpleSurface(
+  selector: TargetSelector | TargetSelector[] | undefined,
+  remap: Map<string, string>,
+): TargetSelector | TargetSelector[] | undefined {
+  if (Array.isArray(selector)) {
+    return selector.map((entry) => remapSelectorForSimpleSurface(entry, remap) as TargetSelector)
+  }
+  if (selector == null) return selector
+  if (typeof selector === 'string' || typeof selector === 'number') {
+    if (typeof selector === 'string' && selector.startsWith('ref:')) return selector
+    const mapped = remap.get(`${String(selector)}::`) ?? remap.get(`${String(selector)}::`)
+    return mapped ?? selector
+  }
+  if (typeof selector === 'object') {
+    if (typeof selector.id === 'string' && /^n\d+$/i.test(selector.id)) return selector
+    const rawTarget =
+      selector.target != null
+        ? String(selector.target)
+        : selector.category != null
+          ? String(selector.category)
+          : selector.id != null
+            ? String(selector.id)
+            : null
+    if (!rawTarget) return selector
+    const key = `${rawTarget}::${selector.series != null ? String(selector.series) : ''}`
+    const mapped = remap.get(key) ?? remap.get(`${rawTarget}::`)
+    if (!mapped) return selector
+    return { target: mapped }
+  }
+  return selector
+}
+
+function normalizeOpsForBarComparisonSurface(ops: OperationSpec[], remap: Map<string, string>) {
+  return ops.map((op) => ({
+    ...op,
+    group: undefined,
+    groupA: undefined,
+    groupB: undefined,
+    target: remapSelectorForSimpleSurface(op.target, remap),
+    targetA: remapSelectorForSimpleSurface(op.targetA, remap),
+    targetB: remapSelectorForSimpleSurface(op.targetB, remap),
+  }))
+}
+
+function findBarCompareDelegationCandidate(
+  chartType: ChartTypeValue | null,
+  ops: OperationSpec[],
+): { index: number } | null {
+  if (!isBarCompareSurfaceChartType(chartType)) return null
+  for (let index = 0; index < ops.length; index += 1) {
+    const op = ops[index]
+    if (!isDataOperation(op)) continue
+    if (!isBarCompareSurfaceOp(op)) continue
+    return { index }
+  }
+  return null
+}
+
+function findStackedPairDiffTransitionCandidate(
+  chartType: ChartTypeValue | null,
+  ops: OperationSpec[],
+): { index: number; groupA: string; groupB: string } | null {
+  if (chartType !== ChartType.STACKED_BAR) return null
+  for (let index = 0; index < ops.length; index += 1) {
+    const op = ops[index]
+    if (!isDataOperation(op) || op.op !== OperationOp.PairDiff) continue
+    if (!op.groupA || !op.groupB) continue
+    return { index, groupA: String(op.groupA), groupB: String(op.groupB) }
+  }
+  return null
+}
+
 function isSingleGroupDelegationChartType(chartType: ChartTypeValue | null) {
   return chartType === ChartType.STACKED_BAR || chartType === ChartType.GROUPED_BAR || chartType === ChartType.MULTI_LINE
 }
@@ -358,6 +713,7 @@ function buildSingleGroupToSimpleDrawOp(chartType: ChartTypeValue | null, series
 function internalDelegationRunOptions(options?: RunChartOpsOptions): RunChartOpsOptions {
   return {
     ...options,
+    onOperationReady: undefined,
     onOperationCompleted: undefined,
     runtimeScope: INTERNAL_DELEGATION_RUNTIME_SCOPE,
     operationIndexStart: 0,
@@ -409,6 +765,103 @@ async function runSingleGroupDelegationTransition(
     return { chartType: ChartType.SIMPLE_LINE, spec: simple }
   }
   return null
+}
+
+async function runBarCompareDelegationTransition(
+  container: HTMLElement,
+  chartType: ChartTypeValue | null,
+  spec: ChartSpec,
+  op: OperationSpec,
+  options?: RunChartOpsOptions,
+): Promise<{ state: ChartExecutionState; remap: Map<string, string> } | null> {
+  if (!isBarCompareSurfaceChartType(chartType)) return null
+  const data = currentBarDatumValues(container, chartType, spec)
+  const pair = resolveCompareOperandsFromOp(data, op)
+  if (!pair) return null
+  const surface = buildCompareSurfaceOperands(data, pair)
+  if (!surface) return null
+
+  const selectedTargets = surface.operands.map((operand) => operand.target)
+  const selectedIds = data
+    .filter((row) =>
+      surface.operands.some(
+        (operand) =>
+          String(row.target) === operand.target &&
+          String(row.group ?? '') === String(operand.series ?? ''),
+      ),
+    )
+    .map((row) => String(row.id ?? row.lookupId ?? row.target))
+    .filter((value, index, list) => value.length > 0 && list.indexOf(value) === index)
+
+  if (selectedIds.length > 0) {
+    await runSingleGroupTransitionDrawOp(
+      container,
+      { chartType, spec },
+      ops.draw.dim(
+        undefined,
+        draw.select.markFieldKeys('rect', 'id', ...selectedIds),
+        undefined,
+        0.18,
+      ),
+      options,
+    )
+  } else if (selectedTargets.length > 0) {
+    await runSingleGroupTransitionDrawOp(
+      container,
+      { chartType, spec },
+      ops.draw.dim(
+        undefined,
+        draw.select.markFieldKeys('rect', 'target', ...selectedTargets),
+        undefined,
+        0.18,
+      ),
+      options,
+    )
+  }
+  await delayMs(SINGLE_GROUP_DELEGATION_ANIMATION.focusSettleMs)
+
+  const simple = await renderBarSelectionAsSimpleSurface(
+    container,
+    spec as GroupedSpec | StackedSpec,
+    surface.operands.map((operand) => ({
+      target: operand.surfaceTarget,
+      displayTarget: operand.displayTarget,
+      value: operand.value,
+      group: operand.series ?? null,
+    })),
+  )
+  if (!simple) return null
+  await delayMs(SINGLE_GROUP_DELEGATION_ANIMATION.minHoldAfterConvertMs)
+  return {
+    state: { chartType: ChartType.SIMPLE_BAR, spec: simple },
+    remap: surface.remap,
+  }
+}
+
+async function runStackedPairDiffDelegationTransition(
+  container: HTMLElement,
+  spec: StackedSpec,
+  groupA: string,
+  groupB: string,
+  options?: RunChartOpsOptions,
+): Promise<ChartExecutionState | null> {
+  let state: ChartExecutionState = { chartType: ChartType.STACKED_BAR, spec }
+  state = await runSingleGroupTransitionDrawOp(
+    container,
+    state,
+    ops.draw.stackedFilterGroups(undefined, [groupA, groupB], 'include'),
+    options,
+  )
+  await delayMs(SINGLE_GROUP_DELEGATION_ANIMATION.focusSettleMs)
+  state = await runSingleGroupTransitionDrawOp(
+    container,
+    state,
+    ops.draw.stackedToGrouped(undefined),
+    options,
+  )
+  if (state.chartType !== ChartType.GROUPED_BAR) return null
+  await delayMs(SINGLE_GROUP_DELEGATION_ANIMATION.minHoldAfterConvertMs)
+  return state
 }
 
 async function runChartOpsForSegmentedGroupBase(
@@ -465,6 +918,89 @@ async function runChartOpsForSegmentedGroup(
   ops: OperationSpec[],
   options?: RunChartOpsOptions,
 ): Promise<{ result: unknown; chartType: ChartTypeValue | null; spec: ChartSpec }> {
+  const pairDiffTransition = findStackedPairDiffTransitionCandidate(initialChartType, ops)
+  if (pairDiffTransition) {
+    let chartType = initialChartType
+    let spec = initialSpec
+    let operationIndexStart = options?.operationIndexStart ?? 0
+
+    if (pairDiffTransition.index > 0) {
+      const prefixOps = ops.slice(0, pairDiffTransition.index)
+      const prefixResult = await runChartOpsForSegmentedGroupBase(container, chartType, spec, prefixOps, {
+        ...options,
+        operationIndexStart,
+      })
+      chartType = prefixResult.chartType
+      spec = prefixResult.spec
+      operationIndexStart += prefixOps.length
+    }
+
+    const transitioned = await runStackedPairDiffDelegationTransition(
+      container,
+      spec as StackedSpec,
+      pairDiffTransition.groupA,
+      pairDiffTransition.groupB,
+      options,
+    )
+    if (!transitioned) {
+      return runChartOpsForSegmentedGroupBase(container, chartType, spec, ops.slice(pairDiffTransition.index), {
+        ...options,
+        operationIndexStart,
+        initialRenderMode: 'reuse-existing',
+        resetRuntime: pairDiffTransition.index > 0 ? false : options?.resetRuntime ?? true,
+      })
+    }
+
+    const delegatedResult = await runChartOpsForSegmentedGroupBase(
+      container,
+      transitioned.chartType,
+      transitioned.spec,
+      ops.slice(pairDiffTransition.index),
+      {
+        ...options,
+        operationIndexStart,
+        initialRenderMode: 'reuse-existing',
+        resetRuntime: pairDiffTransition.index > 0 ? false : options?.resetRuntime ?? true,
+      },
+    )
+    return delegatedResult
+  }
+
+  const compareDelegation = findBarCompareDelegationCandidate(initialChartType, ops)
+  if (compareDelegation) {
+    let chartType = initialChartType
+    let spec = initialSpec
+    let operationIndexStart = options?.operationIndexStart ?? 0
+
+    if (compareDelegation.index > 0) {
+      const prefixOps = ops.slice(0, compareDelegation.index)
+      const prefixResult = await runChartOpsForSegmentedGroupBase(container, chartType, spec, prefixOps, {
+        ...options,
+        operationIndexStart,
+      })
+      chartType = prefixResult.chartType
+      spec = prefixResult.spec
+      operationIndexStart += prefixOps.length
+    }
+
+    const remainingOps = ops.slice(compareDelegation.index)
+    const transitioned = await runBarCompareDelegationTransition(container, chartType, spec, remainingOps[0], options)
+    if (transitioned) {
+      return runChartOpsForSegmentedGroupBase(
+        container,
+        transitioned.state.chartType,
+        transitioned.state.spec,
+        normalizeOpsForBarComparisonSurface(remainingOps, transitioned.remap),
+        {
+          ...options,
+          operationIndexStart,
+          initialRenderMode: 'reuse-existing',
+          resetRuntime: compareDelegation.index > 0 ? false : options?.resetRuntime ?? true,
+        },
+      )
+    }
+  }
+
   const delegation = findSingleGroupDelegationCandidate(initialChartType, ops)
   if (!delegation) {
     return runChartOpsForSegmentedGroupBase(container, initialChartType, initialSpec, ops, options)
@@ -523,6 +1059,30 @@ async function runChartOpsForSegmentedGroup(
   return { result, chartType, spec }
 }
 
+async function runSegmentedGroupWithExplanation(
+  container: HTMLElement,
+  initialChartType: ChartTypeValue | null,
+  initialSpec: ChartSpec,
+  ops: OperationSpec[],
+  options?: RunChartOpsOptions,
+) {
+  const explanationController = createGroupExplanationController(container, ops)
+  explanationController.start()
+  const userOnOperationReady = options?.onOperationReady
+  const userOnOperationCompleted = options?.onOperationCompleted
+  return runChartOpsForSegmentedGroup(container, initialChartType, initialSpec, ops, {
+    ...options,
+    onOperationReady: async (event) => {
+      explanationController.ready(event)
+      await userOnOperationReady?.(event)
+    },
+    onOperationCompleted: async (event) => {
+      explanationController.complete(event)
+      await userOnOperationCompleted?.(event)
+    },
+  })
+}
+
 export async function runChartOps(
   container: HTMLElement,
   spec: ChartSpec,
@@ -543,7 +1103,7 @@ export async function runChartOps(
       singleGroup &&
       findSplitOpIndex(singleGroup.ops) !== -1
     if (!hasSplitInSingle) {
-      const executed = await runChartOpsForSegmentedGroup(
+      const executed = await runSegmentedGroupWithExplanation(
         container,
         chartType,
         normalized,
@@ -602,6 +1162,7 @@ export async function runChartOps(
       runtimeScope: groupName,
       resetRuntime: index === 0 ? options?.resetRuntime ?? true : false,
       operationIndexStart: operationOffset,
+      onOperationReady: options?.onOperationReady,
       onOperationCompleted: options?.onOperationCompleted,
     }
 
@@ -621,7 +1182,7 @@ export async function runChartOps(
         initialRenderMode: 'always' | 'reuse-existing',
       ) => {
         const host = surface.hostElement as HTMLElement
-        const executed = await runChartOpsForSegmentedGroup(host, surface.chartType, surface.spec, ops, {
+        const executed = await runSegmentedGroupWithExplanation(host, surface.chartType, surface.spec, ops, {
           ...groupOpts,
           initialRenderMode,
         })
@@ -647,7 +1208,7 @@ export async function runChartOps(
           )
         surfaceManager.mergeSurfaces(splitIdA, splitIdB, normalized, chartType ?? ChartType.SIMPLE_BAR, mergedData)
         isSplit = false
-        const executed = await runChartOpsForSegmentedGroup(container, chartType, normalized, tailOps, {
+        const executed = await runSegmentedGroupWithExplanation(container, chartType, normalized, tailOps, {
           ...groupOpts,
           initialRenderMode: 'always',
         })
@@ -667,7 +1228,7 @@ export async function runChartOps(
         // split 이전 ops 실행
         if (splitIdx > 0) {
           const preOps = group.ops.slice(0, splitIdx)
-          const executed = await runChartOpsForSegmentedGroup(container, chartType, normalized, preOps, groupOpts)
+          const executed = await runSegmentedGroupWithExplanation(container, chartType, normalized, preOps, groupOpts)
           lastResult = executed.result
           chartType = executed.chartType ?? chartType
           normalized = executed.spec
@@ -743,7 +1304,7 @@ export async function runChartOps(
     }
     // ── end SurfaceManager split handling ─────────────────────────────────────
 
-    const executed = await runChartOpsForSegmentedGroup(container, chartType, normalized, group.ops, groupOpts)
+    const executed = await runSegmentedGroupWithExplanation(container, chartType, normalized, group.ops, groupOpts)
     lastResult = executed.result
     chartType = executed.chartType ?? chartType
     normalized = executed.spec
