@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-import barSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
-import lineSimpleSpecRaw from '../../../data/test/spec/line_simple.json?raw'
+import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
 import {
   assertDrawCapabilityForOp,
   BarDrawHandler,
-  ChartType,
   clearAnnotations,
-  collectOpsBuilderOptionSources,
   collectSeriesAggregates,
   collectTargetSeriesValues,
   createBarSegmentOp,
@@ -36,25 +33,17 @@ import {
   DrawInteractionTools,
   DrawRectModes,
   DrawTextModes,
-  getChartType,
-  getEmptyOptionSources,
   getRuntimeDrawSupportDecision,
   GroupedBarDrawHandler,
   interactionSessionReducer,
   MultiLineDrawHandler,
-  OperationOp,
-  ops,
   runGenericDraw,
   runOpsPlan,
   runTimeline,
-  serializeSessionToDslPlanSource,
-  serializeSessionToJson,
   serializeSessionToOperationSpec,
   SimpleLineDrawHandler,
   StackedBarDrawHandler,
   TimelineStepKind,
-  draw,
-  type ChartTypeValue,
   type DrawInteractionControllerState,
   type BarSegmentCommit,
   type DrawLineSpec,
@@ -62,14 +51,15 @@ import {
   type DrawInteractionTool,
   type DrawOp,
   type DrawRectSpec,
-  type DatumValue,
   type NormalizedPoint,
-  type OperationSpec,
   type PointerClientPoint,
   type SeriesFilterMode,
   type TimelineStep,
-  type VegaLiteSpec,
-} from '../../../src/api/legacy'
+} from '../../../src/rendering'
+import { draw, ops, serializeSessionToDslPlanSource, serializeSessionToJson } from '../../../src/api/authoring'
+import { collectOpsBuilderOptionSources, getEmptyOptionSources } from '../../../src/operation/build'
+import { ChartType, getChartType } from '../../../src/domain/chart'
+import { OperationOp, type ChartTypeValue, type DatumValue, type OperationSpec, type VegaLiteSpec } from '../../../src/api/types'
 import * as d3 from 'd3'
 import {
   materializeExecutionGroups,
@@ -87,7 +77,7 @@ import {
 } from '../../../src/api/visual-execution-player'
 import { buildSummaryTextForOperations, buildSentenceSummaryText } from '../../../src/api/operation-summary-text'
 import { buildLogicalExecutionArtifacts, type LogicalExecutionArtifacts } from '../../../src/api/visual-derived-chart'
-import { SPLIT_VIEW_ENABLED, STRUCTURAL_DRAW_ACTIONS } from '../../../src/api/draw-action-policy'
+import { STRUCTURAL_DRAW_ACTIONS } from '../../../src/api/draw-action-policy'
 import {
   clearSentenceSummaryOverlay,
   renderSentenceSummaryOverlay,
@@ -107,7 +97,6 @@ import { fetchLatestPythonDrawPlan } from '../services/pythonDrawPlan'
 import { captureSvgSnapshot, consumeDerivedChartState } from '../../../src/api/rendering'
 
 const vlSpecPlaceholder = barSimpleSpecRaw
-// const vlSpecPlaceholder = lineSimpleSpecRaw
 
 const EXPORT_SCALE = 3
 // Workbench: always use our chart-type-specific D3 renderers.
@@ -126,7 +115,7 @@ const DRAW_TOOL_OPTIONS: Array<{ value: DrawInteractionTool; label: string }> = 
   { value: DrawInteractionTools.Line, label: 'Line' },
   { value: DrawInteractionTools.LineTrace, label: 'Line Trace' },
   { value: DrawInteractionTools.Filter, label: 'Filter' },
-  ...(SPLIT_VIEW_ENABLED ? [{ value: DrawInteractionTools.Split, label: 'Split' }] : []),
+  { value: DrawInteractionTools.Split, label: 'Split' },
   { value: DrawInteractionTools.SeriesFilter, label: 'Series Filter' },
   { value: DrawInteractionTools.Convert, label: 'Convert' },
   { value: DrawInteractionTools.BarSegment, label: 'Bar Segment' },

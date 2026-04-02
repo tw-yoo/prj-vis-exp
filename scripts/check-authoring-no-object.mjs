@@ -8,12 +8,14 @@ const includeDirs = [
   path.join(root, 'data/expert'),
 ]
 const includeExtensions = new Set(['.ts'])
+const ignoredDirs = new Set(['.claude', '.cache', 'node_modules', 'dist'])
 
 function listFiles(dirPath) {
   if (!fs.existsSync(dirPath)) return []
   const output = []
   const entries = fs.readdirSync(dirPath, { withFileTypes: true })
   for (const entry of entries) {
+    if (entry.isDirectory() && ignoredDirs.has(entry.name)) continue
     const fullPath = path.join(dirPath, entry.name)
     if (entry.isDirectory()) {
       output.push(...listFiles(fullPath))

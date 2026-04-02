@@ -1,22 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  makeId,
-  OperationOp,
-  operationRegistry,
   exportOps,
+  getEmptyOptionSources,
   importOpToBuilderBlock,
   importOpsBuilderStateFromJsonText,
+  makeId,
+  operationRegistry,
   validateOps,
-  type ChartTypeValue,
   type FieldOptionsSource,
   type FieldSchema,
-  type OperationSpec,
   type OpsBuilderBlock,
   type OpsBuilderGroup,
   type OpsBuilderOptionSources,
   type OpsBuilderState,
   type OperationSchema,
-} from '../../../src/api/legacy'
+} from '../../../src/api/operation-build'
+import { OperationOp, type ChartTypeValue, type OperationSpec } from '../../../src/api/types'
 import { useUndoState } from './useUndo'
 import './OpsBuilder.css'
 
@@ -35,13 +34,7 @@ const defaultState = (): OpsBuilderState => ({
   groups: [{ id: makeId('group'), name: 'ops', disabled: false, blocks: [] }],
 })
 
-const emptyOptionSources: OpsBuilderOptionSources = {
-  targets: [],
-  series: [],
-  ids: [],
-  values: [],
-  fields: [],
-}
+const emptyOptionSources: OpsBuilderOptionSources = getEmptyOptionSources()
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
+const IGNORED_DIRS = new Set(['.claude', '.cache', 'node_modules', 'dist'])
 
 const violations = []
 
@@ -9,6 +10,7 @@ function walk(dirPath, visitor) {
   if (!fs.existsSync(dirPath)) return
   const entries = fs.readdirSync(dirPath, { withFileTypes: true })
   for (const entry of entries) {
+    if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) continue
     const fullPath = path.join(dirPath, entry.name)
     if (entry.isDirectory()) {
       walk(fullPath, visitor)

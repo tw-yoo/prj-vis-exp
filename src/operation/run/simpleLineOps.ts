@@ -5,7 +5,6 @@ import {
   type LineSpec,
   getSimpleLineStoredData,
   tagSimpleLineMarks,
-  renderSplitSimpleLineChart,
   getSimpleLineSplitDomain,
   resolveSimpleLineEncoding,
 } from '../../rendering/line/simpleLineRenderer.ts'
@@ -18,7 +17,6 @@ import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { SIMPLE_LINE_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/line/simple/simpleLineAutoDrawPlanBuilder.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 import { renderSimpleBarChart, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer.ts'
 import { SimpleBarDrawHandler } from '../../rendering/draw/bar/SimpleBarDrawHandler.ts'
 import { storeDerivedChartState } from '../../rendering/utils/derivedChartState.ts'
@@ -158,25 +156,11 @@ export async function handleSimpleLineDraw(
   spec: LineSpec,
 ) {
   if (drawOp.action === DrawAction.Split) {
-    if (SURFACE_SPLIT_ENABLED) {
-      // SurfaceManager 기반 split은 runChartOps 레벨에서 처리됨
-      console.debug('draw:split handled at runChartOps level', drawOp)
-      return
-    }
-    if (!drawOp.split) {
-      console.warn('draw:split requires split spec', drawOp)
-      return
-    }
-    await renderSplitSimpleLineChart(container, spec, drawOp.split)
+    console.debug('draw:split handled at runChartOps level', drawOp)
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
-    if (SURFACE_SPLIT_ENABLED) {
-      // SurfaceManager 기반 unsplit은 runChartOps 레벨에서 처리됨
-      console.debug('draw:unsplit handled at runChartOps level', drawOp)
-      return
-    }
-    await renderSimpleLineChart(container, spec)
+    console.debug('draw:unsplit handled at runChartOps level', drawOp)
     return
   }
   if (drawOp.action === DrawAction.LineToBar) {
@@ -245,11 +229,10 @@ export async function runSimpleLineOps(
     createHandler: (host) => new SimpleLineDrawHandler(host),
     handleDrawOp: async (host, handler, drawOp) => {
       await handleSimpleLineDraw(host, handler as SimpleLineDrawHandler, drawOp, vlSpec)
-      if (LEGACY_SPLIT_DRAW_ACTIONS.has(drawOp.action)) {
+      if (drawOp.action === DrawAction.Split || drawOp.action === DrawAction.Unsplit) {
         clearChartWorking()
       }
     },
-    clearAnnotations: ({ svg }) => clearAnnotations(svg),
     autoDrawPlans: SIMPLE_LINE_AUTO_DRAW_PLANS,
     getOperationInput,
     handleOperationResult,

@@ -1,5 +1,7 @@
-import { drawOps } from '../../../rendering/draw/drawOps'
+import { OperationOp } from '../../../types'
 import {
+  DrawAction,
+  DrawAnnotationLifecycles,
   DrawComparisonOperators,
   DrawLineModes,
   DrawRectModes,
@@ -86,6 +88,31 @@ export type GroupFilterMode = 'include' | 'exclude' | 'reset'
 function optionalStyle(color?: string, opacity?: number) {
   if (color == null && opacity == null) return undefined
   return { color, opacity }
+}
+
+type BaseDrawArgs = {
+  chartId?: string
+  select?: DrawSelect
+  selectKeys?: Array<string | number>
+  annotation?: DrawOp['annotation']
+  meta?: DrawOp['meta']
+}
+
+function buildSelect(args: BaseDrawArgs): DrawSelect | undefined {
+  if (args.select) return args.select
+  if (args.selectKeys && args.selectKeys.length > 0) return { keys: args.selectKeys }
+  return undefined
+}
+
+function buildDrawBase(action: DrawAction, args: BaseDrawArgs = {}): DrawOp {
+  return {
+    op: OperationOp.Draw,
+    action,
+    annotation: args.annotation,
+    meta: args.meta,
+    chartId: args.chartId,
+    select: buildSelect(args),
+  }
 }
 
 function buildGroupFilter(groups: Array<string | number>, mode: GroupFilterMode): DrawGroupFilterSpec {
@@ -480,7 +507,10 @@ function drawHighlight(
 /** @deprecated Accepts raw DrawSelect. Prefer `draw.select.*` builders. */
 function drawHighlight(chartId?: string, select?: DrawSelect, color?: string, opacity?: number): DrawOp
 function drawHighlight(chartId?: string, select?: DrawSelect, color?: string, opacity?: number): DrawOp {
-  return drawOps.highlight({ chartId, select, style: optionalStyle(color, opacity) })
+  const op = buildDrawBase(DrawAction.Highlight, { chartId, select })
+  const style = optionalStyle(color, opacity)
+  if (style) op.style = style
+  return op
 }
 
 function drawDim(
@@ -492,16 +522,19 @@ function drawDim(
 /** @deprecated Accepts raw DrawSelect. Prefer `draw.select.*` builders. */
 function drawDim(chartId?: string, select?: DrawSelect, color?: string, opacity?: number): DrawOp
 function drawDim(chartId?: string, select?: DrawSelect, color?: string, opacity?: number): DrawOp {
-  return drawOps.dim({ chartId, select, style: optionalStyle(color, opacity) })
+  const op = buildDrawBase(DrawAction.Dim, { chartId, select })
+  const style = optionalStyle(color, opacity)
+  if (style) op.style = style
+  return op
 }
 
 function drawClear(chartId?: string): DrawOp {
-  return drawOps.clear(chartId)
+  return buildDrawBase(DrawAction.Clear, { chartId })
 }
 
 /** @deprecated Legacy helper. New plans should rely on draw transition duration instead of sleep ops. */
 function drawSleep(seconds: number, chartId?: string): DrawOp {
-  return drawOps.sleep({ seconds, chartId })
+  return { ...buildDrawBase(DrawAction.Sleep, { chartId }), seconds }
 }
 
 function drawLine(
@@ -516,7 +549,7 @@ function drawLine(
 /** @deprecated Accepts raw DrawLineSpec. Prefer `draw.lineSpec.*` builders. */
 function drawLine(chartId: string | undefined, lineSpec: DrawLineSpec): DrawOp
 function drawLine(chartId: string | undefined, lineSpec: DrawLineSpec): DrawOp {
-  return drawOps.line({ chartId, line: lineSpec })
+  return { ...buildDrawBase(DrawAction.Line, { chartId }), line: lineSpec }
 }
 
 function drawRect(
@@ -526,7 +559,7 @@ function drawRect(
 /** @deprecated Accepts raw DrawRectSpec. Prefer `draw.rectSpec.*` builders. */
 function drawRect(chartId: string | undefined, rectSpec: DrawRectSpec): DrawOp
 function drawRect(chartId: string | undefined, rectSpec: DrawRectSpec): DrawOp {
-  return drawOps.rect({ chartId, rect: rectSpec })
+  return { ...buildDrawBase(DrawAction.Rect, { chartId }), rect: rectSpec }
 }
 
 function drawText(
@@ -537,7 +570,7 @@ function drawText(
 /** @deprecated Accepts raw DrawSelect/DrawTextSpec. Prefer `draw.select.*` and `draw.textSpec.*` builders. */
 function drawText(chartId: string | undefined, select: DrawSelect | undefined, textSpec: DrawTextSpec): DrawOp
 function drawText(chartId: string | undefined, select: DrawSelect | undefined, textSpec: DrawTextSpec): DrawOp {
-  return drawOps.text({ chartId, select, text: textSpec })
+  return { ...buildDrawBase(DrawAction.Text, { chartId, select }), text: textSpec }
 }
 
 function drawBarSegment(
@@ -552,7 +585,14 @@ function drawBarSegment(
   selectKeys: Array<string | number>,
   segmentSpec: DrawBarSegmentSpec,
 ): DrawOp {
-  return drawOps.barSegment({ chartId, selectKeys, segment: segmentSpec })
+  return {
+    ...buildDrawBase(DrawAction.BarSegment, {
+      chartId,
+      selectKeys,
+      annotation: { lifecycle: DrawAnnotationLifecycles.Transient },
+    }),
+    segment: segmentSpec,
+  }
 }
 
 function drawFilter(
@@ -562,7 +602,7 @@ function drawFilter(
 /** @deprecated Accepts raw DrawFilterSpec. Prefer `draw.filterSpec.*` builders. */
 function drawFilter(chartId: string | undefined, filterSpec: DrawFilterSpec): DrawOp
 function drawFilter(chartId: string | undefined, filterSpec: DrawFilterSpec): DrawOp {
-  return drawOps.filter({ chartId, filter: filterSpec })
+  return { ...buildDrawBase(DrawAction.Filter, { chartId }), filter: filterSpec }
 }
 
 function drawSort(
@@ -570,80 +610,74 @@ function drawSort(
   by: DrawSortSpec['by'] = 'y',
   order: DrawSortSpec['order'] = 'asc',
 ): DrawOp {
-  return drawOps.sort({ chartId, sort: { by, order } })
+  return { ...buildDrawBase(DrawAction.Sort, { chartId }), sort: { by, order } }
 }
 
 function drawSplit(chartId: string | undefined, splitSpec: DrawSplitSpecTwo | DrawSplitSpecOneAndRest): DrawOp
 /** @deprecated Accepts raw DrawSplitSpec. Prefer `draw.splitSpec.*` builders. */
 function drawSplit(chartId: string | undefined, splitSpec: DrawSplitSpec): DrawOp
 function drawSplit(chartId: string | undefined, splitSpec: DrawSplitSpec): DrawOp {
-  return drawOps.split({ chartId, split: splitSpec })
+  return { ...buildDrawBase(DrawAction.Split, { chartId }), split: splitSpec }
 }
 
 function drawUnsplit(chartId?: string): DrawOp {
-  return drawOps.unsplit({ chartId })
+  return buildDrawBase(DrawAction.Unsplit, { chartId })
 }
 
 function drawLineTrace(chartId?: string, select?: DrawSelectKeys | DrawSelectMarkKeys): DrawOp
 /** @deprecated Accepts raw DrawSelect. Prefer `draw.select.*` builders. */
 function drawLineTrace(chartId?: string, select?: DrawSelect): DrawOp
 function drawLineTrace(chartId?: string, select?: DrawSelect): DrawOp {
-  return drawOps.lineTrace({ chartId, select })
+  return buildDrawBase(DrawAction.LineTrace, { chartId, select })
 }
 
-	function drawLineToBar(chartId?: string): DrawOp {
-	  return drawOps.lineToBar({ chartId })
-	}
+function drawLineToBar(chartId?: string): DrawOp {
+  return buildDrawBase(DrawAction.LineToBar, { chartId })
+}
 
-	function drawMultiLineToStacked(chartId?: string): DrawOp {
-	  return drawOps.multiLineToStacked({ chartId })
-	}
+function drawMultiLineToStacked(chartId?: string): DrawOp {
+  return buildDrawBase(DrawAction.MultiLineToStacked, { chartId })
+}
 
-	function drawMultiLineToGrouped(chartId?: string): DrawOp {
-	  return drawOps.multiLineToGrouped({ chartId })
-	}
+function drawMultiLineToGrouped(chartId?: string): DrawOp {
+  return buildDrawBase(DrawAction.MultiLineToGrouped, { chartId })
+}
 
-	function drawSum(chartId: string | undefined, sumSpec: DrawSumSpecValue): DrawOp
-	/** @deprecated Accepts raw DrawSumSpec. Prefer `draw.sumSpec.value(...)`. */
-	function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp
-	function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp {
-  return drawOps.sum({ chartId, sum: sumSpec })
+function drawSum(chartId: string | undefined, sumSpec: DrawSumSpecValue): DrawOp
+/** @deprecated Accepts raw DrawSumSpec. Prefer `draw.sumSpec.value(...)`. */
+function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp
+function drawSum(chartId: string | undefined, sumSpec: DrawSumSpec): DrawOp {
+  return { ...buildDrawBase(DrawAction.Sum, { chartId }), sum: sumSpec }
 }
 
 function drawStackedToGrouped(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpecBuild): DrawOp
 /** @deprecated Accepts raw DrawStackGroupSpec. Prefer `draw.stackGroupSpec.build(...)`. */
 function drawStackedToGrouped(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp
 function drawStackedToGrouped(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp {
-  return drawOps.stackedToGrouped({ chartId, stackGroup: stackGroupSpec ?? {} })
+  return { ...buildDrawBase(DrawAction.StackedToGrouped, { chartId }), stackGroup: stackGroupSpec ?? {} }
 }
 
 function drawGroupedToStacked(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpecBuild): DrawOp
 /** @deprecated Accepts raw DrawStackGroupSpec. Prefer `draw.stackGroupSpec.build(...)`. */
 function drawGroupedToStacked(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp
 function drawGroupedToStacked(chartId: string | undefined, stackGroupSpec?: DrawStackGroupSpec): DrawOp {
-  return drawOps.groupedToStacked({ chartId, stackGroup: stackGroupSpec ?? {} })
+  return { ...buildDrawBase(DrawAction.GroupedToStacked, { chartId }), stackGroup: stackGroupSpec ?? {} }
 }
 
 function drawStackedToSimple(chartId: string | undefined, series: string | number): DrawOp {
-  return drawOps.stackedToSimple({ chartId, toSimple: { series } })
+  return { ...buildDrawBase(DrawAction.StackedToSimple, { chartId }), toSimple: { series } }
 }
 
 function drawGroupedToSimple(chartId: string | undefined, series: string | number): DrawOp {
-  return drawOps.groupedToSimple({ chartId, toSimple: { series } })
+  return { ...buildDrawBase(DrawAction.GroupedToSimple, { chartId }), toSimple: { series } }
 }
 
 function drawStackedFilterGroups(chartId: string | undefined, groups: Array<string | number>, mode: GroupFilterMode): DrawOp {
-  return drawOps.stackedFilterGroups({
-    chartId,
-    groupFilter: buildGroupFilter(groups, mode),
-  })
+  return { ...buildDrawBase(DrawAction.StackedFilterGroups, { chartId }), groupFilter: buildGroupFilter(groups, mode) }
 }
 
 function drawGroupedFilterGroups(chartId: string | undefined, groups: Array<string | number>, mode: GroupFilterMode): DrawOp {
-  return drawOps.groupedFilterGroups({
-    chartId,
-    groupFilter: buildGroupFilter(groups, mode),
-  })
+  return { ...buildDrawBase(DrawAction.GroupedFilterGroups, { chartId }), groupFilter: buildGroupFilter(groups, mode) }
 }
 
 function drawBand(
@@ -653,11 +687,11 @@ function drawBand(
   label?: string,
   style?: NonNullable<DrawBandSpec['style']>,
 ): DrawOp {
-  return drawOps.band({ chartId, band: { axis, range, label, style } })
+  return { ...buildDrawBase(DrawAction.Band, { chartId }), band: { axis, range, label, style } }
 }
 
 function drawScalarPanel(chartId: string | undefined, scalarPanelSpec: DrawScalarPanelSpec): DrawOp {
-  return drawOps.scalarPanel({ chartId, scalarPanel: scalarPanelSpec })
+  return { ...buildDrawBase(DrawAction.ScalarPanel, { chartId }), scalarPanel: scalarPanelSpec }
 }
 
 export const drawActions = {

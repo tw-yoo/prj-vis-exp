@@ -1,9 +1,7 @@
 import type { ChartTypeValue } from '../../../domain/chart'
 import type { OperationSpec } from '../../../types'
 import { OperationOp } from '../../../types'
-import type { DrawAction } from '../../../rendering/draw/types'
-import { drawOps } from '../../../rendering/draw/drawOps'
-import { dataOps } from '../dataOpsBuilder'
+import { DrawAction, DrawAnnotationLifecycles, type DrawAction as DrawActionValue, type DrawOp } from '../../../rendering/draw/types'
 import type { FieldSchema, OpsBuilderBlock, OpsBuilderState, OperationSchema } from './types'
 import { operationRegistry } from './registry'
 
@@ -123,45 +121,95 @@ function buildDrawSchemas(drawSchema: OperationSchema, action: string) {
 }
 
 const buildDataOp = (op: string, fields: Record<string, unknown>) => {
-  switch (op) {
-    case OperationOp.RetrieveValue:
-      return dataOps.retrieveValue(fields as Parameters<typeof dataOps.retrieveValue>[0])
-    case OperationOp.Filter:
-      return dataOps.filter(fields as Parameters<typeof dataOps.filter>[0])
-    case OperationOp.FindExtremum:
-      return dataOps.findExtremum(fields as Parameters<typeof dataOps.findExtremum>[0])
-    case OperationOp.DetermineRange:
-      return dataOps.determineRange(fields as Parameters<typeof dataOps.determineRange>[0])
-    case OperationOp.Compare:
-      return dataOps.compare(fields as Parameters<typeof dataOps.compare>[0])
-    case OperationOp.CompareBool:
-      return dataOps.compareBool(fields as Parameters<typeof dataOps.compareBool>[0])
-    case OperationOp.Sort:
-      return dataOps.sort(fields as Parameters<typeof dataOps.sort>[0])
-    case OperationOp.Sum:
-      return dataOps.sum(fields as Parameters<typeof dataOps.sum>[0])
-    case OperationOp.Average:
-      return dataOps.average(fields as Parameters<typeof dataOps.average>[0])
-    case OperationOp.Diff:
-      return dataOps.diff(fields as Parameters<typeof dataOps.diff>[0])
-    case OperationOp.LagDiff:
-      return dataOps.lagDiff(fields as Parameters<typeof dataOps.lagDiff>[0])
-    case OperationOp.PairDiff:
-      return dataOps.pairDiff(fields as Parameters<typeof dataOps.pairDiff>[0])
-    case OperationOp.Nth:
-      return dataOps.nth(fields as Parameters<typeof dataOps.nth>[0])
-    case OperationOp.Count:
-      return dataOps.count(fields as Parameters<typeof dataOps.count>[0])
-    case OperationOp.Add:
-      return dataOps.add(fields as Parameters<typeof dataOps.add>[0])
-    case OperationOp.Scale:
-      return dataOps.scale(fields as Parameters<typeof dataOps.scale>[0])
-    case OperationOp.SetOp:
-      return dataOps.setOp(fields as Parameters<typeof dataOps.setOp>[0])
-    case OperationOp.Sleep:
-      return dataOps.sleep(fields as Parameters<typeof dataOps.sleep>[0])
+  return { op, ...fields } as OperationSpec
+}
+
+type DrawBaseArgs = {
+  chartId?: string
+  select?: DrawOp['select']
+  selectKeys?: Array<string | number>
+  annotation?: DrawOp['annotation']
+  meta?: DrawOp['meta']
+}
+
+function buildSelect(args: DrawBaseArgs): DrawOp['select'] {
+  if (args.select) return args.select
+  if (args.selectKeys && args.selectKeys.length > 0) return { keys: args.selectKeys }
+  return undefined
+}
+
+function buildDrawBase(action: DrawActionValue, args: DrawBaseArgs = {}): DrawOp {
+  return {
+    op: OperationOp.Draw,
+    action,
+    annotation: args.annotation,
+    meta: args.meta,
+    chartId: args.chartId,
+    select: buildSelect(args),
+  }
+}
+
+function buildDrawOp(action: DrawActionValue, args: Record<string, unknown> = {}): DrawOp {
+  switch (action) {
+    case DrawAction.Highlight:
+    case DrawAction.Dim: {
+      const op = buildDrawBase(action, args as DrawBaseArgs)
+      if ('style' in args) op.style = args.style as DrawOp['style']
+      return op
+    }
+    case DrawAction.Clear:
+      return buildDrawBase(action, { chartId: args.chartId as string | undefined })
+    case DrawAction.Text:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), text: args.text as DrawOp['text'] }
+    case DrawAction.Rect:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), rect: args.rect as DrawOp['rect'] }
+    case DrawAction.Line:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), line: args.line as DrawOp['line'] }
+    case DrawAction.LineTrace:
+      return buildDrawBase(action, args as DrawBaseArgs)
+    case DrawAction.BarSegment:
+      return {
+        ...buildDrawBase(action, {
+          ...(args as DrawBaseArgs),
+          annotation: ((args.annotation as DrawOp['annotation']) ?? { lifecycle: DrawAnnotationLifecycles.Transient }),
+        }),
+        segment: args.segment as DrawOp['segment'],
+      }
+    case DrawAction.Split:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), split: args.split as DrawOp['split'] }
+    case DrawAction.Unsplit:
+      return buildDrawBase(action, args as DrawBaseArgs)
+    case DrawAction.Sort:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), sort: args.sort as DrawOp['sort'] }
+    case DrawAction.Filter:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), filter: args.filter as DrawOp['filter'] }
+    case DrawAction.Sum:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), sum: args.sum as DrawOp['sum'] }
+    case DrawAction.LineToBar:
+    case DrawAction.MultiLineToStacked:
+    case DrawAction.MultiLineToGrouped:
+      return buildDrawBase(action, args as DrawBaseArgs)
+    case DrawAction.StackedToGrouped:
+    case DrawAction.GroupedToStacked:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), stackGroup: args.stackGroup as DrawOp['stackGroup'] }
+    case DrawAction.StackedToSimple:
+    case DrawAction.GroupedToSimple:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), toSimple: args.toSimple as DrawOp['toSimple'] }
+    case DrawAction.StackedFilterGroups:
+    case DrawAction.GroupedFilterGroups:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), groupFilter: args.groupFilter as DrawOp['groupFilter'] }
+    case DrawAction.Band:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), band: args.band as DrawOp['band'] }
+    case DrawAction.ScalarPanel:
+      return { ...buildDrawBase(action, args as DrawBaseArgs), scalarPanel: args.scalarPanel as DrawOp['scalarPanel'] }
+    case DrawAction.Sleep: {
+      const op = buildDrawBase(action, args as DrawBaseArgs)
+      if ('seconds' in args) op.seconds = args.seconds as number | undefined
+      if ('duration' in args) op.duration = args.duration as number | undefined
+      return op
+    }
     default:
-      return { op, ...fields } as OperationSpec
+      return { op: OperationOp.Draw, action, ...args } as DrawOp
   }
 }
 
@@ -198,7 +246,7 @@ function buildRunnableSpec(
       if (next !== undefined) out[f.key] = next
     })
     const { action: actionValue, ...rest } = out as { action: string }
-    return withBlockSourceMeta(drawOps.fromAction(actionValue as DrawAction, rest), source)
+    return withBlockSourceMeta(buildDrawOp(actionValue as DrawAction, rest), source)
   }
 
   const out: Record<string, unknown> = {}
@@ -230,7 +278,7 @@ function buildJsonSpec(
       if (next !== undefined) out[f.key] = next
     })
     const { action: actionValue, ...rest } = out as { action: string }
-    return withBlockSourceMeta(drawOps.fromAction(actionValue as DrawAction, rest), source)
+    return withBlockSourceMeta(buildDrawOp(actionValue as DrawAction, rest), source)
   }
 
   const out: Record<string, unknown> = {}

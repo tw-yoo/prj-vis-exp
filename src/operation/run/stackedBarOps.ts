@@ -2,14 +2,12 @@ import { type DatumValue, type OperationSpec, type JsonValue } from '../../types
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
 import { StackedBarDrawHandler } from '../../rendering/draw/bar/StackedBarDrawHandler.ts'
-import { DrawAction, type DrawSplitSpec } from '../../rendering/draw/types.ts'
+import { DrawAction } from '../../rendering/draw/types.ts'
 import type { DrawOp } from '../../rendering/draw/types.ts'
 import {
   renderStackedBarChart,
-  renderSplitStackedBarChart,
   type StackedSpec,
   getStackedBarStoredData,
-  getStackedBarOriginalData,
   getStackedBarSplitDomain,
 } from '../../rendering/bar/stackedBarRenderer.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/datum.ts'
@@ -20,14 +18,9 @@ import { convertStackedToDiverging } from '../../rendering/bar/stackGroupTransfo
 import { convertStackedToSimple } from '../../rendering/bar/toSimpleTransforms.ts'
 import { aggregateDatumValuesByTarget } from '../../rendering/ops/common/workingData.ts'
 import { STACKED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/stacked/stackedBarAutoDrawPlanBuilder.ts'
-import {
-  handleGroupFilter,
-  shouldAggregateWhenMultipleGroups,
-  shouldUseSeriesScopedInput,
-} from './barOpsCommon.ts'
+import { shouldAggregateWhenMultipleGroups, shouldUseSeriesScopedInput } from './barOpsCommon.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 import { normalizeGroupSelection } from '../../domain/operation/groupSelection.ts'
 
 function toStackedDatumValues(raw: JsonValue[], spec: StackedSpec): DatumValue[] {
@@ -56,25 +49,11 @@ async function handleStackedBarDraw(
   spec: StackedSpec,
 ) {
   if (drawOp.action === DrawAction.Split) {
-    if (SURFACE_SPLIT_ENABLED) {
-      // SurfaceManager 기반 split은 runChartOps 레벨에서 처리됨
-      console.debug('draw:split handled at runChartOps level', drawOp)
-      return
-    }
-    if (!drawOp.split || typeof drawOp.split !== 'object') {
-      console.warn('draw:split requires split spec', drawOp)
-      return
-    }
-    await renderSplitStackedBarChart(container, spec, drawOp.split as DrawSplitSpec)
+    console.debug('draw:split handled at runChartOps level', drawOp)
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
-    if (SURFACE_SPLIT_ENABLED) {
-      // SurfaceManager 기반 unsplit은 runChartOps 레벨에서 처리됨
-      console.debug('draw:unsplit handled at runChartOps level', drawOp)
-      return
-    }
-    await renderStackedBarChart(container, spec)
+    console.debug('draw:unsplit handled at runChartOps level', drawOp)
     return
   }
   if (drawOp.action === DrawAction.StackedToGrouped) {
@@ -134,11 +113,10 @@ export async function runStackedBarOps(
     createHandler: () => new StackedBarDrawHandler(container),
     handleDrawOp: async (host, handler, drawOp) => {
       await handleStackedBarDraw(host, handler as StackedBarDrawHandler, drawOp, vlSpec)
-      if (LEGACY_SPLIT_DRAW_ACTIONS.has(drawOp.action)) {
+      if (drawOp.action === DrawAction.Split || drawOp.action === DrawAction.Unsplit) {
         clearChartWorking()
       }
     },
-    clearAnnotations: ({ svg }) => clearAnnotations(svg),
     getOperationInput,
     handleOperationResult,
     runDrawPlan: async (drawPlan, handler) => {

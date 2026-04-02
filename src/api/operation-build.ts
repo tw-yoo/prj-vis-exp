@@ -28,8 +28,11 @@ export {
   makeId,
   operationRegistry,
   validateOps,
+  type OpsBuilderBlock,
+  type OpsBuilderGroup,
   type OpsBuilderState,
   type OpsBuilderOptionSources,
   type FieldSchema,
   type FieldOptionsSource,
+  type OperationSchema,
 } from '../operation/build'

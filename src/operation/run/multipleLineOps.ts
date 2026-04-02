@@ -1,11 +1,10 @@
 import * as d3 from 'd3'
-import type { DatumValue, OperationSpec } from '../../types'
+import type { DatumValue } from '../../types'
 import {
   renderMultipleLineChart,
   type MultiLineSpec,
   getMultipleLineStoredData,
   tagMultipleLineMarks,
-  renderSplitMultipleLineChart,
   getMultipleLineSplitDomain,
 } from '../../rendering/line/multipleLineRenderer.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/datum.ts'
@@ -20,7 +19,6 @@ import type { RunChartOpsOptions } from './runChartOps.ts'
 import { convertMultiLineToGroupedBar, convertMultiLineToStackedBar } from '../../rendering/line/multiLineToBarTransforms.ts'
 import { resolveMultiLineEncoding } from '../../rendering/line/multipleLineRenderer.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 import { convertMultiLineToSimpleLine } from '../../rendering/line/multiLineToSimpleLineTransform.ts'
 import { handleSimpleLineDraw } from './simpleLineOps.ts'
 import { SimpleLineDrawHandler } from '../../rendering/draw/line/SimpleLineDrawHandler.ts'
@@ -31,9 +29,9 @@ function toDatumValues(raw: RawRow[], xField: string, yField: string, groupField
 
 function resolveTargetSeriesFromOp(op: DrawOp): string | null {
   if (op.select?.keys?.length === 1) return String(op.select.keys[0])
-  if ((op as any).groupFilter?.groups?.length === 1) return String((op as any).groupFilter.groups[0])
-  if ((op as any).groupFilter?.include?.length === 1) return String((op as any).groupFilter.include[0])
-  if ((op as any).groupFilter?.keep?.length === 1) return String((op as any).groupFilter.keep[0])
+  if (op.groupFilter?.groups?.length === 1) return String(op.groupFilter.groups[0])
+  if (op.groupFilter?.include?.length === 1) return String(op.groupFilter.include[0])
+  if (op.groupFilter?.keep?.length === 1) return String(op.groupFilter.keep[0])
   return null
 }
 
@@ -71,25 +69,11 @@ async function handleMultipleLineDraw(
   }
 
   if (drawOp.action === DrawAction.Split) {
-    if (SURFACE_SPLIT_ENABLED) {
-      // SurfaceManager 기반 split은 runChartOps 레벨에서 처리됨
-      console.debug('draw:split handled at runChartOps level', drawOp)
-      return
-    }
-    if (!drawOp.split) {
-      console.warn('draw:split requires split spec', drawOp)
-      return
-    }
-    await renderSplitMultipleLineChart(container, spec, drawOp.split)
+    console.debug('draw:split handled at runChartOps level', drawOp)
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
-    if (SURFACE_SPLIT_ENABLED) {
-      // SurfaceManager 기반 unsplit은 runChartOps 레벨에서 처리됨
-      console.debug('draw:unsplit handled at runChartOps level', drawOp)
-      return
-    }
-    await renderMultipleLineChart(container, spec)
+    console.debug('draw:unsplit handled at runChartOps level', drawOp)
     return
   }
   if (drawOp.action === DrawAction.MultiLineToStacked) {
@@ -142,11 +126,10 @@ export async function runMultipleLineOps(
     createHandler: () => new MultiLineDrawHandler(container),
     handleDrawOp: async (host, handler, drawOp) => {
       await handleMultipleLineDraw(host, handler as MultiLineDrawHandler, drawOp, vlSpec)
-      if (LEGACY_SPLIT_DRAW_ACTIONS.has(drawOp.action)) {
+      if (drawOp.action === DrawAction.Split || drawOp.action === DrawAction.Unsplit) {
         clearChartWorking()
       }
     },
-    clearAnnotations: ({ svg }) => clearAnnotations(svg),
     autoDrawPlans: MULTI_LINE_AUTO_DRAW_PLANS,
     getOperationInput,
     handleOperationResult,

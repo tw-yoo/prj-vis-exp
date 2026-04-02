@@ -3,12 +3,14 @@ import path from 'node:path'
 
 const root = process.cwd()
 const srcRoot = path.join(root, 'src')
+const IGNORED_DIRS = new Set(['.claude', '.cache', 'node_modules', 'dist'])
 
 const violations = []
 
 const walk = (dirPath) => {
   const entries = fs.readdirSync(dirPath, { withFileTypes: true })
   for (const entry of entries) {
+    if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) continue
     const fullPath = path.join(dirPath, entry.name)
     if (entry.isDirectory()) {
       walk(fullPath)

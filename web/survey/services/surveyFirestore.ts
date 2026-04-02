@@ -1,4 +1,4 @@
-import type { JsonValue } from '../../../src/api/legacy'
+import type { JsonValue } from '../../../src/api/types'
 import type { FirestoreDocument, FirestoreSettings, MainSessionResponseItem, PostSessionResponse, PreRegistrationPayload } from '../types'
 
 const FIRESTORE_HOST = 'https://firestore.googleapis.com/v1'

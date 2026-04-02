@@ -1,4 +1,4 @@
-import type { JsonObject, JsonValue, OperationSpec, ChartSpec } from '../../../src/api/legacy'
+import type { ChartSpec, JsonObject, JsonValue, OperationSpec } from '../../../src/api/types'
 
 /** Canonical page keys used by survey flows. */
 export type SurveyPageKey =

@@ -20,7 +20,7 @@ import { DrawAction } from '../../rendering/draw/types.ts'
 import type { DrawOp, DrawSplitSpec } from '../../rendering/draw/types.ts'
 import { OperationOp, type DatumValue, type OperationSpec, type TargetSelector } from '../../domain/operation/types/index.ts'
 import type { SurfaceManager } from '../../runtime/surfaceManager.ts'
-import { STRUCTURAL_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
+import { STRUCTURAL_DRAW_ACTIONS } from './drawActionPolicy.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/datum.ts'
 import type { ChartSurfaceInstance } from '../../domain/surface/chartSurfaceInstance.ts'
 import { normalizeGroupSelection, normalizeOpForSingleGroupDelegation } from '../../domain/operation/groupSelection.ts'
@@ -1166,11 +1166,7 @@ export async function runChartOps(
     const singleGroup = groups[0]
     const existingLayout = options?.surfaceManager?.getLayout()
     const alreadySplit = Boolean(existingLayout && existingLayout.type !== 'single')
-    const hasSplitInSingle =
-      SURFACE_SPLIT_ENABLED &&
-      options?.surfaceManager &&
-      singleGroup &&
-      findSplitOpIndex(singleGroup.ops) !== -1
+    const hasSplitInSingle = Boolean(options?.surfaceManager && singleGroup && findSplitOpIndex(singleGroup.ops) !== -1)
     if (!hasSplitInSingle && !alreadySplit) {
       const executed = await runSegmentedGroupWithExplanation(
         container,
@@ -1243,7 +1239,7 @@ export async function runChartOps(
     }
 
     // ── SurfaceManager split handling ────────────────────────────────────────
-    if (SURFACE_SPLIT_ENABLED && surfaceManager) {
+    if (surfaceManager) {
       const currentLayout = surfaceManager.getLayout()
       const runOpsOnSurface = async (
         surface: ChartSurfaceInstance,

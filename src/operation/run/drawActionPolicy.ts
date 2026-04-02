@@ -1,22 +1,11 @@
 import { DrawAction, type DrawAction as DrawActionValue } from '../../rendering/draw/types'
 
-// Split/unsplit is enabled; SurfaceManager-based split is handled at runChartOps level.
-export const SPLIT_VIEW_ENABLED = true
-
-/** When true, split is handled by SurfaceManager at runChartOps level (not per-ops-runner). */
-export const SURFACE_SPLIT_ENABLED = true
-
-const ACTIVE_SPLIT_DRAW_ACTIONS = SPLIT_VIEW_ENABLED
-  ? ([DrawAction.Split, DrawAction.Unsplit] satisfies DrawActionValue[])
-  : ([] satisfies DrawActionValue[])
-
-export const LEGACY_SPLIT_DRAW_ACTIONS = new Set<DrawActionValue>(ACTIVE_SPLIT_DRAW_ACTIONS)
-
 export const STRUCTURAL_DRAW_ACTIONS = new Set<DrawActionValue>([
   DrawAction.Clear,
   DrawAction.Filter,
   DrawAction.Sort,
-  ...LEGACY_SPLIT_DRAW_ACTIONS,
+  DrawAction.Split,
+  DrawAction.Unsplit,
   DrawAction.Sum,
   DrawAction.LineToBar,
   DrawAction.MultiLineToStacked,
@@ -31,7 +20,8 @@ export const STRUCTURAL_DRAW_ACTIONS = new Set<DrawActionValue>([
 ])
 
 export const REMOUNT_ALLOWED_DRAW_ACTIONS = new Set<DrawActionValue>([
-  ...LEGACY_SPLIT_DRAW_ACTIONS,
+  DrawAction.Split,
+  DrawAction.Unsplit,
   DrawAction.LineToBar,
   DrawAction.MultiLineToStacked,
   DrawAction.MultiLineToGrouped,

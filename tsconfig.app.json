@@ -25,5 +25,5 @@
     "noUncheckedSideEffectImports": true
   },
   "include": ["src", "web", "data/expert/**/*.ts"],
-  "exclude": ["src/deprecated/**/*"]
+  "exclude": ["src/deprecated/**/*", ".claude", ".cache"]
 }

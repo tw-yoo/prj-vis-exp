@@ -1,4 +1,4 @@
-import type { JsonValue } from '../../../src/api/legacy'
+import type { JsonValue } from '../../../src/api/types'
 
 export interface FirestoreSettings {
   apiKey: string

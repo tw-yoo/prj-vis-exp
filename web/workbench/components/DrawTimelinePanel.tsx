@@ -1,4 +1,4 @@
-import { getDrawActionLabel, TimelineStepKind, type TimelineStep } from '../../../src/api/legacy'
+import { getDrawActionLabel, TimelineStepKind, type TimelineStep } from '../../../src/api/rendering'
 
 type DrawTimelinePanelProps = {
   steps: TimelineStep[]

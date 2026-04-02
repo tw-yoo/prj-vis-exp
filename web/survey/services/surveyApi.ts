@@ -1,4 +1,4 @@
-import type { JsonValue } from '../../../src/api/legacy'
+import type { JsonValue } from '../../../src/api/types'
 
 type FetchMode = 'json' | 'text'
 

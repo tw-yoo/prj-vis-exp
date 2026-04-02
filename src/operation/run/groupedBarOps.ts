@@ -1,15 +1,13 @@
 import { type DatumValue, type OperationSpec, type JsonValue } from '../../types'
 import { clearAnnotations } from '../../rendering/common/d3Helpers.ts'
 import { runChartOperationsCommon } from './runChartOperationsCommon.ts'
-import { DrawAction, type DrawSplitSpec } from '../../rendering/draw/types.ts'
+import { DrawAction } from '../../rendering/draw/types.ts'
 import { GroupedBarDrawHandler } from '../../rendering/draw/bar/GroupedBarDrawHandler.ts'
 import type { DrawOp } from '../../rendering/draw/types.ts'
 import {
   renderGroupedBarChart,
-  renderSplitGroupedBarChart,
   type GroupedSpec,
   getGroupedBarStoredData,
-  getGroupedBarOriginalData,
   getGroupedBarSplitState,
 } from '../../rendering/bar/groupedBarRenderer.ts'
 import { toDatumValuesFromRaw, type RawRow } from '../../rendering/ops/common/datum.ts'
@@ -19,14 +17,9 @@ import { convertGroupedToStacked } from '../../rendering/bar/stackGroupTransform
 import { convertGroupedToSimple } from '../../rendering/bar/toSimpleTransforms.ts'
 import { aggregateDatumValuesByTarget } from '../../rendering/ops/common/workingData.ts'
 import { GROUPED_BAR_AUTO_DRAW_PLANS } from '../../rendering/ops/visual/bar/grouped/groupedBarAutoDrawPlanBuilder.ts'
-import {
-  handleGroupFilter,
-  shouldAggregateWhenSingleGroup,
-  shouldUseSeriesScopedInput,
-} from './barOpsCommon.ts'
+import { shouldAggregateWhenSingleGroup, shouldUseSeriesScopedInput } from './barOpsCommon.ts'
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
-import { LEGACY_SPLIT_DRAW_ACTIONS, SURFACE_SPLIT_ENABLED } from './drawActionPolicy.ts'
 import { normalizeGroupSelection } from '../../domain/operation/groupSelection.ts'
 
 function toGroupedDatumValues(raw: JsonValue[], spec: GroupedSpec): DatumValue[] {
@@ -45,25 +38,11 @@ async function handleGroupedBarDraw(
   spec: GroupedSpec,
 ) {
   if (drawOp.action === DrawAction.Split) {
-    if (SURFACE_SPLIT_ENABLED) {
-      // SurfaceManager 기반 split은 runChartOps 레벨에서 처리됨
-      console.debug('draw:split handled at runChartOps level', drawOp)
-      return
-    }
-    if (!drawOp.split || typeof drawOp.split !== 'object') {
-      console.warn('draw:split requires split spec', drawOp)
-      return
-    }
-    await renderSplitGroupedBarChart(container, spec, drawOp.split as DrawSplitSpec)
+    console.debug('draw:split handled at runChartOps level', drawOp)
     return
   }
   if (drawOp.action === DrawAction.Unsplit) {
-    if (SURFACE_SPLIT_ENABLED) {
-      // SurfaceManager 기반 unsplit은 runChartOps 레벨에서 처리됨
-      console.debug('draw:unsplit handled at runChartOps level', drawOp)
-      return
-    }
-    await renderGroupedBarChart(container, spec)
+    console.debug('draw:unsplit handled at runChartOps level', drawOp)
     return
   }
   if (drawOp.action === DrawAction.GroupedToStacked) {
@@ -127,11 +106,10 @@ export async function runGroupedBarOps(
     createHandler: () => new GroupedBarDrawHandler(container),
     handleDrawOp: async (host, handler, drawOp) => {
       await handleGroupedBarDraw(host, handler as GroupedBarDrawHandler, drawOp, vlSpec)
-      if (LEGACY_SPLIT_DRAW_ACTIONS.has(drawOp.action)) {
+      if (drawOp.action === DrawAction.Split || drawOp.action === DrawAction.Unsplit) {
         clearChartWorking()
       }
     },
-    clearAnnotations: ({ svg }) => clearAnnotations(svg),
     getOperationInput,
     handleOperationResult,
     runDrawPlan: async (drawPlan, handler) => {

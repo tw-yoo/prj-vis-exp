@@ -4,11 +4,12 @@ import type { ChartSpec } from '../domain/chart'
 import type { OperationCompletedEvent } from '../application/usecases/runChartOperationsUseCase'
 import type { RunChartOpsOptions } from '../operation/run/runChartOps'
 
-export async function runChartOps(command: {
-  container: HTMLElement
-  spec: ChartSpec
-  opsSpec: OpsSpecInput
-  options?: RunChartOpsOptions
+export async function runChartOps(
+    command: {
+      container: HTMLElement
+      spec: ChartSpec
+      opsSpec: OpsSpecInput
+      options?: RunChartOpsOptions
 }): Promise<unknown>
 export async function runChartOps(
   container: HTMLElement,

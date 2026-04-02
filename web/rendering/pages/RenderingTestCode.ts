@@ -1,5 +1,5 @@
 import * as d3 from 'd3'
-import { getChartContext } from '../../../src/api/legacy'
+import { getChartContext } from '../../../src/api/rendering'
 
 function tutorialNote(container: HTMLElement) {
 

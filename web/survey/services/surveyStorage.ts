@@ -1,4 +1,4 @@
-import type { JsonValue } from '../../../src/api/legacy'
+import type { JsonValue } from '../../../src/api/types'
 import type { SurveyDraftSnapshot } from '../types'
 
 const STORAGE_PREFIX = 'survey:new:'

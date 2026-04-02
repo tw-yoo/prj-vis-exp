@@ -1,4 +1,4 @@
-import type { OperationSpec } from '../../../src/api/legacy'
+import type { OperationSpec } from '../../../src/api/types'
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 type UnknownRecord = Record<string, unknown>
@@ -107,4 +107,3 @@ export async function fetchLatestPythonDrawPlan(
   }
   return { path, groups, ops }
 }
-
