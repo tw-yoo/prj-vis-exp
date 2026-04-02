@@ -12,6 +12,7 @@ export const DataAttributes = {
   AnnotationKey: 'data-annotation-key',
   AnnotationNodeId: 'data-annotation-node-id',
   AnnotationLifecycle: 'data-annotation-lifecycle',
+  AnnotationSlot: 'data-annotation-slot',
   RenderEpoch: 'data-render-epoch',
   AxisRotation: 'data-axis-rotation',
   TickDensityStep: 'data-tick-density-step',

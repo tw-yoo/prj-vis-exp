@@ -1,5 +1,0 @@
-export type { ChartSurfaceInstance } from './chartSurfaceInstance'
-export type { SurfaceLayout } from './surfaceLayout'
-export { getActiveSurfaces, isSplitLayout } from './surfaceLayout'
-export type { SurfaceRuntimeContext } from './surfaceRuntimeContext'
-export { createSurfaceRuntimeContext } from './surfaceRuntimeContext'

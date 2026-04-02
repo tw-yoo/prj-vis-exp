@@ -7,10 +7,13 @@ import { normalizeGroupSelection } from '../../../../../domain/operation/groupSe
 import {
   AUTO_DRAW_TEXT_FONT_SIZE,
   AVERAGE_LINE_COLOR,
+  makeAggregateLineSlot,
+  makeAggregateTextSlot,
   buildBinaryComparisonRailPlan,
   buildHighlightPlan,
   buildTextPlan,
   formatDrawNumber,
+  withAnnotationSlot,
 } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
@@ -166,6 +169,7 @@ function buildGroupedBarValueTexts(op: OperationSpec, metrics: GroupedBarMetric[
     '#111827',
     typeof op.precision === 'number' ? op.precision : 2,
     'id',
+    op.chartId,
   )
 }
 
@@ -404,7 +408,7 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     if (!result.length) return null
     return [
       ...buildHighlightPlan(uniqueTargets(result), '#ef4444'),
-      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2),
+      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2, 'target', op.chartId),
     ]
   },
   [OperationOp.Filter]: (result, op) => buildFilterPlan(result, op),
@@ -412,7 +416,7 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     if (!result.length) return null
     return [
       ...buildHighlightPlan(uniqueTargets(result), '#ef4444'),
-      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2),
+      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2, 'target', op.chartId),
     ]
   },
   [OperationOp.Sort]: (_result, op) => [
@@ -423,7 +427,7 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     if (!result.length) return null
     return [
       ...buildHighlightPlan(uniqueTargets(result), '#ef4444'),
-      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2),
+      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2, 'target', op.chartId),
     ]
   },
   [OperationOp.Sum]: (result, op) => {
@@ -435,8 +439,14 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     const value = scalarFromResult(result)
     if (value == null) return null
     return [
-      ops.draw.line(op.chartId, lineAt(value, AVERAGE_LINE_COLOR)),
-      ops.draw.text(op.chartId, undefined, textScore(value, 'average')),
+      withAnnotationSlot(
+        ops.draw.line(op.chartId, lineAt(value, AVERAGE_LINE_COLOR)),
+        makeAggregateLineSlot(op.chartId, 'average'),
+      ),
+      withAnnotationSlot(
+        ops.draw.text(op.chartId, undefined, textScore(value, 'average')),
+        makeAggregateTextSlot(op.chartId, 'average'),
+      ),
     ]
   },
   [OperationOp.DetermineRange]: (result, op) => buildRangePlan(result, op),

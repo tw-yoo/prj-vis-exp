@@ -16,6 +16,7 @@ import {
   captureMarkPresentationSnapshot,
   playPresentationTransition,
 } from '../../runtime/presentationTransitionController'
+import { clearTransientAnnotations } from '../../rendering/common/d3Helpers'
 
 export type ChartHandler = { run: (op: DrawOp) => void | Promise<void> }
 export type OperationCompletedEvent = {
@@ -37,7 +38,6 @@ export type RunChartOperationsConfig<Spec> = {
   createHandler: (container: HTMLElement) => ChartHandler
   handleDrawOp?: (container: HTMLElement, handler: ChartHandler, drawOp: DrawOp) => void
   runDrawPlan?: (drawPlan: DrawOp[], handler: ChartHandler) => Promise<void>
-  clearAnnotations?: (context: { container: HTMLElement; svg: D3Selection }) => void
   getSvg?: (container: HTMLElement) => D3Selection
   autoDrawPlans?: Record<string, (result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) => unknown[] | null>
   getOperationInput?: (operation: OperationSpec, currentWorking: DatumValue[]) => DatumValue[]
@@ -140,7 +140,6 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
     createHandler,
     handleDrawOp,
     runDrawPlan,
-    clearAnnotations,
     getSvg,
     autoDrawPlans = {},
     getOperationInput,
@@ -247,9 +246,11 @@ export async function runChartOperationsUseCase<Spec>(config: RunChartOperations
   let working: DatumValue[] = baseData
   let handler = createHandler(container)
 
-  if (resetRuntime) {
+  {
     const svg = (getSvg ?? defaultGetSvg)(container)
-    clearAnnotations?.({ container, svg })
+    if (!svg.empty()) {
+      clearTransientAnnotations(svg)
+    }
   }
 
   const logReuseExistingDraw = (drawOp: DrawOp, before: RenderIdentity) => {

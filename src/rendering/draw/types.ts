@@ -238,6 +238,7 @@ export type DrawAnnotationLifecycle = (typeof DrawAnnotationLifecycles)[keyof ty
 
 export type DrawAnnotationSpec = {
   lifecycle?: DrawAnnotationLifecycle
+  slot?: string
 }
 
 export type DrawSplitSpec = {

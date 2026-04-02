@@ -39,9 +39,9 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'How many countries have a rating above the overall average?',
         description: 'Use `average` to compute the baseline, then `filter` and `count` to finish the question.',
         sentences: [
-          'First, compute the average rating across all countries.',
-          'Then keep only the countries whose ratings are above that average.',
-          'Finally, count the remaining countries.',
+          'Start by finding the average rating across all countries so we have a baseline to compare against.',
+          'Next, keep only the countries whose ratings are higher than that average.',
+          'Finally, count how many countries are left after the filter.',
         ],
         opsSpec: {
           ops: [{ id: 'sb_q1_avg', op: 'average', field: 'rating', meta: meta('sb_q1_avg', 1) }],
@@ -59,27 +59,42 @@ export const DEMO_CHARTS: DemoChart[] = [
         },
       },
       {
-        id: 'simple-bar-max-min-gap',
-        title: 'Maximum-Minimum Gap',
-        question: 'What is the difference between the highest country rating and the lowest country rating?',
-        description: 'Use `findExtremum` twice and compare the two resulting values with `diff`.',
+        id: 'simple-bar-panel-avg-gap',
+        title: 'Panel Average Gap',
+        question: 'If the chart is split into Nordic countries and English-speaking countries, what is the difference between the average ratings of the two panels?',
+        description: 'Use `draw.split` to create two panels, compute one `average` per panel, and compare the two panel averages with `diff`.',
         sentences: [
-          'First, find the country with the highest rating.',
-          'Next, find the country with the lowest rating.',
-          'Then compute the difference between those two values.',
+          'Start by splitting the chart into two panels: Nordic countries and English-speaking countries.',
+          'Then compute the average rating for the Nordic panel.',
+          'Next, compute the average rating for the English-speaking panel.',
+          'Finally, compare the two panel averages to measure the gap between them.',
         ],
         opsSpec: {
-          ops: [{ id: 'sb_q2_max', op: 'findExtremum', field: 'rating', which: 'max', meta: meta('sb_q2_max', 1) }],
-          ops2: [{ id: 'sb_q2_min', op: 'findExtremum', field: 'rating', which: 'min', meta: meta('sb_q2_min', 2) }],
-          ops3: [
+          ops: [
+            {
+              op: 'draw',
+              action: 'split',
+              split: {
+                by: 'x',
+                groups: {
+                  nordic: ['NOR', 'SWE', 'DNK', 'FIN'],
+                  english: ['USA', 'GBR', 'CAN', 'AUS', 'IRL'],
+                },
+                orientation: 'horizontal',
+              },
+            },
+          ],
+          ops2: [{ id: 'sb_q2_nordic_avg', op: 'average', chartId: 'nordic', field: 'rating', meta: meta('sb_q2_nordic_avg', 2) }],
+          ops3: [{ id: 'sb_q2_english_avg', op: 'average', chartId: 'english', field: 'rating', meta: meta('sb_q2_english_avg', 3) }],
+          ops4: [
             {
               id: 'sb_q2_diff',
               op: 'diff',
               field: 'rating',
-              targetA: ref('sb_q2_max'),
-              targetB: ref('sb_q2_min'),
+              targetA: ref('sb_q2_nordic_avg'),
+              targetB: ref('sb_q2_english_avg'),
               signed: false,
-              meta: meta('sb_q2_diff', 3, ['sb_q2_max', 'sb_q2_min']),
+              meta: meta('sb_q2_diff', 4, ['sb_q2_nordic_avg', 'sb_q2_english_avg']),
             },
           ],
         },
@@ -90,10 +105,10 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'If the chart is split into Nordic countries and English-speaking countries, what is the difference between the two peak ratings?',
         description: 'Use `draw.split` to divide the chart, then compare the maximum rating in each panel.',
         sentences: [
-          'First, split the countries into Nordic and English-speaking panels.',
-          'Find the highest rating in the Nordic panel.',
-          'Find the highest rating in the English-speaking panel.',
-          'Then compute the difference between the two peak ratings.',
+          'Start by splitting the chart into two panels: Nordic countries and English-speaking countries.',
+          'Then find the highest rating in the Nordic panel.',
+          'Next, find the highest rating in the English-speaking panel.',
+          'Finally, compare those two peak ratings to get the difference.',
         ],
         opsSpec: {
           ops: [
@@ -157,9 +172,9 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'How many months have a sun count above the average sun count?',
         description: 'Use `average`, `filter`, and `count` while keeping the `sun` series selected.',
         sentences: [
-          'First, compute the average count for the sun series.',
-          'Then keep only the months where the sun count is above that average.',
-          'Finally, count how many months remain.',
+          'Start by computing the average count for the sun series across all months.',
+          'Next, keep only the months where the sun count is above that average.',
+          'Finally, count how many months satisfy that condition.',
         ],
         opsSpec: {
           ops: [{ id: 'st_q1_avg', op: 'average', field: 'count', group: 'sun', meta: meta('st_q1_avg', 1) }],
@@ -178,27 +193,42 @@ export const DEMO_CHARTS: DemoChart[] = [
         },
       },
       {
-        id: 'stacked-bar-cross-series-diff',
-        title: 'Cross-Series Difference',
-        question: 'How much higher is the sun count in month 8 than the rain count in month 2?',
-        description: 'Retrieve one value from each weather series and compare them with `diff`.',
+        id: 'stacked-bar-half-year-sun-avg-gap',
+        title: 'Half-Year Sun Average Gap',
+        question: 'If the chart is split into months 1-6 and 7-12, what is the difference between the average sun counts in the two panels?',
+        description: 'Use `draw.split` to divide the year into two panels, compute the `average` sun count in each panel, and compare them with `diff`.',
         sentences: [
-          'First, retrieve the sun count for month 8.',
-          'Next, retrieve the rain count for month 2.',
-          'Then compute the difference between those two values.',
+          'Start by splitting the chart into an early-year panel and a late-year panel.',
+          'Then compute the average sun count for months 1 through 6.',
+          'Next, compute the average sun count for months 7 through 12.',
+          'Finally, compare the two panel averages to see how far apart they are.',
         ],
         opsSpec: {
-          ops: [{ id: 'st_q2_sun', op: 'retrieveValue', field: 'count', target: '8', group: 'sun', meta: meta('st_q2_sun', 1) }],
-          ops2: [{ id: 'st_q2_rain', op: 'retrieveValue', field: 'count', target: '2', group: 'rain', meta: meta('st_q2_rain', 2) }],
-          ops3: [
+          ops: [
+            {
+              op: 'draw',
+              action: 'split',
+              split: {
+                by: 'x',
+                groups: {
+                  early: ['1', '2', '3', '4', '5', '6'],
+                  late: ['7', '8', '9', '10', '11', '12'],
+                },
+                orientation: 'horizontal',
+              },
+            },
+          ],
+          ops2: [{ id: 'st_q2_early_sun_avg', op: 'average', chartId: 'early', field: 'count', group: 'sun', meta: meta('st_q2_early_sun_avg', 2) }],
+          ops3: [{ id: 'st_q2_late_sun_avg', op: 'average', chartId: 'late', field: 'count', group: 'sun', meta: meta('st_q2_late_sun_avg', 3) }],
+          ops4: [
             {
               id: 'st_q2_diff',
               op: 'diff',
               field: 'count',
-              targetA: ref('st_q2_sun'),
-              targetB: ref('st_q2_rain'),
+              targetA: ref('st_q2_early_sun_avg'),
+              targetB: ref('st_q2_late_sun_avg'),
               signed: false,
-              meta: meta('st_q2_diff', 3, ['st_q2_sun', 'st_q2_rain']),
+              meta: meta('st_q2_diff', 4, ['st_q2_early_sun_avg', 'st_q2_late_sun_avg']),
             },
           ],
         },
@@ -209,10 +239,10 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'If months 1-6 and 7-12 are split apart, what is the difference between the fog peaks in the two panels?',
         description: 'Use `draw.split`, then compare the maximum fog count in each side of the year.',
         sentences: [
-          'First, split the months into an early-year panel and a late-year panel.',
-          'Find the highest fog count in the early-year panel.',
-          'Find the highest fog count in the late-year panel.',
-          'Then compute the difference between the two fog peaks.',
+          'Start by splitting the chart into an early-year panel and a late-year panel.',
+          'Then find the highest fog count in the early-year panel.',
+          'Next, find the highest fog count in the late-year panel.',
+          'Finally, compare the two fog peaks to get their difference.',
         ],
         opsSpec: {
           ops: [
@@ -277,10 +307,7 @@ export const DEMO_CHARTS: DemoChart[] = [
         title: 'North America Average',
         question: 'What is the average media-rights revenue for North America across the shown years?',
         description: 'Use `average` while keeping the North America series selected across all years.',
-        sentences: [
-          'First, isolate the North America series across the full chart.',
-          'Then compute its average media-rights revenue across the shown years.',
-        ],
+        sentences: ['Compute the average media-rights revenue for the North America series across all years shown in the chart.'],
         opsSpec: {
           ops: [
             {
@@ -298,10 +325,7 @@ export const DEMO_CHARTS: DemoChart[] = [
         title: 'Highest Single Value',
         question: 'What is the highest single media-rights revenue value shown anywhere in the chart?',
         description: 'Use `findExtremum` once to identify the largest revenue value across all displayed bars.',
-        sentences: [
-          'Scan all bars across the grouped chart as a single set.',
-          'Then select the maximum revenue value shown anywhere in the chart.',
-        ],
+        sentences: ['Scan the full grouped bar chart and select the single highest revenue value that appears anywhere.'],
         opsSpec: {
           ops: [
             {
@@ -320,10 +344,10 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'If the chart is split into mature markets and growth markets, what is the difference between the maximum revenue values in the two panels?',
         description: 'Use `draw.split` on regions, then compare the largest value in each panel.',
         sentences: [
-          'First, split the regions into mature-market and growth-market panels.',
-          'Find the highest revenue value in the mature-market panel.',
-          'Find the highest revenue value in the growth-market panel.',
-          'Then compute the difference between the two panel maxima.',
+          'Start by splitting the regions into a mature-market panel and a growth-market panel.',
+          'Then find the highest revenue value in the mature-market panel.',
+          'Next, find the highest revenue value in the growth-market panel.',
+          'Finally, compare the two panel maxima to get the difference.',
         ],
         opsSpec: {
           ops: [
@@ -387,8 +411,8 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'What is the largest year-over-year increase in research and development expenditure?',
         description: 'Use `lagDiff` to compute adjacent changes, then `findExtremum` to select the largest increase.',
         sentences: [
-          'First, compute the change between each pair of adjacent years.',
-          'Then select the largest increase from those year-over-year differences.',
+          'Start by computing the change between every pair of adjacent years.',
+          'Then select the largest increase from those year-over-year changes.',
         ],
         opsSpec: {
           ops: [
@@ -418,9 +442,9 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'What is the sum of the expenditure values for 2013 and 2014?',
         description: 'Retrieve the final two yearly values and combine them with `add`.',
         sentences: [
-          'First, retrieve the expenditure value for 2013.',
+          'Start by retrieving the expenditure value for 2013.',
           'Next, retrieve the expenditure value for 2014.',
-          'Then add the two values together.',
+          'Then add those two yearly values together.',
         ],
         opsSpec: {
           ops: [
@@ -459,10 +483,10 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'If the line is split into 1990-2001 and 2002-2014, what is the difference between the peak values in the two periods?',
         description: 'Split the timeline into two periods and compare the maximum value in each panel.',
         sentences: [
-          'First, split the line into an early period and a late period.',
-          'Find the highest value in the early-period panel.',
-          'Find the highest value in the late-period panel.',
-          'Then compute the difference between the two peaks.',
+          'Start by splitting the line chart into an early period and a late period.',
+          'Then find the highest value in the early-period panel.',
+          'Next, find the highest value in the late-period panel.',
+          'Finally, compare the two peak values to get the difference.',
         ],
         opsSpec: {
           ops: [
@@ -532,10 +556,7 @@ export const DEMO_CHARTS: DemoChart[] = [
         title: 'Average MSFT Price',
         question: 'What is the average price of MSFT across the full chart?',
         description: 'Use `average` while keeping only the MSFT series selected.',
-        sentences: [
-          'First, isolate the MSFT series across the full chart.',
-          'Then compute the average price for that series.',
-        ],
+        sentences: ['Compute the average price of the MSFT series across the full time range shown in the chart.'],
         opsSpec: {
           ops: [{ id: 'ml_q1_avg', op: 'average', field: 'price', group: 'MSFT', meta: meta('ml_q1_avg', 1) }],
         },
@@ -545,10 +566,7 @@ export const DEMO_CHARTS: DemoChart[] = [
         title: 'Highest AMZN Price',
         question: 'What is the highest AMZN price shown anywhere in the chart?',
         description: 'Use `findExtremum` on the AMZN series to identify its peak price.',
-        sentences: [
-          'First, isolate the AMZN series across the full chart.',
-          'Then select the maximum price reached by AMZN.',
-        ],
+        sentences: ['Look only at the AMZN series and select the highest price it reaches anywhere in the chart.'],
         opsSpec: {
           ops: [{ id: 'ml_q2_amzn_max', op: 'findExtremum', field: 'price', group: 'AMZN', which: 'max', meta: meta('ml_q2_amzn_max', 1) }],
         },
@@ -559,10 +577,10 @@ export const DEMO_CHARTS: DemoChart[] = [
         question: 'If 2000 is split into Jan-Jun and Jul-Dec, what is the difference between the AMZN peaks in the two panels?',
         description: 'Use `draw.split` over the first year, then compare the maximum AMZN price in each panel.',
         sentences: [
-          'First, split the 2000 dates into Jan-Jun and Jul-Dec panels.',
-          'Find the highest AMZN price in the Jan-Jun panel.',
-          'Find the highest AMZN price in the Jul-Dec panel.',
-          'Then compute the difference between those two peaks.',
+          'Start by splitting the year 2000 into two panels: Jan-Jun and Jul-Dec.',
+          'Then find the highest AMZN price in the Jan-Jun panel.',
+          'Next, find the highest AMZN price in the Jul-Dec panel.',
+          'Finally, compare those two peaks to get the difference.',
         ],
         opsSpec: {
           ops: [

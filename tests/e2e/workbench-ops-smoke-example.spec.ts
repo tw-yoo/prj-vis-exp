@@ -280,3 +280,144 @@ test('simple bar average ref threshold feeds filter without execution failure', 
   await expect(page.locator(`${chartHost} svg`).first()).toBeVisible()
   expect(failedLogs).toHaveLength(0)
 })
+
+test('runChartOps hydrates split-only first group before panel-scoped averages', async ({ page }) => {
+  await page.goto('/')
+
+  const result = await page.evaluate(async (specText) => {
+    const [{ browserEngine }, { SurfaceManager }, { getChartType }] = await Promise.all([
+      import('/web/engine/createBrowserEngine.ts'),
+      import('/src/api/surface-manager.ts'),
+      import('/src/api/rendering.ts'),
+    ])
+
+    const host = document.createElement('div')
+    host.style.width = '960px'
+    host.style.minHeight = '640px'
+    document.body.appendChild(host)
+
+    const spec = JSON.parse(specText)
+    await browserEngine.renderChart(host, spec)
+
+    const chartType = getChartType(spec)
+    if (!chartType) {
+      throw new Error('Unable to infer chart type for split hydration regression.')
+    }
+
+    const surfaceManager = new SurfaceManager(host)
+    surfaceManager.createRootSurface(spec, chartType, [])
+
+    await browserEngine.runChartOps(
+      host,
+      spec,
+      {
+        ops: [
+          {
+            op: 'draw',
+            action: 'split',
+            split: {
+              by: 'x',
+              groups: {
+                nordic: ['NOR', 'SWE', 'DNK', 'FIN'],
+                english: ['USA', 'GBR', 'CAN', 'AUS', 'IRL'],
+              },
+              orientation: 'horizontal',
+            },
+          },
+        ],
+      },
+      {
+        surfaceManager,
+        initialRenderMode: 'reuse-existing',
+        resetRuntime: true,
+      },
+    )
+
+    const inspectSurface = (surfaceId: string) => {
+      const surface = surfaceManager.getSurface(surfaceId)
+      const hostElement = surface?.hostElement as HTMLElement | null
+      return {
+        exists: hostElement != null,
+        svgCount: hostElement?.querySelectorAll('svg').length ?? 0,
+      }
+    }
+
+    const afterSplit = {
+      layoutType: surfaceManager.getLayout()?.type ?? 'single',
+      nordic: inspectSurface('nordic'),
+      english: inspectSurface('english'),
+    }
+
+    await browserEngine.runChartOps(
+      host,
+      spec,
+      {
+        ops: [
+          {
+            op: 'average',
+            id: 'nordic_avg',
+            chartId: 'nordic',
+            field: 'rating',
+            meta: { nodeId: 'nordic_avg', inputs: [], sentenceIndex: 2 },
+          },
+        ],
+      },
+      {
+        surfaceManager,
+        initialRenderMode: 'reuse-existing',
+        resetRuntime: false,
+        runtimeScope: 'ops2',
+      },
+    )
+
+    await browserEngine.runChartOps(
+      host,
+      spec,
+      {
+        ops: [
+          {
+            op: 'average',
+            id: 'english_avg',
+            chartId: 'english',
+            field: 'rating',
+            meta: { nodeId: 'english_avg', inputs: [], sentenceIndex: 3 },
+          },
+        ],
+      },
+      {
+        surfaceManager,
+        initialRenderMode: 'reuse-existing',
+        resetRuntime: false,
+        runtimeScope: 'ops3',
+      },
+    )
+
+    const afterAverages = {
+      layoutType: surfaceManager.getLayout()?.type ?? 'single',
+      nordic: inspectSurface('nordic'),
+      english: inspectSurface('english'),
+      aggregateLineSlots: Array.from(host.querySelectorAll('[data-annotation-slot]'))
+        .map((node) => node.getAttribute('data-annotation-slot') ?? '')
+        .filter((value) => value.includes('aggregate-line:'))
+        .sort(),
+      aggregateTextSlots: Array.from(host.querySelectorAll('[data-annotation-slot]'))
+        .map((node) => node.getAttribute('data-annotation-slot') ?? '')
+        .filter((value) => value.includes('aggregate-text:'))
+        .sort(),
+    }
+
+    host.remove()
+    return { afterSplit, afterAverages }
+  }, loadSimpleBarSpec())
+
+  expect(result.afterSplit.layoutType).toBe('split-horizontal')
+  expect(result.afterSplit.nordic.exists).toBeTruthy()
+  expect(result.afterSplit.english.exists).toBeTruthy()
+  expect(result.afterSplit.nordic.svgCount).toBe(1)
+  expect(result.afterSplit.english.svgCount).toBe(1)
+  expect(result.afterAverages.layoutType).toBe('split-horizontal')
+  expect(result.afterAverages.nordic.svgCount).toBe(1)
+  expect(result.afterAverages.english.svgCount).toBe(1)
+  expect(result.afterAverages.aggregateLineSlots).toHaveLength(2)
+  expect(result.afterAverages.aggregateTextSlots).toHaveLength(2)
+})

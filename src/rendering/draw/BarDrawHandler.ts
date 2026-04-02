@@ -4,7 +4,6 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors
 import { BaseDrawHandler } from './BaseDrawHandler'
 import {
   DrawAction,
-  DrawAnnotationLifecycles,
   DrawComparisonOperators,
   DrawMark,
   DrawTextModes,
@@ -160,7 +159,7 @@ export class BarDrawHandler extends BaseDrawHandler {
     if (mapY(0) == null) return
 
     const style = segment.style
-    const lifecycle = op.annotation?.lifecycle ?? DrawAnnotationLifecycles.Transient
+    this.replaceAnnotationSlot(op)
 
     const barsAll = this.selectBarMarks(scope)
     const bars =
@@ -213,10 +212,6 @@ export class BarDrawHandler extends BaseDrawHandler {
       const segmentRect = svg
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.BarSegmentAnnotation}`)
-        .attr(DataAttributes.ChartId, op.chartId ?? null)
-        .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-        .attr(DataAttributes.AnnotationNodeId, annotationNodeId)
-        .attr(DataAttributes.AnnotationLifecycle, lifecycle)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, segY)
         .attr(SvgAttributes.Width, width)
@@ -225,6 +220,10 @@ export class BarDrawHandler extends BaseDrawHandler {
         .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.Stroke, style?.stroke ?? null)
         .attr(SvgAttributes.StrokeWidth, style?.strokeWidth ?? null)
+      const segmentNode = segmentRect.node()
+      if (segmentNode) {
+        this.applyAnnotationAttrs(segmentNode, op, annotationKey, annotationNodeId)
+      }
       this.applyTransition(segmentRect).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
     })
   }

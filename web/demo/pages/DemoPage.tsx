@@ -4,18 +4,21 @@ import './demo.css'
 import type { DemoSentenceBinding } from '../../../src/api/demo-binding'
 import type { ChartSpec } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
-import { buildDemoStepOpsSpec, DEMO_CHARTS, loadDemoChartSpec } from '../services/demoAssets'
+import { DEMO_CHARTS, loadDemoChartSpec } from '../services/demoAssets'
+import { createDemoPlaybackSession } from '../services/demoPlaybackSession'
 
 const initialChart = DEMO_CHARTS[0] ?? null
 const initialQuestion = initialChart?.questions[0] ?? null
 
 export default function DemoPage() {
   const chartRef = useRef<HTMLDivElement | null>(null)
+  const playbackSessionRef = useRef(createDemoPlaybackSession())
   const [selectedChartId, setSelectedChartId] = useState(initialChart?.id ?? '')
   const [selectedQuestionId, setSelectedQuestionId] = useState(initialQuestion?.id ?? '')
   const [selectedSpec, setSelectedSpec] = useState<ChartSpec | null>(null)
   const [bindings, setBindings] = useState<DemoSentenceBinding[]>([])
   const [activeSentenceIndex, setActiveSentenceIndex] = useState<number | null>(null)
+  const [lastExecutedStep, setLastExecutedStep] = useState(-1)
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
   const [status, setStatus] = useState('Preparing demo charts...')
@@ -43,7 +46,8 @@ export default function DemoPage() {
         setSelectedSpec(nextSpec)
         setBindings(nextBindings)
         setActiveSentenceIndex(null)
-        await browserEngine.renderChart(chartRef.current, nextSpec)
+        setLastExecutedStep(-1)
+        await playbackSessionRef.current.initialize(chartRef.current, nextSpec)
         if (cancelled) return
         setStatus(`Loaded ${selectedChart.title} / ${selectedQuestion.title}. ${nextBindings.length} step(s) ready.`)
       } catch (initError) {
@@ -64,6 +68,12 @@ export default function DemoPage() {
     }
   }, [selectedChart, selectedQuestion])
 
+  useEffect(() => {
+    return () => {
+      playbackSessionRef.current.reset()
+    }
+  }, [])
+
   const handleChartChange = useCallback((chartId: string) => {
     const nextChart = DEMO_CHARTS.find((chart) => chart.id === chartId)
     setSelectedChartId(chartId)
@@ -77,20 +87,22 @@ export default function DemoPage() {
   const handleSentenceClick = useCallback(
     async (index: number) => {
       if (!selectedChart || !selectedQuestion || !selectedSpec || !chartRef.current || running) return
+      if (playbackSessionRef.current.isStepLocked(index)) {
+        setStatus(`Step ${index + 1} is locked until step ${index} is complete.`)
+        return
+      }
 
       setRunning(true)
       setError(null)
       setStatus(`Running step ${index + 1} of ${bindings.length}...`)
 
       try {
-        await browserEngine.renderChart(chartRef.current, selectedSpec)
-        await browserEngine.runChartOps(
-          chartRef.current,
-          selectedSpec,
-          buildDemoStepOpsSpec(selectedQuestion.opsSpec, index + 1),
-        )
+        const result = await playbackSessionRef.current.activateStep(index, bindings[index]?.ops ?? [])
         setActiveSentenceIndex(index)
-        setStatus(`Executed step ${index + 1} of ${bindings.length} for ${selectedQuestion.title}.`)
+        setLastExecutedStep(playbackSessionRef.current.getLastExecutedStep())
+        setStatus(
+          `${result.kind === 'restored' ? 'Restored' : 'Executed'} step ${index + 1} of ${bindings.length} for ${selectedQuestion.title}.`,
+        )
       } catch (runError) {
         const message = runError instanceof Error ? runError.message : String(runError)
         setError(`Failed to execute step ${index + 1}: ${message}`)
@@ -99,7 +111,7 @@ export default function DemoPage() {
         setRunning(false)
       }
     },
-    [bindings.length, running, selectedChart, selectedQuestion, selectedSpec],
+    [bindings, running, selectedChart, selectedQuestion, selectedSpec],
   )
 
   if (!selectedChart || !selectedQuestion) {
@@ -190,12 +202,17 @@ export default function DemoPage() {
               <ol className="demo-sentence-list" data-testid="demo-sentence-list">
                 {bindings.map((binding, index) => (
                   <li key={`${binding.groupName}-${index}`}>
+                    {/*
+                      Forward-only demo playback:
+                      - current/next step is clickable
+                      - later steps stay locked until the previous one completes
+                    */}
                     <button
                       type="button"
                       className={`demo-sentence-item ${activeSentenceIndex === index ? 'is-active' : ''}`}
                       data-testid={`demo-sentence-item-${index}`}
                       onClick={() => void handleSentenceClick(index)}
-                      disabled={loading || running}
+                      disabled={loading || running || index > lastExecutedStep + 1}
                     >
                       <span className="demo-sentence-index">{index + 1}.</span>
                       <span>{binding.sentence}</span>

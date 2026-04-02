@@ -2,6 +2,12 @@ import * as d3 from 'd3'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import { DrawAction, type DrawArrowSpec, type DrawLineSpec, type DrawRectSpec, type DrawTextSpec, type DrawOp } from './types'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
+import {
+  applyAnnotationMetadata,
+  removeTransientAnnotationsBySlot,
+  resolveAnnotationLifecycle,
+  resolveAnnotationSlot,
+} from './utils/annotationSemantics'
 
 type DrawSelect = DrawOp['select']
 
@@ -127,7 +133,23 @@ function getMarkKey(el: Element) {
   return attrs.find((attr) => attr != null) ?? null
 }
 
-function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
+function replaceAnnotationSlot(container: HTMLElement, op: DrawOp) {
+  const slot = resolveAnnotationSlot(op)
+  if (!slot) return
+  removeTransientAnnotationsBySlot(container, slot, op.chartId ?? null)
+}
+
+function applyAnnotationAttrs(node: Element, op: DrawOp) {
+  applyAnnotationMetadata(node, {
+    chartId: op.chartId ?? null,
+    annotationKey: null,
+    annotationNodeId: typeof op.meta?.nodeId === 'string' ? op.meta.nodeId : null,
+    annotationLifecycle: resolveAnnotationLifecycle(op),
+    annotationSlot: resolveAnnotationSlot(op),
+  })
+}
+
+function addNormalizedText(container: HTMLElement, op: DrawOp, textSpec: DrawTextSpec) {
   const svgSel = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   const svg = svgSel.node() as SVGSVGElement | null
   if (!svg || textSpec.mode !== 'normalized' || !textSpec.position) return
@@ -138,7 +160,7 @@ function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
   const clamp = (n: number) => Math.max(0, Math.min(1, n))
   const x = clamp(textSpec.position.x) * width
   const y = (1 - clamp(textSpec.position.y)) * height
-  svgSel
+  const textNode = svgSel
     .append(SvgElements.Text)
     .attr(SvgAttributes.Class, SvgClassNames.Annotation)
     .attr(SvgAttributes.X, x)
@@ -149,9 +171,11 @@ function addNormalizedText(container: HTMLElement, textSpec: DrawTextSpec) {
     .attr(SvgAttributes.FontWeight, textSpec.style?.fontWeight ?? 'bold')
     .attr(SvgAttributes.Opacity, textSpec.style?.opacity ?? 1)
     .text(typeof textSpec.value === 'string' ? textSpec.value : String(textSpec.value))
+  const element = textNode.node()
+  if (element) applyAnnotationAttrs(element, op)
 }
 
-function addNormalizedRect(container: HTMLElement, rectSpec: DrawRectSpec) {
+function addNormalizedRect(container: HTMLElement, op: DrawOp, rectSpec: DrawRectSpec) {
   const svgSel = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   const svg = svgSel.node() as SVGSVGElement | null
   if (!svg || !rectSpec.position || !rectSpec.size) return
@@ -164,7 +188,7 @@ function addNormalizedRect(container: HTMLElement, rectSpec: DrawRectSpec) {
   const y = (1 - clamp(rectSpec.position.y)) * height
   const w = clamp(rectSpec.size.width) * width
   const h = clamp(rectSpec.size.height) * height
-  svgSel
+  const rectNode = svgSel
     .append(SvgElements.Rect)
     .attr(SvgAttributes.Class, SvgClassNames.Annotation)
     .attr(SvgAttributes.X, x - w / 2)
@@ -175,10 +199,13 @@ function addNormalizedRect(container: HTMLElement, rectSpec: DrawRectSpec) {
     .attr(SvgAttributes.Stroke, rectSpec.style?.stroke ?? rectSpec.style?.fill ?? '#ef4444')
     .attr(SvgAttributes.StrokeWidth, rectSpec.style?.strokeWidth ?? 1)
     .attr(SvgAttributes.Opacity, rectSpec.style?.opacity ?? 1)
+  const element = rectNode.node()
+  if (element) applyAnnotationAttrs(element, op)
 }
 
 function addArrowHead(
   svgSel: d3.Selection<SVGSVGElement, unknown, any, any>,
+  op: DrawOp,
   tipX: number,
   tipY: number,
   direction: { x: number; y: number },
@@ -205,7 +232,7 @@ function addArrowHead(
   const p2x = baseX - perpX * (width / 2)
   const p2y = baseY - perpY * (width / 2)
   const path = `M${tipX},${tipY} L${p1x},${p1y} L${p2x},${p2y} Z`
-  svgSel
+  const arrowNode = svgSel
     .append(SvgElements.Path)
     .attr(
       SvgAttributes.Class,
@@ -216,9 +243,11 @@ function addArrowHead(
     .attr(SvgAttributes.Stroke, stroke)
     .attr(SvgAttributes.StrokeWidth, strokeWidth)
     .attr(SvgAttributes.Opacity, opacity)
+  const element = arrowNode.node()
+  if (element) applyAnnotationAttrs(element, op)
 }
 
-function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
+function addNormalizedLine(container: HTMLElement, op: DrawOp, lineSpec: DrawLineSpec) {
   const svgSel = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   const svg = svgSel.node() as SVGSVGElement | null
   if (!svg || !lineSpec.position || !lineSpec.position.end || !lineSpec.position.start) return
@@ -235,7 +264,7 @@ function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
   const stroke = lineSpec.style?.stroke ?? '#ef4444'
   const strokeWidth = lineSpec.style?.strokeWidth ?? 2
   const opacity = lineSpec.style?.opacity ?? 1
-  svgSel
+  const lineNode = svgSel
     .append(SvgElements.Line)
     .attr(SvgAttributes.Class, SvgClassNames.Annotation)
     .attr(SvgAttributes.X1, x1)
@@ -245,6 +274,8 @@ function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
     .attr(SvgAttributes.Stroke, stroke)
     .attr(SvgAttributes.StrokeWidth, strokeWidth)
     .attr(SvgAttributes.Opacity, opacity)
+  const lineElement = lineNode.node()
+  if (lineElement) applyAnnotationAttrs(lineElement, op)
 
   const arrowSpec = lineSpec.arrow
   if (arrowSpec && (arrowSpec.start || arrowSpec.end)) {
@@ -254,10 +285,10 @@ function addNormalizedLine(container: HTMLElement, lineSpec: DrawLineSpec) {
     if (dist > 0) {
       const direction = { x: dx / dist, y: dy / dist }
       if (arrowSpec.start) {
-        addArrowHead(svgSel, x1, y1, { x: -direction.x, y: -direction.y }, { stroke, strokeWidth, opacity }, arrowSpec)
+        addArrowHead(svgSel, op, x1, y1, { x: -direction.x, y: -direction.y }, { stroke, strokeWidth, opacity }, arrowSpec)
       }
       if (arrowSpec.end) {
-        addArrowHead(svgSel, x2, y2, direction, { stroke, strokeWidth, opacity }, arrowSpec)
+        addArrowHead(svgSel, op, x2, y2, direction, { stroke, strokeWidth, opacity }, arrowSpec)
       }
     }
   }
@@ -322,20 +353,23 @@ export function runGenericDraw(container: HTMLElement, op: DrawOp) {
     }
     case DrawAction.Text: {
       if (op.text?.value) {
-        addNormalizedText(container, op.text)
+        replaceAnnotationSlot(container, op)
+        addNormalizedText(container, op, op.text)
       }
       return
     }
     case DrawAction.Rect: {
       if (op.rect?.position && op.rect?.size) {
-        addNormalizedRect(container, op.rect)
+        replaceAnnotationSlot(container, op)
+        addNormalizedRect(container, op, op.rect)
       }
       return
     }
     case DrawAction.Line: {
       const lineSpec = op.line
       if (lineSpec?.position?.start && lineSpec.position?.end) {
-        addNormalizedLine(container, lineSpec)
+        replaceAnnotationSlot(container, op)
+        addNormalizedLine(container, op, lineSpec)
       }
       return
     }

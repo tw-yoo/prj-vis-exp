@@ -4,7 +4,6 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors
 import { BarDrawHandler } from '../BarDrawHandler'
 import {
   DrawAction,
-  DrawAnnotationLifecycles,
   DrawComparisonOperators,
   DrawMark,
   DrawTextModes,
@@ -368,7 +367,7 @@ export class StackedBarDrawHandler extends BarDrawHandler {
 
     const style = segment.style
     const condition = normalizeComparisonCondition(segment.when ?? undefined)
-    const lifecycle = op.annotation?.lifecycle ?? DrawAnnotationLifecycles.Transient
+    this.replaceAnnotationSlot(op)
 
     filteredTargets.forEach((rects, target) => {
       const first = rects[0]
@@ -403,13 +402,9 @@ export class StackedBarDrawHandler extends BarDrawHandler {
       const segH = Math.abs(yA - yB)
       if (!Number.isFinite(segY) || !Number.isFinite(segH) || segH <= 0) return
 
-      layer
+      const segmentRect = layer
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.BarSegmentAnnotation}`)
-        .attr(DataAttributes.ChartId, op.chartId ?? null)
-        .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-        .attr(DataAttributes.AnnotationNodeId, annotationNodeId)
-        .attr(DataAttributes.AnnotationLifecycle, lifecycle)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, segY)
         .attr(SvgAttributes.Width, width)
@@ -418,6 +413,10 @@ export class StackedBarDrawHandler extends BarDrawHandler {
         .attr(SvgAttributes.Stroke, style?.stroke ?? style?.fill ?? '#ef4444')
         .attr(SvgAttributes.StrokeWidth, style?.strokeWidth ?? 1)
         .attr(SvgAttributes.Opacity, style?.opacity ?? 1)
+      const segmentNode = segmentRect.node()
+      if (segmentNode) {
+        this.applyAnnotationAttrs(segmentNode, op, annotationKey, annotationNodeId)
+      }
     })
   }
 

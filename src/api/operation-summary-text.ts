@@ -1,4 +1,4 @@
-import { OperationOp, type DatumValue, type OperationSpec, type TargetSelector } from '../domain/operation/types'
+import { OperationOp, type DatumValue, type JsonValue, type OperationSpec, type TargetSelector } from '../domain/operation/types'
 import {
   buildAggregateLabel,
   buildBinaryLabel,
@@ -7,6 +7,7 @@ import {
   buildValuesLabelFromTargets,
   compactSemanticList,
 } from '../domain/operation/semanticLabels'
+import { refKeyFromScalarValue, resolveFilterRefThresholdFromResults } from '../domain/operation/dataOps'
 import type { LogicalExecutionArtifacts, NodeResultKind } from './visual-derived-chart'
 import type { VisualExecutionStep } from './nlp-ops'
 
@@ -699,7 +700,63 @@ function chooseFilterSentence(candidates: string[]) {
   return withinBudget ?? cleaned.reduce((shortest, candidate) => (candidate.length < shortest.length ? candidate : shortest))
 }
 
+function renderScalarExplanationOperand(args: {
+  value: JsonValue | undefined
+  precision?: number
+  aggregateHint?: string
+  entryMap: Map<string, SummaryEntry>
+  resultsByNodeId: ReadonlyMap<string, DatumValue[]>
+}) {
+  const { value, precision, aggregateHint, entryMap, resultsByNodeId } = args
+  const resolvedRefValue = resolveFilterRefThresholdFromResults(value, resultsByNodeId, aggregateHint)
+  if (resolvedRefValue != null) {
+    return formatExplanationNumber(resolvedRefValue, precision)
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return formatExplanationNumber(value, precision)
+  }
+
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  const numericValue = Number(trimmed)
+  if (Number.isFinite(numericValue)) {
+    return formatExplanationNumber(numericValue, precision)
+  }
+
+  const refKey = refKeyFromScalarValue(trimmed)
+  if (refKey) {
+    const entry = entryMap.get(refKey)
+    if (entry) {
+      return shortPhraseForOperation(entry.op, entryMap, new Set<string>())
+    }
+    return 'the previous result'
+  }
+
+  return quoteExplanationValue(trimmed)
+}
+
 function buildFilterExplanationText(op: OperationSpec, rows?: DatumValue[]) {
+  return buildFilterExplanationTextWithContext({
+    op,
+    rows,
+    entryMap: new Map<string, SummaryEntry>(),
+    resultsByNodeId: new Map<string, DatumValue[]>(),
+  })
+}
+
+function buildFilterExplanationTextWithContext(args: {
+  op: OperationSpec
+  rows?: DatumValue[]
+  entryMap: Map<string, SummaryEntry>
+  resultsByNodeId: ReadonlyMap<string, DatumValue[]>
+}) {
+  const { op, rows, entryMap, resultsByNodeId } = args
   const fieldLabel = filterFieldDescriptor(op)
   const operator = String(op.operator ?? '').trim().toLowerCase()
   const include = normalizeExplanationList((op as { include?: unknown }).include)
@@ -725,8 +782,22 @@ function buildFilterExplanationText(op: OperationSpec, rows?: DatumValue[]) {
 
   if (operator === 'between' && rawValueList.length >= 2) {
     const [start, end] = rawValueList
-    const shortSentence = `The chart shows values between ${formatExplanationNumber(Number(start), op.precision)} and ${formatExplanationNumber(Number(end), op.precision)}.`
-    const longSentence = `The chart shows ${fieldLabel} between ${formatExplanationNumber(Number(start), op.precision)} and ${formatExplanationNumber(Number(end), op.precision)}.`
+    const renderedStart = renderScalarExplanationOperand({
+      value: start,
+      precision: op.precision,
+      aggregateHint: typeof op.aggregate === 'string' ? op.aggregate : undefined,
+      entryMap,
+      resultsByNodeId,
+    })
+    const renderedEnd = renderScalarExplanationOperand({
+      value: end,
+      precision: op.precision,
+      aggregateHint: typeof op.aggregate === 'string' ? op.aggregate : undefined,
+      entryMap,
+      resultsByNodeId,
+    })
+    const shortSentence = `The chart shows values between ${renderedStart} and ${renderedEnd}.`
+    const longSentence = `The chart shows ${fieldLabel} between ${renderedStart} and ${renderedEnd}.`
     return chooseFilterSentence([shortSentence, longSentence])
   }
 
@@ -736,14 +807,14 @@ function buildFilterExplanationText(op: OperationSpec, rows?: DatumValue[]) {
     return `The chart shows ${compactFilterList(rawValueList, fallback)} only.`
   }
 
-  const rawScalarValue = (op as { value?: unknown }).value
-  const numericValue = Number(rawScalarValue)
-  const hasNumericValue = Number.isFinite(numericValue)
-  const renderedValue = hasNumericValue
-    ? formatExplanationNumber(numericValue, op.precision)
-    : rawScalarValue == null
-      ? ''
-      : quoteExplanationValue(String(rawScalarValue).trim())
+  const rawScalarValue = (op as { value?: JsonValue }).value
+  const renderedValue = renderScalarExplanationOperand({
+    value: rawScalarValue,
+    precision: op.precision,
+    aggregateHint: typeof op.aggregate === 'string' ? op.aggregate : undefined,
+    entryMap,
+    resultsByNodeId,
+  })
 
   switch (operator) {
     case '>':
@@ -927,8 +998,9 @@ function finalExplanationForOperation(args: {
   op: OperationSpec
   rows: DatumValue[] | undefined
   entryMap: Map<string, SummaryEntry>
+  resultsByNodeId: ReadonlyMap<string, DatumValue[]>
 }): string | undefined {
-  const { op, rows, entryMap } = args
+  const { op, rows, entryMap, resultsByNodeId } = args
   switch (op.op) {
     case OperationOp.RetrieveValue: {
       const numericRows = (rows ?? []).filter((row) => Number.isFinite(Number(row?.value)))
@@ -1034,7 +1106,7 @@ function finalExplanationForOperation(args: {
       return `The lag differences are shown across adjacent ${orderLabel} values.`
     }
     case OperationOp.Filter:
-      return buildFilterExplanationText(op, rows)
+      return buildFilterExplanationTextWithContext({ op, rows, entryMap, resultsByNodeId })
     case OperationOp.Sort:
       return `The chart is sorted in ${op.order === 'desc' ? 'descending' : 'ascending'} order.`
     case OperationOp.DetermineRange: {
@@ -1066,7 +1138,14 @@ export function buildExplanationTextForOperations(args: {
 
   const resultsByNodeId = args.resultsByNodeId ?? new Map<string, DatumValue[]>()
   const finalSentences = summaryEntries
-    .map((entry) => finalExplanationForOperation({ op: entry.op, rows: resultsByNodeId.get(entry.nodeId), entryMap }))
+    .map((entry) =>
+      finalExplanationForOperation({
+        op: entry.op,
+        rows: resultsByNodeId.get(entry.nodeId),
+        entryMap,
+        resultsByNodeId,
+      }),
+    )
     .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
 
   const finalText = finalSentences.length > 0 ? joinClauses(finalSentences) : undefined

@@ -11,6 +11,9 @@ import {
   buildHighlightPlan,
   buildTextPlan,
   formatDrawNumber,
+  makeAggregateLineSlot,
+  makeAggregateTextSlot,
+  withAnnotationSlot,
 } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
@@ -304,6 +307,7 @@ function buildStackedBarValueTexts(op: OperationSpec, metrics: StackedBarMetric[
     '#111827',
     typeof op.precision === 'number' ? op.precision : 2,
     'id',
+    op.chartId,
   )
 }
 
@@ -384,6 +388,7 @@ function buildRetrieveValuePlan(result: DatumValue[], op: OperationSpec, context
         '#111827',
         precision,
         'id',
+        op.chartId,
       ),
     ]
   }
@@ -402,7 +407,7 @@ function buildRetrieveValuePlan(result: DatumValue[], op: OperationSpec, context
 
   const plan: any[] = [...buildHighlightPlan(targets, '#ef4444', 'target')]
   if (textEntries.length) {
-    plan.push(...buildTextPlan(textEntries, '#111827', precision, 'id'))
+    plan.push(...buildTextPlan(textEntries, '#111827', precision, 'id', op.chartId))
   }
   return plan
 }
@@ -492,8 +497,18 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     const whichLabel = op.which === 'min' ? 'min' : 'max'
     const plan: any[] = []
     if (value != null) {
-      plan.push(ops.draw.line(op.chartId, lineAt(value, '#ef4444')))
-      plan.push(ops.draw.text(op.chartId, undefined, textScore(value, whichLabel)))
+      plan.push(
+        withAnnotationSlot(
+          ops.draw.line(op.chartId, lineAt(value, '#ef4444')),
+          makeAggregateLineSlot(op.chartId, whichLabel),
+        ),
+      )
+      plan.push(
+        withAnnotationSlot(
+          ops.draw.text(op.chartId, undefined, textScore(value, whichLabel)),
+          makeAggregateTextSlot(op.chartId, whichLabel),
+        ),
+      )
     }
     if (targets.length) {
       const topSegmentIds = resolveTopSegmentIdsByTarget(context.container, op.chartId, targets)
@@ -505,7 +520,7 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
         })
         .filter((entry): entry is { target: string; value: number } => entry !== null)
       if (anchored.length) {
-        plan.push(...buildTextPlan(anchored, '#111827', typeof op.precision === 'number' ? op.precision : 2, 'id'))
+        plan.push(...buildTextPlan(anchored, '#111827', typeof op.precision === 'number' ? op.precision : 2, 'id', op.chartId))
       }
     }
     return plan.length ? plan : null
@@ -518,7 +533,7 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     if (!result.length) return null
     return [
       ...buildHighlightPlan(uniqueTargets(result), '#ef4444'),
-      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2),
+      ...buildTextPlan(toTargetValueEntries(result), '#111827', typeof op.precision === 'number' ? op.precision : 2, 'target', op.chartId),
     ]
   },
   [OperationOp.Sum]: (result, op) => {
@@ -530,8 +545,14 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
     const value = scalarFromResult(result)
     if (value == null) return null
     return [
-      ops.draw.line(op.chartId, lineAt(value, AVERAGE_LINE_COLOR)),
-      ops.draw.text(op.chartId, undefined, textScore(value, 'average')),
+      withAnnotationSlot(
+        ops.draw.line(op.chartId, lineAt(value, AVERAGE_LINE_COLOR)),
+        makeAggregateLineSlot(op.chartId, 'average'),
+      ),
+      withAnnotationSlot(
+        ops.draw.text(op.chartId, undefined, textScore(value, 'average')),
+        makeAggregateTextSlot(op.chartId, 'average'),
+      ),
     ]
   },
   [OperationOp.DetermineRange]: (result, op) => buildRangePlan(result, op),

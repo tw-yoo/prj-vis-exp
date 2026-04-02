@@ -2,6 +2,7 @@ import * as d3 from 'd3'
 import type { JsonObject, JsonValue } from '../../types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements, SvgSelectors } from '../interfaces'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
+import { DrawAnnotationLifecycles } from '../draw/types'
 
 // Loosen d3 selection typing to reduce downstream generic incompatibilities
 export type D3Datum = unknown
@@ -515,4 +516,21 @@ export function clearAnnotations(svg: D3Selection, extraSelectors: string[] = []
   const selectors = [...DEFAULT_ANNOTATION_SELECTORS, ...extraSelectors].filter(Boolean)
   if (!selectors.length) return
   svg.selectAll(selectors.join(', ')).remove()
+}
+
+export function clearTransientAnnotations(svg: D3Selection, extraSelectors: string[] = []) {
+  const selectors = [...DEFAULT_ANNOTATION_SELECTORS, ...extraSelectors].filter(Boolean)
+  if (!selectors.length) return
+  const nodes = svg.selectAll<SVGElement, unknown>(selectors.join(', ')).filter(function () {
+    const lifecycle = (this.getAttribute(DataAttributes.AnnotationLifecycle) ?? '').trim().toLowerCase()
+    return lifecycle !== DrawAnnotationLifecycles.Persistent
+  })
+  if (nodes.empty()) return
+  nodes.remove()
+  svg.selectAll<SVGGElement, unknown>(`.${SvgClassNames.AnnotationLayer}`).each(function () {
+    const layer = this as SVGGElement
+    if (layer.childElementCount === 0) {
+      layer.remove()
+    }
+  })
 }

@@ -137,6 +137,59 @@ test('simple bar diff(signed) restores rail-style comparison annotations with de
   expect(textStats.texts.some((text) => text.includes('Difference:'))).toBeTruthy()
 })
 
+test('a new run clears transient average annotations before rendering the next result', async ({ page }) => {
+  await page.goto('/')
+  await ensureSpecInputVisible(page)
+  await page.getByTestId('vl-spec-input').fill(loadSimpleBarSpec())
+  await page.getByTestId('render-chart-button').click()
+  await expect(page.locator(`${chartHost} svg`).first()).toBeVisible()
+
+  await runSingleOpsGroup(page, [
+    { id: 'n1', op: 'average', field: 'rating', meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 } },
+  ])
+
+  await expect(page.locator('[data-annotation-slot="aggregate-line:__root__:average"]')).toHaveCount(1)
+  await expect(page.locator('[data-annotation-slot="aggregate-text:__root__:average"]')).toHaveCount(1)
+
+  await runSingleOpsGroup(page, [
+    {
+      id: 'n2',
+      op: 'filter',
+      field: 'rating',
+      operator: '>',
+      value: 60,
+      meta: { nodeId: 'n2', inputs: [], sentenceIndex: 1 },
+    },
+  ])
+
+  await expect(page.locator('[data-annotation-slot="aggregate-line:__root__:average"]')).toHaveCount(0)
+  await expect(page.locator('[data-annotation-slot="aggregate-text:__root__:average"]')).toHaveCount(0)
+})
+
+test('simple bar diff replaces duplicate semantic value labels instead of stacking them', async ({ page }) => {
+  await page.goto('/')
+  await ensureSpecInputVisible(page)
+  await page.getByTestId('vl-spec-input').fill(loadSimpleBarSpec())
+  await page.getByTestId('render-chart-button').click()
+  await expect(page.locator(`${chartHost} svg`).first()).toBeVisible()
+
+  await runSingleOpsGroup(page, [
+    { id: 'n1', op: 'findExtremum', field: 'rating', which: 'max', meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 } },
+    { id: 'n2', op: 'findExtremum', field: 'rating', which: 'min', meta: { nodeId: 'n2', inputs: [], sentenceIndex: 1 } },
+    {
+      id: 'n3',
+      op: 'diff',
+      field: 'rating',
+      targetA: 'ref:n1',
+      targetB: 'ref:n2',
+      meta: { nodeId: 'n3', inputs: ['n1', 'n2'], sentenceIndex: 1 },
+    },
+  ])
+
+  await expect(page.locator('[data-annotation-slot="value-label:__root__:NLD:__all__"]')).toHaveCount(1)
+  await expect(page.locator('[data-annotation-slot="value-label:__root__:PRT:__all__"]')).toHaveCount(1)
+})
+
 test('simple bar compareBool keeps boolean explanation and restores rail-style diff annotations', async ({ page }) => {
   await page.goto('/')
   await ensureSpecInputVisible(page)

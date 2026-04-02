@@ -6,11 +6,11 @@ import { runStackedBarOps } from './stackedBarOps.ts'
 import { runGroupedBarOps } from './groupedBarOps.ts'
 import { runSimpleLineOps } from './simpleLineOps.ts'
 import { runMultipleLineOps } from './multipleLineOps.ts'
-import type { SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer.ts'
+import { getSimpleBarStoredData, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer.ts'
 import type { StackedSpec } from '../../rendering/bar/stackedBarRenderer.ts'
 import type { GroupedSpec } from '../../rendering/bar/groupedBarRenderer.ts'
 import { getSimpleLineStoredData, resolveSimpleLineEncoding, type LineSpec } from '../../rendering/line/simpleLineRenderer.ts'
-import type { MultiLineSpec } from '../../rendering/line/multipleLineRenderer.ts'
+import { getMultipleLineStoredData, resolveMultiLineEncoding, type MultiLineSpec } from '../../rendering/line/multipleLineRenderer.ts'
 import type { OperationCompletedEvent, OperationReadyEvent } from '../../application/usecases/runChartOperationsUseCase'
 import { captureSvgSnapshot } from '../../rendering/utils/svgSnapshot.ts'
 import { SnapshotStrip } from '../../rendering/snapshotStrip.ts'
@@ -30,10 +30,12 @@ import { ops } from '../build/authoring/index.ts'
 import { draw } from '../build/authoring/draw.ts'
 import { buildExplanationTextForOperations } from '../../api/operation-summary-text.ts'
 import { clearChartExplanation, renderChartExplanation } from '../../rendering/explanation/chartExplanation.ts'
-import { resolveBinaryInputsFromMeta, getRuntimeResultsById } from '../../domain/operation/dataOps.ts'
+import { resolveBinaryInputsFromMeta, getRuntimeResultsById, snapshotRuntimeResults } from '../../domain/operation/dataOps.ts'
 import { getGroupedBarStoredData } from '../../rendering/bar/groupedBarRenderer.ts'
 import { getStackedBarStoredData } from '../../rendering/bar/stackedBarRenderer.ts'
 import { renderBarSelectionAsSimpleSurface } from '../../rendering/bar/toSimpleTransforms.ts'
+import { getPlotContext } from '../../rendering/ops/common/chartContext.ts'
+import { toWorkingDatumValuesFromStore } from '../../domain/data/workingData.ts'
 
 export type GroupCompletedEvent = {
   groupName: string
@@ -84,7 +86,7 @@ function stableExplanationNodeId(op: OperationSpec) {
 
 function createGroupExplanationController(container: HTMLElement, ops: OperationSpec[]) {
   const explainableOps = ops.filter((op) => isExplainableOperation(op))
-  const resultByNodeId = new Map<string, DatumValue[]>()
+  const resultByNodeId = snapshotRuntimeResults()
   const nodeIdByOperation = new Map<OperationSpec, string>()
   const nodeIdByOperationIndex = new Map<number, string>()
 
@@ -322,11 +324,12 @@ function buildSplitSurfaceSetup(
   split: DrawSplitSpec,
   workingData: DatumValue[],
 ): SplitSurfaceSetup {
+  const fallbackWorkingData = resolveSplitBootstrapWorkingData(host, chartType, normalized, workingData)
   if (chartType === ChartType.SIMPLE_LINE) {
     const lineSetup = buildSimpleLineSplitSurfaceSetup(host, normalized as LineSpec, split)
     if (lineSetup) return lineSetup
   }
-  return getSplitSurfaceData(split, workingData)
+  return getSplitSurfaceData(split, fallbackWorkingData)
 }
 
 function syncSingleSurfaceState(
@@ -493,10 +496,57 @@ function toStackedLikeDatumValues(container: HTMLElement, spec: StackedSpec) {
   )
 }
 
+const groupFallback = (row: RawRow) => {
+  const candidate = row?.group ?? row?.color ?? row?.series ?? null
+  if (candidate == null) return null
+  return String(candidate)
+}
+
+function currentSimpleBarDatumValues(container: HTMLElement, spec: SimpleBarSpec) {
+  const raw = (getSimpleBarStoredData(container) || []) as RawRow[]
+  const ctx = getPlotContext(container)
+  return toWorkingDatumValuesFromStore({
+    raw,
+    specXField: spec.encoding.x.field,
+    specYField: spec.encoding.y.field,
+    ctxXField: ctx.xField,
+    ctxYField: ctx.yField,
+  })
+}
+
 function currentBarDatumValues(container: HTMLElement, chartType: ChartTypeValue | null, spec: ChartSpec) {
+  if (chartType === ChartType.SIMPLE_BAR) return currentSimpleBarDatumValues(container, spec as SimpleBarSpec)
   if (chartType === ChartType.GROUPED_BAR) return toGroupedLikeDatumValues(container, spec as GroupedSpec)
   if (chartType === ChartType.STACKED_BAR) return toStackedLikeDatumValues(container, spec as StackedSpec)
   return [] as DatumValue[]
+}
+
+function currentMultipleLineDatumValues(container: HTMLElement, spec: MultiLineSpec) {
+  const raw = (getMultipleLineStoredData(container) || []) as RawRow[]
+  const encoding = resolveMultiLineEncoding(spec)
+  if (!encoding) return []
+  return toDatumValuesFromRaw(
+    raw,
+    {
+      xField: encoding.xField,
+      yField: encoding.yField,
+      groupField: encoding.colorField ?? undefined,
+    },
+    { groupFallback },
+  )
+}
+
+function resolveSplitBootstrapWorkingData(
+  container: HTMLElement,
+  chartType: ChartTypeValue | null,
+  spec: ChartSpec,
+  workingData: DatumValue[],
+) {
+  if (workingData.length > 0) return workingData
+  if (chartType === ChartType.MULTI_LINE) {
+    return currentMultipleLineDatumValues(container, spec as MultiLineSpec)
+  }
+  return currentBarDatumValues(container, chartType, spec)
 }
 
 function resolveCompareOperandsFromOp(
@@ -871,6 +921,23 @@ async function runChartOpsForSegmentedGroupBase(
   ops: OperationSpec[],
   options?: RunChartOpsOptions,
 ): Promise<{ result: unknown; chartType: ChartTypeValue | null; spec: ChartSpec }> {
+  const shouldHydrateEmptyOps =
+    ops.length === 0 &&
+    initialChartType != null &&
+    ((options?.initialRenderMode ?? 'always') === 'always' || container.querySelector('svg') == null)
+  if (shouldHydrateEmptyOps) {
+    const result = await runChartOpsForSingleGroup(container, initialChartType, initialSpec, { ops: [] }, {
+      ...options,
+      resetRuntime: false,
+    })
+    const synced = syncChartExecutionState(container, initialChartType, initialSpec)
+    return {
+      result,
+      chartType: synced.chartType,
+      spec: synced.spec,
+    }
+  }
+
   const segments = splitOpsAtStructuralBoundaries(ops)
   let chartType = initialChartType
   let spec = initialSpec
@@ -1097,12 +1164,14 @@ export async function runChartOps(
   if (groups.length <= 1) {
     // single-group에서도 split op이 있으면 SurfaceManager로 처리
     const singleGroup = groups[0]
+    const existingLayout = options?.surfaceManager?.getLayout()
+    const alreadySplit = Boolean(existingLayout && existingLayout.type !== 'single')
     const hasSplitInSingle =
       SURFACE_SPLIT_ENABLED &&
       options?.surfaceManager &&
       singleGroup &&
       findSplitOpIndex(singleGroup.ops) !== -1
-    if (!hasSplitInSingle) {
+    if (!hasSplitInSingle && !alreadySplit) {
       const executed = await runSegmentedGroupWithExplanation(
         container,
         chartType,

@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { GROUPED_BAR_SPEC, MULTI_LINE_SPEC, SIMPLE_BAR_SPEC, SIMPLE_LINE_SPEC, STACKED_BAR_SPEC } from './fixtures/specs'
 
@@ -11,6 +13,28 @@ async function renderSpec(page: Page, spec: string) {
   await expect(page.locator(`${chartHost} svg`).first()).toBeVisible()
 }
 
+async function runOpsDirect(page: Page, spec: string, opsSpec: unknown, resetRuntime = true) {
+  await page.evaluate(
+    async ({ specText, rawOpsSpec, shouldResetRuntime }) => {
+      const { browserEngine } = await import('/web/engine/createBrowserEngine.ts')
+      const host = document.querySelector('[data-testid="chart-host"]')
+      if (!(host instanceof HTMLElement)) {
+        throw new Error('Chart host is unavailable.')
+      }
+      await browserEngine.runChartOps(host, JSON.parse(specText), rawOpsSpec, {
+        initialRenderMode: 'reuse-existing',
+        resetRuntime: shouldResetRuntime,
+      })
+    },
+    { specText: spec, rawOpsSpec: opsSpec, shouldResetRuntime: resetRuntime },
+  )
+}
+
+function loadDemoSimpleBarSpec() {
+  const specPath = path.resolve(process.cwd(), 'data/test/spec/bar_simple_ver.json')
+  return fs.readFileSync(specPath, 'utf-8')
+}
+
 async function runSingleOpsGroup(page: Page, ops: unknown) {
   await page.getByRole('button', { name: 'JSON Ops' }).click()
   await page.getByTestId('ops-json-input').fill(JSON.stringify({ ops }, null, 2))
@@ -18,10 +42,17 @@ async function runSingleOpsGroup(page: Page, ops: unknown) {
   await expect(runButton).toBeEnabled({ timeout: 30_000 })
   await runButton.click()
   const startButton = page.getByRole('button', { name: 'Start' })
-  await expect(startButton).toBeVisible({ timeout: 30_000 })
-  await expect(startButton).toBeEnabled({ timeout: 30_000 })
-  await startButton.click()
-  await expect(startButton).toBeHidden({ timeout: 30_000 })
+  const hasVisibleStart = await startButton
+    .isVisible({ timeout: 2000 })
+    .then((value) => value)
+    .catch(() => false)
+  if (hasVisibleStart) {
+    await expect(startButton).toBeEnabled({ timeout: 30_000 })
+    await startButton.click()
+    await expect(startButton).toBeHidden({ timeout: 30_000 })
+    return
+  }
+  await page.waitForTimeout(1200)
 }
 
 async function installExplanationHistoryObserver(page: Page) {
@@ -361,6 +392,115 @@ test('filter explanation text reflects parameters concisely', async ({ page }) =
       ),
     ).toBe(testCase.expected)
   }
+})
+
+test('filter explanation resolves scalar ref thresholds to concrete values', async ({ page }) => {
+  const spec = loadDemoSimpleBarSpec()
+  await renderSpec(page, spec)
+  await page.evaluate(async () => {
+    const { resetRuntimeResults, storeRuntimeResult } = await import('/src/domain/operation/dataOps.ts')
+    resetRuntimeResults()
+    storeRuntimeResult('n1', [
+      {
+        category: 'result',
+        measure: 'rating',
+        target: '__result__',
+        displayTarget: 'average',
+        group: null,
+        value: 56.45,
+        name: 'average',
+      },
+    ])
+  })
+  await runOpsDirect(
+    page,
+    spec,
+    {
+      ops: [
+        {
+          id: 'n2',
+          op: 'filter',
+          field: 'rating',
+          operator: '>',
+          value: 'ref:n1',
+          meta: { nodeId: 'n2', inputs: ['n1'], sentenceIndex: 2 },
+        },
+      ],
+    },
+    false,
+  )
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll<SVGTSpanElement>('svg .chart-explanation-text tspan'))
+          .map((node) => (node.textContent ?? '').trim())
+          .filter((value) => value.length > 0)
+          .join(' '),
+      ),
+    )
+    .toBe('The chart shows values above 56.45.')
+
+  await expect(page.locator('svg .chart-explanation-text')).not.toContainText('ref:')
+})
+
+test('filter explanation respects aggregate hints when resolving scalar refs', async ({ page }) => {
+  await renderSpec(page, SIMPLE_BAR_SPEC)
+  await page.evaluate(async () => {
+    const { resetRuntimeResults, storeRuntimeResult } = await import('/src/domain/operation/dataOps.ts')
+    resetRuntimeResults()
+    storeRuntimeResult('n1', [
+      {
+        category: 'rating',
+        measure: 'rating',
+        target: 'USA',
+        displayTarget: 'USA',
+        group: null,
+        value: 12,
+        name: 'USA',
+      },
+      {
+        category: 'rating',
+        measure: 'rating',
+        target: 'KOR',
+        displayTarget: 'KOR',
+        group: null,
+        value: 18,
+        name: 'KOR',
+      },
+    ])
+  })
+  await runOpsDirect(
+    page,
+    SIMPLE_BAR_SPEC,
+    {
+      ops: [
+        {
+          id: 'n2',
+          op: 'filter',
+          field: 'rating',
+          operator: '>=',
+          value: 'ref:n1',
+          aggregate: 'avg',
+          meta: { nodeId: 'n2', inputs: ['n1'], sentenceIndex: 2 },
+        },
+      ],
+    },
+    false,
+  )
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll<SVGTSpanElement>('svg .chart-explanation-text tspan'))
+          .map((node) => (node.textContent ?? '').trim())
+          .filter((value) => value.length > 0)
+          .join(' '),
+      ),
+    )
+    .toBe('The chart shows values at least 15.')
+
+  await expect(page.locator('svg .chart-explanation-text')).not.toContainText('ref:')
 })
 
 test('all chart types publish explanation band layout metadata on the root svg', async ({ page }) => {

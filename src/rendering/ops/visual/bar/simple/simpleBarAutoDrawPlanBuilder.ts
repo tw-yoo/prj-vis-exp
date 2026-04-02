@@ -10,7 +10,10 @@ import {
   buildBinaryComparisonRailPlan,
   formatDrawNumber,
   inferNormalizedYForValue,
+  makeAggregateLineSlot,
   makeAverageTextOp,
+  makeValueLabelSlot,
+  withAnnotationSlot,
 } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 import { getSimpleBarSplitDomain } from '../../../../bar/simpleBarRenderer'
@@ -283,19 +286,25 @@ function buildPairBarValueTexts(op: OperationSpec, targetA: string, valueA: numb
   const plan: any[] = []
   if (Number.isFinite(valueA ?? NaN)) {
     plan.push(
-      ops.draw.text(
-        op.chartId,
-        draw.select.markFieldKeys('rect', 'target', targetA),
-        draw.textSpec.anchor(formatDrawNumber(Number(valueA)), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+      withAnnotationSlot(
+        ops.draw.text(
+          op.chartId,
+          draw.select.markFieldKeys('rect', 'target', targetA),
+          draw.textSpec.anchor(formatDrawNumber(Number(valueA)), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+        ),
+        makeValueLabelSlot(op.chartId, targetA),
       ),
     )
   }
   if (Number.isFinite(valueB ?? NaN)) {
     plan.push(
-      ops.draw.text(
-        op.chartId,
-        draw.select.markFieldKeys('rect', 'target', targetB),
-        draw.textSpec.anchor(formatDrawNumber(Number(valueB)), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+      withAnnotationSlot(
+        ops.draw.text(
+          op.chartId,
+          draw.select.markFieldKeys('rect', 'target', targetB),
+          draw.textSpec.anchor(formatDrawNumber(Number(valueB)), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+        ),
+        makeValueLabelSlot(op.chartId, targetB),
       ),
     )
   }
@@ -343,10 +352,13 @@ function textTargets(result: DatumValue[], op: OperationSpec, precision = 2) {
     const numeric = Number(entry.value)
     if (!Number.isFinite(numeric)) return
     plan.push(
-      ops.draw.text(
-        op.chartId,
-        draw.select.markFieldKeys('rect', 'target', String(entry.target)),
-        draw.textSpec.anchor(formatDrawNumber(numeric, precision), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+      withAnnotationSlot(
+        ops.draw.text(
+          op.chartId,
+          draw.select.markFieldKeys('rect', 'target', String(entry.target)),
+          draw.textSpec.anchor(formatDrawNumber(numeric, precision), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+        ),
+        makeValueLabelSlot(op.chartId, String(entry.target), entry.group != null ? String(entry.group) : null),
       ),
     )
   })
@@ -553,7 +565,13 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   [OperationOp.Average]: (result, op, context) => {
     const scalar = scalarFromResult(result)
     if (scalar == null) return null
-    return [ops.draw.line(op.chartId, lineAt(scalar, AVERAGE_LINE_COLOR)), makeAverageTextOp(op.chartId, scalar, context)]
+    return [
+      withAnnotationSlot(
+        ops.draw.line(op.chartId, lineAt(scalar, AVERAGE_LINE_COLOR)),
+        makeAggregateLineSlot(op.chartId, 'average'),
+      ),
+      makeAverageTextOp(op.chartId, scalar, context),
+    ]
   },
   [OperationOp.Diff]: (result, op, context) => {
     return buildBinaryBarComparisonPlan(op, context, EMPHASIS_RED)
@@ -638,13 +656,16 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
       const metrics = collectTargetMetrics(context, op.chartId)
       const targetActualValue = metrics.get(targetPoint.target)?.value
       plan.push(
-        ops.draw.text(
-          op.chartId,
-          draw.select.markFieldKeys('rect', 'target', targetPoint.target),
-          draw.textSpec.anchor(
-            formatDrawNumber(Number.isFinite(targetActualValue ?? NaN) ? Number(targetActualValue) : scalar),
-            draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+        withAnnotationSlot(
+          ops.draw.text(
+            op.chartId,
+            draw.select.markFieldKeys('rect', 'target', targetPoint.target),
+            draw.textSpec.anchor(
+              formatDrawNumber(Number.isFinite(targetActualValue ?? NaN) ? Number(targetActualValue) : scalar),
+              draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+            ),
           ),
+          makeValueLabelSlot(op.chartId, targetPoint.target),
         ),
       )
     }

@@ -22,6 +22,12 @@ import { toSvgCenter as toSvgCenterUtil } from './utils/coords'
 import { ensureAnnotationLayer } from './utils/annotationLayer'
 import { MIN_DRAW_DURATION_MS } from './animationPolicy'
 import { CHART_TEXT_COLLISION, CHART_TEXT_SIZE } from '../config/chartTextConfig'
+import {
+  applyAnnotationMetadata,
+  removeTransientAnnotationsBySlot,
+  resolveAnnotationLifecycle,
+  resolveAnnotationSlot,
+} from './utils/annotationSemantics'
 
 type AnySelection = d3.Selection<any, unknown, any, any>
 type DrawViewport = {
@@ -63,6 +69,9 @@ const addArrowHead = (
   arrowSpec: DrawArrowSpec,
   annotationKey?: string | null,
   annotationNodeId?: string | null,
+  annotationLifecycle?: string | null,
+  annotationSlot?: string | null,
+  chartId?: string | null,
 ) => {
   const length = Math.max(arrowSpec.length ?? 12, 1)
   const width = Math.max(arrowSpec.width ?? length * 0.6, 1)
@@ -83,13 +92,21 @@ const addArrowHead = (
   const arrow = layer
     .append(SvgElements.Path)
     .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation} arrowhead`)
-    .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-    .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
     .attr(SvgAttributes.D, path)
     .attr(SvgAttributes.Fill, fill)
     .attr(SvgAttributes.Stroke, stroke)
     .attr(SvgAttributes.StrokeWidth, strokeWidth)
     .attr(SvgAttributes.Opacity, 0)
+  const arrowNode = arrow.node()
+  if (arrowNode) {
+    applyAnnotationMetadata(arrowNode, {
+      chartId,
+      annotationKey,
+      annotationNodeId,
+      annotationLifecycle: annotationLifecycle as any,
+      annotationSlot,
+    })
+  }
   arrow.transition().duration(MIN_DRAW_DURATION_MS).attr(SvgAttributes.Opacity, opacity)
 }
 
@@ -232,6 +249,8 @@ const drawLineWithArrow = (
   coords: { x1: number; y1: number; x2: number; y2: number },
   annotationKey?: string | null,
   annotationNodeId?: string | null,
+  annotationLifecycle?: string | null,
+  annotationSlot?: string | null,
 ) => {
   const stroke = lineSpec.style?.stroke ?? '#111827'
   const strokeWidth = lineSpec.style?.strokeWidth ?? 2
@@ -240,9 +259,6 @@ const drawLineWithArrow = (
   const line = layer
     .append(SvgElements.Line)
     .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation}`)
-    .attr(DataAttributes.ChartId, chartId ?? null)
-    .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-    .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
     .attr(SvgAttributes.X1, coords.x1)
     .attr(SvgAttributes.Y1, coords.y1)
     .attr(SvgAttributes.X2, coords.x2)
@@ -250,6 +266,16 @@ const drawLineWithArrow = (
     .attr(SvgAttributes.Stroke, stroke)
     .attr(SvgAttributes.StrokeWidth, strokeWidth)
     .attr(SvgAttributes.Opacity, 0)
+  const lineNode = line.node()
+  if (lineNode) {
+    applyAnnotationMetadata(lineNode, {
+      chartId,
+      annotationKey,
+      annotationNodeId,
+      annotationLifecycle: annotationLifecycle as any,
+      annotationSlot,
+    })
+  }
   line.transition().duration(MIN_DRAW_DURATION_MS).attr(SvgAttributes.Opacity, opacity)
 
   const arrowSpec = lineSpec.arrow
@@ -270,6 +296,9 @@ const drawLineWithArrow = (
       arrowSpec,
       annotationKey,
       annotationNodeId,
+      annotationLifecycle,
+      annotationSlot,
+      chartId ?? null,
     )
   }
   if (arrowSpec.end) {
@@ -282,6 +311,9 @@ const drawLineWithArrow = (
       arrowSpec,
       annotationKey,
       annotationNodeId,
+      annotationLifecycle,
+      annotationSlot,
+      chartId ?? null,
     )
   }
 }
@@ -382,6 +414,22 @@ export abstract class BaseDrawHandler {
 
   constructor(container: HTMLElement) {
     this.container = container
+  }
+
+  protected replaceAnnotationSlot(op: DrawOp, root?: ParentNode | null) {
+    const slot = resolveAnnotationSlot(op)
+    if (!slot) return
+    removeTransientAnnotationsBySlot(root ?? this.container, slot, op.chartId ?? null)
+  }
+
+  protected applyAnnotationAttrs(node: Element, op: DrawOp, annotationKey?: string | null, annotationNodeId?: string | null) {
+    applyAnnotationMetadata(node, {
+      chartId: op.chartId ?? null,
+      annotationKey,
+      annotationNodeId,
+      annotationLifecycle: resolveAnnotationLifecycle(op),
+      annotationSlot: resolveAnnotationSlot(op),
+    })
   }
 
   private resolveSvgBoxFromClientRect(svgNode: SVGSVGElement, rect: DOMRect) {
@@ -1499,6 +1547,7 @@ export abstract class BaseDrawHandler {
     if (!value) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
     const annotationNodeId = resolveAnnotationNodeId(op)
+    this.replaceAnnotationSlot(op)
 
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
@@ -1561,9 +1610,6 @@ export abstract class BaseDrawHandler {
         const textNode = layer
           .append(SvgElements.Text)
           .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
-          .attr(DataAttributes.ChartId, op.chartId ?? null)
-          .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-          .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
           .attr(SvgAttributes.X, x)
           .attr(SvgAttributes.Y, y)
           .attr(SvgAttributes.TextAnchor, 'middle')
@@ -1574,6 +1620,10 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.Opacity, 0)
           .attr(SvgAttributes.FontFamily, style?.fontFamily ?? null)
           .text(textValue)
+        const textElement = textNode.node()
+        if (textElement) {
+          handler.applyAnnotationAttrs(textElement, op, annotationKey, annotationNodeId)
+        }
         handler.placeTextWithCollisionPolicy({
           textNode: textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
           svgNode,
@@ -1629,9 +1679,6 @@ export abstract class BaseDrawHandler {
       const textNode = layer
         .append(SvgElements.Text)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
-        .attr(DataAttributes.ChartId, op.chartId ?? null)
-        .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-        .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
         .attr(SvgAttributes.X, x)
         .attr(SvgAttributes.Y, y)
         .attr(SvgAttributes.TextAnchor, 'middle')
@@ -1642,6 +1689,10 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.FontFamily, style?.fontFamily ?? null)
         .text(textValue)
+      const textElement = textNode.node()
+      if (textElement) {
+        this.applyAnnotationAttrs(textElement, op, annotationKey, annotationNodeId)
+      }
       this.placeTextWithCollisionPolicy({
         textNode: textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
         svgNode,
@@ -1664,6 +1715,7 @@ export abstract class BaseDrawHandler {
     if (!rectSpec) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
     const annotationNodeId = resolveAnnotationNodeId(op)
+    this.replaceAnnotationSlot(op)
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
 
@@ -2070,9 +2122,6 @@ export abstract class BaseDrawHandler {
     const rectNode = drawLayer
       .append(SvgElements.Rect)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
-      .attr(DataAttributes.ChartId, op.chartId ?? null)
-      .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-      .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
       .attr(SvgAttributes.X, x)
       .attr(SvgAttributes.Y, y)
       .attr(SvgAttributes.Width, rectWidth)
@@ -2081,6 +2130,10 @@ export abstract class BaseDrawHandler {
       .attr(SvgAttributes.Opacity, 0)
       .attr(SvgAttributes.Stroke, rectSpec.style?.stroke ?? '#111827')
       .attr(SvgAttributes.StrokeWidth, rectSpec.style?.strokeWidth ?? 1)
+    const rectElement = rectNode.node()
+    if (rectElement) {
+      this.applyAnnotationAttrs(rectElement, op, annotationKey, annotationNodeId)
+    }
     this.applyTransition(rectNode).attr(SvgAttributes.Opacity, rectSpec.style?.opacity ?? 1)
   }
 
@@ -2089,6 +2142,7 @@ export abstract class BaseDrawHandler {
     if (!lineSpec) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
     const annotationNodeId = resolveAnnotationNodeId(op)
+    this.replaceAnnotationSlot(op)
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
 
@@ -2114,7 +2168,16 @@ export abstract class BaseDrawHandler {
       const y1 = normalizedViewport.y + (1 - clamp(lineSpec.position!.start.y)) * normalizedViewport.height
       const x2 = normalizedViewport.x + clamp(lineSpec.position!.end.x) * normalizedViewport.width
       const y2 = normalizedViewport.y + (1 - clamp(lineSpec.position!.end.y)) * normalizedViewport.height
-      drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1, x2, y2 }, annotationKey, annotationNodeId)
+      drawLineWithArrow(
+        layer,
+        op.chartId,
+        lineSpec,
+        { x1, y1, x2, y2 },
+        annotationKey,
+        annotationNodeId,
+        resolveAnnotationLifecycle(op),
+        resolveAnnotationSlot(op),
+      )
       return
     }
 
@@ -2251,6 +2314,8 @@ export abstract class BaseDrawHandler {
           { x1: xMid, y1: yStart, x2: xMid, y2: yEnd },
           annotationKey,
           annotationNodeId,
+          resolveAnnotationLifecycle(op),
+          resolveAnnotationSlot(op),
         )
         return
       }
@@ -2265,6 +2330,8 @@ export abstract class BaseDrawHandler {
         { x1: startRect.centerX, y1: yMid, x2: endRect.centerX, y2: yMid },
         annotationKey,
         annotationNodeId,
+        resolveAnnotationLifecycle(op),
+        resolveAnnotationSlot(op),
       )
       return
     }
@@ -2298,6 +2365,8 @@ export abstract class BaseDrawHandler {
         },
         annotationKey,
         annotationNodeId,
+        resolveAnnotationLifecycle(op),
+        resolveAnnotationSlot(op),
       )
       return
     }
@@ -2422,7 +2491,16 @@ export abstract class BaseDrawHandler {
         ? pointFor(String(connectBy.end.target), connectBy.end.series, connectBy.end.anchor ?? 'top')
         : pointFor(String(pair!.x[1]))
       if (!a || !b) return
-      drawLineWithArrow(layer, op.chartId, lineSpec, { x1: a.x, y1: a.y, x2: b.x, y2: b.y }, annotationKey, annotationNodeId)
+      drawLineWithArrow(
+        layer,
+        op.chartId,
+        lineSpec,
+        { x1: a.x, y1: a.y, x2: b.x, y2: b.y },
+        annotationKey,
+        annotationNodeId,
+        resolveAnnotationLifecycle(op),
+        resolveAnnotationSlot(op),
+      )
       return
     }
 
@@ -2536,7 +2614,16 @@ export abstract class BaseDrawHandler {
         }
         return
       }
-      drawLineWithArrow(layer, op.chartId, lineSpec, { x1, y1: y, x2, y2: y }, annotationKey, annotationNodeId)
+      drawLineWithArrow(
+        layer,
+        op.chartId,
+        lineSpec,
+        { x1, y1: y, x2, y2: y },
+        annotationKey,
+        annotationNodeId,
+        resolveAnnotationLifecycle(op),
+        resolveAnnotationSlot(op),
+      )
     }
 
     // ─── DiffBracket mode ────────────────────────────────────────────────────
@@ -2581,7 +2668,16 @@ export abstract class BaseDrawHandler {
       const y1 = toSvgY(bracketSpec.startY)
       const y2 = toSvgY(bracketSpec.endY)
 
-      drawLineWithArrow(layer, op.chartId, lineSpec, { x1: bracketX, y1, x2: bracketX, y2 }, annotationKey, annotationNodeId)
+      drawLineWithArrow(
+        layer,
+        op.chartId,
+        lineSpec,
+        { x1: bracketX, y1, x2: bracketX, y2 },
+        annotationKey,
+        annotationNodeId,
+        resolveAnnotationLifecycle(op),
+        resolveAnnotationSlot(op),
+      )
     }
   }
 
@@ -2590,6 +2686,7 @@ export abstract class BaseDrawHandler {
     if (!spec) return
     const annotationKey = resolveAnnotationKeyForDrawOp(op)
     const annotationNodeId = resolveAnnotationNodeId(op)
+    this.replaceAnnotationSlot(op)
     const svg = d3.select(this.container).select(SvgElements.Svg)
     if (svg.empty()) return
     const svgNode = svg.node() as SVGSVGElement | null
@@ -2662,9 +2759,6 @@ export abstract class BaseDrawHandler {
       const band = layer
         .append(SvgElements.Rect)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
-        .attr(DataAttributes.ChartId, op.chartId ?? null)
-        .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-        .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
         .attr(SvgAttributes.X, left)
         .attr(SvgAttributes.Y, 0)
         .attr(SvgAttributes.Width, right - left)
@@ -2673,13 +2767,14 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.Opacity, 0)
         .attr(SvgAttributes.Stroke, stroke)
         .attr(SvgAttributes.StrokeWidth, strokeWidth)
+      const bandElement = band.node()
+      if (bandElement) {
+        this.applyAnnotationAttrs(bandElement, op, annotationKey, annotationNodeId)
+      }
       if (spec.label) {
         const labelNode = layer
           .append(SvgElements.Text)
           .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
-          .attr(DataAttributes.ChartId, op.chartId ?? null)
-          .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-          .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
           .attr(SvgAttributes.X, left + (right - left) / 2)
           .attr(SvgAttributes.Y, 12)
           .attr(SvgAttributes.TextAnchor, 'middle')
@@ -2688,6 +2783,10 @@ export abstract class BaseDrawHandler {
           .attr(SvgAttributes.FontWeight, 'bold')
           .attr(SvgAttributes.Opacity, 0)
           .text(spec.label)
+        const labelElement = labelNode.node()
+        if (labelElement) {
+          this.applyAnnotationAttrs(labelElement, op, annotationKey, annotationNodeId)
+        }
         this.applyTransition(labelNode).attr(SvgAttributes.Opacity, 1)
       }
       this.applyTransition(band).attr(SvgAttributes.Opacity, opacity)
@@ -2708,9 +2807,6 @@ export abstract class BaseDrawHandler {
     const band = layer
       .append(SvgElements.Rect)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.RectAnnotation}`)
-      .attr(DataAttributes.ChartId, op.chartId ?? null)
-      .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-      .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
       .attr(SvgAttributes.X, 0)
       .attr(SvgAttributes.Y, top)
       .attr(SvgAttributes.Width, width)
@@ -2719,13 +2815,14 @@ export abstract class BaseDrawHandler {
       .attr(SvgAttributes.Opacity, 0)
       .attr(SvgAttributes.Stroke, stroke)
       .attr(SvgAttributes.StrokeWidth, strokeWidth)
+    const bandElement = band.node()
+    if (bandElement) {
+      this.applyAnnotationAttrs(bandElement, op, annotationKey, annotationNodeId)
+    }
     if (spec.label) {
       const labelNode = layer
         .append(SvgElements.Text)
         .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.TextAnnotation}`)
-        .attr(DataAttributes.ChartId, op.chartId ?? null)
-        .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-        .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
         .attr(SvgAttributes.X, width - 8)
         .attr(SvgAttributes.Y, top - 4)
         .attr(SvgAttributes.TextAnchor, 'end')
@@ -2734,6 +2831,10 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.FontWeight, 'bold')
         .attr(SvgAttributes.Opacity, 0)
         .text(spec.label)
+      const labelElement = labelNode.node()
+      if (labelElement) {
+        this.applyAnnotationAttrs(labelElement, op, annotationKey, annotationNodeId)
+      }
       this.applyTransition(labelNode).attr(SvgAttributes.Opacity, 1)
     }
     this.applyTransition(band).attr(SvgAttributes.Opacity, opacity)
@@ -2743,6 +2844,7 @@ export abstract class BaseDrawHandler {
     const spec: DrawScalarPanelSpec | undefined = op.scalarPanel
     if (!spec) return
     const annotationNodeId = resolveAnnotationNodeId(op)
+    this.replaceAnnotationSlot(op)
     const absolute = spec.absolute ?? true
     const leftRaw = Number(spec.left?.value)
     const rightRaw = Number(spec.right?.value)
@@ -2802,8 +2904,6 @@ export abstract class BaseDrawHandler {
         ? layer
             .append(SvgElements.Group)
             .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${panelClass}`)
-            .attr(DataAttributes.ChartId, chartId)
-            .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
             .attr('data-panel-key', panelKey)
             .attr('opacity', 0)
         : targetPanels
@@ -2811,7 +2911,9 @@ export abstract class BaseDrawHandler {
 
     panel
       .attr(SvgAttributes.Transform, `translate(${panelX},${panelY})`)
-      .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
+      .each((_, index, nodes) => {
+        this.applyAnnotationAttrs(nodes[index], op, null, annotationNodeId)
+      })
 
     if (targetPanels.empty()) {
       this.applyTransition(panel).attr('opacity', 1)

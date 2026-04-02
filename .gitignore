@@ -31,6 +31,8 @@ test-results/
 
 # Local caches
 .cache/
+.jekyll-cache/
+_site/
 
 # Editor directories and files
 .vscode/*

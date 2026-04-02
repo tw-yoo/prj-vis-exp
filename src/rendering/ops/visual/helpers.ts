@@ -33,6 +33,44 @@ export function formatDrawNumber(value: number, precision?: number) {
   return text
 }
 
+function chartScopeToken(chartId: string | undefined) {
+  return chartId && chartId.trim().length > 0 ? chartId.trim() : '__root__'
+}
+
+export function withAnnotationSlot(op: DrawOp, slot: string): DrawOp {
+  return {
+    ...op,
+    annotation: {
+      ...(op.annotation ?? {}),
+      slot,
+    },
+  }
+}
+
+export function makeValueLabelSlot(chartId: string | undefined, target: string, series?: string | null) {
+  return `value-label:${chartScopeToken(chartId)}:${target}:${series ?? '__all__'}`
+}
+
+export function makeAggregateLineSlot(chartId: string | undefined, metric: string) {
+  return `aggregate-line:${chartScopeToken(chartId)}:${metric}`
+}
+
+export function makeAggregateTextSlot(chartId: string | undefined, metric: string) {
+  return `aggregate-text:${chartScopeToken(chartId)}:${metric}`
+}
+
+export function makeComparisonRailSlot(chartId: string | undefined, value: number) {
+  return `comparison-rail:${chartScopeToken(chartId)}:${formatDrawNumber(value, 4)}`
+}
+
+export function makeComparisonBracketSlot(chartId: string | undefined) {
+  return `comparison-bracket:${chartScopeToken(chartId)}`
+}
+
+export function makeComparisonSummarySlot(chartId: string | undefined) {
+  return `comparison-summary:${chartScopeToken(chartId)}`
+}
+
 function clamp01(value: number) {
   return Math.max(0, Math.min(1, value))
 }
@@ -193,17 +231,20 @@ export function makeAverageTextOp(
     inferAverageLabelYFromChart(context.container, chartId, value) ??
     inferAverageLabelYFromData(value, context.prevWorking) ??
     0.5
-  return ops.draw.text(
-    chartId,
-    undefined,
-    draw.textSpec.normalized(
-      `Average: ${formatDrawNumber(value)}`,
-      x,
-      clamp01(inferredY),
-      draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
-      0,
-      -5,
+  return withAnnotationSlot(
+    ops.draw.text(
+      chartId,
+      undefined,
+      draw.textSpec.normalized(
+        `Average: ${formatDrawNumber(value)}`,
+        x,
+        clamp01(inferredY),
+        draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+        0,
+        -5,
+      ),
     ),
+    makeAggregateTextSlot(chartId, 'average'),
   )
 }
 
@@ -256,17 +297,20 @@ export function buildPointValueLabelOps(args: {
     const point = inferNormalizedPointForTarget(args.chartId, target, args.context, datum.group != null ? String(datum.group) : undefined)
     if (!point) return
     plan.push(
-      ops.draw.text(
-        args.chartId,
-        undefined,
-        draw.textSpec.normalized(
-          formatDrawNumber(value, args.precision),
-          point.x,
-          point.y,
-          draw.style.text(color, AUTO_DRAW_TEXT_FONT_SIZE, 'bold', undefined, 1),
-          0,
-          -12,
+      withAnnotationSlot(
+        ops.draw.text(
+          args.chartId,
+          undefined,
+          draw.textSpec.normalized(
+            formatDrawNumber(value, args.precision),
+            point.x,
+            point.y,
+            draw.style.text(color, AUTO_DRAW_TEXT_FONT_SIZE, 'bold', undefined, 1),
+            0,
+            -12,
+          ),
         ),
+        makeValueLabelSlot(args.chartId, target, datum.group != null ? String(datum.group) : null),
       ),
     )
   })
@@ -280,15 +324,18 @@ export function buildBinaryComparisonBracketOp(
   normalizedX: number,
   color = DEFAULT_HIGHLIGHT_COLOR,
 ): DrawOp {
-  return ops.draw.line(
-    chartId,
-    draw.lineSpec.diffBracket(
-      startY,
-      endY,
-      draw.style.line(color, 2, 0.95),
-      draw.arrow.both(),
-      Math.max(0.02, Math.min(0.98, normalizedX)),
+  return withAnnotationSlot(
+    ops.draw.line(
+      chartId,
+      draw.lineSpec.diffBracket(
+        startY,
+        endY,
+        draw.style.line(color, 2, 0.95),
+        draw.arrow.both(),
+        Math.max(0.02, Math.min(0.98, normalizedX)),
+      ),
     ),
+    makeComparisonBracketSlot(chartId),
   )
 }
 
@@ -305,14 +352,17 @@ export function makeComparisonGuideLineOp(
   color = DEFAULT_HIGHLIGHT_COLOR,
   railX = COMPARISON_RAIL_X,
 ): DrawOp {
-  return ops.draw.line(
-    chartId,
-    draw.lineSpec.horizontalFromY(
-      value,
-      draw.style.line(color, 2, 0.85),
-      undefined,
-      { extent: 'plot', endNormalizedX: railX },
+  return withAnnotationSlot(
+    ops.draw.line(
+      chartId,
+      draw.lineSpec.horizontalFromY(
+        value,
+        draw.style.line(color, 2, 0.85),
+        undefined,
+        { extent: 'plot', endNormalizedX: railX },
+      ),
     ),
+    makeComparisonRailSlot(chartId, value),
   )
 }
 
@@ -368,17 +418,20 @@ export function buildBinaryComparisonRailPlan(args: {
   const deltaValue = Number(args.deltaValue)
   if (Number.isFinite(deltaValue) && Number.isFinite(yA) && Number.isFinite(yB)) {
     plan.push(
-      ops.draw.text(
-        args.chartId,
-        undefined,
-        draw.textSpec.normalized(
-          `${args.deltaTextLabel ?? 'Difference'}: ${formatDrawNumber(deltaValue, args.precision)}`,
-          Math.max(0.08, railX - 0.09),
-          clamp01((yA + yB) / 2),
-          draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
-          0,
-          -5,
+      withAnnotationSlot(
+        ops.draw.text(
+          args.chartId,
+          undefined,
+          draw.textSpec.normalized(
+            `${args.deltaTextLabel ?? 'Difference'}: ${formatDrawNumber(deltaValue, args.precision)}`,
+            Math.max(0.08, railX - 0.09),
+            clamp01((yA + yB) / 2),
+            draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+            0,
+            -5,
+          ),
         ),
+        makeComparisonSummarySlot(args.chartId),
       ),
     )
   }
@@ -398,19 +451,24 @@ export function makeTextOp(
   color?: string,
   precision?: number,
   selectField = 'target',
+  chartId?: string,
+  series?: string | null,
 ): DrawOp {
   const text = formatDrawNumber(value, precision)
   if (!text) return makeHighlightOp(target, color, selectField)
   const select = selectField
     ? draw.select.markFieldKeys(DrawMark.Rect, selectField, target)
     : draw.select.markKeys(DrawMark.Rect, target)
-  return ops.draw.text(
-    undefined,
-    select,
-    draw.textSpec.anchor(
-      text,
-      draw.style.text(color ?? DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+  return withAnnotationSlot(
+    ops.draw.text(
+      chartId,
+      select,
+      draw.textSpec.anchor(
+        text,
+        draw.style.text(color ?? DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+      ),
     ),
+    makeValueLabelSlot(chartId, target, series),
   )
 }
 
@@ -423,8 +481,9 @@ export function buildTextPlan(
   color?: string,
   precision?: number,
   selectField = 'target',
+  chartId?: string,
 ): DrawOp[] {
-  return result.map((entry) => makeTextOp(entry.target, entry.value, color, precision, selectField))
+  return result.map((entry) => makeTextOp(entry.target, entry.value, color, precision, selectField, chartId))
 }
 
 function isDrawOp(value: unknown): value is DrawOp {

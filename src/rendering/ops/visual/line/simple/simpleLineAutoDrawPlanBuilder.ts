@@ -12,7 +12,10 @@ import {
   buildSelectedPointGuideOps,
   formatDrawNumber,
   inferNormalizedYForValue,
+  makeAggregateLineSlot,
   makeAverageTextOp,
+  makeValueLabelSlot,
+  withAnnotationSlot,
 } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 
@@ -42,10 +45,13 @@ function pointValueTexts(result: DatumValue[], chartId: string | undefined, prec
     if (!target || !Number.isFinite(value) || seen.has(target)) return
     seen.add(target)
     plan.push(
-      ops.draw.text(
-        chartId,
-        draw.select.markKeys('circle', target),
-        draw.textSpec.anchor(formatDrawNumber(value, precision), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+      withAnnotationSlot(
+        ops.draw.text(
+          chartId,
+          draw.select.markKeys('circle', target),
+          draw.textSpec.anchor(formatDrawNumber(value, precision), draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold')),
+        ),
+        makeValueLabelSlot(chartId, target),
       ),
     )
   })
@@ -237,7 +243,10 @@ export const SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
   [OperationOp.Average]: (result, op, context) => {
     const avg = scalarFromResult(result)
     if (avg == null) return null
-    return [hLine(op.chartId, avg, AVERAGE_LINE_COLOR), makeAverageTextOp(op.chartId, avg, context)]
+    return [
+      withAnnotationSlot(hLine(op.chartId, avg, AVERAGE_LINE_COLOR), makeAggregateLineSlot(op.chartId, 'average')),
+      makeAverageTextOp(op.chartId, avg, context),
+    ]
   },
   [OperationOp.DetermineRange]: (result, op) => rangeBandPlan(result, op),
   [OperationOp.Diff]: (_result, op, context) => buildBinarySimpleLineComparisonPlan(op, context, '#ef4444'),

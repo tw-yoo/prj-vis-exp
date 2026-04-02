@@ -340,6 +340,32 @@ function aggregate(values: JsonValue[], agg: string | undefined) {
   }
 }
 
+export function refKeyFromScalarValue(value: JsonValue | undefined): string | null {
+  if (typeof value !== 'string' || !value.startsWith('ref:')) return null
+  const refKey = value.slice('ref:'.length).trim()
+  return refKey.length > 0 ? refKey : null
+}
+
+export function resolveScalarAggregateFromRows(
+  rows: DatumValue[] | null | undefined,
+  aggregateHint?: string,
+): number | null {
+  const numeric = (rows ?? []).map((item) => Number(item?.value)).filter(Number.isFinite)
+  if (!numeric.length) return null
+  const resolved = aggregate(numeric, aggregateHint)
+  return Number.isFinite(resolved) ? Number(resolved) : null
+}
+
+export function resolveFilterRefThresholdFromResults(
+  value: JsonValue | undefined,
+  resultsByNodeId: ReadonlyMap<string, DatumValue[]>,
+  aggregateHint?: string,
+): number | null {
+  const refKey = refKeyFromScalarValue(value)
+  if (!refKey) return null
+  return resolveScalarAggregateFromRows(resultsByNodeId.get(refKey), aggregateHint)
+}
+
 /** Normalize `targetA`/`targetB` form (string or {category, series}) */
 function normalizeTargetInput(target: TargetSelector | TargetSelector[] | undefined, opGroup: string | null | undefined) {
   if (target && typeof target === 'object' && !Array.isArray(target)) {
@@ -563,15 +589,9 @@ export function resolveFilterRefThreshold(
   value: JsonValue | undefined,
   aggregateHint?: string,
 ): number | null {
-  if (typeof value !== 'string' || !value.startsWith('ref:')) return null
-  const refKey = value.slice('ref:'.length).trim()
+  const refKey = refKeyFromScalarValue(value)
   if (!refKey) return null
-  const runtime = getRuntimeResultsById(refKey)
-  if (!runtime.length) return null
-  const values = runtime.map((item) => Number(item.value)).filter(Number.isFinite)
-  if (!values.length) return null
-  const resolved = aggregate(values, aggregateHint)
-  return Number.isFinite(resolved) ? Number(resolved) : null
+  return resolveScalarAggregateFromRows(getRuntimeResultsById(refKey), aggregateHint)
 }
 
 function targetKeyForPairDiff(item: DatumValue, byField: string) {
