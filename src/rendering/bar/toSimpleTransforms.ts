@@ -1,3 +1,4 @@
+import * as d3 from 'd3'
 import type { JsonObject, JsonValue } from '../../types'
 import { ChartType } from '../../domain/chart'
 import { renderSimpleBarChart, type SimpleBarSpec, setSimpleBarStoredData } from './simpleBarRenderer'
@@ -6,6 +7,7 @@ import { getStackedBarStoredData, type StackedSpec } from './stackedBarRenderer'
 import { storeDerivedChartState } from '../utils/derivedChartState'
 import { storeRuntimeChartState } from '../utils/runtimeChartState'
 import { DataAttributes } from '../interfaces'
+import { NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from '../draw/animationPolicy'
 
 type RawDatum = JsonObject
 type SimpleSurfaceDatum = {
@@ -354,6 +356,117 @@ export async function convertGroupedToSimple(
     baseSort,
     explicitColor,
   })
+
+  await animateGroupedToSimple(container, String(toSimple.series), simple)
+
   finalizeSimpleBarHandoff(container, simple, (simple.data?.values as RawDatum[] | undefined) ?? [])
   return simple
+}
+
+function parsePanelTranslate(panelEl: Element): { x: number; y: number } {
+  const transform = panelEl.getAttribute('transform') ?? ''
+  const m = transform.match(/translate\(\s*([\d.+-]+)\s*,\s*([\d.+-]+)\s*\)/)
+  return { x: m ? parseFloat(m[1]) : 0, y: m ? parseFloat(m[2]) : 0 }
+}
+
+async function animateGroupedToSimple(
+  container: HTMLElement,
+  targetSeries: string,
+  simpleSpec: SimpleBarSpec,
+): Promise<void> {
+  const svg = container.querySelector('svg')
+  if (!svg) return
+
+  const svgSel = d3.select<SVGSVGElement, unknown>(svg as SVGSVGElement)
+
+  // Read layout from SVG data attributes
+  const mLeft = parseFloat(svg.getAttribute('data-m-left') ?? '0')
+  const mTop = parseFloat(svg.getAttribute('data-m-top') ?? '0')
+  const plotW = parseFloat(svg.getAttribute('data-plot-w') ?? '0')
+  const plotH = parseFloat(svg.getAttribute('data-plot-h') ?? '0')
+
+  // Collect target-series bars grouped by panel (facet value)
+  const panels = Array.from(svg.querySelectorAll<SVGGElement>('g[data-chart-panel="true"]'))
+  type BarInfo = { el: SVGRectElement; absX: number; absY: number; width: number; height: number; facetId: string }
+  const targetBars: BarInfo[] = []
+
+  panels.forEach((panel) => {
+    const { x: px, y: py } = parsePanelTranslate(panel)
+    const facetId = panel.getAttribute('data-chart-id') ?? ''
+    Array.from(panel.querySelectorAll<SVGRectElement>('rect.main-bar')).forEach((bar) => {
+      const series = bar.getAttribute('data-series') ?? bar.getAttribute('data-group-value') ?? ''
+      if (series !== targetSeries) return
+      const bx = parseFloat(bar.getAttribute('x') ?? '0')
+      const by = parseFloat(bar.getAttribute('y') ?? '0')
+      const bw = parseFloat(bar.getAttribute('width') ?? '0')
+      const bh = parseFloat(bar.getAttribute('height') ?? '0')
+      targetBars.push({ el: bar, absX: px + bx, absY: py + by, width: bw, height: bh, facetId })
+    })
+  })
+
+  if (!targetBars.length) return
+
+  // Build target simple-bar x scale using the order from simpleSpec
+  const facetOrder = (simpleSpec.data?.values as RawDatum[] | undefined ?? [])
+    .map((row) => String(row[simpleSpec.encoding.x.field] ?? ''))
+    .filter(Boolean)
+  const xScale = d3.scaleBand<string>()
+    .domain(facetOrder.length ? facetOrder : targetBars.map((b) => b.facetId))
+    .range([mLeft, mLeft + plotW])
+    .paddingInner(0.22)
+    .paddingOuter(0.08)
+
+  // --- Phase 1: fade out non-target bars and panel decorations ---
+  const exitDuration = NON_SPLIT_EXIT_MS
+
+  svgSel.selectAll<SVGRectElement, unknown>('rect.main-bar')
+    .filter(function () {
+      const series = this.getAttribute('data-series') ?? this.getAttribute('data-group-value') ?? ''
+      return series !== targetSeries
+    })
+    .transition()
+    .duration(exitDuration)
+    .attr('opacity', 0.08)
+
+  svgSel.selectAll<SVGGElement, unknown>('g[data-chart-panel="true"] .panel-title, g[data-chart-panel="true"] .x-axis')
+    .transition()
+    .duration(exitDuration)
+    .attr('opacity', 0)
+
+  // Hide original target bars now that we will use clones
+  targetBars.forEach(({ el }) => {
+    d3.select(el).attr('opacity', 0)
+  })
+
+  // --- Create overlay clones at current absolute positions ---
+  const overlay = svgSel.append('g').attr('class', 'grouped-to-simple-overlay')
+
+  const clones = overlay.selectAll<SVGRectElement, BarInfo>('rect')
+    .data(targetBars)
+    .enter()
+    .append('rect')
+    .attr('fill', function (d) { return d3.select(d.el).attr('fill') })
+    .attr('opacity', 1)
+    .attr('x', (d) => d.absX)
+    .attr('y', (d) => d.absY)
+    .attr('width', (d) => d.width)
+    .attr('height', (d) => d.height)
+
+  // --- Phase 2: animate clones to simple bar positions ---
+  const moveDuration = NON_SPLIT_UPDATE_MS
+  const startDelay = exitDuration * 0.6
+
+  const moveTransition = clones
+    .transition()
+    .delay(startDelay)
+    .duration(moveDuration)
+    .ease(d3.easeCubicInOut)
+    .attr('x', (d) => xScale(d.facetId) ?? d.absX)
+    .attr('y', (d) => mTop + (d.absY - mTop))   // y stays same (same scale)
+    .attr('width', xScale.bandwidth())
+
+  await moveTransition.end().catch(() => {/* ignore if interrupted */})
+
+  // Remove overlay before final re-render
+  overlay.remove()
 }

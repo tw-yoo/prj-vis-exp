@@ -21,13 +21,18 @@ import { shouldAggregateWhenSingleGroup, shouldUseSeriesScopedInput } from './ba
 import type { RunChartOpsOptions } from './runChartOps.ts'
 import { createChartScopedWorkingSet } from './chartScopedWorkingSet.ts'
 import { normalizeGroupSelection } from '../../domain/operation/groupSelection.ts'
+import { resolveEncodingFields } from '../../rendering/ops/common/resolveEncodingFields.ts'
 
 function toGroupedDatumValues(raw: JsonValue[], spec: GroupedSpec): DatumValue[] {
   const normalized = raw.filter((item): item is RawRow => typeof item === 'object' && item !== null)
+  const resolved = resolveEncodingFields(spec)
+  if (!resolved) return []
   return toDatumValuesFromRaw(normalized, {
-    xField: spec.encoding.x.field,
-    yField: spec.encoding.y.field,
-    groupField: spec.encoding.color?.field,
+    xField: resolved.xField,
+    yField: resolved.yField,
+    groupField: resolved.groupField,
+  }, {
+    panelField: resolved.panelField,
   })
 }
 

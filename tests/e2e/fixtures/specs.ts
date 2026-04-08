@@ -105,6 +105,44 @@ export const GROUPED_BAR_SPEC = JSON.stringify(GROUPED_BAR_SPEC_OBJECT, null, 2)
 export const SIMPLE_LINE_SPEC = JSON.stringify(SIMPLE_LINE_SPEC_OBJECT, null, 2)
 export const MULTI_LINE_SPEC = JSON.stringify(MULTI_LINE_SPEC_OBJECT, null, 2)
 
+const FACET_GROUPED_BAR_PAIRDIFF_SPEC_OBJECT = {
+  $schema: 'https://vega.github.io/schema/vega-lite/v3.json',
+  description: 'E2E facet grouped bar pairDiff fixture',
+  data: {
+    values: [
+      { Company: 'Google', Year: '2019', 'Total GHG Emissions (Million tCO2e)': 12.2 },
+      { Company: 'Microsoft', Year: '2019', 'Total GHG Emissions (Million tCO2e)': 11.2 },
+      { Company: 'Meta', Year: '2019', 'Total GHG Emissions (Million tCO2e)': 7.2 },
+      { Company: 'Amazon', Year: '2019', 'Total GHG Emissions (Million tCO2e)': 51.2 },
+      { Company: 'Google', Year: '2023', 'Total GHG Emissions (Million tCO2e)': 17.2 },
+      { Company: 'Microsoft', Year: '2023', 'Total GHG Emissions (Million tCO2e)': 15.4 },
+      { Company: 'Meta', Year: '2023', 'Total GHG Emissions (Million tCO2e)': 12.8 },
+      { Company: 'Amazon', Year: '2023', 'Total GHG Emissions (Million tCO2e)': 68.0 },
+    ],
+  },
+  mark: 'bar',
+  encoding: {
+    column: { field: 'Company', type: 'nominal', header: {} },
+    y: {
+      field: 'Total GHG Emissions (Million tCO2e)',
+      type: 'quantitative',
+      axis: { grid: false },
+    },
+    x: {
+      field: 'Year',
+      type: 'nominal',
+      axis: { title: '' },
+    },
+    color: { field: 'Year', type: 'nominal' },
+  },
+  config: {
+    view: { stroke: 'transparent' },
+    axis: { domainWidth: 1 },
+  },
+}
+
+export const FACET_GROUPED_BAR_PAIRDIFF_SPEC = JSON.stringify(FACET_GROUPED_BAR_PAIRDIFF_SPEC_OBJECT, null, 2)
+
 const MULTILINE_LAYER_NO_TOP_ENCODING_SPEC_OBJECT = {
   $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
   description: 'E2E multi line layered fixture (x/y only in layer encoding)',

@@ -7,10 +7,11 @@ import {
   AUTO_DRAW_TEXT_FONT_SIZE,
   AVERAGE_LINE_COLOR,
   buildHighlightPlan,
-  buildBinaryComparisonRailPlan,
+  buildBinaryGeometryComparisonPlan,
   buildPointValueLabelOps,
   buildSelectedPointGuideOps,
   formatDrawNumber,
+  inferNormalizedPointForTarget,
   inferNormalizedYForValue,
   makeAggregateLineSlot,
   makeAverageTextOp,
@@ -87,14 +88,16 @@ function buildBinarySimpleLineComparisonPlan(
   const { rows } = resolved
   const valueA = Number(rows[0]?.value)
   const valueB = Number(rows[1]?.value)
-  return buildBinaryComparisonRailPlan({
+  const pointA = inferNormalizedPointForTarget(op.chartId, String(rows[0]?.target ?? ''), context)
+  const pointB = inferNormalizedPointForTarget(op.chartId, String(rows[1]?.target ?? ''), context)
+  return buildBinaryGeometryComparisonPlan({
     chartId: op.chartId,
     color,
     precision: typeof op.precision === 'number' ? op.precision : 2,
     valueA: Number.isFinite(valueA) ? valueA : null,
     valueB: Number.isFinite(valueB) ? valueB : null,
-    normalizedYA: Number.isFinite(valueA) ? inferNormalizedYForValue(op.chartId, valueA, context) : null,
-    normalizedYB: Number.isFinite(valueB) ? inferNormalizedYForValue(op.chartId, valueB, context) : null,
+    normalizedYA: pointA?.y ?? (Number.isFinite(valueA) ? inferNormalizedYForValue(op.chartId, valueA, context) : null),
+    normalizedYB: pointB?.y ?? (Number.isFinite(valueB) ? inferNormalizedYForValue(op.chartId, valueB, context) : null),
     highlightOps: highlightSeriesPoints(rows, op.chartId, color),
     valueLabelOps: buildPointValueLabelOps({
       chartId: op.chartId,

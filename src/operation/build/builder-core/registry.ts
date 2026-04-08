@@ -356,7 +356,8 @@ export const operationRegistry: OperationRegistry = {
       label: 'Pair Diff',
       icon: '🧷',
       fields: [
-        { key: 'by', label: 'By', kind: 'string', optional: false, optionsSource: 'field' },
+        { key: 'by', label: 'By', kind: 'string', optional: true, optionsSource: 'field' },
+        { key: 'keyField', label: 'Key Field', kind: 'string', optional: true, optionsSource: 'field' },
         { key: 'groupA', label: 'Group A', kind: 'string', optional: false, optionsSource: 'series' },
         { key: 'groupB', label: 'Group B', kind: 'string', optional: false, optionsSource: 'series' },
         { key: 'seriesField', label: 'Series Field', kind: 'string', optional: true, optionsSource: 'field' },

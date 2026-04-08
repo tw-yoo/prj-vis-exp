@@ -1,3 +1,4 @@
+import * as d3 from 'd3'
 import type { GroupedSpec } from './groupedBarRenderer'
 import {
   getStackedBarStoredData,
@@ -11,6 +12,7 @@ import { loadRowsFromVegaLiteData } from '../vegaLite/dataLoader'
 import { applyVegaLiteTransforms } from '../vegaLite/transform'
 import { storeDerivedChartState } from '../utils/derivedChartState'
 import { ChartType } from '../../domain/chart'
+import { NON_SPLIT_UPDATE_MS } from '../draw/animationPolicy'
 
 type RawDatum = JsonObject
 
@@ -137,8 +139,111 @@ export async function convertStackedToGrouped(
     },
   }
 
+  await animateStackedToGrouped(container, options?.visibleSeries)
+
   await renderGroupedBarChart(container, groupedSpec)
   storeDerivedChartState(container, ChartType.GROUPED_BAR, groupedSpec)
+}
+
+async function animateStackedToGrouped(
+  container: HTMLElement,
+  visibleSeries?: string[],
+): Promise<void> {
+  const svg = container.querySelector('svg')
+  if (!svg) return
+
+  const plotH = parseFloat(svg.getAttribute('data-plot-h') ?? '0')
+  if (!plotH) return
+
+  type BarEntry = {
+    el: SVGRectElement
+    target: string
+    series: string
+    value: number
+    x: number
+    bandwidth: number
+  }
+
+  const bars: BarEntry[] = Array.from(
+    container.querySelectorAll<SVGRectElement>('rect.main-bar'),
+  )
+    .map((el) => ({
+      el,
+      target: el.getAttribute('data-target') ?? '',
+      series: el.getAttribute('data-series') ?? el.getAttribute('data-group-value') ?? '',
+      value: parseFloat(el.getAttribute('data-value') ?? '0'),
+      x: parseFloat(el.getAttribute('x') ?? '0'),
+      bandwidth: parseFloat(el.getAttribute('width') ?? '0'),
+    }))
+    .filter((b) => b.target && b.series)
+
+  if (!bars.length) return
+
+  const uniqueSeries = [...new Set(bars.map((b) => b.series))]
+  const visibleSet = visibleSeries ? new Set(visibleSeries) : new Set(uniqueSeries)
+  const activeSeries = uniqueSeries.filter((s) => visibleSet.has(s))
+  const bandwidth = bars[0]?.bandwidth ?? 0
+
+  // target별 현재 x 위치 (stacked에서 같은 target의 bars는 x가 동일)
+  const targetToX = new Map<string, number>()
+  bars.forEach((b) => { if (!targetToX.has(b.target)) targetToX.set(b.target, b.x) })
+
+  // grouped 내부 sub-scale
+  const groupedX = d3.scaleBand<string>()
+    .domain(activeSeries)
+    .range([0, bandwidth])
+    .padding(0.18)
+
+  // grouped용 y scale (단일 값 기준 max)
+  const maxValue = d3.max(bars.filter((b) => visibleSet.has(b.series)), (b) => b.value) ?? 0
+  const yGrouped = d3.scaleLinear()
+    .domain([0, maxValue])
+    .nice()
+    .range([plotH, 0])
+
+  const duration = NON_SPLIT_UPDATE_MS
+  const ease = d3.easeCubicInOut
+
+  // 비가시 바: fade out + collapse
+  const hideBars = bars.filter((b) => !visibleSet.has(b.series))
+  if (hideBars.length) {
+    d3.selectAll<SVGRectElement, unknown>(hideBars.map((b) => b.el))
+      .transition()
+      .duration(duration)
+      .ease(ease)
+      .attr('opacity', 0)
+      .attr('height', 0)
+  }
+
+  // 가시 바: stacked → grouped 위치로 이동
+  const showBars = bars.filter((b) => visibleSet.has(b.series))
+  showBars.forEach((b) => {
+    const baseX = targetToX.get(b.target) ?? b.x
+    const offsetX = groupedX(b.series) ?? 0
+    d3.select(b.el)
+      .transition()
+      .duration(duration)
+      .ease(ease)
+      .attr('x', baseX + offsetX)
+      .attr('width', groupedX.bandwidth())
+      .attr('y', yGrouped(b.value))
+      .attr('height', plotH - yGrouped(b.value))
+  })
+
+  // Y축 전환
+  const yAxisEl = container.querySelector<SVGGElement>('svg g.y-axis')
+  if (yAxisEl) {
+    const yAxisGrouped = d3.axisLeft(yGrouped).ticks(5)
+    d3.select<SVGGElement, unknown>(yAxisEl)
+      .transition()
+      .duration(duration)
+      .ease(ease)
+      .call(yAxisGrouped as any)
+  }
+
+  // transition 완료 대기
+  const allBarsSel = d3.selectAll<SVGRectElement, unknown>(bars.map((b) => b.el))
+  await allBarsSel.transition().duration(duration).end().catch(() => {})
 }
 
 export async function convertStackedToDiverging(container: HTMLElement, spec: StackedSpec) {

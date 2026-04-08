@@ -6,7 +6,7 @@ import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../
 import {
   AUTO_DRAW_TEXT_FONT_SIZE,
   AVERAGE_LINE_COLOR,
-  buildBinaryComparisonRailPlan,
+  buildBinaryGeometryComparisonPlan,
   formatDrawNumber,
   inferNormalizedYForValue,
   makeAggregateLineSlot,
@@ -16,6 +16,7 @@ import {
 } from '../../helpers'
 import { withStagedAutoDrawPlanRegistry } from '../../helpers'
 import { buildMultiLinePointId } from '../../../../../rendering/line/multipleLineRenderer'
+import { DataAttributes } from '../../../../../rendering/interfaces'
 
 function scalarFromResult(result: DatumValue[]) {
   const value = result?.length ? Number(result[0]?.value) : NaN
@@ -147,7 +148,7 @@ function buildBinaryMultiLineComparisonPlan(
   const valueB = Number(rows[1]?.value)
   const pointA = metrics.get(buildMultiLinePointId(targetA, groupA ?? ''))
   const pointB = metrics.get(buildMultiLinePointId(targetB, groupB ?? ''))
-  return buildBinaryComparisonRailPlan({
+  return buildBinaryGeometryComparisonPlan({
     chartId: op.chartId,
     color,
     precision: typeof op.precision === 'number' ? op.precision : 2,
@@ -240,25 +241,42 @@ function rangeBandPlan(result: DatumValue[], op: OperationSpec) {
   return [ops.draw.band(op.chartId, 'y', [Math.min(minValue, maxValue), Math.max(minValue, maxValue)], 'range')]
 }
 
-function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
+function resolveFilterFieldRole(op: OperationSpec, context: AutoDrawPlanContext) {
+  const svg = context.container.querySelector('svg')
+  const xField = (svg?.getAttribute(DataAttributes.XField) ?? '').trim()
+  const yField = (svg?.getAttribute(DataAttributes.YField) ?? '').trim()
+  const field = String(op.field ?? '').trim()
+  if (field.length === 0) return 'unknown' as const
+  if (xField && field === xField) return 'x' as const
+  if (yField && field === yField) return 'y' as const
+  return 'unknown' as const
+}
+
+function buildFilterPlan(result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) {
   if (Array.isArray(op.include) && op.include.length > 0) {
     const includeTargets = op.include.map((item) => String(item))
-    return [...pointHighlights(result, op.chartId, '#ef4444'), ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...includeTargets))]
+    return [ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...includeTargets))]
   }
   if (Array.isArray(op.exclude) && op.exclude.length > 0) {
     const excludeTargets = op.exclude.map((item) => String(item))
-    return [...pointHighlights(result, op.chartId, '#ef4444'), ops.draw.filter(op.chartId, draw.filterSpec.xExclude(...excludeTargets))]
+    return [ops.draw.filter(op.chartId, draw.filterSpec.xExclude(...excludeTargets))]
   }
   const targets = Array.from(new Set(result.map((row) => String(row.target))))
+  const filterFieldRole = resolveFilterFieldRole(op, context)
   const plan: any[] = []
-  if (String(op.operator ?? '').toLowerCase() === 'between' && Array.isArray(op.value) && op.value.length >= 2) {
+  if (
+    filterFieldRole === 'y' &&
+    String(op.operator ?? '').toLowerCase() === 'between' &&
+    Array.isArray(op.value) &&
+    op.value.length >= 2
+  ) {
     const [start, end] = op.value
     const low = Number(start)
     const high = Number(end)
     if (Number.isFinite(low) && Number.isFinite(high)) {
       plan.push(ops.draw.band(op.chartId, 'y', [Math.min(low, high), Math.max(low, high)], 'between'))
     }
-  } else {
+  } else if (filterFieldRole === 'y') {
     const threshold = Number(op.value)
     const condition = parseThresholdCondition(op.operator)
     if (Number.isFinite(threshold) && condition) {
@@ -267,7 +285,6 @@ function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
   }
   if (targets.length > 0) {
     plan.push(ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...targets)))
-    plan.push(...pointHighlights(result, op.chartId, '#ef4444'))
   }
   return plan.length ? plan : null
 }
@@ -284,7 +301,7 @@ export const MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
     ...pointHighlights(result, op.chartId, '#ef4444'),
     ...pointValueTexts(result, op.chartId, op.precision),
   ],
-  [OperationOp.Filter]: (result, op) => buildFilterPlan(result, op),
+  [OperationOp.Filter]: (result, op, context) => buildFilterPlan(result, op, context),
   [OperationOp.Average]: (result, op, context) => {
     const avg = scalarFromResult(result)
     if (avg == null) return null

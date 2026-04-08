@@ -10,6 +10,7 @@ import { materializeExecutionGroups } from './nlp-ops'
 import type { SurfaceManager } from './surface-manager'
 import { SurfaceTransitionController, type MultiSurfaceLayoutTarget } from './surface-transition-controller'
 import {
+  buildPlaybackSpecFromBaseSpec,
   buildLogicalExecutionArtifacts,
   buildPreparedSurface,
   resolveSourceBackedSelectors,
@@ -45,6 +46,7 @@ export type VisualSentencePlaybackResult = {
 export type VisualSubstepExecutionContext = {
   container: HTMLElement
   spec: ChartSpec
+  currentRootSpec: ChartSpec
   dataRows?: Array<Record<string, unknown>>
   surfaceManager?: SurfaceManager
   logicalOpsSpec?: OpsSpecGroupMap
@@ -177,21 +179,61 @@ function detectSurfaceFromOps(ops: OperationSpec[]): VisualSurfaceState {
 }
 
 function buildPrefilterPreview(args: {
-  spec: ChartSpec
+  baseSpec: ChartSpec
   dataRows?: Array<Record<string, unknown>>
   substep: VisualExecutionSubstep
+  logicalArtifacts: LogicalExecutionArtifacts | null
 }): SourcePreview | null {
   const groups = (args.substep.scope?.groups ?? []).filter(
     (value): value is string => typeof value === 'string' && value.trim().length > 0,
   )
+  const includeSet = new Set(groups.map((value) => value.trim()))
+  const nodeId = typeof args.substep.nodeId === 'string' ? args.substep.nodeId.trim() : ''
+  if (nodeId) {
+    const inputRows = args.logicalArtifacts?.nodeInputs.get(nodeId) ?? []
+    const scopedRows = inputRows.filter((row) => {
+      if (!includeSet.size) return true
+      return includeSet.has(String(row.group ?? row.series ?? ''))
+    })
+    if (scopedRows.length) {
+      const chartType = getChartType(args.baseSpec)
+      const isLineFamily =
+        args.logicalArtifacts?.chartFamily === 'line' ||
+        chartType === ChartType.MULTI_LINE ||
+        chartType === ChartType.SIMPLE_LINE
+      const isBarFamily =
+        args.logicalArtifacts?.chartFamily === 'bar' ||
+        chartType === ChartType.SIMPLE_BAR ||
+        chartType === ChartType.GROUPED_BAR ||
+        chartType === ChartType.STACKED_BAR
+      if (isLineFamily) {
+        return {
+          playbackSpec: buildPlaybackSpecFromBaseSpec({
+            family: 'line',
+            rows: scopedRows,
+            baseSpec: args.baseSpec,
+          }),
+        }
+      }
+      if (isBarFamily) {
+        return {
+          playbackSpec: buildPlaybackSpecFromBaseSpec({
+            family: 'bar',
+            rows: scopedRows,
+            baseSpec: args.baseSpec,
+          }),
+        }
+      }
+    }
+  }
+
   if (!groups.length) return null
 
-  const resolved = resolveEncodingFields(args.spec)
+  const resolved = resolveEncodingFields(args.baseSpec)
   if (!resolved?.groupField || !args.dataRows) return null
 
-  const includeSet = new Set(groups.map((value) => value.trim()))
   const filteredValues = args.dataRows.filter((row) => includeSet.has(String(row[resolved.groupField!] ?? '')))
-  const playbackSpec = cloneSpec(args.spec)
+  const playbackSpec = cloneSpec(args.baseSpec)
   playbackSpec.data = { values: filteredValues } as ChartSpec['data']
   return { playbackSpec }
 }
@@ -247,6 +289,8 @@ function buildDatumValuesForSpec(spec: ChartSpec, rows: RawRow[]): DatumValue[] 
     xField: resolved.xField,
     yField: resolved.yField,
     groupField: resolved.groupField ?? undefined,
+  }, {
+    panelField: resolved.panelField,
   })
 }
 
@@ -343,6 +387,7 @@ async function materializePreparedSurface(args: {
 }) {
   const prepared = buildPreparedSurface({
     spec: args.context.spec,
+    baseSpec: args.context.currentRootSpec,
     artifacts: args.context.logicalArtifacts,
     surfaceType: args.substep.surface?.surfaceType,
     nodeId: args.substep.nodeId,
@@ -543,9 +588,10 @@ export async function executePrefilterSubstep(args: {
   fallbackReason?: VisualSentenceFallbackReason
 }> {
   const preview = buildPrefilterPreview({
-    spec: args.context.spec,
+    baseSpec: args.context.currentRootSpec,
     dataRows: args.context.dataRows,
     substep: args.substep,
+    logicalArtifacts: args.context.logicalArtifacts,
   })
   if (!preview) {
     return {
@@ -747,6 +793,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
   const context: VisualSubstepExecutionContext = {
     container: args.container,
     spec: args.spec,
+    currentRootSpec: cloneSpec(args.spec),
     dataRows: args.dataRows,
     logicalOpsSpec: args.logicalOpsSpec,
     drawPlan: args.drawPlan,
@@ -780,12 +827,14 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
   }
   const renderSourceChartWithSummary = async () => {
     await args.renderSourceChart()
+    context.currentRootSpec = cloneSpec(args.spec)
     if (currentSummaryText && args.renderSentenceSummary) {
       await args.renderSentenceSummary(currentSummaryText)
     }
   }
   const renderPlaybackChartWithSummary = async (spec: ChartSpec) => {
     await args.renderPlaybackChart(spec)
+    context.currentRootSpec = cloneSpec(spec)
     if (currentSummaryText && args.renderSentenceSummary) {
       await args.renderSentenceSummary(currentSummaryText)
     }

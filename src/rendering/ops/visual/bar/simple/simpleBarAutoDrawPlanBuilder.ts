@@ -7,7 +7,7 @@ import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../
 import {
   AUTO_DRAW_TEXT_FONT_SIZE,
   AVERAGE_LINE_COLOR,
-  buildBinaryComparisonRailPlan,
+  buildBinaryGeometryComparisonPlan,
   formatDrawNumber,
   inferNormalizedYForValue,
   makeAggregateLineSlot,
@@ -332,7 +332,7 @@ function buildBinaryBarComparisonPlan(
       ? valueA - valueB
       : Math.abs(valueA - valueB)
 
-  return buildBinaryComparisonRailPlan({
+  return buildBinaryGeometryComparisonPlan({
     chartId: op.chartId,
     color: fallbackColor,
     precision: typeof op.precision === 'number' ? op.precision : 2,
@@ -340,7 +340,10 @@ function buildBinaryBarComparisonPlan(
     valueB,
     normalizedYA: yA,
     normalizedYB: yB,
-    highlightOps: highlightTargets(op, emphasizedTargets(op, [pair.a.target, pair.b.target]), fallbackColor),
+    highlightOps:
+      op.op === OperationOp.Diff
+        ? undefined
+        : highlightTargets(op, emphasizedTargets(op, [pair.a.target, pair.b.target]), fallbackColor),
     valueLabelOps: buildPairBarValueTexts(op, pair.a.target, valueA, pair.b.target, valueB),
     deltaValue,
   })

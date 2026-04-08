@@ -153,6 +153,41 @@ test('레이아웃: simple bar의 x축 tick은 bar 중심과 정렬되고 짧은
   })
 })
 
+test('레이아웃: grouped bar는 짧은 x축 label일 때 axis title을 축 가까이에 둔다', async ({ page }) => {
+  const spec = {
+    $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+    data: {
+      values: [
+        { year: '2019', company: 'Google', value: 12.2 },
+        { year: '2019', company: 'Microsoft', value: 11.2 },
+        { year: '2020', company: 'Google', value: 13.0 },
+        { year: '2020', company: 'Microsoft', value: 11.5 },
+        { year: '2021', company: 'Google', value: 14.3 },
+        { year: '2021', company: 'Microsoft', value: 13.8 },
+        { year: '2022', company: 'Google', value: 14.3 },
+        { year: '2022', company: 'Microsoft', value: 13.0 },
+        { year: '2023', company: 'Google', value: 17.2 },
+        { year: '2023', company: 'Microsoft', value: 15.4 },
+      ],
+    },
+    mark: 'bar',
+    encoding: {
+      x: { field: 'year', type: 'nominal', title: 'Year' },
+      xOffset: { field: 'company', type: 'nominal' },
+      y: { field: 'value', type: 'quantitative' },
+      color: { field: 'company', type: 'nominal' },
+    },
+  }
+
+  await renderSpec(page, spec, 'year')
+  const metrics = await readAxisGapMetrics(page, 'year')
+
+  expect(metrics).not.toBeNull()
+  expect(metrics!.xInside).toBe(true)
+  expect(metrics!.xGap).toBeGreaterThanOrEqual(8)
+  expect(metrics!.xGap).toBeLessThanOrEqual(24)
+})
+
 test('레이아웃: simple bar는 긴 category label이 있어도 모든 x tick을 유지한다', async ({ page }) => {
   const spec = {
     $schema: 'https://vega.github.io/schema/vega-lite/v5.json',

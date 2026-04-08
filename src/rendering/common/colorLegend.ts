@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import type { ChartSpec } from '../../domain/chart'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
-import { SvgAttributes, SvgElements } from '../interfaces'
+import { SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import type { LayoutModel } from './chartLayout'
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -46,6 +46,7 @@ export function renderColorLegend(options: RenderColorLegendOptions) {
 
   const legend = svg
     .append(SvgElements.Group)
+    .attr(SvgAttributes.Class, SvgClassNames.ColorLegend)
     .attr(SvgAttributes.Transform, `translate(${margin.left + plotWidth + layout.legend.offsetX},${margin.top})`)
 
   if (title) {

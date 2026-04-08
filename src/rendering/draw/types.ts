@@ -321,6 +321,8 @@ export type DrawStackGroupSpec = {
   swapAxes?: boolean
   xField?: string
   colorField?: string
+  /** Series labels to animate into grouped positions. Others fade out. Defaults to all series. */
+  visibleSeries?: string[]
 }
 
 export type DrawToSimpleSpec = {

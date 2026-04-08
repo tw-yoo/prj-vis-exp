@@ -4,14 +4,15 @@ import type { AutoDrawPlanContext } from '../../../common/executeDataOp'
 import { draw, ops } from '../../../../../operation/build/authoring'
 import { getRuntimeResultsById, resolveBinaryInputsFromMeta } from '../../../../../domain/operation/dataOps'
 import { normalizeGroupSelection } from '../../../../../domain/operation/groupSelection'
+import { DataAttributes } from '../../../../interfaces'
 import {
   AUTO_DRAW_TEXT_FONT_SIZE,
   AVERAGE_LINE_COLOR,
   makeAggregateLineSlot,
   makeAggregateTextSlot,
-  buildBinaryComparisonRailPlan,
   buildHighlightPlan,
   buildTextPlan,
+  buildBinaryGeometryComparisonPlan,
   formatDrawNumber,
   withAnnotationSlot,
 } from '../../helpers'
@@ -82,11 +83,6 @@ function selectorPoints(
     .filter((item): item is TargetPoint => item !== null)
 }
 
-function firstTarget(selector: TargetSelector | TargetSelector[] | undefined): string | null {
-  const points = selectorPoints(selector)
-  return points.length ? points[0].target : null
-}
-
 function firstPair(op: OperationSpec): { a: TargetPoint; b: TargetPoint } | null {
   const fallback = resolveBinaryInputsFromMeta(op.meta?.inputs)
   const left = selectorPoints(op.targetA ?? fallback.targetA, op.groupA ?? op.group)
@@ -154,45 +150,86 @@ function collectGroupedBarMetrics(context: AutoDrawPlanContext, chartId?: string
     if (!ownerSvg) return
     const svgRect = ownerSvg.getBoundingClientRect()
     if (!(svgRect.width > 0 && svgRect.height > 0)) return
+    let viewportRect = svgRect
+    if (chartId) {
+      const quotedChartId = chartId.replace(/"/g, '\\"')
+      const explicitPanel = ownerSvg.querySelector<SVGGElement>(
+        `g[data-chart-id="${quotedChartId}"][data-chart-panel="true"]`,
+      )
+      const fallbackPanel = node.closest<SVGGElement>(`[data-chart-id="${quotedChartId}"]`)
+      const panelNode = explicitPanel ?? fallbackPanel
+      if (panelNode) {
+        const panelRect = panelNode.getBoundingClientRect()
+        if (panelRect.width > 0 && panelRect.height > 0) {
+          viewportRect = panelRect
+        }
+      }
+    }
     const rect = node.getBoundingClientRect()
-    const x = (rect.left + rect.width / 2 - svgRect.left) / svgRect.width
-    const y = 1 - (rect.top - svgRect.top) / svgRect.height
+    const x = (rect.left + rect.width / 2 - viewportRect.left) / viewportRect.width
+    const y = 1 - (rect.top - viewportRect.top) / viewportRect.height
     if (!Number.isFinite(x) || !Number.isFinite(y)) return
-    out.set(metricKey({ target, series }), { id, target, series, value, x, y })
+    out.set(metricKey({ target, series }), {
+      id,
+      target,
+      series,
+      value,
+      x: Math.max(0, Math.min(1, x)),
+      y: Math.max(0, Math.min(1, y)),
+    })
   })
   return out
 }
 
-function buildGroupedBarValueTexts(op: OperationSpec, metrics: GroupedBarMetric[]) {
+function buildGroupedBarValueTexts(op: OperationSpec, metrics: GroupedBarMetric[], chartId = op.chartId) {
   return buildTextPlan(
     metrics.map((metric) => ({ target: metric.id, value: metric.value })),
     '#111827',
     typeof op.precision === 'number' ? op.precision : 2,
-    'id',
-    op.chartId,
+    DataAttributes.Id,
+    chartId,
   )
 }
 
-function buildGroupedBarDeltaText(op: OperationSpec, x: number, y: number, value: number) {
-  return ops.draw.text(
-    op.chartId,
-    undefined,
-    draw.textSpec.normalized(
-      formatDrawNumber(value, op.precision),
-      x,
-      y,
-      draw.style.text('#111827', AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
-      0,
-      -5,
-    ),
-  )
+function resolvePanelPairMetric(metrics: GroupedBarMetric[], group: string) {
+  const exact = metrics.find((metric) => metric.target === group && metric.series === group)
+  if (exact) return exact
+  const bySeries = metrics.filter((metric) => metric.series === group)
+  if (bySeries.length === 1) return bySeries[0]
+  const byTarget = metrics.filter((metric) => metric.target === group)
+  if (byTarget.length === 1) return byTarget[0]
+  return null
 }
 
-function comparisonTextPosition(a: GroupedBarMetric, b: GroupedBarMetric) {
-  return {
-    x: Math.max(0.05, Math.min(0.95, (a.x + b.x) / 2)),
-    y: Math.max(0.05, Math.min(0.95, Math.max(a.y, b.y) + 0.06)),
-  }
+function buildFacetPanelPairDiffPlan(result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) {
+  if (!result.length || !op.groupA || !op.groupB) return null
+  const plan: any[] = []
+
+  result.forEach((entry) => {
+    const panelChartId = String(entry.target ?? '').trim()
+    if (!panelChartId) return
+
+    const panelMetrics = Array.from(collectGroupedBarMetrics(context, panelChartId).values())
+    const metricA = resolvePanelPairMetric(panelMetrics, String(op.groupA))
+    const metricB = resolvePanelPairMetric(panelMetrics, String(op.groupB))
+    if (!metricA || !metricB) return
+
+    plan.push(
+      ...buildGroupedBarValueTexts(op, [metricA, metricB], panelChartId),
+      ...buildBinaryGeometryComparisonPlan({
+        chartId: panelChartId,
+        color: '#ef4444',
+        precision: typeof op.precision === 'number' ? op.precision : 2,
+        valueA: metricA.value,
+        valueB: metricB.value,
+        normalizedYA: metricA.y,
+        normalizedYB: metricB.y,
+        deltaValue: Number(entry.value),
+      }),
+    )
+  })
+
+  return plan.length ? plan : null
 }
 
 function buildBinaryGroupedBarComparisonPlan(op: OperationSpec, context: AutoDrawPlanContext, color = '#ef4444') {
@@ -209,7 +246,7 @@ function buildBinaryGroupedBarComparisonPlan(op: OperationSpec, context: AutoDra
     : op.op === OperationOp.Diff && op.signed
       ? valueA - valueB
       : Math.abs(valueA - valueB)
-  return buildBinaryComparisonRailPlan({
+  return buildBinaryGeometryComparisonPlan({
     chartId: op.chartId,
     color,
     precision: typeof op.precision === 'number' ? op.precision : 2,
@@ -217,9 +254,12 @@ function buildBinaryGroupedBarComparisonPlan(op: OperationSpec, context: AutoDra
     valueB,
     normalizedYA: metricA?.y ?? null,
     normalizedYB: metricB?.y ?? null,
-    highlightOps: highlightKeys.length
-      ? buildHighlightPlan(highlightKeys, color, 'id')
-      : buildHighlightPlan(emphasizedTargets(op, [pair.a.target, pair.b.target]), color),
+    highlightOps:
+      op.op === OperationOp.Diff
+        ? undefined
+        : highlightKeys.length
+          ? buildHighlightPlan(highlightKeys, color, 'id')
+          : buildHighlightPlan(emphasizedTargets(op, [pair.a.target, pair.b.target]), color),
     valueLabelOps: buildGroupedBarValueTexts(op, [metricA, metricB].filter((value): value is GroupedBarMetric => value != null)),
     deltaValue,
   })
@@ -438,7 +478,12 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   [OperationOp.Average]: (result, op) => {
     const value = scalarFromResult(result)
     if (value == null) return null
-    return [
+    const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
+    const plans: any[] = []
+    if (groupSelection.kind === 'single') {
+      plans.push(ops.draw.groupedToSimple(op.chartId, groupSelection.values[0]))
+    }
+    plans.push(
       withAnnotationSlot(
         ops.draw.line(op.chartId, lineAt(value, AVERAGE_LINE_COLOR)),
         makeAggregateLineSlot(op.chartId, 'average'),
@@ -447,7 +492,8 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
         ops.draw.text(op.chartId, undefined, textScore(value, 'average')),
         makeAggregateTextSlot(op.chartId, 'average'),
       ),
-    ]
+    )
+    return plans
   },
   [OperationOp.DetermineRange]: (result, op) => buildRangePlan(result, op),
   [OperationOp.Compare]: (_result, op, context) => buildBinaryGroupedBarComparisonPlan(op, context, '#0ea5e9'),
@@ -488,42 +534,31 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   },
   [OperationOp.PairDiff]: (result, op, context) => {
     if (!result.length || !op.groupA || !op.groupB) return null
+    if (typeof op.keyField === 'string' && op.keyField.trim().length > 0) {
+      return buildFacetPanelPairDiffPlan(result, op, context)
+    }
     const metrics = collectGroupedBarMetrics(context, op.chartId)
-    const highlightIds = new Set<string>()
     const plan: any[] = []
     result.forEach((entry) => {
       const target = String(entry.target)
       const metricA = metrics.get(metricKey({ target, series: String(op.groupA) }))
       const metricB = metrics.get(metricKey({ target, series: String(op.groupB) }))
-      if (metricA) highlightIds.add(metricA.id)
-      if (metricB) highlightIds.add(metricB.id)
+      if (!metricA || !metricB) return
       plan.push(
-        ops.draw.line(
-          op.chartId,
-          draw.lineSpec.connectBy(
-            target,
-            target,
-            String(op.groupA),
-            String(op.groupB),
-            draw.style.line('#ef4444', 2, 0.9),
-            draw.arrow.endOnly(),
-            { start: 'top-right', end: 'top-left' },
-          ),
-        ),
+        ...buildGroupedBarValueTexts(op, [metricA, metricB]),
+        ...buildBinaryGeometryComparisonPlan({
+          chartId: op.chartId,
+          color: '#ef4444',
+          precision: typeof op.precision === 'number' ? op.precision : 2,
+          valueA: metricA.value,
+          valueB: metricB.value,
+          normalizedYA: metricA.y,
+          normalizedYB: metricB.y,
+          deltaValue: Number(entry.value),
+        }),
       )
-      if (metricA && metricB) {
-        const position = comparisonTextPosition(metricA, metricB)
-        plan.push(
-          buildGroupedBarDeltaText(
-            op,
-            position.x,
-            position.y,
-            Number(entry.value),
-          ),
-        )
-      }
     })
-    return [...plan, ...buildHighlightPlan(Array.from(highlightIds), '#ef4444', 'id')]
+    return plan.length ? plan : null
   },
   [OperationOp.Count]: (result, op) => {
     const value = scalarFromResult(result)

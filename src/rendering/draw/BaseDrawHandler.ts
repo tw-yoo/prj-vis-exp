@@ -21,7 +21,7 @@ import {
 import { toSvgCenter as toSvgCenterUtil } from './utils/coords'
 import { ensureAnnotationLayer } from './utils/annotationLayer'
 import { MIN_DRAW_DURATION_MS } from './animationPolicy'
-import { CHART_TEXT_COLLISION, CHART_TEXT_SIZE } from '../config/chartTextConfig'
+import { CHART_ANNOTATION_LAYOUT, CHART_TEXT_COLLISION, CHART_TEXT_SIZE } from '../config/chartTextConfig'
 import {
   applyAnnotationMetadata,
   removeTransientAnnotationsBySlot,
@@ -130,6 +130,7 @@ type TextPlacementCandidateEval = {
   displacement: number
   overlapArea: number
   outsideArea: number
+  forbiddenArea: number
   collisionScore: number
 }
 
@@ -145,6 +146,7 @@ type TextPlacementOptions = {
   styleColor?: string
   annotationKey?: string | null
   annotationNodeId?: string | null
+  annotationSlot?: string | null
   allowBarInsideFallback?: boolean
 }
 
@@ -171,6 +173,41 @@ function boxArea(box: BoxBounds) {
   return clampNonNegative(box.width) * clampNonNegative(box.height)
 }
 
+function intersectionAreaMany(target: BoxBounds, boxes: BoxBounds[]) {
+  return boxes.reduce((acc, box) => acc + intersectionArea(target, box), 0)
+}
+
+function resolveBoxCenter(box: BoxBounds) {
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+
+function resolveLeaderEndpointOnBoxBoundary(
+  box: BoxBounds,
+  externalPoint: { x: number; y: number },
+  padding = 2,
+) {
+  const padded = expandBox(box, padding)
+  const center = resolveBoxCenter(padded)
+  const dx = externalPoint.x - center.x
+  const dy = externalPoint.y - center.y
+  const halfWidth = padded.width / 2
+  const halfHeight = padded.height / 2
+  if (!(halfWidth > 0 && halfHeight > 0)) return center
+  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+    return { x: center.x, y: center.y - halfHeight }
+  }
+
+  const scale = 1 / Math.max(
+    Math.abs(dx) / Math.max(halfWidth, 0.001),
+    Math.abs(dy) / Math.max(halfHeight, 0.001),
+  )
+
+  return {
+    x: center.x + dx * scale,
+    y: center.y + dy * scale,
+  }
+}
+
 function expandBox(box: BoxBounds, padding: number): BoxBounds {
   if (!(padding > 0)) return box
   return {
@@ -190,6 +227,10 @@ function intersectionArea(a: BoxBounds, b: BoxBounds) {
   const h = y2 - y1
   if (!(w > 0 && h > 0)) return 0
   return w * h
+}
+
+function isComparisonSummarySlot(annotationSlot?: string | null) {
+  return (annotationSlot ?? '').startsWith('comparison-summary:')
 }
 
 function parseCssColorToRgb(raw: string | null | undefined): RgbColor | null {
@@ -482,7 +523,7 @@ export abstract class BaseDrawHandler {
       push(this as Element)
     })
 
-    scope.selectAll<SVGElement, JsonValue>(SvgSelectors.Annotation).each(function () {
+    d3.select(svgNode).selectAll<SVGElement, JsonValue>(SvgSelectors.Annotation).each(function () {
       push(this as Element)
     })
 
@@ -496,6 +537,54 @@ export abstract class BaseDrawHandler {
       push(this as Element)
     })
 
+    d3.select(svgNode).selectAll<SVGElement, JsonValue>('.panel-title').each(function () {
+      push(this as Element)
+    })
+
+    d3.select(svgNode).selectAll<SVGElement, JsonValue>(SvgSelectors.ExplanationLayer).each(function () {
+      push(this as Element)
+    })
+
+    d3.select(svgNode).selectAll<SVGElement, JsonValue>(SvgSelectors.ColorLegendGroup).each(function () {
+      push(this as Element)
+    })
+
+    return boxes
+  }
+
+  private collectForbiddenTextZones(
+    svgNode: SVGSVGElement,
+    chartId: string | undefined,
+    textNode: SVGTextElement,
+  ) {
+    const boxes: BoxBounds[] = []
+    const seen = new Set<string>()
+    const currentPanel = this.resolvePanelGroup(svgNode, chartId)
+
+    const push = (node: Element | null | undefined) => {
+      if (!(node instanceof Element) || node === textNode) return
+      const box = this.resolveElementBoxInSvg(svgNode, node)
+      if (!box || !(box.width > 0 && box.height > 0)) return
+      const key = `${box.x.toFixed(2)}:${box.y.toFixed(2)}:${box.width.toFixed(2)}:${box.height.toFixed(2)}`
+      if (seen.has(key)) return
+      seen.add(key)
+      boxes.push(box)
+    }
+
+    d3.select(svgNode).selectAll<SVGGElement, JsonValue>(SvgSelectors.ChartPanelGroup).each((_, index, nodes) => {
+      const node = nodes[index] as SVGGElement
+      if (currentPanel && node === currentPanel) return
+      push(node)
+    })
+
+    d3.select(svgNode).selectAll<SVGElement, JsonValue>(SvgSelectors.ExplanationLayer).each(function () {
+      push(this as Element)
+    })
+
+    d3.select(svgNode).selectAll<SVGElement, JsonValue>(SvgSelectors.ColorLegendGroup).each(function () {
+      push(this as Element)
+    })
+
     return boxes
   }
 
@@ -503,6 +592,8 @@ export abstract class BaseDrawHandler {
     mode: DrawTextMode,
     preferred: { x: number; y: number },
     anchorPoint: { x: number; y: number } | null,
+    viewportBox?: BoxBounds,
+    annotationSlot?: string | null,
   ) {
     const candidates: Array<{ x: number; y: number }> = []
     const seen = new Set<string>()
@@ -512,6 +603,31 @@ export abstract class BaseDrawHandler {
       seen.add(key)
       candidates.push({ x, y })
     }
+
+    if (isComparisonSummarySlot(annotationSlot) && viewportBox && viewportBox.width > 0 && viewportBox.height > 0) {
+      const topInset = CHART_ANNOTATION_LAYOUT.comparisonSummaryTopInset
+      const bottomInset = CHART_ANNOTATION_LAYOUT.comparisonSummaryBottomInset
+      const sideInset = CHART_ANNOTATION_LAYOUT.comparisonSummarySideInset
+      const gutter = CHART_ANNOTATION_LAYOUT.comparisonSummaryRightGutter
+      const topY = Math.max(
+        viewportBox.y + topInset,
+        Math.min(preferred.y, viewportBox.y + viewportBox.height - topInset),
+      )
+      const bottomY = Math.max(
+        viewportBox.y + topInset,
+        viewportBox.y + viewportBox.height - bottomInset,
+      )
+      const preferredGutterY = Math.max(
+        viewportBox.y + topInset,
+        Math.min(preferred.y, viewportBox.y + viewportBox.height - topInset),
+      )
+      push(viewportBox.x + viewportBox.width - sideInset, topY)
+      push(viewportBox.x + viewportBox.width - sideInset, bottomY)
+      push(viewportBox.x + viewportBox.width / 2, topY)
+      push(viewportBox.x + viewportBox.width + gutter / 2, topY)
+      push(viewportBox.x + viewportBox.width + gutter / 2, preferredGutterY)
+    }
+
     push(preferred.x, preferred.y)
 
     const step = TEXT_PLACEMENT_POLICY.stepPx
@@ -551,7 +667,9 @@ export abstract class BaseDrawHandler {
     candidate: { x: number; y: number },
     preferred: { x: number; y: number },
     viewportBox: BoxBounds,
+    allowedBoxes: BoxBounds[],
     obstacleBoxes: BoxBounds[],
+    forbiddenBoxes: BoxBounds[],
     mode: DrawTextMode,
     anchorPoint: { x: number; y: number } | null,
   ): TextPlacementCandidateEval {
@@ -564,6 +682,7 @@ export abstract class BaseDrawHandler {
         displacement: Number.POSITIVE_INFINITY,
         overlapArea: Number.POSITIVE_INFINITY,
         outsideArea: Number.POSITIVE_INFINITY,
+        forbiddenArea: Number.POSITIVE_INFINITY,
         collisionScore: Number.POSITIVE_INFINITY,
       }
     }
@@ -576,6 +695,7 @@ export abstract class BaseDrawHandler {
         displacement: Number.POSITIVE_INFINITY,
         overlapArea: Number.POSITIVE_INFINITY,
         outsideArea: Number.POSITIVE_INFINITY,
+        forbiddenArea: Number.POSITIVE_INFINITY,
         collisionScore: Number.POSITIVE_INFINITY,
       }
     }
@@ -586,14 +706,18 @@ export abstract class BaseDrawHandler {
       return acc + intersectionArea(paddedText, paddedObstacle)
     }, 0)
 
-    const clampedViewport: BoxBounds = {
-      x: viewportBox.x + TEXT_PLACEMENT_POLICY.viewportPaddingPx,
-      y: viewportBox.y + TEXT_PLACEMENT_POLICY.viewportPaddingPx,
-      width: Math.max(0, viewportBox.width - TEXT_PLACEMENT_POLICY.viewportPaddingPx * 2),
-      height: Math.max(0, viewportBox.height - TEXT_PLACEMENT_POLICY.viewportPaddingPx * 2),
-    }
-    const insideArea = intersectionArea(textBox, clampedViewport)
+    const clampedAllowedBoxes = allowedBoxes.map((box) => ({
+      x: box.x + TEXT_PLACEMENT_POLICY.viewportPaddingPx,
+      y: box.y + TEXT_PLACEMENT_POLICY.viewportPaddingPx,
+      width: Math.max(0, box.width - TEXT_PLACEMENT_POLICY.viewportPaddingPx * 2),
+      height: Math.max(0, box.height - TEXT_PLACEMENT_POLICY.viewportPaddingPx * 2),
+    }))
+    const insideArea = intersectionAreaMany(textBox, clampedAllowedBoxes)
     const outsideArea = Math.max(0, boxArea(textBox) - insideArea)
+    const forbiddenArea = forbiddenBoxes.reduce((acc, obstacle) => {
+      const paddedObstacle = expandBox(obstacle, TEXT_PLACEMENT_POLICY.obstaclePaddingPx)
+      return acc + intersectionArea(textBox, paddedObstacle)
+    }, 0)
 
     const displacement = Math.hypot(candidate.x - preferred.x, candidate.y - preferred.y)
     let semanticPenalty = 0
@@ -608,6 +732,8 @@ export abstract class BaseDrawHandler {
     const collisionScore =
       overlapArea * TEXT_PLACEMENT_POLICY.scoreWeightOverlap +
       outsideArea * TEXT_PLACEMENT_POLICY.scoreWeightOutside +
+      forbiddenArea * CHART_ANNOTATION_LAYOUT.comparisonForbiddenOverlapPenalty +
+      (forbiddenArea > 0 ? CHART_ANNOTATION_LAYOUT.comparisonCrossPanelPenalty : 0) +
       displacement +
       semanticPenalty
 
@@ -617,6 +743,7 @@ export abstract class BaseDrawHandler {
       displacement,
       overlapArea,
       outsideArea,
+      forbiddenArea,
       collisionScore,
     }
   }
@@ -675,26 +802,43 @@ export abstract class BaseDrawHandler {
     styleColor?: string,
     annotationKey?: string | null,
     annotationNodeId?: string | null,
+    annotationSlot?: string | null,
   ) {
     const textEl = textNode.node()
     if (!textEl) return
     const parent = (textEl.parentElement as Element | null) ?? svgNode
     const layer = d3.select(parent)
     const stroke = styleColor || textNode.attr(SvgAttributes.Fill) || '#111827'
+    const annotationLifecycle = (textEl.getAttribute(DataAttributes.AnnotationLifecycle) ?? '').trim() || null
+    const inheritedSlot = (textEl.getAttribute(DataAttributes.AnnotationSlot) ?? '').trim()
+    const resolvedSlot = (annotationSlot ?? inheritedSlot) || null
+    const leaderSlot = isComparisonSummarySlot(resolvedSlot) ? resolvedSlot : null
+    const textBox = this.resolveElementBoxInSvg(svgNode, textEl)
+    const lineEnd = textBox
+      ? resolveLeaderEndpointOnBoxBoundary(textBox, preferred)
+      : placed
     const leader = layer
       .append(SvgElements.Line)
       .attr(SvgAttributes.Class, `${SvgClassNames.Annotation} ${SvgClassNames.LineAnnotation} text-leader-line`)
-      .attr(DataAttributes.ChartId, chartId ?? null)
-      .attr(DataAttributes.AnnotationKey, annotationKey ?? null)
-      .attr(DataAttributes.AnnotationNodeId, annotationNodeId ?? null)
       .attr(SvgAttributes.X1, preferred.x)
       .attr(SvgAttributes.Y1, preferred.y)
-      .attr(SvgAttributes.X2, placed.x)
-      .attr(SvgAttributes.Y2, placed.y)
+      .attr(SvgAttributes.X2, lineEnd.x)
+      .attr(SvgAttributes.Y2, lineEnd.y)
       .attr(SvgAttributes.Stroke, stroke)
       .attr(SvgAttributes.StrokeWidth, 1)
       .attr(SvgAttributes.Opacity, 0)
-    this.applyTransition(leader).attr(SvgAttributes.Opacity, 0.75)
+    const leaderNode = leader.node()
+    if (leaderNode) {
+      applyAnnotationMetadata(leaderNode, {
+        chartId: chartId ?? null,
+        annotationKey: annotationKey ?? null,
+        annotationNodeId: annotationNodeId ?? null,
+        annotationLifecycle: annotationLifecycle as any,
+        annotationSlot: leaderSlot,
+      })
+    }
+    const targetOpacity = isComparisonSummarySlot(resolvedSlot) ? 1 : 0.75
+    this.applyTransition(leader).attr(SvgAttributes.Opacity, targetOpacity)
   }
 
   protected placeTextWithCollisionPolicy(options: TextPlacementOptions): TextPlacementResult {
@@ -710,6 +854,7 @@ export abstract class BaseDrawHandler {
       styleColor,
       annotationKey,
       annotationNodeId,
+      annotationSlot,
       allowBarInsideFallback = false,
     } = options
 
@@ -746,18 +891,46 @@ export abstract class BaseDrawHandler {
       height: this.resolveSvgSize(svgNode)?.height ?? 0,
       layerParent: svgNode,
     }
-    const viewportBox =
-      this.resolveElementBoxInSvg(svgNode, fallbackViewport.layerParent) ?? {
-        x: fallbackViewport.x,
-        y: fallbackViewport.y,
-        width: fallbackViewport.width,
-        height: fallbackViewport.height,
-      }
+    const viewportBox = {
+      x: fallbackViewport.x,
+      y: fallbackViewport.y,
+      width: fallbackViewport.width,
+      height: fallbackViewport.height,
+    }
+    const gutterBox = isComparisonSummarySlot(annotationSlot)
+      ? {
+          x: viewportBox.x + viewportBox.width,
+          y: viewportBox.y,
+          width: CHART_ANNOTATION_LAYOUT.comparisonSummaryRightGutter,
+          height: viewportBox.height,
+        }
+      : null
+    const allowedBoxes = gutterBox ? [viewportBox, gutterBox] : [viewportBox]
+    const effectiveViewportBox = isComparisonSummarySlot(annotationSlot)
+      ? {
+          ...viewportBox,
+          width: viewportBox.width + CHART_ANNOTATION_LAYOUT.comparisonSummaryRightGutter,
+        }
+      : viewportBox
 
     const obstacleBoxes = this.collectTextObstacleBoxes(svgNode, chartId, textEl)
-    const candidates = this.buildTextPlacementCandidates(mode, preferred, anchorPoint)
+    const forbiddenBoxes = isComparisonSummarySlot(annotationSlot)
+      ? this.collectForbiddenTextZones(svgNode, chartId, textEl)
+      : []
+    const candidates = this.buildTextPlacementCandidates(mode, preferred, anchorPoint, effectiveViewportBox, annotationSlot)
     const evaluated = candidates.map((candidate) =>
-      this.evaluateTextPlacementCandidate(textNode, svgNode, candidate, preferred, viewportBox, obstacleBoxes, mode, anchorPoint),
+      this.evaluateTextPlacementCandidate(
+        textNode,
+        svgNode,
+        candidate,
+        preferred,
+        effectiveViewportBox,
+        allowedBoxes,
+        obstacleBoxes,
+        forbiddenBoxes,
+        mode,
+        anchorPoint,
+      ),
     )
     const perfect = evaluated
       .filter((entry) => entry.overlapArea === 0 && entry.outsideArea === 0)
@@ -773,6 +946,7 @@ export abstract class BaseDrawHandler {
         displacement: 0,
         overlapArea: 0,
         outsideArea: 0,
+        forbiddenArea: 0,
         collisionScore: 0,
       }
     }
@@ -840,6 +1014,7 @@ export abstract class BaseDrawHandler {
         styleColor,
         annotationKey,
         annotationNodeId,
+        annotationSlot,
       )
     }
 
@@ -1081,6 +1256,51 @@ export abstract class BaseDrawHandler {
       width: fallbackWidth,
       height: Math.max(0, fallbackHeight - topBoundary),
       layerParent: panel,
+    }
+  }
+
+  private resolvePanelViewportInSvgSpace(svgNode: SVGSVGElement, chartId?: string): DrawViewport {
+    if (!chartId) return this.resolvePanelViewport(svgNode, chartId)
+
+    const panel = this.resolvePanelGroup(svgNode, chartId)
+    if (!panel) return this.resolvePanelViewport(svgNode, chartId)
+
+    const svgRect = svgNode.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+    const viewBox = svgNode.viewBox?.baseVal
+    const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+    const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
+    const originX = (viewBox?.x ?? 0) + (panelRect.left - svgRect.left) * scaleX
+    const originY = (viewBox?.y ?? 0) + (panelRect.top - svgRect.top) * scaleY
+    const topBoundary = this.resolveGlobalAnnotationTopBoundary(svgNode)
+
+    const readNumber = (attr: string) => {
+      const raw = Number(panel.getAttribute(attr))
+      return Number.isFinite(raw) ? raw : null
+    }
+    const metaX = readNumber(DataAttributes.PanelPlotX)
+    const metaY = readNumber(DataAttributes.PanelPlotY)
+    const metaW = readNumber(DataAttributes.PanelPlotWidth)
+    const metaH = readNumber(DataAttributes.PanelPlotHeight)
+    if (metaX != null && metaY != null && metaW != null && metaH != null && metaW > 0 && metaH > 0) {
+      const absoluteY = originY + metaY
+      const clampedY = Math.max(absoluteY, topBoundary)
+      return {
+        x: originX + metaX,
+        y: clampedY,
+        width: metaW,
+        height: Math.max(0, metaH - (clampedY - absoluteY)),
+        layerParent: svgNode,
+      }
+    }
+
+    const localViewport = this.resolvePanelViewport(svgNode, chartId)
+    return {
+      x: originX + localViewport.x,
+      y: Math.max(originY + localViewport.y, topBoundary),
+      width: localViewport.width,
+      height: localViewport.height,
+      layerParent: svgNode,
     }
   }
 
@@ -1560,6 +1780,7 @@ export abstract class BaseDrawHandler {
     const offsetY = textSpec?.offset?.y ?? (mode === DrawTextModes.Anchor ? -6 : 0)
 
     const style = textSpec?.style
+    const annotationSlot = resolveAnnotationSlot(op)
 
     const resolveTextValue = (el?: Element) => {
       if (typeof value === 'string') return value
@@ -1596,7 +1817,7 @@ export abstract class BaseDrawHandler {
       const selection = this.selectElements(op.select, op.chartId)
       if (selection.empty()) return
       const handler = this
-      const viewport = this.resolvePanelViewport(svgNode, op.chartId)
+      const viewport = this.resolvePanelViewportInSvgSpace(svgNode, op.chartId)
       selection.each(function () {
         const el = this as SVGGraphicsElement
         if (!el || typeof el.getBBox !== 'function') return
@@ -1636,7 +1857,9 @@ export abstract class BaseDrawHandler {
           styleColor: style?.color,
           annotationKey,
           annotationNodeId,
-          allowBarInsideFallback: true,
+          annotationSlot,
+          allowBarInsideFallback:
+            !(annotationSlot?.startsWith('value-label:') || annotationSlot?.startsWith('comparison-summary:')),
         })
         handler.applyTransition(textNode).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
       })
@@ -1649,7 +1872,7 @@ export abstract class BaseDrawHandler {
         console.warn('draw:text requires text.position when mode=normalized', op)
         return
       }
-      const viewport = this.resolvePanelViewport(svgNode, op.chartId)
+      const viewport = this.resolvePanelViewportInSvgSpace(svgNode, op.chartId)
       const width = viewport.width
       const height = viewport.height
       if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return
@@ -1704,6 +1927,7 @@ export abstract class BaseDrawHandler {
         styleColor: style?.color,
         annotationKey,
         annotationNodeId,
+        annotationSlot,
       })
       this.applyTransition(textNode).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
       return
@@ -2160,6 +2384,10 @@ export abstract class BaseDrawHandler {
 
     const scope = this.selectScope(op.chartId)
     const mapY = this.yValueToSvgY(scope, svgNode)
+    const panelGroup = op.chartId ? this.resolvePanelGroup(svgNode, op.chartId) : null
+    const panelMatrix = panelGroup?.getCTM()
+    const panelOffsetX = Number(panelMatrix?.e ?? 0)
+    const panelOffsetY = Number(panelMatrix?.f ?? 0)
 
     // Normalized position line (used by JSON ops / interaction snapshots without mode).
     if (hasNormalizedPosition && normalizedViewport) {
@@ -2505,6 +2733,12 @@ export abstract class BaseDrawHandler {
     }
 
     if (mode === DrawLineModes.HorizontalFromX || mode === DrawLineModes.HorizontalFromY) {
+      const viewport = panelGroup
+        ? this.resolvePanelViewport(svgNode, op.chartId)
+        : this.resolvePanelViewportInSvgSpace(svgNode, op.chartId)
+      const lineLayer = panelGroup
+        ? d3.select(ensureAnnotationLayer(viewport.layerParent, op.chartId ?? null))
+        : layer
       let y: number | null = null
       const nodes = this
         .filterDataMarks(scope.selectAll<SVGElement, JsonValue>(SvgSelectors.DataTargets))
@@ -2529,9 +2763,8 @@ export abstract class BaseDrawHandler {
       const right = Math.max(
         ...nodes.map((n) => viewBoxX + (n.getBoundingClientRect().right - svgRect.left) * scaleX),
       )
-      const viewport = this.resolvePanelViewport(svgNode, op.chartId)
-      let x1 = left
-      let x2 = right
+      let x1 = panelGroup ? left - panelOffsetX : left
+      let x2 = panelGroup ? right - panelOffsetX : right
       const numericMarkValues = nodes
         .map((node) => Number((node as Element).getAttribute(DataAttributes.Value)))
         .filter(Number.isFinite)
@@ -2540,7 +2773,10 @@ export abstract class BaseDrawHandler {
 
       const resolveHorizontalY = (requested: number) => {
         if (!Number.isFinite(requested)) return null
-        if (domainMin == null || domainMax == null) return mapY(requested)
+        if (domainMin == null || domainMax == null) {
+          const mapped = mapY(requested)
+          return panelGroup && mapped != null ? mapped - panelOffsetY : mapped
+        }
 
         const clamped = Math.min(domainMax, Math.max(domainMin, requested))
         if (clamped !== requested) {
@@ -2554,15 +2790,17 @@ export abstract class BaseDrawHandler {
         }
 
         const mapped = mapY(clamped)
-        if (mapped != null) return mapped
-        return clamped <= domainMin ? mapY(domainMin) : mapY(domainMax)
+        if (mapped != null) return panelGroup ? mapped - panelOffsetY : mapped
+        const fallback = clamped <= domainMin ? mapY(domainMin) : mapY(domainMax)
+        return panelGroup && fallback != null ? fallback - panelOffsetY : fallback
       }
 
       const axisGroup = scope.select<SVGGraphicsElement>(SvgSelectors.YAxisGroup).node()
       if (axisGroup) {
         const axisRect = axisGroup.getBoundingClientRect()
         if (axisRect.width > 0) {
-          const axisRight = (viewBoxLocal?.x ?? 0) + (axisRect.right - svgRect.left) * scaleX
+          const axisRightRaw = (viewBoxLocal?.x ?? 0) + (axisRect.right - svgRect.left) * scaleX
+          const axisRight = panelGroup ? axisRightRaw - panelOffsetX : axisRightRaw
           if (Number.isFinite(axisRight) && axisRight < x1) {
             x1 = axisRight
           }
@@ -2593,7 +2831,8 @@ export abstract class BaseDrawHandler {
         const valueAttr = node.getAttribute(DataAttributes.Value)
         const yValue = valueAttr != null ? Number(valueAttr) : NaN
         if (!Number.isFinite(yValue)) return
-        y = mapY(yValue) ?? this.toSvgCenter(node, svgNode).y
+        const mappedY = mapY(yValue) ?? this.toSvgCenter(node, svgNode).y
+        y = panelGroup ? mappedY - panelOffsetY : mappedY
       } else {
         const yValue = lineSpec.hline?.y
         if (yValue == null) return
@@ -2615,7 +2854,7 @@ export abstract class BaseDrawHandler {
         return
       }
       drawLineWithArrow(
-        layer,
+        lineLayer,
         op.chartId,
         lineSpec,
         { x1, y1: y, x2, y2: y },
@@ -2632,7 +2871,12 @@ export abstract class BaseDrawHandler {
     if (mode === DrawLineModes.DiffBracket) {
       const bracketSpec = lineSpec.bracket
       if (!bracketSpec) return
-      const viewport = this.resolvePanelViewport(svgNode, op.chartId)
+      const viewport = panelGroup
+        ? this.resolvePanelViewport(svgNode, op.chartId)
+        : this.resolvePanelViewportInSvgSpace(svgNode, op.chartId)
+      const lineLayer = panelGroup
+        ? d3.select(ensureAnnotationLayer(viewport.layerParent, op.chartId ?? null))
+        : layer
       const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 
       let bracketX: number
@@ -2658,9 +2902,10 @@ export abstract class BaseDrawHandler {
         const viewBoxLocal = svgNode.viewBox?.baseVal
         const scaleX = viewBoxLocal && svgRect.width > 0 ? viewBoxLocal.width / svgRect.width : 1
         const vbX = viewBoxLocal?.x ?? 0
-        const marksRight = Math.max(
+        const marksRightRaw = Math.max(
           ...visibleNodes.map((n) => vbX + (n.getBoundingClientRect().right - svgRect.left) * scaleX),
         )
+        const marksRight = panelGroup ? marksRightRaw - panelOffsetX : marksRightRaw
         bracketX = marksRight + 8
       }
 
@@ -2669,7 +2914,7 @@ export abstract class BaseDrawHandler {
       const y2 = toSvgY(bracketSpec.endY)
 
       drawLineWithArrow(
-        layer,
+        lineLayer,
         op.chartId,
         lineSpec,
         { x1: bracketX, y1, x2: bracketX, y2 },

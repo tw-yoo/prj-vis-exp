@@ -36,6 +36,7 @@ import { getStackedBarStoredData } from '../../rendering/bar/stackedBarRenderer.
 import { renderBarSelectionAsSimpleSurface } from '../../rendering/bar/toSimpleTransforms.ts'
 import { getPlotContext } from '../../rendering/ops/common/chartContext.ts'
 import { toWorkingDatumValuesFromStore } from '../../domain/data/workingData.ts'
+import { resolveEncodingFields } from '../../rendering/ops/common/resolveEncodingFields.ts'
 
 export type GroupCompletedEvent = {
   groupName: string
@@ -466,14 +467,14 @@ function selectorComparePoint(
 
 function toGroupedLikeDatumValues(container: HTMLElement, spec: GroupedSpec) {
   const raw = (getGroupedBarStoredData(container) || []) as RawRow[]
-  const seriesField =
-    (typeof spec.encoding.xOffset?.field === 'string' && spec.encoding.xOffset.field) ||
-    (typeof spec.encoding.color?.field === 'string' && spec.encoding.color.field) ||
-    undefined
+  const resolved = resolveEncodingFields(spec)
+  if (!resolved) return []
   return toDatumValuesFromRaw(raw, {
-    xField: spec.encoding.x.field,
-    yField: spec.encoding.y.field,
-    groupField: seriesField,
+    xField: resolved.xField,
+    yField: resolved.yField,
+    groupField: resolved.groupField,
+  }, {
+    panelField: resolved.panelField,
   })
 }
 

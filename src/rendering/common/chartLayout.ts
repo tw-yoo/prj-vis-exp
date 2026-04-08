@@ -1,6 +1,7 @@
 import { ChartType, type ChartSpec, type ChartTypeValue } from '../../domain/chart'
 import { INTERNAL_LAYOUT_HINTS_KEY, type ChartLayoutHints } from '../../domain/chart/layoutHints'
 import { CHART_LAYOUT_SIZE } from '../config/chartLayoutConfig'
+import { CHART_ANNOTATION_LAYOUT, CHART_PANEL_LAYOUT } from '../config/chartTextConfig'
 
 export type LayoutPadding = {
   left: number
@@ -197,8 +198,8 @@ export function resolveLayoutModel(input: ResolveLayoutModelInput): LayoutModel 
   const topPaddingDelta = padding.top - basePadding.top
 
   const legendWidth = legendVisible ? 136 : 0
-  const legendOffsetX = legendVisible ? 24 : 0
-  const facetGap = 24
+  const legendOffsetX = legendVisible ? 24 + CHART_ANNOTATION_LAYOUT.legendExtraOffsetX : 0
+  const facetGap = CHART_PANEL_LAYOUT.groupedFacetGap
 
   let canvasWidth = 600
   let canvasHeight = 300
@@ -339,8 +340,8 @@ export function expandLayoutModel(layout: LayoutModel, overflow: Partial<LayoutO
   const bottom = clampOverflowValue(overflow.bottom ?? 0)
   if (left === 0 && right === 0 && top === 0 && bottom === 0) return layout
 
-  const xTitleBottomInset = layout.canvas.height - layout.axisTitles.x.y
-  const yTitleOffset = layout.padding.left - layout.axisTitles.y.y
+  const xTitleAxisGap = layout.axisTitles.x.y - (layout.plot.y + layout.plot.height)
+  const yTitleAxisGap = layout.plot.x - layout.axisTitles.y.y
   const nextPadding = {
     left: layout.padding.left + left,
     right: layout.padding.right + right,
@@ -366,11 +367,11 @@ export function expandLayoutModel(layout: LayoutModel, overflow: Partial<LayoutO
     axisTitles: {
       x: {
         x: nextPadding.left + nextPlot.width / 2,
-        y: nextCanvas.height - xTitleBottomInset,
+        y: nextPlot.y + nextPlot.height + xTitleAxisGap,
       },
       y: {
         x: -(nextPadding.top + nextPlot.height / 2),
-        y: nextPadding.left - yTitleOffset,
+        y: nextPlot.x - yTitleAxisGap,
       },
     },
   }

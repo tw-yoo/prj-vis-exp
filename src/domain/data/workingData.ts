@@ -9,13 +9,19 @@ export function toWorkingDatumValuesFromStore(params: {
   ctxYField?: string | null
   groupField?: string
   groupFallback?: (row: RawRow) => string | null
+  panelField?: string
+  panelFallback?: (row: RawRow) => string | null
 }): DatumValue[] {
   const xField = params.ctxXField || params.specXField
   const yField = params.ctxYField || params.specYField
   return toDatumValuesFromRaw(
     params.raw,
     { xField, yField, groupField: params.groupField },
-    { groupFallback: params.groupFallback },
+    {
+      groupFallback: params.groupFallback,
+      panelField: params.panelField,
+      panelFallback: params.panelFallback,
+    },
   )
 }
 
@@ -49,6 +55,8 @@ export function aggregateDatumValuesByTarget(data: DatumValue[]): DatumValue[] {
       measure: sample.measure ?? null,
       target: String(sample.target),
       group: null,
+      panel: sample.panel ?? null,
+      panelField: sample.panelField ?? null,
       value: entry.hasValue ? entry.value : NaN,
       id: sample.id ?? key,
     }

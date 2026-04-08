@@ -8,6 +8,7 @@ export type ResolvedEncodingFields = {
   xField: string
   yField: string
   groupField?: string
+  panelField?: string
 }
 
 function asRecord(value: unknown): EncodingRecord | null {
@@ -28,6 +29,14 @@ export function resolveEncodingFields(spec: ChartSpec): ResolvedEncodingFields |
   const topX = extractField(topEncoding?.x)
   const topY = extractField(topEncoding?.y)
   const topColor = extractField(topEncoding?.color) ?? undefined
+  const topXOffset = extractField(topEncoding?.xOffset) ?? undefined
+  const facetRecord = asRecord(spec.facet)
+  const topPanel =
+    extractField(topEncoding?.column) ??
+    extractField(topEncoding?.row) ??
+    extractField(facetRecord?.column) ??
+    extractField(facetRecord?.row) ??
+    undefined
 
   if (
     chartType === ChartType.SIMPLE_BAR ||
@@ -35,21 +44,22 @@ export function resolveEncodingFields(spec: ChartSpec): ResolvedEncodingFields |
     chartType === ChartType.STACKED_BAR
   ) {
     if (!topX || !topY) return null
-    return { xField: topX, yField: topY, groupField: topColor }
+    const groupField = chartType === ChartType.GROUPED_BAR ? topXOffset ?? topColor : topColor
+    return { xField: topX, yField: topY, groupField, panelField: topPanel }
   }
 
   if (chartType === ChartType.SIMPLE_LINE) {
     const resolved = resolveSimpleLineEncoding(spec)
     if (!resolved) return null
-    return { xField: resolved.xField, yField: resolved.yField, groupField: resolved.colorField }
+    return { xField: resolved.xField, yField: resolved.yField, groupField: resolved.colorField, panelField: topPanel }
   }
 
   if (chartType === ChartType.MULTI_LINE) {
     const resolved = resolveMultiLineEncoding(spec)
     if (!resolved) return null
-    return { xField: resolved.xField, yField: resolved.yField, groupField: resolved.colorField ?? undefined }
+    return { xField: resolved.xField, yField: resolved.yField, groupField: resolved.colorField ?? undefined, panelField: topPanel }
   }
 
   if (!topX || !topY) return null
-  return { xField: topX, yField: topY, groupField: topColor }
+  return { xField: topX, yField: topY, groupField: topColor, panelField: topPanel }
 }

@@ -7,7 +7,7 @@ import { normalizeGroupSelection } from '../../../../../domain/operation/groupSe
 import {
   AUTO_DRAW_TEXT_FONT_SIZE,
   AVERAGE_LINE_COLOR,
-  buildBinaryComparisonRailPlan,
+  buildBinaryGeometryComparisonPlan,
   buildHighlightPlan,
   buildTextPlan,
   formatDrawNumber,
@@ -347,7 +347,7 @@ function buildBinaryStackedBarComparisonPlan(op: OperationSpec, context: AutoDra
     : op.op === OperationOp.Diff && op.signed
       ? valueA - valueB
       : Math.abs(valueA - valueB)
-  return buildBinaryComparisonRailPlan({
+  return buildBinaryGeometryComparisonPlan({
     chartId: op.chartId,
     color,
     precision: typeof op.precision === 'number' ? op.precision : 2,
@@ -355,9 +355,12 @@ function buildBinaryStackedBarComparisonPlan(op: OperationSpec, context: AutoDra
     valueB,
     normalizedYA: metricA?.y ?? null,
     normalizedYB: metricB?.y ?? null,
-    highlightOps: highlightKeys.length
-      ? buildHighlightPlan(highlightKeys, color, 'id')
-      : buildHighlightPlan(emphasizedTargets(op, [pair.a.target, pair.b.target]), color),
+    highlightOps:
+      op.op === OperationOp.Diff
+        ? undefined
+        : highlightKeys.length
+          ? buildHighlightPlan(highlightKeys, color, 'id')
+          : buildHighlightPlan(emphasizedTargets(op, [pair.a.target, pair.b.target]), color),
     valueLabelOps: buildStackedBarValueTexts(op, [metricA, metricB].filter((value): value is StackedBarMetric => value != null)),
     deltaValue,
   })
@@ -629,7 +632,7 @@ export const STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
         )
       }
     })
-    return [...plan, ...buildHighlightPlan(Array.from(highlightIds), '#ef4444', 'id')]
+    return plan
   },
   [OperationOp.Count]: (result, op) => {
     const value = scalarFromResult(result)

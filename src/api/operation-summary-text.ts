@@ -982,6 +982,9 @@ function initialExplanationForOperation(op: OperationSpec, entryMap: Map<string,
     case OperationOp.CompareBool:
       return 'Checking the comparison.'
     case OperationOp.PairDiff:
+      if (typeof op.keyField === 'string' && op.keyField.trim().length > 0) {
+        return `Calculating the pairwise difference between ${compactSemanticList([String(op.groupA ?? 'A'), String(op.groupB ?? 'B')])} for each ${op.keyField.trim()}.`
+      }
       return `Calculating the pairwise difference between ${compactSemanticList([String(op.groupA ?? 'A'), String(op.groupB ?? 'B')])}.`
     case OperationOp.LagDiff:
       return 'Calculating the lag difference.'
@@ -1087,12 +1090,17 @@ function finalExplanationForOperation(args: {
     }
     case OperationOp.PairDiff: {
       if (!rows?.length) return undefined
+      const keyLabel =
+        typeof op.keyField === 'string' && op.keyField.trim().length > 0
+          ? op.keyField.trim()
+          : typeof op.by === 'string' && op.by.trim().length > 0
+            ? op.by.trim()
+            : 'target'
       if (rows.length === 1) {
         const row = rows[0]
         const target = readableTarget(row) ?? 'the selected key'
-        return `The difference between ${String(op.groupA)} and ${String(op.groupB)} at ${target} is ${formatExplanationNumber(Number(row.value), op.precision)}.`
+        return `The difference between ${String(op.groupA)} and ${String(op.groupB)} for ${target} is ${formatExplanationNumber(Number(row.value), op.precision)}.`
       }
-      const keyLabel = typeof op.by === 'string' && op.by.trim().length > 0 ? op.by.trim() : 'target'
       return `The pairwise differences between ${String(op.groupA)} and ${String(op.groupB)} are shown for each ${keyLabel}.`
     }
     case OperationOp.LagDiff: {

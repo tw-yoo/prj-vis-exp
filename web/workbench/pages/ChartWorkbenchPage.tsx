@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-import barSimpleSpecRaw from '../../../data/test/spec/bar_simple_ver.json?raw'
+// import barSimpleSpecRaw from '../../../data/test/spec/presentation.json?raw'
+import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/line/multiple/2kmpy10btl65kr2j.json?raw'
+// import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/bar/simple/0w88bu7qm4ilsqmh.json?raw'
 import {
   assertDrawCapabilityForOp,
   BarDrawHandler,

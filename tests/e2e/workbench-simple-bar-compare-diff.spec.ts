@@ -125,16 +125,26 @@ test('simple bar diff(signed) restores rail-style comparison annotations with de
 
   const textStats = await page.evaluate(() => {
     const texts = Array.from(document.querySelectorAll<SVGTextElement>('svg text.annotation.text-annotation'))
-      .map((node) => (node.textContent ?? '').trim())
-      .filter((entry) => entry.length > 0)
+      .map((node) => ({
+        text: (node.textContent ?? '').trim(),
+        opacity: Number(node.getAttribute('opacity') ?? '1'),
+        fill: (node.getAttribute('fill') ?? '').toLowerCase(),
+        slot: node.getAttribute('data-annotation-slot') ?? '',
+      }))
+      .filter((entry) => entry.text.length > 0)
     return {
       texts,
     }
   })
 
-  expect(textStats.texts).toContain('53')
-  expect(textStats.texts).toContain('42')
-  expect(textStats.texts.some((text) => text.includes('Difference:'))).toBeTruthy()
+  expect(textStats.texts.map((entry) => entry.text)).toContain('53')
+  expect(textStats.texts.map((entry) => entry.text)).toContain('42')
+  expect(textStats.texts.some((entry) => entry.text.includes('Difference:'))).toBeTruthy()
+  expect(
+    textStats.texts
+      .filter((entry) => entry.slot.startsWith('comparison-summary:'))
+      .every((entry) => Math.abs(entry.opacity - 1) < 0.001 && entry.fill === '#111827'),
+  ).toBeTruthy()
 })
 
 test('a new run clears transient average annotations before rendering the next result', async ({ page }) => {

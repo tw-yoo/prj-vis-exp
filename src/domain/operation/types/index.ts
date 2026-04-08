@@ -19,6 +19,8 @@ export interface DatumValue {
   target: string
   displayTarget?: string | null
   group: string | null
+  panel?: string | null
+  panelField?: string | null
   value: number
   id?: string | null
   name?: string | null
@@ -102,6 +104,7 @@ export interface OperationSpec {
   precision?: number
   fn?: 'intersection' | 'union' | string
   by?: string
+  keyField?: string
   seriesField?: string
   target?: TargetSelector | TargetSelector[]
   targetA?: TargetSelector | TargetSelector[]

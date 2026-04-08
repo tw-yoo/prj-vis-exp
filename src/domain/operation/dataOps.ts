@@ -172,6 +172,8 @@ function cloneDatumValue(datum: DatumValue): DatumValue {
     target: datum.target,
     displayTarget: datum.displayTarget ?? null,
     group: datum.group ?? null,
+    panel: datum.panel ?? null,
+    panelField: datum.panelField ?? null,
     value: datum.value,
     id: datum.id ?? null,
     lookupId: datum.lookupId ?? datum.id ?? null,
@@ -611,6 +613,17 @@ function targetKeyForPairDiff(item: DatumValue, byField: string) {
     const name = item.name ?? item.displayTarget ?? item.target ?? null
     return name != null ? String(name) : null
   }
+  return null
+}
+
+function keyFieldForPairDiff(item: DatumValue, keyField: string) {
+  const normalized = String(keyField ?? '').trim()
+  if (!normalized) return null
+  if ((item.panelField ?? '').trim() === normalized) {
+    return item.panel != null ? String(item.panel) : null
+  }
+  if (item.category != null && normalized === String(item.category)) return String(item.target)
+  if (normalized === 'panel') return item.panel != null ? String(item.panel) : null
   return null
 }
 
@@ -1115,6 +1128,7 @@ export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[
   const spec = assertPairDiffSpec(op)
   const {
     by,
+    keyField,
     field,
     groupA,
     groupB,
@@ -1144,12 +1158,16 @@ export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[
   if (!left.length || !right.length) return []
 
   const measureName = field ?? left[0]?.measure ?? right[0]?.measure ?? 'value'
+  const pairKeyLabel = typeof keyField === 'string' && keyField.trim().length > 0 ? keyField.trim() : String(by ?? '').trim()
   const buildMap = (items: DatumValue[]) => {
     const out = new Map<string, number[]>()
     let supportedKeyCount = 0
     items.forEach((item) => {
       if (measureName !== 'value' && item.measure != null && item.measure !== measureName) return
-      const key = targetKeyForPairDiff(item, by)
+      const key =
+        typeof keyField === 'string' && keyField.trim().length > 0
+          ? keyFieldForPairDiff(item, keyField)
+          : targetKeyForPairDiff(item, String(by ?? ''))
       if (!key) return
       supportedKeyCount += 1
       const value = Number(item.value)
@@ -1164,7 +1182,10 @@ export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[
   const mapAResult = buildMap(left)
   const mapBResult = buildMap(right)
   if (mapAResult.supportedKeyCount === 0 || mapBResult.supportedKeyCount === 0) {
-    throw new Error(`pairDiff: unsupported "by" field "${by}"`)
+    if (pairKeyLabel) {
+      throw new Error(`pairDiff: unsupported key field "${pairKeyLabel}"`)
+    }
+    throw new Error('pairDiff: unsupported key field')
   }
   const mapA = mapAResult.out
   const mapB = mapBResult.out
@@ -1184,11 +1205,13 @@ export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[
       delta = Number(delta.toFixed(Math.max(0, Number(precision))))
     }
     out.push({
-      category: by,
+      category: pairKeyLabel || null,
       measure: measureName,
       target: key,
-      displayTarget: buildBinaryLabel('difference', groupA, groupB),
+      displayTarget: typeof keyField === 'string' && keyField.trim().length > 0 ? key : buildBinaryLabel('difference', groupA, groupB),
       group: resultGroup,
+      panel: typeof keyField === 'string' && keyField.trim().length > 0 ? key : null,
+      panelField: typeof keyField === 'string' && keyField.trim().length > 0 ? keyField.trim() : null,
       value: roundNumeric(delta),
       name: buildBinaryLabel('difference', groupA, groupB),
     })

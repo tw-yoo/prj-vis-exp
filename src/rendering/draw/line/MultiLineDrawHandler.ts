@@ -7,10 +7,31 @@ import { NON_SPLIT_ENTER_MS, NON_SPLIT_EXIT_MS, NON_SPLIT_UPDATE_MS } from '../a
 import { ensureAnnotationLayer } from '../utils/annotationLayer'
 
 type LinePointEntry = {
-  el: SVGElement
+  el: SVGCircleElement
   target: string
+  series: string | null
   value: number
   x: number
+  y: number
+}
+
+type SeriesPathEntry = {
+  el: SVGPathElement
+  series: string | null
+}
+
+type PathTweenPoint = {
+  x: number
+  y: number
+}
+
+type EnteringPathEntry = {
+  original: SVGPathElement
+  overlay: SVGPathElement
+  targetD: string
+  finalOpacity: number
+  currentPoints: PathTweenPoint[]
+  targetPoints: PathTweenPoint[]
 }
 
 async function waitTransition(transition: d3.Transition<any, any, any, any>) {
@@ -19,6 +40,21 @@ async function waitTransition(transition: d3.Transition<any, any, any, any>) {
   } catch {
     // interrupted transitions are acceptable in interactive workflows
   }
+}
+
+function preserveCurrentOpacity(el: SVGElement, fallback = 1) {
+  const rawOpacity = el.getAttribute(SvgAttributes.Opacity)
+  const opacity = rawOpacity == null ? Number.NaN : Number(rawOpacity)
+  return Number.isFinite(opacity) ? opacity : fallback
+}
+
+function buildLinePath(points: PathTweenPoint[]) {
+  return (
+    d3
+      .line<PathTweenPoint>()
+      .x((point) => point.x)
+      .y((point) => point.y)(points) ?? ''
+  )
 }
 
 export class MultiLineDrawHandler extends LineDrawHandler {
@@ -34,31 +70,59 @@ export class MultiLineDrawHandler extends LineDrawHandler {
     return this.filterDataMarks(scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Path},${SvgElements.Circle},${SvgElements.Rect}`))
   }
 
+  private collectSeriesPaths(chartId?: string) {
+    const scope = this.selectScope(chartId)
+    const paths = this.filterDataMarks(
+      scope.selectAll<SVGPathElement, JsonValue>(`${SvgElements.Path}[${DataAttributes.Series}]`),
+    )
+    if (paths.empty()) return [] as SeriesPathEntry[]
+    return paths
+      .nodes()
+      .map((node) => {
+        const seriesRaw = node.getAttribute(DataAttributes.Series)
+        return {
+          el: node,
+          series: typeof seriesRaw === 'string' && seriesRaw.trim().length > 0 ? seriesRaw.trim() : null,
+        }
+      })
+  }
+
   private collectPointEntries(chartId?: string) {
-    const svg = d3.select(this.container).select(SvgElements.Svg)
-    if (svg.empty()) return [] as LinePointEntry[]
-    const svgNode = svg.node() as SVGSVGElement | null
-    if (!svgNode) return [] as LinePointEntry[]
-    const points = this.selectElements(undefined, chartId)
+    const scope = this.selectScope(chartId)
+    const points = this.filterDataMarks(
+      scope.selectAll<SVGCircleElement, JsonValue>(`${SvgElements.Circle}[${DataAttributes.Target}][${DataAttributes.Value}]`),
+    )
     if (points.empty()) return [] as LinePointEntry[]
     return points
       .nodes()
       .map((node) => {
-        const el = node as SVGElement
+        const el = node as SVGCircleElement
         const target = el.getAttribute(DataAttributes.Target) || el.getAttribute(DataAttributes.Id)
         const value = Number(el.getAttribute(DataAttributes.Value))
-        if (!target || !Number.isFinite(value)) return null
-        const center = this.toSvgCenter(el, svgNode)
-        return { el, target: String(target), value, x: center.x }
+        const x = Number(el.getAttribute(SvgAttributes.CX))
+        const y = Number(el.getAttribute(SvgAttributes.CY))
+        if (!target || !Number.isFinite(value) || !Number.isFinite(x) || !Number.isFinite(y)) return null
+        const seriesRaw = el.getAttribute(DataAttributes.Series)
+        return {
+          el,
+          target: String(target),
+          series: typeof seriesRaw === 'string' && seriesRaw.trim().length > 0 ? seriesRaw.trim() : null,
+          value,
+          x,
+          y,
+        }
       })
       .filter((entry): entry is LinePointEntry => entry !== null)
   }
 
   private async filter(op: DrawOp) {
+    const svg = d3.select(this.container).select<SVGSVGElement>(SvgElements.Svg)
+    if (svg.empty()) return
     const filterSpec = op.filter
     if (!filterSpec) return
     const entries = this.collectPointEntries(op.chartId)
     if (!entries.length) return
+    const seriesPaths = this.collectSeriesPaths(op.chartId)
 
     const include = filterSpec.x?.include?.length ? new Set(filterSpec.x.include.map(String)) : null
     const exclude = filterSpec.x?.exclude?.length ? new Set(filterSpec.x.exclude.map(String)) : null
@@ -87,61 +151,187 @@ export class MultiLineDrawHandler extends LineDrawHandler {
     })
     const keptSet = new Set(kept.map((entry) => entry.el))
     const hidden = entries.filter((entry) => !keptSet.has(entry.el))
+    const hiddenNodes = hidden.map((entry) => entry.el)
+    const keptNodes = kept.map((entry) => entry.el)
 
-    const hideTransition = d3
-      .selectAll<SVGElement, unknown>(hidden.map((entry) => entry.el) as SVGElement[])
+    if (!kept.length) {
+      const pointTransition = d3
+        .selectAll<SVGCircleElement, unknown>(entries.map((entry) => entry.el))
+        .style('display', null)
+        .transition()
+        .duration(NON_SPLIT_EXIT_MS)
+        .attr(SvgAttributes.Opacity, 0)
+      const pathTransition = d3
+        .selectAll<SVGPathElement, unknown>(seriesPaths.map((entry) => entry.el))
+        .style('display', null)
+        .transition()
+        .duration(NON_SPLIT_EXIT_MS)
+        .attr(SvgAttributes.Opacity, 0)
+      const scope = this.selectScope(op.chartId)
+      const ticks = scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
+      const tickTransition = ticks.transition().duration(NON_SPLIT_EXIT_MS).attr(SvgAttributes.Opacity, 0)
+      await Promise.all([waitTransition(pointTransition), waitTransition(pathTransition), waitTransition(tickTransition)])
+      d3.selectAll<SVGCircleElement, unknown>(entries.map((entry) => entry.el)).style('display', 'none')
+      d3.selectAll<SVGPathElement, unknown>(seriesPaths.map((entry) => entry.el)).style('display', 'none')
+      return
+    }
+
+    const plotW = Number(svg.attr(DataAttributes.PlotWidth))
+    if (!Number.isFinite(plotW) || plotW <= 0) return
+    const filterDuration = NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS
+    const fastExitDuration = Math.max(1, Math.round(filterDuration / 2))
+    const targetOrder = Array.from(new Set(entries.slice().sort((a, b) => a.x - b.x).map((entry) => entry.target)))
+    const orderIndex = new Map(targetOrder.map((target, index) => [target, index]))
+    const targetDomain = Array.from(new Set(kept.map((entry) => entry.target))).sort(
+      (a, b) => (orderIndex.get(a) ?? 0) - (orderIndex.get(b) ?? 0),
+    )
+    const scale = d3.scalePoint<string>().domain(targetDomain).range([0, plotW]).padding(0.5)
+
+    const hiddenPointTransition = d3
+      .selectAll<SVGCircleElement, unknown>(hiddenNodes)
       .style('display', null)
       .transition()
-      .duration(NON_SPLIT_EXIT_MS)
+      .duration(fastExitDuration)
       .attr(SvgAttributes.Opacity, 0)
-    await waitTransition(hideTransition)
-    d3.selectAll<SVGElement, unknown>(hidden.map((entry) => entry.el) as SVGElement[]).style('display', 'none')
 
-    if (kept.length) {
-      const left = d3.min(entries.map((entry) => entry.x)) ?? 0
-      const right = d3.max(entries.map((entry) => entry.x)) ?? left
-      const targetDomain = Array.from(new Set(kept.map((entry) => entry.target)))
-      const scale = d3.scalePoint<string>().domain(targetDomain).range([left, right])
-      const shownSelection = d3
-        .selectAll<SVGElement, unknown>(kept.map((entry) => entry.el) as SVGElement[])
-        .style('display', null)
-        .attr(SvgAttributes.Opacity, 1)
-      const shownTransition = shownSelection.transition().duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS)
-      kept.forEach((entry) => {
-        const x = scale(entry.target)
-        if (x == null) return
-        shownTransition
+    const keptPointTransition = d3
+      .selectAll<SVGCircleElement, unknown>(keptNodes)
+      .style('display', null)
+      .transition()
+      .duration(filterDuration)
+
+    kept.forEach((entry) => {
+      const x = scale(entry.target)
+      if (x == null) return
+      keptPointTransition
+        .filter(function () {
+          return this === entry.el
+        })
+        .attr(SvgAttributes.CX, x)
+        .attr(SvgAttributes.Opacity, preserveCurrentOpacity(entry.el, 0.85))
+    })
+
+    const keptBySeries = d3.group(kept, (entry) => entry.series ?? '')
+    const hiddenPaths: SVGPathElement[] = []
+    const visiblePaths: SVGPathElement[] = []
+    const enteringPaths: EnteringPathEntry[] = []
+    const originalPathExitTransition = d3
+      .selectAll<SVGPathElement, unknown>(seriesPaths.map((entry) => entry.el))
+      .style('display', null)
+      .transition()
+      .duration(fastExitDuration)
+
+    seriesPaths.forEach((entry) => {
+      const seriesKey = entry.series ?? ''
+      const seriesPoints = (keptBySeries.get(seriesKey) ?? []).slice().sort(
+        (a, b) => (orderIndex.get(a.target) ?? 0) - (orderIndex.get(b.target) ?? 0),
+      )
+      if (seriesPoints.length < 2) {
+        hiddenPaths.push(entry.el)
+        originalPathExitTransition
           .filter(function () {
             return this === entry.el
           })
-          .attr(SvgAttributes.CX, x)
+          .attr(SvgAttributes.Opacity, 0)
+        return
+      }
+      visiblePaths.push(entry.el)
+      const currentPoints: PathTweenPoint[] = seriesPoints.map((point) => ({ x: point.x, y: point.y }))
+      const targetPoints: PathTweenPoint[] = seriesPoints.map((point) => ({
+        x: scale(point.target) ?? point.x,
+        y: point.y,
+      }))
+      const currentD = buildLinePath(currentPoints)
+      const targetD = buildLinePath(targetPoints)
+      const finalOpacity = preserveCurrentOpacity(entry.el)
+      const originalPath = d3.select(entry.el)
+      originalPath.attr(SvgAttributes.D, currentD).attr(SvgAttributes.Opacity, finalOpacity)
+      const overlay = entry.el.cloneNode(false) as SVGPathElement
+      overlay.setAttribute(SvgAttributes.D, targetD)
+      overlay.setAttribute(SvgAttributes.Opacity, '0')
+      overlay.style.display = ''
+      entry.el.parentNode?.appendChild(overlay)
+      enteringPaths.push({
+        original: entry.el,
+        overlay,
+        targetD,
+        finalOpacity,
+        currentPoints,
+        targetPoints,
       })
-      await waitTransition(shownTransition)
+      originalPathExitTransition
+        .filter(function () {
+          return this === entry.el
+        })
+        .attr(SvgAttributes.Opacity, 0)
+    })
 
-      const scope = this.selectScope(op.chartId)
-      const ticks = scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
-      const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
-      ticks.each(function () {
-        const tick = d3.select(this)
-        const label = tick.select(SvgElements.Text).text().trim()
-        const x = scale(label)
-        if (x == null) {
-          tickTransition
-            .filter(function () {
-              return this === tick.node()
-            })
-            .attr(SvgAttributes.Opacity, 0)
-          return
-        }
+    const enteringTransition = d3
+      .selectAll<SVGPathElement, unknown>(enteringPaths.map((entry) => entry.overlay))
+      .transition()
+      .duration(filterDuration)
+
+    enteringPaths.forEach((entry) => {
+      enteringTransition
+        .filter(function () {
+          return this === entry.overlay
+        })
+        .attrTween(SvgAttributes.D, () => {
+          const xInterpolators = entry.currentPoints.map((point, index) =>
+            d3.interpolateNumber(point.x, entry.targetPoints[index]?.x ?? point.x),
+          )
+          return (t) =>
+            buildLinePath(
+              entry.currentPoints.map((point, index) => ({
+                x: xInterpolators[index]?.(t) ?? point.x,
+                y: point.y,
+              })),
+            )
+        })
+        .attr(SvgAttributes.Opacity, entry.finalOpacity)
+    })
+
+    const scope = this.selectScope(op.chartId)
+    const ticks = scope.selectAll<SVGGElement, unknown>(SvgSelectors.XAxisTicks)
+    const tickTransition = ticks.transition().duration(filterDuration)
+    ticks.each(function () {
+      const tick = d3.select(this)
+      const label = tick.select(SvgElements.Text).text().trim()
+      const x = scale(label)
+      if (x == null) {
         tickTransition
           .filter(function () {
             return this === tick.node()
           })
-          .attr(SvgAttributes.Opacity, 1)
-          .attr(SvgAttributes.Transform, `translate(${x},0)`)
-      })
-      await waitTransition(tickTransition)
-    }
+          .attr(SvgAttributes.Opacity, 0)
+        return
+      }
+      tickTransition
+        .filter(function () {
+          return this === tick.node()
+        })
+        .attr(SvgAttributes.Opacity, 1)
+        .attr(SvgAttributes.Transform, `translate(${x},0)`)
+    })
+
+    await Promise.all([
+      waitTransition(hiddenPointTransition),
+      waitTransition(keptPointTransition),
+      waitTransition(originalPathExitTransition),
+      waitTransition(enteringTransition),
+      waitTransition(tickTransition),
+    ])
+    d3.selectAll<SVGCircleElement, unknown>(hiddenNodes).style('display', 'none')
+    d3.selectAll<SVGCircleElement, unknown>(keptNodes).style('display', null)
+    d3.selectAll<SVGPathElement, unknown>(hiddenPaths).style('display', 'none')
+    d3.selectAll<SVGPathElement, unknown>(visiblePaths).style('display', null)
+    enteringPaths.forEach((entry) => {
+      d3.select(entry.original)
+        .attr(SvgAttributes.D, entry.targetD)
+        .attr(SvgAttributes.Opacity, entry.finalOpacity)
+        .style('display', null)
+      entry.overlay.remove()
+    })
   }
 
   private async lineTrace(op: DrawOp) {

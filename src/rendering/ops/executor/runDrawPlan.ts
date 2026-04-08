@@ -22,6 +22,7 @@ const CLEANUP_AFTER_ACTIONS = new Set<DrawAction>([DrawAction.Filter])
 const ANNOTATION_FADE_OUT_MS = 180
 const MERGE_ANNOTATION_OPACITY = 0.5
 const ALL_CHART_SCOPE = '__all__'
+const FULL_STRENGTH_ANNOTATION_SLOTS = ['comparison-rail:', 'comparison-bracket:', 'comparison-summary:', 'value-label:']
 
 type HandlerLike = {
   run: (op: DrawOp) => void | Promise<void>
@@ -235,10 +236,11 @@ function applyMergeAnnotationOpacity(container: HTMLElement) {
   const svgs = d3.select(container).selectAll<SVGSVGElement, unknown>('svg')
   svgs.each(function () {
     const svg = d3.select(this as SVGSVGElement)
-    svg
-      .selectAll<SVGElement, unknown>(selectors)
-      .interrupt()
-      .attr(SvgAttributes.Opacity, MERGE_ANNOTATION_OPACITY)
+    svg.selectAll<SVGElement, unknown>(selectors).each(function () {
+      const node = this as SVGElement
+      if (shouldKeepFullOpacity(node)) return
+      d3.select(node).interrupt().attr(SvgAttributes.Opacity, MERGE_ANNOTATION_OPACITY)
+    })
   })
 }
 
@@ -271,9 +273,16 @@ function applyJoinAnnotationOpacity(container: HTMLElement, currentNodeId: strin
       const node = this as SVGElement
       const nodeId = (node.getAttribute(DataAttributes.AnnotationNodeId) ?? '').trim()
       if (currentNodeId && nodeId === currentNodeId) return
+      if (shouldKeepFullOpacity(node)) return
       d3.select(node).interrupt().attr(SvgAttributes.Opacity, MERGE_ANNOTATION_OPACITY)
     })
   })
+}
+
+function shouldKeepFullOpacity(node: Element) {
+  const slot = (node.getAttribute(DataAttributes.AnnotationSlot) ?? '').trim()
+  if (!slot) return false
+  return FULL_STRENGTH_ANNOTATION_SLOTS.some((prefix) => slot.startsWith(prefix))
 }
 
 function buildDrawPlanPhases(drawPlan: DrawOp[]): DrawOp[][] {

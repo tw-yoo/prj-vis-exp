@@ -1,5 +1,12 @@
 import { expect, test, type Page } from '@playwright/test'
-import { GROUPED_BAR_SPEC, MULTI_LINE_SPEC, SIMPLE_BAR_SPEC, SIMPLE_LINE_SPEC, STACKED_BAR_SPEC } from './fixtures/specs'
+import {
+  FACET_GROUPED_BAR_PAIRDIFF_SPEC,
+  GROUPED_BAR_SPEC,
+  MULTI_LINE_SPEC,
+  SIMPLE_BAR_SPEC,
+  SIMPLE_LINE_SPEC,
+  STACKED_BAR_SPEC,
+} from './fixtures/specs'
 
 const chartHost = '[data-testid="chart-host"]'
 test.setTimeout(120_000)
@@ -350,4 +357,176 @@ test('pairDiff and lagDiff render supported comparison annotations across charts
       )
       .toBeGreaterThan(0)
   }
+})
+
+test('facet grouped bar pairDiff renders panel-local diff annotations for each facet', async ({ page }) => {
+  await renderSpec(page, FACET_GROUPED_BAR_PAIRDIFF_SPEC)
+  await runSingleOpsGroup(page, [
+    {
+      id: 'n1',
+      op: 'pairDiff',
+      keyField: 'Company',
+      groupA: '2023',
+      groupB: '2019',
+      field: 'Total GHG Emissions (Million tCO2e)',
+      seriesField: 'Year',
+      signed: true,
+      precision: 1,
+      meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 },
+    },
+  ])
+
+  await expect.poll(() => explanationText(page)).toBe(
+    'The pairwise differences between 2023 and 2019 are shown for each Company.',
+  )
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() =>
+        Array.from(
+          new Set(
+            Array.from(document.querySelectorAll<SVGElement>('svg .annotation.line-annotation[data-chart-id]'))
+              .map((node) => node.getAttribute('data-chart-id'))
+              .filter((value): value is string => typeof value === 'string' && value.length > 0),
+          ),
+        ).sort(),
+      ),
+    )
+    .toEqual(['Amazon', 'Google', 'Meta', 'Microsoft'])
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const svg = document.querySelector('svg')
+        if (!(svg instanceof SVGSVGElement)) return false
+        const svgRect = svg.getBoundingClientRect()
+        const viewBox = svg.viewBox?.baseVal
+        const scaleX = viewBox && svgRect.width > 0 ? viewBox.width / svgRect.width : 1
+        const rails = Array.from(
+          document.querySelectorAll<SVGLineElement>(
+            'svg .annotation.line-annotation[data-annotation-slot^="comparison-rail:"][data-chart-id]',
+          ),
+        )
+        if (!rails.length) return false
+        return rails.every((line) => {
+          const chartId = line.getAttribute('data-chart-id')
+          if (!chartId) return false
+          const panel = document.querySelector<SVGGElement>(
+            `g[data-chart-id="${chartId}"][data-chart-panel="true"]`,
+          )
+          if (!panel) return false
+          const plotX = Number(panel.getAttribute('data-panel-plot-x') ?? '0')
+          const plotW = Number(panel.getAttribute('data-panel-plot-w') ?? '0')
+          if (!Number.isFinite(plotX) || !Number.isFinite(plotW) || !(plotW > 0)) return false
+          const isPanelLocal = line.parentElement?.parentElement === panel
+          const panelRect = panel.getBoundingClientRect()
+          const left = isPanelLocal
+            ? plotX
+            : (viewBox?.x ?? 0) + (panelRect.left - svgRect.left) * scaleX + plotX
+          const right = left + plotW
+          const x1 = Number(line.getAttribute('x1'))
+          const x2 = Number(line.getAttribute('x2'))
+          if (!Number.isFinite(x1) || !Number.isFinite(x2)) return false
+          return x1 >= left - 1.5 && x1 <= right + 1.5 && x2 >= left - 1.5 && x2 <= right + 1.5
+        })
+      }),
+    )
+    .toBe(true)
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() =>
+        Array.from(
+          Array.from(
+            document.querySelectorAll<SVGElement>(
+              'svg .annotation.text-annotation[data-annotation-slot^="comparison-summary:"]',
+            ),
+          ).map((node) => {
+            const chartScope = node.closest('[data-chart-id]')
+            return `${chartScope?.getAttribute('data-chart-id') ?? ''}:${(node.textContent ?? '').trim()}`
+          }),
+        ).sort(),
+      ),
+    )
+    .toEqual([
+      'Amazon:Difference: 16.8',
+      'Google:Difference: 5',
+      'Meta:Difference: 5.6',
+      'Microsoft:Difference: 4.2',
+    ].sort())
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const comparisonSelectors = [
+          '[data-annotation-slot^="comparison-rail:"]',
+          '[data-annotation-slot^="comparison-bracket:"]',
+          '[data-annotation-slot^="comparison-summary:"]',
+          '.text-leader-line[data-annotation-slot^="comparison-summary:"]',
+        ].join(', ')
+        const nodes = Array.from(document.querySelectorAll<SVGElement>(`svg ${comparisonSelectors}`))
+        if (!nodes.length) return false
+        return nodes.every((node) => {
+          const opacity = Number(node.getAttribute('opacity') ?? '1')
+          return Number.isFinite(opacity) && Math.abs(opacity - 1) < 0.001
+        })
+      }),
+    )
+    .toBe(true)
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const overlapArea = (a: DOMRect, b: DOMRect) => {
+          const x1 = Math.max(a.left, b.left)
+          const y1 = Math.max(a.top, b.top)
+          const x2 = Math.min(a.right, b.right)
+          const y2 = Math.min(a.bottom, b.bottom)
+          return Math.max(0, x2 - x1) * Math.max(0, y2 - y1)
+        }
+        const summaryTexts = Array.from(
+          document.querySelectorAll<SVGTextElement>('svg .annotation.text-annotation[data-annotation-slot^="comparison-summary:"]'),
+        )
+        if (!summaryTexts.length) return false
+        const otherTexts = Array.from(document.querySelectorAll<SVGTextElement>('svg text'))
+        return summaryTexts.every((summary) => {
+          const summaryRect = summary.getBoundingClientRect()
+          return otherTexts.every((other) => {
+            if (other === summary) return true
+            const text = (other.textContent ?? '').trim()
+            if (!text) return true
+            return overlapArea(summaryRect, other.getBoundingClientRect()) < 1
+          })
+        })
+      }),
+    )
+    .toBe(true)
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const amazonSummary = document.querySelector<SVGTextElement>(
+          'svg .annotation.text-annotation[data-annotation-slot="comparison-summary:Amazon"]',
+        )
+        const amazonPanel = document.querySelector<SVGGElement>('g[data-chart-id="Amazon"][data-chart-panel="true"]')
+        const metaPanel = document.querySelector<SVGGElement>('g[data-chart-id="Meta"][data-chart-panel="true"]')
+        if (!amazonSummary || !amazonPanel || !metaPanel) return false
+        const summaryRect = amazonSummary.getBoundingClientRect()
+        const amazonRect = amazonPanel.getBoundingClientRect()
+        const metaRect = metaPanel.getBoundingClientRect()
+        const summaryCenterX = summaryRect.left + summaryRect.width / 2
+        const summaryCenterY = summaryRect.top + summaryRect.height / 2
+        const insideAmazonOrRightGutter =
+          summaryCenterX >= amazonRect.left - 1 &&
+          summaryCenterX <= amazonRect.right + 120 &&
+          summaryCenterY >= amazonRect.top - 1 &&
+          summaryCenterY <= amazonRect.bottom + 1
+        const overlapsMeta =
+          Math.max(0, Math.min(summaryRect.right, metaRect.right) - Math.max(summaryRect.left, metaRect.left)) *
+            Math.max(0, Math.min(summaryRect.bottom, metaRect.bottom) - Math.max(summaryRect.top, metaRect.top)) >
+          0
+        return insideAmazonOrRightGutter && !overlapsMeta
+      }),
+    )
+    .toBe(true)
 })

@@ -108,6 +108,14 @@ type SurfaceRowsResult =
       detail?: string
     }
 
+function cloneSpec(spec: ChartSpec): ChartSpec {
+  try {
+    return structuredClone(spec)
+  } catch {
+    return JSON.parse(JSON.stringify(spec)) as ChartSpec
+  }
+}
+
 function getNodeId(op: OperationSpec): string | null {
   const metaNodeId = typeof op.meta?.nodeId === 'string' ? op.meta.nodeId.trim() : ''
   if (metaNodeId) return metaNodeId
@@ -129,6 +137,8 @@ function cloneDatum(row: DatumValue): DatumValue {
     target: String(row.target),
     displayTarget: row.displayTarget ?? null,
     group: row.group ?? null,
+    panel: row.panel ?? null,
+    panelField: row.panelField ?? null,
     value: Number(row.value),
     id: row.id ?? null,
     lookupId: row.lookupId ?? row.id ?? null,
@@ -171,6 +181,7 @@ function toBaseWorkingData(spec: ChartSpec, dataRows: DataRow[]): DatumValue[] {
         const group = (row as Record<string, unknown>).group ?? (row as Record<string, unknown>).series ?? null
         return group == null ? null : String(group)
       },
+      panelField: resolved.panelField,
     },
   ).filter((row) => Number.isFinite(row.value))
 }
@@ -796,7 +807,8 @@ function buildSurfaceRows(args: {
     sourceNodeIds.flatMap((sourceNodeId) => normalizeOperandRows(sourceNodeId, artifacts.nodeResults.get(sourceNodeId) ?? [])),
   )
   if (rowsFromSources.length) {
-    return { ok: true, rows: rowsFromSources, family }
+    const selectedFromSources = uniqueRows(selectRowsForOperation(op, rowsFromSources))
+    return { ok: true, rows: selectedFromSources.length ? selectedFromSources : rowsFromSources, family }
   }
 
   const inputRows = artifacts.nodeInputs.get(nodeId) ?? artifacts.baseWorking
@@ -913,8 +925,95 @@ function buildLineSurfaceSpec(rows: DatumValue[]): ChartSpec {
   }
 }
 
-function buildPlaybackSpec(family: ChartFamily, rows: DatumValue[]) {
-  return family === 'bar' ? buildBarSurfaceSpec(rows) : buildLineSurfaceSpec(rows)
+function datumRowSignature(row: DatumValue) {
+  return `${String(row.target)}__${String(row.group ?? row.series ?? '')}__${Number(row.value)}`
+}
+
+function rawRowSignature(
+  row: Record<string, unknown>,
+  fields: {
+    xField: string
+    yField: string
+    groupField?: string
+  },
+) {
+  return `${String(row[fields.xField] ?? '')}__${String(fields.groupField ? row[fields.groupField] ?? '' : '')}__${Number(row[fields.yField])}`
+}
+
+function synthesizeRawRowFromDatum(
+  row: DatumValue,
+  fields: {
+    xField: string
+    yField: string
+    groupField?: string
+  },
+) {
+  const raw: Record<string, unknown> = {
+    [fields.xField]: row.target,
+    [fields.yField]: Number(row.value),
+  }
+  if (fields.groupField) {
+    raw[fields.groupField] = row.group ?? row.series ?? null
+  }
+  if (typeof row.id === 'string' && row.id.trim().length > 0) {
+    raw.id = row.id.trim()
+  }
+  return raw
+}
+
+function buildSpecPreservingRows(baseSpec: ChartSpec, rows: DatumValue[]) {
+  const resolved = resolveEncodingFields(baseSpec)
+  const rawValues = (baseSpec.data as { values?: unknown } | undefined)?.values
+  if (!resolved || !Array.isArray(rawValues)) return null
+  const sourceValues = rawValues.filter(
+    (value): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value),
+  )
+  if (!sourceValues.length) return null
+
+  const remaining = new Map<string, number>()
+  rows.forEach((row) => {
+    const key = datumRowSignature(row)
+    remaining.set(key, (remaining.get(key) ?? 0) + 1)
+  })
+
+  const filteredValues: Array<Record<string, unknown>> = []
+  sourceValues.forEach((row) => {
+    const key = rawRowSignature(row, resolved)
+    const count = remaining.get(key) ?? 0
+    if (count <= 0) return
+    filteredValues.push({ ...row })
+    remaining.set(key, count - 1)
+  })
+
+  const synthesizedValues: Array<Record<string, unknown>> = []
+  remaining.forEach((count, key) => {
+    if (count <= 0) return
+    const match = rows.find((row) => datumRowSignature(row) === key)
+    if (!match) return
+    for (let index = 0; index < count; index += 1) {
+      synthesizedValues.push(synthesizeRawRowFromDatum(match, resolved))
+    }
+  })
+
+  const playbackSpec = cloneSpec(baseSpec)
+  playbackSpec.data = { values: [...filteredValues, ...synthesizedValues] } as ChartSpec['data']
+  return playbackSpec
+}
+
+export function buildPlaybackSpecFromBaseSpec(args: {
+  family: ChartFamily
+  rows: DatumValue[]
+  baseSpec: ChartSpec
+}) {
+  if (args.family === 'line') {
+    const preserved = buildSpecPreservingRows(args.baseSpec, args.rows)
+    if (preserved) return preserved
+  }
+  return args.family === 'bar' ? buildBarSurfaceSpec(args.rows) : buildLineSurfaceSpec(args.rows)
+}
+
+function buildPlaybackSpec(family: ChartFamily, rows: DatumValue[], baseSpec: ChartSpec) {
+  return buildPlaybackSpecFromBaseSpec({ family, rows, baseSpec })
 }
 
 function buildSurfaceSchema(args: {
@@ -1170,6 +1269,7 @@ function validatePreparedRunOps(args: {
 
 export function buildPreparedSurface(args: {
   spec: ChartSpec
+  baseSpec?: ChartSpec
   artifacts?: LogicalExecutionArtifacts | null
   surfaceType?: 'derived-chart' | 'scalar-panel' | 'source-chart' | 'text-only'
   nodeId?: string
@@ -1177,6 +1277,7 @@ export function buildPreparedSurface(args: {
   sourceNodeIds?: string[]
 }): BuildSurfaceResult {
   const { spec, artifacts, nodeId, sourceNodeIds = [] } = args
+  const playbackBaseSpec = args.baseSpec ?? spec
   if (!artifacts) return { ok: false, reason: 'missing-logical-artifacts' }
   if (!nodeId) return { ok: false, reason: 'missing-node' }
   if (args.surfaceType === 'text-only') {
@@ -1211,7 +1312,7 @@ export function buildPreparedSurface(args: {
     return { ok: false, reason: 'empty-derived-rows' }
   }
   const surfaceSchema = buildSurfaceSchema({
-    spec,
+    spec: playbackBaseSpec,
     family: rowsResult.family,
   })
   const selectors = buildPreparedSurfaceSelectors({
@@ -1236,7 +1337,7 @@ export function buildPreparedSurface(args: {
       nodeId,
       family: rowsResult.family,
       surfaceType: 'derived-chart',
-      playbackSpec: buildPlaybackSpec(rowsResult.family, rowsResult.rows),
+      playbackSpec: buildPlaybackSpec(rowsResult.family, rowsResult.rows, playbackBaseSpec),
       surfaceRows: rowsResult.rows,
       surfaceSchema,
       materializeOps: [],

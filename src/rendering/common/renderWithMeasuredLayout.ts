@@ -47,10 +47,10 @@ function adjustAxisTitlePositions(svg: SVGSVGElement, minGapPx: number) {
   if (xTitle instanceof SVGTextElement && xAxisRects.length > 0) {
     const xTitleRect = xTitle.getBoundingClientRect()
     const xAxisBottom = xAxisRects.reduce((max, rect) => Math.max(max, rect.bottom), Number.NEGATIVE_INFINITY)
-    const overlap = xAxisBottom + minGapPx - xTitleRect.top
-    if (overlap > 0) {
+    const deltaPx = xAxisBottom + minGapPx - xTitleRect.top
+    if (Math.abs(deltaPx) > 0.5) {
       const currentY = Number(xTitle.getAttribute('y') ?? '0')
-      xTitle.setAttribute('y', String(currentY + overlap * scaleY))
+      xTitle.setAttribute('y', String(currentY + deltaPx * scaleY))
     }
   }
 
@@ -59,10 +59,10 @@ function adjustAxisTitlePositions(svg: SVGSVGElement, minGapPx: number) {
   if (yTitle instanceof SVGTextElement && yAxisRects.length > 0) {
     const yTitleRect = yTitle.getBoundingClientRect()
     const yAxisLeft = yAxisRects.reduce((min, rect) => Math.min(min, rect.left), Number.POSITIVE_INFINITY)
-    const overlap = yTitleRect.right + minGapPx - yAxisLeft
-    if (overlap > 0) {
+    const deltaPx = yAxisLeft - minGapPx - yTitleRect.right
+    if (Math.abs(deltaPx) > 0.5) {
       const currentY = Number(yTitle.getAttribute('y') ?? '0')
-      yTitle.setAttribute('y', String(currentY - overlap * scaleX))
+      yTitle.setAttribute('y', String(currentY + deltaPx * scaleX))
     }
   }
 }

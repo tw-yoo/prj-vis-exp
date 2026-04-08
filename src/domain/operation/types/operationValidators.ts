@@ -157,7 +157,7 @@ export function assertPairDiffSpec(op: OperationSpec): OpPairDiffSpec {
     throw new Error(`Expected PairDiff spec but got op "${op.op}"`)
   }
   const spec = op as OpPairDiffSpec
-  if (!spec.by) throw new Error('pairDiff requires "by"')
+  if (!spec.by && !spec.keyField) throw new Error('pairDiff requires "by" or "keyField"')
   if (!spec.groupA || !spec.groupB) throw new Error('pairDiff requires "groupA" and "groupB"')
   return spec
 }

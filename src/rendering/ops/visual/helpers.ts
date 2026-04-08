@@ -135,7 +135,7 @@ function resolveSvgPointFromNode(svg: SVGSVGElement, node: Element) {
   }
 }
 
-function inferNormalizedPointForTarget(
+export function inferNormalizedPointForTarget(
   chartId: string | undefined,
   target: string,
   context: AutoDrawPlanContext,
@@ -330,7 +330,7 @@ export function buildBinaryComparisonBracketOp(
       draw.lineSpec.diffBracket(
         startY,
         endY,
-        draw.style.line(color, 2, 0.95),
+        draw.style.line(color, 2, 1),
         draw.arrow.both(),
         Math.max(0.02, Math.min(0.98, normalizedX)),
       ),
@@ -357,7 +357,7 @@ export function makeComparisonGuideLineOp(
       chartId,
       draw.lineSpec.horizontalFromY(
         value,
-        draw.style.line(color, 2, 0.85),
+        draw.style.line(color, 2, 1),
         undefined,
         { extent: 'plot', endNormalizedX: railX },
       ),
@@ -376,7 +376,7 @@ export function inferNormalizedYForValue(
     ?? null
 }
 
-export function buildBinaryComparisonRailPlan(args: {
+export function buildBinaryScaleComparisonRailPlan(args: {
   chartId: string | undefined
   color?: string
   precision?: number
@@ -426,7 +426,7 @@ export function buildBinaryComparisonRailPlan(args: {
             `${args.deltaTextLabel ?? 'Difference'}: ${formatDrawNumber(deltaValue, args.precision)}`,
             Math.max(0.08, railX - 0.09),
             clamp01((yA + yB) / 2),
-            draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold'),
+            draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold', undefined, 1),
             0,
             -5,
           ),
@@ -435,6 +435,95 @@ export function buildBinaryComparisonRailPlan(args: {
       ),
     )
   }
+  return plan
+}
+
+export function buildBinaryGeometryComparisonPlan(args: {
+  chartId: string | undefined
+  color?: string
+  precision?: number
+  valueA: number | null
+  valueB: number | null
+  normalizedYA: number | null
+  normalizedYB: number | null
+  highlightOps?: DrawOp[]
+  valueLabelOps?: DrawOp[]
+  deltaTextLabel?: string
+  deltaValue?: number | null
+  railX?: number
+}) {
+  const color = args.color ?? DEFAULT_HIGHLIGHT_COLOR
+  const railX = args.railX ?? COMPARISON_RAIL_X
+  const summaryX = Math.max(0.08, railX - 0.09)
+  const plan: DrawOp[] = [...(args.highlightOps ?? []), ...(args.valueLabelOps ?? [])]
+  const yA = Number(args.normalizedYA)
+  const yB = Number(args.normalizedYB)
+  const valueA = Number(args.valueA)
+  const valueB = Number(args.valueB)
+
+  if (Number.isFinite(yA) && Number.isFinite(valueA)) {
+    plan.push(
+      withAnnotationSlot(
+        ops.draw.line(
+          args.chartId,
+          draw.lineSpec.normalized(0, clamp01(yA), railX, clamp01(yA), draw.style.line(color, 2, 1)),
+        ),
+        makeComparisonRailSlot(args.chartId, valueA),
+      ),
+    )
+  }
+  if (Number.isFinite(yB) && Number.isFinite(valueB)) {
+    plan.push(
+      withAnnotationSlot(
+        ops.draw.line(
+          args.chartId,
+          draw.lineSpec.normalized(0, clamp01(yB), railX, clamp01(yB), draw.style.line(color, 2, 1)),
+        ),
+        makeComparisonRailSlot(args.chartId, valueB),
+      ),
+    )
+  }
+
+  if (Number.isFinite(yA) && Number.isFinite(yB) && yA !== yB) {
+    plan.push(
+      withAnnotationSlot(
+        ops.draw.line(
+          args.chartId,
+          draw.lineSpec.normalized(
+            railX,
+            clamp01(yA),
+            railX,
+            clamp01(yB),
+            draw.style.line(color, 2, 1),
+            draw.arrow.both(),
+          ),
+        ),
+        makeComparisonBracketSlot(args.chartId),
+      ),
+    )
+  }
+
+  const deltaValue = Number(args.deltaValue)
+  if (Number.isFinite(deltaValue) && Number.isFinite(yA) && Number.isFinite(yB)) {
+    plan.push(
+      withAnnotationSlot(
+        ops.draw.text(
+          args.chartId,
+          undefined,
+          draw.textSpec.normalized(
+            `${args.deltaTextLabel ?? 'Difference'}: ${formatDrawNumber(deltaValue, args.precision)}`,
+            summaryX,
+            clamp01((yA + yB) / 2),
+            draw.style.text(DEFAULT_TEXT_COLOR, AUTO_DRAW_TEXT_FONT_SIZE, 'bold', undefined, 1),
+            0,
+            -5,
+          ),
+        ),
+        makeComparisonSummarySlot(args.chartId),
+      ),
+    )
+  }
+
   return plan
 }
 
@@ -547,8 +636,12 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
       return drawOps.map(() => 0)
     case OperationOp.Compare:
       return drawOps.map((drawOp) => {
+        const slot = typeof drawOp.annotation?.slot === 'string' ? drawOp.annotation.slot : ''
         if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
         if (drawOp.action === DrawAction.Text && drawOp.select) return 0
+        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-rail:')) return 1
+        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-bracket:')) return 2
+        if (drawOp.action === DrawAction.Text && slot.startsWith('comparison-summary:')) return 2
         if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.HorizontalFromY) return 1
         if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.DiffBracket) return 2
         if (drawOp.action === DrawAction.Text) return 2
@@ -556,8 +649,12 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
       })
     case OperationOp.CompareBool:
       return drawOps.map((drawOp) => {
+        const slot = typeof drawOp.annotation?.slot === 'string' ? drawOp.annotation.slot : ''
         if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
         if (drawOp.action === DrawAction.Text && drawOp.select) return 0
+        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-rail:')) return 1
+        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-bracket:')) return 2
+        if (drawOp.action === DrawAction.Text && slot.startsWith('comparison-summary:')) return 2
         if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.HorizontalFromY) return 1
         if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.DiffBracket) return 2
         if (drawOp.action === DrawAction.Text) return 2
@@ -589,8 +686,12 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
         })
       }
       return drawOps.map((drawOp) => {
+        const slot = typeof drawOp.annotation?.slot === 'string' ? drawOp.annotation.slot : ''
         if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
         if (drawOp.action === DrawAction.Text && drawOp.select) return 0
+        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-rail:')) return 1
+        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-bracket:')) return 2
+        if (drawOp.action === DrawAction.Text && slot.startsWith('comparison-summary:')) return 2
         if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.HorizontalFromY) return 1
         if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.DiffBracket) return 2
         if (drawOp.action === DrawAction.Line) return 2
@@ -601,7 +702,19 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
     case OperationOp.LagDiff:
       return drawOps.map(() => 0)
     case OperationOp.PairDiff:
-      return drawOps.map(() => 0)
+      return drawOps.map((drawOp) => {
+        const slot = typeof drawOp.annotation?.slot === 'string' ? drawOp.annotation.slot : ''
+        if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
+        if (drawOp.action === DrawAction.Text && drawOp.select) return 0
+        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-rail:')) return 1
+        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-bracket:')) return 2
+        if (drawOp.action === DrawAction.Text && slot.startsWith('comparison-summary:')) return 2
+        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.HorizontalFromY) return 1
+        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.DiffBracket) return 2
+        if (drawOp.action === DrawAction.Line) return 2
+        if (drawOp.action === DrawAction.Text) return 2
+        return 2
+      })
     case OperationOp.Count:
       return drawOps.map(() => 0)
     case OperationOp.SetOp:

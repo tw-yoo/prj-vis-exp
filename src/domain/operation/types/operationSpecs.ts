@@ -91,7 +91,8 @@ export interface OpLagDiffSpec extends OperationSpec {
 
 export interface OpPairDiffSpec extends OperationSpec {
   op: typeof OperationOp.PairDiff
-  by: string
+  by?: string
+  keyField?: string
   seriesField?: string
   field?: string
   groupA: string

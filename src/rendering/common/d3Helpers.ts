@@ -453,10 +453,11 @@ export function ensureXAxisLabelClearance(
         const titleRect = xTitle.getBoundingClientRect()
         const axisRect = xAxis.getBoundingClientRect()
         if (titleRect && axisRect) {
-          const overlap = axisRect.bottom + (opts.minGap ?? 12) - titleRect.top
-          if (overlap > 0) {
+          const deltaPx = axisRect.bottom + (opts.minGap ?? 12) - titleRect.top
+          if (Math.abs(deltaPx) > 0.5) {
             const currentY = parseFloat(xTitle.getAttribute('y') || '0')
-            xTitle.setAttribute('y', String(currentY + Math.min(overlap, opts.maxShift ?? 120)))
+            const nextY = currentY + Math.max(-(opts.maxShift ?? 120), Math.min(deltaPx, opts.maxShift ?? 120))
+            xTitle.setAttribute('y', String(nextY))
           }
         }
       }
@@ -466,10 +467,11 @@ export function ensureXAxisLabelClearance(
         const titleRect = yTitle.getBoundingClientRect()
         const axisRect = yAxis.getBoundingClientRect()
         if (titleRect && axisRect) {
-          const overlap = titleRect.right - (axisRect.left - (opts.minGap ?? 12))
-          if (overlap > 0) {
+          const deltaPx = axisRect.left - (opts.minGap ?? 12) - titleRect.right
+          if (Math.abs(deltaPx) > 0.5) {
             const currentY = parseFloat(yTitle.getAttribute('y') || '0')
-            yTitle.setAttribute('y', String(currentY - Math.min(overlap, opts.maxShift ?? 120)))
+            const nextY = currentY + Math.max(-(opts.maxShift ?? 120), Math.min(deltaPx, opts.maxShift ?? 120))
+            yTitle.setAttribute('y', String(nextY))
           }
         }
       }

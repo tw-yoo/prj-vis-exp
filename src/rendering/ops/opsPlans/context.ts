@@ -9,6 +9,7 @@ import { getStackedBarStoredData, type StackedSpec } from '../../bar/stackedBarR
 import { getGroupedBarStoredData, type GroupedSpec } from '../../bar/groupedBarRenderer'
 import { getSimpleLineStoredData, resolveSimpleLineEncoding, type LineSpec } from '../../line/simpleLineRenderer'
 import { getMultipleLineStoredData, resolveMultiLineEncoding, type MultiLineSpec } from '../../line/multipleLineRenderer'
+import { resolveEncodingFields } from '../common/resolveEncodingFields'
 
 const groupFallback = (row: RawRow) => {
   const candidate = row?.group ?? row?.color ?? row?.series ?? null
@@ -43,14 +44,16 @@ function buildStackedBarWorkingData(container: HTMLElement, spec: StackedSpec): 
 
 function buildGroupedBarWorkingData(container: HTMLElement, spec: GroupedSpec): DatumValue[] {
   const raw = (getGroupedBarStoredData(container) || []) as RawRow[]
+  const resolved = resolveEncodingFields(spec)
+  if (!resolved) return []
   return toDatumValuesFromRaw(
     raw,
     {
-      xField: spec.encoding.x.field,
-      yField: spec.encoding.y.field,
-      groupField: spec.encoding.color?.field,
+      xField: resolved.xField,
+      yField: resolved.yField,
+      groupField: resolved.groupField,
     },
-    { groupFallback },
+    { groupFallback, panelField: resolved.panelField },
   )
 }
 

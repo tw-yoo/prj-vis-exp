@@ -136,7 +136,7 @@ export const dataActions = {
   },
 
   pairDiff(
-    by: string,
+    by: string | undefined,
     groupA: string,
     groupB: string,
     seriesField?: string,
@@ -146,6 +146,7 @@ export const dataActions = {
     precision?: number,
     group?: string | null,
     chartId?: string,
+    keyField?: string,
   ): OpPairDiffSpec {
     return buildDataOp<OpPairDiffSpec>(OperationOp.PairDiff, {
       by,
@@ -158,6 +159,7 @@ export const dataActions = {
       precision,
       group,
       chartId,
+      keyField,
     })
   },
 
