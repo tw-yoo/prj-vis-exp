@@ -47,6 +47,7 @@ export type VisualSubstepExecutionContext = {
   container: HTMLElement
   spec: ChartSpec
   currentRootSpec: ChartSpec
+  currentRootSpecMode: 'base' | 'playback'
   dataRows?: Array<Record<string, unknown>>
   surfaceManager?: SurfaceManager
   logicalOpsSpec?: OpsSpecGroupMap
@@ -305,13 +306,31 @@ function sleepMs(ms: number) {
 }
 
 function resolveSurfaceSpec(context: VisualSubstepExecutionContext, surfaceId?: string): ChartSpec {
-  if (!surfaceId || surfaceId === 'root') return context.spec
+  if (!surfaceId || surfaceId === 'root') return context.currentRootSpec
   return context.surfaceManager?.getSurface(surfaceId)?.spec ?? context.spec
 }
 
 function resolveSurfaceChartType(context: VisualSubstepExecutionContext, surfaceId?: string): ChartTypeValue | null {
-  if (!surfaceId || surfaceId === 'root') return getChartType(context.spec)
+  if (!surfaceId || surfaceId === 'root') return getChartType(context.currentRootSpec)
   return context.surfaceManager?.getSurface(surfaceId)?.chartType ?? getChartType(context.spec)
+}
+
+function isAggregateReuseCandidate(op: OperationSpec | null) {
+  if (!op) return false
+  if (op.op !== 'average' && op.op !== 'sum' && op.op !== 'count') return false
+  return Array.isArray(op.meta?.inputs) && op.meta.inputs.length > 0
+}
+
+function shouldReuseCurrentRootSourceSurface(args: {
+  context: VisualSubstepExecutionContext
+  substep: VisualExecutionSubstep
+  logicalOp: OperationSpec | null
+}) {
+  const surfaceId = resolveSubstepSurfaceId(args.substep)
+  if (surfaceId && surfaceId !== 'root') return false
+  if (args.context.currentSurface !== 'source-chart') return false
+  if (args.context.currentRootSpecMode !== 'playback') return false
+  return isAggregateReuseCandidate(args.logicalOp)
 }
 
 function resolveSubstepSurfaceId(substep: VisualExecutionSubstep): string | undefined {
@@ -566,6 +585,9 @@ function resolveExecutionSurface(args: {
     return { surfaceType: 'source-chart', operation: null }
   }
   const canonicalOp = resolveSourceBackedSelectors(logicalOp, context.logicalArtifacts)
+  if (shouldReuseCurrentRootSourceSurface({ context, substep, logicalOp })) {
+    return { surfaceType: 'source-chart', operation: canonicalOp }
+  }
   const selection = selectDerivedSurfaceForOperation({
     op: logicalOp,
     artifacts: context.logicalArtifacts,
@@ -794,6 +816,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     container: args.container,
     spec: args.spec,
     currentRootSpec: cloneSpec(args.spec),
+    currentRootSpecMode: 'base',
     dataRows: args.dataRows,
     logicalOpsSpec: args.logicalOpsSpec,
     drawPlan: args.drawPlan,
@@ -828,6 +851,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
   const renderSourceChartWithSummary = async () => {
     await args.renderSourceChart()
     context.currentRootSpec = cloneSpec(args.spec)
+    context.currentRootSpecMode = 'base'
     if (currentSummaryText && args.renderSentenceSummary) {
       await args.renderSentenceSummary(currentSummaryText)
     }
@@ -835,6 +859,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
   const renderPlaybackChartWithSummary = async (spec: ChartSpec) => {
     await args.renderPlaybackChart(spec)
     context.currentRootSpec = cloneSpec(spec)
+    context.currentRootSpecMode = 'playback'
     if (currentSummaryText && args.renderSentenceSummary) {
       await args.renderSentenceSummary(currentSummaryText)
     }

@@ -17,6 +17,7 @@ export interface OpFilterSpec extends OperationSpec {
   operator?: OperationSpec['operator']
   value?: OperationSpec['value']
   field?: string
+  group?: string | number | Array<string | number> | null
   include?: Array<string | number>
   exclude?: Array<string | number>
 }

@@ -172,8 +172,13 @@ export function inferNormalizedPointForTarget(
 function inferAverageLabelYFromChart(container: HTMLElement, chartId: string | undefined, value: number) {
   const svg = selectSvgForChart(container, chartId)
   if (!svg) return null
+  const plot = resolvePlotFrame(svg)
+  if (!(plot.width > 0 && plot.height > 0)) return null
   const svgRect = svg.getBoundingClientRect()
-  if (!(svgRect.height > 0)) return null
+  const viewBox = svg.viewBox?.baseVal
+  const scaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
+  const svgOriginY = viewBox?.y ?? 0
+  if (!(svgRect.height > 0 && Number.isFinite(scaleY))) return null
 
   const points: Array<{ value: number; y: number }> = []
   const nodes = Array.from(svg.querySelectorAll<SVGGraphicsElement>('[data-value]'))
@@ -184,14 +189,19 @@ function inferAverageLabelYFromChart(container: HTMLElement, chartId: string | u
     const raw = node.getAttribute('data-value')
     const numeric = raw != null ? Number(raw) : NaN
     if (!Number.isFinite(numeric)) return
-    const rect = node.getBoundingClientRect()
-    if (!(rect.height >= 0)) return
-    // For bars, lineAt(y=value) aligns with the bar top. For points/paths, center is a better anchor.
-    const rawY = node.tagName.toLowerCase() === 'rect'
-      ? rect.top - svgRect.top
-      : rect.top - svgRect.top + rect.height / 2
-    if (!Number.isFinite(rawY)) return
-    points.push({ value: numeric, y: clamp01(1 - rawY / svgRect.height) })
+    const rawY =
+      node.tagName.toLowerCase() === 'rect'
+        ? (() => {
+            const rect = node.getBoundingClientRect()
+            if (!(rect.height >= 0)) return null
+            return (rect.top - svgRect.top) * scaleY + svgOriginY
+          })()
+        : (() => {
+            const point = resolveSvgPointFromNode(svg, node)
+            return point?.y ?? null
+          })()
+    if (rawY == null || !Number.isFinite(rawY)) return
+    points.push({ value: numeric, y: clamp01(1 - (rawY - plot.y) / plot.height) })
   })
   if (!points.length) return null
 

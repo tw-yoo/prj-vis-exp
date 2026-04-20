@@ -35,11 +35,54 @@ const MULTILINE_FILTER_REDRAW_SPEC = JSON.stringify(
         { Year: '2017', Opinion_Type: 'Confidence in US President', Percentage_of_Respondents: 24 },
       ],
     },
-    mark: 'line',
-    encoding: {
-      x: { field: 'Year', type: 'ordinal', sort: null },
-      y: { field: 'Percentage_of_Respondents', type: 'quantitative' },
-      color: { field: 'Opinion_Type', type: 'nominal' },
+    layer: [
+      {
+        mark: {
+          type: 'line',
+          point: false,
+        },
+        encoding: {
+          x: {
+            field: 'Year',
+            type: 'ordinal',
+            axis: {
+              title: 'Year',
+              labelAngle: 0,
+            },
+          },
+          y: {
+            field: 'Percentage_of_Respondents',
+            type: 'quantitative',
+            axis: {
+              title: 'Percentage_of_Respondents',
+            },
+          },
+          color: {
+            field: 'Opinion_Type',
+            type: 'nominal',
+            legend: {
+              title: 'Opinion_Type',
+            },
+          },
+        },
+      },
+      {
+        mark: {
+          type: 'point',
+          filled: true,
+          size: 80,
+        },
+        encoding: {
+          x: { field: 'Year', type: 'ordinal' },
+          y: { field: 'Percentage_of_Respondents', type: 'quantitative' },
+          color: { field: 'Opinion_Type', type: 'nominal' },
+        },
+      },
+    ],
+    config: {
+      view: {
+        stroke: 'transparent',
+      },
     },
   },
   null,
@@ -106,10 +149,10 @@ function multilineFilterPayload() {
           action: 'text',
           meta: { source: 'python-draw-plan', nodeId: 'n2', sentenceIndex: 2, inputs: ['n1'] },
           text: {
-            value: 'average: 65.67',
+            value: 'Average: 65.67',
             mode: 'normalized',
-            position: { x: 0.92, y: 0.8037990196078432 },
-            style: { color: '#111827', fontSize: 12, fontWeight: 'bold', opacity: 1 },
+            position: { x: 0.92, y: 0.5284 },
+            style: { color: '#111827', fontSize: 14, fontWeight: 'bold', opacity: 1 },
           },
         },
       ],
@@ -220,16 +263,24 @@ async function runEnvelope(page: Page, payload: unknown) {
   await expect(page.getByTestId('ops-json-status')).toContainText('Execution source: visual_plan')
 }
 
-async function clickAdvance(page: Page) {
+async function advancePlayback(page: Page) {
   const startButton = page.getByRole('button', { name: 'Start' })
-  if (await startButton.isVisible().catch(() => false)) {
+  if (
+    (await startButton.isVisible().catch(() => false)) &&
+    (await startButton.isEnabled().catch(() => false))
+  ) {
     await startButton.click()
-    return
+    return true
   }
   const nextButton = page.getByRole('button', { name: 'Next' })
-  if (await nextButton.isVisible().catch(() => false)) {
+  if (
+    (await nextButton.isVisible().catch(() => false)) &&
+    (await nextButton.isEnabled().catch(() => false))
+  ) {
     await nextButton.click()
+    return true
   }
+  return false
 }
 
 async function readChartSnapshot(page: Page) {
@@ -238,54 +289,97 @@ async function readChartSnapshot(page: Page) {
     if (!svg) return null
     const visibleTicks = Array.from(svg.querySelectorAll<SVGGElement>('.x-axis .tick'))
       .filter((tick) => {
-        const display = (tick as SVGGElement).style.display
+        const display = tick.style.display
         const opacity = Number(tick.getAttribute('opacity') ?? '1')
         return display !== 'none' && (!Number.isFinite(opacity) || opacity > 0.5)
       })
       .map((tick) => tick.textContent?.trim() ?? '')
       .filter((value) => value.length > 0)
-    const visiblePoints = Array.from(svg.querySelectorAll<SVGCircleElement>('circle[data-target][data-series]')).filter((node) => {
+    const visiblePoints = Array.from(svg.querySelectorAll<SVGCircleElement>('circle[data-target]')).filter((node) => {
       const display = node.style.display
       const opacity = Number(node.getAttribute('opacity') ?? '1')
       return display !== 'none' && (!Number.isFinite(opacity) || opacity > 0.5)
     })
-    const visiblePaths = Array.from(svg.querySelectorAll<SVGPathElement>('path[data-series]')).filter((node) => {
+    const visiblePaths = Array.from(svg.querySelectorAll<SVGPathElement>('path')).filter((node) => {
       const display = node.style.display
       const opacity = Number(node.getAttribute('opacity') ?? '1')
-      return display !== 'none' && (!Number.isFinite(opacity) || opacity > 0.5)
+      if (display === 'none' || (Number.isFinite(opacity) && opacity <= 0.5)) return false
+      if (node.classList.contains('domain')) return false
+      if (node.classList.contains('annotation')) return false
+      if (node.closest('.chart-explanation-layer')) return false
+      if (node.closest('.color-legend')) return false
+      const stroke = (node.getAttribute('stroke') ?? '').trim().toLowerCase()
+      if (!stroke || stroke === 'none' || stroke === 'currentcolor') return false
+      const d = (node.getAttribute('d') ?? '').trim()
+      return /[ML]/.test(d)
     })
+    const legendLabels = Array.from(svg.querySelectorAll<SVGTextElement>('.color-legend text'))
+      .map((node) => node.textContent?.trim() ?? '')
+      .filter((value) => value.length > 0)
+    const dataSeriesLabels = visiblePaths
+      .map((node) => node.getAttribute('data-series') ?? '')
+      .filter((value) => value.trim().length > 0)
+    const averageRule =
+      svg.querySelector<SVGLineElement>('[data-annotation-slot="aggregate-line:__root__:average"]') ??
+      Array.from(svg.querySelectorAll<SVGLineElement>('line.annotation.line-annotation')).find((node) => {
+        if (node.classList.contains('text-leader-line')) return false
+        const stroke = (node.getAttribute('stroke') ?? '').trim().toLowerCase()
+        return stroke === '#ef4444'
+      }) ??
+      null
+    const averageText =
+      svg.querySelector<SVGTextElement>('[data-annotation-slot="aggregate-text:__root__:average"]') ??
+      Array.from(svg.querySelectorAll<SVGTextElement>('text.annotation.text-annotation')).find(
+        (node) => node.textContent?.trim() === 'Average: 65.67',
+      ) ??
+      Array.from(svg.querySelectorAll<SVGTextElement>('text')).find(
+        (node) => node.textContent?.trim() === 'Average: 65.67',
+      ) ??
+      null
+    const legendTitle = svg.querySelector<SVGTextElement>('.color-legend text')
     return {
       renderEpoch: Number(svg.getAttribute('data-render-epoch') ?? '0'),
-      plotWidth: Number(svg.getAttribute('data-plot-w') ?? '0'),
+      xField: svg.getAttribute('data-x-field') ?? '',
+      yField: svg.getAttribute('data-y-field') ?? '',
+      groupLabel: svg.getAttribute('data-group-label') ?? '',
+      colorField: svg.getAttribute('data-color-field') ?? '',
+      legendTitle: legendTitle?.textContent?.trim() ?? '',
       visibleTicks,
-      visibleSeries: visiblePaths.map((node) => node.getAttribute('data-series') ?? ''),
+      visibleSeries: dataSeriesLabels.length > 0 ? dataSeriesLabels : legendLabels.slice(1),
       visiblePathCount: visiblePaths.length,
       visiblePointCount: visiblePoints.length,
-      pathNumberCounts: visiblePaths.map((node) => (node.getAttribute('d')?.match(/-?\d+(?:\.\d+)?/g) ?? []).length),
       pathStrokeWidths: visiblePaths.map((node) => Number(node.getAttribute('stroke-width') ?? '0')),
-      pathStrokes: visiblePaths.map((node) => (node.getAttribute('stroke') ?? '').toLowerCase()),
       pointRadii: visiblePoints.map((node) => Number(node.getAttribute('r') ?? '0')),
-      pointFills: visiblePoints.map((node) => (node.getAttribute('fill') ?? '').toLowerCase()),
-      pointTargets: visiblePoints.map((node) => node.getAttribute('data-target') ?? ''),
-      firstPointCx: visiblePoints.length > 0 ? Number(visiblePoints[0]?.getAttribute('cx') ?? '0') : null,
-      minPointCx: visiblePoints.reduce((min, node) => Math.min(min, Number(node.getAttribute('cx') ?? '0')), Number.POSITIVE_INFINITY),
-      maxPointCx: visiblePoints.reduce((max, node) => Math.max(max, Number(node.getAttribute('cx') ?? '0')), Number.NEGATIVE_INFINITY),
-      hasAverageLabel: Array.from(svg.querySelectorAll<SVGTextElement>('text'))
-        .map((node) => (node.textContent ?? '').trim())
-        .some((value) => value === 'average: 65.67'),
-      redLongPathCount: visiblePaths.filter((node) => {
-        const stroke = (node.getAttribute('stroke') ?? '').toLowerCase()
-        if (stroke !== '#ef4444') return false
-        const numberCount = (node.getAttribute('d')?.match(/-?\d+(?:\.\d+)?/g) ?? []).length
-        return numberCount > 6
-      }).length,
-      redVisiblePathCount: visiblePaths.filter((node) => (node.getAttribute('stroke') ?? '').toLowerCase() === '#ef4444').length,
-      redVisiblePointCount: visiblePoints.filter((node) => (node.getAttribute('fill') ?? '').toLowerCase() === '#ef4444').length,
+      averageLineY: averageRule ? Number(averageRule.getAttribute('y1') ?? 'NaN') : null,
+      averageTextY: averageText ? Number(averageText.getAttribute('y') ?? 'NaN') : null,
+      averageTextValue: averageText?.textContent?.trim() ?? '',
+      averageLeaderCount: svg.querySelectorAll('.text-leader-line').length,
+      averageRuleCount: averageRule ? 1 : 0,
+      averageTextCount: averageText ? 1 : 0,
+      hasAverageLabel: Array.from(svg.querySelectorAll<SVGTextElement>('text')).some(
+        (node) => node.textContent?.trim() === 'Average: 65.67',
+      ),
     }
   })
 }
 
-test('multiple line filter redraw keeps compact x layout and preserves derived average flow', async ({ page }) => {
+async function advanceUntil<T>(
+  page: Page,
+  predicate: () => Promise<T | null>,
+  maxSteps = 24,
+) {
+  for (let step = 0; step < maxSteps; step += 1) {
+    const current = await predicate()
+    if (current != null) return current
+    const advanced = await advancePlayback(page)
+    if (!advanced) {
+      await page.waitForTimeout(150)
+    }
+  }
+  return predicate()
+}
+
+test('multiple line average reuses the prefiltered source surface and keeps the average label aligned', async ({ page }) => {
   await renderSpec(page, MULTILINE_FILTER_REDRAW_SPEC)
   await runEnvelope(page, multilineFilterPayload())
 
@@ -296,61 +390,54 @@ test('multiple line filter redraw keeps compact x layout and preserves derived a
       const snapshot = await readChartSnapshot(page)
       if (!snapshot) return null
       return {
-        plotWidth: snapshot.plotWidth,
         visibleTicks: snapshot.visibleTicks,
         visiblePathCount: snapshot.visiblePathCount,
-        pathNumberCounts: snapshot.pathNumberCounts,
-        redLongPathCount: snapshot.redLongPathCount,
-        redVisiblePathCount: snapshot.redVisiblePathCount,
-        redVisiblePointCount: snapshot.redVisiblePointCount,
-        maxPointInside: Number.isFinite(snapshot.maxPointCx) && snapshot.maxPointCx <= snapshot.plotWidth + 1,
+        visiblePointCount: snapshot.visiblePointCount,
+        xField: snapshot.xField,
+        yField: snapshot.yField,
       }
     })
     .toMatchObject({
-      plotWidth: 510,
       visibleTicks: ['2015', '2016', '2017'],
       visiblePathCount: 2,
-      pathNumberCounts: [6, 6],
-      redLongPathCount: 0,
-      redVisiblePathCount: 0,
-      redVisiblePointCount: 0,
-      maxPointInside: true,
+      visiblePointCount: 6,
+      xField: 'Year',
+      yField: 'Percentage_of_Respondents',
     })
 
-  const filterSnapshot = await readChartSnapshot(page)
+  const filteredSnapshot = await readChartSnapshot(page)
+  expect(filteredSnapshot).not.toBeNull()
+  if (!filteredSnapshot) throw new Error('filtered snapshot is unavailable')
+  const expectedStrokeWidth = filteredSnapshot.pathStrokeWidths[0]
+  const expectedPointRadius = filteredSnapshot.pointRadii[0]
 
-  for (let step = 0; step < 4; step += 1) {
+  const finalSnapshot = await advanceUntil(page, async () => {
     const snapshot = await readChartSnapshot(page)
-    if (snapshot?.hasAverageLabel) break
-    await clickAdvance(page)
-  }
+    if (!snapshot?.hasAverageLabel) return null
+    if (snapshot.visibleSeries.length !== 1) return null
+    if (snapshot.visibleSeries[0] !== 'Favorable view of US') return null
+    return snapshot
+  })
 
-  await expect
-    .poll(async () => {
-      const snapshot = await readChartSnapshot(page)
-      if (!snapshot?.hasAverageLabel) return []
-      return Array.from(new Set([
-        ...snapshot.visibleSeries,
-        ...(snapshot.hasAverageLabel ? ['average: 65.67'] : []),
-      ]))
-    })
-    .toContain('average: 65.67')
+  expect(finalSnapshot).not.toBeNull()
+  if (!finalSnapshot) throw new Error('final average snapshot is unavailable')
 
-  const averageSnapshot = await readChartSnapshot(page)
-  expect(averageSnapshot).not.toBeNull()
-  expect(filterSnapshot).not.toBeNull()
-  if (!averageSnapshot || !filterSnapshot) {
-    throw new Error('chart snapshot is unavailable')
-  }
-  expect(averageSnapshot.visibleTicks).toEqual(['2015', '2016', '2017'])
-  expect(averageSnapshot.visibleSeries).toEqual(['Favorable view of US'])
-  expect(averageSnapshot.visiblePathCount).toBe(1)
-  expect(averageSnapshot.visiblePointCount).toBe(3)
-  expect(averageSnapshot.pathStrokeWidths).toEqual(
-    filterSnapshot.pathStrokeWidths.slice(0, averageSnapshot.pathStrokeWidths.length),
-  )
-  expect(averageSnapshot.pointRadii).toEqual(new Array(3).fill(filterSnapshot.pointRadii[0] ?? 0))
-  expect(averageSnapshot.minPointCx).toBeFinite()
-  expect(filterSnapshot.minPointCx).toBeFinite()
-  expect(Math.abs(averageSnapshot.minPointCx - filterSnapshot.minPointCx)).toBeLessThanOrEqual(1)
+  expect(finalSnapshot.xField).toBe('Year')
+  expect(finalSnapshot.yField).toBe('Percentage_of_Respondents')
+  expect(['', 'Opinion_Type']).toContain(finalSnapshot.groupLabel)
+  expect(['', 'Opinion_Type']).toContain(finalSnapshot.colorField)
+  expect(finalSnapshot.legendTitle).toBe('Opinion_Type')
+  expect(finalSnapshot.visibleTicks).toEqual(['2015', '2016', '2017'])
+  expect(finalSnapshot.visibleSeries).toEqual(['Favorable view of US'])
+  expect(finalSnapshot.visiblePathCount).toBe(1)
+  expect(finalSnapshot.visiblePointCount).toBe(3)
+  expect(finalSnapshot.pathStrokeWidths).toEqual([expectedStrokeWidth])
+  expect(finalSnapshot.pointRadii).toEqual([expectedPointRadius, expectedPointRadius, expectedPointRadius])
+  expect(finalSnapshot.averageRuleCount).toBe(1)
+  expect(finalSnapshot.averageTextCount).toBe(1)
+  expect(finalSnapshot.averageLeaderCount).toBe(0)
+  expect(finalSnapshot.averageTextValue).toBe('Average: 65.67')
+  expect(finalSnapshot.averageLineY).not.toBeNull()
+  expect(finalSnapshot.averageTextY).not.toBeNull()
+  expect(Math.abs((finalSnapshot.averageLineY ?? 0) - (finalSnapshot.averageTextY ?? 0))).toBeLessThanOrEqual(16)
 })

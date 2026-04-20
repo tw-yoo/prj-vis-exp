@@ -44,7 +44,7 @@ export const dataActions = {
     operator: ComparisonOperator,
     value: OpFilterSpec['value'],
     field?: string,
-    group?: string | null,
+    group?: OpFilterSpec['group'],
     chartId?: string,
   ): OpFilterSpec {
     return buildDataOp<OpFilterSpec>(OperationOp.Filter, { operator, value, field, group, chartId })
@@ -53,7 +53,7 @@ export const dataActions = {
   filterInclude(
     values: Array<string | number>,
     field?: string,
-    group?: string | null,
+    group?: OpFilterSpec['group'],
     chartId?: string,
   ): OpFilterSpec {
     return buildDataOp<OpFilterSpec>(OperationOp.Filter, { include: [...values], field, group, chartId })
@@ -62,7 +62,7 @@ export const dataActions = {
   filterExclude(
     values: Array<string | number>,
     field?: string,
-    group?: string | null,
+    group?: OpFilterSpec['group'],
     chartId?: string,
   ): OpFilterSpec {
     return buildDataOp<OpFilterSpec>(OperationOp.Filter, { exclude: [...values], field, group, chartId })

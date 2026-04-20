@@ -233,6 +233,10 @@ function isComparisonSummarySlot(annotationSlot?: string | null) {
   return (annotationSlot ?? '').startsWith('comparison-summary:')
 }
 
+function isAggregateAverageTextSlot(annotationSlot?: string | null) {
+  return (annotationSlot ?? '').startsWith('aggregate-text:') && (annotationSlot ?? '').endsWith(':average')
+}
+
 function parseCssColorToRgb(raw: string | null | undefined): RgbColor | null {
   if (!raw) return null
   const value = raw.trim().toLowerCase()
@@ -604,6 +608,24 @@ export abstract class BaseDrawHandler {
       candidates.push({ x, y })
     }
 
+    if (isAggregateAverageTextSlot(annotationSlot) && viewportBox && viewportBox.width > 0 && viewportBox.height > 0) {
+      const topInset = CHART_ANNOTATION_LAYOUT.comparisonSummaryTopInset
+      const bottomInset = CHART_ANNOTATION_LAYOUT.comparisonSummaryBottomInset
+      const sideInset = CHART_ANNOTATION_LAYOUT.comparisonSummarySideInset
+      const gutter = CHART_ANNOTATION_LAYOUT.comparisonSummaryRightGutter
+      const lockedY = Math.max(
+        viewportBox.y + topInset,
+        Math.min(preferred.y, viewportBox.y + viewportBox.height - bottomInset),
+      )
+      const gutterX = viewportBox.x + viewportBox.width + gutter / 2
+      const insideX = viewportBox.x + viewportBox.width - sideInset
+      push(gutterX, lockedY)
+      push(insideX, lockedY)
+      push(preferred.x, lockedY)
+      ;[-24, 24, -48, 48].forEach((dx) => push(gutterX + dx, lockedY))
+      return candidates
+    }
+
     if (isComparisonSummarySlot(annotationSlot) && viewportBox && viewportBox.width > 0 && viewportBox.height > 0) {
       const topInset = CHART_ANNOTATION_LAYOUT.comparisonSummaryTopInset
       const bottomInset = CHART_ANNOTATION_LAYOUT.comparisonSummaryBottomInset
@@ -897,7 +919,8 @@ export abstract class BaseDrawHandler {
       width: fallbackViewport.width,
       height: fallbackViewport.height,
     }
-    const gutterBox = isComparisonSummarySlot(annotationSlot)
+    const useRightGutter = isComparisonSummarySlot(annotationSlot) || isAggregateAverageTextSlot(annotationSlot)
+    const gutterBox = useRightGutter
       ? {
           x: viewportBox.x + viewportBox.width,
           y: viewportBox.y,
@@ -906,7 +929,7 @@ export abstract class BaseDrawHandler {
         }
       : null
     const allowedBoxes = gutterBox ? [viewportBox, gutterBox] : [viewportBox]
-    const effectiveViewportBox = isComparisonSummarySlot(annotationSlot)
+    const effectiveViewportBox = useRightGutter
       ? {
           ...viewportBox,
           width: viewportBox.width + CHART_ANNOTATION_LAYOUT.comparisonSummaryRightGutter,
@@ -1004,7 +1027,11 @@ export abstract class BaseDrawHandler {
         .attr(SvgAttributes.PaintOrder, null)
     }
 
-    if (!usedBarInsideFallback && best.displacement > TEXT_PLACEMENT_POLICY.leaderLineThresholdPx) {
+    if (
+      !usedBarInsideFallback &&
+      !isAggregateAverageTextSlot(annotationSlot) &&
+      best.displacement > TEXT_PLACEMENT_POLICY.leaderLineThresholdPx
+    ) {
       this.appendTextLeaderLine(
         svgNode,
         textNode,

@@ -287,6 +287,68 @@ test('simple line filter transitions to simple bar before executing bar filter s
     .toBeGreaterThan(0)
 })
 
+test('stacked bar filter(group list) keeps only the requested series', async ({ page }) => {
+  const stackedThreeSeriesSpec = JSON.stringify(
+    {
+      $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+      description: 'E2E stacked bar multi-group filter fixture',
+      data: {
+        values: [
+          { month: 'Jan', weather: 'sun', count: 10 },
+          { month: 'Jan', weather: 'rain', count: 4 },
+          { month: 'Jan', weather: 'snow', count: 2 },
+          { month: 'Feb', weather: 'sun', count: 8 },
+          { month: 'Feb', weather: 'rain', count: 6 },
+          { month: 'Feb', weather: 'snow', count: 1 },
+          { month: 'Mar', weather: 'sun', count: 12 },
+          { month: 'Mar', weather: 'rain', count: 3 },
+          { month: 'Mar', weather: 'snow', count: 5 },
+        ],
+      },
+      mark: 'bar',
+      encoding: {
+        x: { field: 'month', type: 'nominal', sort: null },
+        y: { field: 'count', type: 'quantitative' },
+        color: { field: 'weather', type: 'nominal' },
+      },
+    },
+    null,
+    2,
+  )
+
+  await renderSpec(page, stackedThreeSeriesSpec)
+  await runSingleOpsGroup(page, [
+    {
+      id: 'n1',
+      op: 'filter',
+      field: 'count',
+      group: ['sun', 'rain'],
+      meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 },
+    },
+  ])
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const bars = Array.from(document.querySelectorAll<SVGRectElement>('svg rect.main-bar'))
+        const visibleBars = bars.filter((bar) => {
+          const display = bar.style.display
+          const opacity = Number(bar.getAttribute('opacity') ?? '1')
+          return display !== 'none' && (!Number.isFinite(opacity) || opacity > 0)
+        })
+        const visibleSeries = Array.from(
+          new Set(
+            visibleBars
+              .map((bar) => (bar.getAttribute('data-series') ?? '').trim())
+              .filter((value) => value.length > 0),
+          ),
+        ).sort()
+        return visibleSeries
+      }),
+    )
+    .toEqual(['rain', 'sun'])
+})
+
 test('pairDiff and lagDiff render supported comparison annotations across charts', async ({ page }) => {
   const pairDiffCases: Array<{ spec: string; ops: unknown[]; explanation: string }> = [
     {

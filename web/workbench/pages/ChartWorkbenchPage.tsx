@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-// import barSimpleSpecRaw from '../../../data/test/spec/presentation.json?raw'
-import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/line/multiple/2kmpy10btl65kr2j.json?raw'
+import barSimpleSpecRaw from '../../../data/test/spec/presentation.json?raw'
+// import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/line/multiple/2kmpy10btl65kr2j.json?raw'
 // import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/bar/simple/0w88bu7qm4ilsqmh.json?raw'
+// import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/bar/stacked/0g0xma0b0k29lk5j.json?raw'
 import {
   assertDrawCapabilityForOp,
   BarDrawHandler,
@@ -2120,16 +2121,19 @@ function ChartWorkbenchPage() {
           .flat()
           .some((op) => (op as { op?: string }).op !== 'draw')
 
-        if (parsed.executionSource === 'ops' && hasNonDrawOps) {
+        let parsedVlSpecForOps: VegaLiteSpec | null = null
+        if (hasNonDrawOps) {
           const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
           const sanitizedVlSpec = sanitizeJsonInput(specString)
-          const parsedVlSpec = JSON.parse(sanitizedVlSpec) as VegaLiteSpec
+          parsedVlSpecForOps = JSON.parse(sanitizedVlSpec) as VegaLiteSpec
+          nextDataRows = await loadDataRowsForCompile(parsedVlSpecForOps)
+        }
+
+        if (parsed.executionSource === 'ops' && hasNonDrawOps && parsedVlSpecForOps) {
           try {
-            const dataRows = await loadDataRowsForCompile(parsedVlSpec)
-            nextDataRows = dataRows
             const compiled = await compileOpsPlan({
-              spec: parsedVlSpec,
-              dataRows,
+              spec: parsedVlSpecForOps,
+              dataRows: nextDataRows ?? [],
               opsSpec: parsed.opsSpecGroupMap,
             })
             nextWarnings.push(...(compiled.warnings ?? []))

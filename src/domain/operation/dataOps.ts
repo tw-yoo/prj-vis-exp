@@ -45,6 +45,7 @@ import {
   buildValuesLabelFromRows,
   compactSemanticList,
 } from './semanticLabels'
+import { normalizeGroupSelection } from './groupSelection'
 
 // ---------------------------------------------------------------------------
 // Shared helpers (ported from dataOpsCore.js)
@@ -248,10 +249,12 @@ function cloneData(data: DatumValue[]): DatumValue[] {
   return Array.isArray(data) ? data.slice() : []
 }
 
-/** Slice by group label value if provided (string or truthy), otherwise passthrough */
-function sliceByGroup(data: DatumValue[], group: string | null | undefined) {
-  if (group === undefined || group === null || group === '') return data
-  return data.filter((d) => d.group === group)
+/** Slice by one or more group labels if provided, otherwise passthrough. */
+function sliceByGroup(data: DatumValue[], group: unknown) {
+  const selection = normalizeGroupSelection(group)
+  if (selection.kind === 'none') return data
+  const allowed = new Set(selection.values.map(String))
+  return data.filter((datum) => datum.group != null && allowed.has(String(datum.group)))
 }
 
 /**

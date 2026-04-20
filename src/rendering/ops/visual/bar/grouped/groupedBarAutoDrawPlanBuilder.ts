@@ -386,8 +386,8 @@ function numericFilterBounds(op: OperationSpec) {
 
 function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
   const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
-  if (groupSelection.kind === 'single') {
-    return [ops.draw.groupedFilterGroups(op.chartId, [groupSelection.values[0]], 'include')]
+  if (groupSelection.kind !== 'none') {
+    return [ops.draw.groupedFilterGroups(op.chartId, groupSelection.values, 'include')]
   }
   if (Array.isArray(op.include) && op.include.length > 0) {
     const includeTargets = op.include.map((item) => String(item))

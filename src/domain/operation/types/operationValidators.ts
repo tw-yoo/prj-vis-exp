@@ -1,5 +1,6 @@
 import { OperationOp } from './operationNames'
 import type { OperationSpec } from './index'
+import { normalizeGroupSelection } from '../groupSelection'
 import type {
   OpAddSpec,
   OpAverageSpec,
@@ -57,7 +58,7 @@ export function assertFilterSpec(op: OperationSpec): OpFilterSpec {
   const spec = op as OpFilterSpec
   const hasInclude = Array.isArray(spec.include) && spec.include.length > 0
   const hasExclude = Array.isArray(spec.exclude) && spec.exclude.length > 0
-  const hasGroup = typeof spec.group === 'string' && spec.group.trim().length > 0
+  const hasGroup = normalizeGroupSelection(spec.group).kind !== 'none'
   const hasOperator = Boolean(spec.operator)
   // Treat null as "not provided". Ops specs pasted from UI often include null fields.
   const hasValue = spec.value !== undefined && spec.value !== null

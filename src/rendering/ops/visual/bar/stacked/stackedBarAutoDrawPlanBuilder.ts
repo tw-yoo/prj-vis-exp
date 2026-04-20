@@ -437,9 +437,9 @@ function numericFilterBounds(op: OperationSpec) {
 
 function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
   const groupSelection = normalizeGroupSelection((op as OperationSpec & { group?: unknown }).group)
-  if (groupSelection.kind === 'single') {
+  if (groupSelection.kind !== 'none') {
     // Data-op filter.group means series filtering in-place, not chart-type conversion.
-    return [ops.draw.stackedFilterGroups(op.chartId, [groupSelection.values[0]], 'include')]
+    return [ops.draw.stackedFilterGroups(op.chartId, groupSelection.values, 'include')]
   }
   if (Array.isArray(op.include) && op.include.length > 0) {
     return [

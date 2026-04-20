@@ -337,18 +337,10 @@ export class BarDrawHandler extends BaseDrawHandler {
     }
 
     const scale = d3.scaleBand<string>().domain(kept.map((d) => d.label)).range([0, plotW]).padding(0.2)
-    const plotHeight =
-      Number(svg.attr(DataAttributes.PlotHeight)) || (d3.max(entries.map((entry) => entry.y + entry.height)) ?? 0)
-    const keptValues = kept.map((entry) => Number(entry.value)).filter(Number.isFinite)
-    const minValue = d3.min(keptValues)
-    const maxValue = d3.max(keptValues)
-    let domainMin = Math.min(0, Number.isFinite(minValue ?? NaN) ? Number(minValue) : 0)
-    let domainMax = Math.max(0, Number.isFinite(maxValue ?? NaN) ? Number(maxValue) : 0)
-    if (domainMin === domainMax) domainMax = domainMin + 1
-    const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotHeight, 0])
-    const nextZeroY = yScale(0)
     const keptSelection = d3.selectAll<SVGRectElement, unknown>(kept.map((item) => item.el) as SVGRectElement[])
     keptSelection.style('display', null).attr(SvgAttributes.Opacity, 1)
+    // Preserve the original y-scale: only reposition bars horizontally.
+    // Changing y/height would rescale bars and look like a full re-render.
     const enterTransition = keptSelection
       .transition()
       .duration(NON_SPLIT_ENTER_MS + NON_SPLIT_UPDATE_MS)
@@ -357,13 +349,9 @@ export class BarDrawHandler extends BaseDrawHandler {
         return scale(item.label) ?? item.x
       })
       .attr(SvgAttributes.Width, scale.bandwidth())
-      .attr(SvgAttributes.Y, (d, i) => (kept[i].value >= 0 ? yScale(kept[i].value) : nextZeroY))
-      .attr(SvgAttributes.Height, (d, i) => Math.abs(yScale(kept[i].value) - nextZeroY))
       .attr(SvgAttributes.Opacity, 1)
 
     const tickTransition = ticks.transition().duration(NON_SPLIT_UPDATE_MS)
-    const yAxis = scope.select<SVGGElement>(SvgSelectors.YAxisGroup)
-    const yAxisTransition = transitionYAxis(yAxis, yScale, NON_SPLIT_UPDATE_MS)
     ticks.each(function () {
       const tick = d3.select(this)
       const text = tick.select(SvgElements.Text).text().trim()
@@ -387,16 +375,11 @@ export class BarDrawHandler extends BaseDrawHandler {
     await Promise.all([
       waitTransition(enterTransition),
       waitTransition(tickTransition),
-      yAxisTransition ? waitTransition(yAxisTransition) : Promise.resolve(),
     ])
     kept.forEach((entry) => {
       const x = scale(entry.label) ?? entry.x
-      const y = entry.value >= 0 ? yScale(entry.value) : nextZeroY
-      const height = Math.abs(yScale(entry.value) - nextZeroY)
       entry.el.setAttribute('data-layout-x', String(x))
       entry.el.setAttribute('data-layout-width', String(scale.bandwidth()))
-      entry.el.setAttribute('data-layout-y', String(y))
-      entry.el.setAttribute('data-layout-height', String(height))
     })
   }
 

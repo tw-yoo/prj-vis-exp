@@ -267,7 +267,16 @@ function collectTargetMetrics(context: AutoDrawPlanContext, chartId?: string) {
     }
     const rect = node.getBoundingClientRect()
     const x = (rect.left + rect.width / 2 - viewportRect.left) / viewportRect.width
-    const y = 1 - (rect.top - viewportRect.top) / viewportRect.height
+    // When no chartId, normalize y relative to the plot frame (not the full SVG height)
+    // to stay consistent with how draw.lineSpec.normalized() interprets [0,1].
+    const viewBox = ownerSvg.viewBox?.baseVal
+    const svgScaleY = viewBox && svgRect.height > 0 ? viewBox.height / svgRect.height : 1
+    const plotH = Number(ownerSvg.getAttribute('data-plot-h'))
+    const mTop = Number(ownerSvg.getAttribute('data-m-top'))
+    const usePlotNorm = !chartId && plotH > 0 && Number.isFinite(mTop)
+    const y = usePlotNorm
+      ? 1 - ((rect.top - svgRect.top) * svgScaleY - mTop) / plotH
+      : 1 - (rect.top - viewportRect.top) / viewportRect.height
     if (!Number.isFinite(x) || !Number.isFinite(y)) return
     const key = target.trim()
     const prev = out.get(key)
@@ -527,11 +536,7 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
   },
   [OperationOp.Filter]: (result, op, context) => {
     if (Array.isArray(op.include) && op.include.length > 0) {
-      const includeTargets = op.include.map((item) => String(item))
-      const highlightPlan = isSplitRootFilterHighlightSuppressed(op, context, includeTargets, result)
-        ? []
-        : highlightTargets(op, includeTargets, '#ef4444')
-      return [...highlightPlan, ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...op.include))]
+      return [ops.draw.filter(op.chartId, draw.filterSpec.xInclude(...op.include))]
     }
     if (Array.isArray(op.exclude) && op.exclude.length > 0) {
       const excluded = new Set(op.exclude.map((item) => String(item)))

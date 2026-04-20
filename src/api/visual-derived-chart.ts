@@ -186,6 +186,17 @@ function toBaseWorkingData(spec: ChartSpec, dataRows: DataRow[]): DatumValue[] {
   ).filter((row) => Number.isFinite(row.value))
 }
 
+function inlineSpecRows(spec: ChartSpec): DataRow[] {
+  const values = (spec.data as { values?: unknown } | undefined)?.values
+  if (!Array.isArray(values)) return []
+  return values.filter((row): row is DataRow => !!row && typeof row === 'object' && !Array.isArray(row))
+}
+
+function resolveArtifactDataRows(spec: ChartSpec, dataRows: DataRow[]): DataRow[] {
+  if (dataRows.length > 0) return dataRows
+  return inlineSpecRows(spec)
+}
+
 function resolveChartFamily(spec: ChartSpec): ChartFamily | null {
   const chartType = getChartType(spec)
   if (
@@ -319,7 +330,8 @@ export function buildLogicalExecutionArtifacts(args: {
   const { spec, dataRows, logicalOpsSpec } = args
   if (!logicalOpsSpec) return null
 
-  const baseWorking = toBaseWorkingData(spec, dataRows)
+  const artifactRows = resolveArtifactDataRows(spec, dataRows)
+  const baseWorking = toBaseWorkingData(spec, artifactRows)
   const nodeOps = new Map<string, OperationSpec>()
   const nodeInputs = new Map<string, DatumValue[]>()
   const nodeResults = new Map<string, DatumValue[]>()
@@ -926,7 +938,7 @@ function buildLineSurfaceSpec(rows: DatumValue[]): ChartSpec {
 }
 
 function datumRowSignature(row: DatumValue) {
-  return `${String(row.target)}__${String(row.group ?? row.series ?? '')}__${Number(row.value)}`
+  return `${String(row.target)}__${String(row.group ?? row.series ?? '')}__${String(row.panel ?? '')}__${Number(row.value)}`
 }
 
 function rawRowSignature(
@@ -935,9 +947,10 @@ function rawRowSignature(
     xField: string
     yField: string
     groupField?: string
+    panelField?: string
   },
 ) {
-  return `${String(row[fields.xField] ?? '')}__${String(fields.groupField ? row[fields.groupField] ?? '' : '')}__${Number(row[fields.yField])}`
+  return `${String(row[fields.xField] ?? '')}__${String(fields.groupField ? row[fields.groupField] ?? '' : '')}__${String(fields.panelField ? row[fields.panelField] ?? '' : '')}__${Number(row[fields.yField])}`
 }
 
 function synthesizeRawRowFromDatum(
@@ -946,6 +959,7 @@ function synthesizeRawRowFromDatum(
     xField: string
     yField: string
     groupField?: string
+    panelField?: string
   },
 ) {
   const raw: Record<string, unknown> = {
@@ -955,20 +969,25 @@ function synthesizeRawRowFromDatum(
   if (fields.groupField) {
     raw[fields.groupField] = row.group ?? row.series ?? null
   }
+  if (fields.panelField) {
+    raw[fields.panelField] = row.panel ?? null
+  }
   if (typeof row.id === 'string' && row.id.trim().length > 0) {
     raw.id = row.id.trim()
+  }
+  if (typeof row.name === 'string' && row.name.trim().length > 0) {
+    raw.name = row.name.trim()
   }
   return raw
 }
 
 function buildSpecPreservingRows(baseSpec: ChartSpec, rows: DatumValue[]) {
   const resolved = resolveEncodingFields(baseSpec)
+  if (!resolved) return null
   const rawValues = (baseSpec.data as { values?: unknown } | undefined)?.values
-  if (!resolved || !Array.isArray(rawValues)) return null
-  const sourceValues = rawValues.filter(
-    (value): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value),
-  )
-  if (!sourceValues.length) return null
+  const sourceValues = Array.isArray(rawValues)
+    ? rawValues.filter((value): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value))
+    : []
 
   const remaining = new Map<string, number>()
   rows.forEach((row) => {
@@ -1005,10 +1024,8 @@ export function buildPlaybackSpecFromBaseSpec(args: {
   rows: DatumValue[]
   baseSpec: ChartSpec
 }) {
-  if (args.family === 'line') {
-    const preserved = buildSpecPreservingRows(args.baseSpec, args.rows)
-    if (preserved) return preserved
-  }
+  const preserved = buildSpecPreservingRows(args.baseSpec, args.rows)
+  if (preserved) return preserved
   return args.family === 'bar' ? buildBarSurfaceSpec(args.rows) : buildLineSurfaceSpec(args.rows)
 }
 
