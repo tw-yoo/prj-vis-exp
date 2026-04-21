@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type React from 'react'
 import '../../App.css'
-import barSimpleSpecRaw from '../../../data/test/spec/presentation.json?raw'
+import barSimpleSpecRaw from '../../../data/test/spec/line_multiple.json?raw'
 // import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/line/multiple/2kmpy10btl65kr2j.json?raw'
 // import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/bar/simple/0w88bu7qm4ilsqmh.json?raw'
 // import barSimpleSpecRaw from '../../../ChartQA/data/vlSpec/bar/stacked/0g0xma0b0k29lk5j.json?raw'
@@ -297,6 +297,19 @@ type SurfaceRenderCacheEntry = {
   surfaceId?: string
 }
 
+const WORKBENCH_OPERATION_NEXT_DEBUG_PREFIX = '[operation-next-debug]'
+
+const debugNow = () =>
+  typeof performance === 'undefined' ? Date.now() : Number(performance.now().toFixed(1))
+
+const logOperationNextDebug = (label: string, payload: unknown) => {
+  try {
+    console.info(WORKBENCH_OPERATION_NEXT_DEBUG_PREFIX, label, JSON.stringify(payload))
+  } catch {
+    console.info(WORKBENCH_OPERATION_NEXT_DEBUG_PREFIX, label, payload)
+  }
+}
+
 const cloneSpecValue = (spec: VegaLiteSpec): VegaLiteSpec => {
   try {
     return structuredClone(spec)
@@ -315,6 +328,59 @@ const specSignature = (spec: VegaLiteSpec) => {
     return ''
   }
 }
+
+const summarizeSpecForDebug = (spec: VegaLiteSpec | null | undefined) => {
+  if (!spec) return null
+  const raw = spec as Record<string, any>
+  const encoding = raw.encoding as Record<string, any> | undefined
+  const data = raw.data as Record<string, any> | undefined
+  const transform = Array.isArray(raw.transform) ? raw.transform : []
+  const mark =
+    typeof raw.mark === 'string'
+      ? raw.mark
+      : typeof raw.mark?.type === 'string'
+        ? raw.mark.type
+        : raw.mark == null
+          ? null
+          : '(object)'
+  return {
+    chartType: getChartType(spec),
+    mark,
+    dataUrl: typeof data?.url === 'string' ? data.url : null,
+    dataName: typeof data?.name === 'string' ? data.name : null,
+    dataValuesCount: Array.isArray(data?.values) ? data.values.length : null,
+    transformCount: transform.length,
+    transformKeys: transform.map((entry) => Object.keys(entry ?? {}).sort().join('+')),
+    xField: encoding?.x?.field ?? null,
+    yField: encoding?.y?.field ?? null,
+    colorField: encoding?.color?.field ?? null,
+    detailField: encoding?.detail?.field ?? null,
+  }
+}
+
+const summarizeOpsForDebug = (opsArray: OperationSpec[]) =>
+  opsArray.map((operation, index) => {
+    const raw = operation as Record<string, unknown>
+    return {
+      index,
+      op: operation.op ?? '(unknown)',
+      target: raw.target ?? null,
+      group: raw.group ?? null,
+      groupA: raw.groupA ?? null,
+      groupB: raw.groupB ?? null,
+      operator: raw.operator ?? null,
+      range: raw.range ?? null,
+    }
+  })
+
+const summarizeHostForDebug = (host: HTMLElement | null | undefined) => ({
+  hasHost: Boolean(host),
+  focusState: host?.dataset.operationNextFocusState ?? null,
+  visibility: host?.style.visibility || '(default)',
+  svgCount: host?.querySelectorAll('svg').length ?? 0,
+  dataPathCount: host?.querySelectorAll('path[data-series]').length ?? 0,
+  circleCount: host?.querySelectorAll('circle').length ?? 0,
+})
 
 const toGroupMap = (groups: Array<{ name: string; ops: OperationSpec[] }>) => {
   const out: Record<string, OperationSpec[]> = {}
@@ -1549,11 +1615,30 @@ function ChartWorkbenchPage() {
 
   const renderSpecIfNeeded = useCallback(
     async (host: HTMLElement, spec: VegaLiteSpec, options?: { surfaceId?: string }) => {
-      if (isRenderedSpecCurrent(host, spec, options?.surfaceId)) return false
+      const isCurrent = isRenderedSpecCurrent(host, spec, options?.surfaceId)
+      logOperationNextDebug('workbench-renderSpecIfNeeded', {
+        t: debugNow(),
+        isCurrent,
+        surfaceId: options?.surfaceId ?? null,
+        spec: summarizeSpecForDebug(spec),
+        host: summarizeHostForDebug(host),
+      })
+      if (isCurrent) return false
       const outgoingPresentation = captureMarkPresentationSnapshot(host)
+      logOperationNextDebug('workbench-renderSpecIfNeeded-render-start', {
+        t: debugNow(),
+        hasOutgoingPresentation: Boolean(outgoingPresentation),
+        spec: summarizeSpecForDebug(spec),
+        host: summarizeHostForDebug(host),
+      })
       await renderChartDispatch(host, spec)
       cacheRenderedSpec(host, spec, options?.surfaceId)
       playPresentationTransition(host, outgoingPresentation, { durationMs: 260 })
+      logOperationNextDebug('workbench-renderSpecIfNeeded-render-end', {
+        t: debugNow(),
+        spec: summarizeSpecForDebug(spec),
+        host: summarizeHostForDebug(host),
+      })
       return true
     },
     [cacheRenderedSpec, isRenderedSpecCurrent],
@@ -1739,6 +1824,12 @@ function ChartWorkbenchPage() {
         return null
       }
 
+      logOperationNextDebug('workbench-renderChart-wrapper-start', {
+        t: debugNow(),
+        spec: summarizeSpecForDebug(parsed),
+        host: summarizeHostForDebug(chartRef.current),
+      })
+
       if (!chartRef.current) {
         alert('Chart container is not ready.')
         return null
@@ -1755,6 +1846,12 @@ function ChartWorkbenchPage() {
         setChartType(inferred)
         setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec: parsed as VegaLiteSpec }))
         initializeRootSurfaceManager(parsed as VegaLiteSpec, [])
+        logOperationNextDebug('workbench-renderChart-wrapper-end', {
+          t: debugNow(),
+          inferred,
+          spec: summarizeSpecForDebug(parsed),
+          host: summarizeHostForDebug(chartRef.current),
+        })
         return inferred
       } catch (error) {
         // Rendering can fail even when JSON is valid (e.g., renderer post-processing/tagging errors).
@@ -2263,12 +2360,31 @@ function ChartWorkbenchPage() {
           )
         : opsArray
 
+    logOperationNextDebug('workbench-executeOpsArray-start', {
+      t: debugNow(),
+      requestedSurfaceId: requestedSurfaceId ?? null,
+      hasOptionsExecutionSpec: Boolean(options?.executionSpec),
+      drawOnlyGroup,
+      hasSvg,
+      ops: summarizeOpsForDebug(opsArray),
+      parsedVlSpec: summarizeSpecForDebug(parsedVlSpec),
+      optionsExecutionSpec: summarizeSpecForDebug(options?.executionSpec),
+      currentSpec: summarizeSpecForDebug(currentSpec),
+      targetHost: summarizeHostForDebug(targetHost),
+    })
+
     if (requestedSurfaceId && requestedSurfaceId !== 'root' && !targetSurface) {
       throw new Error(`Surface "${requestedSurfaceId}" is not available.`)
     }
 
     const renderExecutionSpecOnSurface = async () => {
       if (!targetHost || !options?.executionSpec) return
+      logOperationNextDebug('workbench-renderExecutionSpecOnSurface', {
+        t: debugNow(),
+        requestedSurfaceId: requestedSurfaceId ?? null,
+        spec: summarizeSpecForDebug(options.executionSpec),
+        targetHost: summarizeHostForDebug(targetHost),
+      })
       await renderSpecIfNeeded(targetHost, options.executionSpec, {
         surfaceId: requestedSurfaceId ?? 'root',
       })
@@ -2306,21 +2422,51 @@ function ChartWorkbenchPage() {
             return false
           }
         })()
+      logOperationNextDebug('workbench-executeOpsArray-render-decision', {
+        t: debugNow(),
+        requestedSurfaceId: requestedSurfaceId ?? null,
+        hasSvg,
+        hasSameSpec,
+        executionSpec: summarizeSpecForDebug(executionSpec),
+        currentSpec: summarizeSpecForDebug(currentSpec),
+        targetSurfaceSpec: summarizeSpecForDebug(targetSurface?.spec),
+        targetHost: summarizeHostForDebug(targetHost),
+      })
       if (!hasSvg || !hasSameSpec) {
         if (requestedSurfaceId && requestedSurfaceId !== 'root') {
           if (options?.executionSpec) {
             await renderExecutionSpecOnSurface()
           } else {
+            logOperationNextDebug('workbench-executeOpsArray-render-target-parsed-spec', {
+              t: debugNow(),
+              requestedSurfaceId,
+              spec: summarizeSpecForDebug(parsedVlSpec),
+            })
             await renderSpecIfNeeded(targetHost, parsedVlSpec, { surfaceId: requestedSurfaceId })
           }
         } else if (options?.executionSpec) {
+          logOperationNextDebug('workbench-executeOpsArray-render-root-options-spec', {
+            t: debugNow(),
+            spec: summarizeSpecForDebug(options.executionSpec),
+          })
           await renderChart(JSON.stringify(options.executionSpec, null, 2))
         } else {
+          logOperationNextDebug('workbench-executeOpsArray-render-root-vlSpec', {
+            t: debugNow(),
+            spec: summarizeSpecForDebug(parsedVlSpec),
+          })
           await renderChart(specString)
         }
       }
       executionSpec = requestedSurfaceId && requestedSurfaceId !== 'root' ? targetSurface?.spec ?? executionSpec : currentSpecRef.current ?? executionSpec
     }
+
+    logOperationNextDebug('workbench-executeOpsArray-before-run', {
+      t: debugNow(),
+      executionSpec: summarizeSpecForDebug(executionSpec),
+      executionContainer: summarizeHostForDebug(executionContainer),
+      renderedExecutionSpec,
+    })
 
     if (!scopedOps.length) {
       if (options?.executionSpec && !renderedExecutionSpec) {
@@ -2397,9 +2543,12 @@ function ChartWorkbenchPage() {
   }
 
   const renderSourceChartForVisualPlayback = useCallback(async () => {
-    const sourceSpec =
-      currentSpecRef.current ??
-      (JSON.parse(sanitizeJsonInput(vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec)) as VegaLiteSpec)
+    const sourceSpec = JSON.parse(sanitizeJsonInput(vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec)) as VegaLiteSpec
+    logOperationNextDebug('workbench-renderSourceChartForVisualPlayback', {
+      t: debugNow(),
+      spec: summarizeSpecForDebug(sourceSpec),
+      host: summarizeHostForDebug(chartRef.current),
+    })
     const rendered = await renderChart(JSON.stringify(sourceSpec, null, 2))
     if (!rendered) {
       throw new Error('Failed to render source chart for visual playback.')
@@ -2408,6 +2557,11 @@ function ChartWorkbenchPage() {
 
   const renderPlaybackChartForVisualPlayback = useCallback(
     async (spec: VegaLiteSpec) => {
+      logOperationNextDebug('workbench-renderPlaybackChartForVisualPlayback', {
+        t: debugNow(),
+        spec: summarizeSpecForDebug(spec),
+        host: summarizeHostForDebug(chartRef.current),
+      })
       const rendered = await renderChart(JSON.stringify(spec, null, 2))
       if (!rendered) {
         throw new Error('Failed to render playback chart.')

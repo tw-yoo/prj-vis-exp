@@ -2,7 +2,7 @@ import type { ChartSpec } from '../domain/chart'
 import { ChartType, getChartType, type ChartTypeValue } from '../domain/chart'
 import { toDatumValuesFromRaw, type RawRow } from '../domain/data/datum'
 import type { OpsSpecGroupMap } from '../domain/operation/opsSpec'
-import type { DatumValue, OperationSpec } from '../domain/operation/types'
+import { OperationOp, type DatumValue, type OperationSpec } from '../domain/operation/types'
 import { DrawAction, type DrawOp } from '../rendering/draw/types'
 import { resolveEncodingFields } from '../rendering/ops/common/resolveEncodingFields'
 import type { ExecutionPlan, VisualExecutionPlan, VisualExecutionStep, VisualExecutionSubstep } from './nlp-ops'
@@ -177,6 +177,17 @@ function resolveExecutionStrategy(args: {
 function detectSurfaceFromOps(ops: OperationSpec[]): VisualSurfaceState {
   const hasScalarPanel = ops.some((op) => op.op === 'draw' && (op as DrawOp).action === DrawAction.ScalarPanel)
   return hasScalarPanel ? 'scalar-panel' : 'source-chart'
+}
+
+function shouldKeepSourceChartForOperation(op: OperationSpec | null) {
+  return op?.op === OperationOp.PairDiff
+}
+
+function findNextRunOpSubstep(
+  substeps: VisualExecutionSubstep[],
+  startIndex: number,
+): VisualExecutionSubstep | null {
+  return substeps.slice(startIndex + 1).find((candidate) => candidate.kind === 'run-op') ?? null
 }
 
 function buildPrefilterPreview(args: {
@@ -895,7 +906,8 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     await renderSummary(summary.initialText)
   }
 
-  for (const substep of sentenceStep.substeps) {
+  for (let substepIndex = 0; substepIndex < sentenceStep.substeps.length; substepIndex += 1) {
+    const substep = sentenceStep.substeps[substepIndex]
     context.currentSurface = currentSurface
 
     if (substep.kind === 'surface-action') {
@@ -917,6 +929,13 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     }
 
     if (substep.kind === 'prefilter') {
+      const nextRunOpSubstep = findNextRunOpSubstep(sentenceStep.substeps, substepIndex)
+      const nextLogicalOp = nextRunOpSubstep ? resolveLogicalOp(context, nextRunOpSubstep) : null
+      if (shouldKeepSourceChartForOperation(nextLogicalOp)) {
+        currentSurface = 'source-chart'
+        executedSubstepIds.push(substep.id)
+        continue
+      }
       const result = await executePrefilterSubstep({
         substep,
         context,

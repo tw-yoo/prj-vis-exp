@@ -1,8 +1,8 @@
-import { runChartOps as runChartOpsLegacy } from '../operation/run/runChartOps'
+import { runChartOps as runChartOpsNext } from '../operation-next/runChartOps'
 import type { OpsSpecInput, OperationSpec } from './types'
 import type { ChartSpec } from '../domain/chart'
 import type { OperationCompletedEvent } from '../application/usecases/runChartOperationsUseCase'
-import type { RunChartOpsOptions } from '../operation/run/runChartOps'
+import type { RunChartOpsOptions } from '../operation-next/runChartOps'
 
 export async function runChartOps(
     command: {
@@ -24,9 +24,9 @@ export async function runChartOps(
   arg4?: RunChartOpsOptions,
 ): Promise<unknown> {
   if (arg1 instanceof HTMLElement) {
-    return runChartOpsLegacy(arg1, arg2 as ChartSpec, arg3 as OpsSpecInput, arg4)
+    return runChartOpsNext(arg1, arg2 as ChartSpec, arg3 as OpsSpecInput, arg4)
   }
-  return runChartOpsLegacy(arg1.container, arg1.spec, arg1.opsSpec, arg1.options)
+  return runChartOpsNext(arg1.container, arg1.spec, arg1.opsSpec, arg1.options)
 }
 
 export type RunChartOpsCommand = {
