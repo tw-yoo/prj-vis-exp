@@ -22,6 +22,11 @@ type BaseEncoding = {
   color?: { field?: string; type?: string }
 }
 
+export type StackGroupTransformResult = {
+  chartType: typeof ChartType.GROUPED_BAR | typeof ChartType.STACKED_BAR
+  spec: GroupedSpec | StackedSpec
+}
+
 function cloneRows(rows: RawDatum[]) {
   return rows.map((row) => ({ ...row }))
 }
@@ -90,7 +95,7 @@ export async function convertStackedToGrouped(
   const values = await resolveDatasetAsync(storedRows, spec)
   if (!values.length) {
     console.warn('stacked-to-grouped: no dataset available to re-render grouped chart')
-    return
+    return null
   }
   const encoding = spec.encoding as BaseEncoding
   const swap = options?.swapAxes ?? false
@@ -110,7 +115,7 @@ export async function convertStackedToGrouped(
 
   if (!colorField) {
     console.warn('stacked-to-grouped: cannot infer color/group field to use for grouping')
-    return
+    return null
   }
 
   const xDomainSource = storedRows.length ? storedRows : values
@@ -143,6 +148,7 @@ export async function convertStackedToGrouped(
 
   await renderGroupedBarChart(container, groupedSpec)
   storeDerivedChartState(container, ChartType.GROUPED_BAR, groupedSpec)
+  return { chartType: ChartType.GROUPED_BAR, spec: groupedSpec }
 }
 
 async function animateStackedToGrouped(
@@ -304,7 +310,7 @@ export async function convertGroupedToStacked(
   const values = await resolveDatasetAsync(getGroupedBarStoredData(container), spec as any)
   if (!values.length) {
     console.warn('grouped-to-stacked: no dataset available to re-render stacked chart')
-    return
+    return null
   }
   const encoding = spec.encoding as BaseEncoding & {
     xOffset?: unknown
@@ -328,7 +334,7 @@ export async function convertGroupedToStacked(
 
   if (!colorField) {
     console.warn('grouped-to-stacked: cannot infer color/group field to use for stacking')
-    return
+    return null
   }
 
   const baseColor = encoding.color ?? {}
@@ -351,6 +357,117 @@ export async function convertGroupedToStacked(
     },
   }
 
+  await animateGroupedToStacked(container)
   await renderStackedBarChart(container, stackedSpec)
   storeDerivedChartState(container, ChartType.STACKED_BAR, stackedSpec)
+  return { chartType: ChartType.STACKED_BAR, spec: stackedSpec }
+}
+
+async function animateGroupedToStacked(container: HTMLElement): Promise<void> {
+  const svg = container.querySelector('svg')
+  if (!svg) return
+
+  type BarEntry = {
+    el: SVGRectElement
+    panelKey: string
+    target: string
+    series: string
+    value: number
+    x: number
+    y: number
+    width: number
+  }
+
+  const bars: BarEntry[] = Array.from(container.querySelectorAll<SVGRectElement>('rect.main-bar'))
+    .map((el) => ({
+      el,
+      panelKey: el.getAttribute('data-chart-id') ?? 'root',
+      target: el.getAttribute('data-target') ?? '',
+      series: el.getAttribute('data-series') ?? el.getAttribute('data-group-value') ?? '',
+      value: parseFloat(el.getAttribute('data-value') ?? '0'),
+      x: parseFloat(el.getAttribute('x') ?? '0'),
+      y: parseFloat(el.getAttribute('y') ?? '0'),
+      width: parseFloat(el.getAttribute('width') ?? '0'),
+    }))
+    .filter((bar) => bar.target && bar.series && Number.isFinite(bar.value))
+
+  if (!bars.length) return
+
+  const byPanel = d3.group(bars, (bar) => bar.panelKey)
+  const metrics = new Map<SVGRectElement, { x: number; y: number; width: number; height: number }>()
+  const axisTransitions: Array<Promise<void>> = []
+
+  byPanel.forEach((panelBars, panelKey) => {
+    const panel =
+      panelKey === 'root'
+        ? null
+        : container.querySelector<SVGGElement>(`g[data-chart-id="${CSS.escape(panelKey)}"]`)
+    const plotH = parseFloat(
+      panel?.getAttribute('data-panel-plot-h') ??
+      svg.getAttribute('data-plot-h') ??
+      '0',
+    )
+    if (!plotH) return
+
+    const targets = [...new Set(panelBars.map((bar) => bar.target))]
+    const series = [...new Set(panelBars.map((bar) => bar.series))]
+    const groupedByTarget = d3.group(panelBars, (bar) => bar.target)
+    const maxTotal = d3.max(targets, (target) => {
+      const targetBars = groupedByTarget.get(target) ?? []
+      return d3.sum(targetBars, (bar) => Math.max(0, bar.value))
+    }) ?? 0
+    const yStacked = d3.scaleLinear().domain([0, maxTotal]).nice().range([plotH, 0])
+
+    targets.forEach((target) => {
+      const targetBars = groupedByTarget.get(target) ?? []
+      const x1 = d3.min(targetBars, (bar) => bar.x) ?? 0
+      const x2 = d3.max(targetBars, (bar) => bar.x + bar.width) ?? x1
+      let cursor = 0
+      series.forEach((seriesKey) => {
+        const bar = targetBars.find((entry) => entry.series === seriesKey)
+        if (!bar) return
+        const next = cursor + Math.max(0, bar.value)
+        metrics.set(bar.el, {
+          x: x1,
+          y: yStacked(next),
+          width: Math.max(1, x2 - x1),
+          height: Math.max(0, yStacked(cursor) - yStacked(next)),
+        })
+        cursor = next
+      })
+    })
+
+    const yAxisEl = panel
+      ? panel.querySelector<SVGGElement>('g.y-axis')
+      : container.querySelector<SVGGElement>('svg g.y-axis')
+    if (yAxisEl) {
+      axisTransitions.push(
+        d3.select<SVGGElement, unknown>(yAxisEl)
+          .transition()
+          .duration(NON_SPLIT_UPDATE_MS)
+          .ease(d3.easeCubicInOut)
+          .call(d3.axisLeft(yStacked).ticks(5) as any)
+          .end()
+          .catch(() => {}),
+      )
+    }
+  })
+
+  if (!metrics.size) return
+
+  const barTransition = d3
+    .selectAll<SVGRectElement, unknown>(Array.from(metrics.keys()))
+    .interrupt()
+    .transition()
+    .duration(NON_SPLIT_UPDATE_MS)
+    .ease(d3.easeCubicInOut)
+    .attr('x', function () { return metrics.get(this)?.x ?? parseFloat(this.getAttribute('x') ?? '0') })
+    .attr('y', function () { return metrics.get(this)?.y ?? parseFloat(this.getAttribute('y') ?? '0') })
+    .attr('width', function () { return metrics.get(this)?.width ?? parseFloat(this.getAttribute('width') ?? '0') })
+    .attr('height', function () { return metrics.get(this)?.height ?? parseFloat(this.getAttribute('height') ?? '0') })
+
+  await Promise.all([
+    barTransition.end().catch(() => {}),
+    ...axisTransitions,
+  ])
 }

@@ -1,49 +1,41 @@
-# Operation Spec by Chart Type (Auto Draw Plan)
+# Operation Spec by Chart Type (`operation-next`)
 
-이 문서는 차트 타입별 `operation`이 어떤 `draw action` 조합으로 auto draw plan을 만드는지 정리한다.
+이 문서는 현재 `src/operation-next`에서 실제로 시각 렌더링을 지원하는 operation spec만 정리한다.
+
+기존 auto draw plan registry 기준 문서가 아니라, Workbench에서 `operation-next` 실행 경로로 사용할 JSON 예시를 기준으로 한다. 아직 `operation-next` runner에서 구현되지 않은 operation은 차트별 목록에서 제외한다.
 
 ## 공통 기준
 
-- 최종 auto draw plan export:
-  - `src/rendering/ops/visual/bar/simple/autoDrawPlanRegistry.ts`의 `SIMPLE_BAR_AUTO_DRAW_PLANS`
-  - `src/rendering/ops/visual/bar/stacked/autoDrawPlanRegistry.ts`의 `STACKED_BAR_AUTO_DRAW_PLANS`
-  - `src/rendering/ops/visual/bar/grouped/autoDrawPlanRegistry.ts`의 `GROUPED_BAR_AUTO_DRAW_PLANS`
-  - `src/rendering/ops/visual/line/simple/autoDrawPlanRegistry.ts`의 `SIMPLE_LINE_AUTO_DRAW_PLANS`
-  - `src/rendering/ops/visual/line/multiple/autoDrawPlanRegistry.ts`의 `MULTI_LINE_AUTO_DRAW_PLANS`
-- 위 export는 공통 wrapper `src/rendering/ops/visual/helpers.ts`의 `withStagedAutoDrawPlanRegistry(...)`를 거친다.
-- stage(동시/순차) 메타 부여 규칙은 `src/rendering/ops/visual/helpers.ts`의 `resolveStagesByOperation(...)`에서 결정된다.
+- 실행 진입점: `src/operation-next/runChartOps.ts`
+- 차트별 runner:
+  - `src/operation-next/runners/simpleBar.ts`
+  - `src/operation-next/runners/simpleLine.ts`
+  - `src/operation-next/runners/multipleLine.ts`
+  - `src/operation-next/runners/groupedBar.ts`
+  - `src/operation-next/runners/stackedBar.ts`
+- 공통 sequential state:
+  - `src/operation-next/chainState.ts`
+  - `filter`는 `workingData`와 `salienceMap`을 갱신한다.
+  - `average`, `findExtremum` 등 후속 operation은 이전 filter context를 사용한다.
+  - `lagDiff`, `pairDiff`는 `derivedData`를 만들고 후속 `average`, `findExtremum`이 이를 사용할 수 있다.
 
----
+## 지원 범위 요약
 
-## 1) SIMPLE_BAR
+| Chart type | 현재 지원 operation |
+| --- | --- |
+| Simple bar chart | `retrieveValue`, `filter`, `diff`, `average`, `findExtremum`, `sort` |
+| Simple line chart | `retrieveValue`, `filter`, `diff`, `average`, `findExtremum`, `lagDiff` |
+| Multi line chart | `retrieveValue`, `filter`, `diff`, `average`, `findExtremum`, `lagDiff`, `pairDiff` |
+| Grouped bar chart | `filter`, `draw:grouped-to-stacked` |
+| Stacked bar chart | `filter`, `draw:stacked-to-grouped` |
+
+## 1) Simple Bar Chart
 
 - Vega-Lite sample: `data/test/spec/bar_simple_ver.json`
-- Registry file: `src/rendering/ops/visual/bar/simple/autoDrawPlanRegistry.ts`
-- Registry map: `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS`
+- Runner: `src/operation-next/runners/simpleBar.ts`
+- 예시 field: `country`, `rating`
 
-| Operation | Draw 조합 (요약) | Draw plan 작성 함수 | 보조 함수 |
-| --- | --- | --- | --- |
-| `retrieveValue` | `highlight + text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.RetrieveValue]` | `highlightTargets`, `textTargets` |
-| `filter` | `x include/exclude: highlight + filter`, `y threshold: line + bar-segment + filter` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Filter]` | `buildThresholdFilterPlan`, `highlightTargets` |
-| `sort` | `clear + sort` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Sort]` | - |
-| `findExtremum` | `highlight + text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.FindExtremum]` | `highlightTargets`, `textTargets` |
-| `determineRange` | `band(x or y)` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.DetermineRange]` | `buildRangePlan` |
-| `compare` | `highlight(pair) + connector line + scalar hline + scalar text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Compare]` | `firstPair`, `lineAt`, `textScore`, `highlightTargets` |
-| `compareBool` | `text(bool)` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.CompareBool]` | `textScore` |
-| `sum` | `sum` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Sum]` | - |
-| `average` | `hline + text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Average]` | `lineAt`, `textScore` |
-| `diff` | `case1(값 비교): scalar-panel(base -> diff)`, `case2(마크 비교): highlight + connector line(+arrow) + baseline hline + delta text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Diff]` | `resolveDiffScalarPair`, `firstPair`, `targetAggregate`, `lineAt`, `textScore` |
-| `lagDiff` | `multi connector lines + highlight + text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.LagDiff]` | `highlightTargets`, `textTargets` |
-| `pairDiff` | `highlight + text + summary text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.PairDiff]` | `highlightTargets`, `textTargets`, `textScore` |
-| `nth` | `highlight + text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Nth]` | `highlightTargets`, `textTargets` |
-| `count` | `text(count)` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Count]` | `textScore` |
-| `add` | `hline + text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Add]` | `lineAt`, `textScore` |
-| `scale` | `hline + text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Scale]` | `lineAt`, `textScore` |
-| `setOp` | `highlight + band + summary text` | `SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.SetOp]` | `buildSetOpPlan` |
-
-### SIMPLE_BAR operation JSON examples
-
-- Example 1 (retrieveValue)
+### retrieveValue
 
 ```json
 {
@@ -53,470 +45,11 @@
       "op": "retrieveValue",
       "field": "rating",
       "target": "USA",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 2 (filter)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "rating",
-      "operator": ">=",
-      "value": 60,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 3 (sort)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sort",
-      "field": "rating",
-      "order": "desc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 4 (findExtremum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "rating",
-      "which": "max",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 5 (determineRange)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "determineRange",
-      "field": "rating",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 6 (compare)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compare",
-      "field": "rating",
-      "targetA": "USA",
-      "targetB": "JPN",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 7 (compareBool)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "rating",
-      "targetA": "USA",
-      "targetB": "JPN",
-      "operator": ">",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 8 (sum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sum",
-      "field": "rating",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 9 (average)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "average",
-      "field": "rating",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 10 (diff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "diff",
-      "field": "rating",
-      "targetA": "USA",
-      "targetB": "JPN",
-      "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 11 (lagDiff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "lagDiff",
-      "field": "rating",
-      "orderField": "country",
-      "order": "asc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 12 (pairDiff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "pairDiff",
-      "by": "country",
-      "field": "rating",
-      "groupA": "USA",
-      "groupB": "JPN",
-      "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 13 (nth)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 3,
-      "from": "left",
-      "orderField": "country",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 14 (count)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "count",
-      "field": "country",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 15 (add)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "add",
-      "field": "rating",
-      "targetA": "USA",
-      "targetB": "JPN",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 16 (scale)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "scale",
-      "field": "rating",
-      "target": "USA",
-      "factor": 1.1,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 17 (setOp)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n3",
-      "op": "setOp",
-      "fn": "intersection",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": [
-          "n1",
-          "n2"
-        ],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 18 (filter — include, x축 포함 필터)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "country",
-      "include": ["USA", "JPN", "KOR"],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 19 (filter — exclude, x축 제외 필터)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "country",
-      "exclude": ["DNK"],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 20 (filter — between, 범위 필터)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "rating",
-      "operator": "between",
-      "value": [60, 70],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 21 (filter — ==, 동등 필터)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "rating",
-      "operator": "==",
-      "value": 75,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 22 (findExtremum — min)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "rating",
-      "which": "min",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 23 (sort — asc)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sort",
-      "field": "rating",
-      "order": "asc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 24 (retrieveValue — 배열 타겟, precision)
 
 ```json
 {
@@ -527,171 +60,13 @@
       "field": "rating",
       "target": ["USA", "JPN"],
       "precision": 2,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 25 (nth — from right)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 1,
-      "from": "right",
-      "orderField": "country",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 26 (diff — signed: false, 절댓값)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "diff",
-      "field": "rating",
-      "targetA": "USA",
-      "targetB": "JPN",
-      "signed": false,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 27 (compareBool — >=)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "rating",
-      "targetA": "USA",
-      "targetB": "JPN",
-      "operator": ">=",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 28 (compareBool — ==)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "rating",
-      "targetA": "USA",
-      "targetB": "JPN",
-      "operator": "==",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 29 (compareBool — !=)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "rating",
-      "targetA": "USA",
-      "targetB": "JPN",
-      "operator": "!=",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 30 (lagDiff — desc)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "lagDiff",
-      "field": "rating",
-      "orderField": "country",
-      "order": "desc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 31 (pairDiff — absolute: true, signed: false)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "pairDiff",
-      "by": "country",
-      "field": "rating",
-      "groupA": "USA",
-      "groupB": "JPN",
-      "signed": false,
-      "absolute": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 32 (chain: filter → findExtremum)
+### filter
 
 ```json
 {
@@ -702,28 +77,209 @@
       "field": "rating",
       "operator": ">=",
       "value": 60,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "rating",
+      "operator": "between",
+      "value": [60, 70],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "country",
+      "include": ["USA", "JPN", "KOR"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "country",
+      "exclude": ["DNK"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### diff
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "diff",
+      "field": "rating",
+      "targetA": "USA",
+      "targetB": "JPN",
+      "signed": true,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "diff",
+      "field": "rating",
+      "targetA": "USA",
+      "targetB": "JPN",
+      "signed": false,
+      "absolute": true,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### average
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "average",
+      "field": "rating",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### findExtremum
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "findExtremum",
+      "field": "rating",
+      "which": "max",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "findExtremum",
+      "field": "rating",
+      "which": "min",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### sort
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sort",
+      "field": "rating",
+      "order": "desc",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "sort",
+      "field": "rating",
+      "order": "asc",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### chain examples
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "rating",
+      "operator": ">=",
+      "value": 60,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "average",
+      "field": "rating",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "rating",
+      "operator": ">=",
+      "value": 60,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     },
     {
       "id": "n2",
       "op": "findExtremum",
       "field": "rating",
       "which": "max",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": ["n1"],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 33 (chain: filter → sort → nth)
 
 ```json
 {
@@ -734,1710 +290,26 @@
       "field": "rating",
       "operator": ">=",
       "value": 50,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     },
     {
       "id": "n2",
       "op": "sort",
       "field": "rating",
       "order": "desc",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": ["n1"],
-        "sentenceIndex": 1
-      }
-    },
-    {
-      "id": "n3",
-      "op": "nth",
-      "n": 1,
-      "from": "left",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": ["n2"],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
----
-
-## 2) STACKED_BAR
-
-- Vega-Lite sample: `data/test/spec/bar_stacked_ver.json`
-- Registry file: `src/rendering/ops/visual/bar/stacked/autoDrawPlanRegistry.ts`
-- Registry map: `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS`
-
-| Operation | Draw 조합 (요약) | Draw plan 작성 함수 | 보조 함수 |
-| --- | --- | --- | --- |
-| `retrieveValue` | `highlight + text` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.RetrieveValue]` | `buildHighlightPlan`, `buildTextPlan`, `uniqueTargets`, `toTargetValueEntries` |
-| `filter` | `group 지정: stacked-to-simple`, `x include/exclude: highlight + filter`, `y threshold: line + bar-segment + filter` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Filter]` | `buildFilterPlan` |
-| `findExtremum` | `highlight + text` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.FindExtremum]` | `buildHighlightPlan`, `buildTextPlan` |
-| `sort` | `clear + sort` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Sort]` | - |
-| `nth` | `highlight + text` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Nth]` | `buildHighlightPlan`, `buildTextPlan` |
-| `sum` | `sum` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Sum]` | - |
-| `average` | `hline` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Average]` | `lineAt` |
-| `determineRange` | `band` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.DetermineRange]` | `buildRangePlan` |
-| `compare` | `highlight + connector line + scalar hline(optional)` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Compare]` | `firstPair`, `seriesPairLine`, `firstTarget`, `lineAt` |
-| `compareBool` | `text(bool)` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.CompareBool]` | `textScore` |
-| `diff` | `connector line + baseline hline(optional) + highlight + delta text(optional)` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Diff]` | `firstPair`, `seriesPairLine`, `aggregateByTarget`, `firstTarget`, `lineAt`, `textScore` |
-| `lagDiff` | `multi connector lines + highlight + text` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.LagDiff]` | `buildHighlightPlan`, `buildTextPlan` |
-| `pairDiff` | `multi connector lines + text` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.PairDiff]` | `buildTextPlan` |
-| `count` | `text(count)` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Count]` | `textScore` |
-| `add` | `hline + text` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Add]` | `lineAt`, `textScore` |
-| `scale` | `hline + text` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Scale]` | `lineAt`, `textScore` |
-| `setOp` | `highlight + band + summary text` | `STACKED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.SetOp]` | `buildSetOpPlan` |
-
-### STACKED_BAR operation JSON examples
-
-- Example 1 (retrieveValue)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "retrieveValue",
-      "field": "count",
-      "target": {
-        "target": "1",
-        "series": "rain"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 2 (filter)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "month",
-      "include": [
-        1,
-        2,
-        3
-      ],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 3 (findExtremum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "count",
-      "which": "max",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 4 (sort)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sort",
-      "field": "count",
-      "order": "desc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 5 (nth)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 1,
-      "from": "left",
-      "orderField": "month",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 6 (sum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sum",
-      "field": "count",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 7 (average)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "average",
-      "field": "count",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 8 (determineRange)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "determineRange",
-      "field": "count",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 9 (compare)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compare",
-      "field": "count",
-      "targetA": {
-        "target": "1",
-        "series": "rain"
-      },
-      "targetB": {
-        "target": "2",
-        "series": "rain"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 10 (compareBool)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "count",
-      "targetA": {
-        "target": "1",
-        "series": "sun"
-      },
-      "targetB": {
-        "target": "1",
-        "series": "rain"
-      },
-      "operator": ">",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 11 (diff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "diff",
-      "field": "count",
-      "targetA": {
-        "target": "1",
-        "series": "rain"
-      },
-      "targetB": {
-        "target": "1",
-        "series": "sun"
-      },
-      "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 12 (lagDiff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "lagDiff",
-      "field": "count",
-      "orderField": "month",
-      "order": "asc",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 13 (pairDiff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "pairDiff",
-      "by": "month",
-      "field": "count",
-      "groupA": "rain",
-      "groupB": "sun",
-      "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 14 (count)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "count",
-      "field": "month",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 15 (add)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "add",
-      "field": "count",
-      "targetA": {
-        "target": "1",
-        "series": "rain"
-      },
-      "targetB": {
-        "target": "1",
-        "series": "sun"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 16 (scale)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "scale",
-      "field": "count",
-      "target": {
-        "target": "1",
-        "series": "rain"
-      },
-      "factor": 1.2,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 17 (setOp)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n3",
-      "op": "setOp",
-      "fn": "union",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": [
-          "n1",
-          "n2"
-        ],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 18 (filter — group 없이, x-axis include)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "month",
-      "include": [1, 2, 3, 4, 5, 6],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 19 (filter — exclude)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "month",
-      "exclude": [7, 8, 9],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 20 (filter — y threshold <=, group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "count",
-      "operator": "<=",
-      "value": 10,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 21 (filter — group 지정 + y threshold)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "count",
-      "operator": ">=",
-      "value": 5,
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 22 (findExtremum — group 없이, 전체 max)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "count",
-      "which": "max",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 23 (findExtremum — min, group 있음)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "count",
-      "which": "min",
-      "group": "sun",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 24 (sort — asc)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sort",
-      "field": "count",
-      "order": "asc",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 25 (sort — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sort",
-      "field": "count",
-      "order": "desc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 26 (nth — group 없이, from right)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 1,
-      "from": "right",
-      "orderField": "month",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 27 (sum — group 없이, 전체 합계)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sum",
-      "field": "count",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 28 (average — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "average",
-      "field": "count",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 29 (determineRange — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "determineRange",
-      "field": "count",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 30 (lagDiff — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "lagDiff",
-      "field": "count",
-      "orderField": "month",
-      "order": "asc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 31 (count — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "count",
-      "field": "month",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 32 (pairDiff — absolute: true)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "pairDiff",
-      "by": "month",
-      "field": "count",
-      "groupA": "rain",
-      "groupB": "sun",
-      "signed": false,
-      "absolute": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 33 (compareBool — <=)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "count",
-      "targetA": {
-        "target": "1",
-        "series": "rain"
-      },
-      "targetB": {
-        "target": "1",
-        "series": "sun"
-      },
-      "operator": "<=",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 34 (chain: filter(group) → findExtremum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "count",
-      "operator": ">=",
-      "value": 5,
-      "group": "rain",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    },
-    {
-      "id": "n2",
-      "op": "findExtremum",
-      "field": "count",
-      "which": "max",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": ["n1"],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 35 (chain: filter → average)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "month",
-      "include": [1, 2, 3, 4, 5, 6],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    },
-    {
-      "id": "n2",
-      "op": "average",
-      "field": "count",
-      "group": "rain",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": ["n1"],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
----
-
-## 3) GROUPED_BAR
-
-- Vega-Lite sample: `data/test/spec/bar_grouped_ver.json`
-- Registry file: `src/rendering/ops/visual/bar/grouped/autoDrawPlanRegistry.ts`
-- Registry map: `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS`
-
-| Operation | Draw 조합 (요약) | Draw plan 작성 함수 | 보조 함수 |
-| --- | --- | --- | --- |
-| `retrieveValue` | `highlight + text` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.RetrieveValue]` | `buildHighlightPlan`, `buildTextPlan`, `uniqueTargets`, `toTargetValueEntries` |
-| `filter` | `group 지정: grouped-filter-groups`, `x include/exclude: highlight + filter`, `y threshold: line + bar-segment + filter` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Filter]` | `buildFilterPlan` |
-| `findExtremum` | `highlight + text` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.FindExtremum]` | `buildHighlightPlan`, `buildTextPlan` |
-| `sort` | `clear + sort` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Sort]` | - |
-| `nth` | `highlight + text` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Nth]` | `buildHighlightPlan`, `buildTextPlan` |
-| `sum` | `sum` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Sum]` | - |
-| `average` | `hline` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Average]` | `lineAt` |
-| `determineRange` | `band` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.DetermineRange]` | `buildRangePlan` |
-| `compare` | `highlight + connector line + scalar hline(optional)` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Compare]` | `firstPair`, `seriesPairLine`, `firstTarget`, `lineAt` |
-| `compareBool` | `text(bool)` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.CompareBool]` | `textScore` |
-| `diff` | `connector line + baseline hline(optional) + highlight + delta text(optional)` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Diff]` | `firstPair`, `seriesPairLine`, `aggregateByTarget`, `firstTarget`, `lineAt`, `textScore` |
-| `lagDiff` | `multi connector lines + highlight + text` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.LagDiff]` | `buildHighlightPlan`, `buildTextPlan` |
-| `pairDiff` | `multi connector lines + text` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.PairDiff]` | `buildTextPlan` |
-| `count` | `text(count)` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Count]` | `textScore` |
-| `add` | `hline + text` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Add]` | `lineAt`, `textScore` |
-| `scale` | `hline + text` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Scale]` | `lineAt`, `textScore` |
-| `setOp` | `highlight + band + summary text` | `GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS[OperationOp.SetOp]` | `buildSetOpPlan` |
-
-### GROUPED_BAR operation JSON examples
-
-- Example 1 (retrieveValue)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "retrieveValue",
-      "field": "Media rights revenue in billion US dollars",
-      "target": {
-        "target": "2010",
-        "series": "North America"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 2 (filter)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "Year",
-      "include": [
-        2009,
-        2010,
-        2011
-      ],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 3 (findExtremum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "Media rights revenue in billion US dollars",
-      "which": "max",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 4 (sort)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sort",
-      "field": "Media rights revenue in billion US dollars",
-      "order": "desc",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 5 (nth)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 2,
-      "from": "left",
-      "orderField": "Year",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 6 (sum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sum",
-      "field": "Media rights revenue in billion US dollars",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 7 (average)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "average",
-      "field": "Media rights revenue in billion US dollars",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 8 (determineRange)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "determineRange",
-      "field": "Media rights revenue in billion US dollars",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 9 (compare)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compare",
-      "field": "Media rights revenue in billion US dollars",
-      "targetA": {
-        "target": "2010",
-        "series": "North America"
-      },
-      "targetB": {
-        "target": "2010",
-        "series": "Latin America"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 10 (compareBool)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "Media rights revenue in billion US dollars",
-      "targetA": {
-        "target": "2013",
-        "series": "Europe, Middle East and Africa"
-      },
-      "targetB": {
-        "target": "2013",
-        "series": "Asia Pacific"
-      },
-      "operator": ">",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 11 (diff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "diff",
-      "field": "Media rights revenue in billion US dollars",
-      "targetA": {
-        "target": "2012",
-        "series": "North America"
-      },
-      "targetB": {
-        "target": "2012",
-        "series": "Latin America"
-      },
-      "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 12 (lagDiff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "lagDiff",
-      "field": "Media rights revenue in billion US dollars",
-      "orderField": "Year",
-      "order": "asc",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 13 (pairDiff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "pairDiff",
-      "by": "Year",
-      "field": "Media rights revenue in billion US dollars",
-      "groupA": "North America",
-      "groupB": "Latin America",
-      "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 14 (count)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "count",
-      "field": "Year",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 15 (add)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "add",
-      "field": "Media rights revenue in billion US dollars",
-      "targetA": {
-        "target": "2010",
-        "series": "North America"
-      },
-      "targetB": {
-        "target": "2010",
-        "series": "Latin America"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 16 (scale)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "scale",
-      "field": "Media rights revenue in billion US dollars",
-      "target": {
-        "target": "2013",
-        "series": "North America"
-      },
-      "factor": 1.1,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 17 (setOp)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n3",
-      "op": "setOp",
-      "fn": "union",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": [
-          "n1",
-          "n2"
-        ],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 18 (filter — group 지정, include)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "Year",
-      "include": [2009, 2010, 2011, 2012, 2013],
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 19 (filter — y threshold >=)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "Media rights revenue in billion US dollars",
-      "operator": ">=",
-      "value": 3,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 20 (filter — exclude)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "Year",
-      "exclude": [2009, 2010],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 21 (findExtremum — group 없이, 전체 max)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "Media rights revenue in billion US dollars",
-      "which": "max",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 22 (findExtremum — min, group 있음)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "Media rights revenue in billion US dollars",
-      "which": "min",
-      "group": "Latin America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 23 (sort — asc, group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sort",
-      "field": "Media rights revenue in billion US dollars",
-      "order": "asc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 24 (nth — group 없이, from right)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 1,
-      "from": "right",
-      "orderField": "Year",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 25 (sum — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sum",
-      "field": "Media rights revenue in billion US dollars",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 26 (average — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "average",
-      "field": "Media rights revenue in billion US dollars",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 27 (determineRange — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "determineRange",
-      "field": "Media rights revenue in billion US dollars",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 28 (lagDiff — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "lagDiff",
-      "field": "Media rights revenue in billion US dollars",
-      "orderField": "Year",
-      "order": "asc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 29 (count — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "count",
-      "field": "Year",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 30 (pairDiff — absolute: true, signed: false)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "pairDiff",
-      "by": "Year",
-      "field": "Media rights revenue in billion US dollars",
-      "groupA": "North America",
-      "groupB": "Latin America",
-      "signed": false,
-      "absolute": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 31 (compareBool — <)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "Media rights revenue in billion US dollars",
-      "targetA": {
-        "target": "2013",
-        "series": "Latin America"
-      },
-      "targetB": {
-        "target": "2013",
-        "series": "North America"
-      },
-      "operator": "<",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 32 (compare — which: "max")
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compare",
-      "field": "Media rights revenue in billion US dollars",
-      "targetA": {
-        "target": "2013",
-        "series": "North America"
-      },
-      "targetB": {
-        "target": "2013",
-        "series": "Asia Pacific"
-      },
-      "which": "max",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 33 (chain: filter → findExtremum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "Year",
-      "include": [2011, 2012, 2013],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    },
-    {
-      "id": "n2",
-      "op": "findExtremum",
-      "field": "Media rights revenue in billion US dollars",
-      "which": "max",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": ["n1"],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 34 (chain: findExtremum(max) + findExtremum(min) → diff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "Media rights revenue in billion US dollars",
-      "which": "max",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    },
-    {
-      "id": "n2",
-      "op": "findExtremum",
-      "field": "Media rights revenue in billion US dollars",
-      "which": "min",
-      "group": "North America",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": [],
-        "sentenceIndex": 2
-      }
-    },
-    {
-      "id": "n3",
-      "op": "diff",
-      "field": "Media rights revenue in billion US dollars",
-      "signed": true,
-      "meta": {
-        "nodeId": "n3",
-        "inputs": ["n1", "n2"],
-        "sentenceIndex": 3
-      }
-    }
-  ]
-}
-```
-
----
-
-## 4) SIMPLE_LINE
+## 2) Simple Line Chart
 
 - Vega-Lite sample: `data/test/spec/line_simple.json`
-- Registry file: `src/rendering/ops/visual/line/simple/autoDrawPlanRegistry.ts`
-- Registry map: `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS`
+- Runner: `src/operation-next/runners/simpleLine.ts`
+- 예시 field: `year`, `value`
 
-| Operation | Draw 조합 (요약) | Draw plan 작성 함수 | 보조 함수 |
-| --- | --- | --- | --- |
-| `retrieveValue` | `highlight(path/circle/rect)` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.RetrieveValue]` | `highlightSeriesPoints` |
-| `findExtremum` | `highlight(path/circle/rect)` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.FindExtremum]` | `highlightSeriesPoints` |
-| `filter` | `x include/exclude: highlight + filter`, `y threshold: hline + filter + highlight` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Filter]` | `buildFilterPlan` |
-| `average` | `hline + text` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Average]` | `hLine`, `textAtTopRight` |
-| `determineRange` | `band` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.DetermineRange]` | `rangeBandPlan` |
-| `diff` | `connector line + baseline hline(optional) + delta text(optional)` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Diff]` | `getSelectorTarget`, `hLine`, `textAtTopRight` |
-| `compare` | `highlight + connector line(optional) + scalar hline(optional) + scalar text(optional)` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Compare]` | `getSelectorTarget`, `highlightSeriesPoints`, `hLine`, `textAtTopRight` |
-| `compareBool` | `text(bool)` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.CompareBool]` | `textAtTopRight` |
-| `lagDiff` | `multi connector lines + highlight` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.LagDiff]` | `highlightSeriesPoints` |
-| `pairDiff` | `multi connector lines + summary text` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.PairDiff]` | `textAtTopRight` |
-| `nth` | `highlight` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Nth]` | `highlightSeriesPoints` |
-| `count` | `text(count)` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Count]` | `textAtTopRight` |
-| `add` | `hline + text` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Add]` | `hLine`, `textAtTopRight` |
-| `scale` | `hline + text` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Scale]` | `hLine`, `textAtTopRight` |
-| `sum` | `text + hline` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Sum]` | `hLine`, `textAtTopRight` |
-| `setOp` | `highlight + band + summary text` | `SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.SetOp]` | `contiguousRuns`, `highlightSeriesPoints`, `textAtTopRight` |
-
-### SIMPLE_LINE operation JSON examples
-
-- Example 1 (retrieveValue)
+### retrieveValue
 
 ```json
 {
@@ -2445,39 +317,15 @@
     {
       "id": "n1",
       "op": "retrieveValue",
-      "field": "research_and_development_expenditure",
-      "target": "2010-01-01",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "field": "value",
+      "target": "2001",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 2 (findExtremum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "research_and_development_expenditure",
-      "which": "max",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 3 (filter)
+### filter
 
 ```json
 {
@@ -2485,58 +333,45 @@
     {
       "id": "n1",
       "op": "filter",
-      "field": "research_and_development_expenditure",
+      "field": "value",
       "operator": ">=",
-      "value": 5000,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "value": 3000,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 4 (average)
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
-      "op": "average",
-      "field": "research_and_development_expenditure",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "op": "filter",
+      "field": "year",
+      "operator": "between",
+      "value": ["1998", "2008"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 5 (determineRange)
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
-      "op": "determineRange",
-      "field": "research_and_development_expenditure",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "op": "filter",
+      "field": "year",
+      "include": ["2001", "2002", "2003"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 6 (diff)
+### diff
 
 ```json
 {
@@ -2544,64 +379,62 @@
     {
       "id": "n1",
       "op": "diff",
-      "field": "research_and_development_expenditure",
-      "targetA": "2008-01-01",
-      "targetB": "2007-01-01",
+      "field": "value",
+      "targetA": "2001",
+      "targetB": "2008",
       "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 7 (compare)
+### average
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
-      "op": "compare",
-      "field": "research_and_development_expenditure",
-      "targetA": "2010-01-01",
-      "targetB": "2009-01-01",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "op": "average",
+      "field": "value",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 8 (compareBool)
+### findExtremum
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
-      "op": "compareBool",
-      "field": "research_and_development_expenditure",
-      "targetA": "2010-01-01",
-      "targetB": "2009-01-01",
-      "operator": ">",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "op": "findExtremum",
+      "field": "value",
+      "which": "max",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 9 (lagDiff)
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "findExtremum",
+      "field": "value",
+      "which": "min",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### lagDiff
 
 ```json
 {
@@ -2609,166 +442,17 @@
     {
       "id": "n1",
       "op": "lagDiff",
-      "field": "research_and_development_expenditure",
+      "field": "value",
       "orderField": "year",
       "order": "asc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 10 (pairDiff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "pairDiff",
-      "by": "year",
-      "field": "research_and_development_expenditure",
-      "groupA": "A",
-      "groupB": "B",
       "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 11 (nth)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 5,
-      "from": "left",
-      "orderField": "year",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 12 (count)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "count",
-      "field": "year",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 13 (add)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "add",
-      "field": "research_and_development_expenditure",
-      "targetA": "2011-01-01",
-      "targetB": "2010-01-01",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 14 (scale)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "scale",
-      "field": "research_and_development_expenditure",
-      "target": "2014-01-01",
-      "factor": 0.9,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 15 (sum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sum",
-      "field": "research_and_development_expenditure",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 16 (setOp)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n3",
-      "op": "setOp",
-      "fn": "intersection",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": [
-          "n1",
-          "n2"
-        ],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 17 (filter — x-axis include, 날짜 포함)
+### chain examples
 
 ```json
 {
@@ -2777,208 +461,41 @@
       "id": "n1",
       "op": "filter",
       "field": "year",
-      "include": ["2005-01-01", "2006-01-01", "2007-01-01", "2008-01-01", "2009-01-01"],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 18 (filter — x-axis exclude)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "year",
-      "exclude": ["2000-01-01", "2001-01-01"],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 19 (filter — y threshold <)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "research_and_development_expenditure",
-      "operator": "<",
-      "value": 3000,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 20 (filter — between)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "research_and_development_expenditure",
       "operator": "between",
-      "value": [2000, 8000],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "value": ["1998", "2008"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "average",
+      "field": "value",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 21 (findExtremum — min)
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
+      "op": "filter",
+      "field": "year",
+      "operator": "between",
+      "value": ["1998", "2008"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
       "op": "findExtremum",
-      "field": "research_and_development_expenditure",
-      "which": "min",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "field": "value",
+      "which": "max",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 22 (retrieveValue — precision: 0)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "retrieveValue",
-      "field": "research_and_development_expenditure",
-      "target": "2012-01-01",
-      "precision": 0,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 23 (nth — from right)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 1,
-      "from": "right",
-      "orderField": "year",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 24 (diff — signed: false)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "diff",
-      "field": "research_and_development_expenditure",
-      "targetA": "2010-01-01",
-      "targetB": "2005-01-01",
-      "signed": false,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 25 (compareBool — <=)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "research_and_development_expenditure",
-      "targetA": "2005-01-01",
-      "targetB": "2010-01-01",
-      "operator": "<=",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 26 (compareBool — ==)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "research_and_development_expenditure",
-      "targetA": "2008-01-01",
-      "targetB": "2009-01-01",
-      "operator": "==",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 27 (lagDiff — desc)
 
 ```json
 {
@@ -2986,135 +503,52 @@
     {
       "id": "n1",
       "op": "lagDiff",
-      "field": "research_and_development_expenditure",
+      "field": "value",
       "orderField": "year",
-      "order": "desc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 28 (pairDiff — absolute: true)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "pairDiff",
-      "by": "year",
-      "field": "research_and_development_expenditure",
-      "groupA": "A",
-      "groupB": "B",
-      "signed": false,
-      "absolute": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 29 (chain: filter → findExtremum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "year",
-      "include": ["2005-01-01", "2006-01-01", "2007-01-01", "2008-01-01", "2009-01-01"],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "order": "asc",
+      "signed": true,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     },
     {
       "id": "n2",
       "op": "findExtremum",
-      "field": "research_and_development_expenditure",
+      "field": "value",
       "which": "max",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": ["n1"],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 30 (chain: filter → average)
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
-      "op": "filter",
-      "field": "research_and_development_expenditure",
-      "operator": ">=",
-      "value": 3000,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "op": "lagDiff",
+      "field": "value",
+      "orderField": "year",
+      "order": "asc",
+      "signed": true,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     },
     {
       "id": "n2",
       "op": "average",
-      "field": "research_and_development_expenditure",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": ["n1"],
-        "sentenceIndex": 1
-      }
+      "field": "value",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
----
-
-## 5) MULTI_LINE
+## 3) Multi Line Chart
 
 - Vega-Lite sample: `data/test/spec/line_multiple.json`
-- Registry file: `src/rendering/ops/visual/line/multiple/autoDrawPlanRegistry.ts`
-- Registry map: `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS`
+- Runner: `src/operation-next/runners/multipleLine.ts`
+- 예시 field: `date`, `price`, `symbol`
 
-| Operation | Draw 조합 (요약) | Draw plan 작성 함수 | 보조 함수 |
-| --- | --- | --- | --- |
-| `retrieveValue` | `highlight(path/circle/rect)` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.RetrieveValue]` | `pointHighlights` |
-| `findExtremum` | `highlight(path/circle/rect)` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.FindExtremum]` | `pointHighlights` |
-| `filter` | `x include/exclude: highlight + filter`, `y threshold: hline + filter + highlight` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Filter]` | `buildFilterPlan` |
-| `average` | `hline + text` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Average]` | `hLine`, `topText` |
-| `determineRange` | `band` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.DetermineRange]` | `rangeBandPlan` |
-| `compare` | `highlight + connector line + scalar hline(optional) + scalar text(optional)` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Compare]` | `getSelectorTarget`, `pointHighlights`, `hLine`, `topText` |
-| `diff` | `connector line + delta text(optional) + baseline hline(optional)` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Diff]` | `getSelectorTarget`, `hLine`, `topText` |
-| `pairDiff` | `multi connector lines + summary text` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.PairDiff]` | `topText` |
-| `lagDiff` | `multi connector lines + highlight` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.LagDiff]` | `pointHighlights` |
-| `nth` | `highlight` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Nth]` | `pointHighlights` |
-| `count` | `text(count)` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Count]` | `topText` |
-| `compareBool` | `text(bool)` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.CompareBool]` | `topText` |
-| `add` | `hline + text` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Add]` | `hLine`, `topText` |
-| `scale` | `hline + text` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Scale]` | `hLine`, `topText` |
-| `sum` | `hline + text` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.Sum]` | `hLine`, `topText` |
-| `setOp` | `highlight + band + summary text` | `MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS[OperationOp.SetOp]` | `contiguousRuns`, `pointHighlights`, `topText` |
-
-### MULTI_LINE operation JSON examples
-
-- Example 1 (retrieveValue)
+### retrieveValue
 
 ```json
 {
@@ -3123,42 +557,14 @@
       "id": "n1",
       "op": "retrieveValue",
       "field": "price",
-      "target": {
-        "target": "2005-01-01",
-        "series": "AAPL"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "target": { "target": "2001-01-01", "series": "AAPL" },
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 2 (findExtremum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "price",
-      "which": "max",
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 3 (filter)
+### filter
 
 ```json
 {
@@ -3169,17 +575,61 @@
       "field": "price",
       "operator": ">=",
       "value": 100,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "group": "AAPL",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 4 (average)
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "date",
+      "operator": "between",
+      "value": ["2001-01-01", "2008-01-01"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "date",
+      "include": ["2001-01-01", "2002-01-01", "2003-01-01"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### diff
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "diff",
+      "field": "price",
+      "targetA": { "target": "2001-01-01", "series": "AAPL" },
+      "targetB": { "target": "2001-01-01", "series": "MSFT" },
+      "signed": true,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### average
 
 ```json
 {
@@ -3189,92 +639,49 @@
       "op": "average",
       "field": "price",
       "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 5 (determineRange)
+### findExtremum
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
-      "op": "determineRange",
+      "op": "findExtremum",
       "field": "price",
+      "which": "max",
       "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 6 (compare)
+### lagDiff
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
-      "op": "compare",
+      "op": "lagDiff",
       "field": "price",
-      "targetA": {
-        "target": "2005-01-01",
-        "series": "AAPL"
-      },
-      "targetB": {
-        "target": "2005-01-01",
-        "series": "MSFT"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 7 (diff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "diff",
-      "field": "price",
-      "targetA": {
-        "target": "2005-01-01",
-        "series": "AAPL"
-      },
-      "targetB": {
-        "target": "2005-01-01",
-        "series": "MSFT"
-      },
+      "orderField": "date",
+      "order": "asc",
+      "group": "AAPL",
       "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 8 (pairDiff)
+### pairDiff
 
 ```json
 {
@@ -3287,474 +694,12 @@
       "groupA": "AAPL",
       "groupB": "MSFT",
       "signed": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "absolute": false,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 9 (lagDiff)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "lagDiff",
-      "field": "price",
-      "orderField": "date",
-      "order": "asc",
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 10 (nth)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 12,
-      "from": "left",
-      "orderField": "date",
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 11 (count)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "count",
-      "field": "date",
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 12 (compareBool)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "price",
-      "targetA": {
-        "target": "2005-01-01",
-        "series": "AAPL"
-      },
-      "targetB": {
-        "target": "2005-01-01",
-        "series": "MSFT"
-      },
-      "operator": ">",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 13 (add)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "add",
-      "field": "price",
-      "targetA": {
-        "target": "2005-01-01",
-        "series": "AAPL"
-      },
-      "targetB": {
-        "target": "2005-01-01",
-        "series": "MSFT"
-      },
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 14 (scale)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "scale",
-      "field": "price",
-      "target": {
-        "target": "2005-01-01",
-        "series": "AAPL"
-      },
-      "factor": 1.05,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 15 (sum)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "sum",
-      "field": "price",
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 16 (setOp)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n3",
-      "op": "setOp",
-      "fn": "union",
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": [
-          "n1",
-          "n2"
-        ],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 17 (filter — group 지정 + y threshold)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "price",
-      "operator": ">=",
-      "value": 50,
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 18 (filter — group 없이, y threshold)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "price",
-      "operator": ">=",
-      "value": 100,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 19 (filter — x-axis include)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "date",
-      "include": ["2005-01-01", "2006-01-01", "2007-01-01"],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 20 (filter — x-axis exclude)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "filter",
-      "field": "date",
-      "exclude": ["2000-01-01", "2001-01-01", "2002-01-01"],
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 21 (findExtremum — group 없이, 전체 max)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "price",
-      "which": "max",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 22 (findExtremum — min, group 있음)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "findExtremum",
-      "field": "price",
-      "which": "min",
-      "group": "MSFT",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 23 (retrieveValue — series 없이, 특정 날짜)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "retrieveValue",
-      "field": "price",
-      "target": "2010-01-01",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 24 (average — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "average",
-      "field": "price",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 25 (determineRange — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "determineRange",
-      "field": "price",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 26 (nth — group 없이, from right)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "nth",
-      "n": 1,
-      "from": "right",
-      "orderField": "date",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 27 (lagDiff — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "lagDiff",
-      "field": "price",
-      "orderField": "date",
-      "order": "asc",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 28 (count — group 없이)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "count",
-      "field": "date",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 29 (compareBool — <)
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compareBool",
-      "field": "price",
-      "targetA": {
-        "target": "2010-01-01",
-        "series": "MSFT"
-      },
-      "targetB": {
-        "target": "2010-01-01",
-        "series": "AAPL"
-      },
-      "operator": "<",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 30 (pairDiff — absolute: true, signed: false)
 
 ```json
 {
@@ -3768,45 +713,13 @@
       "groupB": "MSFT",
       "signed": false,
       "absolute": true,
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
-- Example 31 (compare — which: "max")
-
-```json
-{
-  "ops": [
-    {
-      "id": "n1",
-      "op": "compare",
-      "field": "price",
-      "targetA": {
-        "target": "2010-01-01",
-        "series": "AAPL"
-      },
-      "targetB": {
-        "target": "2010-01-01",
-        "series": "MSFT"
-      },
-      "which": "max",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
-    }
-  ]
-}
-```
-
-- Example 32 (chain: filter(group) → findExtremum)
+### chain examples
 
 ```json
 {
@@ -3814,83 +727,372 @@
     {
       "id": "n1",
       "op": "filter",
-      "field": "price",
-      "operator": ">=",
-      "value": 50,
+      "field": "date",
+      "operator": "between",
+      "value": ["2001-01-01", "2008-01-01"],
       "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     },
     {
       "id": "n2",
-      "op": "findExtremum",
+      "op": "average",
       "field": "price",
-      "which": "max",
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": ["n1"],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
     }
   ]
 }
 ```
-
-- Example 33 (chain: findExtremum(max) + findExtremum(min) → diff)
 
 ```json
 {
   "ops": [
     {
       "id": "n1",
-      "op": "findExtremum",
-      "field": "price",
-      "which": "max",
+      "op": "filter",
+      "field": "date",
+      "operator": "between",
+      "value": ["2001-01-01", "2008-01-01"],
       "group": "AAPL",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      }
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     },
     {
       "id": "n2",
       "op": "findExtremum",
       "field": "price",
-      "which": "min",
-      "group": "AAPL",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": [],
-        "sentenceIndex": 2
-      }
-    },
-    {
-      "id": "n3",
-      "op": "diff",
-      "field": "price",
-      "signed": true,
-      "meta": {
-        "nodeId": "n3",
-        "inputs": ["n1", "n2"],
-        "sentenceIndex": 3
-      }
+      "which": "max",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
     }
   ]
 }
 ```
 
----
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "pairDiff",
+      "by": "date",
+      "field": "price",
+      "groupA": "AAPL",
+      "groupB": "MSFT",
+      "signed": true,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "findExtremum",
+      "field": "price",
+      "which": "max",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
 
-## 참고: Draw 실행 엔진 연결
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "lagDiff",
+      "field": "price",
+      "orderField": "date",
+      "order": "asc",
+      "group": "AAPL",
+      "signed": true,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "findExtremum",
+      "field": "price",
+      "which": "max",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
 
-- data operation -> auto draw plan 생성:
-  - `src/application/services/executeDataOperation.ts`의 `executeDataOperation(...)`
-- draw plan 실행(phase/병렬/순차):
-  - `src/rendering/ops/executor/runDrawPlan.ts`의 `runDrawPlan(...)`
-- phase 계산(DAG):
-  - `src/rendering/ops/common/timeline.ts`의 `buildExecutionPhases(...)`
+## 4) Grouped Bar Chart
+
+- Vega-Lite sample: grouped bar spec with x/category, y/value, color or `xOffset` series.
+- Runner: `src/operation-next/runners/groupedBar.ts`
+- 예시 field: `month`, `count`, `weather`
+
+### filter
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "count",
+      "operator": ">=",
+      "value": 10,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "count",
+      "operator": "between",
+      "value": [5, 15],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "month",
+      "include": [1, 2, 3],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "weather",
+      "value": ["rain"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### draw:grouped-to-stacked
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "draw",
+      "action": "grouped-to-stacked",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### chain examples
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "month",
+      "include": [1, 2, 3, 4],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "draw",
+      "action": "grouped-to-stacked",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "draw",
+      "action": "grouped-to-stacked",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "draw",
+      "action": "stacked-to-grouped",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n3",
+      "op": "filter",
+      "field": "count",
+      "operator": ">=",
+      "value": 10,
+      "meta": { "nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+## 5) Stacked Bar Chart
+
+- Vega-Lite sample: `data/test/spec/bar_stacked_ver.json`
+- Runner: `src/operation-next/runners/stackedBar.ts`
+- 예시 field: `month`, `count`, `weather`
+
+`stackedBar`의 `filter`는 transform-first 전략을 사용한다. 즉, stacked chart에서 filter를 실행하면 먼저 grouped chart로 변환한 뒤 grouped filter annotation을 적용한다.
+
+### filter
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "count",
+      "operator": ">=",
+      "value": 10,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "count",
+      "operator": "between",
+      "value": [5, 15],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "month",
+      "include": [1, 2, 3],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "weather",
+      "value": ["rain"],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### draw:stacked-to-grouped
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "draw",
+      "action": "stacked-to-grouped",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+### chain examples
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "draw",
+      "action": "stacked-to-grouped",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "filter",
+      "field": "count",
+      "operator": ">=",
+      "value": 10,
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "filter",
+      "field": "month",
+      "include": [1, 2, 3, 4],
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "draw",
+      "action": "grouped-to-stacked",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "draw",
+      "action": "stacked-to-grouped",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n2",
+      "op": "filter",
+      "field": "weather",
+      "value": ["rain"],
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 }
+    },
+    {
+      "id": "n3",
+      "op": "draw",
+      "action": "grouped-to-stacked",
+      "meta": { "nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+

@@ -35,6 +35,15 @@ export const OPACITIES = {
   HIDDEN: 0,
 }
 
+export const COLORS = {
+  ANNOTATION_RED: '#ef4444',
+  ANNOTATION_BLUE: '#0ea5e9',
+  ANNOTATION_STRONG_RED: '#dc2626',
+  TEXT_DARK: '#111827',
+  SERIES_DEFAULT: '#4f46e5',
+  LABEL_STROKE: '#ffffff',
+}
+
 export const STYLES = {
   GUIDELINE: {
     strokeDasharray: '4 4',
@@ -50,14 +59,14 @@ export const STYLES = {
     fontSize: CHART_TEXT_SIZE.valueLabel,
     fontWeight: 'bold',
     textAnchor: 'middle' as const,
-    stroke: 'white',
+    stroke: COLORS.LABEL_STROKE,
     strokeWidth: 3,
     paintOrder: 'stroke',
   },
   AGGREGATE_LABEL: {
     fontSize: CHART_TEXT_SIZE.valueLabel,
     fontWeight: 'bold',
-    stroke: 'white',
+    stroke: COLORS.LABEL_STROKE,
     strokeWidth: 3,
     paintOrder: 'stroke',
   },

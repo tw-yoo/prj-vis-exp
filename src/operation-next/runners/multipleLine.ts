@@ -8,10 +8,22 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../..
 import type { ParsedOperationRun } from '../types'
 import { getSupportedOperationsForChart, runStubChartOperationRenderer } from './shared'
 import { placeOperationTextLabel } from '../textPlacement'
+import { COLORS, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
+import { createChainState, clearGroupBoundary, type ChainState, type ScaleRecord } from '../chainState'
+import { formatOperationValue, formatSignedOperationValue } from '../primitives/formatValue'
+import {
+  ANNOTATION_LAYER_CLASS,
+  ensureAnnotationLayer,
+  resolveAnnotationViewport,
+  readNumberAttr,
+  applyAnnotationContextTransitions,
+} from '../primitives/annotationLayer'
+import { drawReferenceLine } from '../primitives/drawReferenceLine'
+import { drawDirectionalArrow } from '../primitives/drawDifferenceArrow'
+import { applyMarkSalience } from '../primitives/markSalience'
 
 export const MULTIPLE_LINE_SUPPORTED_OPERATIONS = getSupportedOperationsForChart(ChartType.MULTI_LINE)
 
-const ANNOTATION_LAYER_CLASS = 'operation-next-annotation-layer'
 const RETRIEVE_ANNOTATION_CLASS = 'operation-next-multiple-line-retrieve-value'
 const FILTER_ANNOTATION_CLASS = 'operation-next-multiple-line-filter'
 const FILTER_LINE_LAYER_CLASS = 'operation-next-multiple-line-filter-segments'
@@ -34,11 +46,16 @@ type PointMetrics = {
   series: string | null
 }
 
+function isOperationNextDebugEnabled() {
+  return Boolean((globalThis as typeof globalThis & { __OPERATION_NEXT_DEBUG__?: boolean }).__OPERATION_NEXT_DEBUG__)
+}
+
 function debugNow() {
   return typeof performance === 'undefined' ? Date.now() : Number(performance.now().toFixed(1))
 }
 
 function debugLog(label: string, payload: unknown) {
+  if (!isOperationNextDebugEnabled()) return
   try {
     console.info(DEBUG_PREFIX, label, JSON.stringify(payload))
   } catch {
@@ -109,42 +126,7 @@ function getWorkingData(run: ParsedOperationRun): DatumValue[] {
   })
 }
 
-function ensureAnnotationLayer(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>) {
-  const existing = svg.select<SVGGElement>(`g.${ANNOTATION_LAYER_CLASS}`)
-  if (!existing.empty()) return existing.raise()
-  return svg.append(SvgElements.Group).attr(SvgAttributes.Class, `${SvgClassNames.AnnotationLayer} ${ANNOTATION_LAYER_CLASS}`)
-}
 
-function resolveAnnotationViewport(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, extraRight = 96) {
-  const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
-  const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
-  const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
-  const plotHeight = Number(svg.attr(DataAttributes.PlotHeight) ?? 0)
-  return {
-    x: marginLeft,
-    y: marginTop,
-    width: plotWidth + extraRight,
-    height: plotHeight,
-  }
-}
-
-function readNumberAttr(node: Element, attr: string) {
-  const value = Number(node.getAttribute(attr))
-  return Number.isFinite(value) ? value : null
-}
-
-function formatOperationValue(value: number) {
-  if (!Number.isFinite(value)) return String(value)
-  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)))
-}
-
-function formatSignedOperationValue(value: number) {
-  if (!Number.isFinite(value)) return String(value)
-  const magnitude = formatOperationValue(Math.abs(value))
-  if (value > 0) return `+${magnitude}`
-  if (value < 0) return `-${magnitude}`
-  return magnitude
-}
 
 function selectorTargetKey(selector: TargetSelector | TargetSelector[] | undefined) {
   const entry = Array.isArray(selector) ? selector[0] : selector
@@ -293,7 +275,7 @@ function appendValueLabel(params: {
     .attr(SvgAttributes.TextAnchor, 'middle')
     .attr(SvgAttributes.FontSize, 12)
     .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, params.color ?? '#111827')
+    .attr(SvgAttributes.Fill, params.color ?? COLORS.TEXT_DARK)
     .style(SvgAttributes.Opacity, 0)
     .text(formatOperationValue(params.value))
 
@@ -305,7 +287,7 @@ function appendValueLabel(params: {
     viewport: resolveAnnotationViewport(params.svg),
   })
 
-  return labelNode.transition().duration(800).style(SvgAttributes.Opacity, 1)
+  return labelNode.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1)
 }
 
 function mainLinePath(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>) {
@@ -359,7 +341,7 @@ function drawFilterLineSegments(svg: d3.Selection<SVGSVGElement, unknown, null, 
     }
     if (outsideSegments.length === 0) return
 
-    const stroke = linePath.getAttribute(SvgAttributes.Stroke) || '#4f46e5'
+    const stroke = linePath.getAttribute(SvgAttributes.Stroke) || COLORS.SERIES_DEFAULT
     const rawStrokeWidth = Number(linePath.getAttribute(SvgAttributes.StrokeWidth))
     const strokeWidth = Number.isFinite(rawStrokeWidth) ? rawStrokeWidth : 2
     const segmentLayer = d3.select(lineParent).insert(SvgElements.Group, SvgElements.Circle).attr(SvgAttributes.Class, FILTER_LINE_LAYER_CLASS)
@@ -374,7 +356,7 @@ function drawFilterLineSegments(svg: d3.Selection<SVGSVGElement, unknown, null, 
       .attr(SvgAttributes.Y1, (segment) => segment.y1)
       .attr(SvgAttributes.X2, (segment) => segment.x2)
       .attr(SvgAttributes.Y2, (segment) => segment.y2)
-      .attr(SvgAttributes.Stroke, '#ffffff')
+      .attr(SvgAttributes.Stroke, COLORS.LABEL_STROKE)
       .attr(SvgAttributes.StrokeWidth, strokeWidth + 2)
 
     segmentLayer
@@ -396,18 +378,21 @@ function drawFilterLineSegments(svg: d3.Selection<SVGSVGElement, unknown, null, 
   return hasSegments
 }
 
-async function applyPairDiffFocusTransform(container: HTMLElement, operation: OperationSpec) {
+async function applyPairDiffFocusTransform(
+  container: HTMLElement,
+  operation: OperationSpec,
+): Promise<ScaleRecord | null> {
   const groupA = operation.groupA == null ? null : String(operation.groupA)
   const groupB = operation.groupB == null ? null : String(operation.groupB)
-  if (!groupA || !groupB) return
+  if (!groupA || !groupB) return null
 
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
-  if (svg.empty()) return
+  if (svg.empty()) return null
   container.dataset.operationNextFocusState = 'pairDiff'
   svg.attr('data-operation-next-focus-state', 'pairDiff')
   const keptGroups = new Set([groupA, groupB])
   const plotHeight = Number(svg.attr(DataAttributes.PlotHeight) ?? 0)
-  if (!Number.isFinite(plotHeight) || plotHeight <= 0) return
+  if (!Number.isFinite(plotHeight) || plotHeight <= 0) return null
 
   debugLog('pairDiff-focus-start', {
     t: debugNow(),
@@ -477,12 +462,24 @@ async function applyPairDiffFocusTransform(container: HTMLElement, operation: Op
     .nodes()
     .map((point) => Number(point.getAttribute(DataAttributes.Value)))
     .filter(Number.isFinite)
-  if (values.length === 0) return
+  if (values.length === 0) return null
+
+  // Capture original domain (from current circle values) before rescaling,
+  // so subsequent operations can detect the pairDiff rescale via scaleState.
+  const allValues = svg
+    .selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Value}]`)
+    .nodes()
+    .map((n) => Number(n.getAttribute(DataAttributes.Value)))
+    .filter(Number.isFinite)
+  const originalMin = d3.min(allValues) ?? 0
+  const originalMax = d3.max(allValues) ?? 1
+  const originalDomain: [number, number] = [originalMin, originalMax]
 
   let domainMin = d3.min(values) ?? 0
   let domainMax = d3.max(values) ?? 1
   if (domainMin === domainMax) domainMax = domainMin + 1
   const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotHeight, 0])
+  const currentDomain = yScale.domain() as [number, number]
 
   debugLog('pairDiff-focus-scale', {
     t: debugNow(),
@@ -558,6 +555,7 @@ async function applyPairDiffFocusTransform(container: HTMLElement, operation: Op
     t: debugNow(),
     domAfter: summarizeMultipleLineDom(container),
   })
+  return { originalDomain, currentDomain, rescaledBy: 'pairDiff' }
 }
 
 function pointKey(target: string, series: string | null | undefined) {
@@ -576,34 +574,50 @@ function resultPointKeys(result: DatumValue[]) {
   return keys
 }
 
-function annotateRetrievedValues(container: HTMLElement, values: DatumValue[]) {
+async function annotateRetrievedValues(container: HTMLElement, values: DatumValue[]) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty() || values.length === 0) return
   const layer = ensureAnnotationLayer(svg)
   layer.selectAll(`.${RETRIEVE_ANNOTATION_CLASS}`).remove()
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
+  const transitions: Promise<void>[] = []
 
   values.forEach((datum, index) => {
     const points = findPointByDatum(svg, datum)
     const point = points.nodes()[0]
     if (!point) return
     const metrics = pointRootMetrics(point, marginLeft, marginTop)
-    points.interrupt().transition().duration(800).attr(SvgAttributes.Fill, 'red').attr(SvgAttributes.R, 6)
-    appendValueLabel({
-      svg,
-      layer,
-      className: RETRIEVE_ANNOTATION_CLASS,
-      x: metrics.x,
-      y: metrics.y - 10 - index * 16,
-      value: metrics.value,
-      color: '#111827',
-      anchorElement: point,
-    })
+    transitions.push(
+      points
+        .interrupt()
+        .transition()
+        .duration(DURATIONS.HIGHLIGHT)
+        .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+        .attr(SvgAttributes.R, 6)
+        .end()
+        .catch(() => { /* interrupted */ }),
+    )
+    transitions.push(
+      appendValueLabel({
+        svg,
+        layer,
+        className: RETRIEVE_ANNOTATION_CLASS,
+        x: metrics.x,
+        y: metrics.y - 10 - index * 16,
+        value: metrics.value,
+        color: COLORS.TEXT_DARK,
+        anchorElement: point,
+      })
+        .end()
+        .catch(() => { /* interrupted */ }),
+    )
   })
+
+  await Promise.all(transitions)
 }
 
-async function annotateFilter(container: HTMLElement, result: DatumValue[], operation: OperationSpec, workingData: DatumValue[]) {
+async function annotateFilter(container: HTMLElement, result: DatumValue[], operation: OperationSpec, workingData: DatumValue[], state: ChainState) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
   const layer = ensureAnnotationLayer(svg)
@@ -615,63 +629,47 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
   const threshold = resolveNumericThreshold(operation, workingData)
   const remainingKeys = resultPointKeys(result)
 
-  if (threshold != null) {
-    const thresholdY = inferYForValue(svg, threshold)
-    if (thresholdY != null) {
-      const x1 = marginLeft
-      const x2 = marginLeft + plotWidth
-      const line = layer
-        .append(SvgElements.Line)
-        .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${FILTER_ANNOTATION_CLASS}`)
-        .attr(SvgAttributes.X1, x1)
-        .attr(SvgAttributes.X2, x1)
-        .attr(SvgAttributes.Y1, thresholdY)
-        .attr(SvgAttributes.Y2, thresholdY)
-        .attr(SvgAttributes.Stroke, '#ef4444')
-        .attr(SvgAttributes.StrokeWidth, 2)
-        .style(SvgAttributes.Opacity, 1)
-
-      await line.transition().duration(800).attr(SvgAttributes.X2, x2).end()
-
-      const labelNode = layer
-        .append(SvgElements.Text)
-        .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${FILTER_ANNOTATION_CLASS}`)
-        .attr(SvgAttributes.X, x2 - 4)
-        .attr(SvgAttributes.Y, Math.max(12, thresholdY - 8))
-        .attr(SvgAttributes.TextAnchor, 'end')
-        .attr(SvgAttributes.FontSize, 12)
-        .attr(SvgAttributes.FontWeight, 700)
-        .attr(SvgAttributes.Fill, '#ef4444')
-        .style(SvgAttributes.Opacity, 0)
-        .text(String(threshold))
-
-      placeOperationTextLabel({
-        svg,
-        text: labelNode,
-        preferred: { x: x2 - 4, y: Math.max(12, thresholdY - 8) },
-        viewport: resolveAnnotationViewport(svg),
-      })
-
-      labelNode.transition().delay(500).duration(300).style(SvgAttributes.Opacity, 1)
-    }
-  }
-
-  const pointTransition = svg
-    .selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Target}]`)
-    .interrupt()
-    .transition()
-    .duration(800)
-    .style(SvgAttributes.Opacity, function () {
-      const node = this as SVGCircleElement
+  // Phase 1a — dim out-of-scope points first to establish the visual scope
+  // before the threshold line is drawn. The predicate checks both target+series
+  // and id+series to match how multipleLine tracks data-point identity.
+  const points = svg.selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Target}]`)
+  await applyMarkSalience({
+    marks: points as unknown as d3.Selection<SVGElement, unknown, d3.BaseType, unknown>,
+    isInScope: (node) => {
       const target = node.getAttribute(DataAttributes.Target) ?? ''
-      const id = node.getAttribute(DataAttributes.Id) ?? ''
+      const id     = node.getAttribute(DataAttributes.Id) ?? ''
       const series = node.getAttribute(DataAttributes.Series) ?? ''
-      return remainingKeys.has(pointKey(target, series)) || remainingKeys.has(pointKey(id, series)) ? 1 : 0.25
-    })
-  const pointPromise = pointTransition.end()
+      return remainingKeys.has(pointKey(target, series)) || remainingKeys.has(pointKey(id, series))
+    },
+  })
+
+  // Phase 1b — draw the line segment overlay (highlights in-scope portions).
   drawFilterLineSegments(svg, remainingKeys)
   mainLinePath(svg).interrupt().style(SvgAttributes.Opacity, 1)
-  await pointPromise
+
+  // Phase 2 — threshold reference line + label (only when a numeric threshold
+  // exists). drawReferenceLine handles animation, placement, and label fade-in.
+  if (threshold == null) return
+  const thresholdY = inferYForValue(svg, threshold)
+  if (thresholdY == null) return
+
+  const x1 = marginLeft
+  const x2 = marginLeft + plotWidth
+
+  await drawReferenceLine({
+    layer,
+    cssClass: FILTER_ANNOTATION_CLASS,
+    x1,
+    x2,
+    y: thresholdY,
+    label: String(threshold),
+    svg,
+    viewport: resolveAnnotationViewport(svg),
+  })
+
+  // Record as a persistent anchor so subsequent operations can transition
+  // this threshold line to guideline style without removing it.
+  state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
 }
 
 async function annotateDiff(container: HTMLElement, result: DatumValue[], operation: OperationSpec) {
@@ -707,14 +705,14 @@ async function annotateDiff(container: HTMLElement, result: DatumValue[], operat
     .attr(SvgAttributes.X2, marginLeft)
     .attr(SvgAttributes.Y1, (datum) => datum.y)
     .attr(SvgAttributes.Y2, (datum) => datum.y)
-    .attr(SvgAttributes.Stroke, '#ef4444')
+    .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
     .attr(SvgAttributes.StrokeWidth, 2)
 
-  const labelA = appendValueLabel({ svg, layer, className: `${DIFF_ANNOTATION_CLASS} point-value`, x: a.x, y: a.y - 8, value: a.value, color: '#ef4444', anchorElement: pointA })
-  const labelB = appendValueLabel({ svg, layer, className: `${DIFF_ANNOTATION_CLASS} point-value`, x: b.x, y: b.y - 8, value: b.value, color: '#ef4444', anchorElement: pointB })
+  const labelA = appendValueLabel({ svg, layer, className: `${DIFF_ANNOTATION_CLASS} point-value`, x: a.x, y: a.y - 8, value: a.value, color: COLORS.ANNOTATION_RED, anchorElement: pointA })
+  const labelB = appendValueLabel({ svg, layer, className: `${DIFF_ANNOTATION_CLASS} point-value`, x: b.x, y: b.y - 8, value: b.value, color: COLORS.ANNOTATION_RED, anchorElement: pointB })
 
   await Promise.all([
-    referenceLines.transition().duration(800).attr(SvgAttributes.X2, arrowX).end(),
+    referenceLines.transition().duration(DURATIONS.HIGHLIGHT).attr(SvgAttributes.X2, arrowX).end(),
     labelA.end(),
     labelB.end(),
   ])
@@ -726,10 +724,10 @@ async function annotateDiff(container: HTMLElement, result: DatumValue[], operat
     .attr(SvgAttributes.X2, arrowX)
     .attr(SvgAttributes.Y1, a.y)
     .attr(SvgAttributes.Y2, a.y)
-    .attr(SvgAttributes.Stroke, '#ef4444')
+    .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
     .attr(SvgAttributes.StrokeWidth, 2)
 
-  await compareArrow.transition().duration(600).attr(SvgAttributes.Y1, topY).attr(SvgAttributes.Y2, bottomY).end()
+  await compareArrow.transition().duration(DURATIONS.HIGHLIGHT).attr(SvgAttributes.Y1, topY).attr(SvgAttributes.Y2, bottomY).end()
 
   const arrowHeads = [
     { x1: arrowX, y1: topY, x2: arrowX - arrowHeadSize, y2: topY + arrowHeadSize },
@@ -748,7 +746,7 @@ async function annotateDiff(container: HTMLElement, result: DatumValue[], operat
     .attr(SvgAttributes.Y1, (datum) => datum.y1)
     .attr(SvgAttributes.X2, (datum) => datum.x2)
     .attr(SvgAttributes.Y2, (datum) => datum.y2)
-    .attr(SvgAttributes.Stroke, '#ef4444')
+    .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
     .attr(SvgAttributes.StrokeWidth, 2)
 
   const differenceLabel = layer
@@ -759,7 +757,7 @@ async function annotateDiff(container: HTMLElement, result: DatumValue[], operat
     .attr(SvgAttributes.DominantBaseline, 'middle')
     .attr(SvgAttributes.FontSize, 12)
     .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, '#ef4444')
+    .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
     .text(`Difference: ${formatOperationValue(differenceValue)}`)
 
   placeOperationTextLabel({
@@ -770,54 +768,61 @@ async function annotateDiff(container: HTMLElement, result: DatumValue[], operat
   })
 }
 
-async function annotateAverage(container: HTMLElement, result: DatumValue[]) {
-  const average = Number(result[0]?.value)
-  if (!Number.isFinite(average)) return
+async function annotateAverage(container: HTMLElement, result: DatumValue[], state: ChainState) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
-  const averageY = inferYForValue(svg, average)
+
+  // Determine data source and label based on what preceded this operation.
+  const isPairDiff = state.derivedData !== null && state.scaleState !== null
+  const isFiltered = state.salienceMap.size > 0
+
+  let averageValue: number
+  let labelText: string
+
+  if (isPairDiff) {
+    // After pairDiff: average of the pairwise differences.
+    // Circles have already been repositioned to the rescaled axis, so
+    // inferYForValue will interpolate correctly for the new domain.
+    averageValue = d3.mean(state.derivedData!, (d) => Number(d.value)) ?? 0
+    labelText = `Avg diff: ${formatOperationValue(averageValue)}`
+  } else {
+    averageValue = Number(result[0]?.value)
+    labelText = isFiltered
+      ? `Avg (filtered): ${formatOperationValue(averageValue)}`
+      : `Average: ${formatOperationValue(averageValue)}`
+  }
+
+  if (!Number.isFinite(averageValue)) return
+  const averageY = inferYForValue(svg, averageValue)
   if (averageY == null) return
+
   const layer = ensureAnnotationLayer(svg)
+
+  // Transition prior annotations to context style before drawing the new one.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
   layer.selectAll(`.${AVERAGE_ANNOTATION_CLASS}`).interrupt().remove()
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
   const x1 = marginLeft
   const x2 = marginLeft + plotWidth
-  const line = layer
-    .append(SvgElements.Line)
-    .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${AVERAGE_ANNOTATION_CLASS}`)
-    .attr(SvgAttributes.X1, x1)
-    .attr(SvgAttributes.X2, x1)
-    .attr(SvgAttributes.Y1, averageY)
-    .attr(SvgAttributes.Y2, averageY)
-    .attr(SvgAttributes.Stroke, '#ef4444')
-    .attr(SvgAttributes.StrokeWidth, 2)
 
-  await line.transition().duration(800).attr(SvgAttributes.X2, x2).end()
-
-  const labelNode = layer
-    .append(SvgElements.Text)
-    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${AVERAGE_ANNOTATION_CLASS}`)
-    .attr(SvgAttributes.X, x2 - 4)
-    .attr(SvgAttributes.Y, Math.max(12, averageY - 8))
-    .attr(SvgAttributes.TextAnchor, 'end')
-    .attr(SvgAttributes.FontSize, 12)
-    .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, '#ef4444')
-    .style(SvgAttributes.Opacity, 0)
-    .text(`Average: ${formatOperationValue(average)}`)
-
-  placeOperationTextLabel({
+  // drawReferenceLine handles: line draw-out animation, label placement, label fade-in.
+  await drawReferenceLine({
+    layer,
+    cssClass: AVERAGE_ANNOTATION_CLASS,
+    x1,
+    x2,
+    y: averageY,
+    label: labelText,
     svg,
-    text: labelNode,
-    preferred: { x: x2 - 4, y: Math.max(12, averageY - 8) },
     viewport: resolveAnnotationViewport(svg),
   })
 
-  await labelNode.transition().duration(400).style(SvgAttributes.Opacity, 1).end()
+  state.annotationRecords.push({ cssClass: AVERAGE_ANNOTATION_CLASS, role: 'result', persistent: false })
 }
 
-async function annotatePairDiff(container: HTMLElement, result: DatumValue[], operation: OperationSpec) {
+async function annotatePairDiff(container: HTMLElement, result: DatumValue[], operation: OperationSpec, state: ChainState) {
   const groupA = operation.groupA == null ? null : String(operation.groupA)
   const groupB = operation.groupB == null ? null : String(operation.groupB)
   if (!groupA || !groupB || result.length === 0) return
@@ -836,6 +841,7 @@ async function annotatePairDiff(container: HTMLElement, result: DatumValue[], op
   layer.selectAll(`.${PAIR_DIFF_ANNOTATION_CLASS}`).interrupt().remove()
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
+  const viewport = resolveAnnotationViewport(svg)
   const transitions: Promise<void>[] = []
   const highlightedPoints = new Set<SVGCircleElement>()
 
@@ -855,93 +861,28 @@ async function annotatePairDiff(container: HTMLElement, result: DatumValue[], op
 
     const a = pointRootMetrics(pointA, marginLeft, marginTop)
     const b = pointRootMetrics(pointB, marginLeft, marginTop)
-    const dx = a.x - b.x
-    const dy = a.y - b.y
-    const distance = Math.hypot(dx, dy)
-    if (distance < 1) return
-
-    const ux = dx / distance
-    const uy = dy / distance
-    const px = -uy
-    const py = ux
-    const endpointPadding = 8
-    const headLength = 10
-    const headHalfWidth = 5
-    const startX = b.x + ux * endpointPadding
-    const startY = b.y + uy * endpointPadding
-    const endX = a.x - ux * endpointPadding
-    const endY = a.y - uy * endpointPadding
-    const headBaseX = endX - ux * headLength
-    const headBaseY = endY - uy * headLength
     highlightedPoints.add(pointA)
     highlightedPoints.add(pointB)
 
-    transitions.push(
-      layer
-        .append(SvgElements.Line)
-        .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
-        .attr(SvgAttributes.X1, startX)
-        .attr(SvgAttributes.Y1, startY)
-        .attr(SvgAttributes.X2, startX)
-        .attr(SvgAttributes.Y2, startY)
-        .attr(SvgAttributes.Stroke, '#ef4444')
-        .attr(SvgAttributes.StrokeWidth, 2)
-        .style(SvgAttributes.Opacity, 0.9)
-        .transition()
-        .duration(800)
-        .attr(SvgAttributes.X2, endX)
-        .attr(SvgAttributes.Y2, endY)
-        .end(),
-    )
-
-    ;[
-      { x1: endX, y1: endY, x2: headBaseX + px * headHalfWidth, y2: headBaseY + py * headHalfWidth },
-      { x1: endX, y1: endY, x2: headBaseX - px * headHalfWidth, y2: headBaseY - py * headHalfWidth },
-    ].forEach((arrowHead) => {
-      transitions.push(
-        layer
-          .append(SvgElements.Line)
-          .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS} arrow-head`)
-          .attr(SvgAttributes.X1, arrowHead.x1)
-          .attr(SvgAttributes.Y1, arrowHead.y1)
-          .attr(SvgAttributes.X2, arrowHead.x2)
-          .attr(SvgAttributes.Y2, arrowHead.y2)
-          .attr(SvgAttributes.Stroke, '#ef4444')
-          .attr(SvgAttributes.StrokeWidth, 2)
-          .style(SvgAttributes.Opacity, 0)
-          .transition()
-          .delay(700)
-          .duration(200)
-          .style(SvgAttributes.Opacity, 0.9)
-          .end(),
-      )
-    })
-
-    const labelX = (a.x + b.x) / 2 + px * 18
-    const labelY = (a.y + b.y) / 2 + py * 18
     const value = Number(entry.value)
     const labelText = operation.absolute ? `Difference: ${formatOperationValue(Math.abs(value))}` : formatSignedOperationValue(value)
-    const labelNode = layer
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
-      .attr(SvgAttributes.X, labelX)
-      .attr(SvgAttributes.Y, Math.max(12, labelY))
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.DominantBaseline, 'middle')
-      .attr(SvgAttributes.FontSize, 12)
-      .attr(SvgAttributes.FontWeight, 700)
-      .attr(SvgAttributes.Fill, '#ef4444')
-      .style(SvgAttributes.Opacity, 0)
-      .text(labelText)
 
-    placeOperationTextLabel({
+    // drawDirectionalArrow handles: unit-vector geometry, endpoint padding,
+    // shaft animation, arrowhead fade-in, and label placement.
+    // Arrow direction: b (groupB) → a (groupA).
+    transitions.push(...drawDirectionalArrow({
+      layer,
+      cssClass: PAIR_DIFF_ANNOTATION_CLASS,
+      fromX: b.x,
+      fromY: b.y,
+      toX: a.x,
+      toY: a.y,
+      color: COLORS.ANNOTATION_RED,
+      targetKey: target,
+      label: labelText,
       svg,
-      text: labelNode,
-      preferred: { x: labelX, y: Math.max(12, labelY) },
-      viewport: resolveAnnotationViewport(svg),
-    })
-
-    transitions.push(labelNode.transition().delay(500).duration(300).style(SvgAttributes.Opacity, 1).end())
+      viewport,
+    }))
   })
 
   if (highlightedPoints.size > 0) {
@@ -950,8 +891,8 @@ async function annotatePairDiff(container: HTMLElement, result: DatumValue[], op
         .selectAll<SVGCircleElement, unknown>(Array.from(highlightedPoints))
         .interrupt()
         .transition()
-        .duration(800)
-        .attr(SvgAttributes.Fill, '#ef4444')
+        .duration(DURATIONS.HIGHLIGHT)
+        .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
         .attr(SvgAttributes.R, 6)
         .style(SvgAttributes.Opacity, 1)
         .end(),
@@ -964,12 +905,20 @@ async function annotatePairDiff(container: HTMLElement, result: DatumValue[], op
     highlightedPointCount: highlightedPoints.size,
     domAfter: summarizeMultipleLineDom(container),
   })
+
+  // pairDiff arrows are persistent anchors — the subsequent findExtremum
+  // strengthen step selects them by data-target.
+  state.annotationRecords.push({ cssClass: PAIR_DIFF_ANNOTATION_CLASS, role: 'anchor', persistent: true })
 }
 
-async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]) {
+async function annotateFindExtremum(container: HTMLElement, result: DatumValue[], state: ChainState) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty() || result.length === 0) return
   const layer = ensureAnnotationLayer(svg)
+
+  // Transition prior annotations to context style before drawing the new one.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
   layer.selectAll(`.${EXTREMUM_ANNOTATION_CLASS}`).interrupt().remove()
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
@@ -980,7 +929,7 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
     const point = points.nodes()[0]
     if (!point) return
     const metrics = pointRootMetrics(point, marginLeft, marginTop)
-    transitions.push(points.interrupt().transition().duration(800).attr(SvgAttributes.Fill, 'red').attr(SvgAttributes.R, 6).end())
+    transitions.push(points.interrupt().transition().duration(DURATIONS.HIGHLIGHT).attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED).attr(SvgAttributes.R, 6).end())
     transitions.push(
       appendValueLabel({
         svg,
@@ -989,22 +938,25 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
         x: metrics.x,
         y: metrics.y - 10,
         value: metrics.value,
-        color: '#111827',
+        color: COLORS.TEXT_DARK,
         anchorElement: point,
       }).end(),
     )
   })
 
   await Promise.all(transitions)
+
+  state.annotationRecords.push({ cssClass: EXTREMUM_ANNOTATION_CLASS, role: 'result', persistent: false })
 }
 
-async function annotateLagDiff(container: HTMLElement, result: DatumValue[]) {
+async function annotateLagDiff(container: HTMLElement, result: DatumValue[], state: ChainState) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty() || result.length === 0) return
   const layer = ensureAnnotationLayer(svg)
   layer.selectAll(`.${LAG_DIFF_ANNOTATION_CLASS}`).interrupt().remove()
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
+  const viewport = resolveAnnotationViewport(svg)
   const transitions: Promise<void>[] = []
   const highlightedPoints = new Set<SVGCircleElement>()
 
@@ -1020,90 +972,25 @@ async function annotateLagDiff(container: HTMLElement, result: DatumValue[]) {
 
     const prev = pointRootMetrics(prevPoint, marginLeft, marginTop)
     const current = pointRootMetrics(currentPoint, marginLeft, marginTop)
-    const dx = current.x - prev.x
-    const dy = current.y - prev.y
-    const distance = Math.hypot(dx, dy)
-    if (distance < 1) return
-    const ux = dx / distance
-    const uy = dy / distance
-    const px = -uy
-    const py = ux
-    const endpointPadding = 8
-    const headLength = 10
-    const headHalfWidth = 5
-    const startX = prev.x + ux * endpointPadding
-    const startY = prev.y + uy * endpointPadding
-    const endX = current.x - ux * endpointPadding
-    const endY = current.y - uy * endpointPadding
-    const headBaseX = endX - ux * headLength
-    const headBaseY = endY - uy * headLength
     highlightedPoints.add(prevPoint)
     highlightedPoints.add(currentPoint)
 
-    transitions.push(
-      layer
-        .append(SvgElements.Line)
-        .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${LAG_DIFF_ANNOTATION_CLASS}`)
-        .attr(SvgAttributes.X1, startX)
-        .attr(SvgAttributes.Y1, startY)
-        .attr(SvgAttributes.X2, startX)
-        .attr(SvgAttributes.Y2, startY)
-        .attr(SvgAttributes.Stroke, '#0ea5e9')
-        .attr(SvgAttributes.StrokeWidth, 2)
-        .style(SvgAttributes.Opacity, 0.9)
-        .transition()
-        .duration(800)
-        .attr(SvgAttributes.X2, endX)
-        .attr(SvgAttributes.Y2, endY)
-        .end(),
-    )
-
-    ;[
-      { x1: endX, y1: endY, x2: headBaseX + px * headHalfWidth, y2: headBaseY + py * headHalfWidth },
-      { x1: endX, y1: endY, x2: headBaseX - px * headHalfWidth, y2: headBaseY - py * headHalfWidth },
-    ].forEach((entry) => {
-      transitions.push(
-        layer
-          .append(SvgElements.Line)
-          .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${LAG_DIFF_ANNOTATION_CLASS} arrow-head`)
-          .attr(SvgAttributes.X1, entry.x1)
-          .attr(SvgAttributes.Y1, entry.y1)
-          .attr(SvgAttributes.X2, entry.x2)
-          .attr(SvgAttributes.Y2, entry.y2)
-          .attr(SvgAttributes.Stroke, '#0ea5e9')
-          .attr(SvgAttributes.StrokeWidth, 2)
-          .style(SvgAttributes.Opacity, 0)
-          .transition()
-          .delay(700)
-          .duration(200)
-          .style(SvgAttributes.Opacity, 0.9)
-          .end(),
-      )
-    })
-
-    const labelX = (prev.x + current.x) / 2 + px * 18
-    const labelY = (prev.y + current.y) / 2 + py * 18
-    const labelNode = layer
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${LAG_DIFF_ANNOTATION_CLASS}`)
-      .attr(SvgAttributes.X, labelX)
-      .attr(SvgAttributes.Y, Math.max(12, labelY))
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.DominantBaseline, 'middle')
-      .attr(SvgAttributes.FontSize, 12)
-      .attr(SvgAttributes.FontWeight, 700)
-      .attr(SvgAttributes.Fill, '#0ea5e9')
-      .style(SvgAttributes.Opacity, 0)
-      .text(formatSignedOperationValue(Number(datum.value)))
-
-    placeOperationTextLabel({
+    // drawDirectionalArrow handles: unit-vector geometry, endpoint padding,
+    // shaft animation, arrowhead fade-in, and label placement.
+    transitions.push(...drawDirectionalArrow({
+      layer,
+      cssClass: LAG_DIFF_ANNOTATION_CLASS,
+      fromX: prev.x,
+      fromY: prev.y,
+      toX: current.x,
+      toY: current.y,
+      color: COLORS.ANNOTATION_BLUE,
+      targetKey: String(datum.target),
+      prevTargetKey: String(datum.prevTarget),
+      label: formatSignedOperationValue(Number(datum.value)),
       svg,
-      text: labelNode,
-      preferred: { x: labelX, y: Math.max(12, labelY) },
-      viewport: resolveAnnotationViewport(svg),
-    })
-
-    transitions.push(labelNode.transition().delay(500).duration(300).style(SvgAttributes.Opacity, 1).end())
+      viewport,
+    }))
   })
 
   if (highlightedPoints.size > 0) {
@@ -1112,8 +999,8 @@ async function annotateLagDiff(container: HTMLElement, result: DatumValue[]) {
         .selectAll<SVGCircleElement, unknown>(Array.from(highlightedPoints))
         .interrupt()
         .transition()
-        .duration(800)
-        .attr(SvgAttributes.Fill, '#0ea5e9')
+        .duration(DURATIONS.HIGHLIGHT)
+        .attr(SvgAttributes.Fill, COLORS.ANNOTATION_BLUE)
         .attr(SvgAttributes.R, 6)
         .style(SvgAttributes.Opacity, 1)
         .end(),
@@ -1121,122 +1008,239 @@ async function annotateLagDiff(container: HTMLElement, result: DatumValue[]) {
   }
 
   await Promise.all(transitions)
+
+  // lagDiff arrows are persistent anchors — strengthen selects them by data-target.
+  state.annotationRecords.push({ cssClass: LAG_DIFF_ANNOTATION_CLASS, role: 'anchor', persistent: true })
 }
 
-async function runRetrieveValueOperation(run: ParsedOperationRun, operation: OperationSpec, operationIndex: number) {
-  const workingData = getWorkingData(run)
+// ---------------------------------------------------------------------------
+// Strengthen helpers — emphasise an existing arrow for a specific target
+// by fattening its stroke and shifting to a deeper colour.
+// ---------------------------------------------------------------------------
+
+async function strengthenPairDiffArrow(container: HTMLElement, targetKey: string): Promise<void> {
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+  const layer = ensureAnnotationLayer(svg)
+  const arrowLines = layer.selectAll<SVGLineElement, unknown>(
+    `line.${PAIR_DIFF_ANNOTATION_CLASS}[data-target="${CSS.escape(targetKey)}"]`,
+  )
+  if (arrowLines.empty()) return
+  arrowLines.interrupt()
+  try {
+    await arrowLines
+      .transition()
+      .duration(DURATIONS.HIGHLIGHT)
+      .ease(EASINGS.SMOOTH)
+      .attr(SvgAttributes.StrokeWidth, 4)
+      .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_STRONG_RED)
+      .end()
+  } catch { /* interrupted */ }
+}
+
+async function strengthenLagDiffArrow(container: HTMLElement, targetKey: string): Promise<void> {
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+  const layer = ensureAnnotationLayer(svg)
+  const arrowLines = layer.selectAll<SVGLineElement, unknown>(
+    `line.${LAG_DIFF_ANNOTATION_CLASS}[data-target="${CSS.escape(targetKey)}"]`,
+  )
+  if (arrowLines.empty()) return
+  arrowLines.interrupt()
+  try {
+    await arrowLines
+      .transition()
+      .duration(DURATIONS.HIGHLIGHT)
+      .ease(EASINGS.SMOOTH)
+      .attr(SvgAttributes.StrokeWidth, 4)
+      .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_STRONG_RED)
+      .end()
+  } catch { /* interrupted */ }
+}
+
+// ---------------------------------------------------------------------------
+// Operation runners — each accepts ChainState and returns nextState
+// ---------------------------------------------------------------------------
+
+async function runRetrieveValueOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
-  const result = retrieveValue(workingData, operation)
-  annotateRetrievedValues(run.container, result)
+  const result = retrieveValue(state.workingData, operation)
+  await annotateRetrievedValues(run.container, result)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line retrieveValue', { operationIndex, operation, result })
-  return result
+  return { result, nextState: { ...state, lastResult: result } }
 }
 
-async function runFilterOperation(run: ParsedOperationRun, operation: OperationSpec, operationIndex: number) {
-  const workingData = getWorkingData(run)
+async function runFilterOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
-  const result = filterData(workingData, operation)
-  await annotateFilter(run.container, result, operation, workingData)
+  const result = filterData(state.workingData, operation)
+  await annotateFilter(run.container, result, operation, state.workingData, state)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line filter', { operationIndex, operation, result })
-  return result
+  const nextSalienceMap = new Map(result.map((d) => [pointKey(String(d.target), String(d.group ?? d.series ?? '')), OPACITIES.FULL]))
+  return {
+    result,
+    nextState: { ...state, workingData: result, salienceMap: nextSalienceMap, lastResult: result },
+  }
 }
 
-async function runDiffOperation(run: ParsedOperationRun, operation: OperationSpec, operationIndex: number) {
-  const workingData = getWorkingData(run)
+async function runDiffOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
-  const result = diffData(workingData, operation)
+  const result = diffData(state.workingData, operation)
   await annotateDiff(run.container, result, operation)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line diff', { operationIndex, operation, result })
-  return result
+  return { result, nextState: { ...state, lastResult: result } }
 }
 
-async function runAverageOperation(run: ParsedOperationRun, operation: OperationSpec, operationIndex: number) {
-  const workingData = getWorkingData(run)
+async function runAverageOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
-  const result = averageData(workingData, operation)
-  await annotateAverage(run.container, result)
+  // When pairDiff ran, derive the average from the diff dataset; otherwise
+  // use workingData so filter → average also works correctly.
+  const dataSource = state.derivedData !== null && state.scaleState !== null
+    ? state.derivedData
+    : state.workingData
+  const result = averageData(dataSource, operation)
+  await annotateAverage(run.container, result, state)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line average', { operationIndex, operation, result })
-  return result
+  return { result, nextState: { ...state, lastResult: result } }
 }
 
-async function runFindExtremumOperation(run: ParsedOperationRun, operation: OperationSpec, operationIndex: number) {
-  const workingData = getWorkingData(run)
+async function runFindExtremumOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
-  const result = findExtremum(workingData, operation)
-  await annotateFindExtremum(run.container, result)
+
+  if (state.derivedData !== null) {
+    // A compute operation (lagDiff or pairDiff) ran before us.
+    // Find the extremum among the derived values and strengthen the
+    // corresponding arrow instead of drawing a new annotation.
+    const result = findExtremum(state.derivedData, operation)
+    const targetKey = result[0]?.target
+    if (targetKey != null) {
+      if (state.scaleState !== null) {
+        // pairDiff context
+        await strengthenPairDiffArrow(run.container, String(targetKey))
+      } else {
+        // lagDiff context
+        await strengthenLagDiffArrow(run.container, String(targetKey))
+      }
+    }
+    await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
+    console.log('[operation-next] multiple-line findExtremum (strengthen)', { operationIndex, operation, result })
+    return { result, nextState: { ...state, lastResult: result } }
+  }
+
+  // Standard path: find extremum in workingData and draw a new annotation.
+  const result = findExtremum(state.workingData, operation)
+  await annotateFindExtremum(run.container, result, state)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line findExtremum', { operationIndex, operation, result })
-  return result
+  return { result, nextState: { ...state, lastResult: result } }
 }
 
-async function runLagDiffOperation(run: ParsedOperationRun, operation: OperationSpec, operationIndex: number) {
-  const workingData = getWorkingData(run)
+async function runLagDiffOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
-  const result = lagDiffData(workingData, operation)
-  await annotateLagDiff(run.container, result)
+  const result = lagDiffData(state.workingData, operation)
+  await annotateLagDiff(run.container, result, state)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line lagDiff', { operationIndex, operation, result })
-  return result
+  return {
+    result,
+    nextState: { ...state, derivedData: result, lastResult: result },
+  }
 }
 
-async function runPairDiffOperation(run: ParsedOperationRun, operation: OperationSpec, operationIndex: number) {
-  const workingData = getWorkingData(run)
+async function runPairDiffOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
-  const result = pairDiffData(workingData, operation)
-      debugLog('pairDiff-run-before-focus', {
+  const result = pairDiffData(state.workingData, operation)
+  debugLog('pairDiff-run-before-focus', {
     t: debugNow(),
     operationIndex,
     operation,
-    workingDataCount: workingData.length,
+    workingDataCount: state.workingData.length,
     resultCount: result.length,
     dom: summarizeMultipleLineDom(run.container),
   })
-  await applyPairDiffFocusTransform(run.container, operation)
-  await annotatePairDiff(run.container, result, operation)
+  const scaleState = await applyPairDiffFocusTransform(run.container, operation)
+  await annotatePairDiff(run.container, result, operation, state)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line pairDiff', { operationIndex, operation, result })
-  return result
+  return {
+    result,
+    nextState: { ...state, derivedData: result, scaleState: scaleState ?? null, lastResult: result },
+  }
 }
 
 export async function runMultipleLineOperations(run: ParsedOperationRun) {
   let nextIndex = run.options?.operationIndexStart ?? 0
   let lastResult: DatumValue[] | null = null
 
+  // Initialise state once from the raw data; each operation threads it forward.
+  let state = createChainState(getWorkingData(run))
+
   for (const group of run.groups) {
+    state = clearGroupBoundary(state)
+
     for (const operation of group.ops) {
       const operationIndex = nextIndex
       nextIndex += 1
+      let opResult: { result: DatumValue[]; nextState: ChainState }
+
       if (isRetrieveValueOperation(operation)) {
-        lastResult = await runRetrieveValueOperation(run, operation, operationIndex)
+        opResult = await runRetrieveValueOperation(run, operation, operationIndex, state)
+      } else if (isFilterOperation(operation)) {
+        opResult = await runFilterOperation(run, operation, operationIndex, state)
+      } else if (isDiffOperation(operation)) {
+        opResult = await runDiffOperation(run, operation, operationIndex, state)
+      } else if (isAverageOperation(operation)) {
+        opResult = await runAverageOperation(run, operation, operationIndex, state)
+      } else if (isFindExtremumOperation(operation)) {
+        opResult = await runFindExtremumOperation(run, operation, operationIndex, state)
+      } else if (isLagDiffOperation(operation)) {
+        opResult = await runLagDiffOperation(run, operation, operationIndex, state)
+      } else if (isPairDiffOperation(operation)) {
+        opResult = await runPairDiffOperation(run, operation, operationIndex, state)
+      } else {
         continue
       }
-      if (isFilterOperation(operation)) {
-        lastResult = await runFilterOperation(run, operation, operationIndex)
-        continue
-      }
-      if (isDiffOperation(operation)) {
-        lastResult = await runDiffOperation(run, operation, operationIndex)
-        continue
-      }
-      if (isAverageOperation(operation)) {
-        lastResult = await runAverageOperation(run, operation, operationIndex)
-        continue
-      }
-      if (isFindExtremumOperation(operation)) {
-        lastResult = await runFindExtremumOperation(run, operation, operationIndex)
-        continue
-      }
-      if (isLagDiffOperation(operation)) {
-        lastResult = await runLagDiffOperation(run, operation, operationIndex)
-        continue
-      }
-      if (isPairDiffOperation(operation)) {
-        lastResult = await runPairDiffOperation(run, operation, operationIndex)
-      }
+
+      lastResult = opResult.result
+      state = opResult.nextState
     }
   }
 

@@ -302,7 +302,11 @@ const WORKBENCH_OPERATION_NEXT_DEBUG_PREFIX = '[operation-next-debug]'
 const debugNow = () =>
   typeof performance === 'undefined' ? Date.now() : Number(performance.now().toFixed(1))
 
+const isOperationNextDebugEnabled = () =>
+  Boolean((globalThis as typeof globalThis & { __OPERATION_NEXT_DEBUG__?: boolean }).__OPERATION_NEXT_DEBUG__)
+
 const logOperationNextDebug = (label: string, payload: unknown) => {
+  if (!isOperationNextDebugEnabled()) return
   try {
     console.info(WORKBENCH_OPERATION_NEXT_DEBUG_PREFIX, label, JSON.stringify(payload))
   } catch {
@@ -1117,6 +1121,11 @@ function ChartWorkbenchPage() {
         }
         try {
           await runChartOps(chartRef.current, currentSpec, { ops: [drawOp] }, { initialRenderMode: 'reuse-existing', resetRuntime: false })
+          const derived = consumeDerivedChartState(chartRef.current)
+          if (derived) {
+            currentSpecRef.current = derived.spec
+            setChartType(derived.chartType)
+          }
         } catch (error) {
           console.error('Failed to apply interaction draw operation via runner', error)
           throw error
@@ -2173,12 +2182,16 @@ function ChartWorkbenchPage() {
     try {
       const loaded = await fetchLatestPythonDrawPlan()
       await runChartOps(chartRef.current, spec, { ops: loaded.ops }, { initialRenderMode: 'reuse-existing' })
+      const derived = consumeDerivedChartState(chartRef.current)
 
       const nextType = resolveNextChartTypeFromDrawOps(chartType, loaded.ops)
-      if (nextType !== chartType) {
+      if (derived) {
+        currentSpecRef.current = derived.spec
+        setChartType(derived.chartType)
+      } else if (nextType !== chartType) {
         setChartType(nextType)
       }
-      setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec }))
+      setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec: derived?.spec ?? spec }))
       setPythonDrawStatus(
         `Applied ${loaded.ops.length} draw op(s) from ${loaded.path} (${loaded.groups.length} group(s)).`,
       )
@@ -2530,6 +2543,13 @@ function ChartWorkbenchPage() {
           surfaceManagerRef.current.updateSurface(requestedSurfaceId, {
             data: runResult as any,
           })
+        }
+      } else {
+        const derived = consumeDerivedChartState(executionContainer!)
+        if (derived) {
+          currentSpecRef.current = derived.spec
+          setChartType(derived.chartType)
+          setOptionSources(collectOpsBuilderOptionSources({ container: chartRef.current, spec: derived.spec }))
         }
       }
       opsSessionActiveRef.current = true
