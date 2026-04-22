@@ -1,9 +1,9 @@
 import * as d3 from 'd3'
 import { ChartType, type ChartSpec, type ChartTypeValue } from '../../domain/chart'
 import { toDatumValuesFromRaw, type RawRow } from '../../domain/data/datum'
-import { filterData } from '../../domain/operation/dataOps'
-import { OperationOp, type DatumValue, type OperationSpec, type JsonValue } from '../../domain/operation/types'
-import { COLORS, DURATIONS, EASINGS } from '../../rendering/common/d3Helpers'
+import { averageData, diffData, filterData, storeRuntimeResult } from '../../domain/operation/dataOps'
+import { OperationOp, type DatumValue, type OperationSpec, type JsonValue, type TargetSelector } from '../../domain/operation/types'
+import { COLORS, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 import {
   getGroupedBarStoredData,
   type GroupedSpec,
@@ -22,16 +22,28 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../..
 import { resolveEncodingFields } from '../../rendering/ops/common/resolveEncodingFields'
 import { createChainState, type ChainState } from '../chainState'
 import {
+  applyAnnotationContextTransitions,
   ensureAnnotationLayer,
   readNumberAttr,
   resolveAnnotationViewport,
 } from '../primitives/annotationLayer'
+import { drawVerticalComparisonArrow } from '../primitives/drawDifferenceArrow'
 import { drawReferenceLine } from '../primitives/drawReferenceLine'
 import { applyMarkSalience } from '../primitives/markSalience'
 import { formatOperationValue } from '../primitives/formatValue'
 import { placeOperationTextLabel } from '../textPlacement'
+import {
+  OPERATION_ROLE_ATTRIBUTE,
+  RESULT_REF_ATTRIBUTE,
+  diffEndpointSelectors,
+  isOperationResultReferenced,
+  operationResultRef,
+  resolveDerivedDiffEndpoint,
+} from '../diffEndpoint'
 
 const FILTER_ANNOTATION_CLASS = 'operation-next-grouped-bar-filter'
+const AVERAGE_ANNOTATION_CLASS = 'operation-next-grouped-bar-average'
+const DIFF_ANNOTATION_CLASS = 'operation-next-grouped-bar-diff'
 
 export type ActiveBarChartState = {
   chartType: ChartTypeValue
@@ -44,11 +56,32 @@ type FilterRunResult = {
   nextState: ChainState
 }
 
+type OperationRunResult = {
+  result: DatumValue[]
+  nextState: ChainState
+}
+
 type PlotScope = {
   key: string
   group: SVGGElement | null
   x1: number
   x2: number
+}
+
+type SvgViewBoxBounds = {
+  x1: number
+  x2: number
+  y1: number
+  y2: number
+  width: number
+  height: number
+}
+
+type GroupedDiffAnnotationGeometry = {
+  arrowX: number
+  labelPreferred: { x: number; y: number }
+  labelAnchor: 'start' | 'end'
+  labelViewport: { x: number; y: number; width: number; height: number }
 }
 
 function isRecord(value: JsonValue): value is RawRow {
@@ -149,6 +182,82 @@ function nodeMarkKey(node: SVGElement) {
     node.getAttribute(DataAttributes.GroupValue) ??
     ''
   return markKey(panel, target, group)
+}
+
+function selectorTargetKey(selector: TargetSelector | TargetSelector[] | undefined) {
+  const entry = Array.isArray(selector) ? selector[0] : selector
+  if (entry == null) return null
+  if (typeof entry === 'string' || typeof entry === 'number') return String(entry)
+  const target = entry.target ?? entry.category ?? entry.id
+  return target == null ? null : String(target)
+}
+
+function selectorGroupKey(selector: TargetSelector | TargetSelector[] | undefined) {
+  const entry = Array.isArray(selector) ? selector[0] : selector
+  if (!entry || typeof entry !== 'object') return null
+  const group = entry.series
+  return group == null ? null : String(group)
+}
+
+function findBarBySelector(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, selector: TargetSelector | TargetSelector[] | undefined) {
+  const target = selectorTargetKey(selector)
+  const group = selectorGroupKey(selector)
+  if (!target) return null
+  return svg
+    .selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+    .filter(function () {
+      const node = this as SVGRectElement
+      const targetMatch =
+        node.getAttribute(DataAttributes.Target) === target ||
+        node.getAttribute(DataAttributes.Id) === target
+      if (!targetMatch) return false
+      if (group == null) return true
+      return node.getAttribute(DataAttributes.Series) === group || node.getAttribute(DataAttributes.GroupValue) === group
+    })
+    .nodes()[0] ?? null
+}
+
+function barRootMetrics(rect: SVGRectElement) {
+  const offset = accumulatedTranslate(rect)
+  const x = readNumberAttr(rect, SvgAttributes.X) ?? 0
+  const y = readNumberAttr(rect, SvgAttributes.Y) ?? 0
+  const width = readNumberAttr(rect, SvgAttributes.Width) ?? 0
+  return {
+    x: offset.x + x + width / 2,
+    y: offset.y + y,
+    value: Number(rect.getAttribute(DataAttributes.Value)),
+  }
+}
+
+function operationIdentityKeys(operation: OperationSpec, operationIndex?: number) {
+  const keys = new Set<string>()
+  const raw = operation as OperationSpec & { id?: string | number; key?: string | number }
+  if (raw.id != null) keys.add(String(raw.id))
+  if (raw.key != null) keys.add(String(raw.key))
+  const nodeId = operation.meta?.nodeId
+  if (typeof nodeId === 'string' || typeof nodeId === 'number') keys.add(String(nodeId))
+  if (operationIndex != null) keys.add(`${raw.id ?? raw.key ?? operation.op ?? 'step'}_${operationIndex}`)
+  return Array.from(keys).filter((key) => key.trim().length > 0)
+}
+
+export function storeGroupedBarOperationResult(
+  operation: OperationSpec,
+  operationIndex: number,
+  result: DatumValue[],
+) {
+  for (const key of operationIdentityKeys(operation, operationIndex)) {
+    storeRuntimeResult(key, result)
+  }
+}
+
+function datumMatchesAverageScope(datum: DatumValue, operation: OperationSpec) {
+  if (operation.group != null && String(groupKeyFromDatum(datum)) !== String(operation.group)) return false
+  if (operation.field && operation.field !== 'value' && datum.measure !== operation.field) return false
+  return true
+}
+
+function scopedAverageDatumKeys(state: ChainState, operation: OperationSpec) {
+  return new Set(state.workingData.filter((datum) => datumMatchesAverageScope(datum, operation)).map(datumMarkKey))
 }
 
 function resolveNumericThreshold(operation: OperationSpec, workingData: DatumValue[]) {
@@ -319,6 +428,465 @@ async function drawFilterReferenceLines(params: {
   return drewLine
 }
 
+function plotBounds(scopes: PlotScope[]) {
+  if (!scopes.length) return null
+  return {
+    x1: Math.min(...scopes.map((scope) => scope.x1)),
+    x2: Math.max(...scopes.map((scope) => scope.x2)),
+  }
+}
+
+function clampToRange(value: number, min: number, max: number) {
+  if (!Number.isFinite(value)) return min
+  if (min > max) return (min + max) / 2
+  return Math.max(min, Math.min(max, value))
+}
+
+function resolveSvgViewBoxBounds(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>): SvgViewBoxBounds | null {
+  const node = svg.node()
+  if (!node) return null
+  const viewBox = node.viewBox?.baseVal
+  if (viewBox && Number.isFinite(viewBox.width) && viewBox.width > 0 && Number.isFinite(viewBox.height) && viewBox.height > 0) {
+    return {
+      x1: viewBox.x,
+      x2: viewBox.x + viewBox.width,
+      y1: viewBox.y,
+      y2: viewBox.y + viewBox.height,
+      width: viewBox.width,
+      height: viewBox.height,
+    }
+  }
+
+  const rawViewBox = svg.attr(SvgAttributes.ViewBox)?.trim()
+  const parts = rawViewBox?.split(/\s+/).map(Number) ?? []
+  if (parts.length === 4 && parts.every(Number.isFinite) && parts[2] > 0 && parts[3] > 0) {
+    return {
+      x1: parts[0],
+      x2: parts[0] + parts[2],
+      y1: parts[1],
+      y2: parts[1] + parts[3],
+      width: parts[2],
+      height: parts[3],
+    }
+  }
+
+  return null
+}
+
+function estimateAnnotationTextWidth(label: string) {
+  return clampToRange(label.length * 7.2, 72, 168)
+}
+
+function resolveGroupedDiffAnnotationGeometry(params: {
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
+  bounds: { x1: number; x2: number }
+  label: string
+  midY: number
+}): GroupedDiffAnnotationGeometry | null {
+  const viewBox = resolveSvgViewBoxBounds(params.svg)
+  if (!viewBox) return null
+
+  const labelWidth = estimateAnnotationTextWidth(params.label)
+  const edgePadding = 8
+  const arrowPadding = 18
+  const labelGap = 12
+  const arrowHeadPadding = 12
+  const desiredArrowX = params.bounds.x2 + arrowPadding
+  const canPlaceLabelRight = desiredArrowX + labelGap + labelWidth <= viewBox.x2 - edgePadding
+
+  if (canPlaceLabelRight) {
+    const arrowX = clampToRange(
+      desiredArrowX,
+      params.bounds.x1 + arrowHeadPadding,
+      viewBox.x2 - edgePadding - labelGap - labelWidth,
+    )
+    return {
+      arrowX,
+      labelPreferred: { x: arrowX + labelGap, y: params.midY },
+      labelAnchor: 'start',
+      labelViewport: {
+        x: viewBox.x1 + edgePadding,
+        y: viewBox.y1 + edgePadding,
+        width: Math.max(0, viewBox.width - edgePadding * 2),
+        height: Math.max(0, viewBox.height - edgePadding * 2),
+      },
+    }
+  }
+
+  const arrowX = clampToRange(
+    Math.min(desiredArrowX, viewBox.x2 - edgePadding - arrowHeadPadding),
+    viewBox.x1 + edgePadding + labelWidth + labelGap,
+    viewBox.x2 - edgePadding - arrowHeadPadding,
+  )
+  return {
+    arrowX,
+    labelPreferred: { x: arrowX - labelGap, y: params.midY },
+    labelAnchor: 'end',
+    labelViewport: {
+      x: viewBox.x1 + edgePadding,
+      y: viewBox.y1 + edgePadding,
+      width: Math.max(0, viewBox.width - edgePadding * 2),
+      height: Math.max(0, viewBox.height - edgePadding * 2),
+    },
+  }
+}
+
+function operationNextDebugEnabled() {
+  return Boolean((globalThis as { __OPERATION_NEXT_DEBUG__?: unknown }).__OPERATION_NEXT_DEBUG__)
+}
+
+function groupedDiffLayoutSnapshot(
+  container: HTMLElement,
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  layer?: d3.Selection<SVGGElement, unknown, null, undefined>,
+) {
+  if (!operationNextDebugEnabled()) return null
+  const svgNode = svg.node()
+  if (!svgNode) return null
+  const layerNode = layer?.node()
+  let annotationBBox: { x: number; y: number; width: number; height: number } | null = null
+  if (layerNode) {
+    try {
+      const box = layerNode.getBBox()
+      annotationBBox = { x: box.x, y: box.y, width: box.width, height: box.height }
+    } catch {
+      annotationBBox = null
+    }
+  }
+  const svgRect = svgNode.getBoundingClientRect()
+  return {
+    viewBox: svgNode.getAttribute(SvgAttributes.ViewBox),
+    svgRect: { width: svgRect.width, height: svgRect.height, left: svgRect.left, right: svgRect.right },
+    host: {
+      clientWidth: container.clientWidth,
+      scrollWidth: container.scrollWidth,
+      offsetWidth: container.offsetWidth,
+    },
+    annotationBBox,
+  }
+}
+
+async function drawGroupedDiffLabel(params: {
+  layer: d3.Selection<SVGGElement, unknown, null, undefined>
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
+  label: string
+  geometry: GroupedDiffAnnotationGeometry
+}) {
+  const labelNode = params.layer
+    .append(SvgElements.Text)
+    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${DIFF_ANNOTATION_CLASS} difference-label`)
+    .attr(SvgAttributes.X, params.geometry.labelPreferred.x)
+    .attr(SvgAttributes.Y, params.geometry.labelPreferred.y)
+    .attr(SvgAttributes.TextAnchor, params.geometry.labelAnchor)
+    .attr(SvgAttributes.DominantBaseline, 'middle')
+    .attr(SvgAttributes.FontSize, 12)
+    .attr(SvgAttributes.FontWeight, 700)
+    .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+    .style(SvgAttributes.Opacity, 0)
+    .text(params.label)
+
+  placeOperationTextLabel({
+    svg: params.svg,
+    text: labelNode,
+    preferred: params.geometry.labelPreferred,
+    viewport: params.geometry.labelViewport,
+  })
+
+  try {
+    await labelNode
+      .transition()
+      .duration(DURATIONS.LABEL_FADE_IN)
+      .ease(EASINGS.SMOOTH)
+      .style(SvgAttributes.Opacity, 1)
+      .end()
+  } catch {
+    // interrupted
+  }
+}
+
+function resolveReferenceLineSegments(params: {
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
+  value: number
+}) {
+  const svgNode = params.svg.node()
+  if (!svgNode) return []
+  return resolvePlotScopes(params.svg)
+    .map((scope) => {
+      const y = resolveThresholdY({
+        bars: barsForScope(svgNode, scope),
+        threshold: params.value,
+      })
+      return y == null ? null : { scope, y }
+    })
+    .filter((segment): segment is { scope: PlotScope; y: number } => segment != null)
+}
+
+function referenceLineForResultRef(
+  layer: d3.Selection<SVGGElement, unknown, null, undefined>,
+  resultRef: string | null | undefined,
+) {
+  if (!resultRef) return null
+  let found: SVGLineElement | null = null
+  layer
+    .selectAll<SVGLineElement, unknown>(`line[${RESULT_REF_ATTRIBUTE}]`)
+    .each(function () {
+      if (found) return
+      if (this.getAttribute(RESULT_REF_ATTRIBUTE) === resultRef) {
+        found = this
+      }
+    })
+  if (!found) return null
+
+  const y = readNumberAttr(found, SvgAttributes.Y1)
+  if (y == null) return null
+  return {
+    node: found,
+    y,
+  }
+}
+
+async function drawGlobalReferenceLine(params: {
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
+  layer: d3.Selection<SVGGElement, unknown, null, undefined>
+  cssClass: string
+  value: number
+  label?: string
+  resultRef?: string | null
+  role: 'average-reference' | 'diff-reference'
+}) {
+  const viewport = resolveAnnotationViewport(params.svg)
+  const segments = resolveReferenceLineSegments({ svg: params.svg, value: params.value })
+  if (!segments.length) return null
+  const bounds = plotBounds(segments.map((segment) => segment.scope))
+  if (!bounds) return null
+
+  const y = segments[0].y
+  await drawReferenceLine({
+    layer: params.layer,
+    cssClass: params.cssClass,
+    x1: bounds.x1,
+    x2: bounds.x2,
+    y,
+    label: params.label,
+    svg: params.svg,
+    viewport,
+  })
+
+  params.layer
+    .selectAll<SVGElement, unknown>(`.${params.cssClass}`)
+    .filter(function () {
+      return this.getAttribute(OPERATION_ROLE_ATTRIBUTE) == null
+    })
+    .attr(OPERATION_ROLE_ATTRIBUTE, params.role)
+
+  if (params.resultRef) {
+    params.layer
+      .selectAll<SVGElement, unknown>(`.${params.cssClass}`)
+      .filter(function () {
+        return this.getAttribute(RESULT_REF_ATTRIBUTE) == null
+      })
+      .attr(RESULT_REF_ATTRIBUTE, params.resultRef)
+  }
+
+  return {
+    y,
+  }
+}
+
+async function annotateGroupedBarAverage(
+  container: HTMLElement,
+  result: DatumValue[],
+  operation: OperationSpec,
+  state: ChainState,
+  referencedResultIds?: string[],
+) {
+  const average = Number(result[0]?.value)
+  if (!Number.isFinite(average)) return
+
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+  const layer = ensureAnnotationLayer(svg)
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+  const persistent = isOperationResultReferenced(operation, referencedResultIds)
+  if (!persistent) {
+    layer.selectAll(`.${AVERAGE_ANNOTATION_CLASS}`).interrupt().remove()
+  } else {
+    const refs = new Set((referencedResultIds ?? []).map((id) => String(id).replace(/^ref:/, '')))
+    layer
+      .selectAll<SVGElement, unknown>(`.${AVERAGE_ANNOTATION_CLASS}`)
+      .filter(function () {
+        const ref = this.getAttribute(RESULT_REF_ATTRIBUTE)
+        return !ref || !refs.has(ref)
+      })
+      .interrupt()
+      .remove()
+  }
+
+  const bars = svg.selectAll<SVGElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+  const shouldApplyScopeSalience = operation.group != null || state.salienceMap.size > 0
+  let nextSalienceMap = state.salienceMap
+  if (shouldApplyScopeSalience) {
+    const scopedKeys = scopedAverageDatumKeys(state, operation)
+    await applyMarkSalience({
+      marks: bars,
+      isInScope: (node) => {
+        const key = nodeMarkKey(node)
+        if (operation.group != null) return scopedKeys.has(key)
+        return (state.salienceMap.get(key) ?? OPACITIES.FULL) >= OPACITIES.FULL
+      },
+    })
+    nextSalienceMap = new Map<string, number>()
+    bars.each(function () {
+      const key = nodeMarkKey(this as SVGElement)
+      const inScope = operation.group != null
+        ? scopedKeys.has(key)
+        : (state.salienceMap.get(key) ?? OPACITIES.FULL) >= OPACITIES.FULL
+      nextSalienceMap.set(key, inScope ? OPACITIES.FULL : OPACITIES.DIM)
+    })
+  }
+
+  const labelText = state.salienceMap.size > 0
+    ? `Avg (filtered): ${formatOperationValue(average)}`
+    : `Average: ${formatOperationValue(average)}`
+
+  const resultRef = operationResultRef(operation)
+  const existingReference = referenceLineForResultRef(layer, resultRef)
+  if (!existingReference) {
+    await drawGlobalReferenceLine({
+      svg,
+      layer,
+      cssClass: AVERAGE_ANNOTATION_CLASS,
+      value: average,
+      label: labelText,
+      resultRef,
+      role: 'average-reference',
+    })
+  }
+
+  state.salienceMap = nextSalienceMap
+  state.annotationRecords.push({
+    cssClass: AVERAGE_ANNOTATION_CLASS,
+    role: persistent ? 'anchor' : 'result',
+    persistent,
+    operationId: resultRef == null ? undefined : String(resultRef),
+    resultRef: resultRef == null ? undefined : String(resultRef),
+  })
+}
+
+async function annotateGroupedBarDiff(
+  container: HTMLElement,
+  result: DatumValue[],
+  operation: OperationSpec,
+  state: ChainState,
+) {
+  const differenceValue = Number(result[0]?.value)
+  if (!Number.isFinite(differenceValue)) return
+
+  const selectors = diffEndpointSelectors(operation)
+  const aggregateHint = typeof operation.aggregate === 'string' ? operation.aggregate : undefined
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+  const layer = ensureAnnotationLayer(svg)
+  const debugBefore = groupedDiffLayoutSnapshot(container, svg, layer)
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+  layer.selectAll(`.${DIFF_ANNOTATION_CLASS}`).interrupt().remove()
+
+  const bounds = plotBounds(resolvePlotScopes(svg))
+  if (!bounds) return
+  const derivedA = resolveDerivedDiffEndpoint(selectors.targetA, aggregateHint)
+  const derivedB = resolveDerivedDiffEndpoint(selectors.targetB, aggregateHint)
+  const markA = derivedA ? null : findBarBySelector(svg, selectors.targetA)
+  const markB = derivedB ? null : findBarBySelector(svg, selectors.targetB)
+  const existingA = derivedA ? referenceLineForResultRef(layer, derivedA.refKey) : null
+  const existingB = derivedB ? referenceLineForResultRef(layer, derivedB.refKey) : null
+  const referenceA = derivedA
+    ? existingA ?? await drawGlobalReferenceLine({
+        svg,
+        layer,
+        cssClass: DIFF_ANNOTATION_CLASS,
+        value: derivedA.value,
+        resultRef: derivedA.refKey,
+        role: 'diff-reference',
+      })
+    : null
+  const referenceB = derivedB
+    ? existingB ?? await drawGlobalReferenceLine({
+        svg,
+        layer,
+        cssClass: DIFF_ANNOTATION_CLASS,
+        value: derivedB.value,
+        resultRef: derivedB.refKey,
+        role: 'diff-reference',
+      })
+    : null
+  const markMetricsA = markA ? barRootMetrics(markA) : null
+  const markMetricsB = markB ? barRootMetrics(markB) : null
+  const a = derivedA && referenceA
+    ? { value: derivedA.value, y: referenceA.y, fromExistingReference: Boolean(existingA) }
+    : markMetricsA
+      ? { value: markMetricsA.value, y: markMetricsA.y, fromExistingReference: false }
+      : null
+  const b = derivedB && referenceB
+    ? { value: derivedB.value, y: referenceB.y, fromExistingReference: Boolean(existingB) }
+    : markMetricsB
+      ? { value: markMetricsB.value, y: markMetricsB.y, fromExistingReference: false }
+      : null
+  if (!a || !b) {
+    console.warn('[operation-next] grouped/stacked-bar diff: targetA or targetB could not be resolved for annotation.', { operation })
+    return
+  }
+  const topY = Math.min(a.y, b.y)
+  const bottomY = Math.max(a.y, b.y)
+  const label = `Difference: ${formatOperationValue(differenceValue)}`
+  const geometry = resolveGroupedDiffAnnotationGeometry({
+    svg,
+    bounds,
+    label,
+    midY: (topY + bottomY) / 2,
+  })
+  if (!geometry) return
+
+  await drawVerticalComparisonArrow({
+    layer,
+    cssClass: DIFF_ANNOTATION_CLASS,
+    x: geometry.arrowX,
+    topY,
+    bottomY,
+    refLines: [
+      a.fromExistingReference ? null : { startX: bounds.x1, y: a.y },
+      b.fromExistingReference ? null : { startX: bounds.x1, y: b.y },
+    ].filter((line): line is { startX: number; y: number } => line != null),
+    color: COLORS.ANNOTATION_RED,
+  })
+  await drawGroupedDiffLabel({ layer, svg, label, geometry })
+
+  layer
+    .selectAll<SVGElement, unknown>(`.${DIFF_ANNOTATION_CLASS}`)
+    .filter(function () {
+      return this.getAttribute(OPERATION_ROLE_ATTRIBUTE) == null
+    })
+    .attr(OPERATION_ROLE_ATTRIBUTE, 'diff-arrow')
+  const resultRef = operationResultRef(operation)
+  if (resultRef) {
+    layer
+      .selectAll<SVGElement, unknown>(`.${DIFF_ANNOTATION_CLASS}`)
+      .filter(function () {
+        return this.getAttribute(RESULT_REF_ATTRIBUTE) == null
+      })
+      .attr(RESULT_REF_ATTRIBUTE, resultRef)
+  }
+
+  if (operationNextDebugEnabled()) {
+    console.log('[operation-next-debug] grouped-diff-layout', {
+      before: debugBefore,
+      after: groupedDiffLayoutSnapshot(container, svg, layer),
+      geometry,
+    })
+  }
+
+  state.annotationRecords.push({ cssClass: DIFF_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+}
+
 export async function runGroupedBarFilterOperation(
   container: HTMLElement,
   operation: OperationSpec,
@@ -365,6 +933,49 @@ export async function runGroupedBarFilterOperation(
   nextState.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
 
   return { result, nextState }
+}
+
+export async function runGroupedBarAverageOperation(
+  container: HTMLElement,
+  operation: OperationSpec,
+  state: ChainState,
+  referencedResultIds?: string[],
+): Promise<OperationRunResult> {
+  const result = averageData(state.workingData, operation)
+  await annotateGroupedBarAverage(container, result, operation, state, referencedResultIds)
+  return {
+    result,
+    nextState: {
+      ...state,
+      derivedData: null,
+      lastResult: result,
+      salienceMap: state.salienceMap,
+    },
+  }
+}
+
+export async function runGroupedBarDiffOperation(
+  container: HTMLElement,
+  operation: OperationSpec,
+  state: ChainState,
+): Promise<OperationRunResult> {
+  let result: DatumValue[] = []
+  try {
+    result = diffData(state.workingData, operation)
+  } catch (error) {
+    console.warn('[operation-next] grouped-bar diff: unable to compute diff.', { operation, error })
+    return { result, nextState: { ...state, lastResult: result } }
+  }
+
+  await annotateGroupedBarDiff(container, result, operation, state)
+  return {
+    result,
+    nextState: {
+      ...state,
+      derivedData: null,
+      lastResult: result,
+    },
+  }
 }
 
 export async function runStackedBarFilterOperation(

@@ -3,6 +3,7 @@ import type { ChartSpec, ChartTypeValue } from '../domain/chart'
 import type { NormalizedOpsGroup, OpsSpecInput } from '../domain/operation/opsSpec'
 import type { OperationSpec } from '../domain/operation/types'
 import type { SurfaceManager } from '../runtime/surfaceManager'
+import type { OperationRuntimeSnapshot, SerializableChainState } from './executionState'
 
 export type RunChartOpsOptions = {
   onOperationReady?: (event: OperationReadyEvent) => Promise<void> | void
@@ -16,6 +17,9 @@ export type RunChartOpsOptions = {
   snapshotScale?: number
   runtimeScope?: string
   resetRuntime?: boolean
+  runtimeSnapshot?: OperationRuntimeSnapshot
+  initialChainState?: SerializableChainState | null
+  referencedResultIds?: string[]
   initialRenderMode?: 'always' | 'reuse-existing'
   surfaceManager?: SurfaceManager
   operationIndexStart?: number

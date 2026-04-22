@@ -18,6 +18,8 @@ export interface AnnotationRecord {
   cssClass: string
   role: 'anchor' | 'result' | 'label'
   persistent: boolean
+  operationId?: string
+  resultRef?: string
 }
 
 // ---------------------------------------------------------------------------

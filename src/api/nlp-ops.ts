@@ -23,6 +23,7 @@ export type ParseToOpsResult = {
   drawPlan?: OpsSpecGroupMap
   executionPlan?: ExecutionPlan
   visualExecutionPlan?: VisualExecutionPlan
+  groupTextOverrides?: Record<string, string>
   warnings: string[]
 }
 
@@ -136,6 +137,7 @@ type GenerateGrammarResponse = Record<string, unknown> & {
   draw_plan?: unknown
   execution_plan?: unknown
   visual_execution_plan?: unknown
+  text_chunks?: unknown
   resolvedText?: unknown
   resolved_text?: unknown
   warnings?: unknown
@@ -157,6 +159,18 @@ function asRecord(value: unknown): UnknownRecord | null {
 
 function isPlainObject(value: unknown): value is UnknownRecord {
   return asRecord(value) !== null
+}
+
+function normalizeTextChunks(value: unknown): Record<string, string> {
+  const record = asRecord(value)
+  if (!record) return {}
+  const out: Record<string, string> = {}
+  Object.entries(record).forEach(([key, entry]) => {
+    if (typeof entry !== 'string') return
+    const trimmed = entry.trim()
+    if (key.trim() && trimmed) out[key] = trimmed
+  })
+  return out
 }
 
 function toSpecDataUrl(spec: UnknownRecord): string | null {
@@ -655,6 +669,7 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
   const executionPlan = normalizeExecutionPlan((body as UnknownRecord).execution_plan)
   const visualExecutionPlan = normalizeVisualExecutionPlan((body as UnknownRecord).visual_execution_plan)
   const resolvedTextRaw = typeof body.resolvedText === 'string' ? body.resolvedText : body.resolved_text
+  const groupTextOverrides = normalizeTextChunks((body as UnknownRecord).text_chunks)
 
   return {
     resolvedText: typeof resolvedTextRaw === 'string' && resolvedTextRaw.trim().length > 0 ? resolvedTextRaw : text,
@@ -662,6 +677,7 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
     drawPlan,
     executionPlan,
     visualExecutionPlan,
+    groupTextOverrides,
     warnings: normalizeWarnings(body.warnings),
   }
 }

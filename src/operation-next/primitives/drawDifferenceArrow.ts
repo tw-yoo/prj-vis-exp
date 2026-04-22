@@ -63,19 +63,34 @@ export interface VerticalComparisonArrowOptions {
 
   /** Viewport for collision-aware label placement. */
   viewport?: AnnotationViewport
+
+  /**
+   * Horizontal reference lines drawn in Phase 1 (before the vertical arrow).
+   * Each line grows from `startX` → `x` (the arrow column) at the given `y`.
+   * These are animated concurrently with `phaseOnePromises`.
+   */
+  refLines?: Array<{ startX: number; y: number }>
+
+  /**
+   * Additional transition promises to await during Phase 1 (concurrently with
+   * reference line animations). Pass value-label `.end().catch(()=>{})` promises
+   * here so they complete before the vertical arrow appears.
+   */
+  phaseOnePromises?: Promise<void>[]
 }
 
 /**
  * Draws a vertical double-headed comparison arrow spanning topY → bottomY at
- * a fixed x position.
+ * a fixed x position, optionally preceded by horizontal reference lines.
  *
- * Used by the **diff** operation (both simpleBar and simpleLine) to show the
- * magnitude of the gap between two reference lines.
+ * Used by the **diff** operation (simpleBar, simpleLine, multipleLine) to show
+ * the magnitude of the gap between two reference values.
  *
- * Animation:
- *   1. Arrow shaft grows from a collapsed point to its full span.
- *   2. Arrow heads appear instantly at the endpoints.
- *   3. Label fades in to the right of the mid-point.
+ * Animation sequence:
+ *   Phase 1 — reference lines grow from startX → x, and any caller-provided
+ *             promises (e.g. value-label fade-ins) complete concurrently.
+ *   Phase 2 — vertical shaft expands from midpoint to topY/bottomY.
+ *   Phase 3 — arrowheads appear; difference label is placed.
  */
 export async function drawVerticalComparisonArrow(
   opts: VerticalComparisonArrowOptions,
@@ -83,7 +98,36 @@ export async function drawVerticalComparisonArrow(
   const { layer, cssClass, x, topY, bottomY, label, svg, viewport } = opts
   const color = opts.color ?? COLORS.ANNOTATION_RED
 
-  // -- Arrow shaft ---------------------------------------------------------
+  // -- Phase 1: horizontal reference lines + concurrent caller promises ----
+  const phase1: Promise<void>[] = [...(opts.phaseOnePromises ?? [])]
+
+  if (opts.refLines) {
+    for (const { startX, y } of opts.refLines) {
+      const refLine = layer
+        .append(SvgElements.Line)
+        .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${cssClass}`)
+        .attr(SvgAttributes.X1, startX)
+        .attr(SvgAttributes.X2, startX)   // collapsed; animates to x
+        .attr(SvgAttributes.Y1, y)
+        .attr(SvgAttributes.Y2, y)
+        .attr(SvgAttributes.Stroke, color)
+        .attr(SvgAttributes.StrokeWidth, 2)
+
+      phase1.push(
+        refLine
+          .transition()
+          .duration(DURATIONS.HIGHLIGHT)
+          .ease(EASINGS.SMOOTH)
+          .attr(SvgAttributes.X2, x)
+          .end()
+          .catch(() => { /* interrupted */ }),
+      )
+    }
+  }
+
+  if (phase1.length > 0) await Promise.all(phase1)
+
+  // -- Phase 2: vertical arrow shaft ---------------------------------------
   const shaft = layer
     .append(SvgElements.Line)
     .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${cssClass}`)
@@ -104,7 +148,7 @@ export async function drawVerticalComparisonArrow(
       .end()
   } catch { /* interrupted */ }
 
-  // -- Arrow heads (double-headed: 2 at top, 2 at bottom) -----------------
+  // -- Phase 3: arrowheads (double-headed: 2 at top, 2 at bottom) ----------
   const heads = [
     { x1: x, y1: topY,    x2: x - VERTICAL_HEAD_SIZE_PX, y2: topY    + VERTICAL_HEAD_SIZE_PX },
     { x1: x, y1: topY,    x2: x + VERTICAL_HEAD_SIZE_PX, y2: topY    + VERTICAL_HEAD_SIZE_PX },
@@ -125,7 +169,7 @@ export async function drawVerticalComparisonArrow(
     .attr(SvgAttributes.Stroke, color)
     .attr(SvgAttributes.StrokeWidth, 2)
 
-  // -- Label (optional) ----------------------------------------------------
+  // -- Difference label (optional) -----------------------------------------
   if (!label || !svg || !viewport) return
 
   const labelX = x + 12
@@ -287,17 +331,23 @@ export function drawDirectionalArrow(opts: DirectionalArrowOptions): Promise<voi
   ]
 
   headPoints.forEach((head) => {
+    // Attach data-target to arrow heads so strengthen selectors (which use
+    // `line.CLASS[data-target="X"]`) can select both shaft and heads together.
+    const headEl = layer
+      .append(SvgElements.Line)
+      .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${cssClass} arrow-head`)
+      .attr(SvgAttributes.X1, head.x1)
+      .attr(SvgAttributes.Y1, head.y1)
+      .attr(SvgAttributes.X2, head.x2)
+      .attr(SvgAttributes.Y2, head.y2)
+      .attr(SvgAttributes.Stroke, color)
+      .attr(SvgAttributes.StrokeWidth, strokeWidth)
+      .style(SvgAttributes.Opacity, 0)
+
+    if (opts.targetKey != null) headEl.attr('data-target', opts.targetKey)
+
     transitions.push(
-      layer
-        .append(SvgElements.Line)
-        .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${cssClass} arrow-head`)
-        .attr(SvgAttributes.X1, head.x1)
-        .attr(SvgAttributes.Y1, head.y1)
-        .attr(SvgAttributes.X2, head.x2)
-        .attr(SvgAttributes.Y2, head.y2)
-        .attr(SvgAttributes.Stroke, color)
-        .attr(SvgAttributes.StrokeWidth, strokeWidth)
-        .style(SvgAttributes.Opacity, 0)
+      headEl
         .transition()
         .delay(HEAD_FADE_DELAY_MS)
         .duration(HEAD_FADE_DURATION_MS)

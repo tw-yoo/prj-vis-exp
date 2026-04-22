@@ -12,6 +12,8 @@ import { runSimpleLineOperations } from './runners/simpleLine'
 import { runStackedBarOperations } from './runners/stackedBar'
 import { assertKnownOperationNextChartType } from './runners/shared'
 import type { ChartOperationRunner, RunChartOpsOptions } from './types'
+import { initializeOperationRuntime } from './executionState'
+import { collectReferencedResultIds } from './diffEndpoint'
 
 const DEBUG_PREFIX = '[operation-next-debug]'
 
@@ -117,10 +119,19 @@ export async function runChartOps(
     dom: summarizeChartDom(container),
   })
   const restored = await restoreDirtyOperationNextChart(container, spec)
+  initializeOperationRuntime(options)
   const runtime = await prepareChartRuntimeSpec(spec)
   const chartType = assertKnownOperationNextChartType(runtime.chartType)
   const groups = normalizeOpsGroups(opsSpec)
   const runner = resolveRunner(chartType)
+  const referencedResultIds = Array.from(new Set([
+    ...(options?.referencedResultIds ?? []),
+    ...collectReferencedResultIds(groups),
+  ]))
+  const runOptions = {
+    ...options,
+    referencedResultIds,
+  }
 
   debugLog('run-dispatch', {
     t: debugNow(),
@@ -140,8 +151,9 @@ export async function runChartOps(
     chartType,
     opsSpec,
     groups,
-    options,
+    options: runOptions,
   })
 }
 
 export type { RunChartOpsOptions }
+export type { OperationNextRunOutcome, OperationRuntimeSnapshot, SerializableChainState } from './executionState'

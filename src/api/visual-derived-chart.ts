@@ -655,6 +655,22 @@ function resolveSelectorKind(
   return null
 }
 
+function isGroupedOrStackedBarArtifact(artifacts: LogicalExecutionArtifacts) {
+  return (
+    artifacts.chartFamily === 'bar' &&
+    artifacts.baseWorking.some((row) => row.group != null || row.series != null)
+  )
+}
+
+function operationUsesResultReference(op: OperationSpec) {
+  return (
+    selectorHasRef(op.targetA) ||
+    selectorHasRef(op.targetB) ||
+    selectorHasRef(op.target) ||
+    (Array.isArray(op.meta?.inputs) && op.meta.inputs.length > 0)
+  )
+}
+
 export function shouldMaterializeDerivedSurface(args: {
   op: OperationSpec
   artifacts: LogicalExecutionArtifacts | null
@@ -686,6 +702,9 @@ export function shouldMaterializeDerivedSurface(args: {
     case OperationOp.Average:
     case OperationOp.Sum:
     case OperationOp.Count: {
+      if (isGroupedOrStackedBarArtifact(artifacts)) {
+        return null
+      }
       if ((Array.isArray(op.meta?.inputs) ? op.meta.inputs.length : 0) > 0) {
         return withTemplate(op.group || op.groupA || op.groupB ? 'filtered-operands-chart' : 'operand-only-chart')
       }
@@ -695,6 +714,9 @@ export function shouldMaterializeDerivedSurface(args: {
     case OperationOp.Compare:
     case OperationOp.CompareBool:
     case OperationOp.Add: {
+      if (op.op === OperationOp.Diff && isGroupedOrStackedBarArtifact(artifacts) && operationUsesResultReference(op)) {
+        return null
+      }
       const leftKind = resolveSelectorKind(op.targetA, artifacts)
       const rightKind = resolveSelectorKind(op.targetB, artifacts)
       const kinds = [leftKind, rightKind].filter((kind): kind is NodeResultKind => kind != null)

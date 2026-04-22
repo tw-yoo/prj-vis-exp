@@ -9,7 +9,7 @@ import type { ParsedOperationRun } from '../types'
 import { getSupportedOperationsForChart, runStubChartOperationRenderer } from './shared'
 import { placeOperationTextLabel } from '../textPlacement'
 import { COLORS, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
-import { createChainState, clearGroupBoundary, type ChainState } from '../chainState'
+import { clearGroupBoundary, type ChainState } from '../chainState'
 import { formatOperationValue, formatSignedOperationValue } from '../primitives/formatValue'
 import {
   ANNOTATION_LAYER_CLASS,
@@ -20,7 +20,20 @@ import {
 } from '../primitives/annotationLayer'
 import { applyMarkSalience } from '../primitives/markSalience'
 import { drawReferenceLine } from '../primitives/drawReferenceLine'
-import { drawDirectionalArrow } from '../primitives/drawDifferenceArrow'
+import { drawDirectionalArrow, drawVerticalComparisonArrow } from '../primitives/drawDifferenceArrow'
+import {
+  buildOperationNextRunOutcome,
+  restoreChainState,
+  stateWithOperationDependencies,
+  storeOperationRuntimeResult,
+} from '../executionState'
+import {
+  RESULT_REF_ATTRIBUTE,
+  diffEndpointSelectors,
+  isOperationResultReferenced,
+  operationResultRef,
+  resolveDerivedDiffEndpoint,
+} from '../diffEndpoint'
 
 export const SIMPLE_LINE_SUPPORTED_OPERATIONS = getSupportedOperationsForChart(ChartType.SIMPLE_LINE)
 
@@ -31,6 +44,23 @@ const DIFF_ANNOTATION_CLASS = 'operation-next-line-diff'
 const AVERAGE_ANNOTATION_CLASS = 'operation-next-line-average'
 const EXTREMUM_ANNOTATION_CLASS = 'operation-next-line-extremum'
 const LAG_DIFF_ANNOTATION_CLASS = 'operation-next-line-lag-diff'
+
+function scalarReferenceLineForResultRef(
+  layer: d3.Selection<SVGGElement, unknown, null, undefined>,
+  resultRef: string | null | undefined,
+) {
+  if (!resultRef) return null
+  let y: number | null = null
+  layer
+    .selectAll<SVGLineElement, unknown>(`line[${RESULT_REF_ATTRIBUTE}]`)
+    .each(function () {
+      if (y != null) return
+      if (this.getAttribute(RESULT_REF_ATTRIBUTE) === resultRef) {
+        y = readNumberAttr(this, SvgAttributes.Y1)
+      }
+    })
+  return y == null ? null : { y }
+}
 
 function isRetrieveValueOperation(operation: OperationSpec): operation is OperationSpec & { op: typeof OperationOp.RetrieveValue } {
   return operation.op === OperationOp.RetrieveValue
@@ -381,104 +411,99 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
   state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
 }
 
-async function annotateDiff(container: HTMLElement, result: DatumValue[], operation: OperationSpec) {
+async function annotateDiff(
+  container: HTMLElement,
+  result: DatumValue[],
+  operation: OperationSpec,
+  state: ChainState,
+) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
-  const pointA = findPoint(svg, operation.targetA)
-  const pointB = findPoint(svg, operation.targetB)
-  if (!pointA || !pointB) {
-    console.error('[operation-next] simple-line diff: targetA or targetB was not found in rendered points.', { operation })
-    return
-  }
-
-  const layer = ensureAnnotationLayer(svg)
-  layer.selectAll(`.${DIFF_ANNOTATION_CLASS}`).interrupt().remove()
+  const selectors = diffEndpointSelectors(operation)
+  const aggregateHint = typeof operation.aggregate === 'string' ? operation.aggregate : undefined
+  const derivedA = resolveDerivedDiffEndpoint(selectors.targetA, aggregateHint)
+  const derivedB = resolveDerivedDiffEndpoint(selectors.targetB, aggregateHint)
+  const pointA = derivedA ? null : findPoint(svg, selectors.targetA)
+  const pointB = derivedB ? null : findPoint(svg, selectors.targetB)
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
   const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
   const arrowX = marginLeft + plotWidth + 18
-  const arrowHeadSize = 8
-  const a = pointRootMetrics(pointA, marginLeft, marginTop)
-  const b = pointRootMetrics(pointB, marginLeft, marginTop)
+  const layer = ensureAnnotationLayer(svg)
+  const markA = pointA ? pointRootMetrics(pointA, marginLeft, marginTop) : null
+  const markB = pointB ? pointRootMetrics(pointB, marginLeft, marginTop) : null
+  const existingA = derivedA ? scalarReferenceLineForResultRef(layer, derivedA.refKey) : null
+  const existingB = derivedB ? scalarReferenceLineForResultRef(layer, derivedB.refKey) : null
+  const derivedAY = derivedA ? existingA?.y ?? inferYForValue(svg, derivedA.value) : null
+  const derivedBY = derivedB ? existingB?.y ?? inferYForValue(svg, derivedB.value) : null
+  const a = derivedA && derivedAY != null
+    ? { kind: 'derived' as const, value: derivedA.value, y: derivedAY, x: marginLeft + plotWidth, usesExistingReference: Boolean(existingA) }
+    : markA
+      ? { kind: 'mark' as const, value: markA.value, y: markA.y, x: markA.x, anchorElement: pointA, usesExistingReference: false }
+      : null
+  const b = derivedB && derivedBY != null
+    ? { kind: 'derived' as const, value: derivedB.value, y: derivedBY, x: marginLeft + plotWidth, usesExistingReference: Boolean(existingB) }
+    : markB
+      ? { kind: 'mark' as const, value: markB.value, y: markB.y, x: markB.x, anchorElement: pointB, usesExistingReference: false }
+      : null
+  if (!a || !b) {
+    console.warn('[operation-next] simple-line diff: targetA or targetB could not be resolved for annotation.', { operation })
+    return
+  }
+
+  layer.selectAll(`.${DIFF_ANNOTATION_CLASS}`).interrupt().remove()
   const topY = Math.min(a.y, b.y)
   const bottomY = Math.max(a.y, b.y)
   const differenceValue = Number(result[0]?.value)
   const differenceText = `Difference: ${formatOperationValue(differenceValue)}`
 
-  const referenceLines = layer
-    .selectAll<SVGLineElement, { y: number }>(`line.${DIFF_ANNOTATION_CLASS}`)
-    .data([{ y: a.y }, { y: b.y }])
-    .enter()
-    .append(SvgElements.Line)
-    .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${DIFF_ANNOTATION_CLASS}`)
-    .attr(SvgAttributes.X1, marginLeft)
-    .attr(SvgAttributes.X2, marginLeft)
-    .attr(SvgAttributes.Y1, (datum) => datum.y)
-    .attr(SvgAttributes.Y2, (datum) => datum.y)
-    .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
-    .attr(SvgAttributes.StrokeWidth, 2)
+  // Value labels fade in concurrently with the horizontal ref lines (Phase 1).
+  const markEndpoints = [a, b].filter((endpoint) => endpoint?.kind === 'mark')
+  const labelPromises = markEndpoints.map((endpoint) =>
+    appendValueLabel({
+      svg,
+      layer,
+      className: `${DIFF_ANNOTATION_CLASS} bar-value`,
+      x: endpoint.x,
+      y: endpoint.y - 8,
+      value: endpoint.value,
+      color: COLORS.ANNOTATION_RED,
+      anchorElement: endpoint.anchorElement,
+    }).end().catch(() => {}),
+  )
 
-  const labelA = appendValueLabel({ svg, layer, className: `${DIFF_ANNOTATION_CLASS} bar-value`, x: a.x, y: a.y - 8, value: a.value, color: COLORS.ANNOTATION_RED, anchorElement: pointA })
-  const labelB = appendValueLabel({ svg, layer, className: `${DIFF_ANNOTATION_CLASS} bar-value`, x: b.x, y: b.y - 8, value: b.value, color: COLORS.ANNOTATION_RED, anchorElement: pointB })
-
-  await Promise.all([
-    referenceLines.transition().duration(DURATIONS.HIGHLIGHT).attr(SvgAttributes.X2, arrowX).end(),
-    labelA.end(),
-    labelB.end(),
-  ])
-
-  const compareArrow = layer
-    .append(SvgElements.Line)
-    .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${DIFF_ANNOTATION_CLASS}`)
-    .attr(SvgAttributes.X1, arrowX)
-    .attr(SvgAttributes.X2, arrowX)
-    .attr(SvgAttributes.Y1, a.y)
-    .attr(SvgAttributes.Y2, a.y)
-    .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
-    .attr(SvgAttributes.StrokeWidth, 2)
-
-  await compareArrow.transition().duration(DURATIONS.HIGHLIGHT).attr(SvgAttributes.Y1, topY).attr(SvgAttributes.Y2, bottomY).end()
-
-  const arrowHeads = [
-    { x1: arrowX, y1: topY, x2: arrowX - arrowHeadSize, y2: topY + arrowHeadSize },
-    { x1: arrowX, y1: topY, x2: arrowX + arrowHeadSize, y2: topY + arrowHeadSize },
-    { x1: arrowX, y1: bottomY, x2: arrowX - arrowHeadSize, y2: bottomY - arrowHeadSize },
-    { x1: arrowX, y1: bottomY, x2: arrowX + arrowHeadSize, y2: bottomY - arrowHeadSize },
-  ]
-
-  layer
-    .selectAll<SVGLineElement, (typeof arrowHeads)[number]>(`line.${DIFF_ANNOTATION_CLASS}.arrow-head`)
-    .data(arrowHeads)
-    .enter()
-    .append(SvgElements.Line)
-    .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${DIFF_ANNOTATION_CLASS} arrow-head`)
-    .attr(SvgAttributes.X1, (datum) => datum.x1)
-    .attr(SvgAttributes.Y1, (datum) => datum.y1)
-    .attr(SvgAttributes.X2, (datum) => datum.x2)
-    .attr(SvgAttributes.Y2, (datum) => datum.y2)
-    .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
-    .attr(SvgAttributes.StrokeWidth, 2)
-
-  const differenceLabel = layer
-    .append(SvgElements.Text)
-    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${DIFF_ANNOTATION_CLASS} difference-label`)
-    .attr(SvgAttributes.X, arrowX + 12)
-    .attr(SvgAttributes.Y, (topY + bottomY) / 2)
-    .attr(SvgAttributes.DominantBaseline, 'middle')
-    .attr(SvgAttributes.FontSize, 12)
-    .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
-    .text(differenceText)
-
-  placeOperationTextLabel({
+  // Phase 1: ref lines grow marginLeft→arrowX while value labels fade in.
+  // Phase 2: vertical shaft expands from midpoint.
+  // Phase 3: arrowheads appear + difference label is placed.
+  await drawVerticalComparisonArrow({
+    layer,
+    cssClass: DIFF_ANNOTATION_CLASS,
+    x: arrowX,
+    topY,
+    bottomY,
+    refLines: [
+      a.usesExistingReference ? null : { startX: marginLeft, y: a.y },
+      b.usesExistingReference ? null : { startX: marginLeft, y: b.y },
+    ].filter((line): line is { startX: number; y: number } => line != null),
+    phaseOnePromises: labelPromises,
+    color: COLORS.ANNOTATION_RED,
+    label: differenceText,
     svg,
-    text: differenceLabel,
-    preferred: { x: arrowX + 12, y: (topY + bottomY) / 2 },
     viewport: resolveAnnotationViewport(svg),
   })
+
+  // Record as a persistent anchor so subsequent operations (average, findExtremum)
+  // can transition diff lines to context style via applyAnnotationContextTransitions.
+  state.annotationRecords.push({ cssClass: DIFF_ANNOTATION_CLASS, role: 'anchor', persistent: true })
 }
 
-async function annotateAverage(container: HTMLElement, result: DatumValue[], state: ChainState) {
+async function annotateAverage(
+  container: HTMLElement,
+  result: DatumValue[],
+  state: ChainState,
+  operation: OperationSpec,
+  referencedResultIds?: string[],
+) {
   const average = Number(result[0]?.value)
   if (!Number.isFinite(average)) return
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
@@ -490,7 +515,20 @@ async function annotateAverage(container: HTMLElement, result: DatumValue[], sta
   // Transition prior annotations to context style before drawing the new one.
   applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
 
-  layer.selectAll(`.${AVERAGE_ANNOTATION_CLASS}`).interrupt().remove()
+  const persistent = isOperationResultReferenced(operation, referencedResultIds)
+  if (!persistent) {
+    layer.selectAll(`.${AVERAGE_ANNOTATION_CLASS}`).interrupt().remove()
+  } else {
+    const refs = new Set((referencedResultIds ?? []).map((id) => String(id).replace(/^ref:/, '')))
+    layer
+      .selectAll<SVGElement, unknown>(`.${AVERAGE_ANNOTATION_CLASS}`)
+      .filter(function () {
+        const ref = this.getAttribute(RESULT_REF_ATTRIBUTE)
+        return !ref || !refs.has(ref)
+      })
+      .interrupt()
+      .remove()
+  }
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
   const x1 = marginLeft
@@ -504,6 +542,7 @@ async function annotateAverage(container: HTMLElement, result: DatumValue[], sta
     : `Average: ${formatOperationValue(average)}`
 
   // drawReferenceLine handles: line draw-out animation, label placement, label fade-in.
+  const resultRef = operationResultRef(operation)
   await drawReferenceLine({
     layer,
     cssClass: AVERAGE_ANNOTATION_CLASS,
@@ -514,8 +553,22 @@ async function annotateAverage(container: HTMLElement, result: DatumValue[], sta
     svg,
     viewport: resolveAnnotationViewport(svg),
   })
+  if (resultRef) {
+    layer
+      .selectAll<SVGElement, unknown>(`.${AVERAGE_ANNOTATION_CLASS}`)
+      .filter(function () {
+        return !this.getAttribute(RESULT_REF_ATTRIBUTE)
+      })
+      .attr(RESULT_REF_ATTRIBUTE, resultRef)
+  }
 
-  state.annotationRecords.push({ cssClass: AVERAGE_ANNOTATION_CLASS, role: 'result', persistent: false })
+  state.annotationRecords.push({
+    cssClass: AVERAGE_ANNOTATION_CLASS,
+    role: persistent ? 'anchor' : 'result',
+    persistent,
+    operationId: resultRef == null ? undefined : String(resultRef),
+    resultRef: resultRef == null ? undefined : String(resultRef),
+  })
 }
 
 async function annotateFindExtremum(container: HTMLElement, result: DatumValue[], state: ChainState) {
@@ -536,16 +589,18 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
   if (!point) return
   const metrics = pointRootMetrics(point, marginLeft, marginTop)
   points.interrupt().transition().duration(DURATIONS.HIGHLIGHT).attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED).attr(SvgAttributes.R, 6)
-  await appendValueLabel({
-    svg,
-    layer,
-    className: EXTREMUM_ANNOTATION_CLASS,
-    x: metrics.x,
-    y: metrics.y - 10,
-    value: metrics.value,
-    color: COLORS.TEXT_DARK,
-    anchorElement: point,
-  }).end()
+  try {
+    await appendValueLabel({
+      svg,
+      layer,
+      className: EXTREMUM_ANNOTATION_CLASS,
+      x: metrics.x,
+      y: metrics.y - 10,
+      value: metrics.value,
+      color: COLORS.TEXT_DARK,
+      anchorElement: point,
+    }).end()
+  } catch { /* interrupted */ }
 
   state.annotationRecords.push({ cssClass: EXTREMUM_ANNOTATION_CLASS, role: 'result', persistent: false })
 }
@@ -685,7 +740,7 @@ async function runDiffOperation(
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = diffData(state.workingData, operation)
-  await annotateDiff(run.container, result, operation)
+  await annotateDiff(run.container, result, operation, state)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] simple-line diff', { operationIndex, operation, result })
   return { result, nextState: { ...state, lastResult: result } }
@@ -699,7 +754,7 @@ async function runAverageOperation(
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = averageData(state.workingData, operation)
-  await annotateAverage(run.container, result, state)
+  await annotateAverage(run.container, result, state, operation, run.options?.referencedResultIds)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] simple-line average', { operationIndex, operation, result })
   return { result, nextState: { ...state, lastResult: result } }
@@ -758,7 +813,7 @@ export async function runSimpleLineOperations(run: ParsedOperationRun) {
   let lastResult: DatumValue[] | null = null
 
   // Initialise state once from the raw data; each operation threads it forward.
-  let state = createChainState(getWorkingData(run))
+  let state = restoreChainState(getWorkingData(run), run.options?.initialChainState)
 
   for (const group of run.groups) {
     state = clearGroupBoundary(state)
@@ -767,28 +822,33 @@ export async function runSimpleLineOperations(run: ParsedOperationRun) {
       const operationIndex = nextIndex
       nextIndex += 1
       let opResult: { result: DatumValue[]; nextState: ChainState }
+      const operationState = stateWithOperationDependencies(operation, state)
 
       if (isRetrieveValueOperation(operation)) {
-        opResult = await runRetrieveValueOperation(run, operation, operationIndex, state)
+        opResult = await runRetrieveValueOperation(run, operation, operationIndex, operationState)
       } else if (isFilterOperation(operation)) {
-        opResult = await runFilterOperation(run, operation, operationIndex, state)
+        opResult = await runFilterOperation(run, operation, operationIndex, operationState)
       } else if (isDiffOperation(operation)) {
-        opResult = await runDiffOperation(run, operation, operationIndex, state)
+        opResult = await runDiffOperation(run, operation, operationIndex, operationState)
       } else if (isAverageOperation(operation)) {
-        opResult = await runAverageOperation(run, operation, operationIndex, state)
+        opResult = await runAverageOperation(run, operation, operationIndex, operationState)
       } else if (isFindExtremumOperation(operation)) {
-        opResult = await runFindExtremumOperation(run, operation, operationIndex, state)
+        opResult = await runFindExtremumOperation(run, operation, operationIndex, operationState)
       } else if (isLagDiffOperation(operation)) {
-        opResult = await runLagDiffOperation(run, operation, operationIndex, state)
+        opResult = await runLagDiffOperation(run, operation, operationIndex, operationState)
       } else {
         continue
       }
 
       lastResult = opResult.result
       state = opResult.nextState
+      storeOperationRuntimeResult(operation, operationIndex, opResult.result, run.options?.runtimeScope)
     }
   }
 
-  if (lastResult) return lastResult
-  return runStubChartOperationRenderer(run, ChartType.SIMPLE_LINE, 'simple-line')
+  if (!lastResult) {
+    const stub = await runStubChartOperationRenderer(run, ChartType.SIMPLE_LINE, 'simple-line')
+    lastResult = Array.isArray(stub) ? stub : null
+  }
+  return buildOperationNextRunOutcome(lastResult, state)
 }

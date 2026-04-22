@@ -2,7 +2,7 @@ import { runChartOps as runChartOpsNext } from '../operation-next/runChartOps'
 import type { OpsSpecInput, OperationSpec } from './types'
 import type { ChartSpec } from '../domain/chart'
 import type { OperationCompletedEvent } from '../application/usecases/runChartOperationsUseCase'
-import type { RunChartOpsOptions } from '../operation-next/runChartOps'
+import type { OperationNextRunOutcome, RunChartOpsOptions } from '../operation-next/runChartOps'
 
 export async function runChartOps(
     command: {
@@ -40,4 +40,4 @@ export type RunChartOpsResult = {
   finalWorkingData: OperationSpec[] | unknown
 }
 
-export type { RunChartOpsOptions, OperationCompletedEvent }
+export type { RunChartOpsOptions, OperationCompletedEvent, OperationNextRunOutcome }

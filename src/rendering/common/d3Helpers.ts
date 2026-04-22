@@ -26,6 +26,8 @@ export const DURATIONS = {
   NTH_HIGHLIGHT: 150,
   FILTER_DELAY: 700,
   SUM_DELAY: 200,
+  /** Y-axis rescale transform for pairDiff focus (circles + axis re-tick). */
+  AXIS_RESCALE: 800,
 }
 
 export const OPACITIES = {

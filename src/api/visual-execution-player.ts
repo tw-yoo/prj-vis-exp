@@ -9,6 +9,7 @@ import type { ExecutionPlan, VisualExecutionPlan, VisualExecutionStep, VisualExe
 import { materializeExecutionGroups } from './nlp-ops'
 import type { SurfaceManager } from './surface-manager'
 import { SurfaceTransitionController, type MultiSurfaceLayoutTarget } from './surface-transition-controller'
+import { applySplitSharedYAxisPolicy } from '../operation-next/splitSurfaceVisuals'
 import {
   buildPlaybackSpecFromBaseSpec,
   buildLogicalExecutionArtifacts,
@@ -76,6 +77,60 @@ const SPLIT_REVEAL_DELAY_MS = 1000
 const SURFACE_SPLIT_TRANSITION_MS = 440
 const SURFACE_TRANSITION_STAGGER_MS = 56
 const MIN_PREPARED_SURFACE_REVEAL_MS = 120
+const SPLIT_DEBUG_PREFIX = '[split-simple-bar-debug]'
+
+function isSplitDebugEnabled() {
+  return Boolean((globalThis as typeof globalThis & { __OPERATION_NEXT_DEBUG__?: unknown }).__OPERATION_NEXT_DEBUG__)
+}
+
+function splitDebug(label: string, payload: Record<string, unknown>) {
+  if (!isSplitDebugEnabled()) return
+  try {
+    console.info(SPLIT_DEBUG_PREFIX, label, JSON.stringify(payload))
+  } catch {
+    console.info(SPLIT_DEBUG_PREFIX, label, payload)
+  }
+}
+
+function summarizeDebugOp(op: OperationSpec | null | undefined) {
+  if (!op) return null
+  const raw = op as OperationSpec & { id?: unknown; surfaceId?: unknown }
+  return {
+    op: op.op,
+    id: typeof raw.id === 'string' ? raw.id : null,
+    surfaceId: typeof raw.surfaceId === 'string' ? raw.surfaceId : null,
+    target: op.target ?? null,
+    targetA: op.targetA ?? null,
+    targetB: op.targetB ?? null,
+    field: op.field ?? null,
+    group: op.group ?? null,
+    inputs: op.meta?.inputs ?? [],
+  }
+}
+
+function summarizeDebugSubstep(substep: VisualExecutionSubstep) {
+  const raw = substep as VisualExecutionSubstep & { surfaceId?: unknown }
+  return {
+    id: substep.id,
+    kind: substep.kind,
+    nodeId: substep.nodeId ?? null,
+    surfaceId: (typeof raw.surfaceId === 'string' ? raw.surfaceId : null) ?? substep.surface?.surfaceId ?? null,
+    surfaceAction: substep.surface?.surfaceAction ?? null,
+    surfaceType: substep.surface?.surfaceType ?? null,
+    templateType: substep.surface?.templateType ?? null,
+  }
+}
+
+function summarizeDebugContext(context: VisualSubstepExecutionContext) {
+  const layout = context.surfaceManager?.getLayout()
+  return {
+    currentSurface: context.currentSurface,
+    currentRootSpecMode: context.currentRootSpecMode,
+    layoutType: layout?.type ?? null,
+    activeSurfaceIds: context.surfaceManager?.getActiveSurfaces().map((surface) => surface.id) ?? [],
+    skipDelays: context.skipDelays,
+  }
+}
 
 type SentenceGroup = {
   name: string
@@ -179,8 +234,94 @@ function detectSurfaceFromOps(ops: OperationSpec[]): VisualSurfaceState {
   return hasScalarPanel ? 'scalar-panel' : 'source-chart'
 }
 
-function shouldKeepSourceChartForOperation(op: OperationSpec | null) {
-  return op?.op === OperationOp.PairDiff
+function isGroupedOrStackedBarSpec(spec: ChartSpec) {
+  const chartType = getChartType(spec)
+  return chartType === ChartType.GROUPED_BAR || chartType === ChartType.STACKED_BAR
+}
+
+function isScalarAggregateOperation(op: OperationSpec | null) {
+  return op?.op === OperationOp.Average || op?.op === OperationOp.Sum || op?.op === OperationOp.Count
+}
+
+function isNodeRefText(value: string) {
+  const trimmed = value.trim()
+  return trimmed.startsWith('ref:') || /^n\d+$/i.test(trimmed)
+}
+
+function operationUsesResultReference(op: OperationSpec | null) {
+  if (!op) return false
+  return (
+    selectorHasRef(op.targetA) ||
+    selectorHasRef(op.targetB) ||
+    selectorHasRef(op.target) ||
+    (Array.isArray(op.meta?.inputs) && op.meta.inputs.length > 0)
+  )
+}
+
+function shouldKeepSourceChartForOperation(op: OperationSpec | null, spec?: ChartSpec) {
+  if (op?.op === OperationOp.PairDiff) return true
+  if (spec && isGroupedOrStackedBarSpec(spec) && isScalarAggregateOperation(op)) return true
+  if (spec && isGroupedOrStackedBarSpec(spec) && op?.op === OperationOp.Diff && operationUsesResultReference(op)) return true
+  return false
+}
+
+function isSplitLayoutActive(context: VisualSubstepExecutionContext) {
+  return context.surfaceManager?.getLayout()?.type === 'split-horizontal'
+}
+
+function selectorHasRef(selector: unknown): boolean {
+  if (selector == null) return false
+  if (Array.isArray(selector)) return selector.some(selectorHasRef)
+  if (typeof selector === 'string') return selector.startsWith('ref:')
+  if (typeof selector === 'object') {
+    const id = (selector as { id?: unknown }).id
+    if (typeof id === 'string' && isNodeRefText(id)) return true
+    const target = (selector as { target?: unknown; category?: unknown }).target ?? (selector as { category?: unknown }).category
+    return typeof target === 'string' && target.startsWith('ref:')
+  }
+  return false
+}
+
+function isSplitSourceOperation(op: OperationSpec | null) {
+  if (!op) return false
+  if (op.op === OperationOp.Filter) return true
+  if (isScalarAggregateOperation(op)) return true
+  if (op.op === OperationOp.Diff) {
+    return selectorHasRef(op.targetA) || selectorHasRef(op.targetB) || (Array.isArray(op.meta?.inputs) && op.meta.inputs.length > 0)
+  }
+  return false
+}
+
+function isSplitCrossSurfaceDiffOperation(op: OperationSpec | null) {
+  if (!op || op.op !== OperationOp.Diff) return false
+  return operationUsesResultReference(op)
+}
+
+function findNextLogicalOperation(
+  context: VisualSubstepExecutionContext,
+  substeps: VisualExecutionSubstep[],
+  startIndex: number,
+) {
+  for (let index = startIndex + 1; index < substeps.length; index += 1) {
+    const candidate = substeps[index]
+    if (candidate.kind === 'fallback') continue
+    const logicalOp = resolveLogicalOp(context, candidate)
+    if (logicalOp) return logicalOp
+  }
+  return null
+}
+
+function shouldSkipSplitMergeBeforeScalarDiff(args: {
+  context: VisualSubstepExecutionContext
+  substeps: VisualExecutionSubstep[]
+  substepIndex: number
+  substep: VisualExecutionSubstep
+}) {
+  if (args.substep.kind !== 'surface-action') return false
+  if (args.substep.surface?.surfaceAction !== 'merge') return false
+  if (!isSplitLayoutActive(args.context)) return false
+  const nextLogicalOp = findNextLogicalOperation(args.context, args.substeps, args.substepIndex)
+  return isSplitCrossSurfaceDiffOperation(nextLogicalOp)
 }
 
 function findNextRunOpSubstep(
@@ -326,10 +467,11 @@ function resolveSurfaceChartType(context: VisualSubstepExecutionContext, surface
   return context.surfaceManager?.getSurface(surfaceId)?.chartType ?? getChartType(context.spec)
 }
 
-function isAggregateReuseCandidate(op: OperationSpec | null) {
+function isAggregateReuseCandidate(op: OperationSpec | null, spec?: ChartSpec) {
   if (!op) return false
   if (op.op !== 'average' && op.op !== 'sum' && op.op !== 'count') return false
-  return Array.isArray(op.meta?.inputs) && op.meta.inputs.length > 0
+  if (Array.isArray(op.meta?.inputs) && op.meta.inputs.length > 0) return true
+  return Boolean(spec && isGroupedOrStackedBarSpec(spec) && (op.group != null || op.groupA != null || op.groupB != null))
 }
 
 function shouldReuseCurrentRootSourceSurface(args: {
@@ -341,7 +483,7 @@ function shouldReuseCurrentRootSourceSurface(args: {
   if (surfaceId && surfaceId !== 'root') return false
   if (args.context.currentSurface !== 'source-chart') return false
   if (args.context.currentRootSpecMode !== 'playback') return false
-  return isAggregateReuseCandidate(args.logicalOp)
+  return isAggregateReuseCandidate(args.logicalOp, args.context.currentRootSpec)
 }
 
 function resolveSubstepSurfaceId(substep: VisualExecutionSubstep): string | undefined {
@@ -415,6 +557,17 @@ async function materializePreparedSurface(args: {
   selectedSurface?: DerivedSurfaceSelection | null
   surfaceId?: string
 }) {
+  splitDebug('visual.materializePreparedSurface-start', {
+    context: summarizeDebugContext(args.context),
+    substep: summarizeDebugSubstep(args.substep),
+    surfaceId: args.surfaceId ?? null,
+    selectedSurface: args.selectedSurface
+      ? {
+          templateType: args.selectedSurface.templateType,
+          sourceNodeIds: args.selectedSurface.sourceNodeIds,
+        }
+      : null,
+  })
   const prepared = buildPreparedSurface({
     spec: args.context.spec,
     baseSpec: args.context.currentRootSpec,
@@ -425,14 +578,28 @@ async function materializePreparedSurface(args: {
     sourceNodeIds: args.selectedSurface?.sourceNodeIds ?? args.substep.surface?.sourceNodeIds ?? args.substep.sourceNodeIds,
   })
   if (!prepared.ok) {
+    splitDebug('visual.materializePreparedSurface-failed', {
+      reason: prepared.reason,
+      substep: summarizeDebugSubstep(args.substep),
+    })
     return prepared
   }
 
   args.context.preparedSurfaces.set(prepared.surface.nodeId, prepared.surface)
   if (!args.surfaceId || args.surfaceId === 'root') {
+    splitDebug('visual.materializePreparedSurface-renderPlaybackChart', {
+      nodeId: prepared.surface.nodeId,
+      surfaceId: args.surfaceId ?? null,
+      materializeOps: prepared.surface.materializeOps.map(summarizeDebugOp),
+    })
     await args.renderPlaybackChart(prepared.surface.playbackSpec)
   }
   if (prepared.surface.materializeOps.length > 0) {
+    splitDebug('visual.materializePreparedSurface-runMaterializeOps', {
+      nodeId: prepared.surface.nodeId,
+      surfaceId: args.surfaceId ?? null,
+      materializeOps: prepared.surface.materializeOps.map(summarizeDebugOp),
+    })
     await args.runOps(applySurfaceScopeToOps(prepared.surface.materializeOps, args.surfaceId), {
       resetRuntime: args.resetRuntime(),
       runtimeScope: `visual:${args.context.sentenceStep.id}:${args.substep.id}:materialize`,
@@ -456,6 +623,11 @@ export async function executeSurfaceActionSubstep(args: {
 }> {
   const action = args.substep.surface?.surfaceAction
   const surfaceManager = args.context.surfaceManager
+  splitDebug('visual.surfaceAction-start', {
+    context: summarizeDebugContext(args.context),
+    substep: summarizeDebugSubstep(args.substep),
+    action: action ?? null,
+  })
   if (!action || !surfaceManager) {
     return {
       executed: false,
@@ -485,6 +657,12 @@ export async function executeSurfaceActionSubstep(args: {
     const rightRows = cloneRecordRows(baseRows)
     const specA = buildFilteredPlaybackSpec(baseSpec, leftRows)
     const specB = buildFilteredPlaybackSpec(baseSpec, rightRows)
+    splitDebug('visual.surfaceAction-split-before-manager', {
+      context: summarizeDebugContext(args.context),
+      leftId,
+      rightId,
+      baseRows: baseRows.length,
+    })
     surfaceManager.splitSurface(args.substep.surface?.layoutMode === 'split-vertical' ? 'vertical' : 'horizontal', {
       idA: leftId,
       idB: rightId,
@@ -493,11 +671,24 @@ export async function executeSurfaceActionSubstep(args: {
       dataA: buildDatumValuesForSpec(specA, leftRows),
       dataB: buildDatumValuesForSpec(specB, rightRows),
     })
+    splitDebug('visual.surfaceAction-split-after-manager', {
+      context: summarizeDebugContext(args.context),
+      leftId,
+      rightId,
+    })
+    splitDebug('visual.surfaceAction-split-render-left', {
+      leftId,
+      operation: [],
+    })
     await args.runOps([], {
       resetRuntime: args.resetRuntime(),
       runtimeScope: `visual:${args.context.sentenceStep.id}:${args.substep.id}:split-left`,
       executionSpec: specA,
       surfaceId: leftId,
+    })
+    splitDebug('visual.surfaceAction-split-render-right', {
+      rightId,
+      operation: [],
     })
     await args.runOps([], {
       resetRuntime: false,
@@ -505,6 +696,7 @@ export async function executeSurfaceActionSubstep(args: {
       executionSpec: specB,
       surfaceId: rightId,
     })
+    applySplitSharedYAxisPolicy(surfaceManager)
     const leftHost = resolveSurfaceHost(args.context, leftId)
     const rightHost = resolveSurfaceHost(args.context, rightId)
     if (transitionController && sourceHost && leftHost && rightHost) {
@@ -592,11 +784,29 @@ function resolveExecutionSurface(args: {
   logicalOp: OperationSpec | null
 }): { surfaceType: 'source-chart'; operation: OperationSpec | null } | { surfaceType: 'derived-chart'; selection: DerivedSurfaceSelection; operation: OperationSpec | null } {
   const { context, substep, logicalOp } = args
+  splitDebug('visual.resolveExecutionSurface-start', {
+    context: summarizeDebugContext(context),
+    substep: summarizeDebugSubstep(substep),
+    logicalOp: summarizeDebugOp(logicalOp),
+    splitSourceOperation: isSplitSourceOperation(logicalOp),
+  })
   if (!logicalOp) {
+    splitDebug('visual.resolveExecutionSurface-decision', { decision: 'source-chart:no-logical-op' })
     return { surfaceType: 'source-chart', operation: null }
   }
   const canonicalOp = resolveSourceBackedSelectors(logicalOp, context.logicalArtifacts)
+  if (isSplitLayoutActive(context) && isSplitSourceOperation(logicalOp)) {
+    splitDebug('visual.resolveExecutionSurface-decision', {
+      decision: 'source-chart:split-source-operation',
+      canonicalOp: summarizeDebugOp(canonicalOp),
+    })
+    return { surfaceType: 'source-chart', operation: canonicalOp }
+  }
   if (shouldReuseCurrentRootSourceSurface({ context, substep, logicalOp })) {
+    splitDebug('visual.resolveExecutionSurface-decision', {
+      decision: 'source-chart:reuse-current-root',
+      canonicalOp: summarizeDebugOp(canonicalOp),
+    })
     return { surfaceType: 'source-chart', operation: canonicalOp }
   }
   const selection = selectDerivedSurfaceForOperation({
@@ -606,8 +816,20 @@ function resolveExecutionSurface(args: {
     sourceNodeIds: substep.surface?.sourceNodeIds ?? substep.sourceNodeIds,
   })
   if (!selection) {
+    splitDebug('visual.resolveExecutionSurface-decision', {
+      decision: 'source-chart:no-derived-selection',
+      canonicalOp: summarizeDebugOp(canonicalOp),
+    })
     return { surfaceType: 'source-chart', operation: canonicalOp }
   }
+  splitDebug('visual.resolveExecutionSurface-decision', {
+    decision: 'derived-chart',
+    operation: summarizeDebugOp(logicalOp),
+    selection: {
+      templateType: selection.templateType,
+      sourceNodeIds: selection.sourceNodeIds,
+    },
+  })
   return { surfaceType: 'derived-chart', selection, operation: logicalOp }
 }
 
@@ -620,6 +842,10 @@ export async function executePrefilterSubstep(args: {
   nextSurface: VisualSurfaceState
   fallbackReason?: VisualSentenceFallbackReason
 }> {
+  splitDebug('visual.prefilter-start', {
+    context: summarizeDebugContext(args.context),
+    substep: summarizeDebugSubstep(args.substep),
+  })
   const preview = buildPrefilterPreview({
     baseSpec: args.context.currentRootSpec,
     dataRows: args.context.dataRows,
@@ -627,6 +853,9 @@ export async function executePrefilterSubstep(args: {
     logicalArtifacts: args.context.logicalArtifacts,
   })
   if (!preview) {
+    splitDebug('visual.prefilter-no-preview', {
+      substep: summarizeDebugSubstep(args.substep),
+    })
     return {
       executed: false,
       nextSurface: args.context.currentSurface,
@@ -634,6 +863,9 @@ export async function executePrefilterSubstep(args: {
     }
   }
 
+  splitDebug('visual.prefilter-renderPlaybackChart', {
+    substep: summarizeDebugSubstep(args.substep),
+  })
   await args.renderPlaybackChart(preview.playbackSpec)
   return { executed: true, nextSurface: 'source-chart' }
 }
@@ -652,12 +884,23 @@ export async function executeMaterializeSurfaceSubstep(args: {
 }> {
   const logicalOp = resolveLogicalOp(args.context, args.substep)
   const surfaceId = resolveSubstepSurfaceId(args.substep)
+  splitDebug('visual.materializeSubstep-start', {
+    context: summarizeDebugContext(args.context),
+    substep: summarizeDebugSubstep(args.substep),
+    logicalOp: summarizeDebugOp(logicalOp),
+    surfaceId: surfaceId ?? null,
+  })
   const executionSurface = resolveExecutionSurface({
     context: args.context,
     substep: args.substep,
     logicalOp,
   })
   if (executionSurface.surfaceType === 'source-chart') {
+    splitDebug('visual.materializeSubstep-skip-source-chart', {
+      context: summarizeDebugContext(args.context),
+      substep: summarizeDebugSubstep(args.substep),
+      operation: summarizeDebugOp(executionSurface.operation),
+    })
     return {
       executed: true,
       nextSurface: args.context.currentSurface,
@@ -667,6 +910,10 @@ export async function executeMaterializeSurfaceSubstep(args: {
   const surfaceType = args.substep.surface?.surfaceType
   if (surfaceType === 'source-chart' && !args.substep.nodeId) {
     if (!surfaceId || surfaceId === 'root') {
+      splitDebug('visual.materializeSubstep-renderSourceChart', {
+        substep: summarizeDebugSubstep(args.substep),
+        surfaceId: surfaceId ?? null,
+      })
       await args.renderSourceChart()
     }
     return { executed: true, nextSurface: 'source-chart' }
@@ -690,6 +937,10 @@ export async function executeMaterializeSurfaceSubstep(args: {
   }
 
   if (surfaceId && surfaceId !== 'root') {
+    splitDebug('visual.materializeSubstep-run-empty-surface-render', {
+      surfaceId,
+      preparedNodeId: prepared.surface.nodeId,
+    })
     await args.runOps([], {
       resetRuntime: false,
       runtimeScope: `visual:${args.context.sentenceStep.id}:${args.substep.id}:surface-render`,
@@ -719,6 +970,13 @@ export async function executeRunOpSubstep(args: {
 }> {
   const logicalOp = resolveLogicalOp(args.context, args.substep)
   const surfaceId = resolveSubstepSurfaceId(args.substep)
+  splitDebug('visual.runOp-start', {
+    context: summarizeDebugContext(args.context),
+    substep: summarizeDebugSubstep(args.substep),
+    logicalOp: summarizeDebugOp(logicalOp),
+    surfaceId: surfaceId ?? null,
+    restartSourceLayer: args.restartSourceLayer,
+  })
   const executionSurface = resolveExecutionSurface({
     context: args.context,
     substep: args.substep,
@@ -734,24 +992,51 @@ export async function executeRunOpSubstep(args: {
   }
 
   if (executionSurface.surfaceType === 'source-chart') {
+    const splitSourceOperation = isSplitLayoutActive(args.context) && isSplitSourceOperation(executionSurface.operation)
+    const splitCrossSurfaceDiff = isSplitLayoutActive(args.context) && isSplitCrossSurfaceDiffOperation(executionSurface.operation)
+    const executionSurfaceId = splitCrossSurfaceDiff ? undefined : surfaceId
     const hasInputs = Array.isArray(executionSurface.operation.meta?.inputs) && executionSurface.operation.meta.inputs.length > 0
-    if (
-      (!surfaceId || surfaceId === 'root') &&
+    const shouldRenderSource =
+      !splitSourceOperation &&
+      (!executionSurfaceId || executionSurfaceId === 'root') &&
       (args.context.currentSurface !== 'source-chart' || (args.restartSourceLayer && !hasInputs))
-    ) {
+    splitDebug('visual.runOp-source-decision', {
+      context: summarizeDebugContext(args.context),
+      operation: summarizeDebugOp(executionSurface.operation),
+      surfaceId: surfaceId ?? null,
+      executionSurfaceId: executionSurfaceId ?? null,
+      splitSourceOperation,
+      splitCrossSurfaceDiff,
+      hasInputs,
+      shouldRenderSource,
+    })
+    if (shouldRenderSource) {
+      splitDebug('visual.runOp-renderSourceChart', {
+        operation: summarizeDebugOp(executionSurface.operation),
+      })
       await args.renderSourceChart()
     }
-    await args.runOps(applySurfaceScopeToOps([executionSurface.operation], surfaceId), {
+    splitDebug('visual.runOp-runOps-source', {
+      operation: summarizeDebugOp(executionSurface.operation),
+      executionSurfaceId: executionSurfaceId ?? null,
+    })
+    await args.runOps(applySurfaceScopeToOps([executionSurface.operation], executionSurfaceId), {
       resetRuntime: args.resetRuntime(),
       runtimeScope: `visual:${args.context.sentenceStep.id}:${args.substep.id}`,
-      executionSpec: resolveSurfaceSpec(args.context, surfaceId),
-      surfaceId,
+      executionSpec: resolveSurfaceSpec(args.context, executionSurfaceId),
+      surfaceId: executionSurfaceId,
     })
     return { executed: true, nextSurface: 'source-chart' }
   }
 
   let prepared = resolvePreparedSurface(args.context, args.substep)
   if (!prepared) {
+    splitDebug('visual.runOp-derived-materialize-needed', {
+      context: summarizeDebugContext(args.context),
+      substep: summarizeDebugSubstep(args.substep),
+      operation: summarizeDebugOp(executionSurface.operation),
+      surfaceId: surfaceId ?? null,
+    })
     const materialized = await materializePreparedSurface({
       substep: args.substep,
       context: args.context,
@@ -777,6 +1062,12 @@ export async function executeRunOpSubstep(args: {
     surfaceId,
   })
 
+  splitDebug('visual.runOp-runOps-derived', {
+    operation: summarizeDebugOp(executionSurface.operation),
+    surfaceId: surfaceId ?? null,
+    preparedNodeId: prepared.nodeId,
+    preparedRunOps: prepared.runOps.map(summarizeDebugOp),
+  })
   await args.runOps(applySurfaceScopeToOps(prepared.runOps, surfaceId), {
     resetRuntime: args.resetRuntime(),
     runtimeScope: `visual:${args.context.sentenceStep.id}:${args.substep.id}`,
@@ -911,6 +1202,23 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     context.currentSurface = currentSurface
 
     if (substep.kind === 'surface-action') {
+      if (
+        shouldSkipSplitMergeBeforeScalarDiff({
+          context,
+          substeps: sentenceStep.substeps,
+          substepIndex,
+          substep,
+        })
+      ) {
+        splitDebug('visual.surfaceAction-skip-merge-before-split-diff', {
+          context: summarizeDebugContext(context),
+          substep: summarizeDebugSubstep(substep),
+          nextLogicalOp: summarizeDebugOp(findNextLogicalOperation(context, sentenceStep.substeps, substepIndex)),
+        })
+        currentSurface = 'source-chart'
+        executedSubstepIds.push(substep.id)
+        continue
+      }
       const result = await executeSurfaceActionSubstep({
         substep,
         context,
@@ -931,7 +1239,17 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     if (substep.kind === 'prefilter') {
       const nextRunOpSubstep = findNextRunOpSubstep(sentenceStep.substeps, substepIndex)
       const nextLogicalOp = nextRunOpSubstep ? resolveLogicalOp(context, nextRunOpSubstep) : null
-      if (shouldKeepSourceChartForOperation(nextLogicalOp)) {
+      if (
+        shouldKeepSourceChartForOperation(nextLogicalOp, context.currentRootSpec) ||
+        (isSplitLayoutActive(context) && isSplitSourceOperation(nextLogicalOp))
+      ) {
+        splitDebug('visual.prefilter-skip-source-preserved', {
+          context: summarizeDebugContext(context),
+          substep: summarizeDebugSubstep(substep),
+          nextLogicalOp: summarizeDebugOp(nextLogicalOp),
+          keepSource: shouldKeepSourceChartForOperation(nextLogicalOp, context.currentRootSpec),
+          splitSourceOperation: isSplitLayoutActive(context) && isSplitSourceOperation(nextLogicalOp),
+        })
         currentSurface = 'source-chart'
         executedSubstepIds.push(substep.id)
         continue

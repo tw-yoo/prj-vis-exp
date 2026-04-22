@@ -129,7 +129,7 @@ export function applyAnnotationContextTransitions(
   const LABEL_CONTEXT_OPACITY = 0.6
 
   // 1. If a persistent filter annotation exists, fade its threshold line to
-  //    guideline style so it becomes subordinate visual context.
+  //    guideline style (dashed + reduced opacity) so it becomes subordinate context.
   const hasFilter = annotationRecords.some((r) => r.cssClass === filterClass && r.persistent)
   if (hasFilter) {
     layer
@@ -141,7 +141,21 @@ export function applyAnnotationContextTransitions(
       .attr(SvgAttributes.StrokeDasharray, STYLES.GUIDELINE.strokeDasharray)
   }
 
-  // 2. Fade all existing text annotations to context opacity so the new label
+  // 2. Other persistent anchor classes (diff, lagDiff, pairDiff, …): fade their
+  //    lines to reduced opacity without applying the dashed guideline style,
+  //    so they recede into context without changing their visual character.
+  for (const record of annotationRecords) {
+    if (record.persistent && record.cssClass !== filterClass) {
+      layer
+        .selectAll<SVGLineElement, unknown>(`line.${record.cssClass}`)
+        .interrupt()
+        .transition()
+        .duration(CONTEXT_TRANSITION_MS)
+        .style(SvgAttributes.Opacity, FILTER_CONTEXT_OPACITY)
+    }
+  }
+
+  // 3. Fade all existing text annotations to context opacity so the new label
   //    is immediately visually prominent.
   layer
     .selectAll<SVGTextElement, unknown>(`text.${SvgClassNames.TextAnnotation}`)
