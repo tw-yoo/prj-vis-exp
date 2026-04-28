@@ -1,4 +1,5 @@
 import type { DatumValue } from '../domain/operation/types'
+import { createVisualizationFrame, type VisualizationFrame } from './visualizationFrame'
 
 // ---------------------------------------------------------------------------
 // AnnotationRecord
@@ -104,6 +105,12 @@ export interface ChainState {
    * Reset at group boundaries.
    */
   scaleState: ScaleRecord | null
+
+  /** Frame currently being described by the active operation. */
+  currentFrame: VisualizationFrame
+
+  /** Last rendered frame, used for semantic-key diffing. */
+  prevFrame: VisualizationFrame | null
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +130,8 @@ export function createChainState(data: DatumValue[]): ChainState {
     salienceMap: new Map(),
     annotationRecords: [],
     scaleState: null,
+    currentFrame: createVisualizationFrame({ id: 'frame_initial' }),
+    prevFrame: null,
   }
 }
 
@@ -148,5 +157,7 @@ export function clearGroupBoundary(state: ChainState): ChainState {
     salienceMap: new Map(),
     annotationRecords: [],
     scaleState: null,
+    currentFrame: createVisualizationFrame({ id: 'frame_group_boundary' }),
+    prevFrame: null,
   }
 }

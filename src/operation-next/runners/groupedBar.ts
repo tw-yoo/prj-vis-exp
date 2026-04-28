@@ -15,6 +15,8 @@ import {
   buildOperationNextRunOutcome,
   restoreChainState,
   stateWithOperationDependencies,
+  stateWithCompletedFrame,
+  stateWithFrameForOperation,
   storeOperationRuntimeResult,
 } from '../executionState'
 import { getSupportedOperationsForChart, runStubChartOperationRenderer } from './shared'
@@ -55,8 +57,16 @@ export async function runGroupedBarOperations(run: ParsedOperationRun) {
           continue
         }
         await run.options?.onOperationReady?.({ operation, operationIndex })
+        const operationFrameState = stateWithFrameForOperation(operation, operationIndex, active.chainState)
         const filtered = await runStackedBarFilterOperation(run.container, active.spec, operation)
-        active = filtered.active
+        active = {
+          ...filtered.active,
+          chainState: stateWithCompletedFrame({
+            ...filtered.active.chainState,
+            prevFrame: operationFrameState.prevFrame,
+            currentFrame: operationFrameState.currentFrame,
+          }),
+        }
         lastResult = filtered.result
         await run.options?.onOperationCompleted?.({ operation, operationIndex, result: filtered.result })
         storeOperationRuntimeResult(operation, operationIndex, filtered.result, run.options?.runtimeScope)
@@ -65,7 +75,7 @@ export async function runGroupedBarOperations(run: ParsedOperationRun) {
       }
 
       await run.options?.onOperationReady?.({ operation, operationIndex })
-      const operationState = stateWithOperationDependencies(operation, active.chainState)
+      const operationState = stateWithFrameForOperation(operation, operationIndex, stateWithOperationDependencies(operation, active.chainState))
       if (isFilterOperation(operation)) {
         const filtered = await runGroupedBarFilterOperation(run.container, operation, operationState)
         active = { ...active, chainState: filtered.nextState }
@@ -81,6 +91,7 @@ export async function runGroupedBarOperations(run: ParsedOperationRun) {
       }
 
       if (lastResult) {
+        active = { ...active, chainState: stateWithCompletedFrame(active.chainState) }
         await run.options?.onOperationCompleted?.({ operation, operationIndex, result: lastResult })
         storeOperationRuntimeResult(operation, operationIndex, lastResult, run.options?.runtimeScope)
       }

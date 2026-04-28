@@ -159,6 +159,11 @@ function semanticLabelFromCompareTargets(targetA: TargetSelector | TargetSelecto
   }
 }
 
+function scalarGroupLabel(group: OperationSpec['group'] | string | null | undefined): string | null {
+  if (Array.isArray(group)) return group.length > 0 ? String(group[0]) : null
+  return group == null ? null : String(group)
+}
+
 // ---------------------------------------------------------------------------
 // Runtime result store (in-memory; pure JS, no DOM)
 // ---------------------------------------------------------------------------
@@ -675,7 +680,7 @@ export function retrieveValue(data: DatumValue[], op: OperationSpec): DatumValue
   const arr = cloneData(data)
   const spec = assertRetrieveValueSpec(op)
   const { field, target, group } = spec
-  return inheritSemanticMeasureList(sliceForTarget(arr, field, target, group ?? null))
+  return inheritSemanticMeasureList(sliceForTarget(arr, field, target, scalarGroupLabel(group)))
 }
 
 /** 3.2 filter */
@@ -785,10 +790,10 @@ export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue
   if (targetA == null || targetB == null) {
     throw new Error('compareBool: targetA/targetB not found and meta.inputs fallback unavailable')
   }
-  const gA = groupA ?? op.group
-  const gB = groupB ?? op.group
-  const sA = sliceForTarget(arr, field, targetA, gA ?? null)
-  const sB = sliceForTarget(arr, field, targetB, gB ?? null)
+  const gA = scalarGroupLabel(groupA ?? op.group)
+  const gB = scalarGroupLabel(groupB ?? op.group)
+  const sA = sliceForTarget(arr, field, targetA, gA)
+  const sB = sliceForTarget(arr, field, targetB, gB)
   if (sA.length === 0 || sB.length === 0) {
     throw new Error('compareBool: targetA/targetB not found in data slice')
   }
@@ -797,7 +802,7 @@ export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue
   const vB = aggregate(sB.map((d) => d.value), undefined)
   const boolResult = evalOperator(operator, vA, vB)
   const fieldLabel = field || 'value'
-  const groupLabel = op.group ?? gA ?? gB ?? null
+  const groupLabel = scalarGroupLabel(op.group) ?? gA ?? gB ?? null
   const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
   const name = buildBinaryLabel('comparison', left, right)
   return makeScalarDatum(fieldLabel, groupLabel, 'bool', '__compareBool__', boolResult ? 1 : 0, name, buildSemanticMeasure(OperationOp.CompareBool, fieldLabel))
@@ -954,8 +959,8 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
   if (targetA == null || targetB == null) {
     throw new Error('diff: targetA/targetB not found and meta.inputs fallback unavailable')
   }
-  const gA = groupA ?? op.group ?? null
-  const gB = groupB ?? op.group ?? null
+  const gA = scalarGroupLabel(groupA ?? op.group)
+  const gB = scalarGroupLabel(groupB ?? op.group)
 
   const collectSlice = (targets: TargetSelector | TargetSelector[] | undefined, groupLabel: string | null) => {
     const list = Array.isArray(targets) ? targets : [targets]
@@ -1034,7 +1039,7 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
   }
 
   const fieldLabel = field || sA[0]?.measure || sB[0]?.measure || 'value'
-  const groupLabel = op.group ?? gA ?? gB ?? null
+  const groupLabel = scalarGroupLabel(op.group) ?? gA ?? gB ?? null
   const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
   const name = buildBinaryLabel('difference', left, right)
 

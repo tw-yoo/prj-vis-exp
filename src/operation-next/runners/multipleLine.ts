@@ -25,6 +25,8 @@ import {
   buildOperationNextRunOutcome,
   restoreChainState,
   stateWithOperationDependencies,
+  stateWithCompletedFrame,
+  stateWithFrameForOperation,
   storeOperationRuntimeResult,
 } from '../executionState'
 import {
@@ -1274,7 +1276,7 @@ export async function runMultipleLineOperations(run: ParsedOperationRun) {
       const operationIndex = nextIndex
       nextIndex += 1
       let opResult: { result: DatumValue[]; nextState: ChainState }
-      const operationState = stateWithOperationDependencies(operation, state)
+      const operationState = stateWithFrameForOperation(operation, operationIndex, stateWithOperationDependencies(operation, state))
 
       if (isRetrieveValueOperation(operation)) {
         opResult = await runRetrieveValueOperation(run, operation, operationIndex, operationState)
@@ -1295,7 +1297,7 @@ export async function runMultipleLineOperations(run: ParsedOperationRun) {
       }
 
       lastResult = opResult.result
-      state = opResult.nextState
+      state = stateWithCompletedFrame(opResult.nextState)
       storeOperationRuntimeResult(operation, operationIndex, opResult.result, run.options?.runtimeScope)
     }
   }
