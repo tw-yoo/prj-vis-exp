@@ -1,33 +1,19 @@
-# Operation Next Architecture
+# Expert Study — Reference Notes
 
-`operation-next` separates computation order from visualization description. The runtime still accepts the existing operation list format, then adds a tree and frame layer around it so compositional explanations can be planned without chart-specific annotation rewrites.
+This directory holds the source PDFs from the chart-explanation expert study (`Claude.pdf`, `Claude2.pdf`) and accompanying notes. The study findings are **reference material**, not enforced runtime rules — there is no code that maps expert taxonomy onto operations or validates against it.
 
-## Layers
+## Current architecture (post-correction)
 
-1. Operation tree
+A previous experimental architecture introduced a `VisualizationFrame` layer, a parallel `src/rendering/primitives/` family, an `OperationNode` tree, and a frame renderer. None of it was wired into the actual rendering path; it has been removed.
 
-   `operationTree.ts` converts a linear `OperationSpec[]` into `OperationNode[]` with explicit input edges. The adapter keeps the old list execution path compatible while making dependencies such as `ref:n1` available to planning code.
+The active path is documented at [`src/operation-next/README.md`](../../src/operation-next/README.md). In short:
 
-2. Execution engine
+- `runChartOps.ts` → chart-type runner → `src/operation-next/primitives/*` for drawing.
+- `DatumValue.semanticMeasure` is preserved as a data field for downstream parameter prediction (not for display).
+- `tensionPolicy.ts` keeps a small policy surface (currently used by `multipleLine` pairDiff rescale gating).
 
-   Existing runners execute operations and maintain `ChainState`. Each operation now has a current and previous `VisualizationFrame` so annotation state can be compared across steps.
+## Files
 
-3. Visualization planner
-
-   `visualizationPlanner.ts` maps operation nodes, result metadata, chart type, and `TensionPolicy` into frame descriptions. Frames carry phase tags, axes, salience state, synthetic overlays, and primitive calls.
-
-4. Frame renderer
-
-   `frameRenderer.ts` diffs primitive calls by `semanticKey`. Identical calls are skipped, updated calls transition in place when supported, and removed calls are cleared through the primitive implementation.
-
-## Policy Surface
-
-`tensionPolicy.ts` exposes the study tensions as explicit runtime policy:
-
-- salience strategy: dim, remove, or grayscale
-- annotation strategy: in-place or derive-chart
-- arrow placement: right-edge or inline
-- density mode: all, derive-chart, or selective
-- rescale after isolation: enabled or disabled
-
-The default policy is chosen to preserve the current prototype behavior while making each decision inspectable and overridable by future study conditions.
+- `Claude.pdf`, `Claude2.pdf` — expert study source documents (reference only).
+- `CAPABILITY_AUDIT.md` — current capability state of the operation-next code path. Updated alongside correction work.
+- `UNRESOLVED.md` — verification status notes.

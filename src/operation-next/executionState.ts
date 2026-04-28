@@ -2,7 +2,6 @@ import { makeRuntimeKey, resetRuntimeResults, restoreRuntimeResults, snapshotRun
 import type { DatumValue, OperationSpec } from '../domain/operation/types'
 import { createChainState, type AnnotationRecord, type ChainState, type ScaleRecord } from './chainState'
 import type { RunChartOpsOptions } from './types'
-import { createFrameAfterOperation, createVisualizationFrame } from './visualizationFrame'
 
 export type OperationRuntimeSnapshot = Record<string, DatumValue[]>
 
@@ -103,8 +102,6 @@ export function restoreChainState(baseData: DatumValue[], serialized: Serializab
     salienceMap: new Map(serialized.salienceEntries),
     annotationRecords: serialized.annotationRecords.map((record) => ({ ...record })),
     scaleState: serialized.scaleState ? { ...serialized.scaleState } : null,
-    currentFrame: createVisualizationFrame({ id: 'frame_restored' }),
-    prevFrame: null,
   }
 }
 
@@ -149,8 +146,6 @@ export function stateWithOperationDependencies(operation: OperationSpec, state: 
       workingData: cloneDatumValues(state.originalData),
       derivedData: null,
       lastResult: null,
-      currentFrame: createVisualizationFrame({ id: 'frame_dependency_reset' }),
-      prevFrame: null,
     }
   }
   if (inputs.length === 0) {
@@ -159,8 +154,6 @@ export function stateWithOperationDependencies(operation: OperationSpec, state: 
       workingData: cloneDatumValues(state.originalData),
       derivedData: null,
       lastResult: null,
-      currentFrame: createVisualizationFrame({ id: 'frame_dependency_reset' }),
-      prevFrame: null,
     }
   }
   const rows = inputs.flatMap((input) => getRuntimeResultsById(input))
@@ -170,23 +163,6 @@ export function stateWithOperationDependencies(operation: OperationSpec, state: 
     workingData: rows,
     derivedData: null,
     lastResult: rows,
-    currentFrame: createVisualizationFrame({ id: 'frame_dependency_rows' }),
-    prevFrame: null,
-  }
-}
-
-export function stateWithFrameForOperation(operation: OperationSpec, operationIndex: number, state: ChainState): ChainState {
-  return {
-    ...state,
-    prevFrame: state.currentFrame,
-    currentFrame: createFrameAfterOperation(operation, operationIndex),
-  }
-}
-
-export function stateWithCompletedFrame(state: ChainState): ChainState {
-  return {
-    ...state,
-    prevFrame: state.currentFrame,
   }
 }
 

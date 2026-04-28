@@ -1,33 +1,29 @@
 # Operation Next Architecture
 
-`operation-next` separates computation order from visualization description. The runtime still accepts the existing operation list format, then adds a tree and frame layer around it so compositional explanations can be planned without chart-specific annotation rewrites.
+`operation-next` keeps the existing operation-list execution path. A previous attempt to introduce a separate visualization-frame layer (`VisualizationFrame`, `frameRenderer`, `planFrames`, `OperationNode`, and a parallel `src/rendering/primitives/` family) was reverted because it was never wired into the rendering path. The current shape is intentionally kept thin.
 
 ## Layers
 
-1. Operation tree
+1. Operation list
 
-   `operationTree.ts` converts a linear `OperationSpec[]` into `OperationNode[]` with explicit input edges. The adapter keeps the old list execution path compatible while making dependencies such as `ref:n1` available to planning code.
+   `runChartOps.ts` normalizes the input ops spec into groups and dispatches to a chart-type-specific runner. There is no separate tree representation; ref dependencies are resolved at the runner level via `stateWithOperationDependencies`.
 
 2. Execution engine
 
-   Existing runners execute operations and maintain `ChainState`. Each operation now has a current and previous `VisualizationFrame` so annotation state can be compared across steps.
+   Runners (`runners/{simpleBar,groupedBar,stackedBar,simpleLine,multipleLine}.ts`) execute operations and maintain `ChainState` (`originalData`, `workingData`, `derivedData`, `lastResult`, `salienceMap`, `annotationRecords`, `scaleState`).
 
-3. Visualization planner
+3. Drawing primitives
 
-   `visualizationPlanner.ts` maps operation nodes, result metadata, chart type, and `TensionPolicy` into frame descriptions. Frames carry phase tags, axes, salience state, synthetic overlays, and primitive calls.
-
-4. Frame renderer
-
-   `frameRenderer.ts` diffs primitive calls by `semanticKey`. Identical calls are skipped, updated calls transition in place when supported, and removed calls are cleared through the primitive implementation.
+   Annotations are drawn through `src/operation-next/primitives/{drawReferenceLine,drawDifferenceArrow,markSalience,annotationLayer,formatValue}.ts`. These remain the single visualization path.
 
 ## Policy Surface
 
-`tensionPolicy.ts` exposes the study tensions as explicit runtime policy:
+`tensionPolicy.ts` exposes a small policy object so future studies can vary annotation behaviour without touching runners. Currently consumed:
 
-- salience strategy: dim, remove, or grayscale
-- annotation strategy: in-place or derive-chart
-- arrow placement: right-edge or inline
-- density mode: all, derive-chart, or selective
-- rescale after isolation: enabled or disabled
+- `rescaleAfterIsolation.default` — gates the y-axis rescale step inside `multipleLine.ts` `runPairDiffOperation`.
 
-The default policy is chosen to preserve the current prototype behavior while making each decision inspectable and overridable by future study conditions.
+The other fields (`salienceStrategy`, `annotationStrategy`, `arrowPlacement`, `densityMode`) are defined for future hooks but not yet read by runners.
+
+## `DatumValue.semanticMeasure`
+
+`DatumValue` carries a `semanticMeasure` field (`"avg(rating)"`, `"sum(value)"`, `"Δrating"` …) populated by `dataOps.ts`. This is **not** used for axis titles or chart visuals — those continue to use the original `measure`/encoding fields. The `semanticMeasure` exists so downstream parameter prediction (e.g. authoring a follow-up operation that targets the result of the previous one) can identify what the prior step produced.

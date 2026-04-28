@@ -3,7 +3,6 @@ import type { JsonValue } from '../../types'
 type Axis = 'x' | 'y'
 type AxisDatum = {
   measure?: string | null
-  semanticMeasure?: string | null
   [key: string]: unknown
 }
 type AxisTitleSpec = {
@@ -11,7 +10,15 @@ type AxisTitleSpec = {
   encoding?: Partial<Record<Axis, { field?: JsonValue } | JsonValue>>
 }
 
-/** Resolves display axis titles from explicit metadata, operation semantics, and encoding fallbacks. */
+/**
+ * Resolves display axis titles from explicit metadata and original measure / encoding fields.
+ *
+ * Note: `DatumValue.semanticMeasure` is intentionally NOT consumed here.
+ * That field is preserved only for downstream parameter prediction (e.g. selecting
+ * a target measure name when authoring a follow-up operation), not for display.
+ * Axis titles must continue to reflect the original measure/encoding so the chart
+ * surface stays stable across operation chains.
+ */
 export function resolveAxisTitle(spec: AxisTitleSpec, datums: AxisDatum[] | null | undefined, axis: Axis): string | null {
   const axisLabelOverride = normalizeOptionalLabel(spec.meta?.axisLabels?.[axis])
   if (axisLabelOverride !== undefined) return axisLabelOverride
@@ -21,12 +28,8 @@ export function resolveAxisTitle(spec: AxisTitleSpec, datums: AxisDatum[] | null
 
   const field = resolveEncodingField(spec, axis)
   const firstDatum = datums?.find((datum) => datum && typeof datum === 'object') ?? null
-  const semanticMeasure = normalizeOptionalLabel(firstDatum?.semanticMeasure)
   const measure = normalizeOptionalLabel(firstDatum?.measure)
 
-  if (semanticMeasure !== undefined && shouldUseSemanticMeasure(axis, field, measure)) {
-    return semanticMeasure
-  }
   if (measure !== undefined) return measure
   return field
 }
@@ -69,9 +72,4 @@ function extractAxisTitle(channel: unknown): string | null | undefined {
     return normalizeOptionalLabel(axisRec.title)
   }
   return undefined
-}
-
-function shouldUseSemanticMeasure(axis: Axis, field: string | null, measure: string | null | undefined) {
-  if (axis === 'y') return true
-  return Boolean(field && measure && field === measure)
 }

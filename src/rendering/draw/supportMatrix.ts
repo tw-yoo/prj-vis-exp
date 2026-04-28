@@ -1,6 +1,4 @@
 import { ChartType, type ChartTypeValue } from '../../domain/chart'
-import { OperationOp, type OperationOp as OperationName } from '../../domain/operation/types'
-import type { TransformId } from '../primitives/chartTransform'
 import { DrawAction, type DrawAction as DrawActionValue } from './types'
 
 export type DrawSupportStatus = 'supported' | 'partial' | 'unsupported'
@@ -186,16 +184,6 @@ export type DrawUiSupportStatus = 'visible' | 'hidden'
 type DrawUiSupportByChart = Record<ChartTypeValue, DrawUiSupportStatus>
 
 export type DrawUiSupportMatrix = Record<DrawActionValue, DrawUiSupportByChart>
-
-export const OPERATION_TRANSFORM_RECOMMENDATIONS: Partial<Record<OperationName, Partial<Record<ChartTypeValue, TransformId>>>> = {
-  [OperationOp.Diff]: {
-    [ChartType.STACKED_BAR]: 'stacked-to-grouped',
-  },
-  [OperationOp.PairDiff]: {
-    [ChartType.STACKED_BAR]: 'stacked-to-grouped',
-    [ChartType.MULTI_LINE]: 'multi-to-difference-line',
-  },
-}
 
 export type DrawActionSchemaLike = {
   value: string

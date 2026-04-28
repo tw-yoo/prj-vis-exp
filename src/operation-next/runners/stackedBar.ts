@@ -15,8 +15,6 @@ import {
   buildOperationNextRunOutcome,
   restoreChainState,
   stateWithOperationDependencies,
-  stateWithCompletedFrame,
-  stateWithFrameForOperation,
   storeOperationRuntimeResult,
 } from '../executionState'
 import { getSupportedOperationsForChart, runStubChartOperationRenderer } from './shared'
@@ -51,12 +49,11 @@ export async function runStackedBarOperations(run: ParsedOperationRun) {
       }
 
       await run.options?.onOperationReady?.({ operation, operationIndex })
-      const operationFrameState = stateWithFrameForOperation(operation, operationIndex, active.chainState)
       if (active.chartType === ChartType.STACKED_BAR) {
         if (isAverageOperation(operation)) {
-          const operationState = stateWithFrameForOperation(operation, operationIndex, stateWithOperationDependencies(operation, active.chainState))
+          const operationState = stateWithOperationDependencies(operation, active.chainState)
           const averaged = await runGroupedBarAverageOperation(run.container, operation, operationState, run.options?.referencedResultIds)
-          active = { ...active, chainState: stateWithCompletedFrame(averaged.nextState) }
+          active = { ...active, chainState: averaged.nextState }
           lastResult = averaged.result
           await run.options?.onOperationCompleted?.({ operation, operationIndex, result: averaged.result })
           storeOperationRuntimeResult(operation, operationIndex, averaged.result, run.options?.runtimeScope)
@@ -64,9 +61,9 @@ export async function runStackedBarOperations(run: ParsedOperationRun) {
           continue
         }
         if (isDiffOperation(operation)) {
-          const operationState = stateWithFrameForOperation(operation, operationIndex, stateWithOperationDependencies(operation, active.chainState))
+          const operationState = stateWithOperationDependencies(operation, active.chainState)
           const diffed = await runGroupedBarDiffOperation(run.container, operation, operationState)
-          active = { ...active, chainState: stateWithCompletedFrame(diffed.nextState) }
+          active = { ...active, chainState: diffed.nextState }
           lastResult = diffed.result
           await run.options?.onOperationCompleted?.({ operation, operationIndex, result: diffed.result })
           storeOperationRuntimeResult(operation, operationIndex, diffed.result, run.options?.runtimeScope)
@@ -74,14 +71,7 @@ export async function runStackedBarOperations(run: ParsedOperationRun) {
           continue
         }
         const filtered = await runStackedBarFilterOperation(run.container, active.spec, operation)
-        active = {
-          ...filtered.active,
-          chainState: stateWithCompletedFrame({
-            ...filtered.active.chainState,
-            prevFrame: operationFrameState.prevFrame,
-            currentFrame: operationFrameState.currentFrame,
-          }),
-        }
+        active = filtered.active
         lastResult = filtered.result
         await run.options?.onOperationCompleted?.({ operation, operationIndex, result: filtered.result })
         storeOperationRuntimeResult(operation, operationIndex, filtered.result, run.options?.runtimeScope)
@@ -89,18 +79,18 @@ export async function runStackedBarOperations(run: ParsedOperationRun) {
         continue
       }
 
-      const operationState = stateWithFrameForOperation(operation, operationIndex, stateWithOperationDependencies(operation, active.chainState))
+      const operationState = stateWithOperationDependencies(operation, active.chainState)
       if (isAverageOperation(operation)) {
         const averaged = await runGroupedBarAverageOperation(run.container, operation, operationState, run.options?.referencedResultIds)
-        active = { ...active, chainState: stateWithCompletedFrame(averaged.nextState) }
+        active = { ...active, chainState: averaged.nextState }
         lastResult = averaged.result
       } else if (isDiffOperation(operation)) {
         const diffed = await runGroupedBarDiffOperation(run.container, operation, operationState)
-        active = { ...active, chainState: stateWithCompletedFrame(diffed.nextState) }
+        active = { ...active, chainState: diffed.nextState }
         lastResult = diffed.result
       } else {
         const filtered = await runGroupedBarFilterOperation(run.container, operation, operationState)
-        active = { ...active, chainState: stateWithCompletedFrame(filtered.nextState) }
+        active = { ...active, chainState: filtered.nextState }
         lastResult = filtered.result
       }
       await run.options?.onOperationCompleted?.({ operation, operationIndex, result: lastResult })

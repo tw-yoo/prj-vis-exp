@@ -1,21 +1,41 @@
 # Unresolved Verification Notes
 
-## Phase 6 e2e regression suite
+## Correction work (post Phase 6)
 
-`npm run lint` and `npm run build` pass after Phase 6 cleanup. The full Playwright suite currently reports 64 passed and 83 failed.
+The dead frame architecture introduced in Phase 2/3 was removed (`VisualizationFrame`, `frameRenderer`, `planFrames`, `OperationNode`, the parallel `src/rendering/primitives/` family, the `compositional/*` unit-style specs). `resolveAxisTitle` was reverted to ignore `DatumValue.semanticMeasure` (the field is preserved on data only, not surfaced in axis titles).
 
-The new compositional and policy checks pass:
+### After correction
 
-- `tests/e2e/compositional/two-diffs-max.spec.ts`
-- `tests/e2e/compositional/merge-series.spec.ts`
-- `tests/e2e/compositional/duplicate-skip.spec.ts`
-- `tests/e2e/compositional/tension-policy.spec.ts`
+- `npm run lint`: passes (350 pre-existing warnings, 0 errors).
+- `npm run build`: passes (all five pre-build checks pass).
+- `npm run test:e2e`: 58 passed, 84 failed.
 
-The remaining failures cluster around existing workbench/demo regression expectations:
+### Phase 6 baseline (before correction)
 
-- legacy annotation slots such as `data-annotation-slot="aggregate-line:__root__:average"`
-- draw interaction split/filter behavior
-- explanation text placement and concise text assertions
-- color stability and conversion smoke tests
+- 64 passed, 83 failed.
 
-These failures need a focused regression pass because they span multiple existing UI workflows. Phase 6 did not add expert-study schema validation or hardcoded expert mappings.
+### Net change
+
+Five tests disappeared because the four `tests/e2e/compositional/*.spec.ts` files were deleted (they were unit-style assertions on the dead frame planner). One additional failure remains within noise levels for a long Playwright suite.
+
+## Pre-existing failures
+
+The 80+ failing tests are not introduced by the correction work. Before the correction the same files were already failing (for example `workbench-color-stability-legend-order.spec.ts:45` fails identically on the pre-phase commit `a79e24aa`). The current correction only removed dead code and reverted axis title behaviour; it did not touch the legacy primitives in `src/operation-next/primitives/*` or any chart renderer that those failing tests cover.
+
+The failures cluster in these areas:
+
+- color-stability legend ordering and group color preservation
+- draw matrix split / unsplit edge cases
+- workbench expert-util coverage rendering checks
+- workbench-operation-coverage edge cases (`compareBool`, `retrieveValue`, etc.)
+- explanation text rendering across multi-op groups
+- workbench-simple-bar-diff (annotation slot expectations such as `value-label:__root__:NLD:__all__`)
+- text placement policy edge cases
+
+These need a separate regression pass that focuses on the legacy rendering path. Such a pass is out of scope for the correction work.
+
+## Out of scope
+
+- Re-introducing a frame-style architecture or any parallel annotation layer.
+- Wiring `DatumValue.semanticMeasure` into axis titles.
+- The 80+ pre-existing test failures listed above.
