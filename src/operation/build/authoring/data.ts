@@ -4,9 +4,8 @@ import type {
   OpAddSpec,
   OpAverageSpec,
   OpCompareBoolSpec,
-  OpCompareSpec,
   OpCountSpec,
-  OpDetermineRangeSpec,
+  OpDiffByValueSpec,
   OpDiffSpec,
   OpFilterSpec,
   OpFindExtremumSpec,
@@ -72,20 +71,15 @@ export const dataActions = {
     return buildDataOp<OpFindExtremumSpec>(OperationOp.FindExtremum, { which, field, group, chartId })
   },
 
-  determineRange(field?: string, group?: string | null, chartId?: string): OpDetermineRangeSpec {
-    return buildDataOp<OpDetermineRangeSpec>(OperationOp.DetermineRange, { field, group, chartId })
-  },
-
-  compare(
-    targetA: TargetSelector | TargetSelector[],
-    targetB: TargetSelector | TargetSelector[],
+  diffByValue(
+    value?: number,
+    targetValue?: string,
     field?: string,
-    groupA?: string | null,
-    groupB?: string | null,
-    which?: OpCompareSpec['which'],
+    group?: string | null,
+    signed?: boolean,
     chartId?: string,
-  ): OpCompareSpec {
-    return buildDataOp<OpCompareSpec>(OperationOp.Compare, { targetA, targetB, field, groupA, groupB, which, chartId })
+  ): OpDiffByValueSpec {
+    return buildDataOp<OpDiffByValueSpec>(OperationOp.DiffByValue, { value, targetValue, field, group, signed, chartId })
   },
 
   compareBool(

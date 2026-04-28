@@ -261,23 +261,8 @@ function nounPhraseForOperation(args: {
       })
       return buildBinaryLabel('difference', left, right, { article: true })
     }
-    case OperationOp.Compare:
-      return buildBinaryLabel(
-        'comparison',
-        phraseForSelector({
-          selector: op.targetA,
-          context: { mode: 'bare-entity' },
-          artifacts,
-          seen,
-        }),
-        phraseForSelector({
-          selector: op.targetB,
-          context: { mode: 'bare-entity' },
-          artifacts,
-          seen,
-        }),
-        { article: true },
-      )
+    case OperationOp.DiffByValue:
+      return `the differences from ${diffByValueReferencePhrase(op)}`
     case OperationOp.Add:
       return buildBinaryLabel(
         'sum',
@@ -316,8 +301,6 @@ function nounPhraseForOperation(args: {
         aggregateSubjectPhrase({ op, artifacts, seen }),
         { article: true },
       )
-    case OperationOp.DetermineRange:
-      return buildAggregateLabel('range', aggregateSubjectPhrase({ op, artifacts, seen }), { article: true })
     case OperationOp.Nth: {
       const rawRank = Array.isArray(op.n) ? Number(op.n[0]) : Number(op.n)
       if (Number.isFinite(rawRank)) {
@@ -367,18 +350,8 @@ function imperativeSentenceForOperation(args: {
   switch (op.op) {
     case OperationOp.RetrieveValue:
       return `Get the value of ${phraseForSelector({ selector: op.target, context: { mode: 'bare-entity' }, artifacts, seen })}`
-    case OperationOp.Compare:
-      return `Compare the value of ${phraseForSelector({
-        selector: op.targetA,
-        context: { mode: 'bare-entity' },
-        artifacts,
-        seen,
-      })} and ${phraseForSelector({
-        selector: op.targetB,
-        context: { mode: 'bare-entity' },
-        artifacts,
-        seen,
-      })}`
+    case OperationOp.DiffByValue:
+      return `Calculate the difference of every value from ${diffByValueReferencePhrase(op)}`
     case OperationOp.Diff: {
       const leftKind = operandKind(op.targetA, artifacts)
       const rightKind = operandKind(op.targetB, artifacts)
@@ -854,6 +827,16 @@ function buildFilterExplanationTextWithContext(args: {
   }
 }
 
+function diffByValueReferencePhrase(op: OperationSpec): string {
+  const literal = (op as OperationSpec & { value?: unknown }).value
+  if (typeof literal === 'number' && Number.isFinite(literal)) return String(literal)
+  const targetValue = (op as OperationSpec & { targetValue?: unknown }).targetValue
+  if (typeof targetValue === 'string' && targetValue.length > 0) return `the previous result (${targetValue})`
+  const inputs = Array.isArray(op.meta?.inputs) ? op.meta.inputs : []
+  if (inputs.length > 0) return `the previous result (${String(inputs[0])})`
+  return 'the reference value'
+}
+
 function compareOperatorLabel(operator: string | undefined) {
   switch (String(operator ?? '').toLowerCase()) {
     case '>':
@@ -1058,12 +1041,9 @@ function finalExplanationForOperation(args: {
       const right = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen: new Set(), mode: 'entity' })
       return `The difference between ${left} and ${right} is ${formatExplanationNumber(value, op.precision)}.`
     }
-    case OperationOp.Compare: {
-      const value = firstFiniteValue(rows)
-      if (value == null) return undefined
-      const left = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'left'), entryMap, seen: new Set(), mode: 'entity' })
-      const right = phraseForSelectorFromEntries({ selector: binaryOperandSelector(op, 'right'), entryMap, seen: new Set(), mode: 'entity' })
-      return `The ${op.which === 'min' ? 'minimum' : 'maximum'} value between ${left} and ${right} is ${formatExplanationNumber(value, op.precision)}.`
+    case OperationOp.DiffByValue: {
+      if (!rows?.length) return undefined
+      return `Each value's difference from ${diffByValueReferencePhrase(op)} is shown.`
     }
     case OperationOp.Add: {
       const value = firstFiniteValue(rows)
@@ -1117,12 +1097,6 @@ function finalExplanationForOperation(args: {
       return buildFilterExplanationTextWithContext({ op, rows, entryMap, resultsByNodeId })
     case OperationOp.Sort:
       return `The chart is sorted in ${op.order === 'desc' ? 'descending' : 'ascending'} order.`
-    case OperationOp.DetermineRange: {
-      const minRow = rows?.find((row) => String(row.target) === '__min__')
-      const maxRow = rows?.find((row) => String(row.target) === '__max__')
-      if (!minRow || !maxRow) return undefined
-      return `The range is from ${formatExplanationNumber(Number(minRow.value))} to ${formatExplanationNumber(Number(maxRow.value))}.`
-    }
     default:
       return undefined
   }

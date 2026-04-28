@@ -300,28 +300,6 @@ function ensureOverlay(stage: HTMLElement, resultRef: string, width: number, hei
   return d3.select(overlay)
 }
 
-function appendLine(
-  overlay: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-  attrs: { x1: number; x2: number; y1: number; y2: number },
-) {
-  return overlay
-    .append(SvgElements.Line)
-    .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${SPLIT_DIFF_ELEMENT_CLASS}`)
-    .attr(SvgAttributes.X1, attrs.x1)
-    .attr(SvgAttributes.X2, attrs.x1)
-    .attr(SvgAttributes.Y1, attrs.y1)
-    .attr(SvgAttributes.Y2, attrs.y1)
-    .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
-    .attr(SvgAttributes.StrokeWidth, 2)
-    .transition()
-    .duration(DURATIONS.HIGHLIGHT)
-    .ease(EASINGS.SMOOTH)
-    .attr(SvgAttributes.X2, attrs.x2)
-    .attr(SvgAttributes.Y2, attrs.y2)
-    .end()
-    .catch(() => {})
-}
-
 export async function tryDrawSplitScalarDiffAnnotation(params: {
   container: HTMLElement
   surfaceManager?: SurfaceManager
@@ -395,11 +373,6 @@ export async function tryDrawSplitScalarDiffAnnotation(params: {
     bottomY,
     differenceValue,
   })
-
-  await Promise.all([
-    appendLine(overlay, { x1: leftLine.x2, x2: arrowX, y1: leftLine.y, y2: leftLine.y }),
-    appendLine(overlay, { x1: rightLine.x1, x2: arrowX, y1: rightLine.y, y2: rightLine.y }),
-  ])
 
   const shaft = overlay
     .append(SvgElements.Line)

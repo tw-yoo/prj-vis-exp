@@ -82,6 +82,8 @@ type GroupedDiffAnnotationGeometry = {
   labelPreferred: { x: number; y: number }
   labelAnchor: 'start' | 'end'
   labelViewport: { x: number; y: number; width: number; height: number }
+  annotationRightBound: number
+  legendX: number | null
 }
 
 function isRecord(value: JsonValue): value is RawRow {
@@ -477,6 +479,13 @@ function estimateAnnotationTextWidth(label: string) {
   return clampToRange(label.length * 7.2, 72, 168)
 }
 
+function resolveLegendX(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>) {
+  const legend = svg.select<SVGGElement>(`.${SvgClassNames.ColorLegend}`).node()
+  if (!legend) return null
+  const translated = parseTranslate(legend.getAttribute(SvgAttributes.Transform))
+  return Number.isFinite(translated.x) ? translated.x : null
+}
+
 function resolveGroupedDiffAnnotationGeometry(params: {
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
   bounds: { x1: number; x2: number }
@@ -488,46 +497,41 @@ function resolveGroupedDiffAnnotationGeometry(params: {
 
   const labelWidth = estimateAnnotationTextWidth(params.label)
   const edgePadding = 8
-  const arrowPadding = 18
   const labelGap = 12
   const arrowHeadPadding = 12
-  const desiredArrowX = params.bounds.x2 + arrowPadding
-  const canPlaceLabelRight = desiredArrowX + labelGap + labelWidth <= viewBox.x2 - edgePadding
-
-  if (canPlaceLabelRight) {
-    const arrowX = clampToRange(
-      desiredArrowX,
-      params.bounds.x1 + arrowHeadPadding,
-      viewBox.x2 - edgePadding - labelGap - labelWidth,
-    )
-    return {
-      arrowX,
-      labelPreferred: { x: arrowX + labelGap, y: params.midY },
-      labelAnchor: 'start',
-      labelViewport: {
-        x: viewBox.x1 + edgePadding,
-        y: viewBox.y1 + edgePadding,
-        width: Math.max(0, viewBox.width - edgePadding * 2),
-        height: Math.max(0, viewBox.height - edgePadding * 2),
-      },
-    }
-  }
-
-  const arrowX = clampToRange(
-    Math.min(desiredArrowX, viewBox.x2 - edgePadding - arrowHeadPadding),
-    viewBox.x1 + edgePadding + labelWidth + labelGap,
-    viewBox.x2 - edgePadding - arrowHeadPadding,
+  const legendPadding = 12
+  const legendX = resolveLegendX(params.svg)
+  const plotRightBound = Math.min(
+    params.bounds.x2,
+    viewBox.x2 - edgePadding,
+    legendX == null ? viewBox.x2 - edgePadding : legendX - legendPadding,
   )
+  const plotWidth = Math.max(0, params.bounds.x2 - params.bounds.x1)
+  const laneInset = clampToRange(plotWidth * 0.04, 36, 72)
+  const desiredArrowX = params.bounds.x2 - laneInset
+  const minArrowX = Math.max(
+    viewBox.x1 + edgePadding + labelWidth + labelGap,
+    params.bounds.x1 + labelWidth + labelGap,
+  )
+  const maxArrowX = plotRightBound - arrowHeadPadding
+  const arrowX = clampToRange(
+    desiredArrowX,
+    minArrowX,
+    maxArrowX,
+  )
+  const labelViewportX = Math.max(viewBox.x1 + edgePadding, params.bounds.x1)
   return {
     arrowX,
     labelPreferred: { x: arrowX - labelGap, y: params.midY },
     labelAnchor: 'end',
     labelViewport: {
-      x: viewBox.x1 + edgePadding,
+      x: labelViewportX,
       y: viewBox.y1 + edgePadding,
-      width: Math.max(0, viewBox.width - edgePadding * 2),
+      width: Math.max(0, plotRightBound - labelViewportX),
       height: Math.max(0, viewBox.height - edgePadding * 2),
     },
+    annotationRightBound: plotRightBound,
+    legendX,
   }
 }
 
@@ -535,34 +539,129 @@ function operationNextDebugEnabled() {
   return Boolean((globalThis as { __OPERATION_NEXT_DEBUG__?: unknown }).__OPERATION_NEXT_DEBUG__)
 }
 
+function roundedNumber(value: number) {
+  return Number.isFinite(value) ? Number(value.toFixed(2)) : value
+}
+
+type RectLike = {
+  x: number
+  y: number
+  width: number
+  height: number
+  left?: number
+  right?: number
+  top?: number
+  bottom?: number
+}
+
+function summarizeRect(rect: RectLike | null | undefined) {
+  if (!rect) return null
+  const left = typeof rect.left === 'number' ? rect.left : rect.x
+  const right = typeof rect.right === 'number' ? rect.right : rect.x + rect.width
+  const top = typeof rect.top === 'number' ? rect.top : rect.y
+  const bottom = typeof rect.bottom === 'number' ? rect.bottom : rect.y + rect.height
+  return {
+    x: roundedNumber(rect.x),
+    y: roundedNumber(rect.y),
+    width: roundedNumber(rect.width),
+    height: roundedNumber(rect.height),
+    left: roundedNumber(left),
+    right: roundedNumber(right),
+    top: roundedNumber(top),
+    bottom: roundedNumber(bottom),
+  }
+}
+
+function summarizeSvgBBox(node: SVGGraphicsElement | null | undefined) {
+  if (!node) return null
+  try {
+    return summarizeRect(node.getBBox())
+  } catch {
+    return null
+  }
+}
+
+function summarizeSvgScreenRect(node: SVGGraphicsElement | SVGSVGElement | null | undefined) {
+  if (!node) return null
+  return summarizeRect(node.getBoundingClientRect())
+}
+
+function logGroupedDiffDebug(label: string, payload: Record<string, unknown>) {
+  try {
+    console.info('[grouped-diff-debug]', label, JSON.stringify(payload))
+  } catch {
+    console.info('[grouped-diff-debug]', label, payload)
+  }
+}
+
 function groupedDiffLayoutSnapshot(
   container: HTMLElement,
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
   layer?: d3.Selection<SVGGElement, unknown, null, undefined>,
 ) {
-  if (!operationNextDebugEnabled()) return null
   const svgNode = svg.node()
   if (!svgNode) return null
   const layerNode = layer?.node()
-  let annotationBBox: { x: number; y: number; width: number; height: number } | null = null
-  if (layerNode) {
-    try {
-      const box = layerNode.getBBox()
-      annotationBBox = { x: box.x, y: box.y, width: box.width, height: box.height }
-    } catch {
-      annotationBBox = null
-    }
-  }
-  const svgRect = svgNode.getBoundingClientRect()
+  const legendNode = svg.select<SVGGElement>(`.${SvgClassNames.ColorLegend}`).node()
+  const diffLabelNode = layer?.select<SVGTextElement>(`.${DIFF_ANNOTATION_CLASS}.difference-label`).node()
+  const diffArrowNodes = layer?.selectAll<SVGLineElement, unknown>(`line.${DIFF_ANNOTATION_CLASS}`).nodes() ?? []
+  const viewBox = svgNode.viewBox?.baseVal
   return {
     viewBox: svgNode.getAttribute(SvgAttributes.ViewBox),
-    svgRect: { width: svgRect.width, height: svgRect.height, left: svgRect.left, right: svgRect.right },
+    viewBoxBounds: viewBox
+      ? {
+          x1: roundedNumber(viewBox.x),
+          x2: roundedNumber(viewBox.x + viewBox.width),
+          y1: roundedNumber(viewBox.y),
+          y2: roundedNumber(viewBox.y + viewBox.height),
+          width: roundedNumber(viewBox.width),
+          height: roundedNumber(viewBox.height),
+        }
+      : null,
+    svgRect: summarizeSvgScreenRect(svgNode),
     host: {
       clientWidth: container.clientWidth,
       scrollWidth: container.scrollWidth,
       offsetWidth: container.offsetWidth,
     },
-    annotationBBox,
+    attrs: {
+      width: svgNode.getAttribute(SvgAttributes.Width),
+      height: svgNode.getAttribute(SvgAttributes.Height),
+      lockWidth: svgNode.getAttribute('data-workbench-svg-lock-width'),
+      lockHeight: svgNode.getAttribute('data-workbench-svg-lock-height'),
+      styleWidth: svgNode.style.width || null,
+      styleHeight: svgNode.style.height || null,
+      styleMinWidth: svgNode.style.minWidth || null,
+      styleMaxWidth: svgNode.style.maxWidth || null,
+      marginLeft: svgNode.getAttribute(DataAttributes.MarginLeft),
+      plotWidth: svgNode.getAttribute(DataAttributes.PlotWidth),
+      xField: svgNode.getAttribute(DataAttributes.XField),
+      yField: svgNode.getAttribute(DataAttributes.YField),
+    },
+    legend: {
+      transform: legendNode?.getAttribute(SvgAttributes.Transform) ?? null,
+      bbox: summarizeSvgBBox(legendNode),
+      screenRect: summarizeSvgScreenRect(legendNode),
+      resolvedX: resolveLegendX(svg),
+    },
+    annotation: {
+      bbox: summarizeSvgBBox(layerNode),
+      screenRect: summarizeSvgScreenRect(layerNode),
+      childCount: layerNode?.childElementCount ?? 0,
+    },
+    diffLabel: {
+      attrs: diffLabelNode
+        ? {
+            x: diffLabelNode.getAttribute(SvgAttributes.X),
+            y: diffLabelNode.getAttribute(SvgAttributes.Y),
+            anchor: diffLabelNode.getAttribute(SvgAttributes.TextAnchor),
+            text: diffLabelNode.textContent,
+          }
+        : null,
+      bbox: summarizeSvgBBox(diffLabelNode),
+      screenRect: summarizeSvgScreenRect(diffLabelNode),
+    },
+    diffArrowCount: diffArrowNodes.length,
   }
 }
 
@@ -845,6 +944,27 @@ async function annotateGroupedBarDiff(
     midY: (topY + bottomY) / 2,
   })
   if (!geometry) return
+  logGroupedDiffDebug('before-draw', {
+    before: debugBefore,
+    bounds,
+    endpoints: {
+      a: {
+        value: a.value,
+        y: a.y,
+        fromExistingReference: a.fromExistingReference,
+        derivedRef: derivedA?.refKey ?? null,
+      },
+      b: {
+        value: b.value,
+        y: b.y,
+        fromExistingReference: b.fromExistingReference,
+        derivedRef: derivedB?.refKey ?? null,
+      },
+    },
+    label,
+    geometry,
+    viewBox: resolveSvgViewBoxBounds(svg),
+  })
 
   await drawVerticalComparisonArrow({
     layer,
@@ -859,6 +979,11 @@ async function annotateGroupedBarDiff(
     color: COLORS.ANNOTATION_RED,
   })
   await drawGroupedDiffLabel({ layer, svg, label, geometry })
+  logGroupedDiffDebug('after-label', {
+    after: groupedDiffLayoutSnapshot(container, svg, layer),
+    geometry,
+    label,
+  })
 
   layer
     .selectAll<SVGElement, unknown>(`.${DIFF_ANNOTATION_CLASS}`)

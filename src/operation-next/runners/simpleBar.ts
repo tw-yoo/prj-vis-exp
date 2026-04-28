@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import { ChartType } from '../../domain/chart'
-import { averageData, diffData, filterData, findExtremum, retrieveValue, sortData } from '../../domain/operation/dataOps'
+import { averageData, diffByValueOp, diffData, filterData, findExtremum, getRuntimeResultsById, resolveScalarAggregateFromRows, retrieveValue, sortData } from '../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type JsonValue, type OperationSpec, type TargetSelector } from '../../domain/operation/types'
 import { getSimpleBarStoredData, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer'
 import type { SurfaceManager } from '../../runtime/surfaceManager'
@@ -57,6 +57,7 @@ function splitDebug(label: string, payload: Record<string, unknown>) {
 const RETRIEVE_ANNOTATION_CLASS = 'operation-next-retrieve-value'
 const FILTER_ANNOTATION_CLASS = 'operation-next-filter'
 const DIFF_ANNOTATION_CLASS = 'operation-next-diff'
+const DIFF_BY_VALUE_ANNOTATION_CLASS = 'operation-next-diff-by-value'
 const AVERAGE_ANNOTATION_CLASS = 'operation-next-average'
 const EXTREMUM_ANNOTATION_CLASS = 'operation-next-extremum'
 
@@ -99,6 +100,12 @@ function isAverageOperation(operation: OperationSpec): operation is OperationSpe
   op: typeof OperationOp.Average
 } {
   return operation.op === OperationOp.Average
+}
+
+function isDiffByValueOperation(operation: OperationSpec): operation is OperationSpec & {
+  op: typeof OperationOp.DiffByValue
+} {
+  return operation.op === OperationOp.DiffByValue
 }
 
 function isFindExtremumOperation(operation: OperationSpec): operation is OperationSpec & {
@@ -329,15 +336,13 @@ function resolveThresholdY(params: {
 }
 
 async function annotateFilter(container: HTMLElement, result: DatumValue[], operation: OperationSpec, workingData: DatumValue[], state: ChainState) {
-  const threshold = resolveNumericThreshold(operation, workingData)
-  if (threshold == null) return
-
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
 
   const layer = ensureAnnotationLayer(svg)
   layer.selectAll(`.${FILTER_ANNOTATION_CLASS}`).interrupt().remove()
 
+  const threshold = resolveNumericThreshold(operation, workingData)
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
   const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
@@ -356,6 +361,10 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
       return target != null && remainingTargets.has(target)
     },
   })
+
+  // Categorical include/exclude filters do not have a numeric threshold line.
+  // The salience transition above is still the visual explanation of scope.
+  if (threshold == null) return
 
   // Phase 1b — threshold line + label drawn after bars are at their final opacity.
   const thresholdY = resolveThresholdY({ bars, marginTop, threshold })
@@ -746,6 +755,118 @@ async function runDiffOperation(
   return { result, nextState: { ...state, lastResult: result } }
 }
 
+async function annotateDiffByValue(
+  container: HTMLElement,
+  result: DatumValue[],
+  operation: OperationSpec,
+  state: ChainState,
+) {
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+
+  const layer = ensureAnnotationLayer(svg)
+  layer.selectAll(`.${DIFF_BY_VALUE_ANNOTATION_CLASS}`).interrupt().remove()
+
+  const reference = resolveDiffByValueReferenceFromOp(operation, state)
+  if (reference == null) return
+
+  const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
+  const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
+  const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
+  const bars = svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+  const referenceY = resolveThresholdY({ bars, marginTop, threshold: reference })
+  if (referenceY == null) return
+
+  // Reference horizontal line + label.
+  await drawReferenceLine({
+    layer,
+    cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS,
+    x1: marginLeft,
+    x2: marginLeft + plotWidth,
+    y: referenceY,
+    label: `Reference: ${formatOperationValue(reference)}`,
+    svg,
+    viewport: resolveAnnotationViewport(svg),
+  })
+
+  // Per-bar delta text. result rows are keyed by datum target.
+  const deltaByTarget = new Map<string, number>()
+  for (const row of result) {
+    deltaByTarget.set(String(row.target), Number(row.value))
+  }
+
+  const labelData: Array<{ x: number; y: number; delta: number; anchor: SVGRectElement }> = []
+  bars.each(function () {
+    const rect = this as SVGRectElement
+    const target = rect.getAttribute(DataAttributes.Target)
+    if (target == null) return
+    const delta = deltaByTarget.get(target)
+    if (delta == null || !Number.isFinite(delta)) return
+    const metrics = barRootMetrics(rect, marginLeft, marginTop)
+    labelData.push({ x: metrics.centerX, y: metrics.topY, delta, anchor: rect })
+  })
+
+  const labels = layer
+    .selectAll<SVGTextElement, { x: number; y: number; delta: number }>(`text.${DIFF_BY_VALUE_ANNOTATION_CLASS}.bar-delta`)
+    .data(labelData)
+    .enter()
+    .append(SvgElements.Text)
+    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${DIFF_BY_VALUE_ANNOTATION_CLASS} bar-delta`)
+    .attr(SvgAttributes.X, (d) => d.x)
+    .attr(SvgAttributes.Y, (d) => Math.max(12, d.y - 8))
+    .attr(SvgAttributes.TextAnchor, 'middle')
+    .attr(SvgAttributes.FontSize, 12)
+    .attr(SvgAttributes.FontWeight, 700)
+    .attr(SvgAttributes.Fill, (d) => (d.delta >= 0 ? COLORS.ANNOTATION_RED : COLORS.ANNOTATION_RED))
+    .style(SvgAttributes.Opacity, 0)
+    .text((d) => `${d.delta >= 0 ? '+' : ''}${formatOperationValue(d.delta)}`)
+
+  labels.each(function (datum) {
+    placeOperationTextLabel({
+      svg,
+      text: d3.select(this),
+      preferred: { x: datum.x, y: Math.max(12, datum.y - 8) },
+      anchorElement: datum.anchor,
+      viewport: resolveAnnotationViewport(svg),
+    })
+  })
+
+  await labels.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1).end().catch(() => {})
+
+  state.annotationRecords.push({ cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+}
+
+function resolveDiffByValueReferenceFromOp(operation: OperationSpec, _state: ChainState): number | null {
+  const literal = (operation as OperationSpec & { value?: unknown }).value
+  if (typeof literal === 'number' && Number.isFinite(literal)) return literal
+  const targetValue = (operation as OperationSpec & { targetValue?: unknown }).targetValue
+  let refSource: string | null = typeof targetValue === 'string' ? targetValue : null
+  if (!refSource) {
+    const inputs = (operation as OperationSpec & { meta?: { inputs?: unknown[] } }).meta?.inputs
+    if (Array.isArray(inputs) && inputs.length > 0 && typeof inputs[0] === 'string') {
+      refSource = inputs[0] as string
+    }
+  }
+  if (!refSource) return null
+  const refKey = (refSource.startsWith('ref:') ? refSource.slice('ref:'.length) : refSource).trim()
+  if (!refKey) return null
+  return resolveScalarAggregateFromRows(getRuntimeResultsById(refKey))
+}
+
+async function runDiffByValueOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
+  await run.options?.onOperationReady?.({ operation, operationIndex })
+  const result = diffByValueOp(state.workingData, operation)
+  await annotateDiffByValue(run.container, result, operation, state)
+  await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
+  console.log('[operation-next] simple-bar diffByValue', { operationIndex, operation, result })
+  return { result, nextState: { ...state, lastResult: result } }
+}
+
 async function runAverageOperation(
   run: ParsedOperationRun,
   operation: OperationSpec,
@@ -812,6 +933,8 @@ export async function runSimpleBarOperations(run: ParsedOperationRun) {
         opResult = await runFilterOperation(run, operation, operationIndex, operationState)
       } else if (isDiffOperation(operation)) {
         opResult = await runDiffOperation(run, operation, operationIndex, operationState)
+      } else if (isDiffByValueOperation(operation)) {
+        opResult = await runDiffByValueOperation(run, operation, operationIndex, operationState)
       } else if (isAverageOperation(operation)) {
         opResult = await runAverageOperation(run, operation, operationIndex, operationState)
       } else if (isFindExtremumOperation(operation)) {

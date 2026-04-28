@@ -149,8 +149,8 @@ test('simple bar explanation templates stay concise for nth/findExtremum/scale/c
       expected: 'The value of USA scaled by 2 is 24.',
     },
     {
-      ops: [{ id: 'n1', op: 'compare', field: 'rating', which: 'max', targetA: 'USA', targetB: 'KOR', meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 } }],
-      expected: 'The maximum value between USA and KOR is 18.',
+      ops: [{ id: 'n1', op: 'diffByValue', field: 'rating', value: 13, signed: true, meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 } }],
+      expected: "Each value's difference from 13 is shown.",
       lineAnnotations: true,
     },
     {

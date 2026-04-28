@@ -412,7 +412,7 @@ function isBarCompareSurfaceChartType(chartType: ChartTypeValue | null) {
 }
 
 function isBarCompareSurfaceOp(op: OperationSpec) {
-  return op.op === OperationOp.Compare || op.op === OperationOp.CompareBool || op.op === OperationOp.Diff
+  return op.op === OperationOp.CompareBool || op.op === OperationOp.Diff
 }
 
 function firstTargetSelector(selector: TargetSelector | TargetSelector[] | undefined): TargetSelector | undefined {

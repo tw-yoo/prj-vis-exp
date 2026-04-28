@@ -313,10 +313,10 @@ test('stacked/grouped 단일 group 위임 후 retrieveValue/filter/diff/average/
       explanation: 'The average of Surgical is 103.33.',
     },
     {
-      label: 'grouped compare',
+      label: 'grouped diffByValue',
       spec: GROUPED_BAR_SPEC,
-      ops: [{ id: 'n1', op: 'compare', field: 'value', which: 'max', targetA: { target: 'KOR', series: 'Surgical' }, targetB: { target: 'USA', series: 'Surgical' }, meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 } }],
-      explanation: 'The maximum value between KOR and USA is 120.',
+      ops: [{ id: 'n1', op: 'diffByValue', field: 'value', group: 'Surgical', value: 100, signed: true, meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 } }],
+      explanation: "Each value's difference from 100 is shown.",
       visibleBars: 2,
       preserveSvgIdentity: false,
     },

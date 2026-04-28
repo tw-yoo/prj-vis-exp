@@ -31,61 +31,59 @@ async function ensureSpecInputVisible(page: Page) {
   await expect(input).toBeVisible({ timeout: 60_000 })
 }
 
-test('simple bar compare draws two comparison hlines, a right bracket, and delta text', async ({ page }) => {
+test('simple bar diffByValue draws one reference horizontal line and a delta text per bar', async ({ page }) => {
   await page.goto('/')
   await ensureSpecInputVisible(page)
   await page.getByTestId('vl-spec-input').fill(loadSimpleBarSpec())
   await page.getByTestId('render-chart-button').click()
   await expect(page.locator(`${chartHost} svg`).first()).toBeVisible()
 
+  const referenceValue = 33
   await runSingleOpsGroup(page, [
-    { op: 'compare', field: 'rating', targetA: 'USA', targetB: 'JPN' },
+    {
+      id: 'n1',
+      op: 'diffByValue',
+      field: 'rating',
+      value: referenceValue,
+      signed: true,
+      meta: { nodeId: 'n1', inputs: [], sentenceIndex: 1 },
+    },
   ])
 
-  const lineStats = await page.evaluate(() => {
+  const stats = await page.evaluate(() => {
     const svg = document.querySelector('svg')
     const width = svg?.getBoundingClientRect().width ?? 0
     const lines = Array.from(document.querySelectorAll('svg line.annotation.line-annotation'))
-      .map((line) => {
-        const x1 = Number(line.getAttribute('x1'))
-        const x2 = Number(line.getAttribute('x2'))
-        const y1 = Number(line.getAttribute('y1'))
-        const y2 = Number(line.getAttribute('y2'))
-        const stroke = (line.getAttribute('stroke') || '').toLowerCase()
-        return { x1, x2, y1, y2, stroke }
-      })
+      .map((line) => ({
+        x1: Number(line.getAttribute('x1')),
+        x2: Number(line.getAttribute('x2')),
+        y1: Number(line.getAttribute('y1')),
+        y2: Number(line.getAttribute('y2')),
+      }))
       .filter((entry) => [entry.x1, entry.x2, entry.y1, entry.y2].every(Number.isFinite))
     const horizontals = lines.filter(
       (entry) => Math.abs(entry.y1 - entry.y2) < 0.5 && Math.abs(entry.x2 - entry.x1) > width * 0.4,
     )
-    const verticals = lines.filter((entry) => Math.abs(entry.x1 - entry.x2) < 0.5 && Math.abs(entry.y1 - entry.y2) > 0.5)
-    const topHorizontalY = horizontals.length ? Math.min(...horizontals.map((entry) => entry.y1)) : null
-    return { horizontalCount: horizontals.length, verticalCount: verticals.length, topHorizontalY }
+    const deltaTexts = Array.from(
+      document.querySelectorAll<SVGTextElement>(
+        'svg text.annotation.text-annotation.operation-next-diff-by-value.bar-delta',
+      ),
+    ).map((node) => (node.textContent ?? '').trim())
+    const referenceTexts = Array.from(
+      document.querySelectorAll<SVGTextElement>('svg text.annotation.text-annotation'),
+    )
+      .map((node) => (node.textContent ?? '').trim())
+      .filter((text) => text.startsWith('Reference:'))
+    const barCount = document.querySelectorAll('svg rect.main-bar').length
+    return { horizontalCount: horizontals.length, deltaTexts, referenceTexts, barCount }
   })
 
-  expect(lineStats.horizontalCount).toBe(2)
-  expect(lineStats.verticalCount).toBeGreaterThanOrEqual(1)
-
-  const textStats = await page.evaluate(() => {
-    const texts = Array.from(document.querySelectorAll<SVGTextElement>('svg text.annotation.text-annotation'))
-      .map((node) => ({
-        text: (node.textContent ?? '').trim(),
-        y: Number(node.getAttribute('y')),
-      }))
-      .filter((entry) => entry.text.length > 0 && Number.isFinite(entry.y))
-    return {
-      texts: texts.map((entry) => entry.text),
-      topY: texts.length ? Math.min(...texts.map((entry) => entry.y)) : null,
-    }
-  })
-
-  expect(textStats.texts).toContain('53')
-  expect(textStats.texts).toContain('42')
-  expect(textStats.texts.some((text) => text.includes('Difference:'))).toBeTruthy()
-  expect(textStats.topY).not.toBeNull()
-  expect(lineStats.topHorizontalY).not.toBeNull()
-  if (lineStats.topHorizontalY != null && textStats.topY != null) {
-    expect(textStats.topY).toBeLessThan(lineStats.topHorizontalY)
+  expect(stats.horizontalCount).toBeGreaterThanOrEqual(1)
+  expect(stats.referenceTexts.length).toBeGreaterThanOrEqual(1)
+  expect(stats.referenceTexts[0]).toContain(String(referenceValue))
+  expect(stats.deltaTexts.length).toBe(stats.barCount)
+  for (const text of stats.deltaTexts) {
+    expect(text).toMatch(/^[+\-]?\d+(?:\.\d+)?$/)
   }
 })
 

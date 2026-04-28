@@ -180,13 +180,12 @@ export function buildOperationResultLabel(args: {
     case OperationOp.FindExtremum:
       shortLabel = buildAggregateLabel('maximum', cleanSubject || 'selected values')
       break
-    case OperationOp.DetermineRange:
-      shortLabel = buildAggregateLabel('range', cleanSubject || 'selected values')
+    case OperationOp.DiffByValue:
+      shortLabel = `differences from ${cleanSubject || 'reference value'}`
       break
     case OperationOp.Diff:
       shortLabel = buildBinaryLabel('difference', cleanLeft || 'previous result', cleanRight || 'previous result')
       break
-    case OperationOp.Compare:
     case OperationOp.CompareBool:
       shortLabel = buildBinaryLabel('comparison', cleanLeft || 'previous result', cleanRight || 'previous result')
       break

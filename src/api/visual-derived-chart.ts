@@ -242,27 +242,18 @@ function selectorsFromResultRows(rows: DatumValue[]): TargetSelector | TargetSel
   return selectors.length === 1 ? selectors[0] : selectors
 }
 
-function selectorKindsFromNodeIds(nodeIds: string[], nodeKinds: Map<string, NodeResultKind>): NodeResultKind[] {
-  return nodeIds
-    .map((nodeId) => nodeKinds.get(nodeId))
-    .filter((kind): kind is NodeResultKind => kind != null)
-}
-
 function classifyNodeResult(args: {
   op: OperationSpec
   result: DatumValue[]
-  nodeKinds: Map<string, NodeResultKind>
 }): NodeProvenance {
-  const { op, result, nodeKinds } = args
+  const { op, result } = args
   const sourceSelectors = selectorsFromResultRows(result)
   const opInputs = inputNodeIds(op)
-  const inputKinds = selectorKindsFromNodeIds(opInputs, nodeKinds)
 
   const aggregateWithoutInputs =
     (op.op === OperationOp.Average ||
       op.op === OperationOp.Sum ||
-      op.op === OperationOp.Count ||
-      op.op === OperationOp.DetermineRange) &&
+      op.op === OperationOp.Count) &&
     opInputs.length === 0
 
   if (aggregateWithoutInputs) {
@@ -275,6 +266,7 @@ function classifyNodeResult(args: {
 
   const alwaysSynthetic =
     op.op === OperationOp.Diff ||
+    op.op === OperationOp.DiffByValue ||
     op.op === OperationOp.Add ||
     op.op === OperationOp.Scale ||
     op.op === OperationOp.CompareBool ||
@@ -282,24 +274,10 @@ function classifyNodeResult(args: {
     op.op === OperationOp.LagDiff ||
     ((op.op === OperationOp.Average ||
       op.op === OperationOp.Sum ||
-      op.op === OperationOp.Count ||
-      op.op === OperationOp.DetermineRange) &&
+      op.op === OperationOp.Count) &&
       opInputs.length > 0)
 
   if (alwaysSynthetic) {
-    return {
-      resultKind: 'synthetic-result',
-      sourceSelectors: null,
-      displaySurfaceHint: 'derived-chart',
-    }
-  }
-
-  const compareWithNonMarkOperand =
-    op.op === OperationOp.Compare &&
-    inputKinds.length > 0 &&
-    inputKinds.some((kind) => kind !== 'source-backed')
-
-  if (compareWithNonMarkOperand) {
     return {
       resultKind: 'synthetic-result',
       sourceSelectors: null,
@@ -375,7 +353,6 @@ export function buildLogicalExecutionArtifacts(args: {
         const provenance = classifyNodeResult({
           op: entry.op,
           result,
-          nodeKinds,
         })
         nodeKinds.set(entry.nodeId, provenance.resultKind)
         nodeSourceSelectors.set(entry.nodeId, provenance.sourceSelectors)
@@ -711,7 +688,6 @@ export function shouldMaterializeDerivedSurface(args: {
       return null
     }
     case OperationOp.Diff:
-    case OperationOp.Compare:
     case OperationOp.CompareBool:
     case OperationOp.Add: {
       if (op.op === OperationOp.Diff && isGroupedOrStackedBarArtifact(artifacts) && operationUsesResultReference(op)) {
@@ -789,7 +765,6 @@ function selectRowsForOperation(op: OperationSpec, inputRows: DatumValue[]) {
       const selected = sliceBySelector(scoped, op.target, op.group ?? null)
       return selected.length ? selected : scoped
     }
-    case OperationOp.Compare:
     case OperationOp.CompareBool:
     case OperationOp.Diff:
     case OperationOp.Add: {
@@ -1221,11 +1196,10 @@ function sanitizeOperationForSurface(
       op.op === OperationOp.Average ||
       op.op === OperationOp.Sum ||
       op.op === OperationOp.Count ||
-      op.op === OperationOp.DetermineRange ||
+      op.op === OperationOp.DiffByValue ||
       op.op === OperationOp.FindExtremum ||
       op.op === OperationOp.RetrieveValue ||
       op.op === OperationOp.Diff ||
-      op.op === OperationOp.Compare ||
       op.op === OperationOp.CompareBool ||
       op.op === OperationOp.Add ||
       op.op === OperationOp.Scale
@@ -1290,7 +1264,6 @@ function validatePreparedRunOps(args: {
   return args.runOps.every((op) => {
     switch (op.op) {
       case OperationOp.Diff:
-      case OperationOp.Compare:
       case OperationOp.CompareBool:
       case OperationOp.Add:
         return (

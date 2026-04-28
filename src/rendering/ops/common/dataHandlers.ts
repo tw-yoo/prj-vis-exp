@@ -14,19 +14,17 @@ import {
   nthData,
   scaleData,
   setOpData,
-  compareOp,
   compareBoolOp,
   countData,
-  determineRange,
+  diffByValueOp,
 } from '../../../operation/run/dataOps'
 
 export const STANDARD_DATA_OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec) => DatumValue[]> = {
   [OperationOp.RetrieveValue]: retrieveValue,
   [OperationOp.Filter]: filterData,
   [OperationOp.FindExtremum]: findExtremum,
-  [OperationOp.DetermineRange]: determineRange,
-  [OperationOp.Compare]: compareOp,
   [OperationOp.CompareBool]: compareBoolOp,
+  [OperationOp.DiffByValue]: diffByValueOp,
   [OperationOp.Sort]: sortData,
   [OperationOp.Sum]: sumData,
   [OperationOp.Average]: averageData,

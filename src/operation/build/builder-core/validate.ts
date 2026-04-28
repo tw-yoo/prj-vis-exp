@@ -5,9 +5,8 @@ import {
   assertAddSpec,
   assertAverageSpec,
   assertCompareBoolSpec,
-  assertCompareSpec,
   assertCountSpec,
-  assertDetermineRangeSpec,
+  assertDiffByValueSpec,
   assertDiffSpec,
   assertFilterSpec,
   assertFindExtremumSpec,
@@ -94,11 +93,8 @@ export function validateOps(state: OpsBuilderState, chartType: ChartTypeValue | 
           case OperationOp.FindExtremum:
             assertFindExtremumSpec(op)
             break
-          case OperationOp.DetermineRange:
-            assertDetermineRangeSpec(op)
-            break
-          case OperationOp.Compare:
-            assertCompareSpec(op)
+          case OperationOp.DiffByValue:
+            assertDiffByValueSpec(op)
             break
           case OperationOp.CompareBool:
             assertCompareBoolSpec(op)

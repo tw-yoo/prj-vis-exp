@@ -2,10 +2,9 @@ import type { DatumValue, JsonPrimitive, JsonValue, OperationSpec, TargetSelecto
 import type {
   OpAddSpec,
   OpCompareBoolSpec,
-  OpCompareSpec,
   OpCountSpec,
+  OpDiffByValueSpec,
   OpDiffSpec,
-  OpDetermineRangeSpec,
   OpFilterSpec,
   OpFindExtremumSpec,
   OpLagDiffSpec,
@@ -22,9 +21,8 @@ import {
   assertAddSpec,
   assertAverageSpec,
   assertCompareBoolSpec,
-  assertCompareSpec,
   assertCountSpec,
-  assertDetermineRangeSpec,
+  assertDiffByValueSpec,
   assertDiffSpec,
   assertFilterSpec,
   assertFindExtremumSpec,
@@ -760,39 +758,6 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
   return inField.filter((d) => evalOperator(operator, d.target, resolvedValue ?? d.target))
 }
 
-/** 3.3 compare — returns the winning datum (array of one) */
-/** Op 3.3: compare two targets; return the winning datum. */
-export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
-  const arr = cloneData(data)
-  const spec = assertCompareSpec(op)
-  const { field, groupA, groupB, aggregate: agg, which = 'max' } = spec
-  const fallbackTargets = resolveBinaryInputsFromMeta(spec.meta?.inputs)
-  const targetA = spec.targetA ?? fallbackTargets.targetA
-  const targetB = spec.targetB ?? fallbackTargets.targetB
-  if (targetA == null || targetB == null) {
-    throw new Error('compare: targetA/targetB not found and meta.inputs fallback unavailable')
-  }
-  const gA = groupA ?? op.group
-  const gB = groupB ?? op.group
-  const sA = sliceForTarget(arr, field, targetA, gA ?? null)
-  const sB = sliceForTarget(arr, field, targetB, gB ?? null)
-  if (sA.length === 0 || sB.length === 0) {
-    throw new Error('compare: targetA/targetB not found in data slice')
-  }
-  const vA = aggregate(sA.map((d) => d.value), agg as string | undefined)
-  const vB = aggregate(sB.map((d) => d.value), agg as string | undefined)
-  const pickA = which === 'max' ? vA >= vB : vA <= vB
-  const chosen = pickA ? sA[sA.length - 1] : sB[sB.length - 1]
-  const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
-  return [
-    {
-      ...chosen,
-      name: buildBinaryLabel('comparison', left, right),
-      displayTarget: buildBinaryLabel('comparison', left, right),
-    },
-  ]
-}
-
 /** 3.4 compareBool — returns a scalar DatumValue[] (value: 1 or 0) */
 /** Op 3.4: compare two targets; return a numeric boolean result. */
 export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
@@ -878,58 +843,41 @@ export function sortData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   return sorted.concat(others)
 }
 
-/** 3.7 determineRange — returns {category: <field>, min, max} */
-/** Op 3.7: determine range (min/max) for measure or category domain. */
-export function determineRange(
-  data: DatumValue[],
-  op: OperationSpec,
-): DatumValue[] {
+/** 3.7 diffByValue — returns each datum's delta vs a single reference scalar */
+/** Op 3.7: compare every datum to a single scalar reference value. */
+export function diffByValueOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = assertDetermineRangeSpec(op)
-  const { field, group } = spec
+  const spec = assertDiffByValueSpec(op)
+  const { field, group, signed = true } = spec
+  const reference = resolveDiffByValueReference(spec)
+  if (reference == null) {
+    throw new Error('diffByValue: reference value could not be resolved')
+  }
   const byGroup = sliceByGroup(arr, group ?? null)
-  const kind = inferFieldKind(byGroup, field) || 'measure'
-  const inField = byGroup.filter(predicateByField(field, kind))
-  const fieldLabel = field || (kind === 'measure' ? 'value' : 'target')
-  const groupLabel = group ?? null
-  const subject = semanticSubjectFromRows(inField, fieldLabel)
-  const nameMin = buildAggregateLabel('minimum', subject)
-  const nameMax = buildAggregateLabel('maximum', subject)
-  if (inField.length === 0) {
-    return [
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', NaN, nameMin),
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', NaN, nameMax),
-    ]
-  }
+  const inField = field
+    ? byGroup.filter(predicateByField(field, inferFieldKind(byGroup, field) || 'measure'))
+    : byGroup
+  return inField.map((d) => {
+    const numeric = Number(d.value)
+    const delta = signed ? numeric - reference : Math.abs(numeric - reference)
+    return {
+      ...d,
+      value: roundNumeric(delta),
+      name: `Δ vs ${roundNumeric(reference)}`,
+    }
+  })
+}
 
-  if (kind === 'measure') {
-    const vals = inField.map((d) => d.value)
-    const min = roundNumeric(Math.min(...vals))
-    const max = roundNumeric(Math.max(...vals))
-    return [
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
-    ]
-  }
-  // category range: try date range, else lexicographic ordinal range as indices
-  const targets = inField.map((d) => d.target)
-  const parsed = targets.map((t) => Date.parse(t))
-  if (parsed.every((ts) => !Number.isNaN(ts))) {
-    const min = roundNumeric(Math.min(...parsed))
-    const max = roundNumeric(Math.max(...parsed))
-    return [
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
-    ]
-  }
-  // ordinal index range
-  const uniq = Array.from(new Set(targets)).sort(cmpStrAsc)
-  const min = roundNumeric(0)
-  const max = roundNumeric(Math.max(0, uniq.length - 1))
-  return [
-    ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
-    ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
-  ]
+function resolveDiffByValueReference(spec: OpDiffByValueSpec): number | null {
+  if (typeof spec.value === 'number' && Number.isFinite(spec.value)) return spec.value
+  const refSource = spec.targetValue
+    ?? (Array.isArray(spec.meta?.inputs) && spec.meta.inputs.length > 0 ? String(spec.meta.inputs[0]) : null)
+  if (typeof refSource !== 'string') return null
+  const refKey = refSource.startsWith('ref:') ? refSource.slice('ref:'.length) : refSource
+  const trimmed = refKey.trim()
+  if (!trimmed) return null
+  const rows = getRuntimeResultsById(trimmed)
+  return resolveScalarAggregateFromRows(rows)
 }
 
 /** 3.8 count — returns a single numeric DatumValue */
@@ -1375,11 +1323,10 @@ export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 export const LineChartOps = {
   retrieveValue,
   filter: filterData,
-  compare: compareOp,
   compareBool: compareBoolOp,
   findExtremum,
   sort: sortData,
-  determineRange,
+  diffByValue: diffByValueOp,
   count: countData,
   sum: sumData,
   average: averageData,

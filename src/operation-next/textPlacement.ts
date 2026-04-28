@@ -122,6 +122,17 @@ export function placeOperationTextLabel(options: TextPlacementOptions) {
   const anchorCenterY = anchorBox ? anchorBox.y + anchorBox.height / 2 : null
 
   let best = { ...options.preferred, score: Number.POSITIVE_INFINITY }
+
+  // Temporarily clip SVG overflow during candidate search. Each iteration sets
+  // the text element's (x, y) and calls getBBox(), which forces a layout
+  // reflow. With overflow:visible (the SVG default), if a candidate position
+  // places the text outside the viewBox the browser expands the scroll/layout
+  // boundary and never retracts it — even after the element is moved back
+  // inside. Setting overflow:hidden while iterating keeps the reflow contained
+  // so the chart container width stays stable.
+  const savedOverflow = svgNode.style.overflow
+  svgNode.style.overflow = 'hidden'
+
   buildCandidates(options.preferred, options.anchorElement).forEach((candidate) => {
     options.text.attr(SvgAttributes.X, candidate.x).attr(SvgAttributes.Y, candidate.y)
     const textBox = safeBox(textNode)
@@ -148,6 +159,10 @@ export function placeOperationTextLabel(options: TextPlacementOptions) {
     if (score < best.score) best = { x: candidate.x, y: candidate.y, score }
   })
 
+  // Place the text at the winning position, then restore the original overflow
+  // value so the SVG's visual behaviour is unchanged after label placement.
   options.text.attr(SvgAttributes.X, best.x).attr(SvgAttributes.Y, best.y)
+  svgNode.style.overflow = savedOverflow
+
   return { x: best.x, y: best.y }
 }

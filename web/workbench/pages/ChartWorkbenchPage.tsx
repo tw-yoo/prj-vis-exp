@@ -504,6 +504,64 @@ const summarizeHostForDebug = (host: HTMLElement | null | undefined) => ({
   circleCount: host?.querySelectorAll('circle').length ?? 0,
 })
 
+const SVG_SIZE_LOCK_WIDTH_ATTR = 'data-workbench-svg-lock-width'
+const SVG_SIZE_LOCK_HEIGHT_ATTR = 'data-workbench-svg-lock-height'
+
+function numericAttribute(element: Element, name: string) {
+  const value = Number(element.getAttribute(name))
+  return Number.isFinite(value) && value > 0 ? value : null
+}
+
+function resolveSvgSizeLock(svg: SVGSVGElement) {
+  const lockedWidth = numericAttribute(svg, SVG_SIZE_LOCK_WIDTH_ATTR)
+  const lockedHeight = numericAttribute(svg, SVG_SIZE_LOCK_HEIGHT_ATTR)
+  if (lockedWidth != null && lockedHeight != null) {
+    return { width: lockedWidth, height: lockedHeight, wasLocked: true }
+  }
+
+  const rect = svg.getBoundingClientRect()
+  const viewBox = svg.viewBox?.baseVal
+  const width =
+    rect.width > 0
+      ? rect.width
+      : numericAttribute(svg, 'width') ?? (viewBox && viewBox.width > 0 ? viewBox.width : null)
+  const height =
+    rect.height > 0
+      ? rect.height
+      : numericAttribute(svg, 'height') ?? (viewBox && viewBox.height > 0 ? viewBox.height : null)
+  if (width == null || height == null) return null
+  return { width, height, wasLocked: false }
+}
+
+function lockSvgElementSize(svg: SVGSVGElement) {
+  const size = resolveSvgSizeLock(svg)
+  if (!size) return null
+  const width = Number(size.width.toFixed(3))
+  const height = Number(size.height.toFixed(3))
+  const widthPx = `${width}px`
+  const heightPx = `${height}px`
+
+  svg.setAttribute(SVG_SIZE_LOCK_WIDTH_ATTR, String(width))
+  svg.setAttribute(SVG_SIZE_LOCK_HEIGHT_ATTR, String(height))
+  svg.setAttribute('width', String(width))
+  svg.setAttribute('height', String(height))
+  svg.style.width = widthPx
+  svg.style.height = heightPx
+  svg.style.minWidth = widthPx
+  svg.style.maxWidth = widthPx
+  svg.style.minHeight = heightPx
+  svg.style.maxHeight = heightPx
+  svg.style.flexShrink = '0'
+  return { width, height, wasLocked: size.wasLocked }
+}
+
+function lockRenderedChartSvgSizes(host: HTMLElement | null | undefined) {
+  if (!host) return []
+  return Array.from(host.querySelectorAll<SVGSVGElement>('svg[data-render-epoch], svg[data-plot-w]'))
+    .map((svg) => lockSvgElementSize(svg))
+    .filter((size): size is NonNullable<typeof size> => size != null)
+}
+
 const summarizeSplitLayoutForDebug = (manager: SurfaceManager | null | undefined) => {
   const layout = manager?.getLayout()
   return {
@@ -1785,35 +1843,40 @@ function ChartWorkbenchPage() {
     return cached.signature === specSignature(spec) && cached.surfaceId === surfaceId
   }, [getCachedRenderEntry])
 
-  const renderSpecIfNeeded = useCallback(
-    async (host: HTMLElement, spec: VegaLiteSpec, options?: { surfaceId?: string }) => {
-      const isCurrent = isRenderedSpecCurrent(host, spec, options?.surfaceId)
-      logOperationNextDebug('workbench-renderSpecIfNeeded', {
-        t: debugNow(),
-        isCurrent,
-        surfaceId: options?.surfaceId ?? null,
-        spec: summarizeSpecForDebug(spec),
-        host: summarizeHostForDebug(host),
-      })
-      if (isCurrent) return false
-      const outgoingPresentation = captureMarkPresentationSnapshot(host)
-      logOperationNextDebug('workbench-renderSpecIfNeeded-render-start', {
-        t: debugNow(),
-        hasOutgoingPresentation: Boolean(outgoingPresentation),
-        spec: summarizeSpecForDebug(spec),
-        host: summarizeHostForDebug(host),
-      })
-      await renderChartDispatch(host, spec)
-      cacheRenderedSpec(host, spec, options?.surfaceId)
-      playPresentationTransition(host, outgoingPresentation, { durationMs: 260 })
-      applySplitSharedYAxisPolicy(surfaceManagerRef.current)
-      logOperationNextDebug('workbench-renderSpecIfNeeded-render-end', {
-        t: debugNow(),
-        spec: summarizeSpecForDebug(spec),
-        host: summarizeHostForDebug(host),
-      })
-      return true
-    },
+    const renderSpecIfNeeded = useCallback(
+      async (host: HTMLElement, spec: VegaLiteSpec, options?: { surfaceId?: string }) => {
+        const isCurrent = isRenderedSpecCurrent(host, spec, options?.surfaceId)
+        logOperationNextDebug('workbench-renderSpecIfNeeded', {
+          t: debugNow(),
+          isCurrent,
+          surfaceId: options?.surfaceId ?? null,
+          spec: summarizeSpecForDebug(spec),
+          host: summarizeHostForDebug(host),
+        })
+        if (isCurrent) {
+          lockRenderedChartSvgSizes(host)
+          return false
+        }
+        const outgoingPresentation = captureMarkPresentationSnapshot(host)
+        logOperationNextDebug('workbench-renderSpecIfNeeded-render-start', {
+          t: debugNow(),
+          hasOutgoingPresentation: Boolean(outgoingPresentation),
+          spec: summarizeSpecForDebug(spec),
+          host: summarizeHostForDebug(host),
+        })
+        await renderChartDispatch(host, spec)
+        const lockedSvgSizes = lockRenderedChartSvgSizes(host)
+        cacheRenderedSpec(host, spec, options?.surfaceId)
+        playPresentationTransition(host, outgoingPresentation, { durationMs: 260 })
+        applySplitSharedYAxisPolicy(surfaceManagerRef.current)
+        logOperationNextDebug('workbench-renderSpecIfNeeded-render-end', {
+          t: debugNow(),
+          spec: summarizeSpecForDebug(spec),
+          host: summarizeHostForDebug(host),
+          lockedSvgSizes,
+        })
+        return true
+      },
     [cacheRenderedSpec, isRenderedSpecCurrent],
   )
 
@@ -2243,17 +2306,18 @@ function ChartWorkbenchPage() {
       surfaceRenderCacheRef.current = new WeakMap()
       delete chartRef.current.dataset.operationNextFocusState
 
-      if (checkpoint.dom.layoutType === 'single') {
-        surfaceManagerRef.current?.cleanupAll()
-        chartRef.current.innerHTML = checkpoint.dom.rootSvg ?? scene.svg_code
-        chartRef.current.setAttribute('data-surface-id', 'root')
-        delete chartRef.current.dataset.operationNextFocusState
-        surfaceManagerRef.current = new SurfaceManager(chartRef.current)
-        const rootData = checkpoint.dom.surfaces?.find((surface) => surface.id === 'root')?.data ?? []
-        surfaceManagerRef.current.createRootSurface(checkpoint.spec, inferredType, cloneDatumValues(rootData))
-        visualPlaybackSurfaceRef.current = 'source-chart'
-        return true
-      }
+        if (checkpoint.dom.layoutType === 'single') {
+          surfaceManagerRef.current?.cleanupAll()
+          chartRef.current.innerHTML = checkpoint.dom.rootSvg ?? scene.svg_code
+          lockRenderedChartSvgSizes(chartRef.current)
+          chartRef.current.setAttribute('data-surface-id', 'root')
+          delete chartRef.current.dataset.operationNextFocusState
+          surfaceManagerRef.current = new SurfaceManager(chartRef.current)
+          const rootData = checkpoint.dom.surfaces?.find((surface) => surface.id === 'root')?.data ?? []
+          surfaceManagerRef.current.createRootSurface(checkpoint.spec, inferredType, cloneDatumValues(rootData))
+          visualPlaybackSurfaceRef.current = 'source-chart'
+          return true
+        }
 
       const surfaces = checkpoint.dom.surfaces ?? []
       if (surfaces.length < 2) return false
@@ -2271,18 +2335,19 @@ function ChartWorkbenchPage() {
         dataA: cloneDatumValues(surfaceA.data ?? []),
         dataB: cloneDatumValues(surfaceB.data ?? []),
       })
-      for (const surface of surfaces) {
-        const instance = surfaceManagerRef.current.getSurface(surface.id)
-        const host = instance?.hostElement as HTMLElement | undefined
-        if (!host) continue
-        host.innerHTML = surface.svg_code
-        delete host.dataset.operationNextFocusState
-        surfaceManagerRef.current.updateSurface(surface.id, {
-          spec: surface.spec,
-          chartType: (surface.chartType as ChartTypeValue | undefined) ?? getChartType(surface.spec) ?? inferredType,
-          data: cloneDatumValues(surface.data ?? []),
-        })
-      }
+        for (const surface of surfaces) {
+          const instance = surfaceManagerRef.current.getSurface(surface.id)
+          const host = instance?.hostElement as HTMLElement | undefined
+          if (!host) continue
+          host.innerHTML = surface.svg_code
+          lockRenderedChartSvgSizes(host)
+          delete host.dataset.operationNextFocusState
+          surfaceManagerRef.current.updateSurface(surface.id, {
+            spec: surface.spec,
+            chartType: (surface.chartType as ChartTypeValue | undefined) ?? getChartType(surface.spec) ?? inferredType,
+            data: cloneDatumValues(surface.data ?? []),
+          })
+        }
       applySplitSharedYAxisPolicy(surfaceManagerRef.current)
       visualPlaybackSurfaceRef.current = 'derived-chart'
       return true
@@ -2921,31 +2986,38 @@ function ChartWorkbenchPage() {
       executionSpec = requestedSurfaceId && requestedSurfaceId !== 'root' ? targetSurface?.spec ?? executionSpec : currentSpecRef.current ?? executionSpec
     }
 
-    logOperationNextDebug('workbench-executeOpsArray-before-run', {
-      t: debugNow(),
-      executionSpec: summarizeSpecForDebug(executionSpec),
-      executionContainer: summarizeHostForDebug(executionContainer),
-      renderedExecutionSpec,
-    })
-    logSplitSimpleBarDebug('workbench.executeOpsArray-before-run', {
-      requestedSurfaceId: requestedSurfaceId ?? null,
-      renderedExecutionSpec,
-      executionSpec: summarizeSpecForDebug(executionSpec),
-      executionContainer: summarizeHostForDebug(executionContainer),
-      layout: summarizeSplitLayoutForDebug(surfaceManagerRef.current),
-      opsForRun: summarizeOpsForDebug(scopedOps),
-    })
+      logOperationNextDebug('workbench-executeOpsArray-before-run', {
+        t: debugNow(),
+        executionSpec: summarizeSpecForDebug(executionSpec),
+        executionContainer: summarizeHostForDebug(executionContainer),
+        renderedExecutionSpec,
+      })
+      logSplitSimpleBarDebug('workbench.executeOpsArray-before-run', {
+        requestedSurfaceId: requestedSurfaceId ?? null,
+        renderedExecutionSpec,
+        executionSpec: summarizeSpecForDebug(executionSpec),
+        executionContainer: summarizeHostForDebug(executionContainer),
+        layout: summarizeSplitLayoutForDebug(surfaceManagerRef.current),
+        opsForRun: summarizeOpsForDebug(scopedOps),
+      })
+      const lockedSvgSizesBeforeRun = lockRenderedChartSvgSizes(executionContainer)
+      logOperationNextDebug('workbench-executeOpsArray-lock-before-run', {
+        t: debugNow(),
+        requestedSurfaceId: requestedSurfaceId ?? null,
+        lockedSvgSizes: lockedSvgSizesBeforeRun,
+        executionContainer: summarizeHostForDebug(executionContainer),
+      })
 
-    if (!scopedOps.length) {
-      if (options?.executionSpec && !renderedExecutionSpec) {
-        if (requestedSurfaceId && requestedSurfaceId !== 'root') {
-          await renderExecutionSpecOnSurface()
-        } else {
-          await renderChart(JSON.stringify(options.executionSpec, null, 2))
+      if (!scopedOps.length) {
+        if (options?.executionSpec && !renderedExecutionSpec) {
+          if (requestedSurfaceId && requestedSurfaceId !== 'root') {
+            await renderExecutionSpecOnSurface()
+          } else {
+            await renderChart(JSON.stringify(options.executionSpec, null, 2))
+          }
         }
+        return
       }
-      return
-    }
 
     if (!planGroups && opsInputMode === 'builder' && Object.keys(opsErrors).length > 0) {
       alert('Fix operation errors before running.')
@@ -2971,21 +3043,28 @@ function ChartWorkbenchPage() {
               return rest as OperationSpec
             })
           : scopedOps
-      const runResult = await runChartOps(executionContainer!, executionSpec, { ops: opsForExecution }, {
-        onOperationCompleted: options?.onOperationCompleted,
-        runtimeScope,
-        resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
-        runtimeSnapshot: options?.runtimeSnapshot,
-        initialChainState: options?.initialChainState,
-        referencedResultIds: collectReferencedResultIdsFromOpsGroups(opsGroups),
-        initialRenderMode: 'reuse-existing',
-        surfaceManager: requestedSurfaceId && requestedSurfaceId !== 'root' ? undefined : surfaceManagerRef.current ?? undefined,
-      })
-      logSplitSimpleBarDebug('workbench.executeOpsArray-after-runChartOps', {
-        requestedSurfaceId: requestedSurfaceId ?? null,
-        executionContainer: summarizeHostForDebug(executionContainer),
-        layout: summarizeSplitLayoutForDebug(surfaceManagerRef.current),
-      })
+        const runResult = await runChartOps(executionContainer!, executionSpec, { ops: opsForExecution }, {
+          onOperationCompleted: options?.onOperationCompleted,
+          runtimeScope,
+          resetRuntime: options?.resetRuntime ?? !opsSessionActiveRef.current,
+          runtimeSnapshot: options?.runtimeSnapshot,
+          initialChainState: options?.initialChainState,
+          referencedResultIds: collectReferencedResultIdsFromOpsGroups(opsGroups),
+          initialRenderMode: 'reuse-existing',
+          surfaceManager: requestedSurfaceId && requestedSurfaceId !== 'root' ? undefined : surfaceManagerRef.current ?? undefined,
+        })
+        const lockedSvgSizesAfterRun = lockRenderedChartSvgSizes(executionContainer)
+        logSplitSimpleBarDebug('workbench.executeOpsArray-after-runChartOps', {
+          requestedSurfaceId: requestedSurfaceId ?? null,
+          executionContainer: summarizeHostForDebug(executionContainer),
+          layout: summarizeSplitLayoutForDebug(surfaceManagerRef.current),
+        })
+        logOperationNextDebug('workbench-executeOpsArray-lock-after-run', {
+          t: debugNow(),
+          requestedSurfaceId: requestedSurfaceId ?? null,
+          lockedSvgSizes: lockedSvgSizesAfterRun,
+          executionContainer: summarizeHostForDebug(executionContainer),
+        })
       const operationOutcome = asOperationNextRunOutcome(runResult)
       if (requestedSurfaceId && requestedSurfaceId !== 'root' && surfaceManagerRef.current) {
         const derived = consumeDerivedChartState(executionContainer!)
