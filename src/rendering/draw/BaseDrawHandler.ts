@@ -993,6 +993,7 @@ export abstract class BaseDrawHandler {
             displacement: Math.hypot(insidePos.x - preferred.x, insidePos.y - preferred.y),
             overlapArea: 0,
             outsideArea: 0,
+            forbiddenArea: 0,
             collisionScore: 0,
           }
           usedBarInsideFallback = true
@@ -1371,9 +1372,9 @@ export abstract class BaseDrawHandler {
   protected filterDataMarks(
     selection: d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue>,
   ): d3.Selection<SVGElement, JsonValue, d3.BaseType, JsonValue> {
-    const handler = this
+    const isDataMarkElement = (element: Element) => this.isDataMarkElement(element)
     return selection.filter(function () {
-      return handler.isDataMarkElement(this as Element)
+      return isDataMarkElement(this as Element)
     })
   }
 
@@ -1843,10 +1844,9 @@ export abstract class BaseDrawHandler {
     if (mode === DrawTextModes.Anchor) {
       const selection = this.selectElements(op.select, op.chartId)
       if (selection.empty()) return
-      const handler = this
       const viewport = this.resolvePanelViewportInSvgSpace(svgNode, op.chartId)
-      selection.each(function () {
-        const el = this as SVGGraphicsElement
+      selection.nodes().forEach((node) => {
+        const el = node as SVGGraphicsElement
         if (!el || typeof el.getBBox !== 'function') return
         const bbox = el.getBBox()
         const x = bbox.x + bbox.width / 2 + offsetX
@@ -1870,9 +1870,9 @@ export abstract class BaseDrawHandler {
           .text(textValue)
         const textElement = textNode.node()
         if (textElement) {
-          handler.applyAnnotationAttrs(textElement, op, annotationKey, annotationNodeId)
+          this.applyAnnotationAttrs(textElement, op, annotationKey, annotationNodeId)
         }
-        handler.placeTextWithCollisionPolicy({
+        this.placeTextWithCollisionPolicy({
           textNode: textNode as unknown as d3.Selection<SVGTextElement, unknown, SVGElement | null, unknown>,
           svgNode,
           chartId: op.chartId,
@@ -1888,7 +1888,7 @@ export abstract class BaseDrawHandler {
           allowBarInsideFallback:
             !(annotationSlot?.startsWith('value-label:') || annotationSlot?.startsWith('comparison-summary:')),
         })
-        handler.applyTransition(textNode).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
+        this.applyTransition(textNode).attr(SvgAttributes.Opacity, style?.opacity ?? 1)
       })
       return
     }

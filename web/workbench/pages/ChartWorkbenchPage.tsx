@@ -47,6 +47,10 @@ import {
   SimpleLineDrawHandler,
   StackedBarDrawHandler,
   TimelineStepKind,
+  captureSvgSnapshot,
+  consumeDerivedChartState,
+  ChartType,
+  getChartType,
   type DrawInteractionControllerState,
   type BarSegmentCommit,
   type DrawLineSpec,
@@ -58,10 +62,9 @@ import {
   type PointerClientPoint,
   type SeriesFilterMode,
   type TimelineStep,
-} from '../../../src/rendering'
+} from '../../../src/api/rendering'
 import { draw, ops, serializeSessionToDslPlanSource, serializeSessionToJson } from '../../../src/api/authoring'
-import { collectOpsBuilderOptionSources, getEmptyOptionSources } from '../../../src/operation/build'
-import { ChartType, getChartType } from '../../../src/domain/chart'
+import { collectOpsBuilderOptionSources, getEmptyOptionSources } from '../../../src/api/operation-build'
 import { OperationOp, type ChartTypeValue, type DatumValue, type OperationSpec, type VegaLiteSpec } from '../../../src/api/types'
 import {
   CHUNKED_CHART_OUTPUT_VERSION,
@@ -105,8 +108,7 @@ import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
 import { createSceneCaptureWriter } from '../scenes/sceneCapture'
 import { fetchLatestPythonDrawPlan } from '../services/pythonDrawPlan'
-import { captureSvgSnapshot, consumeDerivedChartState } from '../../../src/api/rendering'
-import { applySplitSharedYAxisPolicy } from '../../../src/operation-next/splitSurfaceVisuals'
+import { applySplitSharedYAxisPolicy } from '../../../src/api/split-surface-visuals'
 
 const vlSpecPlaceholder = barSimpleSpecRaw
 

@@ -1,7 +1,7 @@
 import { getChartType, renderChart, type ChartSpec, type ChartTypeValue } from '../../../src/api/rendering'
 import { runChartOps, type RunChartOpsOptions } from '../../../src/api/operation-run'
 import type { DatumValue, OperationSpec } from '../../../src/api/types'
-import { SurfaceManager } from '../../../src/runtime/surfaceManager'
+import { SurfaceManager } from '../../../src/api/surface-manager'
 
 type DemoSurfaceSnapshot = {
   id: string

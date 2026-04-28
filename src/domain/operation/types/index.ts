@@ -65,6 +65,7 @@ export type TargetSelector =
  * Properties are optional because different ops use different subsets.
  */
 export interface OperationSpec {
+  id?: string
   op?: string
   text?: JsonValue
   meta?: {
@@ -118,6 +119,8 @@ export interface OperationSpec {
   /** Sleep duration in seconds */
   seconds?: number
   duration?: number
+  action?: string
+  split?: JsonValue
 }
 
 export type DataOpResult = DatumValue[]

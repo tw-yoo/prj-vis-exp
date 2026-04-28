@@ -725,15 +725,10 @@ function referenceLineForResultRef(
   resultRef: string | null | undefined,
 ) {
   if (!resultRef) return null
-  let found: SVGLineElement | null = null
-  layer
+  const found = layer
     .selectAll<SVGLineElement, unknown>(`line[${RESULT_REF_ATTRIBUTE}]`)
-    .each(function () {
-      if (found) return
-      if (this.getAttribute(RESULT_REF_ATTRIBUTE) === resultRef) {
-        found = this
-      }
-    })
+    .nodes()
+    .find((node) => node.getAttribute(RESULT_REF_ATTRIBUTE) === resultRef) ?? null
   if (!found) return null
 
   const y = readNumberAttr(found, SvgAttributes.Y1)
