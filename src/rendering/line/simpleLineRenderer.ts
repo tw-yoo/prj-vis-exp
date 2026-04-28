@@ -7,6 +7,7 @@ import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } fr
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { createTemporalTickFormatter } from '../common/temporalTicks'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
@@ -120,63 +121,9 @@ function getDatumRecord(value: unknown): Record<string, unknown> {
   return {}
 }
 
-function normalizeOptionalLabel(value: JsonValue | undefined) {
-  if (value === undefined) return undefined
-  if (value === null) return null
-  const str = String(value).trim()
-  return str.length > 0 ? str : null
-}
-
 function asRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   return value as Record<string, unknown>
-}
-
-function extractAxisTitle(channel: unknown): string | null | undefined {
-  const rec = asRecord(channel)
-  if (Object.prototype.hasOwnProperty.call(rec, 'title')) {
-    const title = rec.title
-    if (title == null) return null
-    if (typeof title === 'string') return title.trim().length > 0 ? title.trim() : null
-  }
-  const axis = asRecord(rec.axis)
-  if (Object.prototype.hasOwnProperty.call(axis, 'title')) {
-    const title = axis.title
-    if (title == null) return null
-    if (typeof title === 'string') return title.trim().length > 0 ? title.trim() : null
-  }
-  return undefined
-}
-
-function resolveSimpleLineAxisLabels(spec: LineSpec, resolved: ResolvedLineEncoding) {
-  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
-  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
-  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
-  if (xAxisLabelOverride !== undefined || yAxisLabelOverride !== undefined) {
-    return {
-      xAxisLabel: xAxisLabelOverride === undefined ? resolved.xField : xAxisLabelOverride,
-      yAxisLabel: yAxisLabelOverride === undefined ? resolved.yField : yAxisLabelOverride,
-    }
-  }
-
-  const layers = normalizeLayers(spec as ChartSpec)
-  let xTitle: string | null | undefined
-  let yTitle: string | null | undefined
-  for (const layer of layers) {
-    const encoding = asRecord(layer.encoding)
-    if (xTitle === undefined) {
-      xTitle = extractAxisTitle(encoding.x)
-    }
-    if (yTitle === undefined) {
-      yTitle = extractAxisTitle(encoding.y)
-    }
-    if (xTitle !== undefined && yTitle !== undefined) break
-  }
-
-  return {
-    xAxisLabel: xTitle === undefined ? resolved.xField : xTitle,
-    yAxisLabel: yTitle === undefined ? resolved.yField : yTitle,
-  }
 }
 
 function compareDomainLabel(a: string, b: string) {
@@ -400,7 +347,8 @@ export async function renderSimpleLineChart(container: HTMLElement, spec: LineSp
   const filteredData = applyLineTransforms(rawData, spec)
   const xLabelMap = buildCategoricalDisplayLabelMap(filteredData, resolved.xField)
   const yMinZero = resolveLineYDomainMinZero(spec, resolved)
-  const { xAxisLabel, yAxisLabel } = resolveSimpleLineAxisLabels(spec, resolved)
+  const xAxisLabel = resolveAxisTitle(spec, filteredData, 'x')
+  const yAxisLabel = resolveAxisTitle(spec, filteredData, 'y')
   const style = resolveSimpleLineStyle(spec)
   const renderEpoch = bumpRenderEpoch(container)
 

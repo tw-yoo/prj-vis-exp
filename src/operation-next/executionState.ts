@@ -25,6 +25,7 @@ function cloneDatumValue(datum: DatumValue): DatumValue {
   return {
     category: datum.category,
     measure: datum.measure,
+    semanticMeasure: datum.semanticMeasure ?? null,
     target: datum.target,
     displayTarget: datum.displayTarget ?? null,
     group: datum.group ?? null,

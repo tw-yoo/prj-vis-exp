@@ -7,6 +7,7 @@ import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } fr
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 import { bumpRenderEpoch } from '../common/renderEpoch'
@@ -40,13 +41,6 @@ function clearRenderHostChildren(container: HTMLElement, preserveSelectors: stri
     if (preserved.has(child)) return
     child.remove()
   })
-}
-
-function normalizeOptionalLabel(value: JsonValue | undefined) {
-  if (value === undefined) return undefined
-  if (value === null) return null
-  const str = String(value).trim()
-  return str.length > 0 ? str : null
 }
 
 function resolveBarFill(spec: SimpleBarSpec): string {
@@ -211,11 +205,6 @@ export async function renderSimpleBarChart(
   const yType = spec.encoding.y.type
   const barFill = resolveBarFill(spec)
   clearSimpleBarSplitDomains(stateHost)
-  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
-  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
-  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
-  const resolvedXAxisLabel = xAxisLabelOverride === undefined ? xField : xAxisLabelOverride
-  const resolvedYAxisLabel = yAxisLabelOverride === undefined ? yField : yAxisLabelOverride
 
   let data: RawDatum[] = []
   if (spec.data && Array.isArray((spec.data as { values?: JsonValue[] }).values)) {
@@ -233,6 +222,9 @@ export async function renderSimpleBarChart(
     console.warn('renderSimpleBarChart: spec.data.values or spec.data.url is required')
     data = []
   }
+
+  const resolvedXAxisLabel = resolveAxisTitle(spec, data, 'x')
+  const resolvedYAxisLabel = resolveAxisTitle(spec, data, 'y')
 
   data.forEach((d) => {
     if (xType === 'quantitative') d[xField] = Number(d[xField])
@@ -380,17 +372,6 @@ export async function renderSimpleBarChart(
   )
 
   return svg
-}
-
-function resolveAxisLabels(spec: SimpleBarSpec) {
-  const yField = spec.encoding.y.field
-  const xField = spec.encoding.x.field
-  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
-  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
-  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
-  const resolvedXAxisLabel = xAxisLabelOverride === undefined ? xField : xAxisLabelOverride
-  const resolvedYAxisLabel = yAxisLabelOverride === undefined ? yField : yAxisLabelOverride
-  return { resolvedXAxisLabel, resolvedYAxisLabel }
 }
 
 export async function renderSumSimpleBarChart(

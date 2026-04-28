@@ -8,6 +8,7 @@ import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../co
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 import { renderColorLegend, resolveColorLegendTitle as resolveChannelLegendTitle } from '../common/colorLegend'
 import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { createTemporalTickFormatter } from '../common/temporalTicks'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
@@ -63,13 +64,6 @@ function getDatumRecord(value: unknown): Record<string, unknown> {
   return {}
 }
 
-function normalizeOptionalLabel(value: JsonValue | undefined) {
-  if (value === undefined) return undefined
-  if (value === null) return null
-  const str = String(value).trim()
-  return str.length > 0 ? str : null
-}
-
 export type MultiLineSpec = ChartSpec & {
   encoding?: {
     x?: { field?: string; type?: string }
@@ -89,22 +83,6 @@ export type ResolvedMultiLineEncoding = {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
-}
-
-function extractAxisTitle(channel: unknown): string | null | undefined {
-  const rec = asRecord(channel)
-  if (Object.prototype.hasOwnProperty.call(rec, 'title')) {
-    const title = rec.title
-    if (title == null) return null
-    if (typeof title === 'string') return title.trim().length > 0 ? title.trim() : null
-  }
-  const axis = asRecord(rec.axis)
-  if (Object.prototype.hasOwnProperty.call(axis, 'title')) {
-    const title = axis.title
-    if (title == null) return null
-    if (typeof title === 'string') return title.trim().length > 0 ? title.trim() : null
-  }
-  return undefined
 }
 
 function normalizeLayers(spec: ChartSpec) {
@@ -128,33 +106,6 @@ function normalizeMarkType(mark: unknown) {
     return String((mark as Record<string, unknown>).type)
   }
   return null
-}
-
-function resolveMultiLineAxisLabels(spec: MultiLineSpec, encoding: ResolvedMultiLineEncoding) {
-  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
-  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
-  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
-  if (xAxisLabelOverride !== undefined || yAxisLabelOverride !== undefined) {
-    return {
-      xAxisLabel: xAxisLabelOverride === undefined ? encoding.xField : xAxisLabelOverride,
-      yAxisLabel: yAxisLabelOverride === undefined ? encoding.yField : yAxisLabelOverride,
-    }
-  }
-
-  const layers = normalizeLayers(spec as ChartSpec)
-  let xTitle: string | null | undefined
-  let yTitle: string | null | undefined
-  for (const layer of layers) {
-    const layerEncoding = asRecord(layer.encoding)
-    if (xTitle === undefined) xTitle = extractAxisTitle(layerEncoding.x)
-    if (yTitle === undefined) yTitle = extractAxisTitle(layerEncoding.y)
-    if (xTitle !== undefined && yTitle !== undefined) break
-  }
-
-  return {
-    xAxisLabel: xTitle === undefined ? encoding.xField : xTitle,
-    yAxisLabel: yTitle === undefined ? encoding.yField : yTitle,
-  }
 }
 
 function compareDomainLabel(a: string, b: string) {
@@ -459,7 +410,8 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
   const filteredData = applyLineTransforms(rawData, spec)
   const xLabelMap = buildCategoricalDisplayLabelMap(filteredData, encoding.xField)
   const yMinZero = resolveLineYDomainMinZero(spec, encoding)
-  const { xAxisLabel, yAxisLabel } = resolveMultiLineAxisLabels(spec, encoding)
+  const xAxisLabel = resolveAxisTitle(spec, filteredData, 'x')
+  const yAxisLabel = resolveAxisTitle(spec, filteredData, 'y')
   const style = resolveMultiLineStyle(spec)
   const renderEpoch = bumpRenderEpoch(container)
 
