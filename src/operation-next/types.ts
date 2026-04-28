@@ -4,6 +4,7 @@ import type { NormalizedOpsGroup, OpsSpecInput } from '../domain/operation/opsSp
 import type { OperationSpec } from '../domain/operation/types'
 import type { SurfaceManager } from '../runtime/surfaceManager'
 import type { OperationRuntimeSnapshot, SerializableChainState } from './executionState'
+import type { OperationNode } from './operationTree'
 
 export type RunChartOpsOptions = {
   onOperationReady?: (event: OperationReadyEvent) => Promise<void> | void
@@ -32,6 +33,7 @@ export type ParsedOperationRun = {
   chartType: ChartTypeValue
   opsSpec: OpsSpecInput
   groups: NormalizedOpsGroup[]
+  operationTrees?: OperationNode[][]
   options?: RunChartOpsOptions
 }
 

@@ -14,6 +14,7 @@ import { assertKnownOperationNextChartType } from './runners/shared'
 import type { ChartOperationRunner, RunChartOpsOptions } from './types'
 import { initializeOperationRuntime } from './executionState'
 import { collectReferencedResultIds } from './diffEndpoint'
+import { buildTreeFromList, topologicalLinearize } from './operationTree'
 
 const DEBUG_PREFIX = '[operation-next-debug]'
 
@@ -123,6 +124,7 @@ export async function runChartOps(
   const runtime = await prepareChartRuntimeSpec(spec)
   const chartType = assertKnownOperationNextChartType(runtime.chartType)
   const groups = normalizeOpsGroups(opsSpec)
+  const operationTrees = groups.map((group) => buildTreeFromList(group.ops))
   const runner = resolveRunner(chartType)
   const referencedResultIds = Array.from(new Set([
     ...(options?.referencedResultIds ?? []),
@@ -141,6 +143,12 @@ export async function runChartOps(
       name: group.name,
       ops: group.ops.map((operation) => operation.op ?? '(unknown)'),
     })),
+    operationTrees: operationTrees.map((tree) => topologicalLinearize(tree).map((node) => ({
+      id: node.id,
+      op: node.op.op ?? '(unknown)',
+      inputs: node.inputs.map((input) => input.nodeId),
+      category: node.category,
+    }))),
     dom: summarizeChartDom(container),
   })
 
@@ -151,6 +159,7 @@ export async function runChartOps(
     chartType,
     opsSpec,
     groups,
+    operationTrees,
     options: runOptions,
   })
 }
