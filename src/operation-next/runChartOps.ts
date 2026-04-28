@@ -15,6 +15,7 @@ import type { ChartOperationRunner, RunChartOpsOptions } from './types'
 import { initializeOperationRuntime } from './executionState'
 import { collectReferencedResultIds } from './diffEndpoint'
 import { buildTreeFromList, topologicalLinearize } from './operationTree'
+import { DEFAULT_POLICY } from './tensionPolicy'
 
 const DEBUG_PREFIX = '[operation-next-debug]'
 
@@ -133,6 +134,7 @@ export async function runChartOps(
   const runOptions = {
     ...options,
     referencedResultIds,
+    tensionPolicy: options?.tensionPolicy ?? DEFAULT_POLICY,
   }
 
   debugLog('run-dispatch', {
@@ -149,6 +151,7 @@ export async function runChartOps(
       inputs: node.inputs.map((input) => input.nodeId),
       category: node.category,
     }))),
+    policy: runOptions.tensionPolicy,
     dom: summarizeChartDom(container),
   })
 

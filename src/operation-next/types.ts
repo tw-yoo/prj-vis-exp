@@ -5,6 +5,7 @@ import type { OperationSpec } from '../domain/operation/types'
 import type { SurfaceManager } from '../runtime/surfaceManager'
 import type { OperationRuntimeSnapshot, SerializableChainState } from './executionState'
 import type { OperationNode } from './operationTree'
+import type { TensionPolicy } from './tensionPolicy'
 
 export type RunChartOpsOptions = {
   onOperationReady?: (event: OperationReadyEvent) => Promise<void> | void
@@ -24,6 +25,7 @@ export type RunChartOpsOptions = {
   initialRenderMode?: 'always' | 'reuse-existing'
   surfaceManager?: SurfaceManager
   operationIndexStart?: number
+  tensionPolicy?: TensionPolicy
 }
 
 export type ParsedOperationRun = {

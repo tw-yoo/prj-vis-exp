@@ -10,17 +10,16 @@ import {
   type DifferenceArrowParams,
   type ReferenceLineParams,
 } from '../rendering/primitives'
-import { createVisualizationFrame, type TensionFrameConfig, type VisualizationFrame } from './visualizationFrame'
+import { createVisualizationFrame, type VisualizationFrame } from './visualizationFrame'
 import type { OperationNode } from './operationTree'
-
-export type PlannerPolicy = Partial<TensionFrameConfig>
+import { DEFAULT_POLICY, resolveFrameConfig, type TensionPolicy } from './tensionPolicy'
 
 /** Builds declarative visualization frames from an operation dependency tree. */
 export function planFrames(
   tree: OperationNode[],
   results: Map<string, DataOpResult>,
   chartType: ChartTypeValue,
-  policy: PlannerPolicy = {},
+  policy: TensionPolicy = DEFAULT_POLICY,
 ): VisualizationFrame[] {
   const frames: VisualizationFrame[] = []
   const emittedPrimitiveKeys = new Set<string>()
@@ -32,7 +31,7 @@ export function planFrames(
         id: `frame_transform_before_${node.id}`,
         phase: 'transformation',
         chartContext: { chartType },
-        config: policy,
+        config: resolveFrameConfig(policy, node, chartType),
       })
       const params: ChartTransformParams = {
         from: chartType,
@@ -51,10 +50,7 @@ export function planFrames(
       id: `frame_after_${node.id}`,
       phase: phaseForNode(node),
       chartContext: { chartType },
-      config: {
-        ...policy,
-        arrowPlacement: node.op.op === OperationOp.PairDiff ? 'inline' : policy.arrowPlacement,
-      },
+      config: resolveFrameConfig(policy, node, chartType),
     })
     frame.derivedFrom.push({ opNodeId: node.id, role: 'compute' })
 
@@ -92,7 +88,7 @@ export function planFrames(
       if (keys.length > 0) {
         const params = {
           selection: { kind: 'datumKeys' as const, keys },
-          level: 'highlight' as const,
+          level: frame.config.salienceStrategy,
           reversible: true,
         }
         pushPrimitive(frame, emittedPrimitiveKeys, {

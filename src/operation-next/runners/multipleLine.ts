@@ -1252,7 +1252,8 @@ async function runPairDiffOperation(
     resultCount: result.length,
     dom: summarizeMultipleLineDom(run.container),
   })
-  const scaleState = await applyPairDiffFocusTransform(run.container, operation)
+  const shouldRescale = run.options?.tensionPolicy?.rescaleAfterIsolation.default ?? true
+  const scaleState = shouldRescale ? await applyPairDiffFocusTransform(run.container, operation) : null
   await annotatePairDiff(run.container, result, operation, state)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line pairDiff', { operationIndex, operation, result })
