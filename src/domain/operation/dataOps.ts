@@ -892,8 +892,8 @@ export function diffByValueOp(data: DatumValue[], op: OperationSpec): DatumValue
 
 function resolveDiffByValueReference(spec: OpDiffByValueSpec): number | null {
   if (typeof spec.value === 'number' && Number.isFinite(spec.value)) return spec.value
+  // scalar 기준값은 targetValue: "ref:nX" 로만 선언한다. meta.inputs fallback 없음.
   const refSource = spec.targetValue
-    ?? (Array.isArray(spec.meta?.inputs) && spec.meta.inputs.length > 0 ? String(spec.meta.inputs[0]) : null)
   if (typeof refSource !== 'string') return null
   const refKey = refSource.startsWith('ref:') ? refSource.slice('ref:'.length) : refSource
   const trimmed = refKey.trim()

@@ -34,6 +34,8 @@ import {
   operationResultRef,
   resolveDerivedDiffEndpoint,
 } from '../diffEndpoint'
+import type { SurfaceManager } from '../../runtime/surfaceManager'
+import { tryDrawSplitScalarDiffAnnotation } from '../splitSurfaceVisuals'
 
 export const SIMPLE_LINE_SUPPORTED_OPERATIONS = getSupportedOperationsForChart(ChartType.SIMPLE_LINE)
 
@@ -416,7 +418,27 @@ async function annotateDiff(
   result: DatumValue[],
   operation: OperationSpec,
   state: ChainState,
+  surfaceManager?: SurfaceManager,
 ) {
+  console.log('[simpleLine.annotateDiff] called', {
+    hasSurfaceManager: Boolean(surfaceManager),
+    layoutType: surfaceManager?.getLayout()?.type ?? null,
+    targetA: operation.targetA ?? null,
+    targetB: operation.targetB ?? null,
+    resultCount: result.length,
+  })
+  const splitResult = await tryDrawSplitScalarDiffAnnotation({
+    container,
+    surfaceManager,
+    operation,
+    result,
+  })
+  console.log('[simpleLine.annotateDiff] tryDrawSplitScalarDiffAnnotation returned', splitResult)
+  if (splitResult) {
+    state.annotationRecords.push({ cssClass: DIFF_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    return
+  }
+
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
   const selectors = diffEndpointSelectors(operation)
@@ -740,7 +762,7 @@ async function runDiffOperation(
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = diffData(state.workingData, operation)
-  await annotateDiff(run.container, result, operation, state)
+  await annotateDiff(run.container, result, operation, state, run.options?.surfaceManager)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] simple-line diff', { operationIndex, operation, result })
   return { result, nextState: { ...state, lastResult: result } }

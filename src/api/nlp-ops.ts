@@ -665,11 +665,32 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
   const maybeWrapped = asRecord(body.ops1)
   const groupSource = maybeWrapped ?? body
   const opsSpec = normalizeGroupMap(groupSource)
-  const drawPlan = normalizeOptionalDrawPlan((body as UnknownRecord).draw_plan)
-  const executionPlan = normalizeExecutionPlan((body as UnknownRecord).execution_plan)
-  const visualExecutionPlan = normalizeVisualExecutionPlan((body as UnknownRecord).visual_execution_plan)
   const resolvedTextRaw = typeof body.resolvedText === 'string' ? body.resolvedText : body.resolved_text
   const groupTextOverrides = normalizeTextChunks((body as UnknownRecord).text_chunks)
+  const warnings = normalizeWarnings(body.warnings)
+
+  // /generate_grammar는 grammar(=OpsSpec) + text_chunks만 반환한다.
+  // 시각화에 필요한 draw_plan / execution_plan / visual_execution_plan은
+  // 곧바로 /compile_ops_plan을 연쇄 호출해서 채운다 (호출자 입장에선 시그니처 동일).
+  let drawPlan: OpsSpecGroupMap | undefined
+  let executionPlan: ExecutionPlan | undefined
+  let visualExecutionPlan: VisualExecutionPlan | undefined
+  try {
+    const compiled = await compileOpsPlan({
+      spec: command.spec,
+      dataRows,
+      opsSpec,
+      endpoint,
+      fetcher,
+    })
+    drawPlan = compiled.drawPlan
+    executionPlan = compiled.executionPlan
+    visualExecutionPlan = compiled.visualExecutionPlan
+    warnings.push(...compiled.warnings)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    warnings.push(`compileOpsPlan failed after generate_grammar: ${message}`)
+  }
 
   return {
     resolvedText: typeof resolvedTextRaw === 'string' && resolvedTextRaw.trim().length > 0 ? resolvedTextRaw : text,
@@ -678,7 +699,7 @@ export async function parseToOperationSpec(command: ParseToOperationSpecCommand)
     executionPlan,
     visualExecutionPlan,
     groupTextOverrides,
-    warnings: normalizeWarnings(body.warnings),
+    warnings,
   }
 }
 

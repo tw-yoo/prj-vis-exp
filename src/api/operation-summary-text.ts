@@ -830,10 +830,9 @@ function buildFilterExplanationTextWithContext(args: {
 function diffByValueReferencePhrase(op: OperationSpec): string {
   const literal = (op as OperationSpec & { value?: unknown }).value
   if (typeof literal === 'number' && Number.isFinite(literal)) return String(literal)
+  // scalar 기준값은 targetValue: "ref:nX" 로만 선언한다. meta.inputs fallback 없음.
   const targetValue = (op as OperationSpec & { targetValue?: unknown }).targetValue
   if (typeof targetValue === 'string' && targetValue.length > 0) return `the previous result (${targetValue})`
-  const inputs = Array.isArray(op.meta?.inputs) ? op.meta.inputs : []
-  if (inputs.length > 0) return `the previous result (${String(inputs[0])})`
   return 'the reference value'
 }
 

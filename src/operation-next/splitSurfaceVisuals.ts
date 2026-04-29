@@ -207,28 +207,47 @@ function accumulatedTranslate(node: Element) {
 }
 
 function inferSvgYForValue(svg: SVGSVGElement, value: number) {
-  const points = Array.from(svg.querySelectorAll<SVGRectElement>(`rect.${SvgClassNames.MainBar}`))
+  // Bar chart: use rect tops
+  const barPoints = Array.from(svg.querySelectorAll<SVGRectElement>(`rect.${SvgClassNames.MainBar}`))
     .map((rect) => {
       const datumValue = Number(rect.getAttribute(DataAttributes.Value))
       const y = readNumberAttr(rect, SvgAttributes.Y)
       if (!Number.isFinite(datumValue) || y == null) return null
-      return {
-        value: datumValue,
-        y: accumulatedTranslate(rect).y + y,
-      }
+      return { value: datumValue, y: accumulatedTranslate(rect).y + y }
     })
     .filter((point): point is { value: number; y: number } => point != null)
 
-  const first = points[0]
-  const second = points.find((point) => first && point.value !== first.value)
+  if (barPoints.length >= 2) {
+    const first = barPoints[0]
+    const second = barPoints.find((point) => point.value !== first.value)
+    if (first && second) {
+      const slope = (second.y - first.y) / (second.value - first.value)
+      return first.y + slope * (value - first.value)
+    }
+  }
+
+  // Line chart: use circle cy (data points)
+  const marginTop = Number(svg.getAttribute(DataAttributes.MarginTop) ?? 0)
+  const circlePoints = Array.from(
+    svg.querySelectorAll<SVGCircleElement>(`circle[${DataAttributes.Value}]`),
+  )
+    .map((circle) => {
+      const datumValue = Number(circle.getAttribute(DataAttributes.Value))
+      const cy = readNumberAttr(circle, SvgAttributes.CY)
+      if (!Number.isFinite(datumValue) || cy == null) return null
+      return { value: datumValue, y: marginTop + cy }
+    })
+    .filter((point): point is { value: number; y: number } => point != null)
+
+  const first = circlePoints[0]
+  const second = circlePoints.find((point) => first && point.value !== first.value)
   if (first && second) {
     const slope = (second.y - first.y) / (second.value - first.value)
     return first.y + slope * (value - first.value)
   }
 
-  const marginTop = Number(svg.getAttribute(DataAttributes.MarginTop) ?? 0)
   const plotHeight = Number(svg.getAttribute(DataAttributes.PlotHeight) ?? 0)
-  const maxValue = Math.max(...points.map((point) => point.value), value, 1)
+  const maxValue = Math.max(...circlePoints.map((p) => p.value), value, 1)
   return marginTop + plotHeight - (value / maxValue) * plotHeight
 }
 
@@ -320,10 +339,17 @@ export async function tryDrawSplitScalarDiffAnnotation(params: {
     resultCount: params.result.length,
     containerRect: summarizeElementRect(params.container),
   })
-  if (!surfaces) return false
+  if (!surfaces) {
+    console.log('[tryDrawSplitScalarDiffAnnotation] no surfaces (surfaceManager undefined or layout not split-horizontal)')
+    return false
+  }
 
   const refs = readOperationRefs(params.operation)
   if (!refs) {
+    console.log('[tryDrawSplitScalarDiffAnnotation] readOperationRefs returned null', {
+      targetA: params.operation.targetA ?? null,
+      targetB: params.operation.targetB ?? null,
+    })
     splitDebug('splitVisuals.tryDrawSplitScalarDiff-no-refs', {})
     return false
   }
@@ -338,6 +364,14 @@ export async function tryDrawSplitScalarDiffAnnotation(params: {
     findReferenceLine(rightHost, refs.endpointB.refKey) ??
     await ensureFallbackReferenceLine(rightHost, refs.endpointB.refKey, refs.endpointB.value)
 
+  console.log('[tryDrawSplitScalarDiffAnnotation] ref lines', {
+    leftRefKey: refs.endpointA.refKey,
+    leftRefValue: refs.endpointA.value,
+    rightRefKey: refs.endpointB.refKey,
+    rightRefValue: refs.endpointB.value,
+    leftRefFound: Boolean(leftRef),
+    rightRefFound: Boolean(rightRef),
+  })
   splitDebug('splitVisuals.tryDrawSplitScalarDiff-ref-lines', {
     leftRefKey: refs.endpointA.refKey,
     rightRefKey: refs.endpointB.refKey,
@@ -348,7 +382,10 @@ export async function tryDrawSplitScalarDiffAnnotation(params: {
     leftLineRect: summarizeElementRect(leftRef?.line),
     rightLineRect: summarizeElementRect(rightRef?.line),
   })
-  if (!leftRef || !rightRef) return false
+  if (!leftRef || !rightRef) {
+    console.log('[tryDrawSplitScalarDiffAnnotation] missing ref lines → returning false')
+    return false
+  }
 
   const stageRect = params.container.getBoundingClientRect()
   const leftRect = leftHost.getBoundingClientRect()

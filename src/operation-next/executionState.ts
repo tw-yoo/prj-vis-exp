@@ -134,20 +134,58 @@ function selectorContainsRef(value: unknown): boolean {
   return false
 }
 
+function extractRefNodeId(v: unknown, out: Set<string>): void {
+  if (typeof v === 'string' && v.startsWith('ref:')) {
+    const id = v.slice('ref:'.length).trim()
+    if (id) out.add(id)
+  } else if (typeof v === 'object' && v != null && !Array.isArray(v)) {
+    const objId = (v as { id?: unknown }).id
+    if (typeof objId === 'string' && objId.startsWith('ref:')) {
+      const id = objId.slice('ref:'.length).trim()
+      if (id) out.add(id)
+    }
+  }
+}
+
+/**
+ * Collect node IDs that this operation uses purely as scalar threshold/reference values
+ * (not as data row sources). These inputs must NOT replace workingData.
+ *
+ * Rule: an input is a scalar ref iff its node ID appears as "ref:nX" in any
+ * scalar-value field of the operation. No inputs[0] fallback convention.
+ *
+ * Covered patterns:
+ *   filter     — value: "ref:n1"  or  value: ["ref:n1","ref:n2"]  (between)
+ *   diff       — targetA/B: "ref:n1" or { id: "ref:n1" }
+ *   diffByValue — targetValue: "ref:n1"  (must be explicit; no inputs[0] fallback)
+ */
+function collectScalarRefNodeIds(operation: OperationSpec): Set<string> {
+  const ids = new Set<string>()
+  const op = operation as Record<string, unknown>
+
+  // filter: value is "ref:n1" (string) or ["ref:n1","ref:n2"] (between bounds)
+  const rawValue = op.value
+  if (Array.isArray(rawValue)) {
+    rawValue.forEach((v) => extractRefNodeId(v, ids))
+  } else {
+    extractRefNodeId(rawValue, ids)
+  }
+
+  // diff / compareBool: targetA / targetB
+  extractRefNodeId(op.targetA, ids)
+  extractRefNodeId(op.targetB, ids)
+
+  // diffByValue: targetValue must be "ref:nX" — no inputs[0] fallback
+  extractRefNodeId(op.targetValue, ids)
+
+  return ids
+}
+
 export function stateWithOperationDependencies(operation: OperationSpec, state: ChainState): ChainState {
   const inputs = Array.isArray(operation.meta?.inputs)
     ? operation.meta.inputs.filter((input): input is string | number => typeof input === 'string' || typeof input === 'number')
     : []
-  const hasExplicitDiffTargets = operation.op === 'diff' && (operation.targetA != null || operation.targetB != null)
-  const hasRefDiffTarget = selectorContainsRef(operation.targetA) || selectorContainsRef(operation.targetB)
-  if (hasExplicitDiffTargets && hasRefDiffTarget) {
-    return {
-      ...state,
-      workingData: cloneDatumValues(state.originalData),
-      derivedData: null,
-      lastResult: null,
-    }
-  }
+
   if (inputs.length === 0) {
     return {
       ...state,
@@ -156,7 +194,24 @@ export function stateWithOperationDependencies(operation: OperationSpec, state: 
       lastResult: null,
     }
   }
-  const rows = inputs.flatMap((input) => getRuntimeResultsById(input))
+
+  // Identify inputs that serve only as scalar threshold/reference values.
+  // They resolve their data via getRuntimeResultsById at call time (e.g. resolveFilterRefThreshold)
+  // and must NOT replace the operation's working dataset.
+  const scalarRefIds = collectScalarRefNodeIds(operation)
+  const dataInputs = inputs.filter((id) => !scalarRefIds.has(String(id)))
+
+  if (dataInputs.length === 0) {
+    // All inputs are scalar refs → operate on the full original dataset
+    return {
+      ...state,
+      workingData: cloneDatumValues(state.originalData),
+      derivedData: null,
+      lastResult: null,
+    }
+  }
+
+  const rows = dataInputs.flatMap((input) => getRuntimeResultsById(input))
   if (rows.length === 0) return state
   return {
     ...state,

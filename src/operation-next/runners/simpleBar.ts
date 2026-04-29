@@ -839,16 +839,10 @@ async function annotateDiffByValue(
 function resolveDiffByValueReferenceFromOp(operation: OperationSpec, _state: ChainState): number | null {
   const literal = (operation as OperationSpec & { value?: unknown }).value
   if (typeof literal === 'number' && Number.isFinite(literal)) return literal
+  // scalar 기준값은 targetValue: "ref:nX" 로만 선언한다. meta.inputs fallback 없음.
   const targetValue = (operation as OperationSpec & { targetValue?: unknown }).targetValue
-  let refSource: string | null = typeof targetValue === 'string' ? targetValue : null
-  if (!refSource) {
-    const inputs = (operation as OperationSpec & { meta?: { inputs?: unknown[] } }).meta?.inputs
-    if (Array.isArray(inputs) && inputs.length > 0 && typeof inputs[0] === 'string') {
-      refSource = inputs[0] as string
-    }
-  }
-  if (!refSource) return null
-  const refKey = (refSource.startsWith('ref:') ? refSource.slice('ref:'.length) : refSource).trim()
+  if (typeof targetValue !== 'string' || !targetValue.trim()) return null
+  const refKey = (targetValue.startsWith('ref:') ? targetValue.slice('ref:'.length) : targetValue).trim()
   if (!refKey) return null
   return resolveScalarAggregateFromRows(getRuntimeResultsById(refKey))
 }
