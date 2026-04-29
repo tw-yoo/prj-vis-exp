@@ -402,6 +402,10 @@ export function normalizeVisualExecutionPlan(raw: unknown): VisualExecutionPlan 
           surface.surfaceAction === 'materialize' ||
           surface.surfaceAction === 'merge'
         ) {
+          // SPLIT-DISABLED (2026-04-29): surfaceAction === 'split' is still
+          // recorded so the visual-execution-player can detect it and emit
+          // a fallback log; the player itself short-circuits the split body
+          // (see SPLIT-DISABLED guard in src/api/visual-execution-player.ts).
           normalizedSurface.surfaceAction = surface.surfaceAction
         }
         if (
@@ -409,7 +413,13 @@ export function normalizeVisualExecutionPlan(raw: unknown): VisualExecutionPlan 
           surface.layoutMode === 'split-horizontal' ||
           surface.layoutMode === 'split-vertical'
         ) {
-          normalizedSurface.layoutMode = surface.layoutMode
+          // SPLIT-DISABLED (2026-04-29): Coerce any split layout intent
+          // coming from the NLP backend into 'single'. Defense-in-depth
+          // alongside the visual-execution-player guard, so downstream
+          // consumers never see a split-* layoutMode while disabled.
+          // Restore by replacing the next line with:
+          //   normalizedSurface.layoutMode = surface.layoutMode
+          normalizedSurface.layoutMode = 'single'
         }
         if (surface.branchRole === 'left' || surface.branchRole === 'right' || surface.branchRole === 'merged') {
           normalizedSurface.branchRole = surface.branchRole

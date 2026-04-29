@@ -159,10 +159,19 @@ function createGroupExplanationController(container: HTMLElement, ops: Operation
 
 // ─── split helpers ────────────────────────────────────────────────────────────
 
-function findSplitOpIndex(ops: OperationSpec[]): number {
-  return ops.findIndex(
+function findSplitOpIndex(_ops: OperationSpec[]): number {
+  // SPLIT-DISABLED (2026-04-29): Pretend no draw.split() op exists in any
+  // ops list. Every caller treats this as "no split here", so the split
+  // and unsplit branches at L1170 / L1288 / L1318 / L1343 stay on the
+  // single-surface code path. Restore by removing this early return and
+  // uncommenting the original body below.
+  void _ops
+  return -1
+  /* SPLIT-DISABLED — original body:
+  return _ops.findIndex(
     (op) => op.op === 'draw' && (op as { action?: string }).action === DrawAction.Split,
   )
+  */
 }
 
 function findDrawActionIndex(ops: OperationSpec[], action: DrawAction): number {

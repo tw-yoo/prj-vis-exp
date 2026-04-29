@@ -637,6 +637,24 @@ export async function executeSurfaceActionSubstep(args: {
   }
 
   if (action === 'split') {
+    // SPLIT-DISABLED (2026-04-29): All split layout actions are temporarily
+    // disabled so every ops sequence renders in a single SVG surface.
+    // Falling back with 'unsupported-surface' makes the visual player skip
+    // the split substep without erroring; downstream substeps that referenced
+    // left / right surface IDs will treat them as missing and continue on the
+    // primary surface. To re-enable, delete the early return + the block
+    // comment that wraps the original body below, leaving the original
+    // implementation in place.
+    splitDebug('visual.surfaceAction-split-disabled', {
+      context: summarizeDebugContext(args.context),
+      substep: summarizeDebugSubstep(args.substep),
+    })
+    return {
+      executed: false,
+      nextSurface: args.context.currentSurface,
+      fallbackReason: 'unsupported-surface',
+    }
+    /* SPLIT-DISABLED — original body kept verbatim for restoration:
     const branchSurfaceIds = args.substep.surface?.branchSurfaceIds
     const leftId = branchSurfaceIds?.left?.trim()
     const rightId = branchSurfaceIds?.right?.trim()
@@ -716,6 +734,7 @@ export async function executeSurfaceActionSubstep(args: {
       executed: true,
       nextSurface: 'source-chart',
     }
+    */
   }
 
   if (action === 'merge') {
