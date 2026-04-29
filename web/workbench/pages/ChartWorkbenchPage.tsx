@@ -2785,7 +2785,23 @@ function ChartWorkbenchPage() {
     setOpsJsonError(null)
 
     const runtimeScope = options?.runtimeScope ?? 'ops'
-    const requestedSurfaceId = typeof options?.surfaceId === 'string' && options.surfaceId.trim().length > 0 ? options.surfaceId.trim() : undefined
+    const rawRequestedSurfaceId = typeof options?.surfaceId === 'string' && options.surfaceId.trim().length > 0 ? options.surfaceId.trim() : undefined
+    // SPLIT-DISABLED (2026-04-29): When split layouts are disabled, the
+    // split substep in the visual execution plan is short-circuited so
+    // branch surfaces (e.g. 'n5_left', 'n5_right') are never created.
+    // Subsequent substeps that ask to render on those surface IDs would
+    // otherwise throw `Surface "..." is not available.` at the strict
+    // guard later in this function. Normalize unknown surface IDs to
+    // root here so their ops accumulate on the single primary chart.
+    // To restore strict routing once split is back in service, replace
+    // the IIFE below with:
+    //   const requestedSurfaceId = rawRequestedSurfaceId
+    const requestedSurfaceId = (() => {
+      if (!rawRequestedSurfaceId || rawRequestedSurfaceId === 'root') return rawRequestedSurfaceId
+      if (surfaceManagerRef.current?.getSurface(rawRequestedSurfaceId)) return rawRequestedSurfaceId
+      console.warn(`[SPLIT-DISABLED] Surface "${rawRequestedSurfaceId}" not available; routing ops to root.`)
+      return undefined
+    })()
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
     const sanitizedVlSpec = sanitizeJsonInput(specString)
     let parsedVlSpec: VegaLiteSpec
