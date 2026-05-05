@@ -639,20 +639,21 @@ export async function executeSurfaceActionSubstep(args: {
   if (action === 'split') {
     // SPLIT-DISABLED (2026-04-29): All split layout actions are temporarily
     // disabled so every ops sequence renders in a single SVG surface.
-    // Falling back with 'unsupported-surface' makes the visual player skip
-    // the split substep without erroring; downstream substeps that referenced
-    // left / right surface IDs will treat them as missing and continue on the
-    // primary surface. To re-enable, delete the early return + the block
-    // comment that wraps the original body below, leaving the original
-    // implementation in place.
+    // Previously this returned executed:false which triggered runFallback and
+    // bypassed all downstream run-op substeps (causing ops/ops2 to show
+    // nothing). Now we return executed:true so the substep loop continues
+    // normally: subsequent run-op substeps route branch surface IDs (e.g.
+    // 'n5_left') to the root container via the executeOpsArray IIFE guard and
+    // the ops execute on the single primary chart.
+    // To re-enable split: delete this early-return block and restore the
+    // original body from the block comment below.
     splitDebug('visual.surfaceAction-split-disabled', {
       context: summarizeDebugContext(args.context),
       substep: summarizeDebugSubstep(args.substep),
     })
     return {
-      executed: false,
+      executed: true,
       nextSurface: args.context.currentSurface,
-      fallbackReason: 'unsupported-surface',
     }
     /* SPLIT-DISABLED — original body kept verbatim for restoration:
     const branchSurfaceIds = args.substep.surface?.branchSurfaceIds
@@ -1248,7 +1249,13 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
         return runFallback(result.fallbackReason ?? 'unsupported-surface')
       }
       currentSurface = result.nextSurface
-      if (substep.surface?.surfaceAction === 'split') {
+      // SPLIT-DISABLED (2026-04-29): Only arm the reveal delay when a split
+      // layout is actually active. With split disabled the split substep
+      // no-ops (executed:true, layout stays single), so isSplitLayoutActive
+      // returns false and no delay is injected before downstream substeps.
+      // Restore original condition by removing the && guard:
+      //   if (substep.surface?.surfaceAction === 'split') {
+      if (substep.surface?.surfaceAction === 'split' && isSplitLayoutActive(context)) {
         pendingSplitReveal = true
       }
       executedSubstepIds.push(substep.id)

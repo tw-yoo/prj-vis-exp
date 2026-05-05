@@ -452,6 +452,11 @@ async function annotateDiff(
   const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
   const arrowX = marginLeft + plotWidth + 18
   const layer = ensureAnnotationLayer(svg)
+
+  // Transition prior annotations (filter lines, extremum labels, etc.) to context style
+  // before drawing diff. Mirrors the same call in annotateAverage / annotateFindExtremum.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
   const markA = pointA ? pointRootMetrics(pointA, marginLeft, marginTop) : null
   const markB = pointB ? pointRootMetrics(pointB, marginLeft, marginTop) : null
   const existingA = derivedA ? scalarReferenceLineForResultRef(layer, derivedA.refKey) : null
@@ -480,7 +485,18 @@ async function annotateDiff(
   const differenceText = `Difference: ${formatOperationValue(differenceValue)}`
 
   // Value labels fade in concurrently with the horizontal ref lines (Phase 1).
-  const markEndpoints = [a, b].filter((endpoint) => endpoint?.kind === 'mark')
+  // Dedup: skip any endpoint whose formatted value is already rendered as a text.text-annotation
+  // in the layer (e.g. an extremum label placed by a prior ops group).
+  const markEndpoints = [a, b]
+    .filter((endpoint) => endpoint?.kind === 'mark')
+    .filter((endpoint) => {
+      const text = formatOperationValue(endpoint.value).trim()
+      let alreadyLabeled = false
+      layer.selectAll<SVGTextElement, unknown>(`text.${SvgClassNames.TextAnnotation}`).each(function () {
+        if ((this.textContent ?? '').trim() === text) alreadyLabeled = true
+      })
+      return !alreadyLabeled
+    })
   const labelPromises = markEndpoints.map((endpoint) =>
     appendValueLabel({
       svg,

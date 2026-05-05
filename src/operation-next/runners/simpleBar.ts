@@ -442,6 +442,11 @@ async function annotateDiff(
   const arrowX = marginLeft + plotWidth + 18
   const bars = svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
   const layer = ensureAnnotationLayer(svg)
+
+  // Transition prior annotations (filter lines, extremum labels, etc.) to context style
+  // before drawing diff. Mirrors the same call in annotateAverage / annotateFindExtremum.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
   const rectA = derivedA ? null : findMainBar(svg, selectors.targetA)
   const rectB = derivedB ? null : findMainBar(svg, selectors.targetB)
   const markA = rectA ? barRootMetrics(rectA, marginLeft, marginTop) : null
@@ -473,7 +478,18 @@ async function annotateDiff(
   const differenceText = `Difference: ${formatOperationValue(differenceValue)}`
 
   // Value labels: positioned above each bar top, fade-in concurrently with ref lines (Phase 1).
-  const markLabelData = [a, b].filter((endpoint): endpoint is Extract<typeof endpoint, { kind: 'mark' }> => endpoint?.kind === 'mark')
+  // Dedup: skip any endpoint whose formatted value is already rendered as a text.text-annotation
+  // in the layer (e.g. an extremum label placed by a prior ops group).
+  const markLabelData = [a, b]
+    .filter((endpoint): endpoint is Extract<typeof endpoint, { kind: 'mark' }> => endpoint?.kind === 'mark')
+    .filter((endpoint) => {
+      const text = formatOperationValue(endpoint.value).trim()
+      let alreadyLabeled = false
+      layer.selectAll<SVGTextElement, unknown>(`text.${SvgClassNames.TextAnnotation}`).each(function () {
+        if ((this.textContent ?? '').trim() === text) alreadyLabeled = true
+      })
+      return !alreadyLabeled
+    })
   const valueLabels = layer
     .selectAll<SVGTextElement, { x: number; y: number; value: number }>(`text.${DIFF_ANNOTATION_CLASS}.bar-value`)
     .data(markLabelData.map((endpoint) => ({ x: endpoint.x, y: endpoint.y, value: endpoint.value })))

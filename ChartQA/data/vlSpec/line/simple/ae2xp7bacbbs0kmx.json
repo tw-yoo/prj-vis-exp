@@ -15,10 +15,10 @@
       },
       "encoding": {
         "x": {
-          "field": "Month 'Year",
+          "field": "Month Year",
           "type": "ordinal",
           "axis": {
-            "title": "Month 'Year",
+            "title": "Month Year",
             "labelAngle": 0,
             "labelFontSize": 11,
             "titleFontSize": 13,
@@ -48,7 +48,7 @@
       },
       "encoding": {
         "x": {
-          "field": "Month 'Year",
+          "field": "Month Year",
           "type": "ordinal"
         },
         "y": {
@@ -57,9 +57,9 @@
         },
         "tooltip": [
           {
-            "field": "Month 'Year",
+            "field": "Month Year",
             "type": "ordinal",
-            "title": "Month 'Year"
+            "title": "Month Year"
           },
           {
             "field": "Index (2010=100)",
