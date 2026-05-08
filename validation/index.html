@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validation Viewer</title>
+    <link rel="stylesheet" href="/viewer.css">
+</head>
+<body>
+<div class="viewer-wrap">
+    <div class="viewer-header">
+        <span class="chart-counter" id="chartCounter"></span>
+        <span class="chart-id" id="chartId"></span>
+    </div>
+    <div class="chart-row">
+        <button class="nav-btn" id="prevBtn" disabled>&#8592;</button>
+        <div id="chartContainer"></div>
+        <button class="nav-btn" id="nextBtn">&#8594;</button>
+    </div>
+    <div class="bottom-area">
+        <div id="questionText"></div>
+        <div id="explanationArea"></div>
+        <div id="completionArea"></div>
+        <div id="commentArea"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script type="module" src="/viewer.js"></script>
+</body>
+</html>

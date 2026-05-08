@@ -1,4 +1,5 @@
 import type { DatumValue } from '../domain/operation/types'
+import type { AxisKind, FilterVisualMode, FilterYDomainMode } from './filterSaliencePolicy'
 
 // ---------------------------------------------------------------------------
 // AnnotationRecord
@@ -39,6 +40,26 @@ export interface ScaleRecord {
   currentDomain: [number, number]
   /** Name of the operation that triggered the rescale (e.g. 'pairDiff') */
   rescaledBy: string
+}
+
+// ---------------------------------------------------------------------------
+// FilterContext
+// ---------------------------------------------------------------------------
+
+/**
+ * Captures the visual/materialized scope introduced by the latest filter.
+ * This is separate from salienceMap because remove mode has no dimmed marks,
+ * but subsequent operations still need to know they are operating on a
+ * filtered subset.
+ */
+export interface FilterContext {
+  mode: FilterVisualMode
+  reason: string
+  xKind: AxisKind
+  isContiguous: boolean
+  yDomainMode: FilterYDomainMode
+  retainedTargets: string[]
+  removedTargets: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +125,12 @@ export interface ChainState {
    * Reset at group boundaries.
    */
   scaleState: ScaleRecord | null
+
+  /**
+   * Non-null after a filter operation scopes the active dataset.
+   * Preserved across group boundaries while workingData is preserved.
+   */
+  filterContext: FilterContext | null
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +150,7 @@ export function createChainState(data: DatumValue[]): ChainState {
     salienceMap: new Map(),
     annotationRecords: [],
     scaleState: null,
+    filterContext: null,
   }
 }
 
@@ -136,6 +164,7 @@ export function createChainState(data: DatumValue[]): ChainState {
  * Preserved across boundaries:
  *   originalData — never changes
  *   workingData  — kept so multi-group plans can build on prior scope reduction
+ *   filterContext — kept with workingData so later groups know scope was filtered
  *
  * Reset at boundaries:
  *   derivedData, lastResult, salienceMap, annotationRecords, scaleState

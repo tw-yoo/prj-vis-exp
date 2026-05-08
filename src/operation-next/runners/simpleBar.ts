@@ -2,7 +2,7 @@ import * as d3 from 'd3'
 import { ChartType } from '../../domain/chart'
 import { averageData, diffByValueOp, diffData, filterData, findExtremum, getRuntimeResultsById, resolveScalarAggregateFromRows, retrieveValue, sortData } from '../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type JsonValue, type OperationSpec, type TargetSelector } from '../../domain/operation/types'
-import { getSimpleBarStoredData, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer'
+import { getSimpleBarStoredData, renderSimpleBarChart, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer'
 import type { SurfaceManager } from '../../runtime/surfaceManager'
 import { toDatumValuesFromRaw, type RawRow } from '../../domain/data/datum'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
@@ -10,7 +10,7 @@ import type { ParsedOperationRun } from '../types'
 import { getSupportedOperationsForChart, runStubChartOperationRenderer } from './shared'
 import { placeOperationTextLabel } from '../textPlacement'
 import { COLORS, DURATIONS, OPACITIES } from '../../rendering/common/d3Helpers'
-import { clearGroupBoundary, type ChainState } from '../chainState'
+import { clearGroupBoundary, type ChainState, type FilterContext } from '../chainState'
 import { formatOperationValue } from '../primitives/formatValue'
 import {
   ANNOTATION_LAYER_CLASS,
@@ -36,6 +36,7 @@ import {
   resolveDerivedDiffEndpoint,
 } from '../diffEndpoint'
 import { tryDrawSplitScalarDiffAnnotation } from '../splitSurfaceVisuals'
+import { resolveFilterVisualDecision, type FilterVisualDecision } from '../filterSaliencePolicy'
 
 export const SIMPLE_BAR_SUPPORTED_OPERATIONS = getSupportedOperationsForChart(ChartType.SIMPLE_BAR)
 
@@ -134,6 +135,106 @@ function getWorkingData(run: ParsedOperationRun): DatumValue[] {
     xField: spec.encoding.x.field,
     yField: spec.encoding.y.field,
   })
+}
+
+function cloneSimpleBarSpec(spec: SimpleBarSpec): SimpleBarSpec {
+  if (typeof structuredClone === 'function') return structuredClone(spec) as SimpleBarSpec
+  return JSON.parse(JSON.stringify(spec)) as SimpleBarSpec
+}
+
+function uniqueTargets(rows: DatumValue[]) {
+  const out: string[] = []
+  const seen = new Set<string>()
+  rows.forEach((row) => {
+    const key = String(row.target)
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(key)
+  })
+  return out
+}
+
+function datumValuesToSimpleBarRows(rows: DatumValue[], spec: SimpleBarSpec): RawRow[] {
+  const xField = spec.encoding.x.field
+  const yField = spec.encoding.y.field
+  return rows.map((datum, index) => {
+    const row: RawRow = {
+      [xField]: String(datum.target),
+      [yField]: Number.isFinite(datum.value) ? datum.value : 0,
+      id: datum.id ?? datum.lookupId ?? String(index),
+    }
+    if (datum.displayTarget != null) row.displayTarget = datum.displayTarget
+    if (datum.name != null) row.name = datum.name
+    if (datum.group != null) row.group = datum.group
+    if (datum.panel != null) row.panel = datum.panel
+    return row
+  })
+}
+
+function resolveDatumYDomain(rows: DatumValue[]): [number, number] {
+  const values = rows.map((row) => Number(row.value)).filter(Number.isFinite)
+  const minValue = d3.min(values)
+  const maxValue = d3.max(values)
+  const domainMin = Math.min(0, Number.isFinite(minValue) ? (minValue as number) : 0)
+  let domainMax = Math.max(0, Number.isFinite(maxValue) ? (maxValue as number) : 0)
+  if (domainMin === domainMax) domainMax = domainMin + 1
+  return [domainMin, domainMax]
+}
+
+function hasPersistentAnnotations(state: ChainState) {
+  return state.annotationRecords.some((record) => record.persistent)
+}
+
+function buildFilterContext(
+  decision: FilterVisualDecision,
+  originalData: DatumValue[],
+  filteredData: DatumValue[],
+): FilterContext {
+  const retainedTargets = uniqueTargets(filteredData)
+  const retainedSet = new Set(retainedTargets)
+  const removedTargets = uniqueTargets(originalData).filter((target) => !retainedSet.has(target))
+  return {
+    mode: decision.mode,
+    reason: decision.reason,
+    xKind: decision.xKind,
+    isContiguous: decision.isContiguous,
+    yDomainMode: decision.yDomainMode,
+    retainedTargets,
+    removedTargets,
+  }
+}
+
+async function materializeFilteredSimpleBar(
+  run: ParsedOperationRun,
+  filteredData: DatumValue[],
+  decision: FilterVisualDecision,
+  state: ChainState,
+) {
+  const spec = cloneSimpleBarSpec(run.runtimeSpec as SimpleBarSpec)
+  const retainedTargets = uniqueTargets(filteredData)
+  const filteredRows = datumValuesToSimpleBarRows(filteredData, spec)
+  const existingYScale = spec.encoding.y.scale
+  const yScale = existingYScale && typeof existingYScale === 'object' && !Array.isArray(existingYScale)
+    ? { ...existingYScale }
+    : {}
+
+  spec.data = { values: filteredRows as unknown as JsonValue[] }
+  spec.encoding = {
+    ...spec.encoding,
+    x: {
+      ...spec.encoding.x,
+      sort: retainedTargets,
+    },
+    y: {
+      ...spec.encoding.y,
+      ...(decision.yDomainMode === 'preserve'
+        ? { scale: { ...yScale, domain: resolveDatumYDomain(state.originalData) } }
+        : {}),
+    },
+  }
+
+  await renderSimpleBarChart(run.container, spec)
+  run.container.dataset.operationNextFocusState = 'filter-remove'
 }
 
 
@@ -587,7 +688,7 @@ async function annotateAverage(
 
   // When a filter ran before us, clarify in the label that this is the
   // average over the filtered subset, not the full dataset.
-  const isFiltered = state.salienceMap.size > 0
+  const isFiltered = state.filterContext != null || state.salienceMap.size > 0
   const labelText = isFiltered
     ? `Avg (filtered): ${formatOperationValue(average)}`
     : `Average: ${formatOperationValue(average)}`
@@ -741,19 +842,49 @@ async function runFilterOperation(
   run: ParsedOperationRun,
   operation: OperationSpec,
   operationIndex: number,
+  groupOps: OperationSpec[],
+  groupOperationIndex: number,
   state: ChainState,
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = filterData(state.workingData, operation)
-  await annotateFilter(run.container, result, operation, state.workingData, state)
+  const policyDecision = resolveFilterVisualDecision({
+    spec: run.runtimeSpec,
+    chartType: run.chartType,
+    operation,
+    filteredData: result,
+    originalData: state.originalData,
+    groupOps,
+    operationIndex: groupOperationIndex,
+    policy: run.options?.tensionPolicy,
+  })
+  const decision: FilterVisualDecision = policyDecision.mode === 'remove' && hasPersistentAnnotations(state)
+    ? { ...policyDecision, mode: 'dim', reason: `prior persistent annotation context; ${policyDecision.reason}` }
+    : policyDecision
+
+  if (decision.mode === 'remove') {
+    await materializeFilteredSimpleBar(run, result, decision, state)
+  } else {
+    await annotateFilter(run.container, result, operation, state.workingData, state)
+  }
+
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
-  console.log('[operation-next] simple-bar filter', { operationIndex, operation, result })
+  console.log('[operation-next] simple-bar filter', { operationIndex, operation, result, decision })
   // Record which targets remain in scope so subsequent operations (e.g.
   // average) know that a filter has been applied.
-  const nextSalienceMap = new Map(result.map((d) => [String(d.target), OPACITIES.FULL]))
+  const nextSalienceMap = decision.mode === 'dim'
+    ? new Map(result.map((d) => [String(d.target), OPACITIES.FULL]))
+    : new Map<string, number>()
   return {
     result,
-    nextState: { ...state, workingData: result, salienceMap: nextSalienceMap, lastResult: result },
+    nextState: {
+      ...state,
+      workingData: result,
+      salienceMap: nextSalienceMap,
+      annotationRecords: decision.mode === 'remove' ? [] : state.annotationRecords,
+      filterContext: buildFilterContext(decision, state.originalData, result),
+      lastResult: result,
+    },
   }
 }
 
@@ -931,7 +1062,8 @@ export async function runSimpleBarOperations(run: ParsedOperationRun) {
     // workingData so multi-group plans can build on prior scope reductions.
     state = clearGroupBoundary(state)
 
-    for (const operation of group.ops) {
+    for (let groupOperationIndex = 0; groupOperationIndex < group.ops.length; groupOperationIndex += 1) {
+      const operation = group.ops[groupOperationIndex]
       const operationIndex = nextIndex
       nextIndex += 1
       let opResult: { result: DatumValue[]; nextState: ChainState }
@@ -940,7 +1072,7 @@ export async function runSimpleBarOperations(run: ParsedOperationRun) {
       if (isRetrieveValueOperation(operation)) {
         opResult = await runRetrieveValueOperation(run, operation, operationIndex, operationState)
       } else if (isFilterOperation(operation)) {
-        opResult = await runFilterOperation(run, operation, operationIndex, operationState)
+        opResult = await runFilterOperation(run, operation, operationIndex, group.ops, groupOperationIndex, operationState)
       } else if (isDiffOperation(operation)) {
         opResult = await runDiffOperation(run, operation, operationIndex, operationState)
       } else if (isDiffByValueOperation(operation)) {

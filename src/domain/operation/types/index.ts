@@ -78,6 +78,8 @@ export interface OperationSpec {
   /** Target include/exclude list (used by filter op) */
   include?: Array<string | number>
   exclude?: Array<string | number>
+  /** Optional LLM-provided semantic hint for the x-axis data kind. Runtime policy validates this against the chart spec. */
+  xKindHint?: 'temporal' | 'quantitative' | 'ordinal' | 'nominal' | 'unknown'
   operator?:
     | '>'
     | '>='

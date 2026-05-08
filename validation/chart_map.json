@@ -1,0 +1,106 @@
+{
+  "e1": {
+    "e1_q1": {
+      "question": "question e1 q1",
+      "explanation": {
+        "function1": "sentence1",
+        "function2": "sentence2"
+      }
+    },
+    "e1_q2": {
+      "question": "question e1 q2",
+      "explanation": {
+        "function1": "sentence1",
+        "function2": "sentence2"
+      }
+    },
+    "e1_q3": {
+      "question": "question e1 q3",
+      "explanation": {
+        "function1": "sentence1",
+        "function2": "sentence2"
+      }
+    },
+    "e1_q4": {
+      "question": "question e1 q4",
+      "explanation": {
+        "function1": "sentence1",
+        "function2": "sentence2"
+      }
+    },
+    "e1_q5": {
+      "question": "question e1 q5",
+      "explanation": {
+        "function1": "sentence1",
+        "function2": "sentence2"
+      }
+    }
+  },
+  "e10": {
+    "e10_q1": {
+      "question": "Does the value of all regions except Metro Total exceed 50,000?",
+      "explanation": {
+        "function1": "Add the “Number of employees” values for every category except “Metro Total” (Metro Eastern Europe, Metro Western Europe, Metro Russia, Metro Germany, Metro Asia, Others, and Metro AG). The sum is 94,359, which is greater than 50,000, so it exceeds 50,000."
+      }
+    },
+    "e10_q2": {
+      "question": "question e10 q2",
+      "explanation": {
+        "function1": "Identify the Western Europe countries in the chart as Netherlands, Germany, UK, France, Spain, and Sweden, and take their “A better place to live” percentages (17, 26, 33, 26, 31, 36) to compute an average of 28.17.",
+        "function2": "Treat the remaining countries (Greece, Italy, Hungary, Poland) as “the rest” and average their “A better place to live” values (10, 18, 17, 14) to get 14.75.",
+        "function3": "Subtract the two averages to find the difference: 28.17 − 14.75 = 13.42 percentage points, which rounds to about 13.4 percentage points."
+      }
+    },
+    "e10_q3": {
+      "question": "How many fiscal year exist where the beer is smaller than the sum of soft drink and hot dog?",
+      "explanation": {
+        "function1": "For each fiscal year, add the soft drink price and the hot dog price, then compare that sum to the beer price. The years where beer is smaller than (soft drink + hot dog) are 2010/11 (5 < 2.5+4.5), 2012/13 (5 < 2.5+4.75), 2014/15 (5.5 < 2.5+5), and 2015/16 (5.5 < 2.5+5). Counting these gives 4 fiscal years."
+      }
+    },
+    "e10_q4": {
+      "question": "Is the average of the minimum and maximum values greater compared to the value in 2010?",
+      "explanation": {
+        "function1": "Identify the minimum value (1.88 in 2000) and the maximum value (2.71 in 2020). Compute their average, which is about 2.295. Compare this to the 2010 value (2.39). Since 2.295 is less than 2.39, the average of the minimum and maximum is not greater than the 2010 value."
+      }
+    },
+    "e10_q5": {
+      "question": "Find the difference between the average of the first three years of the male group and the average of the last three years of the female group",
+      "explanation": {
+        "function1": "Take the male populations for the first three years (2009–2011) and compute their average.",
+        "function2": "Then take the female populations for the last three years (2018–2020) and compute their average.",
+        "function3": "Subtract the male early-years average from the female late-years average to get the difference.s"
+      }
+    },
+    "e10_q6": {
+      "question": "What is the difference of the sum of sales between the first six years and the last six years?",
+      "explanation": {
+        "function1": "Add the sales volumes for the first six years (2008–2013) to get 813,431 tonnes. Add the sales volumes for the last six years (2014–2019) to get 598,516 tonnes. Subtract the latter total from the former to find the difference, which is 214,915 tonnes."
+      }
+    },
+    "e10_q7": {
+      "question": "Is Germany has higher share of respondents in Gasoline or diesel compared to the average of rest of the countries?",
+      "explanation": {
+        "function1": "Take Germany’s share for “Gasoline or diesel (ICE)” (59). Compute the average “Gasoline or diesel (ICE)” share across the other countries (United States 74, India 68, China 55, Japan 45, South Korea 43), which averages to 57. ",
+        "function2": "Germany’s 59 is higher than 57, so Germany does not have a higher share than the average of the rest; it is slightly higher."
+      }
+    },
+    "e10_q8": {
+      "question": "Is the difference between Alaska's 2000 value and 2020 value greater than Total's 2020 minus 2000 value?",
+      "explanation": {
+        "function1": "Read Alaska’s production in 2000 (0.97) and 2020 (0.49) and compute the change as 0.97 − 0.49 = 0.48. Then read Total’s production in 2000 (5.82) and 2020 (6.7) and compute the increase as 6.7 − 5.82 = 0.88. Compare the two differences: 0.48 is smaller than 0.88, so Alaska’s change is not greater."
+      }
+    },
+    "e10_q9": {
+      "question": "What year did the greatest total change in us dollars per what occur?",
+      "explanation": {
+        "function1": "Group the data by year (2016–2020). For each year, compute the total change by taking the difference between the first quarter’s price and the last quarter’s price available in that year (using Q1 to Q4 when all quarters exist; for 2020, use Q1 to Q3 since Q4 is missing). The year 2016 drops from 0.63 (Q1) to 0.39 (Q4), a change of 0.24, which is larger than the total changes in 2017 (0.07), 2018 (0.14), 2019 (0.05), and 2020 (0.03)."
+      }
+    },
+    "e10_q10": {
+      "question": "What is the year when the 'Favorable view of US' data and 'Confidence in Obama' is the second nearest?",
+      "explanation": {
+        "function1": "For each year, compare the two percentages (“Favorable view of US” vs. “Confidence in Obama”) and compute the absolute difference. The smallest difference occurs in 2009 (44 vs 37, difference 7). The next smallest (second nearest) difference is 15, which happens in both 2010 (57 vs 41) and 2011 (56 vs 41). Therefore, the second-nearest year is a tie between 2010 and 2011."
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 import { makeRuntimeKey, resetRuntimeResults, restoreRuntimeResults, snapshotRuntimeResults, storeRuntimeResult, getRuntimeResultsById } from '../domain/operation/dataOps'
 import type { DatumValue, OperationSpec } from '../domain/operation/types'
-import { createChainState, type AnnotationRecord, type ChainState, type ScaleRecord } from './chainState'
+import { createChainState, type AnnotationRecord, type ChainState, type FilterContext, type ScaleRecord } from './chainState'
 import type { RunChartOpsOptions } from './types'
 
 export type OperationRuntimeSnapshot = Record<string, DatumValue[]>
@@ -13,6 +13,7 @@ export type SerializableChainState = {
   salienceEntries: Array<[string, number]>
   annotationRecords: AnnotationRecord[]
   scaleState: ScaleRecord | null
+  filterContext: FilterContext | null
 }
 
 export type OperationNextRunOutcome = {
@@ -43,6 +44,15 @@ function cloneDatumValue(datum: DatumValue): DatumValue {
 function cloneDatumValues(rows: DatumValue[] | null | undefined): DatumValue[] {
   if (!rows?.length) return []
   return rows.map(cloneDatumValue).filter((datum) => Number.isFinite(datum.value))
+}
+
+function cloneFilterContext(context: FilterContext | null | undefined): FilterContext | null {
+  if (!context) return null
+  return {
+    ...context,
+    retainedTargets: [...context.retainedTargets],
+    removedTargets: [...context.removedTargets],
+  }
 }
 
 function operationKey(operation: OperationSpec) {
@@ -89,6 +99,7 @@ export function serializeChainState(state: ChainState | null | undefined): Seria
     salienceEntries: Array.from(state.salienceMap.entries()),
     annotationRecords: state.annotationRecords.map((record) => ({ ...record })),
     scaleState: state.scaleState ? { ...state.scaleState } : null,
+    filterContext: cloneFilterContext(state.filterContext),
   }
 }
 
@@ -102,6 +113,7 @@ export function restoreChainState(baseData: DatumValue[], serialized: Serializab
     salienceMap: new Map(serialized.salienceEntries),
     annotationRecords: serialized.annotationRecords.map((record) => ({ ...record })),
     scaleState: serialized.scaleState ? { ...serialized.scaleState } : null,
+    filterContext: cloneFilterContext(serialized.filterContext),
   }
 }
 
