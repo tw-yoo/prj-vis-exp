@@ -1,18 +1,14 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Gender: 'Male', Usage_Period: 'Today', Share_of_Respondents: 0.08 },
-    { Gender: 'Male', Usage_Period: 'Within the previous month', Share_of_Respondents: 0.07 },
-    { Gender: 'Male', Usage_Period: 'More than a year ago', Share_of_Respondents: 0.03 },
-    { Gender: 'Male', Usage_Period: 'Within the previous week', Share_of_Respondents: 0.09 },
-    { Gender: 'Male', Usage_Period: 'Within the previous year', Share_of_Respondents: 0.05 },
-    { Gender: 'Male', Usage_Period: 'I have never used this application', Share_of_Respondents: 0.67 },
-    { Gender: 'Female', Usage_Period: 'Today', Share_of_Respondents: 0.1 },
-    { Gender: 'Female', Usage_Period: 'Within the previous month', Share_of_Respondents: 0.08 },
-    { Gender: 'Female', Usage_Period: 'More than a year ago', Share_of_Respondents: 0.04 },
-    { Gender: 'Female', Usage_Period: 'Within the previous week', Share_of_Respondents: 0.09 },
-    { Gender: 'Female', Usage_Period: 'Within the previous year', Share_of_Respondents: 0.05 },
-    { Gender: 'Female', Usage_Period: 'I have never used this application', Share_of_Respondents: 0.64 }
+    { Region: 'Lower 48 onshore', Year: 2000, 'Production in million barrels per day': 3.24 },
+    { Region: 'Lower 48 onshore', Year: 2020, 'Production in million barrels per day': 4.38 },
+    { Region: 'Lower 48 offshore', Year: 2000, 'Production in million barrels per day': 1.61 },
+    { Region: 'Lower 48 offshore', Year: 2020, 'Production in million barrels per day': 1.83 },
+    { Region: 'Alaska', Year: 2000, 'Production in million barrels per day': 0.97 },
+    { Region: 'Alaska', Year: 2020, 'Production in million barrels per day': 0.49 },
+    { Region: 'Total', Year: 2000, 'Production in million barrels per day': 5.82 },
+    { Region: 'Total', Year: 2020, 'Production in million barrels per day': 6.7 }
 ];
 
 // Workbench default category color palette (DEFAULT_CATEGORY_COLORS)
@@ -88,9 +84,9 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
-    const xField = 'Gender';
-    const seriesField = 'Usage_Period';
-    const yField = 'Share_of_Respondents';
+    const xField = 'Region';
+    const seriesField = 'Year';
+    const yField = 'Production in million barrels per day';
 
     injectGroupedChartStyles();
 
@@ -251,133 +247,110 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-function renderUsageGroupedBarChart({ d3, container, rows, seriesDomain }) {
-    const xDomain = Array.from(new Set(rows.map((d) => String(d.Gender))));
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 16, bottom: 56, left: 56 };
-    const legendOffsetX = 64;
-    const legendReserve = 200;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const plotH = height - margin.top - margin.bottom;
-    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).paddingInner(0.18).paddingOuter(0.08);
-    const innerScale = d3.scaleBand().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.08);
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(rows, (d) => Number(d.Share_of_Respondents)) ?? 0])
-        .nice()
-        .range([plotH, 0]);
-
-    container.innerHTML = '';
-    container.classList.add('validation-grouped-chart-host');
-
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
-
-    g.selectAll('rect.main-bar')
-        .data(rows)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => (xScale(String(d.Gender)) ?? 0) + (innerScale(String(d.Usage_Period)) ?? 0))
-        .attr('width', innerScale.bandwidth())
-        .attr('y', (d) => yScale(Number(d.Share_of_Respondents)))
-        .attr('height', (d) => plotH - yScale(Number(d.Share_of_Respondents)))
-        .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.Usage_Period))
-        .attr('data-target', (d) => String(d.Gender))
-        .attr('data-series', (d) => String(d.Usage_Period))
-        .attr('data-value', (d) => Number(d.Share_of_Respondents))
-        .attr('data-x-value', (d) => String(d.Gender))
-        .attr('data-y-value', (d) => String(Number(d.Share_of_Respondents)))
-        .attr('data-group-value', (d) => String(d.Usage_Period));
-
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
-    seriesDomain.forEach((series, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, series));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(series);
-    });
-}
-
-function renderUsageStackedBarChart({ d3, container, rows, seriesDomain }) {
-    const xDomain = Array.from(new Set(rows.map((d) => String(d.Gender))));
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 16, bottom: 56, left: 56 };
-    const legendOffsetX = 64;
-    const legendReserve = 200;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const plotH = height - margin.top - margin.bottom;
-    const segments = [];
-
-    xDomain.forEach((gender) => {
-        let y0 = 0;
-        seriesDomain.forEach((period) => {
-            const value = rows
-                .filter((row) => String(row.Gender) === gender && String(row.Usage_Period) === period)
-                .reduce((sum, row) => sum + Number(row.Share_of_Respondents), 0);
-            const y1 = y0 + value;
-            segments.push({ gender, period, value, y0, y1 });
-            y0 = y1;
-        });
-    });
-
-    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.28);
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(segments, (d) => d.y1) ?? 0])
-        .nice()
-        .range([plotH, 0]);
-
-    container.innerHTML = '';
-    container.classList.add('validation-grouped-chart-host');
-
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
-
-    g.selectAll('rect.main-bar')
-        .data(segments)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.gender))
-        .attr('width', xScale.bandwidth())
-        .attr('y', (d) => yScale(d.y1))
-        .attr('height', (d) => yScale(d.y0) - yScale(d.y1))
-        .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.period))
-        .attr('data-target', (d) => d.gender)
-        .attr('data-series', (d) => d.period)
-        .attr('data-value', (d) => d.value)
-        .attr('data-x-value', (d) => d.gender)
-        .attr('data-y-value', (d) => String(d.value))
-        .attr('data-group-value', (d) => d.period);
-
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
-    seriesDomain.forEach((series, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, series));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(series);
-    });
-}
-
 export function function1({ d3, container }) {
-    const selectedPeriods = ['Today', 'Within the previous week'];
-    const filteredRows = data_rows.filter((row) => selectedPeriods.includes(String(row.Usage_Period)));
-    renderUsageGroupedBarChart({ d3, container, rows: filteredRows, seriesDomain: selectedPeriods });
+    const xField = 'Region';
+    const yField = 'Production change in million barrels per day';
+
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+
+    d3.select(container).selectAll('.validation-grouped-chart-tooltip').remove();
+
+    const svgNode = svg.node();
+    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
+    const [, , width, height] = viewBox.split(/\s+/).map(Number);
+    const margin = { top: 32, right: 32, bottom: 64, left: 72 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    const chartRows = [
+        {
+            label: 'Alaska change',
+            value: 0.97 - 0.49,
+            color: '#60a5fa'
+        },
+        {
+            label: 'Total increase',
+            value: 6.7 - 5.82,
+            color: '#2563eb'
+        }
+    ];
+
+    const xScale = d3.scaleBand()
+        .domain(chartRows.map((d) => d.label))
+        .range([0, plotW])
+        .padding(0.42);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(chartRows, (d) => d.value) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+    svg.selectAll('*').remove();
+
+    const g = svg.append('g')
+        .attr('class', 'validation-function1-change-bar-layer')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).ticks(5));
+
+    const xAxis = g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    autoRotateXAxisLabels(xAxis);
+
+    g.append('text')
+        .attr('class', 'x-axis-label')
+        .attr('x', plotW / 2)
+        .attr('y', plotH + 48)
+        .attr('text-anchor', 'middle')
+        .text(xField);
+
+    g.append('text')
+        .attr('class', 'y-axis-label')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -plotH / 2)
+        .attr('y', -54)
+        .attr('text-anchor', 'middle')
+        .text(yField);
+
+    g.selectAll('rect.main-bar')
+        .data(chartRows)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => xScale(d.label))
+        .attr('width', xScale.bandwidth())
+        .attr('y', plotH)
+        .attr('height', 0)
+        .attr('fill', (d) => d.color)
+        .attr('data-target', (d) => d.label)
+        .attr('data-value', (d) => d.value)
+        .attr('data-x-value', (d) => d.label)
+        .attr('data-y-value', (d) => String(d.value))
+        .attr('y', (d) => yScale(d.value))
+        .attr('height', (d) => plotH - yScale(d.value));
 }
 
 export function function2({ d3, container }) {
-    const selectedPeriods = ['Today', 'Within the previous week'];
-    const filteredRows = data_rows.filter((row) => selectedPeriods.includes(String(row.Usage_Period)));
-    renderUsageStackedBarChart({ d3, container, rows: filteredRows, seriesDomain: selectedPeriods });
-}
+    const svg = d3.select(container).select('svg');
 
-export function function3({ d3, container }) {}
+    svg.selectAll('rect.main-bar')
+        .attr('opacity', (datum) => datum.category === '2024' && datum.series === 'Beta' ? 1 : 0.18)
+        .attr('stroke', (datum) => datum.category === '2024' && datum.series === 'Beta' ? '#ef4444' : 'none')
+        .attr('stroke-width', (datum) => datum.category === '2024' && datum.series === 'Beta' ? 3 : 0);
+
+    svg.selectAll('.step-annotation-2').remove();
+
+    svg.append('text')
+        .attr('class', 'step-annotation step-annotation-2')
+        .attr('x', 610)
+        .attr('y', 68)
+        .attr('text-anchor', 'end')
+        .attr('font-size', 14)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .text('function2: focus 2024 Beta');
+}

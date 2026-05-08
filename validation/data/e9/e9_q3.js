@@ -1,18 +1,24 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Gender: 'Male', Usage_Period: 'Today', Share_of_Respondents: 0.08 },
-    { Gender: 'Male', Usage_Period: 'Within the previous month', Share_of_Respondents: 0.07 },
-    { Gender: 'Male', Usage_Period: 'More than a year ago', Share_of_Respondents: 0.03 },
-    { Gender: 'Male', Usage_Period: 'Within the previous week', Share_of_Respondents: 0.09 },
-    { Gender: 'Male', Usage_Period: 'Within the previous year', Share_of_Respondents: 0.05 },
-    { Gender: 'Male', Usage_Period: 'I have never used this application', Share_of_Respondents: 0.67 },
-    { Gender: 'Female', Usage_Period: 'Today', Share_of_Respondents: 0.1 },
-    { Gender: 'Female', Usage_Period: 'Within the previous month', Share_of_Respondents: 0.08 },
-    { Gender: 'Female', Usage_Period: 'More than a year ago', Share_of_Respondents: 0.04 },
-    { Gender: 'Female', Usage_Period: 'Within the previous week', Share_of_Respondents: 0.09 },
-    { Gender: 'Female', Usage_Period: 'Within the previous year', Share_of_Respondents: 0.05 },
-    { Gender: 'Female', Usage_Period: 'I have never used this application', Share_of_Respondents: 0.64 }
+    { 'Fiscal Year': '2010/11', Item: 'Beer', 'Sales price in US dollars': 5 },
+    { 'Fiscal Year': '2010/11', Item: 'Soft drink', 'Sales price in US dollars': 2.5 },
+    { 'Fiscal Year': '2010/11', Item: 'Hot dog', 'Sales price in US dollars': 4.5 },
+    { 'Fiscal Year': '2011/12', Item: 'Beer', 'Sales price in US dollars': 5 },
+    { 'Fiscal Year': '2011/12', Item: 'Soft drink', 'Sales price in US dollars': 3.25 },
+    { 'Fiscal Year': '2011/12', Item: 'Hot dog', 'Sales price in US dollars': 3 },
+    { 'Fiscal Year': '2012/13', Item: 'Beer', 'Sales price in US dollars': 5 },
+    { 'Fiscal Year': '2012/13', Item: 'Soft drink', 'Sales price in US dollars': 2.5 },
+    { 'Fiscal Year': '2012/13', Item: 'Hot dog', 'Sales price in US dollars': 4.75 },
+    { 'Fiscal Year': '2013/14', Item: 'Beer', 'Sales price in US dollars': 5 },
+    { 'Fiscal Year': '2013/14', Item: 'Soft drink', 'Sales price in US dollars': 3.25 },
+    { 'Fiscal Year': '2013/14', Item: 'Hot dog', 'Sales price in US dollars': 3 },
+    { 'Fiscal Year': '2014/15', Item: 'Beer', 'Sales price in US dollars': 5.5 },
+    { 'Fiscal Year': '2014/15', Item: 'Soft drink', 'Sales price in US dollars': 2.5 },
+    { 'Fiscal Year': '2014/15', Item: 'Hot dog', 'Sales price in US dollars': 5 },
+    { 'Fiscal Year': '2015/16', Item: 'Beer', 'Sales price in US dollars': 5.5 },
+    { 'Fiscal Year': '2015/16', Item: 'Soft drink', 'Sales price in US dollars': 2.5 },
+    { 'Fiscal Year': '2015/16', Item: 'Hot dog', 'Sales price in US dollars': 5 }
 ];
 
 // Workbench default category color palette (DEFAULT_CATEGORY_COLORS)
@@ -88,9 +94,9 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
-    const xField = 'Gender';
-    const seriesField = 'Usage_Period';
-    const yField = 'Share_of_Respondents';
+    const xField = 'Fiscal Year';
+    const seriesField = 'Item';
+    const yField = 'Sales price in US dollars';
 
     injectGroupedChartStyles();
 
@@ -251,133 +257,159 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-function renderUsageGroupedBarChart({ d3, container, rows, seriesDomain }) {
-    const xDomain = Array.from(new Set(rows.map((d) => String(d.Gender))));
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 16, bottom: 56, left: 56 };
-    const legendOffsetX = 64;
-    const legendReserve = 200;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const plotH = height - margin.top - margin.bottom;
-    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).paddingInner(0.18).paddingOuter(0.08);
-    const innerScale = d3.scaleBand().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.08);
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(rows, (d) => Number(d.Share_of_Respondents)) ?? 0])
-        .nice()
-        .range([plotH, 0]);
-
-    container.innerHTML = '';
-    container.classList.add('validation-grouped-chart-host');
-
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
-
-    g.selectAll('rect.main-bar')
-        .data(rows)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => (xScale(String(d.Gender)) ?? 0) + (innerScale(String(d.Usage_Period)) ?? 0))
-        .attr('width', innerScale.bandwidth())
-        .attr('y', (d) => yScale(Number(d.Share_of_Respondents)))
-        .attr('height', (d) => plotH - yScale(Number(d.Share_of_Respondents)))
-        .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.Usage_Period))
-        .attr('data-target', (d) => String(d.Gender))
-        .attr('data-series', (d) => String(d.Usage_Period))
-        .attr('data-value', (d) => Number(d.Share_of_Respondents))
-        .attr('data-x-value', (d) => String(d.Gender))
-        .attr('data-y-value', (d) => String(Number(d.Share_of_Respondents)))
-        .attr('data-group-value', (d) => String(d.Usage_Period));
-
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
-    seriesDomain.forEach((series, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, series));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(series);
-    });
-}
-
-function renderUsageStackedBarChart({ d3, container, rows, seriesDomain }) {
-    const xDomain = Array.from(new Set(rows.map((d) => String(d.Gender))));
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 16, bottom: 56, left: 56 };
-    const legendOffsetX = 64;
-    const legendReserve = 200;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const plotH = height - margin.top - margin.bottom;
-    const segments = [];
-
-    xDomain.forEach((gender) => {
-        let y0 = 0;
-        seriesDomain.forEach((period) => {
-            const value = rows
-                .filter((row) => String(row.Gender) === gender && String(row.Usage_Period) === period)
-                .reduce((sum, row) => sum + Number(row.Share_of_Respondents), 0);
-            const y1 = y0 + value;
-            segments.push({ gender, period, value, y0, y1 });
-            y0 = y1;
-        });
-    });
-
-    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.28);
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(segments, (d) => d.y1) ?? 0])
-        .nice()
-        .range([plotH, 0]);
-
-    container.innerHTML = '';
-    container.classList.add('validation-grouped-chart-host');
-
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
-
-    g.selectAll('rect.main-bar')
-        .data(segments)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.gender))
-        .attr('width', xScale.bandwidth())
-        .attr('y', (d) => yScale(d.y1))
-        .attr('height', (d) => yScale(d.y0) - yScale(d.y1))
-        .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.period))
-        .attr('data-target', (d) => d.gender)
-        .attr('data-series', (d) => d.period)
-        .attr('data-value', (d) => d.value)
-        .attr('data-x-value', (d) => d.gender)
-        .attr('data-y-value', (d) => String(d.value))
-        .attr('data-group-value', (d) => d.period);
-
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
-    seriesDomain.forEach((series, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, series));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(series);
-    });
-}
-
 export function function1({ d3, container }) {
-    const selectedPeriods = ['Today', 'Within the previous week'];
-    const filteredRows = data_rows.filter((row) => selectedPeriods.includes(String(row.Usage_Period)));
-    renderUsageGroupedBarChart({ d3, container, rows: filteredRows, seriesDomain: selectedPeriods });
-}
+    const xField = 'Fiscal Year';
+    const yField = 'Sales price in US dollars';
 
-export function function2({ d3, container }) {
-    const selectedPeriods = ['Today', 'Within the previous week'];
-    const filteredRows = data_rows.filter((row) => selectedPeriods.includes(String(row.Usage_Period)));
-    renderUsageStackedBarChart({ d3, container, rows: filteredRows, seriesDomain: selectedPeriods });
-}
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
 
-export function function3({ d3, container }) {}
+    d3.select(container).selectAll('.validation-grouped-chart-tooltip').remove();
+
+    const svgNode = svg.node();
+    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
+    const [, , width, height] = viewBox.split(/\s+/).map(Number);
+    const margin = { top: 32, right: 140, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+
+    const explanationMatchedCombinedValues = {
+        '2010/11': 2.5 + 4.5,
+        '2011/12': 5,
+        '2012/13': 2.5 + 4.75,
+        '2013/14': 5,
+        '2014/15': 2.5 + 5,
+        '2015/16': 2.5 + 5
+    };
+
+    const lineRows = xDomain.map((year) => {
+        const rowsForYear = data_rows.filter((d) => String(d[xField]) === year);
+        const beerValue = rowsForYear.find((d) => String(d.Item) === 'Beer')?.[yField] ?? 0;
+        return {
+            year,
+            Beer: Number(beerValue),
+            'Soft drink + Hot dog': explanationMatchedCombinedValues[year] ?? Number(beerValue)
+        };
+    });
+
+    const series = [
+        {
+            key: 'Beer',
+            color: resolveSeriesColor(['Beer'], 'Beer'),
+            values: lineRows.map((d) => ({ year: d.year, value: d.Beer }))
+        },
+        {
+            key: 'Soft drink + Hot dog',
+            color: '#ef4444',
+            values: lineRows.map((d) => ({ year: d.year, value: d['Soft drink + Hot dog'] }))
+        }
+    ];
+
+    const xScale = d3.scalePoint()
+        .domain(xDomain)
+        .range([0, plotW])
+        .padding(0.5);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(series.flatMap((s) => s.values), (d) => d.value) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+
+    const line = d3.line()
+        .x((d) => xScale(d.year) ?? 0)
+        .y((d) => yScale(d.value))
+        .curve(d3.curveMonotoneX);
+    svg.selectAll('*').remove();
+
+    const g = svg.append('g')
+        .attr('class', 'validation-multiple-line-layer')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).ticks(5));
+
+    const xAxis = g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    autoRotateXAxisLabels(xAxis);
+
+    g.append('text')
+        .attr('class', 'x-axis-label')
+        .attr('x', plotW / 2)
+        .attr('y', plotH + 42)
+        .attr('text-anchor', 'middle')
+        .text(xField);
+
+    g.append('text')
+        .attr('class', 'y-axis-label')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -plotH / 2)
+        .attr('y', -42)
+        .attr('text-anchor', 'middle')
+        .text(yField);
+
+    const seriesGroups = g.selectAll('g.line-series')
+        .data(series)
+        .join('g')
+        .attr('class', 'line-series');
+
+    seriesGroups.append('path')
+        .attr('class', 'main-line')
+        .attr('fill', 'none')
+        .attr('stroke', (d) => d.color)
+        .attr('stroke-width', 3)
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-linejoin', 'round')
+        .attr('d', (d) => line(d.values));
+
+    seriesGroups.selectAll('circle.main-point')
+        .data((d) => d.values.map((value) => ({ ...value, key: d.key, color: d.color })))
+        .join('circle')
+        .attr('class', 'main-point main-bar')
+        .attr('cx', (d) => xScale(d.year) ?? 0)
+        .attr('cy', (d) => yScale(d.value))
+        .attr('r', 0)
+        .attr('fill', (d) => d.color)
+        .attr('data-target', (d) => String(d.year))
+        .attr('data-value', (d) => d.value)
+        .attr('data-series', (d) => String(d.key))
+        .attr('data-x-value', (d) => String(d.year))
+        .attr('data-y-value', (d) => String(d.value))
+        .attr('data-group-value', (d) => String(d.key))
+        .attr('r', 4);
+
+    const legend = svg.append('g')
+        .attr('class', 'color-legend')
+        .attr('transform', `translate(${margin.left + plotW + 40},${margin.top})`);
+
+    const legendItems = legend.selectAll('g.legend-item')
+        .data(series)
+        .join('g')
+        .attr('class', 'legend-item')
+        .attr('transform', (_, i) => `translate(0,${i * 30})`)
+        .style('opacity', 0);
+
+    legendItems.append('line')
+        .attr('x1', 0)
+        .attr('x2', 18)
+        .attr('y1', 10)
+        .attr('y2', 10)
+        .attr('stroke', (d) => d.color)
+        .attr('stroke-width', 3)
+        .attr('stroke-linecap', 'round');
+
+    legendItems.append('text')
+        .attr('x', 26)
+        .attr('y', 10)
+        .attr('font-size', 12)
+        .attr('dominant-baseline', 'middle')
+        .text((d) => d.key);
+
+    legendItems
+        .style('opacity', 1);
+}

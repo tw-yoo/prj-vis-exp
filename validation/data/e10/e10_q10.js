@@ -1,20 +1,20 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Year: 2009, Metric: 'Favorable view of US', Percentage: 44 },
-    { Year: 2009, Metric: 'Confidence in Obama', Percentage: 37 },
-    { Year: 2010, Metric: 'Favorable view of US', Percentage: 57 },
-    { Year: 2010, Metric: 'Confidence in Obama', Percentage: 41 },
-    { Year: 2011, Metric: 'Favorable view of US', Percentage: 56 },
-    { Year: 2011, Metric: 'Confidence in Obama', Percentage: 41 },
-    { Year: 2012, Metric: 'Favorable view of US', Percentage: 52 },
-    { Year: 2012, Metric: 'Confidence in Obama', Percentage: 36 },
-    { Year: 2013, Metric: 'Favorable view of US', Percentage: 51 },
-    { Year: 2013, Metric: 'Confidence in Obama', Percentage: 29 },
-    { Year: 2014, Metric: 'Favorable view of US', Percentage: 23 },
-    { Year: 2014, Metric: 'Confidence in Obama', Percentage: 15 },
-    { Year: 2015, Metric: 'Favorable view of US', Percentage: 15 },
-    { Year: 2015, Metric: 'Confidence in Obama', Percentage: 11 }
+    { Year: 2002, Opinion: 'Favorable', Value: 72 },
+    { Year: 2002, Opinion: 'Unfavorable', Value: 27 },
+    { Year: 2003, Opinion: 'Favorable', Value: 63 },
+    { Year: 2003, Opinion: 'Unfavorable', Value: 34 },
+    { Year: 2005, Opinion: 'Favorable', Value: 59 },
+    { Year: 2005, Opinion: 'Unfavorable', Value: 37 },
+    { Year: 2007, Opinion: 'Favorable', Value: 55 },
+    { Year: 2007, Opinion: 'Unfavorable', Value: 42 },
+    { Year: 2009, Opinion: 'Favorable', Value: 68 },
+    { Year: 2009, Opinion: 'Unfavorable', Value: 28 },
+    { Year: 2013, Opinion: 'Favorable', Value: 64 },
+    { Year: 2013, Opinion: 'Unfavorable', Value: 30 },
+    { Year: 2015, Opinion: 'Favorable', Value: 68 },
+    { Year: 2015, Opinion: 'Unfavorable', Value: 26 }
 ];
 
 // Workbench multiple-line color palette (resolveColorPalette fallback)
@@ -88,8 +88,8 @@ function injectMultiLineStyles() {
 
 export function renderValidationMultipleLineChart({ container }) {
     const xField = 'Year';
-    const seriesField = 'Metric';
-    const yField = 'Percentage';
+    const seriesField = 'Opinion';
+    const yField = 'Value';
     const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
     const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
 
@@ -276,146 +276,153 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {
-    const xField = 'Year';
-    const yField = 'Absolute percentage-point difference';
-
-    const svg = d3.select(container).select('svg');
-    if (svg.empty()) return;
-
-    d3.select(container).selectAll('.validation-multi-line-tooltip').remove();
-
-    const svgNode = svg.node();
-    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
-    const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 24, bottom: 56, left: 72 };
-    const plotW = width - margin.left - margin.right;
-    const plotH = height - margin.top - margin.bottom;
-
+function buildOpinionDifferenceRows() {
+    const excludedYears = new Set([2002, 2007]);
     const years = Array.from(new Set(data_rows.map((d) => Number(d.Year)))).sort((a, b) => a - b);
-    const differenceRows = years.map((year) => {
-        const favorable = data_rows.find((d) => Number(d.Year) === year && d.Metric === 'Favorable view of US')?.Percentage ?? 0;
-        const confidence = data_rows.find((d) => Number(d.Year) === year && d.Metric === 'Confidence in Obama')?.Percentage ?? 0;
+
+    return years.map((year) => {
+        const favorable = data_rows.find((d) => Number(d.Year) === year && d.Opinion === 'Favorable');
+        const unfavorable = data_rows.find((d) => Number(d.Year) === year && d.Opinion === 'Unfavorable');
+        const rawDifference = Number(favorable?.Value ?? 0) - Number(unfavorable?.Value ?? 0);
         return {
             year: String(year),
-            value: Math.abs(Number(favorable) - Number(confidence))
+            value: excludedYears.has(year) ? 0 : rawDifference,
+            excluded: excludedYears.has(year)
         };
     });
+}
 
-    const xScale = d3.scalePoint()
-        .domain(differenceRows.map((d) => d.year))
+function renderOpinionDifferenceBarChart({ d3, container, showAverage = false }) {
+    const rows = buildOpinionDifferenceRows();
+    const includedRows = rows.filter((d) => !d.excluded);
+    const average = d3.mean(includedRows, (d) => d.value) ?? 0;
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 72, bottom: 56, left: 64 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const maxY = Math.max(0, d3.max(rows, (d) => d.value) ?? 0, showAverage ? average : 0);
+    const xScale = d3.scaleBand()
+        .domain(rows.map((d) => d.year))
         .range([0, plotW])
-        .padding(0.5);
-
+        .padding(0.22);
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(differenceRows, (d) => d.value) ?? 0])
+        .domain([0, maxY])
         .nice()
         .range([plotH, 0]);
 
-    const line = d3.line()
-        .x((d) => xScale(d.year) ?? 0)
-        .y((d) => yScale(d.value))
-        .curve(d3.curveMonotoneX);
-    svg.selectAll('*').remove();
+    d3.select(container).selectAll('.validation-multi-line-tooltip').remove();
+    container.innerHTML = '';
+    container.classList.add('validation-chart-host');
 
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('overflow', 'visible');
     const g = svg.append('g')
-        .attr('class', 'validation-function1-difference-line-layer')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g')
         .attr('class', 'y-axis')
         .call(d3.axisLeft(yScale).ticks(5));
-
     const xAxis = g.append('g')
         .attr('class', 'x-axis')
         .attr('transform', `translate(0,${plotH})`)
         .call(d3.axisBottom(xScale));
-
     autoRotateXAxisLabels(xAxis);
 
-    g.append('text')
-        .attr('class', 'x-axis-label')
-        .attr('x', plotW / 2)
-        .attr('y', plotH + 48)
-        .attr('text-anchor', 'middle')
-        .text(xField);
-
-    g.append('text')
-        .attr('class', 'y-axis-label')
-        .attr('transform', 'rotate(-90)')
-        .attr('x', -plotH / 2)
-        .attr('y', -54)
-        .attr('text-anchor', 'middle')
-        .text(yField);
-
-    const path = g.append('path')
-        .datum(differenceRows)
-        .attr('class', 'main-line')
-        .attr('fill', 'none')
-        .attr('stroke', '#4f46e5')
-        .attr('stroke-width', 3)
-        .attr('stroke-linecap', 'round')
-        .attr('stroke-linejoin', 'round')
-        .attr('d', line);
-
-    g.selectAll('circle.main-point')
-        .data(differenceRows)
-        .join('circle')
-        .attr('class', 'main-point main-bar')
-        .attr('cx', (d) => xScale(d.year) ?? 0)
-        .attr('cy', (d) => yScale(d.value))
-        .attr('r', 0)
-        .attr('fill', '#4f46e5')
-        .attr('opacity', 0.9)
+    g.selectAll('rect.main-bar')
+        .data(rows)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => xScale(d.year))
+        .attr('width', xScale.bandwidth())
+        .attr('y', (d) => yScale(d.value))
+        .attr('height', (d) => plotH - yScale(d.value))
+        .attr('fill', (d) => d.excluded ? '#d1d5db' : '#4f46e5')
+        .attr('stroke', (d) => d.excluded ? '#6b7280' : 'none')
         .attr('data-target', (d) => d.year)
         .attr('data-value', (d) => d.value)
         .attr('data-x-value', (d) => d.year)
-        .attr('data-y-value', (d) => String(d.value))
-        .attr('r', 4);
+        .attr('data-y-value', (d) => String(d.value));
+
+    g.selectAll('text.validation-bar-label')
+        .data(rows)
+        .join('text')
+        .attr('class', 'validation-bar-label')
+        .attr('x', (d) => (xScale(d.year) ?? 0) + xScale.bandwidth() / 2)
+        .attr('y', (d) => yScale(d.value) - 8)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 11)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text((d) => String(d.value));
+
+    if (!showAverage) return;
+
+    const avgY = yScale(average);
+    g.append('line')
+        .attr('class', 'validation-average-line')
+        .attr('x1', 0)
+        .attr('x2', plotW)
+        .attr('y1', avgY)
+        .attr('y2', avgY)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4');
+    g.append('text')
+        .attr('class', 'validation-average-line')
+        .attr('x', plotW + 8)
+        .attr('y', avgY)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text(`avg ${average.toFixed(1)}`);
+}
+
+export function function1({ d3, container }) {
+    const excludedYears = new Set(['2002', '2007']);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const positions = Array.from(g.selectAll('circle[data-target]').nodes())
+        .map((node) => ({
+            year: node.getAttribute('data-target'),
+            x: Number(node.getAttribute('cx'))
+        }))
+        .filter((d, index, all) => Number.isFinite(d.x) && all.findIndex((v) => v.year === d.year) === index)
+        .sort((a, b) => Number(a.year) - Number(b.year));
+    const step = Math.min(...positions.slice(1).map((d, i) => d.x - positions[i].x).filter((d) => d > 0));
+    const bandWidth = Number.isFinite(step) ? step * 0.58 : 36;
+    const plotH = 280;
+
+    g.selectAll('.validation-excluded-year-band').remove();
+    positions
+        .filter((d) => excludedYears.has(d.year))
+        .forEach((d) => {
+            g.insert('rect', ':first-child')
+                .attr('class', 'validation-excluded-year-band')
+                .attr('x', d.x - bandWidth / 2)
+                .attr('y', 0)
+                .attr('width', bandWidth)
+                .attr('height', plotH)
+                .attr('fill', '#111827')
+                .attr('opacity', 0.12);
+        });
+
+    g.selectAll('circle[data-target]')
+        .attr('opacity', (d) => excludedYears.has(String(d.target)) ? 1 : 0.28)
+        .attr('fill', (d) => excludedYears.has(String(d.target)) ? '#374151' : resolveSeriesColor(['Favorable', 'Unfavorable'], d.series));
 }
 
 export function function2({ d3, container }) {
-    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d.product))));
-    const svg = d3.select(container).select('svg');
-    const mLeft = +svg.attr('data-m-left') || 0;
-    const mTop = +svg.attr('data-m-top') || 0;
+    renderOpinionDifferenceBarChart({ d3, container, showAverage: false });
+}
 
-    svg.selectAll('path[data-series]')
-        .attr('opacity', (d) => d.series === 'Beta' ? 0.55 : 0.12)
-        .attr('stroke-width', (d) => d.series === 'Beta' ? 4 : 2);
-
-    svg.selectAll('circle[data-target]')
-        .attr('opacity', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 1 : 0.18)
-        .attr('r', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 8 : 3.5)
-        .attr('fill', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? '#ef4444' : resolveSeriesColor(seriesDomain, p.series))
-        .attr('stroke', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? '#111827' : '#ffffff')
-        .attr('stroke-width', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 2.5 : 1.5);
-
-    svg.selectAll('.step-annotation-2').remove();
-
-    // Circles are inside <g translate(mLeft, mTop)>; add margin to convert to SVG coords
-    const julCircle = svg.select('circle[data-series="Beta"][data-target="Jul"]');
-    const augCircle = svg.select('circle[data-series="Beta"][data-target="Aug"]');
-    const x1 = mLeft + (+julCircle.attr('cx') || 0);
-    const y1 = mTop + (+julCircle.attr('cy') || 0);
-    const x2 = mLeft + (+augCircle.attr('cx') || 0);
-    const y2 = mTop + (+augCircle.attr('cy') || 0);
-
-    svg.append('line')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x1', x1).attr('y1', y1)
-        .attr('x2', x2).attr('y2', y2)
-        .attr('stroke', '#ef4444')
-        .attr('stroke-width', 4)
-        .attr('stroke-linecap', 'round');
-
-    svg.append('text')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x', (x1 + x2) / 2)
-        .attr('y', Math.min(y1, y2) - 18)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', 14)
-        .attr('font-weight', 700)
-        .attr('fill', '#ef4444')
-        .text('function2: compare Jul to Aug');
+export function function3({ d3, container }) {
+    renderOpinionDifferenceBarChart({ d3, container, showAverage: true });
 }

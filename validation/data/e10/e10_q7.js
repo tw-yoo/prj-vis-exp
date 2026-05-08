@@ -1,30 +1,34 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Country: 'United States', 'Car Type': 'Gasoline or diesel (ICE)', 'Share of respondents': 74 },
-    { Country: 'United States', 'Car Type': 'Hybrid electric (HEV)', 'Share of respondents': 16 },
-    { Country: 'United States', 'Car Type': 'Battery electric (BEV)', 'Share of respondents': 5 },
-    { Country: 'United States', 'Car Type': 'Other', 'Share of respondents': 5 },
-    { Country: 'India', 'Car Type': 'Gasoline or diesel (ICE)', 'Share of respondents': 68 },
-    { Country: 'India', 'Car Type': 'Hybrid electric (HEV)', 'Share of respondents': 24 },
-    { Country: 'India', 'Car Type': 'Battery electric (BEV)', 'Share of respondents': 4 },
-    { Country: 'India', 'Car Type': 'Other', 'Share of respondents': 4 },
-    { Country: 'Germany', 'Car Type': 'Gasoline or diesel (ICE)', 'Share of respondents': 59 },
-    { Country: 'Germany', 'Car Type': 'Hybrid electric (HEV)', 'Share of respondents': 25 },
-    { Country: 'Germany', 'Car Type': 'Battery electric (BEV)', 'Share of respondents': 7 },
-    { Country: 'Germany', 'Car Type': 'Other', 'Share of respondents': 9 },
-    { Country: 'China', 'Car Type': 'Gasoline or diesel (ICE)', 'Share of respondents': 55 },
-    { Country: 'China', 'Car Type': 'Hybrid electric (HEV)', 'Share of respondents': 29 },
-    { Country: 'China', 'Car Type': 'Battery electric (BEV)', 'Share of respondents': 11 },
-    { Country: 'China', 'Car Type': 'Other', 'Share of respondents': 5 },
-    { Country: 'Japan', 'Car Type': 'Gasoline or diesel (ICE)', 'Share of respondents': 45 },
-    { Country: 'Japan', 'Car Type': 'Hybrid electric (HEV)', 'Share of respondents': 45 },
-    { Country: 'Japan', 'Car Type': 'Battery electric (BEV)', 'Share of respondents': 7 },
-    { Country: 'Japan', 'Car Type': 'Other', 'Share of respondents': 3 },
-    { Country: 'South Korea', 'Car Type': 'Gasoline or diesel (ICE)', 'Share of respondents': 43 },
-    { Country: 'South Korea', 'Car Type': 'Hybrid electric (HEV)', 'Share of respondents': 35 },
-    { Country: 'South Korea', 'Car Type': 'Battery electric (BEV)', 'Share of respondents': 11 },
-    { Country: 'South Korea', 'Car Type': 'Other', 'Share of respondents': 11 }
+    { Royal_Figure: 'Meghan, Duchess of Sussex', Perception: 'Overly critical', Share_of_Respondents: 0.5 },
+    { Royal_Figure: 'Meghan, Duchess of Sussex', Perception: 'Don\'t know', Share_of_Respondents: 0.17 },
+    { Royal_Figure: 'Meghan, Duchess of Sussex', Perception: 'Fair and balanced', Share_of_Respondents: 0.25 },
+    { Royal_Figure: 'Meghan, Duchess of Sussex', Perception: 'Overly favourable', Share_of_Respondents: 0.09 },
+    { Royal_Figure: 'Prince Harry', Perception: 'Overly critical', Share_of_Respondents: 0.44 },
+    { Royal_Figure: 'Prince Harry', Perception: 'Don\'t know', Share_of_Respondents: 0.17 },
+    { Royal_Figure: 'Prince Harry', Perception: 'Fair and balanced', Share_of_Respondents: 0.3 },
+    { Royal_Figure: 'Prince Harry', Perception: 'Overly favourable', Share_of_Respondents: 0.09 },
+    { Royal_Figure: 'Prince Andrew', Perception: 'Overly critical', Share_of_Respondents: 0.17 },
+    { Royal_Figure: 'Prince Andrew', Perception: 'Don\'t know', Share_of_Respondents: 0.26 },
+    { Royal_Figure: 'Prince Andrew', Perception: 'Fair and balanced', Share_of_Respondents: 0.39 },
+    { Royal_Figure: 'Prince Andrew', Perception: 'Overly favourable', Share_of_Respondents: 0.18 },
+    { Royal_Figure: 'Prince Philip', Perception: 'Overly critical', Share_of_Respondents: 0.08 },
+    { Royal_Figure: 'Prince Philip', Perception: 'Don\'t know', Share_of_Respondents: 0.17 },
+    { Royal_Figure: 'Prince Philip', Perception: 'Fair and balanced', Share_of_Respondents: 0.55 },
+    { Royal_Figure: 'Prince Philip', Perception: 'Overly favourable', Share_of_Respondents: 0.2 },
+    { Royal_Figure: 'Prince William', Perception: 'Overly critical', Share_of_Respondents: 0.07 },
+    { Royal_Figure: 'Prince William', Perception: 'Don\'t know', Share_of_Respondents: 0.15 },
+    { Royal_Figure: 'Prince William', Perception: 'Fair and balanced', Share_of_Respondents: 0.51 },
+    { Royal_Figure: 'Prince William', Perception: 'Overly favourable', Share_of_Respondents: 0.27 },
+    { Royal_Figure: 'Catherine, Duchess of Cambridge', Perception: 'Overly critical', Share_of_Respondents: 0.05 },
+    { Royal_Figure: 'Catherine, Duchess of Cambridge', Perception: 'Don\'t know', Share_of_Respondents: 0.21 },
+    { Royal_Figure: 'Catherine, Duchess of Cambridge', Perception: 'Fair and balanced', Share_of_Respondents: 0.44 },
+    { Royal_Figure: 'Catherine, Duchess of Cambridge', Perception: 'Overly favourable', Share_of_Respondents: 0.29 },
+    { Royal_Figure: 'Queen Elizabeth II', Perception: 'Overly critical', Share_of_Respondents: 0.04 },
+    { Royal_Figure: 'Queen Elizabeth II', Perception: 'Don\'t know', Share_of_Respondents: 0.15 },
+    { Royal_Figure: 'Queen Elizabeth II', Perception: 'Fair and balanced', Share_of_Respondents: 0.55 },
+    { Royal_Figure: 'Queen Elizabeth II', Perception: 'Overly favourable', Share_of_Respondents: 0.26 }
 ];
 
 // Workbench default category color palette (DEFAULT_CATEGORY_COLORS)
@@ -95,38 +99,36 @@ function injectStackedChartStyles() {
 }
 
 export function renderValidationStackedBarChart({ container }) {
-    const xField = 'Country';
-    const seriesField = 'Car Type';
-    const yField = 'Share of respondents';
-
-    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
-    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
-
-    const getSeriesColor = (ser) => {
-        const index = seriesDomain.indexOf(ser);
-        return WORKBENCH_PALETTE[index >= 0 ? index % WORKBENCH_PALETTE.length : 0];
+    const seriesKeys = ['desktop', 'mobile', 'tablet'];
+    const seriesLabels = { desktop: 'Desktop', mobile: 'Mobile', tablet: 'Tablet' };
+    const getSeriesColor = (key) => {
+        const index = seriesKeys.indexOf(key);
+        return WORKBENCH_PALETTE[index] ?? WORKBENCH_PALETTE[0];
     };
 
     injectStackedChartStyles();
 
-    // Convert long format → wide format for d3.stack
-    const wideData = xDomain.map((cat) => {
-        const row = { [xField]: cat };
-        seriesDomain.forEach((ser) => {
-            const match = data_rows.find((d) => String(d[xField]) === cat && String(d[seriesField]) === ser);
-            row[ser] = match ? Number(match[yField]) : 0;
-        });
-        return row;
-    });
+    const data = data_rows;
 
-    const stackedData = d3.stack().keys(seriesDomain)(wideData);
+    // Canvas / layout constants matching e10 stacked validation charts
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendOffsetX = 24;
+    const legendReserve = 220;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
 
-    // Flatten to { target, series, value, y0, y1 }
+    // Build stacked segments using d3.stack (same logic as Workbench buildStackedSegments)
+    const stackedData = d3.stack().keys(seriesKeys)(data);
+
+    // Flatten to StackedSegment objects matching Workbench's data model:
+    // { target, series, value, y0, y1 }
     const segments = [];
     stackedData.forEach((layer) => {
         layer.forEach((d) => {
             segments.push({
-                target: d.data[xField],
+                target: d.data.year,
                 series: layer.key,
                 value: d.data[layer.key],
                 y0: d[0],
@@ -137,18 +139,11 @@ export function renderValidationStackedBarChart({ container }) {
 
     const maxY = d3.max(segments, (s) => s.y1) ?? 0;
 
-    // Canvas / layout constants matching Workbench defaults
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
-    const legendOffsetX = 24;
-    const legendReserve = 220;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const plotH = height - margin.top - margin.bottom;
-
     // Clear and prepare container
     container.innerHTML = '';
     container.classList.add('validation-stacked-chart-host');
+
+    const xDomain = data.map((d) => d.year);
 
     const xScale = d3.scaleBand()
         .domain(xDomain)
@@ -191,6 +186,7 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('y', (s) => yScale(Math.max(s.y0, s.y1)))
         .attr('height', (s) => Math.abs(yScale(s.y0) - yScale(s.y1)))
         .attr('fill', (s) => getSeriesColor(s.series))
+        // Workbench data attributes
         .attr('data-target', (s) => s.target)
         .attr('data-value', (s) => s.value)
         .attr('data-series', (s) => s.series)
@@ -206,7 +202,7 @@ export function renderValidationStackedBarChart({ container }) {
 
     const legendRowH = 24;
 
-    seriesDomain.forEach((ser, i) => {
+    seriesKeys.forEach((key, i) => {
         const rowY = i * legendRowH;
         const cy = rowY + 8;
 
@@ -214,7 +210,7 @@ export function renderValidationStackedBarChart({ container }) {
             .attr('cx', 8)
             .attr('cy', cy)
             .attr('r', 5)
-            .attr('fill', getSeriesColor(ser))
+            .attr('fill', getSeriesColor(key))
             .attr('opacity', 0.85);
 
         legend.append('text')
@@ -224,7 +220,7 @@ export function renderValidationStackedBarChart({ container }) {
             .attr('dominant-baseline', 'middle')
             .attr('font-family', 'sans-serif')
             .attr('fill', '#000000')
-            .text(ser);
+            .text(seriesLabels[key]);
     });
 
     // Hover tooltip
@@ -233,15 +229,15 @@ export function renderValidationStackedBarChart({ container }) {
     tooltip.setAttribute('hidden', '');
     tooltip.innerHTML = `
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">${xField}</span>
+            <span class="validation-stacked-chart-tooltip__label">year</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-x"></span>
         </div>
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">${seriesField}</span>
+            <span class="validation-stacked-chart-tooltip__label">series</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-s"></span>
         </div>
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">${yField}</span>
+            <span class="validation-stacked-chart-tooltip__label">value</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-y"></span>
         </div>
     `;
@@ -251,7 +247,7 @@ export function renderValidationStackedBarChart({ container }) {
         .on('mouseover', function (event, s) {
             tooltip.removeAttribute('hidden');
             tooltip.querySelector('#stk-tt-x').textContent = s.target;
-            tooltip.querySelector('#stk-tt-s').textContent = s.series;
+            tooltip.querySelector('#stk-tt-s').textContent = seriesLabels[s.series] ?? s.series;
             tooltip.querySelector('#stk-tt-y').textContent = String(s.value);
         })
         .on('mousemove', function (event) {
@@ -264,138 +260,144 @@ export function renderValidationStackedBarChart({ container }) {
         });
 }
 
-function renderIceSimpleBarChart({ d3, container, rows, averageLabel = null }) {
-    const xField = 'Country';
-    const yField = 'Share of respondents';
-
-    const svg = d3.select(container).select('svg');
-    if (svg.empty()) return;
-
-    d3.select(container).selectAll('.validation-stacked-chart-tooltip').remove();
-
-    const svgNode = svg.node();
-    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
-    const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 32, bottom: 64, left: 56 };
-    const plotW = width - margin.left - margin.right;
+function renderRoyalStackedBarChart({ d3, container, rows, xDomain, seriesDomain }) {
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 72, left: 56 };
+    const legendOffsetX = 24;
+    const legendReserve = 220;
+    const plotW = width - margin.left - margin.right - legendReserve;
     const plotH = height - margin.top - margin.bottom;
+    const colorScale = d3.scaleOrdinal().domain(seriesDomain).range(WORKBENCH_PALETTE);
+    const segments = [];
 
-    const averageValue = d3.mean(rows, (d) => Number(d[yField])) ?? 0;
-    const chartRows = averageLabel
-        ? [
-            ...rows.map((d) => ({
-                label: String(d[xField]),
-                value: Number(d[yField]),
-                type: 'source'
-            })),
-            {
-                label: averageLabel,
-                value: averageValue,
-                type: 'average'
-            }
-        ]
-        : rows.map((d) => ({
-            label: String(d[xField]),
-            value: Number(d[yField]),
-            type: d.type ?? 'source'
-        }));
+    xDomain.forEach((figure) => {
+        let y0 = 0;
+        seriesDomain.forEach((perception) => {
+            const value = rows
+                .filter((row) => String(row.Royal_Figure) === figure && String(row.Perception) === perception)
+                .reduce((sum, row) => sum + Number(row.Share_of_Respondents), 0);
+            const y1 = y0 + value;
+            segments.push({ figure, perception, value, y0, y1 });
+            y0 = y1;
+        });
+    });
 
-    const xScale = d3.scaleBand()
-        .domain(chartRows.map((d) => d.label))
-        .range([0, plotW])
-        .padding(0.28);
-
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.24);
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(chartRows, (d) => d.value) ?? 0])
+        .domain([0, d3.max(segments, (d) => d.y1) ?? 0])
         .nice()
         .range([plotH, 0]);
-    svg.selectAll('*').remove();
 
-    const g = svg.append('g')
-        .attr('class', 'validation-simple-ice-layer')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
+    container.innerHTML = '';
+    container.classList.add('validation-stacked-chart-host');
 
-    g.append('g')
-        .attr('class', 'y-axis')
-        .call(d3.axisLeft(yScale).ticks(5));
+    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const xAxis = g.append('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${plotH})`)
-        .call(d3.axisBottom(xScale));
-
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
     autoRotateXAxisLabels(xAxis);
 
-    g.append('text')
-        .attr('class', 'x-axis-label')
-        .attr('x', plotW / 2)
-        .attr('y', plotH + 48)
-        .attr('text-anchor', 'middle')
-        .text(xField);
-
-    g.append('text')
-        .attr('class', 'y-axis-label')
-        .attr('transform', 'rotate(-90)')
-        .attr('x', -plotH / 2)
-        .attr('y', -42)
-        .attr('text-anchor', 'middle')
-        .text(yField);
-
     g.selectAll('rect.main-bar')
-        .data(chartRows)
+        .data(segments)
         .join('rect')
         .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.label))
+        .attr('x', (d) => xScale(d.figure))
         .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => d.type === 'average' ? '#1d4ed8' : '#60a5fa')
-        .attr('data-target', (d) => d.label)
+        .attr('y', (d) => yScale(d.y1))
+        .attr('height', (d) => yScale(d.y0) - yScale(d.y1))
+        .attr('fill', (d) => colorScale(d.perception))
+        .attr('data-target', (d) => d.figure)
+        .attr('data-series', (d) => d.perception)
         .attr('data-value', (d) => d.value)
-        .attr('data-x-value', (d) => d.label)
+        .attr('data-x-value', (d) => d.figure)
         .attr('data-y-value', (d) => String(d.value))
-        .attr('y', (d) => yScale(d.value))
-        .attr('height', (d) => plotH - yScale(d.value));
+        .attr('data-group-value', (d) => d.perception);
+
+    const legend = svg.append('g')
+        .attr('class', 'color-legend')
+        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
+    seriesDomain.forEach((series, index) => {
+        const y = index * 24 + 8;
+        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', colorScale(series));
+        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 11).text(series);
+    });
 }
 
-function getIceRows(countries) {
-    const countrySet = new Set(countries);
-    return data_rows.filter((d) => (
-        countrySet.has(String(d.Country)) &&
-        String(d['Car Type']) === 'Gasoline or diesel (ICE)'
-    ));
+function renderPerceptionTotalBarChart({ d3, container, rows, seriesDomain }) {
+    const totals = seriesDomain.map((perception) => ({
+        perception,
+        value: rows
+            .filter((row) => String(row.Perception) === perception)
+            .reduce((sum, row) => sum + Number(row.Share_of_Respondents), 0)
+    })).sort((a, b) => b.value - a.value);
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 72, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scaleBand().domain(totals.map((d) => d.perception)).range([0, plotW]).padding(0.22);
+    const yScale = d3.scaleLinear().domain([0, d3.max(totals, (d) => d.value) ?? 0]).nice().range([plotH, 0]);
+
+    container.innerHTML = '';
+    container.classList.add('validation-chart-host');
+
+    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
+    autoRotateXAxisLabels(xAxis);
+
+    g.selectAll('rect.main-bar')
+        .data(totals)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => xScale(d.perception))
+        .attr('width', xScale.bandwidth())
+        .attr('y', (d) => yScale(d.value))
+        .attr('height', (d) => plotH - yScale(d.value))
+        .attr('fill', '#4f46e5')
+        .attr('data-target', (d) => d.perception)
+        .attr('data-value', (d) => d.value)
+        .attr('data-x-value', (d) => d.perception)
+        .attr('data-y-value', (d) => String(d.value));
+
+    g.selectAll('text.validation-total-label')
+        .data(totals)
+        .join('text')
+        .attr('class', 'validation-total-label')
+        .attr('x', (d) => (xScale(d.perception) ?? 0) + xScale.bandwidth() / 2)
+        .attr('y', (d) => yScale(d.value) - 8)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text((d) => d.value.toFixed(2));
 }
 
 export function function1({ d3, container }) {
-    const restCountries = ['United States', 'India', 'China', 'Japan', 'South Korea'];
+    const selectedFigures = ['Meghan, Duchess of Sussex', 'Catherine, Duchess of Cambridge', 'Queen Elizabeth II'];
+    const selectedRows = data_rows.filter((row) => selectedFigures.includes(String(row.Royal_Figure)));
+    const seriesDomain = Array.from(new Set(data_rows.map((row) => String(row.Perception))));
 
-    renderIceSimpleBarChart({
+    renderRoyalStackedBarChart({
         d3,
         container,
-        rows: getIceRows(restCountries),
-        averageLabel: 'Average'
+        rows: selectedRows,
+        xDomain: selectedFigures,
+        seriesDomain
     });
 }
 
 export function function2({ d3, container }) {
-    const germanyRow = getIceRows(['Germany'])[0];
-    const averageRow = {
-        Country: 'Average',
-        'Share of respondents': 57,
-        type: 'average'
-    };
+    const selectedFigures = ['Meghan, Duchess of Sussex', 'Catherine, Duchess of Cambridge', 'Queen Elizabeth II'];
+    const selectedRows = data_rows.filter((row) => selectedFigures.includes(String(row.Royal_Figure)));
+    const seriesDomain = Array.from(new Set(data_rows.map((row) => String(row.Perception))));
 
-    renderIceSimpleBarChart({
-        d3,
-        container,
-        rows: [
-            {
-                Country: 'Germany',
-                'Share of respondents': Number(germanyRow?.['Share of respondents'] ?? 59),
-                type: 'source'
-            },
-            averageRow
-        ],
-        averageLabel: null
-    });
+    renderPerceptionTotalBarChart({ d3, container, rows: selectedRows, seriesDomain });
 }
+
+export function function3({ d3, container }) {}

@@ -1,14 +1,25 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { 'Month Year': 'Dec \'17', 'Index (2010=100)': 106 },
-    { 'Month Year': 'Jan \'18', 'Index (2010=100)': 106.4 },
-    { 'Month Year': 'Feb \'18', 'Index (2010=100)': 105.8 },
-    { 'Month Year': 'Mar \'18', 'Index (2010=100)': 106 },
-    { 'Month Year': 'Apr \'18', 'Index (2010=100)': 105.3 },
-    { 'Month Year': 'May \'18', 'Index (2010=100)': 107.9 },
-    { 'Month Year': 'Jun \'18', 'Index (2010=100)': 105.2 },
-    { 'Month Year': 'Jul \'18', 'Index (2010=100)': 105.6 }
+    { 'Quarter/Year': 'Q1 \'16', 'Price in US dollars per peak watt': 0.63 },
+    { 'Quarter/Year': 'Q2 \'16', 'Price in US dollars per peak watt': 0.59 },
+    { 'Quarter/Year': 'Q3 \'16', 'Price in US dollars per peak watt': 0.49 },
+    { 'Quarter/Year': 'Q4 \'16', 'Price in US dollars per peak watt': 0.39 },
+    { 'Quarter/Year': 'Q1 \'17', 'Price in US dollars per peak watt': 0.38 },
+    { 'Quarter/Year': 'Q2 \'17', 'Price in US dollars per peak watt': 0.39 },
+    { 'Quarter/Year': 'Q3 \'17', 'Price in US dollars per peak watt': 0.4 },
+    { 'Quarter/Year': 'Q4 \'17', 'Price in US dollars per peak watt': 0.45 },
+    { 'Quarter/Year': 'Q1 \'18', 'Price in US dollars per peak watt': 0.48 },
+    { 'Quarter/Year': 'Q2 \'18', 'Price in US dollars per peak watt': 0.47 },
+    { 'Quarter/Year': 'Q3 \'18', 'Price in US dollars per peak watt': 0.42 },
+    { 'Quarter/Year': 'Q4 \'18', 'Price in US dollars per peak watt': 0.34 },
+    { 'Quarter/Year': 'Q1 \'19', 'Price in US dollars per peak watt': 0.34 },
+    { 'Quarter/Year': 'Q2 \'19', 'Price in US dollars per peak watt': 0.33 },
+    { 'Quarter/Year': 'Q3 \'19', 'Price in US dollars per peak watt': 0.32 },
+    { 'Quarter/Year': 'Q4 \'19', 'Price in US dollars per peak watt': 0.29 },
+    { 'Quarter/Year': 'Q1 \'20', 'Price in US dollars per peak watt': 0.22 },
+    { 'Quarter/Year': 'Q2 \'20', 'Price in US dollars per peak watt': 0.21 },
+    { 'Quarter/Year': 'Q3 \'20', 'Price in US dollars per peak watt': 0.19 }
 ];
 
 function injectSimpleLineStyles() {
@@ -69,8 +80,8 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
-    const xField = 'Month Year';
-    const yField = 'Index (2010=100)';
+    const xField = 'Quarter/Year';
+    const yField = 'Price in US dollars per peak watt';
 
     injectSimpleLineStyles();
 
@@ -206,69 +217,157 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-function renderIndexDivergingBarChart({ d3, container, colorBySign = false }) {
-    const xField = 'Month Year';
-    const yField = 'Index (2010=100)';
-    const values = data_rows.map((d) => Number(d[yField])).filter(Number.isFinite);
-    const average = d3.mean(values) ?? 0;
-    const rows = data_rows.map((row) => ({
-        label: String(row[xField]),
-        value: Number(row[yField]) - average
-    }));
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 24, bottom: 56, left: 64 };
-    const plotW = width - margin.left - margin.right;
-    const plotH = height - margin.top - margin.bottom;
-    const maxAbs = d3.max(rows, (d) => Math.abs(d.value)) ?? 1;
-    const xScale = d3.scaleBand().domain(rows.map((d) => d.label)).range([0, plotW]).padding(0.22);
-    const yScale = d3.scaleLinear().domain([-maxAbs, maxAbs]).nice().range([plotH, 0]);
-    const zeroY = yScale(0);
+export function function1({ d3, container }) {
+    const xField = 'Year';
+    const yField = 'Absolute price change in US dollars per peak watt';
+
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
 
     d3.select(container).selectAll('.validation-simple-line-tooltip').remove();
-    container.innerHTML = '';
-    container.classList.add('validation-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const svgNode = svg.node();
+    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
+    const [, , width, height] = viewBox.split(/\s+/).map(Number);
+    const margin = { top: 32, right: 24, bottom: 56, left: 72 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
 
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(6));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${zeroY})`).call(d3.axisBottom(xScale));
+    const changeRows = [
+        {
+            year: '2016',
+            value: Math.abs(0.39 - 0.63)
+        },
+        {
+            year: '2017',
+            value: Math.abs(0.45 - 0.38)
+        },
+        {
+            year: '2018',
+            value: Math.abs(0.34 - 0.48)
+        },
+        {
+            year: '2019',
+            value: Math.abs(0.29 - 0.34)
+        },
+        {
+            year: '2020',
+            value: Math.abs(0.19 - 0.22)
+        }
+    ];
+
+    const xScale = d3.scalePoint()
+        .domain(changeRows.map((d) => d.year))
+        .range([0, plotW])
+        .padding(0.5);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(changeRows, (d) => d.value) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+
+    const line = d3.line()
+        .x((d) => xScale(d.year) ?? 0)
+        .y((d) => yScale(d.value))
+        .curve(d3.curveMonotoneX);
+    svg.selectAll('*').remove();
+
+    const g = svg.append('g')
+        .attr('class', 'validation-function1-year-change-line-layer')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).ticks(5));
+
+    const xAxis = g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
     autoRotateXAxisLabels(xAxis);
 
-    g.append('line')
-        .attr('class', 'validation-zero-line')
-        .attr('x1', 0)
-        .attr('x2', plotW)
-        .attr('y1', zeroY)
-        .attr('y2', zeroY)
-        .attr('stroke', '#111827')
-        .attr('stroke-width', 1.5);
+    g.append('text')
+        .attr('class', 'x-axis-label')
+        .attr('x', plotW / 2)
+        .attr('y', plotH + 48)
+        .attr('text-anchor', 'middle')
+        .text(xField);
 
-    g.selectAll('rect.main-bar')
-        .data(rows)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.label))
-        .attr('width', xScale.bandwidth())
-        .attr('y', (d) => d.value >= 0 ? yScale(d.value) : zeroY)
-        .attr('height', (d) => Math.abs(yScale(d.value) - zeroY))
-        .attr('fill', (d) => {
-            if (!colorBySign) return '#4f46e5';
-            return d.value >= 0 ? '#16a34a' : '#dc2626';
-        })
-        .attr('data-target', (d) => d.label)
+    g.append('text')
+        .attr('class', 'y-axis-label')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -plotH / 2)
+        .attr('y', -54)
+        .attr('text-anchor', 'middle')
+        .text(yField);
+
+    const path = g.append('path')
+        .datum(changeRows)
+        .attr('class', 'main-line')
+        .attr('fill', 'none')
+        .attr('stroke', '#4f46e5')
+        .attr('stroke-width', 3)
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-linejoin', 'round')
+        .attr('d', line);
+
+    g.selectAll('circle.main-point')
+        .data(changeRows)
+        .join('circle')
+        .attr('class', 'main-point main-bar')
+        .attr('cx', (d) => xScale(d.year) ?? 0)
+        .attr('cy', (d) => yScale(d.value))
+        .attr('r', 0)
+        .attr('fill', '#4f46e5')
+        .attr('opacity', 0.9)
+        .attr('data-target', (d) => d.year)
         .attr('data-value', (d) => d.value)
-        .attr('data-x-value', (d) => d.label)
-        .attr('data-y-value', (d) => String(d.value));
-}
-
-export function function1({ d3, container }) {
-    renderIndexDivergingBarChart({ d3, container, colorBySign: false });
+        .attr('data-x-value', (d) => d.year)
+        .attr('data-y-value', (d) => String(d.value))
+        .attr('r', 4);
 }
 
 export function function2({ d3, container }) {
-    renderIndexDivergingBarChart({ d3, container, colorBySign: true });
-}
+    const svg = d3.select(container).select('svg');
+    const mLeft = +svg.attr('data-m-left') || 0;
+    const mTop = +svg.attr('data-m-top') || 0;
 
-export function function3({ d3, container }) {}
+    svg.selectAll('circle[data-target]')
+        .attr('r', (p) => p.target === 'Jun' || p.target === 'Jul' ? 8 : 4)
+        .attr('fill', (p) => p.target === 'Jun' || p.target === 'Jul' ? '#ef4444' : '#bfdbfe')
+        .attr('opacity', (p) => p.target === 'Jun' || p.target === 'Jul' ? 1 : 0.25)
+        .attr('stroke', (p) => p.target === 'Jun' || p.target === 'Jul' ? '#111827' : '#ffffff')
+        .attr('stroke-width', (p) => p.target === 'Jun' || p.target === 'Jul' ? 2.5 : 1.5);
+
+    svg.select('.main-line')
+        .attr('stroke', '#bfdbfe')
+        .attr('opacity', 0.4);
+
+    svg.selectAll('.step-annotation-2').remove();
+
+    const junCircle = svg.select('circle[data-target="Jun"]');
+    const julCircle = svg.select('circle[data-target="Jul"]');
+    const x1 = mLeft + (+junCircle.attr('cx') || 0);
+    const y1 = mTop + (+junCircle.attr('cy') || 0);
+    const x2 = mLeft + (+julCircle.attr('cx') || 0);
+    const y2 = mTop + (+julCircle.attr('cy') || 0);
+
+    svg.append('line')
+        .attr('class', 'step-annotation step-annotation-2')
+        .attr('x1', x1).attr('y1', y1)
+        .attr('x2', x2).attr('y2', y2)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 4)
+        .attr('stroke-linecap', 'round');
+
+    svg.append('text')
+        .attr('class', 'step-annotation step-annotation-2')
+        .attr('x', (x1 + x2) / 2)
+        .attr('y', Math.min(y1, y2) - 18)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', 14)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .text('function2: compare Jun to Jul');
+}

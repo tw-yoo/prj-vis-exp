@@ -1,28 +1,20 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Year: 2008, Gender: 'female', 'Life expectancy at virth in years': 72.17 },
-    { Year: 2008, Gender: 'male', 'Life expectancy at virth in years': 65.25 },
-    { Year: 2009, Gender: 'female', 'Life expectancy at virth in years': 72.47 },
-    { Year: 2009, Gender: 'male', 'Life expectancy at virth in years': 65.57 },
-    { Year: 2010, Gender: 'female', 'Life expectancy at virth in years': 72.86 },
-    { Year: 2010, Gender: 'male', 'Life expectancy at virth in years': 65.96 },
-    { Year: 2011, Gender: 'female', 'Life expectancy at virth in years': 73.31 },
-    { Year: 2011, Gender: 'male', 'Life expectancy at virth in years': 66.4 },
-    { Year: 2012, Gender: 'female', 'Life expectancy at virth in years': 73.76 },
-    { Year: 2012, Gender: 'male', 'Life expectancy at virth in years': 66.84 },
-    { Year: 2013, Gender: 'female', 'Life expectancy at virth in years': 74.18 },
-    { Year: 2013, Gender: 'male', 'Life expectancy at virth in years': 67.23 },
-    { Year: 2014, Gender: 'female', 'Life expectancy at virth in years': 74.55 },
-    { Year: 2014, Gender: 'male', 'Life expectancy at virth in years': 67.56 },
-    { Year: 2015, Gender: 'female', 'Life expectancy at virth in years': 74.86 },
-    { Year: 2015, Gender: 'male', 'Life expectancy at virth in years': 67.84 },
-    { Year: 2016, Gender: 'female', 'Life expectancy at virth in years': 75.12 },
-    { Year: 2016, Gender: 'male', 'Life expectancy at virth in years': 68.06 },
-    { Year: 2017, Gender: 'female', 'Life expectancy at virth in years': 75.34 },
-    { Year: 2017, Gender: 'male', 'Life expectancy at virth in years': 68.25 },
-    { Year: 2018, Gender: 'female', 'Life expectancy at virth in years': 75.55 },
-    { Year: 2018, Gender: 'male', 'Life expectancy at virth in years': 68.44 }
+    { Year: 2009, Metric: 'Favorable view of US', Percentage: 44 },
+    { Year: 2009, Metric: 'Confidence in Obama', Percentage: 37 },
+    { Year: 2010, Metric: 'Favorable view of US', Percentage: 57 },
+    { Year: 2010, Metric: 'Confidence in Obama', Percentage: 41 },
+    { Year: 2011, Metric: 'Favorable view of US', Percentage: 56 },
+    { Year: 2011, Metric: 'Confidence in Obama', Percentage: 41 },
+    { Year: 2012, Metric: 'Favorable view of US', Percentage: 52 },
+    { Year: 2012, Metric: 'Confidence in Obama', Percentage: 36 },
+    { Year: 2013, Metric: 'Favorable view of US', Percentage: 51 },
+    { Year: 2013, Metric: 'Confidence in Obama', Percentage: 29 },
+    { Year: 2014, Metric: 'Favorable view of US', Percentage: 23 },
+    { Year: 2014, Metric: 'Confidence in Obama', Percentage: 15 },
+    { Year: 2015, Metric: 'Favorable view of US', Percentage: 15 },
+    { Year: 2015, Metric: 'Confidence in Obama', Percentage: 11 }
 ];
 
 // Workbench multiple-line color palette (resolveColorPalette fallback)
@@ -96,8 +88,8 @@ function injectMultiLineStyles() {
 
 export function renderValidationMultipleLineChart({ container }) {
     const xField = 'Year';
-    const seriesField = 'Gender';
-    const yField = 'Life expectancy at virth in years';
+    const seriesField = 'Metric';
+    const yField = 'Percentage';
     const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
     const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
 
@@ -284,163 +276,146 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-function getLifeExpectancyGapRows(d3) {
-    const years = Array.from(new Set(data_rows.map((d) => String(d.Year)))).sort((a, b) => Number(a) - Number(b));
-    const gaps = years.map((year) => {
-        const female = data_rows.find((d) => String(d.Year) === year && d.Gender === 'female');
-        const male = data_rows.find((d) => String(d.Year) === year && d.Gender === 'male');
-        return {
-            year,
-            gap: Number(female?.['Life expectancy at virth in years'] ?? 0) - Number(male?.['Life expectancy at virth in years'] ?? 0)
-        };
-    });
-    const averageGap = d3.mean(gaps, (d) => d.gap) ?? 0;
-    return gaps.map((d) => ({ ...d, value: d.gap - averageGap }));
-}
-
-function renderLifeExpectancyCompositeChart({ d3, container }) {
+export function function1({ d3, container }) {
     const xField = 'Year';
-    const seriesField = 'Gender';
-    const yField = 'Life expectancy at virth in years';
-    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField])))).sort((a, b) => Number(a) - Number(b));
-    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
-    const gapRows = getLifeExpectancyGapRows(d3);
-    const width = 640;
-    const height = 460;
-    const margin = { top: 28, right: 16, bottom: 52, left: 56 };
-    const legendOffsetX = 64;
-    const legendReserve = 200;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const topH = 108;
-    const panelGap = 34;
-    const bottomH = height - margin.top - margin.bottom - topH - panelGap;
-    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
-    const maxAbs = d3.max(gapRows, (d) => Math.abs(d.value)) ?? 1;
-    const topYScale = d3.scaleLinear().domain([-maxAbs, maxAbs]).nice().range([topH, 0]);
-    const zeroY = topYScale(0);
+    const yField = 'Absolute percentage-point difference';
 
-    const allPoints = data_rows.map((row) => ({
-        target: String(row[xField]),
-        series: String(row[seriesField]),
-        yValue: Number(row[yField])
-    }));
-    const bottomYScale = d3.scaleLinear()
-        .domain([d3.min(allPoints, (d) => d.yValue) ?? 0, d3.max(allPoints, (d) => d.yValue) ?? 1])
-        .nice()
-        .range([bottomH, 0]);
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
 
     d3.select(container).selectAll('.validation-multi-line-tooltip').remove();
-    container.innerHTML = '';
-    container.classList.add('validation-multi-line-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const topG = svg.append('g')
-        .attr('class', 'validation-life-gap-panel')
+    const svgNode = svg.node();
+    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
+    const [, , width, height] = viewBox.split(/\s+/).map(Number);
+    const margin = { top: 32, right: 24, bottom: 56, left: 72 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    const years = Array.from(new Set(data_rows.map((d) => Number(d.Year)))).sort((a, b) => a - b);
+    const differenceRows = years.map((year) => {
+        const favorable = data_rows.find((d) => Number(d.Year) === year && d.Metric === 'Favorable view of US')?.Percentage ?? 0;
+        const confidence = data_rows.find((d) => Number(d.Year) === year && d.Metric === 'Confidence in Obama')?.Percentage ?? 0;
+        return {
+            year: String(year),
+            value: Math.abs(Number(favorable) - Number(confidence))
+        };
+    });
+
+    const xScale = d3.scalePoint()
+        .domain(differenceRows.map((d) => d.year))
+        .range([0, plotW])
+        .padding(0.5);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(differenceRows, (d) => d.value) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+
+    const line = d3.line()
+        .x((d) => xScale(d.year) ?? 0)
+        .y((d) => yScale(d.value))
+        .curve(d3.curveMonotoneX);
+    svg.selectAll('*').remove();
+
+    const g = svg.append('g')
+        .attr('class', 'validation-function1-difference-line-layer')
         .attr('transform', `translate(${margin.left},${margin.top})`);
-    const bottomG = svg.append('g')
-        .attr('class', 'validation-life-line-panel')
-        .attr('transform', `translate(${margin.left},${margin.top + topH + panelGap})`);
 
-    topG.append('g').attr('class', 'y-axis').call(d3.axisLeft(topYScale).ticks(3));
-    topG.append('line')
-        .attr('x1', 0)
-        .attr('x2', plotW)
-        .attr('y1', zeroY)
-        .attr('y2', zeroY)
-        .attr('stroke', '#111827')
-        .attr('stroke-width', 1.5);
+    g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).ticks(5));
 
-    const barWidth = Math.max(16, plotW / xDomain.length * 0.48);
-    topG.selectAll('rect.main-bar')
-        .data(gapRows)
-        .join('rect')
-        .attr('class', 'main-bar validation-gap-bar')
-        .attr('x', (d) => (xScale(d.year) ?? 0) - barWidth / 2)
-        .attr('width', barWidth)
-        .attr('y', (d) => d.value >= 0 ? topYScale(d.value) : zeroY)
-        .attr('height', (d) => Math.abs(topYScale(d.value) - zeroY))
+    const xAxis = g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    autoRotateXAxisLabels(xAxis);
+
+    g.append('text')
+        .attr('class', 'x-axis-label')
+        .attr('x', plotW / 2)
+        .attr('y', plotH + 48)
+        .attr('text-anchor', 'middle')
+        .text(xField);
+
+    g.append('text')
+        .attr('class', 'y-axis-label')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -plotH / 2)
+        .attr('y', -54)
+        .attr('text-anchor', 'middle')
+        .text(yField);
+
+    const path = g.append('path')
+        .datum(differenceRows)
+        .attr('class', 'main-line')
+        .attr('fill', 'none')
+        .attr('stroke', '#4f46e5')
+        .attr('stroke-width', 3)
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-linejoin', 'round')
+        .attr('d', line);
+
+    g.selectAll('circle.main-point')
+        .data(differenceRows)
+        .join('circle')
+        .attr('class', 'main-point main-bar')
+        .attr('cx', (d) => xScale(d.year) ?? 0)
+        .attr('cy', (d) => yScale(d.value))
+        .attr('r', 0)
         .attr('fill', '#4f46e5')
+        .attr('opacity', 0.9)
         .attr('data-target', (d) => d.year)
         .attr('data-value', (d) => d.value)
         .attr('data-x-value', (d) => d.year)
-        .attr('data-y-value', (d) => String(d.value));
-
-    bottomG.append('g').attr('class', 'y-axis').call(d3.axisLeft(bottomYScale).ticks(5));
-    const xAxis = bottomG.append('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${bottomH})`)
-        .call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
-
-    const lineGen = d3.line().x((d) => xScale(d.target) ?? 0).y((d) => bottomYScale(d.yValue));
-    seriesDomain.forEach((series) => {
-        const points = allPoints.filter((d) => d.series === series);
-        bottomG.append('path')
-            .datum({ series, points })
-            .attr('fill', 'none')
-            .attr('stroke', resolveSeriesColor(seriesDomain, series))
-            .attr('stroke-width', 2)
-            .attr('data-series', series)
-            .attr('d', (d) => lineGen(d.points));
-        bottomG.selectAll(`circle[data-series="${series}"]`)
-            .data(points)
-            .join('circle')
-            .attr('cx', (d) => xScale(d.target) ?? 0)
-            .attr('cy', (d) => bottomYScale(d.yValue))
-            .attr('r', 4)
-            .attr('fill', resolveSeriesColor(seriesDomain, series))
-            .attr('opacity', 0.85)
-            .attr('data-target', (d) => d.target)
-            .attr('data-series', (d) => d.series)
-            .attr('data-value', (d) => String(d.yValue))
-            .attr('data-x-value', (d) => d.target)
-            .attr('data-y-value', (d) => String(d.yValue));
-    });
-
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top + topH + panelGap})`);
-    seriesDomain.forEach((series, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, series));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(series);
-    });
-}
-
-export function function1({ d3, container }) {
-    renderLifeExpectancyCompositeChart({ d3, container });
+        .attr('data-y-value', (d) => String(d.value))
+        .attr('r', 4);
 }
 
 export function function2({ d3, container }) {
-    if (!container.querySelector('.validation-life-gap-panel')) {
-        renderLifeExpectancyCompositeChart({ d3, container });
-    }
-
-    const targetYear = '2013';
-    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year)))).sort((a, b) => Number(a) - Number(b));
-    const width = 640;
-    const height = 460;
-    const margin = { top: 28, right: 16, bottom: 52, left: 56 };
-    const legendReserve = 200;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const topH = 108;
-    const panelGap = 34;
-    const bottomH = height - margin.top - margin.bottom - topH - panelGap;
-    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
-    const step = plotW / Math.max(1, xDomain.length - 1);
-    const bandWidth = step * 0.64;
-    const x = margin.left + (xScale(targetYear) ?? 0) - bandWidth / 2;
-
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d.product))));
     const svg = d3.select(container).select('svg');
-    svg.selectAll('.validation-highlight-2013').remove();
-    svg.insert('rect', ':first-child')
-        .attr('class', 'validation-highlight-2013')
-        .attr('x', x)
-        .attr('y', margin.top)
-        .attr('width', bandWidth)
-        .attr('height', topH + panelGap + bottomH)
-        .attr('fill', '#d1d5db')
-        .attr('opacity', 0.42);
-}
+    const mLeft = +svg.attr('data-m-left') || 0;
+    const mTop = +svg.attr('data-m-top') || 0;
 
-export function function3({ d3, container }) {}
+    svg.selectAll('path[data-series]')
+        .attr('opacity', (d) => d.series === 'Beta' ? 0.55 : 0.12)
+        .attr('stroke-width', (d) => d.series === 'Beta' ? 4 : 2);
+
+    svg.selectAll('circle[data-target]')
+        .attr('opacity', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 1 : 0.18)
+        .attr('r', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 8 : 3.5)
+        .attr('fill', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? '#ef4444' : resolveSeriesColor(seriesDomain, p.series))
+        .attr('stroke', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? '#111827' : '#ffffff')
+        .attr('stroke-width', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 2.5 : 1.5);
+
+    svg.selectAll('.step-annotation-2').remove();
+
+    // Circles are inside <g translate(mLeft, mTop)>; add margin to convert to SVG coords
+    const julCircle = svg.select('circle[data-series="Beta"][data-target="Jul"]');
+    const augCircle = svg.select('circle[data-series="Beta"][data-target="Aug"]');
+    const x1 = mLeft + (+julCircle.attr('cx') || 0);
+    const y1 = mTop + (+julCircle.attr('cy') || 0);
+    const x2 = mLeft + (+augCircle.attr('cx') || 0);
+    const y2 = mTop + (+augCircle.attr('cy') || 0);
+
+    svg.append('line')
+        .attr('class', 'step-annotation step-annotation-2')
+        .attr('x1', x1).attr('y1', y1)
+        .attr('x2', x2).attr('y2', y2)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 4)
+        .attr('stroke-linecap', 'round');
+
+    svg.append('text')
+        .attr('class', 'step-annotation step-annotation-2')
+        .attr('x', (x1 + x2) / 2)
+        .attr('y', Math.min(y1, y2) - 18)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', 14)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .text('function2: compare Jul to Aug');
+}

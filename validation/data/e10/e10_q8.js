@@ -1,14 +1,27 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Region: 'Lower 48 onshore', Year: 2000, 'Production in million barrels per day': 3.24 },
-    { Region: 'Lower 48 onshore', Year: 2020, 'Production in million barrels per day': 4.38 },
-    { Region: 'Lower 48 offshore', Year: 2000, 'Production in million barrels per day': 1.61 },
-    { Region: 'Lower 48 offshore', Year: 2020, 'Production in million barrels per day': 1.83 },
-    { Region: 'Alaska', Year: 2000, 'Production in million barrels per day': 0.97 },
-    { Region: 'Alaska', Year: 2020, 'Production in million barrels per day': 0.49 },
-    { Region: 'Total', Year: 2000, 'Production in million barrels per day': 5.82 },
-    { Region: 'Total', Year: 2020, 'Production in million barrels per day': 6.7 }
+    { Year: 2014, Sector: 'Healthcare', Revenue_Million_Euros: 6621 },
+    { Year: 2014, Sector: 'Life Science', Revenue_Million_Euros: 2683 },
+    { Year: 2014, Sector: 'Performance Materials', Revenue_Million_Euros: 2060 },
+    { Year: 2015, Sector: 'Healthcare', Revenue_Million_Euros: 6934 },
+    { Year: 2015, Sector: 'Life Science', Revenue_Million_Euros: 3355 },
+    { Year: 2015, Sector: 'Performance Materials', Revenue_Million_Euros: 2556 },
+    { Year: 2016, Sector: 'Healthcare', Revenue_Million_Euros: 6855 },
+    { Year: 2016, Sector: 'Life Science', Revenue_Million_Euros: 5658 },
+    { Year: 2016, Sector: 'Performance Materials', Revenue_Million_Euros: 2511 },
+    { Year: 2017, Sector: 'Healthcare', Revenue_Million_Euros: 6999 },
+    { Year: 2017, Sector: 'Life Science', Revenue_Million_Euros: 5882 },
+    { Year: 2017, Sector: 'Performance Materials', Revenue_Million_Euros: 2446 },
+    { Year: 2018, Sector: 'Healthcare', Revenue_Million_Euros: 6246 },
+    { Year: 2018, Sector: 'Life Science', Revenue_Million_Euros: 6185 },
+    { Year: 2018, Sector: 'Performance Materials', Revenue_Million_Euros: 2406 },
+    { Year: 2019, Sector: 'Healthcare', Revenue_Million_Euros: 6715 },
+    { Year: 2019, Sector: 'Life Science', Revenue_Million_Euros: 6864 },
+    { Year: 2019, Sector: 'Performance Materials', Revenue_Million_Euros: 2574 },
+    { Year: 2020, Sector: 'Healthcare', Revenue_Million_Euros: 6639 },
+    { Year: 2020, Sector: 'Life Science', Revenue_Million_Euros: 7515 },
+    { Year: 2020, Sector: 'Performance Materials', Revenue_Million_Euros: 3380 }
 ];
 
 // Workbench default category color palette (DEFAULT_CATEGORY_COLORS)
@@ -84,9 +97,9 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
-    const xField = 'Region';
-    const seriesField = 'Year';
-    const yField = 'Production in million barrels per day';
+    const xField = 'Year';
+    const seriesField = 'Sector';
+    const yField = 'Revenue_Million_Euros';
 
     injectGroupedChartStyles();
 
@@ -247,110 +260,113 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {
-    const xField = 'Region';
-    const yField = 'Production change in million barrels per day';
-
-    const svg = d3.select(container).select('svg');
-    if (svg.empty()) return;
-
-    d3.select(container).selectAll('.validation-grouped-chart-tooltip').remove();
-
-    const svgNode = svg.node();
-    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
-    const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 32, bottom: 64, left: 72 };
-    const plotW = width - margin.left - margin.right;
+function renderSectorYearStackedBarChart({ d3, container }) {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year)))).sort((a, b) => Number(a) - Number(b));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d.Sector))));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 56, left: 64 };
+    const legendOffsetX = 64;
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
     const plotH = height - margin.top - margin.bottom;
+    const colorScale = d3.scaleOrdinal().domain(seriesDomain).range(WORKBENCH_PALETTE);
+    const segments = [];
 
-    const chartRows = [
-        {
-            label: 'Alaska change',
-            value: 0.97 - 0.49,
-            color: '#60a5fa'
-        },
-        {
-            label: 'Total increase',
-            value: 6.7 - 5.82,
-            color: '#2563eb'
-        }
-    ];
+    xDomain.forEach((year) => {
+        let y0 = 0;
+        seriesDomain.forEach((sector) => {
+            const value = data_rows
+                .filter((row) => String(row.Year) === year && String(row.Sector) === sector)
+                .reduce((sum, row) => sum + Number(row.Revenue_Million_Euros), 0);
+            const y1 = y0 + value;
+            segments.push({ year, sector, value, y0, y1 });
+            y0 = y1;
+        });
+    });
 
-    const xScale = d3.scaleBand()
-        .domain(chartRows.map((d) => d.label))
-        .range([0, plotW])
-        .padding(0.42);
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.2);
+    const yScale = d3.scaleLinear().domain([0, d3.max(segments, (d) => d.y1) ?? 0]).nice().range([plotH, 0]);
 
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(chartRows, (d) => d.value) ?? 0])
-        .nice()
-        .range([plotH, 0]);
-    svg.selectAll('*').remove();
+    container.innerHTML = '';
+    container.classList.add('validation-grouped-chart-host');
 
-    const g = svg.append('g')
-        .attr('class', 'validation-function1-change-bar-layer')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
+    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-    g.append('g')
-        .attr('class', 'y-axis')
-        .call(d3.axisLeft(yScale).ticks(5));
-
-    const xAxis = g.append('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${plotH})`)
-        .call(d3.axisBottom(xScale));
-
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
     autoRotateXAxisLabels(xAxis);
 
-    g.append('text')
-        .attr('class', 'x-axis-label')
-        .attr('x', plotW / 2)
-        .attr('y', plotH + 48)
-        .attr('text-anchor', 'middle')
-        .text(xField);
-
-    g.append('text')
-        .attr('class', 'y-axis-label')
-        .attr('transform', 'rotate(-90)')
-        .attr('x', -plotH / 2)
-        .attr('y', -54)
-        .attr('text-anchor', 'middle')
-        .text(yField);
-
     g.selectAll('rect.main-bar')
-        .data(chartRows)
+        .data(segments)
         .join('rect')
         .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.label))
+        .attr('x', (d) => xScale(d.year))
         .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => d.color)
-        .attr('data-target', (d) => d.label)
+        .attr('y', (d) => yScale(d.y1))
+        .attr('height', (d) => yScale(d.y0) - yScale(d.y1))
+        .attr('fill', (d) => colorScale(d.sector))
+        .attr('data-target', (d) => d.year)
+        .attr('data-series', (d) => d.sector)
         .attr('data-value', (d) => d.value)
-        .attr('data-x-value', (d) => d.label)
+        .attr('data-x-value', (d) => d.year)
         .attr('data-y-value', (d) => String(d.value))
-        .attr('y', (d) => yScale(d.value))
-        .attr('height', (d) => plotH - yScale(d.value));
+        .attr('data-group-value', (d) => d.sector);
+
+    g.selectAll('text.validation-segment-label')
+        .data(segments.filter((d) => yScale(d.y0) - yScale(d.y1) > 14))
+        .join('text')
+        .attr('class', 'validation-segment-label')
+        .attr('x', (d) => (xScale(d.year) ?? 0) + xScale.bandwidth() / 2)
+        .attr('y', (d) => (yScale(d.y0) + yScale(d.y1)) / 2)
+        .attr('text-anchor', 'middle')
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 9)
+        .attr('font-weight', 700)
+        .attr('fill', '#ffffff')
+        .text((d) => String(d.value));
+
+    const legend = svg.append('g')
+        .attr('class', 'color-legend')
+        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
+    seriesDomain.forEach((series, index) => {
+        const y = index * 30 + 10;
+        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', colorScale(series));
+        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(series);
+    });
+}
+
+export function function1({ d3, container }) {
+    renderSectorYearStackedBarChart({ d3, container });
 }
 
 export function function2({ d3, container }) {
+    const targetYear = '2020';
     const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
 
-    svg.selectAll('rect.main-bar')
-        .attr('opacity', (datum) => datum.category === '2024' && datum.series === 'Beta' ? 1 : 0.18)
-        .attr('stroke', (datum) => datum.category === '2024' && datum.series === 'Beta' ? '#ef4444' : 'none')
-        .attr('stroke-width', (datum) => datum.category === '2024' && datum.series === 'Beta' ? 3 : 0);
+    g.selectAll('.main-bar')
+        .attr('opacity', (d) => String(d.year ?? d.target ?? d.Year) === targetYear ? 1 : 0.28)
+        .attr('stroke', (d) => String(d.year ?? d.target ?? d.Year) === targetYear ? '#111827' : 'none')
+        .attr('stroke-width', (d) => String(d.year ?? d.target ?? d.Year) === targetYear ? 2 : 0);
 
-    svg.selectAll('.step-annotation-2').remove();
+    g.selectAll('.x-axis text')
+        .attr('font-weight', function () {
+            return d3.select(this).text() === targetYear ? 800 : 400;
+        })
+        .attr('fill', function () {
+            return d3.select(this).text() === targetYear ? '#ef4444' : '#000000';
+        });
 
-    svg.append('text')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x', 610)
-        .attr('y', 68)
-        .attr('text-anchor', 'end')
-        .attr('font-size', 14)
-        .attr('font-weight', 700)
-        .attr('fill', '#ef4444')
-        .text('function2: focus 2024 Beta');
+    g.selectAll('.validation-segment-label')
+        .attr('fill', (d) => String(d.year) === targetYear ? '#ef4444' : '#ffffff')
+        .attr('font-size', (d) => String(d.year) === targetYear ? 11 : 9)
+        .attr('paint-order', (d) => String(d.year) === targetYear ? 'stroke' : null)
+        .attr('stroke', (d) => String(d.year) === targetYear ? '#ffffff' : null)
+        .attr('stroke-width', (d) => String(d.year) === targetYear ? 3 : null);
 }
+
+export function function3({ d3, container }) {}

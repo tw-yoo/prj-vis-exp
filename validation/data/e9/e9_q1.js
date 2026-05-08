@@ -1,16 +1,14 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Creator: 'Cyprien', 'Number of subscribers in thousands': 12151 },
-    { Creator: 'Norman', 'Number of subscribers in thousands': 10792 },
-    { Creator: 'Squeezie', 'Number of subscribers in thousands': 10719 },
-    { Creator: 'Rémi Gaillard', 'Number of subscribers in thousands': 6648 },
-    { Creator: 'Le rire jaune', 'Number of subscribers in thousands': 4345 },
-    { Creator: 'Natoo', 'Number of subscribers in thousands': 4324 },
-    { Creator: 'Mister V', 'Number of subscribers in thousands': 4305 },
-    { Creator: 'Amixem', 'Number of subscribers in thousands': 4085 },
-    { Creator: 'Seb', 'Number of subscribers in thousands': 3666 },
-    { Creator: 'Andy', 'Number of subscribers in thousands': 3409 }
+    { 'Region/Entity': 'Metro Eastern Europe*', 'Number of employees': 27681 },
+    { 'Region/Entity': 'Metro Western Europe**', 'Number of employees': 23483 },
+    { 'Region/Entity': 'Metro Russia', 'Number of employees': 11583 },
+    { 'Region/Entity': 'Metro Germany', 'Number of employees': 11580 },
+    { 'Region/Entity': 'Metro Asia', 'Number of employees': 7182 },
+    { 'Region/Entity': 'Others***', 'Number of employees': 7054 },
+    { 'Region/Entity': 'Metro AG', 'Number of employees': 796 },
+    { 'Region/Entity': 'Metro Total', 'Number of employees': 89359 }
 ];
 
 function injectChartStyles() {
@@ -87,8 +85,8 @@ export function renderValidationSimpleBarChart({ container }) {
     injectChartStyles();
 
     const data = data_rows;
-    const xField = 'Creator';
-    const yField = 'Number of subscribers in thousands';
+    const xField = 'Region/Entity';
+    const yField = 'Number of employees';
 
     const width = 640;
     const height = 360;
@@ -191,46 +189,136 @@ export function renderValidationSimpleBarChart({ container }) {
 }
 
 export function function1({ d3, container }) {
-    const selectedCreators = new Set(['Amixem', 'Andy']);
+    const xField = 'Region/Entity';
+    const yField = 'Number of employees';
 
-    d3.select(container).selectAll('.main-bar')
-        .attr('opacity', (d) => selectedCreators.has(String(d.Creator)) ? 1 : 0.18)
-        .attr('stroke', (d) => selectedCreators.has(String(d.Creator)) ? '#111827' : 'none')
-        .attr('stroke-width', (d) => selectedCreators.has(String(d.Creator)) ? 2 : 0);
-}
-
-export function function2({ d3, container }) {
-    const rankedCreators = ['Amixem', 'Andy'];
     const svg = d3.select(container).select('svg');
-    const g = svg.select('g');
-    if (svg.empty() || g.empty()) return;
+    if (svg.empty()) return;
 
-    g.selectAll('.validation-rank-label').remove();
+    const svgNode = svg.node();
+    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
+    const [, , width, height] = viewBox.split(/\s+/).map(Number);
+    const margin = { top: 32, right: 132, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
 
-    d3.select(container).selectAll('.main-bar')
-        .filter((d) => rankedCreators.includes(String(d.Creator)))
-        .attr('opacity', 1)
-        .attr('stroke', '#111827')
-        .attr('stroke-width', 2);
+    const sourceRows = data_rows.filter((d) => String(d[xField]) !== 'Metro Total');
+    const baselineValue = 50000;
+    const totalValue = d3.sum(sourceRows, (d) => Number(d[yField]));
 
-    rankedCreators.forEach((creator, index) => {
-        const bar = g.select(`.main-bar[data-target="${creator}"]`);
-        if (bar.empty()) return;
+    const colorScale = d3.scaleSequential()
+        .domain([0, Math.max(1, sourceRows.length - 1)])
+        .interpolator(d3.interpolateYlGnBu);
 
-        const x = Number(bar.attr('x')) + Number(bar.attr('width')) / 2;
-        const y = Number(bar.attr('y')) - 8;
+    const xScale = d3.scaleBand()
+        .domain(['Sum', 'Baseline'])
+        .range([0, plotW])
+        .padding(0.38);
 
-        g.append('text')
-            .attr('class', 'validation-rank-label')
-            .attr('x', x)
-            .attr('y', y)
-            .attr('text-anchor', 'middle')
-            .attr('font-family', 'sans-serif')
-            .attr('font-size', 18)
-            .attr('font-weight', 700)
-            .attr('fill', '#ef4444')
-            .text(String(index + 1));
+    const yScale = d3.scaleLinear()
+        .domain([0, Math.max(totalValue, baselineValue)])
+        .nice()
+        .range([plotH, 0]);
+
+    svg.selectAll('.validation-chart-tooltip').remove();
+
+    let g = svg.select('g.validation-function1-layer');
+    if (g.empty()) {
+        svg.selectAll('g').remove();
+        g = svg.append('g')
+            .attr('class', 'validation-function1-layer')
+            .attr('transform', `translate(${margin.left},${margin.top})`);
+    }
+
+    g.selectAll('*').remove();
+
+    g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).ticks(5));
+
+    g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    const stackedSegments = [];
+    let runningTotal = 0;
+    sourceRows.forEach((row, index) => {
+        const value = Number(row[yField]);
+        const y0 = runningTotal;
+        const y1 = runningTotal + value;
+        stackedSegments.push({
+            ...row,
+            index,
+            y0,
+            y1,
+            value,
+            color: colorScale(index)
+        });
+        runningTotal = y1;
     });
-}
 
-export function function3({ d3, container }) {}
+    const sumX = xScale('Sum');
+    const baselineX = xScale('Baseline');
+    const barW = xScale.bandwidth();
+
+    g.append('g')
+        .attr('class', 'sum-bar')
+        .selectAll('rect.sum-segment')
+        .data(stackedSegments)
+        .join('rect')
+        .attr('class', 'sum-segment main-bar')
+        .attr('x', sumX)
+        .attr('width', barW)
+        .attr('y', plotH)
+        .attr('height', 0)
+        .attr('fill', (d) => d.color)
+        .attr('data-target', (d) => String(d[xField]))
+        .attr('data-value', (d) => d.value)
+        .attr('data-x-value', (d) => String(d[xField]))
+        .attr('data-y-value', (d) => String(d.value))
+        .attr('y', (d) => yScale(d.y1))
+        .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)));
+
+    g.append('rect')
+        .attr('class', 'baseline-bar main-bar')
+        .attr('x', baselineX)
+        .attr('width', barW)
+        .attr('y', plotH)
+        .attr('height', 0)
+        .attr('fill', '#9ca3af')
+        .attr('data-target', 'Baseline')
+        .attr('data-value', baselineValue)
+        .attr('data-x-value', 'Baseline')
+        .attr('data-y-value', String(baselineValue))
+        .attr('y', yScale(baselineValue))
+        .attr('height', plotH - yScale(baselineValue));
+
+    const legend = g.append('g')
+        .attr('class', 'sum-bar-legend')
+        .attr('transform', `translate(${plotW + 24},0)`);
+
+    const legendItems = legend.selectAll('g.legend-item')
+        .data(stackedSegments)
+        .join('g')
+        .attr('class', 'legend-item')
+        .attr('transform', (_, i) => `translate(0,${i * 28})`)
+        .style('opacity', 0);
+
+    legendItems.append('rect')
+        .attr('width', 12)
+        .attr('height', 12)
+        .attr('rx', 2)
+        .attr('fill', (d) => d.color);
+
+    legendItems.append('text')
+        .attr('x', 18)
+        .attr('y', 10)
+        .attr('fill', '#000000')
+        .attr('font-size', 10)
+        .attr('font-family', 'sans-serif')
+        .text((d) => String(d[xField]));
+
+    legendItems
+        .style('opacity', 1);
+}

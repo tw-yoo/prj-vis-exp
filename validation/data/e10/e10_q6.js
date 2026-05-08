@@ -1,18 +1,17 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Year: 2008, 'Sales volume in tonnes': 140398 },
-    { Year: 2009, 'Sales volume in tonnes': 134122 },
-    { Year: 2010, 'Sales volume in tonnes': 131826 },
-    { Year: 2011, 'Sales volume in tonnes': 135453 },
-    { Year: 2012, 'Sales volume in tonnes': 135185 },
-    { Year: 2013, 'Sales volume in tonnes': 136447 },
-    { Year: 2014, 'Sales volume in tonnes': 96766 },
-    { Year: 2015, 'Sales volume in tonnes': 100248 },
-    { Year: 2016, 'Sales volume in tonnes': 102164 },
-    { Year: 2017, 'Sales volume in tonnes': 91743 },
-    { Year: 2018, 'Sales volume in tonnes': 94668 },
-    { Year: 2019, 'Sales volume in tonnes': 99927 }
+    { Year: 2010, 'Revenue in billion US dollars': 1.94 },
+    { Year: 2011, 'Revenue in billion US dollars': 2.36 },
+    { Year: 2012, 'Revenue in billion US dollars': 2.67 },
+    { Year: 2013, 'Revenue in billion US dollars': 2.69 },
+    { Year: 2014, 'Revenue in billion US dollars': 2.73 },
+    { Year: 2015, 'Revenue in billion US dollars': 2.53 },
+    { Year: 2016, 'Revenue in billion US dollars': 2.32 },
+    { Year: 2017, 'Revenue in billion US dollars': 2.16 },
+    { Year: 2018, 'Revenue in billion US dollars': 2.16 },
+    { Year: 2019, 'Revenue in billion US dollars': 1.9 },
+    { Year: 2020, 'Revenue in billion US dollars': 1.8 }
 ];
 
 function injectChartStyles() {
@@ -90,7 +89,7 @@ export function renderValidationSimpleBarChart({ container }) {
 
     const data = data_rows;
     const xField = 'Year';
-    const yField = 'Sales volume in tonnes';
+    const yField = 'Revenue in billion US dollars';
 
     const width = 640;
     const height = 360;
@@ -193,163 +192,53 @@ export function renderValidationSimpleBarChart({ container }) {
 }
 
 export function function1({ d3, container }) {
-    const xField = 'Year';
-    const yField = 'Sales volume in tonnes';
-
-    const svg = d3.select(container).select('svg');
-    if (svg.empty()) return;
-
-    d3.select(container).selectAll('.validation-chart-tooltip').remove();
-
-    const svgNode = svg.node();
-    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
-    const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 132, bottom: 56, left: 72 };
+    const referenceValue = 2.0;
+    const yField = 'Revenue in billion US dollars';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
-
-    const firstSixYears = [2008, 2009, 2010, 2011, 2012, 2013];
-    const lastSixYears = [2014, 2015, 2016, 2017, 2018, 2019];
-
-    const rowsByYear = new Map(data_rows.map((d) => [Number(d[xField]), d]));
-
-    const firstSixRows = firstSixYears.map((year) => rowsByYear.get(year)).filter(Boolean);
-    const lastSixRows = lastSixYears.map((year) => rowsByYear.get(year)).filter(Boolean);
-
-    const makeSegments = (rows) => {
-        let runningTotal = 0;
-        return rows.map((row, index) => {
-            const value = Number(row[yField]);
-            const y0 = runningTotal;
-            const y1 = runningTotal + value;
-            runningTotal = y1;
-            return {
-                year: String(row[xField]),
-                value,
-                index,
-                y0,
-                y1
-            };
-        });
-    };
-
-    const chartRows = [
-        {
-            label: '2008–2013 total',
-            total: 813431,
-            segments: makeSegments(firstSixRows)
-        },
-        {
-            label: '2014–2019 total',
-            total: 598516,
-            segments: makeSegments(lastSixRows)
-        }
-    ];
-
-    chartRows.forEach((bar) => {
-        let runningTotal = 0;
-        bar.segments = bar.segments.map((segment) => {
-            const y0 = runningTotal;
-            const y1 = runningTotal + segment.value;
-            runningTotal = y1;
-            return { ...segment, y0, y1, barLabel: bar.label, total: bar.total };
-        });
-    });
-
-    const colorScale = d3.scaleSequential()
-        .domain([0, 5])
-        .interpolator(d3.interpolateYlGnBu);
-
-    const xScale = d3.scaleBand()
-        .domain(chartRows.map((d) => d.label))
-        .range([0, plotW])
-        .padding(0.42);
-
+    const yValues = data_rows.map((d) => Number(d[yField])).filter(Number.isFinite);
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(chartRows, (d) => d.total) ?? 0])
+        .domain([Math.min(0, ...yValues), Math.max(0, ...yValues)])
         .nice()
         .range([plotH, 0]);
-    svg.selectAll('*').remove();
+    const y = yScale(referenceValue);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
 
-    const g = svg.append('g')
-        .attr('class', 'validation-function1-stacked-period-layer')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
+    g.selectAll('.validation-reference-line').remove();
 
-    g.append('g')
-        .attr('class', 'y-axis')
-        .call(d3.axisLeft(yScale).ticks(5));
-
-    const xAxis = g.append('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${plotH})`)
-        .call(d3.axisBottom(xScale));
-
-    autoRotateXAxisLabels(xAxis);
-
-    g.append('text')
-        .attr('class', 'x-axis-label')
-        .attr('x', plotW / 2)
-        .attr('y', plotH + 48)
-        .attr('text-anchor', 'middle')
-        .text(xField);
+    g.append('line')
+        .attr('class', 'validation-reference-line')
+        .attr('x1', 0)
+        .attr('x2', plotW)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '4 3');
 
     g.append('text')
-        .attr('class', 'y-axis-label')
-        .attr('transform', 'rotate(-90)')
-        .attr('x', -plotH / 2)
-        .attr('y', -56)
-        .attr('text-anchor', 'middle')
-        .text(yField);
-
-    const barGroups = g.selectAll('g.period-bar')
-        .data(chartRows)
-        .join('g')
-        .attr('class', 'period-bar')
-        .attr('transform', (d) => `translate(${xScale(d.label)},0)`);
-
-    barGroups.selectAll('rect.main-bar')
-        .data((d) => d.segments)
-        .join('rect')
-        .attr('class', 'main-bar stacked-segment')
-        .attr('x', 0)
-        .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => colorScale(d.index))
-        .attr('data-target', (d) => d.barLabel)
-        .attr('data-value', (d) => d.total)
-        .attr('data-x-value', (d) => d.barLabel)
-        .attr('data-y-value', (d) => String(d.total))
-        .attr('data-segment-year', (d) => d.year)
-        .attr('data-segment-value', (d) => String(d.value))
-        .attr('y', (d) => yScale(d.y1))
-        .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)));
-
-    const legend = g.append('g')
-        .attr('class', 'year-gradient-legend')
-        .attr('transform', `translate(${plotW + 24},0)`);
-
-    const legendItems = legend.selectAll('g.legend-item')
-        .data(firstSixYears.map((year, index) => ({ year, index })))
-        .join('g')
-        .attr('class', 'legend-item')
-        .attr('transform', (_, i) => `translate(0,${i * 24})`)
-        .style('opacity', 0);
-
-    legendItems.append('rect')
-        .attr('width', 12)
-        .attr('height', 12)
-        .attr('rx', 2)
-        .attr('fill', (d) => colorScale(d.index));
-
-    legendItems.append('text')
-        .attr('x', 18)
-        .attr('y', 10)
-        .attr('fill', '#000000')
-        .attr('font-size', 10)
+        .attr('class', 'validation-reference-line')
+        .attr('x', plotW + 6)
+        .attr('y', y)
+        .attr('dominant-baseline', 'middle')
         .attr('font-family', 'sans-serif')
-        .text((d, i) => `${firstSixYears[i]} / ${lastSixYears[i]}`);
-
-    legendItems
-        .style('opacity', 1);
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text('2.0');
 }
+
+export function function2({ d3, container }) {
+    const referenceValue = 2.0;
+
+    d3.select(container).selectAll('.main-bar')
+        .attr('opacity', (d) => Number(d['Revenue in billion US dollars']) > referenceValue ? 0.22 : 1)
+        .attr('fill', (d) => Number(d['Revenue in billion US dollars']) > referenceValue ? '#9ca3af' : '#69b3a2');
+}
+
+export function function3({ d3, container }) {}

@@ -1,27 +1,19 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Year: 2000, 'Number of people in millions': 1.88 },
-    { Year: 2001, 'Number of people in millions': 1.93 },
-    { Year: 2002, 'Number of people in millions': 1.98 },
-    { Year: 2003, 'Number of people in millions': 2.02 },
-    { Year: 2004, 'Number of people in millions': 2.07 },
-    { Year: 2005, 'Number of people in millions': 2.12 },
-    { Year: 2006, 'Number of people in millions': 2.17 },
-    { Year: 2007, 'Number of people in millions': 2.22 },
-    { Year: 2008, 'Number of people in millions': 2.28 },
-    { Year: 2009, 'Number of people in millions': 2.34 },
-    { Year: 2010, 'Number of people in millions': 2.39 },
-    { Year: 2011, 'Number of people in millions': 2.45 },
-    { Year: 2012, 'Number of people in millions': 2.47 },
-    { Year: 2013, 'Number of people in millions': 2.5 },
-    { Year: 2014, 'Number of people in millions': 2.52 },
-    { Year: 2015, 'Number of people in millions': 2.54 },
-    { Year: 2016, 'Number of people in millions': 2.57 },
-    { Year: 2017, 'Number of people in millions': 2.6 },
-    { Year: 2018, 'Number of people in millions': 2.64 },
-    { Year: 2019, 'Number of people in millions': 2.68 },
-    { Year: 2020, 'Number of people in millions': 2.71 }
+    { "Month 'Year": 'May \'20', 'Consumer Price Index (100 = 1982-1984)': 256.39 },
+    { "Month 'Year": 'Jun \'20', 'Consumer Price Index (100 = 1982-1984)': 257.8 },
+    { "Month 'Year": 'Jul \'20', 'Consumer Price Index (100 = 1982-1984)': 259.1 },
+    { "Month 'Year": 'Aug \'20', 'Consumer Price Index (100 = 1982-1984)': 259.92 },
+    { "Month 'Year": 'Sep \'20', 'Consumer Price Index (100 = 1982-1984)': 260.28 },
+    { "Month 'Year": 'Oct \'20', 'Consumer Price Index (100 = 1982-1984)': 260.39 },
+    { "Month 'Year": 'Nov \'20', 'Consumer Price Index (100 = 1982-1984)': 260.23 },
+    { "Month 'Year": 'Dec \'20', 'Consumer Price Index (100 = 1982-1984)': 260.47 },
+    { "Month 'Year": 'Jan \'21', 'Consumer Price Index (100 = 1982-1984)': 261.58 },
+    { "Month 'Year": 'Feb \'21', 'Consumer Price Index (100 = 1982-1984)': 263.01 },
+    { "Month 'Year": 'Mar \'21', 'Consumer Price Index (100 = 1982-1984)': 264.88 },
+    { "Month 'Year": 'Apr \'21', 'Consumer Price Index (100 = 1982-1984)': 267.05 },
+    { "Month 'Year": 'May \'21', 'Consumer Price Index (100 = 1982-1984)': 269.2 }
 ];
 
 function injectSimpleLineStyles() {
@@ -82,8 +74,8 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
-    const xField = 'Year';
-    const yField = 'Number of people in millions';
+    const xField = "Month 'Year";
+    const yField = 'Consumer Price Index (100 = 1982-1984)';
 
     injectSimpleLineStyles();
 
@@ -219,180 +211,194 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {
-    const xField = 'Year';
-    const yField = 'Number of people in millions';
-
-    const svg = d3.select(container).select('svg');
-    if (svg.empty()) return;
-
-    d3.select(container).selectAll('.validation-simple-line-tooltip').remove();
-
-    const svgNode = svg.node();
-    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
-    const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 32, bottom: 56, left: 56 };
+function getCpiChartMetrics(d3, container) {
+    const xField = "Month 'Year";
+    const yField = 'Consumer Price Index (100 = 1982-1984)';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
-
-    const minRow = data_rows.reduce((best, row) => (
-        Number(row[yField]) < Number(best[yField]) ? row : best
-    ), data_rows[0]);
-    const maxRow = data_rows.reduce((best, row) => (
-        Number(row[yField]) > Number(best[yField]) ? row : best
-    ), data_rows[0]);
-    const targetRow = data_rows.find((row) => Number(row[xField]) === 2010);
-
-    const minValue = Number(minRow[yField]);
-    const maxValue = Number(maxRow[yField]);
-    const averageValue = (minValue + maxValue) / 2;
-    const targetValue = Number(targetRow?.[yField] ?? 0);
-
-    const firstSegment = minValue / 2;
-    const secondSegment = maxValue / 2;
-
-    const chartRows = [
-        {
-            label: `${minRow[xField]} & ${maxRow[xField]} average`,
-            type: 'stacked-average',
-            total: averageValue,
-            segments: [
-                {
-                    label: String(minRow[xField]),
-                    value: firstSegment,
-                    color: '#93c5fd'
-                },
-                {
-                    label: String(maxRow[xField]),
-                    value: secondSegment,
-                    color: '#1d4ed8'
-                }
-            ]
-        },
-        {
-            label: String(targetRow?.[xField] ?? 2010),
-            type: 'target',
-            total: targetValue,
-            segments: [
-                {
-                    label: String(targetRow?.[xField] ?? 2010),
-                    value: targetValue,
-                    color: '#9ca3af'
-                }
-            ]
-        }
-    ];
-
-    const xScale = d3.scaleBand()
-        .domain(chartRows.map((d) => d.label))
-        .range([0, plotW])
-        .padding(0.42);
-
+    const xDomain = data_rows.map((d) => String(d[xField]));
+    const yValues = data_rows.map((d) => Number(d[yField])).filter(Number.isFinite);
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(chartRows, (d) => d.total) ?? 0])
+        .domain([d3.min(yValues) ?? 0, d3.max(yValues) ?? 1])
         .nice()
         .range([plotH, 0]);
-    svg.selectAll('*').remove();
+    const xScale = d3.scalePoint()
+        .domain(xDomain)
+        .range([0, plotW])
+        .padding(0.5);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    const average = d3.mean(yValues) ?? 0;
+    const rowsByYear = {
+        2020: data_rows.filter((d) => String(d[xField]).endsWith("'20")),
+        2021: data_rows.filter((d) => String(d[xField]).endsWith("'21"))
+    };
+    const yearAverages = Object.fromEntries(Object.entries(rowsByYear).map(([year, rows]) => [
+        year,
+        d3.mean(rows, (d) => Number(d[yField])) ?? 0
+    ]));
 
-    const g = svg.append('g')
-        .attr('class', 'validation-function1-average-bar-layer')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
+    return { xField, yField, margin, plotW, plotH, xScale, yScale, svg, g, average, rowsByYear, yearAverages };
+}
 
-    g.append('g')
-        .attr('class', 'y-axis')
-        .call(d3.axisLeft(yScale).ticks(6));
+function addCpiAverageLine(d3, container) {
+    const { g, plotW, yScale, average } = getCpiChartMetrics(d3, container);
+    if (g.empty()) return;
+    const y = yScale(average);
 
-    const xAxis = g.append('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${plotH})`)
-        .call(d3.axisBottom(xScale));
-
-    autoRotateXAxisLabels(xAxis);
-
+    g.selectAll('.validation-cpi-average-line').remove();
+    g.append('line')
+        .attr('class', 'validation-cpi-average-line')
+        .attr('x1', 0)
+        .attr('x2', plotW)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4');
     g.append('text')
-        .attr('class', 'x-axis-label')
-        .attr('x', plotW / 2)
-        .attr('y', plotH + 46)
-        .attr('text-anchor', 'middle')
-        .text(xField);
+        .attr('class', 'validation-cpi-average-line')
+        .attr('x', plotW + 6)
+        .attr('y', y)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 11)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text(`avg ${average.toFixed(2)}`);
+}
 
-    g.append('text')
-        .attr('class', 'y-axis-label')
-        .attr('transform', 'rotate(-90)')
-        .attr('x', -plotH / 2)
-        .attr('y', -42)
-        .attr('text-anchor', 'middle')
-        .text(yField);
+function addCpiDeviationDots(d3, container) {
+    const { g, xScale, yScale, yearAverages } = getCpiChartMetrics(d3, container);
+    if (g.empty()) return;
 
-    chartRows.forEach((bar) => {
-        const x = xScale(bar.label);
-        const barW = xScale.bandwidth();
-        let runningValue = 0;
+    const midX = ((xScale("Dec '20") ?? 0) + (xScale("Jan '21") ?? 0)) / 2;
+    const dotRows = [
+        { year: '2020', x: midX - 18, y: yScale(yearAverages['2020']), value: yearAverages['2020'] },
+        { year: '2021', x: midX + 18, y: yScale(yearAverages['2021']), value: yearAverages['2021'] }
+    ];
 
-        g.selectAll(`rect.segment-${bar.type}`)
-            .data(bar.segments.map((segment) => {
-                const y0 = runningValue;
-                const y1 = runningValue + segment.value;
-                runningValue = y1;
-                return { ...segment, barLabel: bar.label, y0, y1, total: bar.total };
-            }))
-            .join('rect')
-            .attr('class', `main-bar segment-${bar.type}`)
-            .attr('x', x)
-            .attr('width', barW)
-            .attr('y', plotH)
-            .attr('height', 0)
-            .attr('fill', (d) => d.color)
-            .attr('data-target', (d) => d.barLabel)
-            .attr('data-value', (d) => d.total)
-            .attr('data-x-value', (d) => d.barLabel)
-            .attr('data-y-value', (d) => String(d.total))
-            .attr('data-segment-label', (d) => d.label)
-        .attr('y', (d) => yScale(d.y1))
-            .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)));
+    g.selectAll('.validation-cpi-deviation-dot').remove();
+    g.selectAll('circle.validation-cpi-deviation-dot')
+        .data(dotRows)
+        .join('circle')
+        .attr('class', 'validation-cpi-deviation-dot')
+        .attr('cx', (d) => d.x)
+        .attr('cy', (d) => d.y)
+        .attr('r', 6)
+        .attr('fill', '#ef4444')
+        .attr('stroke', '#ffffff')
+        .attr('stroke-width', 2)
+        .attr('data-year', (d) => d.year)
+        .attr('data-value', (d) => String(d.value));
+}
+
+export function function1({ d3, container }) {
+    const { g, plotH, xScale } = getCpiChartMetrics(d3, container);
+    if (g.empty()) return;
+
+    const decX = xScale("Dec '20") ?? 0;
+    const janX = xScale("Jan '21") ?? 0;
+    const midX = (decX + janX) / 2;
+    const center2020 = d3.mean(["May '20", "Jun '20", "Jul '20", "Aug '20", "Sep '20", "Oct '20", "Nov '20", "Dec '20"], (d) => xScale(d) ?? 0) ?? decX / 2;
+    const center2021 = d3.mean(["Jan '21", "Feb '21", "Mar '21", "Apr '21", "May '21"], (d) => xScale(d) ?? 0) ?? (janX + 40);
+
+    g.selectAll('.validation-cpi-year-split').remove();
+    g.append('line')
+        .attr('class', 'validation-cpi-year-split')
+        .attr('x1', midX)
+        .attr('x2', midX)
+        .attr('y1', 0)
+        .attr('y2', plotH)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2);
+
+    [
+        { label: '2020', x: center2020 },
+        { label: '2021', x: center2021 }
+    ].forEach((d) => {
+        g.append('text')
+            .attr('class', 'validation-cpi-year-split')
+            .attr('x', d.x)
+            .attr('y', -12)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 13)
+            .attr('font-weight', 700)
+            .attr('fill', '#111827')
+            .text(d.label);
     });
 }
 
 export function function2({ d3, container }) {
-    const svg = d3.select(container).select('svg');
-    const mLeft = +svg.attr('data-m-left') || 0;
-    const mTop = +svg.attr('data-m-top') || 0;
+    addCpiAverageLine(d3, container);
+}
 
-    svg.selectAll('circle[data-target]')
-        .attr('r', (p) => p.target === 'Jun' || p.target === 'Jul' ? 8 : 4)
-        .attr('fill', (p) => p.target === 'Jun' || p.target === 'Jul' ? '#ef4444' : '#bfdbfe')
-        .attr('opacity', (p) => p.target === 'Jun' || p.target === 'Jul' ? 1 : 0.25)
-        .attr('stroke', (p) => p.target === 'Jun' || p.target === 'Jul' ? '#111827' : '#ffffff')
-        .attr('stroke-width', (p) => p.target === 'Jun' || p.target === 'Jul' ? 2.5 : 1.5);
+export function function3({ d3, container }) {
+    addCpiDeviationDots(d3, container);
+}
 
-    svg.select('.main-line')
-        .attr('stroke', '#bfdbfe')
-        .attr('opacity', 0.4);
+export function function4({ d3, container }) {
+    const { g, plotW, yScale, average, yearAverages } = getCpiChartMetrics(d3, container);
+    if (g.empty()) return;
 
-    svg.selectAll('.step-annotation-2').remove();
+    addCpiAverageLine(d3, container);
+    addCpiDeviationDots(d3, container);
 
-    const junCircle = svg.select('circle[data-target="Jun"]');
-    const julCircle = svg.select('circle[data-target="Jul"]');
-    const x1 = mLeft + (+junCircle.attr('cx') || 0);
-    const y1 = mTop + (+junCircle.attr('cy') || 0);
-    const x2 = mLeft + (+julCircle.attr('cx') || 0);
-    const y2 = mTop + (+julCircle.attr('cy') || 0);
+    const avgY = yScale(average);
+    const dots = g.selectAll('circle.validation-cpi-deviation-dot').nodes().map((node) => ({
+        year: node.getAttribute('data-year'),
+        x: Number(node.getAttribute('cx')),
+        y: Number(node.getAttribute('cy'))
+    }));
 
-    svg.append('line')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x1', x1).attr('y1', y1)
-        .attr('x2', x2).attr('y2', y2)
-        .attr('stroke', '#ef4444')
-        .attr('stroke-width', 4)
-        .attr('stroke-linecap', 'round');
+    g.selectAll('.validation-cpi-deviation-arrow').remove();
+    const defs = g.select(function () {
+        return this.ownerSVGElement;
+    }).select('defs').empty()
+        ? d3.select(g.node().ownerSVGElement).append('defs')
+        : d3.select(g.node().ownerSVGElement).select('defs');
 
-    svg.append('text')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x', (x1 + x2) / 2)
-        .attr('y', Math.min(y1, y2) - 18)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', 14)
-        .attr('font-weight', 700)
-        .attr('fill', '#ef4444')
-        .text('function2: compare Jun to Jul');
+    defs.selectAll('#validation-cpi-arrow-head').remove();
+    defs.append('marker')
+        .attr('id', 'validation-cpi-arrow-head')
+        .attr('viewBox', '0 0 10 10')
+        .attr('refX', 5)
+        .attr('refY', 5)
+        .attr('markerWidth', 5)
+        .attr('markerHeight', 5)
+        .attr('orient', 'auto-start-reverse')
+        .append('path')
+        .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+        .attr('fill', '#ef4444');
+
+    dots.forEach((dot) => {
+        const deviation = Math.abs((yearAverages[dot.year] ?? average) - average);
+        const labelX = Math.min(plotW - 8, dot.x + 28);
+        const labelY = (dot.y + avgY) / 2;
+
+        g.append('line')
+            .attr('class', 'validation-cpi-deviation-arrow')
+            .attr('x1', dot.x)
+            .attr('x2', dot.x)
+            .attr('y1', dot.y)
+            .attr('y2', avgY)
+            .attr('stroke', '#ef4444')
+            .attr('stroke-width', 2)
+            .attr('marker-start', 'url(#validation-cpi-arrow-head)')
+            .attr('marker-end', 'url(#validation-cpi-arrow-head)');
+        g.append('text')
+            .attr('class', 'validation-cpi-deviation-arrow')
+            .attr('x', labelX)
+            .attr('y', labelY)
+            .attr('dominant-baseline', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 12)
+            .attr('font-weight', 700)
+            .attr('fill', '#ef4444')
+            .text(deviation.toFixed(2));
+    });
 }

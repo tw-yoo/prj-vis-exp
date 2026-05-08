@@ -1,36 +1,66 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Country: 'Greece', Opinion: 'A worse place to live', Percentage: 63 },
-    { Country: 'Greece', Opinion: 'Doesn\'t make much difference', Percentage: 27 },
-    { Country: 'Greece', Opinion: 'A better place to live', Percentage: 10 },
-    { Country: 'Italy', Opinion: 'A worse place to live', Percentage: 53 },
-    { Country: 'Italy', Opinion: 'Doesn\'t make much difference', Percentage: 25 },
-    { Country: 'Italy', Opinion: 'A better place to live', Percentage: 18 },
-    { Country: 'Hungary', Opinion: 'A worse place to live', Percentage: 41 },
-    { Country: 'Hungary', Opinion: 'Doesn\'t make much difference', Percentage: 39 },
-    { Country: 'Hungary', Opinion: 'A better place to live', Percentage: 17 },
-    { Country: 'Poland', Opinion: 'A worse place to live', Percentage: 40 },
-    { Country: 'Poland', Opinion: 'Doesn\'t make much difference', Percentage: 33 },
-    { Country: 'Poland', Opinion: 'A better place to live', Percentage: 14 },
-    { Country: 'Netherlands', Opinion: 'A worse place to live', Percentage: 36 },
-    { Country: 'Netherlands', Opinion: 'Doesn\'t make much difference', Percentage: 46 },
-    { Country: 'Netherlands', Opinion: 'A better place to live', Percentage: 17 },
-    { Country: 'Germany', Opinion: 'A worse place to live', Percentage: 31 },
-    { Country: 'Germany', Opinion: 'Doesn\'t make much difference', Percentage: 40 },
-    { Country: 'Germany', Opinion: 'A better place to live', Percentage: 26 },
-    { Country: 'UK', Opinion: 'A worse place to live', Percentage: 31 },
-    { Country: 'UK', Opinion: 'Doesn\'t make much difference', Percentage: 34 },
-    { Country: 'UK', Opinion: 'A better place to live', Percentage: 33 },
-    { Country: 'Sweden', Opinion: 'A worse place to live', Percentage: 26 },
-    { Country: 'Sweden', Opinion: 'Doesn\'t make much difference', Percentage: 38 },
-    { Country: 'Sweden', Opinion: 'A better place to live', Percentage: 36 },
-    { Country: 'France', Opinion: 'A worse place to live', Percentage: 24 },
-    { Country: 'France', Opinion: 'Doesn\'t make much difference', Percentage: 48 },
-    { Country: 'France', Opinion: 'A better place to live', Percentage: 26 },
-    { Country: 'Spain', Opinion: 'A worse place to live', Percentage: 22 },
-    { Country: 'Spain', Opinion: 'Doesn\'t make much difference', Percentage: 45 },
-    { Country: 'Spain', Opinion: 'A better place to live', Percentage: 31 }
+    { Year: 2011, Region: 'Germany', Number_of_Employees: 9846 },
+    { Year: 2011, Region: 'Great Britain', Number_of_Employees: 18201 },
+    { Year: 2011, Region: 'Spain', Number_of_Employees: 9892 },
+    { Year: 2011, Region: 'Rest of Europe', Number_of_Employees: 21037 },
+    { Year: 2011, Region: 'North and Sourth America', Number_of_Employees: 8149 },
+    { Year: 2011, Region: 'Other regions', Number_of_Employees: 7082 },
+    { Year: 2012, Region: 'Germany', Number_of_Employees: 9882 },
+    { Year: 2012, Region: 'Great Britain', Number_of_Employees: 17318 },
+    { Year: 2012, Region: 'Spain', Number_of_Employees: 9226 },
+    { Year: 2012, Region: 'Rest of Europe', Number_of_Employees: 21310 },
+    { Year: 2012, Region: 'North and Sourth America', Number_of_Employees: 8199 },
+    { Year: 2012, Region: 'Other regions', Number_of_Employees: 7877 },
+    { Year: 2013, Region: 'Germany', Number_of_Employees: 10157 },
+    { Year: 2013, Region: 'Great Britain', Number_of_Employees: 17156 },
+    { Year: 2013, Region: 'Spain', Number_of_Employees: 9395 },
+    { Year: 2013, Region: 'Rest of Europe', Number_of_Employees: 20516 },
+    { Year: 2013, Region: 'North and Sourth America', Number_of_Employees: 8361 },
+    { Year: 2013, Region: 'Other regions', Number_of_Employees: 8860 },
+    { Year: 2014, Region: 'Germany', Number_of_Employees: 9914 },
+    { Year: 2014, Region: 'Great Britain', Number_of_Employees: 15972 },
+    { Year: 2014, Region: 'Spain', Number_of_Employees: 10556 },
+    { Year: 2014, Region: 'Rest of Europe', Number_of_Employees: 20391 },
+    { Year: 2014, Region: 'North and Sourth America', Number_of_Employees: 8563 },
+    { Year: 2014, Region: 'Other regions', Number_of_Employees: 11201 },
+    { Year: 2015, Region: 'Germany', Number_of_Employees: 10047 },
+    { Year: 2015, Region: 'Great Britain', Number_of_Employees: 13036 },
+    { Year: 2015, Region: 'Spain', Number_of_Employees: 9115 },
+    { Year: 2015, Region: 'Rest of Europe', Number_of_Employees: 19301 },
+    { Year: 2015, Region: 'North and Sourth America', Number_of_Employees: 3428 },
+    { Year: 2015, Region: 'Other regions', Number_of_Employees: 7922 },
+    { Year: 2016, Region: 'Germany', Number_of_Employees: 10132 },
+    { Year: 2016, Region: 'Great Britain', Number_of_Employees: 13409 },
+    { Year: 2016, Region: 'Spain', Number_of_Employees: 8967 },
+    { Year: 2016, Region: 'Rest of Europe', Number_of_Employees: 19933 },
+    { Year: 2016, Region: 'North and Sourth America', Number_of_Employees: 3768 },
+    { Year: 2016, Region: 'Other regions', Number_of_Employees: 7032 },
+    { Year: 2017, Region: 'Germany', Number_of_Employees: 10274 },
+    { Year: 2017, Region: 'Great Britain', Number_of_Employees: 13354 },
+    { Year: 2017, Region: 'Spain', Number_of_Employees: 9607 },
+    { Year: 2017, Region: 'Rest of Europe', Number_of_Employees: 20911 },
+    { Year: 2017, Region: 'North and Sourth America', Number_of_Employees: 4535 },
+    { Year: 2017, Region: 'Other regions', Number_of_Employees: 7896 },
+    { Year: 2018, Region: 'Germany', Number_of_Employees: 10345 },
+    { Year: 2018, Region: 'Great Britain', Number_of_Employees: 11770 },
+    { Year: 2018, Region: 'Spain', Number_of_Employees: 9952 },
+    { Year: 2018, Region: 'Rest of Europe', Number_of_Employees: 22594 },
+    { Year: 2018, Region: 'North and Sourth America', Number_of_Employees: 5005 },
+    { Year: 2018, Region: 'Other regions', Number_of_Employees: 9880 },
+    { Year: 2019, Region: 'Germany', Number_of_Employees: 10419 },
+    { Year: 2019, Region: 'Great Britain', Number_of_Employees: 11511 },
+    { Year: 2019, Region: 'Spain', Number_of_Employees: 9399 },
+    { Year: 2019, Region: 'Rest of Europe', Number_of_Employees: 16144 },
+    { Year: 2019, Region: 'North and Sourth America', Number_of_Employees: 5371 },
+    { Year: 2019, Region: 'Other regions', Number_of_Employees: 18629 },
+    { Year: 2020, Region: 'Germany', Number_of_Employees: 8841 },
+    { Year: 2020, Region: 'Great Britain', Number_of_Employees: 10478 },
+    { Year: 2020, Region: 'Spain', Number_of_Employees: 5564 },
+    { Year: 2020, Region: 'Rest of Europe', Number_of_Employees: 12028 },
+    { Year: 2020, Region: 'North and Sourth America', Number_of_Employees: 3080 },
+    { Year: 2020, Region: 'Other regions', Number_of_Employees: 8339 }
 ];
 
 // Workbench default category color palette (DEFAULT_CATEGORY_COLORS)
@@ -101,38 +131,36 @@ function injectStackedChartStyles() {
 }
 
 export function renderValidationStackedBarChart({ container }) {
-    const xField = 'Country';
-    const seriesField = 'Opinion';
-    const yField = 'Percentage';
-
-    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
-    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
-
-    const getSeriesColor = (ser) => {
-        const index = seriesDomain.indexOf(ser);
-        return WORKBENCH_PALETTE[index >= 0 ? index % WORKBENCH_PALETTE.length : 0];
+    const seriesKeys = ['desktop', 'mobile', 'tablet'];
+    const seriesLabels = { desktop: 'Desktop', mobile: 'Mobile', tablet: 'Tablet' };
+    const getSeriesColor = (key) => {
+        const index = seriesKeys.indexOf(key);
+        return WORKBENCH_PALETTE[index] ?? WORKBENCH_PALETTE[0];
     };
 
     injectStackedChartStyles();
 
-    // Convert long format → wide format for d3.stack
-    const wideData = xDomain.map((cat) => {
-        const row = { [xField]: cat };
-        seriesDomain.forEach((ser) => {
-            const match = data_rows.find((d) => String(d[xField]) === cat && String(d[seriesField]) === ser);
-            row[ser] = match ? Number(match[yField]) : 0;
-        });
-        return row;
-    });
+    const data = data_rows;
 
-    const stackedData = d3.stack().keys(seriesDomain)(wideData);
+    // Canvas / layout constants matching e10 stacked validation charts
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendOffsetX = 24;
+    const legendReserve = 220;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
 
-    // Flatten to { target, series, value, y0, y1 }
+    // Build stacked segments using d3.stack (same logic as Workbench buildStackedSegments)
+    const stackedData = d3.stack().keys(seriesKeys)(data);
+
+    // Flatten to StackedSegment objects matching Workbench's data model:
+    // { target, series, value, y0, y1 }
     const segments = [];
     stackedData.forEach((layer) => {
         layer.forEach((d) => {
             segments.push({
-                target: d.data[xField],
+                target: d.data.year,
                 series: layer.key,
                 value: d.data[layer.key],
                 y0: d[0],
@@ -143,18 +171,11 @@ export function renderValidationStackedBarChart({ container }) {
 
     const maxY = d3.max(segments, (s) => s.y1) ?? 0;
 
-    // Canvas / layout constants matching Workbench defaults
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
-    const legendOffsetX = 24;
-    const legendReserve = 220;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const plotH = height - margin.top - margin.bottom;
-
     // Clear and prepare container
     container.innerHTML = '';
     container.classList.add('validation-stacked-chart-host');
+
+    const xDomain = data.map((d) => d.year);
 
     const xScale = d3.scaleBand()
         .domain(xDomain)
@@ -197,6 +218,7 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('y', (s) => yScale(Math.max(s.y0, s.y1)))
         .attr('height', (s) => Math.abs(yScale(s.y0) - yScale(s.y1)))
         .attr('fill', (s) => getSeriesColor(s.series))
+        // Workbench data attributes
         .attr('data-target', (s) => s.target)
         .attr('data-value', (s) => s.value)
         .attr('data-series', (s) => s.series)
@@ -212,7 +234,7 @@ export function renderValidationStackedBarChart({ container }) {
 
     const legendRowH = 24;
 
-    seriesDomain.forEach((ser, i) => {
+    seriesKeys.forEach((key, i) => {
         const rowY = i * legendRowH;
         const cy = rowY + 8;
 
@@ -220,7 +242,7 @@ export function renderValidationStackedBarChart({ container }) {
             .attr('cx', 8)
             .attr('cy', cy)
             .attr('r', 5)
-            .attr('fill', getSeriesColor(ser))
+            .attr('fill', getSeriesColor(key))
             .attr('opacity', 0.85);
 
         legend.append('text')
@@ -230,7 +252,7 @@ export function renderValidationStackedBarChart({ container }) {
             .attr('dominant-baseline', 'middle')
             .attr('font-family', 'sans-serif')
             .attr('fill', '#000000')
-            .text(ser);
+            .text(seriesLabels[key]);
     });
 
     // Hover tooltip
@@ -239,15 +261,15 @@ export function renderValidationStackedBarChart({ container }) {
     tooltip.setAttribute('hidden', '');
     tooltip.innerHTML = `
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">${xField}</span>
+            <span class="validation-stacked-chart-tooltip__label">year</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-x"></span>
         </div>
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">${seriesField}</span>
+            <span class="validation-stacked-chart-tooltip__label">series</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-s"></span>
         </div>
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">${yField}</span>
+            <span class="validation-stacked-chart-tooltip__label">value</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-y"></span>
         </div>
     `;
@@ -257,7 +279,7 @@ export function renderValidationStackedBarChart({ container }) {
         .on('mouseover', function (event, s) {
             tooltip.removeAttribute('hidden');
             tooltip.querySelector('#stk-tt-x').textContent = s.target;
-            tooltip.querySelector('#stk-tt-s').textContent = s.series;
+            tooltip.querySelector('#stk-tt-s').textContent = seriesLabels[s.series] ?? s.series;
             tooltip.querySelector('#stk-tt-y').textContent = String(s.value);
         })
         .on('mousemove', function (event) {
@@ -270,140 +292,143 @@ export function renderValidationStackedBarChart({ container }) {
         });
 }
 
-function renderAverageSimpleBarChart({ d3, container, rows, averageLabel }) {
-    const xField = 'Country';
-    const yField = 'Percentage';
-
-    const svg = d3.select(container).select('svg');
-    if (svg.empty()) return;
-
-    d3.select(container).selectAll('.validation-stacked-chart-tooltip').remove();
-
-    const svgNode = svg.node();
-    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
-    const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 32, bottom: 64, left: 56 };
-    const plotW = width - margin.left - margin.right;
+function renderEmployeeStackedBarChart({ d3, container, rows, xDomain, seriesDomain, xLabel = 'Year' }) {
+    const valueField = 'Number_of_Employees';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 56, left: 72 };
+    const legendOffsetX = 24;
+    const legendReserve = 220;
+    const plotW = width - margin.left - margin.right - legendReserve;
     const plotH = height - margin.top - margin.bottom;
+    const colorScale = d3.scaleOrdinal()
+        .domain(seriesDomain)
+        .range(WORKBENCH_PALETTE);
+    const segmentRows = [];
 
-    const averageValue = d3.mean(rows, (d) => Number(d[yField])) ?? 0;
-    const chartRows = averageLabel
-        ? [
-            ...rows.map((d) => ({
-                label: String(d[xField]),
-                value: Number(d[yField]),
-                type: 'source'
-            })),
-            {
-                label: averageLabel,
-                value: averageValue,
-                type: 'average'
-            }
-        ]
-        : rows.map((d) => ({
-            label: String(d[xField]),
-            value: Number(d[yField]),
-            type: 'average'
-        }));
+    xDomain.forEach((target) => {
+        let y0 = 0;
+        seriesDomain.forEach((series) => {
+            const value = rows
+                .filter((row) => String(row.target) === String(target) && String(row.series) === String(series))
+                .reduce((sum, row) => sum + Number(row[valueField]), 0);
+            const y1 = y0 + value;
+            segmentRows.push({ target: String(target), series: String(series), value, y0, y1 });
+            y0 = y1;
+        });
+    });
 
+    const maxY = d3.max(segmentRows, (d) => d.y1) ?? 0;
     const xScale = d3.scaleBand()
-        .domain(chartRows.map((d) => d.label))
+        .domain(xDomain.map(String))
         .range([0, plotW])
-        .padding(0.28);
-
+        .padding(0.24);
     const yScale = d3.scaleLinear()
-        .domain([0, d3.max(chartRows, (d) => d.value) ?? 0])
+        .domain([0, maxY])
         .nice()
         .range([plotH, 0]);
-    svg.selectAll('g').remove();
 
+    container.innerHTML = '';
+    container.classList.add('validation-stacked-chart-host');
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('overflow', 'visible');
     const g = svg.append('g')
-        .attr('class', 'validation-simple-average-layer')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g')
         .attr('class', 'y-axis')
         .call(d3.axisLeft(yScale).ticks(5));
-
     const xAxis = g.append('g')
         .attr('class', 'x-axis')
         .attr('transform', `translate(0,${plotH})`)
         .call(d3.axisBottom(xScale));
-
     autoRotateXAxisLabels(xAxis);
 
+    g.append('text')
+        .attr('class', 'x-axis-label')
+        .attr('x', plotW / 2)
+        .attr('y', plotH + 48)
+        .attr('text-anchor', 'middle')
+        .text(xLabel);
+
     g.selectAll('rect.main-bar')
-        .data(chartRows)
+        .data(segmentRows)
         .join('rect')
         .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.label))
+        .attr('x', (d) => xScale(d.target))
         .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => d.type === 'average' ? '#e11d48' : '#4f46e5')
-        .attr('data-target', (d) => d.label)
+        .attr('y', (d) => yScale(d.y1))
+        .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)))
+        .attr('fill', (d) => colorScale(d.series))
+        .attr('data-target', (d) => d.target)
+        .attr('data-series', (d) => d.series)
         .attr('data-value', (d) => d.value)
-        .attr('data-x-value', (d) => d.label)
+        .attr('data-x-value', (d) => d.target)
         .attr('data-y-value', (d) => String(d.value))
-        .attr('y', (d) => yScale(d.value))
-        .attr('height', (d) => plotH - yScale(d.value));
-}
+        .attr('data-group-value', (d) => d.series);
 
-function getBetterPlaceRows(countries) {
-    const countrySet = new Set(countries);
-    return data_rows.filter((d) => (
-        countrySet.has(String(d.Country)) &&
-        String(d.Opinion) === 'A better place to live'
-    ));
+    const legend = svg.append('g')
+        .attr('class', 'color-legend')
+        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
+    seriesDomain.forEach((series, index) => {
+        const y = index * 24 + 8;
+        legend.append('circle')
+            .attr('cx', 8)
+            .attr('cy', y)
+            .attr('r', 5)
+            .attr('fill', colorScale(series));
+        legend.append('text')
+            .attr('x', 20)
+            .attr('y', y)
+            .attr('dominant-baseline', 'middle')
+            .attr('font-size', 11)
+            .text(series);
+    });
 }
 
 export function function1({ d3, container }) {
-    const westernEuropeCountries = ['Netherlands', 'Germany', 'UK', 'France', 'Spain', 'Sweden'];
-    renderAverageSimpleBarChart({
+    const selectedYears = [2011, 2012, 2013, 2014];
+    const selectedRegions = ['Germany', 'Great Britain', 'Spain', 'Rest of Europe'];
+    const filteredRows = data_rows
+        .filter((row) => selectedYears.includes(Number(row.Year)) && selectedRegions.includes(String(row.Region)))
+        .map((row) => ({
+            target: String(row.Year),
+            series: String(row.Region),
+            Number_of_Employees: Number(row.Number_of_Employees)
+        }));
+
+    renderEmployeeStackedBarChart({
         d3,
         container,
-        rows: getBetterPlaceRows(westernEuropeCountries),
-        averageLabel: 'Western Europe average'
+        rows: filteredRows,
+        xDomain: selectedYears.map(String),
+        seriesDomain: selectedRegions,
+        xLabel: 'Year'
     });
 }
 
 export function function2({ d3, container }) {
-    const westernEuropeCountries = new Set(['Netherlands', 'Germany', 'UK', 'France', 'Spain', 'Sweden']);
-    const restCountries = Array.from(new Set(data_rows.map((d) => String(d.Country))))
-        .filter((country) => !westernEuropeCountries.has(country));
+    const selectedYears = [2011, 2012, 2013, 2014];
+    const selectedRegions = ['Germany', 'Great Britain', 'Spain', 'Rest of Europe'];
+    const yearlyTotals = selectedYears.map((year) => ({
+        target: 'Europe before 2015',
+        series: String(year),
+        Number_of_Employees: data_rows
+            .filter((row) => Number(row.Year) === year && selectedRegions.includes(String(row.Region)))
+            .reduce((sum, row) => sum + Number(row.Number_of_Employees), 0)
+    }));
 
-    renderAverageSimpleBarChart({
+    renderEmployeeStackedBarChart({
         d3,
         container,
-        rows: getBetterPlaceRows(restCountries),
-        averageLabel: 'Rest Average'
+        rows: yearlyTotals,
+        xDomain: ['Europe before 2015'],
+        seriesDomain: selectedYears.map(String),
+        xLabel: 'Selected total'
     });
 }
 
-export function function3({ d3, container }) {
-    const westernEuropeCountries = ['Netherlands', 'Germany', 'UK', 'France', 'Spain', 'Sweden'];
-    const westernEuropeSet = new Set(westernEuropeCountries);
-    const restCountries = Array.from(new Set(data_rows.map((d) => String(d.Country))))
-        .filter((country) => !westernEuropeSet.has(country));
-
-    const westernEuropeRows = getBetterPlaceRows(westernEuropeCountries);
-    const restRows = getBetterPlaceRows(restCountries);
-
-    const comparisonRows = [
-        {
-            Country: 'Western Europe average',
-            Percentage: d3.mean(westernEuropeRows, (d) => Number(d.Percentage)) ?? 0
-        },
-        {
-            Country: 'Rest Average',
-            Percentage: d3.mean(restRows, (d) => Number(d.Percentage)) ?? 0
-        }
-    ];
-
-    renderAverageSimpleBarChart({
-        d3,
-        container,
-        rows: comparisonRows,
-        averageLabel: null
-    });
-}
+export function function3({ d3, container }) {}

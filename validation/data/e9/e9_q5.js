@@ -1,28 +1,30 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Year: 2008, Gender: 'female', 'Life expectancy at virth in years': 72.17 },
-    { Year: 2008, Gender: 'male', 'Life expectancy at virth in years': 65.25 },
-    { Year: 2009, Gender: 'female', 'Life expectancy at virth in years': 72.47 },
-    { Year: 2009, Gender: 'male', 'Life expectancy at virth in years': 65.57 },
-    { Year: 2010, Gender: 'female', 'Life expectancy at virth in years': 72.86 },
-    { Year: 2010, Gender: 'male', 'Life expectancy at virth in years': 65.96 },
-    { Year: 2011, Gender: 'female', 'Life expectancy at virth in years': 73.31 },
-    { Year: 2011, Gender: 'male', 'Life expectancy at virth in years': 66.4 },
-    { Year: 2012, Gender: 'female', 'Life expectancy at virth in years': 73.76 },
-    { Year: 2012, Gender: 'male', 'Life expectancy at virth in years': 66.84 },
-    { Year: 2013, Gender: 'female', 'Life expectancy at virth in years': 74.18 },
-    { Year: 2013, Gender: 'male', 'Life expectancy at virth in years': 67.23 },
-    { Year: 2014, Gender: 'female', 'Life expectancy at virth in years': 74.55 },
-    { Year: 2014, Gender: 'male', 'Life expectancy at virth in years': 67.56 },
-    { Year: 2015, Gender: 'female', 'Life expectancy at virth in years': 74.86 },
-    { Year: 2015, Gender: 'male', 'Life expectancy at virth in years': 67.84 },
-    { Year: 2016, Gender: 'female', 'Life expectancy at virth in years': 75.12 },
-    { Year: 2016, Gender: 'male', 'Life expectancy at virth in years': 68.06 },
-    { Year: 2017, Gender: 'female', 'Life expectancy at virth in years': 75.34 },
-    { Year: 2017, Gender: 'male', 'Life expectancy at virth in years': 68.25 },
-    { Year: 2018, Gender: 'female', 'Life expectancy at virth in years': 75.55 },
-    { Year: 2018, Gender: 'male', 'Life expectancy at virth in years': 68.44 }
+    { Year: 2009, Gender: 'Male', Population: 5268651 },
+    { Year: 2009, Gender: 'Female', Population: 5484429 },
+    { Year: 2010, Gender: 'Male', Population: 5312221 },
+    { Year: 2010, Gender: 'Female', Population: 5527684 },
+    { Year: 2011, Gender: 'Male', Population: 5370234 },
+    { Year: 2011, Gender: 'Female', Population: 5581032 },
+    { Year: 2012, Gender: 'Male', Population: 5413801 },
+    { Year: 2012, Gender: 'Female', Population: 5622147 },
+    { Year: 2013, Gender: 'Male', Population: 5448305 },
+    { Year: 2013, Gender: 'Female', Population: 5676207 },
+    { Year: 2014, Gender: 'Male', Population: 5474309 },
+    { Year: 2014, Gender: 'Female', Population: 5716278 },
+    { Year: 2015, Gender: 'Male', Population: 5506045 },
+    { Year: 2015, Gender: 'Female', Population: 5730378 },
+    { Year: 2016, Gender: 'Male', Population: 5537532 },
+    { Year: 2016, Gender: 'Female', Population: 5757788 },
+    { Year: 2017, Gender: 'Male', Population: 5565319 },
+    { Year: 2017, Gender: 'Female', Population: 5778164 },
+    { Year: 2018, Gender: 'Male', Population: 5597906 },
+    { Year: 2018, Gender: 'Female', Population: 5800000 },
+    { Year: 2019, Gender: 'Male', Population: 5630000 },
+    { Year: 2019, Gender: 'Female', Population: 5820000 },
+    { Year: 2020, Gender: 'Male', Population: 5660064 },
+    { Year: 2020, Gender: 'Female', Population: 5832577 }
 ];
 
 // Workbench multiple-line color palette (resolveColorPalette fallback)
@@ -97,7 +99,7 @@ function injectMultiLineStyles() {
 export function renderValidationMultipleLineChart({ container }) {
     const xField = 'Year';
     const seriesField = 'Gender';
-    const yField = 'Life expectancy at virth in years';
+    const yField = 'Population';
     const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
     const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
 
@@ -284,163 +286,165 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-function getLifeExpectancyGapRows(d3) {
-    const years = Array.from(new Set(data_rows.map((d) => String(d.Year)))).sort((a, b) => Number(a) - Number(b));
-    const gaps = years.map((year) => {
-        const female = data_rows.find((d) => String(d.Year) === year && d.Gender === 'female');
-        const male = data_rows.find((d) => String(d.Year) === year && d.Gender === 'male');
-        return {
-            year,
-            gap: Number(female?.['Life expectancy at virth in years'] ?? 0) - Number(male?.['Life expectancy at virth in years'] ?? 0)
-        };
-    });
-    const averageGap = d3.mean(gaps, (d) => d.gap) ?? 0;
-    return gaps.map((d) => ({ ...d, value: d.gap - averageGap }));
-}
-
-function renderLifeExpectancyCompositeChart({ d3, container }) {
+function renderAveragePopulationBarChart({ d3, container, rows, averageLabel, sourceColor = '#60a5fa', averageColor = '#ef4444' }) {
     const xField = 'Year';
-    const seriesField = 'Gender';
-    const yField = 'Life expectancy at virth in years';
-    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField])))).sort((a, b) => Number(a) - Number(b));
-    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
-    const gapRows = getLifeExpectancyGapRows(d3);
-    const width = 640;
-    const height = 460;
-    const margin = { top: 28, right: 16, bottom: 52, left: 56 };
-    const legendOffsetX = 64;
-    const legendReserve = 200;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const topH = 108;
-    const panelGap = 34;
-    const bottomH = height - margin.top - margin.bottom - topH - panelGap;
-    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
-    const maxAbs = d3.max(gapRows, (d) => Math.abs(d.value)) ?? 1;
-    const topYScale = d3.scaleLinear().domain([-maxAbs, maxAbs]).nice().range([topH, 0]);
-    const zeroY = topYScale(0);
+    const yField = 'Population';
 
-    const allPoints = data_rows.map((row) => ({
-        target: String(row[xField]),
-        series: String(row[seriesField]),
-        yValue: Number(row[yField])
-    }));
-    const bottomYScale = d3.scaleLinear()
-        .domain([d3.min(allPoints, (d) => d.yValue) ?? 0, d3.max(allPoints, (d) => d.yValue) ?? 1])
-        .nice()
-        .range([bottomH, 0]);
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
 
     d3.select(container).selectAll('.validation-multi-line-tooltip').remove();
-    container.innerHTML = '';
-    container.classList.add('validation-multi-line-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const topG = svg.append('g')
-        .attr('class', 'validation-life-gap-panel')
+    const svgNode = svg.node();
+    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
+    const [, , width, height] = viewBox.split(/\s+/).map(Number);
+    const margin = { top: 32, right: 32, bottom: 64, left: 72 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    const averageValue = d3.mean(rows, (d) => Number(d[yField])) ?? 0;
+    const chartRows = averageLabel
+        ? [
+            ...rows.map((d) => ({
+                label: String(d[xField]),
+                value: Number(d[yField]),
+                type: 'source'
+            })),
+            {
+                label: averageLabel,
+                value: averageValue,
+                type: 'average'
+            }
+        ]
+        : rows.map((d, index) => ({
+            label: String(d[xField]),
+            value: Number(d[yField]),
+            type: index === 0 ? 'source' : 'average'
+        }));
+
+    const xScale = d3.scaleBand()
+        .domain(chartRows.map((d) => d.label))
+        .range([0, plotW])
+        .padding(0.28);
+
+    const maxValue = d3.max(chartRows, (d) => d.value) ?? 1;
+
+    const yScale = d3.scaleLinear()
+        .domain([0, maxValue])
+        .nice()
+        .range([plotH, 0]);
+
+    const baselineY = plotH;
+    svg.selectAll('*').remove();
+
+    const g = svg.append('g')
+        .attr('class', 'validation-average-population-bar-layer')
         .attr('transform', `translate(${margin.left},${margin.top})`);
-    const bottomG = svg.append('g')
-        .attr('class', 'validation-life-line-panel')
-        .attr('transform', `translate(${margin.left},${margin.top + topH + panelGap})`);
 
-    topG.append('g').attr('class', 'y-axis').call(d3.axisLeft(topYScale).ticks(3));
-    topG.append('line')
-        .attr('x1', 0)
-        .attr('x2', plotW)
-        .attr('y1', zeroY)
-        .attr('y2', zeroY)
-        .attr('stroke', '#111827')
-        .attr('stroke-width', 1.5);
+    g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).ticks(6));
 
-    const barWidth = Math.max(16, plotW / xDomain.length * 0.48);
-    topG.selectAll('rect.main-bar')
-        .data(gapRows)
-        .join('rect')
-        .attr('class', 'main-bar validation-gap-bar')
-        .attr('x', (d) => (xScale(d.year) ?? 0) - barWidth / 2)
-        .attr('width', barWidth)
-        .attr('y', (d) => d.value >= 0 ? topYScale(d.value) : zeroY)
-        .attr('height', (d) => Math.abs(topYScale(d.value) - zeroY))
-        .attr('fill', '#4f46e5')
-        .attr('data-target', (d) => d.year)
-        .attr('data-value', (d) => d.value)
-        .attr('data-x-value', (d) => d.year)
-        .attr('data-y-value', (d) => String(d.value));
-
-    bottomG.append('g').attr('class', 'y-axis').call(d3.axisLeft(bottomYScale).ticks(5));
-    const xAxis = bottomG.append('g')
+    const xAxis = g.append('g')
         .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${bottomH})`)
+        .attr('transform', `translate(0,${plotH})`)
         .call(d3.axisBottom(xScale));
+
     autoRotateXAxisLabels(xAxis);
 
-    const lineGen = d3.line().x((d) => xScale(d.target) ?? 0).y((d) => bottomYScale(d.yValue));
-    seriesDomain.forEach((series) => {
-        const points = allPoints.filter((d) => d.series === series);
-        bottomG.append('path')
-            .datum({ series, points })
-            .attr('fill', 'none')
-            .attr('stroke', resolveSeriesColor(seriesDomain, series))
-            .attr('stroke-width', 2)
-            .attr('data-series', series)
-            .attr('d', (d) => lineGen(d.points));
-        bottomG.selectAll(`circle[data-series="${series}"]`)
-            .data(points)
-            .join('circle')
-            .attr('cx', (d) => xScale(d.target) ?? 0)
-            .attr('cy', (d) => bottomYScale(d.yValue))
-            .attr('r', 4)
-            .attr('fill', resolveSeriesColor(seriesDomain, series))
-            .attr('opacity', 0.85)
-            .attr('data-target', (d) => d.target)
-            .attr('data-series', (d) => d.series)
-            .attr('data-value', (d) => String(d.yValue))
-            .attr('data-x-value', (d) => d.target)
-            .attr('data-y-value', (d) => String(d.yValue));
-    });
+    g.append('text')
+        .attr('class', 'x-axis-label')
+        .attr('x', plotW / 2)
+        .attr('y', plotH + 48)
+        .attr('text-anchor', 'middle')
+        .text(xField);
 
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top + topH + panelGap})`);
-    seriesDomain.forEach((series, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, series));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(series);
-    });
+    g.append('text')
+        .attr('class', 'y-axis-label')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -plotH / 2)
+        .attr('y', -52)
+        .attr('text-anchor', 'middle')
+        .text(yField);
+
+    g.selectAll('rect.main-bar')
+        .data(chartRows)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => xScale(d.label))
+        .attr('width', xScale.bandwidth())
+        .attr('y', baselineY)
+        .attr('height', 0)
+        .attr('fill', (d) => d.type === 'average' ? averageColor : sourceColor)
+        .attr('data-target', (d) => d.label)
+        .attr('data-value', (d) => d.value)
+        .attr('data-x-value', (d) => d.label)
+        .attr('data-y-value', (d) => String(d.value))
+        .attr('y', (d) => yScale(d.value))
+        .attr('height', (d) => Math.max(0, baselineY - yScale(d.value)));
 }
 
 export function function1({ d3, container }) {
-    renderLifeExpectancyCompositeChart({ d3, container });
+    const rows = data_rows.filter((d) => (
+        d.Gender === 'Male' &&
+        Number(d.Year) >= 2009 &&
+        Number(d.Year) <= 2011
+    ));
+
+    renderAveragePopulationBarChart({
+        d3,
+        container,
+        rows,
+        averageLabel: 'Male 2009–2011 average',
+        sourceColor: '#60a5fa',
+        averageColor: '#2563eb'
+    });
 }
 
 export function function2({ d3, container }) {
-    if (!container.querySelector('.validation-life-gap-panel')) {
-        renderLifeExpectancyCompositeChart({ d3, container });
-    }
+    const rows = data_rows.filter((d) => (
+        d.Gender === 'Female' &&
+        Number(d.Year) >= 2018 &&
+        Number(d.Year) <= 2020
+    ));
 
-    const targetYear = '2013';
-    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year)))).sort((a, b) => Number(a) - Number(b));
-    const width = 640;
-    const height = 460;
-    const margin = { top: 28, right: 16, bottom: 52, left: 56 };
-    const legendReserve = 200;
-    const plotW = width - margin.left - margin.right - legendReserve;
-    const topH = 108;
-    const panelGap = 34;
-    const bottomH = height - margin.top - margin.bottom - topH - panelGap;
-    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
-    const step = plotW / Math.max(1, xDomain.length - 1);
-    const bandWidth = step * 0.64;
-    const x = margin.left + (xScale(targetYear) ?? 0) - bandWidth / 2;
-
-    const svg = d3.select(container).select('svg');
-    svg.selectAll('.validation-highlight-2013').remove();
-    svg.insert('rect', ':first-child')
-        .attr('class', 'validation-highlight-2013')
-        .attr('x', x)
-        .attr('y', margin.top)
-        .attr('width', bandWidth)
-        .attr('height', topH + panelGap + bottomH)
-        .attr('fill', '#d1d5db')
-        .attr('opacity', 0.42);
+    renderAveragePopulationBarChart({
+        d3,
+        container,
+        rows,
+        averageLabel: 'Female 2018–2020 average',
+        sourceColor: '#fb7185',
+        averageColor: '#e11d48'
+    });
 }
 
-export function function3({ d3, container }) {}
+export function function3({ d3, container }) {
+    const maleRows = data_rows.filter((d) => (
+        d.Gender === 'Male' &&
+        Number(d.Year) >= 2009 &&
+        Number(d.Year) <= 2011
+    ));
+
+    const femaleRows = data_rows.filter((d) => (
+        d.Gender === 'Female' &&
+        Number(d.Year) >= 2018 &&
+        Number(d.Year) <= 2020
+    ));
+
+    const maleAverage = d3.mean(maleRows, (d) => Number(d.Population)) ?? 0;
+    const femaleAverage = d3.mean(femaleRows, (d) => Number(d.Population)) ?? 0;
+
+    const comparisonRows = [
+        { Year: 'Male average', Population: maleAverage },
+        { Year: 'Female average', Population: femaleAverage }
+    ];
+
+    renderAveragePopulationBarChart({
+        d3,
+        container,
+        rows: comparisonRows,
+        averageLabel: null,
+        sourceColor: '#2563eb',
+        averageColor: '#e11d48'
+    });
+}
