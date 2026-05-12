@@ -4,7 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Validation Viewer</title>
-    <link rel="stylesheet" href="/viewer.css">
+    <link rel="stylesheet" id="validationStylesheet">
+    <script>
+        window.__VALIDATION_BASE_PATH__ = location.pathname.split('/').filter(Boolean)[0] === 'validation'
+            ? '/validation'
+            : '';
+        document.getElementById('validationStylesheet').href = `${window.__VALIDATION_BASE_PATH__}/viewer.css`;
+    </script>
 </head>
 <body>
 <div class="viewer-wrap">
@@ -26,6 +32,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-<script type="module" src="/viewer.js"></script>
+<script>
+    const validationScript = document.createElement('script');
+    validationScript.type = 'module';
+    validationScript.src = `${window.__VALIDATION_BASE_PATH__}/viewer.js`;
+    document.body.appendChild(validationScript);
+</script>
 </body>
 </html>

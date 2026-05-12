@@ -1,11 +1,19 @@
+const validationBasePath = window.__VALIDATION_BASE_PATH__ || '';
+
+function withValidationBase(path) {
+    return `${validationBasePath}${path}`;
+}
+
 const requestedExpertId = (() => {
     const parts = location.pathname.split('/').filter(Boolean);
-    const last = parts.at(-1) ?? '';
-    if (last === 'index.html' || last === 'index') return parts.at(-2) ?? '';
+    const routeParts = parts[0] === 'validation' ? parts.slice(1) : parts;
+    if (routeParts.length === 0) return '';
+    const last = routeParts.at(-1) ?? '';
+    if (last === 'index.html' || last === 'index') return routeParts.at(-2) ?? '';
     return last.replace(/\.html$/, '');
 })();
 
-const chartMap = await fetch('/chart_map.json').then(r => r.json());
+const chartMap = await fetch(withValidationBase('/chart_map.json')).then(r => r.json());
 const expertId = requestedExpertId && chartMap[requestedExpertId]
     ? requestedExpertId
     : Object.keys(chartMap)[0] ?? '';
@@ -68,7 +76,7 @@ function getPageIndexFromUrl() {
 }
 
 function getExpertBasePath() {
-    return expertId ? `/${expertId}/` : '/';
+    return expertId ? withValidationBase(`/${expertId}/`) : `${validationBasePath || '/'}`;
 }
 
 function getChartUrl(index) {
@@ -95,7 +103,7 @@ function syncChartUrl(index, replace = false) {
 
 async function getModule(chartId) {
     if (!moduleCache[chartId]) {
-        moduleCache[chartId] = await import(`/data/${expertId}/${chartId}.js`);
+        moduleCache[chartId] = await import(withValidationBase(`/data/${expertId}/${chartId}.js`));
     }
     return moduleCache[chartId];
 }
