@@ -195,8 +195,92 @@ export function renderValidationSimpleBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function renderCompanyNameLengthChart({ d3, container, showAverage = false }) {
+    injectChartStyles();
 
-export function function2({ d3, container }) {}
+    const csvTargets = ['Conad', 'Selex', 'MD', 'Crai', 'Aspiag'];
+    const csvAverage = 0.082;
+    const selected = data_rows.filter((d) => csvTargets.includes(d.Company));
+    const other = data_rows.filter((d) => !csvTargets.includes(d.Company));
+    const data = [...selected, ...other];
+
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 64, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    container.innerHTML = '';
+    container.classList.add('validation-chart-host');
+
+    const xScale = d3.scaleBand()
+        .domain(data.map((d) => d.Company))
+        .range([0, plotW])
+        .padding(0.22);
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(data_rows, (d) => d['Market shares']) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('overflow', 'visible');
+    const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+    autoRotateXAxisLabels(g.select('.x-axis'));
+
+    g.selectAll('rect.main-bar')
+        .data(data)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => xScale(d.Company))
+        .attr('width', xScale.bandwidth())
+        .attr('y', (d) => yScale(d['Market shares']))
+        .attr('height', (d) => plotH - yScale(d['Market shares']))
+        .attr('fill', (d) => csvTargets.includes(d.Company) ? '#2563eb' : '#d1d5db')
+        .attr('opacity', (d) => csvTargets.includes(d.Company) ? 0.95 : 0.12)
+        .attr('data-target', (d) => d.Company)
+        .attr('data-value', (d) => d['Market shares'])
+        .attr('data-x-value', (d) => d.Company)
+        .attr('data-y-value', (d) => String(d['Market shares']));
+
+    if (!showAverage) return;
+
+    const firstX = xScale(csvTargets[0]) ?? 0;
+    const lastX = (xScale(csvTargets[csvTargets.length - 1]) ?? 0) + xScale.bandwidth();
+    const avgY = yScale(csvAverage);
+    g.append('line')
+        .attr('class', 'e8-q1-function2')
+        .attr('x1', firstX)
+        .attr('x2', lastX)
+        .attr('y1', avgY)
+        .attr('y2', avgY)
+        .attr('stroke', '#dc2626')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4');
+    g.append('text')
+        .attr('class', 'e8-q1-function2')
+        .attr('x', lastX + 8)
+        .attr('y', avgY - 6)
+        .attr('fill', '#dc2626')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text('Average: 0.082');
+}
+
+export function function1({ d3, container }) {
+    renderCompanyNameLengthChart({ d3, container, showAverage: false });
+}
+
+export function function2({ d3, container }) {
+    renderCompanyNameLengthChart({ d3, container, showAverage: true });
+}
 
 export function function3({ d3, container }) {}

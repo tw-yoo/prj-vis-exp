@@ -46,18 +46,49 @@ function svgViewport(svgNode: SVGSVGElement): BoxBounds {
   return { x: 0, y: 0, width: rect.width, height: rect.height }
 }
 
-function safeBox(node: Element | null): BoxBounds | null {
+function transformBox(box: BoxBounds, matrix: DOMMatrix | SVGMatrix): BoxBounds {
+  const points = [
+    { x: box.x, y: box.y },
+    { x: box.x + box.width, y: box.y },
+    { x: box.x + box.width, y: box.y + box.height },
+    { x: box.x, y: box.y + box.height },
+  ].map((point) => ({
+    x: matrix.a * point.x + matrix.c * point.y + matrix.e,
+    y: matrix.b * point.x + matrix.d * point.y + matrix.f,
+  }))
+  const xs = points.map((point) => point.x)
+  const ys = points.map((point) => point.y)
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return {
+    x,
+    y,
+    width: Math.max(...xs) - x,
+    height: Math.max(...ys) - y,
+  }
+}
+
+function safeBox(node: Element | null, svgNode?: SVGSVGElement): BoxBounds | null {
   if (!node || !('getBBox' in node)) return null
   try {
-    const box = (node as SVGGraphicsElement).getBBox()
+    const graphics = node as SVGGraphicsElement
+    const box = graphics.getBBox()
     if (!(box.width >= 0 && box.height >= 0)) return null
-    return { x: box.x, y: box.y, width: box.width, height: box.height }
+    const localBox = { x: box.x, y: box.y, width: box.width, height: box.height }
+    const elementMatrix = svgNode ? graphics.getCTM() : null
+    const svgMatrix = svgNode ? svgNode.getCTM() : null
+    const matrix = elementMatrix && svgMatrix ? svgMatrix.inverse().multiply(elementMatrix) : null
+    return matrix ? transformBox(localBox, matrix) : localBox
   } catch {
     return null
   }
 }
 
-function collectObstacles(svgNode: SVGSVGElement, textNode: SVGTextElement): BoxBounds[] {
+function collectObstacles(
+  svgNode: SVGSVGElement,
+  textNode: SVGTextElement,
+  ignoredElements: Set<Element>,
+): BoxBounds[] {
   const selector = [
     `${SvgElements.Rect}.${SvgClassNames.MainBar}`,
     `${SvgElements.Line}.${SvgClassNames.LineAnnotation}`,
@@ -66,11 +97,47 @@ function collectObstacles(svgNode: SVGSVGElement, textNode: SVGTextElement): Box
 
   return Array.from(svgNode.querySelectorAll<Element>(selector))
     .filter((node) => node !== textNode)
-    .map((node) => safeBox(node))
+    .filter((node) => !ignoredElements.has(node))
+    .map((node) => safeBox(node, svgNode))
     .filter((box): box is BoxBounds => box != null)
 }
 
-function buildCandidates(preferred: { x: number; y: number }, anchorElement?: Element | null) {
+function shiftTextInsideAllowed(
+  textBox: BoxBounds,
+  position: { x: number; y: number },
+  allowed: BoxBounds,
+) {
+  const allowedRight = allowed.x + allowed.width
+  const allowedBottom = allowed.y + allowed.height
+  const textRight = textBox.x + textBox.width
+  const textBottom = textBox.y + textBox.height
+
+  let dx = 0
+  if (textBox.width > allowed.width) {
+    dx = allowed.x - textBox.x
+  } else if (textBox.x < allowed.x) {
+    dx = allowed.x - textBox.x
+  } else if (textRight > allowedRight) {
+    dx = allowedRight - textRight
+  }
+
+  let dy = 0
+  if (textBox.height > allowed.height) {
+    dy = allowed.y - textBox.y
+  } else if (textBox.y < allowed.y) {
+    dy = allowed.y - textBox.y
+  } else if (textBottom > allowedBottom) {
+    dy = allowedBottom - textBottom
+  }
+
+  return { x: position.x + dx, y: position.y + dy }
+}
+
+function buildCandidates(
+  preferred: { x: number; y: number },
+  anchorElement: Element | null | undefined,
+  svgNode: SVGSVGElement,
+) {
   const candidates: Array<{ x: number; y: number }> = []
   const seen = new Set<string>()
   const push = (x: number, y: number) => {
@@ -81,7 +148,7 @@ function buildCandidates(preferred: { x: number; y: number }, anchorElement?: El
   }
 
   push(preferred.x, preferred.y)
-  const anchorBox = safeBox(anchorElement ?? null)
+  const anchorBox = safeBox(anchorElement ?? null, svgNode)
   const anchorCenterY = anchorBox ? anchorBox.y + anchorBox.height / 2 : null
   const preferUp = anchorCenterY == null ? true : preferred.y <= anchorCenterY
   const primarySign = preferUp ? -1 : 1
@@ -117,8 +184,10 @@ export function placeOperationTextLabel(options: TextPlacementOptions) {
     width: Math.max(0, viewport.width - CHART_TEXT_COLLISION.viewportPaddingPx * 2),
     height: Math.max(0, viewport.height - CHART_TEXT_COLLISION.viewportPaddingPx * 2),
   }
-  const obstacles = collectObstacles(svgNode, textNode)
-  const anchorBox = safeBox(options.anchorElement ?? null)
+  const ignoredElements = new Set<Element>()
+  if (options.anchorElement) ignoredElements.add(options.anchorElement)
+  const obstacles = collectObstacles(svgNode, textNode, ignoredElements)
+  const anchorBox = safeBox(options.anchorElement ?? null, svgNode)
   const anchorCenterY = anchorBox ? anchorBox.y + anchorBox.height / 2 : null
 
   let best = { ...options.preferred, score: Number.POSITIVE_INFINITY }
@@ -133,36 +202,46 @@ export function placeOperationTextLabel(options: TextPlacementOptions) {
   const savedOverflow = svgNode.style.overflow
   svgNode.style.overflow = 'hidden'
 
-  buildCandidates(options.preferred, options.anchorElement).forEach((candidate) => {
-    options.text.attr(SvgAttributes.X, candidate.x).attr(SvgAttributes.Y, candidate.y)
-    const textBox = safeBox(textNode)
-    if (!textBox) return
+  try {
+    buildCandidates(options.preferred, options.anchorElement, svgNode).forEach((candidate) => {
+      options.text.attr(SvgAttributes.X, candidate.x).attr(SvgAttributes.Y, candidate.y)
+      const textBox = safeBox(textNode, svgNode)
+      if (!textBox) return
 
-    const paddedText = expandBox(textBox, CHART_TEXT_COLLISION.obstaclePaddingPx)
-    const overlapArea = obstacles.reduce((sum, box) => sum + intersectionArea(paddedText, expandBox(box, CHART_TEXT_COLLISION.obstaclePaddingPx)), 0)
-    const insideArea = intersectionArea(textBox, allowed)
-    const outsideArea = Math.max(0, boxArea(textBox) - insideArea)
-    const displacement = Math.hypot(candidate.x - options.preferred.x, candidate.y - options.preferred.y)
-    const sidePenalty =
-      anchorCenterY != null &&
-      Math.sign(options.preferred.y - anchorCenterY) !== 0 &&
-      Math.sign(candidate.y - anchorCenterY) !== 0 &&
-      Math.sign(options.preferred.y - anchorCenterY) !== Math.sign(candidate.y - anchorCenterY)
-        ? CHART_TEXT_COLLISION.sideFlipPenalty
-        : 0
-    const score =
-      overlapArea * CHART_TEXT_COLLISION.scoreWeightOverlap +
-      outsideArea * CHART_TEXT_COLLISION.scoreWeightOutside +
-      displacement +
-      sidePenalty
+      const paddedText = expandBox(textBox, CHART_TEXT_COLLISION.obstaclePaddingPx)
+      const overlapArea = obstacles.reduce((sum, box) => sum + intersectionArea(paddedText, expandBox(box, CHART_TEXT_COLLISION.obstaclePaddingPx)), 0)
+      const insideArea = intersectionArea(textBox, allowed)
+      const outsideArea = Math.max(0, boxArea(textBox) - insideArea)
+      const displacement = Math.hypot(candidate.x - options.preferred.x, candidate.y - options.preferred.y)
+      const sidePenalty =
+        anchorCenterY != null &&
+        Math.sign(options.preferred.y - anchorCenterY) !== 0 &&
+        Math.sign(candidate.y - anchorCenterY) !== 0 &&
+        Math.sign(options.preferred.y - anchorCenterY) !== Math.sign(candidate.y - anchorCenterY)
+          ? CHART_TEXT_COLLISION.sideFlipPenalty
+          : 0
+      const score =
+        overlapArea * CHART_TEXT_COLLISION.scoreWeightOverlap +
+        outsideArea * CHART_TEXT_COLLISION.scoreWeightOutside +
+        displacement +
+        sidePenalty
 
-    if (score < best.score) best = { x: candidate.x, y: candidate.y, score }
-  })
+      if (score < best.score) best = { x: candidate.x, y: candidate.y, score }
+    })
 
-  // Place the text at the winning position, then restore the original overflow
-  // value so the SVG's visual behaviour is unchanged after label placement.
-  options.text.attr(SvgAttributes.X, best.x).attr(SvgAttributes.Y, best.y)
-  svgNode.style.overflow = savedOverflow
+    // Place the text at the winning position, then do a final deterministic
+    // clamp. Candidate search keeps labels near their anchors; this clamp
+    // prevents long labels from extending outside the fixed SVG viewport.
+    options.text.attr(SvgAttributes.X, best.x).attr(SvgAttributes.Y, best.y)
+    const finalBox = safeBox(textNode, svgNode)
+    if (finalBox) {
+      const fitted = shiftTextInsideAllowed(finalBox, best, allowed)
+      options.text.attr(SvgAttributes.X, fitted.x).attr(SvgAttributes.Y, fitted.y)
+      best = { ...best, ...fitted }
+    }
+  } finally {
+    svgNode.style.overflow = savedOverflow
+  }
 
   return { x: best.x, y: best.y }
 }

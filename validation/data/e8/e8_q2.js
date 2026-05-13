@@ -252,8 +252,90 @@ export function renderValidationStackedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function renderNonBlackVeryInterestedChart({ d3, container, showAverage = false }) {
+    injectStackedChartStyles();
 
-export function function2({ d3, container }) {}
+    const csvValues = [
+        { Race_Ethnicity: 'White', value: 0.20 },
+        { Race_Ethnicity: 'Hispanic', value: 0.16 },
+        { Race_Ethnicity: 'Other', value: 0.21 },
+    ];
+    const csvAverage = 0.19;
+
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 96, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    container.innerHTML = '';
+    container.classList.add('validation-stacked-chart-host');
+
+    const xScale = d3.scaleBand()
+        .domain(csvValues.map((d) => d.Race_Ethnicity))
+        .range([0, plotW])
+        .padding(0.28);
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(csvValues, (d) => d.value) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('overflow', 'visible');
+    const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    g.selectAll('rect.main-bar')
+        .data(csvValues)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => xScale(d.Race_Ethnicity))
+        .attr('width', xScale.bandwidth())
+        .attr('y', (d) => yScale(d.value))
+        .attr('height', (d) => plotH - yScale(d.value))
+        .attr('fill', '#2563eb')
+        .attr('data-target', (d) => d.Race_Ethnicity)
+        .attr('data-series', 'Very interested')
+        .attr('data-value', (d) => d.value)
+        .attr('data-x-value', (d) => d.Race_Ethnicity)
+        .attr('data-y-value', (d) => String(d.value));
+
+    if (!showAverage) return;
+
+    const avgY = yScale(csvAverage);
+    g.append('line')
+        .attr('class', 'e8-q2-function2')
+        .attr('x1', 0)
+        .attr('x2', plotW)
+        .attr('y1', avgY)
+        .attr('y2', avgY)
+        .attr('stroke', '#dc2626')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4');
+    g.append('text')
+        .attr('class', 'e8-q2-function2')
+        .attr('x', plotW + 8)
+        .attr('y', avgY + 4)
+        .attr('fill', '#dc2626')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text('19%');
+}
+
+export function function1({ d3, container }) {
+    renderNonBlackVeryInterestedChart({ d3, container, showAverage: false });
+}
+
+export function function2({ d3, container }) {
+    renderNonBlackVeryInterestedChart({ d3, container, showAverage: true });
+}
 
 export function function3({ d3, container }) {}

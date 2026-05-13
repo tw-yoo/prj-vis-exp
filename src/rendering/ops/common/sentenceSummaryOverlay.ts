@@ -7,12 +7,24 @@ export type SentenceSummaryOverlayControl = {
   onClick?: (() => void | Promise<void>) | null
 }
 
+export type SentenceSummaryOverlayItemState = 'active' | 'selected' | 'completed' | 'pending'
+
+export type SentenceSummaryOverlayItem = {
+  text: string
+  state: SentenceSummaryOverlayItemState
+  disabled?: boolean
+  onClick?: (() => void | Promise<void>) | null
+}
+
 export type SentenceSummaryOverlayRenderInput =
   | string
   | {
       text: string
       leftControl?: SentenceSummaryOverlayControl
       rightControl?: SentenceSummaryOverlayControl
+    }
+  | {
+      items: SentenceSummaryOverlayItem[]
     }
 
 function overlayHost(container: HTMLElement | null): HTMLElement | null {
@@ -77,25 +89,81 @@ function applyText(node: HTMLElement | null, text: string) {
   node.style.display = value.length > 0 ? '' : 'none'
 }
 
+function renderOverlayFrame(overlay: HTMLElement) {
+  overlay.className = 'chart-sentence-summary-overlay'
+  overlay.replaceChildren()
+
+  const left = document.createElement('button')
+  left.type = 'button'
+  left.className = 'chart-sentence-summary-control is-left'
+
+  const text = document.createElement('div')
+  text.className = 'chart-sentence-summary-text'
+
+  const right = document.createElement('button')
+  right.type = 'button'
+  right.className = 'chart-sentence-summary-control is-right'
+
+  overlay.appendChild(left)
+  overlay.appendChild(text)
+  overlay.appendChild(right)
+
+  return { left, text, right }
+}
+
+function renderOverlayItems(overlay: HTMLElement, items: SentenceSummaryOverlayItem[]) {
+  overlay.className = 'chart-sentence-summary-overlay chart-sentence-summary-overlay--list'
+  overlay.replaceChildren()
+
+  const list = document.createElement('div')
+  list.className = 'chart-sentence-summary-list'
+  items.forEach((item, index) => {
+    const text = item.text.trim()
+    const hasAction = typeof item.onClick === 'function'
+    const node = document.createElement(hasAction ? 'button' : 'span')
+    node.className = `chart-sentence-summary-item sentence sentence--${item.state}`
+    node.textContent = text.length > 0 ? text : `operation${index + 1}`
+    node.setAttribute('data-summary-item-index', String(index))
+    node.setAttribute('data-summary-item-state', item.state)
+    if (hasAction && node instanceof HTMLButtonElement) {
+      node.type = 'button'
+      node.disabled = Boolean(item.disabled)
+      node.onclick = () => {
+        if (!node.disabled) {
+          void item.onClick?.()
+        }
+      }
+    }
+    list.appendChild(node)
+    if (index < items.length - 1) {
+      list.appendChild(document.createTextNode(' '))
+    }
+  })
+
+  overlay.appendChild(list)
+}
+
 export function renderSentenceSummaryOverlay(
   container: HTMLElement,
   input: SentenceSummaryOverlayRenderInput,
 ) {
   const overlay = ensureOverlay(container)
-  const textNode = overlay.querySelector<HTMLElement>('.chart-sentence-summary-text')
-  const leftNode = overlay.querySelector<HTMLButtonElement>('.chart-sentence-summary-control.is-left')
-  const rightNode = overlay.querySelector<HTMLButtonElement>('.chart-sentence-summary-control.is-right')
-  if (!textNode) return
-  if (typeof input === 'string') {
-    applyText(textNode, input)
-    applyControl(leftNode, undefined)
-    applyControl(rightNode, undefined)
+  if (typeof input === 'object' && 'items' in input) {
+    renderOverlayItems(overlay, input.items)
     return
   }
 
-  applyText(textNode, input.text)
-  applyControl(leftNode, input.leftControl)
-  applyControl(rightNode, input.rightControl)
+  const { left, text, right } = renderOverlayFrame(overlay)
+  if (typeof input === 'string') {
+    applyText(text, input)
+    applyControl(left, undefined)
+    applyControl(right, undefined)
+    return
+  }
+
+  applyText(text, input.text)
+  applyControl(left, input.leftControl)
+  applyControl(right, input.rightControl)
 }
 
 export function clearSentenceSummaryOverlay(container: HTMLElement | null) {

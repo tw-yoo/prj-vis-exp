@@ -461,10 +461,7 @@ async function applyPairDiffFocusTransform(
         .transition()
         .duration(fadeDuration)
         .style(SvgAttributes.Opacity, 0)
-        .end()
-        .then(() => {
-          unrelatedPaths.remove()
-        }),
+        .end(),
     )
   }
 
@@ -475,10 +472,7 @@ async function applyPairDiffFocusTransform(
         .transition()
         .duration(fadeDuration)
         .style(SvgAttributes.Opacity, 0)
-        .end()
-        .then(() => {
-          unrelatedPointGroups.remove()
-        }),
+        .end(),
     )
   }
 
@@ -1072,6 +1066,10 @@ async function annotateLagDiff(container: HTMLElement, result: DatumValue[], sta
 // by fattening its stroke and shifting to a deeper colour.
 // ---------------------------------------------------------------------------
 
+function containerHasAnnotationLine(container: HTMLElement, cssClass: string, escapedTargetKey: string) {
+  return container.querySelector(`svg line.${cssClass}[data-target="${escapedTargetKey}"]`) != null
+}
+
 async function strengthenPairDiffArrow(container: HTMLElement, targetKey: string): Promise<void> {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
@@ -1079,16 +1077,34 @@ async function strengthenPairDiffArrow(container: HTMLElement, targetKey: string
   const arrowLines = layer.selectAll<SVGLineElement, unknown>(
     `line.${PAIR_DIFF_ANNOTATION_CLASS}[data-target="${CSS.escape(targetKey)}"]`,
   )
-  if (arrowLines.empty()) return
+  const arrowLabels = layer.selectAll<SVGTextElement, unknown>(
+    `text.${PAIR_DIFF_ANNOTATION_CLASS}[data-target="${CSS.escape(targetKey)}"]`,
+  )
+  if (arrowLines.empty() && arrowLabels.empty()) return
   arrowLines.interrupt()
+  arrowLabels.interrupt()
   try {
-    await arrowLines
-      .transition()
-      .duration(DURATIONS.HIGHLIGHT)
-      .ease(EASINGS.SMOOTH)
-      .attr(SvgAttributes.StrokeWidth, 4)
-      .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_STRONG_RED)
-      .end()
+    await Promise.all([
+      arrowLines
+        .transition()
+        .duration(DURATIONS.HIGHLIGHT)
+        .ease(EASINGS.SMOOTH)
+        .attr(SvgAttributes.StrokeWidth, 4)
+        .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_STRONG_RED)
+        .style(SvgAttributes.Opacity, 1)
+        .end()
+        .catch(() => undefined),
+      arrowLabels
+        .transition()
+        .duration(DURATIONS.HIGHLIGHT)
+        .ease(EASINGS.SMOOTH)
+        .attr(SvgAttributes.FontSize, 14)
+        .attr(SvgAttributes.FontWeight, 800)
+        .attr(SvgAttributes.Fill, COLORS.ANNOTATION_STRONG_RED)
+        .style(SvgAttributes.Opacity, 1)
+        .end()
+        .catch(() => undefined),
+    ])
   } catch { /* interrupted */ }
 }
 
@@ -1110,6 +1126,97 @@ async function strengthenLagDiffArrow(container: HTMLElement, targetKey: string)
       .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_STRONG_RED)
       .end()
   } catch { /* interrupted */ }
+}
+
+function findDerivedExtremumData(rows: DatumValue[], operation: OperationSpec): DatumValue[] {
+  const candidates = rows.filter((datum) => Number.isFinite(Number(datum.value)))
+  if (candidates.length === 0) return []
+  const sorted = candidates.slice().sort((left, right) => Number(left.value) - Number(right.value))
+  const chosen = operation.which === 'min' ? sorted[0] : sorted[sorted.length - 1]
+  return chosen ? [{ ...chosen, value: Number(chosen.value) }] : []
+}
+
+function derivedDiffSource(state: ChainState): DatumValue[] | null {
+  if (state.derivedData !== null) return state.derivedData
+  const workingDataIsDerivedDiff = state.workingData.some((datum) => {
+    const semanticMeasure = datum.semanticMeasure ?? ''
+    return semanticMeasure.startsWith('Δ')
+  })
+  return workingDataIsDerivedDiff ? state.workingData : null
+}
+
+async function annotateDerivedExtremumResult(
+  container: HTMLElement,
+  result: DatumValue[],
+  operation: OperationSpec,
+  state: ChainState,
+) {
+  const datum = result[0]
+  if (!datum) return
+  const targetKey = String(datum.target)
+  const value = Number(datum.value)
+  if (!Number.isFinite(value)) return
+
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+  const layer = ensureAnnotationLayer(svg)
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+  layer.selectAll(`.${EXTREMUM_ANNOTATION_CLASS}`).interrupt().remove()
+
+  const anchorLine = layer
+    .selectAll<SVGLineElement, unknown>(
+      `line.${PAIR_DIFF_ANNOTATION_CLASS}[data-target="${CSS.escape(targetKey)}"]:not(.arrow-head), line.${LAG_DIFF_ANNOTATION_CLASS}[data-target="${CSS.escape(targetKey)}"]:not(.arrow-head)`,
+    )
+    .nodes()[0]
+
+  const viewport = resolveAnnotationViewport(svg)
+  let preferred = { x: viewport.x + viewport.width - 4, y: Math.max(12, viewport.y + 16) }
+  let textAnchor: 'middle' | 'end' = 'end'
+  if (anchorLine) {
+    const x1 = readNumberAttr(anchorLine, SvgAttributes.X1)
+    const y1 = readNumberAttr(anchorLine, SvgAttributes.Y1)
+    const x2 = readNumberAttr(anchorLine, SvgAttributes.X2)
+    const y2 = readNumberAttr(anchorLine, SvgAttributes.Y2)
+    if (x1 != null && y1 != null && x2 != null && y2 != null) {
+      preferred = {
+        x: (x1 + x2) / 2,
+        y: Math.max(12, Math.min(y1, y2) - 14),
+      }
+      textAnchor = 'middle'
+    }
+  }
+
+  const labelPrefix = operation.which === 'min' ? 'Min diff' : 'Max diff'
+  const labelNode = layer
+    .append(SvgElements.Text)
+    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${EXTREMUM_ANNOTATION_CLASS} derived-extremum-label`)
+    .attr('data-target', targetKey)
+    .attr(SvgAttributes.X, preferred.x)
+    .attr(SvgAttributes.Y, preferred.y)
+    .attr(SvgAttributes.TextAnchor, textAnchor)
+    .attr(SvgAttributes.FontSize, 16)
+    .attr(SvgAttributes.FontWeight, 800)
+    .attr(SvgAttributes.Fill, COLORS.ANNOTATION_STRONG_RED)
+    .style(SvgAttributes.Opacity, 0)
+    .text(`${labelPrefix}: ${formatOperationValue(value)}`)
+
+  placeOperationTextLabel({
+    svg,
+    text: labelNode,
+    preferred,
+    anchorElement: anchorLine,
+    viewport,
+  })
+
+  labelNode
+    .transition()
+    .duration(DURATIONS.LABEL_FADE_IN)
+    .ease(EASINGS.SMOOTH)
+    .style(SvgAttributes.Opacity, 1)
+    .end()
+    .catch(() => undefined)
+
+  state.annotationRecords.push({ cssClass: EXTREMUM_ANNOTATION_CLASS, role: 'result', persistent: false })
 }
 
 // ---------------------------------------------------------------------------
@@ -1189,14 +1296,19 @@ async function runFindExtremumOperation(
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
 
-  if (state.derivedData !== null) {
+  const derivedSource = derivedDiffSource(state)
+  if (derivedSource !== null) {
     // A compute operation (lagDiff or pairDiff) ran before us.
     // Find the extremum among the derived values and strengthen the
     // corresponding arrow instead of drawing a new annotation.
-    const result = findExtremum(state.derivedData, operation)
+    const result = findDerivedExtremumData(derivedSource, operation)
     const targetKey = result[0]?.target
     if (targetKey != null) {
-      if (state.scaleState !== null) {
+      const escapedTarget = CSS.escape(String(targetKey))
+      const hasPairDiffAnchor =
+        state.annotationRecords.some((record) => record.cssClass === PAIR_DIFF_ANNOTATION_CLASS) ||
+        containerHasAnnotationLine(run.container, PAIR_DIFF_ANNOTATION_CLASS, escapedTarget)
+      if (hasPairDiffAnchor) {
         // pairDiff context
         await strengthenPairDiffArrow(run.container, String(targetKey))
       } else {
@@ -1204,6 +1316,7 @@ async function runFindExtremumOperation(
         await strengthenLagDiffArrow(run.container, String(targetKey))
       }
     }
+    await annotateDerivedExtremumResult(run.container, result, operation, state)
     await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
     console.log('[operation-next] multiple-line findExtremum (strengthen)', { operationIndex, operation, result })
     return { result, nextState: { ...state, lastResult: result } }

@@ -247,8 +247,139 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function renderTransposedPaymentChart({ d3, container, showDifference = false }) {
+    injectGroupedChartStyles();
 
-export function function2({ d3, container }) {}
+    const csvAverage = { Maximum: 20.0, Minimum: 6.25 };
+    const csvDifference = 13.75;
+    const xDomain = ['Maximum', 'Minimum'];
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => d.State)));
+    const data = [];
+    xDomain.forEach((type) => {
+        seriesDomain.forEach((state) => {
+            const row = data_rows.find((d) => d.Type === type && d.State === state);
+            if (row) data.push({ category: type, series: state, value: Number(row.Payment_Million_USD) });
+        });
+    });
+
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 176, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    container.innerHTML = '';
+    container.classList.add('validation-grouped-chart-host');
+
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.22);
+    const innerScale = d3.scaleBand().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.12);
+    const yScale = d3.scaleLinear().domain([0, 25]).nice().range([plotH, 0]);
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('overflow', 'visible');
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    g.selectAll('rect.main-bar')
+        .data(data)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => (xScale(d.category) ?? 0) + (innerScale(d.series) ?? 0))
+        .attr('width', innerScale.bandwidth())
+        .attr('y', (d) => yScale(d.value))
+        .attr('height', (d) => plotH - yScale(d.value))
+        .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.series))
+        .attr('data-target', (d) => d.category)
+        .attr('data-series', (d) => d.series)
+        .attr('data-value', (d) => d.value)
+        .attr('data-x-value', (d) => d.category)
+        .attr('data-y-value', (d) => String(d.value))
+        .attr('data-group-value', (d) => d.series);
+
+    xDomain.forEach((type) => {
+        const x0 = xScale(type) ?? 0;
+        const y = yScale(csvAverage[type]);
+        g.append('line')
+            .attr('class', 'e8-q3-function1')
+            .attr('x1', x0)
+            .attr('x2', x0 + xScale.bandwidth())
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', '#dc2626')
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', '5 4');
+        g.append('text')
+            .attr('class', 'e8-q3-function1')
+            .attr('x', x0 + xScale.bandwidth() / 2)
+            .attr('y', y - 7)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#dc2626')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .text(`${type} avg: ${csvAverage[type]}`);
+    });
+
+    const legend = svg.append('g')
+        .attr('class', 'color-legend')
+        .attr('transform', `translate(${margin.left + plotW + 28},${margin.top})`);
+    seriesDomain.forEach((state, i) => {
+        const y = i * 22;
+        legend.append('circle').attr('cx', 6).attr('cy', y + 7).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, state));
+        legend.append('text').attr('x', 18).attr('y', y + 11).attr('font-size', 11).text(state);
+    });
+
+    if (!showDifference) return;
+
+    const defs = svg.append('defs');
+    defs.append('marker')
+        .attr('id', 'e8-q3-arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 5)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#111827');
+
+    const x = plotW + 18;
+    const yMax = yScale(csvAverage.Maximum);
+    const yMin = yScale(csvAverage.Minimum);
+    g.append('line')
+        .attr('class', 'e8-q3-function2')
+        .attr('x1', x)
+        .attr('x2', x)
+        .attr('y1', yMax)
+        .attr('y2', yMin)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('marker-start', 'url(#e8-q3-arrow)')
+        .attr('marker-end', 'url(#e8-q3-arrow)');
+    g.append('text')
+        .attr('class', 'e8-q3-function2')
+        .attr('x', x + 8)
+        .attr('y', (yMax + yMin) / 2)
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', '#111827')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text(`${csvDifference} million USD`);
+}
+
+export function function1({ d3, container }) {
+    renderTransposedPaymentChart({ d3, container, showDifference: false });
+}
+
+export function function2({ d3, container }) {
+    renderTransposedPaymentChart({ d3, container, showDifference: true });
+}
 
 export function function3({ d3, container }) {}

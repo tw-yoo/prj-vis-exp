@@ -295,7 +295,90 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getBirthWeightLineMetrics(d3) {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    const yValues = data_rows.map((d) => Number(d['Average weight in metric grams']));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const yScale = d3.scaleLinear()
+        .domain([d3.min(yValues) ?? 0, d3.max(yValues) ?? 1])
+        .nice()
+        .range([plotH, 0]);
+    return { plotW, plotH, yScale };
+}
+
+export function function1({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const csvThresholds = { Boys: 3670, Girls: 3550 };
+    const csvTargets = [
+        { series: 'Boys', years: new Set(['2010', '2011', '2014']), color: '#2563eb' },
+        { series: 'Girls', years: new Set(['2010', '2011', '2014', '2017', '2020']), color: '#dc2626' },
+    ];
+    const { plotW, yScale } = getBirthWeightLineMetrics(d3);
+
+    g.selectAll('.e8-q10-function1').remove();
+    g.selectAll('path[data-series]')
+        .attr('opacity', function (d) {
+            return d.series === 'Total' ? 0.12 : 0.45;
+        })
+        .attr('stroke-width', function (d) {
+            return d.series === 'Total' ? 1 : 2;
+        });
+    g.selectAll('circle[data-target]')
+        .attr('opacity', function (p) {
+            const target = csvTargets.find((item) => item.series === p.series && item.years.has(String(p.target)));
+            if (target) return 1;
+            return p.series === 'Total' ? 0.1 : 0.22;
+        })
+        .attr('r', function (p) {
+            const target = csvTargets.find((item) => item.series === p.series && item.years.has(String(p.target)));
+            return target ? 6 : 3;
+        })
+        .attr('fill', function (p) {
+            const target = csvTargets.find((item) => item.series === p.series && item.years.has(String(p.target)));
+            if (target) return target.color;
+            return '#94a3b8';
+        });
+
+    Object.entries(csvThresholds).forEach(([series, value]) => {
+        const y = yScale(value);
+        const color = series === 'Boys' ? '#2563eb' : '#dc2626';
+        g.append('line')
+            .attr('class', 'e8-q10-function1')
+            .attr('x1', 0)
+            .attr('x2', plotW)
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', color)
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '5 4');
+        g.append('text')
+            .attr('class', 'e8-q10-function1')
+            .attr('x', plotW + 8)
+            .attr('y', y + 4)
+            .attr('fill', color)
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .text(`${series} > ${value}`);
+    });
+
+    g.append('text')
+        .attr('class', 'e8-q10-function1')
+        .attr('x', plotW)
+        .attr('y', 16)
+        .attr('text-anchor', 'end')
+        .attr('fill', '#111827')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text('Boys: 3  Girls: 5  Sum: 8');
+}
 
 export function function2({ d3, container }) {}
 

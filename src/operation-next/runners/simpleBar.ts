@@ -2,14 +2,14 @@ import * as d3 from 'd3'
 import { ChartType } from '../../domain/chart'
 import { averageData, diffByValueOp, diffData, filterData, findExtremum, getRuntimeResultsById, resolveScalarAggregateFromRows, retrieveValue, sortData } from '../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type JsonValue, type OperationSpec, type TargetSelector } from '../../domain/operation/types'
-import { getSimpleBarStoredData, renderSimpleBarChart, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer'
+import { getSimpleBarStoredData, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer'
 import type { SurfaceManager } from '../../runtime/surfaceManager'
 import { toDatumValuesFromRaw, type RawRow } from '../../domain/data/datum'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
 import type { ParsedOperationRun } from '../types'
 import { getSupportedOperationsForChart, runStubChartOperationRenderer } from './shared'
 import { placeOperationTextLabel } from '../textPlacement'
-import { COLORS, DURATIONS, OPACITIES } from '../../rendering/common/d3Helpers'
+import { COLORS, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 import { clearGroupBoundary, type ChainState, type FilterContext } from '../chainState'
 import { formatOperationValue } from '../primitives/formatValue'
 import {
@@ -137,11 +137,6 @@ function getWorkingData(run: ParsedOperationRun): DatumValue[] {
   })
 }
 
-function cloneSimpleBarSpec(spec: SimpleBarSpec): SimpleBarSpec {
-  if (typeof structuredClone === 'function') return structuredClone(spec) as SimpleBarSpec
-  return JSON.parse(JSON.stringify(spec)) as SimpleBarSpec
-}
-
 function uniqueTargets(rows: DatumValue[]) {
   const out: string[] = []
   const seen = new Set<string>()
@@ -154,31 +149,20 @@ function uniqueTargets(rows: DatumValue[]) {
   return out
 }
 
-function datumValuesToSimpleBarRows(rows: DatumValue[], spec: SimpleBarSpec): RawRow[] {
-  const xField = spec.encoding.x.field
-  const yField = spec.encoding.y.field
-  return rows.map((datum, index) => {
-    const row: RawRow = {
-      [xField]: String(datum.target),
-      [yField]: Number.isFinite(datum.value) ? datum.value : 0,
-      id: datum.id ?? datum.lookupId ?? String(index),
-    }
-    if (datum.displayTarget != null) row.displayTarget = datum.displayTarget
-    if (datum.name != null) row.name = datum.name
-    if (datum.group != null) row.group = datum.group
-    if (datum.panel != null) row.panel = datum.panel
-    return row
-  })
-}
-
-function resolveDatumYDomain(rows: DatumValue[]): [number, number] {
-  const values = rows.map((row) => Number(row.value)).filter(Number.isFinite)
-  const minValue = d3.min(values)
-  const maxValue = d3.max(values)
-  const domainMin = Math.min(0, Number.isFinite(minValue) ? (minValue as number) : 0)
-  let domainMax = Math.max(0, Number.isFinite(maxValue) ? (maxValue as number) : 0)
-  if (domainMin === domainMax) domainMax = domainMin + 1
-  return [domainMin, domainMax]
+function formatScopeLabel(operation: OperationSpec, result: DatumValue[]) {
+  if (operation.group != null && String(operation.group).trim() !== '') {
+    return `Filtered: ${String(operation.group)}`
+  }
+  if (Array.isArray(operation.value) && operation.value.length > 0) {
+    return `Filtered: ${operation.value.map(String).join(', ')}`
+  }
+  if (Array.isArray(operation.include) && operation.include.length > 0) {
+    return `Filtered: ${operation.include.map(String).join(', ')}`
+  }
+  if (Array.isArray(operation.exclude) && operation.exclude.length > 0) {
+    return `Excluded: ${operation.exclude.map(String).join(', ')}`
+  }
+  return `Filtered: ${result.length} values`
 }
 
 function hasPersistentAnnotations(state: ChainState) {
@@ -207,34 +191,140 @@ function buildFilterContext(
 async function materializeFilteredSimpleBar(
   run: ParsedOperationRun,
   filteredData: DatumValue[],
+  operation: OperationSpec,
   decision: FilterVisualDecision,
   state: ChainState,
 ) {
-  const spec = cloneSimpleBarSpec(run.runtimeSpec as SimpleBarSpec)
   const retainedTargets = uniqueTargets(filteredData)
-  const filteredRows = datumValuesToSimpleBarRows(filteredData, spec)
-  const existingYScale = spec.encoding.y.scale
-  const yScale = existingYScale && typeof existingYScale === 'object' && !Array.isArray(existingYScale)
-    ? { ...existingYScale }
-    : {}
+  const retained = new Set(retainedTargets)
+  const svg = d3.select(run.container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
 
-  spec.data = { values: filteredRows as unknown as JsonValue[] }
-  spec.encoding = {
-    ...spec.encoding,
-    x: {
-      ...spec.encoding.x,
-      sort: retainedTargets,
-    },
-    y: {
-      ...spec.encoding.y,
-      ...(decision.yDomainMode === 'preserve'
-        ? { scale: { ...yScale, domain: resolveDatumYDomain(state.originalData) } }
-        : {}),
-    },
+  const bars = svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+  const entries = bars.nodes().map((node) => ({
+    node,
+    target: node.getAttribute(DataAttributes.Target) ?? node.getAttribute(DataAttributes.Id) ?? '',
+    x: readNumberAttr(node, SvgAttributes.X) ?? 0,
+    width: readNumberAttr(node, SvgAttributes.Width) ?? 0,
+  }))
+  if (entries.length === 0) return
+
+  const xPositions = entries.slice().sort((a, b) => a.x - b.x).map((entry) => entry.x)
+  const targetToX = new Map<string, number>()
+  retainedTargets.forEach((target, index) => {
+    const nextX = xPositions[index]
+    if (nextX == null) return
+    targetToX.set(target, nextX)
+  })
+
+  const transitions: Array<Promise<unknown>> = []
+  entries.forEach((entry) => {
+    const isRetained = retained.has(entry.target)
+    const nextX = targetToX.get(entry.target)
+    const selection = d3.select(entry.node).interrupt()
+    if (isRetained) {
+      selection.style('pointer-events', null)
+      const transition = selection
+        .transition()
+        .duration(DURATIONS.REPOSITION)
+        .attr(SvgAttributes.X, nextX ?? entry.x)
+        .style(SvgAttributes.Opacity, OPACITIES.FULL)
+        .attr(SvgAttributes.Opacity, OPACITIES.FULL)
+      transitions.push(transition.end())
+    } else {
+      selection.style('pointer-events', 'none')
+      transitions.push(
+        selection
+          .transition()
+          .duration(DURATIONS.REMOVE)
+          .style(SvgAttributes.Opacity, OPACITIES.HIDDEN)
+          .attr(SvgAttributes.Opacity, OPACITIES.HIDDEN)
+          .end(),
+      )
+    }
+  })
+
+  const ticks = svg.selectAll<SVGGElement, unknown>(`.${SvgClassNames.XAxis} .tick`)
+  ticks.each(function () {
+    const tick = d3.select(this).interrupt()
+    const label = tick.select(SvgElements.Text).text().trim()
+    const nextX = targetToX.get(label)
+    const width = entries.find((entry) => entry.target === label)?.width ?? entries[0]?.width ?? 0
+    if (retained.has(label) && nextX != null) {
+      transitions.push(
+        tick
+          .transition()
+          .duration(DURATIONS.REPOSITION)
+          .attr(SvgAttributes.Transform, `translate(${nextX + width / 2},0)`)
+          .style(SvgAttributes.Opacity, OPACITIES.FULL)
+          .end(),
+      )
+      return
+    }
+    transitions.push(
+      tick
+        .transition()
+        .duration(DURATIONS.REMOVE)
+        .style(SvgAttributes.Opacity, OPACITIES.HIDDEN)
+        .end(),
+    )
+  })
+
+  await Promise.all(transitions.map((transition) => transition.catch(() => undefined)))
+  await drawFilterScopeLabel({
+    svg,
+    label: formatScopeLabel(operation, filteredData),
+  })
+  state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+
+  if (decision.yDomainMode === 'rescale') {
+    console.warn('[operation-next] simple-bar filter remove requested y-domain rescale, but non-split operations do not remount charts.', {
+      decision,
+      originalCount: state.originalData.length,
+      retainedCount: filteredData.length,
+    })
   }
+}
 
-  await renderSimpleBarChart(run.container, spec)
-  run.container.dataset.operationNextFocusState = 'filter-remove'
+async function drawFilterScopeLabel(params: {
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
+  label: string
+}) {
+  const layer = ensureAnnotationLayer(params.svg)
+  const viewport = resolveAnnotationViewport(params.svg)
+  const preferred = {
+    x: viewport.x + viewport.width - 4,
+    y: Math.max(12, viewport.y + 16),
+  }
+  const labelNode = layer
+    .append(SvgElements.Text)
+    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${FILTER_ANNOTATION_CLASS} scope-label`)
+    .attr(SvgAttributes.X, preferred.x)
+    .attr(SvgAttributes.Y, preferred.y)
+    .attr(SvgAttributes.TextAnchor, 'end')
+    .attr(SvgAttributes.FontSize, 12)
+    .attr(SvgAttributes.FontWeight, 700)
+    .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
+    .style(SvgAttributes.Opacity, 0)
+    .text(params.label)
+
+  placeOperationTextLabel({
+    svg: params.svg,
+    text: labelNode,
+    preferred,
+    viewport,
+  })
+
+  try {
+    await labelNode
+      .transition()
+      .duration(DURATIONS.LABEL_FADE_IN)
+      .ease(EASINGS.SMOOTH)
+      .style(SvgAttributes.Opacity, 1)
+      .end()
+  } catch {
+    // interrupted
+  }
 }
 
 
@@ -376,6 +466,7 @@ function appendValueLabel(params: {
   value: number
   color?: string
   anchorElement?: Element | null
+  annotationNodeId?: string | null
 }) {
   const labelNode = params.layer
     .append(SvgElements.Text)
@@ -388,6 +479,10 @@ function appendValueLabel(params: {
     .attr(SvgAttributes.Fill, params.color ?? COLORS.TEXT_DARK)
     .style(SvgAttributes.Opacity, 0)
     .text(formatOperationValue(params.value))
+
+  if (params.annotationNodeId) {
+    labelNode.attr(DataAttributes.AnnotationNodeId, params.annotationNodeId)
+  }
 
   placeOperationTextLabel({
     svg: params.svg,
@@ -463,13 +558,21 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
     },
   })
 
-  // Categorical include/exclude filters do not have a numeric threshold line.
-  // The salience transition above is still the visual explanation of scope.
-  if (threshold == null) return
+  // Categorical include/exclude filters do not have a numeric threshold line,
+  // so add a compact scope label as the operation-level annotation artifact.
+  if (threshold == null) {
+    await drawFilterScopeLabel({ svg, label: formatScopeLabel(operation, result) })
+    state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    return
+  }
 
   // Phase 1b — threshold line + label drawn after bars are at their final opacity.
   const thresholdY = resolveThresholdY({ bars, marginTop, threshold })
-  if (thresholdY == null) return
+  if (thresholdY == null) {
+    await drawFilterScopeLabel({ svg, label: formatScopeLabel(operation, result) })
+    state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    return
+  }
 
   // drawReferenceLine handles: line draw-out animation, label placement, label fade-in.
   await drawReferenceLine({
@@ -723,7 +826,16 @@ async function annotateAverage(
   })
 }
 
-async function annotateFindExtremum(container: HTMLElement, result: DatumValue[], state: ChainState) {
+function operationNodeId(operation: OperationSpec) {
+  const raw = operation as OperationSpec & { id?: string | number; key?: string | number }
+  const nodeId = operation.meta?.nodeId
+  if (typeof nodeId === 'string' || typeof nodeId === 'number') return String(nodeId)
+  if (raw.id != null) return String(raw.id)
+  if (raw.key != null) return String(raw.key)
+  return null
+}
+
+async function annotateFindExtremum(container: HTMLElement, result: DatumValue[], state: ChainState, operation: OperationSpec) {
   const target = result[0]?.target
   if (target == null) return
 
@@ -734,7 +846,15 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
   // Transition prior annotations to context style before drawing the new one.
   applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
 
-  layer.selectAll(`.${EXTREMUM_ANNOTATION_CLASS}`).interrupt().remove()
+  const nodeId = operationNodeId(operation)
+  if (nodeId) {
+    layer
+      .selectAll<SVGElement, unknown>(`.${EXTREMUM_ANNOTATION_CLASS}[${DataAttributes.AnnotationNodeId}="${CSS.escape(nodeId)}"]`)
+      .interrupt()
+      .remove()
+  } else {
+    layer.selectAll(`.${EXTREMUM_ANNOTATION_CLASS}`).interrupt().remove()
+  }
 
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
@@ -754,6 +874,7 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
       value: metrics.value,
       color: COLORS.TEXT_DARK,
       anchorElement: rect,
+      annotationNodeId: nodeId,
     }).end()
   } catch { /* interrupted */ }
 
@@ -863,7 +984,7 @@ async function runFilterOperation(
     : policyDecision
 
   if (decision.mode === 'remove') {
-    await materializeFilteredSimpleBar(run, result, decision, state)
+    await materializeFilteredSimpleBar(run, result, operation, decision, state)
   } else {
     await annotateFilter(run.container, result, operation, state.workingData, state)
   }
@@ -881,7 +1002,7 @@ async function runFilterOperation(
       ...state,
       workingData: result,
       salienceMap: nextSalienceMap,
-      annotationRecords: decision.mode === 'remove' ? [] : state.annotationRecords,
+      annotationRecords: state.annotationRecords,
       filterContext: buildFilterContext(decision, state.originalData, result),
       lastResult: result,
     },
@@ -1030,7 +1151,7 @@ async function runFindExtremumOperation(
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = findExtremum(state.workingData, operation)
-  await annotateFindExtremum(run.container, result, state)
+  await annotateFindExtremum(run.container, result, state, operation)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] simple-bar findExtremum', { operationIndex, operation, result })
   return { result, nextState: { ...state, lastResult: result } }

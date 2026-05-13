@@ -89,13 +89,16 @@ import {
   type VisualSentencePlaybackResult,
   type VisualSurfaceState,
 } from '../../../src/api/visual-execution-player'
-import { buildSummaryTextForOperations, buildSentenceSummaryText } from '../../../src/api/operation-summary-text'
+import {
+  buildSummaryTextForOperations,
+  buildSentenceSummaryText,
+} from '../../../src/api/operation-summary-text'
 import { buildLogicalExecutionArtifacts, type LogicalExecutionArtifacts } from '../../../src/api/visual-derived-chart'
 import { STRUCTURAL_DRAW_ACTIONS } from '../../../src/api/draw-action-policy'
 import {
   clearSentenceSummaryOverlay,
   renderSentenceSummaryOverlay,
-  type SentenceSummaryOverlayControl,
+  type SentenceSummaryOverlayItem,
   type SentenceSummaryOverlayRenderInput,
 } from '../../../src/api/sentence-summary-overlay'
 import { SurfaceManager } from '../../../src/api/surface-manager'
@@ -2161,17 +2164,20 @@ function ChartWorkbenchPage() {
       if (groupIndex < 0 || groupIndex >= opsGroups.length) return ''
       const override = opsGroupTextOverrides[groupIndex]?.trim()
       if (override) return override
-      return resolveRuleBasedGroupText(groupIndex)
+      return `operation${groupIndex + 1}`
     },
-    [opsGroupTextOverrides, opsGroups.length, resolveRuleBasedGroupText],
+    [opsGroupTextOverrides, opsGroups.length],
   )
 
   const resolveChunkTextForGroup = useCallback(
     (groupIndex: number) => {
       const text = resolveDisplayTextForGroup(groupIndex).trim()
-      return text.length > 0 && text !== GENERIC_GROUP_TEXT ? text : `chunk${groupIndex + 1}`
+      const ruleBasedText = resolveRuleBasedGroupText(groupIndex).trim()
+      if (text.length > 0 && !/^operation\d+$/i.test(text)) return text
+      if (ruleBasedText.length > 0 && ruleBasedText !== GENERIC_GROUP_TEXT) return ruleBasedText
+      return text.length > 0 ? text : `operation${groupIndex + 1}`
     },
-    [resolveDisplayTextForGroup],
+    [resolveDisplayTextForGroup, resolveRuleBasedGroupText],
   )
 
   const captureCurrentSceneSvg = useCallback((): string | null => {
@@ -2276,6 +2282,9 @@ function ChartWorkbenchPage() {
           }
         })
         .filter((surface): surface is NonNullable<typeof surface> => surface !== null)
+      if (layoutType !== 'single' && surfaces.length < 2) {
+        return null
+      }
 
       return {
         version: 'operation-next-checkpoint/v1',
@@ -3125,6 +3134,158 @@ function ChartWorkbenchPage() {
     }
   }
 
+  const scalarGroupToken = (group: OperationSpec['group']) => {
+    if (Array.isArray(group)) return group.length === 1 ? String(group[0]) : null
+    if (group == null || String(group).trim() === '') return null
+    return String(group)
+  }
+
+  const operationStableId = (operation: OperationSpec) => {
+    const raw = operation as OperationSpec & { id?: string | number; key?: string | number }
+    if (raw.id != null) return String(raw.id)
+    if (raw.key != null) return String(raw.key)
+    const nodeId = operation.meta?.nodeId
+    if (typeof nodeId === 'string' || typeof nodeId === 'number') return String(nodeId)
+    return null
+  }
+
+  const refSelectorId = (selector: OperationSpec['targetA']) => {
+    const entry = Array.isArray(selector) ? selector[0] : selector
+    if (typeof entry === 'string' && entry.startsWith('ref:')) {
+      const id = entry.slice('ref:'.length).trim()
+      return id || null
+    }
+    if (entry && typeof entry === 'object' && typeof (entry as { id?: unknown }).id === 'string') {
+      const id = String((entry as { id?: string }).id)
+      if (id.startsWith('ref:')) return id.slice('ref:'.length).trim() || null
+    }
+    return null
+  }
+
+  const resolveSplitAverageGroupPlan = useCallback(
+    (groupIndex: number) => {
+      const sourceSpec = currentSpecRef.current
+      const sourceChartType = sourceSpec ? getChartType(sourceSpec) : chartType
+      if (!sourceSpec || (sourceChartType !== ChartType.STACKED_BAR && sourceChartType !== ChartType.GROUPED_BAR)) {
+        return null
+      }
+
+      const groupOps = opsGroups[groupIndex] ?? []
+      const averageOps = groupOps
+        .filter((operation) => operation.op === OperationOp.Average)
+        .map((operation) => ({
+          operation,
+          group: scalarGroupToken(operation.group),
+          id: operationStableId(operation),
+        }))
+        .filter((entry): entry is { operation: OperationSpec; group: string; id: string } => {
+          return Boolean(entry.group && entry.id)
+        })
+
+      if (averageOps.length !== 2 || averageOps[0]?.group === averageOps[1]?.group) return null
+
+      const averageIds = new Set(averageOps.map((entry) => entry.id))
+      const laterOps = opsGroups.slice(groupIndex + 1).flat()
+      const hasRefDiff = laterOps.some((operation) => {
+        if (operation.op !== OperationOp.Diff) return false
+        const refA = refSelectorId(operation.targetA)
+        const refB = refSelectorId(operation.targetB)
+        return refA != null && refB != null && averageIds.has(refA) && averageIds.has(refB)
+      })
+      if (!hasRefDiff) return null
+
+      return {
+        sourceSpec,
+        sourceChartType,
+        entries: averageOps,
+      }
+    },
+    [chartType, opsGroups],
+  )
+
+  const runSplitAverageGroup = useCallback(
+    async (
+      groupIndex: number,
+      options?: {
+        onOperationCompleted?: (event: { operation: OperationSpec; operationIndex: number }) => Promise<void> | void
+        resetRuntime?: boolean
+        runtimeScope?: string
+        runtimeSnapshot?: OperationNextRunOutcome['runtimeSnapshot']
+        initialChainState?: OperationNextRunOutcome['continuation']
+      },
+    ) => {
+      const plan = resolveSplitAverageGroupPlan(groupIndex)
+      const manager = surfaceManagerRef.current
+      if (!plan || !chartRef.current || !manager) return null
+      if (manager.getLayout()?.type !== 'single') return null
+
+      const [leftEntry, rightEntry] = plan.entries
+      if (!leftEntry || !rightEntry) return null
+
+      manager.splitSurface('horizontal', {
+        idA: `${leftEntry.id}_surface`,
+        idB: `${rightEntry.id}_surface`,
+        specA: plan.sourceSpec,
+        specB: plan.sourceSpec,
+      })
+      applySplitSharedYAxisPolicy(manager)
+
+      const transformAction =
+        plan.sourceChartType === ChartType.STACKED_BAR ? DrawAction.StackedToSimple : DrawAction.GroupedToSimple
+      let lastResult: unknown = null
+      const surfaceEntries = [leftEntry, rightEntry].map((entry) => ({
+        entry,
+        surfaceId: `${entry.id}_surface`,
+      }))
+
+      await Promise.all(
+        surfaceEntries.map(async ({ surfaceId }) => {
+          const surface = manager.getSurface(surfaceId)
+          const host = surface?.hostElement as HTMLElement | undefined
+          if (!host) return
+          await renderSpecIfNeeded(host, plan.sourceSpec, { surfaceId })
+        }),
+      )
+      applySplitSharedYAxisPolicy(manager)
+
+      for (const [index, { entry, surfaceId }] of surfaceEntries.entries()) {
+        const transformOp: DrawOp = {
+          op: OperationOp.Draw,
+          action: transformAction,
+          toSimple: { series: entry.group },
+          meta: {
+            nodeId: `${entry.id}:to-simple`,
+            inputs: [entry.id],
+            sentenceIndex: entry.operation.meta?.sentenceIndex,
+          },
+        }
+
+        await executeOpsArray([transformOp], {
+          surfaceId,
+          executionSpec: plan.sourceSpec,
+          resetRuntime: index === 0 ? options?.resetRuntime ?? true : false,
+          runtimeScope: `${options?.runtimeScope ?? 'ops'}:${surfaceId}:transform`,
+          runtimeSnapshot: index === 0 ? options?.runtimeSnapshot : undefined,
+          initialChainState: index === 0 ? options?.initialChainState : undefined,
+        })
+
+        const { group: _group, ...averageWithoutGroup } = entry.operation
+        const surfaceSpec = (manager.getSurface(surfaceId)?.spec as VegaLiteSpec | undefined) ?? plan.sourceSpec
+        lastResult = await executeOpsArray([averageWithoutGroup as OperationSpec], {
+          surfaceId,
+          executionSpec: surfaceSpec,
+          resetRuntime: false,
+          runtimeScope: options?.runtimeScope,
+          onOperationCompleted: options?.onOperationCompleted,
+        })
+      }
+
+      applySplitSharedYAxisPolicy(manager)
+      return lastResult ?? true
+    },
+    [executeOpsArray, renderSpecIfNeeded, resolveSplitAverageGroupPlan],
+  )
+
   const renderSourceChartForVisualPlayback = useCallback(async () => {
     const sourceSpec = JSON.parse(sanitizeJsonInput(vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec)) as VegaLiteSpec
     logSplitSimpleBarDebug('workbench.renderSourceChartForVisualPlayback-call', {
@@ -3265,7 +3426,17 @@ function ChartWorkbenchPage() {
 
       const layoutBefore = surfaceManagerRef.current?.getLayout()?.type ?? 'single'
       let runResult: unknown = null
-      if (canUseVisualExecutionPlayer) {
+      const splitAverageResult = await runSplitAverageGroup(groupIndex, {
+        resetRuntime: options?.resetRuntime ?? true,
+        runtimeScope:
+          options?.runtimeScope ??
+          (opsJsonGroupNames[groupIndex] || (groupIndex === 0 ? 'ops' : `ops${groupIndex + 1}`)),
+        runtimeSnapshot: options?.runtimeSnapshot,
+        initialChainState: options?.initialChainState,
+      })
+      if (splitAverageResult) {
+        runResult = splitAverageResult
+      } else if (canUseVisualExecutionPlayer) {
         runResult = await runVisualSentenceGroup(groupIndex, {
           resetRuntime: options?.resetRuntime ?? true,
           skipDelays: options?.skipDelays,
@@ -3290,6 +3461,7 @@ function ChartWorkbenchPage() {
       opsGroups.length,
       opsJsonGroupNames,
       runOpsGroup,
+      runSplitAverageGroup,
       runVisualSentenceGroup,
     ],
   )
@@ -3328,10 +3500,6 @@ function ChartWorkbenchPage() {
     [opsJsonGroupNames],
   )
 
-  const removeLastSnapshot = useCallback(() => {
-    setSvgSnapshots((prev) => prev.slice(0, -1))
-  }, [])
-
   const resetChartToOpsPreRunState = useCallback(async () => {
     opsSessionActiveRef.current = false
     visualPlaybackSurfaceRef.current = 'unknown'
@@ -3360,6 +3528,21 @@ function ChartWorkbenchPage() {
 
   const getChunkScene = useCallback((groupIndex: number) => {
     return chunkScenesRef.current.get(groupIndex) ?? null
+  }, [])
+
+  const invalidateChunkScenesFromGroup = useCallback((groupIndex: number) => {
+    Array.from(chunkScenesRef.current.keys()).forEach((sceneIndex) => {
+      if (sceneIndex >= groupIndex) {
+        chunkScenesRef.current.delete(sceneIndex)
+      }
+    })
+    setChunkedOutput((previous) => {
+      if (!previous) return previous
+      return {
+        ...previous,
+        chunks: previous.chunks.filter((chunk) => chunk.scene_number < groupIndex + 1),
+      }
+    })
   }, [])
 
   const materializeChunkCheckpoint = useCallback(
@@ -3448,7 +3631,14 @@ function ChartWorkbenchPage() {
           previousScene = await materializeChunkCheckpoint(groupIndex - 1)
         }
         if (!previousScene?.checkpoint) return null
-        await restoreChunkCheckpoint(previousScene)
+        const restored = await restoreChunkCheckpoint(previousScene)
+        if (!restored) {
+          invalidateChunkScenesFromGroup(groupIndex - 1)
+          previousScene = await materializeChunkCheckpoint(groupIndex - 1)
+          if (!previousScene?.checkpoint) return null
+          const restoredRetry = await restoreChunkCheckpoint(previousScene)
+          if (!restoredRetry) return null
+        }
       }
 
       const previousCheckpoint = groupIndex > 0 ? getChunkScene(groupIndex - 1)?.checkpoint : null
@@ -3474,6 +3664,7 @@ function ChartWorkbenchPage() {
       canUseVisualExecutionPlayer,
       createChunkedOutputDraft,
       getChunkScene,
+      invalidateChunkScenesFromGroup,
       materializeChunkCheckpoint,
       opsGroups.length,
       resetChartToOpsPreRunState,
@@ -3496,7 +3687,17 @@ function ChartWorkbenchPage() {
           previousScene = await materializeChunkCheckpoint(groupIndex - 1)
         }
         if (previousScene?.checkpoint) {
-          await restoreChunkCheckpoint(previousScene)
+          const restored = await restoreChunkCheckpoint(previousScene)
+          if (!restored) {
+            invalidateChunkScenesFromGroup(groupIndex - 1)
+            const rematerialized = await materializeChunkCheckpoint(groupIndex - 1)
+            if (rematerialized?.checkpoint) {
+              const restoredRetry = await restoreChunkCheckpoint(rematerialized)
+              if (!restoredRetry) await restoreVisualStateBeforeStep(groupIndex)
+            } else {
+              await restoreVisualStateBeforeStep(groupIndex)
+            }
+          }
         } else {
           await restoreVisualStateBeforeStep(groupIndex)
         }
@@ -3509,6 +3710,7 @@ function ChartWorkbenchPage() {
     [
       canUseVisualExecutionPlayer,
       getChunkScene,
+      invalidateChunkScenesFromGroup,
       materializeChunkCheckpoint,
       opsGroups.length,
       resetChartToOpsPreRunState,
@@ -3518,48 +3720,49 @@ function ChartWorkbenchPage() {
     ],
   )
 
-  const runCurrentOpsGroup = useCallback(async () => {
-    if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
+  const runOpsGroupFromSentence = useCallback(
+    async (groupIndex: number) => {
+      if (opsRunning || chunkReplayRunning) return
+      if (groupIndex < 0 || groupIndex >= opsGroups.length) return
 
-    const outcome = await runGroupFromCheckpoint(opsUiGroupIndex)
-    if (!outcome) {
-      return
-    }
+      invalidateChunkScenesFromGroup(groupIndex)
+      if (groupIndex !== opsUiGroupIndex || opsUiGroupPhase !== 'pre-run') {
+        await enterOpsGroupPreRun(groupIndex)
+      }
 
-    setOpsUiGroupPhase('post-run')
-  }, [
-    opsGroups.length,
-    opsUiGroupIndex,
-    runGroupFromCheckpoint,
-  ])
+      const outcome = await runGroupFromCheckpoint(groupIndex)
+      if (!outcome) return
 
-  const reloadCurrentOpsGroup = useCallback(async () => {
-    if (opsUiGroupIndex < 0 || opsUiGroupIndex >= opsGroups.length) return
-    setOpsUiResolvedText(resolveDisplayTextForGroup(opsUiGroupIndex))
-    await runCurrentOpsGroup()
-  }, [opsGroups.length, opsUiGroupIndex, resolveDisplayTextForGroup, runCurrentOpsGroup])
+      const nextIndex = groupIndex + 1
+      if (nextIndex < opsGroups.length) {
+        const layout = surfaceManagerRef.current?.getLayout()
+        const isSplit = layout != null && layout.type !== 'single'
+        if (isSplit && !splitCreatedThisGroupRef.current) {
+          captureCurrentGroupSnapshot(groupIndex)
+        }
+        splitCreatedThisGroupRef.current = false
+        await enterOpsGroupPreRun(nextIndex)
+        return
+      }
 
-  const goToPrevOpsGroup = useCallback(async () => {
-    const prevIndex = opsUiGroupIndex - 1
-    if (prevIndex < 0) return
-    splitCreatedThisGroupRef.current = false
-    removeLastSnapshot()
-    await enterOpsGroupPreRun(prevIndex)
-  }, [enterOpsGroupPreRun, opsUiGroupIndex, removeLastSnapshot])
-
-  const goToNextOpsGroup = useCallback(async () => {
-    const nextIndex = opsUiGroupIndex + 1
-    if (nextIndex >= opsGroups.length) return
-    // split 상태이고 이 그룹이 split을 새로 만든 게 아니라면 캡처.
-    // (split을 새로 만든 그룹은 split이 계속되므로 skip)
-    const layout = surfaceManagerRef.current?.getLayout()
-    const isSplit = layout != null && layout.type !== 'single'
-    if (isSplit && !splitCreatedThisGroupRef.current) {
-      captureCurrentGroupSnapshot(opsUiGroupIndex)
-    }
-    splitCreatedThisGroupRef.current = false
-    await enterOpsGroupPreRun(nextIndex)
-  }, [captureCurrentGroupSnapshot, enterOpsGroupPreRun, opsGroups.length, opsUiGroupIndex])
+      setOpsUiGroupIndex(groupIndex)
+      setOpsUiGroupPhase('post-run')
+      setOpsUiResolvedText(resolveDisplayTextForGroup(groupIndex))
+      setActiveChunkIndex(-1)
+    },
+    [
+      captureCurrentGroupSnapshot,
+      chunkReplayRunning,
+      enterOpsGroupPreRun,
+      invalidateChunkScenesFromGroup,
+      opsGroups.length,
+      opsRunning,
+      opsUiGroupIndex,
+      opsUiGroupPhase,
+      resolveDisplayTextForGroup,
+      runGroupFromCheckpoint,
+    ],
+  )
 
   const jumpToChunk = useCallback(
     async (targetIndex: number) => {
@@ -3627,40 +3830,34 @@ function ChartWorkbenchPage() {
       return null
     }
 
-    const leftControl =
-      opsUiGroupPhase === 'post-run'
-        ? { label: '↻ Reload', disabled: opsRunning, onClick: () => reloadCurrentOpsGroup() }
-        : { label: 'Prev', disabled: opsRunning || opsUiGroupIndex === 0, onClick: () => goToPrevOpsGroup() }
-
-    let rightControl: SentenceSummaryOverlayControl
-    if (opsUiGroupPhase === 'post-run') {
-      rightControl =
-        opsUiGroupIndex >= opsGroups.length - 1
-          ? { label: 'End', disabled: true }
-          : { label: 'Next', disabled: opsRunning, onClick: () => goToNextOpsGroup() }
-    } else {
-      rightControl = { label: 'Start', disabled: opsRunning, onClick: () => runCurrentOpsGroup() }
-    }
-
-    const overlayText = opsUiResolvedText.trim()
-
     return {
-      text: overlayText.length > 0 && overlayText !== GENERIC_GROUP_TEXT ? overlayText : resolveChunkTextForGroup(opsUiGroupIndex),
-      leftControl,
-      rightControl,
+      items: opsGroups.map((_, index): SentenceSummaryOverlayItem => {
+        const state =
+          index < opsUiGroupIndex
+            ? 'completed'
+            : index === opsUiGroupIndex
+              ? opsUiGroupPhase === 'post-run'
+                ? 'selected'
+                : 'active'
+              : 'pending'
+        const actionable = state === 'active' || state === 'completed'
+        return {
+          text: resolveDisplayTextForGroup(index),
+          state,
+          disabled: !actionable || opsRunning || chunkReplayRunning,
+          onClick: actionable ? () => runOpsGroupFromSentence(index) : null,
+        }
+      }),
     }
   }, [
-    goToNextOpsGroup,
-    goToPrevOpsGroup,
+    chunkReplayRunning,
     opsGroups.length,
     opsRunning,
     opsUiGroupIndex,
     opsUiGroupPhase,
-    opsUiResolvedText,
     opsUiSessionActive,
-    reloadCurrentOpsGroup,
-    resolveChunkTextForGroup,
-    runCurrentOpsGroup,
+    resolveDisplayTextForGroup,
+    runOpsGroupFromSentence,
   ])
 
   useEffect(() => {
@@ -4225,6 +4422,20 @@ function ChartWorkbenchPage() {
                 >
                   Run Operations
                 </button>
+                {opsInputMode === 'json' &&
+                opsUiSessionActive &&
+                opsUiGroupIndex >= 0 &&
+                opsUiGroupIndex < opsGroups.length &&
+                opsUiGroupPhase === 'pre-run' ? (
+                  <button
+                    type="button"
+                    className="pill-btn"
+                    onClick={() => void runOpsGroupFromSentence(opsUiGroupIndex)}
+                    disabled={captureScenesRunning || opsRunning || chunkReplayRunning}
+                  >
+                    {opsUiGroupIndex === 0 ? 'Start' : 'Next'}
+                  </button>
+                ) : null}
               </div>
             </>
           ) : (
@@ -4919,8 +5130,20 @@ function SnapshotThumbnail({ svgString, label, scale = 0.2 }: { svgString: strin
     bg.setAttribute('fill', 'white')
     svgEl.insertBefore(bg, svgEl.firstChild)
 
-    container.appendChild(svgEl)
-  }, [svgString, scale])
+    const serialized = new XMLSerializer().serializeToString(svgEl)
+    const objectUrl = URL.createObjectURL(new Blob([serialized], { type: 'image/svg+xml' }))
+    const image = document.createElement('img')
+    image.src = objectUrl
+    image.alt = label ?? 'chart scene snapshot'
+    image.width = origW * scale
+    image.height = origH * scale
+    image.style.cssText = 'border:1px solid #ddd;border-radius:4px;display:block;'
+    container.appendChild(image)
+
+    return () => {
+      URL.revokeObjectURL(objectUrl)
+    }
+  }, [label, svgString, scale])
 
   return (
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', marginRight: 8 }}>

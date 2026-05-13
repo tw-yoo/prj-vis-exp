@@ -75,7 +75,7 @@ export async function runGroupedBarOperations(run: ParsedOperationRun) {
         active = { ...active, chainState: averaged.nextState }
         lastResult = averaged.result
       } else if (isDiffOperation(operation)) {
-        const diffed = await runGroupedBarDiffOperation(run.container, operation, operationState)
+        const diffed = await runGroupedBarDiffOperation(run.container, operation, operationState, run.options?.surfaceManager)
         active = { ...active, chainState: diffed.nextState }
         lastResult = diffed.result
       }

@@ -106,6 +106,21 @@ function getWorkingData(run: ParsedOperationRun): DatumValue[] {
   })
 }
 
+function formatScopeLabel(operation: OperationSpec, result: DatumValue[]) {
+  if (operation.group != null && String(operation.group).trim() !== '') {
+    return `Filtered: ${String(operation.group)}`
+  }
+  if (Array.isArray(operation.value) && operation.value.length > 0) {
+    return `Filtered: ${operation.value.map(String).join(', ')}`
+  }
+  if (Array.isArray(operation.include) && operation.include.length > 0) {
+    return `Filtered: ${operation.include.map(String).join(', ')}`
+  }
+  if (Array.isArray(operation.exclude) && operation.exclude.length > 0) {
+    return `Excluded: ${operation.exclude.map(String).join(', ')}`
+  }
+  return `Filtered: ${result.length} values`
+}
 
 function selectorTargetKey(selector: TargetSelector | TargetSelector[] | undefined) {
   const entry = Array.isArray(selector) ? selector[0] : selector
@@ -207,6 +222,47 @@ function appendValueLabel(params: {
   })
 
   return labelNode.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1)
+}
+
+async function drawFilterScopeLabel(params: {
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
+  label: string
+}) {
+  const layer = ensureAnnotationLayer(params.svg)
+  const viewport = resolveAnnotationViewport(params.svg)
+  const preferred = {
+    x: viewport.x + viewport.width - 4,
+    y: Math.max(12, viewport.y + 16),
+  }
+  const labelNode = layer
+    .append(SvgElements.Text)
+    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${FILTER_ANNOTATION_CLASS} scope-label`)
+    .attr(SvgAttributes.X, preferred.x)
+    .attr(SvgAttributes.Y, preferred.y)
+    .attr(SvgAttributes.TextAnchor, 'end')
+    .attr(SvgAttributes.FontSize, 12)
+    .attr(SvgAttributes.FontWeight, 700)
+    .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
+    .style(SvgAttributes.Opacity, 0)
+    .text(params.label)
+
+  placeOperationTextLabel({
+    svg: params.svg,
+    text: labelNode,
+    preferred,
+    viewport,
+  })
+
+  try {
+    await labelNode
+      .transition()
+      .duration(DURATIONS.LABEL_FADE_IN)
+      .ease(EASINGS.SMOOTH)
+      .style(SvgAttributes.Opacity, 1)
+      .end()
+  } catch {
+    // interrupted
+  }
 }
 
 function mainLinePath(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>) {
@@ -390,9 +446,17 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
 
   // Phase 2 — threshold reference line + label (only when a numeric threshold
   // exists). drawReferenceLine handles animation, placement, and label fade-in.
-  if (threshold == null) return
+  if (threshold == null) {
+    await drawFilterScopeLabel({ svg, label: formatScopeLabel(operation, result) })
+    state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    return
+  }
   const thresholdY = inferYForValue(svg, threshold)
-  if (thresholdY == null) return
+  if (thresholdY == null) {
+    await drawFilterScopeLabel({ svg, label: formatScopeLabel(operation, result) })
+    state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    return
+  }
 
   const x1 = marginLeft
   const x2 = marginLeft + plotWidth

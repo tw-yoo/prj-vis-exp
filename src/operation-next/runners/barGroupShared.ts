@@ -13,6 +13,13 @@ import {
   type StackedSpec,
 } from '../../rendering/bar/stackedBarRenderer'
 import {
+  getSimpleBarStoredData,
+} from '../../rendering/bar/simpleBarRenderer'
+import {
+  convertGroupedToSimple,
+  convertStackedToSimple,
+} from '../../rendering/bar/toSimpleTransforms'
+import {
   convertGroupedToStacked,
   convertStackedToGrouped,
   type StackGroupTransformResult,
@@ -32,6 +39,8 @@ import { drawReferenceLine } from '../primitives/drawReferenceLine'
 import { applyMarkSalience } from '../primitives/markSalience'
 import { formatOperationValue } from '../primitives/formatValue'
 import { placeOperationTextLabel } from '../textPlacement'
+import type { SurfaceManager } from '../../runtime/surfaceManager'
+import { tryDrawSplitScalarDiffAnnotation } from '../splitSurfaceVisuals'
 import {
   OPERATION_ROLE_ATTRIBUTE,
   RESULT_REF_ATTRIBUTE,
@@ -111,9 +120,11 @@ export function getStackedBarDatumValues(container: HTMLElement, spec: ChartSpec
 }
 
 export function getBarDatumValues(container: HTMLElement, chartType: ChartTypeValue, spec: ChartSpec): DatumValue[] {
-  return chartType === ChartType.STACKED_BAR
-    ? getStackedBarDatumValues(container, spec)
-    : getGroupedBarDatumValues(container, spec)
+  if (chartType === ChartType.STACKED_BAR) return getStackedBarDatumValues(container, spec)
+  if (chartType === ChartType.SIMPLE_BAR) {
+    return storedRowsToDatumValues(getSimpleBarStoredData(container) as JsonValue[], spec)
+  }
+  return getGroupedBarDatumValues(container, spec)
 }
 
 export function createBarChartState(
@@ -135,7 +146,12 @@ export function isFilterOperation(operation: OperationSpec) {
 export function isBarTransformDrawOperation(operation: OperationSpec): operation is DrawOp {
   if (operation.op !== OperationOp.Draw) return false
   const action = (operation as DrawOp).action
-  return action === DrawAction.StackedToGrouped || action === DrawAction.GroupedToStacked
+  return (
+    action === DrawAction.StackedToGrouped ||
+    action === DrawAction.GroupedToStacked ||
+    action === DrawAction.StackedToSimple ||
+    action === DrawAction.GroupedToSimple
+  )
 }
 
 function parseTranslate(transform: string | null) {
@@ -872,9 +888,22 @@ async function annotateGroupedBarDiff(
   result: DatumValue[],
   operation: OperationSpec,
   state: ChainState,
+  surfaceManager?: SurfaceManager,
 ) {
   const differenceValue = Number(result[0]?.value)
   if (!Number.isFinite(differenceValue)) return
+
+  if (
+    await tryDrawSplitScalarDiffAnnotation({
+      container,
+      surfaceManager,
+      operation,
+      result,
+    })
+  ) {
+    state.annotationRecords.push({ cssClass: DIFF_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    return
+  }
 
   const selectors = diffEndpointSelectors(operation)
   const aggregateHint = typeof operation.aggregate === 'string' ? operation.aggregate : undefined
@@ -1078,6 +1107,7 @@ export async function runGroupedBarDiffOperation(
   container: HTMLElement,
   operation: OperationSpec,
   state: ChainState,
+  surfaceManager?: SurfaceManager,
 ): Promise<OperationRunResult> {
   let result: DatumValue[] = []
   try {
@@ -1087,7 +1117,7 @@ export async function runGroupedBarDiffOperation(
     return { result, nextState: { ...state, lastResult: result } }
   }
 
-  await annotateGroupedBarDiff(container, result, operation, state)
+  await annotateGroupedBarDiff(container, result, operation, state, surfaceManager)
   return {
     result,
     nextState: {
@@ -1103,13 +1133,7 @@ export async function runStackedBarFilterOperation(
   spec: ChartSpec,
   operation: OperationSpec,
 ): Promise<{ active: ActiveBarChartState; result: DatumValue[] }> {
-  const transformed = await convertStackedToGrouped(container, spec as StackedSpec)
-  if (!transformed) {
-    const state = createBarChartState(container, ChartType.STACKED_BAR, spec)
-    return { active: state, result: [] }
-  }
-
-  const active = createBarChartState(container, transformed.chartType, transformed.spec)
+  const active = createBarChartState(container, ChartType.STACKED_BAR, spec)
   const filtered = await runGroupedBarFilterOperation(container, operation, active.chainState)
   return {
     active: {
@@ -1130,6 +1154,28 @@ export async function runBarTransformOperation(
     transformed = await convertStackedToGrouped(container, active.spec as StackedSpec, operation.stackGroup)
   } else if (operation.action === DrawAction.GroupedToStacked && active.chartType === ChartType.GROUPED_BAR) {
     transformed = await convertGroupedToStacked(container, active.spec as GroupedSpec, operation.stackGroup)
+  }
+
+  if (operation.action === DrawAction.StackedToSimple && active.chartType === ChartType.STACKED_BAR && operation.toSimple) {
+    const simple = await convertStackedToSimple(container, active.spec as StackedSpec, operation.toSimple)
+    return simple
+      ? {
+          chartType: ChartType.SIMPLE_BAR,
+          spec: simple,
+          chainState: createChainState(getBarDatumValues(container, ChartType.SIMPLE_BAR, simple)),
+        }
+      : active
+  }
+
+  if (operation.action === DrawAction.GroupedToSimple && active.chartType === ChartType.GROUPED_BAR && operation.toSimple) {
+    const simple = await convertGroupedToSimple(container, active.spec as GroupedSpec, operation.toSimple)
+    return simple
+      ? {
+          chartType: ChartType.SIMPLE_BAR,
+          spec: simple,
+          chainState: createChainState(getBarDatumValues(container, ChartType.SIMPLE_BAR, simple)),
+        }
+      : active
   }
 
   if (!transformed) return active

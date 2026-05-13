@@ -302,6 +302,7 @@ export async function convertStackedToSimple(
     baseSort,
     explicitColor,
   })
+  await renderSimpleBarChart(container, simple)
   finalizeSimpleBarHandoff(container, simple, (simple.data?.values as RawDatum[] | undefined) ?? [])
   return simple
 }
@@ -358,6 +359,7 @@ export async function convertGroupedToSimple(
   })
 
   await animateGroupedToSimple(container, String(toSimple.series), simple)
+  await renderSimpleBarChart(container, simple)
 
   finalizeSimpleBarHandoff(container, simple, (simple.data?.values as RawDatum[] | undefined) ?? [])
   return simple

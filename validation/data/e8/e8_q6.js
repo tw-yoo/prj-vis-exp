@@ -190,7 +190,47 @@ export function renderValidationSimpleBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+export function function1({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const csvTarget = 'PD (Partito Democratico)';
+    const csvValue = 0.19;
+
+    g.selectAll('.e8-q6-function1').remove();
+    g.selectAll('rect.main-bar')
+        .attr('fill', function () {
+            return d3.select(this).attr('data-target') === csvTarget ? '#dc2626' : '#d1d5db';
+        })
+        .attr('opacity', function () {
+            return d3.select(this).attr('data-target') === csvTarget ? 0.95 : 0.2;
+        });
+
+    const targetBar = g.select(`rect.main-bar[data-target="${csvTarget}"]`);
+    if (targetBar.empty()) return;
+
+    const x = Number(targetBar.attr('x')) + Number(targetBar.attr('width')) / 2;
+    const y = Number(targetBar.attr('y'));
+    g.append('text')
+        .attr('class', 'e8-q6-function1')
+        .attr('x', x)
+        .attr('y', y - 22)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#dc2626')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text('3rd');
+    g.append('text')
+        .attr('class', 'e8-q6-function1')
+        .attr('x', x)
+        .attr('y', y - 7)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#dc2626')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text(String(csvValue));
+}
 
 export function function2({ d3, container }) {}
 

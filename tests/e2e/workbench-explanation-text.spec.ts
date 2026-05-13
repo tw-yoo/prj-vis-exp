@@ -52,8 +52,28 @@ async function runSingleOpsGroup(page: Page, ops: unknown) {
     await expect(startButton).toBeHidden({ timeout: 30_000 })
     return
   }
-  await page.waitForTimeout(1200)
+  const firstSentence = page.locator('.chart-sentence-summary-item').first()
+  const activeSentence = page.locator('button.chart-sentence-summary-item[data-summary-item-state="active"]').first()
+  await expect(activeSentence).toBeEnabled({ timeout: 30_000 })
+  await activeSentence.click()
+  await expect(firstSentence).toHaveAttribute('data-summary-item-state', /selected|completed/, { timeout: 30_000 })
 }
+
+async function loadOpsSession(page: Page, payload: unknown) {
+  await page.getByRole('button', { name: 'JSON Ops' }).click()
+  await page.getByTestId('ops-json-input').fill(JSON.stringify(payload, null, 2))
+  const runButton = page.getByRole('button', { name: 'Run Operations' })
+  await expect(runButton).toBeEnabled({ timeout: 30_000 })
+  await runButton.click()
+  await expect(page.locator('.chart-sentence-summary-list')).toBeVisible({ timeout: 30_000 })
+}
+
+const makeHighlightOp = (key: string, color: string) => ({
+  op: 'draw',
+  action: 'highlight',
+  select: { keys: [key] },
+  style: { color },
+})
 
 async function installExplanationHistoryObserver(page: Page) {
   await page.evaluate(() => {
@@ -168,6 +188,51 @@ async function readExplanationAnnotationBounds(page: Page) {
     return { explanationBottom, annotationMinY }
   })
 }
+
+test('workbench operation groups render clickable sentence text with overrides and defaults', async ({ page }) => {
+  await renderSpec(page, SIMPLE_BAR_SPEC)
+  await loadOpsSession(page, {
+    ops: [makeHighlightOp('USA', '#2563eb')],
+    ops2: [makeHighlightOp('KOR', '#dc2626')],
+    text_chunks: {
+      ops: 'Highlight USA.',
+      ops2: 'Highlight Korea.',
+    },
+  })
+
+  await expect(page.locator('.chart-sentence-summary-item')).toHaveText(['Highlight USA.', 'Highlight Korea.'])
+  await expect(page.locator('.chart-sentence-summary-item').nth(0)).toHaveAttribute('data-summary-item-state', 'active')
+  await expect(page.locator('.chart-sentence-summary-item').nth(1)).toHaveAttribute('data-summary-item-state', 'pending')
+
+  await renderSpec(page, SIMPLE_BAR_SPEC)
+  await loadOpsSession(page, {
+    ops: [makeHighlightOp('USA', '#2563eb')],
+    ops2: [makeHighlightOp('KOR', '#dc2626')],
+  })
+
+  await expect(page.locator('.chart-sentence-summary-item')).toHaveText(['operation1', 'operation2'])
+})
+
+test('workbench sentence clicks execute sequentially and keep pending groups locked', async ({ page }) => {
+  await renderSpec(page, SIMPLE_BAR_SPEC)
+  await loadOpsSession(page, {
+    ops: [makeHighlightOp('USA', '#2563eb')],
+    ops2: [makeHighlightOp('KOR', '#dc2626')],
+  })
+
+  const items = page.locator('.chart-sentence-summary-item')
+  await items.nth(1).click()
+  await expect(items.nth(0)).toHaveAttribute('data-summary-item-state', 'active')
+  await expect(items.nth(1)).toHaveAttribute('data-summary-item-state', 'pending')
+
+  await items.nth(0).click()
+  await expect(items.nth(0)).toHaveAttribute('data-summary-item-state', 'completed', { timeout: 30_000 })
+  await expect(items.nth(1)).toHaveAttribute('data-summary-item-state', 'active')
+
+  await items.nth(0).click()
+  await expect(items.nth(0)).toHaveAttribute('data-summary-item-state', 'completed', { timeout: 30_000 })
+  await expect(items.nth(1)).toHaveAttribute('data-summary-item-state', 'active')
+})
 
 test('average operation renders rule-based explanation text inside the svg', async ({ page }) => {
   await renderSpec(page, SIMPLE_BAR_SPEC)

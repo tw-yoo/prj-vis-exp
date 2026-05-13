@@ -247,8 +247,103 @@ export function renderValidationStackedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function renderMetaFrequencyChart({ d3, container, showSum = false }) {
+    injectStackedChartStyles();
 
-export function function2({ d3, container }) {}
+    const severalTimes = [
+        { label: 'Facebook', value: 51 },
+        { label: 'Instagram', value: 38 },
+    ];
+    const csvContributions = [
+        { label: 'Facebook several', value: 51 },
+        { label: 'Instagram several', value: 38 },
+        { label: 'Facebook once', value: 23 },
+        { label: 'Instagram once', value: 22 },
+    ];
+    const csvSum = 138;
+    const data = showSum ? [...csvContributions, { label: 'Sum', value: csvSum, isSum: true }] : severalTimes;
+
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 36, bottom: 72, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    container.innerHTML = '';
+    container.classList.add('validation-stacked-chart-host');
+
+    const xScale = d3.scaleBand().domain(data.map((d) => d.label)).range([0, plotW]).padding(0.25);
+    const yScale = d3.scaleLinear().domain([0, showSum ? csvSum : 60]).nice().range([plotH, 0]);
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('overflow', 'visible');
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+    autoRotateXAxisLabels(g.select('.x-axis'));
+
+    const bars = g.selectAll('rect.main-bar')
+        .data(data)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => xScale(d.label))
+        .attr('width', xScale.bandwidth())
+        .attr('fill', (d) => d.isSum ? '#dc2626' : '#2563eb')
+        .attr('opacity', (d) => d.isSum ? 0.95 : 0.45)
+        .attr('data-target', (d) => d.label)
+        .attr('data-value', (d) => d.value);
+
+    if (showSum) {
+        bars
+            .attr('y', plotH)
+            .attr('height', 0)
+            .transition()
+            .duration(700)
+            .attr('y', (d) => yScale(d.value))
+            .attr('height', (d) => plotH - yScale(d.value));
+    } else {
+        bars
+            .attr('y', (d) => yScale(d.value))
+            .attr('height', (d) => plotH - yScale(d.value));
+    }
+
+    g.selectAll('text.e8-q7-value')
+        .data(data)
+        .join('text')
+        .attr('class', 'e8-q7-value')
+        .attr('x', (d) => (xScale(d.label) ?? 0) + xScale.bandwidth() / 2)
+        .attr('y', (d) => yScale(d.value) - 7)
+        .attr('text-anchor', 'middle')
+        .attr('fill', (d) => d.isSum ? '#dc2626' : '#111827')
+        .attr('font-size', 11)
+        .attr('font-weight', 700)
+        .text((d) => d.value);
+
+    if (!showSum) return;
+
+    g.append('text')
+        .attr('class', 'e8-q7-function2')
+        .attr('x', plotW)
+        .attr('y', 18)
+        .attr('text-anchor', 'end')
+        .attr('fill', '#dc2626')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .text('Sum: 138');
+}
+
+export function function1({ d3, container }) {
+    renderMetaFrequencyChart({ d3, container, showSum: false });
+}
+
+export function function2({ d3, container }) {
+    renderMetaFrequencyChart({ d3, container, showSum: true });
+}
 
 export function function3({ d3, container }) {}

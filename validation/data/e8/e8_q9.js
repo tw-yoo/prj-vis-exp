@@ -216,7 +216,76 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getRankingLineMetrics(d3) {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    const yValues = data_rows.map((d) => Number(d['FIFA World Ranking position']));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear()
+        .domain([d3.min(yValues) ?? 0, d3.max(yValues) ?? 1])
+        .nice()
+        .range([plotH, 0]);
+    return { plotW, plotH, xScale, yScale };
+}
+
+export function function1({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const csvRange = { min: 20, max: 30 };
+    const csvYears = new Set(['2003', '2004', '2009', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019']);
+    const { plotW, yScale } = getRankingLineMetrics(d3);
+
+    g.selectAll('.e8-q9-function1').remove();
+    g.select('.main-line').attr('opacity', 0.3);
+
+    g.selectAll('circle[data-target]')
+        .attr('opacity', function (p) {
+            return csvYears.has(String(p.target)) ? 1 : 0.18;
+        })
+        .attr('r', function (p) {
+            return csvYears.has(String(p.target)) ? 5.5 : 3;
+        })
+        .attr('fill', function (p) {
+            return csvYears.has(String(p.target)) ? '#dc2626' : '#94a3b8';
+        });
+
+    [csvRange.min, csvRange.max].forEach((value) => {
+        const y = yScale(value);
+        g.append('line')
+            .attr('class', 'e8-q9-function1')
+            .attr('x1', 0)
+            .attr('x2', plotW)
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', '#111827')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '5 4');
+        g.append('text')
+            .attr('class', 'e8-q9-function1')
+            .attr('x', plotW + 8)
+            .attr('y', y + 4)
+            .attr('fill', '#111827')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .text(String(value));
+    });
+
+    g.append('text')
+        .attr('class', 'e8-q9-function1')
+        .attr('x', plotW)
+        .attr('y', 18)
+        .attr('text-anchor', 'end')
+        .attr('fill', '#dc2626')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .text('Count: 11 years');
+}
 
 export function function2({ d3, container }) {}
 

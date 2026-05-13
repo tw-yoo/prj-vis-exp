@@ -302,8 +302,133 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getVictimLineMetrics(d3) {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    const yValues = data_rows.map((d) => Number(d.Number_of_Victims));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear()
+        .domain([d3.min(yValues) ?? 0, d3.max(yValues) ?? 1])
+        .nice()
+        .range([plotH, 0]);
+    return { plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+export function function1({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const csvTargets = [
+        { series: 'Female', year: '2002', value: 207, label: 'Female max: 207' },
+        { series: 'Male', year: '2002', value: 375, label: 'Male min: 375' },
+    ];
+
+    g.selectAll('.e8-q5-function1,.e8-q5-function2').remove();
+    g.selectAll('path[data-series]').attr('opacity', 0.25).attr('stroke-width', 1.5);
+    g.selectAll('circle[data-target]')
+        .attr('opacity', 0.18)
+        .attr('r', 3);
+
+    csvTargets.forEach((target, index) => {
+        const circle = g.selectAll('circle[data-target]')
+            .filter((p) => p.series === target.series && String(p.target) === target.year);
+        circle
+            .attr('opacity', 1)
+            .attr('r', 6)
+            .attr('fill', index === 0 ? '#dc2626' : '#2563eb')
+            .attr('stroke', '#111827')
+            .attr('stroke-width', 1.5);
+
+        const node = circle.node();
+        if (!node) return;
+        const cx = Number(d3.select(node).attr('cx'));
+        const cy = Number(d3.select(node).attr('cy'));
+        g.append('text')
+            .attr('class', 'e8-q5-function1')
+            .attr('x', cx + 8)
+            .attr('y', cy + (index === 0 ? -10 : 16))
+            .attr('fill', index === 0 ? '#dc2626' : '#2563eb')
+            .attr('font-size', 12)
+            .attr('font-weight', 700)
+            .text(target.label);
+    });
+}
+
+export function function2({ d3, container }) {
+    function1({ d3, container });
+
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const csvValues = { femaleMax: 207, maleMin: 375 };
+    const csvDifference = 168;
+    const { plotW, yScale } = getVictimLineMetrics(d3);
+
+    g.selectAll('.e8-q5-function2').remove();
+
+    svg.selectAll('defs.e8-q5-defs').remove();
+    const defs = svg.append('defs').attr('class', 'e8-q5-defs');
+    defs.append('marker')
+        .attr('id', 'e8-q5-arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 5)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#111827');
+
+    const yFemale = yScale(csvValues.femaleMax);
+    const yMale = yScale(csvValues.maleMin);
+    [csvValues.femaleMax, csvValues.maleMin].forEach((value) => {
+        const y = yScale(value);
+        g.append('line')
+            .attr('class', 'e8-q5-function2')
+            .attr('x1', 0)
+            .attr('x2', plotW + 28)
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', '#111827')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '5 4');
+        g.append('text')
+            .attr('class', 'e8-q5-function2')
+            .attr('x', plotW + 34)
+            .attr('y', y + 4)
+            .attr('fill', '#111827')
+            .attr('font-size', 11)
+            .text(String(value));
+    });
+
+    const x = plotW + 18;
+    g.append('line')
+        .attr('class', 'e8-q5-function2')
+        .attr('x1', x)
+        .attr('x2', x)
+        .attr('y1', yMale)
+        .attr('y2', yFemale)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('marker-start', 'url(#e8-q5-arrow)')
+        .attr('marker-end', 'url(#e8-q5-arrow)');
+    g.append('text')
+        .attr('class', 'e8-q5-function2')
+        .attr('x', x + 38)
+        .attr('y', (yMale + yFemale) / 2)
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', '#111827')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text(String(csvDifference));
+}
 
 export function function3({ d3, container }) {}

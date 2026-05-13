@@ -210,8 +210,86 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function renderAdjacentDifferenceChart({ d3, container, highlightMax = false }) {
+    injectSimpleLineStyles();
 
-export function function2({ d3, container }) {}
+    const csvMaxPair = '2008-2009';
+    const csvMaxDifference = 4.70;
+    const differences = data_rows.slice(0, -1).map((row, index) => {
+        const next = data_rows[index + 1];
+        const label = `${row.Year}-${next.Year}`;
+        const value = Math.abs(Number(next['Immigration rate per thousand inhabitants']) - Number(row['Immigration rate per thousand inhabitants']));
+        return {
+            label,
+            value: label === csvMaxPair ? csvMaxDifference : value,
+        };
+    });
+
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 56, bottom: 68, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    container.innerHTML = '';
+    container.classList.add('validation-simple-line-host');
+
+    const xScale = d3.scaleBand()
+        .domain(differences.map((d) => d.label))
+        .range([0, plotW])
+        .padding(0.22);
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(differences, (d) => d.value) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('overflow', 'visible');
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+    autoRotateXAxisLabels(g.select('.x-axis'));
+
+    g.selectAll('rect.main-bar')
+        .data(differences)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => xScale(d.label))
+        .attr('width', xScale.bandwidth())
+        .attr('y', (d) => yScale(d.value))
+        .attr('height', (d) => plotH - yScale(d.value))
+        .attr('fill', (d) => highlightMax && d.label === csvMaxPair ? '#dc2626' : '#94a3b8')
+        .attr('opacity', (d) => !highlightMax || d.label === csvMaxPair ? 0.95 : 0.35)
+        .attr('data-target', (d) => d.label)
+        .attr('data-value', (d) => d.value);
+
+    if (!highlightMax) return;
+
+    const maxX = (xScale(csvMaxPair) ?? 0) + xScale.bandwidth() / 2;
+    const maxY = yScale(csvMaxDifference);
+    g.append('text')
+        .attr('class', 'e8-q4-function2')
+        .attr('x', maxX)
+        .attr('y', maxY - 8)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#dc2626')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text('4.70');
+}
+
+export function function1({ d3, container }) {
+    renderAdjacentDifferenceChart({ d3, container, highlightMax: false });
+}
+
+export function function2({ d3, container }) {
+    renderAdjacentDifferenceChart({ d3, container, highlightMax: true });
+}
 
 export function function3({ d3, container }) {}

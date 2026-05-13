@@ -30,6 +30,24 @@ export interface AnnotationViewport {
   height: number
 }
 
+function resolveSvgViewBox(
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+): AnnotationViewport | null {
+  const node = svg.node()
+  const viewBox = node?.viewBox?.baseVal
+  if (viewBox && viewBox.width > 0 && viewBox.height > 0) {
+    return { x: viewBox.x, y: viewBox.y, width: viewBox.width, height: viewBox.height }
+  }
+
+  const raw = svg.attr(SvgAttributes.ViewBox)?.trim() ?? ''
+  const parts = raw.split(/\s+/).map(Number)
+  if (parts.length === 4 && parts.every(Number.isFinite) && parts[2] > 0 && parts[3] > 0) {
+    return { x: parts[0], y: parts[1], width: parts[2], height: parts[3] }
+  }
+
+  return null
+}
+
 // ---------------------------------------------------------------------------
 // ensureAnnotationLayer
 // ---------------------------------------------------------------------------
@@ -70,11 +88,24 @@ export function resolveAnnotationViewport(
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
   const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
   const plotHeight = Number(svg.attr(DataAttributes.PlotHeight) ?? 0)
-  return {
+  const desired = {
     x: marginLeft,
     y: marginTop,
     width: plotWidth + extraRight,
     height: plotHeight,
+  }
+  const viewBox = resolveSvgViewBox(svg)
+  if (!viewBox) return desired
+
+  const x = Math.max(desired.x, viewBox.x)
+  const y = Math.max(desired.y, viewBox.y)
+  const right = Math.min(desired.x + desired.width, viewBox.x + viewBox.width)
+  const bottom = Math.min(desired.y + desired.height, viewBox.y + viewBox.height)
+  return {
+    x,
+    y,
+    width: Math.max(0, right - x),
+    height: Math.max(0, bottom - y),
   }
 }
 

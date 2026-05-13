@@ -375,6 +375,10 @@ export function drawDirectionalArrow(opts: DirectionalArrowOptions): Promise<voi
       .style(SvgAttributes.Opacity, 0)
       .text(label)
 
+    if (opts.targetKey != null) {
+      labelNode.attr('data-target', opts.targetKey)
+    }
+
     placeOperationTextLabel({
       svg,
       text: labelNode,

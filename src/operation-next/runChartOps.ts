@@ -1,10 +1,5 @@
 import { ChartType, prepareChartRuntimeSpec, type ChartSpec } from '../domain/chart'
 import { normalizeOpsGroups, type OpsSpecInput } from '../domain/operation/opsSpec'
-import { renderChart } from '../rendering/renderChart'
-import {
-  captureMarkPresentationSnapshot,
-  playPresentationTransition,
-} from '../runtime/presentationTransitionController'
 import { runGroupedBarOperations } from './runners/groupedBar'
 import { runMultipleLineOperations } from './runners/multipleLine'
 import { runSimpleBarOperations } from './runners/simpleBar'
@@ -69,7 +64,7 @@ function resolveRunner(chartType: ReturnType<typeof assertKnownOperationNextChar
   }
 }
 
-async function restoreDirtyOperationNextChart(container: HTMLElement, spec: ChartSpec) {
+function clearOperationNextFocusState(container: HTMLElement) {
   const focusState = container.dataset.operationNextFocusState
   debugLog('restore-check', {
     t: debugNow(),
@@ -77,34 +72,13 @@ async function restoreDirtyOperationNextChart(container: HTMLElement, spec: Char
     dom: summarizeChartDom(container),
   })
   if (!focusState) return false
-
-  // Capture the current emphasis state (dimmed marks, annotations) before
-  // hiding the container. The overlay will fade out over the fresh render,
-  // eliminating the visual flash that occurred when visibility was restored.
-  const snapshot = captureMarkPresentationSnapshot(container)
-
-  const previousVisibility = container.style.visibility
-  container.style.visibility = 'hidden'
-  debugLog('restore-start', {
+  delete container.dataset.operationNextFocusState
+  container.querySelector('svg')?.removeAttribute('data-operation-next-focus-state')
+  debugLog('restore-skip-rerender', {
     t: debugNow(),
     focusState,
-    previousVisibility: previousVisibility || '(default)',
-    domBefore: summarizeChartDom(container),
+    domAfter: summarizeChartDom(container),
   })
-  try {
-    await renderChart(container, spec)
-  } finally {
-    container.style.visibility = previousVisibility
-    delete container.dataset.operationNextFocusState
-    // Fade the captured state out over the freshly rendered chart so
-    // the transition into the reset state is smooth rather than abrupt.
-    playPresentationTransition(container, snapshot)
-    debugLog('restore-end', {
-      t: debugNow(),
-      restoredVisibility: container.style.visibility || '(default)',
-      domAfter: summarizeChartDom(container),
-    })
-  }
   return true
 }
 
@@ -119,7 +93,7 @@ export async function runChartOps(
     options,
     dom: summarizeChartDom(container),
   })
-  const restored = await restoreDirtyOperationNextChart(container, spec)
+  const restored = clearOperationNextFocusState(container)
   initializeOperationRuntime(options)
   const runtime = await prepareChartRuntimeSpec(spec)
   const chartType = assertKnownOperationNextChartType(runtime.chartType)

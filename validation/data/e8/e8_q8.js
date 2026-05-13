@@ -251,8 +251,132 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getAdultGroupedMetrics(d3) {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Group))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d['Age Group']))));
+    const yValues = data_rows.map((d) => Number(d['Percentage of adults']));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(yValues) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+    return { plotW, plotH, yScale, xDomain, seriesDomain };
+}
 
-export function function2({ d3, container }) {}
+export function function1({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const csvTargets = [
+        { group: 'Women', age: '60 years and over', value: 0.739 },
+        { group: 'Men', age: '18 to 39 years', value: 0.312 },
+    ];
+
+    g.selectAll('.e8-q8-function1,.e8-q8-function2').remove();
+    g.selectAll('rect.main-bar')
+        .attr('fill', function (d) {
+            const isTarget = csvTargets.some((target) => d.category === target.group && d.series === target.age);
+            return isTarget ? '#dc2626' : '#d1d5db';
+        })
+        .attr('opacity', function (d) {
+            const isTarget = csvTargets.some((target) => d.category === target.group && d.series === target.age);
+            return isTarget ? 0.95 : 0.18;
+        })
+        .attr('stroke', function (d) {
+            const isTarget = csvTargets.some((target) => d.category === target.group && d.series === target.age);
+            return isTarget ? '#111827' : 'none';
+        })
+        .attr('stroke-width', function (d) {
+            const isTarget = csvTargets.some((target) => d.category === target.group && d.series === target.age);
+            return isTarget ? 1.5 : 0;
+        });
+
+    csvTargets.forEach((target) => {
+        const bar = g.selectAll('rect.main-bar')
+            .filter((d) => d.category === target.group && d.series === target.age);
+        const node = bar.node();
+        if (!node) return;
+        const x = Number(bar.attr('x')) + Number(bar.attr('width')) / 2;
+        const y = Number(bar.attr('y'));
+        g.append('text')
+            .attr('class', 'e8-q8-function1')
+            .attr('x', x)
+            .attr('y', y - 7)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#dc2626')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .text(String(target.value));
+    });
+}
+
+export function function2({ d3, container }) {
+    function1({ d3, container });
+
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const csvValues = { womenOver60: 0.739, menUnder40: 0.312 };
+    const csvDifference = 0.427;
+    const { plotW, yScale } = getAdultGroupedMetrics(d3);
+
+    g.selectAll('.e8-q8-function2').remove();
+    svg.selectAll('defs.e8-q8-defs').remove();
+    const defs = svg.append('defs').attr('class', 'e8-q8-defs');
+    defs.append('marker')
+        .attr('id', 'e8-q8-arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 5)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#111827');
+
+    [csvValues.womenOver60, csvValues.menUnder40].forEach((value) => {
+        const y = yScale(value);
+        g.append('line')
+            .attr('class', 'e8-q8-function2')
+            .attr('x1', 0)
+            .attr('x2', plotW + 28)
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', '#111827')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '5 4');
+    });
+
+    const yTop = yScale(csvValues.womenOver60);
+    const yBottom = yScale(csvValues.menUnder40);
+    const x = plotW + 18;
+    g.append('line')
+        .attr('class', 'e8-q8-function2')
+        .attr('x1', x)
+        .attr('x2', x)
+        .attr('y1', yTop)
+        .attr('y2', yBottom)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('marker-start', 'url(#e8-q8-arrow)')
+        .attr('marker-end', 'url(#e8-q8-arrow)');
+    g.append('text')
+        .attr('class', 'e8-q8-function2')
+        .attr('x', x + 10)
+        .attr('y', (yTop + yBottom) / 2)
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', '#111827')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text(String(csvDifference));
+}
 
 export function function3({ d3, container }) {}
