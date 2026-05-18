@@ -303,8 +303,16 @@ function resolveThresholdY(params: {
 }) {
   const exact = params.bars.find((node) => Number(node.getAttribute(DataAttributes.Value)) === params.threshold)
   if (exact) {
-    const y = readNumberAttr(exact, SvgAttributes.Y)
-    if (y != null) return accumulatedTranslate(exact).y + y
+    const exactY = readNumberAttr(exact, SvgAttributes.Y)
+    const exactH = readNumberAttr(exact, SvgAttributes.Height)
+    const exactVal = Number(exact.getAttribute(DataAttributes.Value))
+    if (exactY != null) {
+      // Positive bars: the value level is at the rect's top (y).
+      // Negative bars: D3 places y at the zero-line and extends height downward,
+      // so the value level is at y + height.
+      const valueY = exactVal >= 0 ? exactY : exactY + (exactH ?? 0)
+      return accumulatedTranslate(exact).y + valueY
+    }
   }
 
   const reference = params.bars.find((node) => {
@@ -320,11 +328,14 @@ function resolveThresholdY(params: {
   const height = readNumberAttr(reference, SvgAttributes.Height)
   if (y == null || height == null || !Number.isFinite(value) || value === 0) return null
 
+  // zeroY = y + height (bar bottom in SVG coords).
+  // For positive bars: y is the bar top (value level), y + height = zero line → zeroLineY = zeroY.
+  // For negative bars: D3 sets y = zero line, height goes down → zeroLineY = y (not zeroY).
+  // Unified: thresholdY = zeroLineY - threshold * pixelsPerValue always gives yScale(threshold).
   const zeroY = y + height
   const pixelsPerValue = height / Math.abs(value)
-  const thresholdY = value >= 0
-    ? zeroY - params.threshold * pixelsPerValue
-    : zeroY + params.threshold * pixelsPerValue
+  const zeroLineY = value >= 0 ? zeroY : y
+  const thresholdY = zeroLineY - params.threshold * pixelsPerValue
   return accumulatedTranslate(reference).y + thresholdY
 }
 
@@ -912,12 +923,30 @@ async function annotateGroupedBarDiff(
   const layer = ensureAnnotationLayer(svg)
   const debugBefore = groupedDiffLayoutSnapshot(container, svg, layer)
   applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
-  layer.selectAll(`.${DIFF_ANNOTATION_CLASS}`).interrupt().remove()
+
+  // diff → diff (merge policy): when a prior persistent diff annotation exists AND
+  // both endpoints are derived ref keys, we are in a "diff of diffs" sequence.
+  // Keep the prior bracket as context (fade its lines) rather than removing it.
+  const hasPriorDiff = state.annotationRecords.some(
+    (r) => r.cssClass === DIFF_ANNOTATION_CLASS && r.persistent,
+  )
+  const derivedA = resolveDerivedDiffEndpoint(selectors.targetA, aggregateHint)
+  const derivedB = resolveDerivedDiffEndpoint(selectors.targetB, aggregateHint)
+  const isDiffOfDiffs = hasPriorDiff && derivedA != null && derivedB != null
+  if (isDiffOfDiffs) {
+    // Fade prior diff lines to context opacity — mirrors how filter lines are handled.
+    layer
+      .selectAll<SVGLineElement, unknown>(`line.${DIFF_ANNOTATION_CLASS}`)
+      .interrupt()
+      .transition()
+      .duration(200)
+      .style(SvgAttributes.Opacity, 0.3)
+  } else {
+    layer.selectAll(`.${DIFF_ANNOTATION_CLASS}`).interrupt().remove()
+  }
 
   const bounds = plotBounds(resolvePlotScopes(svg))
   if (!bounds) return
-  const derivedA = resolveDerivedDiffEndpoint(selectors.targetA, aggregateHint)
-  const derivedB = resolveDerivedDiffEndpoint(selectors.targetB, aggregateHint)
   const markA = derivedA ? null : findBarBySelector(svg, selectors.targetA)
   const markB = derivedB ? null : findBarBySelector(svg, selectors.targetB)
   const existingA = derivedA ? referenceLineForResultRef(layer, derivedA.refKey) : null
@@ -1048,6 +1077,12 @@ export async function runGroupedBarFilterOperation(
   }
 
   const layer = ensureAnnotationLayer(svg)
+
+  // Fade prior persistent annotations (average ref lines, diff brackets, etc.) to
+  // context style before the filter visual takes over. Mirrors annotateFilter in
+  // simpleBar / simpleLine / multipleLine.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
   layer.selectAll(`.${FILTER_ANNOTATION_CLASS}`).interrupt().remove()
 
   const resultKeys = new Set(result.map(datumMarkKey))

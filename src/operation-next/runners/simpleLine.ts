@@ -122,6 +122,15 @@ function formatScopeLabel(operation: OperationSpec, result: DatumValue[]) {
   return `Filtered: ${result.length} values`
 }
 
+function operationNodeId(operation: OperationSpec): string | null {
+  const raw = operation as OperationSpec & { id?: string | number; key?: string | number }
+  const nodeId = operation.meta?.nodeId
+  if (typeof nodeId === 'string' || typeof nodeId === 'number') return String(nodeId)
+  if (raw.id != null) return String(raw.id)
+  if (raw.key != null) return String(raw.key)
+  return null
+}
+
 function selectorTargetKey(selector: TargetSelector | TargetSelector[] | undefined) {
   const entry = Array.isArray(selector) ? selector[0] : selector
   if (entry == null) return null
@@ -200,6 +209,7 @@ function appendValueLabel(params: {
   value: number
   color?: string
   anchorElement?: Element | null
+  annotationNodeId?: string | null
 }) {
   const labelNode = params.layer
     .append(SvgElements.Text)
@@ -212,6 +222,10 @@ function appendValueLabel(params: {
     .attr(SvgAttributes.Fill, params.color ?? COLORS.TEXT_DARK)
     .style(SvgAttributes.Opacity, 0)
     .text(formatOperationValue(params.value))
+
+  if (params.annotationNodeId) {
+    labelNode.attr(DataAttributes.AnnotationNodeId, params.annotationNodeId)
+  }
 
   placeOperationTextLabel({
     svg: params.svg,
@@ -409,6 +423,12 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
   const layer = ensureAnnotationLayer(svg)
+
+  // Fade prior persistent annotations (average ref lines, diff brackets, etc.) to
+  // context style before the filter visual takes over. Mirrors the same call in
+  // annotateDiff / annotateAverage / annotateFindExtremum.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
   layer.selectAll(`.${FILTER_ANNOTATION_CLASS}`).interrupt().remove()
   svg.selectAll(`.${FILTER_LINE_LAYER_CLASS}`).interrupt().remove()
 
@@ -673,7 +693,7 @@ async function annotateAverage(
   })
 }
 
-async function annotateFindExtremum(container: HTMLElement, result: DatumValue[], state: ChainState) {
+async function annotateFindExtremum(container: HTMLElement, result: DatumValue[], state: ChainState, operation: OperationSpec) {
   const target = result[0]?.target
   if (target == null) return
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
@@ -683,7 +703,20 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
   // Transition prior annotations to context style before drawing the new one.
   applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
 
-  layer.selectAll(`.${EXTREMUM_ANNOTATION_CLASS}`).interrupt().remove()
+  // Use nodeId-based selective removal so that when two findExtremum ops run
+  // sequentially (e.g. max then min), the first annotation is preserved while
+  // only the same-nodeId element is replaced. Without an op-level nodeId the
+  // fallback clears all extremum annotations (safe for single-extremum chains).
+  const nodeId = operationNodeId(operation)
+  if (nodeId) {
+    layer
+      .selectAll<SVGElement, unknown>(`.${EXTREMUM_ANNOTATION_CLASS}[${DataAttributes.AnnotationNodeId}="${CSS.escape(nodeId)}"]`)
+      .interrupt()
+      .remove()
+  } else {
+    layer.selectAll(`.${EXTREMUM_ANNOTATION_CLASS}`).interrupt().remove()
+  }
+
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
   const points = findPointByTarget(svg, String(target))
@@ -701,6 +734,7 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
       value: metrics.value,
       color: COLORS.TEXT_DARK,
       anchorElement: point,
+      annotationNodeId: nodeId,
     }).end()
   } catch { /* interrupted */ }
 
@@ -885,7 +919,7 @@ async function runFindExtremumOperation(
 
   // Standard path: find extremum in workingData and draw a new annotation.
   const result = findExtremum(state.workingData, operation)
-  await annotateFindExtremum(run.container, result, state)
+  await annotateFindExtremum(run.container, result, state, operation)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] simple-line findExtremum', { operationIndex, operation, result })
   return { result, nextState: { ...state, lastResult: result } }

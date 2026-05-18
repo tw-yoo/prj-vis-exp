@@ -1,0 +1,27 @@
+chart_type,prev_op,next_op,state_input_from_prev,visual_layer_policy,annotation_key_collision,stage_order_hint,disallowed_reason,example_question_id,rule_status,researcher_note
+simple-bar,average,diff,derivedData[prev.id],keep,coexist-suffix,ref-line → diff-bracket → text,,0xnim79vztf8hjor;1ashoniy42n3n5jr,defined,평균값이 diff의 한쪽 피연산자로 들어감. ref-line은 유지한 채 bracket을 위에 그림.
+simple-bar,average,filter,none,keep,coexist-suffix,keep-ref-line → filter-context → dim,,1ashoniy42n3n5jr,defined,비교 목적의 두 번째 그룹으로 전환. 이전 평균선은 비교 기준으로 유지.
+simple-bar,diff,findExtremum,derivedData[prev.id],keep,coexist-suffix,diff-bracket → text → highlight → text,,0xnim79vztf8hjor,defined,diff가 만든 per-datum deviation 중 극값 탐색.
+simple-bar,filter,average,workingData,keep,coexist-suffix,filter-context → dim → ref-line → text,,1ashoniy42n3n5jr,defined,필터된 범위 안의 평균. filter dim 위에 ref-line 표시.
+simple-bar,filter,findExtremum,workingData,keep,coexist-suffix,filter-context → dim → highlight → text,,0fh0emp095qhq3ag,defined,필터된 scope 안에서 극값 탐색.
+simple-bar,findExtremum,diff,derivedData[prev.id],merge,coexist-suffix,highlight → diff-bracket → text,,0fh0emp095qhq3ag,defined,두 extremum 결과(보통 max/min)를 bracket으로 묶어 diff 시각화.
+simple-bar,findExtremum,findExtremum,workingData,keep,coexist-suffix,highlight(prev) → highlight(next) → text,,0fh0emp095qhq3ag,defined,같은 scope에서 max와 min을 동시에 highlight (색상으로 구분).
+stacked-bar,average,diff,derivedData[prev.id],keep,coexist-suffix,ref-line → diff-bracket → text,,004fhteah0l9kud2,defined,두 그룹의 평균(예: Commercial vs Matchday) bracket으로 비교.
+stacked-bar,average,filter,none,keep,coexist-suffix,keep-ref-line → filter-context → dim,,004fhteah0l9kud2;10x2rgiqw97wdspi,defined,한 stack 그룹의 평균선 유지한 채 다음 그룹으로 필터 전환.
+stacked-bar,filter,average,workingData,keep,coexist-suffix,filter-context → dim → ref-line → text,,004fhteah0l9kud2;10x2rgiqw97wdspi,defined,특정 stack 그룹으로 좁힌 뒤 평균 계산.
+grouped-bar,average,diff,derivedData[prev.id],keep,coexist-suffix,ref-line → diff-bracket → text,,0gacqohbzj07n25s,defined,두 그룹의 평균 비교 (예: Europe vs Asia).
+grouped-bar,average,filter,none,keep,coexist-suffix,keep-ref-line → filter-context → dim,,0gacqohbzj07n25s;1suppecte0dm69gm,defined,그룹별 평균 비교 흐름. 이전 평균선 유지.
+grouped-bar,diff,diff,derivedData[prev.id],merge,coexist-suffix,diff-bracket(prev) → diff-bracket(next) → meta-bracket → text,,0wgqpso2vnilpym6,defined,"두 diff 결과의 차이(diff-of-diffs). meta-bracket으로 상위 비교 표시."
+grouped-bar,diff,filter,none,keep,coexist-suffix,keep-diff-bracket → filter-context → dim,,0wgqpso2vnilpym6,defined,한 그룹의 diff 유지한 채 다음 그룹으로 전환.
+grouped-bar,filter,average,workingData,keep,coexist-suffix,filter-context → dim → ref-line → text,,0gacqohbzj07n25s;1suppecte0dm69gm,defined,그룹 필터 후 평균 계산.
+grouped-bar,filter,diff,workingData,keep,coexist-suffix,filter-context → dim → diff-bracket → text,,0wgqpso2vnilpym6;1suppecte0dm69gm,defined,필터된 그룹 안에서 diff 계산.
+simple-line,average,diff,derivedData[prev.id],keep,coexist-suffix,ref-line → diff-bracket → text,,7w9v4fsbg5ydxsr2,defined,두 기간의 평균 비교 (예: even vs odd years). ref-line 두 개 + bracket.
+simple-line,average,filter,none,keep,coexist-suffix,keep-ref-line → filter-context → dim,,7w9v4fsbg5ydxsr2,defined,이전 기간 평균선 유지한 채 다음 기간으로 필터.
+simple-line,filter,average,workingData,keep,coexist-suffix,filter-context → dim → ref-line → text,,7w9v4fsbg5ydxsr2,defined,필터된 기간 안의 평균. line 일부 dim 처리 + ref-line.
+simple-line,filter,findExtremum,workingData,keep,coexist-suffix,filter-context → dim → highlight → text,,7272hodb02i6e09q,defined,필터된 기간 안의 극값 탐색.
+simple-line,findExtremum,diff,derivedData[prev.id],merge,coexist-suffix,highlight → diff-bracket → text,,7272hodb02i6e09q,defined,두 극값 포인트 사이를 bracket으로 연결해 diff 표시.
+simple-line,findExtremum,filter,none,keep,coexist-suffix,keep-highlight → filter-context → dim,,7272hodb02i6e09q,defined,한 기간 극값 highlight 유지한 채 다음 기간으로 필터.
+multi-line,average,diff,derivedData[prev.id],keep,coexist-suffix,ref-line → diff-bracket → text,,1gb8sqnptdsdvagz,defined,두 series 또는 두 부분 구간의 평균 비교.
+multi-line,average,filter,none,keep,coexist-suffix,keep-ref-line → filter-context → dim,,1gb8sqnptdsdvagz,defined,이전 평균선 유지한 채 다른 series/구간으로 필터.
+multi-line,filter,average,workingData,keep,coexist-suffix,filter-context → dim → ref-line → text,,1gb8sqnptdsdvagz,defined,특정 series 또는 구간으로 좁혀 평균 계산.
+multi-line,pairDiff,findExtremum,derivedData[prev.id],keep,coexist-suffix,pair-connect → highlight → text,,20qa83ih1gn6toqt,defined,series 간 pair-diff 결과 중 최소/최대 지점 highlight.

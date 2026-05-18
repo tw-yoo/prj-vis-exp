@@ -67,6 +67,7 @@ export function ensureAnnotationLayer(
   return svg
     .append(SvgElements.Group)
     .attr(SvgAttributes.Class, `${SvgClassNames.AnnotationLayer} ${ANNOTATION_LAYER_CLASS}`)
+    .raise()
 }
 
 // ---------------------------------------------------------------------------

@@ -645,6 +645,12 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
   const layer = ensureAnnotationLayer(svg)
+
+  // Fade prior persistent annotations (average ref lines, pairDiff arrows, etc.) to
+  // context style before the filter visual takes over. Mirrors the same call in
+  // annotateDiff / annotateAverage / annotateFindExtremum.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
   layer.selectAll(`.${FILTER_ANNOTATION_CLASS}`).interrupt().remove()
   svg.selectAll(`.${FILTER_LINE_LAYER_CLASS}`).interrupt().remove()
 
@@ -673,9 +679,17 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
 
   // Phase 2 — threshold reference line + label (only when a numeric threshold
   // exists). drawReferenceLine handles animation, placement, and label fade-in.
-  if (threshold == null) return
+  if (threshold == null) {
+    // Non-numeric filters have no visual line but still need a record so that
+    // subsequent operations can transition the filter scope to context style.
+    state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    return
+  }
   const thresholdY = inferYForValue(svg, threshold)
-  if (thresholdY == null) return
+  if (thresholdY == null) {
+    state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    return
+  }
 
   const x1 = marginLeft
   const x2 = marginLeft + plotWidth
@@ -715,6 +729,11 @@ async function annotateDiff(
   const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
   const arrowX = marginLeft + plotWidth + 18
   const layer = ensureAnnotationLayer(svg)
+
+  // Transition prior annotations (filter lines, etc.) to context style
+  // before drawing diff. Mirrors the same call in annotateAverage / annotateFindExtremum.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
   const markA = pointA ? pointRootMetrics(pointA, marginLeft, marginTop) : null
   const markB = pointB ? pointRootMetrics(pointB, marginLeft, marginTop) : null
   const existingA = derivedA ? scalarReferenceLineForResultRef(layer, derivedA.refKey) : null
