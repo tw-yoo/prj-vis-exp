@@ -1,0 +1,28 @@
+{
+  "e1": {
+    "e1_q1": {
+      "question": "Which year range is used, and what is the average sales value after filtering?",
+      "description": "Initial evaluation fixture for operation-spec step playback.",
+      "steps": [
+        { "id": "ops", "text": "Filter the chart to show values from 2010 through 2013." },
+        { "id": "ops2", "text": "Compute the average sales value over the filtered years." }
+      ]
+    },
+    "e1_q2": {
+      "question": "What is the difference between the maximum and minimum values?",
+      "description": "Second evaluation fixture for navigation and replay.",
+      "steps": [
+        { "id": "ops", "text": "Find the maximum value." },
+        { "id": "ops2", "text": "Find the minimum value." },
+        { "id": "ops3", "text": "Compute the difference between those two values." }
+      ]
+    },
+    "e1_bad": {
+      "question": "This chart intentionally contains an invalid operation step.",
+      "description": "Used to verify that the viewer reports errors without blanking the chart.",
+      "steps": [
+        { "id": "ops", "text": "Run an invalid operation spec." }
+      ]
+    }
+  }
+}

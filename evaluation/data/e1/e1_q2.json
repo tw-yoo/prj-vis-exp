@@ -1,0 +1,21 @@
+{
+  "chart_id": "e1_q2",
+  "question": "Which year shows the lowest gap between convenience and price",
+  "description": "Second evaluation fixture for navigation and replay.",
+  "specPath": "specs/e1_q2.vl.json",
+  "opsPath": "ops/e1_q2.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "1. For each year, compare the “Price” value to the “Convenience” value and compute the gap (the absolute difference)."
+    },
+    {
+      "id": "ops2",
+      "text": "2. The gaps are: 2012 (73 vs 53 → 20), 2013 (71 vs 56 → 15), 2014 (73 vs 51 → 22), 2015 (68 vs 52 → 16), and 2016 (71 vs 52 → 19)."
+    },
+    {
+      "id": "ops3",
+      "text": "3. The smallest gap is 15 in 2013, so that year has the lowest gap."
+    }
+  ]
+}

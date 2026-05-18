@@ -3203,6 +3203,10 @@ function ChartWorkbenchPage() {
     [chartType, opsGroups],
   )
 
+  const SPLIT_SHOW_DELAY_MS = 800
+  const BETWEEN_STEP_DELAY_MS = 500
+  const BETWEEN_SURFACE_DELAY_MS = 300
+
   const runSplitAverageGroup = useCallback(
     async (
       groupIndex: number,
@@ -3238,21 +3242,53 @@ function ChartWorkbenchPage() {
         surfaceId: `${entry.id}_surface`,
       }))
 
+      // Render with legend suppressed so the plot area matches simple bar width
+      // isLegendVisible() in stacked bar renderer returns false when color.legend === null
+      const encForAnim = plan.sourceSpec.encoding as Record<string, unknown>
+      const colorEncForAnim = encForAnim.color as Record<string, unknown> | undefined
+      const specForAnim: VegaLiteSpec = {
+        ...plan.sourceSpec,
+        encoding: {
+          ...plan.sourceSpec.encoding,
+          ...(colorEncForAnim ? { color: { ...colorEncForAnim, legend: null } } : {}),
+        },
+      }
       await Promise.all(
         surfaceEntries.map(async ({ surfaceId }) => {
           const surface = manager.getSurface(surfaceId)
           const host = surface?.hostElement as HTMLElement | undefined
           if (!host) return
-          await renderSpecIfNeeded(host, plan.sourceSpec, { surfaceId })
+          await renderSpecIfNeeded(host, specForAnim, { surfaceId })
         }),
       )
       applySplitSharedYAxisPolicy(manager)
 
+      // Compute shared Y domain from rendered SVG DOM (spec.data.values may be empty)
+      let sharedYMax = 0
+      for (const { entry, surfaceId } of surfaceEntries) {
+        const host = manager.getSurface(surfaceId)?.hostElement as HTMLElement | undefined
+        if (!host) continue
+        host.querySelectorAll<SVGRectElement>('rect.main-bar').forEach((bar) => {
+          if (bar.getAttribute('data-series') === String(entry.group)) {
+            const v = parseFloat(bar.getAttribute('data-value') ?? '0')
+            if (Number.isFinite(v) && v > sharedYMax) sharedYMax = v
+          }
+        })
+      }
+      const sharedYDomain: [number, number] | undefined = sharedYMax > 0 ? [0, sharedYMax] : undefined
+      console.log('[runSplitAverageGroup] sharedYDomain from DOM', { sharedYMax, sharedYDomain })
+
+      await new Promise<void>(resolve => setTimeout(resolve, SPLIT_SHOW_DELAY_MS))
+
       for (const [index, { entry, surfaceId }] of surfaceEntries.entries()) {
+        if (index > 0) {
+          await new Promise<void>(resolve => setTimeout(resolve, BETWEEN_SURFACE_DELAY_MS))
+        }
+
         const transformOp: DrawOp = {
           op: OperationOp.Draw,
           action: transformAction,
-          toSimple: { series: entry.group },
+          toSimple: { series: entry.group, ...(sharedYDomain ? { yDomain: sharedYDomain } : {}) },
           meta: {
             nodeId: `${entry.id}:to-simple`,
             inputs: [entry.id],
@@ -3268,6 +3304,8 @@ function ChartWorkbenchPage() {
           runtimeSnapshot: index === 0 ? options?.runtimeSnapshot : undefined,
           initialChainState: index === 0 ? options?.initialChainState : undefined,
         })
+
+        await new Promise<void>(resolve => setTimeout(resolve, BETWEEN_STEP_DELAY_MS))
 
         const { group: _group, ...averageWithoutGroup } = entry.operation
         const surfaceSpec = (manager.getSurface(surfaceId)?.spec as VegaLiteSpec | undefined) ?? plan.sourceSpec
@@ -3650,6 +3688,8 @@ function ChartWorkbenchPage() {
       })
       if (!runResult) return null
 
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+
       const outcome = asOperationNextRunOutcome(runResult)
       const svgString = captureCurrentSceneSvg()
       const checkpoint = captureChunkCheckpoint(outcome)
@@ -3741,7 +3781,11 @@ function ChartWorkbenchPage() {
           captureCurrentGroupSnapshot(groupIndex)
         }
         splitCreatedThisGroupRef.current = false
-        await enterOpsGroupPreRun(nextIndex)
+        // ops 직후에는 DOM이 이미 올바른 상태이므로 checkpoint restore 없이 UI 상태만 업데이트
+        setOpsUiGroupIndex(nextIndex)
+        setOpsUiGroupPhase('pre-run')
+        setOpsUiResolvedText(resolveDisplayTextForGroup(nextIndex))
+        setActiveChunkIndex(-1)
         return
       }
 
