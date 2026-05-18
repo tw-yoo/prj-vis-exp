@@ -328,6 +328,8 @@ export type DrawStackGroupSpec = {
 export type DrawToSimpleSpec = {
   /** Series label to keep (matches the chart series encoding). */
   series: string | number
+  /** Explicit [min, max] for the Y axis — used to sync scales across split surfaces. */
+  yDomain?: [number, number]
 }
 
 export type DrawOp = OperationSpec & {

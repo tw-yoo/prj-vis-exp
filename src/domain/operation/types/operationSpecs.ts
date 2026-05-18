@@ -17,7 +17,7 @@ export interface OpFilterSpec extends OperationSpec {
   operator?: OperationSpec['operator']
   value?: OperationSpec['value']
   field?: string
-  group?: string | number | Array<string | number> | null
+  group?: OperationSpec['group']
   include?: Array<string | number>
   exclude?: Array<string | number>
 }
@@ -36,20 +36,13 @@ export interface OpFindExtremumSpec extends OperationSpec {
   group?: string | null
 }
 
-export interface OpDetermineRangeSpec extends OperationSpec {
-  op: typeof OperationOp.DetermineRange
+export interface OpDiffByValueSpec extends OperationSpec {
+  op: typeof OperationOp.DiffByValue
+  value?: number
+  targetValue?: string
   field?: string
   group?: string | null
-}
-
-export interface OpCompareSpec extends OperationSpec {
-  op: typeof OperationOp.Compare
-  targetA?: TargetSelector | TargetSelector[]
-  targetB?: TargetSelector | TargetSelector[]
-  field?: string
-  groupA?: string | null
-  groupB?: string | null
-  which?: 'max' | 'min'
+  signed?: boolean
 }
 
 export interface OpCompareBoolSpec extends OperationSpec {

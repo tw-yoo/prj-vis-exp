@@ -13,6 +13,7 @@ import {
   resolveTopLevelColorChannel,
 } from '../common/colorLegend'
 import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 import { bumpRenderEpoch } from '../common/renderEpoch'
@@ -92,23 +93,6 @@ function extractHeaderTitle(value: unknown) {
   if (typeof header.title === 'string') return header.title.trim()
   if (header.title === null) return null
   return undefined
-}
-
-function normalizeOptionalLabel(value: JsonValue | undefined) {
-  if (value === undefined) return undefined
-  if (value === null) return null
-  const str = String(value).trim()
-  return str.length > 0 ? str : null
-}
-
-function resolveAxisLabels(spec: GroupedSpec, xField: string, yField: string) {
-  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
-  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
-  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
-  return {
-    xAxisLabel: xAxisLabelOverride === undefined ? xField : xAxisLabelOverride,
-    yAxisLabel: yAxisLabelOverride === undefined ? yField : yAxisLabelOverride,
-  }
 }
 
 function resolveGroupedRuntimeSpec(spec: GroupedSpec): ResolvedGroupedRuntime | null {
@@ -327,7 +311,8 @@ export async function renderGroupedBarChart(
     asRecord(asRecord(asRecord(runtime.renderSpec.encoding).y).scale),
   )
 
-  const { xAxisLabel, yAxisLabel } = resolveAxisLabels(spec, runtime.xField, runtime.yField)
+  const xAxisLabel = resolveAxisTitle(spec, normalizedRows, 'x')
+  const yAxisLabel = resolveAxisTitle(spec, normalizedRows, 'y')
   const layout = resolveLayoutModel({
     container,
     chartType: ChartType.GROUPED_BAR,

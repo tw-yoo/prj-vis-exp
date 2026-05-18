@@ -1,11 +1,10 @@
-import type { DatumValue, JsonPrimitive, JsonValue, OperationSpec, TargetSelector } from './types'
+import { OperationOp, type DatumValue, type JsonPrimitive, type JsonValue, type OperationSpec, type TargetSelector } from './types'
 import type {
   OpAddSpec,
   OpCompareBoolSpec,
-  OpCompareSpec,
   OpCountSpec,
+  OpDiffByValueSpec,
   OpDiffSpec,
-  OpDetermineRangeSpec,
   OpFilterSpec,
   OpFindExtremumSpec,
   OpLagDiffSpec,
@@ -22,9 +21,8 @@ import {
   assertAddSpec,
   assertAverageSpec,
   assertCompareBoolSpec,
-  assertCompareSpec,
   assertCountSpec,
-  assertDetermineRangeSpec,
+  assertDiffByValueSpec,
   assertDiffSpec,
   assertFilterSpec,
   assertFindExtremumSpec,
@@ -41,6 +39,7 @@ import {
   buildAggregateLabel,
   buildBinaryLabel,
   buildOrdinalLabel,
+  buildSemanticMeasure,
   buildScaledLabel,
   buildValuesLabelFromRows,
   compactSemanticList,
@@ -160,6 +159,11 @@ function semanticLabelFromCompareTargets(targetA: TargetSelector | TargetSelecto
   }
 }
 
+function scalarGroupLabel(group: OperationSpec['group'] | string | null | undefined): string | null {
+  if (Array.isArray(group)) return group.length > 0 ? String(group[0]) : null
+  return group == null ? null : String(group)
+}
+
 // ---------------------------------------------------------------------------
 // Runtime result store (in-memory; pure JS, no DOM)
 // ---------------------------------------------------------------------------
@@ -170,6 +174,7 @@ function cloneDatumValue(datum: DatumValue): DatumValue {
   return {
     category: datum.category,
     measure: datum.measure,
+    semanticMeasure: datum.semanticMeasure ?? null,
     target: datum.target,
     displayTarget: datum.displayTarget ?? null,
     group: datum.group ?? null,
@@ -182,6 +187,17 @@ function cloneDatumValue(datum: DatumValue): DatumValue {
     prevTarget: datum.prevTarget,
     series: datum.series ?? null,
   }
+}
+
+function inheritSemanticMeasure(datum: DatumValue): DatumValue {
+  return {
+    ...datum,
+    semanticMeasure: datum.semanticMeasure ?? datum.measure ?? null,
+  }
+}
+
+function inheritSemanticMeasureList(rows: DatumValue[]): DatumValue[] {
+  return rows.map(inheritSemanticMeasure)
 }
 
 /** Clear all cached runtime results. */
@@ -638,11 +654,13 @@ function makeScalarDatum(
   targetLabel: string | null | undefined,
   numericValue: number,
   name: string | null = null,
+  semanticMeasure: string | null = null,
 ): DatumValue[] {
   return [
     {
       category: categoryName ?? 'result',
       measure: measureName ?? 'value',
+      semanticMeasure: semanticMeasure ?? measureName ?? 'value',
       target: targetLabel ?? '__result__',
       displayTarget: name ?? targetLabel ?? '__result__',
       group: group ?? null,
@@ -662,7 +680,7 @@ export function retrieveValue(data: DatumValue[], op: OperationSpec): DatumValue
   const arr = cloneData(data)
   const spec = assertRetrieveValueSpec(op)
   const { field, target, group } = spec
-  return sliceForTarget(arr, field, target, group ?? null)
+  return inheritSemanticMeasureList(sliceForTarget(arr, field, target, scalarGroupLabel(group)))
 }
 
 /** 3.2 filter */
@@ -703,17 +721,17 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
     const byGroupValue = byTarget.filter((d) => d.group != null && valueSet.has(String(d.group)))
     const byTargetValue = byTarget.filter((d) => valueSet.has(String(d.target)))
     if (byGroupValue.length === 0 && byTargetValue.length === 0) return []
-    if (byGroupValue.length > byTargetValue.length) return byGroupValue
-    if (byTargetValue.length > byGroupValue.length) return byTargetValue
+    if (byGroupValue.length > byTargetValue.length) return inheritSemanticMeasureList(byGroupValue)
+    if (byTargetValue.length > byGroupValue.length) return inheritSemanticMeasureList(byTargetValue)
     const hint = String(field ?? '').toLowerCase()
     if (hint.includes('series') || hint.includes('group') || hint.includes('country')) {
-      return byGroupValue.length ? byGroupValue : byTargetValue
+      return inheritSemanticMeasureList(byGroupValue.length ? byGroupValue : byTargetValue)
     }
-    return byTargetValue.length ? byTargetValue : byGroupValue
+    return inheritSemanticMeasureList(byTargetValue.length ? byTargetValue : byGroupValue)
   }
 
   if (!operator) {
-    return byTarget
+    return inheritSemanticMeasureList(byTarget)
   }
 
   const kind = inferFieldKind(byTarget, field)
@@ -732,9 +750,9 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
       }
       const min = Math.min(lo, hi)
       const max = Math.max(lo, hi)
-      return inField.filter((d) => Number.isFinite(Number(d.value)) && Number(d.value) >= min && Number(d.value) <= max)
+      return inheritSemanticMeasureList(inField.filter((d) => Number.isFinite(Number(d.value)) && Number(d.value) >= min && Number(d.value) <= max))
     }
-    return inField.filter((d) => {
+    return inheritSemanticMeasureList(inField.filter((d) => {
       const t = d.target
       const ts = Date.parse(t)
       const s = Date.parse(String(start))
@@ -749,48 +767,15 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
       const min = lo <= hi ? lo : hi
       const max = lo <= hi ? hi : lo
       return t >= min && t <= max
-    })
+    }))
   }
 
   // Numeric vs categorical dispatch
   if (kind === 'measure') {
-    return inField.filter((d) => evalOperator(operator, d.value, resolvedValue ?? d.value))
+    return inheritSemanticMeasureList(inField.filter((d) => evalOperator(operator, d.value, resolvedValue ?? d.value)))
   }
   // category
-  return inField.filter((d) => evalOperator(operator, d.target, resolvedValue ?? d.target))
-}
-
-/** 3.3 compare — returns the winning datum (array of one) */
-/** Op 3.3: compare two targets; return the winning datum. */
-export function compareOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
-  const arr = cloneData(data)
-  const spec = assertCompareSpec(op)
-  const { field, groupA, groupB, aggregate: agg, which = 'max' } = spec
-  const fallbackTargets = resolveBinaryInputsFromMeta(spec.meta?.inputs)
-  const targetA = spec.targetA ?? fallbackTargets.targetA
-  const targetB = spec.targetB ?? fallbackTargets.targetB
-  if (targetA == null || targetB == null) {
-    throw new Error('compare: targetA/targetB not found and meta.inputs fallback unavailable')
-  }
-  const gA = groupA ?? op.group
-  const gB = groupB ?? op.group
-  const sA = sliceForTarget(arr, field, targetA, gA ?? null)
-  const sB = sliceForTarget(arr, field, targetB, gB ?? null)
-  if (sA.length === 0 || sB.length === 0) {
-    throw new Error('compare: targetA/targetB not found in data slice')
-  }
-  const vA = aggregate(sA.map((d) => d.value), agg as string | undefined)
-  const vB = aggregate(sB.map((d) => d.value), agg as string | undefined)
-  const pickA = which === 'max' ? vA >= vB : vA <= vB
-  const chosen = pickA ? sA[sA.length - 1] : sB[sB.length - 1]
-  const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
-  return [
-    {
-      ...chosen,
-      name: buildBinaryLabel('comparison', left, right),
-      displayTarget: buildBinaryLabel('comparison', left, right),
-    },
-  ]
+  return inheritSemanticMeasureList(inField.filter((d) => evalOperator(operator, d.target, resolvedValue ?? d.target)))
 }
 
 /** 3.4 compareBool — returns a scalar DatumValue[] (value: 1 or 0) */
@@ -805,10 +790,10 @@ export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue
   if (targetA == null || targetB == null) {
     throw new Error('compareBool: targetA/targetB not found and meta.inputs fallback unavailable')
   }
-  const gA = groupA ?? op.group
-  const gB = groupB ?? op.group
-  const sA = sliceForTarget(arr, field, targetA, gA ?? null)
-  const sB = sliceForTarget(arr, field, targetB, gB ?? null)
+  const gA = scalarGroupLabel(groupA ?? op.group)
+  const gB = scalarGroupLabel(groupB ?? op.group)
+  const sA = sliceForTarget(arr, field, targetA, gA)
+  const sB = sliceForTarget(arr, field, targetB, gB)
   if (sA.length === 0 || sB.length === 0) {
     throw new Error('compareBool: targetA/targetB not found in data slice')
   }
@@ -817,10 +802,10 @@ export function compareBoolOp(data: DatumValue[], op: OperationSpec): DatumValue
   const vB = aggregate(sB.map((d) => d.value), undefined)
   const boolResult = evalOperator(operator, vA, vB)
   const fieldLabel = field || 'value'
-  const groupLabel = op.group ?? gA ?? gB ?? null
+  const groupLabel = scalarGroupLabel(op.group) ?? gA ?? gB ?? null
   const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
   const name = buildBinaryLabel('comparison', left, right)
-  return makeScalarDatum(fieldLabel, groupLabel, 'bool', '__compareBool__', boolResult ? 1 : 0, name)
+  return makeScalarDatum(fieldLabel, groupLabel, 'bool', '__compareBool__', boolResult ? 1 : 0, name, buildSemanticMeasure(OperationOp.CompareBool, fieldLabel))
 }
 
 /** 3.5 findExtremum */
@@ -850,6 +835,7 @@ export function findExtremum(data: DatumValue[], op: OperationSpec): DatumValue[
   return [
     {
       ...chosen.datum,
+      semanticMeasure: chosen.datum.semanticMeasure ?? chosen.datum.measure ?? null,
       name: label,
       displayTarget: label,
     },
@@ -875,61 +861,45 @@ export function sortData(data: DatumValue[], op: OperationSpec): DatumValue[] {
     return order === 'asc' ? cmpStrAsc(a.target, b.target) : cmpStrDesc(a.target, b.target)
   })
 
-  return sorted.concat(others)
+  return inheritSemanticMeasureList(sorted.concat(others))
 }
 
-/** 3.7 determineRange — returns {category: <field>, min, max} */
-/** Op 3.7: determine range (min/max) for measure or category domain. */
-export function determineRange(
-  data: DatumValue[],
-  op: OperationSpec,
-): DatumValue[] {
+/** 3.7 diffByValue — returns each datum's delta vs a single reference scalar */
+/** Op 3.7: compare every datum to a single scalar reference value. */
+export function diffByValueOp(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
-  const spec = assertDetermineRangeSpec(op)
-  const { field, group } = spec
+  const spec = assertDiffByValueSpec(op)
+  const { field, group, signed = true } = spec
+  const reference = resolveDiffByValueReference(spec)
+  if (reference == null) {
+    throw new Error('diffByValue: reference value could not be resolved')
+  }
   const byGroup = sliceByGroup(arr, group ?? null)
-  const kind = inferFieldKind(byGroup, field) || 'measure'
-  const inField = byGroup.filter(predicateByField(field, kind))
-  const fieldLabel = field || (kind === 'measure' ? 'value' : 'target')
-  const groupLabel = group ?? null
-  const subject = semanticSubjectFromRows(inField, fieldLabel)
-  const nameMin = buildAggregateLabel('minimum', subject)
-  const nameMax = buildAggregateLabel('maximum', subject)
-  if (inField.length === 0) {
-    return [
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', NaN, nameMin),
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', NaN, nameMax),
-    ]
-  }
+  const inField = field
+    ? byGroup.filter(predicateByField(field, inferFieldKind(byGroup, field) || 'measure'))
+    : byGroup
+  return inField.map((d) => {
+    const numeric = Number(d.value)
+    const delta = signed ? numeric - reference : Math.abs(numeric - reference)
+    return {
+      ...d,
+      semanticMeasure: buildSemanticMeasure(OperationOp.DiffByValue, field ?? d.measure ?? null),
+      value: roundNumeric(delta),
+      name: `Δ vs ${roundNumeric(reference)}`,
+    }
+  })
+}
 
-  if (kind === 'measure') {
-    const vals = inField.map((d) => d.value)
-    const min = roundNumeric(Math.min(...vals))
-    const max = roundNumeric(Math.max(...vals))
-    return [
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
-    ]
-  }
-  // category range: try date range, else lexicographic ordinal range as indices
-  const targets = inField.map((d) => d.target)
-  const parsed = targets.map((t) => Date.parse(t))
-  if (parsed.every((ts) => !Number.isNaN(ts))) {
-    const min = roundNumeric(Math.min(...parsed))
-    const max = roundNumeric(Math.max(...parsed))
-    return [
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
-      ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
-    ]
-  }
-  // ordinal index range
-  const uniq = Array.from(new Set(targets)).sort(cmpStrAsc)
-  const min = roundNumeric(0)
-  const max = roundNumeric(Math.max(0, uniq.length - 1))
-  return [
-    ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__min__', min, nameMin),
-    ...makeScalarDatum(fieldLabel, groupLabel, 'range', '__max__', max, nameMax),
-  ]
+function resolveDiffByValueReference(spec: OpDiffByValueSpec): number | null {
+  if (typeof spec.value === 'number' && Number.isFinite(spec.value)) return spec.value
+  // scalar 기준값은 targetValue: "ref:nX" 로만 선언한다. meta.inputs fallback 없음.
+  const refSource = spec.targetValue
+  if (typeof refSource !== 'string') return null
+  const refKey = refSource.startsWith('ref:') ? refSource.slice('ref:'.length) : refSource
+  const trimmed = refKey.trim()
+  if (!trimmed) return null
+  const rows = getRuntimeResultsById(trimmed)
+  return resolveScalarAggregateFromRows(rows)
 }
 
 /** 3.8 count — returns a single numeric DatumValue */
@@ -941,7 +911,7 @@ export function countData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const byGroup = sliceByGroup(arr, group ?? null)
   const fieldLabel = op?.field || 'target'
   const name = buildAggregateLabel('count', semanticSubjectFromRows(byGroup, fieldLabel))
-  return makeScalarDatum('value', group ?? null, 'count', '__count__', byGroup.length, name)
+  return makeScalarDatum('value', group ?? null, 'count', '__count__', byGroup.length, name, buildSemanticMeasure(OperationOp.Count, fieldLabel))
 }
 
 /** 3.9 sum — returns a single numeric DatumValue */
@@ -954,7 +924,7 @@ export function sumData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const s = byGroup.reduce((acc, d) => acc + d.value, 0)
   const fieldLabel = field || 'value'
   const name = buildAggregateLabel('sum', semanticSubjectFromRows(byGroup, fieldLabel))
-  return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__sum__', s, name)
+  return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__sum__', s, name, buildSemanticMeasure(OperationOp.Sum, fieldLabel))
 }
 
 /** 3.10 average — returns a single numeric DatumValue */
@@ -966,9 +936,9 @@ export function averageData(data: DatumValue[], op: OperationSpec): DatumValue[]
   const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
   const fieldLabel = field || 'value'
   const name = buildAggregateLabel('average', semanticSubjectFromRows(byGroup, fieldLabel))
-  if (byGroup.length === 0) return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__avg__', NaN, name)
+  if (byGroup.length === 0) return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__avg__', NaN, name, buildSemanticMeasure(OperationOp.Average, fieldLabel))
   const avg = byGroup.reduce((acc, d) => acc + d.value, 0) / byGroup.length
-  return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__avg__', avg, name)
+  return makeScalarDatum(fieldLabel, group ?? null, fieldLabel, '__avg__', avg, name, buildSemanticMeasure(OperationOp.Average, fieldLabel))
 }
 
 /** 3.11 diff — returns a single numeric DatumValue (signed if op.signed) */
@@ -989,8 +959,8 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
   if (targetA == null || targetB == null) {
     throw new Error('diff: targetA/targetB not found and meta.inputs fallback unavailable')
   }
-  const gA = groupA ?? op.group ?? null
-  const gB = groupB ?? op.group ?? null
+  const gA = scalarGroupLabel(groupA ?? op.group)
+  const gB = scalarGroupLabel(groupB ?? op.group)
 
   const collectSlice = (targets: TargetSelector | TargetSelector[] | undefined, groupLabel: string | null) => {
     const list = Array.isArray(targets) ? targets : [targets]
@@ -1069,11 +1039,11 @@ export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue
   }
 
   const fieldLabel = field || sA[0]?.measure || sB[0]?.measure || 'value'
-  const groupLabel = op.group ?? gA ?? gB ?? null
+  const groupLabel = scalarGroupLabel(op.group) ?? gA ?? gB ?? null
   const { left, right } = semanticLabelFromCompareTargets(targetA, targetB)
   const name = buildBinaryLabel('difference', left, right)
 
-  return makeScalarDatum(fieldLabel, groupLabel, fieldLabel, targetLabel, resultValue, name)
+  return makeScalarDatum(fieldLabel, groupLabel, fieldLabel, targetLabel, resultValue, name, buildSemanticMeasure(OperationOp.Diff, fieldLabel))
 }
 
 /** 3.11b lagDiff — adjacent differences across an ordered sequence */
@@ -1108,6 +1078,7 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
     const resultDatum: DatumValue = {
       category: categoryName,
       measure: measureName,
+      semanticMeasure: buildSemanticMeasure(OperationOp.LagDiff, measureName),
       target: curr.target,
       group: curr.group ?? null,
       value: roundNumeric(diffValue),
@@ -1210,6 +1181,7 @@ export function pairDiffData(data: DatumValue[], op: OperationSpec): DatumValue[
     out.push({
       category: pairKeyLabel || null,
       measure: measureName,
+      semanticMeasure: buildSemanticMeasure(OperationOp.PairDiff, measureName),
       target: key,
       displayTarget: typeof keyField === 'string' && keyField.trim().length > 0 ? key : buildBinaryLabel('difference', groupA, groupB),
       group: resultGroup,
@@ -1242,6 +1214,7 @@ export function addData(data: DatumValue[], op: OperationSpec): DatumValue[] {
     spec.targetName ?? '__add__',
     Number(left) + Number(right),
     buildBinaryLabel('sum', labels.left, labels.right),
+    buildSemanticMeasure(OperationOp.Add, spec.field ?? 'value', { addend: labels.right }),
   )
 }
 
@@ -1260,6 +1233,7 @@ export function scaleData(data: DatumValue[], op: OperationSpec): DatumValue[] {
     spec.targetName ?? '__scale__',
     Number(base) * factor,
     buildScaledLabel(formatTargetLabel(spec.target) || 'the previous result'),
+    buildSemanticMeasure(OperationOp.Scale, spec.field ?? 'value', { factor }),
   )
 }
 
@@ -1301,6 +1275,7 @@ export function setOpData(_data: DatumValue[], op: OperationSpec): DatumValue[] 
       return {
         category: base?.category ?? 'target',
         measure: base?.measure ?? 'value',
+        semanticMeasure: base?.semanticMeasure ?? base?.measure ?? 'value',
         target,
         group: spec.group ?? base?.group ?? null,
         value: 1,
@@ -1360,6 +1335,7 @@ export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
     if (idx >= 0 && idx < baseSequence.length) {
       results.push({
         ...baseSequence[idx],
+        semanticMeasure: baseSequence[idx].semanticMeasure ?? baseSequence[idx].measure ?? null,
         name: buildOrdinalLabel(rank, semanticSubjectFromRows(byGroup, op.field || 'value')),
         displayTarget: buildOrdinalLabel(rank, semanticSubjectFromRows(byGroup, op.field || 'value')),
       })
@@ -1375,11 +1351,10 @@ export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 export const LineChartOps = {
   retrieveValue,
   filter: filterData,
-  compare: compareOp,
   compareBool: compareBoolOp,
   findExtremum,
   sort: sortData,
-  determineRange,
+  diffByValue: diffByValueOp,
   count: countData,
   sum: sumData,
   average: averageData,

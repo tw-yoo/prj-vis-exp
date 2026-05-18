@@ -228,19 +228,6 @@ function contiguousRuns(targets: string[], orderedDomain: string[]) {
   return runs
 }
 
-function rangeBandPlan(result: DatumValue[], op: OperationSpec) {
-  const minRow = result.find((row) => String(row.target) === '__min__')
-  const maxRow = result.find((row) => String(row.target) === '__max__')
-  if (!minRow || !maxRow) return null
-  const minName = minRow.name ? String(minRow.name) : ''
-  const maxName = maxRow.name ? String(maxRow.name) : ''
-  if (minName && maxName) return [ops.draw.band(op.chartId, 'x', [minName, maxName], 'range')]
-  const minValue = Number(minRow.value)
-  const maxValue = Number(maxRow.value)
-  if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) return null
-  return [ops.draw.band(op.chartId, 'y', [Math.min(minValue, maxValue), Math.max(minValue, maxValue)], 'range')]
-}
-
 function resolveFilterFieldRole(op: OperationSpec, context: AutoDrawPlanContext) {
   const svg = context.container.querySelector('svg')
   const xField = (svg?.getAttribute(DataAttributes.XField) ?? '').trim()
@@ -310,8 +297,6 @@ export const MULTI_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
       makeAverageTextOp(op.chartId, avg, context),
     ]
   },
-  [OperationOp.DetermineRange]: (result, op) => rangeBandPlan(result, op),
-  [OperationOp.Compare]: (_result, op, context) => buildBinaryMultiLineComparisonPlan(op, context, '#0ea5e9'),
   [OperationOp.Diff]: (_result, op, context) => buildBinaryMultiLineComparisonPlan(op, context, '#ef4444'),
   [OperationOp.PairDiff]: (result, op, context) => {
     if (!result.length || !op.groupA || !op.groupB) return null

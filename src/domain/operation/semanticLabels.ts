@@ -1,4 +1,5 @@
 import { OperationOp, type DatumValue, type TargetSelector } from './types'
+import type { OperationOp as OperationName } from './types/operationNames'
 
 export type SemanticLabel = {
   shortLabel: string
@@ -147,6 +148,36 @@ export function buildOrdinalLabel(rank: number, subject: string, opts: { article
   return opts.article ? withDefiniteArticle(base) : base
 }
 
+export function buildSemanticMeasure(
+  kind: OperationName | string | undefined,
+  field: string | null | undefined,
+  opts: { groupLabel?: string | null; addend?: string | number | null; factor?: number | null; refName?: string | null } = {},
+): string {
+  const measure = normalizeText(field) || 'value'
+  switch (kind) {
+    case OperationOp.Sum:
+      return `sum(${measure})`
+    case OperationOp.Average:
+      return `avg(${measure})`
+    case OperationOp.Count:
+      return 'count'
+    case OperationOp.Diff:
+    case OperationOp.DiffByValue:
+    case OperationOp.CompareBool:
+      return 'diff'
+    case OperationOp.LagDiff:
+      return `Δ${measure}`
+    case OperationOp.PairDiff:
+      return `Δpair(${measure})`
+    case OperationOp.Add:
+      return `${measure}+${normalizeText(opts.addend) || 'value'}`
+    case OperationOp.Scale:
+      return `${measure}×${Number.isFinite(opts.factor ?? NaN) ? Number(opts.factor) : 'factor'}`
+    default:
+      return measure
+  }
+}
+
 export function buildOperationResultLabel(args: {
   opName: string | undefined
   subject?: string | null
@@ -180,13 +211,12 @@ export function buildOperationResultLabel(args: {
     case OperationOp.FindExtremum:
       shortLabel = buildAggregateLabel('maximum', cleanSubject || 'selected values')
       break
-    case OperationOp.DetermineRange:
-      shortLabel = buildAggregateLabel('range', cleanSubject || 'selected values')
+    case OperationOp.DiffByValue:
+      shortLabel = `differences from ${cleanSubject || 'reference value'}`
       break
     case OperationOp.Diff:
       shortLabel = buildBinaryLabel('difference', cleanLeft || 'previous result', cleanRight || 'previous result')
       break
-    case OperationOp.Compare:
     case OperationOp.CompareBool:
       shortLabel = buildBinaryLabel('comparison', cleanLeft || 'previous result', cleanRight || 'previous result')
       break

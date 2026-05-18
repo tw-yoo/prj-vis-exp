@@ -13,6 +13,7 @@ import {
   resolveTopLevelColorChannel,
 } from '../common/colorLegend'
 import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 import { bumpRenderEpoch } from '../common/renderEpoch'
@@ -65,23 +66,6 @@ function asRecord(value: unknown): Record<string, unknown> {
 function extractField(channel: unknown): string | undefined {
   const field = asRecord(channel).field
   return typeof field === 'string' && field.trim().length > 0 ? field.trim() : undefined
-}
-
-function normalizeOptionalLabel(value: JsonValue | undefined) {
-  if (value === undefined) return undefined
-  if (value === null) return null
-  const str = String(value).trim()
-  return str.length > 0 ? str : null
-}
-
-function resolveAxisLabels(spec: StackedSpec, xField: string, yField: string) {
-  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
-  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
-  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
-  return {
-    xAxisLabel: xAxisLabelOverride === undefined ? xField : xAxisLabelOverride,
-    yAxisLabel: yAxisLabelOverride === undefined ? yField : yAxisLabelOverride,
-  }
 }
 
 function resolveStackedRuntimeSpec(spec: StackedSpec): StackedRuntime | null {
@@ -295,7 +279,8 @@ export async function renderStackedBarChart(
     explicitScale,
   )
 
-  const { xAxisLabel, yAxisLabel } = resolveAxisLabels(spec, runtime.xField, runtime.yField)
+  const xAxisLabel = resolveAxisTitle(spec, normalizedRows, 'x')
+  const yAxisLabel = resolveAxisTitle(spec, normalizedRows, 'y')
   const layout = resolveLayoutModel({
     container,
     chartType: ChartType.STACKED_BAR,

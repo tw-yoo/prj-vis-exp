@@ -269,12 +269,91 @@ function toSimpleBarSpec(
   return setBarMarkColor(next, color)
 }
 
+async function animateStackedToSimple(
+  container: HTMLElement,
+  targetSeries: string,
+  maxValue: number,
+): Promise<void> {
+  const svg = container.querySelector('svg')
+  if (!svg) return
+
+  const svgSel = d3.select<SVGSVGElement, unknown>(svg as SVGSVGElement)
+  const mLeft = parseFloat(svg.getAttribute('data-m-left') ?? '0')
+  const mTop = parseFloat(svg.getAttribute('data-m-top') ?? '0')
+  const plotH = parseFloat(svg.getAttribute('data-plot-h') ?? '0')
+
+  // Phase 1: fade non-target bars
+  svgSel.selectAll<SVGRectElement, unknown>('rect.main-bar')
+    .filter(function () {
+      return (this.getAttribute('data-series') ?? '') !== targetSeries
+    })
+    .transition()
+    .duration(NON_SPLIT_EXIT_MS)
+    .attr('opacity', 0.08)
+
+  type BarInfo = { el: SVGRectElement; x: number; y: number; width: number; height: number; value: number }
+  const barInfos: BarInfo[] = []
+
+  svgSel.selectAll<SVGRectElement, unknown>('rect.main-bar')
+    .filter(function () {
+      return (this.getAttribute('data-series') ?? '') === targetSeries
+    })
+    .each(function () {
+      barInfos.push({
+        el: this,
+        x: parseFloat(this.getAttribute('x') ?? '0'),
+        y: parseFloat(this.getAttribute('y') ?? '0'),
+        width: parseFloat(this.getAttribute('width') ?? '0'),
+        height: parseFloat(this.getAttribute('height') ?? '0'),
+        value: parseFloat(this.getAttribute('data-value') ?? '0'),
+      })
+    })
+    .attr('opacity', 0)
+
+  if (!barInfos.length) return
+
+  const overlay = svgSel.append('g').attr('class', 'stacked-to-simple-overlay')
+
+  // Clone target bars into overlay at absolute SVG positions (bars are in g.translate(mLeft, mTop))
+  const clones = overlay.selectAll<SVGRectElement, BarInfo>('rect')
+    .data(barInfos)
+    .enter()
+    .append('rect')
+    .attr('fill', (d) => d3.select(d.el).attr('fill') ?? '')
+    .attr('opacity', 1)
+    .attr('x', (d) => mLeft + d.x)
+    .attr('y', (d) => mTop + d.y)
+    .attr('width', (d) => d.width)
+    .attr('height', (d) => d.height)
+
+  // Phase 2: animate bars to simple bar proportional heights (dramatic growth effect)
+  const moveTransition = clones
+    .transition()
+    .delay(NON_SPLIT_EXIT_MS * 0.6)
+    .duration(NON_SPLIT_UPDATE_MS)
+    .ease(d3.easeCubicInOut)
+    .attr('height', (d) => {
+      const simpleH = maxValue > 0 ? (d.value / maxValue) * plotH : d.height
+      return Math.max(1, simpleH)
+    })
+    .attr('y', (d) => {
+      const simpleH = maxValue > 0 ? (d.value / maxValue) * plotH : d.height
+      return mTop + plotH - Math.max(1, simpleH)
+    })
+
+  await moveTransition.end().catch(() => { /* ignore if interrupted */ })
+
+  overlay.remove()
+}
+
 export async function convertStackedToSimple(
   container: HTMLElement,
   spec: StackedSpec,
-  toSimple: { series: string | number },
+  toSimple: { series: string | number; yDomain?: [number, number] },
 ): Promise<SimpleBarSpec | null> {
+  console.log('[convertStackedToSimple] called', { series: toSimple.series, yDomain: toSimple.yDomain, containerId: container.getAttribute('data-surface-id') })
   const values = resolveDataset(getStackedBarStoredData(container) as RawDatum[], spec.data)
+  console.log('[convertStackedToSimple] dataset', { rowCount: values.length, colorField: spec.encoding.color?.field })
   if (!values.length) {
     console.warn('stacked-to-simple: no dataset available to hand off simple bar chart state')
     return null
@@ -302,6 +381,14 @@ export async function convertStackedToSimple(
     baseSort,
     explicitColor,
   })
+
+  if (toSimple.yDomain) {
+    ;(simple.encoding.y as Record<string, JsonValue>).scale = { domain: toSimple.yDomain as unknown as JsonValue }
+  }
+
+  const maxValue = toSimple.yDomain ? toSimple.yDomain[1] : 0
+  await animateStackedToSimple(container, String(toSimple.series), maxValue)
+  await renderSimpleBarChart(container, simple)
   finalizeSimpleBarHandoff(container, simple, (simple.data?.values as RawDatum[] | undefined) ?? [])
   return simple
 }
@@ -358,6 +445,7 @@ export async function convertGroupedToSimple(
   })
 
   await animateGroupedToSimple(container, String(toSimple.series), simple)
+  await renderSimpleBarChart(container, simple)
 
   finalizeSimpleBarHandoff(container, simple, (simple.data?.values as RawDatum[] | undefined) ?? [])
   return simple

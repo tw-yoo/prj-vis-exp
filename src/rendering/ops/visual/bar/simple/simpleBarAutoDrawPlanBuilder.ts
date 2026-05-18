@@ -429,38 +429,6 @@ function buildSetOpPlan(result: DatumValue[], op: OperationSpec, context: AutoDr
   return plan
 }
 
-function buildRangePlan(result: DatumValue[], op: OperationSpec) {
-  if (result.length < 2) return null
-  const minRow = result.find((row) => String(row.target) === '__min__')
-  const maxRow = result.find((row) => String(row.target) === '__max__')
-  if (!minRow || !maxRow) return null
-
-  const minName = minRow.name ? String(minRow.name) : ''
-  const maxName = maxRow.name ? String(maxRow.name) : ''
-  if (minName && maxName) {
-    return [
-      ops.draw.band(op.chartId, 'x', [minName, maxName], 'range', {
-        fill: 'rgba(59,130,246,0.16)',
-        stroke: '#3b82f6',
-        strokeWidth: 1.5,
-        opacity: 1 }),
-    ]
-  }
-
-  const minValue = Number(minRow.value)
-  const maxValue = Number(maxRow.value)
-  if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) return null
-  const lo = Math.min(minValue, maxValue)
-  const hi = Math.max(minValue, maxValue)
-  return [
-    ops.draw.band(op.chartId, 'y', [lo, hi], 'range', {
-      fill: 'rgba(59,130,246,0.14)',
-      stroke: '#3b82f6',
-      strokeWidth: 1.5,
-      opacity: 1 }),
-  ]
-}
-
 function buildResultDrivenFilterPlan(result: DatumValue[], op: OperationSpec) {
   const targets = Array.from(new Set(result.map((d) => String(d.target))))
   const plan: any[] = []
@@ -558,8 +526,6 @@ export const SIMPLE_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
       ...textTargets(result, op, typeof op.precision === 'number' ? op.precision : 2),
     ]
   },
-  [OperationOp.DetermineRange]: (result, op) => buildRangePlan(result, op),
-  [OperationOp.Compare]: (_result, op, context) => buildBinaryBarComparisonPlan(op, context, '#0ea5e9'),
   [OperationOp.CompareBool]: (_result, op, context) => buildBinaryBarComparisonPlan(op, context, EMPHASIS_RED),
   [OperationOp.PairDiff]: (_result, op) => {
     console.warn('pairDiff is not supported for simple bar charts', { op })

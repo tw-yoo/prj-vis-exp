@@ -34,6 +34,7 @@ export function toDatumValuesFromRaw(
     return {
       category: xField,
       measure: yField,
+      semanticMeasure: yField,
       target: String(targetRaw),
       group: groupValue != null && String(groupValue).trim() !== '' ? String(groupValue) : null,
       panel: panelValue != null && String(panelValue).trim() !== '' ? String(panelValue) : null,

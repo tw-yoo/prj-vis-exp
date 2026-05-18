@@ -642,21 +642,8 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
       return drawOps.map((drawOp) => (drawOp.action === DrawAction.Filter ? 1 : 0))
     case OperationOp.Sort:
       return drawOps.map((drawOp) => (drawOp.action === DrawAction.Sort ? 1 : 0))
-    case OperationOp.DetermineRange:
+    case OperationOp.DiffByValue:
       return drawOps.map(() => 0)
-    case OperationOp.Compare:
-      return drawOps.map((drawOp) => {
-        const slot = typeof drawOp.annotation?.slot === 'string' ? drawOp.annotation.slot : ''
-        if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
-        if (drawOp.action === DrawAction.Text && drawOp.select) return 0
-        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-rail:')) return 1
-        if (drawOp.action === DrawAction.Line && slot.startsWith('comparison-bracket:')) return 2
-        if (drawOp.action === DrawAction.Text && slot.startsWith('comparison-summary:')) return 2
-        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.HorizontalFromY) return 1
-        if (drawOp.action === DrawAction.Line && drawOp.line?.mode === DrawLineModes.DiffBracket) return 2
-        if (drawOp.action === DrawAction.Text) return 2
-        return 2
-      })
     case OperationOp.CompareBool:
       return drawOps.map((drawOp) => {
         const slot = typeof drawOp.annotation?.slot === 'string' ? drawOp.annotation.slot : ''

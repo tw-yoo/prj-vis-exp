@@ -7,6 +7,7 @@ import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } fr
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 import { bumpRenderEpoch } from '../common/renderEpoch'
@@ -21,7 +22,7 @@ const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new 
 export type SimpleBarSpec = ChartSpec & {
   encoding: {
     x: { field: string; type: string; aggregate?: string; sort?: JsonValue }
-    y: { field: string; type: string; aggregate?: string }
+    y: { field: string; type: string; aggregate?: string; scale?: JsonValue }
   }
 }
 
@@ -40,13 +41,6 @@ function clearRenderHostChildren(container: HTMLElement, preserveSelectors: stri
     if (preserved.has(child)) return
     child.remove()
   })
-}
-
-function normalizeOptionalLabel(value: JsonValue | undefined) {
-  if (value === undefined) return undefined
-  if (value === null) return null
-  const str = String(value).trim()
-  return str.length > 0 ? str : null
 }
 
 function resolveBarFill(spec: SimpleBarSpec): string {
@@ -158,6 +152,16 @@ function aggregateForSort(rows: RawDatum[], sortField: string, op = 'sum') {
   return Number.isFinite(result) ? result : 0
 }
 
+function resolveExplicitYDomain(scale: JsonValue | undefined): [number, number] | null {
+  if (!scale || typeof scale !== 'object' || Array.isArray(scale)) return null
+  const domain = (scale as { domain?: JsonValue }).domain
+  if (!Array.isArray(domain) || domain.length < 2) return null
+  const min = Number(domain[0])
+  const max = Number(domain[1])
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return null
+  return min < max ? [min, max] : [max, min]
+}
+
 function writeDatasetAttrs(
   svg: d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>,
   spec: SimpleBarSpec,
@@ -211,11 +215,6 @@ export async function renderSimpleBarChart(
   const yType = spec.encoding.y.type
   const barFill = resolveBarFill(spec)
   clearSimpleBarSplitDomains(stateHost)
-  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
-  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
-  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
-  const resolvedXAxisLabel = xAxisLabelOverride === undefined ? xField : xAxisLabelOverride
-  const resolvedYAxisLabel = yAxisLabelOverride === undefined ? yField : yAxisLabelOverride
 
   let data: RawDatum[] = []
   if (spec.data && Array.isArray((spec.data as { values?: JsonValue[] }).values)) {
@@ -233,6 +232,9 @@ export async function renderSimpleBarChart(
     console.warn('renderSimpleBarChart: spec.data.values or spec.data.url is required')
     data = []
   }
+
+  const resolvedXAxisLabel = resolveAxisTitle(spec, data, 'x')
+  const resolvedYAxisLabel = resolveAxisTitle(spec, data, 'y')
 
   data.forEach((d) => {
     if (xType === 'quantitative') d[xField] = Number(d[xField])
@@ -270,12 +272,20 @@ export async function renderSimpleBarChart(
 
   const xDomain = resolveCategoricalDomain(data, xField, spec?.encoding?.x?.sort).map(String)
   const xLabelMap = buildCategoricalDisplayLabelMap(data, xField)
-  const yValues = data.map((d) => Number(d[yField])).filter(Number.isFinite)
-  const minY = d3.min(yValues)
-  const maxY = d3.max(yValues)
-  let domainMin = Math.min(0, Number.isFinite(minY) ? (minY as number) : 0)
-  let domainMax = Math.max(0, Number.isFinite(maxY) ? (maxY as number) : 0)
-  if (domainMin === domainMax) domainMax = domainMin + 1
+  const explicitYDomain = resolveExplicitYDomain(spec.encoding.y.scale)
+  let domainMin: number
+  let domainMax: number
+  if (explicitYDomain) {
+    domainMin = explicitYDomain[0]
+    domainMax = explicitYDomain[1]
+  } else {
+    const yValues = data.map((d) => Number(d[yField])).filter(Number.isFinite)
+    const minY = d3.min(yValues)
+    const maxY = d3.max(yValues)
+    domainMin = Math.min(0, Number.isFinite(minY) ? (minY as number) : 0)
+    domainMax = Math.max(0, Number.isFinite(maxY) ? (maxY as number) : 0)
+    if (domainMin === domainMax) domainMax = domainMin + 1
+  }
   const initialLayout = resolveLayoutModel({ container, chartType: ChartType.SIMPLE_BAR, spec })
   const svg = renderWithMeasuredLayout(
     container,
@@ -305,7 +315,8 @@ export async function renderSimpleBarChart(
 
       const g = nextSvg.append(SvgElements.Group).attr(SvgAttributes.Transform, `translate(${margin.left},${margin.top})`)
       const xScale = d3.scaleBand<string>().domain(xDomain).range([0, plotW]).padding(0.2)
-      const yScale = d3.scaleLinear().domain([domainMin, domainMax]).nice().range([plotH, 0])
+      const yScale = d3.scaleLinear().domain([domainMin, domainMax]).range([plotH, 0])
+      if (!explicitYDomain) yScale.nice()
       const zeroY = yScale(0)
 
       g.append(SvgElements.Group)
@@ -380,17 +391,6 @@ export async function renderSimpleBarChart(
   )
 
   return svg
-}
-
-function resolveAxisLabels(spec: SimpleBarSpec) {
-  const yField = spec.encoding.y.field
-  const xField = spec.encoding.x.field
-  const axisLabelsMeta = (spec as { meta?: { axisLabels?: { x?: JsonValue; y?: JsonValue } } }).meta?.axisLabels ?? {}
-  const xAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.x)
-  const yAxisLabelOverride = normalizeOptionalLabel(axisLabelsMeta.y)
-  const resolvedXAxisLabel = xAxisLabelOverride === undefined ? xField : xAxisLabelOverride
-  const resolvedYAxisLabel = yAxisLabelOverride === undefined ? yField : yAxisLabelOverride
-  return { resolvedXAxisLabel, resolvedYAxisLabel }
 }
 
 export async function renderSumSimpleBarChart(

@@ -256,25 +256,15 @@ export const operationRegistry: OperationRegistry = {
       ],
     },
     {
-      op: 'determineRange',
-      label: 'Determine Range',
-      icon: '📐',
+      op: 'diffByValue',
+      label: 'Diff By Value',
+      icon: '📏',
       fields: [
+        { key: 'value', label: 'Value', kind: 'number', optional: true },
+        { key: 'targetValue', label: 'Target Value (ref:nX)', kind: 'string', optional: true },
         { key: 'field', label: 'Field', kind: 'string', optional: true, optionsSource: 'field' },
         { key: 'group', label: 'Group', kind: 'string', optional: true, optionsSource: 'series' },
-      ],
-    },
-    {
-      op: 'compare',
-      label: 'Compare',
-      icon: '⚖️',
-      fields: [
-        { key: 'targetA', label: 'Target A', kind: 'stringOrNumber', optional: false, optionsSource: 'target' },
-        { key: 'targetB', label: 'Target B', kind: 'stringOrNumber', optional: false, optionsSource: 'target' },
-        { key: 'field', label: 'Field', kind: 'string', optional: true, optionsSource: 'field' },
-        { key: 'groupA', label: 'Group A', kind: 'string', optional: true, optionsSource: 'series' },
-        { key: 'groupB', label: 'Group B', kind: 'string', optional: true, optionsSource: 'series' },
-        { key: 'which', label: 'Which', kind: 'enum', optional: true, options: [...ExtremumWhichOptions] },
+        { key: 'signed', label: 'Signed', kind: 'boolean', optional: true },
       ],
     },
     {

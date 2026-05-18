@@ -1,0 +1,17 @@
+{
+  "chart_id": "e1_q1",
+  "question": "What is the difference between the average of Commercial and the average of Matchday?",
+  "description": "Initial evaluation fixture for operation-spec step playback.",
+  "specPath": "specs/e1_q1.vl.json",
+  "opsPath": "ops/e1_q1.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "1. Take the Commercial revenues across all seasons and compute their average, then take the Matchday revenues across all seasons and compute their average."
+    },
+    {
+      "id": "ops3",
+      "text": "3. Subtract the Matchday average from the Commercial average to get a difference of 885.5 million euros."
+    }
+  ]
+}

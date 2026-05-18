@@ -175,21 +175,6 @@ function contiguousRuns(targets: string[], orderedDomain: string[]) {
   return runs
 }
 
-function rangeBandPlan(result: DatumValue[], op: OperationSpec) {
-  const minRow = result.find((row) => String(row.target) === '__min__')
-  const maxRow = result.find((row) => String(row.target) === '__max__')
-  if (!minRow || !maxRow) return null
-  const minName = minRow.name ? String(minRow.name) : ''
-  const maxName = maxRow.name ? String(maxRow.name) : ''
-  if (minName && maxName) {
-    return [ops.draw.band(op.chartId, 'x', [minName, maxName], 'range')]
-  }
-  const minValue = Number(minRow.value)
-  const maxValue = Number(maxRow.value)
-  if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) return null
-  return [ops.draw.band(op.chartId, 'y', [Math.min(minValue, maxValue), Math.max(minValue, maxValue)], 'range')]
-}
-
 function buildFilterPlan(result: DatumValue[], op: OperationSpec) {
   const targets = Array.from(new Set(result.map((row) => String(row.target))))
   const highlightPlan = buildHighlightPlan(targets, '#ef4444')
@@ -251,9 +236,7 @@ export const SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
       makeAverageTextOp(op.chartId, avg, context),
     ]
   },
-  [OperationOp.DetermineRange]: (result, op) => rangeBandPlan(result, op),
   [OperationOp.Diff]: (_result, op, context) => buildBinarySimpleLineComparisonPlan(op, context, '#ef4444'),
-  [OperationOp.Compare]: (_result, op, context) => buildBinarySimpleLineComparisonPlan(op, context, '#0ea5e9'),
   [OperationOp.CompareBool]: (_result, op, context) => buildBinarySimpleLineComparisonPlan(op, context, '#ef4444'),
   [OperationOp.LagDiff]: (result, op) => {
     if (!result.length) return null

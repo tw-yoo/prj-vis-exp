@@ -73,15 +73,16 @@ export class MultiLineDrawHandler extends LineDrawHandler {
   private collectSeriesPaths(chartId?: string) {
     const scope = this.selectScope(chartId)
     const paths = this.filterDataMarks(
-      scope.selectAll<SVGPathElement, JsonValue>(`${SvgElements.Path}[${DataAttributes.Series}]`),
+      scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Path}[${DataAttributes.Series}]`),
     )
     if (paths.empty()) return [] as SeriesPathEntry[]
     return paths
       .nodes()
       .map((node) => {
-        const seriesRaw = node.getAttribute(DataAttributes.Series)
+        const el = node as SVGPathElement
+        const seriesRaw = el.getAttribute(DataAttributes.Series)
         return {
-          el: node,
+          el,
           series: typeof seriesRaw === 'string' && seriesRaw.trim().length > 0 ? seriesRaw.trim() : null,
         }
       })
@@ -90,7 +91,7 @@ export class MultiLineDrawHandler extends LineDrawHandler {
   private collectPointEntries(chartId?: string) {
     const scope = this.selectScope(chartId)
     const points = this.filterDataMarks(
-      scope.selectAll<SVGCircleElement, JsonValue>(`${SvgElements.Circle}[${DataAttributes.Target}][${DataAttributes.Value}]`),
+      scope.selectAll<SVGElement, JsonValue>(`${SvgElements.Circle}[${DataAttributes.Target}][${DataAttributes.Value}]`),
     )
     if (points.empty()) return [] as LinePointEntry[]
     return points

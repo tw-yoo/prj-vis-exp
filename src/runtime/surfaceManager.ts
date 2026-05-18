@@ -6,6 +6,40 @@ import type { SurfaceLayout } from '../domain/surface/surfaceLayout'
 import { createSurfaceRuntimeContext } from '../domain/surface/surfaceRuntimeContext'
 import { getActiveSurfaces } from '../domain/surface/surfaceLayout'
 
+const SPLIT_SURFACE_GAP_PX = 10
+const SPLIT_DEBUG_PREFIX = '[split-simple-bar-debug]'
+
+function isSplitDebugEnabled() {
+  return Boolean((globalThis as typeof globalThis & { __OPERATION_NEXT_DEBUG__?: unknown }).__OPERATION_NEXT_DEBUG__)
+}
+
+function splitDebug(label: string, payload: Record<string, unknown>) {
+  if (!isSplitDebugEnabled()) return
+  try {
+    console.info(SPLIT_DEBUG_PREFIX, label, JSON.stringify(payload))
+  } catch {
+    console.info(SPLIT_DEBUG_PREFIX, label, payload)
+  }
+}
+
+function summarizeHost(host: HTMLElement) {
+  const rect = host.getBoundingClientRect()
+  return {
+    surfaceId: host.dataset.surfaceId ?? null,
+    display: host.style.display || '(default)',
+    flex: host.style.flex || '(default)',
+    widthStyle: host.style.width || '(default)',
+    minWidthStyle: host.style.minWidth || '(default)',
+    rect: {
+      x: Number(rect.x.toFixed(1)),
+      y: Number(rect.y.toFixed(1)),
+      width: Number(rect.width.toFixed(1)),
+      height: Number(rect.height.toFixed(1)),
+    },
+    svgCount: host.querySelectorAll('svg').length,
+  }
+}
+
 /**
  * SurfaceManager: 완전 분리된 multi-surface layout 관리자.
  *
@@ -118,9 +152,21 @@ export class SurfaceManager {
     const idA = options?.idA ?? 'A'
     const idB = options?.idB ?? 'B'
 
-    // root host의 기존 SVG 숨기기 (host 자체는 flex container로 유지)
-    const existingSvg = this.asHostElement(source).querySelector<SVGElement>('svg')
+    // root host의 기존 SVG 숨기기. root host가 별도 child인 경우에는
+    // split flex item으로 공간을 차지하지 않도록 host 자체도 숨긴다.
+    const sourceHost = this.asHostElement(source)
+    const existingSvg = sourceHost.querySelector<SVGElement>('svg')
     if (existingSvg) existingSvg.style.display = 'none'
+    if (sourceHost !== this.rootContainer) {
+      sourceHost.style.display = 'none'
+    }
+    splitDebug('surfaceManager.splitSurface-before-hosts', {
+      orientation,
+      root: summarizeHost(this.rootContainer),
+      source: summarizeHost(sourceHost),
+      sourceHostIsRootContainer: sourceHost === this.rootContainer,
+      existingSvgHidden: Boolean(existingSvg),
+    })
 
     const hostA = this.createSplitHost(idA)
     const hostB = this.createSplitHost(idB)
@@ -144,8 +190,17 @@ export class SurfaceManager {
     this.surfaces.set(idB, surfaceB)
 
     const layoutType = orientation === 'horizontal' ? 'split-horizontal' : 'split-vertical'
-    this.layout = { type: layoutType, surfaces: [surfaceA, surfaceB], gap: 16 }
+    this.layout = { type: layoutType, surfaces: [surfaceA, surfaceB], gap: SPLIT_SURFACE_GAP_PX }
     this.applyLayoutStyles()
+    splitDebug('surfaceManager.splitSurface-after-layout', {
+      layoutType,
+      gap: SPLIT_SURFACE_GAP_PX,
+      root: summarizeHost(this.rootContainer),
+      hosts: [summarizeHost(hostA), summarizeHost(hostB)],
+      childSurfaceIds: Array.from(this.rootContainer.querySelectorAll<HTMLElement>(':scope > [data-surface-id]')).map(
+        (node) => node.dataset.surfaceId ?? null,
+      ),
+    })
 
     return { surfaceA, surfaceB }
   }
@@ -205,7 +260,12 @@ export class SurfaceManager {
     this.rootContainer.classList.remove('surface-layout--split')
     // root host display 복원
     const rootHost = this.rootContainer.querySelector<HTMLElement>('[data-surface-id="root"]')
-    if (rootHost) rootHost.style.display = ''
+    if (rootHost) {
+      rootHost.style.display = ''
+      rootHost.style.flex = ''
+      rootHost.style.width = ''
+      rootHost.style.minWidth = ''
+    }
   }
 
   // ─── internal helpers ─────────────────────────────────────────────────────
@@ -280,13 +340,36 @@ export class SurfaceManager {
       this.rootContainer.style.display = ''
       this.rootContainer.style.flexDirection = ''
       this.rootContainer.style.gap = ''
+      this.rootContainer.style.columnGap = ''
+      this.rootContainer.style.rowGap = ''
+      const rootHost = this.rootContainer.querySelector<HTMLElement>(':scope > [data-surface-id="root"]')
+      if (rootHost && rootHost !== this.rootContainer) {
+        rootHost.style.display = ''
+        rootHost.style.flex = ''
+        rootHost.style.width = ''
+        rootHost.style.minWidth = ''
+      }
+      splitDebug('surfaceManager.applyLayoutStyles-single', {
+        root: summarizeHost(this.rootContainer),
+        rootHost: rootHost ? summarizeHost(rootHost) : null,
+      })
       return
     }
 
     this.rootContainer.classList.add('surface-layout--split')
-    const gap = this.layout.gap ?? 16
+    const gap = this.layout.gap ?? SPLIT_SURFACE_GAP_PX
     this.rootContainer.style.display = 'flex'
     this.rootContainer.style.gap = `${gap}px`
+    this.rootContainer.style.columnGap = `${gap}px`
+    this.rootContainer.style.rowGap = `${gap}px`
+
+    const rootHost = this.rootContainer.querySelector<HTMLElement>(':scope > [data-surface-id="root"]')
+    if (rootHost && rootHost !== this.rootContainer) {
+      rootHost.style.display = 'none'
+      rootHost.style.flex = '0 0 0'
+      rootHost.style.width = '0'
+      rootHost.style.minWidth = '0'
+    }
 
     if (this.layout.type === 'split-horizontal') {
       this.rootContainer.style.flexDirection = 'row'
@@ -305,5 +388,15 @@ export class SurfaceManager {
         host.style.minHeight = '0'
       })
     }
+    splitDebug('surfaceManager.applyLayoutStyles-split', {
+      layoutType: this.layout.type,
+      gap,
+      root: summarizeHost(this.rootContainer),
+      rootHost: rootHost ? summarizeHost(rootHost) : null,
+      surfaces: this.layout.surfaces.map((surface) => summarizeHost(this.asHostElement(surface))),
+      computedGap: getComputedStyle(this.rootContainer).gap,
+      computedColumnGap: getComputedStyle(this.rootContainer).columnGap,
+      computedRowGap: getComputedStyle(this.rootContainer).rowGap,
+    })
   }
 }

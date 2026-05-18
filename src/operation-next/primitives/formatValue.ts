@@ -1,0 +1,22 @@
+/**
+ * Formats a numeric operation result for display.
+ * - Integers are shown without decimals.
+ * - Floats are rounded to 2 decimal places (trailing zeros stripped via Number()).
+ * - Non-finite values (Infinity, NaN) fall back to String().
+ */
+export function formatOperationValue(value: number): string {
+  if (!Number.isFinite(value)) return String(value)
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)))
+}
+
+/**
+ * Formats a signed numeric delta for display (e.g. lagDiff labels).
+ * Positive values get a '+' prefix, negative values get '-', zero has no sign.
+ */
+export function formatSignedOperationValue(value: number): string {
+  if (!Number.isFinite(value)) return String(value)
+  const magnitude = formatOperationValue(Math.abs(value))
+  if (value > 0) return `+${magnitude}`
+  if (value < 0) return `-${magnitude}`
+  return magnitude
+}

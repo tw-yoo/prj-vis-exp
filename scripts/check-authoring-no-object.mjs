@@ -38,6 +38,67 @@ function reportAndExit(files, violations, engine) {
   console.log(`[authoring-style:${engine}] Checked ${files.length} files. No forbidden object-style authoring patterns found.`)
 }
 
+function parseCsv(text) {
+  const rows = []
+  let row = []
+  let field = ''
+  let quoted = false
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    const next = text[index + 1]
+    if (quoted) {
+      if (char === '"' && next === '"') {
+        field += '"'
+        index += 1
+      } else if (char === '"') {
+        quoted = false
+      } else {
+        field += char
+      }
+      continue
+    }
+    if (char === '"') {
+      quoted = true
+    } else if (char === ',') {
+      row.push(field)
+      field = ''
+    } else if (char === '\n') {
+      row.push(field)
+      rows.push(row)
+      row = []
+      field = ''
+    } else if (char !== '\r') {
+      field += char
+    }
+  }
+  if (field || row.length > 0) {
+    row.push(field)
+    rows.push(row)
+  }
+  return rows
+}
+
+function warnEmptySupportedCompositionSpecs() {
+  const csvPath = path.join(root, 'docs/operation-rules/selected_supported_compositional_questions.csv')
+  if (!fs.existsSync(csvPath)) return
+  const rows = parseCsv(fs.readFileSync(csvPath, 'utf8'))
+  const header = rows[0] ?? []
+  const idIndex = header.indexOf('id')
+  const specIndex = header.indexOf('spec')
+  const sequenceIndex = header.indexOf('supported_operation_sequence')
+  if (idIndex < 0 || specIndex < 0 || sequenceIndex < 0) return
+
+  const emptyRows = rows.slice(1)
+    .map((row, offset) => ({ rowNumber: offset + 2, id: row[idIndex], spec: row[specIndex], sequence: row[sequenceIndex] }))
+    .filter((row) => row.sequence.trim().length > 0 && row.spec.trim() === '{}')
+
+  for (const row of emptyRows) {
+    console.warn(
+      `[authoring-style:operation-rules] Warning: supported compositional question ${row.id || `(row ${row.rowNumber})`} has an empty operation spec.`,
+    )
+  }
+}
+
 function createViolation(filePath, line, column, id, message) {
   return {
     file: path.relative(root, filePath),
@@ -269,6 +330,7 @@ async function inspectWithTsMorph(files) {
 
 async function main() {
   const files = includeDirs.flatMap(listFiles)
+  warnEmptySupportedCompositionSpecs()
   try {
     const violations = await inspectWithTsMorph(files)
     reportAndExit(files, violations, 'ts-morph')

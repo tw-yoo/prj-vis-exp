@@ -26,6 +26,8 @@ export const DURATIONS = {
   NTH_HIGHLIGHT: 150,
   FILTER_DELAY: 700,
   SUM_DELAY: 200,
+  /** Y-axis rescale transform for pairDiff focus (circles + axis re-tick). */
+  AXIS_RESCALE: 800,
 }
 
 export const OPACITIES = {
@@ -33,6 +35,15 @@ export const OPACITIES = {
   DIM: 0.2,
   SEMI_DIM: 0.3,
   HIDDEN: 0,
+}
+
+export const COLORS = {
+  ANNOTATION_RED: '#ef4444',
+  ANNOTATION_BLUE: '#0ea5e9',
+  ANNOTATION_STRONG_RED: '#dc2626',
+  TEXT_DARK: '#111827',
+  SERIES_DEFAULT: '#4f46e5',
+  LABEL_STROKE: '#ffffff',
 }
 
 export const STYLES = {
@@ -50,14 +61,14 @@ export const STYLES = {
     fontSize: CHART_TEXT_SIZE.valueLabel,
     fontWeight: 'bold',
     textAnchor: 'middle' as const,
-    stroke: 'white',
+    stroke: COLORS.LABEL_STROKE,
     strokeWidth: 3,
     paintOrder: 'stroke',
   },
   AGGREGATE_LABEL: {
     fontSize: CHART_TEXT_SIZE.valueLabel,
     fontWeight: 'bold',
-    stroke: 'white',
+    stroke: COLORS.LABEL_STROKE,
     strokeWidth: 3,
     paintOrder: 'stroke',
   },

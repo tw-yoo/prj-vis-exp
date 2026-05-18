@@ -5,9 +5,8 @@ import type {
   OpAddSpec,
   OpAverageSpec,
   OpCompareBoolSpec,
-  OpCompareSpec,
   OpCountSpec,
-  OpDetermineRangeSpec,
+  OpDiffByValueSpec,
   OpDiffSpec,
   OpFilterSpec,
   OpFindExtremumSpec,
@@ -75,18 +74,6 @@ export function assertFilterSpec(op: OperationSpec): OpFilterSpec {
   return spec
 }
 
-export function assertCompareSpec(op: OperationSpec): OpCompareSpec {
-  if (op.op !== OperationOp.Compare) {
-    throw new Error(`Expected Compare spec but got op "${op.op}"`)
-  }
-  const spec = op as OpCompareSpec
-  const inputCount = Array.isArray(spec.meta?.inputs) ? spec.meta.inputs.length : 0
-  if ((spec.targetA == null || spec.targetB == null) && inputCount < 2) {
-    throw new Error('compare requires "targetA" and "targetB"')
-  }
-  return spec
-}
-
 export function assertCompareBoolSpec(op: OperationSpec): OpCompareBoolSpec {
   if (op.op !== OperationOp.CompareBool) {
     throw new Error(`Expected CompareBool spec but got op "${op.op}"`)
@@ -109,11 +96,18 @@ export function assertFindExtremumSpec(op: OperationSpec): OpFindExtremumSpec {
   return spec
 }
 
-export function assertDetermineRangeSpec(op: OperationSpec): OpDetermineRangeSpec {
-  if (op.op !== OperationOp.DetermineRange) {
-    throw new Error(`Expected DetermineRange spec but got op "${op.op}"`)
+export function assertDiffByValueSpec(op: OperationSpec): OpDiffByValueSpec {
+  if (op.op !== OperationOp.DiffByValue) {
+    throw new Error(`Expected DiffByValue spec but got op "${op.op}"`)
   }
-  return op as OpDetermineRangeSpec
+  const spec = op as OpDiffByValueSpec
+  const hasLiteral = typeof spec.value === 'number' && Number.isFinite(spec.value)
+  const hasRef = typeof spec.targetValue === 'string' && spec.targetValue.length > 0
+  const inputCount = Array.isArray(spec.meta?.inputs) ? spec.meta.inputs.length : 0
+  if (!hasLiteral && !hasRef && inputCount < 1) {
+    throw new Error('diffByValue requires "value" (literal) or "targetValue" (ref)')
+  }
+  return spec
 }
 
 export function assertSumSpec(op: OperationSpec): OpSumSpec {

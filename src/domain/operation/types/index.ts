@@ -9,6 +9,7 @@ export type JsonValue = JsonPrimitive | JsonObject | JsonArray
  * Normalized datum used by chart operations.
  * - category: semantic x/label field name (e.g., "country")
  * - measure: semantic y/value field name (e.g., "rating")
+ * - semanticMeasure: result-level measure meaning after operations (e.g., "avg(rating)")
  * - target: actual category value shown on axis (stringified)
  * - group: subgroup/series label (null for single-series)
  * - value: numeric value for operations
@@ -16,6 +17,7 @@ export type JsonValue = JsonPrimitive | JsonObject | JsonArray
 export interface DatumValue {
   category: string | null
   measure: string | null
+  semanticMeasure?: string | null
   target: string
   displayTarget?: string | null
   group: string | null
@@ -63,6 +65,7 @@ export type TargetSelector =
  * Properties are optional because different ops use different subsets.
  */
 export interface OperationSpec {
+  id?: string
   op?: string
   text?: JsonValue
   meta?: {
@@ -75,6 +78,8 @@ export interface OperationSpec {
   /** Target include/exclude list (used by filter op) */
   include?: Array<string | number>
   exclude?: Array<string | number>
+  /** Optional LLM-provided semantic hint for the x-axis data kind. Runtime policy validates this against the chart spec. */
+  xKindHint?: 'temporal' | 'quantitative' | 'ordinal' | 'nominal' | 'unknown'
   operator?:
     | '>'
     | '>='
@@ -116,6 +121,8 @@ export interface OperationSpec {
   /** Sleep duration in seconds */
   seconds?: number
   duration?: number
+  action?: string
+  split?: JsonValue
 }
 
 export type DataOpResult = DatumValue[]
