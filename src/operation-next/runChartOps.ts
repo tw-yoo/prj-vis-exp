@@ -3,13 +3,13 @@ import { normalizeOpsGroups, type OpsSpecInput } from '../domain/operation/opsSp
 import { runGroupedBarOperations } from './runners/groupedBar'
 import { runMultipleLineOperations } from './runners/multipleLine'
 import { runSimpleBarOperations } from './runners/simpleBar'
-import { runSimpleLineOperations } from './runners/simpleLine'
 import { runStackedBarOperations } from './runners/stackedBar'
 import { assertKnownOperationNextChartType } from './runners/shared'
 import type { ChartOperationRunner, RunChartOpsOptions } from './types'
 import { initializeOperationRuntime } from './executionState'
 import { collectReferencedResultIds } from './diffEndpoint'
 import { DEFAULT_POLICY } from './tensionPolicy'
+import { runSimpleLineOperationsNew } from '../operation-new/runSimpleLine'
 
 const DEBUG_PREFIX = '[operation-next-debug]'
 
@@ -56,7 +56,10 @@ function resolveRunner(chartType: ReturnType<typeof assertKnownOperationNextChar
     case ChartType.GROUPED_BAR:
       return runGroupedBarOperations
     case ChartType.SIMPLE_LINE:
-      return runSimpleLineOperations
+      // SIMPLE_LINE routes to the new ChartInstance-backed runner in
+      // src/operation-new/. Other chart types stay on existing runners.
+      console.info('[operation-new] dispatcher: runChartOps → SIMPLE_LINE → new runner (src/operation-new/)')
+      return runSimpleLineOperationsNew
     case ChartType.MULTI_LINE:
       return runMultipleLineOperations
     default:
