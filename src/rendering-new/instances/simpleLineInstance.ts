@@ -8,7 +8,7 @@ import { resolveAxisTitle } from '../../rendering/common/resolveAxisTitle'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../../rendering/common/displayLabels'
 import { wrapAxisTickLabels } from '../../rendering/common/wrapAxisTickLabels'
 import { createTemporalTickFormatter } from '../../rendering/common/temporalTicks'
-import { applyAxisTickLabelSize, COLORS, DURATIONS, EASINGS } from '../../rendering/common/d3Helpers'
+import { applyAxisTickLabelSize, COLORS, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 import { formatTooltipValue, writeTooltipRootAttrs } from '../../rendering/common/chartHoverTooltip'
 import { CHART_TEXT_SIZE } from '../../rendering/config/chartTextConfig'
 import { bumpRenderEpoch } from '../../rendering/common/renderEpoch'
@@ -392,19 +392,27 @@ export class SimpleLineChartInstance implements ChartInstance {
   }
 
   /**
-   * Op-agnostic scale-transition primitive built on **scale interpolation**:
-   * the y-domain (and x-domain for both continuous *and* ordinal x-scales)
-   * is interpolated as a function of time `t`, and at every animation frame
-   * the line, points, and axes are re-drawn with the *same* in-between
-   * scale. That gives a single source-of-truth coordinate system at every
-   * tick — the axis and the marks can never drift out of alignment, and the
-   * chart reads as one continuous "zoom" motion rather than a cross-fade
-   * between two precomputed states.
+   * Op-agnostic scale-transition primitive built on the **d3 shared-transition
+   * idiom** that the user's reference example uses:
    *
-   * The line keeps its full topology (no `.defined()` gap); out-of-scope
-   * segments slide past the plot bounds and are hidden by the plot-area
-   * clip-path. activeTargets is only tracked on the instance for downstream
-   * ops; it is not used by this primitive.
+   *   const transition = svg.transition().duration(D).ease(E);
+   *   line.transition(inheritT).attr('d', newPath);
+   *   points.filter(inScope).transition(inheritT).attr('cx', ...).attr('cy', ...);
+   *   points.filter(outScope).transition(inheritT).attr('r', 0).style('opacity', 0);
+   *   xAxis.transition(inheritT).call(d3.axisBottom(newX));
+   *   yAxis.transition(inheritT).call(d3.axisLeft(newY));
+   *
+   * One parent transition feeds the d3 scheduler for *all* sub-elements,
+   * which means axis ticks and marks share an identical timing/easing every
+   * frame — they can never drift apart. Line is given a narrowed datum
+   * (in-scope subset) and a plain `.attr('d', newPath)` so d3's default
+   * string interpolation handles the morph. No `attrTween`, no defined()
+   * topology gymnastics.
+   *
+   * Out-of-scope points fade to dim opacity (keeping them as a faint
+   * contextual breadcrumb). For ordinal X we leave their cx alone (the new
+   * scale doesn't define those labels); for continuous X we let them slide
+   * to the extrapolated position so the plot-clip naturally hides them.
    */
   async transitionChartScale(opts: {
     yDomain?: [number, number]
@@ -421,36 +429,10 @@ export class SimpleLineChartInstance implements ChartInstance {
 
     const duration = opts.duration ?? DURATIONS.AXIS_RESCALE
     const ease = opts.ease ?? EASINGS.SMOOTH
-    const plotW = this.layout.plotWidth
-    const plotH = this.layout.plotHeight
 
-    // ---------- Capture prev state and mutate to next state synchronously ----------
+    // ---------- Capture prev state + mutate scales synchronously ----------
     const prevYDomain = this.yScale.domain() as [number, number]
     const prevXDomainRaw = (this.xScale.domain() as Array<number | Date | string>).slice()
-
-    // Build a *previous* xScale copy with the original range — used for
-    // measuring per-point start cx so we can interpolate cx linearly.
-    let prevXScaleCopy:
-      | d3.ScaleTime<number, number>
-      | d3.ScaleLinear<number, number>
-      | d3.ScalePoint<string>
-    if (xType === 'temporal') {
-      prevXScaleCopy = d3
-        .scaleTime()
-        .domain([prevXDomainRaw[0] as Date, prevXDomainRaw[1] as Date])
-        .range([0, plotW])
-    } else if (xType === 'quantitative') {
-      prevXScaleCopy = d3
-        .scaleLinear()
-        .domain([Number(prevXDomainRaw[0]), Number(prevXDomainRaw[1])])
-        .range([0, plotW])
-    } else {
-      prevXScaleCopy = d3
-        .scalePoint<string>()
-        .domain(prevXDomainRaw.map((v) => String(v)))
-        .range([0, plotW])
-        .padding(0.5)
-    }
 
     let willChangeY = false
     let willChangeX = false
@@ -497,179 +479,99 @@ export class SimpleLineChartInstance implements ChartInstance {
       yDomainTo: this.yScale.domain(),
       xDomainFrom: prevXDomainRaw,
       xDomainTo: this.xScale.domain(),
+      activeSize: this.activeTargets?.size ?? null,
     })
 
-    // ---------- Interpolators / temp scales ----------
-    const newYDomain = this.yScale.domain() as [number, number]
+    // ---------- The d3 shared-transition idiom ----------
+    // Everything below rides this single transition object, so the d3
+    // scheduler ticks every sub-transition in lockstep. The type is widened
+    // to `any` GElement so child selections (path, circle, g) can all pass
+    // it to their own `.transition(t)` — d3 runtime accepts this freely,
+    // but the strict generic types refuse cross-element transitions.
+    const transition = this.svg.transition().duration(duration).ease(ease) as unknown as d3.Transition<
+      d3.BaseType,
+      unknown,
+      d3.BaseType,
+      unknown
+    >
+    // Helper: cast child-selection transition arg to satisfy TS while
+    // keeping the runtime behaviour (d3 inherits timing from the parent).
+    const inheritT = transition as never
 
-    // Y: interpolate the *domain*, rebuild a scale per frame, so axis +
-    // marks always read the same coordinate system at time t.
-    const interpY = willChangeY ? d3.interpolate(prevYDomain, newYDomain) : null
-    const yScaleAtT = (t: number) => {
-      if (!interpY) return this.yScale
-      return d3.scaleLinear().domain(interpY(t)).range([plotH, 0])
+    // Helper: cx on the *current* (mutated) scales.
+    const xOfLive = (p: RenderPoint): number => {
+      if (xType === 'temporal') return (this.xScale as d3.ScaleTime<number, number>)(p.xValue as Date) ?? 0
+      if (xType === 'quantitative') return (this.xScale as d3.ScaleLinear<number, number>)(p.xValue as number) ?? 0
+      return (this.xScale as d3.ScalePoint<string>)(p.xLabel) ?? 0
     }
 
-    // X: continuous → same domain-interpolation trick. ordinal → cannot
-    // interpolate a string array, so we interpolate each point's cx between
-    // its start position (in the prev scale) and end position (in the new
-    // scale). Both yield smooth single-source-of-truth motion.
-    const newXDomainRaw = this.xScale.domain() as Array<number | Date | string>
-    const interpXContinuous =
-      willChangeX && isContinuousX ? d3.interpolate(prevXDomainRaw as Array<number | Date>, newXDomainRaw as Array<number | Date>) : null
-    const xScaleAtT_continuous = (t: number) => {
-      if (!interpXContinuous) return this.xScale
-      const d = interpXContinuous(t)
-      if (xType === 'temporal') {
-        return d3.scaleTime().domain([d[0] as Date, d[1] as Date]).range([0, plotW])
-      }
-      return d3.scaleLinear().domain([Number(d[0]), Number(d[1])]).range([0, plotW])
-    }
+    // ----- Line: narrow datum to in-scope subset (so the path connects
+    // only those points), then plain `.attr('d', newPath)`. d3's default
+    // string interpolation handles the morph — including topology changes.
+    const activeTargets = this.activeTargets
+    const lineData = activeTargets ? this.points.filter((p) => activeTargets.has(p.target)) : this.points
+    this.linePath
+      .datum(lineData)
+      .transition(inheritT)
+      .attr(SvgAttributes.D, this.lineGenerator(lineData) ?? '')
 
-    // Per-point start/end cx — used for ordinal interpolation. For points
-    // whose label disappears from the new domain, the new scale returns
-    // undefined; we keep them at their start cx so they stay "in place"
-    // (dim opacity already signals scope), avoiding NaN paths.
-    const newXScaleNow = this.xScale
-    const pointStartEndX = isOrdinalX
-      ? this.points.map((p) => {
-          const startCx = (prevXScaleCopy as d3.ScalePoint<string>)(p.xLabel) ?? 0
-          const endCxRaw = (newXScaleNow as d3.ScalePoint<string>)(p.xLabel)
-          const endCx = endCxRaw == null || Number.isNaN(endCxRaw) ? startCx : endCxRaw
-          return { startCx, endCx }
-        })
-      : null
-
-    const cxAtT_continuous = (
-      p: RenderPoint,
-      scale: d3.ScaleTime<number, number> | d3.ScaleLinear<number, number> | d3.ScalePoint<string>,
-    ): number => {
-      if (xType === 'temporal') return (scale as d3.ScaleTime<number, number>)(p.xValue as Date) ?? 0
-      if (xType === 'quantitative') return (scale as d3.ScaleLinear<number, number>)(p.xValue as number) ?? 0
-      return (scale as d3.ScalePoint<string>)(p.xLabel) ?? 0
-    }
-
-    const cxAtT = (p: RenderPoint, i: number, t: number): number => {
-      if (isOrdinalX && pointStartEndX) {
-        const { startCx, endCx } = pointStartEndX[i]
-        return startCx + (endCx - startCx) * t
-      }
-      const xScale_t = willChangeX ? xScaleAtT_continuous(t) : this.xScale
-      return cxAtT_continuous(p, xScale_t)
-    }
-
-    // ---------- Run the transition ----------
-    const TXN = 'rescale'
-    const transitions: Promise<void>[] = []
-
-    // Line path: per-frame, redraw with the in-between yScale (and xScale
-    // for continuous). For ordinal X, each control point uses its per-point
-    // interpolated cx. Topology stays at all-points so d3's string
-    // interpolation is never invoked — every frame is a fresh, internally
-    // consistent path.
-    transitions.push(
-      this.linePath
-        .interrupt(TXN)
-        .transition(TXN)
-        .duration(duration)
-        .ease(ease)
-        .attrTween('d', () => {
-          const points = this.points
-          return (t: number) => {
-            const yScale_t = yScaleAtT(t)
-            const gen = d3
-              .line<RenderPoint>()
-              .x((_p, i) => cxAtT(points[i], i, t))
-              .y((p) => yScale_t(p.yValue))
-            return gen(points) ?? ''
-          }
-        })
-        .end()
-        .catch(() => {}),
-    )
-
-    // Points: per-frame cy from the interpolated yScale; cx from continuous
-    // interpolated xScale or per-point start/end blend (ordinal).
+    // ----- Points: in-scope vs out-of-scope are processed differently in
+    // the same shared transition.
     if (!this.pointMarks.empty()) {
-      const sel = this.pointMarks.interrupt(TXN).transition(TXN).duration(duration).ease(ease)
-      if (willChangeY) {
-        sel.attrTween('cy', function (d) {
-          return (t: number) => String(yScaleAtT(t)(d.yValue))
-        })
+      if (activeTargets) {
+        // In-scope: slide to the new scale positions, restore full opacity.
+        this.pointMarks
+          .filter((d) => activeTargets.has(d.target))
+          .transition(inheritT)
+          .attr(SvgAttributes.CX, (d) => xOfLive(d))
+          .attr(SvgAttributes.CY, (d) => this.yScale(d.yValue))
+          .style(SvgAttributes.Opacity, OPACITIES.FULL)
+
+        // Out-of-scope: fade to dim opacity. cy follows the new yScale so
+        // the chart's vertical motion stays consistent. For continuous X
+        // we also reposition cx (clip-path will naturally hide anything
+        // that slides off-plot). For ordinal X we leave cx alone because
+        // the new domain doesn't define those labels.
+        const outScope = this.pointMarks.filter((d) => !activeTargets.has(d.target))
+        outScope
+          .transition(inheritT)
+          .attr(SvgAttributes.CY, (d) => this.yScale(d.yValue))
+          .style(SvgAttributes.Opacity, OPACITIES.DIM)
+        if (isContinuousX) {
+          outScope.transition(inheritT).attr(SvgAttributes.CX, (d) => xOfLive(d))
+        }
+      } else {
+        // No active filter — every point repositions and stays full-opacity.
+        this.pointMarks
+          .transition(inheritT)
+          .attr(SvgAttributes.CX, (d) => xOfLive(d))
+          .attr(SvgAttributes.CY, (d) => this.yScale(d.yValue))
+          .style(SvgAttributes.Opacity, OPACITIES.FULL)
       }
-      if (willChangeX) {
-        sel.attrTween('cx', function (d, i) {
-          return (t: number) => String(cxAtT(d, i, t))
-        })
-      }
-      transitions.push(sel.end().catch(() => {}))
     }
 
-    // Axes: build a tween that re-renders the axis from the interpolated
-    // scale each frame, so tick positions stay in lockstep with the marks.
+    // ----- Axes: same shared transition. d3 handles tick enter/update/exit
+    // internally and smoothly interpolates positions to the new scale.
     if (willChangeY) {
-      transitions.push(
-        this.yAxisGroup
-          .interrupt(TXN)
-          .transition(TXN)
-          .duration(duration)
-          .ease(ease)
-          .tween('y-axis', () => {
-            const group = this.yAxisGroup
-            return (t: number) => {
-              const yScale_t = yScaleAtT(t)
-              group.call(d3.axisLeft(yScale_t).ticks(6))
-            }
-          })
-          .end()
-          .catch(() => {}),
-      )
+      this.yAxisGroup.transition(inheritT).call(d3.axisLeft(this.yScale).ticks(6))
       applyAxisTickLabelSize(this.yAxisGroup)
     }
     if (willChangeX) {
-      transitions.push(
-        this.xAxisGroup
-          .interrupt(TXN)
-          .transition(TXN)
-          .duration(duration)
-          .ease(ease)
-          .tween('x-axis', () => {
-            const group = this.xAxisGroup
-            return (t: number) => {
-              if (isContinuousX) {
-                const xScale_t = xScaleAtT_continuous(t)
-                if (xType === 'temporal') {
-                  group.call(d3.axisBottom(xScale_t as d3.ScaleTime<number, number>))
-                } else {
-                  group.call(d3.axisBottom(xScale_t as d3.ScaleLinear<number, number>))
-                }
-                return
-              }
-              // Ordinal: the live xScale carries the new label domain. d3's
-              // axis(scale) for scalePoint distributes ticks evenly across
-              // the range, so we manually shift the tick `transform` to
-              // match the per-point cx interpolation that line/points use.
-              const liveScale = this.xScale as d3.ScalePoint<string>
-              group.call(d3.axisBottom(liveScale))
-              const xDomain = liveScale.domain()
-              const ticks = group.selectAll<SVGGElement, string>('.tick')
-              ticks.each(function (label) {
-                const labelStr = String(label ?? '')
-                const startCx = (prevXScaleCopy as d3.ScalePoint<string>)(labelStr) ?? 0
-                const endCx = liveScale(labelStr) ?? startCx
-                if (!xDomain.includes(labelStr)) return
-                const cx = startCx + (endCx - startCx) * t
-                d3.select(this).attr('transform', `translate(${cx},0)`)
-              })
-            }
-          })
-          .end()
-          .catch(() => {}),
-      )
+      const xAxisFn =
+        xType === 'temporal'
+          ? d3.axisBottom(this.xScale as d3.ScaleTime<number, number>)
+          : xType === 'quantitative'
+            ? d3.axisBottom(this.xScale as d3.ScaleLinear<number, number>)
+            : d3.axisBottom(this.xScale as d3.ScalePoint<string>)
+      this.xAxisGroup.transition(inheritT).call(xAxisFn)
       applyAxisTickLabelSize(this.xAxisGroup)
     }
 
-    await Promise.all(transitions)
+    try {
+      await transition.end()
+    } catch {
+      /* interrupted */
+    }
   }
 
   // ----- build (private) -----

@@ -1,12 +1,11 @@
 import * as d3 from 'd3'
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS, EASINGS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 import { resolveAnnotationViewport } from '../../primitives/annotationLayer'
-import { applyMarkSalience } from '../../primitives/markSalience'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
 import { placeOperationTextLabel } from '../../primitives/placeLabel'
@@ -122,33 +121,15 @@ export const filterApplier: OperationApplier = {
     layer.selectAll(`.${FILTER_ANNOTATION_CLASS}`).interrupt().remove()
 
     const remainingTargets = new Set(result.map((d) => String(d.target)))
-    const markSelection = instance.pointMarks as unknown as d3.Selection<SVGElement, unknown, d3.BaseType, unknown>
 
     // -----------------------------------------------------------------------
-    // Sequential phases — this is what makes the transition feel natural:
-    //   Phase 1 (~DIM ms):  out-of-scope points fade to dim opacity.
-    //   Phase 2 (~RESCALE ms): axes + line + points slide to the new scale.
-    //   Phase 3 (~LABEL ms):   threshold ref line / scope label fades in.
-    // Each phase is `await`-ed so the eye can register the dim before the
-    // chart starts re-scaling. The clip-path on the line/points group hides
-    // anything that slides outside the plot rectangle, so out-of-scope
-    // segments disappear naturally without `line.defined()` topology jumps.
+    // Single shared-transition rescale (the d3 idiom from the reference
+    // example). transitionChartScale opens one parent transition and rides
+    // it for: axis ticks (X + Y), line `d`, in-scope point cx/cy + full
+    // opacity, and out-of-scope point dim opacity. Every visual element
+    // shares the same scheduler, so axis and marks stay perfectly aligned
+    // through every animation frame — no Phase-1/Phase-2 split needed.
     // -----------------------------------------------------------------------
-
-    // ----- Phase 1: dim out-of-scope -----
-    await applyMarkSalience({
-      marks: markSelection,
-      isInScope: (node) => {
-        const target = node.getAttribute(DataAttributes.Target)
-        return target != null && remainingTargets.has(target)
-      },
-    })
-
-    // ----- Phase 2: rescale (axes + line + points) -----
-    // Y always narrows when there is filtered data; X narrows either via
-    // continuous domain interpolation (temporal/quantitative) or via an
-    // in-scope label list for ordinal — `transitionChartScale` picks the
-    // right path based on instance.resolvedEncoding.xType.
     const originalYDomain = instance.yScale.domain() as [number, number]
     const yDomain = computeYDomain(result)
     const xDomain = computeXDomain(instance, result)
