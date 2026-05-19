@@ -103,7 +103,20 @@ export const filterApplier: OperationApplier = {
 
     const remainingTargets = new Set(result.map((d) => String(d.target)))
     const markSelection = instance.pointMarks as unknown as d3.Selection<SVGElement, unknown, d3.BaseType, unknown>
-    const salienceP = applyMarkSalience({
+
+    // -----------------------------------------------------------------------
+    // Sequential phases — this is what makes the transition feel natural:
+    //   Phase 1 (~DIM ms):  out-of-scope points fade to dim opacity.
+    //   Phase 2 (~RESCALE ms): axes + line + points slide to the new scale.
+    //   Phase 3 (~LABEL ms):   threshold ref line / scope label fades in.
+    // Each phase is `await`-ed so the eye can register the dim before the
+    // chart starts re-scaling. The clip-path on the line/points group hides
+    // anything that slides outside the plot rectangle, so out-of-scope
+    // segments disappear naturally without `line.defined()` topology jumps.
+    // -----------------------------------------------------------------------
+
+    // ----- Phase 1: dim out-of-scope -----
+    await applyMarkSalience({
       marks: markSelection,
       isInScope: (node) => {
         const target = node.getAttribute(DataAttributes.Target)
@@ -111,20 +124,11 @@ export const filterApplier: OperationApplier = {
       },
     })
 
-    // ----- Unified scale + visual-scope transition -----
-    // Single op-agnostic call that synchronizes (a) Y rescale, (b) continuous
-    // X rescale when applicable, and (c) the line.defined() activeTargets so
-    // the line cleanly skips out-of-scope segments. All three changes share
-    // one transition group → in-scope points smoothly slide to their new
-    // positions while out-of-scope ones stay dimmed at the plot edge (clipped
-    // by the plot-clip path).
+    // ----- Phase 2: rescale (axes + line + points) -----
     const originalYDomain = instance.yScale.domain() as [number, number]
     const yDomain = computeYDomain(result)
     const xDomain = computeXDomain(instance, result)
-    // Always go through transitionChartScale, even when only activeTargets
-    // changes — that way the line attrTween fires and the defined() gap
-    // appears as part of the same coordinated motion.
-    const transitionP = instance.transitionChartScale({
+    await instance.transitionChartScale({
       yDomain: yDomain ?? undefined,
       xDomain: xDomain ?? undefined,
       activeTargets: remainingTargets,
@@ -142,19 +146,15 @@ export const filterApplier: OperationApplier = {
       }
     }
 
-    // ----- Threshold ref line or scope label -----
+    // ----- Phase 3: threshold ref line or scope label (drawn on the new scale) -----
     const threshold = resolveNumericThreshold(operation, state.workingData)
     const viewport = resolveAnnotationViewport(instance)
     const x1 = instance.layout.marginLeft
     const x2 = instance.layout.marginLeft + instance.layout.plotWidth
-    let lineP: Promise<void> | null = null
 
     if (threshold != null && Number.isFinite(instance.yScale(threshold))) {
-      // Position is computed from the NEW yScale domain (set synchronously
-      // inside rescaleY before its transitions run), so the line is drawn at
-      // the correct future position while rescale animates in parallel.
       const thresholdY = instance.layout.marginTop + instance.yScale(threshold)
-      lineP = drawReferenceLine({
+      await drawReferenceLine({
         layer,
         cssClass: FILTER_ANNOTATION_CLASS,
         x1,
@@ -184,16 +184,17 @@ export const filterApplier: OperationApplier = {
         preferred,
         viewport,
       })
-      lineP = labelNode
-        .transition()
-        .duration(DURATIONS.LABEL_FADE_IN)
-        .ease(EASINGS.SMOOTH)
-        .style(SvgAttributes.Opacity, 1)
-        .end()
-        .catch(() => {})
+      try {
+        await labelNode
+          .transition()
+          .duration(DURATIONS.LABEL_FADE_IN)
+          .ease(EASINGS.SMOOTH)
+          .style(SvgAttributes.Opacity, 1)
+          .end()
+      } catch {
+        /* interrupted */
+      }
     }
-
-    await Promise.all([salienceP, transitionP, lineP].filter(Boolean))
 
     const nextSalienceMap = new Map<string, number>(
       [...result.map((d): [string, number] => [String(d.target), OPACITIES.FULL])],

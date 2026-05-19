@@ -393,12 +393,13 @@ export class SimpleLineChartInstance implements ChartInstance {
 
   /**
    * Op-agnostic scale-transition primitive. Any applier can call this with
-   * any subset of {yDomain, xDomain, activeTargets}; only the dimensions that
-   * actually change get animated. All sub-transitions (axes, line via
-   * attrTween, point cx/cy) share the same duration + easing so the visual
-   * stays a single coordinated motion. New domains are applied to
-   * `this.xScale`/`this.yScale` synchronously so callers reading those right
-   * after this call see the post-transition coordinate system.
+   * any subset of {yDomain, xDomain, activeTargets}. Implementation is
+   * intentionally simple: domains are mutated synchronously, then each
+   * dependent visual (axes, line, points) gets a plain d3 transition that
+   * interpolates to the new state via d3's default string/numeric tweens
+   * — no `attrTween` machinery. The line keeps its full topology so its
+   * `d` attribute interpolates smoothly; out-of-scope segments slide past
+   * the plot edges and are hidden by the clip-path.
    */
   async transitionChartScale(opts: {
     yDomain?: [number, number]
@@ -414,15 +415,13 @@ export class SimpleLineChartInstance implements ChartInstance {
     const duration = opts.duration ?? DURATIONS.AXIS_RESCALE
     const ease = opts.ease ?? EASINGS.SMOOTH
 
-    // Capture previous domains BEFORE mutation (interpolation start values).
+    // Capture previous domains BEFORE mutation (for change detection).
     const prevYDomain = this.yScale.domain() as [number, number]
     const prevXDomainRaw = isContinuousX ? (this.xScale.domain() as Array<number | Date>) : null
 
-    // Mutate state synchronously so any post-call read of scale/activeTargets
-    // sees the target values (the transition only animates the visual).
+    // Mutate state synchronously so post-call reads of scale see new values.
     let willChangeY = false
     let willChangeX = false
-    let willChangeActive = false
 
     if (opts.yDomain !== undefined) {
       let next = opts.yDomain
@@ -446,121 +445,65 @@ export class SimpleLineChartInstance implements ChartInstance {
       }
     }
     if (opts.activeTargets !== undefined) {
-      const prev = this.activeTargets
-      const next = opts.activeTargets
-      const sameActive =
-        prev === next ||
-        (prev != null && next != null && prev.size === next.size && [...prev].every((t) => next.has(t)))
-      if (!sameActive) {
-        this.activeTargets = next
-        willChangeActive = true
-      }
+      // Tracked on the instance so other ops can consult it; not used by
+      // the visual transition (line + clip-path naturally handle scope).
+      this.activeTargets = opts.activeTargets
     }
 
-    if (!willChangeY && !willChangeX && !willChangeActive) return
+    if (!willChangeY && !willChangeX) {
+      // No domain change → nothing to animate.
+      return
+    }
 
     console.info('[operation-new] SimpleLineChartInstance.transitionChartScale', {
       willChangeY,
       willChangeX,
-      willChangeActive,
       yDomainFrom: prevYDomain,
       yDomainTo: this.yScale.domain(),
       activeSize: this.activeTargets?.size ?? null,
     })
 
-    const newYDomain = this.yScale.domain() as [number, number]
-    const newXDomainRaw = isContinuousX ? (this.xScale.domain() as Array<number | Date>) : null
+    // Recompute the new line path with the now-current scales. Topology stays
+    // the same (all points), so d3's default string interpolation produces a
+    // smooth morph — no attrTween needed.
+    const newPath = this.lineGenerator(this.points) ?? ''
 
-    // Interpolators — only created for axes that actually change.
-    const interpY = willChangeY ? d3.interpolate(prevYDomain, newYDomain) : null
-    const interpX = willChangeX && prevXDomainRaw && newXDomainRaw ? d3.interpolate(prevXDomainRaw, newXDomainRaw) : null
-
-    const plotW = this.layout.plotWidth
-    const plotH = this.layout.plotHeight
-
-    // Temp scales reused each frame (avoid allocating per call).
-    const tempY = d3.scaleLinear().range([plotH, 0])
-    // Temp X factory matches the live xScale's type.
-    const buildTempX = (domain: Array<number | Date>) => {
-      if (xType === 'temporal') {
-        return d3.scaleTime().domain([domain[0] as Date, domain[1] as Date]).range([0, plotW])
-      }
-      // quantitative
-      return d3.scaleLinear().domain([Number(domain[0]), Number(domain[1])]).range([0, plotW])
+    // X position helper using the (post-mutation) live xScale.
+    const xOf = (p: RenderPoint) => {
+      if (xType === 'temporal') return (this.xScale as d3.ScaleTime<number, number>)(p.xValue as Date) ?? 0
+      if (xType === 'quantitative') return (this.xScale as d3.ScaleLinear<number, number>)(p.xValue as number) ?? 0
+      return (this.xScale as d3.ScalePoint<string>)(p.xLabel) ?? 0
     }
-
-    const xOf = (
-      p: RenderPoint,
-      scale: d3.ScaleTime<number, number> | d3.ScaleLinear<number, number> | d3.ScalePoint<string>,
-    ) => {
-      if (xType === 'temporal') return (scale as d3.ScaleTime<number, number>)(p.xValue as Date)
-      if (xType === 'quantitative') return (scale as d3.ScaleLinear<number, number>)(p.xValue as number)
-      return (scale as d3.ScalePoint<string>)(p.xLabel) ?? 0
-    }
-
-    const activeTargets = this.activeTargets
-    const isInScope = (p: RenderPoint) => activeTargets == null || activeTargets.has(p.target)
-
-    // Build the line `d` attribute at animation time `t ∈ [0,1]`.
-    const lineAtT = (t: number) => {
-      const yScaleT = interpY ? tempY.copy().domain(interpY(t)) : this.yScale
-      const xScaleT =
-        interpX && isContinuousX
-          ? buildTempX(interpX(t))
-          : (this.xScale as d3.ScaleTime<number, number> | d3.ScaleLinear<number, number> | d3.ScalePoint<string>)
-      const gen = d3
-        .line<RenderPoint>()
-        .defined(isInScope)
-        .x((p) => xOf(p, xScaleT))
-        .y((p) => yScaleT(p.yValue))
-      return gen(this.points) ?? ''
-    }
-
-    const transitions: Promise<void>[] = []
 
     // All sub-transitions share the named slot 'rescale' so they don't fight
     // concurrent transitions on the same selections that target *different*
-    // attributes (e.g. salience's opacity fade on pointMarks). interrupt()
-    // with the same name only cancels a previous rescale, not the salience
-    // fade. d3 isolates named transitions per attribute namespace.
+    // attributes (e.g. salience's opacity fade on pointMarks).
     const TXN = 'rescale'
+    const transitions: Promise<void>[] = []
 
-    // Line path — single attrTween that handles X + Y + defined together.
+    // Line path — simple `.attr('d', newPath)`. d3 interpolates the d string
+    // numerically, sliding each control point from its old position to its
+    // new one in lockstep.
     transitions.push(
       this.linePath
         .interrupt(TXN)
         .transition(TXN)
         .duration(duration)
         .ease(ease)
-        .attrTween('d', () => (t) => lineAtT(t))
+        .attr(SvgAttributes.D, newPath)
         .end()
         .catch(() => {}),
     )
 
-    // Point cx/cy — interpolated through the temp scales when applicable.
+    // Points cy / cx with the live scales.
     if (!this.pointMarks.empty()) {
       const sel = this.pointMarks.interrupt(TXN).transition(TXN).duration(duration).ease(ease)
-      if (willChangeY) {
-        sel.attrTween('cy', function (d) {
-          return (t) => {
-            const yScaleT = interpY ? tempY.copy().domain(interpY(t)) : null
-            return String(yScaleT ? yScaleT(d.yValue) : '')
-          }
-        })
-      }
-      if (willChangeX && isContinuousX) {
-        sel.attrTween('cx', function (d) {
-          return (t) => {
-            const xScaleT = interpX ? buildTempX(interpX(t)) : null
-            if (!xScaleT) return ''
-            return String(xOf(d, xScaleT))
-          }
-        })
-      }
+      if (willChangeY) sel.attr(SvgAttributes.CY, (d) => this.yScale(d.yValue))
+      if (willChangeX && isContinuousX) sel.attr(SvgAttributes.CX, (d) => xOf(d))
       transitions.push(sel.end().catch(() => {}))
     }
 
-    // Y axis — call(axis) with the live yScale; d3 interpolates ticks smoothly.
+    // Y axis — `call(axis)` inside a transition makes d3 interpolate ticks.
     if (willChangeY) {
       transitions.push(
         this.yAxisGroup
@@ -575,7 +518,7 @@ export class SimpleLineChartInstance implements ChartInstance {
       applyAxisTickLabelSize(this.yAxisGroup)
     }
 
-    // X axis — only continuous (temporal/quantitative); ordinal stays put.
+    // X axis — only continuous; ordinal stays put.
     if (willChangeX && isContinuousX) {
       const xAxisFn =
         xType === 'temporal'
@@ -868,12 +811,14 @@ export class SimpleLineChartInstance implements ChartInstance {
       if (resolved.xType === 'quantitative') return (xScale as d3.ScaleLinear<number, number>)(point.xValue as number) ?? 0
       return (xScale as d3.ScalePoint<string>)(point.xLabel) ?? 0
     }
-    // Line generator with `.defined()` so the line skips out-of-scope segments
-    // when `activeTargets` is set (filter narrows the visual subset). null
-    // activeTargets means every point is in scope (default).
+    // Line generator connects ALL points (no `.defined()` gap). Out-of-scope
+    // segments are hidden naturally by the plot-area clip-path when their
+    // points slide outside the rescaled axis. This keeps the path topology
+    // stable so `.attr('d', newPath)` interpolates smoothly via d3's default
+    // string interpolation — no attrTween / scale-interpolation gymnastics
+    // needed.
     this.lineGenerator = d3
       .line<RenderPoint>()
-      .defined((p) => this.activeTargets == null || this.activeTargets.has(p.target))
       .x((p) => resolveX(p))
       .y((p) => yScale(p.yValue))
 
