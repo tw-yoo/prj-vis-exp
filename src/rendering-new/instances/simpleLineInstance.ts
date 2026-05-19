@@ -275,21 +275,36 @@ async function loadInlineRows(spec: LineSpec): Promise<RawDatum[]> {
 // Spec-key — used for idempotent ensureRendered
 // ---------------------------------------------------------------------------
 
+/**
+ * Stable spec identity used by `ensureRendered` to decide whether the SVG
+ * skeleton needs to be torn down and rebuilt. We are intentionally
+ * **conservative** here: rebuilding wipes the SVG and replays it from
+ * scratch, which destroys any in-flight transition end-state the user just
+ * saw (it visually reads as "chart vanishes and the final state fades back
+ * in"). The workbench's visual-execution-player may re-issue `renderChart`
+ * between substeps with a structurally-equivalent but referentially-new
+ * spec object — that should be absorbed without a rebuild. Therefore the
+ * key looks at only the *data source* (url or values), which is what truly
+ * differentiates one chart from another inside the simple-line dispatcher.
+ * Encoding / mark / layer tweaks that come in between substeps are absorbed
+ * by `transitionChartScale` and successive ops, not by a full rebuild.
+ */
 function computeSpecKey(spec: ChartSpec): string {
-  const subset = {
-    data: spec.data ?? null,
-    encoding: spec.encoding ?? null,
-    layer: spec.layer ?? null,
-    mark: spec.mark ?? null,
-    transform: (spec as { transform?: unknown }).transform ?? null,
-    width: spec.width ?? null,
-    height: spec.height ?? null,
+  const data = spec.data as { url?: string; values?: unknown[]; name?: string } | undefined
+  if (data?.url) return `url:${data.url}`
+  if (Array.isArray(data?.values)) {
+    // Length + a short structural fingerprint is enough to detect a real
+    // data swap (e.g. user paste a different spec) without paying for a
+    // full JSON.stringify on every substep.
+    const sample = data.values.slice(0, 3)
+    try {
+      return `vals:${data.values.length}:${JSON.stringify(sample)}`
+    } catch {
+      return `vals:${data.values.length}`
+    }
   }
-  try {
-    return JSON.stringify(subset)
-  } catch {
-    return String(Date.now())
-  }
+  if (data?.name) return `name:${data.name}`
+  return 'no-data'
 }
 
 // ---------------------------------------------------------------------------
