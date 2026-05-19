@@ -53,9 +53,8 @@ function computeYDomain(rows: DatumValue[]): [number, number] | null {
 }
 
 /**
- * Continuous X domain for the filtered subset. Ordinal/nominal x-axes return
- * null so the X axis stays put — categorical filters narrow scope via
- * activeTargets + line.defined() gaps, not by rescaling.
+ * Continuous X domain for the filtered subset. Ordinal/nominal returns null;
+ * for those, `computeXLabelDomain` provides the in-scope label list instead.
  *
  * Reads xValue directly from the instance's pre-parsed RenderPoint to avoid
  * re-parsing the DatumValue.target string (instance already normalized it
@@ -83,6 +82,27 @@ function computeXDomain(
   const min = Math.min(...nums)
   const max = Math.max(...nums)
   return [min, max === min ? max + 1 : max]
+}
+
+/**
+ * In-scope ordinal/nominal x label domain. Returns the list of remaining
+ * point labels (preserving their original sort order) so the x-axis can
+ * narrow to just those — paired with `transitionChartScale`'s per-point cx
+ * interpolation, this gives a smooth single motion where Y and X narrow
+ * together.
+ */
+function computeXLabelDomain(
+  instance: SimpleLineChartInstance,
+  rows: DatumValue[],
+): string[] | null {
+  const xType = instance.resolvedEncoding?.xType
+  if (xType === 'temporal' || xType === 'quantitative') return null
+  if (rows.length === 0) return null
+  const targetSet = new Set(rows.map((d) => String(d.target)))
+  const inScopeLabels = instance.points
+    .filter((p) => targetSet.has(p.target))
+    .map((p) => p.xLabel)
+  return inScopeLabels.length > 0 ? inScopeLabels : null
 }
 
 export const filterApplier: OperationApplier = {
@@ -125,12 +145,18 @@ export const filterApplier: OperationApplier = {
     })
 
     // ----- Phase 2: rescale (axes + line + points) -----
+    // Y always narrows when there is filtered data; X narrows either via
+    // continuous domain interpolation (temporal/quantitative) or via an
+    // in-scope label list for ordinal — `transitionChartScale` picks the
+    // right path based on instance.resolvedEncoding.xType.
     const originalYDomain = instance.yScale.domain() as [number, number]
     const yDomain = computeYDomain(result)
     const xDomain = computeXDomain(instance, result)
+    const xLabelDomain = computeXLabelDomain(instance, result)
     await instance.transitionChartScale({
       yDomain: yDomain ?? undefined,
       xDomain: xDomain ?? undefined,
+      xLabelDomain: xLabelDomain ?? undefined,
       activeTargets: remainingTargets,
     })
 
