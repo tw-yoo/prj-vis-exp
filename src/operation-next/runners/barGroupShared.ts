@@ -14,6 +14,9 @@ import {
 } from '../../rendering/bar/stackedBarRenderer'
 import {
   getSimpleBarStoredData,
+  renderSimpleBarChart,
+  setSimpleBarStoredData,
+  type SimpleBarSpec,
 } from '../../rendering/bar/simpleBarRenderer'
 import {
   convertGroupedToSimple,
@@ -24,6 +27,7 @@ import {
   convertStackedToGrouped,
   type StackGroupTransformResult,
 } from '../../rendering/bar/stackGroupTransforms'
+import { getRuntimeChartState, storeRuntimeChartState } from '../../rendering/utils/runtimeChartState'
 import { DrawAction, type DrawOp } from '../../rendering/draw/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
 import { resolveEncodingFields } from '../../rendering/ops/common/resolveEncodingFields'
@@ -53,6 +57,20 @@ import {
 const FILTER_ANNOTATION_CLASS = 'operation-next-grouped-bar-filter'
 const AVERAGE_ANNOTATION_CLASS = 'operation-next-grouped-bar-average'
 const DIFF_ANNOTATION_CLASS = 'operation-next-grouped-bar-diff'
+
+/**
+ * Phase 4 — Group-scoped average on a stacked/grouped chart converts the chart
+ * to a simple bar showing only that group. Subsequent group-scoped averages on
+ * the same host need to convert FROM the original stacked/grouped spec (not
+ * the current simple-bar spec), so we remember the source spec the first time
+ * a conversion happens. Reset whenever a non-stacked/grouped chart is rendered
+ * via `renderChart` (handled implicitly: the next group-average sees current
+ * runtime as the original stacked/grouped again).
+ */
+const groupAverageSourceSpec = new WeakMap<
+  HTMLElement,
+  { type: ChartTypeValue; spec: ChartSpec }
+>()
 
 export type ActiveBarChartState = {
   chartType: ChartTypeValue
@@ -368,61 +386,19 @@ function barsForScope(svgNode: SVGSVGElement, scope: PlotScope) {
   return Array.from(root.querySelectorAll<SVGRectElement>(`rect.${SvgClassNames.MainBar}`))
 }
 
-function formatScopeLabel(operation: OperationSpec, result: DatumValue[]) {
-  if (operation.group != null && String(operation.group).trim() !== '') {
-    return `Filtered: ${String(operation.group)}`
-  }
-  if (Array.isArray(operation.value) && operation.value.length > 0) {
-    return `Filtered: ${operation.value.map(String).join(', ')}`
-  }
-  if (Array.isArray(operation.include) && operation.include.length > 0) {
-    return `Filtered: ${operation.include.map(String).join(', ')}`
-  }
-  if (Array.isArray(operation.exclude) && operation.exclude.length > 0) {
-    return `Excluded: ${operation.exclude.map(String).join(', ')}`
-  }
-  return `Filtered: ${result.length} values`
+// Phase 4: the "Filtered: …" scope label was removed across all chart types.
+// The chart itself (bar dim/remove, narrowed x-axis) communicates the active
+// scope, so the redundant text label is no longer drawn. The helpers below are
+// kept as no-ops so existing call sites in legacy runners compile unchanged.
+function formatScopeLabel(_operation: OperationSpec, _result: DatumValue[]) {
+  return ''
 }
 
-async function drawFilterScopeLabel(params: {
+async function drawFilterScopeLabel(_params: {
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
   label: string
 }) {
-  const layer = ensureAnnotationLayer(params.svg)
-  const viewport = resolveAnnotationViewport(params.svg)
-  const preferred = {
-    x: viewport.x + viewport.width - 4,
-    y: Math.max(12, viewport.y + 16),
-  }
-  const labelNode = layer
-    .append(SvgElements.Text)
-    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${FILTER_ANNOTATION_CLASS} scope-label`)
-    .attr(SvgAttributes.X, preferred.x)
-    .attr(SvgAttributes.Y, preferred.y)
-    .attr(SvgAttributes.TextAnchor, 'end')
-    .attr(SvgAttributes.FontSize, 12)
-    .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-    .style(SvgAttributes.Opacity, 0)
-    .text(params.label)
-
-  placeOperationTextLabel({
-    svg: params.svg,
-    text: labelNode,
-    preferred,
-    viewport,
-  })
-
-  try {
-    await labelNode
-      .transition()
-      .duration(DURATIONS.LABEL_FADE_IN)
-      .ease(EASINGS.SMOOTH)
-      .style(SvgAttributes.Opacity, 1)
-      .end()
-  } catch {
-    // interrupted
-  }
+  // intentionally empty — scope label is no longer rendered
 }
 
 async function drawFilterReferenceLines(params: {
@@ -1126,6 +1102,67 @@ export async function runGroupedBarAverageOperation(
   referencedResultIds?: string[],
 ): Promise<OperationRunResult> {
   const result = averageData(state.workingData, operation)
+
+  // Phase 4: group-scoped average on a stacked or grouped chart converts the
+  // chart to a simple bar showing only that group's segments, then draws the
+  // average reference line on the simple bar.
+  const group = operation.group
+  const groupStr = group == null ? '' : String(group).trim()
+  if (groupStr) {
+    const runtimeState = getRuntimeChartState(container)
+    let source = groupAverageSourceSpec.get(container)
+    if (
+      !source &&
+      runtimeState &&
+      (runtimeState.chartType === ChartType.STACKED_BAR ||
+        runtimeState.chartType === ChartType.GROUPED_BAR)
+    ) {
+      source = { type: runtimeState.chartType, spec: runtimeState.spec }
+      groupAverageSourceSpec.set(container, source)
+    }
+    if (source) {
+      // Build a simple-bar spec from the source whose data.values are NARROWED
+      // to (a) the retained targets (post-filter) and (b) only the rows for
+      // this group. Then render it directly. This is robust across:
+      //   - first conversion from stacked/grouped → simple-bar (animation-free)
+      //   - subsequent conversions where the live chart is already simple-bar
+      //     (convertStackedToSimple's stacked-segment animation would no-op).
+      const convertedSpec = buildSimpleBarFromGroup(source, groupStr, state.workingData)
+      if (convertedSpec) {
+        const rows = (convertedSpec.data as { values?: Record<string, unknown>[] } | undefined)?.values ?? []
+        // Update simple-bar stored data so subsequent simple-bar runs see the
+        // narrowed group rows rather than the original stacked dataset.
+        setSimpleBarStoredData(container, rows as Record<string, JsonValue>[])
+        await renderSimpleBarChart(container, convertedSpec)
+        storeRuntimeChartState(container, {
+          chartType: ChartType.SIMPLE_BAR,
+          spec: convertedSpec,
+          renderer: 'd3',
+        })
+        console.info('[operation-next] grouped-bar average: converted to simple-bar', {
+          group: groupStr,
+          sourceType: source.type,
+          rowsAfterFilter: rows.length,
+          rowSample: rows.slice(0, 3),
+          opId: (operation as { id?: string }).id ?? null,
+        })
+        await annotateConvertedGroupAverage(container, result, operation, state, referencedResultIds, groupStr)
+        return {
+          result,
+          nextState: {
+            ...state,
+            derivedData: null,
+            lastResult: result,
+            // After conversion the simple-bar has no dim marks — salience map
+            // is no longer meaningful; reset to empty so downstream ops don't
+            // try to re-apply stacked-era opacities.
+            salienceMap: new Map(),
+          },
+        }
+      }
+    }
+  }
+
   await annotateGroupedBarAverage(container, result, operation, state, referencedResultIds)
   return {
     result,
@@ -1136,6 +1173,137 @@ export async function runGroupedBarAverageOperation(
       salienceMap: state.salienceMap,
     },
   }
+}
+
+/**
+ * Build a SimpleBarSpec containing only rows where the color/group field
+ * matches `groupStr` AND whose x-axis target is in the retained set
+ * (post-filter). Returns null if the source spec's encoding is incomplete or
+ * the resulting filter would leave no rows.
+ */
+function buildSimpleBarFromGroup(
+  source: { type: ChartTypeValue; spec: ChartSpec },
+  groupStr: string,
+  workingData: DatumValue[],
+): SimpleBarSpec | null {
+  const spec = source.spec as ChartSpec & {
+    encoding: {
+      x?: { field?: string; type?: string; sort?: JsonValue; axis?: JsonValue }
+      y?: { field?: string; type?: string; scale?: JsonValue }
+      color?: { field?: string }
+      xOffset?: { field?: string }
+    }
+  }
+  const xField = spec.encoding?.x?.field
+  const yField = spec.encoding?.y?.field
+  const xType = spec.encoding?.x?.type ?? 'nominal'
+  const yType = spec.encoding?.y?.type ?? 'quantitative'
+  if (!xField || !yField) return null
+  // For stacked, series is `color.field`. For grouped, it's either `xOffset.field`
+  // or `color.field` (some authoring shapes keep the encoding on color).
+  const seriesField =
+    source.type === ChartType.GROUPED_BAR && spec.encoding?.xOffset?.field
+      ? spec.encoding.xOffset.field
+      : spec.encoding?.color?.field
+  if (!seriesField) return null
+
+  const sourceValues = Array.isArray((spec.data as { values?: unknown[] } | undefined)?.values)
+    ? ((spec.data as { values: unknown[] }).values as Record<string, JsonValue>[])
+    : []
+  if (sourceValues.length === 0) return null
+
+  const retained = new Set(workingData.map((d) => String(d.target)))
+  const usefulRetained = retained.size > 0
+
+  const rows = sourceValues.filter((row) => {
+    if (String(row[seriesField]) !== groupStr) return false
+    if (usefulRetained && !retained.has(String(row[xField]))) return false
+    return true
+  })
+  if (rows.length === 0) return null
+
+  // Strip the series column from the final simple-bar rows — it's no longer
+  // an encoded dimension, just a left-over key from the stacked dataset.
+  const cleanedRows = rows.map((row) => {
+    const next: Record<string, JsonValue> = {}
+    for (const key of Object.keys(row)) {
+      if (key === seriesField) continue
+      next[key] = row[key]
+    }
+    return next
+  })
+
+  return {
+    $schema: spec.$schema,
+    data: { values: cleanedRows },
+    mark: 'bar',
+    encoding: {
+      x: { field: xField, type: xType, sort: spec.encoding?.x?.sort ?? null, axis: spec.encoding?.x?.axis },
+      y: { field: yField, type: yType, scale: spec.encoding?.y?.scale },
+    },
+  } as unknown as SimpleBarSpec
+}
+
+/**
+ * Average annotation drawn on a chart that was just converted from
+ * stacked/grouped → simple-bar via `buildSimpleBarFromGroup` +
+ * `renderSimpleBarChart`. Differs from `annotateGroupedBarAverage` in that it
+ * skips the scope-salience step (the simple-bar already contains only the
+ * in-scope group's bars, so there's nothing to dim).
+ */
+async function annotateConvertedGroupAverage(
+  container: HTMLElement,
+  result: DatumValue[],
+  operation: OperationSpec,
+  state: ChainState,
+  referencedResultIds: string[] | undefined,
+  groupLabel: string,
+) {
+  const average = Number(result[0]?.value)
+  if (!Number.isFinite(average)) return
+
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+  const layer = ensureAnnotationLayer(svg)
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
+  const persistent = isOperationResultReferenced(operation, referencedResultIds)
+  if (!persistent) {
+    layer.selectAll(`.${AVERAGE_ANNOTATION_CLASS}`).interrupt().remove()
+  } else {
+    const refs = new Set((referencedResultIds ?? []).map((id) => String(id).replace(/^ref:/, '')))
+    layer
+      .selectAll<SVGElement, unknown>(`.${AVERAGE_ANNOTATION_CLASS}`)
+      .filter(function () {
+        const ref = this.getAttribute(RESULT_REF_ATTRIBUTE)
+        return !ref || !refs.has(ref)
+      })
+      .interrupt()
+      .remove()
+  }
+
+  const labelText = `Avg (${groupLabel}): ${formatOperationValue(average)}`
+  const resultRef = operationResultRef(operation)
+  const existingReference = referenceLineForResultRef(layer, resultRef)
+  if (!existingReference) {
+    await drawGlobalReferenceLine({
+      svg,
+      layer,
+      cssClass: AVERAGE_ANNOTATION_CLASS,
+      value: average,
+      label: labelText,
+      resultRef,
+      role: 'average-reference',
+    })
+  }
+
+  state.annotationRecords.push({
+    cssClass: AVERAGE_ANNOTATION_CLASS,
+    role: persistent ? 'anchor' : 'result',
+    persistent,
+    operationId: resultRef == null ? undefined : String(resultRef),
+    resultRef: resultRef == null ? undefined : String(resultRef),
+  })
 }
 
 export async function runGroupedBarDiffOperation(

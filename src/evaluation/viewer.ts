@@ -128,6 +128,10 @@ const statusEl = document.getElementById('statusArea') as HTMLElement
 const surveyEl = document.getElementById('surveyArea') as HTMLFormElement
 const prevBtn = document.getElementById('prevBtn') as HTMLButtonElement
 const nextBtn = document.getElementById('nextBtn') as HTMLButtonElement
+const progressFillEl = document.getElementById('progressFill') as HTMLElement
+const progressLabelEl = document.getElementById('progressLabel') as HTMLElement
+const progressTrackEl = document.getElementById('progressTrack') as HTMLElement
+const surveyWarningEl = document.getElementById('surveyWarning') as HTMLElement
 
 let currentPageIndex = getPageIndexFromUrl()
 let currentChartIndex = getChartIndexFromPage(currentPageIndex)
@@ -448,6 +452,38 @@ async function waitForD3Transitions() {
   await nextFrame()
 }
 
+function isSurveyPageComplete(): boolean {
+  const surveyPageIdx = getSurveyPageIndexFromPage(currentPageIndex)
+  const surveyPage = surveyPages[surveyPageIdx]
+  console.log('[survey] isSurveyPageComplete called', {
+    currentPageIndex,
+    surveyPageIdx,
+    hasSurveyPage: !!surveyPage,
+    chartId: getCurrentChartId(),
+  })
+  if (!surveyPage) {
+    console.log('[survey] no survey page → complete=true')
+    return true
+  }
+  const results = surveyPage.questions.map((question) => {
+    const inputName = `${getCurrentChartId()}-${surveyPageIdx}-${question.id}`
+    const checkedInput = surveyEl.querySelector(`input[name="${inputName}"]:checked`)
+    const allInputs = Array.from(surveyEl.querySelectorAll(`input[name="${inputName}"]`))
+    console.log('[survey] question check', {
+      questionId: question.id,
+      inputName,
+      checkedInput,
+      checkedInputValue: checkedInput ? (checkedInput as HTMLInputElement).value : null,
+      allInputsCount: allInputs.length,
+      allInputsCheckedState: allInputs.map((el) => ({ value: (el as HTMLInputElement).value, checked: (el as HTMLInputElement).checked })),
+    })
+    return checkedInput !== null
+  })
+  const complete = results.every(Boolean)
+  console.log('[survey] isSurveyPageComplete result', { results, complete })
+  return complete
+}
+
 function validateOpsSpec(opsSpec: OpsSpecInput) {
   const groups = normalizeOpsGroups(opsSpec)
   if (!groups.length || groups.every((group) => group.ops.length === 0)) {
@@ -537,8 +573,14 @@ function renderSurveyQuestion(question: SurveyQuestion) {
     input.name = inputName
     input.value = option
     input.checked = selectedValue === option
-    input.addEventListener('change', () => {
+
+    label.addEventListener('click', () => {
+      console.log('[survey] label clicked', { questionId: question.id, option, inputName })
       surveyResponses.set(getSurveyResponseKey(question.id), option)
+      setTimeout(() => {
+        const checked = surveyEl.querySelector(`input[name="${inputName}"]:checked`)
+        console.log('[survey] after label click, checked input =', checked, 'value =', checked ? (checked as HTMLInputElement).value : null)
+      }, 0)
     })
 
     label.appendChild(input)
@@ -614,6 +656,14 @@ function updateUI() {
   prevBtn.disabled = currentPageIndex === 0 || stepRunInProgress
   nextBtn.disabled = currentPageIndex === totalPages - 1 || stepRunInProgress
 
+  const pct = totalPages > 0 ? Math.round((currentPageIndex + 1) / totalPages * 100) : 0
+  progressFillEl.style.width = `${pct}%`
+  progressTrackEl.setAttribute('aria-valuenow', String(pct))
+  progressLabelEl.textContent = totalPages > 0
+    ? `Page ${currentPageIndex + 1} of ${totalPages}`
+    : ''
+  surveyWarningEl.textContent = ''
+
   questionEl.textContent = currentChart?.question ?? expertCharts[chartId]?.question ?? ''
   descriptionEl.textContent = currentChart?.description ?? expertCharts[chartId]?.description ?? ''
   explanationEl.innerHTML = ''
@@ -682,7 +732,23 @@ function navigateToPage(index: number, replace = false) {
 }
 
 prevBtn.addEventListener('click', () => navigateToPage(currentPageIndex - 1))
-nextBtn.addEventListener('click', () => navigateToPage(currentPageIndex + 1))
+nextBtn.addEventListener('click', () => {
+  console.log('[nav] Next clicked, currentPageIndex=', currentPageIndex)
+  const allInputs = Array.from(surveyEl.querySelectorAll('input[type="radio"]'))
+  console.log('[nav] All radio inputs in surveyEl:', allInputs.map((el) => {
+    const i = el as HTMLInputElement
+    return { name: i.name, value: i.value, checked: i.checked }
+  }))
+  if (!isSurveyPageComplete()) {
+    console.log('[nav] survey incomplete → showing warning')
+    surveyWarningEl.textContent = 'Please answer all questions before proceeding.'
+    surveyWarningEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    return
+  }
+  console.log('[nav] survey complete → navigating to page', currentPageIndex + 1)
+  surveyWarningEl.textContent = ''
+  navigateToPage(currentPageIndex + 1)
+})
 
 window.addEventListener('popstate', () => {
   void loadPage(getPageIndexFromUrl())

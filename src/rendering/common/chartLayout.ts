@@ -186,16 +186,16 @@ export function resolveLayoutModel(input: ResolveLayoutModelInput): LayoutModel 
   const facetCount = Math.max(1, Math.floor(input.facet?.count ?? 1))
   const legendVisible = input.legend?.visible === true
   const basePadding = resolvePadding(spec, hints, { isLine, isBar, facetEnabled })
-  const explanationTop = CHART_LAYOUT_SIZE.explanation.topInset
-  const explanationHeight = CHART_LAYOUT_SIZE.explanation.bandHeight
-  const explanationBottom = explanationTop + explanationHeight
-  const annotationTopClearance = explanationBottom + CHART_LAYOUT_SIZE.explanation.annotationGap
-  const minimumTopPadding = annotationTopClearance + CHART_LAYOUT_SIZE.explanation.plotGap
-  const padding = {
-    ...basePadding,
-    top: Math.max(basePadding.top, minimumTopPadding),
-  }
-  const topPaddingDelta = padding.top - basePadding.top
+  // Phase 4: chart-explanation-layer removed. We no longer reserve a banner
+  // band at the top of the canvas — `padding.top` is whatever the renderer
+  // asked for, and the explanation object below is exposed as zero-sized so
+  // downstream code that reads `layout.explanation.*` keeps compiling.
+  const explanationTop = 0
+  const explanationHeight = 0
+  const explanationBottom = 0
+  const annotationTopClearance = 0
+  const padding = { ...basePadding }
+  const topPaddingDelta = 0
 
   const legendWidth = legendVisible ? 136 : 0
   const legendOffsetX = legendVisible ? 24 + CHART_ANNOTATION_LAYOUT.legendExtraOffsetX : 0
