@@ -1,0 +1,20 @@
+{
+  "ops": [
+    {
+      "op": "average",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Index (2010=100)"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2 },
+      "field": "Index (2010=100)",
+      "operator": "<",
+      "value": "ref:n1"
+    }
+  ]
+}

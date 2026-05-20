@@ -13,24 +13,44 @@
   </script>
 </head>
 <body>
-  <div class="viewer-wrap">
-    <div class="viewer-header">
-      <span class="chart-counter" id="chartCounter"></span>
-      <span class="chart-id" id="chartId"></span>
-    </div>
-    <div class="chart-row">
-      <button class="nav-btn" id="prevBtn" type="button" disabled>&#8592;</button>
+  <main class="viewer-wrap">
+    <!-- IDs kept for JS compat; hidden via CSS -->
+    <span id="chartCounter" hidden></span>
+    <span id="chartId" hidden></span>
+
+    <section class="chart-card" aria-label="Chart">
       <div id="chartContainer"></div>
-      <button class="nav-btn" id="nextBtn" type="button">&#8594;</button>
-    </div>
-    <div class="bottom-area">
-      <div id="questionText"></div>
-      <div id="descriptionText"></div>
-      <div id="explanationArea"></div>
-      <div id="statusArea"></div>
+    </section>
+
+    <section class="bottom-area" aria-label="Question and survey">
+      <div id="questionText" class="question-text"></div>
+      <div id="descriptionText" class="description-text"></div>
+      <div id="explanationArea" class="explanation-area"></div>
+      <div id="statusArea" class="status-area"></div>
       <form id="surveyArea" class="survey-area"></form>
-    </div>
-  </div>
+    </section>
+
+    <div class="survey-warning" id="surveyWarning" role="alert" aria-live="polite"></div>
+
+    <nav class="navigation-footer" aria-label="Page navigation">
+      <button class="nav-btn nav-btn--prev" id="prevBtn" type="button" disabled>
+        <span class="nav-btn__icon" aria-hidden="true">&#8592;</span>
+        <span class="nav-btn__label">Previous</span>
+      </button>
+
+      <div class="progress-center">
+        <div class="progress-track" role="progressbar" id="progressTrack" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span class="progress-label" id="progressLabel"></span>
+      </div>
+
+      <button class="nav-btn nav-btn--next" id="nextBtn" type="button">
+        <span class="nav-btn__label">Next</span>
+        <span class="nav-btn__icon" aria-hidden="true">&#8594;</span>
+      </button>
+    </nav>
+  </main>
 
   <script type="module" src="__EVALUATION_VIEWER_SCRIPT__"></script>
 </body>

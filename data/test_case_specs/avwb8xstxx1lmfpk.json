@@ -1,0 +1,56 @@
+{
+  "ops": [
+    {
+      "op": "average",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Consumer Price Index (100 = 1982-1984)"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 2 },
+      "field": "Month 'Year",
+      "include": [
+        "May '20", "Jun '20", "Jul '20", "Aug '20",
+        "Sep '20", "Oct '20", "Nov '20", "Dec '20"
+      ],
+      "xKindHint": "ordinal"
+    },
+    {
+      "op": "average",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 2 },
+      "field": "Consumer Price Index (100 = 1982-1984)"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "filter",
+      "id": "n4",
+      "meta": { "nodeId": "n4", "inputs": [], "sentenceIndex": 3 },
+      "field": "Month 'Year",
+      "include": ["Jan '21", "Feb '21", "Mar '21", "Apr '21", "May '21"],
+      "xKindHint": "ordinal"
+    },
+    {
+      "op": "average",
+      "id": "n5",
+      "meta": { "nodeId": "n5", "inputs": ["n4"], "sentenceIndex": 3 },
+      "field": "Consumer Price Index (100 = 1982-1984)"
+    }
+  ],
+  "ops4": [
+    {
+      "op": "diff",
+      "id": "n6",
+      "meta": { "nodeId": "n6", "inputs": ["n5", "n3"], "sentenceIndex": 4 },
+      "field": "Consumer Price Index (100 = 1982-1984)",
+      "targetA": "ref:n3",
+      "targetB": "ref:n1",
+      "signed": true
+    }
+  ]
+}
