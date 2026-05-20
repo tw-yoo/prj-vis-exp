@@ -1,14 +1,11 @@
-import * as d3 from 'd3'
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec } from '../../../domain/operation/types'
-import { SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
-import { COLORS, DURATIONS, EASINGS, OPACITIES } from '../../../rendering/common/d3Helpers'
+import { OPACITIES } from '../../../rendering/common/d3Helpers'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 import { resolveAnnotationViewport } from '../../primitives/annotationLayer'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
-import { placeOperationTextLabel } from '../../primitives/placeLabel'
 
 export const FILTER_ANNOTATION_CLASS = 'operation-next-line-filter'
 
@@ -23,22 +20,6 @@ function resolveNumericThreshold(operation: OperationSpec, workingData: DatumVal
     if (match && Number.isFinite(Number(match.value))) return Number(match.value)
   }
   return null
-}
-
-function formatScopeLabel(operation: OperationSpec, result: DatumValue[]) {
-  if (operation.group != null && String(operation.group).trim() !== '') {
-    return `Filtered: ${String(operation.group)}`
-  }
-  if (Array.isArray(operation.value) && operation.value.length > 0) {
-    return `Filtered: ${operation.value.map(String).join(', ')}`
-  }
-  if (Array.isArray(operation.include) && operation.include.length > 0) {
-    return `Filtered: ${operation.include.map(String).join(', ')}`
-  }
-  if (Array.isArray(operation.exclude) && operation.exclude.length > 0) {
-    return `Excluded: ${operation.exclude.map(String).join(', ')}`
-  }
-  return `Filtered: ${result.length} values`
 }
 
 function computeYDomain(rows: DatumValue[]): [number, number] | null {
@@ -171,37 +152,9 @@ export const filterApplier: OperationApplier = {
         svg: instance.svg,
         viewport,
       })
-    } else {
-      const labelText = formatScopeLabel(operation, result)
-      const preferred = { x: viewport.x + viewport.width - 4, y: Math.max(12, viewport.y + 16) }
-      const labelNode = layer
-        .append(SvgElements.Text)
-        .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${FILTER_ANNOTATION_CLASS} scope-label`)
-        .attr(SvgAttributes.X, preferred.x)
-        .attr(SvgAttributes.Y, preferred.y)
-        .attr(SvgAttributes.TextAnchor, 'end')
-        .attr(SvgAttributes.FontSize, 12)
-        .attr(SvgAttributes.FontWeight, 700)
-        .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-        .style(SvgAttributes.Opacity, 0)
-        .text(labelText)
-      placeOperationTextLabel({
-        svg: instance.svg,
-        text: labelNode as unknown as d3.Selection<SVGTextElement, unknown, null, undefined>,
-        preferred,
-        viewport,
-      })
-      try {
-        await labelNode
-          .transition()
-          .duration(DURATIONS.LABEL_FADE_IN)
-          .ease(EASINGS.SMOOTH)
-          .style(SvgAttributes.Opacity, 1)
-          .end()
-      } catch {
-        /* interrupted */
-      }
     }
+    // Phase 4: categorical filter no longer draws a "Filtered: …" scope label.
+    // The chart's own dimming / narrowing already communicates the active scope.
 
     const nextSalienceMap = new Map<string, number>(
       [...result.map((d): [string, number] => [String(d.target), OPACITIES.FULL])],

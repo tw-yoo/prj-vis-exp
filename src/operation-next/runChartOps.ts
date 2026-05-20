@@ -1,15 +1,15 @@
 import { ChartType, prepareChartRuntimeSpec, type ChartSpec } from '../domain/chart'
 import { normalizeOpsGroups, type OpsSpecInput } from '../domain/operation/opsSpec'
-import { runGroupedBarOperations } from './runners/groupedBar'
-import { runMultipleLineOperations } from './runners/multipleLine'
-import { runSimpleBarOperations } from './runners/simpleBar'
-import { runStackedBarOperations } from './runners/stackedBar'
 import { assertKnownOperationNextChartType } from './runners/shared'
 import type { ChartOperationRunner, RunChartOpsOptions } from './types'
 import { initializeOperationRuntime } from './executionState'
 import { collectReferencedResultIds } from './diffEndpoint'
 import { DEFAULT_POLICY } from './tensionPolicy'
 import { runSimpleLineOperationsNew } from '../operation-new/runSimpleLine'
+import { runSimpleBarOperationsNew } from '../operation-new/runSimpleBar'
+import { runStackedBarOperationsNew } from '../operation-new/runStackedBar'
+import { runGroupedBarOperationsNew } from '../operation-new/runGroupedBar'
+import { runMultipleLineOperationsNew } from '../operation-new/runMultipleLine'
 
 const DEBUG_PREFIX = '[operation-next-debug]'
 
@@ -50,18 +50,29 @@ function summarizeChartDom(container: HTMLElement) {
 function resolveRunner(chartType: ReturnType<typeof assertKnownOperationNextChartType>): ChartOperationRunner {
   switch (chartType) {
     case ChartType.SIMPLE_BAR:
-      return runSimpleBarOperations
+      // SIMPLE_BAR routes to the new ChartInstance-backed runner in
+      // src/operation-new/. Other chart types stay on existing runners.
+      console.info('[operation-new] dispatcher: runChartOps → SIMPLE_BAR → new runner (src/operation-new/)')
+      return runSimpleBarOperationsNew
     case ChartType.STACKED_BAR:
-      return runStackedBarOperations
+      // STACKED_BAR routes to the new ChartInstance-backed runner in
+      // src/operation-new/. The wrapper attaches an instance for idempotent
+      // ensureRendered, then delegates to the existing runner.
+      console.info('[operation-new] dispatcher: runChartOps → STACKED_BAR → new runner (src/operation-new/)')
+      return runStackedBarOperationsNew
     case ChartType.GROUPED_BAR:
-      return runGroupedBarOperations
+      // GROUPED_BAR routes to the new ChartInstance-backed runner.
+      console.info('[operation-new] dispatcher: runChartOps → GROUPED_BAR → new runner (src/operation-new/)')
+      return runGroupedBarOperationsNew
     case ChartType.SIMPLE_LINE:
       // SIMPLE_LINE routes to the new ChartInstance-backed runner in
       // src/operation-new/. Other chart types stay on existing runners.
       console.info('[operation-new] dispatcher: runChartOps → SIMPLE_LINE → new runner (src/operation-new/)')
       return runSimpleLineOperationsNew
     case ChartType.MULTI_LINE:
-      return runMultipleLineOperations
+      // MULTI_LINE routes to the new ChartInstance-backed runner.
+      console.info('[operation-new] dispatcher: runChartOps → MULTI_LINE → new runner (src/operation-new/)')
+      return runMultipleLineOperationsNew
     default:
       throw new Error(`operation-next: missing runner for chart type "${chartType}"`)
   }

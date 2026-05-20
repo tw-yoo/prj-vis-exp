@@ -238,45 +238,12 @@ function appendValueLabel(params: {
   return labelNode.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1)
 }
 
-async function drawFilterScopeLabel(params: {
+// Phase 4: no-op stub. The "Filtered: …" scope label was removed across all chart types.
+async function drawFilterScopeLabel(_params: {
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>
   label: string
 }) {
-  const layer = ensureAnnotationLayer(params.svg)
-  const viewport = resolveAnnotationViewport(params.svg)
-  const preferred = {
-    x: viewport.x + viewport.width - 4,
-    y: Math.max(12, viewport.y + 16),
-  }
-  const labelNode = layer
-    .append(SvgElements.Text)
-    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${FILTER_ANNOTATION_CLASS} scope-label`)
-    .attr(SvgAttributes.X, preferred.x)
-    .attr(SvgAttributes.Y, preferred.y)
-    .attr(SvgAttributes.TextAnchor, 'end')
-    .attr(SvgAttributes.FontSize, 12)
-    .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-    .style(SvgAttributes.Opacity, 0)
-    .text(params.label)
-
-  placeOperationTextLabel({
-    svg: params.svg,
-    text: labelNode,
-    preferred,
-    viewport,
-  })
-
-  try {
-    await labelNode
-      .transition()
-      .duration(DURATIONS.LABEL_FADE_IN)
-      .ease(EASINGS.SMOOTH)
-      .style(SvgAttributes.Opacity, 1)
-      .end()
-  } catch {
-    // interrupted
-  }
+  // intentionally empty — scope label is no longer rendered
 }
 
 function mainLinePath(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>) {
