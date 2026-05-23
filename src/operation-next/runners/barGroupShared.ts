@@ -24,6 +24,7 @@ import {
 } from '../../rendering/bar/toSimpleTransforms'
 import {
   convertGroupedToStacked,
+  convertStackedToDiverging,
   convertStackedToGrouped,
   type StackGroupTransformResult,
 } from '../../rendering/bar/stackGroupTransforms'
@@ -168,7 +169,8 @@ export function isBarTransformDrawOperation(operation: OperationSpec): operation
     action === DrawAction.StackedToGrouped ||
     action === DrawAction.GroupedToStacked ||
     action === DrawAction.StackedToSimple ||
-    action === DrawAction.GroupedToSimple
+    action === DrawAction.GroupedToSimple ||
+    action === DrawAction.StackedToDiverging
   )
 }
 
@@ -1357,6 +1359,15 @@ export async function runBarTransformOperation(
     transformed = await convertStackedToGrouped(container, active.spec as StackedSpec, operation.stackGroup)
   } else if (operation.action === DrawAction.GroupedToStacked && active.chartType === ChartType.GROUPED_BAR) {
     transformed = await convertGroupedToStacked(container, active.spec as GroupedSpec, operation.stackGroup)
+  } else if (operation.action === DrawAction.StackedToDiverging && active.chartType === ChartType.STACKED_BAR) {
+    // Centered (diverging) stacked bar. Conversion mutates the chart in-place;
+    // chart type stays STACKED_BAR but spec.encoding.y.stack becomes 'center'.
+    await convertStackedToDiverging(container, active.spec as StackedSpec)
+    const next = getRuntimeChartState(container)
+    if (next) {
+      return createBarChartState(container, next.chartType, next.spec)
+    }
+    return active
   }
 
   if (operation.action === DrawAction.StackedToSimple && active.chartType === ChartType.STACKED_BAR && operation.toSimple) {

@@ -295,6 +295,114 @@ export class SimpleBarChartInstance implements ChartInstance {
   }
 
   /**
+   * Re-attach d3 selections to an SVG that already exists in this.host.
+   *
+   * Mirrors the SimpleLineChartInstance rehydrate flow: after the workbench
+   * restores a cached chunk-scene SVG via `host.innerHTML = ...`, every cached
+   * d3 selection on this instance (svg/skeleton/bars/axes/annotation layer)
+   * points to elements no longer in the document. This method re-queries those
+   * by class name, restores scale domains + activeTargets from `cachedScales`
+   * (typically derived from the chunk-scene checkpoint's ChainState), and
+   * re-binds `__data__` on each `<rect.main-bar>` via its `data-id` attribute.
+   *
+   * Sets `this.specKey = computeSpecKey(spec)` so the next `ensureRendered()`
+   * is a NO-OP and does not wipe the just-rehydrated SVG.
+   *
+   * Returns true if the expected skeleton was found and rebinding succeeded;
+   * false otherwise (caller should fall back to ensureRendered/buildFromSpec).
+   *
+   * Requires `this.barData.length > 0` — i.e. the instance must have rendered
+   * the baseline at least once before. This always holds in the workbench
+   * navigation flow (baseline render precedes any ops click).
+   */
+  rehydrateFromHost(
+    spec: ChartSpec,
+    cachedScales?: {
+      yDomain?: [number, number]
+      xLabelDomain?: string[]
+      activeTargets?: Set<string> | null
+      outOfScopeOpacity?: number
+    },
+  ): boolean {
+    const svgEl = this.host.querySelector<SVGSVGElement>(SvgElements.Svg)
+    if (!svgEl) return false
+    const skeletonEl = svgEl.querySelector<SVGGElement>('g.chart-skeleton')
+    const annotationLayerEl = svgEl.querySelector<SVGGElement>(`g.${SvgClassNames.AnnotationLayer}`)
+    const xAxisEl = skeletonEl?.querySelector<SVGGElement>(`g.${SvgClassNames.XAxis}`) ?? null
+    const yAxisEl = skeletonEl?.querySelector<SVGGElement>(`g.${SvgClassNames.YAxis}`) ?? null
+    const barMarksEl = skeletonEl?.querySelector<SVGGElement>('g.bar-marks') ?? null
+    if (!skeletonEl || !annotationLayerEl || !xAxisEl || !yAxisEl || !barMarksEl) {
+      console.warn('[operation-new] SimpleBarChartInstance.rehydrateFromHost: missing skeleton elements', {
+        hasSkeleton: !!skeletonEl,
+        hasAnnotationLayer: !!annotationLayerEl,
+        hasXAxis: !!xAxisEl,
+        hasYAxis: !!yAxisEl,
+        hasBarMarks: !!barMarksEl,
+      })
+      return false
+    }
+    if (this.barData.length === 0) {
+      console.warn('[operation-new] SimpleBarChartInstance.rehydrateFromHost: no cached barData; instance was never built')
+      return false
+    }
+
+    const marginLeft = Number(svgEl.getAttribute(DataAttributes.MarginLeft) ?? '0')
+    const marginTop = Number(svgEl.getAttribute(DataAttributes.MarginTop) ?? '0')
+    const plotWidth = Number(svgEl.getAttribute(DataAttributes.PlotWidth) ?? '0')
+    const plotHeight = Number(svgEl.getAttribute(DataAttributes.PlotHeight) ?? '0')
+    this.layout = { marginLeft, marginTop, plotWidth, plotHeight }
+
+    this.svg = d3.select(svgEl)
+    this.skeleton = d3.select(skeletonEl)
+    this.annotationLayer = d3.select(annotationLayerEl)
+    this.xAxisGroup = d3.select(xAxisEl)
+    this.yAxisGroup = d3.select(yAxisEl)
+
+    const clipPathEl = svgEl.querySelector<SVGClipPathElement>('clipPath')
+    this.clipPathId = clipPathEl?.id ?? ''
+
+    const values = this.barData.map((d) => d.value).filter(Number.isFinite)
+    const fullYMin = d3.min(values) ?? 0
+    const fullYMax = d3.max(values) ?? fullYMin + 1
+    const yDomain = cachedScales?.yDomain ?? [fullYMin, fullYMax === fullYMin ? fullYMin + 1 : fullYMax]
+    this.yScale = d3.scaleLinear().domain(yDomain).range([plotHeight, 0])
+
+    const xLabelDomain =
+      cachedScales?.xLabelDomain ?? Array.from(new Set(this.barData.map((d) => d.target)))
+    this.xScale = d3.scaleBand<string>().domain(xLabelDomain).range([0, plotWidth]).padding(0.2)
+
+    this.activeTargets = cachedScales?.activeTargets ?? null
+    if (cachedScales?.outOfScopeOpacity !== undefined) {
+      this.outOfScopeOpacity = cachedScales.outOfScopeOpacity
+    }
+
+    const byId = new Map(this.barData.map((d) => [d.id, d]))
+    const barsSel = d3.select(barMarksEl).selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+    barsSel.each(function () {
+      const id = this.getAttribute(DataAttributes.Id)
+      if (id) {
+        const datum = byId.get(id)
+        if (datum) {
+          ;(this as unknown as { __data__: BarDatum }).__data__ = datum
+        }
+      }
+    })
+    this.bars = barsSel as d3.Selection<SVGRectElement, BarDatum, SVGGElement, unknown>
+
+    this.specKey = computeSpecKey(spec)
+    this.currentSpec = spec
+    this.buildPromise = null
+
+    console.info('[operation-new] SimpleBarChartInstance.rehydrateFromHost: ok', {
+      yDomain,
+      xLabelCount: xLabelDomain.length,
+      activeTargetsSize: this.activeTargets?.size ?? null,
+      barCount: this.barData.length,
+    })
+    return true
+  }
+
+  /**
    * Op-agnostic scale-transition primitive — bar-specific implementation of
    * the shared `transitionChartScale` API. One parent transition rides axes
    * + bar y/height/x/width + opacity dim/full. The d3 scheduler ticks every

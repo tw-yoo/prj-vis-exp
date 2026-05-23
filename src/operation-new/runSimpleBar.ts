@@ -81,10 +81,21 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
     run.options?.initialChainState,
   )
 
-  for (const group of run.groups) {
+  for (let groupIdx = 0; groupIdx < run.groups.length; groupIdx += 1) {
+    const group = run.groups[groupIdx]
+    // Internal lookahead: next group head within THIS run. Falls back to
+    // run.options.nextRunHeadOp when this is the last group of the run —
+    // covers the case where substep / sentence splits scatter chained ops
+    // across multiple runChartOps calls (player resolves the cross-run
+    // successor via logicalArtifacts.nodeOps).
+    const internalNext = run.groups[groupIdx + 1]?.ops[0]
+    const isLastGroup = groupIdx === run.groups.length - 1
+    const nextGroupHeadOp = internalNext ?? (isLastGroup ? run.options?.nextRunHeadOp : undefined)
     console.info('[operation-new] runSimpleBarOperationsNew: group start', {
       groupName: group.name,
       ops: group.ops.map((o) => o.op),
+      nextGroupHeadOp: nextGroupHeadOp?.op ?? null,
+      nextSource: internalNext ? 'internal' : (nextGroupHeadOp ? 'cross-run' : 'none'),
     })
     state = clearGroupBoundary(state)
 
@@ -115,6 +126,7 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
         options: run.options,
         groupOps: group.ops,
         groupOperationIndex,
+        nextGroupHeadOp,
         runtimeSpec: run.runtimeSpec,
         chartType: run.chartType,
       })

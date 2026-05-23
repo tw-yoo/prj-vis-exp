@@ -935,6 +935,20 @@ async function runRetrieveValueOperation(
   operationIndex: number,
   state: ChainState,
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
+  // Guard: this legacy runner does not support `targetAxis: 'y'` (its
+  // annotation logic only knows the forward x→y case). The operation-new
+  // dispatcher should own retrieveValue for simple-bar, so reaching here
+  // with reverse lookup means dispatcher routing regressed. Fail loudly
+  // rather than rendering forward annotation with reverse data.
+  if (operation.targetAxis === 'y') {
+    console.error(
+      '[operation-next] legacy simple-bar runRetrieveValueOperation reached with targetAxis="y" — operation-new applier should have handled this. Dispatcher routing likely regressed.',
+      { operation },
+    )
+    throw new Error(
+      'operation-next simple-bar runRetrieveValueOperation cannot render targetAxis="y"; route to src/operation-new/appliers/simpleBar/retrieveValue.ts instead.',
+    )
+  }
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = retrieveValue(state.workingData, operation)
   await annotateRetrievedValues(run.container, result)

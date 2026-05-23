@@ -10,6 +10,7 @@ import { materializeExecutionGroups } from './nlp-ops'
 import type { SurfaceManager } from './surface-manager'
 import { SurfaceTransitionController, type MultiSurfaceLayoutTarget } from './surface-transition-controller'
 import { applySplitSharedYAxisPolicy } from '../operation-next/splitSurfaceVisuals'
+import type { OperationRuntimeSnapshot, SerializableChainState } from '../operation-next/executionState'
 import {
   buildPlaybackSpecFromBaseSpec,
   buildLogicalExecutionArtifacts,
@@ -70,6 +71,9 @@ type RunOpsCallback = (
     runtimeScope: string
     executionSpec?: ChartSpec
     surfaceId?: string
+    nextRunHeadOp?: OperationSpec
+    initialChainState?: SerializableChainState | null
+    runtimeSnapshot?: OperationRuntimeSnapshot | null
   },
 ) => Promise<void>
 
@@ -77,6 +81,15 @@ const SPLIT_REVEAL_DELAY_MS = 1000
 const SURFACE_SPLIT_TRANSITION_MS = 440
 const SURFACE_TRANSITION_STAGGER_MS = 56
 const MIN_PREPARED_SURFACE_REVEAL_MS = 120
+/**
+ * Gap between re-rendering the source chart and starting the next op's
+ * animation. Without it, a sequence like ops2(filter+avg) → ops3(filter+avg)
+ * snaps from the filtered view back to the source and immediately starts the
+ * next filter — the viewer never sees the source state, which reads as a
+ * jarring jump. A short pause lets the source re-render settle visually
+ * before the next op's transition kicks in.
+ */
+const SOURCE_RESET_PRE_OP_PAUSE_MS = 350
 const SPLIT_DEBUG_PREFIX = '[split-simple-bar-debug]'
 
 function isSplitDebugEnabled() {
@@ -165,6 +178,15 @@ export type RunVisualSentenceStepArgs = {
   skipDelays?: boolean
   renderSentenceSummary?: (text: string) => void | Promise<void>
   clearSentenceSummary?: () => void | Promise<void>
+  /**
+   * When the workbench resumes an ops group from a cached checkpoint
+   * (out-of-order ops navigation), these prime the FIRST runOps call so the
+   * runner threads ChainState forward from the prior group instead of
+   * starting fresh. Subsequent substeps inside this run continue naturally
+   * via the runner's internal chain.
+   */
+  initialChainState?: SerializableChainState | null
+  runtimeSnapshot?: OperationRuntimeSnapshot | null
 }
 
 export type RunVisualExecutionPlanArgs = RunVisualSentenceStepArgs
@@ -798,6 +820,32 @@ function resolveLogicalOp(context: VisualSubstepExecutionContext, substep: Visua
   return context.logicalArtifacts?.nodeOps.get(nodeId) ?? null
 }
 
+/**
+ * Find a logical successor of `currentOp` by scanning the full ops graph
+ * (`logicalArtifacts.nodeOps`) for any op whose `meta.inputs` contains the
+ * current op's nodeId. Lets filter (and other) appliers see their downstream
+ * op even when substep/sentence splits scatter the chain across separate
+ * `runChartOps` calls. Returns the first match; if multiple consumers exist,
+ * the policy is conservative and picks one.
+ */
+function findLogicalSuccessorOp(
+  context: VisualSubstepExecutionContext,
+  currentOp: OperationSpec | null,
+): OperationSpec | undefined {
+  if (!currentOp) return undefined
+  const currentNodeId = typeof currentOp.meta?.nodeId === 'string' ? currentOp.meta.nodeId : currentOp.id
+  if (!currentNodeId) return undefined
+  const nodeOps = context.logicalArtifacts?.nodeOps
+  if (!nodeOps) return undefined
+  for (const op of nodeOps.values()) {
+    const inputs = op.meta?.inputs
+    if (Array.isArray(inputs) && inputs.some((input) => String(input) === String(currentNodeId))) {
+      return op
+    }
+  }
+  return undefined
+}
+
 function resolveExecutionSurface(args: {
   context: VisualSubstepExecutionContext
   substep: VisualExecutionSubstep
@@ -1035,6 +1083,14 @@ export async function executeRunOpSubstep(args: {
         operation: summarizeDebugOp(executionSurface.operation),
       })
       await args.renderSourceChart()
+      // Give the viewer a beat to register "we're back at the source chart"
+      // before the next op's animation begins. Filter is the worst offender —
+      // it dims/rescales immediately on dispatch, so without the pause the
+      // chart appears to skip the source-reset entirely. Honors skipDelays so
+      // silent materialization paths (chunked-output replay) stay fast.
+      if (!args.context.skipDelays) {
+        await sleepMs(SOURCE_RESET_PRE_OP_PAUSE_MS)
+      }
     }
     splitDebug('visual.runOp-runOps-source', {
       operation: summarizeDebugOp(executionSurface.operation),
@@ -1045,6 +1101,7 @@ export async function executeRunOpSubstep(args: {
       runtimeScope: `visual:${args.context.sentenceStep.id}:${args.substep.id}`,
       executionSpec: resolveSurfaceSpec(args.context, executionSurfaceId),
       surfaceId: executionSurfaceId,
+      nextRunHeadOp: findLogicalSuccessorOp(args.context, executionSurface.operation),
     })
     return { executed: true, nextSurface: 'source-chart' }
   }
@@ -1134,6 +1191,29 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     nextResetRuntime = false
     return shouldReset
   }
+  // Single-shot priming for the first runOps call in this group — workbench
+  // passes the prior group's ChainState/runtimeSnapshot here when resuming
+  // out-of-order. Subsequent substeps within this group continue via the
+  // runner's own chain (no extra plumbing needed).
+  let pendingInitialChainState = args.initialChainState ?? null
+  let pendingRuntimeSnapshot = args.runtimeSnapshot ?? null
+  const takeFirstRunPriming = () => {
+    const primed = {
+      initialChainState: pendingInitialChainState,
+      runtimeSnapshot: pendingRuntimeSnapshot,
+    }
+    pendingInitialChainState = null
+    pendingRuntimeSnapshot = null
+    return primed
+  }
+  const wrappedRunOps: RunOpsCallback = async (ops, opts) => {
+    const primed = takeFirstRunPriming()
+    await args.runOps(ops, {
+      ...opts,
+      initialChainState: opts.initialChainState ?? primed.initialChainState,
+      runtimeSnapshot: opts.runtimeSnapshot ?? primed.runtimeSnapshot,
+    })
+  }
   const context: VisualSubstepExecutionContext = {
     container: args.container,
     spec: args.spec,
@@ -1197,7 +1277,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
       await renderSummary(summary.initialText)
     }
     await renderSourceChartWithSummary()
-    await args.runOps(fallbackSentence.ops, {
+    await wrappedRunOps(fallbackSentence.ops, {
       resetRuntime: args.resetRuntime ?? true,
       runtimeScope: fallbackSentence.name,
     })
@@ -1242,7 +1322,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
       const result = await executeSurfaceActionSubstep({
         substep,
         context,
-        runOps: args.runOps,
+        runOps: wrappedRunOps,
         resetRuntime: takeResetRuntime,
       })
       if (!result.executed) {
@@ -1303,7 +1383,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
         context,
         renderSourceChart: renderSourceChartWithSummary,
         renderPlaybackChart: renderPlaybackChartWithSummary,
-        runOps: args.runOps,
+        runOps: wrappedRunOps,
         resetRuntime: takeResetRuntime,
       })
       if (!result.executed) {
@@ -1324,7 +1404,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
         context,
         renderSourceChart: renderSourceChartWithSummary,
         renderPlaybackChart: renderPlaybackChartWithSummary,
-        runOps: args.runOps,
+        runOps: wrappedRunOps,
         resetRuntime: takeResetRuntime,
         restartSourceLayer: sourceRunCount === 0,
       })

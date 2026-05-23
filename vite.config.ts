@@ -388,9 +388,156 @@ function evaluationViewerPlugin(): Plugin {
   }
 }
 
+const reviewDirPath = path.join(projectRoot, 'data/review')
+// Default file shown when the review page first opens. Falls back to
+// review_cases.csv if the preferred file is missing.
+const reviewDefaultFile = 'review_cases_updated.csv'
+const reviewLegacyDefaultFile = 'review_cases.csv'
+const reviewHeaderLine =
+  'chart_id,chart_type,status,question,explanation,operation_spec,feedback,updated_at\n'
+// Whitelist regex: simple filename, .csv extension, no path traversal.
+const REVIEW_FILENAME_RE = /^[A-Za-z0-9_.-]+\.csv$/
+
+function resolveReviewCsvName(req: { url?: string }): string | null {
+  const url = new URL(req.url ?? '/', 'http://localhost')
+  const raw = url.searchParams.get('file')?.trim() ?? ''
+  if (!raw) return null
+  if (!REVIEW_FILENAME_RE.test(raw)) return null
+  // Final safety: must not contain a path separator after regex (defensive).
+  if (raw.includes('/') || raw.includes('\\')) return null
+  return raw
+}
+
+async function chooseDefaultFile(): Promise<string> {
+  // Prefer review_cases_updated.csv if present; fall back to review_cases.csv;
+  // otherwise return the preferred name so a GET creates it on first PUT.
+  try {
+    await fs.promises.access(path.join(reviewDirPath, reviewDefaultFile))
+    return reviewDefaultFile
+  } catch {
+    // ignored
+  }
+  try {
+    await fs.promises.access(path.join(reviewDirPath, reviewLegacyDefaultFile))
+    return reviewLegacyDefaultFile
+  } catch {
+    // ignored
+  }
+  return reviewDefaultFile
+}
+
+async function listReviewFiles(): Promise<string[]> {
+  try {
+    const entries = await fs.promises.readdir(reviewDirPath, { withFileTypes: true })
+    return entries
+      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.csv'))
+      .map((entry) => entry.name)
+      .filter((name) => REVIEW_FILENAME_RE.test(name))
+      .sort()
+  } catch {
+    return []
+  }
+}
+
+function reviewApiPlugin(): Plugin {
+  const handle: Connect.NextHandleFunction = async (req, res, next) => {
+    const url = new URL(req.url ?? '/', 'http://localhost')
+
+    // List endpoint: GET /api/review/files → { files: string[], default: string }
+    if (url.pathname === '/api/review/files') {
+      try {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.setHeader('Allow', 'GET')
+          res.end()
+          return
+        }
+        const files = await listReviewFiles()
+        const chosenDefault = await chooseDefaultFile()
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.setHeader('Cache-Control', 'no-store')
+        res.end(JSON.stringify({ files, default: chosenDefault }))
+        return
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        res.statusCode = 500
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify({ ok: false, error: message }))
+        return
+      }
+    }
+
+    if (url.pathname !== '/api/review/csv') {
+      next()
+      return
+    }
+    try {
+      const requested = resolveReviewCsvName(req)
+      const filename = requested ?? (await chooseDefaultFile())
+      const reviewCsvPath = path.join(reviewDirPath, filename)
+      // Defensive: ensure the resolved path stays inside reviewDirPath.
+      if (!reviewCsvPath.startsWith(reviewDirPath + path.sep)) {
+        res.statusCode = 400
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify({ ok: false, error: 'invalid file' }))
+        return
+      }
+      if (req.method === 'GET') {
+        await fs.promises.mkdir(reviewDirPath, { recursive: true })
+        let body: string
+        try {
+          body = await fs.promises.readFile(reviewCsvPath, 'utf8')
+        } catch {
+          body = reviewHeaderLine
+        }
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+        res.setHeader('Cache-Control', 'no-store')
+        res.setHeader('X-Review-File', filename)
+        res.end(body)
+        return
+      }
+      if (req.method === 'PUT') {
+        const chunks: Buffer[] = []
+        for await (const chunk of req) {
+          chunks.push(chunk as Buffer)
+        }
+        const body = Buffer.concat(chunks).toString('utf8')
+        await fs.promises.mkdir(reviewDirPath, { recursive: true })
+        const tmpPath = `${reviewCsvPath}.tmp`
+        await fs.promises.writeFile(tmpPath, body, 'utf8')
+        await fs.promises.rename(tmpPath, reviewCsvPath)
+        const stat = await fs.promises.stat(reviewCsvPath)
+        res.statusCode = 200
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify({ ok: true, file: filename, updatedAt: stat.mtime.toISOString() }))
+        return
+      }
+      res.statusCode = 405
+      res.setHeader('Allow', 'GET, PUT')
+      res.end()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.end(JSON.stringify({ ok: false, error: message }))
+    }
+  }
+  return {
+    name: 'review-api',
+    configureServer(server) {
+      server.middlewares.use(handle)
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(handle)
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin()],
+  plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin(), reviewApiPlugin()],
   optimizeDeps: {
     entries: ['index.html'],
   },
@@ -399,6 +546,9 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
+          if (id.includes('@codemirror') || id.includes('/codemirror/') || id.includes('/lezer/')) {
+            return 'vendor-codemirror'
+          }
           if (id.includes('/vega') || id.includes('/vega-lite') || id.includes('/vega-embed')) {
             return 'vendor-vega'
           }

@@ -26,7 +26,6 @@ export const OPERATION_CATEGORY = {
   [OperationOp.PairDiff]: 'series-transform',
   [OperationOp.Add]: 'arithmetic',
   [OperationOp.Scale]: 'arithmetic',
-  [OperationOp.SetOp]: 'set-op',
   [OperationOp.Sleep]: 'meta',
   [OperationOp.Draw]: 'meta',
 } satisfies Record<OperationName, OperationCategory>

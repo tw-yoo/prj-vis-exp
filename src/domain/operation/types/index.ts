@@ -112,6 +112,8 @@ export interface OperationSpec {
   keyField?: string
   seriesField?: string
   target?: TargetSelector | TargetSelector[]
+  /** retrieveValue lookup direction. 'x' (default) = forward (target → y); 'y' = reverse (target is a numeric y, returns matching x rows). */
+  targetAxis?: 'x' | 'y'
   targetA?: TargetSelector | TargetSelector[]
   targetB?: TargetSelector | TargetSelector[]
   targetName?: string

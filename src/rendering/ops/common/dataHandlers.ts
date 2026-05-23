@@ -13,7 +13,6 @@ import {
   pairDiffData,
   nthData,
   scaleData,
-  setOpData,
   compareBoolOp,
   countData,
   diffByValueOp,
@@ -35,5 +34,4 @@ export const STANDARD_DATA_OP_HANDLERS: Record<string, (data: DatumValue[], op: 
   [OperationOp.Count]: countData,
   [OperationOp.Add]: addData,
   [OperationOp.Scale]: scaleData,
-  [OperationOp.SetOp]: setOpData,
 }

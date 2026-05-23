@@ -12,7 +12,6 @@ import type {
   OpPairDiffSpec,
   OpRetrieveValueSpec,
   OpScaleSpec,
-  OpSetOpSpec,
   OpSortSpec,
   OpSumSpec,
   OpAverageSpec,
@@ -31,7 +30,6 @@ import {
   assertPairDiffSpec,
   assertRetrieveValueSpec,
   assertScaleSpec,
-  assertSetOpSpec,
   assertSortSpec,
   assertSumSpec,
 } from './types/operationValidators'
@@ -675,12 +673,57 @@ function makeScalarDatum(
 // ---------------------------------------------------------------------------
 
 /** 3.1 retrieveValue */
-/** Op 3.1: select entries matching target/field/group. */
+/** Op 3.1: select entries matching target/field/group.
+ *
+ * Forward (default, `targetAxis === 'x'`): `target` is an x-axis category label;
+ *   returns matching DatumValue rows.
+ * Reverse (`targetAxis === 'y'`): `target` is a numeric y value; returns rows
+ *   whose `value` equals `target` (constrained to `field` if supplied; constrained
+ *   to `group` if supplied — same semantics as the forward case).
+ *   Multiple matches (same y at different x) all flow through.
+ */
 export function retrieveValue(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)
   const spec = assertRetrieveValueSpec(op)
-  const { field, target, group } = spec
+  const { field, target, group, targetAxis } = spec
+  if (targetAxis === 'y') {
+    return inheritSemanticMeasureList(sliceByMeasureValue(arr, field, target, scalarGroupLabel(group)))
+  }
   return inheritSemanticMeasureList(sliceForTarget(arr, field, target, scalarGroupLabel(group)))
+}
+
+/** Reverse-lookup helper for retrieveValue: find rows whose `value` equals `targetIn`.
+ *  Mirrors `sliceForTarget`'s array-target union semantics. */
+function sliceByMeasureValue(
+  data: DatumValue[],
+  opField: string | undefined,
+  targetIn: TargetSelector | TargetSelector[] | undefined,
+  opGroup: string | null | undefined,
+): DatumValue[] {
+  if (Array.isArray(targetIn)) {
+    const seen = new Set<string>()
+    const merged: DatumValue[] = []
+    targetIn.forEach((entry) => {
+      const slice = sliceByMeasureValue(data, opField, entry, opGroup)
+      slice.forEach((datum) => {
+        const key = datumIdentityKey(datum)
+        if (seen.has(key)) return
+        seen.add(key)
+        merged.push(datum)
+      })
+    })
+    return merged
+  }
+  if (targetIn == null) return []
+  const numericTarget = Number(targetIn)
+  if (!Number.isFinite(numericTarget)) return []
+  let slice = data
+  if (opGroup !== undefined) slice = sliceByGroup(slice, opGroup as string | null)
+  const kind = inferFieldKind(data, opField)
+  if (kind === 'measure') {
+    slice = slice.filter((d) => (opField === 'value' ? true : d.measure === opField))
+  }
+  return slice.filter((d) => Number.isFinite(Number(d.value)) && Number(d.value) === numericTarget)
 }
 
 /** 3.2 filter */
@@ -1237,53 +1280,6 @@ export function scaleData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   )
 }
 
-/** 3.15 setOp — set union/intersection over runtime node inputs. */
-export function setOpData(_data: DatumValue[], op: OperationSpec): DatumValue[] {
-  const spec = assertSetOpSpec(op)
-  const inputs = Array.isArray(op.meta?.inputs) ? op.meta!.inputs!.filter((id) => typeof id === 'string') : []
-  if (inputs.length < 2) return []
-
-  const collections = inputs.map((id) => getRuntimeResultsById(id)).filter((rows) => rows.length > 0)
-  if (collections.length < 2) return []
-  const filteredCollections = spec.group
-    ? collections.map((rows) => rows.filter((row) => String(row.group ?? '') === String(spec.group)))
-    : collections
-  if (filteredCollections.some((rows) => rows.length === 0)) return []
-
-  const targetSets = filteredCollections.map((rows) => new Set(rows.map((row) => String(row.target))))
-  const merged = spec.fn === 'intersection'
-    ? Array.from(targetSets.slice(1).reduce((acc, next) => {
-      return new Set(Array.from(acc).filter((item) => next.has(item)))
-    }, new Set(targetSets[0])))
-    : Array.from(targetSets.reduce((acc, next) => {
-      next.forEach((item) => acc.add(item))
-      return acc
-    }, new Set<string>()))
-
-  const representative = new Map<string, DatumValue>()
-  filteredCollections.forEach((rows) => {
-    rows.forEach((row) => {
-      const key = String(row.target)
-      if (!representative.has(key)) representative.set(key, row)
-    })
-  })
-
-  return merged
-    .sort(cmpStrAsc)
-    .map((target) => {
-      const base = representative.get(target)
-      return {
-        category: base?.category ?? 'target',
-        measure: base?.measure ?? 'value',
-        semanticMeasure: base?.semanticMeasure ?? base?.measure ?? 'value',
-        target,
-        group: spec.group ?? base?.group ?? null,
-        value: 1,
-        name: target,
-      } as DatumValue
-    })
-}
-
 /** 3.12 nth — returns the n-th item in current ordering (1-based) */
 /** Op 3.12: return the n-th datum (1-based) from left/right. */
 export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
@@ -1364,7 +1360,6 @@ export const LineChartOps = {
   nth: nthData,
   add: addData,
   scale: scaleData,
-  setOp: setOpData,
 }
 
 export default LineChartOps

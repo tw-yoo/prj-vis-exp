@@ -15,7 +15,7 @@ import type { SimpleBarChartInstance } from '../../../rendering-new/instances/si
 import { readNumberAttr } from '../../primitives/annotationLayer'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawVerticalComparisonArrow } from '../../primitives/drawDifferenceArrow'
-import { placeOperationTextLabel } from '../../primitives/placeLabel'
+import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { FILTER_ANNOTATION_CLASS } from './filter'
 import {
   findBarByTarget,
@@ -89,7 +89,7 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
 
     const layer = instance.annotationLayer
     applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
-    layer.selectAll(`.${DIFF_ANNOTATION_CLASS}`).interrupt().remove()
+    fadeRemoveAnnotations(layer, DIFF_ANNOTATION_CLASS)
 
     const marginLeft = instance.layout.marginLeft
     const plotWidth = instance.layout.plotWidth
@@ -151,10 +151,15 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
     const bottomY = Math.max(a.y, b.y)
     const differenceText = `Difference: ${formatOperationValue(Number(result[0]?.value))}`
 
-    const markEndpoints = [a, b].filter((endpoint) => endpoint.kind === 'mark')
     const viewport = resolveBarAnnotationViewport(instance)
+    const markEndpoints = [a, b].filter((endpoint) => endpoint.kind === 'mark')
     const labelPromises = markEndpoints.map((endpoint) => {
-      const labelY = Math.max(12, endpoint.y - 8)
+      // Label above the endpoint; flip below if that would clip the top
+      // margin. No collision avoidance — overflow:visible keeps labels
+      // rendered past the plot box.
+      const naturalAbove = endpoint.y - 8
+      const labelMinY = instance.layout.marginTop + 12
+      const labelY = naturalAbove >= labelMinY ? naturalAbove : endpoint.y + 18
       const labelNode = layer
         .append(SvgElements.Text)
         .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${DIFF_ANNOTATION_CLASS} bar-value`)
@@ -166,13 +171,6 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
         .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
         .style(SvgAttributes.Opacity, 0)
         .text(formatOperationValue(endpoint.value))
-      placeOperationTextLabel({
-        svg: instance.svg,
-        text: labelNode as unknown as d3.Selection<SVGTextElement, unknown, null, undefined>,
-        preferred: { x: endpoint.x, y: labelY },
-        anchorElement: endpoint.anchor,
-        viewport,
-      })
       return labelNode
         .transition()
         .duration(DURATIONS.LABEL_FADE_IN)

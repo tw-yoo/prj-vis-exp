@@ -799,22 +799,6 @@ D3 실행 함수(핵심):
 ]
 ```
 
-`setOp`
-```json
-[
-  {
-    "op": "setOp",
-    "fn": "intersection",
-    "meta": {
-      "inputs": [
-        "node-a",
-        "node-b"
-      ]
-    }
-  }
-]
-```
-
 ### STACKED BAR
 
 `retrieveValue`
@@ -1038,23 +1022,6 @@ D3 실행 함수(핵심):
       "series": "rain"
     },
     "factor": 1.2
-  }
-]
-```
-
-`setOp`
-```json
-[
-  {
-    "op": "setOp",
-    "fn": "union",
-    "group": "rain",
-    "meta": {
-      "inputs": [
-        "node-a",
-        "node-b"
-      ]
-    }
   }
 ]
 ```
@@ -1287,23 +1254,6 @@ D3 실행 함수(핵심):
 ]
 ```
 
-`setOp`
-```json
-[
-  {
-    "op": "setOp",
-    "fn": "union",
-    "group": "North America",
-    "meta": {
-      "inputs": [
-        "node-a",
-        "node-b"
-      ]
-    }
-  }
-]
-```
-
 ### SIMPLE LINE
 
 `retrieveValue`
@@ -1476,22 +1426,6 @@ D3 실행 함수(핵심):
     "field": "research_and_development_expenditure",
     "target": "2014-01-01",
     "factor": 0.9
-  }
-]
-```
-
-`setOp`
-```json
-[
-  {
-    "op": "setOp",
-    "fn": "intersection",
-    "meta": {
-      "inputs": [
-        "node-a",
-        "node-b"
-      ]
-    }
   }
 ]
 ```
@@ -1709,19 +1643,3 @@ D3 실행 함수(핵심):
 ]
 ```
 
-`setOp`
-```json
-[
-  {
-    "op": "setOp",
-    "fn": "union",
-    "group": "AAPL",
-    "meta": {
-      "inputs": [
-        "node-a",
-        "node-b"
-      ]
-    }
-  }
-]
-```

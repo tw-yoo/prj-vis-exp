@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import { type ChartSpec } from '../../domain/chart'
-import { SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
-import { OPACITIES } from '../../rendering/common/d3Helpers'
+import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
+import { DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 import {
   renderMultipleLineChart,
   type MultiLineSpec,
@@ -14,6 +14,23 @@ import {
   type ChartInstanceSnapshot,
   type TransitionChartScaleOptions,
 } from '../chartInstance'
+
+/**
+ * Identity key matching the legacy runner's `pointKey(target, series)` so
+ * applier-side scope sets line up with what the renderer's circles carry.
+ * Format mirrors operation-next/runners/multipleLine.ts:585.
+ */
+export function multiLinePointKey(target: string, series: string | null | undefined): string {
+  return `${series ?? ''}::${target}`
+}
+
+export interface MultiLineFilterScopeOptions {
+  /** Set of `multiLinePointKey(target|id, series)` values that remain in scope. */
+  activePointKeys: Set<string>
+  outOfScopeOpacity?: number
+  duration?: number
+  ease?: (t: number) => number
+}
 
 function computeSpecKey(spec: ChartSpec): string {
   const data = spec.data as { url?: string; values?: unknown[]; name?: string } | undefined
@@ -121,8 +138,87 @@ export class MultipleLineChartInstance implements ChartInstance {
   }
 
   async transitionChartScale(_opts: TransitionChartScaleOptions): Promise<void> {
-    // No-op stub — see comment in stackedBarInstance.ts. Existing
-    // multipleLine runner transitions handle the visual scale changes inline.
+    // No-op stub for ops still going through the legacy runner. Filter uses
+    // the more specific `transitionFilterScope` below; other ops will be
+    // ported as we extend operation-new coverage.
+  }
+
+  /** All `<circle data-target>` points in this chart (across all series). */
+  pointMarks(): d3.Selection<SVGCircleElement, unknown, d3.BaseType, unknown> {
+    return this.svg.selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Target}]`)
+  }
+
+  /**
+   * Main series `<path>`s — the colored lines, excluding annotation paths,
+   * filter-overlay segments, and axis `.domain` paths. Matches the legacy
+   * `mainLinePath()` helper so applier-side selectors agree with the renderer.
+   */
+  mainLinePaths(): d3.Selection<SVGPathElement, unknown, d3.BaseType, unknown> {
+    return this.svg.selectAll<SVGPathElement, unknown>(SvgElements.Path).filter(function () {
+      const path = this as SVGPathElement
+      if (path.classList.contains(SvgClassNames.Annotation) || path.classList.contains(SvgClassNames.LineAnnotation)) return false
+      if (path.classList.contains('domain')) return false
+      if (path.closest(`.${SvgClassNames.XAxis}, .${SvgClassNames.YAxis}`)) return false
+      if (path.closest(`.${SvgClassNames.AnnotationLayer}`)) return false
+      return path.getAttribute(SvgAttributes.Fill) === 'none' && path.hasAttribute(SvgAttributes.Stroke)
+    })
+  }
+
+  /**
+   * Shared-parent transition for filter scope changes — all points fade to
+   * their new opacity in lockstep so frame timing stays aligned. Out-of-scope
+   * points hit `outOfScopeOpacity` (DIM by default); in-scope points return to
+   * FULL. The applier can hang additional `.transition(parent)` calls off the
+   * returned parent — line-segment overlays, ref lines, etc. — so they all
+   * share the same scheduler.
+   *
+   * Returns the parent transition so callers can chain child transitions.
+   * Resolves when the parent transition settles.
+   */
+  async transitionFilterScope(opts: MultiLineFilterScopeOptions): Promise<void> {
+    if (!this.svg || this.svg.empty()) return
+    const duration = opts.duration ?? DURATIONS.DIM
+    const ease = opts.ease ?? EASINGS.SMOOTH
+    const outOpacity = opts.outOfScopeOpacity ?? OPACITIES.DIM
+    const activeKeys = opts.activePointKeys
+
+    this.activeTargets = activeKeys.size > 0 ? new Set([...activeKeys]) : null
+    this.outOfScopeOpacity = outOpacity
+
+    console.info('[operation-new] MultipleLineChartInstance.transitionFilterScope', {
+      activeKeyCount: activeKeys.size,
+      outOpacity,
+    })
+
+    const parent = this.svg.transition().duration(duration).ease(ease) as unknown as d3.Transition<
+      d3.BaseType,
+      unknown,
+      d3.BaseType,
+      unknown
+    >
+    const inheritT = parent as never
+
+    const points = this.pointMarks()
+    if (!points.empty()) {
+      points
+        .interrupt('filter-scope')
+        .transition(inheritT)
+        .style(SvgAttributes.Opacity, function () {
+          const node = this as SVGCircleElement
+          const target = node.getAttribute(DataAttributes.Target) ?? ''
+          const id = node.getAttribute(DataAttributes.Id) ?? ''
+          const series = node.getAttribute(DataAttributes.Series) ?? ''
+          const inScope = activeKeys.has(multiLinePointKey(target, series))
+            || activeKeys.has(multiLinePointKey(id, series))
+          return inScope ? OPACITIES.FULL : outOpacity
+        })
+    }
+
+    try {
+      await parent.end()
+    } catch {
+      /* interrupted */
+    }
   }
 
   private async buildFromSpec(spec: ChartSpec) {

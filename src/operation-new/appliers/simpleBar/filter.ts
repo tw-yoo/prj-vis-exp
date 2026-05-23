@@ -1,10 +1,11 @@
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec } from '../../../domain/operation/types'
-import { OPACITIES } from '../../../rendering/common/d3Helpers'
+import { DURATIONS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
-import { drawReferenceLine } from '../../primitives/drawReferenceLine'
+import { drawReferenceLine, transitionPersistentRefLines } from '../../primitives/drawReferenceLine'
+import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import {
   resolveFilterVisualDecision,
   type FilterVisualDecision,
@@ -96,6 +97,7 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
     options,
     groupOps,
     groupOperationIndex,
+    nextGroupHeadOp,
     runtimeSpec,
     chartType,
   }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
@@ -118,13 +120,23 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
       yDomainMode: 'preserve',
     }
     if (runtimeSpec && chartType && groupOps && groupOperationIndex != null) {
+      // Cross-group lookahead: if this filter is the last op in its group and
+      // a following group exists, append that group's head op so the policy's
+      // nextOperation() sees it. Handles user-authored splits like
+      // group1=[filter] / group2=[findExtremum] — without this, filter would
+      // be classified as `leaf → dim` even though findExtremum is the real
+      // next op.
+      const isTail = groupOperationIndex === groupOps.length - 1
+      const effectiveGroupOps = isTail && nextGroupHeadOp
+        ? [...groupOps, nextGroupHeadOp]
+        : groupOps
       const policyDecision = resolveFilterVisualDecision({
         spec: runtimeSpec,
         chartType,
         operation,
         filteredData: result,
         originalData: state.originalData,
-        groupOps,
+        groupOps: effectiveGroupOps,
         operationIndex: groupOperationIndex,
         policy: options?.tensionPolicy,
       })
@@ -138,50 +150,38 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
 
     const layer = instance.annotationLayer
     applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
-    layer.selectAll(`.${FILTER_ANNOTATION_CLASS}`).interrupt().remove()
+    fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS)
 
     const remainingTargets = new Set(result.map((d) => String(d.target)))
 
     // -----------------------------------------------------------------------
-    // Single shared-transition rescale via the chart instance — opens one
-    // parent transition that axes + bars (in/out scope) all ride. Every
-    // visual element shares the same scheduler so axis ticks and bar geometry
-    // stay aligned every frame. Filter mode controls out-of-scope opacity:
-    // 'dim' = DIM (0.2), 'remove' = 0 (hidden).
+    // 3-phase visual sequence — same for both 'dim' and 'remove' policy modes
+    // so the viewer can read each step:
+    //   Phase 0 (optional): threshold ref line for value-based filter, drawn
+    //     on the *original* scale so the user sees the cutoff first.
+    //   Phase 1 (DIM): non-matching bars fade to DIM opacity. No scale change.
+    //   Phase 2 (RESCALE+VANISH): axes + in-scope bars rescale; out-of-scope
+    //     bars fade to opacity 0 inside the same shared transition. Persistent
+    //     ref lines from this op and prior ops slide to their new y in
+    //     lockstep with the axis rescale.
+    // The policy `decision.mode` is preserved in `filterContext` for downstream
+    // ops that consult it; the visual outcome ends with the excluded bars
+    // hidden either way (per repeated user feedback that lingering dim bars
+    // are visually confusing once the chart has rescaled).
     // -----------------------------------------------------------------------
     const originalYDomain = instance.yScale.domain() as [number, number]
     const yDomain = computeYDomain(result)
     const xLabelDomain = computeXLabelDomain(instance, result)
-    const outOfScopeOpacity = decision.mode === 'remove' ? OPACITIES.HIDDEN : OPACITIES.DIM
-    console.info('[operation-new] bar applier:filter decision', {
-      mode: decision.mode,
-      reason: decision.reason,
-      outOfScopeOpacity,
-    })
-
-    await instance.transitionChartScale({
-      yDomain: yDomain ?? undefined,
-      xLabelDomain: xLabelDomain ?? undefined,
-      activeTargets: remainingTargets,
-      outOfScopeOpacity,
-    })
-
-    let nextScaleState = state.scaleState
-    if (yDomain) {
-      const currentDomain = instance.yScale.domain() as [number, number]
-      nextScaleState = {
-        originalDomain: state.scaleState?.originalDomain ?? originalYDomain,
-        currentDomain,
-        rescaledBy: 'filter',
-      }
-    }
-
-    // ----- Threshold ref line (continuous filter) or scope label (categorical) -----
-    const threshold = resolveNumericThreshold(operation, state.workingData)
     const viewport = resolveBarAnnotationViewport(instance)
     const x1 = instance.layout.marginLeft
     const x2 = instance.layout.marginLeft + instance.layout.plotWidth
+    console.info('[operation-new] bar applier:filter decision', {
+      mode: decision.mode,
+      reason: decision.reason,
+    })
 
+    // Phase 0: threshold ref line if value-based filter.
+    const threshold = resolveNumericThreshold(operation, state.workingData)
     if (threshold != null && Number.isFinite(instance.yScale(threshold))) {
       const thresholdY = instance.layout.marginTop + instance.yScale(threshold)
       await drawReferenceLine({
@@ -193,10 +193,45 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
         label: String(threshold),
         svg: instance.svg,
         viewport,
+        anchorValue: threshold,
       })
     }
-    // Phase 4: categorical filter no longer draws a "Filtered: …" scope label.
-    // The chart itself (dim mode opacity / remove mode narrowing) communicates the active scope.
+
+    // Phase 1: DIM only (axes hold still).
+    await instance.transitionChartScale({
+      activeTargets: remainingTargets,
+      outOfScopeOpacity: OPACITIES.DIM,
+      duration: DURATIONS.DIM,
+    })
+
+    // Phase 2: rescale + vanish. `transitionChartScale` mutates the yScale
+    // synchronously (pre-await), so calling it first then computing the
+    // ref-line transitions ensures the new y values use the new scale —
+    // every transition still launches in the same animation frame.
+    const rescaleDuration = DURATIONS.AXIS_RESCALE
+    const chartRescalePromise = instance.transitionChartScale({
+      yDomain: yDomain ?? undefined,
+      xLabelDomain: xLabelDomain ?? undefined,
+      outOfScopeOpacity: OPACITIES.HIDDEN,
+      duration: rescaleDuration,
+    })
+    const persistentRefTransitions = transitionPersistentRefLines({
+      layer,
+      yScale: instance.yScale,
+      marginTop: instance.layout.marginTop,
+      duration: rescaleDuration,
+    })
+    await Promise.all([chartRescalePromise, ...persistentRefTransitions])
+
+    let nextScaleState = state.scaleState
+    if (yDomain) {
+      const currentDomain = instance.yScale.domain() as [number, number]
+      nextScaleState = {
+        originalDomain: state.scaleState?.originalDomain ?? originalYDomain,
+        currentDomain,
+        rescaledBy: 'filter',
+      }
+    }
 
     // Salience map: dim mode tracks per-target opacity (FULL for in-scope);
     // remove mode has no dim marks so the map stays empty.

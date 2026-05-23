@@ -3,8 +3,20 @@ import type { OperationSpec, TargetSelector } from '.'
 
 export interface OpRetrieveValueSpec extends OperationSpec {
   op: typeof OperationOp.RetrieveValue
+  /**
+   * Lookup target.
+   * - When `targetAxis === 'x'` (default): the x-axis category label (or its id).
+   * - When `targetAxis === 'y'`: the numeric y-axis value to find rows for.
+   *   Multiple matches (same value at different categories) all flow through.
+   */
   target: TargetSelector | TargetSelector[]
+  /** Measure field constraint. Required when `targetAxis === 'y'` and the chart has multiple measures. */
   field?: string
+  /**
+   * Lookup direction. Default `'x'` (find y given x). Use `'y'` to find x category(ies)
+   * whose measured value matches `target` (exact match against `field`, or any measure if omitted).
+   */
+  targetAxis?: 'x' | 'y'
   precision?: number
   visual?: {
     highlightColor?: string
@@ -127,8 +139,3 @@ export interface OpScaleSpec extends OperationSpec {
   group?: string | null
 }
 
-export interface OpSetOpSpec extends OperationSpec {
-  op: typeof OperationOp.SetOp
-  fn: 'intersection' | 'union'
-  group?: string | null
-}

@@ -10,6 +10,7 @@ import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier
 import { resolveAnnotationViewport } from '../../primitives/annotationLayer'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
+import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { FILTER_ANNOTATION_CLASS } from './filter'
 
 const AVERAGE_ANNOTATION_CLASS = 'operation-next-line-average'
@@ -39,7 +40,7 @@ export const averageApplier: OperationApplier = {
     const referencedResultIds = options?.referencedResultIds
     const persistent = isOperationResultReferenced(operation, referencedResultIds)
     if (!persistent) {
-      layer.selectAll(`.${AVERAGE_ANNOTATION_CLASS}`).interrupt().remove()
+      fadeRemoveAnnotations(layer, AVERAGE_ANNOTATION_CLASS)
     } else {
       const refs = new Set((referencedResultIds ?? []).map((id) => String(id).replace(/^ref:/, '')))
       layer
@@ -74,6 +75,7 @@ export const averageApplier: OperationApplier = {
       label: labelText,
       svg: instance.svg,
       viewport,
+      anchorValue: average,
     })
 
     const resultRef = operationResultRef(operation)

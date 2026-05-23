@@ -299,27 +299,6 @@ function contiguousRuns(targets: string[], orderedDomain: string[]) {
   return runs
 }
 
-function buildSetOpPlan(result: DatumValue[], op: OperationSpec, context: AutoDrawPlanContext) {
-  if (!result.length) return null
-  const targets = Array.from(new Set(result.map((d) => String(d.target))))
-  const plan = buildHighlightPlan(targets, '#0ea5e9')
-  const domain = Array.from(new Set(context.prevWorking.map((d) => String(d.target))))
-  const runs = contiguousRuns(targets, domain)
-  const label = op.fn === 'intersection' ? 'intersection' : 'union'
-  runs.forEach(([start, end]) => {
-    if (start === end) return
-    plan.push(
-      ops.draw.band(op.chartId, 'x', [start, end], label, {
-        fill: 'rgba(59,130,246,0.16)',
-        stroke: '#3b82f6',
-        strokeWidth: 1.5,
-        opacity: 1 }),
-    )
-  })
-  plan.push(ops.draw.text(op.chartId, undefined, textScore(targets.length, label)))
-  return plan
-}
-
 function uniqueTargets(result: DatumValue[]) {
   return Array.from(new Set(result.map((row) => String(row.target))))
 }
@@ -558,8 +537,7 @@ export const GROUPED_BAR_AUTO_DRAW_PLAN_BUILDERS: Record<
       ops.draw.line(op.chartId, lineAt(value)),
       ops.draw.text(op.chartId, undefined, textScore(value, `scale ×${renderedFactor}`)),
     ]
-  },
-  [OperationOp.SetOp]: (result, op, context) => buildSetOpPlan(result, op, context) }
+  } }
 
 
 export const GROUPED_BAR_AUTO_DRAW_PLANS = withStagedAutoDrawPlanRegistry(

@@ -15,7 +15,6 @@ import {
   assertPairDiffSpec,
   assertRetrieveValueSpec,
   assertScaleSpec,
-  assertSetOpSpec,
   assertSortSpec,
   assertSumSpec,
 } from '../../../types/operationValidators'
@@ -128,9 +127,6 @@ export function validateOps(state: OpsBuilderState, chartType: ChartTypeValue | 
             break
           case OperationOp.Scale:
             assertScaleSpec(op)
-            break
-          case OperationOp.SetOp:
-            assertSetOpSpec(op)
             break
           case OperationOp.Sleep:
           case OperationOp.Draw:

@@ -1,4 +1,3 @@
-import * as d3 from 'd3'
 import {
   diffByValueOp,
   getRuntimeResultsById,
@@ -11,7 +10,7 @@ import { formatOperationValue } from '../../../operation-next/primitives/formatV
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
-import { placeOperationTextLabel } from '../../primitives/placeLabel'
+import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { readBarMetrics, resolveBarAnnotationViewport, valueToRootY } from './_shared'
 
 export const DIFF_BY_VALUE_ANNOTATION_CLASS = 'operation-next-diff-by-value'
@@ -37,7 +36,7 @@ export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
     })
 
     const layer = instance.annotationLayer
-    layer.selectAll(`.${DIFF_BY_VALUE_ANNOTATION_CLASS}`).interrupt().remove()
+    fadeRemoveAnnotations(layer, DIFF_BY_VALUE_ANNOTATION_CLASS)
 
     const reference = resolveReferenceValue(operation)
     if (reference == null) {
@@ -58,6 +57,7 @@ export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
       label: `Value: ${formatOperationValue(reference)}`,
       svg: instance.svg,
       viewport,
+      anchorValue: reference,
     })
 
     // Per-bar delta labels.
@@ -75,6 +75,14 @@ export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
       labelData.push({ x: metrics.centerX, y: metrics.topY, delta, anchor: rect })
     })
 
+    // Label above the bar top; flip below if that would clip the chart's top
+    // margin. No collision avoidance — overflow:visible keeps labels visible
+    // past the plot box if needed.
+    const labelMinY = instance.layout.marginTop + 12
+    const labelYFor = (y: number) => {
+      const naturalAbove = y - 8
+      return naturalAbove >= labelMinY ? naturalAbove : y + 18
+    }
     const labels = layer
       .selectAll<SVGTextElement, { x: number; y: number; delta: number }>(
         `text.${DIFF_BY_VALUE_ANNOTATION_CLASS}.bar-delta`,
@@ -84,23 +92,13 @@ export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
       .append(SvgElements.Text)
       .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${DIFF_BY_VALUE_ANNOTATION_CLASS} bar-delta`)
       .attr(SvgAttributes.X, (d) => d.x)
-      .attr(SvgAttributes.Y, (d) => Math.max(12, d.y - 8))
+      .attr(SvgAttributes.Y, (d) => labelYFor(d.y))
       .attr(SvgAttributes.TextAnchor, 'middle')
       .attr(SvgAttributes.FontSize, 12)
       .attr(SvgAttributes.FontWeight, 700)
       .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
       .style(SvgAttributes.Opacity, 0)
       .text((d) => `${d.delta >= 0 ? '+' : ''}${formatOperationValue(d.delta)}`)
-
-    labels.each(function (datum) {
-      placeOperationTextLabel({
-        svg: instance.svg,
-        text: d3.select(this) as unknown as d3.Selection<SVGTextElement, unknown, null, undefined>,
-        preferred: { x: datum.x, y: Math.max(12, datum.y - 8) },
-        anchorElement: datum.anchor,
-        viewport,
-      })
-    })
 
     await labels
       .transition()

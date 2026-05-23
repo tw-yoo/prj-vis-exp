@@ -15,7 +15,6 @@ export const OperationOp = {
   Count: 'count',
   Add: 'add',
   Scale: 'scale',
-  SetOp: 'setOp',
   Sleep: 'sleep',
 } as const
 

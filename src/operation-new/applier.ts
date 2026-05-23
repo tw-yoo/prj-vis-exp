@@ -26,6 +26,12 @@ export interface ApplierArgs<TInstance extends ChartInstance = SimpleLineChartIn
    */
   groupOps?: OperationSpec[]
   groupOperationIndex?: number
+  /**
+   * First op of the *next* group, if any. Lets a filter at the tail of one
+   * group see the head of the following group (e.g. filter→findExtremum split
+   * across groups) so filterSaliencePolicy can pick `remove` mode.
+   */
+  nextGroupHeadOp?: OperationSpec
   /** Original chart spec, in case the applier needs to consult encoding. */
   runtimeSpec?: ChartSpec
   /** Chart type from the dispatcher (e.g. ChartType.SIMPLE_BAR). */

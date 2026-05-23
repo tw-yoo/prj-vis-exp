@@ -423,8 +423,6 @@ function imperativeSentenceForOperation(args: {
       const target = resultTarget(nodeId ? artifacts?.nodeResults.get(nodeId) : undefined)
       return target ? `${base}, which is ${target}` : base
     }
-    case OperationOp.SetOp:
-      return op.fn === 'intersection' ? 'Calculate the intersection of the selected values' : 'Calculate the union of the selected values'
     case OperationOp.PairDiff:
       return 'Calculate the pairwise difference'
     case OperationOp.LagDiff:

@@ -51,6 +51,7 @@ import {
   consumeDerivedChartState,
   ChartType,
   getChartType,
+  rehydrateChartInstanceFromCheckpoint,
   type DrawInteractionControllerState,
   type BarSegmentCommit,
   type DrawLineSpec,
@@ -1849,7 +1850,7 @@ function ChartWorkbenchPage() {
   }, [getCachedRenderEntry])
 
     const renderSpecIfNeeded = useCallback(
-      async (host: HTMLElement, spec: VegaLiteSpec, options?: { surfaceId?: string }) => {
+      async (host: HTMLElement, spec: VegaLiteSpec, options?: { surfaceId?: string; skipPresentationHandoff?: boolean }) => {
         const isCurrent = isRenderedSpecCurrent(host, spec, options?.surfaceId)
         logOperationNextDebug('workbench-renderSpecIfNeeded', {
           t: debugNow(),
@@ -1862,7 +1863,9 @@ function ChartWorkbenchPage() {
           lockRenderedChartSvgSizes(host)
           return false
         }
-        const outgoingPresentation = captureMarkPresentationSnapshot(host)
+        const outgoingPresentation = options?.skipPresentationHandoff
+          ? null
+          : captureMarkPresentationSnapshot(host)
         logOperationNextDebug('workbench-renderSpecIfNeeded-render-start', {
           t: debugNow(),
           hasOutgoingPresentation: Boolean(outgoingPresentation),
@@ -1872,7 +1875,9 @@ function ChartWorkbenchPage() {
         await renderChartDispatch(host, spec)
         const lockedSvgSizes = lockRenderedChartSvgSizes(host)
         cacheRenderedSpec(host, spec, options?.surfaceId)
-        playPresentationTransition(host, outgoingPresentation, { durationMs: 260 })
+        if (outgoingPresentation) {
+          playPresentationTransition(host, outgoingPresentation, { durationMs: 260 })
+        }
         applySplitSharedYAxisPolicy(surfaceManagerRef.current)
         logOperationNextDebug('workbench-renderSpecIfNeeded-render-end', {
           t: debugNow(),
@@ -2055,7 +2060,7 @@ function ChartWorkbenchPage() {
   )
 
   const renderChart = useCallback(
-    async (specString: string): Promise<ChartTypeValue | null> => {
+    async (specString: string, callerOptions?: { skipPresentationHandoff?: boolean }): Promise<ChartTypeValue | null> => {
       const sanitizedSpec = sanitizeJsonInput(specString)
       let parsed: VegaLiteSpec
       try {
@@ -2078,7 +2083,10 @@ function ChartWorkbenchPage() {
       }
 
       try {
-        await renderSpecIfNeeded(chartRef.current, parsed, { surfaceId: 'root' })
+        await renderSpecIfNeeded(chartRef.current, parsed, {
+          surfaceId: 'root',
+          skipPresentationHandoff: callerOptions?.skipPresentationHandoff,
+        })
         if (!opsUiSessionActive && !opsUiStartPending) {
           clearSentenceSummaryOverlay(chartRef.current)
           setChunkedOutput(null)
@@ -2112,7 +2120,7 @@ function ChartWorkbenchPage() {
 
   const handleRenderChart = () => {
     const specString = vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec
-    void renderChart(specString)
+    void renderChart(specString, { skipPresentationHandoff: true })
   }
 
   const handleOpsExportChange = (groups: OperationSpec[][], errors: Record<string, string>) => {
@@ -2788,6 +2796,7 @@ function ChartWorkbenchPage() {
       surfaceId?: string
       runtimeSnapshot?: OperationNextRunOutcome['runtimeSnapshot']
       initialChainState?: OperationNextRunOutcome['continuation']
+      nextRunHeadOp?: OperationSpec
     },
   ) => {
     if (!chartRef.current) return
@@ -3079,6 +3088,7 @@ function ChartWorkbenchPage() {
           referencedResultIds: collectReferencedResultIdsFromOpsGroups(opsGroups),
           initialRenderMode: 'reuse-existing',
           surfaceManager: requestedSurfaceId && requestedSurfaceId !== 'root' ? undefined : surfaceManagerRef.current ?? undefined,
+          nextRunHeadOp: options?.nextRunHeadOp,
         })
         const lockedSvgSizesAfterRun = lockRenderedChartSvgSizes(executionContainer)
         logSplitSimpleBarDebug('workbench.executeOpsArray-after-runChartOps', {
@@ -3368,6 +3378,8 @@ function ChartWorkbenchPage() {
       resetRuntime?: boolean
       skipDelays?: boolean
       silentSummary?: boolean
+      runtimeSnapshot?: OperationNextRunOutcome['runtimeSnapshot']
+      initialChainState?: OperationNextRunOutcome['continuation']
     },
   ): Promise<VisualSentencePlaybackResult | null> => {
     if (!chartRef.current) return null
@@ -3392,6 +3404,8 @@ function ChartWorkbenchPage() {
         skipDelays: options?.skipDelays,
         renderSourceChart: renderSourceChartForVisualPlayback,
         renderPlaybackChart: renderPlaybackChartForVisualPlayback,
+        initialChainState: options?.initialChainState ?? null,
+        runtimeSnapshot: options?.runtimeSnapshot ?? null,
         runOps: async (ops, runOptions) => {
           logSplitSimpleBarDebug('workbench.visualPlayer-runOps-callback', {
             ops: summarizeOpsForDebug(ops),
@@ -3401,10 +3415,17 @@ function ChartWorkbenchPage() {
               surfaceId: runOptions.surfaceId ?? null,
               hasExecutionSpec: Boolean(runOptions.executionSpec),
               executionSpec: summarizeSpecForDebug(runOptions.executionSpec as VegaLiteSpec | undefined),
+              nextRunHeadOp: runOptions.nextRunHeadOp?.op ?? null,
+              hasInitialChainState: Boolean(runOptions.initialChainState),
+              hasRuntimeSnapshot: Boolean(runOptions.runtimeSnapshot),
             },
             layout: summarizeSplitLayoutForDebug(surfaceManagerRef.current),
           })
-          await executeOpsArray(ops, runOptions)
+          await executeOpsArray(ops, {
+            ...runOptions,
+            initialChainState: runOptions.initialChainState ?? undefined,
+            runtimeSnapshot: runOptions.runtimeSnapshot ?? undefined,
+          })
         },
       })
 
@@ -3478,6 +3499,8 @@ function ChartWorkbenchPage() {
         runResult = await runVisualSentenceGroup(groupIndex, {
           resetRuntime: options?.resetRuntime ?? true,
           skipDelays: options?.skipDelays,
+          initialChainState: options?.initialChainState,
+          runtimeSnapshot: options?.runtimeSnapshot,
         })
       } else {
         runResult = await runOpsGroup(groupIndex, {
@@ -3647,15 +3670,27 @@ function ChartWorkbenchPage() {
       if (groupIndex < 0 || groupIndex >= opsGroups.length) return null
 
       if (canUseVisualExecutionPlayer) {
+        // Thread ChainState/runtimeSnapshot from the previous group's
+        // checkpoint so the runner can resume mid-chain (e.g. when the user
+        // clicked opsN out of order). For groupIndex 0 there is no prior
+        // checkpoint — the runner starts from baseline.
+        const previousCheckpoint = groupIndex > 0 ? getChunkScene(groupIndex - 1)?.checkpoint ?? null : null
         const runResult = await runOpsGroupByIndex(groupIndex, {
           resetRuntime: groupIndex === 0,
           runtimeScope: 'chunked-output',
+          runtimeSnapshot: previousCheckpoint?.runtimeSnapshot,
+          initialChainState: previousCheckpoint?.chainState ?? null,
         })
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+        const outcome = runResult ? asOperationNextRunOutcome(runResult) : null
         const svgString = captureCurrentSceneSvg()
-        if (svgString) {
+        const checkpoint = outcome ? captureChunkCheckpoint(outcome) : null
+        if (svgString && checkpoint) {
+          upsertChunkScene(groupIndex, svgString, checkpoint)
+        } else if (svgString) {
           upsertChunkScene(groupIndex, svgString)
         }
-        return runResult ?? true
+        return outcome ?? runResult ?? true
       }
 
       if (groupIndex === 0) {
@@ -3717,28 +3752,56 @@ function ChartWorkbenchPage() {
   const enterOpsGroupPreRun = useCallback(
     async (groupIndex: number) => {
       if (groupIndex < 0 || groupIndex >= opsGroups.length) return
-      if (canUseVisualExecutionPlayer) {
-        await restoreVisualStateBeforeStep(groupIndex)
-      } else if (groupIndex === 0) {
+      if (groupIndex === 0) {
         await resetChartToOpsPreRunState()
       } else {
+        // Unified path: chunkScene checkpoint (SVG + ChainState + runtimeSnapshot)
+        // is the single source of truth for pre-run state across both legacy
+        // and visual-execution-player paths. After restoring the SVG, for the
+        // simple-line new path we rebind the SimpleLineChartInstance to the
+        // restored DOM so the next applier sees scales matching the cached SVG.
         let previousScene = getChunkScene(groupIndex - 1)
         if (!previousScene?.checkpoint) {
           previousScene = await materializeChunkCheckpoint(groupIndex - 1)
         }
+        let restored = false
         if (previousScene?.checkpoint) {
-          const restored = await restoreChunkCheckpoint(previousScene)
+          restored = await restoreChunkCheckpoint(previousScene)
           if (!restored) {
             invalidateChunkScenesFromGroup(groupIndex - 1)
             const rematerialized = await materializeChunkCheckpoint(groupIndex - 1)
             if (rematerialized?.checkpoint) {
-              const restoredRetry = await restoreChunkCheckpoint(rematerialized)
-              if (!restoredRetry) await restoreVisualStateBeforeStep(groupIndex)
-            } else {
-              await restoreVisualStateBeforeStep(groupIndex)
+              previousScene = rematerialized
+              restored = await restoreChunkCheckpoint(rematerialized)
             }
           }
-        } else {
+        }
+        if (restored && previousScene?.checkpoint && chartRef.current) {
+          const inferredType =
+            (previousScene.checkpoint.chartType as ChartTypeValue | undefined) ??
+            getChartType(previousScene.checkpoint.spec)
+          if (inferredType) {
+            const ok = rehydrateChartInstanceFromCheckpoint(
+              chartRef.current,
+              inferredType,
+              previousScene.checkpoint.spec,
+              previousScene.checkpoint.chainState,
+            )
+            if (!ok) {
+              console.warn('[workbench] rehydrateChartInstanceFromCheckpoint returned false; falling back', {
+                chartType: inferredType,
+              })
+              await restoreVisualStateBeforeStep(groupIndex)
+            } else {
+              // Align the visual-player surface state so subsequent runs do not
+              // try to re-render the source chart from scratch (which would
+              // wipe the cached SVG we just rehydrated to).
+              visualPlaybackSurfaceRef.current = 'source-chart'
+              opsSessionActiveRef.current = true
+              visualPreRunRestoredRef.current = true
+            }
+          }
+        } else if (!restored) {
           await restoreVisualStateBeforeStep(groupIndex)
         }
       }
@@ -3748,7 +3811,6 @@ function ChartWorkbenchPage() {
       setActiveChunkIndex(-1)
     },
     [
-      canUseVisualExecutionPlayer,
       getChunkScene,
       invalidateChunkScenesFromGroup,
       materializeChunkCheckpoint,
@@ -3765,7 +3827,11 @@ function ChartWorkbenchPage() {
       if (opsRunning || chunkReplayRunning) return
       if (groupIndex < 0 || groupIndex >= opsGroups.length) return
 
-      invalidateChunkScenesFromGroup(groupIndex)
+      // opsN's own checkpoint will be re-captured deterministically after this
+      // click runs; only ops(N+1)..opsLast become stale. Keeping the
+      // groupIndex-1 checkpoint intact also means enterOpsGroupPreRun can
+      // restore from it without first re-materializing.
+      invalidateChunkScenesFromGroup(groupIndex + 1)
       if (groupIndex !== opsUiGroupIndex || opsUiGroupPhase !== 'pre-run') {
         await enterOpsGroupPreRun(groupIndex)
       }
@@ -4189,8 +4255,9 @@ function ChartWorkbenchPage() {
   const opsCollapsedSummary = `Operations 입력 숨김 · mode=${opsInputMode}${planGroups ? ' · plan=loaded' : ''}`
 
   return (
-    <div className="app-shell">
-      <div className="layout-body">
+    <div className="app-shell workbench-shell">
+      <div className="layout-body workbench-layout">
+        <div className="workbench-row workbench-row--specs">
         <section className="card ops-card">
           <div className="card-header">
             <label className="card-title" htmlFor="vl-spec">
@@ -4237,99 +4304,34 @@ function ChartWorkbenchPage() {
           )}
         </section>
 
-        <section className="card ops-card nl-panel" data-testid="nl-panel">
-          <div className="card-header">
-            <label className="card-title" htmlFor="nl-input">
-              Natural Language to OperationSpec
-            </label>
-            <div className="card-actions">
-              <button
-                type="button"
-                className="pill-btn"
-                onClick={() => void handleConvertToOpsSpec()}
-                disabled={nlLoading || opsRunning}
-                data-testid="nl-convert-button"
-              >
-                {nlLoading ? 'Converting…' : 'Convert to opsSpec'}
-              </button>
-              <button
-                type="button"
-                className="pill-btn"
-                onClick={() => void handleApplyPythonDrawPlan()}
-                disabled={pythonDrawLoading || nlLoading || opsRunning}
-                data-testid="python-draw-apply-button"
-              >
-                {pythonDrawLoading ? 'Applying Draw…' : 'Apply Python Draw Plan'}
-              </button>
-              <button
-                type="button"
-                className="pill-btn section-toggle-btn"
-                onClick={() => setIsNlSectionExpanded((current) => !current)}
-                data-testid="toggle-nl-section"
-              >
-                {isNlSectionExpanded ? 'Collapse' : 'Expand'}
-              </button>
-            </div>
-          </div>
-          {isNlSectionExpanded ? (
-            <>
-              <input
-                className="nl-question"
-                data-testid="nl-question"
-                placeholder="Question"
-                value={nlQuestion}
-                onChange={(event) => setNlQuestion(event.target.value)}
-              />
-              <textarea
-                id="nl-input"
-                data-testid="nl-input"
-                placeholder="Explanation"
-                value={nlInput}
-                onChange={(event) => setNlInput(event.target.value)}
-              />
-              {nlStatus ? (
-                <div className="nl-status" data-testid="nl-status">
-                  {nlStatus}
-                </div>
-              ) : null}
-              {nlResolvedText ? (
-                <div className="nl-resolved" data-testid="nl-resolved-text">
-                  Resolved text: {nlResolvedText}
-                </div>
-              ) : null}
-              {nlWarnings.length > 0 ? (
-                <ul className="nl-warning-list" data-testid="nl-warning-list">
-                  {nlWarnings.map((warning, index) => (
-                    <li key={`${warning}-${index}`}>{warning}</li>
-                  ))}
-                </ul>
-              ) : null}
-              {nlError ? (
-                <div className="nl-error" data-testid="nl-error">
-                  {nlError}
-                </div>
-              ) : null}
-              {pythonDrawStatus ? (
-                <div className="nl-status" data-testid="python-draw-status">
-                  {pythonDrawStatus}
-                </div>
-              ) : null}
-              {pythonDrawError ? (
-                <div className="nl-error" data-testid="python-draw-error">
-                  {pythonDrawError}
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <div className="section-collapsed-line">{nlCollapsedSummary}</div>
-          )}
-        </section>
-
         <section className="card ops-card">
           <div className="card-header">
             <div className="card-title">Operations</div>
             <div className="card-actions">
               {planGroups ? <div className="plan-badge">Plan mode</div> : null}
+              <button
+                type="button"
+                className="pill-btn"
+                onClick={handleRunOperations}
+                disabled={opsRunning || hasBuilderValidationErrors}
+                data-testid="run-operations-button"
+              >
+                Run Operations
+              </button>
+              {opsInputMode === 'json' &&
+              opsUiSessionActive &&
+              opsUiGroupIndex >= 0 &&
+              opsUiGroupIndex < opsGroups.length &&
+              opsUiGroupPhase === 'pre-run' ? (
+                <button
+                  type="button"
+                  className="pill-btn"
+                  onClick={() => void runOpsGroupFromSentence(opsUiGroupIndex)}
+                  disabled={opsRunning}
+                >
+                  {opsUiGroupIndex === 0 ? 'Start' : 'Next'}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="pill-btn section-toggle-btn"
@@ -4341,152 +4343,75 @@ function ChartWorkbenchPage() {
             </div>
           </div>
           {isOpsSectionExpanded ? (
-            <>
-              <div className="plan-loader">
-                <label className="plan-label" htmlFor="ops-plan-path">
-                  OpsPlan
-                </label>
-                <input
-                  id="ops-plan-path"
-                  className="plan-input"
-                  list="ops-plan-options"
-                  placeholder="data/expert/e1/sample_python_plan_rain_sun.py or ... .ts"
-                  value={planPath}
-                  onChange={(event) => setPlanPath(event.target.value)}
-                />
-                <datalist id="ops-plan-options">
-                  {planOptions.map((option) => (
-                    <option key={option} value={option} />
-                  ))}
-                </datalist>
-                <button type="button" className="pill-btn" onClick={handleLoadPlan} disabled={planLoading}>
-                  {planLoading ? 'Loading…' : 'Load'}
-                </button>
-                <button type="button" className="pill-btn" onClick={handleClearPlan} disabled={!planGroups && !planError}>
-                  Clear
-                </button>
-              </div>
-              <div className="plan-capture">
-                <label className="plan-capture-label" htmlFor="capture-scenes-toggle">
-                  <input
-                    id="capture-scenes-toggle"
-                    type="checkbox"
-                    checked={captureScenesEnabled}
-                    onChange={(event) => setCaptureScenesEnabled(event.target.checked)}
-                    disabled={!planGroups || captureScenesRunning || opsRunning}
-                  />
-                  <span>Capture scenes while running plan</span>
-                </label>
-                {captureScenesStatus ? <div className="plan-capture-status">{captureScenesStatus}</div> : null}
-              </div>
-              {planError ? <div className="plan-error">{planError}</div> : null}
-              <div className="ops-mode-toggle">
-                <button
-                  type="button"
-                  className={`pill-btn ops-mode-btn ${opsInputMode === 'json' ? 'is-active' : ''}`}
-                  onClick={() => setOpsInputMode('json')}
-                >
-                  JSON Ops (Default)
-                </button>
-                <button
-                  type="button"
-                  className={`pill-btn ops-mode-btn ${opsInputMode === 'builder' ? 'is-active' : ''}`}
-                  onClick={() => setOpsInputMode('builder')}
-                >
-                  Visual Builder
-                </button>
-              </div>
-              {opsInputMode === 'json' ? (
-                <div className="ops-json-editor">
-                  <label className="plan-label" htmlFor="ops-spec">
-                    OpsSpec JSON
-                  </label>
-                  <textarea
-                    id="ops-spec"
-                    data-testid="ops-json-input"
-                    value={opsJsonText}
-                    onChange={(event) => {
-                      setOpsJsonText(event.target.value)
-                      setOpsJsonError(null)
-                      setOpsJsonExecutionSource(null)
-                      setOpsJsonExecutionMode(null)
-                      setOpsJsonExecutionPlanSummary([])
-                      setOpsJsonWarnings([])
-                      setOpsJsonDrawPlan(null)
-                      setOpsJsonLogicalOpsSpec(null)
-                      setOpsJsonDataRows(null)
-                      setOpsJsonExecutionPlanState(undefined)
-                      setOpsJsonVisualExecutionPlanState(undefined)
-                      visualPlaybackSurfaceRef.current = 'unknown'
-                    }}
-                  />
-                  {opsJsonGroupNames.length > 0 ? (
-                    <div className="nl-status">Detected groups: {opsJsonGroupNames.join(', ')}</div>
-                  ) : null}
-                  {opsJsonExecutionSource ? (
-                    <div className="nl-status" data-testid="ops-json-status">
-                      Execution source: {opsJsonExecutionSource}
-                    </div>
-                  ) : null}
-                  {opsJsonExecutionMode ? <div className="nl-status">Execution mode: {opsJsonExecutionMode}</div> : null}
-                  {opsJsonExecutionPlanSummary.length > 0 ? (
-                    <ul className="nl-status-list" data-testid="ops-json-execution-plan">
-                      {opsJsonExecutionPlanSummary.map((line, index) => (
-                        <li key={`${line}-${index}`}>{line}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {opsJsonWarnings.length > 0 ? (
-                    <ul className="nl-warning-list" data-testid="ops-json-warning-list">
-                      {opsJsonWarnings.map((warning, index) => (
-                        <li key={`${warning}-${index}`}>{warning}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {opsJsonError ? <div className="plan-error">{opsJsonError}</div> : null}
+            <div className="ops-json-editor">
+              <label className="plan-label" htmlFor="ops-spec">
+                OpsSpec JSON
+              </label>
+              <textarea
+                id="ops-spec"
+                data-testid="ops-json-input"
+                value={opsJsonText}
+                onChange={(event) => {
+                  setOpsJsonText(event.target.value)
+                  setOpsJsonError(null)
+                  setOpsJsonExecutionSource(null)
+                  setOpsJsonExecutionMode(null)
+                  setOpsJsonExecutionPlanSummary([])
+                  setOpsJsonWarnings([])
+                  setOpsJsonDrawPlan(null)
+                  setOpsJsonLogicalOpsSpec(null)
+                  setOpsJsonDataRows(null)
+                  setOpsJsonExecutionPlanState(undefined)
+                  setOpsJsonVisualExecutionPlanState(undefined)
+                  visualPlaybackSurfaceRef.current = 'unknown'
+                }}
+                onBlur={(event) => {
+                  const raw = event.target.value
+                  const trimmed = raw.trim()
+                  if (!trimmed) return
+                  try {
+                    const parsed = JSON.parse(trimmed)
+                    const pretty = JSON.stringify(parsed, null, 2)
+                    if (pretty !== raw) {
+                      setOpsJsonText(pretty)
+                    }
+                  } catch {
+                    // Not valid JSON yet — leave the text alone so user can keep editing.
+                  }
+                }}
+              />
+              {opsJsonGroupNames.length > 0 ? (
+                <div className="nl-status">Detected groups: {opsJsonGroupNames.join(', ')}</div>
+              ) : null}
+              {opsJsonExecutionSource ? (
+                <div className="nl-status" data-testid="ops-json-status">
+                  Execution source: {opsJsonExecutionSource}
                 </div>
-              ) : (
-                <OpsBuilder
-                  chartType={chartType}
-                  onExportChange={handleOpsExportChange}
-                  optionSources={optionSources}
-                  validationTick={opsValidationTick}
-                  recordCommand={recordQueue[0] ?? null}
-                  onRecordHandled={handleRecordHandled}
-                  importCommand={nlImportCommand}
-                  onImportHandled={handleNlpImportHandled}
-                />
-              )}
-              <div className="ops-runbar">
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={handleRunOperations}
-                  disabled={captureScenesRunning || opsRunning || hasBuilderValidationErrors}
-                >
-                  Run Operations
-                </button>
-                {opsInputMode === 'json' &&
-                opsUiSessionActive &&
-                opsUiGroupIndex >= 0 &&
-                opsUiGroupIndex < opsGroups.length &&
-                opsUiGroupPhase === 'pre-run' ? (
-                  <button
-                    type="button"
-                    className="pill-btn"
-                    onClick={() => void runOpsGroupFromSentence(opsUiGroupIndex)}
-                    disabled={captureScenesRunning || opsRunning || chunkReplayRunning}
-                  >
-                    {opsUiGroupIndex === 0 ? 'Start' : 'Next'}
-                  </button>
-                ) : null}
-              </div>
-            </>
+              ) : null}
+              {opsJsonExecutionMode ? <div className="nl-status">Execution mode: {opsJsonExecutionMode}</div> : null}
+              {opsJsonExecutionPlanSummary.length > 0 ? (
+                <ul className="nl-status-list" data-testid="ops-json-execution-plan">
+                  {opsJsonExecutionPlanSummary.map((line, index) => (
+                    <li key={`${line}-${index}`}>{line}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {opsJsonWarnings.length > 0 ? (
+                <ul className="nl-warning-list" data-testid="ops-json-warning-list">
+                  {opsJsonWarnings.map((warning, index) => (
+                    <li key={`${warning}-${index}`}>{warning}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {opsJsonError ? <div className="plan-error">{opsJsonError}</div> : null}
+            </div>
           ) : (
             <div className="section-collapsed-line">{opsCollapsedSummary}</div>
           )}
         </section>
+        </div>
 
+        <div className="workbench-row workbench-row--preview">
         <section className="card">
           <div className="card-header chart-header">
             <div className="card-title">Chart Preview</div>
@@ -4497,517 +4422,14 @@ function ChartWorkbenchPage() {
               </button>
             </div>
           </div>
-          <div className="draw-toolbar">
-            {DRAW_TOOL_OPTIONS.map((option) => {
-              const disabled = opsRunning || chartType == null || !isToolSupported(option.value)
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`pill-btn draw-tool-btn ${drawTool === option.value ? 'is-active' : ''}`}
-                  onClick={() => setDrawTool(option.value)}
-                  disabled={disabled}
-                  data-testid={`draw-tool-${option.value}`}
-                >
-                  {option.label}
-                </button>
-              )
-            })}
-            <button
-              type="button"
-              className={`pill-btn draw-tool-btn ${recordEnabled ? 'is-active' : ''}`}
-              onClick={() => setDrawRecordEnabled((value) => !value)}
-              disabled={opsRunning || chartType == null || !!planGroups}
-              data-testid="draw-record-toggle"
-            >
-              {recordEnabled ? 'Record: ON' : 'Record: OFF'}
-            </button>
-            <button
-              type="button"
-              className="pill-btn draw-tool-btn"
-              onClick={handleClearDrawAnnotations}
-              disabled={opsRunning || chartType == null}
-              data-testid="draw-clear-annotations"
-            >
-              Clear Annotations
-            </button>
-          </div>
-
-          {drawTool === DrawInteractionTools.Highlight ? (
-            <div className="draw-options">
-              <label htmlFor="draw-highlight-color">Color</label>
-              <input
-                id="draw-highlight-color"
-                type="color"
-                value={drawHighlightColor}
-                onChange={(event) => setDrawHighlightColor(event.target.value)}
-              />
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.Dim ? (
-            <div className="draw-options">
-              <label htmlFor="draw-dim-opacity">Opacity</label>
-              <input
-                id="draw-dim-opacity"
-                type="number"
-                min={0}
-                max={1}
-                step={0.05}
-                value={drawDimOpacity}
-                onChange={(event) => setDrawDimOpacity(Number(event.target.value))}
-              />
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.Text ? (
-            <div className="draw-options">
-              <label htmlFor="draw-text-value">Text</label>
-              <input
-                id="draw-text-value"
-                type="text"
-                value={drawTextValue}
-                onChange={(event) => setDrawTextValue(event.target.value)}
-              />
-              <label htmlFor="draw-text-color">Color</label>
-              <input
-                id="draw-text-color"
-                type="color"
-                value={drawTextColor}
-                onChange={(event) => setDrawTextColor(event.target.value)}
-              />
-              <label htmlFor="draw-text-size">Size</label>
-              <input
-                id="draw-text-size"
-                type="number"
-                min={8}
-                max={72}
-                step={1}
-                value={drawTextFontSize}
-                onChange={(event) => setDrawTextFontSize(Number(event.target.value))}
-              />
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.Rect ? (
-            <div className="draw-options">
-              <label htmlFor="draw-rect-fill">Fill</label>
-              <input
-                id="draw-rect-fill"
-                type="text"
-                value={drawRectFill}
-                onChange={(event) => setDrawRectFill(event.target.value)}
-              />
-              <label htmlFor="draw-rect-stroke">Stroke</label>
-              <input
-                id="draw-rect-stroke"
-                type="text"
-                value={drawRectStroke}
-                onChange={(event) => setDrawRectStroke(event.target.value)}
-              />
-              <label htmlFor="draw-rect-width">Stroke Width</label>
-              <input
-                id="draw-rect-width"
-                type="number"
-                min={1}
-                max={12}
-                step={1}
-                value={drawRectStrokeWidth}
-                onChange={(event) => setDrawRectStrokeWidth(Number(event.target.value))}
-              />
-              <label htmlFor="draw-rect-opacity">Opacity</label>
-              <input
-                id="draw-rect-opacity"
-                type="number"
-                min={0}
-                max={1}
-                step={0.05}
-                value={drawRectOpacity}
-                onChange={(event) => setDrawRectOpacity(Number(event.target.value))}
-              />
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.Line ? (
-            <div className="draw-options">
-              <label htmlFor="draw-line-stroke">Stroke</label>
-              <input
-                id="draw-line-stroke"
-                type="color"
-                value={drawLineStroke}
-                onChange={(event) => setDrawLineStroke(event.target.value)}
-              />
-              <label htmlFor="draw-line-width">Width</label>
-              <input
-                id="draw-line-width"
-                type="number"
-                min={1}
-                max={12}
-                step={1}
-                value={drawLineStrokeWidth}
-                onChange={(event) => setDrawLineStrokeWidth(Number(event.target.value))}
-              />
-              <label htmlFor="draw-line-opacity">Opacity</label>
-              <input
-                id="draw-line-opacity"
-                type="number"
-                min={0}
-                max={1}
-                step={0.05}
-                value={drawLineOpacity}
-                onChange={(event) => setDrawLineOpacity(Number(event.target.value))}
-              />
-              <label htmlFor="draw-line-arrow-start">Arrow Start</label>
-              <input
-                id="draw-line-arrow-start"
-                type="checkbox"
-                checked={drawLineArrowStart}
-                onChange={(event) => setDrawLineArrowStart(event.target.checked)}
-              />
-              <label htmlFor="draw-line-arrow-end">Arrow End</label>
-              <input
-                id="draw-line-arrow-end"
-                type="checkbox"
-                checked={drawLineArrowEnd}
-                onChange={(event) => setDrawLineArrowEnd(event.target.checked)}
-              />
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.LineTrace ? (
-            <div className="draw-options">
-              <div>
-                Click two points in order to draw trace.
-                {drawLineTraceStartKey ? ` Start: ${drawLineTraceStartKey}` : ' Start: (not selected)'}
-              </div>
-              <button
-                type="button"
-                className="pill-btn"
-                onClick={() => setDrawLineTraceStartKey(null)}
-              >
-                Reset Start
-              </button>
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.Filter ? (
-            <div className="draw-options">
-              <label htmlFor="draw-filter-mode">Mode</label>
-              <select
-                id="draw-filter-mode"
-                className="ops-input"
-                value={drawFilterMode}
-                onChange={(event) => setDrawFilterMode(event.target.value as 'include' | 'exclude')}
-              >
-                <option value="include">Include</option>
-                <option value="exclude">Exclude</option>
-              </select>
-              <div>Include: {drawFilterInclude.length ? drawFilterInclude.join(', ') : '(empty)'}</div>
-              <div>Exclude: {drawFilterExclude.length ? drawFilterExclude.join(', ') : '(empty)'}</div>
-              <button
-                type="button"
-                className="pill-btn"
-                onClick={() => {
-                  setDrawFilterInclude([])
-                  setDrawFilterExclude([])
-                  void applyDrawOp(ops.draw.filter(undefined, draw.filterSpec.xInclude()), {
-                    recordTool: DrawInteractionTools.Filter,
-                  })
-                }}
-              >
-                Reset Filter Selection
-              </button>
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.Split ? (
-            <div className="draw-options">
-              <label htmlFor="draw-split-group-a-id">Group A ID</label>
-              <input
-                id="draw-split-group-a-id"
-                type="text"
-                value={drawSplitGroupAId}
-                onChange={(event) => setDrawSplitGroupAId(event.target.value)}
-              />
-              <label htmlFor="draw-split-group-b-id">Group B ID</label>
-              <input
-                id="draw-split-group-b-id"
-                type="text"
-                value={drawSplitGroupBId}
-                onChange={(event) => setDrawSplitGroupBId(event.target.value)}
-              />
-              <label htmlFor="draw-split-orientation">Orientation</label>
-              <select
-                id="draw-split-orientation"
-                className="ops-input"
-                value={drawSplitOrientation}
-                onChange={(event) => setDrawSplitOrientation(event.target.value as 'vertical' | 'horizontal')}
-              >
-                <option value="vertical">Vertical</option>
-                <option value="horizontal">Horizontal</option>
-              </select>
-              <div>Group A Keys: {drawSplitGroupA.length ? drawSplitGroupA.join(', ') : '(empty)'}</div>
-              <button type="button" className="pill-btn" onClick={handleApplySplit}>
-                Apply Split
-              </button>
-              <button type="button" className="pill-btn" onClick={handleApplyUnsplit}>
-                Unsplit
-              </button>
-              <button type="button" className="pill-btn" onClick={() => setDrawSplitGroupA([])}>
-                Clear Group A
-              </button>
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.SeriesFilter ? (
-            <div className="draw-options">
-              <label htmlFor="draw-series-filter-mode">Mode</label>
-              <select
-                id="draw-series-filter-mode"
-                className="ops-input"
-                value={drawSeriesFilterMode}
-                onChange={(event) => setDrawSeriesFilterMode(event.target.value as SeriesFilterMode)}
-              >
-                <option value="include">Include</option>
-                <option value="exclude">Exclude</option>
-              </select>
-              <div>Series: {drawSeriesSelection.length ? drawSeriesSelection.join(', ') : '(empty)'}</div>
-              <div>Focused target: {drawFocusedTarget || '(not selected)'}</div>
-              <button
-                type="button"
-                className="pill-btn"
-                onClick={handleApplySeriesFilter}
-                data-testid="draw-series-apply"
-              >
-                Apply Series Filter
-              </button>
-              <button
-                type="button"
-                className="pill-btn"
-                onClick={handleResetSeriesFilter}
-                data-testid="draw-series-reset"
-              >
-                Reset Series Filter
-              </button>
-              {chartType === ChartType.GROUPED_BAR ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={handleConvertGroupedToStacked}
-                  data-testid="draw-series-convert-grouped"
-                >
-                  Convert to Stacked
-                </button>
-              ) : null}
-              {chartType === ChartType.STACKED_BAR ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={handleConvertStackedToGrouped}
-                  data-testid="draw-series-convert-stacked"
-                >
-                  Convert to Grouped
-                </button>
-              ) : null}
-              {chartType === ChartType.GROUPED_BAR ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={handleConvertGroupedToSimple}
-                  disabled={drawSeriesSelection.length !== 1}
-                  data-testid="draw-series-convert-grouped-simple"
-                >
-                  Convert to Simple
-                </button>
-              ) : null}
-              {chartType === ChartType.STACKED_BAR ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={handleConvertStackedToSimple}
-                  disabled={drawSeriesSelection.length !== 1}
-                  data-testid="draw-series-convert-stacked-simple"
-                >
-                  Convert to Simple
-                </button>
-              ) : null}
-              {chartType === ChartType.GROUPED_BAR ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={() => {
-                    void handleRunGroupedCompareMacro()
-                  }}
-                  disabled={drawSeriesSelection.length < 2}
-                  data-testid="draw-series-grouped-compare"
-                >
-                  Compare Selected Series
-                </button>
-              ) : null}
-              {chartType === ChartType.STACKED_BAR ? (
-                <button
-                  type="button"
-                  className="pill-btn"
-                  onClick={() => {
-                    void handleRunStackedCompositionMacro()
-                  }}
-                  disabled={!drawFocusedTarget}
-                  data-testid="draw-series-stacked-composition"
-                >
-                  Label Target Composition
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.Convert ? (
-            <div className="draw-options">
-              {chartType === ChartType.MULTI_LINE ? (
-                <>
-                  <button
-                    type="button"
-                    className="pill-btn"
-                    onClick={handleConvertMultiLineToStacked}
-                    data-testid="draw-convert-multiline-stacked"
-                  >
-                    Convert to Stacked Bar
-                  </button>
-                  <button
-                    type="button"
-                    className="pill-btn"
-                    onClick={handleConvertMultiLineToGrouped}
-                    data-testid="draw-convert-multiline-grouped"
-                  >
-                    Convert to Grouped Bar
-                  </button>
-                </>
-              ) : (
-                <div className="nl-status">Convert tool is currently available for multi-line charts.</div>
-              )}
-            </div>
-          ) : null}
-
-          {drawTool === DrawInteractionTools.BarSegment ? (
-            <div className="draw-options">
-              <label htmlFor="draw-segment-fill">Fill</label>
-              <input
-                id="draw-segment-fill"
-                type="color"
-                value={drawSegmentFill}
-                onChange={(event) => setDrawSegmentFill(event.target.value)}
-              />
-              <label htmlFor="draw-segment-opacity">Opacity</label>
-              <input
-                id="draw-segment-opacity"
-                type="number"
-                min={0}
-                max={1}
-                step={0.05}
-                value={drawSegmentOpacity}
-                onChange={(event) => setDrawSegmentOpacity(Number(event.target.value))}
-              />
-              <label htmlFor="draw-segment-stroke">Stroke</label>
-              <input
-                id="draw-segment-stroke"
-                type="text"
-                value={drawSegmentStroke}
-                onChange={(event) => setDrawSegmentStroke(event.target.value)}
-              />
-              <label htmlFor="draw-segment-width">Stroke Width</label>
-              <input
-                id="draw-segment-width"
-                type="number"
-                min={1}
-                max={12}
-                step={1}
-                value={drawSegmentStrokeWidth}
-                onChange={(event) => setDrawSegmentStrokeWidth(Number(event.target.value))}
-              />
-            </div>
-          ) : null}
-
-          <DrawTimelinePanel
-            steps={timelineSteps}
-            running={timelineRunning}
-            selectedStepId={selectedTimelineStepId}
-            onSelectStep={setSelectedTimelineStepId}
-            onToggleStep={(id) => dispatchInteractionSession({ type: 'toggleStep', id })}
-            onRemoveStep={(id) => dispatchInteractionSession({ type: 'removeStep', id })}
-            onMoveStep={(id, direction) => dispatchInteractionSession({ type: 'moveStep', id, direction })}
-            onRunAll={handleRunTimelineAll}
-            onRunOne={handleRunTimelineOne}
-            onStop={handleStopTimeline}
-            onClear={() => {
-              dispatchInteractionSession({ type: 'clear' })
-              setSelectedTimelineStepId(null)
-              setTimelineStatusText('Timeline cleared.')
-            }}
-            onInsertSleep={(seconds) =>
-              dispatchInteractionSession({
-                type: 'appendSleep',
-                durationMs: Math.max(0, seconds) * 1000,
-                label: `sleep ${seconds}s`,
-              })
-            }
-            onCopyJson={() => {
-              void handleCopyTimelineJson()
-            }}
-            onCopyTs={() => {
-              void handleCopyTimelineTs()
-            }}
-            onAppendToBuilder={handleAppendTimelineToOpsBuilder}
-            statusText={timelineStatusText}
-          />
-
           <div className="chart-stage">
             <div className="chart-stage-viewport">
               <div className="chart-host" ref={chartRef} data-testid="chart-host" />
             </div>
             <div className="chart-stage-summary-slot" data-summary-overlay-slot="true" />
-            {pendingTextPlacement && drawTool === DrawInteractionTools.Text ? (
-              <input
-                ref={textInputRef}
-                className="draw-text-input-overlay"
-                type="text"
-                data-testid="draw-text-overlay-input"
-                value={drawTextValue}
-                style={{
-                  left: pendingTextPlacement.anchor.x + 8,
-                  top: pendingTextPlacement.anchor.y + 8,
-                }}
-                onChange={(event) => setDrawTextValue(event.target.value)}
-                onBlur={commitPendingText}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    commitPendingText()
-                    return
-                  }
-                  if (event.key === 'Escape') {
-                    setPendingTextPlacement(null)
-                  }
-                }}
-                onPointerDown={(event) => event.stopPropagation()}
-              />
-            ) : null}
           </div>
-
-          {chunkedOutput && chunkedOutput.chunks.length > 0 && (
-            <ChunkedSceneStrip
-              chunks={chunkedOutput.chunks}
-              activeChunkIndex={activeChunkIndex}
-              running={opsRunning || chunkReplayRunning}
-              baselineModel={baselineExportModel}
-              baselineChartId={baselineExportChartId}
-              onSelectChunk={(index) => {
-                void jumpToChunk(index)
-              }}
-              onExport={handleExportChunkedOutput}
-              onExportBaselineSvg={handleExportBaselineSvgOutput}
-              onBaselineModelChange={setBaselineExportModel}
-              onBaselineChartIdChange={setBaselineExportChartId}
-            />
-          )}
         </section>
+        </div>
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import { type ChartSpec } from '../../domain/chart'
 import { SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
-import { OPACITIES } from '../../rendering/common/d3Helpers'
+import { DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 import {
   renderGroupedBarChart,
   type GroupedSpec,
@@ -115,8 +115,65 @@ export class GroupedBarChartInstance implements ChartInstance {
   }
 
   async transitionChartScale(_opts: TransitionChartScaleOptions): Promise<void> {
-    // No-op stub — see comment in stackedBarInstance.ts. Existing
-    // barGroupShared transitions handle the visual scale changes inline.
+    // No-op stub for legacy code paths. Filter routes through
+    // `transitionFilterScope` below.
+  }
+
+  /** All data `<rect>` bars across panels. */
+  mainBars(): d3.Selection<SVGRectElement, unknown, d3.BaseType, unknown> {
+    return this.svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+  }
+
+  /**
+   * Shared-parent transition for filter scope changes. Every main-bar in
+   * every panel rides one d3 scheduler so opacity changes tick in lockstep.
+   * In-scope bars return to FULL; out-of-scope bars hit `outOfScopeOpacity`
+   * (DIM by default). Caller passes a `keyOf(node) => string` predicate so
+   * the applier owns the identity scheme.
+   */
+  async transitionFilterScope(opts: {
+    activeKeys: Set<string>
+    keyOf: (node: SVGElement) => string
+    outOfScopeOpacity?: number
+    duration?: number
+    ease?: (t: number) => number
+  }): Promise<void> {
+    if (!this.svg || this.svg.empty()) return
+    const duration = opts.duration ?? DURATIONS.DIM
+    const ease = opts.ease ?? EASINGS.SMOOTH
+    const outOpacity = opts.outOfScopeOpacity ?? OPACITIES.DIM
+
+    this.activeTargets = opts.activeKeys.size > 0 ? new Set([...opts.activeKeys]) : null
+    this.outOfScopeOpacity = outOpacity
+
+    console.info('[operation-new] GroupedBarChartInstance.transitionFilterScope', {
+      activeKeyCount: opts.activeKeys.size,
+      outOpacity,
+    })
+
+    const parent = this.svg.transition().duration(duration).ease(ease) as unknown as d3.Transition<
+      d3.BaseType,
+      unknown,
+      d3.BaseType,
+      unknown
+    >
+    const inheritT = parent as never
+
+    const bars = this.mainBars()
+    if (!bars.empty()) {
+      bars
+        .interrupt('filter-scope')
+        .transition(inheritT)
+        .style(SvgAttributes.Opacity, function () {
+          return opts.activeKeys.has(opts.keyOf(this as SVGElement)) ? OPACITIES.FULL : outOpacity
+        })
+    }
+
+    try {
+      await parent.end()
+    } catch {
+      /* interrupted */
+    }
   }
 
   private async buildFromSpec(spec: ChartSpec) {

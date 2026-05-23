@@ -400,14 +400,5 @@ export const operationRegistry: OperationRegistry = {
         { key: 'group', label: 'Group', kind: 'string', optional: true, optionsSource: 'series' },
       ],
     },
-    {
-      op: 'setOp',
-      label: 'Set Op',
-      icon: '🧩',
-      fields: [
-        { key: 'fn', label: 'Fn', kind: 'enum', optional: false, options: ['intersection', 'union'] },
-        { key: 'group', label: 'Group', kind: 'string', optional: true, optionsSource: 'series' },
-      ],
-    },
   ],
 }

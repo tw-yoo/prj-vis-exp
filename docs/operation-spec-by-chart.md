@@ -37,6 +37,10 @@
 
 ### retrieveValue
 
+`targetAxis` (`'x' | 'y'`, default `'x'`) controls lookup direction:
+- `'x'` (forward): `target` is the x-axis category label → returns matching y values.
+- `'y'` (reverse): `target` is a numeric y value → returns x category(ies) whose measured value equals `target` (multi-measure charts require `field`).
+
 ```json
 {
   "ops": [
@@ -60,6 +64,23 @@
       "field": "rating",
       "target": ["USA", "JPN"],
       "precision": 2,
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+Reverse-lookup example (find which country has `rating === 65`):
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "retrieveValue",
+      "field": "rating",
+      "target": 65,
+      "targetAxis": "y",
       "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
@@ -306,10 +327,12 @@
 ## 2) Simple Line Chart
 
 - Vega-Lite sample: `data/test/spec/line_simple.json`
-- Runner: `src/operation-next/runners/simpleLine.ts`
+- Runner: `src/operation-next/runners/simpleLine.ts` (forward) / `src/operation-new/appliers/simpleLine/retrieveValue.ts` (forward + reverse via `targetAxis`)
 - 예시 field: `year`, `value`
 
 ### retrieveValue
+
+`targetAxis: 'y'`이면 x 축 카테고리 대신 y 값을 기준으로 매칭합니다 (vertical reference line + x-axis 라벨).
 
 ```json
 {
@@ -319,6 +342,21 @@
       "op": "retrieveValue",
       "field": "value",
       "target": "2001",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "retrieveValue",
+      "field": "value",
+      "target": 3000,
+      "targetAxis": "y",
       "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]
@@ -545,10 +583,12 @@
 ## 3) Multi Line Chart
 
 - Vega-Lite sample: `data/test/spec/line_multiple.json`
-- Runner: `src/operation-next/runners/multipleLine.ts`
+- Runner: `src/operation-next/runners/multipleLine.ts` (forward) / `src/operation-new/appliers/multipleLine/retrieveValue.ts` (forward + reverse via `targetAxis`)
 - 예시 field: `date`, `price`, `symbol`
 
 ### retrieveValue
+
+`targetAxis: 'y'`이면 series별로 y 값에 매칭되는 x 시점을 찾아 vertical guideline + x label을 그립니다. `group`을 함께 지정하면 특정 시리즈로 한정.
 
 ```json
 {
@@ -558,6 +598,22 @@
       "op": "retrieveValue",
       "field": "price",
       "target": { "target": "2001-01-01", "series": "AAPL" },
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
+    }
+  ]
+}
+```
+
+```json
+{
+  "ops": [
+    {
+      "id": "n1",
+      "op": "retrieveValue",
+      "field": "price",
+      "target": 120,
+      "targetAxis": "y",
+      "group": "AAPL",
       "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 }
     }
   ]

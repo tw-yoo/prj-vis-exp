@@ -14,7 +14,6 @@ import type {
   OpPairDiffSpec,
   OpRetrieveValueSpec,
   OpScaleSpec,
-  OpSetOpSpec,
   OpSortSpec,
   OpSumSpec,
 } from '../../../types/operationSpecs'
@@ -35,8 +34,16 @@ export const dataActions = {
     precision?: number,
     group?: string | null,
     chartId?: string,
+    targetAxis?: 'x' | 'y',
   ): OpRetrieveValueSpec {
-    return buildDataOp<OpRetrieveValueSpec>(OperationOp.RetrieveValue, { target, field, precision, group, chartId })
+    return buildDataOp<OpRetrieveValueSpec>(OperationOp.RetrieveValue, {
+      target,
+      field,
+      precision,
+      group,
+      chartId,
+      targetAxis,
+    })
   },
 
   filterByComparison(
@@ -189,9 +196,5 @@ export const dataActions = {
     chartId?: string,
   ): OpScaleSpec {
     return buildDataOp<OpScaleSpec>(OperationOp.Scale, { target, factor, field, group, chartId })
-  },
-
-  setOp(fn: OpSetOpSpec['fn'], group?: string | null, chartId?: string): OpSetOpSpec {
-    return buildDataOp<OpSetOpSpec>(OperationOp.SetOp, { fn, group, chartId })
   },
 }

@@ -15,7 +15,6 @@ import type {
   OpPairDiffSpec,
   OpRetrieveValueSpec,
   OpScaleSpec,
-  OpSetOpSpec,
   OpSortSpec,
   OpSumSpec,
 } from './operationSpecs'
@@ -39,6 +38,17 @@ export function assertRetrieveValueSpec(op: OperationSpec): OpRetrieveValueSpec 
   const spec = op as OpRetrieveValueSpec
   if (spec.target == null) {
     throw new Error('retrieveValue requires "target"')
+  }
+  if (spec.targetAxis != null && spec.targetAxis !== 'x' && spec.targetAxis !== 'y') {
+    throw new Error(`retrieveValue: "targetAxis" must be 'x' or 'y' (got ${String(spec.targetAxis)})`)
+  }
+  if (spec.targetAxis === 'y') {
+    const targets = Array.isArray(spec.target) ? spec.target : [spec.target]
+    for (const t of targets) {
+      if (t == null || !Number.isFinite(Number(t))) {
+        throw new Error(`retrieveValue: targetAxis='y' requires numeric target (got ${JSON.stringify(t)})`)
+      }
+    }
   }
   return spec
 }
@@ -195,13 +205,3 @@ export function assertScaleSpec(op: OperationSpec): OpScaleSpec {
   return spec
 }
 
-export function assertSetOpSpec(op: OperationSpec): OpSetOpSpec {
-  if (op.op !== OperationOp.SetOp) {
-    throw new Error(`Expected SetOp spec but got op "${op.op}"`)
-  }
-  const spec = op as OpSetOpSpec
-  if (spec.fn !== 'intersection' && spec.fn !== 'union') {
-    throw new Error('setOp requires "fn" of "intersection" or "union"')
-  }
-  return spec
-}

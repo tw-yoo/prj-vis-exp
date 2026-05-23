@@ -25,6 +25,14 @@ export type RunChartOpsOptions = {
   surfaceManager?: SurfaceManager
   operationIndexStart?: number
   tensionPolicy?: TensionPolicy
+  /**
+   * Logical successor of the last op in this run, when known by the caller.
+   * Used by the filter applier to detect a downstream subset-internal op even
+   * when the run only contains the filter itself (substep / sentence splits
+   * hide the real "next op" from runner-internal lookahead). Resolved by the
+   * visual-execution-player from `logicalArtifacts.nodeOps`.
+   */
+  nextRunHeadOp?: OperationSpec
 }
 
 export type ParsedOperationRun = {

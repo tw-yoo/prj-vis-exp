@@ -224,7 +224,33 @@ export function stateWithOperationDependencies(operation: OperationSpec, state: 
   }
 
   const rows = dataInputs.flatMap((input) => getRuntimeResultsById(input))
-  if (rows.length === 0) return state
+  if (rows.length === 0) {
+    // The op explicitly references prior nodes via meta.inputs but the runtime
+    // store has nothing for them — either the snapshot wasn't restored on this
+    // call, or the prior node's result was empty. Falling back to originalData
+    // would silently run the op against the WHOLE dataset (the exact "ops2
+    // runs on the original chart" bug). Instead, prefer state.lastResult /
+    // state.workingData if they look like a prior op's narrowed result. Only
+    // when neither has anything usable do we surface the original dataset.
+    const priorLast = state.lastResult ?? null
+    const priorWorking = state.workingData ?? []
+    const fallback = priorLast && priorLast.length > 0
+      ? priorLast
+      : (priorWorking.length > 0 && priorWorking.length < state.originalData.length
+        ? priorWorking
+        : null)
+    if (fallback) {
+      console.warn('[operation-next] stateWithOperationDependencies: runtime store empty for', dataInputs, '— falling back to prior chain state', { fallbackLen: fallback.length, originalLen: state.originalData.length })
+      return {
+        ...state,
+        workingData: cloneDatumValues(fallback),
+        derivedData: null,
+        lastResult: cloneDatumValues(fallback),
+      }
+    }
+    console.warn('[operation-next] stateWithOperationDependencies: runtime store + prior state both empty for', dataInputs, '— operating on originalData (likely a bug; check that workbench threaded runtimeSnapshot/initialChainState)')
+    return state
+  }
   return {
     ...state,
     workingData: rows,

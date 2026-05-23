@@ -386,6 +386,163 @@ export class SimpleLineChartInstance implements ChartInstance {
   }
 
   /**
+   * Re-attach d3 selections to an SVG that already exists in this.host.
+   *
+   * Used by the workbench when an out-of-order ops navigation (e.g. user clicks
+   * ops2 after ops4) calls `restoreChunkCheckpoint`, which writes a cached SVG
+   * string into this.host.innerHTML. After innerHTML replacement, every
+   * d3 Selection on this instance (this.svg, this.linePath, this.pointMarks,
+   * …) points to elements no longer in the document.
+   *
+   * Returns true if the cached SVG had the expected skeleton structure and
+   * rebinding succeeded; false if anything was missing (caller should fall
+   * back to ensureRendered which rebuilds from scratch).
+   *
+   * Requires this.points and this.dataRows to be populated from a prior
+   * buildFromSpec — i.e. the instance must have rendered the baseline at
+   * least once. Setting specKey at the end ensures the next ensureRendered()
+   * NO-OPs and does not wipe the cached SVG we just rehydrated to.
+   *
+   * `cachedScales` reflects the post-filter state at the moment the SVG was
+   * snapshotted. When provided, scale domains and activeTargets are restored
+   * to that state so the next applier reads positions consistent with the
+   * DOM. Without it, scales default to the un-filtered full-data domain.
+   */
+  rehydrateFromHost(
+    spec: ChartSpec,
+    cachedScales?: {
+      yDomain?: [number, number]
+      xDomain?: [number, number] | [Date, Date]
+      xLabelDomain?: string[]
+      activeTargets?: Set<string> | null
+    },
+  ): boolean {
+    const svgEl = this.host.querySelector<SVGSVGElement>(SvgElements.Svg)
+    if (!svgEl) return false
+    const skeletonEl = svgEl.querySelector<SVGGElement>('g.chart-skeleton')
+    const annotationLayerEl = svgEl.querySelector<SVGGElement>(`g.${SvgClassNames.AnnotationLayer}`)
+    const xAxisEl = skeletonEl?.querySelector<SVGGElement>(`g.${SvgClassNames.XAxis}`) ?? null
+    const yAxisEl = skeletonEl?.querySelector<SVGGElement>(`g.${SvgClassNames.YAxis}`) ?? null
+    const linePathEl = skeletonEl?.querySelector<SVGPathElement>('path.line-path') ?? null
+    if (!skeletonEl || !annotationLayerEl || !xAxisEl || !yAxisEl || !linePathEl) {
+      console.warn('[operation-new] SimpleLineChartInstance.rehydrateFromHost: missing skeleton elements', {
+        hasSkeleton: !!skeletonEl,
+        hasAnnotationLayer: !!annotationLayerEl,
+        hasXAxis: !!xAxisEl,
+        hasYAxis: !!yAxisEl,
+        hasLinePath: !!linePathEl,
+      })
+      return false
+    }
+
+    if (this.points.length === 0) {
+      console.warn('[operation-new] SimpleLineChartInstance.rehydrateFromHost: no cached points; instance was never built')
+      return false
+    }
+
+    const lineSpec = spec as LineSpec
+    const resolved = this.resolvedEncoding ?? resolveSimpleLineEncoding(lineSpec)
+    if (!resolved) return false
+    this.resolvedEncoding = resolved
+
+    const marginLeft = Number(svgEl.getAttribute(DataAttributes.MarginLeft) ?? '0')
+    const marginTop = Number(svgEl.getAttribute(DataAttributes.MarginTop) ?? '0')
+    const plotWidth = Number(svgEl.getAttribute(DataAttributes.PlotWidth) ?? '0')
+    const plotHeight = Number(svgEl.getAttribute(DataAttributes.PlotHeight) ?? '0')
+    this.layout = { marginLeft, marginTop, plotWidth, plotHeight }
+
+    this.svg = d3.select(svgEl)
+    this.skeleton = d3.select(skeletonEl)
+    this.annotationLayer = d3.select(annotationLayerEl)
+    this.xAxisGroup = d3.select(xAxisEl)
+    this.yAxisGroup = d3.select(yAxisEl)
+    this.linePath = d3.select(linePathEl)
+
+    const clipPathEl = svgEl.querySelector<SVGClipPathElement>('clipPath')
+    this.clipPathId = clipPathEl?.id ?? ''
+
+    const yValues = this.points.map((p) => p.yValue)
+    const fullYMin = d3.min(yValues) ?? 0
+    const fullYMax = d3.max(yValues) ?? fullYMin + 1
+    const yDomain = cachedScales?.yDomain ?? [fullYMin, fullYMax === fullYMin ? fullYMin + 1 : fullYMax]
+    this.yScale = d3.scaleLinear().domain(yDomain).range([plotHeight, 0])
+
+    if (resolved.xType === 'temporal') {
+      let xDomain = cachedScales?.xDomain as [Date, Date] | undefined
+      if (!xDomain) {
+        const times = this.points
+          .map((p) => (p.xValue instanceof Date ? p.xValue.getTime() : NaN))
+          .filter(Number.isFinite)
+        const minX = d3.min(times) ?? Date.now()
+        const maxX = d3.max(times) ?? minX + 1
+        xDomain = [new Date(minX), new Date(maxX)]
+      }
+      this.xScale = d3.scaleTime().domain(xDomain).range([0, plotWidth])
+    } else if (resolved.xType === 'quantitative') {
+      let xDomain = cachedScales?.xDomain as [number, number] | undefined
+      if (!xDomain) {
+        const nums = this.points.map((p) => (typeof p.xValue === 'number' ? p.xValue : NaN)).filter(Number.isFinite)
+        let minX = d3.min(nums) ?? 0
+        let maxX = d3.max(nums) ?? minX + 1
+        if (minX === maxX) maxX = minX + 1
+        xDomain = [minX, maxX]
+      }
+      this.xScale = d3.scaleLinear().domain(xDomain).range([0, plotWidth])
+    } else {
+      const labels =
+        cachedScales?.xLabelDomain ?? Array.from(new Set(this.points.map((p) => p.xLabel)))
+      this.xScale = d3.scalePoint<string>().domain(labels).range([0, plotWidth]).padding(0.5)
+    }
+
+    this.activeTargets = cachedScales?.activeTargets ?? null
+
+    const marksGroup = skeletonEl.querySelector<SVGGElement>('g.point-marks')
+    if (marksGroup) {
+      const pointsById = new Map(this.points.map((p) => [p.id, p]))
+      const circles = d3.select(marksGroup).selectAll<SVGCircleElement, unknown>(SvgElements.Circle)
+      circles.each(function () {
+        const id = this.getAttribute(DataAttributes.Id)
+        if (id) {
+          const point = pointsById.get(id)
+          if (point) {
+            ;(this as unknown as { __data__: RenderPoint }).__data__ = point
+          }
+        }
+      })
+      this.pointMarks = circles as d3.Selection<SVGCircleElement, RenderPoint, SVGGElement, unknown>
+    } else {
+      this.pointMarks = this.skeleton.selectAll<SVGCircleElement, RenderPoint>(SvgElements.Circle)
+    }
+
+    const lineData = this.activeTargets
+      ? this.points.filter((p) => this.activeTargets!.has(p.target))
+      : this.points
+    this.linePath.datum(lineData)
+
+    const resolveX = (p: RenderPoint): number => {
+      if (resolved.xType === 'temporal') {
+        return (this.xScale as d3.ScaleTime<number, number>)(p.xValue as Date) ?? 0
+      }
+      if (resolved.xType === 'quantitative') {
+        return (this.xScale as d3.ScaleLinear<number, number>)(p.xValue as number) ?? 0
+      }
+      return (this.xScale as d3.ScalePoint<string>)(p.xLabel) ?? 0
+    }
+    this.lineGenerator = d3.line<RenderPoint>().x(resolveX).y((p) => this.yScale(p.yValue))
+
+    this.specKey = computeSpecKey(spec)
+    this.currentSpec = spec
+    this.buildPromise = null
+
+    console.info('[operation-new] SimpleLineChartInstance.rehydrateFromHost: ok', {
+      yDomain,
+      xDomainSize: this.activeTargets?.size ?? null,
+      pointCount: this.points.length,
+    })
+    return true
+  }
+
+  /**
    * Sets the active-target subset that `lineGenerator.defined()` uses to skip
    * out-of-scope segments. Pass `null` to restore the full line. Pure state
    * update — the visual change is applied by the next transition (typically
@@ -434,6 +591,7 @@ export class SimpleLineChartInstance implements ChartInstance {
     xDomain?: [number, number] | [Date, Date]
     xLabelDomain?: string[]
     activeTargets?: Set<string> | null
+    outOfScopeOpacity?: number
     duration?: number
     ease?: (t: number) => number
   }): Promise<void> {
@@ -484,7 +642,8 @@ export class SimpleLineChartInstance implements ChartInstance {
     }
     if (opts.activeTargets !== undefined) this.activeTargets = opts.activeTargets
 
-    if (!willChangeY && !willChangeX) return
+    const willChangeOpacity = opts.activeTargets !== undefined || opts.outOfScopeOpacity !== undefined
+    if (!willChangeY && !willChangeX && !willChangeOpacity) return
 
     console.info('[operation-new] SimpleLineChartInstance.transitionChartScale', {
       willChangeY,
@@ -542,16 +701,18 @@ export class SimpleLineChartInstance implements ChartInstance {
           .attr(SvgAttributes.CY, (d) => this.yScale(d.yValue))
           .style(SvgAttributes.Opacity, OPACITIES.FULL)
 
-        // Out-of-scope: fade to dim opacity. cy follows the new yScale so
+        // Out-of-scope: fade to configured opacity (DIM by default; 0 = hidden
+        // for the rescale-and-vanish phase). cy follows the new yScale so
         // the chart's vertical motion stays consistent. For continuous X
         // we also reposition cx (clip-path will naturally hide anything
         // that slides off-plot). For ordinal X we leave cx alone because
         // the new domain doesn't define those labels.
+        const outOpacity = opts.outOfScopeOpacity ?? OPACITIES.DIM
         const outScope = this.pointMarks.filter((d) => !activeTargets.has(d.target))
         outScope
           .transition(inheritT)
           .attr(SvgAttributes.CY, (d) => this.yScale(d.yValue))
-          .style(SvgAttributes.Opacity, OPACITIES.DIM)
+          .style(SvgAttributes.Opacity, outOpacity)
         if (isContinuousX) {
           outScope.transition(inheritT).attr(SvgAttributes.CX, (d) => xOfLive(d))
         }
@@ -773,11 +934,14 @@ export class SimpleLineChartInstance implements ChartInstance {
         'clipPathUnits',
         'userSpaceOnUse',
       )
+      // Clip rect padded 8px top/bottom so highlighted points (r=6) at the
+      // plot's vertical edges aren't clipped. Out-of-scope filtered points are
+      // pushed far outside (often hundreds of px) so they remain hidden.
       .append(SvgElements.Rect)
       .attr(SvgAttributes.X, 0)
-      .attr(SvgAttributes.Y, 0)
+      .attr(SvgAttributes.Y, -8)
       .attr(SvgAttributes.Width, plotW)
-      .attr(SvgAttributes.Height, plotH)
+      .attr(SvgAttributes.Height, plotH + 16)
 
     const skeleton = nextSvg
       .append(SvgElements.Group)

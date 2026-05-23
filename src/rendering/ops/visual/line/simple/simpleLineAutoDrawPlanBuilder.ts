@@ -283,21 +283,6 @@ export const SIMPLE_LINE_AUTO_DRAW_PLAN_BUILDERS: Record<
     const value = scalarFromResult(result)
     if (value == null) return null
     return [textAtTopRight(op.chartId, `sum: ${formatDrawNumber(value)}`), hLine(op.chartId, value)]
-  },
-  [OperationOp.SetOp]: (result, op, context) => {
-    if (!result.length) return null
-    const targets = Array.from(new Set(result.map((row) => String(row.target))))
-    const domain = Array.from(new Set(context.prevWorking.map((row) => String(row.target))))
-    const runs = contiguousRuns(targets, domain)
-    const plan = [...highlightSeriesPoints(result, op.chartId, '#0ea5e9')]
-    runs.forEach(([start, end]) => {
-      if (start === end) return
-      plan.push(
-        ops.draw.band(op.chartId, 'x', [start, end], op.fn === 'intersection' ? 'intersection' : 'union'),
-      )
-    })
-    plan.push(textAtTopRight(op.chartId, `${op.fn ?? 'setOp'}: ${targets.length}`))
-    return plan
   } }
 
 

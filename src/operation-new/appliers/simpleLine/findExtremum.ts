@@ -1,17 +1,12 @@
-import * as d3 from 'd3'
 import { findExtremum } from '../../../domain/operation/dataOps'
 import { OperationOp, type OperationSpec } from '../../../domain/operation/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS, EASINGS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
-import {
-  findPointByTarget,
-  pointToRootCoords,
-  resolveAnnotationViewport,
-} from '../../primitives/annotationLayer'
+import { findPointByTarget, pointToRootCoords } from '../../primitives/annotationLayer'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
-import { placeOperationTextLabel } from '../../primitives/placeLabel'
+import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { FILTER_ANNOTATION_CLASS } from './filter'
 import { LAG_DIFF_ANNOTATION_CLASS } from './lagDiff'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
@@ -85,7 +80,7 @@ export const findExtremumApplier: OperationApplier = {
         .interrupt()
         .remove()
     } else {
-      layer.selectAll(`.${EXTREMUM_ANNOTATION_CLASS}`).interrupt().remove()
+      fadeRemoveAnnotations(layer, EXTREMUM_ANNOTATION_CLASS)
     }
 
     const pointSel = findPointByTarget(instance, String(target))
@@ -93,14 +88,22 @@ export const findExtremumApplier: OperationApplier = {
     if (!point) return { result, nextState: { ...state, lastResult: result } }
     const metrics = pointToRootCoords(point, instance)
 
-    pointSel
+    const highlightPromise = pointSel
       .interrupt()
       .transition()
       .duration(DURATIONS.HIGHLIGHT)
       .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
       .attr(SvgAttributes.R, 6)
+      .end()
+      .catch(() => {})
 
-    const labelY = Math.max(12, metrics.y - 10)
+    // Place label above the point; if that would land above the chart's top
+    // margin, flip below. No collision avoidance — SVG root has
+    // overflow:visible, so the label can sit anywhere relative to the point
+    // and remain visible even past the plot box.
+    const naturalAbove = metrics.y - 12
+    const labelMinY = instance.layout.marginTop + 12
+    const labelY = naturalAbove >= labelMinY ? naturalAbove : metrics.y + 20
     const labelNode = layer
       .append(SvgElements.Text)
       .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${EXTREMUM_ANNOTATION_CLASS}`)
@@ -113,18 +116,13 @@ export const findExtremumApplier: OperationApplier = {
       .style(SvgAttributes.Opacity, 0)
       .text(formatOperationValue(metrics.value))
     if (nodeId) labelNode.attr(DataAttributes.AnnotationNodeId, nodeId)
-    placeOperationTextLabel({
-      svg: instance.svg,
-      text: labelNode as unknown as d3.Selection<SVGTextElement, unknown, null, undefined>,
-      preferred: { x: metrics.x, y: labelY },
-      anchorElement: point,
-      viewport: resolveAnnotationViewport(instance),
-    })
-    try {
-      await labelNode.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1).end()
-    } catch {
-      /* interrupted */
-    }
+    const labelPromise = labelNode
+      .transition()
+      .duration(DURATIONS.LABEL_FADE_IN)
+      .style(SvgAttributes.Opacity, 1)
+      .end()
+      .catch(() => {})
+    await Promise.all([highlightPromise, labelPromise])
 
     return {
       result,

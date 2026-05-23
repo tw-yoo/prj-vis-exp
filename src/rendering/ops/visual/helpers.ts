@@ -714,13 +714,6 @@ function resolveStagesByOperation(dataOp: OperationSpec, drawOps: DrawOp[], char
       })
     case OperationOp.Count:
       return drawOps.map(() => 0)
-    case OperationOp.SetOp:
-      return drawOps.map((drawOp) => {
-        if (drawOp.action === DrawAction.Highlight || drawOp.action === DrawAction.Dim) return 0
-        if (drawOp.action === DrawAction.Band) return 1
-        if (drawOp.action === DrawAction.Text) return 2
-        return 2
-      })
     default:
       return drawOps.map((_drawOp, index) => index)
   }

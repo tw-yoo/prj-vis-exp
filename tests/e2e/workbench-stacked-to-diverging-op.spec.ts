@@ -43,6 +43,19 @@ test('워크벤치: draw stacked-to-diverging op가 centered(diverging) stacked 
 
   await expect(page.locator('[data-testid="chart-host"] svg')).toBeVisible()
 
+  // Poll until the diverging conversion commits to runtime state. The Draw
+  // op finishes asynchronously after the animation + render; polling avoids
+  // a race where the test reads __chartRuntimeState mid-transition.
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const host = document.querySelector('[data-testid="chart-host"]') as any
+        const stack = host?.__chartRuntimeState?.spec?.encoding?.y?.stack
+        return stack === 'center'
+      })
+    , { timeout: 10_000 })
+    .toBe(true)
+
   const lastSpec = await page.evaluate(() => {
     const host = document.querySelector('[data-testid="chart-host"]') as any
     return host?.__chartRuntimeState?.spec ?? null

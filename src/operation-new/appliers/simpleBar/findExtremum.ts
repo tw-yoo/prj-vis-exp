@@ -1,4 +1,3 @@
-import * as d3 from 'd3'
 import { findExtremum } from '../../../domain/operation/dataOps'
 import { OperationOp, type OperationSpec } from '../../../domain/operation/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
@@ -7,9 +6,9 @@ import { formatOperationValue } from '../../../operation-next/primitives/formatV
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
-import { placeOperationTextLabel } from '../../primitives/placeLabel'
+import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { FILTER_ANNOTATION_CLASS } from './filter'
-import { findBarByTarget, readBarMetrics, resolveBarAnnotationViewport } from './_shared'
+import { findBarByTarget, readBarMetrics } from './_shared'
 
 export const EXTREMUM_ANNOTATION_CLASS = 'operation-next-extremum'
 
@@ -51,7 +50,7 @@ export const findExtremumApplier: OperationApplier<SimpleBarChartInstance> = {
         .interrupt()
         .remove()
     } else {
-      layer.selectAll(`.${EXTREMUM_ANNOTATION_CLASS}`).interrupt().remove()
+      fadeRemoveAnnotations(layer, EXTREMUM_ANNOTATION_CLASS)
     }
 
     const barSel = findBarByTarget(instance, String(target))
@@ -59,13 +58,21 @@ export const findExtremumApplier: OperationApplier<SimpleBarChartInstance> = {
     if (!rect) return { result, nextState: { ...state, lastResult: result } }
     const metrics = readBarMetrics(rect, instance)
 
-    barSel
+    const highlightPromise = barSel
       .interrupt()
       .transition()
       .duration(DURATIONS.HIGHLIGHT)
       .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+      .end()
+      .catch(() => {})
 
-    const labelY = Math.max(12, metrics.topY - 10)
+    // Label above the bar top by default; flip below if that would land above
+    // the chart's top margin. Matches the simpleLine findExtremum pattern —
+    // no collision avoidance, SVG root has overflow:visible so the label can
+    // sit anywhere relative to the anchor.
+    const naturalAbove = metrics.topY - 12
+    const labelMinY = instance.layout.marginTop + 12
+    const labelY = naturalAbove >= labelMinY ? naturalAbove : metrics.topY + 20
     const labelNode = layer
       .append(SvgElements.Text)
       .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${EXTREMUM_ANNOTATION_CLASS}`)
@@ -78,18 +85,13 @@ export const findExtremumApplier: OperationApplier<SimpleBarChartInstance> = {
       .style(SvgAttributes.Opacity, 0)
       .text(formatOperationValue(metrics.value))
     if (nodeId) labelNode.attr(DataAttributes.AnnotationNodeId, nodeId)
-    placeOperationTextLabel({
-      svg: instance.svg,
-      text: labelNode as unknown as d3.Selection<SVGTextElement, unknown, null, undefined>,
-      preferred: { x: metrics.centerX, y: labelY },
-      anchorElement: rect,
-      viewport: resolveBarAnnotationViewport(instance),
-    })
-    try {
-      await labelNode.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1).end()
-    } catch {
-      /* interrupted */
-    }
+    const labelPromise = labelNode
+      .transition()
+      .duration(DURATIONS.LABEL_FADE_IN)
+      .style(SvgAttributes.Opacity, 1)
+      .end()
+      .catch(() => {})
+    await Promise.all([highlightPromise, labelPromise])
 
     return {
       result,

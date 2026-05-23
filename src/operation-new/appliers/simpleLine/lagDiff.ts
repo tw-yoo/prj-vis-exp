@@ -10,6 +10,7 @@ import {
   resolveAnnotationViewport,
 } from '../../primitives/annotationLayer'
 import { drawDirectionalArrow } from '../../primitives/drawDifferenceArrow'
+import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 
 export const LAG_DIFF_ANNOTATION_CLASS = 'operation-next-line-lag-diff'
 
@@ -28,7 +29,7 @@ export const lagDiffApplier: OperationApplier = {
     }
 
     const layer = instance.annotationLayer
-    layer.selectAll(`.${LAG_DIFF_ANNOTATION_CLASS}`).interrupt().remove()
+    fadeRemoveAnnotations(layer, LAG_DIFF_ANNOTATION_CLASS)
     const viewport = resolveAnnotationViewport(instance)
     const transitions: Promise<void>[] = []
     const highlightedPoints: SVGCircleElement[] = []
