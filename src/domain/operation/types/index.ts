@@ -125,6 +125,15 @@ export interface OperationSpec {
   duration?: number
   action?: string
   split?: JsonValue
+  // ── rollingWindow / monotonicRun shared fields ────────────────────────────
+  /** rollingWindow: size of the sliding window (positive integer). */
+  window?: number
+  /** monotonicRun: direction of the run. */
+  direction?: 'increasing' | 'decreasing' | string
+  /** monotonicRun: when true, require strict inequality between steps. */
+  strict?: boolean
+  /** monotonicRun: minimum number of consecutive steps to count as a run. */
+  minLength?: number
 }
 
 export type DataOpResult = DatumValue[]

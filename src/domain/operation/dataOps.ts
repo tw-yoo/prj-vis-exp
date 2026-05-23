@@ -8,9 +8,12 @@ import type {
   OpFilterSpec,
   OpFindExtremumSpec,
   OpLagDiffSpec,
+  OpMonotonicRunSpec,
   OpNthSpec,
   OpPairDiffSpec,
+  OpRangeSpec,
   OpRetrieveValueSpec,
+  OpRollingWindowSpec,
   OpScaleSpec,
   OpSortSpec,
   OpSumSpec,
@@ -26,9 +29,12 @@ import {
   assertFilterSpec,
   assertFindExtremumSpec,
   assertLagDiffSpec,
+  assertMonotonicRunSpec,
   assertNthSpec,
   assertPairDiffSpec,
+  assertRangeSpec,
   assertRetrieveValueSpec,
+  assertRollingWindowSpec,
   assertScaleSpec,
   assertSortSpec,
   assertSumSpec,
@@ -1341,6 +1347,199 @@ export function nthData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   return results
 }
 
+/** 3.16 range — max − min spread.
+ *
+ * Returns one DatumValue carrying the spread (value), with `max`/`min`
+ * extra fields attached as metadata so downstream annotation ops can find
+ * the endpoints without re-scanning.
+ */
+export function rangeData(data: DatumValue[], op: OperationSpec): DatumValue[] {
+  const arr = cloneData(data)
+  const spec = assertRangeSpec(op)
+  const { field, group } = spec
+  const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
+  if (byGroup.length === 0) return []
+  const values = byGroup
+    .map((d) => Number(d.value))
+    .filter((v) => Number.isFinite(v))
+  if (values.length === 0) return []
+  const maxValue = Math.max(...values)
+  const minValue = Math.min(...values)
+  const spread = maxValue - minValue
+  const fieldLabel = field || byGroup[0]?.measure || 'value'
+  const name = buildAggregateLabel('range', semanticSubjectFromRows(byGroup, fieldLabel))
+  const [datum] = makeScalarDatum(
+    fieldLabel,
+    group ?? null,
+    fieldLabel,
+    '__range__',
+    spread,
+    name,
+    buildSemanticMeasure(OperationOp.Range, fieldLabel),
+  )
+  // Extra metadata (max/min) for annotation-side endpoint lookup.
+  return [{ ...datum, max: maxValue, min: minValue } as DatumValue & { max: number; min: number }]
+}
+
+/** 3.17 rollingWindow — sliding aggregate (sum / avg / min / max).
+ *
+ * For each starting position i (0 ≤ i ≤ N − window), aggregates the next
+ * `window` rows. Returns N − window + 1 DatumValues, one per window, each
+ * carrying `windowStart` / `windowEnd` / `windowKeys` metadata so a
+ * downstream `findExtremum` / `nth` can pick the best window.
+ */
+export function rollingWindowData(data: DatumValue[], op: OperationSpec): DatumValue[] {
+  const arr = cloneData(data)
+  const spec = assertRollingWindowSpec(op)
+  const { field, group, orderField } = spec
+  const windowSize = Number(spec.window)
+  const aggKind = (spec.aggregate ?? 'avg') as string
+  const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
+  if (byGroup.length < windowSize) return []
+
+  // Sort by orderField when supplied; otherwise preserve natural data order.
+  const decorated = byGroup.map((datum) => {
+    const datumRec = datum as unknown as Record<string, JsonValue>
+    const ordVal = orderField
+      ? parseComparableValue(datumRec?.[orderField] ?? datum.target)
+      : null
+    return { datum, ordVal }
+  })
+  if (orderField) {
+    decorated.sort((a, b) => compareComparableValues(a.ordVal, b.ordVal))
+  }
+  const ordered = decorated.map((e) => e.datum)
+
+  const fieldLabel = field || ordered[0]?.measure || 'value'
+  const categoryName = orderField || ordered[0]?.category || 'target'
+  const results: DatumValue[] = []
+  for (let i = 0; i + windowSize <= ordered.length; i++) {
+    const slice = ordered.slice(i, i + windowSize)
+    const sliceVals = slice.map((d) => Number(d.value)).filter((v) => Number.isFinite(v))
+    if (sliceVals.length === 0) continue
+    const aggValue = aggregate(sliceVals as unknown as JsonValue[], aggKind)
+    if (typeof aggValue !== 'number' || !Number.isFinite(aggValue)) continue
+    const startKey = String(slice[0].target ?? '')
+    const endKey = String(slice[slice.length - 1].target ?? '')
+    const labelStart = formatTargetLabel(slice[0].target) || startKey
+    const labelEnd = formatTargetLabel(slice[slice.length - 1].target) || endKey
+    const name = `${aggKind} of ${labelStart}–${labelEnd}`
+    results.push({
+      category: categoryName,
+      measure: fieldLabel,
+      semanticMeasure: buildSemanticMeasure(OperationOp.RollingWindow, fieldLabel),
+      target: `${startKey}__${endKey}`,
+      displayTarget: name,
+      name,
+      group: group ?? null,
+      value: roundNumeric(Number(aggValue)),
+      windowStart: startKey,
+      windowEnd: endKey,
+      windowKeys: slice.map((d) => String(d.target ?? '')),
+    } as DatumValue & { windowStart: string; windowEnd: string; windowKeys: string[] })
+  }
+  return results
+}
+
+/** 3.18 monotonicRun — longest / firstBreak / all strictly monotonic runs.
+ *
+ * Mode behavior:
+ *  - 'longest'    (default): the longest qualifying run as DatumValue[] (the rows).
+ *  - 'firstBreak'          : a single DatumValue marking where the first run starts.
+ *  - 'all'                 : every qualifying run flattened, with `__runId` metadata.
+ *
+ * `minLength` filters out runs shorter than the given count (default 2).
+ * `strict` (default true) requires every step to be strictly inc/dec.
+ */
+export function monotonicRunData(data: DatumValue[], op: OperationSpec): DatumValue[] {
+  const arr = cloneData(data)
+  const spec = assertMonotonicRunSpec(op)
+  const { field, group, orderField } = spec
+  const direction = spec.direction ?? 'increasing'
+  const strict = spec.strict ?? true
+  const mode = spec.mode ?? 'longest'
+  const minLength = Number.isFinite(Number(spec.minLength)) ? Number(spec.minLength) : 2
+
+  const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(field, 'measure'))
+  if (byGroup.length < minLength) return []
+
+  // Sort by orderField when supplied; otherwise preserve natural data order.
+  const decorated = byGroup.map((datum) => {
+    const datumRec = datum as unknown as Record<string, JsonValue>
+    const ordVal = orderField
+      ? parseComparableValue(datumRec?.[orderField] ?? datum.target)
+      : null
+    return { datum, ordVal }
+  })
+  if (orderField) {
+    decorated.sort((a, b) => compareComparableValues(a.ordVal, b.ordVal))
+  }
+  const ordered = decorated.map((e) => e.datum)
+
+  const cmp = direction === 'increasing'
+    ? (curr: number, prev: number) => (strict ? curr > prev : curr >= prev)
+    : (curr: number, prev: number) => (strict ? curr < prev : curr <= prev)
+
+  // Sweep once, partitioning into runs whenever the monotonic predicate breaks.
+  const runs: Array<{ start: number; end: number }> = []
+  let runStart = 0
+  for (let i = 1; i < ordered.length; i++) {
+    const curr = Number(ordered[i].value)
+    const prev = Number(ordered[i - 1].value)
+    if (!Number.isFinite(curr) || !Number.isFinite(prev) || !cmp(curr, prev)) {
+      const length = i - runStart
+      if (length >= minLength) runs.push({ start: runStart, end: i - 1 })
+      runStart = i
+    }
+  }
+  // Close the trailing run.
+  {
+    const length = ordered.length - runStart
+    if (length >= minLength) runs.push({ start: runStart, end: ordered.length - 1 })
+  }
+
+  if (runs.length === 0) return []
+
+  const fieldLabel = field || ordered[0]?.measure || 'value'
+  const labelKind = direction === 'increasing' ? 'increasing' : 'decreasing'
+
+  if (mode === 'firstBreak') {
+    const first = runs[0]
+    const anchor = ordered[first.start]
+    return [{
+      ...anchor,
+      semanticMeasure: buildSemanticMeasure(OperationOp.MonotonicRun, fieldLabel),
+      name: `first ${labelKind} run starts here`,
+      displayTarget: formatTargetLabel(anchor.target) || anchor.target,
+    }]
+  }
+
+  if (mode === 'all') {
+    const out: DatumValue[] = []
+    runs.forEach((run, runId) => {
+      for (let i = run.start; i <= run.end; i++) {
+        const datum = ordered[i]
+        out.push({
+          ...datum,
+          semanticMeasure: buildSemanticMeasure(OperationOp.MonotonicRun, fieldLabel),
+          id: datum.id ? `${datum.id}_run${runId}` : `${datum.target}_run${runId}`,
+        } as DatumValue & { __runId: number })
+      }
+    })
+    return out
+  }
+
+  // mode === 'longest' (default)
+  const longest = runs.reduce(
+    (best, r) => ((r.end - r.start) > (best.end - best.start) ? r : best),
+    runs[0],
+  )
+  return ordered.slice(longest.start, longest.end + 1).map((datum) => ({
+    ...datum,
+    semanticMeasure: buildSemanticMeasure(OperationOp.MonotonicRun, fieldLabel),
+  }))
+}
+
 // ---------------------------------------------------------------------------
 // Central dispatcher (optional)
 // ---------------------------------------------------------------------------
@@ -1360,6 +1559,9 @@ export const LineChartOps = {
   nth: nthData,
   add: addData,
   scale: scaleData,
+  range: rangeData,
+  rollingWindow: rollingWindowData,
+  monotonicRun: monotonicRunData,
 }
 
 export default LineChartOps

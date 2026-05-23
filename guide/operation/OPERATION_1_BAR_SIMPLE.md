@@ -74,6 +74,12 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 | `diff` | `targetA`, `targetB` | `field`, `aggregate`, `signed`, `mode`, `percent`, `scale`, `precision` | `DatumValue[]`(스칼라 1개) | 못 찾으면 throw |
 | `lagDiff` | - | `orderField`, `order`, `group`, `absolute` | `DatumValue[]` | 인접 값 차이(시퀀스) |
 | `nth` | `n` | `from`(`left`), `group` | `DatumValue[]` | `n`은 1-based |
+| `add` | `targetA`, `targetB` | `field`, `group` | `DatumValue[]`(스칼라 1개) | scalar 두 개 합. `sum`(범위 합)과 다름 |
+| `scale` | `target`, `factor` | `field`, `group` | `DatumValue[]`(스칼라 1개) | scalar × 상수. ÷2 = `factor: 0.5` |
+| `diffByValue` | `value` 또는 `targetValue` | `field`, `group`, `signed` | `DatumValue[]`(row list) | 각 row의 reference 대비 deviation |
+| `range` | - | `field`, `group` | `DatumValue[]`(스칼라 1개) | `max − min` spread. `target="__range__"` |
+| `rollingWindow` | `window` | `aggregate`, `field`, `group`, `orderField` | `DatumValue[]`(N − window + 1) | sliding window 집계. 기본 `aggregate="avg"` |
+| `monotonicRun` | - | `direction`, `mode`, `strict`, `minLength`, `field`, `group`, `orderField` | `DatumValue[]` | mode에 따라 longest/firstBreak/all 반환 |
 | `sleep` | `seconds` 또는 `duration` | - | `[]` | 다음 operation 실행까지 지정 시간(초)만큼 대기 |
 
 ---
@@ -284,6 +290,122 @@ operations payload는 아래 둘 중 하나 형태로 전달됩니다.
 예시(오른쪽에서 2번째)
 ```json
 { "op": "nth", "n": 2, "from": "right" }
+```
+
+### 4.11 add
+**목표**: 두 scalar 값을 더해 하나의 scalar로 반환합니다. `sum`(여러 row 합)과 다릅니다 — `add`는 **개별 scalar 두 개**를 더하는 산술 연산입니다.
+
+**필수**
+- `targetA`, `targetB`: 각각 `"ref:nX"` (prior scalar) 또는 numeric literal, 또는 x 라벨
+
+**선택**
+- `field`, `group`
+
+예시(prior scalar 두 개 합산)
+```json
+{ "op": "add", "targetA": "ref:n1", "targetB": "ref:n2" }
+```
+
+예시(특정 두 라벨의 값 합산)
+```json
+{ "op": "add", "field": "rating", "targetA": "KOR", "targetB": "USA" }
+```
+
+### 4.12 scale
+**목표**: scalar 값에 상수 `factor`를 곱해 새 scalar로 반환합니다. ÷2 = `factor: 0.5`, ×100 = `factor: 100`.
+
+**필수**
+- `target`: `"ref:nX"` 또는 numeric literal
+- `factor`: 곱할 상수
+
+**선택**
+- `field`, `group`
+
+예시(평균에 2를 곱함)
+```json
+{ "op": "scale", "target": "ref:n1", "factor": 2 }
+```
+
+예시((min+max) 합산 후 /2 = midpoint)
+```json
+{ "op": "scale", "target": "ref:n3", "factor": 0.5 }
+```
+
+### 4.13 diffByValue
+**목표**: 각 row의 measure 값과 단일 reference scalar `V`의 차이를 행 단위로 반환합니다. 결과는 scalar가 아니라 row list (각 row마다 하나의 delta).
+
+**필수(둘 중 하나만)**
+- `value`: numeric literal
+- `targetValue`: `"ref:nX"` (prior scalar)
+
+**선택**
+- `field`, `group`
+- `signed`: 기본 `true` (`row.value - V`). `false`면 `|row.value - V|`
+
+예시(threshold 60과의 차이)
+```json
+{ "op": "diffByValue", "field": "rating", "value": 60, "signed": true }
+```
+
+예시(각 row가 전체 평균에서 얼마나 떨어졌는가)
+```json
+{ "op": "diffByValue", "targetValue": "ref:n1", "field": "rating", "signed": false }
+```
+
+### 4.14 range
+**목표**: working slice의 `max − min` spread를 단일 scalar로 반환합니다. `findExtremum(max) + findExtremum(min) + diff` 체인을 대체합니다.
+
+**선택**
+- `field`, `group`
+
+예시(rating의 spread)
+```json
+{ "op": "range", "field": "rating" }
+```
+
+### 4.15 rollingWindow
+**목표**: 순서가 있는 series 위로 길이 `window`만큼 sliding하며 `aggregate` (sum/avg/min/max) 적용. (N − window + 1)개 row를 반환합니다.
+
+**필수**
+- `window`: 양의 정수
+
+**선택**
+- `aggregate`: `"sum"|"avg"|"min"|"max"` (기본 `"avg"`)
+- `field`, `group`, `orderField`
+
+예시(3-bar moving average)
+```json
+{ "op": "rollingWindow", "window": 3, "aggregate": "avg", "field": "rating", "orderField": "country" }
+```
+
+예시(체인 — 최고 3-bar 평균 찾기)
+```json
+{
+  "ops": [
+    { "op": "rollingWindow", "window": 3, "aggregate": "avg", "field": "rating" },
+    { "op": "findExtremum", "which": "max", "field": "rating" }
+  ]
+}
+```
+
+### 4.16 monotonicRun
+**목표**: ordered series에서 strictly increasing/decreasing 구간(run)을 탐색합니다. `mode`에 따라 결과 형태가 다릅니다.
+
+**선택**
+- `direction`: `"increasing"|"decreasing"` (기본 `"increasing"`)
+- `mode`: `"longest"` (기본, 가장 긴 run의 row list), `"firstBreak"` (첫 단조 시작 시점의 single row), `"all"` (모든 적격 run을 flatten)
+- `strict`: 기본 `true` (등호일 때 run을 끊음)
+- `minLength`: 최소 길이 (기본 2). ">2"는 `minLength: 3`
+- `field`, `group`, `orderField`
+
+예시(가장 긴 감소 구간)
+```json
+{ "op": "monotonicRun", "direction": "decreasing", "mode": "longest", "field": "rating" }
+```
+
+예시(첫 감소 시작 시점)
+```json
+{ "op": "monotonicRun", "direction": "decreasing", "mode": "firstBreak", "field": "rating" }
 ```
 
 ---

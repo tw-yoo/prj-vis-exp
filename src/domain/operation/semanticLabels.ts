@@ -173,6 +173,12 @@ export function buildSemanticMeasure(
       return `${measure}+${normalizeText(opts.addend) || 'value'}`
     case OperationOp.Scale:
       return `${measure}×${Number.isFinite(opts.factor ?? NaN) ? Number(opts.factor) : 'factor'}`
+    case OperationOp.Range:
+      return `range(${measure})`
+    case OperationOp.RollingWindow:
+      return `roll(${measure})`
+    case OperationOp.MonotonicRun:
+      return `run(${measure})`
     default:
       return measure
   }

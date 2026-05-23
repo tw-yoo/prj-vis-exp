@@ -11,9 +11,12 @@ import type {
   OpFilterSpec,
   OpFindExtremumSpec,
   OpLagDiffSpec,
+  OpMonotonicRunSpec,
   OpNthSpec,
   OpPairDiffSpec,
+  OpRangeSpec,
   OpRetrieveValueSpec,
+  OpRollingWindowSpec,
   OpScaleSpec,
   OpSortSpec,
   OpSumSpec,
@@ -202,6 +205,59 @@ export function assertScaleSpec(op: OperationSpec): OpScaleSpec {
   const spec = op as OpScaleSpec
   if (spec.target == null) throw new Error('scale requires "target"')
   if (!Number.isFinite(Number(spec.factor))) throw new Error('scale requires numeric "factor"')
+  return spec
+}
+
+export function assertRangeSpec(op: OperationSpec): OpRangeSpec {
+  if (op.op !== OperationOp.Range) {
+    throw new Error(`Expected Range spec but got op "${op.op}"`)
+  }
+  return op as OpRangeSpec
+}
+
+const VALID_ROLLING_AGGREGATES = new Set(['sum', 'avg', 'min', 'max'])
+
+export function assertRollingWindowSpec(op: OperationSpec): OpRollingWindowSpec {
+  if (op.op !== OperationOp.RollingWindow) {
+    throw new Error(`Expected RollingWindow spec but got op "${op.op}"`)
+  }
+  const spec = op as OpRollingWindowSpec
+  const window = Number(spec.window)
+  if (!Number.isFinite(window) || !Number.isInteger(window) || window < 1) {
+    throw new Error('rollingWindow requires positive integer "window"')
+  }
+  if (spec.aggregate != null && !VALID_ROLLING_AGGREGATES.has(String(spec.aggregate))) {
+    throw new Error(
+      `rollingWindow.aggregate must be one of sum/avg/min/max (got "${String(spec.aggregate)}")`,
+    )
+  }
+  return spec
+}
+
+const VALID_MONOTONIC_DIRECTIONS = new Set(['increasing', 'decreasing'])
+const VALID_MONOTONIC_MODES = new Set(['longest', 'firstBreak', 'all'])
+
+export function assertMonotonicRunSpec(op: OperationSpec): OpMonotonicRunSpec {
+  if (op.op !== OperationOp.MonotonicRun) {
+    throw new Error(`Expected MonotonicRun spec but got op "${op.op}"`)
+  }
+  const spec = op as OpMonotonicRunSpec
+  if (spec.direction != null && !VALID_MONOTONIC_DIRECTIONS.has(String(spec.direction))) {
+    throw new Error(
+      `monotonicRun.direction must be 'increasing' or 'decreasing' (got "${String(spec.direction)}")`,
+    )
+  }
+  if (spec.mode != null && !VALID_MONOTONIC_MODES.has(String(spec.mode))) {
+    throw new Error(
+      `monotonicRun.mode must be 'longest', 'firstBreak', or 'all' (got "${String(spec.mode)}")`,
+    )
+  }
+  if (spec.minLength != null) {
+    const m = Number(spec.minLength)
+    if (!Number.isFinite(m) || !Number.isInteger(m) || m < 2) {
+      throw new Error('monotonicRun.minLength must be an integer ≥ 2')
+    }
+  }
   return spec
 }
 
