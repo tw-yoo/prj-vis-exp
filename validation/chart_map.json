@@ -36,70 +36,680 @@
       }
     }
   },
-  "e10": {
-    "e10_q1": {
-      "question": "Does the value of all regions except Metro Total exceed 50,000?",
+  "e2": {
+    "e2_q1": {
+      "question": "How many years had investments over 22 Billion Euros in the years 2011 to 2014?",
       "explanation": {
-        "function1": "Add the “Number of employees” values for every category except “Metro Total” (Metro Eastern Europe, Metro Western Europe, Metro Russia, Metro Germany, Metro Asia, Others, and Metro AG). The sum is 94,359, which is greater than 50,000, so it exceeds 50,000."
+        "function1": "Using the y-axis scale, the bars for 2011 and 2014 rise to around the 37 mark, clearly above 22, and 2012 reaches a bit under 30 (around 28), also above 22. ",
+        "function2": "The 2013 bar is much shorter, sitting around the 15 level, which is below 22. So, 2011, 2012, and 2014 are over 22—making three years."
       }
     },
-    "e10_q2": {
-      "question": "question e10 q2",
+    "e2_q2": {
+      "question": "In which years does south korea have a bigger value than france?",
       "explanation": {
-        "function1": "Identify the Western Europe countries in the chart as Netherlands, Germany, UK, France, Spain, and Sweden, and take their “A better place to live” percentages (17, 26, 33, 26, 31, 36) to compute an average of 28.17.",
-        "function2": "Treat the remaining countries (Greece, Italy, Hungary, Poland) as “the rest” and average their “A better place to live” values (10, 18, 17, 14) to get 14.75.",
+        "function1": "Using the legend colors to compare the stacked segments for South Korea versus France within each year on the x‑axis, the France segment is clearly taller in 2014 and 2015. ",
+        "function2": "Starting at 2016, the South Korea segment becomes visibly taller than the France segment and stays that way through 2017 and 2018. ",
+        "function3": "In Jan–Oct 2019, the South Korea slice is again higher than France (South Korea sits a bit above the 0.25 level while France is below 0.20), confirming South Korea is larger in those later periods."
+      }
+    },
+    "e2_q3": {
+      "question": "what is the difference of the average between northern america and latin america?",
+      "explanation": {
+        "function1": "The North America bars sit around the 9–11 range on the y-axis in most years (e.g., near 9 in 2009/2011 and a bit above 10 in 2012), while the Latin America bars cluster just above 1 (roughly 1.0–1.3) across all years. ",
+        "function2": "Averaging by eye across the five year panels gives North America at about 9.6 and Latin America at about 1.2, so the gap between their averages is about 9.6 − 1.2 ≈ 8.4–9.0, i.e., about 8.8 billion."
+      }
+    },
+    "e2_q4": {
+      "question": "What is the year with the largest increase compared to the previous year?",
+      "explanation": {
+        "function1": "Scanning left to right along the x-axis (1970, 1980, 1990, 2000, 2010, 2019), the steepest upward segment is between the 1990 point (a bit above the 20 mark, around 23) and the 2000 point (mid-30s, around 36). ",
+        "function2": "That rise is visibly larger than the other segments—1970→1980 and 1980→1990 are smaller, 2000→2010 is also big but slightly less steep, and 2010→2019 is the smallest."
+      }
+    },
+    "e2_q5": {
+      "question": "How many dates were there in total when the percentage sum of dem and rep was less than 70?",
+      "explanation": {
+        "function1": "Scanning each date label along the x‑axis (Oct 94, Mar 98, Jun 02, Jun 06, Jun 10, Jul 14), I visually add the two colored point heights at each date using the y‑axis scale:\n\n- Oct 94: Rep is near 38 and Dem near 20 → total about 58 (below 70).\n- Mar 98: Rep near 23 and Dem near 20 → total about 43 (below 70).\n- Jun 02: Rep near 21 and Dem near 26 → total about 47 (below 70).\n- Jun 06: Rep near 22 and Dem near 39 → total about 61 (below 70).\n- Jun 10: Rep near 44 and Dem near 22 → total about 66 (below 70).\n- Jul 14: Rep near 38 and Dem near 34 → total about 72 (this one is the only total that rises just above 70).",
+        "function2": "So, 5 of the dates have a combined Dem+Rep percentage under 70."
+      }
+    },
+    "e2_q6": {
+      "question": "What is the average of Season's ticket prices with a ticket price of $60 or less?",
+      "explanation": {
+        "function1": "Scanning along the x‑axis seasons, the bars at or below the $60 level are the first six seasons: 2006/07, 2007/08, 2008/09, 2009/10, 2010/11, and 2011/12—each bar tops out below the $60 mark, while 2012/13 and later clearly rise above it. ",
+        "function2": "Reading those six bar heights (about 52.5, 57, 54.5, 53.5, 51.5, 51.5) and averaging them gives roughly $53.8."
+      }
+    },
+    "e2_q7": {
+      "question": "What is the difference between white and black who answer more than most of all time?",
+      "explanation": {
+        "function1": "Focusing on the segments labeled “Almost all of the time” and “Most of the time”, the White bar’s two segments together reach a bit above the 40% level (about 10% + 32% ≈ 42%), while the Black bar’s corresponding two segments extend just past the 50% mark (about 26% + 27% ≈ 53%). ",
+        "function2": "The visual gap between these combined heights is therefore roughly 53% − 42% ≈ 11%."
+      }
+    },
+    "e2_q8": {
+      "question": "What is the difference between the average for Female on platforms more used by Male and the average for Male on platforms more used by Female?",
+      "explanation": {
+        "function1": "- Identify features: Each platform is shown as a small panel with two colored bars (one for Male, one for Female) and a shared vertical y-axis for “Share of respondents.”  \n- Scan and classify by bar height: Platforms where the Male bar is taller than the Female bar (Male-leaning) are YouTube, Twitter, and Twitch—you can see the Male bar slightly above the Female bar on YouTube, clearly above on Twitter, and far above on Twitch.  \n",
+        "function2": "Platforms where the Female bar is taller than the Male bar (Female-leaning) are Facebook, Instagram, Snapchat, and TikTok—in each of these panels, the Female bar stands visibly higher.  ",
+        "function3": "Compute the two averages from the bar heights (read off the y-scale):  \n  - Female on Male-leaning platforms: YouTube (~0.92), Twitter (~0.42), Twitch (~0.12) → average ≈ (0.92 + 0.42 + 0.12) / 3 ≈ 0.49.  \n  - Male on Female-leaning platforms: Facebook (~0.70), Instagram (~0.69), Snapchat (~0.53), TikTok (~0.21) → average ≈ (0.70 + 0.69 + 0.53 + 0.21) / 4 ≈ 0.53.  \n",
+        "function4": "Difference: The Female average on Male-leaning platforms (~0.49) minus the Male average on Female-leaning platforms (~0.53) is about -0.04; equivalently, the Male-on-Female-leaning average is about 0.04 higher.  "
+      }
+    },
+    "e2_q9": {
+      "question": "What is the difference between the second largest and smallest values between 2000 and 2008?",
+      "explanation": {
+        "function1": "Scanning the points from 2000 to 2008 along the x-axis,",
+        "function2": "the smallest point is in 2001, sitting just under the 0.09 level (about 0.086). ",
+        "function3": "The largest in that span is around 2003–2004 near 0.11; the second largest is the point in 2002, which sits a bit above 0.10 (about 0.105). ",
+        "function4": "Subtracting the visually read values gives roughly 0.105 − 0.086 ≈ 0.019, but because the 2002 point is clearly above 0.10 and the 2001 point is clearly below 0.09, the difference reads closer to about 0.02, and using the plotted positions it’s about 0.023."
+      }
+    },
+    "e2_q10": {
+      "question": "What is the difference between the largest value in Germany and the smallest value in the U.S. between 2010 and 2015?",
+      "explanation": {
+        "function1": "Scanning the x‑axis from 2010 through 2015,",
+        "function2": "Germany’s line reaches its highest point around 2010, sitting right at about the 50% level on the y‑axis. ",
+        "function3": "Over the same 2010–2015 span, the U.S. line dips to its lowest point at 2014, where the marker sits just under the 20% tick (about 19%). ",
+        "function4": "Subtracting these visually read values (about 50% − 19%) gives a difference of roughly 31 points."
+      }
+    }
+  },
+  "e3": {
+    "e3_q1": {
+      "question": "How big was the change from 2016 to 2017 compared to the change from 2017 to 2018?\n",
+      "explanation": {
+        "function1": "Scanning the x-axis from 2016 to 2018, the 2016 bar sits a bit above the 2 mark, while the 2017 bar rises to just under the 3.5 level—visibly a big step up (roughly one and a half units on the y-axis).",
+        "function2": "From 2017 to 2018, the 2018 bar is only slightly taller than 2017, moving from just under 3.5 to around 3.7, which is a small increase compared to the previous jump."
+      }
+    },
+    "e3_q2": {
+      "question": "For how many years was Thailand's revenue higher than the revenue of the Philippines?",
+      "explanation": {
+        "function1": "Scanning year by year along the x-axis (2016 through 2021) and comparing the thickness/height of Thailand’s segment against the Philippines’ segment within the same bar. ",
+        "function2": "Thailand’s segment is visibly smaller in 2016, 2017, 2018, and 2019, but becomes taller than the Philippines in 2020 and stays taller in 2021. ",
+        "function3": "That gives 2 years (2020 and 2021) where Thailand is higher than the Philippines."
+      }
+    },
+    "e3_q3": {
+      "question": "For which year was the difference between the average age at marriage for men and women the lowest?",
+      "explanation": {
+        "function1": "Scanning each year’s pair of gender-colored bars, the smallest vertical gap appears in the 2010 panel. ",
+        "function2": "In that first year, the men’s bar sits a bit above 37 while the women’s bar is a bit above 33, and the two bars are closer together than in later years. ",
+        "function3": "Moving right across the year panels, the men’s bar stays consistently higher and the separation gradually looks slightly wider (especially by 2019–2020, where the women’s bar rises into the mid‑36 range while the men’s bar is near 39.5), confirming 2010 has the lowest difference."
+      }
+    },
+    "e3_q4": {
+      "question": "What is the difference between the average from 2011 and the average up to 2010?",
+      "explanation": {
+        "function1": "The line has a marked point at 2011 sitting a bit above the 60% tick, around 65%. ",
+        "function2": "For the years up to 2010, the points run from about 8% (2005), 16% (2006), 29% (2008), 46% (2009) to about 61% (2010)—visually averaging to the mid‑40s (around 45%) because two points are below 30, one is just under 50, and one is just above 60. ",
+        "function3": "Comparing the 2011 point (~65%) to that earlier average (~45%) gives a difference of about 20 percentage points."
+      }
+    },
+    "e3_q5": {
+      "question": "How many times did the dominant opinion change?",
+      "explanation": {
+        "function1": "Scanning year by year along the x‑axis, the “Good” line sits above the “Bad” line in 2007 and 2008, but in 2009 the “Bad” line jumps clearly above “Good” (the “Bad” point is near the 70% level while “Good” is down near the 30% level), indicating a switch.",
+        "function2": "In 2010, “Bad” is still slightly higher (mid‑50s vs mid‑40s). Then in 2011 the “Good” line rises above “Bad” again (around the high‑60s vs low‑30s) and stays above through 2017. ",
+        "function3": "That produces two dominance changes: once from Good→Bad (2008 to 2009) and once from Bad→Good (2010 to 2011)."
+      }
+    },
+    "e3_q6": {
+      "question": "Which fiscal years' expenditures are below average?",
+      "explanation": {
+        "function1": "Most early bars sit around the 1–4 range, while the last several bars rise clearly above 4, including a very tall final bar near the 6+ level. ",
+        "function2": "That makes the “middle” height (the average) appear a bit above 3.5 on the y‑axis. ",
+        "function3": "Scanning left to right, every bar from 00/01 up to 12/13 stays at or below roughly the mid‑3s (with 09/10 and 11/12 reaching about 3.6 but still not surpassing the apparent average line), whereas starting at 13/14 the bars jump to about 4.2 and higher and remain above that level. ",
+        "function4": "Hence, the below‑average years are 00/01–12/13."
+      }
+    },
+    "e3_q7": {
+      "question": "What is the difference between the average of values corresponding to Poor and the average of values corresponding to Good?",
+      "explanation": {
+        "function1": "Scanning the four year bars (2014–2017) and reading segment heights against the y-axis percent scale: the Good segments sit near 58%, 62%, low 40s, and mid 40s, which visually averages to roughly just above 50%.",
+        "function2": "The Poor segments are tiny—around 4%, about 1%, about 2%, and about 6%—averaging to roughly 3–4%. Subtracting these two visual averages yields a gap of about 48 points."
+      }
+    },
+    "e3_q8": {
+      "question": "What year did construction record the highest percentage?",
+      "explanation": {
+        "function1": "I scan the bars from Q2 2014 through Q2 2019 along the x-axis. The bar for Q2 2019 is visibly the tallest, rising to a bit above the 0.2 level on the y-axis, while earlier years (like Q2 2018 around ~0.13 and Q2 2014–2017 around ~0.07–0.10) are clearly shorter. ",
+        "function2": "This makes 2019 the peak year for Construction."
+      }
+    },
+    "e3_q9": {
+      "question": "On how many dates was the growth rate below the average?\n",
+      "explanation": {
+        "function1": "The “middle” level of the series is a bit above 1.1 (since several points cluster around 1.4–1.5, pulling the average upward). ",
+        "function2": "Scanning month by month against that slightly-above-1.1 reference, the points clearly below it are: Feb and Mar (both near 0.7), Apr (just under 1.0), Dec (just under 1.0), and Nov (right around 1.1 but still a touch below the average level).",
+        "function3": "That totals five points below the average."
+      }
+    },
+    "e3_q10": {
+      "question": "What is the average difference between Women and Men from 2000?",
+      "explanation": {
+        "function1": "Scanning the x‑axis from 2000 to 2012, the vertical gaps between the two lines at each year are roughly: 2000 (Women near 54 vs Men near 42, gap ~12), 2004 (~51 vs ~44, gap ~7), 2008 (~56 vs ~49, gap ~7), and 2012 (~55 vs ~45, gap ~10).",
+        "function2": "Averaging these visible gaps (12, 7, 7, 10) gives roughly 9, which reads as about 8–9 points; rounded to a single clear figure, it’s about 8 percentage points."
+      }
+    }
+  },
+  "e4": {
+    "e4_q1": {
+      "question": "Which year shows the highest difference from the average?",
+      "explanation": {
+        "function1": "Scanning left to right along the x‑axis from 05/06 through 14/15, most bars cluster tightly around the upper‑40s level, with several (like 08/09–10/11) appearing nearly the same height. ",
+        "function2": "The bar for 14/15 stands noticeably taller than the rest, reaching close to the 49 mark, while the overall “typical” bar height sits around the high‑47 range. ",
+        "function3": "Because 14/15 is visually the farthest from that central cluster (the biggest vertical gap from the average level), it has the largest difference from the average."
+      }
+    },
+    "e4_q2": {
+      "question": "Which season has the biggest gap between Matchday and Commercial?",
+      "explanation": {
+        "function1": "The chart uses stacked bars by season with different colored segments for each revenue type (Matchday and Commercial are two of the colored slices in each stack).",
+        "function2": "Scanning left to right along the x‑axis seasons, the Commercial slice grows dramatically in the final seasons, and in 2018/19 it is visibly much taller than the Matchday slice in the same bar. ",
+        "function3": "Using the y‑axis scale as a reference, Matchday in 2018/19 sits just under the 100 mark, while Commercial rises to around the 150 mark—creating the largest vertical separation between those two colored segments compared with earlier seasons, where the two slices are closer in height."
+      }
+    },
+    "e4_q3": {
+      "question": "Which year shows the lowest gap between lending and investment?",
+      "explanation": {
+        "function1": "In each panel, the Lending and Investment bars are different colors (as indicated by the legend) and sit side-by-side. ",
+        "function2": "Scanning year by year, the Lending and Investment bars in 2011 are both very short and closest in height—Lending is just above the 0.5 level while Investment is just above 0.1—so their vertical separation is small.",
+        "function3": "In 2012 and 2013, the Lending bar rises much higher than Investment, widening the gap, and in 2014 the Lending bar towers near the top of the scale while Investment is around the 1 mark, making the gap clearly the largest."
+      }
+    },
+    "e4_q4": {
+      "question": "Which years has the biggest jump?",
+      "explanation": {
+        "function1": "Scanning left to right along the x‑axis (2009 through 2015), the steepest upward segments are from 2009 to 2010 and from 2010 to 2011. ",
+        "function2": "The point rises from just under the 15 mark to just under 25 (a jump of about 10), and then from just under 25 up to about 35 (again about 10).",
+        "function3": "All later year-to-year rises (like 2013→2014 and 2014→2015) are noticeable but slightly less steep than those two biggest jumps."
+      }
+    },
+    "e4_q5": {
+      "question": "Which year had the biggest gap between favor and oppose?",
+      "explanation": {
+        "function1": "Scanning left to right along the Year axis, the widest vertical separation between the two lines occurs at 1996: the Oppose line sits near the 65% level while the Favor line is down near about 27%, creating the largest visible gap.",
+        "function2": "In later years (like 2010), the two lines move closer together (around the high 40s vs low 40s), so the separation is clearly smaller than in 1996."
+      }
+    },
+    "e4_q6": {
+      "question": "What is the difference between the largest and smallest values between 2010 and 2019?",
+      "explanation": {
+        "function1": "Scanning the bars from 2010 through 2019, the tallest bar appears at 2010, reaching just under the 500 mark (around 491). ",
+        "function2": "The shortest bar in that same span is 2016, sitting a bit above the 250 mark (around 264). ",
+        "function3": "Subtracting these visually read heights gives a difference of roughly 491 − 264 ≈ 197."
+      }
+    },
+    "e4_q7": {
+      "question": "What is the difference between the average of Commercial and the average of Matchday?",
+      "explanation": {
+        "function1": "Scanning across the seasons, the Commercial segments are consistently much taller—typically sitting around the 1,100 to 1,700 range on the y-axis—while the Matchday segments cluster much lower, mostly around 400 to 760.",
+        "function2": "Averaging by eye across all six seasons, Commercial centers near about €1.4 billion, and Matchday near about €0.6 billion. ",
+        "function3": "The visual gap between those typical heights is therefore roughly €0.75 billion (about €750 million)."
+      }
+    },
+    "e4_q8": {
+      "question": "What is the average of the vote share at an age when Clinton received a lower vote share?",
+      "explanation": {
+        "function1": "Scanning each panel and comparing bar heights, Clinton’s bar is shorter than Sanders’s in the first three panels (18–29, 30–44, and 45–64), but taller in the 65+ panel. ",
+        "function2": "Reading the approximate heights from the y-axis: Clinton is around 0.16, 0.32, and 0.45 in those three panels where she’s lower. ",
+        "function3": "Averaging those visually read values gives about \\((0.16 + 0.32 + 0.45) / 3 \\approx 0.31\\), i.e., about 31%. ",
+        "function4": "Interpreting the question’s “at an age when Clinton received a lower vote share” as the age-group shares for those same panels (shown in the age labels: 19%, 22%, 42%), their average is \\((19 + 22 + 42) / 3 \\approx 27.7%\\). ",
+        "function5": "However, if the intended “vote share” is Clinton’s bar height (the more direct visual measure), the average is about 31%."
+      }
+    },
+    "e4_q9": {
+      "question": "How many years are below average?",
+      "explanation": {
+        "function1": "Scanning the y-axis values, the points are roughly at 231 (2008), 742 (2009), 1,534 (2010), 1,781 (2011), 933 (2012), 3,000 (2013), 3,415 (2014), and 4,279 (2015). ",
+        "function2": "The “middle” level (the average) sits a bit above the 2,000 mark—around 2,200—because the last three points (2013–2015) are high (near 3,000–4,300) and pull the center upward. ",
+        "function3": "Comparing each point to that level, the points for 2008–2012 sit clearly below it, while 2013–2015 are above it. ",
+        "function4": "That makes 5 below vs 3 above, but since the average is around 2,200, the years below it are 2008, 2009, 2010, 2011, and 2012—which totals 5."
+      }
+    },
+    "e4_q10": {
+      "question": "In how many years was the difference between Female and Male higher than average?",
+      "explanation": {
+        "function1": "Scanning year by year along the x‑axis (2009–2019), the vertical gap between the two lines is usually about a quarter of a unit on the y‑axis (since the y‑axis is in “millions,” this looks like roughly 0.25 million most years).  ",
+        "function2": "The years where the gap is visibly a bit wider than that typical gap are 2010, 2011, 2012, 2014, and 2017—in these, the Male line sits slightly farther above the Female line than in the surrounding years.",
+        "function3": "Counting those wider‑than‑typical separations gives 5 years where the Female–Male difference is higher than the average gap across the whole chart."
+      }
+    }
+  },
+  "e5": {
+    "e5_q1": {
+      "question": "What is the difference between the average and the maximum number?",
+      "explanation": {
+        "function1": "Identify the maximum number of fires in the data (380). ",
+        "function2": "Then compute the average by summing all yearly fire counts and dividing by the number of years (16), which gives 225. ",
+        "function3": "Finally, subtract the average from the maximum: 380 − 225 = 155."
+      }
+    },
+    "e5_q2": {
+      "question": "Which country has the highest european factor?",
+      "explanation": {
+        "function1": "Interpret “European factor” as the Europe-related export factors in the data (Germany – exports and Italy – exports). For each country, add the Germany and Italy export decreases, then compare across countries. ",
+        "function2": "Hungary has the largest combined European export decrease (0.004 + 0.069 = 0.073), higher than Czechia (0.067), Romania (0.040), and Poland (0.039)."
+      }
+    },
+    "e5_q3": {
+      "question": "How many diet types surpassed the threshold of 0.03% in 2019?",
+      "explanation": {
+        "function1": "Look at the 2019 “Share of respondents” values for each diet type and count those strictly greater than 0.03. ",
+        "function2": "The diet types above 0.03 in 2019 are: Clean eating (0.10), Intermittent fasting (0.09), Gluten-free diet (0.06), Low-carb diet (0.06), Ketogenic or high-fat diet (0.06), Plant-based diet (0.05), Weight-loss plan (0.05), and Mediterranean diet (0.05). \nThat makes 4 diet types.\n"
+      }
+    },
+    "e5_q4": {
+      "question": "How many years have a score below 80 in total?",
+      "explanation": {
+        "function1": "Review the CPI_Score for each year and count those strictly below 80.  The years 2012 (74), 2013 (76), 2014 (78), 2019 (77), and 2020 (77) are below 80, giving a total of 5 years.\n\n"
+      }
+    },
+    "e5_q5": {
+      "question": "What is the difference between the maximum and minimum gap between the two groups?",
+      "explanation": {
+        "function1": "For each year, compute the gap in life expectancy between Canada and Newfoundland and Labrador (Canada minus Newfoundland and Labrador). ",
+        "function2": "Identify the largest of these gaps (maximum gap) and the smallest of these gaps (minimum gap). \nThe maximum gap is 2.5 years (in 2012–2014 and 2013–2015), and the minimum gap is 1.7 years (in 2017–2019). \nSubtracting the minimum gap from the maximum gap gives a difference of 0.8 years."
+      }
+    },
+    "e5_q6": {
+      "question": "What is the average of Revenue multiple from 2006 to 2011?",
+      "explanation": {
+        "function1": "Take the Revenue multiple values for the years 2006–2011 (4.66, 4.69, 4.68, 4.41, 4.08, 3.97). ",
+        "function2": "Add these six numbers together and divide by 6 to get the mean, which is approximately 4.42."
+      }
+    },
+    "e5_q7": {
+      "question": "What is the difference between the service value in 2010 and the service value in 2020?",
+      "explanation": {
+        "function1": "Read the Services share for 2010 (0.5804) and for 2020 (0.6308) from the data table. ",
+        "function2": "Subtract the 2010 value from the 2020 value to get the change in Services share: 0.6308 − 0.5804 = 0.0504."
+      }
+    },
+    "e5_q8": {
+      "question": "What is the difference between Scotland's largest value and England & Wales' smallest value?",
+      "explanation": {
+        "function1": "Identify Scotland’s largest SharePercentage by scanning its values; the maximum is 28 (Strongly against). Then identify England & Wales’ smallest SharePercentage; the minimum is 2 (Strongly against). ",
+        "function2": "Subtract the smallest England & Wales value from the largest Scotland value to get 28 − 2 = 26."
+      }
+    },
+    "e5_q9": {
+      "question": "What is the total from 2011 to 2017?",
+      "explanation": {
+        "function1": "Take the inhabitants values for each year from 2011 through 2017 (7.00, 7.09, 7.17, 7.25, 7.34, 7.42, 7.51). \nAdd these seven numbers together to get a total of 51.78 billion.\n"
+      }
+    },
+    "e5_q10": {
+      "question": "What is the difference between the female value in 2010 and the male value in 2016?",
+      "explanation": {
+        "function1": "Read the female life expectancy for 2010 (80.6) and the male life expectancy for 2016 (73.9) from the data table. \nSubtract the male 2016 value from the female 2010 value to get the difference: 80.6 − 73.9 = 6.7 years.\n"
+      }
+    }
+  },
+  "e6": {
+    "e6_q1": {
+      "question": "What is the average value of top 3 malls' per square foot cost?",
+      "explanation": {
+        "function1": "Identify the three highest per-square-foot costs in the data: 732 (Sydney), 646 (Melbourne), and 422 (Brisbane Mall). ",
+        "function2": "Add these three values and divide by 3 to get their average, which equals 674."
+      }
+    },
+    "e6_q2": {
+      "question": "In what year is the smallest difference between the market size of Asia Pacific region and the remaining three regions?",
+      "explanation": {
+        "function1": "For each year, add the market sizes of the three non–Asia Pacific regions (Americas, Europe, and Japan) to get the “remaining three regions” total. \nThen compare Asia Pacific’s value to that combined total by taking the absolute difference. ",
+        "function2": "The year where this difference is smallest is 2015, where Asia Pacific (15.78) is closest to the other three regions combined (12.17 + 1.55 + 1.65 = 15.37), giving the smallest gap (0.41)."
+      }
+    },
+    "e6_q3": {
+      "question": "which year had the lowest amount of suicides of all ages combined?",
+      "explanation": {
+        "function1": "Add the suicides across all four age groups for each year to get a yearly total. \nCompare these totals across 2009–2019 and identify the smallest one. ",
+        "function2": "The totals show 2019 has the lowest combined number (38 + 267 + 272 + 169 = 746), which is lower than every other year’s total."
+      }
+    },
+    "e6_q4": {
+      "question": "In average and median values, which one is bigger?",
+      "explanation": {
+        "function1": "Use the fatalities values for all years (2000–2020). \nCompute the average by summing all yearly fatalities and dividing by the number of years. \nCompute the median by sorting the values and taking the middle one (since there are 21 years, it’s the 11th value). ",
+        "function2": "The data has several higher values in the early 2000s (around 200–221) and many lower values later (down to 85), which pulls the median down more than the mean. \nAfter calculating both, the mean is about 166.6 while the median is 173, so the median is actually higher than the mean."
+      }
+    },
+    "e6_q5": {
+      "question": "How many years has Russia had higher favorability than the US?",
+      "explanation": {
+        "function1": "For each year, compare “Russia favorability in U.S.” against “U.S. favorability in Russia.” \nRussia’s value is higher in 2007 (44 vs 41) and 2015 (22 vs 15). \nIn all other listed years, the U.S. value is higher, so Russia is higher in 2 years total."
+      }
+    },
+    "e6_q6": {
+      "question": "What is the average of the sales values of a company with a sales volume in million units of 60 or more?",
+      "explanation": {
+        "function1": "Identify the companies with sales volumes of 60 or more: Huawei & Honor (102.55), Oppo (77.56), and Vivo (72.23). ",
+        "function2": "Add these three sales values and divide by 3 to get their average, which is 81.45 million units."
+      }
+    },
+    "e6_q7": {
+      "question": "What is the difference between white and black who answer more than most of all time?",
+      "explanation": {
+        "function1": "“More than most of the time” means only the “Almost all of the time” category (since it is higher than “Most of the time”). \nWhite has 10% answering “Almost all of the time,” and Black has 26%. ",
+        "function2": "The difference is 26% − 10% = 11 percentage points."
+      }
+    },
+    "e6_q8": {
+      "question": "Which sector showed the most decline?",
+      "explanation": {
+        "function1": "Compare the average lease length in 2003 versus mid-2013 for each sector and compute the decline (2003 value minus mid-2013 value). ",
+        "function2": "Large companies drop from 9.5 years to 5.2 years, a decline of 4.3 years, which is larger than the declines in Retail (3.5), All (2.3), SMEs (0.9), Offices (0.8), and Industrial (1.5)."
+      }
+    },
+    "e6_q9": {
+      "question": "How many years are below average?",
+      "explanation": {
+        "function1": "Calculate the average number of renunciations across all listed years (2008–2015). \nThen compare each year’s value to this average and count the years that fall below it. ",
+        "function2": "The years 2008, 2009, 2010, and 2012 are below the average, giving a total of 4 years."
+      }
+    },
+    "e6_q10": {
+      "question": "What is the sum of the differences between women and men in the last five years?",
+      "explanation": {
+        "function1": "Take the last five years in the data (2016–2020). \nFor each of these years, compute the difference as (Female population − Male population): 2016: 674.56−708.15, 2017: 678.71−711.37, 2018: 681.87−713.51, 2019: 684.78−715.27, 2020: 688.44−723.34. ",
+        "function2": "Then add these five yearly differences together to get a total of -150.86 million inhabitants."
+      }
+    }
+  },
+  "e7": {
+    "e7_q1": {
+      "question": "What is the difference between the average of before 2000 and from 2010?",
+      "explanation": {
+        "function1": "Identify the values before 2000 (1995 = 64, 1999 = 54) and compute their average (59). \n",
+        "function2": "Then identify the values from 2010 onward (2010 = 109, 2013 = 128, 2017 = 105) and compute their average (114). ",
+        "function3": "Subtract the earlier average from the later average to get the difference (114 − 59 = 55)."
+      }
+    },
+    "e7_q2": {
+      "question": "In which year was the agriculture sector the highest?",
+      "explanation": {
+        "function1": "Look at the rows where the Sector is Agriculture and compare their Share_of_GDP values across years. ",
+        "function2": "The largest agriculture share listed is 0.3498, which occurs in 2011, so agriculture is highest in 2011."
+      }
+    },
+    "e7_q3": {
+      "question": "which city had the biggest jump in population from 2010 to 2025?",
+      "explanation": {
+        "function1": "For each city, compare the population value in 2025 to the value in 2010 and compute the increase. ",
+        "function2": "Dhaka rises from 14.6 million (2010) to 20.9 million (2025), an increase of 6.3 million, which is larger than the increases for the other cities (e.g., Delhi +6.4? actually 28.6−22.2 = 6.4 is slightly larger; \nMumbai +5.8, Karachi +5.6). Therefore, Delhi has the biggest jump."
+      }
+    },
+    "e7_q4": {
+      "question": "which year had the second lowest value?",
+      "explanation": {
+        "function1": "List the operating profit margins by year and sort them from lowest to highest. \nThe lowest value is 0.07 in 2016. \nThe next (second lowest) value is 0.14, which occurs in both 2014 and 2015, so they tie for second lowest.\n"
+      }
+    },
+    "e7_q5": {
+      "question": "Which year shows the lowest gap between convenience and price",
+      "explanation": {
+        "function1": "For each year, compare the “Price” value to the “Convenience” value and compute the gap (Price − Convenience). \nThe gaps are: 2012 = 20, 2013 = 15, 2014 = 22, 2015 = 16, 2016 = 19. \n",
+        "function2": "The smallest gap is 15, which occurs in 2013."
+      }
+    },
+    "e7_q6": {
+      "question": "What is the net income sum from 2010 to 2015?",
+      "explanation": {
+        "function1": "Take the net income values for each year from 2010 through 2015 (2010: 2901, 2011: 2804, 2012: 2592, 2013: 3075, 2014: 12101, 2015: 18108)",
+        "function2": "and add them together to get the total sum."
+      }
+    },
+    "e7_q7": {
+      "question": "Which method shows the highest difference between everyday and less often?",
+      "explanation": {
+        "function1": "For each method, compare the “EVERY DAY” share to the “LESS OFTEN” share and take the absolute difference. ",
+        "function2": "Text messaging has 0.55 for every day and 0.13 for less often, giving a difference of 0.42, which is larger than the differences for all other methods."
+      }
+    },
+    "e7_q8": {
+      "question": "Find a hair removal type with a share of 10% or more in the under 30s group",
+      "explanation": {
+        "function1": "Look at the “Under 30s” shares for each hair removal type and identify any that are at least 0.10 (10%). ",
+        "function2": "Hollywood has a share of 0.35 (35%) in the under 30s group, which meets the 10% or more requirement."
+      }
+    },
+    "e7_q9": {
+      "question": "What is the difference between the average from 2011 and the average up to 2010?",
+      "explanation": {
+        "function1": "Compute the average percentage for the years up to 2010 (2005, 2006, 2008, 2009, 2010), which is 32.0. T\nhen compute the average percentage from 2011 onward (2011–2015), which is 52.5.",
+        "function2": "Subtract the earlier average from the later average to get a difference of 20.5."
+      }
+    },
+    "e7_q10": {
+      "question": "What is the average of the percentage of responses in the last three years of Favourable views of the U.S?",
+      "explanation": {
+        "function1": "Identify the last three years in the data (2015, 2016, 2017) and take only the “Favorable view of U.S.” percentages for those years (68, 72, 57). ",
+        "function2": "Compute their average by summing them and dividing by 3, which gives 65.67%."
+      }
+    }
+  },
+  "e8": {
+    "e8_q1": {
+      "question": "What is the average market share for a company with 5 or fewer letters in its name?",
+      "explanation": {
+        "function1": "Identify the companies whose names have 5 or fewer letters: Conad (0.148), Selex (0.101), MD (0.031), Crai (0.024), and Aspiag (0.024). ",
+        "function2": "Add their market shares and divide by the 5 qualifying companies to get the average, which is 0.082."
+      }
+    },
+    "e8_q2": {
+      "question": "What is the average percentage of non-black races that they answered very interested?",
+      "explanation": {
+        "function1": "Take the “Very interested” shares for the non-Black race/ethnicity groups (White = 0.20, Hispanic = 0.16, Other = 0.21). ",
+        "function2": "Compute their average: (0.20 + 0.16 + 0.21) / 3 = 0.19). \nConvert 0.19 to a percentage, which is 19%."
+      }
+    },
+    "e8_q3": {
+      "question": "What is the difference between average of maximum payment in all states and average of minimum payment in all states?",
+      "explanation": {
+        "function1": "Take the “Maximum” payment values for all 11 states and compute their average (20.0). \nThen take the “Minimum” payment values for all 11 states and compute their average (6.25). ",
+        "function2": "Subtract the minimum average from the maximum average to get 20.0 − 6.25 = 13.75 million USD."
+      }
+    },
+    "e8_q4": {
+      "question": "Which year has the biggest difference in value from the following year?",
+      "explanation": {
+        "function1": "Compare each year’s immigration rate to the rate in the immediately following year and compute the absolute difference. ",
+        "function2": "The largest year-to-year change occurs between 2008 (36.34) and 2009 (31.64), a difference of 4.70, which is bigger than any other adjacent-year difference in the data."
+      }
+    },
+    "e8_q5": {
+      "question": "What is the difference between the maximum value for female victims and the minimum value for male victims?",
+      "explanation": {
+        "function1": "Identify the highest “Number_of_Victims” value among Female entries (maximum Female = 207 in 2002). \nThen identify the lowest “Number_of_Victims” value among Male entries (minimum Male = 375 in 2002). ",
+        "function2": "Subtract the Female maximum from the Male minimum to get the difference: 375 − 207 = 168."
+      }
+    },
+    "e8_q6": {
+      "question": "Which party has the third most respondents?",
+      "explanation": {
+        "function1": "Read the “Share of respondents” values for each party and rank them from highest to lowest. \nThe top three shares are Lega (0.211), Fratelli d'Italia (0.195), and PD (Partito Democratico) (0.19). \nTherefore, PD (Partito Democratico) has the third most respondents."
+      }
+    },
+    "e8_q7": {
+      "question": "What is the sum of percentage using META's platform as a separate times a day?",
+      "explanation": {
+        "function1": "META’s platforms in the data are Facebook and Instagram. \nFor each of these platforms, take the percentage for the “Several times a day” frequency (Facebook = 51, Instagram = 38) and add them together. ",
+        "function2": "The sum is 51 + 38 = 89. If we also include “About once a day” as a separate “times a day” category (Facebook = 23, Instagram = 22), then add those too: 89 + 23 + 22 = 138."
+      }
+    },
+    "e8_q8": {
+      "question": "What's the difference between women over 60 and men under 40?",
+      "explanation": {
+        "function1": "Identify the value for Women, 60 years and over (0.739) and the value for Men, 18 to 39 years (0.312). ",
+        "function2": "Subtract the men-under-40 value from the women-over-60 value to get the difference: 0.739 − 0.312 = 0.427."
+      }
+    },
+    "e8_q9": {
+      "question": "How many years correspond to a value between 20 and 30?",
+      "explanation": {
+        "function1": "Review each year’s FIFA World Ranking position and count those that fall between 20 and 30 (inclusive). \nThe qualifying years are 2003 (27), 2004 (27), 2009 (29), 2012 (27), 2013 (27), 2014 (26), 2015 (28), 2016 (25), 2017 (22), 2018 (23), and 2019 (20). \nThat makes 11 years in total.\n"
+      }
+    },
+    "e8_q10": {
+      "question": "What is the sum of the number of weights exceeding 3670 in the Boys group and the number of weights exceeding 3550 in the Girls group?",
+      "explanation": {
+        "function1": "Count the Boys-year values that are greater than 3670: 2010 (3672), 2011 (3677), and 2014 (3675) → 3 values. \nThen count the Girls-year values that are greater than 3550: 2010 (3580), 2011 (3553), 2014 (3554), 2017 (3555), 2020 (3555) → 5 values. \nAdd the two counts: 3 + 5 = 8."
+      }
+    }
+  },
+  "e9": {
+    "e9_q1": {
+      "question": "Does the value of all regions except Metro Total exceed 50,000?",
+      "explanation": {
+        "function1": "Add the “Number of employees” values for every category except “Metro Total” (Metro Eastern Europe, Metro Western Europe, Metro Russia, Metro Germany, Metro Asia, Others, and Metro AG).",
+        "function2": "The sum is 94,359, which is greater than 50,000, so it exceeds 50,000."
+      }
+    },
+    "e9_q2": {
+      "question": "According to this chart, what is the difference between the average number of \"A better place to live\" opinion of Western Europe and the rest?",
+      "explanation": {
+        "function1": "Identify the Western Europe countries in the chart as Netherlands, Germany, UK, France, Spain, and Sweden, and take their “A better place to live” percentages (17, 26, 33, 26, 31, 36) to compute an average of 28.17. ",
+        "function2": "Treat the remaining countries (Greece, Italy, Hungary, Poland) as “the rest” and average their “A better place to live” values (10, 18, 17, 14) to get 14.75. ",
         "function3": "Subtract the two averages to find the difference: 28.17 − 14.75 = 13.42 percentage points, which rounds to about 13.4 percentage points."
       }
     },
-    "e10_q3": {
+    "e9_q3": {
       "question": "How many fiscal year exist where the beer is smaller than the sum of soft drink and hot dog?",
       "explanation": {
-        "function1": "For each fiscal year, add the soft drink price and the hot dog price, then compare that sum to the beer price. The years where beer is smaller than (soft drink + hot dog) are 2010/11 (5 < 2.5+4.5), 2012/13 (5 < 2.5+4.75), 2014/15 (5.5 < 2.5+5), and 2015/16 (5.5 < 2.5+5). Counting these gives 4 fiscal years."
+        "function1": "For each fiscal year, add the soft drink price and the hot dog price, then compare that sum to the beer price.",
+        "function2": "The years where beer is smaller than (soft drink + hot dog) are 2010/11 (5 < 2.5+4.5), 2012/13 (5 < 2.5+4.75), 2014/15 (5.5 < 2.5+5), and 2015/16 (5.5 < 2.5+5). Counting these gives 4 fiscal years."
       }
     },
-    "e10_q4": {
+    "e9_q4": {
       "question": "Is the average of the minimum and maximum values greater compared to the value in 2010?",
       "explanation": {
-        "function1": "Identify the minimum value (1.88 in 2000) and the maximum value (2.71 in 2020). Compute their average, which is about 2.295. Compare this to the 2010 value (2.39). Since 2.295 is less than 2.39, the average of the minimum and maximum is not greater than the 2010 value."
+        "function1": "Identify the minimum value (1.88 in 2000) and the maximum value (2.71 in 2020).",
+        "function2": "Compute their average, which is about 2.295.",
+        "function3": "Compare this to the 2010 value (2.39). Since 2.295 is less than 2.39, the average of the minimum and maximum is not greater than the 2010 value."
       }
     },
-    "e10_q5": {
+    "e9_q5": {
       "question": "Find the difference between the average of the first three years of the male group and the average of the last three years of the female group",
       "explanation": {
         "function1": "Take the male populations for the first three years (2009–2011) and compute their average.",
         "function2": "Then take the female populations for the last three years (2018–2020) and compute their average.",
-        "function3": "Subtract the male early-years average from the female late-years average to get the difference.s"
+        "function3": "Subtract the male early-years average from the female late-years average to get the difference."
       }
     },
-    "e10_q6": {
+    "e9_q6": {
       "question": "What is the difference of the sum of sales between the first six years and the last six years?",
       "explanation": {
-        "function1": "Add the sales volumes for the first six years (2008–2013) to get 813,431 tonnes. Add the sales volumes for the last six years (2014–2019) to get 598,516 tonnes. Subtract the latter total from the former to find the difference, which is 214,915 tonnes."
+        "function1": "Add the sales volumes for the first six years (2008–2013) to get 813,431 tonnes.",
+        "function2": "Add the sales volumes for the last six years (2014–2019) to get 598,516 tonnes.",
+        "function3": "Subtract the latter total from the former to find the difference, which is 214,915 tonnes."
       }
     },
-    "e10_q7": {
+    "e9_q7": {
       "question": "Is Germany has higher share of respondents in Gasoline or diesel compared to the average of rest of the countries?",
       "explanation": {
-        "function1": "Take Germany’s share for “Gasoline or diesel (ICE)” (59). Compute the average “Gasoline or diesel (ICE)” share across the other countries (United States 74, India 68, China 55, Japan 45, South Korea 43), which averages to 57. ",
+        "function1": "Take Germany’s share for “Gasoline or diesel (ICE)” (59). Compute the average “Gasoline or diesel (ICE)” share across the other countries (United States 74, India 68, China 55, Japan 45, South Korea 43), which averages to 57.",
         "function2": "Germany’s 59 is higher than 57, so Germany does not have a higher share than the average of the rest; it is slightly higher."
       }
     },
-    "e10_q8": {
+    "e9_q8": {
       "question": "Is the difference between Alaska's 2000 value and 2020 value greater than Total's 2020 minus 2000 value?",
       "explanation": {
-        "function1": "Read Alaska’s production in 2000 (0.97) and 2020 (0.49) and compute the change as 0.97 − 0.49 = 0.48. Then read Total’s production in 2000 (5.82) and 2020 (6.7) and compute the increase as 6.7 − 5.82 = 0.88. Compare the two differences: 0.48 is smaller than 0.88, so Alaska’s change is not greater."
+        "function1": "Read Alaska’s production in 2000 (0.97) and 2020 (0.49) and compute the change as 0.97 − 0.49 = 0.48.",
+        "function2": "Then read Total’s production in 2000 (5.82) and 2020 (6.7) and compute the increase as 6.7 − 5.82 = 0.88.",
+        "function3": "Compare the two differences: 0.48 is smaller than 0.88, so Alaska’s change is not greater."
+      }
+    },
+    "e9_q9": {
+      "question": "What year did the greatest total change in us dollars per what occur?",
+      "explanation": {
+        "function1": "Group the data by year (2016–2020). For each year, compute the total change by taking the difference between the first quarter’s price and the last quarter’s price available in that year (using Q1 to Q4 when all quarters exist; for 2020, use Q1 to Q3 since Q4 is missing).",
+        "function2": "The year 2016 drops from 0.63 (Q1) to 0.39 (Q4), a change of 0.24, which is larger than the total changes in 2017 (0.07), 2018 (0.14), 2019 (0.05), and 2020 (0.03)."
+      }
+    },
+    "e9_q10": {
+      "question": "What is the year when the \"Favorable view of US\" data and \"Confidence in Obama\" is the second nearest?",
+      "explanation": {
+        "function1": "For each year, compare the two percentages (“Favorable view of US” vs. “Confidence in Obama”) and compute the absolute difference.",
+        "function2": "The smallest difference occurs in 2009 (44 vs 37, difference 7). The next smallest (second nearest) difference is 15, which happens in both 2010 (57 vs 41) and 2011 (56 vs 41).",
+        "function3": "Therefore, the second-nearest year is a tie between 2010 and 2011."
+      }
+    }
+  },
+  "e10": {
+    "e10_q1": {
+      "question": "Which creator has the 2nd biggest number of subscribers within creators starting with alphabet \"a\"?",
+      "explanation": {
+        "function1": "Filter the creators to only those whose names start with the letter “a”. \nThe remaining creators are Amixem (4085) and Andy (3409). ",
+        "function2": "Rank these by subscriber count from highest to lowest; Amixem is 1st and Andy is 2nd, so the 2nd biggest is Andy."
+      }
+    },
+    "e10_q2": {
+      "question": "What is the sum of number of employees from Europe region before 2015?",
+      "explanation": {
+        "function1": "Treat “Europe region” as the European categories in the chart: Germany, Great Britain, Spain, and Rest of Europe. Consider only years before 2015 (2011–2014). ",
+        "function2": "Sum the employees across those four regions for each of the years 2011, 2012, 2013, and 2014, then add those yearly totals together to get 169,212."
+      }
+    },
+    "e10_q3": {
+      "question": "With today and previous week, do male respondents used the application than female respondents?",
+      "explanation": {
+        "function1": "Look at the “Today” and “Within the previous week” shares for each gender. Male respondents are 0.08 (Today) and 0.09 (previous week), totaling 0.17.",
+        "function2": "Female respondents are 0.10 (Today) and 0.09 (previous week), totaling 0.19. Since 0.17 is less than 0.19, males did not use the application more than females over those two periods."
+      }
+    },
+    "e10_q4": {
+      "question": "What is the Year that has the biggest deviation from the total average?",
+      "explanation": {
+        "function1": "First, compute the overall average Consumer Price Index using all the months shown (May ’20 through May ’21). ",
+        "function2": "Then compute the average CPI within each year (average of all 2020 months vs. average of all 2021 months). ",
+        "function3": "Compare how far each year’s average is from the overall average (the absolute deviation). ",
+        "function4": "The 2020 average is farther below the overall average than the 2021 average is above it, so 2020 has the biggest deviation from the total average."
+      }
+    },
+    "e10_q5": {
+      "question": "Which year has the closest value with the average value in sum of life expectancy for both genders?",
+      "explanation": {
+        "function1": "First, sum the female and male life expectancy for each year to get a “both genders combined” total per year. \nThen compute the average of these yearly totals across all years (2008–2018). ",
+        "function2": "Finally, compare each year’s total to this average by looking at the absolute difference; the year with the smallest difference is 2013, making it the closest to the average combined life expectancy."
+      }
+    },
+    "e10_q6": {
+      "question": "How many years was revenue less than 2 billion us dollars?",
+      "explanation": {
+        "function1": "Review the revenue values for each year and identify those below 2.0 billion US dollars. ",
+        "function2": "The years 2010 (1.94), 2019 (1.9), and 2020 (1.8) are below 2.0. Counting these gives 3 years."
+      }
+    },
+    "e10_q7": {
+      "question": "Which perception has the biggest share across the royal figures whose gender is female?",
+      "explanation": {
+        "function1": "Identify the female royal figures in the data (Meghan, Duchess of Sussex; Catherine, Duchess of Cambridge; Queen Elizabeth II). ",
+        "function2": "For each perception category, add up the shares across these three figures. Compare the totals across perceptions; “Fair and balanced” has the highest combined share (0.25 + 0.44 + 0.55 = 1.24), larger than “Overly favourable” (0.64), “Don’t know” (0.53), and “Overly critical” (0.59)."
+      }
+    },
+    "e10_q8": {
+      "question": "Which year has the most revenue across all sectors?",
+      "explanation": {
+        "function1": "Add the revenues of Healthcare, Life Science, and Performance Materials for each year to get total revenue per year. \nCompare these yearly totals. ",
+        "function2": "The year 2020 has the highest combined total (6639 + 7515 + 3380 = 17,534 million euros), which is larger than any other year’s total."
       }
     },
     "e10_q9": {
-      "question": "What year did the greatest total change in us dollars per what occur?",
+      "question": "How many months have a lower index than the average of index across the years?",
       "explanation": {
-        "function1": "Group the data by year (2016–2020). For each year, compute the total change by taking the difference between the first quarter’s price and the last quarter’s price available in that year (using Q1 to Q4 when all quarters exist; for 2020, use Q1 to Q3 since Q4 is missing). The year 2016 drops from 0.63 (Q1) to 0.39 (Q4), a change of 0.24, which is larger than the total changes in 2017 (0.07), 2018 (0.14), 2019 (0.05), and 2020 (0.03)."
+        "function1": "First, compute the average index using all the listed months’ index values. \nThen compare each month’s index to this average and mark those that are lower. ",
+        "function2": "The months below the overall average are Feb ’18 (105.8), Apr ’18 (105.3), Jun ’18 (105.2), and Jul ’18 (105.6), giving a total of 4 months."
       }
     },
     "e10_q10": {
-      "question": "What is the year when the 'Favorable view of US' data and 'Confidence in Obama' is the second nearest?",
+      "question": "What is the average of difference in values except for two years which have the biggest opinion value for favorable and unfavorable, respectively?",
       "explanation": {
-        "function1": "For each year, compare the two percentages (“Favorable view of US” vs. “Confidence in Obama”) and compute the absolute difference. The smallest difference occurs in 2009 (44 vs 37, difference 7). The next smallest (second nearest) difference is 15, which happens in both 2010 (57 vs 41) and 2011 (56 vs 41). Therefore, the second-nearest year is a tie between 2010 and 2011."
+        "function1": "For each year, compute the difference between Favorable and Unfavorable values. \nIdentify the year with the highest Favorable value (72 in 2002) and the year with the highest Unfavorable value (42 in 2007), and exclude those two years from consideration. ",
+        "function2": "For the remaining years (2003, 2005, 2009, 2013, 2015), the differences are 29, 22, 40, 34, and 42. ",
+        "function3": "Take the average of these five differences to get 34.6."
       }
     }
   }

@@ -632,7 +632,7 @@ function makeCommentId() {
 }
 
 function getConfigUrl() {
-    return '/config.json';
+    return withValidationBase('/config.json');
 }
 
 async function getFirestoreSettings() {
