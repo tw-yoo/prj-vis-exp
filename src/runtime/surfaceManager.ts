@@ -66,6 +66,7 @@ export class SurfaceManager {
   private readonly rootContainer: HTMLElement
   private surfaces = new Map<string, ChartSurfaceInstance>()
   private layout: SurfaceLayout | null = null
+  private splitAnimationPromise: Promise<void> = Promise.resolve()
 
   /**
    * SurfaceManager → hostElement 역방향 조회용 WeakMap.
@@ -81,6 +82,17 @@ export class SurfaceManager {
 
   getSurface(id: string): ChartSurfaceInstance | null {
     return this.surfaces.get(id) ?? null
+  }
+
+  /**
+   * Resolves when the most recent `splitSurface()` entrance animation has
+   * finished (i.e. the cleanup callback that swaps the absolutely-positioned
+   * hosts back into normal flex layout has run). Callers that want to chain
+   * a follow-up animation after the split entrance can `await` this.
+   * Returns an already-resolved Promise when no split has been kicked off.
+   */
+  waitForSplitAnimation(): Promise<void> {
+    return this.splitAnimationPromise
   }
 
   getLayout(): SurfaceLayout | null {
@@ -336,6 +348,11 @@ export class SurfaceManager {
     // 5. After the transition settles, hide source and switch chart-host
     //    to flex layout. Drop absolute positioning + transform from hosts.
     //    Slack (+120ms) covers scheduler variability + cubic-bezier tail.
+    let resolveSplitAnimation: () => void = () => {}
+    this.splitAnimationPromise = new Promise<void>((resolve) => {
+      resolveSplitAnimation = resolve
+    })
+
     const cleanup = () => {
       // Source SVG / wrapper / host: hide entirely.
       if (existingSvg) {
@@ -388,6 +405,7 @@ export class SurfaceManager {
       this.rootContainer.style.columnGap = `${gapPx}px`
       this.rootContainer.style.rowGap = `${gapPx}px`
       this.rootContainer.style.flexDirection = orientation === 'horizontal' ? 'row' : 'column'
+      resolveSplitAnimation()
     }
     setTimeout(cleanup, SPLIT_ANIMATION_MS + 120)
 

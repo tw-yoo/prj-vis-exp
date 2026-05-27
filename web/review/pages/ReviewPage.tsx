@@ -804,6 +804,11 @@ export default function ReviewPage() {
               if (leftHost) await browserEngine.renderChart(leftHost, freshSpec)
               if (rightHost) await browserEngine.renderChart(rightHost, freshSpec)
               applySplitSharedYAxisPolicy(surfaceManager)
+              // Wait for the split entrance animation to fully settle, then
+              // pause ~0.7s so the next animation (left-surface filter/avg
+              // ops) doesn't blend visually into the split's tail.
+              await surfaceManager.waitForSplitAnimation()
+              await new Promise((resolve) => setTimeout(resolve, 700))
             }
             const leftHost = surfaceManager.getSurface(plan.leftSurfaceId)?.hostElement as HTMLElement | null
             if (leftHost) runHost = leftHost

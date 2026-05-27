@@ -19,6 +19,13 @@ const SPLIT_DIFF_ELEMENT_CLASS = 'operation-next-split-diff'
 const SPLIT_DEBUG_PREFIX = '[split-simple-bar-debug]'
 const SHARED_Y_AXIS_COMPACTED_ATTRIBUTE = 'data-shared-y-axis-compacted'
 const SHARED_Y_AXIS_COMPACT_OFFSET_ATTRIBUTE = 'data-shared-y-axis-compact-offset'
+const SHARED_COLOR_LEGEND_COMPACTED_ATTRIBUTE = 'data-shared-color-legend-compacted'
+const SHARED_COLOR_LEGEND_COMPACT_OFFSET_ATTRIBUTE = 'data-shared-color-legend-compact-offset'
+// Mirror of the left padding kept after dropping the legend reserve. The
+// chartLayout module uses ~18 for bar charts and a similar value for line
+// charts; using a constant keeps this independent of whether y-axis
+// compaction already collapsed marginLeft to 0.
+const SHARED_COLOR_LEGEND_RIGHT_PADDING = 18
 
 function isSplitDebugEnabled() {
   return Boolean((globalThis as typeof globalThis & { __OPERATION_NEXT_DEBUG__?: unknown }).__OPERATION_NEXT_DEBUG__)
@@ -138,6 +145,77 @@ function compactSharedYAxisSurface(host: HTMLElement) {
   }
 }
 
+/**
+ * Symmetric counterpart of `compactSharedYAxisSurface`. When a surface's
+ * color legend is hidden (because a neighbor still shows it), the SVG's
+ * `viewBox` still reserves ~legendWidth + legendOffsetX on the right side.
+ * With `preserveAspectRatio="xMidYMid meet"` plus equal `flex: 1 1 0`
+ * sizing, that reserve renders as visible blank space between the two
+ * split charts.
+ *
+ * Fix: shrink the viewBox's right edge down to `marginLeft + plotWidth +
+ * small right padding`, AND scale the host's flex-grow by the same ratio
+ * so the SVG keeps the same pixel scale as the still-full neighbor (bars
+ * line up across the boundary).
+ *
+ * Idempotent via `data-shared-color-legend-compacted="true"`.
+ * Mirrors the y-axis policy: applied only to surfaces with index < lastIndex.
+ */
+function compactSharedColorLegendSurface(host: HTMLElement) {
+  const svg = host.querySelector<SVGSVGElement>(SvgElements.Svg)
+  if (!svg) return null
+  if (svg.getAttribute(SHARED_COLOR_LEGEND_COMPACTED_ATTRIBUTE) === 'true') {
+    host.dataset.sharedColorLegendCompacted = 'true'
+    return {
+      compacted: false,
+      reason: 'already-compacted',
+      offset: Number(svg.getAttribute(SHARED_COLOR_LEGEND_COMPACT_OFFSET_ATTRIBUTE) ?? 0) || 0,
+    }
+  }
+
+  const legend = svg.querySelector<SVGElement>(`.${SvgClassNames.ColorLegend}`)
+  if (!legend) return { compacted: false, reason: 'no-legend' }
+
+  const viewBoxAttr = svg.getAttribute(SvgAttributes.ViewBox) ?? ''
+  const viewBoxParts = viewBoxAttr.trim().split(/[\s,]+/).map(Number)
+  if (viewBoxParts.length !== 4 || viewBoxParts.some((value) => !Number.isFinite(value))) {
+    return { compacted: false, reason: 'invalid-viewbox' }
+  }
+  const [vbX, vbY, vbW, vbH] = viewBoxParts
+
+  const marginLeft = Number(svg.getAttribute(DataAttributes.MarginLeft) ?? 0)
+  const plotWidth = Number(svg.getAttribute(DataAttributes.PlotWidth) ?? 0)
+  if (!Number.isFinite(marginLeft) || !Number.isFinite(plotWidth) || plotWidth <= 0) {
+    return { compacted: false, reason: 'invalid-plot-metrics' }
+  }
+
+  const newViewBoxWidth = marginLeft + plotWidth + SHARED_COLOR_LEGEND_RIGHT_PADDING
+  if (!(newViewBoxWidth > 0) || newViewBoxWidth >= vbW) {
+    return { compacted: false, reason: 'no-savings', newViewBoxWidth, currentViewBoxWidth: vbW }
+  }
+
+  const offset = vbW - newViewBoxWidth
+  svg.setAttribute(SvgAttributes.ViewBox, `${vbX} ${vbY} ${newViewBoxWidth} ${vbH}`)
+  svg.setAttribute(SHARED_COLOR_LEGEND_COMPACTED_ATTRIBUTE, 'true')
+  svg.setAttribute(SHARED_COLOR_LEGEND_COMPACT_OFFSET_ATTRIBUTE, String(offset))
+  host.dataset.sharedColorLegendCompacted = 'true'
+
+  // Scale flex-grow so the compacted surface receives proportionally less
+  // pixel width, keeping the same `pixels per viewBox-unit` ratio as the
+  // still-full neighbor.
+  const flexGrow = newViewBoxWidth / vbW
+  host.style.flex = `${flexGrow} 1 0`
+
+  return {
+    compacted: true,
+    reason: 'compacted',
+    offset,
+    newViewBoxWidth,
+    previousViewBoxWidth: vbW,
+    flexGrow,
+  }
+}
+
 export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | null | undefined) {
   const surfaces = activeHorizontalSplitSurfaces(surfaceManager)
   if (!surfaces) {
@@ -164,6 +242,9 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
       node.style.display = hideColorLegend ? 'none' : ''
       node.setAttribute('aria-hidden', hideColorLegend ? 'true' : 'false')
     })
+    if (hideColorLegend) {
+      compactSharedColorLegendSurface(host)
+    }
   })
   splitDebug('splitVisuals.applySharedYAxisPolicy-applied', {
     surfaces: surfaces.map((surface, index) => {
@@ -173,6 +254,8 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
         index,
         sharedYAxisHidden: host.dataset.sharedYAxisHidden ?? null,
         sharedColorLegendHidden: host.dataset.sharedColorLegendHidden ?? null,
+        sharedColorLegendCompacted: host.dataset.sharedColorLegendCompacted ?? null,
+        hostFlex: host.style.flex || null,
         hostRect: summarizeElementRect(host),
         yAxisCount: host.querySelectorAll(`.${SvgClassNames.YAxis}`).length,
         yLabelCount: host.querySelectorAll(`.${SvgClassNames.YAxisLabel}`).length,

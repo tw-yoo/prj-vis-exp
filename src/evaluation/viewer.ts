@@ -55,7 +55,7 @@ const surveyPages: SurveyPage[] = [
   {
     questions: [
       { id: 'reasoning-easy', text: 'The output of the system is easy to understand.', kind: 'likert7' },
-      { id: 'derivation-clear', text: 'The the reasoning process of the system is transparen.', kind: 'likert7' },
+      { id: 'derivation-clear', text: 'The the reasoning process of the system is transparent.', kind: 'likert7' },
       { id: 'trust-judgment', text: 'I trust this system.', kind: 'likert7' },
     ],
   },
