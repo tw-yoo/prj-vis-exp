@@ -107,7 +107,15 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function resolveHostWidth(container: HTMLElement) {
-  const raw = Math.max(0, container.getBoundingClientRect?.().width || container.clientWidth || 0)
+  // Prefer the larger of getBoundingClientRect().width (visual size) and
+  // clientWidth (layout size). When a CSS transform shrinks the visual
+  // (e.g. mid-`scaleX` during the split-surface entrance animation), BR
+  // collapses but clientWidth still reports the layout width — we want the
+  // layout width so the canvas/plot computation doesn't degenerate to the
+  // 240-px minimum and then get amplified by `measureRenderedSvgOverflow`.
+  const rectWidth = container.getBoundingClientRect?.().width || 0
+  const layoutWidth = container.clientWidth || 0
+  const raw = Math.max(0, rectWidth, layoutWidth)
   return raw > 0 ? Math.min(raw, 800) : 800
 }
 

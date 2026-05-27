@@ -37,10 +37,27 @@ function isRenderableElement(element: Element) {
 function adjustAxisTitlePositions(svg: SVGSVGElement, minGapPx: number) {
   const svgRect = svg.getBoundingClientRect()
   const viewBox = parseViewBox(svg)
-  if (!viewBox || svgRect.width <= 0 || svgRect.height <= 0) return
+  if (!viewBox) return
 
-  const scaleX = viewBox.width / svgRect.width
-  const scaleY = viewBox.height / svgRect.height
+  // During the split animation, the host carries `transform: scaleX(0)` so
+  // `getBoundingClientRect()` returns width=0 (and width-derived scales are
+  // bogus). Vertical positions of children are unaffected by scaleX, so the
+  // x-axis-label vs tick-label overlap check is still meaningful — we just
+  // need a sane fallback for the y scale factor. Use the SVG element's
+  // layout dimensions (`clientWidth`/`clientHeight`), which are unaffected
+  // by CSS transforms, before falling back to a 1:1 ratio.
+  const fallbackWidth = svg.clientWidth || svg.parentElement?.clientWidth || viewBox.width
+  const fallbackHeight = svg.clientHeight || svg.parentElement?.clientHeight || viewBox.height
+  const effWidth = svgRect.width > 0 ? svgRect.width : fallbackWidth
+  const effHeight = svgRect.height > 0 ? svgRect.height : fallbackHeight
+  if (effWidth <= 0 || effHeight <= 0) return
+
+  const scaleX = viewBox.width / effWidth
+  const scaleY = viewBox.height / effHeight
+  // Only horizontal measurements (y-axis-label vs y-axis ticks) are
+  // unreliable when the SVG is at scaleX(0). Skip the y-title adjustment in
+  // that case and still run the x-title one (vertical-only measurements).
+  const horizontalUnreliable = svgRect.width <= 0
 
   const xTitle = svg.querySelector('.x-axis-label')
   const xAxisRects = measureRects(Array.from(svg.querySelectorAll('.x-axis')))
@@ -53,6 +70,8 @@ function adjustAxisTitlePositions(svg: SVGSVGElement, minGapPx: number) {
       xTitle.setAttribute('y', String(currentY + deltaPx * scaleY))
     }
   }
+
+  if (horizontalUnreliable) return
 
   const yTitle = svg.querySelector('.y-axis-label')
   const yAxisRects = measureRects(Array.from(svg.querySelectorAll('.y-axis')))
@@ -75,7 +94,29 @@ export function measureRenderedSvgOverflow(container: HTMLElement, options: Meas
 
   const svgRect = svg.getBoundingClientRect()
   const viewBox = parseViewBox(svg)
+  // Bail out when the SVG isn't currently laid out at non-zero size. Trying
+  // to measure during a parent's `transform: scaleX(0)` (the split animation
+  // setup) collapses every descendant's horizontal extent to a point and
+  // produces nonsense `leftOverflow` values from elements like the y-axis
+  // label that genuinely extend leftward at scaleX(1). Leaving the loop
+  // alone here is safe: the multi-pass refinement reruns later when the
+  // surface is no longer scaled (e.g. when an op triggers a re-render).
   if (!viewBox || svgRect.width <= 0 || svgRect.height <= 0) {
+    return { left: 0, right: 0, top: 0, bottom: 0 }
+  }
+
+  // Same hazard, intermediate frames: the split animation transitions the
+  // host from `scaleX(0)` to `scaleX(1)` over 600ms. If a render lands while
+  // the host is e.g. at `scaleX(0.05)`, `svgRect.width` is positive but tiny
+  // and the per-pass scaleX (`viewBox.width / svgRect.width`) becomes huge —
+  // a few visual pixels of y-title overlap turn into hundreds of viewBox
+  // units of `leftOverflow`, then `expandLayoutModel` blows the canvas up.
+  // Case 0s6zi9dyw22qo4rp's split-right surface used to render with
+  // `viewBox≈1103×377` and `plot-w=160` because of this. Detect a non-
+  // identity transform on the container and bail out — when the host
+  // settles at scaleX(1) the chart can be re-measured if a later op
+  // triggers a re-render.
+  if (containerHasShrinkingTransform(container)) {
     return { left: 0, right: 0, top: 0, bottom: 0 }
   }
 
@@ -109,8 +150,8 @@ export function measureRenderedSvgOverflow(container: HTMLElement, options: Meas
   const scaleX = viewBox.width / svgRect.width
   const scaleY = viewBox.height / svgRect.height
   let leftOverflow = Math.max(0, svgRect.left - minLeft + paddingPx) * scaleX
-  let rightOverflow = Math.max(0, maxRight - svgRect.right + paddingPx) * scaleX
-  let topOverflow = Math.max(0, svgRect.top - minTop + paddingPx) * scaleY
+  const rightOverflow = Math.max(0, maxRight - svgRect.right + paddingPx) * scaleX
+  const topOverflow = Math.max(0, svgRect.top - minTop + paddingPx) * scaleY
   let bottomOverflow = Math.max(0, maxBottom - svgRect.bottom + paddingPx) * scaleY
 
   const xTitle = svg.querySelector('.x-axis-label')
@@ -145,6 +186,30 @@ export function measureRenderedSvgOverflow(container: HTMLElement, options: Meas
 
 function hasMeaningfulOverflow(overflow: LayoutOverflow, tolerancePx = 2) {
   return overflow.left > tolerancePx || overflow.right > tolerancePx || overflow.top > tolerancePx || overflow.bottom > tolerancePx
+}
+
+function containerHasShrinkingTransform(container: HTMLElement): boolean {
+  if (typeof getComputedStyle !== 'function') return false
+  let current: Element | null = container
+  while (current && current !== document.documentElement) {
+    const transform = getComputedStyle(current).transform
+    if (transform && transform !== 'none') {
+      // Parse matrix(a, b, c, d, tx, ty). When `a` (scaleX) < 1 the element
+      // is currently being shrunk — we treat any non-identity transform
+      // along the ancestor chain as a hazard rather than try to compose
+      // multiple matrices: the split animation is the only place this
+      // matters in practice and it sets a single `scaleX(0…1)` on the host.
+      const matrixMatch = /matrix\(\s*([-+\d.eE]+)\s*,/.exec(transform)
+      if (matrixMatch) {
+        const a = Number(matrixMatch[1])
+        if (Number.isFinite(a) && a < 0.99) return true
+      } else if (transform !== 'matrix(1, 0, 0, 1, 0, 0)') {
+        return true
+      }
+    }
+    current = current.parentElement
+  }
+  return false
 }
 
 function layoutChanged(prev: LayoutModel, next: LayoutModel, tolerancePx = 0.5) {

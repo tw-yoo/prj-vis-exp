@@ -276,7 +276,7 @@ function renderTransposedPaymentChart({ d3, container, showDifference = false })
     const innerScale = d3.scaleBand().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.12);
     const yScale = d3.scaleLinear().domain([0, 25]).nice().range([plotH, 0]);
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));

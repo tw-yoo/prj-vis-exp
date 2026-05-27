@@ -172,39 +172,130 @@ export class SurfaceManager {
     })
 
     // -----------------------------------------------------------------------
-    // Animated split (reviewer feedback on case 0s6zi9dyw22qo4rp):
-    //   "split시 애니메이션이 전혀 없어서 너무 어색함. ... 갈라지는 애니메이션이
-    //    있어야 함."
+    // Animated split — final design (after multiple bad attempts).
     //
-    // Strategy: keep the source host visible at its current width, build the
-    // two new split hosts at flex:0/opacity:0, switch the root container to
-    // flex layout, then in the next frame transition flex/opacity so the
-    // source shrinks + fades out while the new hosts grow + fade in. After
-    // the transition settles, hide the source SVG and drop transition
-    // styles. Generic across chart types — every chart routes through this
-    // method.
+    // Crucial lesson: `buildSurface` measures `host.clientWidth/Height` (or
+    // equivalent) to lay out the chart skeleton + viewBox. If the host's
+    // measured size is wrong (width 0, height 0, or some surprise value
+    // from CSS layout race), the renderer emits a degenerate SVG (huge
+    // viewBox, tiny plot, label rotation). Past attempts manipulated
+    // width/flex DURING the build, which raced the renderer's measure.
+    //
+    // Design that finally avoids the race:
+    //   1. Set rootContainer to `position: relative` (positioning context
+    //      for the absolutely-positioned split hosts).
+    //   2. Wrap source SVG and absolutely position it at inset:0 of the
+    //      chart host. Source covers the chart host fully, opacity:1.
+    //   3. Create hostA, hostB as `position: absolute` siblings with
+    //      explicit `width: 50%-gap/2` and `height: 100%`. They're parked
+    //      OVER the source's left and right halves, invisible via
+    //      `transform: scaleX(0)`.
+    //      ⇒ Critical: their LAYOUT width/height are correct (the renderer
+    //      measures them properly), but they don't visually take any space
+    //      until transform animates back to scaleX(1).
+    //   4. buildSurface(hostA), buildSurface(hostB). Renderer sees correct
+    //      width × height → emits correct viewBox + plot dimensions.
+    //   5. requestAnimationFrame×2 to commit initial state, then trigger:
+    //        - source opacity 1 → 0
+    //        - hostA transform scaleX(0) → scaleX(1) (origin: right)
+    //        - hostB transform scaleX(0) → scaleX(1) (origin: left)
+    //      Visually the source fades and two new charts grow outward from
+    //      the centerline.
+    //   6. After the transition settles, drop position:absolute + transform
+    //      and switch hosts to `flex: 1 1 0` so chart-host becomes a normal
+    //      flex container for future resizes.
     // -----------------------------------------------------------------------
 
-    // 1. Create + style the two split hosts with their transition baseline
-    //    (zero size, invisible). Keep `overflow: hidden` so children don't
-    //    spill while flex grows.
+    const chartHostRect = this.rootContainer.getBoundingClientRect()
+    const chartHostWidth = chartHostRect.width || 800
+    const chartHostHeight = chartHostRect.height || 400
+    const gapPx = SPLIT_SURFACE_GAP_PX
+    const halfWidth = Math.max(0, (chartHostWidth - gapPx) / 2)
+
+    splitDebug('surfaceManager.splitSurface-dims', {
+      chartHostWidth,
+      chartHostHeight,
+      gapPx,
+      halfWidth,
+      sourceHostIsRootContainer,
+    })
+
+    // Save chart-host's original position so cleanup can restore it.
+    const originalRootPosition = this.rootContainer.style.position
+    this.rootContainer.style.position = this.rootContainer.style.position || 'relative'
+    // Ensure the chart-host keeps its height while children are absolutely
+    // positioned (which would otherwise collapse its content to 0 height).
+    this.rootContainer.style.minHeight = `${chartHostHeight}px`
+
+    // 1. Wrap source SVG (when rootContainer is the source host) for
+    //    consistent absolute positioning. Otherwise reuse sourceHost.
+    let sourceWrapper: HTMLDivElement | null = null
+    let sourcePivot: HTMLElement | null = null
+    if (sourceHostIsRootContainer) {
+      if (existingSvg && existingSvg.parentElement === this.rootContainer) {
+        sourceWrapper = document.createElement('div')
+        sourceWrapper.dataset.splitSourcePivot = 'true'
+        sourceWrapper.style.position = 'absolute'
+        sourceWrapper.style.left = '0'
+        sourceWrapper.style.top = '0'
+        sourceWrapper.style.width = `${chartHostWidth}px`
+        sourceWrapper.style.height = `${chartHostHeight}px`
+        sourceWrapper.style.overflow = 'hidden'
+        sourceWrapper.style.opacity = '1'
+        sourceWrapper.style.zIndex = '1'
+        sourceWrapper.style.transition = `opacity ${SPLIT_ANIMATION_MS}ms ease-out`
+        this.rootContainer.insertBefore(sourceWrapper, existingSvg)
+        sourceWrapper.appendChild(existingSvg)
+        // The SVG inside the wrapper inherits the wrapper's box.
+        existingSvg.style.width = '100%'
+        existingSvg.style.height = '100%'
+        sourcePivot = sourceWrapper
+      }
+    } else {
+      // Legacy: source is a separate child host.
+      sourceHost.style.position = 'absolute'
+      sourceHost.style.left = '0'
+      sourceHost.style.top = '0'
+      sourceHost.style.width = `${chartHostWidth}px`
+      sourceHost.style.height = `${chartHostHeight}px`
+      sourceHost.style.opacity = '1'
+      sourceHost.style.zIndex = '1'
+      sourceHost.style.transition = `opacity ${SPLIT_ANIMATION_MS}ms ease-out`
+      sourcePivot = sourceHost
+    }
+
+    // 2. Create hostA / hostB as absolutely positioned children with
+    //    explicit final dimensions + scaleX(0). Renderer measures their
+    //    layout box correctly; the transform only changes their VISUAL.
     const hostA = this.createSplitHost(idA)
     const hostB = this.createSplitHost(idB)
 
-    const setupSplitHostInitial = (host: HTMLElement) => {
-      host.style.flex = '0 0 0'
-      host.style.minWidth = '0'
-      host.style.minHeight = '0'
+    const setupSplitHostForBuild = (host: HTMLElement, side: 'left' | 'right') => {
+      host.style.position = 'absolute'
+      host.style.top = '0'
+      if (side === 'left') {
+        host.style.left = '0'
+        host.style.transformOrigin = 'right center'
+      } else {
+        host.style.right = '0'
+        host.style.transformOrigin = 'left center'
+      }
+      host.style.width = `${halfWidth}px`
+      host.style.height = `${chartHostHeight}px`
       host.style.overflow = 'hidden'
-      host.style.opacity = '0'
-      host.style.transition = `flex ${SPLIT_ANIMATION_MS}ms ease-out, opacity ${SPLIT_ANIMATION_MS}ms ease-out`
+      host.style.zIndex = '2'
+      // Start invisible via transform (no width change → no measure race).
+      host.style.transform = 'scaleX(0)'
+      // Transition is for the trigger phase; install it now so when we
+      // assign scaleX(1) below it actually animates.
+      host.style.transition = `transform ${SPLIT_ANIMATION_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
     }
-    setupSplitHostInitial(hostA)
-    setupSplitHostInitial(hostB)
+    setupSplitHostForBuild(hostA, 'left')
+    setupSplitHostForBuild(hostB, 'right')
 
-    // 2. Build the new surfaces (each runs its base renderer inside its
-    //    host's SVG). They draw at flex:0 so they're invisible until the
-    //    transition opens up the flex slots.
+    // 3. Build the new surfaces. Renderer measures hostA/hostB at their
+    //    final pixel dimensions (halfWidth × chartHostHeight) — viewBox
+    //    comes out correct.
     const surfaceA = this.buildSurface(
       idA,
       hostA,
@@ -225,77 +316,80 @@ export class SurfaceManager {
 
     const layoutType = orientation === 'horizontal' ? 'split-horizontal' : 'split-vertical'
     this.layout = { type: layoutType, surfaces: [surfaceA, surfaceB], gap: SPLIT_SURFACE_GAP_PX }
-
-    // 3. Switch the root container to flex layout WITHOUT calling
-    //    applyLayoutStyles (which would set sourceHost display:none + flex:0
-    //    immediately, killing the transition). Inline the parts we need.
     this.rootContainer.classList.add('surface-layout--split')
-    const gap = SPLIT_SURFACE_GAP_PX
-    this.rootContainer.style.display = 'flex'
-    this.rootContainer.style.gap = `${gap}px`
-    this.rootContainer.style.columnGap = `${gap}px`
-    this.rootContainer.style.rowGap = `${gap}px`
-    this.rootContainer.style.flexDirection = orientation === 'horizontal' ? 'row' : 'column'
 
-    // 4. Source host: install the same transition + start at flex:1 (current
-    //    full width). The SVG inside gets its own opacity transition so the
-    //    chart visually fades out as the host shrinks.
-    if (!sourceHostIsRootContainer) {
-      sourceHost.style.transition = `flex ${SPLIT_ANIMATION_MS}ms ease-out, opacity ${SPLIT_ANIMATION_MS}ms ease-out`
-      sourceHost.style.flex = '1 1 0'
-      sourceHost.style.minWidth = '0'
-      sourceHost.style.minHeight = '0'
-      sourceHost.style.overflow = 'hidden'
-      sourceHost.style.opacity = '1'
-    }
-    if (existingSvg) {
-      existingSvg.style.transition = `opacity ${SPLIT_ANIMATION_MS}ms ease-out`
-      existingSvg.style.opacity = '1'
-    }
+    // Force a layout reflow so the just-applied transform:scaleX(0) is
+    // committed before we change it to scaleX(1).
+    void hostA.offsetWidth
 
-    // 5. Kick off the transition on the next frame. Two requestAnimationFrame
-    //    calls ensure the browser commits the initial layout (flex:1 + flex:0)
-    //    before applying the target values, so transitions run from the right
-    //    starting point.
+    // 4. Kick off animations on the next frame. Source fades; hostA/hostB
+    //    grow from the centerline (transform-origin: right / left) into
+    //    full half-width.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        if (!sourceHostIsRootContainer) {
-          sourceHost.style.flex = '0 0 0'
-          sourceHost.style.opacity = '0'
-        }
-        if (existingSvg) {
-          existingSvg.style.opacity = '0'
-        }
-        hostA.style.flex = '1 1 0'
-        hostA.style.opacity = '1'
-        hostB.style.flex = '1 1 0'
-        hostB.style.opacity = '1'
+        if (sourcePivot) sourcePivot.style.opacity = '0'
+        hostA.style.transform = 'scaleX(1)'
+        hostB.style.transform = 'scaleX(1)'
       })
     })
 
-    // 6. After the transition settles, hide the source SVG and clean up the
-    //    inline transition styles so subsequent layout changes (e.g. resize)
-    //    don't animate unintentionally. A small slack (+80ms) covers
-    //    browser scheduler variability.
+    // 5. After the transition settles, hide source and switch chart-host
+    //    to flex layout. Drop absolute positioning + transform from hosts.
+    //    Slack (+120ms) covers scheduler variability + cubic-bezier tail.
     const cleanup = () => {
+      // Source SVG / wrapper / host: hide entirely.
       if (existingSvg) {
         existingSvg.style.display = 'none'
         existingSvg.style.opacity = ''
         existingSvg.style.transition = ''
+        existingSvg.style.width = ''
+        existingSvg.style.height = ''
+      }
+      if (sourceWrapper) {
+        sourceWrapper.style.display = 'none'
+        sourceWrapper.style.transition = ''
       }
       if (!sourceHostIsRootContainer) {
         sourceHost.style.display = 'none'
         sourceHost.style.opacity = ''
         sourceHost.style.transition = ''
+        sourceHost.style.position = ''
+        sourceHost.style.left = ''
+        sourceHost.style.top = ''
+        sourceHost.style.width = ''
+        sourceHost.style.height = ''
+        sourceHost.style.zIndex = ''
       }
-      hostA.style.transition = ''
-      hostA.style.overflow = ''
-      hostA.style.opacity = ''
-      hostB.style.transition = ''
-      hostB.style.overflow = ''
-      hostB.style.opacity = ''
+      // Hosts: strip absolute positioning + transform, switch to flex.
+      const finalizeHost = (host: HTMLElement) => {
+        host.style.position = ''
+        host.style.left = ''
+        host.style.right = ''
+        host.style.top = ''
+        host.style.width = ''
+        host.style.height = ''
+        host.style.overflow = ''
+        host.style.transform = ''
+        host.style.transformOrigin = ''
+        host.style.transition = ''
+        host.style.zIndex = ''
+        host.style.flex = '1 1 0'
+        host.style.minWidth = '0'
+        host.style.minHeight = '0'
+      }
+      finalizeHost(hostA)
+      finalizeHost(hostB)
+      // chart-host: turn into a real flex container now that the source is
+      // gone and the hosts are normal block elements again.
+      this.rootContainer.style.position = originalRootPosition
+      this.rootContainer.style.minHeight = ''
+      this.rootContainer.style.display = 'flex'
+      this.rootContainer.style.gap = `${gapPx}px`
+      this.rootContainer.style.columnGap = `${gapPx}px`
+      this.rootContainer.style.rowGap = `${gapPx}px`
+      this.rootContainer.style.flexDirection = orientation === 'horizontal' ? 'row' : 'column'
     }
-    setTimeout(cleanup, SPLIT_ANIMATION_MS + 80)
+    setTimeout(cleanup, SPLIT_ANIMATION_MS + 120)
 
     splitDebug('surfaceManager.splitSurface-after-layout', {
       layoutType,

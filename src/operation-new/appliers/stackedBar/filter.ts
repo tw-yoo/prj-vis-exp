@@ -1,11 +1,14 @@
+import * as d3 from 'd3'
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue } from '../../../domain/operation/types'
-import { OPACITIES } from '../../../rendering/common/d3Helpers'
+import { DataAttributes } from '../../../rendering/interfaces'
+import { DURATIONS, EASINGS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { StackedBarChartInstance } from '../../../rendering-new/instances/stackedBarInstance'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
+import { PAIR_DIFF_ANNOTATION_CLASS } from './pairDiff'
 import {
   barMarkKeyFromDatum,
   barMarkKeyFromNode,
@@ -105,13 +108,15 @@ export const filterApplier: OperationApplier<StackedBarChartInstance> = {
     const activeKeys = buildScopeKeys(result)
     const isCellInScope = buildCellInScopePredicate(result)
 
-    // Mirror the simple-bar guard: persistent anchor annotations (e.g. ref
-    // lines from a prior op) are calibrated against the CURRENT yScale.
-    // Recomposing the stack rescales the y-axis, which would orphan those
-    // anchors. Stay in dim mode when any persistent annotation is on the
-    // layer.
+    // PairDiff input always uses 'dim' mode: the prior pairDiff Δ-arrow
+    // annotations are anchored to the CURRENT bar positions and y-scale, so
+    // recomposing (which collapses out-of-scope bars to height 0 and
+    // rescales the y-axis) would orphan them. Forcing dim mode also matches
+    // the user's intent — out-of-scope items should be dimmed, not vanish.
+    // Otherwise mirror the simple-bar guard: stay in dim mode when any
+    // persistent annotation is on the layer.
     const hasPersistentAnchor = state.annotationRecords.some((r) => r.persistent)
-    const mode: 'recompose' | 'dim' = hasPersistentAnchor ? 'dim' : 'recompose'
+    const mode: 'recompose' | 'dim' = pairDiffInput || hasPersistentAnchor ? 'dim' : 'recompose'
 
     // Active series for legend transition: series that contain at least one
     // in-scope (target, series) cell in the filtered result. When the input
@@ -122,6 +127,38 @@ export const filterApplier: OperationApplier<StackedBarChartInstance> = {
       : new Set<string>(
           result.map((d) => String(d.group ?? d.series ?? '')).filter((s) => s.length > 0),
         )
+
+    // When the filter input is a pairDiff result, dim the per-target
+    // Δ-arrow annotations (line connectors + arrow shaft + arrow heads +
+    // numeric label) drawn by the pairDiff applier. Each pairDiff
+    // annotation element carries a `data-target` matching the Period
+    // (stamped in pairDiff applier Phase 3), so we can scope the dim to
+    // only the targets that fall outside the filter result — surviving
+    // targets stay at FULL opacity to highlight the selection.
+    const fadePairDiffAnnotations = async () => {
+      if (!pairDiffInput) return
+      const survivingTargets = new Set<string>(result.map((r) => String(r.target)))
+      const svgNode = instance.host.querySelector('svg')
+      if (!svgNode) return
+      const nodes = Array.from(
+        svgNode.querySelectorAll<SVGElement>(`.${PAIR_DIFF_ANNOTATION_CLASS}[${DataAttributes.Target}]`),
+      )
+      if (nodes.length === 0) return
+      await Promise.all(
+        nodes.map((node) => {
+          const target = node.getAttribute(DataAttributes.Target) ?? ''
+          const next = survivingTargets.has(target) ? OPACITIES.FULL : OPACITIES.DIM
+          return d3
+            .select(node)
+            .transition()
+            .duration(DURATIONS.HIGHLIGHT)
+            .ease(EASINGS.SMOOTH)
+            .style('opacity', next)
+            .end()
+            .catch(() => undefined)
+        }),
+      )
+    }
 
     // Bars + legend transition in lockstep — both ride the same duration so
     // the chart's visual state stays coherent every frame.
@@ -134,9 +171,15 @@ export const filterApplier: OperationApplier<StackedBarChartInstance> = {
       mode === 'recompose' && activeSeriesValues.size > 0
         ? instance.transitionLegend({ activeSeries: activeSeriesValues })
         : Promise.resolve(),
+      fadePairDiffAnnotations(),
     ])
 
-    const threshold = resolveBarThreshold(operation, state.workingData)
+    // Threshold reference line for numeric filters. Skip when the input is
+    // a pairDiff result — the diff is computed pairwise per Period (already
+    // drawn as Δ-arrows by the pairDiff applier), so a baseline at the
+    // threshold value (e.g., y=0) does not correspond to any bar height and
+    // would just visually clutter the chart.
+    const threshold = pairDiffInput ? null : resolveBarThreshold(operation, state.workingData)
     if (threshold != null) {
       const thresholdY = inferBarYFromAxis(instance.svg, threshold)
       if (thresholdY != null) {

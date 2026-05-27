@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.json",
+  "description": "Grouped bar chart for 16fif5hdi8yzml00.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/16fif5hdi8yzml00.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "column": {
+      "field": "State",
+      "type": "ordinal",
+      "header": {}
+    },
+    "y": {
+      "field": "Payment_Million_USD",
+      "type": "quantitative",
+      "axis": {
+        "grid": false
+      }
+    },
+    "x": {
+      "field": "Type",
+      "type": "nominal",
+      "axis": {
+        "title": ""
+      }
+    },
+    "color": {
+      "field": "Type",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

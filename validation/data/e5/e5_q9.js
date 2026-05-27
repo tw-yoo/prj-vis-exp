@@ -242,7 +242,7 @@ export function function1({ d3, container }) {
         .nice()
         .range([plotH, 0]);
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
 
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);

@@ -397,7 +397,7 @@ export function function2({ d3, container }) {
         .range([plotH, 0]);
     const zeroY = yScale(0);
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 

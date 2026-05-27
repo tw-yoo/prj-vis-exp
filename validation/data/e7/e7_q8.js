@@ -273,7 +273,7 @@ function renderUnder30HairRemovalChart({ d3, container, showThreshold = false })
     const plotH = height - margin.top - margin.bottom;
     const xScale = d3.scaleBand().domain(rows.map((d) => d.type)).range([0, plotW]).padding(0.24);
     const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => d.value) ?? 1]).nice().range([plotH, 0]);
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));

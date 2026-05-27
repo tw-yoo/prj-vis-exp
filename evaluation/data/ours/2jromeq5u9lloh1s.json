@@ -1,0 +1,17 @@
+{
+  "chart_id": "2jromeq5u9lloh1s",
+  "question": "Which years has the biggest jump?",
+  "description": "",
+  "specPath": "specs/2jromeq5u9lloh1s.vl.json",
+  "opsPath": "ops/2jromeq5u9lloh1s.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Calculate the year-to-year change in Audience_Millions between each pair of consecutive years on the line. Compare these changes to find the largest increase."
+    },
+    {
+      "id": "ops2",
+      "text": "Select the later year of the pair with the maximum increase."
+    }
+  ]
+}

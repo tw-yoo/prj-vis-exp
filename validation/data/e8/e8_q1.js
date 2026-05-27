@@ -223,7 +223,7 @@ function renderCompanyNameLengthChart({ d3, container, showAverage = false }) {
         .nice()
         .range([plotH, 0]);
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 

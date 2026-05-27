@@ -336,9 +336,16 @@ function renderRaceDiscussionStackedChart({ d3, container }) {
 
     const duration = 700;
 
-    // Smoothly transition axes.
+    // Smoothly transition axes. The x-axis transform must follow plotH because
+    // this helper relocates the legend ABOVE the chart and uses margin.top=64 /
+    // margin.bottom=56 (plotH=240) while the base render uses margin.top=32 /
+    // margin.bottom=48 (plotH=280); without the transform update the x-axis
+    // stays at the original plotH while the bars settle at the new (smaller)
+    // plotH, opening a ~40px gap between bar bottoms and the x-axis line.
     g.select('.y-axis').transition().duration(duration).call(d3.axisLeft(yScale).ticks(5));
-    g.select('.x-axis').transition().duration(duration).call(d3.axisBottom(xScale));
+    g.select('.x-axis').transition().duration(duration)
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
 
     const newX = (d) => xScale(d.target) ?? 0;
     const newW = () => xScale.bandwidth();

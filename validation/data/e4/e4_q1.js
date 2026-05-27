@@ -297,7 +297,7 @@ export function function2({ d3, container }) {
             .attr('x2', cx)
             .attr('y1', yAvg)
             .attr('y2', yAvg)
-            .attr('stroke', '#6b7280')
+            .attr('stroke', '#ef4444')
             .attr('stroke-width', 1.5)
             .attr('stroke-dasharray', '3 3')
             .attr('opacity', 0.55)

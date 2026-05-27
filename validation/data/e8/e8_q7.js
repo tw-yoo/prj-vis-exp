@@ -231,8 +231,9 @@ function renderMetaFrequencyChart({ d3, container, showSum = false }) {
     const xScale = d3.scaleBand().domain(data.map((d) => d.label)).range([0, plotW]).padding(0.25);
     const yScale = d3.scaleLinear().domain([0, showSum ? csvSum : 60]).nice().range([plotH, 0]);
 
-    // Use rebuildSvgInPlace (smooth crossfade) instead of container.innerHTML = '' wipe.
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    // Use rebuildSvgInPlace with instant=true (no crossfade — E5–E10 don't need
+    // animation, so avoid the disappear/reappear flash).
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));

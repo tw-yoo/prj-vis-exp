@@ -6,6 +6,7 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../..
 import { COLORS, DURATIONS, EASINGS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import { operationResultRef } from '../../../operation-next/diffEndpoint'
+import { transitionLegendScope } from '../../primitives/transitionLegend'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { StackedBarChartInstance } from '../../../rendering-new/instances/stackedBarInstance'
 import { getStackedBarStoredData, type StackedSpec } from '../../../rendering/bar/stackedBarRenderer'
@@ -175,10 +176,55 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
       return buildResultState(result, state, operation)
     }
 
+    // Pre-narrow the color scale so the new grouped SVG renders with only
+    // {groupA, groupB} in the legend from the very first paint. Without
+    // this, `renderGroupedBarChart` reads the original spec's color
+    // encoding (which carries the full 5-series scale.domain or infers it
+    // from the stored 5-series dataset) and paints all 5 legend rows; our
+    // Phase 3 `transitionLegendScope` then animates the unused 3 rows down
+    // to opacity 0, which the user perceives as a brief "all 5 series
+    // flash" between the stacked-narrowed legend and the final
+    // grouped-narrowed legend.
+    //
+    // Carrying an explicit `range` aligned to the narrowed `domain`
+    // preserves each surviving series' base-render color (France stays
+    // orange, South Korea stays green); using `domain` alone would
+    // re-assign them to palette[0]/palette[1] (blue/red) because
+    // `d3.scaleOrdinal` maps by index.
+    const baseEncoding = (stackedSpec.encoding ?? {}) as Record<string, unknown>
+    const baseColor = (baseEncoding.color ?? {}) as Record<string, unknown>
+    const baseColorScale = (baseColor.scale ?? {}) as Record<string, unknown>
+    const fullDomain = instance.fullSeriesDomain.length > 0
+      ? instance.fullSeriesDomain
+      : [groupA, groupB]
+    const narrowedDomain = fullDomain.filter((s) => s === groupA || s === groupB)
+    const narrowedRange = narrowedDomain
+      .map((s) => instance.seriesColors.get(s) ?? '')
+      .filter((c) => c.length > 0)
+    const narrowedColorScale =
+      narrowedRange.length === narrowedDomain.length && narrowedDomain.length > 0
+        ? { ...baseColorScale, domain: narrowedDomain, range: narrowedRange }
+        : narrowedDomain.length > 0
+          ? { ...baseColorScale, domain: narrowedDomain }
+          : baseColorScale
+
     const filteredStackedSpec: StackedSpec = {
       ...stackedSpec,
       data: { values: filteredValues },
+      encoding: {
+        ...baseEncoding,
+        color: {
+          ...baseColor,
+          scale: narrowedColorScale,
+        },
+      } as StackedSpec['encoding'],
     }
+    console.info('[operation-new] stacked-bar applier:pairDiff PHASE 2 color-narrowing', {
+      fullDomain,
+      narrowedDomain,
+      narrowedRange,
+      hasRange: narrowedRange.length === narrowedDomain.length,
+    })
 
     console.info('[operation-new] stacked-bar applier:pairDiff PHASE 2 start')
     const transformResult = await instance.transitionToGrouped({
@@ -277,9 +323,18 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
       if (Number.isFinite(v)) diffByTarget.set(t, v)
     })
 
-    // Draw one Δ arrow per pair. All arrows in the same parent transition so
-    // they animate together.
+    // Narrow the legend on the new grouped SVG to {groupA, groupB}. Phase 1's
+    // earlier narrowing happened on the stacked SVG that `transitionToGrouped`
+    // then replaced, so the freshly-rendered grouped chart starts with every
+    // original series visible. Run this in parallel with the per-pair Δ-arrow
+    // draws so the legend collapse animates in lockstep.
     const drawPromises: Promise<unknown>[] = []
+    drawPromises.push(
+      transitionLegendScope({
+        svg: groupedSvg,
+        activeSeries: new Set<string>([groupA, groupB]),
+      }).catch(() => undefined),
+    )
     pairs.forEach((pair) => {
       const aTop = barTopRootY(pair.barA, marginTop)
       const bTop = barTopRootY(pair.barB, marginTop)
@@ -307,6 +362,7 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
         groupedLayer
           .append(SvgElements.Line)
           .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
+          .attr(DataAttributes.Target, pair.target)
           .attr(SvgAttributes.X1, aMidX)
           .attr(SvgAttributes.X2, aMidX)
           .attr(SvgAttributes.Y1, aTop)
@@ -324,6 +380,7 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
         groupedLayer
           .append(SvgElements.Line)
           .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
+          .attr(DataAttributes.Target, pair.target)
           .attr(SvgAttributes.X1, bMidX)
           .attr(SvgAttributes.X2, bMidX)
           .attr(SvgAttributes.Y1, bTop)
@@ -343,6 +400,7 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
         groupedLayer
           .append(SvgElements.Line)
           .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
+          .attr(DataAttributes.Target, pair.target)
           .attr(SvgAttributes.X1, arrowX)
           .attr(SvgAttributes.X2, arrowX)
           .attr(SvgAttributes.Y1, (topY + bottomY) / 2)
@@ -370,6 +428,7 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
         groupedLayer
           .append(SvgElements.Line)
           .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS} arrow-head`)
+          .attr(DataAttributes.Target, pair.target)
           .attr(SvgAttributes.X1, head.x1)
           .attr(SvgAttributes.Y1, head.y1)
           .attr(SvgAttributes.X2, head.x2)
@@ -389,6 +448,7 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
         groupedLayer
           .append(SvgElements.Text)
           .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
+          .attr(DataAttributes.Target, pair.target)
           .attr(SvgAttributes.X, arrowX + ARROW_LABEL_GAP_PX + 6)
           .attr(SvgAttributes.Y, (topY + bottomY) / 2)
           .attr(SvgAttributes.DominantBaseline, 'middle')

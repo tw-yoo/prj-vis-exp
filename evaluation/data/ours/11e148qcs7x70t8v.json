@@ -1,0 +1,17 @@
+{
+  "chart_id": "11e148qcs7x70t8v",
+  "question": "in which years does south korea have a bigger value than france?",
+  "description": "",
+  "specPath": "specs/11e148qcs7x70t8v.vl.json",
+  "opsPath": "ops/11e148qcs7x70t8v.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Locate the South Korea and France segments within each stacked bar for every Period and compare their Share_of_Import_Value values."
+    },
+    {
+      "id": "ops2",
+      "text": "List the Periods where South Korea's value is greater than France's value."
+    }
+  ]
+}

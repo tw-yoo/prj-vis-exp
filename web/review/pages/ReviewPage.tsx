@@ -7,6 +7,7 @@ import '../review.css'
 import type { ChartSpec, OpsSpecInput } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import { consumeDerivedChartState } from '../../../src/api/rendering'
+import { collectReferencedResultIds } from '../../../src/operation-next/diffEndpoint'
 import { isOperationNextRunOutcome } from '../../../src/operation-next/executionState'
 import type {
   OperationNextRunOutcome,
@@ -657,6 +658,26 @@ export default function ReviewPage() {
           opsSessionSpecRef.current = freshSpec
         }
 
+        // Compute referencedResultIds across the WHOLE ops spec (every group),
+        // not just the group we're about to run. ReviewPage executes each
+        // sentence in its own `runChartOps` call, so the per-call collector
+        // inside `runChartOps` only sees the current group — and prior
+        // annotations that the CURRENT group doesn't reference get fadeRemove'd
+        // even when a FUTURE group still needs them. Case 4pi1e6ev8e0zobww:
+        // ops:n2 (Male avg) line is dropped when ops2:n4 runs because ops2
+        // alone only references n3; but ops3:n5 still consumes n2.
+        // Passing the cross-group set keeps the n2 line alive until ops3 runs.
+        const fullReferencedResultIds = collectReferencedResultIds(opsGroups as OperationSpec[][])
+        console.info(
+          '[review] runOpsUpToGroup: cross-group referencedResultIds ' +
+            JSON.stringify({
+              targetIndex,
+              groupName: opsGroupKeys[targetIndex],
+              fullReferencedResultIds,
+              opsGroupCount: opsGroups.length,
+            }),
+        )
+
         // The runtime snapshot taken just *before* `targetIndex` ran is what
         // lets the chart engine resolve this group's `"ref:nN"` references
         // against prior nodes. We pass it via `runtimeSnapshot` (with
@@ -706,6 +727,11 @@ export default function ReviewPage() {
                 {
                   initialRenderMode: 'reuse-existing',
                   resetRuntime: true,
+                  // Same cross-group reference set on the replay call so the
+                  // cumulative replay (which can include the same chart-type
+                  // transition + averages) preserves annotations that future
+                  // groups will need (e.g. n2 line for ops3:n5).
+                  referencedResultIds: fullReferencedResultIds,
                 } as RunChartOpsOptions,
               )
               // If the cumulative replay transitioned chart type (e.g.
@@ -799,6 +825,12 @@ export default function ReviewPage() {
           // succeed.
           resetRuntime: priorRuntimeSnapshot == null,
           ...(priorRuntimeSnapshot ? { runtimeSnapshot: priorRuntimeSnapshot } : {}),
+          // Cross-group referencedResultIds (every "ref:nX" any FUTURE group
+          // will read). Without this, the average applier inside this single-
+          // group call would see only n3 as referenced when ops2 runs and
+          // fadeRemove the n2 line — even though ops3:n5 still needs it
+          // (case 4pi1e6ev8e0zobww).
+          referencedResultIds: fullReferencedResultIds,
           // Surface manager is required for split-aware appliers (diff arrow,
           // filter y-axis lock). Always pass it when active; passing it when
           // single-layout is harmless (appliers fall back to non-split paths).

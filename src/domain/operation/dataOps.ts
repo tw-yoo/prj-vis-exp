@@ -786,12 +786,29 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
   const kind = inferFieldKind(byTarget, field)
   const inField = byTarget.filter(predicateByField(field, kind))
 
+  // When no field is specified and the threshold value is numeric (or an
+  // array of numeric bounds for `between`), the user's intent is "filter
+  // rows by their numeric `value`" — not by their categorical `target`.
+  // Without this default, comparisons like `target > 0` rely on
+  // string→number coercion, which accidentally works for numeric-looking
+  // target strings ("2014" → 2014) but silently drops the rows whose
+  // target labels coerce to NaN ("Jan-Oct 2019", "Q1 2020", etc.). For
+  // pairDiff/lagDiff/diff result rows this is the common case: the result
+  // row's `target` is the period label and the operation's threshold
+  // applies to `value`. Promote `kind` to 'measure' so the numeric branch
+  // below runs against `d.value`.
+  const thresholdIsNumeric = Array.isArray(resolvedValue)
+    ? resolvedValue.length > 0 && resolvedValue.every((v) => Number.isFinite(Number(v)))
+    : Number.isFinite(Number(resolvedValue))
+  const effectiveKind: 'category' | 'measure' | undefined =
+    kind ?? (!field && thresholdIsNumeric ? 'measure' : undefined)
+
   if (operator === 'between') {
     const [start, end] = Array.isArray(resolvedValue) ? resolvedValue : []
     if (start === undefined || end === undefined) {
       throw new Error('filter: "between" requires [start, end]')
     }
-    if (kind === 'measure') {
+    if (effectiveKind === 'measure') {
       const lo = Number(start)
       const hi = Number(end)
       if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
@@ -820,7 +837,7 @@ export function filterData(data: DatumValue[], op: OperationSpec): DatumValue[] 
   }
 
   // Numeric vs categorical dispatch
-  if (kind === 'measure') {
+  if (effectiveKind === 'measure') {
     return inheritSemanticMeasureList(inField.filter((d) => evalOperator(operator, d.value, resolvedValue ?? d.value)))
   }
   // category

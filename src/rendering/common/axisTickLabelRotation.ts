@@ -329,11 +329,30 @@ export function autoRotateXAxisTickLabels(
   let bestScore = buildRotationScore(bestOverlap, bestSlotOverflow, bestMaxSlotOverflow, 0)
   let bestDensityStep = 1
 
+  // Detect whether the angle-0 layout required multi-line wrapping. The wrap
+  // routine in prepareLabelsForAngle splits a too-wide label into multiple
+  // <tspan> rows so it horizontally fits its tick slot — but those extra
+  // rows extend vertically into the x-axis-title area below the axis.
+  // Horizontal overlap (used by the angle-0 shortcut below) doesn't see this
+  // vertical encroachment. Treat multi-line-at-zero as a signal that angle 0
+  // isn't really "fitting" and skip the shortcut, so the candidate-angle
+  // loop has a chance to find a rotation that lets each label sit on a
+  // single line. Concrete case: split surfaces (case 0s6zi9dyw22qo4rp) where
+  // a 10-tick x-axis at plot-w=388 yields ~35px slots, narrower than the
+  // ~60px needed for "Sep 1896" — without this guard the shortcut chose
+  // angle=0 and the wrapped labels collided with the x-axis title.
+  const maxLinesAtZero = targetLabels.reduce((maxLines, label) => {
+    const tspans = label.querySelectorAll('tspan').length
+    return tspans > maxLines ? tspans : maxLines
+  }, 0)
+  const wrappedAtZero = maxLinesAtZero > 1
+
   if (
     bestOverlap <= overlapTolerancePx &&
     bestSlotOverflow <= overlapTolerancePx &&
     bestMaxSlotOverflow <= overlapTolerancePx &&
-    maxLabelLength <= maxUnrotatedLabelLength
+    maxLabelLength <= maxUnrotatedLabelLength &&
+    !wrappedAtZero
   ) {
     setXAxisTickLabelAngle(targetLabels, 0)
     return {

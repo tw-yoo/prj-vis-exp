@@ -47,23 +47,22 @@ const surveyPages: SurveyPage[] = [
     questions: [
       {
         id: 'answer-correct',
-        text: 'Based on the explanation, is the answer correct?',
+        text: 'Is the answer correct?',
         kind: 'yes-no',
       },
     ],
   },
   {
     questions: [
-      { id: 'reasoning-easy', text: 'This system made the reasoning process easy to understand.', kind: 'likert7' },
-      { id: 'derivation-clear', text: 'This system clearly showed how the answer was derived from the chart.', kind: 'likert7' },
-      { id: 'trust-judgment', text: 'I trust this system when judging whether an answer is correct.', kind: 'likert7' },
+      { id: 'reasoning-easy', text: 'The output of the system is easy to understand.', kind: 'likert7' },
+      { id: 'derivation-clear', text: 'The the reasoning process of the system is transparen.', kind: 'likert7' },
+      { id: 'trust-judgment', text: 'I trust this system.', kind: 'likert7' },
     ],
   },
 ]
 
 const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-task']
-const EVAL_TUTORIAL_CHART_ID = 'tutorial_demo'
-const EVAL_TUTORIAL_CHART_FALLBACK = 'e1_q1'
+const EVAL_TUTORIAL_CHART_ID = '0w88bu7qm4ilsqmh'
 
 const WELCOME_BODY_HTML = `
   <p>Thank you for participating in this research study.</p>
@@ -74,7 +73,7 @@ const WELCOME_BODY_HTML = `
     <li>Decide whether the provided answer is correct.</li>
     <li>Rate how clearly the explanation showed the reasoning behind the answer.</li>
   </ol>
-  <p>The study takes about <strong>15&ndash;20 minutes</strong>. Your responses are anonymous and linked only to your participant code (<code>{code}</code>).</p>
+  <p>The study takes about <strong>50&ndash;60 minutes</strong>. Your responses are anonymous and linked only to your participant code (<code>{code}</code>).</p>
   <p>The next two pages will walk you through how to interact with the explanations and what we'll ask you to do.</p>
 `
 
@@ -87,7 +86,7 @@ const TUTORIAL_INTERACT_BODY_HTML = `
 const TUTORIAL_TASK_BODY_HTML = `
   <p>For each of the <strong>{sequenceLength}</strong> questions in this study, please follow these steps:</p>
   <ol>
-    <li><strong>Read the chart.</strong> Examine the data carefully &mdash; axes, labels, values.</li>
+    <li><strong>Read the chart.</strong> Examine the data carefully (e.g., axes, labels, values.)</li>
     <li><strong>Read the question and the proposed answer.</strong></li>
     <li><strong>Read the visual explanation</strong> by clicking through each numbered block.</li>
     <li><strong>Verify the answer.</strong> After reviewing the explanation, decide: Yes (correct) or No (incorrect).</li>
@@ -175,7 +174,7 @@ let stepRunInProgress = false
 let stepErrors = new Map<number, string>()
 const surveyResponses = new Map<string, string>()
 
-let demoRenderer: OursRenderer | null = null
+let demoRenderer: ExplanationRenderer | null = null
 let demoChartId = ''
 let demoStepTexts: string[] = []
 let demoStepsUnlocked = 0
@@ -439,20 +438,14 @@ function renderDemoExplanation() {
 async function ensureDemoLoaded() {
   if (demoRenderer) return
   const demoContext: RendererContext = { ...rendererContext, container: introDemoChartEl }
-  const renderer = new OursRenderer(demoContext)
-  let loadedId = EVAL_TUTORIAL_CHART_ID
+  const renderer = new SvgRenderer(demoContext)
   try {
     await renderer.loadChart(EVAL_TUTORIAL_CHART_ID)
-  } catch {
-    try {
-      await renderer.loadChart(EVAL_TUTORIAL_CHART_FALLBACK)
-      loadedId = EVAL_TUTORIAL_CHART_FALLBACK
-    } catch (fallbackError) {
-      console.error('[evaluation] demo chart load failed (both primary and fallback)', fallbackError)
-      introDemoChartEl.innerHTML = '<div class="renderer-empty">Demo chart unavailable.</div>'
-      demoStepTexts = []
-      return
-    }
+  } catch (error) {
+    console.error('[evaluation] demo chart load failed', error)
+    introDemoChartEl.innerHTML = '<div class="renderer-empty">Demo chart unavailable.</div>'
+    demoStepTexts = []
+    return
   }
   try {
     await renderer.renderStep(-1)
@@ -460,7 +453,7 @@ async function ensureDemoLoaded() {
     console.error('[evaluation] demo base render failed', error)
   }
   demoRenderer = renderer
-  demoChartId = loadedId
+  demoChartId = EVAL_TUTORIAL_CHART_ID
   demoStepTexts = renderer.getStepTexts()
   demoStepsUnlocked = 0
   demoSelectedStepIndex = -1
@@ -489,7 +482,7 @@ async function renderIntroPage(kind: IntroKind) {
 
   if (kind === 'intro-welcome') {
     introEyebrowEl.textContent = 'WELCOME'
-    introTitleEl.textContent = 'Chart Explanation Study'
+    introTitleEl.textContent = 'Compistional Chart Question and Explanation Study'
     introBodyEl.innerHTML = WELCOME_BODY_HTML.replace('{code}', participant.code)
     introDemoEl.hidden = true
     return
@@ -503,7 +496,7 @@ async function renderIntroPage(kind: IntroKind) {
     introDemoHintEl.textContent = '↑ Try clicking each block to see how the chart changes.'
 
     await ensureDemoLoaded()
-    const demoEntry = charts[demoChartId] ?? charts[EVAL_TUTORIAL_CHART_FALLBACK]
+    const demoEntry = charts[demoChartId]
     introDemoQuestionEl.textContent = demoEntry?.question ?? ''
     renderDemoExplanation()
     return

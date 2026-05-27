@@ -1,8 +1,9 @@
 import * as d3 from 'd3'
-import { renderChart, type ChartSpec } from '../../api/rendering'
-import { runChartOps } from '../../api/operation-run'
+import { consumeDerivedChartState, renderChart, resetChartHost, type ChartSpec } from '../../api/rendering'
 import { normalizeOpsGroups, type OpsSpecInput } from '../../api/types'
 import { isOperationNextRunOutcome, type OperationNextRunOutcome } from '../../operation-next/executionState'
+import { collectReferencedResultIds } from '../../operation-next/diffEndpoint'
+import { runChartOps } from '../../operation-next/runChartOps'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 
 type StepManifest = {
@@ -206,6 +207,14 @@ function validateOpsSpec(opsSpec: OpsSpecInput) {
   }
 }
 
+function collectReferencedIdsForSteps(steps: ResolvedStep[]) {
+  const ids = new Set<string>()
+  steps.forEach((step) => {
+    collectReferencedResultIds(normalizeOpsGroups(step.opsSpec)).forEach((id) => ids.add(id))
+  })
+  return Array.from(ids)
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: 'no-store' })
   if (!response.ok) throw new Error(`Failed to load ${url} (${response.status})`)
@@ -276,7 +285,7 @@ export class OursRenderer implements ExplanationRenderer {
 
   async renderStep(index: number): Promise<void> {
     if (!this.chart) throw new Error('OursRenderer: chart not loaded.')
-    this.context.container.innerHTML = ''
+    resetChartHost(this.context.container)
     await renderChart(this.context.container, this.chart.spec)
     fitSvgViewBoxToContent(this.context.container)
 
@@ -286,7 +295,9 @@ export class OursRenderer implements ExplanationRenderer {
     }
 
     let previous: StepRecord | null = null
+    let activeSpec = this.chart.spec
     const controller = installD3ReplayMotionController()
+    const referencedResultIds = collectReferencedIdsForSteps(this.chart.steps)
 
     for (let i = 0; i <= index; i += 1) {
       const step = this.chart.steps[i]
@@ -295,11 +306,12 @@ export class OursRenderer implements ExplanationRenderer {
 
       const isReplay = i < index
       const run = async () => {
-        const result = await runChartOps(this.context.container, this.chart!.spec, step.opsSpec, {
+        const result = await runChartOps(this.context.container, activeSpec, step.opsSpec, {
           initialRenderMode: 'reuse-existing',
           resetRuntime: previous == null,
           runtimeSnapshot: previous?.runtimeSnapshot,
           initialChainState: previous?.continuation ?? null,
+          referencedResultIds,
         })
         if (!isOperationNextRunOutcome(result)) {
           throw new Error('Operation runner did not return a continuation snapshot.')
@@ -312,6 +324,8 @@ export class OursRenderer implements ExplanationRenderer {
       fitSvgViewBoxToContent(this.context.container)
       await waitForD3Transitions(this.context.container)
       fitSvgViewBoxToContent(this.context.container)
+      const derived = consumeDerivedChartState(this.context.container)
+      if (derived) activeSpec = derived.spec
 
       previous = {
         runtimeSnapshot: outcome.runtimeSnapshot,

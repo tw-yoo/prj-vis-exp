@@ -283,7 +283,7 @@ function renderDietSimpleBarChart({ d3, container, rows, showThreshold = false }
 
     container.classList.add('validation-chart-host');
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));

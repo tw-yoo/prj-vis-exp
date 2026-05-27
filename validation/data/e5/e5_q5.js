@@ -325,7 +325,7 @@ function renderLifeGapLine({ d3, container, showDifference = false }) {
 
     container.classList.add('validation-simple-line-host');
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     // Per reviewer: chart type changes from MultipleLine (base render) to a

@@ -1,4 +1,0 @@
-{
-  "ops":[
-    {"op":"average","id":"n1","meta":{"nodeId":"n1","inputs":[],"sentenceIndex":1},"field":"Revenue_Million_Euros","group":"Commercial"},{"op":"average","id":"n2","meta":{"nodeId":"n2","inputs":[],"sentenceIndex":1},"field":"Revenue_Million_Euros","group":"Matchday"}],
-  "ops3":[{"op":"diff","id":"n3","meta":{"nodeId":"n3","inputs":["n1","n2"],"sentenceIndex":3},"field":"Revenue_Million_Euros","targetA":"ref:n1","targetB":"ref:n2","signed":true}]}

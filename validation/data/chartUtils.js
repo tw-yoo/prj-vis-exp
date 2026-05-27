@@ -156,6 +156,7 @@ export function rebuildSvgInPlace({
     fadeOutMs = 200,
     fadeInDelayMs = 220,
     fadeInMs = 300,
+    instant = false,
 }) {
     let svg = d3.select(container).select('svg');
     if (svg.empty()) {
@@ -164,6 +165,28 @@ export function rebuildSvgInPlace({
             .style('overflow', 'visible');
     } else if (viewBox) {
         svg.attr('viewBox', viewBox);
+    }
+
+    // Instant mode (used by E5–E10 helpers): no fade animation. The freeze-
+    // overlay in viewer.js already masks the rebuild step, so any visible
+    // "disappear and reappear" between freeze-overlay removal and the new
+    // chart appearing would come from the fade timeline below. Skipping it
+    // makes the swap atomic within a single JS task — the browser paints the
+    // new chart directly with no blank/faded frame. E2–E4 keep the default
+    // (instant=false) and continue to crossfade as before.
+    if (instant) {
+        const existingChildren = Array.from(svg.node()?.children ?? []);
+        if (typeof build === 'function') {
+            // Callback API: build first so a new top-level <g> exists, then
+            // remove the old children. SVG is never visually empty.
+            build(svg);
+            existingChildren.forEach((child) => child.remove());
+            return svg;
+        }
+        // Direct API: caller will append after we return. Remove old now —
+        // the synchronous append that follows lands before the next paint.
+        existingChildren.forEach((child) => child.remove());
+        return svg;
     }
 
     // Snapshot the existing top-level children (about to be replaced).

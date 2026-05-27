@@ -349,9 +349,15 @@ function renderCountryComparisonChart({ d3, container, mode = 'stacked', highlig
 
     const duration = 700;
 
-    // Smoothly transition axes.
+    // Smoothly transition axes. The x-axis transform must follow plotH because
+    // this helper uses margin.bottom=56 (plotH=272) while the base render uses
+    // margin.bottom=48 (plotH=280); without the transform update the x-axis
+    // stays at the original plotH while the bars settle at the new (smaller)
+    // plotH, opening a gap between bar bottoms and the x-axis line.
     g.select('.y-axis').transition().duration(duration).call(d3.axisLeft(yScale).ticks(5));
-    g.select('.x-axis').transition().duration(duration).call(d3.axisBottom(xScale));
+    g.select('.x-axis').transition().duration(duration)
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
 
     // Bar position/size functions per mode.
     const newX = (d) => mode === 'stacked'

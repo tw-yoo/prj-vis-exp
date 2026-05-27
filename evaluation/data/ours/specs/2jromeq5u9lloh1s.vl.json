@@ -1,8 +1,8 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-  "description": "Multiple line chart for 20qa83ih1gn6toqt.csv",
+  "description": "Simple line chart for 2jromeq5u9lloh1s.csv",
   "data": {
-    "url": "ChartQA/data/csv/line/multiple/20qa83ih1gn6toqt.csv"
+    "url": "ChartQA/data/csv/line/simple/2jromeq5u9lloh1s.csv"
   },
   "width": 600,
   "height": 400,
@@ -27,23 +27,14 @@
           }
         },
         "y": {
-          "field": "Has a great impact",
+          "field": "Audience_Millions",
           "type": "quantitative",
           "axis": {
-            "title": "Has a great impact",
+            "title": "Audience_Millions",
             "labelFontSize": 11,
             "titleFontSize": 13,
             "titlePadding": 10,
             "labelPadding": 5
-          }
-        },
-        "color": {
-          "field": "Metric",
-          "type": "nominal",
-          "legend": {
-            "title": "Metric",
-            "titleFontSize": 12,
-            "labelFontSize": 11
           }
         }
       }
@@ -61,12 +52,8 @@
           "type": "ordinal"
         },
         "y": {
-          "field": "Has a great impact",
+          "field": "Audience_Millions",
           "type": "quantitative"
-        },
-        "color": {
-          "field": "Metric",
-          "type": "nominal"
         },
         "tooltip": [
           {
@@ -75,14 +62,9 @@
             "title": "Year"
           },
           {
-            "field": "Metric",
-            "type": "nominal",
-            "title": "Metric"
-          },
-          {
-            "field": "Has a great impact",
+            "field": "Audience_Millions",
             "type": "quantitative",
-            "title": "Has a great impact"
+            "title": "Audience_Millions"
           }
         ]
       }

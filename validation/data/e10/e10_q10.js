@@ -316,7 +316,7 @@ function renderOpinionDifferenceBarChart({ d3, container, showAverage = false })
 
     container.classList.add('validation-chart-host');
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 

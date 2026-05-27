@@ -334,7 +334,7 @@ function renderLifeExpectancyCompositeChart({ d3, container }) {
 
     container.classList.add('validation-multi-line-host');
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const topG = svg.append('g')
         .attr('class', 'validation-life-gap-panel')
         .attr('transform', `translate(${margin.left},${margin.top})`);

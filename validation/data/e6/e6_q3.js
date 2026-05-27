@@ -295,7 +295,7 @@ function renderSuicideStackedTotals({ d3, container, highlightYear = null }) {
     const xScale = d3.scaleBand().domain(years).range([0, plotW]).padding(0.24);
     const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => d.total) ?? 1]).nice().range([plotH, 0]);
 
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
