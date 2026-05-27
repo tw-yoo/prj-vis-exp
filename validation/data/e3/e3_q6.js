@@ -93,6 +93,14 @@ function injectChartStyles() {
 }
 
 export function renderValidationSimpleBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectChartStyles();
 
     const data = data_rows;
@@ -160,6 +168,7 @@ export function renderValidationSimpleBarChart({ container }) {
         })
         .attr('height', (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
         .attr('fill', '#69b3a2')
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => Number(d[yField]))
         .attr('data-x-value', (d) => String(d[xField]))
@@ -199,8 +208,134 @@ export function renderValidationSimpleBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getQ6Geometry(d3) {
+    const xField = 'Fiscal Year';
+    const yField = 'Expenditure in billion GBP';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xDomain = data_rows.map((d) => String(d[xField]));
+    const yValues = data_rows.map((d) => Number(d[yField])).filter(Number.isFinite);
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.2);
+    const yScale = d3.scaleLinear()
+        .domain([Math.min(0, ...yValues), Math.max(0, ...yValues)])
+        .nice()
+        .range([plotH, 0]);
+    return { xField, yField, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getQ6Average() {
+    const yField = 'Expenditure in billion GBP';
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    return yValues.reduce((s, v) => s + v, 0) / yValues.length;
+}
 
-export function function3({ d3, container }) {}
+export function function1({ d3, container }) {
+    const { plotW, plotH, yScale } = getQ6Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q6-gridline').remove();
+
+    const ticks = yScale.ticks(5);
+    ticks.forEach((tickValue, i) => {
+        const y = yScale(tickValue);
+        if (y >= plotH - 0.5 || y <= 0.5) return;
+        g.insert('line', ':first-child')
+            .attr('class', 'validation-q6-gridline')
+            .attr('x1', 0)
+            .attr('x2', 0)
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', '#e5e7eb')
+            .attr('stroke-width', 1)
+            .transition()
+            .duration(500 + i * 60)
+            .attr('x2', plotW);
+    });
+}
+
+export function function2({ d3, container }) {
+    const { plotW, yScale } = getQ6Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q6-avg-line, .validation-q6-avg-label').remove();
+
+    const avg = getQ6Average();
+    const y = yScale(avg);
+
+    g.append('line')
+        .attr('class', 'validation-q6-avg-line')
+        .attr('x1', 0)
+        .attr('x2', 0)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4')
+        .transition()
+        .duration(650)
+        .attr('x2', plotW);
+
+    g.append('text')
+        .attr('class', 'validation-q6-avg-label')
+        .attr('x', plotW + 6)
+        .attr('y', y)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .attr('opacity', 0)
+        .text(`avg ${avg.toFixed(2)}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function3({ d3, container }) {
+    const { yField } = getQ6Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    const avg = getQ6Average();
+
+    g.selectAll('.main-bar')
+        .transition()
+        .duration(600)
+
+        .attr('opacity', 1);
+}
+
+export function function4({ d3, container }) {
+    const { plotW, yField } = getQ6Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q6-summary').remove();
+
+    const avg = getQ6Average();
+    const belowCount = data_rows.filter((d) => Number(d[yField]) < avg).length;
+
+    g.append('text')
+        .attr('class', 'validation-q6-summary')
+        .attr('x', plotW - 4)
+        .attr('y', 12)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#2563eb')
+        .attr('opacity', 0)
+        .text(`${belowCount} fiscal years below avg`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

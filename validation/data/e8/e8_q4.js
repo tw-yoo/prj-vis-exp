@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2008, 'Immigration rate per thousand inhabitants': 36.34 },
@@ -161,6 +161,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -231,7 +232,7 @@ function renderAdjacentDifferenceChart({ d3, container, highlightMax = false }) 
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
 
-    container.innerHTML = '';
+
     container.classList.add('validation-simple-line-host');
 
     const xScale = d3.scaleBand()
@@ -243,10 +244,7 @@ function renderAdjacentDifferenceChart({ d3, container, highlightMax = false }) 
         .nice()
         .range([plotH, 0]);
 
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
@@ -289,7 +287,55 @@ export function function1({ d3, container }) {
 }
 
 export function function2({ d3, container }) {
-    renderAdjacentDifferenceChart({ d3, container, highlightMax: true });
+    // Per reviewer: do NOT rebuild the chart. Operate on function1's existing
+    // bars — transition fill/opacity for the max bar vs others, then fade in
+    // the "4.70" label above the max bar.
+    const csvMaxPair = '2008-2009';
+    const csvMaxDifference = 4.70;
+
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    // Re-clicks: clean prior label.
+    g.selectAll('.e8-q4-function2').remove();
+
+    // Smooth transition on existing bars: max → red, others → gray;
+    // max stays bright, others dim.
+    g.selectAll('rect.main-bar')
+        .transition()
+        .duration(600)
+        .attr('fill', function () {
+            return this.getAttribute('data-target') === csvMaxPair ? '#dc2626' : '#94a3b8';
+        })
+        .attr('opacity', function () {
+            return this.getAttribute('data-target') === csvMaxPair ? 0.95 : 0.35;
+        });
+
+    // Locate the max bar in the DOM to place the "4.70" label above it
+    // (uses the bar's actual x/width/y — no need to recompute scales).
+    const maxBar = g.selectAll('rect.main-bar')
+        .nodes()
+        .find((node) => node.getAttribute('data-target') === csvMaxPair);
+    if (!maxBar) return;
+    const bx = Number(maxBar.getAttribute('x'));
+    const bw = Number(maxBar.getAttribute('width'));
+    const by = Number(maxBar.getAttribute('y'));
+
+    g.append('text')
+        .attr('class', 'e8-q4-function2')
+        .attr('x', bx + bw / 2)
+        .attr('y', by - 8)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#dc2626')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('opacity', 0)
+        .text(csvMaxDifference.toFixed(2))
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
 }
 
 export function function3({ d3, container }) {}

@@ -68,6 +68,14 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const yField = 'Audience_Millions';
 
@@ -156,6 +164,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -205,8 +214,176 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getE4Q4Geometry(d3) {
+    const xField = 'Year';
+    const yField = 'Audience_Millions';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xDomain = data_rows.map((d) => String(d[xField]));
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    const minY = d3.min(yValues) ?? 0;
+    const maxY = d3.max(yValues) ?? 1;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear().domain([minY, maxY]).nice().range([plotH, 0]);
+    return { xField, yField, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getE4Q4Jumps() {
+    const yField = 'Audience_Millions';
+    const jumps = [];
+    for (let i = 1; i < data_rows.length; i++) {
+        const fromYear = String(data_rows[i - 1].Year);
+        const toYear = String(data_rows[i].Year);
+        const fromValue = Number(data_rows[i - 1][yField]);
+        const toValue = Number(data_rows[i][yField]);
+        jumps.push({ fromYear, toYear, fromValue, toValue, delta: toValue - fromValue });
+    }
+    return jumps;
+}
 
-export function function3({ d3, container }) {}
+function ensureE4Q4ArrowMarker(svg) {
+    if (!svg.select('defs#e4-q4-defs').empty()) return;
+    const defs = svg.append('defs').attr('id', 'e4-q4-defs');
+    defs.append('marker')
+        .attr('id', 'e4-q4-arrow')
+        .attr('viewBox', '0 0 10 10')
+        .attr('refX', 5)
+        .attr('refY', 5)
+        .attr('markerWidth', 5)
+        .attr('markerHeight', 5)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+        .attr('fill', '#ef4444');
+}
+
+export function function1({ d3, container }) {
+    const { xScale, yScale } = getE4Q4Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q4-step-arrow, .validation-q4-step-label').remove();
+    ensureE4Q4ArrowMarker(svg);
+
+    const jumps = getE4Q4Jumps();
+    jumps.forEach(({ toYear, fromValue, toValue, delta }) => {
+        const cx = xScale(toYear) ?? 0;
+        const y0 = yScale(fromValue);
+        const y1 = yScale(toValue);
+        g.append('line')
+            .attr('class', 'validation-q4-step-arrow')
+            .attr('data-toyear', toYear)
+            .attr('x1', cx)
+            .attr('x2', cx)
+            .attr('y1', y0)
+            .attr('y2', y0)
+            .attr('stroke', '#ef4444')
+            .attr('stroke-width', 2)
+            .attr('marker-end', 'url(#e4-q4-arrow)')
+            .transition()
+            .duration(650)
+            .attr('y2', y1 + (y1 < y0 ? 6 : -6));
+        g.append('text')
+            .attr('class', 'validation-q4-step-label')
+            .attr('data-toyear', toYear)
+            .attr('x', cx + 6)
+            .attr('y', (y0 + y1) / 2)
+            .attr('dominant-baseline', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .attr('fill', '#ef4444')
+            .attr('opacity', 0)
+            .text(`+${delta.toFixed(1)}`)
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
+    });
+}
+
+export function function2({ d3, container }) {
+    const { plotH, xScale } = getE4Q4Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q4-max-rect').remove();
+
+    const best = getE4Q4Jumps().reduce((b, row) => row.delta > b.delta ? row : b, { delta: -Infinity });
+
+    // Per reviewer: highlight should span from the MIDPOINT of (prevYear,toYear)
+    // to the MIDPOINT of (toYear,nextYear) — centered on the year of the jump
+    // (best.toYear). Fall back to the bar edges when a neighbor year is missing.
+    const allYears = data_rows.map((d) => String(d.Year));
+    const toIndex = allYears.indexOf(best.toYear);
+    const fromXc = xScale(best.fromYear) ?? 0;        // prev year point
+    const toXc   = xScale(best.toYear) ?? 0;          // this year point
+    const nextYear = toIndex >= 0 && toIndex < allYears.length - 1 ? allYears[toIndex + 1] : null;
+    const nextXc = nextYear ? (xScale(nextYear) ?? 0) : null;
+
+    const x0 = (fromXc + toXc) / 2;                                    // midpoint(prev, this)
+    const x1 = nextXc != null ? (toXc + nextXc) / 2 : toXc;             // midpoint(this, next) or this
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q4-max-rect')
+        .attr('x', x0)
+        .attr('y', 0)
+        .attr('width', x1 - x0)
+        .attr('height', plotH)
+        .attr('fill', '#fde68a')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.55);
+
+    g.selectAll('.validation-q4-step-arrow')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () {
+            return this.getAttribute('data-toyear') === best.toYear ? 1 : 0.3;
+        })
+        .attr('stroke-width', function () {
+            return this.getAttribute('data-toyear') === best.toYear ? 3 : 2;
+        });
+    g.selectAll('.validation-q4-step-label')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () {
+            return this.getAttribute('data-toyear') === best.toYear ? 1 : 0.3;
+        })
+        .attr('font-size', function () {
+            return this.getAttribute('data-toyear') === best.toYear ? 14 : 11;
+        });
+}
+
+export function function3({ d3, container }) {
+    const { plotW } = getE4Q4Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q4-summary').remove();
+
+    const best = getE4Q4Jumps().reduce((b, row) => row.delta > b.delta ? row : b, { delta: -Infinity });
+
+    // Per reviewer: move summary ABOVE the plot area so it doesn't overlap
+    // the line chart. y=-10 places it 10px above the plot top, inside the
+    // (32px) top margin where there's clear space.
+    g.append('text')
+        .attr('class', 'validation-q4-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`biggest jump → ${best.fromYear} → ${best.toYear} (+${best.delta.toFixed(1)})`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

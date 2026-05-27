@@ -94,6 +94,14 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Fiscal Year';
     const seriesField = 'Item';
     const yField = 'Sales price in US dollars';
@@ -184,6 +192,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -412,4 +421,38 @@ export function function1({ d3, container }) {
 
     legendItems
         .style('opacity', 1);
+
+    // R11 (round 3): function1 draws every visual chunk the explanation describes,
+    // including the years where Beer < (Soft drink + Hot dog) and the final count.
+    const beerLessThanSumYears = lineRows.filter((d) => d.Beer < d['Soft drink + Hot dog']);
+    const bandWidth = (plotW / Math.max(xDomain.length, 1)) * 0.6;
+
+    beerLessThanSumYears.forEach((d) => {
+        const cx = xScale(d.year) ?? 0;
+        g.insert('rect', ':first-child')
+            .attr('class', 'validation-q3-year-band')
+            .attr('x', cx - bandWidth / 2)
+            .attr('y', 0)
+            .attr('width', bandWidth)
+            .attr('height', plotH)
+            .attr('fill', '#fde68a')
+            .attr('opacity', 0.45);
+    });
+
+    g.append('text')
+        .attr('class', 'validation-q3-summary')
+        .attr('x', plotW - 4)
+        .attr('y', 8)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#dc2626')
+        .text(`${beerLessThanSumYears.length} fiscal years (Beer < Soft drink + Hot dog)`);
+}
+
+// R11 (round 3): function2 re-applies function1's complete visual idempotently.
+// The chart_map keeps two sentences; each click leaves the SVG in the same state.
+export function function2({ d3, container }) {
+    function1({ d3, container });
 }

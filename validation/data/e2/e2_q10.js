@@ -93,6 +93,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Country';
     const yField = 'Favorable_View_Percentage';
@@ -196,6 +204,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -299,110 +308,149 @@ function getCountryTargets() {
     return { germanyMax, usMin };
 }
 
-function renderFocusedCountryLineChart({ d3, container }) {
-    const rows = getFocusedCountryRows();
-    const years = Array.from(new Set(rows.map((d) => String(d.Year))));
-    const countries = Array.from(new Set(rows.map((d) => String(d.Country))));
+function focusCountryLineInPlace({ d3, container }) {
+    // Per reviewer (round-2 row 9): do NOT rebuild. Reuse existing paths + circles
+    // and transition the scales so points outside 2010–2015 fade out and the axes
+    // rescale smoothly.
+    const focusedRows = getFocusedCountryRows();
+    const focusedYears = new Set(focusedRows.map((d) => String(d.Year)));
+    const newXDomain = Array.from(new Set(focusedRows.map((d) => String(d.Year))));
     const width = 640;
     const height = 360;
     const margin = { top: 32, right: 16, bottom: 48, left: 56 };
-    const legendOffsetX = 64;
     const legendReserve = 200;
     const plotW = width - margin.left - margin.right - legendReserve;
     const plotH = height - margin.top - margin.bottom;
-    const xScale = d3.scalePoint().domain(years).range([0, plotW]).padding(0.5);
-    const yScale = d3.scaleLinear()
-        .domain([d3.min(rows, (d) => Number(d.Favorable_View_Percentage)) ?? 0, d3.max(rows, (d) => Number(d.Favorable_View_Percentage)) ?? 1])
-        .nice()
-        .range([plotH, 0]);
-    const line = d3.line().x((d) => xScale(String(d.Year)) ?? 0).y((d) => yScale(Number(d.Favorable_View_Percentage)));
+    const yValues = focusedRows.map((d) => Number(d.Favorable_View_Percentage));
+    const newXScale = d3.scalePoint().domain(newXDomain).range([0, plotW]).padding(0.5);
+    const newYScale = d3.scaleLinear().domain([d3.min(yValues), d3.max(yValues)]).nice().range([plotH, 0]);
 
-    container.innerHTML = '';
-    container.classList.add('validation-multi-line-host');
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(6));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
-
-    countries.forEach((country) => {
-        const countryRows = rows.filter((d) => d.Country === country);
-        const path = g.append('path')
-            .datum({ country, points: countryRows })
-            .attr('fill', 'none')
-            .attr('stroke', resolveSeriesColor(countries, country))
-            .attr('stroke-width', 2)
-            .attr('data-series', country)
-            .attr('d', (d) => line(d.points));
-        const length = path.node()?.getTotalLength?.() ?? 0;
-        path.attr('stroke-dasharray', `${length} ${length}`)
-            .attr('stroke-dashoffset', length)
-            .transition()
-            .duration(700)
-            .attr('stroke-dashoffset', 0);
-
-        g.selectAll(`circle[data-series="${country}"]`)
-            .data(countryRows)
-            .join('circle')
-            .attr('cx', (d) => xScale(String(d.Year)) ?? 0)
-            .attr('cy', (d) => yScale(Number(d.Favorable_View_Percentage)))
-            .attr('r', 0)
-            .attr('fill', resolveSeriesColor(countries, country))
-            .attr('opacity', 0.85)
-            .attr('data-target', (d) => String(d.Year))
-            .attr('data-series', country)
-            .attr('data-value', (d) => String(d.Favorable_View_Percentage))
-            .transition()
-            .duration(550)
-            .attr('r', 4);
+    // Transition axes to the new scales.
+    g.select('.y-axis').transition().duration(700).call(d3.axisLeft(newYScale).ticks(6));
+    g.select('.x-axis').transition().duration(700).call(d3.axisBottom(newXScale)).on('end', function () {
+        autoRotateXAxisLabels(d3.select(this));
     });
 
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
-    countries.forEach((country, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', resolveSeriesColor(countries, country));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(country);
+    // Move focused circles to new positions; fade out unfocused.
+    g.selectAll('circle[data-target]')
+        .transition()
+        .duration(700)
+        .attr('cx', function () {
+            const year = this.getAttribute('data-target');
+            if (!focusedYears.has(year)) return Number(this.getAttribute('cx'));
+            return newXScale(year);
+        })
+        .attr('cy', function () {
+            const year = this.getAttribute('data-target');
+            if (!focusedYears.has(year)) return Number(this.getAttribute('cy'));
+            const v = Number(this.getAttribute('data-value'));
+            return newYScale(v);
+        })
+        .attr('opacity', function () {
+            return focusedYears.has(this.getAttribute('data-target')) ? 0.85 : 0;
+        });
+
+    // Update each series' line path to its filtered shape.
+    const seriesNames = Array.from(new Set(focusedRows.map((d) => String(d.Country))));
+    seriesNames.forEach((country) => {
+        const countryRows = focusedRows.filter((d) => String(d.Country) === country);
+        const lineGen = d3.line()
+            .x((d) => newXScale(String(d.Year)))
+            .y((d) => newYScale(Number(d.Favorable_View_Percentage)));
+        g.select(`path[data-series="${country}"]`)
+            .datum({ country, points: countryRows })
+            .transition()
+            .duration(700)
+            .attrTween('d', function () {
+                const prev = this.getAttribute('d') ?? '';
+                const next = lineGen(countryRows);
+                return d3.interpolateString(prev, next);
+            })
+            .attr('stroke-dasharray', null)
+            .attr('stroke-dashoffset', null);
     });
 }
 
-function highlightCountryPoint(d3, container, country, year) {
+function highlightCountryPoints(d3, container, targets) {
+    // Cumulative-highlight (round 4 fix per reviewer): function3 must KEEP
+    // function2's red circle (Germany 2010) visible while adding its own
+    // (US min). So we accept an array of {country, year} pairs — function2
+    // passes one entry, function3 passes both.
+    //
+    // Also R12 stale-cleanup: non-focused-range circles (years OUTSIDE 2010-2015)
+    // stay fully HIDDEN (opacity 0), never dim back to 0.25.
+    const focusedYears = new Set(getFocusedCountryRows().map((d) => String(d.Year)));
+    const targetSet = new Set((targets ?? []).map((t) => `${t.country}|${String(t.year)}`));
+    const highlightedCountries = new Set((targets ?? []).map((t) => t.country));
+
     d3.select(container).selectAll('circle[data-target]')
-        .transition()
-        .duration(600)
-        .attr('r', function () {
-            return this.getAttribute('data-series') === country && this.getAttribute('data-target') === String(year) ? 8 : 3.5;
-        })
-        .attr('fill', function () {
-            return this.getAttribute('data-series') === country && this.getAttribute('data-target') === String(year) ? '#ef4444' : d3.select(this).attr('fill');
-        })
-        .attr('opacity', function () {
-            return this.getAttribute('data-series') === country && this.getAttribute('data-target') === String(year) ? 1 : 0.25;
+        .each(function () {
+            const yearStr = this.getAttribute('data-target');
+            const seriesStr = this.getAttribute('data-series');
+            const isTarget = targetSet.has(`${seriesStr}|${yearStr}`);
+            const isInFocusRange = focusedYears.has(yearStr);
+
+            let nextR, nextFill, nextOpacity;
+            if (isTarget && isInFocusRange) {
+                nextR = 8;
+                nextFill = '#ef4444';
+                nextOpacity = 1;
+            } else if (isInFocusRange) {
+                nextR = 3.5;
+                // Preserve the existing fill (set by the multi-line palette).
+                nextFill = d3.select(this).attr('fill');
+                nextOpacity = 0.25;
+            } else {
+                // OUTSIDE focus range — must remain invisible.
+                nextR = 3.5;
+                nextFill = d3.select(this).attr('fill');
+                nextOpacity = 0;
+            }
+
+            // R6 no-op-skip: don't transition if attrs already match.
+            const curOpacity = Number(this.getAttribute('opacity') ?? 1);
+            const curR = Number(this.getAttribute('r') ?? 4);
+            const curFill = this.getAttribute('fill');
+            const needsChange = Math.abs(curOpacity - nextOpacity) > 0.001
+                || Math.abs(curR - nextR) > 0.001
+                || curFill !== nextFill;
+            if (!needsChange) return;
+
+            d3.select(this).transition().duration(600)
+                .attr('r', nextR)
+                .attr('fill', nextFill)
+                .attr('opacity', nextOpacity);
         });
 
     d3.select(container).selectAll('.color-legend text')
         .transition()
         .duration(600)
         .attr('font-weight', function () {
-            return d3.select(this).text() === country ? 800 : 400;
+            return highlightedCountries.has(d3.select(this).text()) ? 800 : 400;
         });
 }
 
 export function function1({ d3, container }) {
-    renderFocusedCountryLineChart({ d3, container });
+    focusCountryLineInPlace({ d3, container });
 }
 
 export function function2({ d3, container }) {
     const { germanyMax } = getCountryTargets();
-    highlightCountryPoint(d3, container, 'Germany', germanyMax.Year);
+    highlightCountryPoints(d3, container, [{ country: 'Germany', year: germanyMax.Year }]);
 }
 
 export function function3({ d3, container }) {
-    const { usMin } = getCountryTargets();
-    highlightCountryPoint(d3, container, 'US', usMin.Year);
+    // Cumulative per reviewer: function2's Germany 2010 red dot must STAY visible
+    // while US min is also highlighted. So we pass BOTH highlights.
+    const { germanyMax, usMin } = getCountryTargets();
+    highlightCountryPoints(d3, container, [
+        { country: 'Germany', year: germanyMax.Year },
+        { country: 'US', year: usMin.Year },
+    ]);
 }
 
 export function function4({ d3, container }) {

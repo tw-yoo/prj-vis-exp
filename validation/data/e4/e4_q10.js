@@ -95,6 +95,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Gender';
     const yField = 'Inhabitants in millions';
@@ -198,6 +206,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -284,8 +293,146 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getE4Q10Geometry(d3) {
+    const xField = 'Year';
+    const seriesField = 'Gender';
+    const yField = 'Inhabitants in millions';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    const minY = d3.min(yValues) ?? 0;
+    const maxY = d3.max(yValues) ?? 1;
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear().domain([minY, maxY]).nice().range([plotH, 0]);
+    return { xField, seriesField, yField, xDomain, seriesDomain, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getE4Q10YearGaps() {
+    const yField = 'Inhabitants in millions';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    return xDomain.map((year) => {
+        const female = Number(data_rows.find((d) => String(d.Year) === year && d.Gender === 'Female')?.[yField] ?? 0);
+        const male = Number(data_rows.find((d) => String(d.Year) === year && d.Gender === 'Male')?.[yField] ?? 0);
+        return { year, female, male, gap: Math.abs(male - female) };
+    });
+}
 
-export function function3({ d3, container }) {}
+export function function1({ d3, container }) {
+    const { xScale, yScale } = getE4Q10Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q10-gap-line, .validation-q10-gap-label').remove();
+
+    getE4Q10YearGaps().forEach(({ year, female, male, gap }) => {
+        const cx = xScale(year) ?? 0;
+        const yFemale = yScale(female);
+        const yMale = yScale(male);
+        g.append('line')
+            .attr('class', 'validation-q10-gap-line')
+            .attr('data-year', year)
+            .attr('x1', cx)
+            .attr('x2', cx)
+            .attr('y1', yFemale)
+            .attr('y2', yFemale)
+            .attr('stroke', '#6b7280')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '3 3')
+            .transition()
+            .duration(650)
+            .attr('y2', yMale);
+        g.append('text')
+            .attr('class', 'validation-q10-gap-label')
+            .attr('data-year', year)
+            .attr('x', cx)
+            .attr('y', Math.min(yFemale, yMale) - 6)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 10)
+            .attr('font-weight', 700)
+            .attr('fill', '#374151')
+            .attr('opacity', 0)
+            .text(gap.toFixed(2))
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
+    });
+}
+
+export function function2({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    const gaps = getE4Q10YearGaps();
+    const avgGap = gaps.reduce((s, r) => s + r.gap, 0) / gaps.length;
+
+    g.selectAll('.validation-q10-gap-line')
+        .transition()
+        .duration(600)
+        .attr('stroke', function () {
+            const year = this.getAttribute('data-year');
+            const row = gaps.find((r) => r.year === year);
+            return row && row.gap > avgGap ? '#ef4444' : '#6b7280';
+        })
+        .attr('stroke-width', function () {
+            const year = this.getAttribute('data-year');
+            const row = gaps.find((r) => r.year === year);
+            return row && row.gap > avgGap ? 2.5 : 1.5;
+        })
+        .attr('opacity', function () {
+            const year = this.getAttribute('data-year');
+            const row = gaps.find((r) => r.year === year);
+            return row && row.gap > avgGap ? 1 : 0.35;
+        });
+
+    g.selectAll('.validation-q10-gap-label')
+        .transition()
+        .duration(600)
+        .attr('fill', function () {
+            const year = this.getAttribute('data-year');
+            const row = gaps.find((r) => r.year === year);
+            return row && row.gap > avgGap ? '#ef4444' : '#374151';
+        })
+        .attr('opacity', function () {
+            const year = this.getAttribute('data-year');
+            const row = gaps.find((r) => r.year === year);
+            return row && row.gap > avgGap ? 1 : 0.35;
+        });
+}
+
+export function function3({ d3, container }) {
+    const { plotW } = getE4Q10Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q10-summary').remove();
+
+    const gaps = getE4Q10YearGaps();
+    const avgGap = gaps.reduce((s, r) => s + r.gap, 0) / gaps.length;
+    const aboveCount = gaps.filter((r) => r.gap > avgGap).length;
+
+    // Theme D (#20 round 3): move summary to top-center, above the arrow line.
+    g.append('text')
+        .attr('class', 'validation-q10-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`${aboveCount} years above avg gap (${avgGap.toFixed(2)})`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

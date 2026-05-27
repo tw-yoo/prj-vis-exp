@@ -99,6 +99,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'month';
     const seriesField = 'product';
     const yField = 'value';
@@ -202,6 +210,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 

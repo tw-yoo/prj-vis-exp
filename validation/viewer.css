@@ -35,33 +35,59 @@ body {
 .chart-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-}
-
-.nav-btn {
-    flex: 0 0 auto;
-    width: 44px;
-    height: 44px;
-    border: 1px solid #d1d5db;
-    border-radius: 50%;
-    background: #fff;
-    font-size: 20px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
     justify-content: center;
-    transition: background 0.15s, border-color 0.15s;
-    padding: 0;
 }
 
-.nav-btn:hover:not(:disabled) {
+.page-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.page-nav__btn {
+    flex: 1 1 0;
+    min-width: 200px;
+    padding: 14px 28px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+}
+
+.page-nav__btn:hover:not(:disabled) {
     background: #f3f4f6;
     border-color: #9ca3af;
 }
 
-.nav-btn:disabled {
-    opacity: 0.3;
+.page-nav__btn:disabled {
+    opacity: 0.4;
     cursor: not-allowed;
+    color: #9ca3af;
+}
+
+.page-nav__btn--primary {
+    background: #2563eb;
+    border-color: #1d4ed8;
+    color: #ffffff;
+}
+
+.page-nav__btn--primary:hover:not(:disabled) {
+    background: #1d4ed8;
+    border-color: #1e40af;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
+}
+
+.page-nav__btn--primary:disabled {
+    background: #93c5fd;
+    border-color: #93c5fd;
+    color: #ffffff;
+    opacity: 0.6;
 }
 
 #chartContainer {
@@ -152,7 +178,13 @@ body {
 }
 
 #completionArea {
-    margin-top: 12px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+#completionArea:empty {
+    margin-top: 0;
+    margin-bottom: 0;
 }
 
 .completion-panel {
@@ -164,7 +196,7 @@ body {
     width: 100%;
     min-height: 52px;
     padding: 12px 14px;
-    border: 1px solid #86efac;
+    border: 2.5px solid #15803d;
     border-radius: 8px;
     background: #dcfce7;
     color: #111827;

@@ -1,87 +1,73 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   FEEDBACK_COMMANDS,
   getCommand,
   getRowAutocompleteOptions,
-  parseFeedback,
   type SlashCommand,
   type SlashCommandKey,
 } from '../services/feedbackTags'
 import type { ReviewRow } from '../services/reviewCasesService'
-
-type Props = {
-  row: ReviewRow
-  value: string
-  editing: boolean
-  onStartEdit: () => void
-  onCommit: (next: string) => void
-  onCancel: () => void
-}
 
 type DropdownState =
   | { mode: 'closed' }
   | { mode: 'commands'; from: number; query: string }
   | { mode: 'values'; from: number; query: string; command: SlashCommand }
 
-export default function FeedbackEditor(props: Props) {
-  if (!props.editing) {
-    return (
-      <FeedbackChipsPreview
-        value={props.value}
-        onStartEdit={props.onStartEdit}
-      />
-    )
-  }
-  return <FeedbackEditMode {...props} />
+type Props = {
+  /** Controlled feedback text. */
+  value: string
+  /** Live updates while typing — wire straight to row state; autosave handles persistence. */
+  onChange: (next: string) => void
+  /** The row used to resolve autocomplete options (e.g. /op:<nodeId> from operation_spec). */
+  row: ReviewRow
+  placeholder?: string
+  rows?: number
+  /** Focus the textarea on mount. */
+  autoFocus?: boolean
+  /** Extra className appended to the textarea (e.g. for chart-card-specific tweaks). */
+  className?: string
 }
 
-function FeedbackChipsPreview({ value, onStartEdit }: { value: string; onStartEdit: () => void }) {
-  const segments = useMemo(() => parseFeedback(value), [value])
-  if (!value.trim()) {
-    return (
-      <button type="button" className="review-cell-preview is-empty review-feedback-trigger" onClick={onStartEdit}>
-        (click to add feedback)
-      </button>
-    )
-  }
-  return (
-    <div className="review-feedback-preview" onClick={onStartEdit} role="button" tabIndex={0}>
-      {segments.map((seg, i) => {
-        if (seg.kind === 'text') {
-          return (
-            <span key={i} className="review-feedback-text">
-              {seg.text}
-            </span>
-          )
-        }
-        const tone = getCommand(seg.command)?.chipTone ?? 'slate'
-        return (
-          <span key={i} className={`review-chip review-chip--${tone}`}>
-            <span className="review-chip-key">{seg.command}</span>
-            <span className="review-chip-sep">:</span>
-            <span className="review-chip-value">{seg.value}</span>
-          </span>
-        )
-      })}
-    </div>
-  )
-}
-
-function FeedbackEditMode({ row, value, onCommit, onCancel }: Props) {
-  const [draft, setDraft] = useState(value)
+/**
+ * Textarea with a `/`-triggered command palette. Mirrors the original
+ * FeedbackEditor's slash UX:
+ *
+ *   • Typing `/` (after a space or at line start) opens a command list filtered
+ *     by what follows. Pressing Enter/Tab inserts `/<command>:` and the
+ *     palette switches to value mode.
+ *   • Value mode shows row-aware autocomplete (e.g. nodeIds parsed from
+ *     operation_spec for `/op:`). Enter/Tab inserts the value.
+ *   • Esc closes the palette. ArrowUp/Down navigates options.
+ *   • Click anywhere else: palette closes; the parent autosave eventually flushes.
+ *
+ * The component is fully controlled — `value` lives in the row, `onChange`
+ * routes back to ReviewPage's handleOpFeedbackChange / handleVizFeedbackChange.
+ */
+export default function SlashTextarea({
+  value,
+  onChange,
+  row,
+  placeholder,
+  rows = 4,
+  autoFocus,
+  className,
+}: Props) {
   const [dropdown, setDropdown] = useState<DropdownState>({ mode: 'closed' })
   const [highlightIdx, setHighlightIdx] = useState(0)
   const taRef = useRef<HTMLTextAreaElement | null>(null)
+  const autoFocusedRef = useRef(false)
 
-  useEffect(() => {
-    taRef.current?.focus()
+  // Autofocus on mount (and place caret at end), once per component instance.
+  if (autoFocus && !autoFocusedRef.current && taRef.current) {
+    autoFocusedRef.current = true
     const el = taRef.current
-    if (el) el.setSelectionRange(el.value.length, el.value.length)
-  }, [])
+    el.focus()
+    el.setSelectionRange(el.value.length, el.value.length)
+  }
 
   const recomputeDropdown = (text: string, caret: number) => {
     const head = text.slice(0, caret)
-    // commands mode: most recent `/` not yet followed by `:` and not in middle of word
+    // Commands palette: most recent `/` at line/whitespace start, no `:` yet.
     const cmdMatch = head.match(/(^|\s)(\/([A-Za-z]*))$/)
     if (cmdMatch) {
       const slashStart = caret - cmdMatch[2].length
@@ -90,7 +76,7 @@ function FeedbackEditMode({ row, value, onCommit, onCancel }: Props) {
       setHighlightIdx(0)
       return
     }
-    // values mode: `/<cmd>:<partial>` token currently being typed
+    // Values palette: a `/<cmd>:<partial>` token currently being typed.
     const valMatch = head.match(/(^|\s)(\/([A-Za-z]+):([^\s]*))$/)
     if (valMatch) {
       const cmdKey = valMatch[3]
@@ -106,36 +92,33 @@ function FeedbackEditMode({ row, value, onCommit, onCancel }: Props) {
     setDropdown({ mode: 'closed' })
   }
 
-  const commit = (text: string) => {
-    onCommit(text)
-  }
-
   const applyDropdownOption = (selectedLabel: string) => {
     if (dropdown.mode === 'closed') return
     const el = taRef.current
     if (!el) return
-    const caret = el.selectionStart ?? draft.length
+    const caret = el.selectionStart ?? value.length
     if (dropdown.mode === 'commands') {
-      const next = draft.slice(0, dropdown.from) + `/${selectedLabel}:` + draft.slice(caret)
+      const next = value.slice(0, dropdown.from) + `/${selectedLabel}:` + value.slice(caret)
       const newCaret = dropdown.from + selectedLabel.length + 2
-      setDraft(next)
+      onChange(next)
       setDropdown({ mode: 'closed' })
       requestAnimationFrame(() => {
         if (taRef.current) {
-          taRef.current.value = next
           taRef.current.setSelectionRange(newCaret, newCaret)
           taRef.current.focus()
           recomputeDropdown(next, newCaret)
         }
       })
     } else {
-      const next = draft.slice(0, dropdown.from) + `/${dropdown.command.key}:${selectedLabel}` + draft.slice(caret)
+      const next =
+        value.slice(0, dropdown.from) +
+        `/${dropdown.command.key}:${selectedLabel}` +
+        value.slice(caret)
       const newCaret = dropdown.from + selectedLabel.length + dropdown.command.key.length + 2
-      setDraft(next)
+      onChange(next)
       setDropdown({ mode: 'closed' })
       requestAnimationFrame(() => {
         if (taRef.current) {
-          taRef.current.value = next
           taRef.current.setSelectionRange(newCaret, newCaret)
           taRef.current.focus()
         }
@@ -151,20 +134,15 @@ function FeedbackEditMode({ row, value, onCommit, onCancel }: Props) {
     if (dropdown.mode === 'values') {
       const all = getRowAutocompleteOptions(row, dropdown.command.key as SlashCommandKey)
       const q = dropdown.query.toLowerCase()
-      const filtered = q ? all.filter((v) => v.toLowerCase().includes(q)) : all
-      return filtered
+      return q ? all.filter((v) => v.toLowerCase().includes(q)) : all
     }
     return []
   }, [dropdown, row])
 
-  const onKey = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === 'Escape') {
+  const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Escape' && dropdown.mode !== 'closed') {
       event.preventDefault()
-      if (dropdown.mode !== 'closed') {
-        setDropdown({ mode: 'closed' })
-        return
-      }
-      onCancel()
+      setDropdown({ mode: 'closed' })
       return
     }
     if (dropdown.mode !== 'closed' && dropdownOptions.length) {
@@ -184,21 +162,20 @@ function FeedbackEditMode({ row, value, onCommit, onCancel }: Props) {
         return
       }
     }
-    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-      event.preventDefault()
-      commit(draft)
-    }
   }
 
   return (
-    <div className="review-feedback-edit">
+    <div className="review-feedback-slash-wrapper">
       <textarea
         ref={taRef}
-        className="review-editor-textarea review-feedback-textarea"
-        value={draft}
+        className={`review-feedback-textarea ${className ?? ''}`}
+        value={value}
+        rows={rows}
+        spellCheck={false}
+        placeholder={placeholder}
         onChange={(e) => {
           const v = e.target.value
-          setDraft(v)
+          onChange(v)
           recomputeDropdown(v, e.target.selectionStart ?? v.length)
         }}
         onClick={(e) => {
@@ -212,15 +189,10 @@ function FeedbackEditMode({ row, value, onCommit, onCancel }: Props) {
           }
         }}
         onBlur={() => {
-          // small delay so a dropdown click can fire first
-          setTimeout(() => {
-            if (dropdown.mode === 'closed') commit(draft)
-          }, 150)
+          // Slight delay so a dropdown click can fire before we hide it.
+          setTimeout(() => setDropdown({ mode: 'closed' }), 150)
         }}
         onKeyDown={onKey}
-        rows={4}
-        spellCheck={false}
-        placeholder="Bug notes. Type `/` for tags (e.g. /op:avg1 /severity:high)."
       />
       {dropdown.mode !== 'closed' && dropdownOptions.length > 0 ? (
         <div className="review-slash-dropdown">
@@ -247,9 +219,6 @@ function FeedbackEditMode({ row, value, onCommit, onCancel }: Props) {
           })}
         </div>
       ) : null}
-      <div className="review-editor-hint">
-        Cmd/Ctrl+Enter to save · Esc to cancel · type `/` for tags
-      </div>
     </div>
   )
 }

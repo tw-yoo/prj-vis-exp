@@ -86,6 +86,14 @@ function injectChartStyles() {
 }
 
 export function renderValidationSimpleBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectChartStyles();
 
     const data = data_rows;
@@ -153,6 +161,7 @@ export function renderValidationSimpleBarChart({ container }) {
         })
         .attr('height', (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
         .attr('fill', '#69b3a2')
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => Number(d[yField]))
         .attr('data-x-value', (d) => String(d[xField]))
@@ -313,8 +322,6 @@ export function function1({ d3, container }) {
         .attr('class', 'main-bar stacked-segment')
         .attr('x', 0)
         .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
         .attr('fill', (d) => colorScale(d.index))
         .attr('data-target', (d) => d.barLabel)
         .attr('data-value', (d) => d.total)
@@ -352,4 +359,41 @@ export function function1({ d3, container }) {
 
     legendItems
         .style('opacity', 1);
+
+    // R11 (round 3): function1 draws every visual chunk the explanation describes:
+    // both per-bar totals AND the difference between them.
+    chartRows.forEach((bar) => {
+        const cx = (xScale(bar.label) ?? 0) + xScale.bandwidth() / 2;
+        g.append('text')
+            .attr('class', 'validation-q6-total-label')
+            .attr('x', cx)
+            .attr('y', yScale(bar.total) - 8)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 13)
+            .attr('font-weight', 700)
+            .attr('fill', '#111827')
+            .text(bar.total.toLocaleString());
+    });
+
+    const diff = Math.abs(chartRows[0].total - chartRows[1].total);
+    g.append('text')
+        .attr('class', 'validation-q6-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#dc2626')
+        .text(`Difference: ${diff.toLocaleString()} tonnes`);
+}
+
+// R11 (round 3): function2 / function3 re-apply function1's complete visual idempotently.
+export function function2({ d3, container }) {
+    function1({ d3, container });
+}
+
+export function function3({ d3, container }) {
+    function1({ d3, container });
 }

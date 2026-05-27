@@ -5,10 +5,12 @@ type Props = {
   visibleRows: number
   feedbackRows: number
   unsavedRows: number
-  searchText: string
-  onSearchChange: (next: string) => void
-  statusFilter: ReviewStatus | 'all'
-  onStatusFilterChange: (next: ReviewStatus | 'all') => void
+  /** Filter on the operation_spec correctness axis. */
+  opStatusFilter: ReviewStatus | 'all'
+  onOpStatusFilterChange: (next: ReviewStatus | 'all') => void
+  /** Filter on the visualization correctness axis. */
+  vizStatusFilter: ReviewStatus | 'all'
+  onVizStatusFilterChange: (next: ReviewStatus | 'all') => void
   chartTypeFilter: ReviewChartType | 'all'
   onChartTypeFilterChange: (next: ReviewChartType | 'all') => void
   feedbackOnly: boolean
@@ -98,26 +100,39 @@ export default function ReviewToolbar(props: Props) {
         <div className="review-toolbar-row review-save-error">Save failed: {props.saveError}</div>
       ) : null}
       <div className="review-toolbar-row">
-        <input
-          type="text"
-          className="review-search"
-          placeholder="Search chart_id or question…"
-          value={props.searchText}
-          onChange={(event) => props.onSearchChange(event.target.value)}
-        />
-        <div className="review-status-chips">
-          {STATUS_FILTER_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`review-status-chip ${
-                props.statusFilter === option.value ? 'is-active' : ''
-              }`}
-              onClick={() => props.onStatusFilterChange(option.value)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="review-status-filter-group" title="Operation_spec correctness">
+          <span className="review-status-filter-axis">Op</span>
+          <div className="review-status-chips">
+            {STATUS_FILTER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`review-status-chip ${
+                  props.opStatusFilter === option.value ? 'is-active' : ''
+                }`}
+                onClick={() => props.onOpStatusFilterChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="review-status-filter-group" title="Visualization output correctness">
+          <span className="review-status-filter-axis">Viz</span>
+          <div className="review-status-chips">
+            {STATUS_FILTER_OPTIONS.map((option) => (
+              <button
+                key={`viz-${option.value}`}
+                type="button"
+                className={`review-status-chip ${
+                  props.vizStatusFilter === option.value ? 'is-active' : ''
+                }`}
+                onClick={() => props.onVizStatusFilterChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
         <label className="review-feedback-toggle">
           <input

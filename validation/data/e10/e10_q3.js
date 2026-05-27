@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Gender: 'Male', Usage_Period: 'Today', Share_of_Respondents: 0.08 },
@@ -178,6 +178,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -267,10 +268,10 @@ function renderUsageGroupedBarChart({ d3, container, rows, seriesDomain }) {
         .nice()
         .range([plotH, 0]);
 
-    container.innerHTML = '';
+
     container.classList.add('validation-grouped-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
@@ -286,6 +287,7 @@ function renderUsageGroupedBarChart({ d3, container, rows, seriesDomain }) {
         .attr('y', (d) => yScale(Number(d.Share_of_Respondents)))
         .attr('height', (d) => plotH - yScale(Number(d.Share_of_Respondents)))
         .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.Usage_Period))
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d.Gender))
         .attr('data-series', (d) => String(d.Usage_Period))
         .attr('data-value', (d) => Number(d.Share_of_Respondents))
@@ -332,10 +334,10 @@ function renderUsageStackedBarChart({ d3, container, rows, seriesDomain }) {
         .nice()
         .range([plotH, 0]);
 
-    container.innerHTML = '';
+
     container.classList.add('validation-grouped-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
@@ -351,6 +353,7 @@ function renderUsageStackedBarChart({ d3, container, rows, seriesDomain }) {
         .attr('y', (d) => yScale(d.y1))
         .attr('height', (d) => yScale(d.y0) - yScale(d.y1))
         .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.period))
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.gender)
         .attr('data-series', (d) => d.period)
         .attr('data-value', (d) => d.value)

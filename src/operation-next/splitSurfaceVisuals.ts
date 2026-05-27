@@ -145,6 +145,7 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
     return
   }
 
+  const lastIndex = surfaces.length - 1
   surfaces.forEach((surface, index) => {
     const host = surface.hostElement as HTMLElement
     const hideYAxis = index > 0
@@ -156,6 +157,13 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
     if (hideYAxis) {
       compactSharedYAxisSurface(host)
     }
+
+    const hideColorLegend = index < lastIndex
+    host.dataset.sharedColorLegendHidden = hideColorLegend ? 'true' : 'false'
+    host.querySelectorAll<SVGElement>(`.${SvgClassNames.ColorLegend}`).forEach((node) => {
+      node.style.display = hideColorLegend ? 'none' : ''
+      node.setAttribute('aria-hidden', hideColorLegend ? 'true' : 'false')
+    })
   })
   splitDebug('splitVisuals.applySharedYAxisPolicy-applied', {
     surfaces: surfaces.map((surface, index) => {
@@ -164,9 +172,11 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
         id: surface.id,
         index,
         sharedYAxisHidden: host.dataset.sharedYAxisHidden ?? null,
+        sharedColorLegendHidden: host.dataset.sharedColorLegendHidden ?? null,
         hostRect: summarizeElementRect(host),
         yAxisCount: host.querySelectorAll(`.${SvgClassNames.YAxis}`).length,
         yLabelCount: host.querySelectorAll(`.${SvgClassNames.YAxisLabel}`).length,
+        colorLegendCount: host.querySelectorAll(`.${SvgClassNames.ColorLegend}`).length,
         svgCount: host.querySelectorAll(SvgElements.Svg).length,
       }
     }),

@@ -12,7 +12,8 @@ import {
   resolveColorLegendTitle,
   resolveTopLevelColorChannel,
 } from '../common/colorLegend'
-import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveLayoutModel, estimateBottomPaddingForRotatedLabels } from '../common/chartLayout'
+import { composeStackedMarkKey } from '../common/markKey'
 import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
@@ -281,13 +282,20 @@ export async function renderStackedBarChart(
 
   const xAxisLabel = resolveAxisTitle(spec, normalizedRows, 'x')
   const yAxisLabel = resolveAxisTitle(spec, normalizedRows, 'y')
+  const xLabelMap = buildCategoricalDisplayLabelMap(normalizedRows, runtime.xField)
+  const minBottomPadding = estimateBottomPaddingForRotatedLabels(
+    xDomain.map((category) => {
+      const key = category == null ? '' : String(category)
+      return xLabelMap.get(key) ?? key
+    }),
+  )
   const layout = resolveLayoutModel({
     container,
     chartType: ChartType.STACKED_BAR,
     spec: runtime.renderSpec,
     legend: { visible: showLegend },
+    minBottomPadding,
   })
-  const xLabelMap = buildCategoricalDisplayLabelMap(normalizedRows, runtime.xField)
   const svg = renderWithMeasuredLayout(
     container,
     layout,
@@ -359,6 +367,7 @@ export async function renderStackedBarChart(
         .attr(DataAttributes.XValue, (segment) => xLabelMap.get(String(segment.target)) ?? String(segment.target))
         .attr(DataAttributes.YValue, (segment) => formatTooltipValue(segment.value))
         .attr(DataAttributes.GroupValue, (segment) => (segment.series == null ? null : String(segment.series)))
+        .attr(DataAttributes.MarkKey, (segment) => composeStackedMarkKey(String(segment.target), segment.series))
 
       if (xAxisLabel) {
         nextSvg

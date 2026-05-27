@@ -9,6 +9,7 @@ import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { FILTER_ANNOTATION_CLASS } from './filter'
 import { LAG_DIFF_ANNOTATION_CLASS } from './lagDiff'
+import { DIFF_BY_VALUE_ANNOTATION_CLASS } from './diffByValue'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 
 const EXTREMUM_ANNOTATION_CLASS = 'operation-next-line-extremum'
@@ -22,20 +23,109 @@ function operationNodeId(operation: OperationSpec): string | null {
   return null
 }
 
+/**
+ * Strengthens the matching `data-target` annotation on whichever derived-shape
+ * class the prior op drew (lagDiff arrows, diffByValue connectors). Dims all
+ * other targets' annotations of the same class so the winner reads clearly.
+ *
+ * Source-of-truth for "which annotation class are we strengthening" is the
+ * DOM: we try lagDiff first, then diffByValue. Whichever has non-empty
+ * `[data-target]` lines is the active layer. If a chart has both (rare),
+ * we union them — the winner gets emphasized across whatever was drawn.
+ */
 async function strengthenArrowForTarget(instance: SimpleLineChartInstance, targetKey: string) {
-  const arrowLines = instance.annotationLayer.selectAll<SVGLineElement, unknown>(
-    `line.${LAG_DIFF_ANNOTATION_CLASS}[data-target="${CSS.escape(targetKey)}"]`,
+  const safeTarget = CSS.escape(targetKey)
+  // Try both annotation classes simultaneously (lagDiff arrows + diffByValue
+  // connectors). The winning target's matching elements get bolded; everyone
+  // else with the same class gets dimmed.
+  const classes = [LAG_DIFF_ANNOTATION_CLASS, DIFF_BY_VALUE_ANNOTATION_CLASS]
+  const winnerSelector = classes.map((c) => `.${c}[data-target="${safeTarget}"]`).join(',')
+  const allSelector = classes.map((c) => `.${c}[data-target]`).join(',')
+
+  const winnerLines = instance.annotationLayer.selectAll<SVGLineElement, unknown>(`line${winnerSelector ? '' : ''}`).filter(function () {
+    if (this.tagName.toLowerCase() !== 'line') return false
+    const t = this.getAttribute('data-target')
+    if (t !== targetKey) return false
+    const cls = this.getAttribute('class') ?? ''
+    return classes.some((c) => cls.includes(c))
+  })
+  const winnerTexts = instance.annotationLayer.selectAll<SVGTextElement, unknown>(`text`).filter(function () {
+    if (this.tagName.toLowerCase() !== 'text') return false
+    const t = this.getAttribute('data-target')
+    if (t !== targetKey) return false
+    const cls = this.getAttribute('class') ?? ''
+    return classes.some((c) => cls.includes(c))
+  })
+  const dimLines = instance.annotationLayer.selectAll<SVGLineElement, unknown>(`line[data-target]`).filter(function () {
+    if (this.tagName.toLowerCase() !== 'line') return false
+    const t = this.getAttribute('data-target')
+    if (t === targetKey) return false
+    const cls = this.getAttribute('class') ?? ''
+    return classes.some((c) => cls.includes(c))
+  })
+  const dimTexts = instance.annotationLayer.selectAll<SVGTextElement, unknown>(`text[data-target]`).filter(function () {
+    if (this.tagName.toLowerCase() !== 'text') return false
+    const t = this.getAttribute('data-target')
+    if (t === targetKey) return false
+    const cls = this.getAttribute('class') ?? ''
+    return classes.some((c) => cls.includes(c))
+  })
+
+  console.info(
+    `[operation-new] simpleLine findExtremum :: strengthenArrowForTarget\n${JSON.stringify(
+      {
+        targetKey,
+        allSelector,
+        matchedWinnerLines: winnerLines.size(),
+        matchedWinnerTexts: winnerTexts.size(),
+        dimLines: dimLines.size(),
+        dimTexts: dimTexts.size(),
+      },
+      null,
+      2,
+    )}`,
   )
-  if (arrowLines.empty()) return
+
+  if (winnerLines.empty() && winnerTexts.empty()) return
   try {
-    await arrowLines
-      .interrupt()
-      .transition()
-      .duration(DURATIONS.HIGHLIGHT)
-      .ease(EASINGS.SMOOTH)
-      .attr(SvgAttributes.StrokeWidth, 4)
-      .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_STRONG_RED)
-      .end()
+    await Promise.all([
+      winnerLines
+        .interrupt()
+        .transition()
+        .duration(DURATIONS.HIGHLIGHT)
+        .ease(EASINGS.SMOOTH)
+        .attr(SvgAttributes.StrokeWidth, 4)
+        .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_STRONG_RED)
+        .style('opacity', 1)
+        .end()
+        .catch(() => undefined),
+      winnerTexts
+        .interrupt()
+        .transition()
+        .duration(DURATIONS.HIGHLIGHT)
+        .ease(EASINGS.SMOOTH)
+        .style('opacity', 1)
+        .attr(SvgAttributes.Fill, COLORS.ANNOTATION_STRONG_RED)
+        .attr(SvgAttributes.FontSize, 14)
+        .end()
+        .catch(() => undefined),
+      dimLines
+        .interrupt()
+        .transition()
+        .duration(DURATIONS.HIGHLIGHT)
+        .ease(EASINGS.SMOOTH)
+        .style('opacity', 0.3)
+        .end()
+        .catch(() => undefined),
+      dimTexts
+        .interrupt()
+        .transition()
+        .duration(DURATIONS.HIGHLIGHT)
+        .ease(EASINGS.SMOOTH)
+        .style('opacity', 0.3)
+        .end()
+        .catch(() => undefined),
+    ])
   } catch {
     /* interrupted */
   }
@@ -45,19 +135,70 @@ export const findExtremumApplier: OperationApplier = {
   op: OperationOp.FindExtremum,
 
   async apply({ operation, state, instance }: ApplierArgs): Promise<ApplierResult> {
-    console.info('[operation-new] applier:findExtremum', {
-      nodeId: operation.meta?.nodeId,
-      which: operation.which,
-      hasDerivedData: state.derivedData !== null,
-      workingLen: state.workingData.length,
-    })
-    // State-driven branch: if a prior op produced derivedData (e.g. lagDiff
-    // deltas), the extremum is over those deltas and we strengthen the
-    // matching arrow instead of drawing a new annotation. The branch is on
-    // state, not on operation order — works for any op that sets derivedData.
-    if (state.derivedData !== null) {
-      const result = findExtremum(state.derivedData, operation)
+    // Inspect the annotation layer for prior lagDiff arrows. When the
+    // findExtremum op runs in a *separate* `runChartOps` call from the
+    // upstream lagDiff (review-tool/workbench split sentences across calls),
+    // `stateWithOperationDependencies` populates `workingData` from the
+    // referenced node's runtime result but RESETS `derivedData` to null
+    // (executionState.ts:257). The state-only branch below misses that case
+    // and falls through to "highlight max point on the line chart", which
+    // is the bug reported on case 2jromeq5u9lloh1s.
+    //
+    // The DOM is the source-of-truth for "has this chart been transformed
+    // by an upstream lagDiff?" — if there are lagDiff arrows on the layer,
+    // the working data IS the lagDiff deltas (per the ref:n1 retrieval),
+    // and findExtremum should strengthen the matching arrow.
+    const hasLagDiffArrows = !instance.annotationLayer
+      .select(`line.${LAG_DIFF_ANNOTATION_CLASS}[data-target]`)
+      .empty()
+    const hasDiffByValueAnnotations = !instance.annotationLayer
+      .select(`line.${DIFF_BY_VALUE_ANNOTATION_CLASS}[data-target]`)
+      .empty()
+    console.info(
+      `[operation-new] simpleLine findExtremum :: ENTRY\n${JSON.stringify(
+        {
+          nodeId: operation.meta?.nodeId,
+          which: operation.which,
+          hasDerivedData: state.derivedData !== null,
+          hasLagDiffArrows,
+          hasDiffByValueAnnotations,
+          workingLen: state.workingData.length,
+          workingSample: state.workingData.slice(0, 3).map((d) => ({ target: d.target, value: d.value })),
+        },
+        null,
+        2,
+      )}`,
+    )
+    // State-driven OR DOM-driven branch: prior lagDiff / diffByValue (or any
+    // op that drew per-target derived annotations with `data-target`) is what
+    // we should be ranking over.
+    //
+    // Source for the extremum data: prefer state.derivedData (single
+    // runChartOps call, prior applier set it); fall back to state.workingData
+    // (cross-call: stateWithOperationDependencies populated it from the
+    // ref:nX runtime result but reset derivedData — see findExtremum.ts
+    // history and case avwb8xstxx1lmfpk).
+    if (state.derivedData !== null || hasLagDiffArrows || hasDiffByValueAnnotations) {
+      const source = state.derivedData ?? state.workingData
+      const result = findExtremum(source, operation)
       const targetKey = result[0]?.target
+      console.info(
+        `[operation-new] simpleLine findExtremum :: derived-shape branch\n${JSON.stringify(
+          {
+            sourceFrom: state.derivedData !== null ? 'state.derivedData' : 'state.workingData',
+            sourceLen: source.length,
+            winnerTarget: targetKey,
+            winnerValue: result[0]?.value,
+            triggeredBy: state.derivedData !== null
+              ? 'derivedData'
+              : hasLagDiffArrows
+                ? 'lagDiff-DOM'
+                : 'diffByValue-DOM',
+          },
+          null,
+          2,
+        )}`,
+      )
       if (targetKey != null) {
         await strengthenArrowForTarget(instance, String(targetKey))
       }

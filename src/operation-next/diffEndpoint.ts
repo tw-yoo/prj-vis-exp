@@ -21,14 +21,40 @@ export function collectReferencedResultIds(groups: Array<{ ops?: OperationSpec[]
   const ids = new Set<string>()
   const operationGroups = groups.map((group) => Array.isArray(group) ? group : group.ops ?? [])
   operationGroups.flat().forEach((operation) => {
-    readRefKey(operation.targetA).forEach((key) => ids.add(key))
-    readRefKey(operation.targetB).forEach((key) => ids.add(key))
-    if (Array.isArray(operation.meta?.inputs)) {
-      operation.meta.inputs.forEach((input) => {
-        if (typeof input === 'string' || typeof input === 'number') ids.add(String(input).replace(/^ref:/, ''))
-      })
-    }
+    referencesFromOperation(operation).forEach((key) => ids.add(key))
   })
+  return Array.from(ids).filter((key) => key.trim().length > 0)
+}
+
+/**
+ * Returns the operation IDs that `operation` consumes as `ref:nX` inputs
+ * (across `targetA`, `targetB`, and `meta.inputs`). Used per-op to compute the
+ * still-live reference set; combined with downstream-operation refs to decide
+ * which prior annotations can be cleaned up.
+ */
+export function referencesFromOperation(operation: OperationSpec): string[] {
+  const ids = new Set<string>()
+  readRefKey(operation.targetA).forEach((key) => ids.add(key))
+  readRefKey(operation.targetB).forEach((key) => ids.add(key))
+  // diffByValue uses `targetValue` for its scalar ref.
+  const targetValue = (operation as OperationSpec & { targetValue?: unknown }).targetValue
+  if (typeof targetValue === 'string' && targetValue.startsWith('ref:')) {
+    const key = targetValue.slice('ref:'.length).trim()
+    if (key) ids.add(key)
+  }
+  // filter operations can use `value: "ref:nX"`.
+  const opValue = (operation as OperationSpec & { value?: unknown }).value
+  if (typeof opValue === 'string' && opValue.startsWith('ref:')) {
+    const key = opValue.slice('ref:'.length).trim()
+    if (key) ids.add(key)
+  }
+  if (Array.isArray(operation.meta?.inputs)) {
+    operation.meta.inputs.forEach((input) => {
+      if (typeof input === 'string' || typeof input === 'number') {
+        ids.add(String(input).replace(/^ref:/, ''))
+      }
+    })
+  }
   return Array.from(ids).filter((key) => key.trim().length > 0)
 }
 

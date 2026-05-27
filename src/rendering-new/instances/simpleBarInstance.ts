@@ -2,7 +2,7 @@ import * as d3 from 'd3'
 import type { JsonValue } from '../../types'
 import { ChartType, type ChartSpec } from '../../domain/chart'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
-import { resolveLayoutModel, type LayoutModel } from '../../rendering/common/chartLayout'
+import { estimateBottomPaddingForRotatedLabels, resolveLayoutModel, type LayoutModel } from '../../rendering/common/chartLayout'
 import { renderWithMeasuredLayout } from '../../rendering/common/renderWithMeasuredLayout'
 import { resolveAxisTitle } from '../../rendering/common/resolveAxisTitle'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../../rendering/common/displayLabels'
@@ -17,6 +17,7 @@ import {
   setSimpleBarStoredData,
   type SimpleBarSpec,
 } from '../../rendering/bar/simpleBarRenderer'
+import { composeSimpleMarkKey } from '../../rendering/common/markKey'
 import {
   attachInstance,
   getAttachedInstance,
@@ -604,7 +605,15 @@ export class SimpleBarChartInstance implements ChartInstance {
       }
     })
 
-    const initialLayout = resolveLayoutModel({ container: this.host, chartType: ChartType.SIMPLE_BAR, spec: barSpec })
+    const minBottomPadding = estimateBottomPaddingForRotatedLabels(
+      xDomain.map((category) => xLabelMap.get(category) ?? category),
+    )
+    const initialLayout = resolveLayoutModel({
+      container: this.host,
+      chartType: ChartType.SIMPLE_BAR,
+      spec: barSpec,
+      minBottomPadding,
+    })
     renderWithMeasuredLayout(this.host, initialLayout, (passLayout) =>
       this.renderPass(passLayout, {
         xDomain,
@@ -762,7 +771,8 @@ export class SimpleBarChartInstance implements ChartInstance {
       .attr(DataAttributes.Target, (d) => d.target)
       .attr(DataAttributes.Value, (d) => d.value)
       .attr(DataAttributes.XValue, (d) => d.xDisplayLabel)
-      .attr(DataAttributes.YValue, (d) => formatTooltipValue(d.value)) as d3.Selection<
+      .attr(DataAttributes.YValue, (d) => formatTooltipValue(d.value))
+      .attr(DataAttributes.MarkKey, (d) => composeSimpleMarkKey(d.target)) as d3.Selection<
       SVGRectElement,
       BarDatum,
       SVGGElement,

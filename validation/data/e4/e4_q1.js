@@ -84,6 +84,14 @@ function injectChartStyles() {
 }
 
 export function renderValidationSimpleBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectChartStyles();
 
     const data = data_rows;
@@ -151,6 +159,7 @@ export function renderValidationSimpleBarChart({ container }) {
         })
         .attr('height', (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
         .attr('fill', '#69b3a2')
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => Number(d[yField]))
         .attr('data-x-value', (d) => String(d[xField]))
@@ -190,8 +199,160 @@ export function renderValidationSimpleBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getE4Q1Geometry(d3) {
+    const xField = 'Fiscal Year';
+    const yField = 'Average ticket price in US dollars';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xDomain = data_rows.map((d) => String(d[xField]));
+    const yValues = data_rows.map((d) => Number(d[yField])).filter(Number.isFinite);
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.2);
+    const yScale = d3.scaleLinear()
+        .domain([Math.min(0, ...yValues), Math.max(0, ...yValues)])
+        .nice()
+        .range([plotH, 0]);
+    return { xField, yField, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getE4Q1Average() {
+    const yField = 'Average ticket price in US dollars';
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    return yValues.reduce((s, v) => s + v, 0) / yValues.length;
+}
 
-export function function3({ d3, container }) {}
+function getE4Q1MaxDiffYear() {
+    const yField = 'Average ticket price in US dollars';
+    const xField = 'Fiscal Year';
+    const avg = getE4Q1Average();
+    return data_rows.reduce(
+        (best, row) => {
+            const diff = Math.abs(Number(row[yField]) - avg);
+            return diff > best.diff ? { year: String(row[xField]), value: Number(row[yField]), diff } : best;
+        },
+        { diff: -Infinity },
+    );
+}
+
+export function function1({ d3, container }) {
+    const { plotW, yScale } = getE4Q1Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q1-avg-line, .validation-q1-avg-label').remove();
+
+    const avg = getE4Q1Average();
+    const y = yScale(avg);
+
+    g.append('line')
+        .attr('class', 'validation-q1-avg-line')
+        .attr('x1', 0)
+        .attr('x2', 0)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4')
+        .transition()
+        .duration(650)
+        .attr('x2', plotW);
+
+    g.append('text')
+        .attr('class', 'validation-q1-avg-label')
+        .attr('x', plotW + 6)
+        .attr('y', y)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .attr('opacity', 0)
+        .text(`avg ${avg.toFixed(2)}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function2({ d3, container }) {
+    const { xField, yField, xScale, yScale } = getE4Q1Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q1-diff-segment').remove();
+
+    const avg = getE4Q1Average();
+    const yAvg = yScale(avg);
+
+    data_rows.forEach((row) => {
+        const cx = (xScale(String(row[xField])) ?? 0) + xScale.bandwidth() / 2;
+        const yTop = yScale(Number(row[yField]));
+        g.append('line')
+            .attr('class', 'validation-q1-diff-segment')
+            .attr('data-year', String(row[xField]))
+            .attr('x1', cx)
+            .attr('x2', cx)
+            .attr('y1', yAvg)
+            .attr('y2', yAvg)
+            .attr('stroke', '#6b7280')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '3 3')
+            .attr('opacity', 0.55)
+            .transition()
+            .duration(600)
+            .attr('y2', yTop);
+    });
+}
+
+export function function3({ d3, container }) {
+    const { xField, yField, plotW, plotH, xScale, yScale } = getE4Q1Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q1-max-rect, .validation-q1-max-label').remove();
+
+    const best = getE4Q1MaxDiffYear();
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q1-max-rect')
+        .attr('x', (xScale(best.year) ?? 0) - 6)
+        .attr('y', 0)
+        .attr('width', xScale.bandwidth() + 12)
+        .attr('height', plotH)
+        .attr('fill', '#fde68a')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.55);
+
+    g.selectAll('.main-bar')
+        ;
+
+    g.selectAll('.validation-q1-diff-segment')
+        .filter(function () { return this.getAttribute('data-year') === best.year; })
+        .transition()
+        .duration(600)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 2.5)
+        .attr('opacity', 1)
+        .attr('stroke-dasharray', null);
+
+    g.append('text')
+        .attr('class', 'validation-q1-max-label')
+        .attr('x', plotW - 4)
+        .attr('y', 12)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`max |Δ| = ${best.diff.toFixed(2)} ← ${best.year}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

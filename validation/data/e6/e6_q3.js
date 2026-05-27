@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2016, 'Age Group': '0–19 years', 'Number of suicides': 26 },
@@ -182,6 +182,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -282,7 +283,7 @@ function renderSuicideStackedTotals({ d3, container, highlightYear = null }) {
     });
 
     injectGroupedChartStyles();
-    container.innerHTML = '';
+
     container.classList.add('validation-grouped-chart-host');
 
     const width = 640;
@@ -294,10 +295,7 @@ function renderSuicideStackedTotals({ d3, container, highlightYear = null }) {
     const xScale = d3.scaleBand().domain(years).range([0, plotW]).padding(0.24);
     const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => d.total) ?? 1]).nice().range([plotH, 0]);
 
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));

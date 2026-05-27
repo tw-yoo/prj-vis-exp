@@ -95,6 +95,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Gender';
     const yField = 'Percentage';
@@ -198,6 +206,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -284,8 +293,163 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getQ10Geometry(d3) {
+    const xField = 'Year';
+    const seriesField = 'Gender';
+    const yField = 'Percentage';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    const minY = d3.min(yValues) ?? 0;
+    const maxY = d3.max(yValues) ?? 1;
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear().domain([minY, maxY]).nice().range([plotH, 0]);
+    return { xField, seriesField, yField, xDomain, seriesDomain, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getQ10GapsFrom2000() {
+    const yField = 'Percentage';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    return xDomain
+        .filter((year) => Number(year) >= 2000)
+        .map((year) => {
+            const women = Number(data_rows.find((d) => String(d.Year) === year && d.Gender === 'Women')?.[yField] ?? 0);
+            const men = Number(data_rows.find((d) => String(d.Year) === year && d.Gender === 'Men')?.[yField] ?? 0);
+            return { year, women, men, gap: women - men };
+        });
+}
 
-export function function3({ d3, container }) {}
+function ensureQ10ArrowMarker(svg) {
+    if (!svg.select('defs#e3-q10-defs').empty()) return;
+    const defs = svg.append('defs').attr('id', 'e3-q10-defs');
+    defs.append('marker')
+        .attr('id', 'e3-q10-arrow')
+        .attr('viewBox', '0 0 10 10')
+        .attr('refX', 5)
+        .attr('refY', 5)
+        .attr('markerWidth', 5)
+        .attr('markerHeight', 5)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+        .attr('fill', '#ef4444');
+}
+
+export function function1({ d3, container }) {
+    const { plotH, xScale } = getQ10Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q10-pre-2000-tint, .validation-q10-gap-line, .validation-q10-gap-label').remove();
+
+    const x2000 = xScale('2000') ?? 0;
+    const xPrev = xScale('1996') ?? 0;
+    const splitX = (xPrev + x2000) / 2;
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q10-pre-2000-tint')
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', splitX)
+        .attr('height', plotH)
+        .attr('fill', '#f3f4f6')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.6);
+
+    const gaps = getQ10GapsFrom2000();
+    gaps.forEach((row) => {
+        const cx = xScale(row.year) ?? 0;
+        const yWomen = getQ10Geometry(d3).yScale(row.women);
+        const yMen = getQ10Geometry(d3).yScale(row.men);
+        g.append('line')
+            .attr('class', 'validation-q10-gap-line')
+            .attr('data-year', row.year)
+            .attr('x1', cx)
+            .attr('x2', cx)
+            .attr('y1', yWomen)
+            .attr('y2', yWomen)
+            .attr('stroke', '#ef4444')
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', '3 3')
+            .transition()
+            .duration(650)
+            .attr('y2', yMen);
+
+        g.append('text')
+            .attr('class', 'validation-q10-gap-label')
+            .attr('data-year', row.year)
+            .attr('x', cx)
+            .attr('y', (yWomen + yMen) / 2)
+            .attr('dominant-baseline', 'middle')
+            .attr('text-anchor', 'start')
+            .attr('dx', 6)
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .attr('fill', '#ef4444')
+            .attr('opacity', 0)
+            .text(row.gap.toFixed(0))
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
+    });
+}
+
+export function function2({ d3, container }) {
+    const { plotW, yScale } = getQ10Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q10-avg-arrow, .validation-q10-avg-label').remove();
+    ensureQ10ArrowMarker(svg);
+
+    const gaps = getQ10GapsFrom2000();
+    const avgWomen = gaps.reduce((s, r) => s + r.women, 0) / gaps.length;
+    const avgMen = gaps.reduce((s, r) => s + r.men, 0) / gaps.length;
+    const avgGap = gaps.reduce((s, r) => s + r.gap, 0) / gaps.length;
+
+    const yTop = yScale(avgWomen);
+    const yBot = yScale(avgMen);
+    const arrowX = plotW - 18;
+
+    g.append('line')
+        .attr('class', 'validation-q10-avg-arrow')
+        .attr('x1', arrowX)
+        .attr('x2', arrowX)
+        .attr('y1', yBot)
+        .attr('y2', yBot)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 2)
+        .attr('marker-end', 'url(#e3-q10-arrow)')
+        .transition()
+        .duration(650)
+        .attr('y2', yTop + 6);
+
+    // Theme D (#10 round 3): move avg-gap label to the right of the arrow tip
+    // instead of crowding the circles next to the arrow.
+    g.append('text')
+        .attr('class', 'validation-q10-avg-label')
+        .attr('x', arrowX + 8)
+        .attr('y', (yTop + yBot) / 2)
+        .attr('text-anchor', 'start')
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`avg gap = ${avgGap.toFixed(0)}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

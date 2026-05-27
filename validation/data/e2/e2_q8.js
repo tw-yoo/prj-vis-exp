@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Platform: 'YouTube', Gender: 'Male', 'Share of respondents': 0.95 },
@@ -90,6 +90,14 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Platform';
     const seriesField = 'Gender';
     const yField = 'Share of respondents';
@@ -180,6 +188,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -263,14 +272,15 @@ function getPlatformGenderPairs() {
 }
 
 function highlightPlatformGroups(d3, container, selectedPlatforms) {
+    // Per reviewer (review_e2.csv row 12): "투명도를 낮출 bar들에 대해서만 낮추면 되는 것임."
+    // Original colors stay; only opacity changes for non-focused bars.
     const selected = new Set(selectedPlatforms);
     d3.select(container).selectAll('.main-bar')
         .transition()
         .duration(600)
-        .attr('opacity', (d) => selected.has(String(d.category ?? d.Platform)) ? 1 : 0.22)
-        .attr('fill', function (d) {
-            if (selected.has(String(d.category ?? d.Platform))) return d3.select(this).attr('fill');
-            return '#d1d5db';
+        .attr('opacity', function (d) {
+            const key = String((d && (d.category ?? d.Platform)) ?? this.getAttribute('data-target'));
+            return selected.has(key) ? 1 : 0.22;
         });
 
     d3.select(container).selectAll('.x-axis text')
@@ -284,7 +294,7 @@ function highlightPlatformGroups(d3, container, selectedPlatforms) {
         });
 }
 
-function renderPlatformAverageComparison({ d3, container, showDifference = false }) {
+function getE2Q8PanelGeometry(d3) {
     const pairs = getPlatformGenderPairs();
     const g1 = pairs.filter((d) => d.male > d.female);
     const g2 = pairs.filter((d) => d.female > d.male);
@@ -301,67 +311,94 @@ function renderPlatformAverageComparison({ d3, container, showDifference = false
         .domain([0, d3.max([...g1.map((d) => d.male), ...g2.map((d) => d.female)]) ?? 0])
         .nice()
         .range([plotH, 0]);
+    return { g1, g2, g1Average, g2Average, width, height, margin, panelGap, panelW, plotH, yScale };
+}
 
-    container.innerHTML = '';
+function renderPlatformAverageComparison({ d3, container }) {
+    // R14 (round 5): in-place crossfade from grouped chart → dual-panel.
+    // The existing <svg> is reused; old children fade out, new layout fades in.
+    const { g1, g2, g1Average, g2Average, width, height, margin, panelGap, panelW, plotH, yScale } = getE2Q8PanelGeometry(d3);
+
     container.classList.add('validation-grouped-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    rebuildSvgInPlace({
+        d3,
+        container,
+        viewBox: `0 0 ${width} ${height}`,
+        build: (svg) => {
+            const root = svg.append('g')
+                .attr('class', 'validation-modeswitch-e2q8')
+                .attr('opacity', 0);
 
-    [
-        { label: 'G1 Male', rows: g1.map((d) => ({ platform: d.platform, value: d.male })), x: margin.left, average: g1Average, color: '#4f46e5' },
-        { label: 'G2 Female', rows: g2.map((d) => ({ platform: d.platform, value: d.female })), x: margin.left + panelW + panelGap, average: g2Average, color: '#e11d48' }
-    ].forEach((panel) => {
-        const g = svg.append('g').attr('transform', `translate(${panel.x},${margin.top})`);
-        const xScale = d3.scaleBand().domain(panel.rows.map((d) => d.platform)).range([0, panelW]).padding(0.2);
+            [
+                { label: 'G1 Male', rows: g1.map((d) => ({ platform: d.platform, value: d.male })), x: margin.left, average: g1Average, color: '#4f46e5' },
+                { label: 'G2 Female', rows: g2.map((d) => ({ platform: d.platform, value: d.female })), x: margin.left + panelW + panelGap, average: g2Average, color: '#e11d48' }
+            ].forEach((panel) => {
+                const g = root.append('g').attr('transform', `translate(${panel.x},${margin.top})`);
+                const xScale = d3.scaleBand().domain(panel.rows.map((d) => d.platform)).range([0, panelW]).padding(0.2);
 
-        g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-        const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-        autoRotateXAxisLabels(xAxis);
-        g.append('text').attr('x', 0).attr('y', -10).attr('font-size', 13).attr('font-weight', 700).text(panel.label);
+                g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+                const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
+                autoRotateXAxisLabels(xAxis);
+                g.append('text').attr('x', 0).attr('y', -10).attr('font-size', 13).attr('font-weight', 700).text(panel.label);
 
-        g.selectAll('rect.main-bar')
-            .data(panel.rows)
-            .join('rect')
-            .attr('class', 'main-bar')
-            .attr('x', (d) => xScale(d.platform))
-            .attr('width', xScale.bandwidth())
-            .attr('y', plotH)
-            .attr('height', 0)
-            .attr('fill', panel.color)
-            .transition()
-            .duration(700)
-            .attr('y', (d) => yScale(d.value))
-            .attr('height', (d) => plotH - yScale(d.value));
+                // Bars at final position — root group's fade-in animates them.
+                g.selectAll('rect.main-bar')
+                    .data(panel.rows)
+                    .join('rect')
+                    .attr('class', 'main-bar')
+                    .attr('x', (d) => xScale(d.platform))
+                    .attr('width', xScale.bandwidth())
+                    .attr('y', (d) => yScale(d.value))
+                    .attr('height', (d) => plotH - yScale(d.value))
+                    .attr('fill', panel.color)
+                    .attr('opacity', 1);
 
-        const avgY = yScale(panel.average);
-        g.append('line')
-            .attr('class', 'validation-average-line')
-            .attr('x1', 0)
-            .attr('x2', 0)
-            .attr('y1', avgY)
-            .attr('y2', avgY)
-            .attr('stroke', '#111827')
-            .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '5 4')
-            .transition()
-            .duration(650)
-            .attr('x2', panelW);
-        g.append('text')
-            .attr('x', panelW + 6)
-            .attr('y', avgY)
-            .attr('dominant-baseline', 'middle')
-            .attr('font-size', 11)
-            .attr('font-weight', 700)
-            .attr('fill', '#111827')
-            .attr('opacity', 0)
-            .text(panel.average.toFixed(3))
-            .transition()
-            .duration(650)
-            .attr('opacity', 1);
+                const avgY = yScale(panel.average);
+                g.append('line')
+                    .attr('class', 'validation-average-line')
+                    .attr('x1', 0)
+                    .attr('x2', panelW)
+                    .attr('y1', avgY)
+                    .attr('y2', avgY)
+                    .attr('stroke', '#111827')
+                    .attr('stroke-width', 2)
+                    .attr('stroke-dasharray', '5 4');
+                g.append('text')
+                    .attr('x', panelW + 6)
+                    .attr('y', avgY)
+                    .attr('dominant-baseline', 'middle')
+                    .attr('font-size', 11)
+                    .attr('font-weight', 700)
+                    .attr('fill', '#111827')
+                    .text(panel.average.toFixed(3));
+            });
+
+            return root;
+        },
     });
+}
 
-    if (!showDifference) return;
+export function function1({ d3, container }) {
+    highlightPlatformGroups(d3, container, ['YouTube', 'Twitter', 'Twitch']);
+}
 
+export function function2({ d3, container }) {
+    highlightPlatformGroups(d3, container, ['Facebook', 'Instagram', 'Snapchat', 'TikTok']);
+}
+
+export function function3({ d3, container }) {
+    renderPlatformAverageComparison({ d3, container });
+}
+
+export function function4({ d3, container }) {
+    // Per reviewer (review_e2.csv row 14): annotation-only — no rebuild. Add the Δ arrow
+    // between the two panels' average y-positions and label its midpoint.
+    const { width, margin, g1Average, g2Average, yScale } = getE2Q8PanelGeometry(d3);
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+
+    svg.selectAll('.validation-q8-diff-arrow, .validation-q8-diff-label').remove();
     svg.select('defs#e2-q8-defs').remove();
     const defs = svg.append('defs').attr('id', 'e2-q8-defs');
     defs.append('marker')
@@ -380,6 +417,7 @@ function renderPlatformAverageComparison({ d3, container, showDifference = false
     const y1 = margin.top + yScale(g1Average);
     const y2 = margin.top + yScale(g2Average);
     svg.append('line')
+        .attr('class', 'validation-q8-diff-arrow')
         .attr('x1', arrowX)
         .attr('x2', arrowX)
         .attr('y1', y1)
@@ -392,6 +430,7 @@ function renderPlatformAverageComparison({ d3, container, showDifference = false
         .duration(650)
         .attr('y2', y2);
     svg.append('text')
+        .attr('class', 'validation-q8-diff-label')
         .attr('x', arrowX + 8)
         .attr('y', (y1 + y2) / 2)
         .attr('dominant-baseline', 'middle')
@@ -403,20 +442,4 @@ function renderPlatformAverageComparison({ d3, container, showDifference = false
         .transition()
         .duration(650)
         .attr('opacity', 1);
-}
-
-export function function1({ d3, container }) {
-    highlightPlatformGroups(d3, container, ['YouTube', 'Twitter', 'Twitch']);
-}
-
-export function function2({ d3, container }) {
-    highlightPlatformGroups(d3, container, ['Facebook', 'Instagram', 'Snapchat', 'TikTok']);
-}
-
-export function function3({ d3, container }) {
-    renderPlatformAverageComparison({ d3, container, showDifference: false });
-}
-
-export function function4({ d3, container }) {
-    renderPlatformAverageComparison({ d3, container, showDifference: true });
 }

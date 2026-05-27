@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Date: 'Oct 94', Candidate_Support: 'Support Rep candidate', Percent_Do_Not_Want_Reelected: 38 },
@@ -85,6 +85,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Date';
     const seriesField = 'Candidate_Support';
     const yField = 'Percent_Do_Not_Want_Reelected';
@@ -188,6 +196,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -274,19 +283,17 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-function renderCandidateStackedBars({ d3, container, showThreshold = false }) {
+function getE2Q5Geometry(d3) {
     const dates = Array.from(new Set(data_rows.map((d) => String(d.Date))));
     const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d.Candidate_Support))));
     const width = 640;
     const height = 360;
-    const margin = { top: 32, right: 16, bottom: 56, left: 56 };
-    const legendOffsetX = 64;
+    // Round 4: extra top margin reserved for the chart-type-change title.
+    const margin = { top: 56, right: 16, bottom: 56, left: 56 };
     const legendReserve = 200;
     const plotW = width - margin.left - margin.right - legendReserve;
     const plotH = height - margin.top - margin.bottom;
-    const color = d3.scaleOrdinal().domain(seriesDomain).range(MULTI_LINE_PALETTE);
     const segments = [];
-
     dates.forEach((date) => {
         let y0 = 0;
         seriesDomain.forEach((series) => {
@@ -296,7 +303,6 @@ function renderCandidateStackedBars({ d3, container, showThreshold = false }) {
             y0 = y1;
         });
     });
-
     const totals = dates.map((date) => ({
         date,
         total: d3.sum(segments.filter((d) => d.date === date), (d) => d.value)
@@ -306,84 +312,135 @@ function renderCandidateStackedBars({ d3, container, showThreshold = false }) {
         .domain([0, Math.max(70, d3.max(segments, (d) => d.y1) ?? 0)])
         .nice()
         .range([plotH, 0]);
+    return { dates, seriesDomain, segments, totals, plotW, plotH, xScale, yScale, margin };
+}
 
-    container.innerHTML = '';
+function renderCandidateStackedBars({ d3, container }) {
+    // R14 (round 5): in-place crossfade from multi-line → stacked bars.
+    // Reuses the existing <svg> element (created by the base renderer or a
+    // prior helper call). Existing children fade out + are removed; the new
+    // stacked-bar layout is appended to the same <svg> and fades in.
+    const { dates, seriesDomain, segments, plotW, plotH, xScale, yScale, margin } = getE2Q5Geometry(d3);
+    const color = d3.scaleOrdinal().domain(seriesDomain).range(MULTI_LINE_PALETTE);
+    const width = 640;
+    const height = 360;
+    const legendOffsetX = 64;
+
     container.classList.add('validation-multi-line-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    rebuildSvgInPlace({
+        d3,
+        container,
+        viewBox: `0 0 ${width} ${height}`,
+        build: (svg) => {
+            const root = svg.append('g')
+                .attr('class', 'validation-modeswitch-e2q5')
+                .attr('opacity', 0);
+            const g = root.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
+            // Per reviewer (e2_feedback round-4 row 4): chart type changed from
+            // multi-line to stacked bars. Add a title so the user isn't disoriented.
+            g.append('text')
+                .attr('class', 'e2-q5-title')
+                .attr('x', plotW / 2)
+                .attr('y', -16)
+                .attr('text-anchor', 'middle')
+                .attr('font-family', 'sans-serif')
+                .attr('font-size', 13)
+                .attr('font-weight', 700)
+                .attr('fill', '#111827')
+                .text('Stacked candidate support per date (sum of all candidates)');
 
-    g.selectAll('rect.main-bar')
-        .data(segments)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.date))
-        .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => color(d.series))
-        .attr('opacity', (d) => {
-            if (!showThreshold) return 1;
-            const total = totals.find((row) => row.date === d.date)?.total ?? 0;
-            return total < 70 ? 1 : 0.25;
-        })
-        .attr('data-target', (d) => d.date)
-        .attr('data-series', (d) => d.series)
-        .attr('data-value', (d) => d.value)
-        .transition()
-        .duration(700)
-        .attr('y', (d) => yScale(d.y1))
-        .attr('height', (d) => yScale(d.y0) - yScale(d.y1));
+            g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+            const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
+            autoRotateXAxisLabels(xAxis);
 
-    if (showThreshold) {
-        const y = yScale(70);
-        g.append('line')
-            .attr('class', 'validation-threshold-70')
-            .attr('x1', 0)
-            .attr('x2', 0)
-            .attr('y1', y)
-            .attr('y2', y)
-            .attr('stroke', '#111827')
-            .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '5 4')
-            .transition()
-            .duration(650)
-            .attr('x2', plotW);
-        g.append('text')
-            .attr('class', 'validation-threshold-70')
-            .attr('x', plotW + 6)
-            .attr('y', y)
-            .attr('dominant-baseline', 'middle')
-            .attr('font-size', 12)
-            .attr('font-weight', 700)
-            .attr('fill', '#111827')
-            .attr('opacity', 0)
-            .text('70')
-            .transition()
-            .duration(650)
-            .attr('opacity', 1);
-    }
+            g.selectAll('rect.main-bar')
+                .data(segments)
+                .join('rect')
+                .attr('class', 'main-bar')
+                .attr('x', (d) => xScale(d.date))
+                .attr('width', xScale.bandwidth())
+                .attr('y', (d) => yScale(d.y1))
+                .attr('height', (d) => yScale(d.y0) - yScale(d.y1))
+                .attr('fill', (d) => color(d.series))
+                .attr('opacity', 1)
+                .attr('data-target', (d) => d.date)
+                .attr('data-series', (d) => d.series)
+                .attr('data-value', (d) => d.value);
 
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
-    seriesDomain.forEach((series, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', color(series));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 12).text(series);
+            const legend = root.append('g')
+                .attr('class', 'color-legend')
+                .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
+            seriesDomain.forEach((series, index) => {
+                const y = index * 30 + 10;
+                legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', color(series));
+                legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 12).text(series);
+            });
+
+            return root;
+        },
     });
 }
 
 export function function1({ d3, container }) {
-    renderCandidateStackedBars({ d3, container, showThreshold: false });
+    renderCandidateStackedBars({ d3, container });
 }
 
 export function function2({ d3, container }) {
-    renderCandidateStackedBars({ d3, container, showThreshold: true });
+    // Per reviewer (review_e2.csv row 7): annotation-only — no rebuild. Add threshold line + dim
+    // the stacks whose total exceeds 70 on the existing bars from f1.
+    const { totals, plotW, yScale } = getE2Q5Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+
+    // Round 5 fix: after rebuildSvgInPlace, the structure is
+    //   svg > g.validation-modeswitch-e2q5 > g[transform="translate(margin)"]
+    // so we must drill into the INNER plot g for new annotations to land at the
+    // bars' coordinate system (yScale(70) is relative to inner plot).
+    const modeWrapper = svg.select('g.validation-modeswitch-e2q5');
+    const g = modeWrapper.empty() ? svg.select('g') : modeWrapper.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-threshold-70').remove();
+
+    const y = yScale(70);
+    g.append('line')
+        .attr('class', 'validation-threshold-70')
+        .attr('x1', 0)
+        .attr('x2', 0)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4')
+        .transition()
+        .duration(650)
+        .attr('x2', plotW);
+    g.append('text')
+        .attr('class', 'validation-threshold-70')
+        .attr('x', plotW + 6)
+        .attr('y', y)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .attr('opacity', 0)
+        .text('70')
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+
+    // Dim stacks where the total >= 70 (existing bars only — no rebuild).
+    g.selectAll('.main-bar')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () {
+            const date = this.getAttribute('data-target');
+            const total = totals.find((row) => row.date === date)?.total ?? 0;
+            return total < 70 ? 1 : 0.25;
+        });
 }
 
 export function function3({ d3, container }) {}

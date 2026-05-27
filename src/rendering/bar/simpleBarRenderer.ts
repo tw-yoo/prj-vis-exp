@@ -6,9 +6,10 @@ import { applyAxisTickLabelSize } from '../common/d3Helpers'
 import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } from '../common/chartHoverTooltip'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
-import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveLayoutModel, estimateBottomPaddingForRotatedLabels } from '../common/chartLayout'
 import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
+import { composeSimpleMarkKey } from '../common/markKey'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 import { bumpRenderEpoch } from '../common/renderEpoch'
 import { storeRuntimeChartState } from '../utils/runtimeChartState'
@@ -286,7 +287,15 @@ export async function renderSimpleBarChart(
     domainMax = Math.max(0, Number.isFinite(maxY) ? (maxY as number) : 0)
     if (domainMin === domainMax) domainMax = domainMin + 1
   }
-  const initialLayout = resolveLayoutModel({ container, chartType: ChartType.SIMPLE_BAR, spec })
+  const minBottomPadding = estimateBottomPaddingForRotatedLabels(
+    xDomain.map((category) => xLabelMap.get(category) ?? category),
+  )
+  const initialLayout = resolveLayoutModel({
+    container,
+    chartType: ChartType.SIMPLE_BAR,
+    spec,
+    minBottomPadding,
+  })
   const svg = renderWithMeasuredLayout(
     container,
     initialLayout,
@@ -361,6 +370,7 @@ export async function renderSimpleBarChart(
         .attr(DataAttributes.Value, (d) => Number(d[yField]))
         .attr(DataAttributes.XValue, (d) => xLabelMap.get(String(d[xField])) ?? String(d[xField]))
         .attr(DataAttributes.YValue, (d) => formatTooltipValue(Number(d[yField])))
+        .attr(DataAttributes.MarkKey, (d) => composeSimpleMarkKey(String(d[xField])))
 
       if (resolvedXAxisLabel) {
         nextSvg

@@ -82,6 +82,14 @@ function injectChartStyles() {
 }
 
 export function renderValidationSimpleBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectChartStyles();
 
     const data = data_rows;
@@ -149,6 +157,7 @@ export function renderValidationSimpleBarChart({ container }) {
         })
         .attr('height', (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
         .attr('fill', '#69b3a2')
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => Number(d[yField]))
         .attr('data-x-value', (d) => String(d[xField]))
@@ -270,8 +279,6 @@ export function function1({ d3, container }) {
         .attr('class', 'sum-segment main-bar')
         .attr('x', sumX)
         .attr('width', barW)
-        .attr('y', plotH)
-        .attr('height', 0)
         .attr('fill', (d) => d.color)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => d.value)
@@ -284,8 +291,6 @@ export function function1({ d3, container }) {
         .attr('class', 'baseline-bar main-bar')
         .attr('x', baselineX)
         .attr('width', barW)
-        .attr('y', plotH)
-        .attr('height', 0)
         .attr('fill', '#9ca3af')
         .attr('data-target', 'Baseline')
         .attr('data-value', baselineValue)
@@ -321,4 +326,53 @@ export function function1({ d3, container }) {
 
     legendItems
         .style('opacity', 1);
+}
+
+// Theme J (#33 round 3): implement function2 — draw a red horizontal reference
+// line at the baseline value (read from the 'Baseline' bar), spanning the full
+// plot width and labeled on the right.
+export function function2({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g.validation-function1-layer');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q1-baseline-line, .validation-q1-baseline-label').remove();
+
+    const baselineNode = g.select('rect.baseline-bar').node();
+    if (!baselineNode) return;
+    const baselineValue = Number(baselineNode.getAttribute('data-value'));
+    const baselineY = Number(baselineNode.getAttribute('y'));
+
+    const viewBox = svg.attr('viewBox') || '0 0 640 360';
+    const [, , width] = viewBox.split(/\s+/).map(Number);
+    const margin = { top: 32, right: 132, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+
+    g.append('line')
+        .attr('class', 'validation-q1-baseline-line')
+        .attr('x1', 0)
+        .attr('x2', 0)
+        .attr('y1', baselineY)
+        .attr('y2', baselineY)
+        .attr('stroke', '#dc2626')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4')
+        .transition()
+        .duration(650)
+        .attr('x2', plotW);
+
+    g.append('text')
+        .attr('class', 'validation-q1-baseline-label')
+        .attr('x', plotW + 6)
+        .attr('y', baselineY)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#dc2626')
+        .attr('opacity', 0)
+        .text(`baseline = ${baselineValue.toLocaleString()}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
 }

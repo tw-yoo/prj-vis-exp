@@ -71,6 +71,14 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const yField = 'Percentage of internet users';
 
@@ -159,6 +167,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -208,8 +217,186 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getQ4Geometry(d3) {
+    const xField = 'Year';
+    const yField = 'Percentage of internet users';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xDomain = data_rows.map((d) => String(d[xField]));
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    const minY = d3.min(yValues) ?? 0;
+    const maxY = d3.max(yValues) ?? 1;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear().domain([minY, maxY]).nice().range([plotH, 0]);
+    return { xField, yField, plotW, plotH, xScale, yScale, xDomain };
+}
 
-export function function2({ d3, container }) {}
+function getQ4Averages() {
+    const yField = 'Percentage of internet users';
+    const upTo = data_rows.filter((d) => Number(d.Year) <= 2010);
+    const from = data_rows.filter((d) => Number(d.Year) >= 2011);
+    const avg = (rows) => rows.reduce((s, r) => s + Number(r[yField]), 0) / Math.max(rows.length, 1);
+    return { avgUpTo: avg(upTo), avgFrom: avg(from) };
+}
 
-export function function3({ d3, container }) {}
+function ensureQ4ArrowMarker(svg) {
+    if (!svg.select('defs#e3-q4-defs').empty()) return;
+    const defs = svg.append('defs').attr('id', 'e3-q4-defs');
+    defs.append('marker')
+        .attr('id', 'e3-q4-arrow')
+        .attr('viewBox', '0 0 10 10')
+        .attr('refX', 5)
+        .attr('refY', 5)
+        .attr('markerWidth', 5)
+        .attr('markerHeight', 5)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+        .attr('fill', '#ef4444');
+}
+
+export function function1({ d3, container }) {
+    const { plotW, plotH, xScale } = getQ4Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q4-era-tint, .validation-q4-era-divider').remove();
+
+    const x2010 = xScale('2010') ?? 0;
+    const x2011 = xScale('2011') ?? 0;
+    const dividerX = (x2010 + x2011) / 2;
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q4-era-tint')
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr('width', dividerX)
+        .attr('height', plotH)
+        .attr('fill', '#f3f4f6')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.6);
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q4-era-tint')
+        .attr('x', dividerX)
+        .attr('y', 0)
+        .attr('width', plotW - dividerX)
+        .attr('height', plotH)
+        .attr('fill', '#dbeafe')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.5);
+
+    g.append('line')
+        .attr('class', 'validation-q4-era-divider')
+        .attr('x1', dividerX)
+        .attr('x2', dividerX)
+        .attr('y1', 0)
+        .attr('y2', 0)
+        .attr('stroke', '#6b7280')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '4 4')
+        .transition()
+        .duration(650)
+        .attr('y2', plotH);
+}
+
+export function function2({ d3, container }) {
+    const { plotW, xScale, yScale } = getQ4Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q4-avg-line, .validation-q4-avg-label').remove();
+
+    const { avgUpTo, avgFrom } = getQ4Averages();
+    const x2010 = xScale('2010') ?? 0;
+    const x2011 = xScale('2011') ?? 0;
+    const dividerX = (x2010 + x2011) / 2;
+
+    const drawAvg = (avg, x1, x2, side) => {
+        const y = yScale(avg);
+        g.append('line')
+            .attr('class', 'validation-q4-avg-line')
+            .attr('data-side', side)
+            .attr('x1', x1)
+            .attr('x2', x1)
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', '#ef4444')
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', '5 4')
+            .transition()
+            .duration(650)
+            .attr('x2', x2);
+        g.append('text')
+            .attr('class', 'validation-q4-avg-label')
+            .attr('data-side', side)
+            .attr('x', side === 'left' ? x1 + 4 : x2 - 4)
+            .attr('y', y - 6)
+            .attr('text-anchor', side === 'left' ? 'start' : 'end')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 12)
+            .attr('font-weight', 700)
+            .attr('fill', '#ef4444')
+            .attr('opacity', 0)
+            .text(`avg ${side === 'left' ? '≤2010' : '≥2011'} = ${avg.toFixed(1)}`)
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
+    };
+
+    drawAvg(avgUpTo, 0, dividerX, 'left');
+    drawAvg(avgFrom, dividerX, plotW, 'right');
+}
+
+export function function3({ d3, container }) {
+    const { plotW, yScale } = getQ4Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q4-diff-arrow, .validation-q4-diff-label').remove();
+    ensureQ4ArrowMarker(svg);
+
+    const { avgUpTo, avgFrom } = getQ4Averages();
+    const yTop = yScale(avgFrom);
+    const yBot = yScale(avgUpTo);
+    const arrowX = plotW - 18;
+
+    g.append('line')
+        .attr('class', 'validation-q4-diff-arrow')
+        .attr('x1', arrowX)
+        .attr('x2', arrowX)
+        .attr('y1', yBot)
+        .attr('y2', yBot)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 2)
+        .attr('marker-end', 'url(#e3-q4-arrow)')
+        .transition()
+        .duration(650)
+        .attr('y2', yTop + 6);
+
+    g.append('text')
+        .attr('class', 'validation-q4-diff-label')
+        .attr('x', arrowX - 6)
+        .attr('y', (yTop + yBot) / 2)
+        .attr('text-anchor', 'end')
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`Δ ${(avgFrom - avgUpTo).toFixed(1)}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

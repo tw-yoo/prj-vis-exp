@@ -9,6 +9,14 @@ import { getActiveSurfaces } from '../domain/surface/surfaceLayout'
 const SPLIT_SURFACE_GAP_PX = 10
 const SPLIT_DEBUG_PREFIX = '[split-simple-bar-debug]'
 
+/**
+ * Animation duration for the single → split transition. The source host
+ * shrinks (flex: 1 → 0) + fades out while the two new split hosts grow
+ * (flex: 0 → 1) + fade in over this many ms. Affects every chart type
+ * because all splits go through `splitSurface()`.
+ */
+const SPLIT_ANIMATION_MS = 600
+
 function isSplitDebugEnabled() {
   return Boolean((globalThis as typeof globalThis & { __OPERATION_NEXT_DEBUG__?: unknown }).__OPERATION_NEXT_DEBUG__)
 }
@@ -152,25 +160,51 @@ export class SurfaceManager {
     const idA = options?.idA ?? 'A'
     const idB = options?.idB ?? 'B'
 
-    // root host의 기존 SVG 숨기기. root host가 별도 child인 경우에는
-    // split flex item으로 공간을 차지하지 않도록 host 자체도 숨긴다.
     const sourceHost = this.asHostElement(source)
     const existingSvg = sourceHost.querySelector<SVGElement>('svg')
-    if (existingSvg) existingSvg.style.display = 'none'
-    if (sourceHost !== this.rootContainer) {
-      sourceHost.style.display = 'none'
-    }
+    const sourceHostIsRootContainer = sourceHost === this.rootContainer
     splitDebug('surfaceManager.splitSurface-before-hosts', {
       orientation,
       root: summarizeHost(this.rootContainer),
       source: summarizeHost(sourceHost),
-      sourceHostIsRootContainer: sourceHost === this.rootContainer,
-      existingSvgHidden: Boolean(existingSvg),
+      sourceHostIsRootContainer,
+      existingSvgHidden: false,
     })
 
+    // -----------------------------------------------------------------------
+    // Animated split (reviewer feedback on case 0s6zi9dyw22qo4rp):
+    //   "split시 애니메이션이 전혀 없어서 너무 어색함. ... 갈라지는 애니메이션이
+    //    있어야 함."
+    //
+    // Strategy: keep the source host visible at its current width, build the
+    // two new split hosts at flex:0/opacity:0, switch the root container to
+    // flex layout, then in the next frame transition flex/opacity so the
+    // source shrinks + fades out while the new hosts grow + fade in. After
+    // the transition settles, hide the source SVG and drop transition
+    // styles. Generic across chart types — every chart routes through this
+    // method.
+    // -----------------------------------------------------------------------
+
+    // 1. Create + style the two split hosts with their transition baseline
+    //    (zero size, invisible). Keep `overflow: hidden` so children don't
+    //    spill while flex grows.
     const hostA = this.createSplitHost(idA)
     const hostB = this.createSplitHost(idB)
 
+    const setupSplitHostInitial = (host: HTMLElement) => {
+      host.style.flex = '0 0 0'
+      host.style.minWidth = '0'
+      host.style.minHeight = '0'
+      host.style.overflow = 'hidden'
+      host.style.opacity = '0'
+      host.style.transition = `flex ${SPLIT_ANIMATION_MS}ms ease-out, opacity ${SPLIT_ANIMATION_MS}ms ease-out`
+    }
+    setupSplitHostInitial(hostA)
+    setupSplitHostInitial(hostB)
+
+    // 2. Build the new surfaces (each runs its base renderer inside its
+    //    host's SVG). They draw at flex:0 so they're invisible until the
+    //    transition opens up the flex slots.
     const surfaceA = this.buildSurface(
       idA,
       hostA,
@@ -191,10 +225,82 @@ export class SurfaceManager {
 
     const layoutType = orientation === 'horizontal' ? 'split-horizontal' : 'split-vertical'
     this.layout = { type: layoutType, surfaces: [surfaceA, surfaceB], gap: SPLIT_SURFACE_GAP_PX }
-    this.applyLayoutStyles()
+
+    // 3. Switch the root container to flex layout WITHOUT calling
+    //    applyLayoutStyles (which would set sourceHost display:none + flex:0
+    //    immediately, killing the transition). Inline the parts we need.
+    this.rootContainer.classList.add('surface-layout--split')
+    const gap = SPLIT_SURFACE_GAP_PX
+    this.rootContainer.style.display = 'flex'
+    this.rootContainer.style.gap = `${gap}px`
+    this.rootContainer.style.columnGap = `${gap}px`
+    this.rootContainer.style.rowGap = `${gap}px`
+    this.rootContainer.style.flexDirection = orientation === 'horizontal' ? 'row' : 'column'
+
+    // 4. Source host: install the same transition + start at flex:1 (current
+    //    full width). The SVG inside gets its own opacity transition so the
+    //    chart visually fades out as the host shrinks.
+    if (!sourceHostIsRootContainer) {
+      sourceHost.style.transition = `flex ${SPLIT_ANIMATION_MS}ms ease-out, opacity ${SPLIT_ANIMATION_MS}ms ease-out`
+      sourceHost.style.flex = '1 1 0'
+      sourceHost.style.minWidth = '0'
+      sourceHost.style.minHeight = '0'
+      sourceHost.style.overflow = 'hidden'
+      sourceHost.style.opacity = '1'
+    }
+    if (existingSvg) {
+      existingSvg.style.transition = `opacity ${SPLIT_ANIMATION_MS}ms ease-out`
+      existingSvg.style.opacity = '1'
+    }
+
+    // 5. Kick off the transition on the next frame. Two requestAnimationFrame
+    //    calls ensure the browser commits the initial layout (flex:1 + flex:0)
+    //    before applying the target values, so transitions run from the right
+    //    starting point.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!sourceHostIsRootContainer) {
+          sourceHost.style.flex = '0 0 0'
+          sourceHost.style.opacity = '0'
+        }
+        if (existingSvg) {
+          existingSvg.style.opacity = '0'
+        }
+        hostA.style.flex = '1 1 0'
+        hostA.style.opacity = '1'
+        hostB.style.flex = '1 1 0'
+        hostB.style.opacity = '1'
+      })
+    })
+
+    // 6. After the transition settles, hide the source SVG and clean up the
+    //    inline transition styles so subsequent layout changes (e.g. resize)
+    //    don't animate unintentionally. A small slack (+80ms) covers
+    //    browser scheduler variability.
+    const cleanup = () => {
+      if (existingSvg) {
+        existingSvg.style.display = 'none'
+        existingSvg.style.opacity = ''
+        existingSvg.style.transition = ''
+      }
+      if (!sourceHostIsRootContainer) {
+        sourceHost.style.display = 'none'
+        sourceHost.style.opacity = ''
+        sourceHost.style.transition = ''
+      }
+      hostA.style.transition = ''
+      hostA.style.overflow = ''
+      hostA.style.opacity = ''
+      hostB.style.transition = ''
+      hostB.style.overflow = ''
+      hostB.style.opacity = ''
+    }
+    setTimeout(cleanup, SPLIT_ANIMATION_MS + 80)
+
     splitDebug('surfaceManager.splitSurface-after-layout', {
       layoutType,
       gap: SPLIT_SURFACE_GAP_PX,
+      animatedMs: SPLIT_ANIMATION_MS,
       root: summarizeHost(this.rootContainer),
       hosts: [summarizeHost(hostA), summarizeHost(hostB)],
       childSurfaceIds: Array.from(this.rootContainer.querySelectorAll<HTMLElement>(':scope > [data-surface-id]')).map(

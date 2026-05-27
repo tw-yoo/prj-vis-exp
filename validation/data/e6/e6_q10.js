@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2010, Gender: 'Male', Population_Million_Inhabitants: 687.48 },
@@ -198,6 +198,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -307,11 +308,15 @@ function getPopulationDifferenceRows() {
     return csvYears.map((year) => {
         const female = Number(data_rows.find((d) => d.Year === year && d.Gender === 'Female')?.Population_Million_Inhabitants ?? 0);
         const male = Number(data_rows.find((d) => d.Year === year && d.Gender === 'Male')?.Population_Million_Inhabitants ?? 0);
+        // Per reviewer: difference should be POSITIVE (absolute value), so the
+        // bar chart in function2 goes upward and the per-year labels show
+        // magnitude rather than sign. The original (female - male) is always
+        // negative for this dataset (males > females), which is unintuitive.
         return {
             year: String(year),
             female,
             male,
-            difference: female - male,
+            difference: Math.abs(male - female),
         };
     });
 }
@@ -365,32 +370,34 @@ export function function1({ d3, container }) {
 
 export function function2({ d3, container }) {
     const differenceRows = getPopulationDifferenceRows();
-    const csvSumLabel = 'The sum of differences is -150.86 million inhabitants';
+    // Per reviewer: differences are now absolute (positive), so sum is positive.
+    const sumOfDifferences = differenceRows.reduce((s, d) => s + d.difference, 0);
+    const csvSumLabel = `The sum of differences is ${sumOfDifferences.toFixed(2)} million inhabitants`;
     const width = 640;
     const height = 360;
-    const margin = { top: 32, right: 32, bottom: 54, left: 72 };
+    // Reserve extra top margin (was 32) so the sum label sits ABOVE the bars
+    // instead of overlapping them.
+    const margin = { top: 56, right: 32, bottom: 54, left: 72 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
 
     injectMultiLineStyles();
-    container.innerHTML = '';
+
     container.classList.add('validation-multi-line-host');
 
     const xScale = d3.scaleBand()
         .domain(differenceRows.map((d) => d.year))
         .range([0, plotW])
         .padding(0.25);
-    const minY = d3.min(differenceRows, (d) => d.difference) ?? -1;
+    // Differences are positive now → y domain [0, max].
+    const maxY = d3.max(differenceRows, (d) => d.difference) ?? 0;
     const yScale = d3.scaleLinear()
-        .domain([Math.min(0, minY), 0])
+        .domain([0, maxY])
         .nice()
         .range([plotH, 0]);
     const zeroY = yScale(0);
 
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
@@ -408,35 +415,40 @@ export function function2({ d3, container }) {
         .attr('fill', '#111827')
         .text('Difference (Female - Male, million inhabitants)');
 
+    // Bars: positive differences → from baseline (zeroY) UP to yScale(value).
     g.selectAll('rect.main-bar')
         .data(differenceRows)
         .join('rect')
         .attr('class', 'main-bar')
         .attr('x', (d) => xScale(d.year))
         .attr('width', xScale.bandwidth())
-        .attr('y', zeroY)
-        .attr('height', (d) => yScale(d.difference) - zeroY)
+        .attr('y', (d) => yScale(d.difference))
+        .attr('height', (d) => zeroY - yScale(d.difference))
         .attr('fill', '#dc2626')
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.year)
         .attr('data-value', (d) => String(d.difference));
 
+    // Per-bar value labels: ABOVE each bar (y = yScale(value) - 6).
     g.selectAll('text.e6-q10-diff-label')
         .data(differenceRows)
         .join('text')
         .attr('class', 'e6-q10-diff-label')
         .attr('x', (d) => (xScale(d.year) ?? 0) + xScale.bandwidth() / 2)
-        .attr('y', (d) => yScale(d.difference) + 14)
+        .attr('y', (d) => yScale(d.difference) - 6)
         .attr('text-anchor', 'middle')
         .attr('font-size', 10)
         .attr('font-weight', 700)
         .attr('fill', '#111827')
         .text((d) => d.difference.toFixed(2));
 
+    // Sum label: ABOVE the plot (negative y inside g translated by margin.top)
+    // so it sits in the reserved top-margin area and doesn't overlap bars.
     g.append('text')
         .attr('class', 'e6-q10-sum-label')
-        .attr('x', plotW)
-        .attr('y', 6)
-        .attr('text-anchor', 'end')
+        .attr('x', plotW / 2)
+        .attr('y', -20)
+        .attr('text-anchor', 'middle')
         .attr('font-size', 13)
         .attr('font-weight', 800)
         .attr('fill', '#111827')

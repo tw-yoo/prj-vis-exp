@@ -659,25 +659,6 @@ export async function executeSurfaceActionSubstep(args: {
   }
 
   if (action === 'split') {
-    // SPLIT-DISABLED (2026-04-29): All split layout actions are temporarily
-    // disabled so every ops sequence renders in a single SVG surface.
-    // Previously this returned executed:false which triggered runFallback and
-    // bypassed all downstream run-op substeps (causing ops/ops2 to show
-    // nothing). Now we return executed:true so the substep loop continues
-    // normally: subsequent run-op substeps route branch surface IDs (e.g.
-    // 'n5_left') to the root container via the executeOpsArray IIFE guard and
-    // the ops execute on the single primary chart.
-    // To re-enable split: delete this early-return block and restore the
-    // original body from the block comment below.
-    splitDebug('visual.surfaceAction-split-disabled', {
-      context: summarizeDebugContext(args.context),
-      substep: summarizeDebugSubstep(args.substep),
-    })
-    return {
-      executed: true,
-      nextSurface: args.context.currentSurface,
-    }
-    /* SPLIT-DISABLED — original body kept verbatim for restoration:
     const branchSurfaceIds = args.substep.surface?.branchSurfaceIds
     const leftId = branchSurfaceIds?.left?.trim()
     const rightId = branchSurfaceIds?.right?.trim()
@@ -757,7 +738,6 @@ export async function executeSurfaceActionSubstep(args: {
       executed: true,
       nextSurface: 'source-chart',
     }
-    */
   }
 
   if (action === 'merge') {
@@ -1329,12 +1309,9 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
         return runFallback(result.fallbackReason ?? 'unsupported-surface')
       }
       currentSurface = result.nextSurface
-      // SPLIT-DISABLED (2026-04-29): Only arm the reveal delay when a split
-      // layout is actually active. With split disabled the split substep
-      // no-ops (executed:true, layout stays single), so isSplitLayoutActive
-      // returns false and no delay is injected before downstream substeps.
-      // Restore original condition by removing the && guard:
-      //   if (substep.surface?.surfaceAction === 'split') {
+      // Arm the reveal delay only when split layout actually came online —
+      // belt-and-suspenders in case a future change has the split substep
+      // succeed without actually activating the layout.
       if (substep.surface?.surfaceAction === 'split' && isSplitLayoutActive(context)) {
         pendingSplitReveal = true
       }

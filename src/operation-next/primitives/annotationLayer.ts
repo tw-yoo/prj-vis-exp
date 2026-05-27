@@ -2,6 +2,7 @@ import * as d3 from 'd3'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
 import { STYLES } from '../../rendering/common/d3Helpers'
 import type { AnnotationRecord } from '../chainState'
+import { RESULT_REF_ATTRIBUTE } from '../diffEndpoint'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -129,41 +130,90 @@ export function readNumberAttr(node: Element, attr: string): number | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Applies visual "context fading" at the start of a new annotation phase when
- * prior annotations from earlier operations are still present in the layer.
+ * Applies visual transitions at the start of a new annotation phase when prior
+ * annotations from earlier operations are still present in the layer. Has two
+ * modes, decided per-annotation:
  *
- * Two effects run in parallel (fire-and-forget; no await needed):
+ *   - **Still referenced**: annotations whose `operationId` is in
+ *     `referencedResultIds` (i.e. the current op or a future op consumes that
+ *     result) fade to context style — text to 0.6 opacity, filter threshold
+ *     lines to dashed + 0.4 opacity, other lines to 0.4 — and stay in the DOM.
+ *   - **Stale**: annotations whose `operationId` is NOT in
+ *     `referencedResultIds` fade to opacity 0 and are removed from the DOM. The
+ *     corresponding records are also dropped from `annotationRecords` so they
+ *     don't leak forward through the chain.
  *
- *   1. **Filter threshold line → guideline style**: if a persistent filter
- *      annotation is in the records, the corresponding `<line>` elements are
- *      transitioned to reduced opacity (0.4) and a dashed stroke so they read
- *      as reference context rather than an active result.
+ * Annotations without an `operationId` (legacy / pre-instrumented records)
+ * fall back to the previous fade-to-context behavior so they aren't
+ * accidentally yanked. The DOM-level fallback uses the same conservative rule:
+ * elements without a `data-operation-result-ref` attribute keep the older
+ * behavior.
  *
- *   2. **Previous text labels → context opacity**: all existing
- *      `text.text-annotation` nodes in the layer are faded to 0.6 so the
- *      upcoming new label stands out as the primary result.
- *
- * Call this at the TOP of `annotateAverage`, `annotateFindExtremum`, etc. —
- * before appending any new SVG elements — so the fade runs concurrently with
- * the draw of the new annotation rather than sequentially.
- *
- * @param layer            The annotation `<g>` element selection.
- * @param annotationRecords Records accumulated by earlier operations this chain.
- * @param filterClass      The CSS class of the filter annotation (chart-type-specific).
+ * @param layer              The annotation `<g>` element selection.
+ * @param annotationRecords  Records accumulated by earlier operations this
+ *                           chain. **Mutated** to drop stale entries.
+ * @param filterClass        The CSS class of the filter annotation
+ *                           (chart-type-specific).
+ * @param referencedResultIds Operation IDs (without the `ref:` prefix) that the
+ *                           current op or any future op consumes. Pass an empty
+ *                           array if no consumers remain — all prior records
+ *                           with an operationId will fade out and be removed.
+ *                           Pass `undefined` to preserve the legacy
+ *                           fade-to-context behavior across the board.
  */
 export function applyAnnotationContextTransitions(
   layer: d3.Selection<SVGGElement, unknown, d3.BaseType, unknown>,
   annotationRecords: AnnotationRecord[],
   filterClass: string,
+  referencedResultIds?: string[],
 ): void {
   const CONTEXT_TRANSITION_MS = 200
+  const REMOVAL_TRANSITION_MS = 200
   const FILTER_CONTEXT_OPACITY = 0.4
   const LABEL_CONTEXT_OPACITY = 0.6
 
-  // 1. If a persistent filter annotation exists, fade its threshold line to
-  //    guideline style (dashed + reduced opacity) so it becomes subordinate context.
-  const hasFilter = annotationRecords.some((r) => r.cssClass === filterClass && r.persistent)
-  if (hasFilter) {
+  const referencedSet = referencedResultIds == null
+    ? null
+    : new Set(referencedResultIds.map((id) => String(id).replace(/^ref:/, '').trim()).filter((id) => id.length > 0))
+
+  const isStillReferenced = (record: AnnotationRecord) => {
+    if (referencedSet == null) return true
+    if (record.operationId == null) return true
+    return referencedSet.has(record.operationId)
+  }
+
+  // 1. Fade-and-remove stale persistent annotations (those whose operationId
+  //    is no longer referenced). Select by data-operation-result-ref so only
+  //    nodes belonging to the stale op are touched.
+  const staleClasses = new Set<string>()
+  for (const record of annotationRecords) {
+    if (!record.persistent) continue
+    if (isStillReferenced(record)) continue
+    if (record.operationId == null) continue
+    staleClasses.add(record.cssClass)
+    layer
+      .selectAll<SVGElement, unknown>(`.${record.cssClass}[${RESULT_REF_ATTRIBUTE}="${record.operationId}"]`)
+      .interrupt()
+      .transition()
+      .duration(REMOVAL_TRANSITION_MS)
+      .style(SvgAttributes.Opacity, 0)
+      .remove()
+  }
+  if (staleClasses.size > 0) {
+    for (let index = annotationRecords.length - 1; index >= 0; index -= 1) {
+      const record = annotationRecords[index]
+      if (record.persistent && record.operationId != null && staleClasses.has(record.cssClass) && !isStillReferenced(record)) {
+        annotationRecords.splice(index, 1)
+      }
+    }
+  }
+
+  // 2. If a still-referenced persistent filter annotation remains, fade its
+  //    threshold line to guideline style (dashed + reduced opacity).
+  const hasReferencedFilter = annotationRecords.some(
+    (r) => r.cssClass === filterClass && r.persistent && isStillReferenced(r),
+  )
+  if (hasReferencedFilter) {
     layer
       .selectAll<SVGLineElement, unknown>(`line.${filterClass}`)
       .interrupt()
@@ -173,11 +223,10 @@ export function applyAnnotationContextTransitions(
       .attr(SvgAttributes.StrokeDasharray, STYLES.GUIDELINE.strokeDasharray)
   }
 
-  // 2. Other persistent anchor classes (diff, lagDiff, pairDiff, …): fade their
-  //    lines to reduced opacity without applying the dashed guideline style,
-  //    so they recede into context without changing their visual character.
+  // 3. Other still-referenced persistent anchor lines fade to context opacity
+  //    (no dashed style).
   for (const record of annotationRecords) {
-    if (record.persistent && record.cssClass !== filterClass) {
+    if (record.persistent && record.cssClass !== filterClass && isStillReferenced(record)) {
       layer
         .selectAll<SVGLineElement, unknown>(`line.${record.cssClass}`)
         .interrupt()
@@ -187,10 +236,18 @@ export function applyAnnotationContextTransitions(
     }
   }
 
-  // 3. Fade all existing text annotations to context opacity so the new label
-  //    is immediately visually prominent.
+  // 4. Fade remaining text annotations to context opacity (skipping the ones
+  //    already removed in step 1).
   layer
     .selectAll<SVGTextElement, unknown>(`text.${SvgClassNames.TextAnnotation}`)
+    .filter(function () {
+      const ref = this.getAttribute(RESULT_REF_ATTRIBUTE)
+      if (ref != null && referencedSet != null && !referencedSet.has(ref)) {
+        // Stale text already in the process of being removed in step 1.
+        return false
+      }
+      return true
+    })
     .interrupt()
     .transition()
     .duration(CONTEXT_TRANSITION_MS)

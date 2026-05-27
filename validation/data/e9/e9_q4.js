@@ -82,6 +82,14 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const yField = 'Number of people in millions';
 
@@ -170,6 +178,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -231,7 +240,10 @@ export function function1({ d3, container }) {
     const svgNode = svg.node();
     const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
     const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 32, bottom: 56, left: 56 };
+    // R11 (round 3): reserve extra top margin for the summary title.
+    // Round 6 fix: reserve right margin so the (2000/2020) legend sits OUTSIDE
+    // the plot area, not overlapping the 2010 bar's right edge.
+    const margin = { top: 48, right: 88, bottom: 56, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
 
@@ -340,8 +352,6 @@ export function function1({ d3, container }) {
             .attr('class', `main-bar segment-${bar.type}`)
             .attr('x', x)
             .attr('width', barW)
-            .attr('y', plotH)
-            .attr('height', 0)
             .attr('fill', (d) => d.color)
             .attr('data-target', (d) => d.barLabel)
             .attr('data-value', (d) => d.total)
@@ -351,48 +361,52 @@ export function function1({ d3, container }) {
         .attr('y', (d) => yScale(d.y1))
             .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)));
     });
+
+    // Theme K (#36 round 3): legend explaining which color = 2000, which = 2020.
+    const legendData = [
+        { label: `${minRow[xField]}`, color: '#93c5fd' },
+        { label: `${maxRow[xField]}`, color: '#1d4ed8' },
+    ];
+    // Place legend in the reserved right margin (plotW + 12), well clear of bars.
+    const legendG = g.append('g')
+        .attr('class', 'validation-q4-legend')
+        .attr('transform', `translate(${plotW + 12}, 6)`);
+    legendData.forEach((row, i) => {
+        const ry = i * 18;
+        legendG.append('rect')
+            .attr('x', 0)
+            .attr('y', ry)
+            .attr('width', 12)
+            .attr('height', 12)
+            .attr('rx', 2)
+            .attr('fill', row.color);
+        legendG.append('text')
+            .attr('x', 18)
+            .attr('y', ry + 10)
+            .attr('font-size', 11)
+            .attr('font-family', 'sans-serif')
+            .attr('fill', '#111827')
+            .text(row.label);
+    });
+
+    // R11 (round 3): function1 draws the full comparison label too.
+    g.append('text')
+        .attr('class', 'validation-q4-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#dc2626')
+        .text(`Average ${averageValue.toFixed(3)} ${averageValue > targetValue ? '>' : '<'} 2010 (${targetValue.toFixed(2)})`);
 }
 
+// R11 (round 3): function2 / function3 re-apply function1's complete visual idempotently.
 export function function2({ d3, container }) {
-    const svg = d3.select(container).select('svg');
-    const mLeft = +svg.attr('data-m-left') || 0;
-    const mTop = +svg.attr('data-m-top') || 0;
+    function1({ d3, container });
+}
 
-    svg.selectAll('circle[data-target]')
-        .attr('r', (p) => p.target === 'Jun' || p.target === 'Jul' ? 8 : 4)
-        .attr('fill', (p) => p.target === 'Jun' || p.target === 'Jul' ? '#ef4444' : '#bfdbfe')
-        .attr('opacity', (p) => p.target === 'Jun' || p.target === 'Jul' ? 1 : 0.25)
-        .attr('stroke', (p) => p.target === 'Jun' || p.target === 'Jul' ? '#111827' : '#ffffff')
-        .attr('stroke-width', (p) => p.target === 'Jun' || p.target === 'Jul' ? 2.5 : 1.5);
-
-    svg.select('.main-line')
-        .attr('stroke', '#bfdbfe')
-        .attr('opacity', 0.4);
-
-    svg.selectAll('.step-annotation-2').remove();
-
-    const junCircle = svg.select('circle[data-target="Jun"]');
-    const julCircle = svg.select('circle[data-target="Jul"]');
-    const x1 = mLeft + (+junCircle.attr('cx') || 0);
-    const y1 = mTop + (+junCircle.attr('cy') || 0);
-    const x2 = mLeft + (+julCircle.attr('cx') || 0);
-    const y2 = mTop + (+julCircle.attr('cy') || 0);
-
-    svg.append('line')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x1', x1).attr('y1', y1)
-        .attr('x2', x2).attr('y2', y2)
-        .attr('stroke', '#ef4444')
-        .attr('stroke-width', 4)
-        .attr('stroke-linecap', 'round');
-
-    svg.append('text')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x', (x1 + x2) / 2)
-        .attr('y', Math.min(y1, y2) - 18)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', 14)
-        .attr('font-weight', 700)
-        .attr('fill', '#ef4444')
-        .text('function2: compare Jun to Jul');
+export function function3({ d3, container }) {
+    function1({ d3, container });
 }

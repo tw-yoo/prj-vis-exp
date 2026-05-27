@@ -586,9 +586,7 @@
     "e9_q4": {
       "question": "Is the average of the minimum and maximum values greater compared to the value in 2010?",
       "explanation": {
-        "function1": "Identify the minimum value (1.88 in 2000) and the maximum value (2.71 in 2020).",
-        "function2": "Compute their average, which is about 2.295.",
-        "function3": "Compare this to the 2010 value (2.39). Since 2.295 is less than 2.39, the average of the minimum and maximum is not greater than the 2010 value."
+        "function1": "Identify the minimum value (1.88 in 2000) and the maximum value (2.71 in 2020). Compute their average, which is about 2.295. Compare this to the 2010 value (2.39). Since 2.295 is less than 2.39, the average of the minimum and maximum is not greater than the 2010 value."
       }
     },
     "e9_q5": {
@@ -602,9 +600,7 @@
     "e9_q6": {
       "question": "What is the difference of the sum of sales between the first six years and the last six years?",
       "explanation": {
-        "function1": "Add the sales volumes for the first six years (2008–2013) to get 813,431 tonnes.",
-        "function2": "Add the sales volumes for the last six years (2014–2019) to get 598,516 tonnes.",
-        "function3": "Subtract the latter total from the former to find the difference, which is 214,915 tonnes."
+        "function1": "Add the sales volumes for the first six years (2008–2013) to get 813,431 tonnes. Add the sales volumes for the last six years (2014–2019) to get 598,516 tonnes. Subtract the latter total from the former to find the difference, which is 214,915 tonnes."
       }
     },
     "e9_q7": {
@@ -617,24 +613,19 @@
     "e9_q8": {
       "question": "Is the difference between Alaska's 2000 value and 2020 value greater than Total's 2020 minus 2000 value?",
       "explanation": {
-        "function1": "Read Alaska’s production in 2000 (0.97) and 2020 (0.49) and compute the change as 0.97 − 0.49 = 0.48.",
-        "function2": "Then read Total’s production in 2000 (5.82) and 2020 (6.7) and compute the increase as 6.7 − 5.82 = 0.88.",
-        "function3": "Compare the two differences: 0.48 is smaller than 0.88, so Alaska’s change is not greater."
+        "function1": "Read Alaska’s production in 2000 (0.97) and 2020 (0.49) and compute the change as 0.97 − 0.49 = 0.48. Then read Total’s production in 2000 (5.82) and 2020 (6.7) and compute the increase as 6.7 − 5.82 = 0.88. Compare the two differences: 0.48 is smaller than 0.88, so Alaska’s change is not greater."
       }
     },
     "e9_q9": {
       "question": "What year did the greatest total change in us dollars per what occur?",
       "explanation": {
-        "function1": "Group the data by year (2016–2020). For each year, compute the total change by taking the difference between the first quarter’s price and the last quarter’s price available in that year (using Q1 to Q4 when all quarters exist; for 2020, use Q1 to Q3 since Q4 is missing).",
-        "function2": "The year 2016 drops from 0.63 (Q1) to 0.39 (Q4), a change of 0.24, which is larger than the total changes in 2017 (0.07), 2018 (0.14), 2019 (0.05), and 2020 (0.03)."
+        "function1": "Group the data by year (2016–2020). For each year, compute the total change by taking the difference between the first quarter’s price and the last quarter’s price available in that year (using Q1 to Q4 when all quarters exist; for 2020, use Q1 to Q3 since Q4 is missing). The year 2016 drops from 0.63 (Q1) to 0.39 (Q4), a change of 0.24, which is larger than the total changes in 2017 (0.07), 2018 (0.14), 2019 (0.05), and 2020 (0.03)."
       }
     },
     "e9_q10": {
       "question": "What is the year when the \"Favorable view of US\" data and \"Confidence in Obama\" is the second nearest?",
       "explanation": {
-        "function1": "For each year, compare the two percentages (“Favorable view of US” vs. “Confidence in Obama”) and compute the absolute difference.",
-        "function2": "The smallest difference occurs in 2009 (44 vs 37, difference 7). The next smallest (second nearest) difference is 15, which happens in both 2010 (57 vs 41) and 2011 (56 vs 41).",
-        "function3": "Therefore, the second-nearest year is a tie between 2010 and 2011."
+        "function1": "For each year, compare the two percentages (“Favorable view of US” vs. “Confidence in Obama”) and compute the absolute difference. The smallest difference occurs in 2009 (44 vs 37, difference 7). The next smallest (second nearest) difference is 15, which happens in both 2010 (57 vs 41) and 2011 (56 vs 41). Therefore, the second-nearest year is a tie between 2010 and 2011."
       }
     }
   },

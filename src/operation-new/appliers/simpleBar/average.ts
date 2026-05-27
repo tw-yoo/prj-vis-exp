@@ -1,5 +1,6 @@
 import { averageData } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
+import { DataAttributes } from '../../../rendering/interfaces'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import {
   RESULT_REF_ATTRIBUTE,
@@ -33,9 +34,9 @@ export const averageApplier: OperationApplier<SimpleBarChartInstance> = {
     }
 
     const layer = instance.annotationLayer
-    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
-
     const referencedResultIds = options?.referencedResultIds
+    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, referencedResultIds)
+
     const persistent = isOperationResultReferenced(operation, referencedResultIds)
     if (!persistent) {
       fadeRemoveAnnotations(layer, AVERAGE_ANNOTATION_CLASS)
@@ -52,8 +53,44 @@ export const averageApplier: OperationApplier<SimpleBarChartInstance> = {
     }
 
     const averageY = valueToRootY(instance, average)
-    const x1 = instance.layout.marginLeft
-    const x2 = instance.layout.marginLeft + instance.layout.plotWidth
+
+    // SVG attribute is the source-of-truth for the plot's left edge within
+    // its SVG coordinate system. `instance.layout.marginLeft` can drift away
+    // from the SVG when a compacted shared-y-axis surface gets its layout
+    // mutated for cross-surface alignment (case 0s6zi9dyw22qo4rp ops2:n4 on
+    // split-right: data-m-left="0" on the SVG but instance.layout.marginLeft
+    // was the compact-offset, putting the average line outside the plot).
+    // Reading the attribute directly keeps the annotation aligned with the
+    // plot regardless of which path populated `layout`.
+    const svgNode = instance.svg.node()
+    const svgMarginLeftAttr = svgNode?.getAttribute(DataAttributes.MarginLeft)
+    const svgMarginLeft =
+      svgMarginLeftAttr != null && Number.isFinite(Number(svgMarginLeftAttr))
+        ? Number(svgMarginLeftAttr)
+        : instance.layout.marginLeft
+    const x1 = svgMarginLeft
+    const x2 = svgMarginLeft + instance.layout.plotWidth
+
+    // Detailed diagnostic logging — helps confirm which marginLeft path was
+    // taken when annotations land in unexpected positions on split/compacted
+    // surfaces. Safe to leave in: console.info is cheap and only fires per op.
+    console.info('[operation-new] bar applier:average DEBUG geometry', {
+      nodeId: operation.meta?.nodeId,
+      instanceMarginLeft: instance.layout.marginLeft,
+      instanceMarginTop: instance.layout.marginTop,
+      plotWidth: instance.layout.plotWidth,
+      plotHeight: instance.layout.plotHeight,
+      svgMarginLeftAttr,
+      svgMarginLeftResolved: svgMarginLeft,
+      compactOffsetAttr: svgNode?.getAttribute('data-shared-y-axis-compact-offset'),
+      averageValue: average,
+      averageY,
+      x1,
+      x2,
+      svgViewBox: svgNode?.getAttribute('viewBox'),
+      surfaceLayoutType: options?.surfaceManager?.getLayout()?.type ?? null,
+    })
+
     const viewport = resolveBarAnnotationViewport(instance)
 
     // Either dim-mode (salienceMap populated) or remove-mode (filterContext set

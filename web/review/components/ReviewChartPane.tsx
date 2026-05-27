@@ -12,10 +12,8 @@ type Props = {
   stale: boolean
   selectedChartId: string | null
   canRender: boolean
-  canRunOps: boolean
   onRerender: () => void
   onResetChart: () => void
-  onRunOps: () => void
 }
 
 function statusLabel(status: ChartPaneStatus): string {
@@ -25,16 +23,16 @@ function statusLabel(status: ChartPaneStatus): string {
     case 'loading':
       return 'Loading…'
     case 'rendered':
-      return 'Rendered from ChartQA.'
+      return ''
     case 'ran-ops':
-      return 'Operation spec executed.'
+      return ''
     case 'error':
       return `Error: ${status.message}`
   }
 }
 
 function ReviewChartPaneImpl(props: Props, ref: Ref<HTMLDivElement>) {
-  const { status, stale, selectedChartId, canRender, canRunOps } = props
+  const { status, stale, selectedChartId, canRender } = props
   return (
     <div className="card review-chart-card">
       <div className="card-header">
@@ -61,14 +59,6 @@ function ReviewChartPaneImpl(props: Props, ref: Ref<HTMLDivElement>) {
           >
             Re-render
           </button>
-          <button
-            type="button"
-            className="pill-btn"
-            onClick={props.onRunOps}
-            disabled={!canRunOps}
-          >
-            Run ops
-          </button>
         </div>
       </div>
       {stale ? (
@@ -77,7 +67,16 @@ function ReviewChartPaneImpl(props: Props, ref: Ref<HTMLDivElement>) {
         </div>
       ) : null}
       <div className="review-chart-status">{statusLabel(status)}</div>
-      <div className="review-chart-host chart-host" ref={ref} />
+      {/* chart-stage + chart-stage-viewport + chart-stage-summary-slot:
+       * mirrors the workbench layout so the shared `renderSentenceSummaryOverlay`
+       * helper (src/api/sentence-summary-overlay) can mount its sentence-list
+       * UI in the same slot we use elsewhere. */}
+      <div className="chart-stage">
+        <div className="chart-stage-viewport">
+          <div className="review-chart-host chart-host" ref={ref} />
+        </div>
+        <div className="chart-stage-summary-slot" data-summary-overlay-slot="true" />
+      </div>
     </div>
   )
 }

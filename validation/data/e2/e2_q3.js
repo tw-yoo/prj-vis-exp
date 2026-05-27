@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2009, Region: 'North America', 'Media rights revenue in billion US dollars': 8.61 },
@@ -96,6 +96,14 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Region';
     const yField = 'Media rights revenue in billion US dollars';
@@ -186,6 +194,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -265,8 +274,18 @@ function getRegionRows() {
 }
 
 function renderSelectedRegionGroupedChart({ d3, container, rows }) {
+    // Smooth-transition implementation: instead of wiping the SVG and rebuilding,
+    // operate on the EXISTING bars from the base render. D3's enter/update/exit
+    // join with a stable key (`year|region`) keeps surviving bars in place and
+    // smoothly resizes/repositions them. Exiting bars (the 2 non-selected
+    // regions: Europe..., Asia Pacific) fade out. Axes also transition.
+    const selectedRegions = ['North America', 'Latin America'];
     const xDomain = Array.from(new Set(rows.map((d) => String(d.Year))));
     const seriesDomain = Array.from(new Set(rows.map((d) => String(d.Region))));
+    // Per reviewer (round-2 row 3): each region must keep the color the BASE render assigned to it.
+    // Look up indices in the FULL seriesDomain (all 4 regions from data_rows).
+    const fullSeriesDomain = Array.from(new Set(data_rows.map((d) => String(d.Region))));
+    const baseColor = (region) => resolveSeriesColor(fullSeriesDomain, region);
     const yField = 'Media rights revenue in billion US dollars';
     const width = 640;
     const height = 360;
@@ -279,98 +298,216 @@ function renderSelectedRegionGroupedChart({ d3, container, rows }) {
     const innerScale = d3.scaleBand().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.08);
     const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => Number(d[yField])) ?? 0]).nice().range([plotH, 0]);
 
-    container.innerHTML = '';
     container.classList.add('validation-grouped-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
 
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
+    // Locate the plot g — handle both base structure (`svg > g[translate]`) and
+    // any leftover modeswitch wrapper from a previous round's rebuildSvgInPlace
+    // run (`svg > g.validation-modeswitch-e2q3a > g`).
+    let g = svg.select('g.validation-modeswitch-e2q3a');
+    g = g.empty() ? svg.select('g') : g.select('g');
+    if (g.empty()) return;
+
+    const duration = 700;
+
+    // Smoothly transition axes
+    g.select('.y-axis').transition().duration(duration).call(d3.axisLeft(yScale).ticks(5));
+    g.select('.x-axis').transition().duration(duration).call(d3.axisBottom(xScale));
+
+    // Build the new data set (only selected regions)
+    const newData = rows.map((d) => ({
+        target: String(d.Year),
+        series: String(d.Region),
+        value: Number(d[yField]),
+    }));
+
+    const newX = (d) => (xScale(d.target) ?? 0) + (innerScale(d.series) ?? 0);
+    const newW = () => innerScale.bandwidth();
+    const newY = (d) => yScale(d.value);
+    const newH = (d) => Math.max(0, plotH - yScale(d.value));
+
+    // D3 join with `year|region` key so bars that exist on both sides smoothly
+    // UPDATE; bars only on one side ENTER (fade in) or EXIT (fade out).
+    const keyFn = function (d) {
+        if (d && d.target != null) return `${d.target}|${d.series}`;
+        return `${this.getAttribute('data-target')}|${this.getAttribute('data-series')}`;
+    };
 
     g.selectAll('rect.main-bar')
-        .data(rows)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => (xScale(String(d.Year)) ?? 0) + (innerScale(String(d.Region)) ?? 0))
-        .attr('width', innerScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.Region))
-        .attr('data-target', (d) => String(d.Year))
-        .attr('data-series', (d) => String(d.Region))
-        .attr('data-value', (d) => Number(d[yField]))
-        .transition()
-        .duration(700)
-        .attr('y', (d) => yScale(Number(d[yField])))
-        .attr('height', (d) => plotH - yScale(Number(d[yField])));
+        .data(newData, keyFn)
+        .join(
+            (enter) => enter.append('rect')
+                .attr('class', 'main-bar')
+                .attr('x', newX)
+                .attr('width', newW)
+                .attr('y', newY)
+                .attr('height', newH)
+                .attr('fill', (d) => baseColor(d.series))
+                .attr('opacity', 0)
+                .attr('data-target', (d) => d.target)
+                .attr('data-series', (d) => d.series)
+                .attr('data-value', (d) => d.value)
+                .call((sel) => sel.transition().duration(duration).attr('opacity', 1)),
+            (update) => update
+                .call((sel) => sel.transition().duration(duration)
+                    .attr('x', newX)
+                    .attr('width', newW)
+                    .attr('y', newY)
+                    .attr('height', newH)
+                    .attr('fill', (d) => baseColor(d.series))
+                    .attr('opacity', 1)
+                ),
+            (exit) => exit
+                .call((sel) => sel.transition().duration(Math.round(duration * 0.7))
+                    .attr('opacity', 0)
+                    .remove()
+                ),
+        );
 
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
-    seriesDomain.forEach((region, index) => {
-        const y = index * 30 + 10;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, region));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 14).text(region);
+    // Smooth-update the legend: keep matching region rows, fade out the rest.
+    // Legend lives at the svg root level (sibling of plot g).
+    let legend = svg.select('g.color-legend');
+    if (legend.empty()) {
+        legend = svg.append('g')
+            .attr('class', 'color-legend')
+            .attr('transform', `translate(${margin.left + plotW + legendOffsetX},${margin.top})`);
+    }
+    const legendRowH = 30;
+    const seenRegions = new Set();
+    legend.selectAll('text').nodes().forEach((textEl) => {
+        const region = textEl.textContent;
+        seenRegions.add(region);
+        const circleEl = textEl.previousElementSibling;
+        if (selectedRegions.includes(region)) {
+            const newIndex = selectedRegions.indexOf(region);
+            const newY = newIndex * legendRowH + 10;
+            d3.select(textEl).transition().duration(duration).attr('y', newY).attr('opacity', 1);
+            if (circleEl) {
+                d3.select(circleEl).transition().duration(duration).attr('cy', newY).attr('opacity', 1);
+            }
+        } else {
+            d3.select(textEl).transition().duration(Math.round(duration * 0.7))
+                .attr('opacity', 0)
+                .on('end', function () { this.remove(); });
+            if (circleEl) {
+                d3.select(circleEl).transition().duration(Math.round(duration * 0.7))
+                    .attr('opacity', 0)
+                    .on('end', function () { this.remove(); });
+            }
+        }
+    });
+    selectedRegions.forEach((region, index) => {
+        if (seenRegions.has(region)) return;
+        const y = index * legendRowH + 10;
+        legend.append('circle')
+            .attr('cx', 8)
+            .attr('cy', y)
+            .attr('r', 5)
+            .attr('fill', baseColor(region))
+            .attr('opacity', 0)
+            .transition()
+            .duration(duration)
+            .attr('opacity', 1);
+        legend.append('text')
+            .attr('x', 20)
+            .attr('y', y)
+            .attr('dominant-baseline', 'middle')
+            .attr('font-size', 14)
+            .attr('opacity', 0)
+            .text(region)
+            .transition()
+            .duration(duration)
+            .attr('opacity', 1);
     });
 }
 
 function renderRegionAverageComparison({ d3, container }) {
+    // Left–right (side-by-side) dual panels per reviewer (review_e2.csv row 4).
     const rows = getRegionRows();
     const regions = ['North America', 'Latin America'];
+    // Per reviewer (round-2 row 3): preserve base palette colors.
+    const fullSeriesDomain = Array.from(new Set(data_rows.map((d) => String(d.Region))));
+    const baseColor = (region) => resolveSeriesColor(fullSeriesDomain, region);
     const years = Array.from(new Set(rows.map((d) => String(d.Year))));
     const yField = 'Media rights revenue in billion US dollars';
     const averages = regions.map((region) => ({
         region,
         average: d3.mean(rows.filter((d) => d.Region === region), (d) => Number(d[yField])) ?? 0
     }));
-    const width = 640;
-    const height = 420;
-    const margin = { top: 28, right: 70, bottom: 50, left: 56 };
-    const panelGap = 28;
-    const panelH = (height - margin.top - margin.bottom - panelGap) / 2;
-    const plotW = width - margin.left - margin.right;
-    const xScale = d3.scaleBand().domain(years).range([0, plotW]).padding(0.18);
-    const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => Number(d[yField])) ?? 0]).nice().range([panelH, 0]);
+    const width = 720;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 56, left: 56 };
+    const panelGap = 96; // room between the two panels for the Δ arrow
+    const plotH = height - margin.top - margin.bottom;
+    const innerWidth = width - margin.left - margin.right - panelGap;
+    const panelW = innerWidth / 2;
+    const xScale = d3.scaleBand().domain(years).range([0, panelW]).padding(0.18);
+    const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => Number(d[yField])) ?? 0]).nice().range([plotH, 0]);
 
-    container.innerHTML = '';
     container.classList.add('validation-grouped-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    rebuildSvgInPlace({
+        d3,
+        container,
+        viewBox: `0 0 ${width} ${height}`,
+        build: (svg) => buildRegionAverageComparison({ d3, svg, regions, rows, baseColor, averages, yField, margin, panelW, panelGap, plotH, xScale, yScale, width }),
+    });
+}
+
+function buildRegionAverageComparison({ d3, svg, regions, rows, baseColor, averages, yField, margin, panelW, panelGap, plotH, xScale, yScale, width }) {
+    const root = svg.append('g')
+        .attr('class', 'validation-modeswitch-e2q3b')
+        .attr('opacity', 0);
+
+    // Animation sequence per reviewer (e2_feedback round-4 row 3):
+    //   Stage 1 (0–400ms):  show two panels (bars fade in)
+    //   Stage 2 (500–1100): both average lines draw simultaneously
+    //   Stage 3 (1200–):    difference vertical arrow connects them
+    const PANEL_BARS_DURATION = 400;
+    const AVG_LINE_DELAY = 500;
+    const AVG_LINE_DURATION = 600;
+    const DIFF_ARROW_DELAY = AVG_LINE_DELAY + AVG_LINE_DURATION + 100;
+    const DIFF_ARROW_DURATION = 700;
 
     regions.forEach((region, panelIndex) => {
-        const panelY = margin.top + panelIndex * (panelH + panelGap);
-        const g = svg.append('g').attr('transform', `translate(${margin.left},${panelY})`);
+        const panelX = margin.left + panelIndex * (panelW + panelGap);
+        const g = root.append('g').attr('transform', `translate(${panelX},${margin.top})`);
         const regionRows = rows.filter((d) => d.Region === region);
         const average = averages.find((d) => d.region === region)?.average ?? 0;
 
-        g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(3));
-        const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${panelH})`).call(d3.axisBottom(xScale));
+        g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+        const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
         autoRotateXAxisLabels(xAxis);
         g.append('text')
             .attr('x', 0)
-            .attr('y', -8)
+            .attr('y', -10)
             .attr('font-family', 'sans-serif')
             .attr('font-size', 13)
             .attr('font-weight', 700)
             .attr('fill', '#111827')
             .text(region);
 
+        // Stage 1: bars fade in.
         g.selectAll('rect.main-bar')
             .data(regionRows)
             .join('rect')
             .attr('class', 'main-bar')
             .attr('x', (d) => xScale(String(d.Year)))
             .attr('width', xScale.bandwidth())
-            .attr('y', panelH)
-            .attr('height', 0)
-            .attr('fill', panelIndex === 0 ? '#4f46e5' : '#14b8a6')
-            .transition()
-            .duration(700)
             .attr('y', (d) => yScale(Number(d[yField])))
-            .attr('height', (d) => panelH - yScale(Number(d[yField])));
+            .attr('height', (d) => plotH - yScale(Number(d[yField])))
+            .attr('fill', baseColor(region))
+            .attr('data-target', (d) => String(d.Year))
+            .attr('data-series', region)
+            .attr('data-value', (d) => Number(d[yField]))
+            .attr('opacity', 0)
+            .transition()
+            .duration(PANEL_BARS_DURATION)
+            .attr('opacity', 1);
 
+        // Stage 2: average lines (both panels start simultaneously via shared delay).
         g.append('line')
             .attr('class', 'validation-average-line')
             .attr('x1', 0)
@@ -380,26 +517,32 @@ function renderRegionAverageComparison({ d3, container }) {
             .attr('stroke', '#ef4444')
             .attr('stroke-width', 2)
             .attr('stroke-dasharray', '5 4')
+            .attr('opacity', 0)
             .transition()
-            .duration(700)
-            .attr('x2', plotW);
+            .delay(AVG_LINE_DELAY)
+            .duration(0)
+            .attr('opacity', 1)
+            .transition()
+            .duration(AVG_LINE_DURATION)
+            .attr('x2', panelW);
         g.append('text')
-            .attr('x', plotW + 8)
-            .attr('y', yScale(average))
-            .attr('dominant-baseline', 'middle')
+            .attr('x', panelW - 4)
+            .attr('y', yScale(average) - 6)
+            .attr('text-anchor', 'end')
             .attr('font-size', 12)
             .attr('font-weight', 700)
             .attr('fill', '#ef4444')
             .attr('opacity', 0)
-            .text(average.toFixed(2))
+            .text(`avg ${average.toFixed(2)}`)
             .transition()
-            .duration(700)
+            .delay(AVG_LINE_DELAY + AVG_LINE_DURATION - 200)
+            .duration(300)
             .attr('opacity', 1);
     });
 
-    const x = width - margin.right + 28;
-    const y1 = margin.top + yScale(averages[0].average);
-    const y2 = margin.top + panelH + panelGap + yScale(averages[1].average);
+    // Per reviewer (round-2 row 4): the Δ arrow must be VERTICAL — connecting the
+    // two panels' avg-line y-positions directly (panels share yScale so the y
+    // distance equals the average difference visually).
     const defs = svg.append('defs');
     defs.append('marker')
         .attr('id', 'e2-q3-arrow')
@@ -412,30 +555,83 @@ function renderRegionAverageComparison({ d3, container }) {
         .append('path')
         .attr('d', 'M 0 0 L 10 5 L 0 10 z')
         .attr('fill', '#ef4444');
-    svg.append('line')
-        .attr('x1', x)
-        .attr('x2', x)
-        .attr('y1', y1)
-        .attr('y2', y1)
+
+    const xLeftEnd = margin.left + panelW;
+    const xRightStart = margin.left + panelW + panelGap;
+    const xArrow = (xLeftEnd + xRightStart) / 2;
+    const yNA = margin.top + yScale(averages[0].average);
+    const yLA = margin.top + yScale(averages[1].average);
+
+    // Stage 3: dashed horizontal connectors + vertical Δ arrow + label
+    // (all delayed until after average lines have drawn — sequential reveal).
+    root.append('line')
+        .attr('x1', xLeftEnd)
+        .attr('x2', xLeftEnd)
+        .attr('y1', yNA)
+        .attr('y2', yNA)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-dasharray', '3 3')
+        .attr('stroke-width', 1.5)
+        .attr('opacity', 0)
+        .transition()
+        .delay(DIFF_ARROW_DELAY)
+        .duration(0)
+        .attr('opacity', 1)
+        .transition()
+        .duration(DIFF_ARROW_DURATION * 0.4)
+        .attr('x2', xArrow);
+    root.append('line')
+        .attr('x1', xRightStart)
+        .attr('x2', xRightStart)
+        .attr('y1', yLA)
+        .attr('y2', yLA)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-dasharray', '3 3')
+        .attr('stroke-width', 1.5)
+        .attr('opacity', 0)
+        .transition()
+        .delay(DIFF_ARROW_DELAY)
+        .duration(0)
+        .attr('opacity', 1)
+        .transition()
+        .duration(DIFF_ARROW_DURATION * 0.4)
+        .attr('x2', xArrow);
+
+    // The Δ vertical arrow — draws AFTER the connectors land.
+    root.append('line')
+        .attr('x1', xArrow)
+        .attr('x2', xArrow)
+        .attr('y1', yNA)
+        .attr('y2', yNA)
         .attr('stroke', '#ef4444')
         .attr('stroke-width', 2)
         .attr('marker-start', 'url(#e2-q3-arrow)')
         .attr('marker-end', 'url(#e2-q3-arrow)')
+        .attr('opacity', 0)
         .transition()
-        .duration(700)
-        .attr('y2', y2);
-    svg.append('text')
-        .attr('x', x + 8)
-        .attr('y', (y1 + y2) / 2)
+        .delay(DIFF_ARROW_DELAY + DIFF_ARROW_DURATION * 0.4)
+        .duration(0)
+        .attr('opacity', 1)
+        .transition()
+        .duration(DIFF_ARROW_DURATION * 0.6)
+        .attr('y2', yLA);
+
+    root.append('text')
+        .attr('x', xArrow + 8)
+        .attr('y', (yNA + yLA) / 2)
         .attr('dominant-baseline', 'middle')
-        .attr('font-size', 12)
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
         .attr('font-weight', 700)
         .attr('fill', '#ef4444')
         .attr('opacity', 0)
-        .text((averages[0].average - averages[1].average).toFixed(2))
+        .text(`Δ ${(averages[0].average - averages[1].average).toFixed(2)}`)
         .transition()
-        .duration(700)
+        .delay(DIFF_ARROW_DELAY + DIFF_ARROW_DURATION - 200)
+        .duration(400)
         .attr('opacity', 1);
+
+    return root;
 }
 
 export function function1({ d3, container }) {

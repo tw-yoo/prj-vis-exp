@@ -88,6 +88,13 @@ type ResolveLayoutModelInput = {
     enabled: boolean
     orientation?: 'vertical' | 'horizontal'
   }
+  /**
+   * Caller-supplied minimum bottom padding (px) needed to fit rotated x-axis
+   * tick labels. Compared with the chart-type default and the larger of the
+   * two wins. Lets renderers reserve enough room on the first pass when the
+   * raw label strings predict the iterative overflow loop would need to grow.
+   */
+  minBottomPadding?: number
 }
 
 function toPositiveNumber(value: unknown, fallback: number) {
@@ -186,6 +193,9 @@ export function resolveLayoutModel(input: ResolveLayoutModelInput): LayoutModel 
   const facetCount = Math.max(1, Math.floor(input.facet?.count ?? 1))
   const legendVisible = input.legend?.visible === true
   const basePadding = resolvePadding(spec, hints, { isLine, isBar, facetEnabled })
+  if (typeof input.minBottomPadding === 'number' && Number.isFinite(input.minBottomPadding) && input.minBottomPadding > basePadding.bottom) {
+    basePadding.bottom = input.minBottomPadding
+  }
   // Phase 4: chart-explanation-layer removed. We no longer reserve a banner
   // band at the top of the canvas — `padding.top` is whatever the renderer
   // asked for, and the explanation object below is exposed as zero-sized so
@@ -331,6 +341,36 @@ export function resolveLayoutModel(input: ResolveLayoutModelInput): LayoutModel 
 
 function clampOverflowValue(value: number) {
   return Number.isFinite(value) && value > 0 ? value : 0
+}
+
+/**
+ * Predicts the bottom padding needed to fit rotated x-axis tick labels, given
+ * the raw label strings. Used by renderers to seed `resolveLayoutModel` with
+ * `minBottomPadding` so the first paint has enough room for long labels (e.g.
+ * "Metro Western Europe**") that the autorotate step is likely to push to 90°.
+ *
+ * Conservative estimate: assume labels rotate to the worst-case angle (90°) and
+ * each character takes ~7.5px at the default 15px font. Adds a small buffer for
+ * the axis tick line + gap to the axis title.
+ */
+export function estimateBottomPaddingForRotatedLabels(labels: Array<string | null | undefined>, options?: {
+  charWidthPx?: number
+  axisTickGapPx?: number
+  axisTitleGapPx?: number
+  rotationThresholdChars?: number
+}): number {
+  const charWidth = options?.charWidthPx ?? 7.5
+  const tickGap = options?.axisTickGapPx ?? 12
+  const titleGap = options?.axisTitleGapPx ?? 32
+  const threshold = options?.rotationThresholdChars ?? 8
+  let maxLen = 0
+  for (const label of labels) {
+    const text = (label ?? '').toString().trim()
+    if (text.length > maxLen) maxLen = text.length
+  }
+  if (maxLen <= threshold) return 0
+  // sin(90°) = 1; conservative full-extent estimate.
+  return Math.ceil(maxLen * charWidth) + tickGap + titleGap
 }
 
 export function expandLayoutModel(layout: LayoutModel, overflow: Partial<LayoutOverflow>): LayoutModel {

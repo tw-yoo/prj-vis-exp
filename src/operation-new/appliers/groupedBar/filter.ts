@@ -20,15 +20,42 @@ function buildScopeKeys(result: DatumValue[]): Set<string> {
 }
 
 /**
+ * Build a `(panel, target, series) → in-scope` predicate keyed by
+ * `${panel}|${target}|${series}` to match the DOM `data-chart-id` +
+ * `data-target` + `data-series` attributes set by the grouped-bar renderer.
+ *
+ * Grouped-bar charts may be faceted (`data-chart-id` per panel) or single-
+ * panel (`data-chart-id` absent → fallback 'root'). The predicate accepts
+ * either form transparently.
+ */
+function buildCellInScopePredicate(result: DatumValue[]): (panel: string, target: string, series: string) => boolean {
+  const set = new Set<string>()
+  for (const row of result) {
+    const panel = (row.panel as string | undefined) ?? 'root'
+    const target = String(row.target)
+    const series = String(row.group ?? row.series ?? '')
+    set.add(`${panel}|${target}|${series}`)
+  }
+  return (panel, target, series) => {
+    if (set.has(`${panel}|${target}|${series}`)) return true
+    // Series may be missing on either side. Try a target-only match when the
+    // series is empty (single-series grouped chart, very rare but possible).
+    if (series === '' && set.has(`${panel}|${target}|`)) return true
+    return false
+  }
+}
+
+/**
  * grouped-bar filter applier.
  *
- * Visual: out-of-scope main-bars across every panel fade to DIM in lockstep
- * (single shared parent transition). If the filter is a measure threshold,
- * a horizontal reference line is drawn at the threshold y after the salience
- * settles.
+ * Recompose visual: surviving bars within each (panel, target) group spread
+ * across the original group span — widening to fill the gap left by removed
+ * series — while out-of-scope bars hold position and fade to opacity 0,
+ * under a single shared parent transition.
  *
- * State: workingData narrows to the filtered subset; salienceMap stores
- * per-mark identity for downstream ops (average, diff).
+ * Falls back to legacy opacity-only dim when prior persistent annotations
+ * make positional recomposition unsafe (their anchors would no longer match
+ * the bars' new x positions).
  */
 export const filterApplier: OperationApplier<GroupedBarChartInstance> = {
   op: OperationOp.Filter,
@@ -51,12 +78,26 @@ export const filterApplier: OperationApplier<GroupedBarChartInstance> = {
     fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS)
 
     const activeKeys = buildScopeKeys(result)
+    const isCellInScope = buildCellInScopePredicate(result)
 
-    await instance.transitionFilterScope({
-      activeKeys,
-      keyOf: barMarkKeyFromNode,
-      outOfScopeOpacity: OPACITIES.DIM,
-    })
+    const hasPersistentAnchor = state.annotationRecords.some((r) => r.persistent)
+    const mode: 'recompose' | 'dim' = hasPersistentAnchor ? 'dim' : 'recompose'
+
+    // Active series for legend transition.
+    const activeSeriesValues = new Set<string>(
+      result.map((d) => String(d.group ?? d.series ?? '')).filter((s) => s.length > 0),
+    )
+
+    await Promise.all([
+      instance.transitionSeriesScope({
+        isInScope: isCellInScope,
+        mode,
+        outOfScopeOpacity: OPACITIES.DIM,
+      }),
+      mode === 'recompose' && activeSeriesValues.size > 0
+        ? instance.transitionLegend({ activeSeries: activeSeriesValues })
+        : Promise.resolve(),
+    ])
 
     // Threshold reference line for numeric filters.
     const threshold = resolveBarThreshold(operation, state.workingData)

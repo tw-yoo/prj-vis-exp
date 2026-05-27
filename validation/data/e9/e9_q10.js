@@ -87,6 +87,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Metric';
     const yField = 'Percentage';
@@ -190,6 +198,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -288,7 +297,8 @@ export function function1({ d3, container }) {
     const svgNode = svg.node();
     const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
     const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 24, bottom: 56, left: 72 };
+    // R11 (round 3): reserve extra top margin for the summary title above the chart.
+    const margin = { top: 48, right: 24, bottom: 56, left: 72 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
 
@@ -372,50 +382,63 @@ export function function1({ d3, container }) {
         .attr('data-x-value', (d) => d.year)
         .attr('data-y-value', (d) => String(d.value))
         .attr('r', 4);
+
+    // R11 (round 3): function1 draws every visual chunk the explanation describes,
+    // including the smallest-diff year (2009) and the second-smallest tie (2010 + 2011).
+    const sortedByValue = [...differenceRows].sort((a, b) => a.value - b.value);
+    const smallest = sortedByValue[0];
+    const secondValue = sortedByValue.find((d) => d.value > smallest.value)?.value;
+    const secondNearest = differenceRows.filter((d) => d.value === secondValue);
+
+    g.append('circle')
+        .attr('class', 'validation-q10-smallest')
+        .attr('cx', xScale(smallest.year) ?? 0)
+        .attr('cy', yScale(smallest.value))
+        .attr('r', 8)
+        .attr('fill', 'none')
+        .attr('stroke', '#16a34a')
+        .attr('stroke-width', 2.5);
+    g.append('text')
+        .attr('class', 'validation-q10-smallest-label')
+        .attr('x', xScale(smallest.year) ?? 0)
+        .attr('y', yScale(smallest.value) - 14)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 11)
+        .attr('font-weight', 700)
+        .attr('fill', '#16a34a')
+        .text(`smallest (${smallest.year}, Δ${smallest.value})`);
+
+    secondNearest.forEach((d) => {
+        g.append('circle')
+            .attr('class', 'validation-q10-second')
+            .attr('cx', xScale(d.year) ?? 0)
+            .attr('cy', yScale(d.value))
+            .attr('r', 8)
+            .attr('fill', 'none')
+            .attr('stroke', '#dc2626')
+            .attr('stroke-width', 2.5);
+    });
+    if (secondNearest.length) {
+        const yrs = secondNearest.map((d) => d.year).join(' & ');
+        g.append('text')
+            .attr('class', 'validation-q10-second-label')
+            .attr('x', plotW / 2)
+            .attr('y', -10)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 13)
+            .attr('font-weight', 700)
+            .attr('fill', '#dc2626')
+            .text(`2nd nearest: ${yrs} (Δ${secondNearest[0].value})`);
+    }
 }
 
+// R11 (round 3): function2 / function3 re-apply function1's complete visual idempotently.
 export function function2({ d3, container }) {
-    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d.product))));
-    const svg = d3.select(container).select('svg');
-    const mLeft = +svg.attr('data-m-left') || 0;
-    const mTop = +svg.attr('data-m-top') || 0;
+    function1({ d3, container });
+}
 
-    svg.selectAll('path[data-series]')
-        .attr('opacity', (d) => d.series === 'Beta' ? 0.55 : 0.12)
-        .attr('stroke-width', (d) => d.series === 'Beta' ? 4 : 2);
-
-    svg.selectAll('circle[data-target]')
-        .attr('opacity', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 1 : 0.18)
-        .attr('r', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 8 : 3.5)
-        .attr('fill', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? '#ef4444' : resolveSeriesColor(seriesDomain, p.series))
-        .attr('stroke', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? '#111827' : '#ffffff')
-        .attr('stroke-width', (p) => p.series === 'Beta' && (p.target === 'Jul' || p.target === 'Aug') ? 2.5 : 1.5);
-
-    svg.selectAll('.step-annotation-2').remove();
-
-    // Circles are inside <g translate(mLeft, mTop)>; add margin to convert to SVG coords
-    const julCircle = svg.select('circle[data-series="Beta"][data-target="Jul"]');
-    const augCircle = svg.select('circle[data-series="Beta"][data-target="Aug"]');
-    const x1 = mLeft + (+julCircle.attr('cx') || 0);
-    const y1 = mTop + (+julCircle.attr('cy') || 0);
-    const x2 = mLeft + (+augCircle.attr('cx') || 0);
-    const y2 = mTop + (+augCircle.attr('cy') || 0);
-
-    svg.append('line')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x1', x1).attr('y1', y1)
-        .attr('x2', x2).attr('y2', y2)
-        .attr('stroke', '#ef4444')
-        .attr('stroke-width', 4)
-        .attr('stroke-linecap', 'round');
-
-    svg.append('text')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x', (x1 + x2) / 2)
-        .attr('y', Math.min(y1, y2) - 18)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', 14)
-        .attr('font-weight', 700)
-        .attr('fill', '#ef4444')
-        .text('function2: compare Jul to Aug');
+export function function3({ d3, container }) {
+    function1({ d3, container });
 }

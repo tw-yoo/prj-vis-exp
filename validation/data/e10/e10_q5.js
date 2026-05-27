@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2008, Gender: 'female', 'Life expectancy at virth in years': 72.17 },
@@ -198,6 +198,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -330,10 +331,10 @@ function renderLifeExpectancyCompositeChart({ d3, container }) {
         .range([bottomH, 0]);
 
     d3.select(container).selectAll('.validation-multi-line-tooltip').remove();
-    container.innerHTML = '';
+
     container.classList.add('validation-multi-line-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const topG = svg.append('g')
         .attr('class', 'validation-life-gap-panel')
         .attr('transform', `translate(${margin.left},${margin.top})`);

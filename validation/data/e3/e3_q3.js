@@ -88,6 +88,14 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Gender';
     const yField = 'Average age at marriage';
@@ -178,6 +186,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -251,8 +260,186 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getQ3Geometry(d3) {
+    const xField = 'Year';
+    const seriesField = 'Gender';
+    const yField = 'Average age at marriage';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
+    const aggregated = [];
+    xDomain.forEach((cat) => {
+        seriesDomain.forEach((ser) => {
+            const row = data_rows.find((d) => String(d[xField]) === cat && String(d[seriesField]) === ser);
+            if (!row) return;
+            aggregated.push({ category: cat, series: ser, value: Number(row[yField]) });
+        });
+    });
+    const maxY = Math.max(0, ...aggregated.map((d) => d.value));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendOffsetX = 64;
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).paddingInner(0.18).paddingOuter(0.08);
+    const innerScale = d3.scaleBand().domain(seriesDomain).range([0, Math.max(xScale.bandwidth(), 1)]).padding(0.08);
+    const yScale = d3.scaleLinear().domain([0, maxY]).nice().range([plotH, 0]);
+    return { xField, seriesField, yField, xDomain, seriesDomain, aggregated, plotW, plotH, xScale, innerScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getQ3YearGaps() {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    return xDomain.map((year) => {
+        const male = Number(data_rows.find((d) => String(d.Year) === year && d.Gender === 'Male')?.['Average age at marriage'] ?? 0);
+        const female = Number(data_rows.find((d) => String(d.Year) === year && d.Gender === 'Female')?.['Average age at marriage'] ?? 0);
+        return { year, male, female, gap: Math.abs(male - female) };
+    });
+}
 
-export function function3({ d3, container }) {}
+function findQ3SmallestGapYear() {
+    return getQ3YearGaps().reduce((best, row) => row.gap < best.gap ? row : best, { gap: Infinity });
+}
+
+function ensureQ3ArrowMarker(svg) {
+    if (!svg.select('defs#e3-q3-defs').empty()) return;
+    const defs = svg.append('defs').attr('id', 'e3-q3-defs');
+    defs.append('marker')
+        .attr('id', 'e3-q3-arrow')
+        .attr('viewBox', '0 0 10 10')
+        .attr('refX', 8)
+        .attr('refY', 5)
+        .attr('markerWidth', 5)
+        .attr('markerHeight', 5)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+        .attr('fill', '#ef4444');
+}
+
+export function function1({ d3, container }) {
+    const { xScale, innerScale, yScale, seriesDomain } = getQ3Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    // R8 (round 3): comparison line must be RED with arrowhead.
+    ensureQ3ArrowMarker(svg);
+
+    g.selectAll('.validation-gender-gap-line').remove();
+
+    const maleKey = seriesDomain.includes('Male') ? 'Male' : seriesDomain[0];
+    const femaleKey = seriesDomain.includes('Female') ? 'Female' : seriesDomain[1];
+
+    getQ3YearGaps().forEach(({ year, male, female }) => {
+        const xMaleCenter = (xScale(year) ?? 0) + (innerScale(maleKey) ?? 0) + innerScale.bandwidth() / 2;
+        const xFemaleCenter = (xScale(year) ?? 0) + (innerScale(femaleKey) ?? 0) + innerScale.bandwidth() / 2;
+        const yMaleTop = yScale(male);
+        const yFemaleTop = yScale(female);
+        g.append('line')
+            .attr('class', 'validation-gender-gap-line')
+            .attr('data-year', year)
+            .attr('x1', xMaleCenter)
+            .attr('y1', yMaleTop)
+            .attr('x2', xMaleCenter)
+            .attr('y2', yMaleTop)
+            .attr('stroke', '#ef4444')
+            .attr('stroke-width', 2)
+            .attr('marker-end', 'url(#e3-q3-arrow)')
+            .transition()
+            .duration(650)
+            .attr('x2', xFemaleCenter)
+            .attr('y2', yFemaleTop);
+    });
+}
+
+export function function2({ d3, container }) {
+    const { xScale, innerScale, yScale, plotH } = getQ3Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-min-gap-highlight').remove();
+    g.selectAll('.validation-min-gap-label').remove();
+
+    const best = findQ3SmallestGapYear();
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-min-gap-highlight')
+        .attr('x', (xScale(best.year) ?? 0) - 6)
+        .attr('y', 0)
+        .attr('width', xScale.bandwidth() + 12)
+        .attr('height', plotH)
+        .attr('fill', '#fde68a')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.55);
+
+    g.selectAll('.validation-gender-gap-line')
+        .filter(function () { return this.getAttribute('data-year') === best.year; })
+        .transition()
+        .duration(600)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 2.5)
+        .attr('stroke-dasharray', null);
+
+    const cx = (xScale(best.year) ?? 0) + xScale.bandwidth() / 2;
+    const yLabel = yScale((best.male + best.female) / 2);
+    g.append('text')
+        .attr('class', 'validation-min-gap-label')
+        .attr('x', cx)
+        .attr('y', yLabel - 6)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`gap ${best.gap.toFixed(1)}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function3({ d3, container }) {
+    const { plotW } = getQ3Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q3-summary').remove();
+
+    const best = findQ3SmallestGapYear();
+
+    g.selectAll('.main-bar')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () {
+            return this.getAttribute('data-target') === best.year ? 1 : 0.35;
+        });
+
+    g.selectAll('.validation-gender-gap-line')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () {
+            return this.getAttribute('data-year') === best.year ? 1 : 0.25;
+        });
+
+    // Theme D (#5 round 3): move summary to top-center of the chart so it sits
+    // above the line and doesn't clip into the panel title.
+    g.append('text')
+        .attr('class', 'validation-q3-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`smallest gap → ${best.year}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

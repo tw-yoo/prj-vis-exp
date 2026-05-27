@@ -22,6 +22,12 @@ import { diffApplier } from './appliers/simpleLine/diff'
 import { averageApplier } from './appliers/simpleLine/average'
 import { findExtremumApplier } from './appliers/simpleLine/findExtremum'
 import { lagDiffApplier } from './appliers/simpleLine/lagDiff'
+import { countApplier } from './appliers/simpleLine/count'
+import { compareBoolApplier } from './appliers/simpleLine/compareBool'
+import { sumApplier } from './appliers/simpleLine/sum'
+import { nthApplier } from './appliers/simpleLine/nth'
+import { sortApplier } from './appliers/simpleLine/sort'
+import { diffByValueApplier } from './appliers/simpleLine/diffByValue'
 
 const APPLIERS: OperationApplier[] = [
   retrieveValueApplier,
@@ -30,6 +36,12 @@ const APPLIERS: OperationApplier[] = [
   averageApplier,
   findExtremumApplier,
   lagDiffApplier,
+  countApplier,
+  compareBoolApplier,
+  sumApplier,
+  nthApplier,
+  sortApplier,
+  diffByValueApplier,
 ]
 
 const REGISTRY = createApplierRegistry(APPLIERS)

@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2009, 'Inhabitants in billions': 6.84 },
@@ -160,6 +160,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -222,7 +223,7 @@ export function function1({ d3, container }) {
     const csvSumLabel = 'Sum: 51.78';
 
     injectSimpleLineStyles();
-    container.innerHTML = '';
+
     container.classList.add('validation-simple-line-host');
 
     const width = 640;
@@ -241,10 +242,7 @@ export function function1({ d3, container }) {
         .nice()
         .range([plotH, 0]);
 
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
 
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
@@ -269,6 +267,7 @@ export function function1({ d3, container }) {
         .attr('y', (d) => yScale(d.value))
         .attr('height', (d) => plotH - yScale(d.value))
         .attr('fill', '#4f46e5')
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.year)
         .attr('data-value', (d) => String(d.value))
         .attr('data-x-value', (d) => d.year)

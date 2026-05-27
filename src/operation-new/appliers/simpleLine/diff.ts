@@ -87,7 +87,7 @@ function appendValueLabel(
 export const diffApplier: OperationApplier = {
   op: OperationOp.Diff,
 
-  async apply({ operation, state, instance }: ApplierArgs): Promise<ApplierResult> {
+  async apply({ operation, state, instance, options }: ApplierArgs): Promise<ApplierResult> {
     const result = diffData(state.workingData, operation)
     const opRef = operationResultRef(operation)
     console.info('[operation-new] applier:diff', {
@@ -126,7 +126,7 @@ export const diffApplier: OperationApplier = {
     const pointB = derivedB ? null : findPoint(instance, selectors.targetB)
 
     const layer = instance.annotationLayer
-    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, options?.referencedResultIds)
     fadeRemoveAnnotations(layer, DIFF_ANNOTATION_CLASS)
 
     // Restore full opacity on the two referenced (derived) endpoints so their
@@ -223,6 +223,49 @@ export const diffApplier: OperationApplier = {
         .end()
         .catch(() => {}),
     )
+
+    // Split-layout overlay handling (mirrors simpleBar diff).
+    //
+    // When ops1/ops2 were routed to different split surfaces (e.g. for a
+    // cross-surface diff that references two earlier averages), surfaceManager
+    // hides the root surface's SVG via `style.display = 'none'`. Our diff
+    // annotation lives inside that root SVG, so the user can't see it. Per
+    // reviewer feedback for the simpleBar twin case (`0s6zi9dyw22qo4rp`), we
+    // restore the root SVG and overlay it absolutely on top of the two split
+    // surfaces so the diff arrow visually sits between them.
+    // pointer-events:none keeps hover behaviour on the split surfaces intact.
+    const svgNode = instance.svg.node()
+    const splitLayoutType = options?.surfaceManager?.getLayout()?.type
+    const isSplit = splitLayoutType === 'split-horizontal' || splitLayoutType === 'split-vertical'
+    if (isSplit) {
+      const rootHost = svgNode?.parentElement as HTMLElement | null
+      const splitWrapper = rootHost?.parentElement as HTMLElement | null
+      if (svgNode) {
+        svgNode.style.display = ''
+        svgNode.style.pointerEvents = 'none'
+      }
+      if (rootHost && rootHost.dataset.surfaceId === 'root') {
+        rootHost.style.display = ''
+        rootHost.style.position = 'absolute'
+        rootHost.style.inset = '0'
+        rootHost.style.pointerEvents = 'none'
+        rootHost.style.zIndex = '5'
+      }
+      if (splitWrapper && splitWrapper.classList.contains('surface-layout--split')) {
+        if (!splitWrapper.style.position) splitWrapper.style.position = 'relative'
+      }
+      // Hide every visual on the root SVG except the diff annotation layer so
+      // the user sees only the diff arrow + label on top of the split surfaces.
+      // The chart-skeleton (axes + line path + point marks) and axis-title
+      // texts would otherwise double-render on top of the split surfaces'
+      // versions.
+      if (svgNode) {
+        svgNode.querySelectorAll<SVGElement>('g.chart-skeleton').forEach((g) => { g.style.opacity = '0' })
+        svgNode
+          .querySelectorAll<SVGElement>('text.x-axis-label, text.y-axis-label')
+          .forEach((t) => { t.style.opacity = '0' })
+      }
+    }
 
     await drawVerticalComparisonArrow({
       layer,

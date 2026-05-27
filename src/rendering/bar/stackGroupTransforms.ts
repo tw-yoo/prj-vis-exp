@@ -13,6 +13,11 @@ import { applyVegaLiteTransforms } from '../vegaLite/transform'
 import { storeDerivedChartState } from '../utils/derivedChartState'
 import { ChartType } from '../../domain/chart'
 import { NON_SPLIT_UPDATE_MS } from '../draw/animationPolicy'
+import {
+  resolveCategoricalDomain,
+  resolveDiscreteDomainFromScale,
+  resolveScaleDomain,
+} from './barRuntime'
 
 type RawDatum = JsonObject
 
@@ -91,6 +96,9 @@ export async function convertStackedToGrouped(
   spec: StackedSpec,
   options?: DrawStackGroupSpec,
 ) {
+  // Drop any (target|series) → coords cache from a previous conversion so the
+  // post-render diff only sees this run's predictions.
+  animationTargetCache = new Map()
   const storedRows = cloneRows(getStackedBarStoredData(container))
   const values = await resolveDatasetAsync(storedRows, spec)
   if (!values.length) {
@@ -144,22 +152,172 @@ export async function convertStackedToGrouped(
     },
   }
 
-  await animateStackedToGrouped(container, options?.visibleSeries)
+  // Pre-compute the SAME outer/inner/y scales that `renderGroupedBarChart`
+  // will use, then animate stacked bars to those exact final positions. This
+  // is what eliminates the "snap" between animation-end and renderer-paint
+  // for case 11e148qcs7x70t8v: previously the animation used the stacked
+  // bar's outer bandwidth (.padding(0.2)) and inner .padding(0.18), but the
+  // grouped renderer rebuilds with .paddingInner(0.18).paddingOuter(0.08)
+  // outer and .padding(0.08) inner — so every bar shifted +/- pixels at the
+  // hand-off. The recipe below mirrors renderGroupedBarChart() lines 413-419
+  // exactly: same domain resolution, same paddings, same .nice() y-scale.
+  const yField = ensureField(encoding.y?.field, 'value')
+  const aggregatedYValues = aggregateByCategorySeries(values, xField, yField, colorField)
+  const xDomainForAnim = resolveCategoricalDomain(values, xField, xSortDomain.length > 0 ? xSortDomain : undefined, yField)
+  const seriesDomainForAnim = resolveDiscreteDomainFromScale(
+    values,
+    colorField,
+    (encoding.color as { scale?: unknown } | undefined)?.scale,
+    colorField,
+  )
+  const yDomainForAnim = resolveScaleDomain(
+    aggregatedYValues,
+    (encoding.y as { scale?: unknown } | undefined)?.scale,
+  )
+
+  console.info(
+    '[rendering] convertStackedToGrouped pre-anim layout ' +
+      JSON.stringify({
+        xField,
+        yField,
+        colorField,
+        xDomain: xDomainForAnim,
+        seriesDomain: seriesDomainForAnim,
+        yDomain: yDomainForAnim,
+        visibleSeries: options?.visibleSeries ?? null,
+        valuesLen: values.length,
+        sampleValues: values.slice(0, 3),
+      }),
+  )
+
+  await animateStackedToGrouped(container, options?.visibleSeries, {
+    xDomain: xDomainForAnim,
+    seriesDomain: seriesDomainForAnim,
+    yDomain: yDomainForAnim,
+    hasSeriesField: true,
+  })
 
   await renderGroupedBarChart(container, groupedSpec)
   storeDerivedChartState(container, ChartType.GROUPED_BAR, groupedSpec)
+
+  // Post-render verification: read back the actual painted positions and emit
+  // a side-by-side diff against the animation's predicted positions. Helps
+  // detect future scale-config drift (renderer padding tweaks etc.) without
+  // having to manually compare two log dumps.
+  logAnimationVsRenderDiff(container, options?.visibleSeries)
+
   return { chartType: ChartType.GROUPED_BAR, spec: groupedSpec }
+}
+
+/**
+ * Aggregates rows by (category, series) pair, returning each pair's summed
+ * value. Mirrors `aggregateGroupedRows` in groupedBarRenderer.ts so the
+ * pre-animation y-scale matches what the renderer will produce.
+ */
+function aggregateByCategorySeries(
+  rows: RawDatum[],
+  categoryField: string,
+  valueField: string,
+  seriesField: string | null | undefined,
+): number[] {
+  const map = new Map<string, number>()
+  rows.forEach((row) => {
+    const categoryRaw = row[categoryField]
+    const value = Number(row[valueField])
+    if (categoryRaw == null || !Number.isFinite(value)) return
+    const seriesRaw = seriesField ? row[seriesField] ?? null : null
+    const key = `${String(categoryRaw)}__${seriesRaw == null ? '' : String(seriesRaw)}`
+    map.set(key, (map.get(key) ?? 0) + value)
+  })
+  return Array.from(map.values())
+}
+
+/**
+ * After the grouped renderer paints, read the actual (x, y, width, height) of
+ * every main-bar and emit a JSON line per bar diffing it against the
+ * animation's predicted position (keyed by `target|series`). A non-zero delta
+ * indicates the scale config or layout drifted between animation and renderer
+ * — i.e. the "jump" is back. Keyed by attributes (not DOM identity) because
+ * `renderGroupedBarChart` wipes the SVG and re-creates rect nodes from
+ * scratch on every call.
+ */
+function logAnimationVsRenderDiff(container: HTMLElement, visibleSeries: string[] | undefined): void {
+  const visibleSet = visibleSeries ? new Set(visibleSeries) : null
+  const bars = Array.from(container.querySelectorAll<SVGRectElement>('rect.main-bar'))
+  const rows = bars
+    .map((rect) => {
+      const series = rect.getAttribute('data-series') ?? rect.getAttribute('data-group-value') ?? ''
+      if (visibleSet && !visibleSet.has(series)) return null
+      const target = rect.getAttribute('data-target') ?? ''
+      const cached = animationTargetCache.get(`${target}|${series}`)
+      const renderedX = Number(rect.getAttribute('x') ?? 0)
+      const renderedY = Number(rect.getAttribute('y') ?? 0)
+      const renderedW = Number(rect.getAttribute('width') ?? 0)
+      const renderedH = Number(rect.getAttribute('height') ?? 0)
+      return {
+        target,
+        series,
+        rendered: { x: renderedX, y: renderedY, w: renderedW, h: renderedH },
+        animatedTo: cached ?? null,
+        delta: cached
+          ? {
+              dx: +(renderedX - cached.x).toFixed(2),
+              dy: +(renderedY - cached.y).toFixed(2),
+              dw: +(renderedW - cached.w).toFixed(2),
+              dh: +(renderedH - cached.h).toFixed(2),
+            }
+          : null,
+      }
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+  const maxAbsDelta = rows.reduce((acc, r) => {
+    if (!r.delta) return acc
+    return Math.max(acc, Math.abs(r.delta.dx), Math.abs(r.delta.dy), Math.abs(r.delta.dw), Math.abs(r.delta.dh))
+  }, 0)
+  console.info(
+    '[rendering] stacked-to-grouped post-render diff ' +
+      JSON.stringify({ maxAbsDelta: +maxAbsDelta.toFixed(2), bars: rows }),
+  )
+  animationTargetCache = new Map()
+}
+
+/**
+ * Cache populated by `animateStackedToGrouped` and read by
+ * `logAnimationVsRenderDiff`. Keyed by `${target}|${series}` rather than DOM
+ * node because `renderGroupedBarChart` swaps out all rect nodes. Reset
+ * between conversions so stale entries from a prior pairDiff don't pollute
+ * the diff log.
+ */
+let animationTargetCache: Map<string, { x: number; y: number; w: number; h: number }> = new Map()
+
+/**
+ * Pre-computed target layout passed in from `convertStackedToGrouped`. These
+ * fields mirror what `renderGroupedBarChart` will compute internally so the
+ * animation can drive bars to those exact final positions — eliminating the
+ * "snap" between animation-end and renderer-paint that case
+ * 11e148qcs7x70t8v exhibited before this change. See
+ * `convertStackedToGrouped` for how each value is derived; the d3 scale
+ * recipe below must stay in lockstep with groupedBarRenderer.ts lines
+ * 413-419.
+ */
+type StackedToGroupedTargetLayout = {
+  xDomain: Array<string | number>
+  seriesDomain: Array<string | number>
+  yDomain: [number, number]
+  hasSeriesField: boolean
 }
 
 async function animateStackedToGrouped(
   container: HTMLElement,
-  visibleSeries?: string[],
+  visibleSeries: string[] | undefined,
+  targetLayout: StackedToGroupedTargetLayout,
 ): Promise<void> {
   const svg = container.querySelector('svg')
   if (!svg) return
 
   const plotH = parseFloat(svg.getAttribute('data-plot-h') ?? '0')
-  if (!plotH) return
+  const plotW = parseFloat(svg.getAttribute('data-plot-w') ?? '0')
+  if (!plotH || !plotW) return
 
   type BarEntry = {
     el: SVGRectElement
@@ -167,7 +325,9 @@ async function animateStackedToGrouped(
     series: string
     value: number
     x: number
-    bandwidth: number
+    y: number
+    width: number
+    height: number
   }
 
   const bars: BarEntry[] = Array.from(
@@ -179,77 +339,164 @@ async function animateStackedToGrouped(
       series: el.getAttribute('data-series') ?? el.getAttribute('data-group-value') ?? '',
       value: parseFloat(el.getAttribute('data-value') ?? '0'),
       x: parseFloat(el.getAttribute('x') ?? '0'),
-      bandwidth: parseFloat(el.getAttribute('width') ?? '0'),
+      y: parseFloat(el.getAttribute('y') ?? '0'),
+      width: parseFloat(el.getAttribute('width') ?? '0'),
+      height: parseFloat(el.getAttribute('height') ?? '0'),
     }))
     .filter((b) => b.target && b.series)
 
   if (!bars.length) return
 
-  const uniqueSeries = [...new Set(bars.map((b) => b.series))]
-  const visibleSet = visibleSeries ? new Set(visibleSeries) : new Set(uniqueSeries)
-  const activeSeries = uniqueSeries.filter((s) => visibleSet.has(s))
-  const bandwidth = bars[0]?.bandwidth ?? 0
+  const visibleSet = visibleSeries
+    ? new Set(visibleSeries)
+    : new Set([...new Set(bars.map((b) => b.series))])
 
-  // target별 현재 x 위치 (stacked에서 같은 target의 bars는 x가 동일)
-  const targetToX = new Map<string, number>()
-  bars.forEach((b) => { if (!targetToX.has(b.target)) targetToX.set(b.target, b.x) })
+  // Outer / inner / y scales: MUST mirror groupedBarRenderer.ts so the
+  // animation's end-frame matches the renderer's first paint pixel-for-pixel.
+  // Stacked uses .padding(0.2), grouped uses .paddingInner(0.18).paddingOuter(0.08)
+  // — replicate the latter here, not the former.
+  const xScale = d3
+    .scaleBand<string | number>()
+    .domain(targetLayout.xDomain)
+    .range([0, plotW])
+    .paddingInner(0.18)
+    .paddingOuter(0.08)
+  const innerScale = d3
+    .scaleBand<string | number>()
+    .domain(targetLayout.seriesDomain)
+    .range([0, Math.max(xScale.bandwidth(), 1)])
+    .padding(targetLayout.hasSeriesField ? 0.08 : 0)
+  const yGrouped = d3.scaleLinear().domain(targetLayout.yDomain).nice().range([plotH, 0])
+  const zeroY = yGrouped(0)
 
-  // grouped 내부 sub-scale
-  const groupedX = d3.scaleBand<string>()
-    .domain(activeSeries)
-    .range([0, bandwidth])
-    .padding(0.18)
-
-  // grouped용 y scale (단일 값 기준 max)
-  const maxValue = d3.max(bars.filter((b) => visibleSet.has(b.series)), (b) => b.value) ?? 0
-  const yGrouped = d3.scaleLinear()
-    .domain([0, maxValue])
-    .nice()
-    .range([plotH, 0])
+  console.info(
+    '[rendering] animateStackedToGrouped scales ' +
+      JSON.stringify({
+        plotW,
+        plotH,
+        outerBandwidth: xScale.bandwidth(),
+        innerBandwidth: innerScale.bandwidth(),
+        outerStep: xScale.step(),
+        innerStep: innerScale.step(),
+        outerPaddingInner: xScale.paddingInner(),
+        outerPaddingOuter: xScale.paddingOuter(),
+        innerPadding: innerScale.padding(),
+        niceYDomain: yGrouped.domain(),
+        xDomain: targetLayout.xDomain,
+        seriesDomain: targetLayout.seriesDomain,
+        yDomainPre: targetLayout.yDomain,
+      }),
+  )
 
   const duration = NON_SPLIT_UPDATE_MS
   const ease = d3.easeCubicInOut
 
+  // Collect every transition's `.end()` promise so the final `await` waits
+  // for the ACTUAL animations to settle. Previous implementation created a
+  // fresh unnamed transition at the tail, which d3 treats as an interrupt of
+  // the prior unnamed transitions on the same elements — the stacked→grouped
+  // animation barely had time to start before being cancelled. That is the
+  // root cause of the "no animation" symptom reported on case
+  // 11e148qcs7x70t8v.
+  const transitionPromises: Promise<void>[] = []
+
   // 비가시 바: fade out + collapse
   const hideBars = bars.filter((b) => !visibleSet.has(b.series))
   if (hideBars.length) {
-    d3.selectAll<SVGRectElement, unknown>(hideBars.map((b) => b.el))
-      .transition()
-      .duration(duration)
-      .ease(ease)
-      .attr('opacity', 0)
-      .attr('height', 0)
+    hideBars.forEach((b) => {
+      animationTargetCache.set(`${b.target}|${b.series}`, { x: b.x, y: b.y, w: b.width, h: 0 })
+    })
+    transitionPromises.push(
+      d3.selectAll<SVGRectElement, unknown>(hideBars.map((b) => b.el))
+        .transition()
+        .duration(duration)
+        .ease(ease)
+        .attr('opacity', 0)
+        .attr('height', 0)
+        .end()
+        .catch(() => undefined),
+    )
   }
 
-  // 가시 바: stacked → grouped 위치로 이동
+  // 가시 바: stacked → grouped 위치로 이동, with the renderer's exact final
+  // positions cached per-rect so `logAnimationVsRenderDiff` can compare.
   const showBars = bars.filter((b) => visibleSet.has(b.series))
+  const debugRows: Array<Record<string, unknown>> = []
   showBars.forEach((b) => {
-    const baseX = targetToX.get(b.target) ?? b.x
-    const offsetX = groupedX(b.series) ?? 0
-    d3.select(b.el)
-      .transition()
-      .duration(duration)
-      .ease(ease)
-      .attr('x', baseX + offsetX)
-      .attr('width', groupedX.bandwidth())
-      .attr('y', yGrouped(b.value))
-      .attr('height', plotH - yGrouped(b.value))
+    const groupOriginX = xScale(b.target) ?? 0
+    const offsetX = innerScale(b.series) ?? 0
+    const finalX = groupOriginX + offsetX
+    const finalW = innerScale.bandwidth()
+    const finalY = b.value >= 0 ? yGrouped(b.value) : zeroY
+    const finalH = Math.abs(yGrouped(b.value) - zeroY)
+
+    animationTargetCache.set(`${b.target}|${b.series}`, { x: finalX, y: finalY, w: finalW, h: finalH })
+    debugRows.push({
+      target: b.target,
+      series: b.series,
+      value: b.value,
+      from: { x: b.x, y: b.y, w: b.width, h: b.height },
+      to: { x: finalX, y: finalY, w: finalW, h: finalH },
+      delta: {
+        dx: +(finalX - b.x).toFixed(2),
+        dy: +(finalY - b.y).toFixed(2),
+        dw: +(finalW - b.width).toFixed(2),
+        dh: +(finalH - b.height).toFixed(2),
+      },
+    })
+
+    transitionPromises.push(
+      d3.select(b.el)
+        .transition()
+        .duration(duration)
+        .ease(ease)
+        .attr('x', finalX)
+        .attr('width', finalW)
+        .attr('y', finalY)
+        .attr('height', finalH)
+        .end()
+        .catch(() => undefined),
+    )
   })
+
+  console.info(
+    '[rendering] animateStackedToGrouped per-bar plan ' +
+      JSON.stringify({
+        showBarCount: showBars.length,
+        hideBarCount: hideBars.length,
+        bars: debugRows,
+      }),
+  )
 
   // Y축 전환
   const yAxisEl = container.querySelector<SVGGElement>('svg g.y-axis')
   if (yAxisEl) {
     const yAxisGrouped = d3.axisLeft(yGrouped).ticks(5)
-    d3.select<SVGGElement, unknown>(yAxisEl)
-      .transition()
-      .duration(duration)
-      .ease(ease)
-      .call(yAxisGrouped as any)
+    transitionPromises.push(
+      d3.select<SVGGElement, unknown>(yAxisEl)
+        .transition()
+        .duration(duration)
+        .ease(ease)
+        .call(yAxisGrouped as any)
+        .end()
+        .catch(() => undefined),
+    )
   }
 
-  // transition 완료 대기
-  const allBarsSel = d3.selectAll<SVGRectElement, unknown>(bars.map((b) => b.el))
-  await allBarsSel.transition().duration(duration).end().catch(() => {})
+  console.info(
+    '[rendering] animateStackedToGrouped scheduled ' +
+      JSON.stringify({
+        duration,
+        showBarCount: showBars.length,
+        hideBarCount: hideBars.length,
+        transitionCount: transitionPromises.length,
+      }),
+  )
+
+  // Await every transition's natural completion. No additional empty
+  // transition that would interrupt the real ones.
+  await Promise.all(transitionPromises)
+  console.info('[rendering] animateStackedToGrouped settled')
 }
 
 export async function convertStackedToDiverging(container: HTMLElement, spec: StackedSpec) {

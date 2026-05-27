@@ -93,6 +93,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Opinion';
     const yField = 'Percentage';
@@ -196,6 +204,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -282,8 +291,128 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getE4Q5Geometry(d3) {
+    const xField = 'Year';
+    const seriesField = 'Opinion';
+    const yField = 'Percentage';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    const minY = d3.min(yValues) ?? 0;
+    const maxY = d3.max(yValues) ?? 1;
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear().domain([minY, maxY]).nice().range([plotH, 0]);
+    return { xDomain, seriesDomain, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getE4Q5YearGaps() {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    return xDomain.map((year) => {
+        const oppose = Number(data_rows.find((d) => String(d.Year) === year && d.Opinion === 'Oppose')?.Percentage ?? 0);
+        const favor = Number(data_rows.find((d) => String(d.Year) === year && d.Opinion === 'Favor')?.Percentage ?? 0);
+        return { year, oppose, favor, gap: Math.abs(oppose - favor) };
+    });
+}
 
-export function function3({ d3, container }) {}
+export function function1({ d3, container }) {
+    const { xScale, yScale } = getE4Q5Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q5-gap-line, .validation-q5-gap-label').remove();
+
+    getE4Q5YearGaps().forEach(({ year, oppose, favor, gap }) => {
+        const cx = xScale(year) ?? 0;
+        const yOppose = yScale(oppose);
+        const yFavor = yScale(favor);
+        g.append('line')
+            .attr('class', 'validation-q5-gap-line')
+            .attr('data-year', year)
+            .attr('x1', cx)
+            .attr('x2', cx)
+            .attr('y1', yOppose)
+            .attr('y2', yOppose)
+            .attr('stroke', '#6b7280')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '3 3')
+            .transition()
+            .duration(650)
+            .attr('y2', yFavor);
+        g.append('text')
+            .attr('class', 'validation-q5-gap-label')
+            .attr('data-year', year)
+            .attr('x', cx)
+            .attr('y', Math.min(yOppose, yFavor) - 6)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .attr('fill', '#374151')
+            .attr('opacity', 0)
+            .text(`Δ${gap}`)
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
+    });
+}
+
+export function function2({ d3, container }) {
+    const { plotH, plotW, xScale } = getE4Q5Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q5-max-rect, .validation-q5-summary').remove();
+
+    const best = getE4Q5YearGaps().reduce((b, row) => row.gap > b.gap ? row : b, { gap: -Infinity });
+    const cx = xScale(best.year) ?? 0;
+    const halfStep = xScale.step() / 2;
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q5-max-rect')
+        .attr('x', cx - halfStep + 4)
+        .attr('y', 0)
+        .attr('width', halfStep * 2 - 8)
+        .attr('height', plotH)
+        .attr('fill', '#fde68a')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.55);
+
+    g.selectAll('.validation-q5-gap-line')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () { return this.getAttribute('data-year') === best.year ? 1 : 0.35; })
+        .attr('stroke', function () { return this.getAttribute('data-year') === best.year ? '#ef4444' : '#6b7280'; })
+        .attr('stroke-width', function () { return this.getAttribute('data-year') === best.year ? 2.5 : 1.5; });
+
+    g.selectAll('.validation-q5-gap-label')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () { return this.getAttribute('data-year') === best.year ? 1 : 0.35; })
+        .attr('fill', function () { return this.getAttribute('data-year') === best.year ? '#ef4444' : '#374151'; })
+        .attr('font-size', function () { return this.getAttribute('data-year') === best.year ? 14 : 11; });
+
+    g.append('text')
+        .attr('class', 'validation-q5-summary')
+        .attr('x', plotW - 4)
+        .attr('y', 12)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`biggest gap → ${best.year} (Δ ${best.gap})`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

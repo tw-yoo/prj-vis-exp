@@ -84,6 +84,14 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Service';
     const seriesField = 'Gender';
     const yField = 'Share of women and men';
@@ -174,6 +182,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -247,8 +256,117 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getQ8Geometry(d3) {
+    const xField = 'Service';
+    const seriesField = 'Gender';
+    const yField = 'Share of women and men';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
+    const aggregated = [];
+    xDomain.forEach((cat) => {
+        seriesDomain.forEach((ser) => {
+            const row = data_rows.find((d) => String(d[xField]) === cat && String(d[seriesField]) === ser);
+            if (!row) return;
+            aggregated.push({ category: cat, series: ser, value: Number(row[yField]) });
+        });
+    });
+    const maxY = Math.max(0, ...aggregated.map((d) => d.value));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendOffsetX = 64;
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).paddingInner(0.18).paddingOuter(0.08);
+    const innerScale = d3.scaleBand().domain(seriesDomain).range([0, Math.max(xScale.bandwidth(), 1)]).padding(0.08);
+    const yScale = d3.scaleLinear().domain([0, maxY]).nice().range([plotH, 0]);
+    return { xField, seriesField, yField, aggregated, plotW, plotH, xScale, innerScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+export function function1({ d3, container }) {
+    const { aggregated, xScale, innerScale, yScale } = getQ8Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
 
-export function function3({ d3, container }) {}
+    g.selectAll('.validation-q8-max-label').remove();
+
+    const max = aggregated.reduce((best, row) => row.value > best.value ? row : best, { value: -Infinity });
+
+    g.selectAll('.main-bar')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () {
+            const cat = this.getAttribute('data-target');
+            const ser = this.getAttribute('data-series');
+            return cat === max.category && ser === max.series ? 1 : 0.32;
+        })
+        .attr('stroke', function () {
+            const cat = this.getAttribute('data-target');
+            const ser = this.getAttribute('data-series');
+            return cat === max.category && ser === max.series ? '#111827' : 'none';
+        })
+        .attr('stroke-width', function () {
+            const cat = this.getAttribute('data-target');
+            const ser = this.getAttribute('data-series');
+            return cat === max.category && ser === max.series ? 2 : 0;
+        });
+
+    const cx = (xScale(max.category) ?? 0) + (innerScale(max.series) ?? 0) + innerScale.bandwidth() / 2;
+    const yTop = yScale(max.value);
+    g.append('text')
+        .attr('class', 'validation-q8-max-label')
+        .attr('x', cx)
+        .attr('y', yTop - 8)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .attr('opacity', 0)
+        .text(`max ${max.value.toFixed(2)} (${max.category} · ${max.series})`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function2({ d3, container }) {
+    const { aggregated, plotW, yScale } = getQ8Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q8-max-ref-line, .validation-q8-max-ref-label').remove();
+
+    const max = aggregated.reduce((best, row) => row.value > best.value ? row : best, { value: -Infinity });
+    const y = yScale(max.value);
+
+    g.append('line')
+        .attr('class', 'validation-q8-max-ref-line')
+        .attr('x1', 0)
+        .attr('x2', 0)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4')
+        .transition()
+        .duration(650)
+        .attr('x2', plotW);
+
+    g.append('text')
+        .attr('class', 'validation-q8-max-ref-label')
+        .attr('x', plotW + 6)
+        .attr('y', y)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .attr('opacity', 0)
+        .text(max.value.toFixed(2))
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

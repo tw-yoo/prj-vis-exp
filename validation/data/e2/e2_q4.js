@@ -67,6 +67,14 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const yField = 'In millions';
 
@@ -155,6 +163,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -230,7 +239,7 @@ export function function1({ d3, container }) {
     const g = svg.select('g');
     if (g.empty()) return;
 
-    g.selectAll('.validation-change-arrow').remove();
+    g.selectAll('.validation-change-arrow, .validation-change-label').remove();
     svg.select('defs#e2-q4-defs').remove();
     const defs = svg.append('defs').attr('id', 'e2-q4-defs');
     defs.append('marker')
@@ -251,6 +260,7 @@ export function function1({ d3, container }) {
         const y1 = yScale(change.toValue);
         g.append('line')
             .attr('class', 'validation-change-arrow')
+            .attr('data-segment', `${change.fromYear}-${change.toYear}`)
             .attr('x1', x)
             .attr('x2', x)
             .attr('y1', y0)
@@ -261,63 +271,150 @@ export function function1({ d3, container }) {
             .transition()
             .duration(650)
             .attr('y2', y1);
+
+        // Per reviewer (review_e2.csv row 5): "각 화살표 옆에 증가량 숫자가 있어야 함."
+        g.append('text')
+            .attr('class', 'validation-change-label')
+            .attr('data-segment', `${change.fromYear}-${change.toYear}`)
+            .attr('x', x + 6)
+            .attr('y', (y0 + y1) / 2)
+            .attr('text-anchor', 'start')
+            .attr('dominant-baseline', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .attr('fill', '#ef4444')
+            .attr('opacity', 0)
+            .text(`+${change.diff.toFixed(1)}`)
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
     });
 }
 
 export function function2({ d3, container }) {
+    // Per reviewer (review_e2.csv row 6): dual-panel layout — keep f1's line chart on TOP,
+    // add a bar chart of year-to-year deltas BELOW. Both panels highlight the 2000-2010 band.
     const rows = getPopulationChangeRows();
     const maxRow = rows.reduce((best, row) => row.diff > best.diff ? row : best, rows[0]);
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 24, bottom: 64, left: 56 };
-    const plotW = width - margin.left - margin.right;
-    const plotH = height - margin.top - margin.bottom;
-    const xScale = d3.scaleBand()
+    const xField = 'Year';
+    const yField = 'In millions';
+    const lineMargin = { top: 32, right: 24, bottom: 48, left: 56 };
+    const linePlotW = 640 - lineMargin.left - lineMargin.right;
+    const linePlotH = 360 - lineMargin.top - lineMargin.bottom;
+
+    const xDomain = data_rows.map((d) => String(d[xField]));
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    const xScaleLine = d3.scalePoint().domain(xDomain).range([0, linePlotW]).padding(0.5);
+
+    const svg = d3.select(container).select('svg');
+    const topG = svg.select('g'); // the existing line chart group at translate(56, 32)
+    if (svg.empty() || topG.empty()) return;
+
+    svg.selectAll('.validation-q4-highlight-2000-2010, .validation-q4-delta-panel, .validation-q4-line-highlight').remove();
+
+    // 1) Expand viewBox to make room for the bar panel below.
+    const newWidth = 640;
+    const newHeight = 720;
+    const panelGap = 32;
+    svg.attr('viewBox', `0 0 ${newWidth} ${newHeight}`);
+
+    // 2) Add highlight rect on the top (line) panel spanning 2000 → 2010 on the x-axis.
+    const x2000 = xScaleLine('2000') ?? 0;
+    const x2010 = xScaleLine('2010') ?? 0;
+    topG.insert('rect', ':first-child')
+        .attr('class', 'validation-q4-line-highlight')
+        .attr('x', x2000)
+        .attr('y', 0)
+        .attr('width', Math.max(0, x2010 - x2000))
+        .attr('height', linePlotH)
+        .attr('fill', '#fde68a')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.45);
+
+    // 3) Add the delta bar panel below the line chart.
+    const barPanelTop = lineMargin.top + linePlotH + panelGap;
+    const barMargin = { left: lineMargin.left, right: lineMargin.right, top: 32, bottom: 64 };
+    const barPlotW = newWidth - barMargin.left - barMargin.right;
+    const barPlotH = newHeight - barPanelTop - barMargin.top - barMargin.bottom;
+
+    const xScaleBar = d3.scaleBand()
         .domain(rows.map((d) => `${d.fromYear}-${d.toYear}`))
-        .range([0, plotW])
+        .range([0, barPlotW])
         .padding(0.24);
-    const yScale = d3.scaleLinear()
+    const yScaleBar = d3.scaleLinear()
         .domain([0, d3.max(rows, (d) => d.diff) ?? 0])
         .nice()
-        .range([plotH, 0]);
+        .range([barPlotH, 0]);
 
-    container.innerHTML = '';
-    container.classList.add('validation-chart-host');
+    const barG = svg.append('g')
+        .attr('class', 'validation-q4-delta-panel')
+        .attr('transform', `translate(${barMargin.left},${barPanelTop + barMargin.top})`);
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    // Panel label
+    barG.append('text')
+        .attr('x', 0)
+        .attr('y', -10)
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text('Year-over-year change');
 
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
+    // Axes
+    barG.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScaleBar).ticks(5));
+    const xAxis = barG.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${barPlotH})`).call(d3.axisBottom(xScaleBar));
     autoRotateXAxisLabels(xAxis);
 
-    g.insert('rect', ':first-child')
-        .attr('class', 'validation-max-change-highlight')
-        .attr('x', (xScale(`${maxRow.fromYear}-${maxRow.toYear}`) ?? 0) - 8)
+    // Highlight rect for 2000-2010 BEHIND bars
+    barG.insert('rect', ':first-child')
+        .attr('class', 'validation-q4-highlight-2000-2010')
+        .attr('x', (xScaleBar(`${maxRow.fromYear}-${maxRow.toYear}`) ?? 0) - 8)
         .attr('y', 0)
-        .attr('width', xScale.bandwidth() + 16)
-        .attr('height', plotH)
+        .attr('width', xScaleBar.bandwidth() + 16)
+        .attr('height', barPlotH)
         .attr('fill', '#fde68a')
         .attr('opacity', 0)
         .transition()
         .duration(600)
         .attr('opacity', 0.55);
 
-    g.selectAll('rect.main-bar')
+    // Bars enter at final position with opacity fade — NO grow-from-zero.
+    barG.selectAll('rect.main-bar')
         .data(rows)
         .join('rect')
         .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(`${d.fromYear}-${d.toYear}`))
-        .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
+        .attr('x', (d) => xScaleBar(`${d.fromYear}-${d.toYear}`))
+        .attr('width', xScaleBar.bandwidth())
+        .attr('y', (d) => yScaleBar(d.diff))
+        .attr('height', (d) => barPlotH - yScaleBar(d.diff))
         .attr('fill', (d) => d === maxRow ? '#ef4444' : '#4f46e5')
         .attr('data-target', (d) => `${d.fromYear}-${d.toYear}`)
         .attr('data-value', (d) => d.diff)
+        .attr('opacity', 0)
         .transition()
-        .duration(700)
-        .attr('y', (d) => yScale(d.diff))
-        .attr('height', (d) => plotH - yScale(d.diff));
+        .duration(250)
+        .attr('opacity', 1);
+
+    // Label the max delta value above its bar.
+    const maxX = (xScaleBar(`${maxRow.fromYear}-${maxRow.toYear}`) ?? 0) + xScaleBar.bandwidth() / 2;
+    const maxY = yScaleBar(maxRow.diff);
+    barG.append('text')
+        .attr('class', 'validation-q4-max-label')
+        .attr('x', maxX)
+        .attr('y', maxY - 6)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`+${maxRow.diff.toFixed(1)}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
 }
 
 export function function3({ d3, container }) {}

@@ -1,19 +1,31 @@
 import { csvFormat, csvParse } from 'd3'
 
+// CSV schema:
+//   • status is split into op_status (operation_spec correctness) + viz_status
+//     (visualization correctness).
+//   • feedback is split into op_feedback + viz_feedback so reviewers can flag
+//     "the operation_spec is wrong" vs "the rendered visualization is wrong"
+//     separately, which makes downstream triage easier.
+//   • Legacy single `status` / `feedback` columns are auto-migrated on load.
 export const REVIEW_COLUMNS = [
   'chart_id',
   'chart_type',
-  'status',
+  'op_status',
+  'viz_status',
   'question',
   'explanation',
   'operation_spec',
-  'feedback',
+  'op_feedback',
+  'viz_feedback',
   'updated_at',
 ] as const
 
 export type ReviewColumn = (typeof REVIEW_COLUMNS)[number]
 
 export type ReviewStatus = 'pending' | 'verified' | 'bug' | 'wontfix'
+
+/** Which review axis a status value applies to. */
+export type ReviewStatusKind = 'op' | 'viz'
 
 export const CHART_TYPE_VALUES = [
   'simpleBar',
@@ -28,13 +40,18 @@ export type ReviewChartType = (typeof CHART_TYPE_VALUES)[number]
 export type ReviewRow = {
   chart_id: string
   chart_type: string
-  status: ReviewStatus
+  op_status: ReviewStatus
+  viz_status: ReviewStatus
   question: string
   explanation: string
   operation_spec: string
-  feedback: string
+  op_feedback: string
+  viz_feedback: string
   updated_at: string
 }
+
+/** Which feedback axis a textual comment applies to. */
+export type ReviewFeedbackKind = 'op' | 'viz'
 
 const STATUS_VALUES: ReviewStatus[] = ['pending', 'verified', 'bug', 'wontfix']
 
@@ -43,28 +60,59 @@ function normalizeStatus(raw: string | undefined): ReviewStatus {
   return STATUS_VALUES.includes(trimmed) ? trimmed : 'pending'
 }
 
+/**
+ * Derives a single row-level status for visual decoration (e.g. dirty stripe
+ * color). When the two axes disagree, the more attention-grabbing axis wins:
+ * bug > wontfix > pending > verified.
+ */
+const STATUS_PRIORITY: Record<ReviewStatus, number> = {
+  bug: 3,
+  wontfix: 2,
+  pending: 1,
+  verified: 0,
+}
+export function rowDerivedStatus(row: ReviewRow): ReviewStatus {
+  return STATUS_PRIORITY[row.op_status] >= STATUS_PRIORITY[row.viz_status]
+    ? row.op_status
+    : row.viz_status
+}
+
 export function createEmptyRow(): ReviewRow {
   return {
     chart_id: '',
     chart_type: '',
-    status: 'pending',
+    op_status: 'pending',
+    viz_status: 'pending',
     question: '',
     explanation: '',
     operation_spec: '',
-    feedback: '',
+    op_feedback: '',
+    viz_feedback: '',
     updated_at: '',
   }
 }
 
 function rawToRow(raw: Record<string, string>): ReviewRow {
+  // Backward-compat:
+  //   • Legacy single `status` column → fan out to both op_status / viz_status.
+  //   • Legacy single `feedback` column → migrate into op_feedback only
+  //     (visualization-side feedback is opt-in; defaults to empty).
+  const legacyStatus = normalizeStatus(raw.status)
+  const legacyFeedback = raw.feedback ?? ''
+  const opStatusRaw = raw.op_status ?? ''
+  const vizStatusRaw = raw.viz_status ?? ''
+  const opFeedbackRaw = raw.op_feedback ?? ''
+  const vizFeedbackRaw = raw.viz_feedback ?? ''
   return {
     chart_id: raw.chart_id ?? '',
     chart_type: (raw.chart_type ?? '').trim(),
-    status: normalizeStatus(raw.status),
+    op_status: opStatusRaw ? normalizeStatus(opStatusRaw) : legacyStatus,
+    viz_status: vizStatusRaw ? normalizeStatus(vizStatusRaw) : legacyStatus,
     question: raw.question ?? '',
     explanation: raw.explanation ?? '',
     operation_spec: raw.operation_spec ?? '',
-    feedback: raw.feedback ?? '',
+    op_feedback: opFeedbackRaw || legacyFeedback,
+    viz_feedback: vizFeedbackRaw,
     updated_at: raw.updated_at ?? '',
   }
 }
@@ -74,12 +122,19 @@ export function rowsEqual(a: ReviewRow, b: ReviewRow): boolean {
   return (
     a.chart_id === b.chart_id &&
     a.chart_type === b.chart_type &&
-    a.status === b.status &&
+    a.op_status === b.op_status &&
+    a.viz_status === b.viz_status &&
     a.question === b.question &&
     a.explanation === b.explanation &&
     a.operation_spec === b.operation_spec &&
-    a.feedback === b.feedback
+    a.op_feedback === b.op_feedback &&
+    a.viz_feedback === b.viz_feedback
   )
+}
+
+/** True if either feedback column has non-whitespace content. */
+export function rowHasFeedback(row: ReviewRow): boolean {
+  return row.op_feedback.trim().length > 0 || row.viz_feedback.trim().length > 0
 }
 
 export function rowsToCsv(rows: ReviewRow[]): string {

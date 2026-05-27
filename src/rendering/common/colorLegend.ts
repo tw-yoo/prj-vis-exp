@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import type { ChartSpec } from '../../domain/chart'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
-import { SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
+import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../interfaces'
 import type { LayoutModel } from './chartLayout'
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -65,6 +65,11 @@ export function renderColorLegend(options: RenderColorLegendOptions) {
       (title ? CHART_TEXT_SIZE.legendTitle + layout.legend.titleGap : 0) +
       index * (CHART_TEXT_SIZE.legendLabel + layout.legend.rowGap)
 
+    // Stamp `data-series` on both the circle and the text so downstream
+    // `transitionLegend` calls can identify the row by series identity
+    // (rather than fragile text-content matching). The series identity is
+    // the legend item's label — the resolver upstream maps series → label,
+    // so the label IS the series key in practice for our charts.
     legend
       .append(SvgElements.Circle)
       .attr(SvgAttributes.CX, 8)
@@ -72,6 +77,7 @@ export function renderColorLegend(options: RenderColorLegendOptions) {
       .attr(SvgAttributes.R, 5)
       .attr(SvgAttributes.Fill, item.color)
       .attr(SvgAttributes.Opacity, 0.85)
+      .attr(DataAttributes.Series, item.label)
 
     legend
       .append(SvgElements.Text)
@@ -79,6 +85,7 @@ export function renderColorLegend(options: RenderColorLegendOptions) {
       .attr(SvgAttributes.Y, rowY + CHART_TEXT_SIZE.legendLabel / 2)
       .attr(SvgAttributes.FontSize, CHART_TEXT_SIZE.legendLabel)
       .attr(SvgAttributes.DominantBaseline, 'middle')
+      .attr(DataAttributes.Series, item.label)
       .text(item.label)
   })
 

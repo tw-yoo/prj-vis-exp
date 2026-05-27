@@ -5,7 +5,7 @@ import {
   renderChart as renderChartLegacy,
 } from '../rendering/renderChart'
 import type { ChartSurfaceRef } from '../application/ports/outbound'
-import { attachInstance, getAttachedInstance } from '../rendering-new/chartInstance'
+import { attachInstance, detachInstance, getAttachedInstance } from '../rendering-new/chartInstance'
 import { SimpleLineChartInstance } from '../rendering-new/instances/simpleLineInstance'
 import { SimpleBarChartInstance, type BarDatum } from '../rendering-new/instances/simpleBarInstance'
 import { ensureMultipleLineChartInstance } from '../rendering-new/instances/multipleLineInstance'
@@ -33,6 +33,39 @@ export async function renderChart(
 
 export { getChartType, normalizeSpec, ChartType }
 export type { ChartSpec, VegaLiteSpec, ChartTypeValue }
+
+/**
+ * Tear down everything that `renderChart` / `runChartOps` may have written
+ * onto `host` so the next `renderChart(host, spec)` call rebuilds from a
+ * truly clean baseline — used by the review page's "Reset chart" button.
+ *
+ * Why this exists: rendering is idempotent (per the CLAUDE.md "skeleton
+ * stability" rule). When the user clicks "Reset chart" after running some
+ * ops, calling `renderChart` again with the *same* spec returns NO-OP from
+ * `ChartInstance.ensureRendered` (specKey unchanged + svg still in the
+ * host), so the annotation overlays and any persisted instance state
+ * (`activeTargets`, `outOfScopeOpacity`) from the prior ops would stay
+ * intact. This helper short-circuits that idempotence:
+ *
+ *   1. `detachInstance(host)` drops the cached ChartInstance, so the next
+ *      `renderChart` builds a brand-new one with default state.
+ *   2. `host.innerHTML = ''` removes the SVG and every annotation node.
+ *   3. Clearing the operation-next focus dataset attribute prevents the
+ *      next `runChartOps` from thinking the host is still in a focused
+ *      state mid-restore.
+ *
+ * Not idempotent-friendly — callers should only invoke this when they
+ * explicitly want a forced fresh render (Reset, Re-render after spec edit).
+ * For normal navigation between rows the ordinary `renderChart` path is
+ * sufficient because a different chart_id changes the specKey naturally.
+ */
+export function resetChartHost(host: HTMLElement): void {
+  detachInstance(host)
+  host.innerHTML = ''
+  if (host.dataset.operationNextFocusState) {
+    delete host.dataset.operationNextFocusState
+  }
+}
 
 /**
  * Re-attach the simple-line ChartInstance to an SVG that already exists in

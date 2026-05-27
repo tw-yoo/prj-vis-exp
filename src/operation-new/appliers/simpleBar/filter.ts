@@ -1,5 +1,6 @@
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec } from '../../../domain/operation/types'
+import { RESULT_REF_ATTRIBUTE, operationResultRef } from '../../../operation-next/diffEndpoint'
 import { DURATIONS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
@@ -149,7 +150,7 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
     }
 
     const layer = instance.annotationLayer
-    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, options?.referencedResultIds)
     fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS)
 
     const remainingTargets = new Set(result.map((d) => String(d.target)))
@@ -169,8 +170,21 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
     // hidden either way (per repeated user feedback that lingering dim bars
     // are visually confusing once the chart has rescaled).
     // -----------------------------------------------------------------------
+    // Split-aware y-axis lock: when the chart is mid-split (left/right
+    // surfaces compared against the same parent scale), suppress this
+    // surface's per-side y-rescale so both panels stay on the same y.
+    // Honors the user's split-view rule (Korean):
+    //   "splited view에서 filter를 하더라도 y축 re-scale은 하면 안됨."
+    //
+    // The x-axis is NOT covered by that rule — each surface should narrow
+    // its own x-domain to the bars actually visible on it (otherwise the
+    // out-of-scope bars hide but their x-axis ticks linger, which the
+    // reviewer flagged on case 0s6zi9dyw22qo4rp). Compute xLabelDomain
+    // unconditionally so the surface's x-axis tracks its in-scope bars.
+    const splitLayoutType = options?.surfaceManager?.getLayout()?.type
+    const lockYScale = splitLayoutType === 'split-horizontal' || splitLayoutType === 'split-vertical'
     const originalYDomain = instance.yScale.domain() as [number, number]
-    const yDomain = computeYDomain(result)
+    const yDomain = lockYScale ? null : computeYDomain(result)
     const xLabelDomain = computeXLabelDomain(instance, result)
     const viewport = resolveBarAnnotationViewport(instance)
     const x1 = instance.layout.marginLeft
@@ -240,9 +254,24 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
           result.map((d): [string, number] => [String(d.target), OPACITIES.FULL]),
         )
       : new Map<string, number>()
+    const filterResultRef = operationResultRef(operation)
+    if (filterResultRef) {
+      instance.annotationLayer
+        .selectAll<SVGElement, unknown>(`.${FILTER_ANNOTATION_CLASS}`)
+        .filter(function () {
+          return !this.getAttribute(RESULT_REF_ATTRIBUTE)
+        })
+        .attr(RESULT_REF_ATTRIBUTE, filterResultRef)
+    }
     const nextRecords = [
       ...state.annotationRecords,
-      { cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor' as const, persistent: true },
+      {
+        cssClass: FILTER_ANNOTATION_CLASS,
+        role: 'anchor' as const,
+        persistent: true,
+        operationId: filterResultRef == null ? undefined : String(filterResultRef),
+        resultRef: filterResultRef == null ? undefined : String(filterResultRef),
+      },
     ]
 
     return {

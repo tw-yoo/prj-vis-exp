@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import { ChartType } from '../../domain/chart'
-import { averageData, diffData, filterData, findExtremum, lagDiffData, pairDiffData, retrieveValue } from '../../domain/operation/dataOps'
+import { averageData, diffData, filterData, findExtremum, lagDiffData, nthData, pairDiffData, retrieveValue } from '../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type JsonValue, type OperationSpec, type TargetSelector } from '../../domain/operation/types'
 import { toDatumValuesFromRaw, type RawRow } from '../../domain/data/datum'
 import { getMultipleLineStoredData, resolveMultiLineEncoding, type MultiLineSpec } from '../../rendering/line/multipleLineRenderer'
@@ -34,6 +34,7 @@ import {
   operationResultRef,
   resolveDerivedDiffEndpoint,
 } from '../diffEndpoint'
+import { isTerminalBadgeOperation, runTerminalBadgeOperation } from './terminalShared'
 
 export const MULTIPLE_LINE_SUPPORTED_OPERATIONS = getSupportedOperationsForChart(ChartType.MULTI_LINE)
 
@@ -44,6 +45,7 @@ const DIFF_ANNOTATION_CLASS = 'operation-next-multiple-line-diff'
 const PAIR_DIFF_ANNOTATION_CLASS = 'operation-next-multiple-line-pair-diff'
 const AVERAGE_ANNOTATION_CLASS = 'operation-next-multiple-line-average'
 const EXTREMUM_ANNOTATION_CLASS = 'operation-next-multiple-line-extremum'
+const NTH_ANNOTATION_CLASS = 'operation-next-multiple-line-nth'
 const LAG_DIFF_ANNOTATION_CLASS = 'operation-next-multiple-line-lag-diff'
 const DEBUG_PREFIX = '[operation-next-debug]'
 
@@ -123,6 +125,10 @@ function isDiffOperation(operation: OperationSpec): operation is OperationSpec &
 
 function isAverageOperation(operation: OperationSpec): operation is OperationSpec & { op: typeof OperationOp.Average } {
   return operation.op === OperationOp.Average
+}
+
+function isNthOperation(operation: OperationSpec): operation is OperationSpec & { op: typeof OperationOp.Nth } {
+  return operation.op === OperationOp.Nth
 }
 
 function isFindExtremumOperation(operation: OperationSpec): operation is OperationSpec & { op: typeof OperationOp.FindExtremum } {
@@ -1016,6 +1022,53 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
   state.annotationRecords.push({ cssClass: EXTREMUM_ANNOTATION_CLASS, role: 'result', persistent: false })
 }
 
+async function annotateNth(container: HTMLElement, result: DatumValue[], state: ChainState) {
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty() || result.length === 0) return
+  const layer = ensureAnnotationLayer(svg)
+
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
+  layer.selectAll(`.${NTH_ANNOTATION_CLASS}`).interrupt().remove()
+  const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
+  const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
+  const transitions: Promise<void>[] = []
+
+  result.forEach((datum) => {
+    const points = findPointByDatum(svg, datum)
+    const point = points.nodes()[0]
+    if (!point) return
+    const metrics = pointRootMetrics(point, marginLeft, marginTop)
+    transitions.push(
+      points
+        .interrupt()
+        .transition()
+        .duration(DURATIONS.HIGHLIGHT)
+        .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+        .attr(SvgAttributes.R, 6)
+        .end()
+        .catch(() => {}),
+    )
+    transitions.push(
+      appendValueLabel({
+        svg,
+        layer,
+        className: NTH_ANNOTATION_CLASS,
+        x: metrics.x,
+        y: metrics.y - 10,
+        value: metrics.value,
+        color: COLORS.TEXT_DARK,
+        anchorElement: point,
+      })
+        .end()
+        .catch(() => {}),
+    )
+  })
+
+  await Promise.all(transitions)
+  state.annotationRecords.push({ cssClass: NTH_ANNOTATION_CLASS, role: 'result', persistent: false })
+}
+
 async function annotateLagDiff(container: HTMLElement, result: DatumValue[], state: ChainState) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty() || result.length === 0) return
@@ -1363,6 +1416,20 @@ async function runFindExtremumOperation(
   return { result, nextState: { ...state, lastResult: result } }
 }
 
+async function runNthOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
+  await run.options?.onOperationReady?.({ operation, operationIndex })
+  const result = nthData(state.workingData, operation)
+  await annotateNth(run.container, result, state)
+  await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
+  console.log('[operation-next] multiple-line nth', { operationIndex, operation, result })
+  return { result, nextState: { ...state, lastResult: result } }
+}
+
 async function runLagDiffOperation(
   run: ParsedOperationRun,
   operation: OperationSpec,
@@ -1437,6 +1504,12 @@ export async function runMultipleLineOperations(run: ParsedOperationRun) {
         opResult = await runLagDiffOperation(run, operation, operationIndex, operationState)
       } else if (isPairDiffOperation(operation)) {
         opResult = await runPairDiffOperation(run, operation, operationIndex, operationState)
+      } else if (isNthOperation(operation)) {
+        opResult = await runNthOperation(run, operation, operationIndex, operationState)
+      } else if (isTerminalBadgeOperation(operation)) {
+        opResult = await runTerminalBadgeOperation(run.container, operation, operationState, {
+          chartType: ChartType.MULTI_LINE,
+        })
       } else {
         continue
       }

@@ -1,5 +1,5 @@
 import { ChartType } from '../domain/chart'
-import { type DatumValue, type JsonValue } from '../domain/operation/types'
+import { type DatumValue, type JsonValue, type OperationSpec } from '../domain/operation/types'
 import { toDatumValuesFromRaw, type RawRow } from '../domain/data/datum'
 import { type SimpleBarSpec } from '../rendering/bar/simpleBarRenderer'
 import { clearGroupBoundary, type ChainState } from '../operation-next/chainState'
@@ -9,6 +9,7 @@ import {
   stateWithOperationDependencies,
   storeOperationRuntimeResult,
 } from '../operation-next/executionState'
+import { referencesFromOperation } from '../operation-next/diffEndpoint'
 import type { ParsedOperationRun } from '../operation-next/types'
 import { runStubChartOperationRenderer } from '../operation-next/runners/shared'
 import {
@@ -23,6 +24,10 @@ import { diffByValueApplier } from './appliers/simpleBar/diffByValue'
 import { averageApplier } from './appliers/simpleBar/average'
 import { findExtremumApplier } from './appliers/simpleBar/findExtremum'
 import { sortApplier } from './appliers/simpleBar/sort'
+import { countApplier } from './appliers/simpleBar/count'
+import { sumApplier } from './appliers/simpleBar/sum'
+import { compareBoolApplier } from './appliers/simpleBar/compareBool'
+import { nthApplier } from './appliers/simpleBar/nth'
 
 const APPLIERS: OperationApplier<SimpleBarChartInstance>[] = [
   retrieveValueApplier,
@@ -32,6 +37,10 @@ const APPLIERS: OperationApplier<SimpleBarChartInstance>[] = [
   averageApplier,
   findExtremumApplier,
   sortApplier,
+  countApplier,
+  sumApplier,
+  compareBoolApplier,
+  nthApplier,
 ]
 
 const REGISTRY = createApplierRegistry(APPLIERS)
@@ -81,6 +90,12 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
     run.options?.initialChainState,
   )
 
+  // Per-op live reference set: refs consumed by the current op or any op after
+  // it in the remaining sequence. Used by appliers to decide which prior
+  // annotations are still needed vs. should fade out and be removed.
+  const allOpsInOrder: OperationSpec[] = run.groups.flatMap((g) => g.ops)
+  let cursor = 0
+
   for (let groupIdx = 0; groupIdx < run.groups.length; groupIdx += 1) {
     const group = run.groups[groupIdx]
     // Internal lookahead: next group head within THIS run. Falls back to
@@ -118,6 +133,7 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
 
       const operationState = stateWithOperationDependencies(operation, state)
       await run.options?.onOperationReady?.({ operation, operationIndex })
+      cursor += 1
       const { result, nextState } = await applier.apply({
         operation,
         operationIndex,
@@ -147,4 +163,17 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
     lastResult = Array.isArray(stub) ? stub : null
   }
   return buildOperationNextRunOutcome(lastResult, state)
+}
+
+/**
+ * Returns the union of `ref:` ids consumed by ops from `startIndex` onward.
+ * Used per-op so appliers can decide which prior annotations are still needed
+ * downstream and which should fade out + be removed.
+ */
+function computeLiveReferencedIds(allOps: OperationSpec[], startIndex: number): string[] {
+  const ids = new Set<string>()
+  for (let i = startIndex; i < allOps.length; i += 1) {
+    referencesFromOperation(allOps[i]).forEach((key) => ids.add(key))
+  }
+  return Array.from(ids)
 }

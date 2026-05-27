@@ -16,6 +16,9 @@ import {
   compareBoolOp,
   countData,
   diffByValueOp,
+  rangeData,
+  rollingWindowData,
+  monotonicRunData,
 } from '../../../operation/run/dataOps'
 
 export const STANDARD_DATA_OP_HANDLERS: Record<string, (data: DatumValue[], op: OperationSpec) => DatumValue[]> = {
@@ -34,4 +37,7 @@ export const STANDARD_DATA_OP_HANDLERS: Record<string, (data: DatumValue[], op: 
   [OperationOp.Count]: countData,
   [OperationOp.Add]: addData,
   [OperationOp.Scale]: scaleData,
+  [OperationOp.Range]: rangeData,
+  [OperationOp.RollingWindow]: rollingWindowData,
+  [OperationOp.MonotonicRun]: monotonicRunData,
 }

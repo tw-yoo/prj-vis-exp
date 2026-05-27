@@ -25,6 +25,13 @@ type Props = {
   editing?: boolean
   editorSlot?: ReactNode
   onExitEdit?: () => void
+  /**
+   * Optional callback that starts the per-row ops session (rendered as a
+   * "Run" button next to the JSON tab). Disabled when there are no ops or
+   * the spec is invalid.
+   */
+  onRunOps?: () => void
+  runDisabled?: boolean
 }
 
 type ViewMode = 'tree' | 'json'
@@ -56,6 +63,8 @@ export default function OperationSpecView({
   editing = false,
   editorSlot = null,
   onExitEdit,
+  onRunOps,
+  runDisabled,
 }: Props) {
   const [mode, setMode] = useState<ViewMode>('tree')
   const [popoverOpen, setPopoverOpen] = useState(false)
@@ -134,6 +143,23 @@ export default function OperationSpecView({
             JSON
           </button>
         </div>
+        {onRunOps ? (
+          <button
+            type="button"
+            className="ops-view-run-btn"
+            onClick={() => onRunOps()}
+            disabled={runDisabled || !parsed.ok || !parsed.spec.flat.length}
+            title={
+              runDisabled
+                ? 'Already running'
+                : !parsed.ok || !parsed.spec.flat.length
+                ? 'No ops to run'
+                : 'Render chart and start the ops walkthrough for this row'
+            }
+          >
+            ▶ Run ops
+          </button>
+        ) : null}
         <button
           type="button"
           ref={expandBtnRef}

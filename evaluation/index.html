@@ -18,11 +18,31 @@
     <span id="chartCounter" hidden></span>
     <span id="chartId" hidden></span>
 
-    <section class="chart-card" aria-label="Chart">
+    <section class="intro-card" id="introCard" aria-label="Introduction" hidden>
+      <div class="intro-eyebrow" id="introEyebrow"></div>
+      <h1 class="intro-title" id="introTitle"></h1>
+      <div class="intro-body" id="introBody"></div>
+
+      <div class="intro-demo" id="introDemo" hidden>
+        <div class="intro-demo__chart" id="introDemoChart"></div>
+        <div class="intro-demo__question" id="introDemoQuestion"></div>
+        <div class="intro-demo__explanation" id="introDemoExplanation"></div>
+        <p class="intro-demo__hint" id="introDemoHint"></p>
+      </div>
+    </section>
+
+    <div class="task-banner" id="taskBanner" hidden>
+      <strong>Task:</strong> Review the chart and the visual explanation, then verify the answer and rate the explanation.
+    </div>
+
+    <section class="chart-card" id="chartCard" aria-label="Chart">
+      <div class="chart-header">
+        <span class="method-badge" id="methodBadge"></span>
+      </div>
       <div id="chartContainer"></div>
     </section>
 
-    <section class="bottom-area" aria-label="Question and survey">
+    <section class="bottom-area" id="bottomArea" aria-label="Question and survey">
       <div id="questionText" class="question-text"></div>
       <div id="descriptionText" class="description-text"></div>
       <div id="explanationArea" class="explanation-area"></div>

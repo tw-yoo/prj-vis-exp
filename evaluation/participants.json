@@ -1,0 +1,32 @@
+{
+  "ABC123": {
+    "sequence": [
+      { "chart_id": "e1_q1", "method": "ours" },
+      { "chart_id": "presentation", "method": "d3" },
+      { "chart_id": "presentation", "method": "svg" },
+      { "chart_id": "2kmpy10btl65kr2j", "method": "svg" },
+      { "chart_id": "2kmpy10btl65kr2j", "method": "d3" },
+      { "chart_id": "e1_q2", "method": "ours" }
+    ]
+  },
+  "DEF456": {
+    "sequence": [
+      { "chart_id": "presentation", "method": "svg" },
+      { "chart_id": "e1_q2", "method": "ours" },
+      { "chart_id": "2kmpy10btl65kr2j", "method": "d3" },
+      { "chart_id": "presentation", "method": "d3" },
+      { "chart_id": "e1_q1", "method": "ours" },
+      { "chart_id": "2kmpy10btl65kr2j", "method": "svg" }
+    ]
+  },
+  "XYZ789": {
+    "sequence": [
+      { "chart_id": "2kmpy10btl65kr2j", "method": "svg" },
+      { "chart_id": "presentation", "method": "d3" },
+      { "chart_id": "e1_q1", "method": "ours" },
+      { "chart_id": "e1_q2", "method": "ours" },
+      { "chart_id": "2kmpy10btl65kr2j", "method": "d3" },
+      { "chart_id": "presentation", "method": "svg" }
+    ]
+  }
+}

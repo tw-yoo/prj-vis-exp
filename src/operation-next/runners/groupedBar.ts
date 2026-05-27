@@ -9,6 +9,9 @@ import {
   runGroupedBarAverageOperation,
   runGroupedBarDiffOperation,
   runGroupedBarFilterOperation,
+  runGroupedBarFindExtremumOperation,
+  runGroupedBarNthOperation,
+  runGroupedBarRetrieveValueOperation,
   runStackedBarFilterOperation,
 } from './barGroupShared'
 import {
@@ -18,6 +21,7 @@ import {
   storeOperationRuntimeResult,
 } from '../executionState'
 import { getSupportedOperationsForChart, runStubChartOperationRenderer } from './shared'
+import { isTerminalBadgeOperation, runTerminalBadgeOperation } from './terminalShared'
 
 export const GROUPED_BAR_SUPPORTED_OPERATIONS = getSupportedOperationsForChart(ChartType.GROUPED_BAR)
 
@@ -27,6 +31,18 @@ function isAverageOperation(operation: OperationSpec) {
 
 function isDiffOperation(operation: OperationSpec) {
   return operation.op === OperationOp.Diff
+}
+
+function isFindExtremumOperation(operation: OperationSpec) {
+  return operation.op === OperationOp.FindExtremum
+}
+
+function isRetrieveValueOperation(operation: OperationSpec) {
+  return operation.op === OperationOp.RetrieveValue
+}
+
+function isNthOperation(operation: OperationSpec) {
+  return operation.op === OperationOp.Nth
 }
 
 export async function runGroupedBarOperations(run: ParsedOperationRun) {
@@ -43,7 +59,28 @@ export async function runGroupedBarOperations(run: ParsedOperationRun) {
         continue
       }
 
-      if (!isFilterOperation(operation) && !isAverageOperation(operation) && !isDiffOperation(operation)) {
+      if (isTerminalBadgeOperation(operation)) {
+        await run.options?.onOperationReady?.({ operation, operationIndex })
+        const operationState = stateWithOperationDependencies(operation, active.chainState)
+        const badge = await runTerminalBadgeOperation(run.container, operation, operationState, {
+          chartType: ChartType.GROUPED_BAR,
+        })
+        active = { ...active, chainState: badge.nextState }
+        lastResult = badge.result
+        await run.options?.onOperationCompleted?.({ operation, operationIndex, result: badge.result })
+        storeOperationRuntimeResult(operation, operationIndex, badge.result, run.options?.runtimeScope)
+        operationIndex += 1
+        continue
+      }
+
+      if (
+        !isFilterOperation(operation) &&
+        !isAverageOperation(operation) &&
+        !isDiffOperation(operation) &&
+        !isFindExtremumOperation(operation) &&
+        !isRetrieveValueOperation(operation) &&
+        !isNthOperation(operation)
+      ) {
         operationIndex += 1
         continue
       }
@@ -78,6 +115,18 @@ export async function runGroupedBarOperations(run: ParsedOperationRun) {
         const diffed = await runGroupedBarDiffOperation(run.container, operation, operationState, run.options?.surfaceManager)
         active = { ...active, chainState: diffed.nextState }
         lastResult = diffed.result
+      } else if (isFindExtremumOperation(operation)) {
+        const extremum = await runGroupedBarFindExtremumOperation(run.container, operation, operationState)
+        active = { ...active, chainState: extremum.nextState }
+        lastResult = extremum.result
+      } else if (isRetrieveValueOperation(operation)) {
+        const retrieved = await runGroupedBarRetrieveValueOperation(run.container, operation, operationState)
+        active = { ...active, chainState: retrieved.nextState }
+        lastResult = retrieved.result
+      } else if (isNthOperation(operation)) {
+        const nth = await runGroupedBarNthOperation(run.container, operation, operationState)
+        active = { ...active, chainState: nth.nextState }
+        lastResult = nth.result
       }
 
       if (lastResult) {

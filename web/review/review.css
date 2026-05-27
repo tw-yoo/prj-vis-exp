@@ -170,20 +170,6 @@
 
 .review-add-btn:hover { background: #1d4ed8; }
 
-.review-search {
-  min-width: 240px;
-  flex: 1 1 240px;
-  background: var(--review-panel-2);
-  color: var(--review-text);
-  border: 1px solid var(--review-border);
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 12px;
-  outline: none;
-}
-
-.review-search:focus { border-color: var(--review-accent-2); }
-
 .review-status-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 
 .review-status-chip {
@@ -290,7 +276,7 @@
 }
 
 .review-grid-header-row--secondary {
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
 }
 
 .review-grid-header .cell-num { text-align: center; }
@@ -332,7 +318,7 @@
 
 .review-row__line2 {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
   gap: 12px;
   align-items: start;
 }
@@ -342,8 +328,7 @@
 .review-row .cell-status,
 .review-row .cell-question,
 .review-row .cell-explanation,
-.review-row .cell-ops,
-.review-row .cell-feedback {
+.review-row .cell-ops {
   min-width: 0;
 }
 
@@ -380,8 +365,7 @@
 }
 
 .review-row .cell-explanation,
-.review-row .cell-ops,
-.review-row .cell-feedback {
+.review-row .cell-ops {
   background: var(--review-panel-2);
   border: 1px solid var(--review-border);
   border-radius: 8px;
@@ -434,6 +418,51 @@
   line-height: 1.65;
 }
 
+/* ── Read-only line-numbered renderer (LineNumberedText component) ───── */
+/* Cheap CodeMirror-gutter look without spinning up an editor on every row.
+   Two-column grid: a small right-aligned number column + content column. */
+.review-line-numbered {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 1px;
+  font-size: 12px;
+  color: var(--review-text);
+  line-height: 1.55;
+}
+
+.review-line-numbered-row {
+  display: contents;
+}
+
+.review-line-numbered-num {
+  text-align: right;
+  color: var(--review-text-faint);
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  user-select: none;
+  padding-right: 4px;
+  border-right: 1px solid var(--review-border);
+  /* Keep the gutter number anchored at the first wrapped line of its row. */
+  align-self: start;
+}
+
+.review-line-numbered-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* The explanation cell is the main reading surface — bump its size for
+   legibility, just like the previous `.review-cell-multiline` rules. */
+.review-row .cell-explanation .review-line-numbered {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.review-row .cell-explanation .review-line-numbered-num {
+  font-size: 12px;
+}
+
 /* ── chart_id (click to render) ────────────────────────────────────── */
 
 .chart-id-link {
@@ -468,7 +497,30 @@
   border-bottom-color: var(--review-accent-2);
 }
 
-/* ── Status ──────────────────────────────────────────────────────────── */
+/* ── Status (two axes: op_status + viz_status) ───────────────────────── */
+
+.review-row .cell-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.status-axis-row {
+  display: inline-grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-axis-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--review-text-faint);
+  text-align: right;
+}
 
 .review-status-select {
   background: var(--review-panel-2);
@@ -478,11 +530,30 @@
   padding: 4px 7px;
   font-size: 11px;
   cursor: pointer;
+  width: 100%;
 }
 
 .review-status-select.status-bug { color: #fca5a5; }
 .review-status-select.status-verified { color: #6ee7b7; }
 .review-status-select.status-wontfix { color: var(--review-text-dim); }
+
+/* Toolbar filter axis groups (one row per axis: "Op" chips and "Viz" chips). */
+.review-status-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 4px;
+  border: 1px dashed var(--review-border);
+  border-radius: 8px;
+}
+
+.review-status-filter-axis {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--review-text-faint);
+}
 
 /* ── Inline editors (question / explanation) ─────────────────────────── */
 
@@ -627,8 +698,13 @@
 .review-chip--amber { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border-color: rgba(245, 158, 11, 0.4); }
 .review-chip--slate { background: rgba(148, 163, 184, 0.15); color: var(--review-text); border-color: rgba(148, 163, 184, 0.35); }
 
-.review-feedback-edit { position: relative; }
-.review-feedback-textarea { min-height: 72px; resize: vertical; overflow: auto; }
+/* SlashTextarea wrapper provides the positioning context for the dropdown,
+   which is `position: absolute; top: 100%` (sits just under the textarea). */
+.review-feedback-slash-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+}
 
 .review-slash-dropdown {
   position: absolute;
@@ -672,6 +748,132 @@
 .review-slash-option.is-active { background: rgba(37, 99, 235, 0.25); }
 .review-slash-option-label { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; }
 .review-slash-option-hint { color: var(--review-text-dim); font-size: 11px; margin-top: 1px; }
+
+/* ── Row-level feedback trigger button ──────────────────────────────── */
+/* Lives inside `.cell-chart-id` below chart_id / chart_type badge. Clicking
+   it toggles the detached FeedbackPanel above the chart preview. */
+.row-feedback-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  color: var(--review-text-dim);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  margin-top: 2px;
+  align-self: flex-start;
+  transition: all 0.15s ease;
+}
+
+.row-feedback-toggle:hover {
+  border-color: var(--review-accent-2);
+  color: var(--review-text);
+}
+
+.row-feedback-toggle.has-content {
+  border-color: var(--review-warn);
+  color: var(--review-warn);
+}
+
+.row-feedback-toggle.is-active {
+  background: var(--review-accent);
+  border-color: var(--review-accent);
+  color: #fff;
+}
+
+.row-feedback-toggle-dot {
+  font-size: 8px;
+  line-height: 1;
+}
+
+/* ── Right pane: feedback panel sits above the chart card when open ──── */
+
+.review-feedback-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--review-panel);
+  border: 1px solid var(--review-warn);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.review-feedback-card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-feedback-card .card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.review-feedback-card .card-actions { display: flex; gap: 6px; }
+
+.review-feedback-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.review-feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.review-feedback-axis-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--review-text-dim);
+}
+
+.review-feedback-axis-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--review-panel-2);
+  color: var(--review-text);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.review-feedback-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--review-bg);
+  color: var(--review-text);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  min-height: 90px;
+  resize: vertical;
+  outline: none;
+}
+
+.review-feedback-textarea:focus { border-color: var(--review-accent-2); }
+
+.review-feedback-hint {
+  font-size: 11px;
+  color: var(--review-text-faint);
+  font-style: italic;
+}
 
 /* ── Right pane (chart preview) ─────────────────────────────────────── */
 
@@ -742,10 +944,34 @@
   font-size: 11px;
 }
 
-/* White canvas — dark axes/labels become legible. */
+/* White canvas — dark axes/labels become legible.
+   ─────────────────────────────────────────────────────────────────────
+   Sizing notes (subtle bug fix vs. the original `height: 480px`):
+   The chart engine sizes its viewBox to the host's *measured width* with
+   a roughly 16:9 / 2:1 natural aspect (`canvasHeight = 300` for bar,
+   ~360 for line — see `src/rendering/common/chartLayout.ts`). A fixed
+   `height: 480px` therefore did two bad things:
+     • The SVG, which has only `viewBox` + the global rule
+       `.chart-host > svg { max-width: 100%; margin: 0 auto }` (App.css),
+       rendered at its intrinsic viewBox dimensions (~613×323). When the
+       host was narrower than ~613px the SVG overflowed left+right and
+       got clipped by `overflow: hidden` → the user's "차트가 잘리는
+       느낌".
+     • When the host was wide enough, the SVG (≈323px tall) sat
+       centered in a 480px-tall host with ~80px of dead white space
+       above and below → the user's "차트가 작아진 느낌".
+
+   Fix: drive the host height from a 16:9 aspect ratio (matches the
+   chart engine's natural canvas) with min/max safety bounds, and force
+   the SVG to fully fill the host (`width: 100%; height: 100%`). The
+   default `preserveAspectRatio="xMidYMid meet"` keeps the chart from
+   distorting if the host aspect drifts from the SVG aspect.
+   ─────────────────────────────────────────────────────────────────── */
 .review-chart-host {
   width: 100%;
-  height: 480px;
+  aspect-ratio: 16 / 9;
+  min-height: 320px;
+  max-height: 540px;
   background: #ffffff;
   border: 1px solid var(--review-border);
   border-radius: 8px;
@@ -754,6 +980,21 @@
   justify-content: center;
   overflow: hidden;
   color: #0b1220;
+}
+
+/* Override the global `.chart-host > svg { max-width: 100%; margin: 0 auto }`
+   (App.css line 716) so the SVG fully fills the host instead of rendering
+   at intrinsic viewBox size. preserveAspectRatio (engine default
+   "xMidYMid meet") then keeps the chart proportions without clipping. */
+.review-chart-host > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -820,6 +1061,31 @@
 .ops-view-expand:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* Run button placed beside Tree/JSON tabs to start the per-row ops walkthrough. */
+.ops-view-run-btn {
+  background: var(--review-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  line-height: 1;
+  margin-left: 4px;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.ops-view-run-btn:hover:not(:disabled) { background: #1d4ed8; }
+
+.ops-view-run-btn:disabled {
+  background: var(--review-panel-2);
+  color: var(--review-text-faint);
+  cursor: default;
+  border: 1px solid var(--review-border);
 }
 
 /* Chart context strip */

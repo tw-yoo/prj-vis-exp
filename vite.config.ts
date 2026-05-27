@@ -12,6 +12,8 @@ const validationUrlPrefix = '/validation'
 const evaluationRoot = path.join(projectRoot, 'evaluation')
 const evaluationUrlPrefix = '/evaluation'
 const evaluationViewerEntry = path.join(projectRoot, 'src/evaluation/viewer.ts')
+const evaluationEntryEntry = path.join(projectRoot, 'src/evaluation/entry.ts')
+const evaluationViewerUrlSuffix = '/run'
 
 const validationMimeTypes: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -244,24 +246,27 @@ function getEvaluationStaticPath(urlPathname: string) {
   return staticPath
 }
 
-function isEvaluationViewerRoute(urlPathname: string) {
+function isEvaluationEntryRoute(urlPathname: string) {
   if (urlPathname === evaluationUrlPrefix || urlPathname === `${evaluationUrlPrefix}/`) {
     return true
   }
-
-  if (!urlPathname.startsWith(`${evaluationUrlPrefix}/`)) {
-    return false
-  }
-
-  const relativeParts = urlPathname
-    .slice(evaluationUrlPrefix.length + 1)
-    .split('/')
-    .filter(Boolean)
-
-  return relativeParts.length === 1 || (relativeParts.length === 2 && relativeParts[1] === 'index.html')
+  return urlPathname === `${evaluationUrlPrefix}/index.html`
 }
 
-function evaluationIndexSource(scriptSrc: string) {
+function isEvaluationViewerRoute(urlPathname: string) {
+  const viewerPrefix = `${evaluationUrlPrefix}${evaluationViewerUrlSuffix}`
+  if (urlPathname === viewerPrefix || urlPathname === `${viewerPrefix}/`) {
+    return true
+  }
+  return urlPathname === `${viewerPrefix}/index.html`
+}
+
+function evaluationEntrySource(scriptSrc: string) {
+  return fs.readFileSync(path.join(evaluationRoot, 'entry.html'), 'utf8')
+    .replace('__EVALUATION_ENTRY_SCRIPT__', scriptSrc)
+}
+
+function evaluationViewerSource(scriptSrc: string) {
   return fs.readFileSync(path.join(evaluationRoot, 'index.html'), 'utf8')
     .replace('__EVALUATION_VIEWER_SCRIPT__', scriptSrc)
 }
@@ -273,31 +278,40 @@ function sendEvaluationFile(response: ServerResponse, filePath: string) {
   response.end(fs.readFileSync(filePath))
 }
 
-function sendEvaluationIndex(response: ServerResponse, scriptSrc: string) {
+function sendEvaluationHtml(response: ServerResponse, html: string) {
   response.statusCode = 200
   response.setHeader('Content-Type', 'text/html; charset=utf-8')
   response.setHeader('Cache-Control', 'no-store')
-  response.end(evaluationIndexSource(scriptSrc))
+  response.end(html)
 }
 
-function installEvaluationMiddleware(middlewares: Connect.Server, scriptSrc: string) {
+function installEvaluationMiddleware(middlewares: Connect.Server, entryScriptSrc: string, viewerScriptSrc: string) {
   middlewares.use((request, response, next) => {
     const requestUrl = request.url ?? '/'
     const url = new URL(requestUrl, 'http://localhost')
 
-    const staticPath = getEvaluationStaticPath(url.pathname)
-
-    if (staticPath && fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
-      if (path.basename(staticPath) === 'index.html') {
-        sendEvaluationIndex(response, scriptSrc)
-        return
-      }
-      sendEvaluationFile(response, staticPath)
+    if (isEvaluationEntryRoute(url.pathname)) {
+      sendEvaluationHtml(response, evaluationEntrySource(entryScriptSrc))
       return
     }
 
     if (isEvaluationViewerRoute(url.pathname)) {
-      sendEvaluationIndex(response, scriptSrc)
+      sendEvaluationHtml(response, evaluationViewerSource(viewerScriptSrc))
+      return
+    }
+
+    const staticPath = getEvaluationStaticPath(url.pathname)
+    if (staticPath && fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
+      const basename = path.basename(staticPath)
+      if (basename === 'entry.html') {
+        sendEvaluationHtml(response, evaluationEntrySource(entryScriptSrc))
+        return
+      }
+      if (basename === 'index.html') {
+        sendEvaluationHtml(response, evaluationViewerSource(viewerScriptSrc))
+        return
+      }
+      sendEvaluationFile(response, staticPath)
       return
     }
 
@@ -327,13 +341,6 @@ function collectStaticFiles(dir: string, files: string[] = []) {
   return files
 }
 
-function getEvaluationExpertIds() {
-  const chartMapPath = path.join(evaluationRoot, 'chart_map.json')
-  if (!fs.existsSync(chartMapPath)) return []
-  const chartMap = JSON.parse(fs.readFileSync(chartMapPath, 'utf8')) as Record<string, unknown>
-  return Object.keys(chartMap)
-}
-
 function evaluationViewerPlugin(): Plugin {
   let isBuild = false
 
@@ -343,10 +350,10 @@ function evaluationViewerPlugin(): Plugin {
       isBuild = config.command === 'build'
     },
     configureServer(server) {
-      installEvaluationMiddleware(server.middlewares, '/src/evaluation/viewer.ts')
+      installEvaluationMiddleware(server.middlewares, '/src/evaluation/entry.ts', '/src/evaluation/viewer.ts')
     },
     configurePreviewServer(server) {
-      installEvaluationMiddleware(server.middlewares, '/evaluation/viewer.js')
+      installEvaluationMiddleware(server.middlewares, '/evaluation/entry.js', '/evaluation/viewer.js')
     },
     buildStart() {
       if (!isBuild) return
@@ -355,12 +362,19 @@ function evaluationViewerPlugin(): Plugin {
         id: evaluationViewerEntry,
         fileName: 'evaluation/viewer.js',
       })
+      this.emitFile({
+        type: 'chunk',
+        id: evaluationEntryEntry,
+        fileName: 'evaluation/entry.js',
+      })
     },
     generateBundle() {
-      const indexSource = evaluationIndexSource('/evaluation/viewer.js')
+      const entrySource = evaluationEntrySource('/evaluation/entry.js')
+      const viewerSource = evaluationViewerSource('/evaluation/viewer.js')
+
       for (const filePath of collectStaticFiles(evaluationRoot)) {
         const relativePath = path.relative(evaluationRoot, filePath)
-        if (relativePath === 'index.html') {
+        if (relativePath === 'index.html' || relativePath === 'entry.html') {
           continue
         }
 
@@ -374,16 +388,14 @@ function evaluationViewerPlugin(): Plugin {
       this.emitFile({
         type: 'asset',
         fileName: 'evaluation/index.html',
-        source: indexSource,
+        source: entrySource,
       })
 
-      for (const expertId of getEvaluationExpertIds()) {
-        this.emitFile({
-          type: 'asset',
-          fileName: `evaluation/${expertId}/index.html`,
-          source: indexSource,
-        })
-      }
+      this.emitFile({
+        type: 'asset',
+        fileName: 'evaluation/run/index.html',
+        source: viewerSource,
+      })
     },
   }
 }
@@ -393,8 +405,12 @@ const reviewDirPath = path.join(projectRoot, 'data/review')
 // review_cases.csv if the preferred file is missing.
 const reviewDefaultFile = 'review_cases_updated.csv'
 const reviewLegacyDefaultFile = 'review_cases.csv'
+// Note: legacy CSVs may still have a single `status` / `feedback` column
+// instead of the two-axis form. The FE service auto-migrates on load
+// (status value propagates to both axes; feedback value migrates to
+// op_feedback only). This header is for brand-new files created here.
 const reviewHeaderLine =
-  'chart_id,chart_type,status,question,explanation,operation_spec,feedback,updated_at\n'
+  'chart_id,chart_type,op_status,viz_status,question,explanation,operation_spec,op_feedback,viz_feedback,updated_at\n'
 // Whitelist regex: simple filename, .csv extension, no path traversal.
 const REVIEW_FILENAME_RE = /^[A-Za-z0-9_.-]+\.csv$/
 
@@ -409,8 +425,9 @@ function resolveReviewCsvName(req: { url?: string }): string | null {
 }
 
 async function chooseDefaultFile(): Promise<string> {
-  // Prefer review_cases_updated.csv if present; fall back to review_cases.csv;
-  // otherwise return the preferred name so a GET creates it on first PUT.
+  // Prefer review_cases_updated.csv if present; then review_cases.csv;
+  // then any existing CSV in the directory; only fall back to the preferred
+  // name (for first-PUT creation) when the directory has no CSVs at all.
   try {
     await fs.promises.access(path.join(reviewDirPath, reviewDefaultFile))
     return reviewDefaultFile
@@ -423,6 +440,11 @@ async function chooseDefaultFile(): Promise<string> {
   } catch {
     // ignored
   }
+  // Fallback: pick the first existing CSV so the page mounts with rows visible.
+  // Without this, deleting the preferred files leaves clients loading a phantom
+  // filename → the GET returns only the header line → 0 rows on page reload.
+  const files = await listReviewFiles()
+  if (files.length > 0) return files[0]
   return reviewDefaultFile
 }
 

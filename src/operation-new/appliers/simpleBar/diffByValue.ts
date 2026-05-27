@@ -5,8 +5,9 @@ import {
 } from '../../../domain/operation/dataOps'
 import { OperationOp, type OperationSpec } from '../../../domain/operation/types'
 import { SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
-import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
+import { COLORS, DURATIONS, EASINGS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
+import { RESULT_REF_ATTRIBUTE, operationResultRef } from '../../../operation-next/diffEndpoint'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
@@ -23,6 +24,15 @@ function resolveReferenceValue(operation: OperationSpec): number | null {
   const refKey = (targetValue.startsWith('ref:') ? targetValue.slice('ref:'.length) : targetValue).trim()
   if (!refKey) return null
   return resolveScalarAggregateFromRows(getRuntimeResultsById(refKey))
+}
+
+function extractRefKey(operation: OperationSpec): string | null {
+  const targetValue = (operation as OperationSpec & { targetValue?: unknown }).targetValue
+  if (typeof targetValue !== 'string') return null
+  const trimmed = targetValue.trim()
+  if (!trimmed.startsWith('ref:')) return null
+  const key = trimmed.slice('ref:'.length).trim()
+  return key.length > 0 ? key : null
 }
 
 export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
@@ -48,19 +58,29 @@ export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
     const referenceY = valueToRootY(instance, reference)
     const viewport = resolveBarAnnotationViewport(instance)
 
-    await drawReferenceLine({
-      layer,
-      cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS,
-      x1,
-      x2,
-      y: referenceY,
-      label: `Value: ${formatOperationValue(reference)}`,
-      svg: instance.svg,
-      viewport,
-      anchorValue: reference,
-    })
+    // If `targetValue: "ref:nX"` and an on-screen annotation already references
+    // that scalar (typically the upstream Average label sitting at the same y),
+    // suppress the redundant "Value: X" line+label per feedback `1bbe64wpvq06sknm`.
+    const refKey = extractRefKey(operation)
+    const reusedExistingRef = refKey != null && layer
+      .selectAll<SVGElement, unknown>(`[${RESULT_REF_ATTRIBUTE}="${refKey}"]`)
+      .nodes().length > 0
 
-    // Per-bar delta labels.
+    if (!reusedExistingRef) {
+      await drawReferenceLine({
+        layer,
+        cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS,
+        x1,
+        x2,
+        y: referenceY,
+        label: `Value: ${formatOperationValue(reference)}`,
+        svg: instance.svg,
+        viewport,
+        anchorValue: reference,
+      })
+    }
+
+    // Per-bar delta labels + connector lines from each bar top to the reference line.
     const deltaByTarget = new Map<string, number>()
     for (const row of result) deltaByTarget.set(String(row.target), Number(row.value))
 
@@ -75,9 +95,23 @@ export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
       labelData.push({ x: metrics.centerX, y: metrics.topY, delta, anchor: rect })
     })
 
-    // Label above the bar top; flip below if that would clip the chart's top
-    // margin. No collision avoidance — overflow:visible keeps labels visible
-    // past the plot box if needed.
+    // Connectors first (behind text labels in stacking order).
+    const connectors = layer
+      .selectAll<SVGLineElement, { x: number; y: number; delta: number }>(
+        `line.${DIFF_BY_VALUE_ANNOTATION_CLASS}.bar-connector`,
+      )
+      .data(labelData)
+      .enter()
+      .append(SvgElements.Line)
+      .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${DIFF_BY_VALUE_ANNOTATION_CLASS} bar-connector`)
+      .attr(SvgAttributes.X1, (d) => d.x)
+      .attr(SvgAttributes.X2, (d) => d.x)
+      .attr(SvgAttributes.Y1, referenceY)
+      .attr(SvgAttributes.Y2, referenceY)
+      .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
+      .attr(SvgAttributes.StrokeWidth, 1.5)
+      .style(SvgAttributes.Opacity, 0)
+
     const labelMinY = instance.layout.marginTop + 12
     const labelYFor = (y: number) => {
       const naturalAbove = y - 8
@@ -100,12 +134,32 @@ export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
       .style(SvgAttributes.Opacity, 0)
       .text((d) => `${d.delta >= 0 ? '+' : ''}${formatOperationValue(d.delta)}`)
 
+    // Animate connectors to grow from reference line to each bar top, then fade in deltas.
+    await connectors
+      .transition()
+      .duration(DURATIONS.GUIDELINE_DRAW)
+      .ease(EASINGS.SMOOTH)
+      .attr(SvgAttributes.Y2, (d) => d.y)
+      .style(SvgAttributes.Opacity, 0.8)
+      .end()
+      .catch(() => {})
+
     await labels
       .transition()
       .duration(DURATIONS.LABEL_FADE_IN)
       .style(SvgAttributes.Opacity, 1)
       .end()
       .catch(() => {})
+
+    const diffByValueRef = operationResultRef(operation)
+    if (diffByValueRef) {
+      layer
+        .selectAll<SVGElement, unknown>(`.${DIFF_BY_VALUE_ANNOTATION_CLASS}`)
+        .filter(function () {
+          return !this.getAttribute(RESULT_REF_ATTRIBUTE)
+        })
+        .attr(RESULT_REF_ATTRIBUTE, diffByValueRef)
+    }
 
     return {
       result,
@@ -114,7 +168,13 @@ export const diffByValueApplier: OperationApplier<SimpleBarChartInstance> = {
         lastResult: result,
         annotationRecords: [
           ...state.annotationRecords,
-          { cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS, role: 'anchor', persistent: true },
+          {
+            cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS,
+            role: 'anchor',
+            persistent: true,
+            operationId: diffByValueRef == null ? undefined : String(diffByValueRef),
+            resultRef: diffByValueRef == null ? undefined : String(diffByValueRef),
+          },
         ],
       },
     }

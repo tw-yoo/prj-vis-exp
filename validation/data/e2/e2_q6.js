@@ -84,6 +84,14 @@ function injectChartStyles() {
 }
 
 export function renderValidationSimpleBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectChartStyles();
 
     const data = data_rows;
@@ -151,6 +159,7 @@ export function renderValidationSimpleBarChart({ container }) {
         })
         .attr('height', (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
         .attr('fill', '#69b3a2')
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => Number(d[yField]))
         .attr('data-x-value', (d) => String(d[xField]))
@@ -190,53 +199,46 @@ export function renderValidationSimpleBarChart({ container }) {
         });
 }
 
-function renderTicketPriceSplitChart({ d3, container, showAverage = false }) {
-    const yField = 'Average ticket price in US dollars';
-    const threshold = 60;
-    const rows = [
-        ...data_rows.filter((d) => Number(d[yField]) <= threshold).map((d) => ({ ...d, group: '<= 60' })),
-        ...data_rows.filter((d) => Number(d[yField]) > threshold).map((d) => ({ ...d, group: '> 60' }))
-    ];
-    const selectedRows = rows.filter((d) => d.group === '<= 60');
-    const average = d3.mean(selectedRows, (d) => Number(d[yField])) ?? 0;
+const E2_Q6_Y_FIELD = 'Average ticket price in US dollars';
+const E2_Q6_THRESHOLD = 60;
+
+function getE2Q6Geometry(d3) {
     const width = 640;
     const height = 360;
-    const margin = { top: 32, right: 24, bottom: 64, left: 56 };
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
-    const xScale = d3.scaleBand().domain(rows.map((d) => d.Season)).range([0, plotW]).padding(0.22);
+    const xDomain = data_rows.map((d) => String(d['Season']));
+    const yValues = data_rows.map((d) => Number(d[E2_Q6_Y_FIELD]));
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.2);
     const yScale = d3.scaleLinear()
-        .domain([0, Math.max(threshold, d3.max(rows, (d) => Number(d[yField])) ?? 0)])
+        .domain([0, Math.max(0, ...yValues)])
         .nice()
         .range([plotH, 0]);
+    return { plotW, plotH, xScale, yScale };
+}
 
-    container.innerHTML = '';
-    container.classList.add('validation-chart-host');
+export function function1({ d3, container }) {
+    // Per reviewer (e2_feedback round-4 row 5): bars > 60 must have LOWER OPACITY
+    // (dimmed). Below-threshold bars keep the original base color + full opacity.
+    // Above-threshold bars stay at their base fill but with opacity 0.35 so the
+    // "below-60" group reads as the focus.
+    const { plotW, yScale } = getE2Q6Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    g.selectAll('.validation-threshold-60').remove();
 
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
-
-    g.selectAll('rect.main-bar')
-        .data(rows)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.Season))
-        .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => d.group === '<= 60' ? '#2563eb' : '#d1d5db')
-        .attr('data-target', (d) => d.Season)
-        .attr('data-value', (d) => Number(d[yField]))
+    g.selectAll('.main-bar')
         .transition()
-        .duration(700)
-        .attr('y', (d) => yScale(Number(d[yField])))
-        .attr('height', (d) => plotH - yScale(Number(d[yField])));
+        .duration(600)
+        .attr('opacity', function () {
+            const value = Number(this.getAttribute('data-y-value'));
+            return value > E2_Q6_THRESHOLD ? 0.35 : 1;
+        });
 
-    const thresholdY = yScale(threshold);
+    const thresholdY = yScale(E2_Q6_THRESHOLD);
     g.append('line')
         .attr('class', 'validation-threshold-60')
         .attr('x1', 0)
@@ -249,25 +251,71 @@ function renderTicketPriceSplitChart({ d3, container, showAverage = false }) {
         .transition()
         .duration(650)
         .attr('x2', plotW);
+    g.append('text')
+        .attr('class', 'validation-threshold-60')
+        .attr('x', plotW + 6)
+        .attr('y', thresholdY)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .attr('opacity', 0)
+        .text('60')
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
 
-    if (!showAverage) return;
+export function function2({ d3, container }) {
+    // Per reviewer (round-2 row 5): the avg line MUST span exactly the filtered
+    // bars region (left edge of the first filtered bar to right edge of the last).
+    // Annotation-only (no rebuild). Compute positions from the existing rendered
+    // bars' x/width attributes so it's always aligned with what the user sees.
+    const { yScale } = getE2Q6Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
 
-    const selectedX = selectedRows.map((d) => xScale(d.Season) ?? 0);
+    g.selectAll('.validation-average-line').remove();
+
+    const filteredYears = new Set(
+        data_rows
+            .filter((d) => Number(d[E2_Q6_Y_FIELD]) <= E2_Q6_THRESHOLD)
+            .map((d) => String(d['Season']))
+    );
+    const filteredValues = data_rows
+        .filter((d) => filteredYears.has(String(d['Season'])))
+        .map((d) => Number(d[E2_Q6_Y_FIELD]));
+    if (filteredValues.length === 0) return;
+
+    // Read the actual rendered bar positions for filtered years (so we're aligned
+    // with what's on screen regardless of any scale-padding quirks).
+    const filteredBars = g.selectAll('.main-bar').nodes().filter((node) => filteredYears.has(node.getAttribute('data-target')));
+    if (filteredBars.length === 0) return;
+    const lefts = filteredBars.map((n) => Number(n.getAttribute('x')));
+    const rights = filteredBars.map((n) => Number(n.getAttribute('x')) + Number(n.getAttribute('width')));
+    const xStart = Math.min(...lefts);
+    const xEnd = Math.max(...rights);
+    const average = filteredValues.reduce((a, b) => a + b, 0) / filteredValues.length;
     const avgY = yScale(average);
+
     g.append('line')
         .attr('class', 'validation-average-line')
-        .attr('x1', Math.min(...selectedX))
-        .attr('x2', Math.min(...selectedX))
+        .attr('x1', xStart)
+        .attr('x2', xStart)
         .attr('y1', avgY)
         .attr('y2', avgY)
         .attr('stroke', '#ef4444')
         .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4')
         .transition()
         .duration(650)
-        .attr('x2', Math.max(...selectedX) + xScale.bandwidth());
+        .attr('x2', xEnd);
+
     g.append('text')
         .attr('class', 'validation-average-line')
-        .attr('x', Math.max(...selectedX) + xScale.bandwidth() + 8)
+        .attr('x', xEnd + 6)
         .attr('y', avgY)
         .attr('dominant-baseline', 'middle')
         .attr('font-size', 12)
@@ -278,14 +326,6 @@ function renderTicketPriceSplitChart({ d3, container, showAverage = false }) {
         .transition()
         .duration(650)
         .attr('opacity', 1);
-}
-
-export function function1({ d3, container }) {
-    renderTicketPriceSplitChart({ d3, container, showAverage: false });
-}
-
-export function function2({ d3, container }) {
-    renderTicketPriceSplitChart({ d3, container, showAverage: true });
 }
 
 export function function3({ d3, container }) {}

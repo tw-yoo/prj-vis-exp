@@ -24,6 +24,7 @@ import type { ParsedOperationRun } from '../operation-next/types'
 import { filterApplier } from './appliers/stackedBar/filter'
 import { averageApplier } from './appliers/stackedBar/average'
 import { diffApplier } from './appliers/stackedBar/diff'
+import { pairDiffApplier } from './appliers/stackedBar/pairDiff'
 import { retrieveValueApplier } from './appliers/stackedBar/retrieveValue'
 import { drawTransformApplierStacked } from './appliers/barGroup/drawTransform'
 import type { ApplierArgs, OperationApplier } from './applier'
@@ -34,6 +35,7 @@ function isPortedOp(op: OperationSpec): boolean {
     op.op === OperationOp.Filter ||
     op.op === OperationOp.Average ||
     op.op === OperationOp.Diff ||
+    op.op === OperationOp.PairDiff ||
     op.op === OperationOp.RetrieveValue
   )
 }
@@ -47,6 +49,8 @@ function pickApplier(op: OperationSpec): OperationApplier<StackedBarChartInstanc
       return averageApplier
     case OperationOp.Diff:
       return diffApplier
+    case OperationOp.PairDiff:
+      return pairDiffApplier
     case OperationOp.RetrieveValue:
       return retrieveValueApplier
     default:

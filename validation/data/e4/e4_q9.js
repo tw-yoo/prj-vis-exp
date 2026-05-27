@@ -69,6 +69,14 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const yField = 'Number of renunciations';
 
@@ -157,6 +165,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -206,8 +215,177 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getE4Q9Geometry(d3) {
+    const xField = 'Year';
+    const yField = 'Number of renunciations';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xDomain = data_rows.map((d) => String(d[xField]));
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    const minY = d3.min(yValues) ?? 0;
+    const maxY = d3.max(yValues) ?? 1;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear().domain([minY, maxY]).nice().range([plotH, 0]);
+    return { xField, yField, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getE4Q9Average() {
+    const yField = 'Number of renunciations';
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    return yValues.reduce((s, v) => s + v, 0) / yValues.length;
+}
 
-export function function3({ d3, container }) {}
+export function function1({ d3, container }) {
+    const { plotW, plotH, yScale } = getE4Q9Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q9-gridline').remove();
+
+    const ticks = yScale.ticks(5);
+    ticks.forEach((tickValue, i) => {
+        const y = yScale(tickValue);
+        if (y >= plotH - 0.5 || y <= 0.5) return;
+        g.insert('line', ':first-child')
+            .attr('class', 'validation-q9-gridline')
+            .attr('x1', 0)
+            .attr('x2', 0)
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', '#e5e7eb')
+            .attr('stroke-width', 1)
+            .transition()
+            .duration(500 + i * 60)
+            .attr('x2', plotW);
+    });
+}
+
+export function function2({ d3, container }) {
+    const { plotW, yScale } = getE4Q9Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q9-avg-line, .validation-q9-avg-label').remove();
+
+    const avg = getE4Q9Average();
+    const y = yScale(avg);
+
+    g.append('line')
+        .attr('class', 'validation-q9-avg-line')
+        .attr('x1', 0)
+        .attr('x2', 0)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4')
+        .transition()
+        .duration(650)
+        .attr('x2', plotW);
+
+    g.append('text')
+        .attr('class', 'validation-q9-avg-label')
+        .attr('x', plotW + 6)
+        .attr('y', y)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .attr('opacity', 0)
+        .text(`avg ${avg.toFixed(0)}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function3({ d3, container }) {
+    const { plotW, plotH, yScale } = getE4Q9Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q9-below-tint').remove();
+
+    const avg = getE4Q9Average();
+    const yAvg = yScale(avg);
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q9-below-tint')
+        .attr('x', 0)
+        .attr('y', yAvg)
+        .attr('width', plotW)
+        .attr('height', plotH - yAvg)
+        .attr('fill', '#fee2e2')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.35);
+
+    g.selectAll('circle[data-target]')
+        .transition()
+        .duration(600)
+        .attr('r', function () {
+            const v = Number(this.getAttribute('data-y-value'));
+            return v < avg ? 7 : 3.5;
+        })
+        .attr('fill', function () {
+            const v = Number(this.getAttribute('data-y-value'));
+            return v < avg ? '#ef4444' : '#bfdbfe';
+        })
+        .attr('opacity', function () {
+            const v = Number(this.getAttribute('data-y-value'));
+            return v < avg ? 1 : 0.4;
+        });
+}
+
+export function function4({ d3, container }) {
+    const { xField, yField, plotW, xScale, yScale } = getE4Q9Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q9-point-label, .validation-q9-summary').remove();
+
+    const avg = getE4Q9Average();
+    const belowRows = data_rows.filter((d) => Number(d[yField]) < avg);
+
+    belowRows.forEach((row) => {
+        const cx = xScale(String(row[xField])) ?? 0;
+        const cy = yScale(Number(row[yField]));
+        g.append('text')
+            .attr('class', 'validation-q9-point-label')
+            .attr('x', cx)
+            .attr('y', cy + 18)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .attr('fill', '#ef4444')
+            .attr('opacity', 0)
+            .text(Number(row[yField]))
+            .transition()
+            .duration(600)
+            .attr('opacity', 1);
+    });
+
+    g.append('text')
+        .attr('class', 'validation-q9-summary')
+        .attr('x', plotW - 4)
+        .attr('y', 12)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`${belowRows.length} years below avg`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

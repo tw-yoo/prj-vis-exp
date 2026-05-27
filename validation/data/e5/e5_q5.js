@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: '2005-2007', Region: 'Canada', 'Life expectancy in years': 80.5 },
@@ -202,6 +202,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -313,18 +314,32 @@ function renderLifeGapLine({ d3, container, showDifference = false }) {
     const csvMin = 1.7;
     const width = 640;
     const height = 360;
-    const margin = { top: 32, right: 86, bottom: 64, left: 56 };
+    // Reserve extra top margin for the chart-type-change title.
+    const margin = { top: 56, right: 86, bottom: 64, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
     const xScale = d3.scalePoint().domain(rows.map((d) => d.year)).range([0, plotW]).padding(0.5);
     const yScale = d3.scaleLinear().domain([d3.min(rows, (d) => d.gap) ?? 0, d3.max(rows, (d) => d.gap) ?? 1]).nice().range([plotH, 0]);
     const line = d3.line().x((d) => xScale(d.year) ?? 0).y((d) => yScale(d.gap));
 
-    container.innerHTML = '';
+
     container.classList.add('validation-simple-line-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Per reviewer: chart type changes from MultipleLine (base render) to a
+    // single-line gap chart. Add a title so the viewer isn't disoriented.
+    g.append('text')
+        .attr('class', 'e5-q5-title')
+        .attr('x', plotW / 2)
+        .attr('y', -22)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text('Gap between Canada and Newfoundland and Labrador life expectancy');
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
     const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
@@ -336,6 +351,7 @@ function renderLifeGapLine({ d3, container, showDifference = false }) {
         .attr('fill', 'none')
         .attr('stroke', '#4f46e5')
         .attr('stroke-width', 2)
+        .attr('opacity', 1)
         .attr('d', line);
     g.selectAll('circle[data-target]')
         .data(rows)

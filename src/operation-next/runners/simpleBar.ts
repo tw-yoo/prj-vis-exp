@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import { ChartType } from '../../domain/chart'
-import { averageData, diffByValueOp, diffData, filterData, findExtremum, getRuntimeResultsById, resolveScalarAggregateFromRows, retrieveValue, sortData } from '../../domain/operation/dataOps'
+import { averageData, diffByValueOp, diffData, filterData, findExtremum, getRuntimeResultsById, nthData, resolveScalarAggregateFromRows, retrieveValue, sortData } from '../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type JsonValue, type OperationSpec, type TargetSelector } from '../../domain/operation/types'
 import { getSimpleBarStoredData, type SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer'
 import type { SurfaceManager } from '../../runtime/surfaceManager'
@@ -22,6 +22,7 @@ import {
 import { applyMarkSalience } from '../primitives/markSalience'
 import { drawReferenceLine } from '../primitives/drawReferenceLine'
 import { drawVerticalComparisonArrow } from '../primitives/drawDifferenceArrow'
+import { rebindDerivedBars } from '../primitives/rebindDerivedBars'
 import {
   buildOperationNextRunOutcome,
   restoreChainState,
@@ -33,10 +34,12 @@ import {
   diffEndpointSelectors,
   isOperationResultReferenced,
   operationResultRef,
+  referencesFromOperation,
   resolveDerivedDiffEndpoint,
 } from '../diffEndpoint'
 import { tryDrawSplitScalarDiffAnnotation } from '../splitSurfaceVisuals'
 import { resolveFilterVisualDecision, type FilterVisualDecision } from '../filterSaliencePolicy'
+import { isTerminalBadgeOperation, runTerminalBadgeOperation } from './terminalShared'
 
 export const SIMPLE_BAR_SUPPORTED_OPERATIONS = getSupportedOperationsForChart(ChartType.SIMPLE_BAR)
 
@@ -61,6 +64,7 @@ const DIFF_ANNOTATION_CLASS = 'operation-next-diff'
 const DIFF_BY_VALUE_ANNOTATION_CLASS = 'operation-next-diff-by-value'
 const AVERAGE_ANNOTATION_CLASS = 'operation-next-average'
 const EXTREMUM_ANNOTATION_CLASS = 'operation-next-extremum'
+const NTH_ANNOTATION_CLASS = 'operation-next-nth'
 
 function scalarReferenceLineForResultRef(
   layer: d3.Selection<SVGGElement, unknown, null, undefined>,
@@ -119,6 +123,12 @@ function isSortOperation(operation: OperationSpec): operation is OperationSpec &
   op: typeof OperationOp.Sort
 } {
   return operation.op === OperationOp.Sort
+}
+
+function isNthOperation(operation: OperationSpec): operation is OperationSpec & {
+  op: typeof OperationOp.Nth
+} {
+  return operation.op === OperationOp.Nth
 }
 
 function getInlineRows(spec: SimpleBarSpec): RawRow[] {
@@ -404,6 +414,19 @@ function findMainBar(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
     .nodes()[0] ?? null
 }
 
+function findRebindedBarForRef(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, refKey: string) {
+  return svg
+    .selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+    .filter(function () {
+      return this.getAttribute(RESULT_REF_ATTRIBUTE) === refKey
+    })
+    .nodes()[0] ?? null
+}
+
+function deriveScalarBarLabel(refKey: string): string {
+  return refKey
+}
+
 function findMainBarByTarget(svg: d3.Selection<SVGSVGElement, unknown, null, undefined>, target: string) {
   return svg
     .selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
@@ -509,16 +532,24 @@ function resolveThresholdY(params: {
   return params.marginTop + thresholdY
 }
 
-async function annotateFilter(container: HTMLElement, result: DatumValue[], operation: OperationSpec, workingData: DatumValue[], state: ChainState) {
+async function annotateFilter(
+  container: HTMLElement,
+  result: DatumValue[],
+  operation: OperationSpec,
+  workingData: DatumValue[],
+  state: ChainState,
+  referencedResultIds?: string[],
+) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
 
   const layer = ensureAnnotationLayer(svg)
 
   // Fade prior persistent annotations (average ref lines, diff brackets, etc.) to
-  // context style before the filter visual takes over. Mirrors the same call in
+  // context style — or remove them entirely if their result is no longer referenced
+  // — before the filter visual takes over. Mirrors the same call in
   // annotateAverage / annotateFindExtremum / annotateDiff.
-  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, referencedResultIds)
 
   layer.selectAll(`.${FILTER_ANNOTATION_CLASS}`).interrupt().remove()
 
@@ -573,7 +604,22 @@ async function annotateFilter(container: HTMLElement, result: DatumValue[], oper
   // Record this annotation as a persistent anchor so subsequent operations
   // (average, findExtremum) know the filter context is present and can
   // transition this threshold line to a guideline style rather than clearing it.
-  state.annotationRecords.push({ cssClass: FILTER_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+  const filterResultRef = operationResultRef(operation)
+  if (filterResultRef) {
+    layer
+      .selectAll<SVGElement, unknown>(`.${FILTER_ANNOTATION_CLASS}`)
+      .filter(function () {
+        return !this.getAttribute(RESULT_REF_ATTRIBUTE)
+      })
+      .attr(RESULT_REF_ATTRIBUTE, filterResultRef)
+  }
+  state.annotationRecords.push({
+    cssClass: FILTER_ANNOTATION_CLASS,
+    role: 'anchor',
+    persistent: true,
+    operationId: filterResultRef == null ? undefined : String(filterResultRef),
+    resultRef: filterResultRef == null ? undefined : String(filterResultRef),
+  })
 }
 
 async function annotateDiff(
@@ -582,6 +628,7 @@ async function annotateDiff(
   operation: OperationSpec,
   state: ChainState,
   surfaceManager?: SurfaceManager,
+  referencedResultIds?: string[],
 ) {
   const operationId = (operation as OperationSpec & { id?: unknown }).id
   splitDebug('simpleBar.annotateDiff-start', {
@@ -609,7 +656,14 @@ async function annotateDiff(
       operationId: typeof operationId === 'string' ? operationId : null,
       layoutType: surfaceManager?.getLayout()?.type ?? null,
     })
-    state.annotationRecords.push({ cssClass: DIFF_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+    const splitDiffRef = operationResultRef(operation)
+    state.annotationRecords.push({
+      cssClass: DIFF_ANNOTATION_CLASS,
+      role: 'anchor',
+      persistent: true,
+      operationId: splitDiffRef == null ? undefined : String(splitDiffRef),
+      resultRef: splitDiffRef == null ? undefined : String(splitDiffRef),
+    })
     return
   }
 
@@ -628,30 +682,62 @@ async function annotateDiff(
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
   const plotWidth = Number(svg.attr(DataAttributes.PlotWidth) ?? 0)
   const arrowX = marginLeft + plotWidth + 18
-  const bars = svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+  let bars = svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
   const layer = ensureAnnotationLayer(svg)
 
   // Transition prior annotations (filter lines, extremum labels, etc.) to context style
-  // before drawing diff. Mirrors the same call in annotateAverage / annotateFindExtremum.
-  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+  // or remove stale ones before drawing diff. Mirrors the same call in
+  // annotateAverage / annotateFindExtremum.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, referencedResultIds)
 
-  const rectA = derivedA ? null : findMainBar(svg, selectors.targetA)
-  const rectB = derivedB ? null : findMainBar(svg, selectors.targetB)
+  let existingA = derivedA ? scalarReferenceLineForResultRef(layer, derivedA.refKey) : null
+  let existingB = derivedB ? scalarReferenceLineForResultRef(layer, derivedB.refKey) : null
+
+  // Derived-bar rebind: when both endpoints are derived scalars (e.g. diff(of
+  // diffs)) AND neither has an existing on-chart anchor (no reference line, no
+  // matching bar), replace the chart's bars with two new bars representing
+  // each derived value so the diff arrow has something tangible to connect.
+  // The chart skeleton, y-axis, and y-scale are preserved.
+  if (
+    derivedA && derivedB && !existingA && !existingB &&
+    !findMainBar(svg, selectors.targetA) && !findMainBar(svg, selectors.targetB)
+  ) {
+    const labelA = deriveScalarBarLabel(derivedA.refKey)
+    const labelB = deriveScalarBarLabel(derivedB.refKey)
+    await rebindDerivedBars({
+      svg,
+      rows: [
+        { label: labelA, value: derivedA.value, ref: derivedA.refKey },
+        { label: labelB, value: derivedB.value, ref: derivedB.refKey },
+      ],
+      xAxisTitle: `Difference between ${labelA} and ${labelB}`,
+    })
+    bars = svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+    existingA = null
+    existingB = null
+  }
+
+  const rectA = derivedA
+    ? findRebindedBarForRef(svg, derivedA.refKey)
+    : findMainBar(svg, selectors.targetA)
+  const rectB = derivedB
+    ? findRebindedBarForRef(svg, derivedB.refKey)
+    : findMainBar(svg, selectors.targetB)
   const markA = rectA ? barRootMetrics(rectA, marginLeft, marginTop) : null
   const markB = rectB ? barRootMetrics(rectB, marginLeft, marginTop) : null
-  const existingA = derivedA ? scalarReferenceLineForResultRef(layer, derivedA.refKey) : null
-  const existingB = derivedB ? scalarReferenceLineForResultRef(layer, derivedB.refKey) : null
   const derivedAY = derivedA ? existingA?.y ?? resolveThresholdY({ bars, marginTop, threshold: derivedA.value }) : null
   const derivedBY = derivedB ? existingB?.y ?? resolveThresholdY({ bars, marginTop, threshold: derivedB.value }) : null
-  const a = derivedA && derivedAY != null
-    ? { kind: 'derived' as const, value: derivedA.value, y: derivedAY, x: marginLeft + plotWidth, usesExistingReference: Boolean(existingA) }
-    : markA
-      ? { kind: 'mark' as const, value: markA.value, y: markA.topY, x: markA.centerX, anchorElement: rectA, usesExistingReference: false }
+  // Prefer the rebound bar mark over the abstract derived endpoint when both
+  // exist — the visual reads as a bar-to-bar comparison.
+  const a = markA
+    ? { kind: 'mark' as const, value: markA.value, y: markA.topY, x: markA.centerX, anchorElement: rectA, usesExistingReference: false }
+    : derivedA && derivedAY != null
+      ? { kind: 'derived' as const, value: derivedA.value, y: derivedAY, x: marginLeft + plotWidth, usesExistingReference: Boolean(existingA) }
       : null
-  const b = derivedB && derivedBY != null
-    ? { kind: 'derived' as const, value: derivedB.value, y: derivedBY, x: marginLeft + plotWidth, usesExistingReference: Boolean(existingB) }
-    : markB
-      ? { kind: 'mark' as const, value: markB.value, y: markB.topY, x: markB.centerX, anchorElement: rectB, usesExistingReference: false }
+  const b = markB
+    ? { kind: 'mark' as const, value: markB.value, y: markB.topY, x: markB.centerX, anchorElement: rectB, usesExistingReference: false }
+    : derivedB && derivedBY != null
+      ? { kind: 'derived' as const, value: derivedB.value, y: derivedBY, x: marginLeft + plotWidth, usesExistingReference: Boolean(existingB) }
       : null
   if (!a || !b) {
     console.warn('[operation-next] simple-bar diff: targetA or targetB could not be resolved for annotation.', { operation })
@@ -728,7 +814,22 @@ async function annotateDiff(
 
   // Record as a persistent anchor so subsequent operations (average, findExtremum)
   // can transition diff lines to context style via applyAnnotationContextTransitions.
-  state.annotationRecords.push({ cssClass: DIFF_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+  const diffResultRef = operationResultRef(operation)
+  if (diffResultRef) {
+    layer
+      .selectAll<SVGElement, unknown>(`.${DIFF_ANNOTATION_CLASS}`)
+      .filter(function () {
+        return !this.getAttribute(RESULT_REF_ATTRIBUTE)
+      })
+      .attr(RESULT_REF_ATTRIBUTE, diffResultRef)
+  }
+  state.annotationRecords.push({
+    cssClass: DIFF_ANNOTATION_CLASS,
+    role: 'anchor',
+    persistent: true,
+    operationId: diffResultRef == null ? undefined : String(diffResultRef),
+    resultRef: diffResultRef == null ? undefined : String(diffResultRef),
+  })
 }
 
 async function annotateAverage(
@@ -745,8 +846,9 @@ async function annotateAverage(
   if (svg.empty()) return
   const layer = ensureAnnotationLayer(svg)
 
-  // Transition prior annotations to context style before drawing the new one.
-  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+  // Transition prior annotations to context style — or fully fade and remove
+  // any whose result is no longer referenced — before drawing the new one.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, referencedResultIds)
 
   const persistent = isOperationResultReferenced(operation, referencedResultIds)
   if (!persistent) {
@@ -819,7 +921,13 @@ function operationNodeId(operation: OperationSpec) {
   return null
 }
 
-async function annotateFindExtremum(container: HTMLElement, result: DatumValue[], state: ChainState, operation: OperationSpec) {
+async function annotateFindExtremum(
+  container: HTMLElement,
+  result: DatumValue[],
+  state: ChainState,
+  operation: OperationSpec,
+  referencedResultIds?: string[],
+) {
   const target = result[0]?.target
   if (target == null) return
 
@@ -827,8 +935,9 @@ async function annotateFindExtremum(container: HTMLElement, result: DatumValue[]
   if (svg.empty()) return
   const layer = ensureAnnotationLayer(svg)
 
-  // Transition prior annotations to context style before drawing the new one.
-  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+  // Transition prior annotations to context style — or remove stale ones — before
+  // drawing the new one.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, referencedResultIds)
 
   const nodeId = operationNodeId(operation)
   if (nodeId) {
@@ -984,7 +1093,7 @@ async function runFilterOperation(
   if (decision.mode === 'remove') {
     await materializeFilteredSimpleBar(run, result, operation, decision, state)
   } else {
-    await annotateFilter(run.container, result, operation, state.workingData, state)
+    await annotateFilter(run.container, result, operation, state.workingData, state, run.options?.referencedResultIds)
   }
 
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
@@ -1015,7 +1124,7 @@ async function runDiffOperation(
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = diffData(state.workingData, operation)
-  await annotateDiff(run.container, result, operation, state, run.options?.surfaceManager)
+  await annotateDiff(run.container, result, operation, state, run.options?.surfaceManager, run.options?.referencedResultIds)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] simple-bar diff', { operationIndex, operation, result })
   return { result, nextState: { ...state, lastResult: result } }
@@ -1026,11 +1135,16 @@ async function annotateDiffByValue(
   result: DatumValue[],
   operation: OperationSpec,
   state: ChainState,
+  referencedResultIds?: string[],
 ) {
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return
 
   const layer = ensureAnnotationLayer(svg)
+
+  // Transition or remove stale prior annotations before drawing diffByValue.
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, referencedResultIds)
+
   layer.selectAll(`.${DIFF_BY_VALUE_ANNOTATION_CLASS}`).interrupt().remove()
 
   const reference = resolveDiffByValueReferenceFromOp(operation, state)
@@ -1043,19 +1157,25 @@ async function annotateDiffByValue(
   const referenceY = resolveThresholdY({ bars, marginTop, threshold: reference })
   if (referenceY == null) return
 
-  // Reference horizontal line + label.
-  await drawReferenceLine({
-    layer,
-    cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS,
-    x1: marginLeft,
-    x2: marginLeft + plotWidth,
-    y: referenceY,
-    label: `Value: ${formatOperationValue(reference)}`,
-    svg,
-    viewport: resolveAnnotationViewport(svg),
-  })
+  // If targetValue is `ref:nX` and the layer already shows an annotation for
+  // that ref at the same y (typically the upstream Average line+label), reuse
+  // it rather than stacking a redundant "Value: X" line/text on top.
+  const refKey = extractDiffByValueRefKey(operation)
+  const reusedExistingRef = refKey != null && scalarReferenceLineForResultRef(layer, refKey) != null
+  if (!reusedExistingRef) {
+    await drawReferenceLine({
+      layer,
+      cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS,
+      x1: marginLeft,
+      x2: marginLeft + plotWidth,
+      y: referenceY,
+      label: `Value: ${formatOperationValue(reference)}`,
+      svg,
+      viewport: resolveAnnotationViewport(svg),
+    })
+  }
 
-  // Per-bar delta text. result rows are keyed by datum target.
+  // Per-bar delta text + connector line from each bar top to the reference line.
   const deltaByTarget = new Map<string, number>()
   for (const row of result) {
     deltaByTarget.set(String(row.target), Number(row.value))
@@ -1072,6 +1192,23 @@ async function annotateDiffByValue(
     labelData.push({ x: metrics.centerX, y: metrics.topY, delta, anchor: rect })
   })
 
+  // Connectors first (behind text labels in stacking order).
+  const connectors = layer
+    .selectAll<SVGLineElement, { x: number; y: number; delta: number }>(
+      `line.${DIFF_BY_VALUE_ANNOTATION_CLASS}.bar-connector`,
+    )
+    .data(labelData)
+    .enter()
+    .append(SvgElements.Line)
+    .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${DIFF_BY_VALUE_ANNOTATION_CLASS} bar-connector`)
+    .attr(SvgAttributes.X1, (d) => d.x)
+    .attr(SvgAttributes.X2, (d) => d.x)
+    .attr(SvgAttributes.Y1, referenceY)
+    .attr(SvgAttributes.Y2, referenceY)
+    .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
+    .attr(SvgAttributes.StrokeWidth, 1.5)
+    .style(SvgAttributes.Opacity, 0)
+
   const labels = layer
     .selectAll<SVGTextElement, { x: number; y: number; delta: number }>(`text.${DIFF_BY_VALUE_ANNOTATION_CLASS}.bar-delta`)
     .data(labelData)
@@ -1083,7 +1220,7 @@ async function annotateDiffByValue(
     .attr(SvgAttributes.TextAnchor, 'middle')
     .attr(SvgAttributes.FontSize, 12)
     .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, (d) => (d.delta >= 0 ? COLORS.ANNOTATION_RED : COLORS.ANNOTATION_RED))
+    .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
     .style(SvgAttributes.Opacity, 0)
     .text((d) => `${d.delta >= 0 ? '+' : ''}${formatOperationValue(d.delta)}`)
 
@@ -1097,9 +1234,43 @@ async function annotateDiffByValue(
     })
   })
 
+  // Animate connectors to grow from reference line to each bar top, then fade in deltas.
+  await connectors
+    .transition()
+    .duration(DURATIONS.GUIDELINE_DRAW)
+    .ease(EASINGS.SMOOTH)
+    .attr(SvgAttributes.Y2, (d) => d.y)
+    .style(SvgAttributes.Opacity, 0.8)
+    .end()
+    .catch(() => {})
+
   await labels.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1).end().catch(() => {})
 
-  state.annotationRecords.push({ cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS, role: 'anchor', persistent: true })
+  const diffByValueRef = operationResultRef(operation)
+  if (diffByValueRef) {
+    layer
+      .selectAll<SVGElement, unknown>(`.${DIFF_BY_VALUE_ANNOTATION_CLASS}`)
+      .filter(function () {
+        return !this.getAttribute(RESULT_REF_ATTRIBUTE)
+      })
+      .attr(RESULT_REF_ATTRIBUTE, diffByValueRef)
+  }
+  state.annotationRecords.push({
+    cssClass: DIFF_BY_VALUE_ANNOTATION_CLASS,
+    role: 'anchor',
+    persistent: true,
+    operationId: diffByValueRef == null ? undefined : String(diffByValueRef),
+    resultRef: diffByValueRef == null ? undefined : String(diffByValueRef),
+  })
+}
+
+function extractDiffByValueRefKey(operation: OperationSpec): string | null {
+  const targetValue = (operation as OperationSpec & { targetValue?: unknown }).targetValue
+  if (typeof targetValue !== 'string') return null
+  const trimmed = targetValue.trim()
+  if (!trimmed.startsWith('ref:')) return null
+  const refKey = trimmed.slice('ref:'.length).trim()
+  return refKey.length > 0 ? refKey : null
 }
 
 function resolveDiffByValueReferenceFromOp(operation: OperationSpec, _state: ChainState): number | null {
@@ -1121,7 +1292,7 @@ async function runDiffByValueOperation(
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = diffByValueOp(state.workingData, operation)
-  await annotateDiffByValue(run.container, result, operation, state)
+  await annotateDiffByValue(run.container, result, operation, state, run.options?.referencedResultIds)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] simple-bar diffByValue', { operationIndex, operation, result })
   return { result, nextState: { ...state, lastResult: result } }
@@ -1149,7 +1320,7 @@ async function runFindExtremumOperation(
 ): Promise<{ result: DatumValue[]; nextState: ChainState }> {
   await run.options?.onOperationReady?.({ operation, operationIndex })
   const result = findExtremum(state.workingData, operation)
-  await annotateFindExtremum(run.container, result, state, operation)
+  await annotateFindExtremum(run.container, result, state, operation, run.options?.referencedResultIds)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] simple-bar findExtremum', { operationIndex, operation, result })
   return { result, nextState: { ...state, lastResult: result } }
@@ -1169,12 +1340,84 @@ async function runSortOperation(
   return { result, nextState: { ...state, lastResult: result } }
 }
 
+async function annotateNth(
+  container: HTMLElement,
+  result: DatumValue[],
+  state: ChainState,
+  operation: OperationSpec,
+  referencedResultIds?: string[],
+) {
+  if (result.length === 0) return
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+  const layer = ensureAnnotationLayer(svg)
+
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, referencedResultIds)
+
+  const nodeId = operationNodeId(operation)
+  if (nodeId) {
+    layer
+      .selectAll<SVGElement, unknown>(`.${NTH_ANNOTATION_CLASS}[${DataAttributes.AnnotationNodeId}="${CSS.escape(nodeId)}"]`)
+      .interrupt()
+      .remove()
+  } else {
+    layer.selectAll(`.${NTH_ANNOTATION_CLASS}`).interrupt().remove()
+  }
+
+  const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
+  const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
+  for (const datum of result) {
+    const target = datum.target
+    if (target == null) continue
+    const bars = findMainBarByTarget(svg, String(target))
+    const rect = bars.nodes()[0]
+    if (!rect) continue
+    const metrics = barRootMetrics(rect, marginLeft, marginTop)
+    bars.interrupt().transition().duration(DURATIONS.HIGHLIGHT).style(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+    try {
+      await appendValueLabel({
+        svg,
+        layer,
+        className: NTH_ANNOTATION_CLASS,
+        x: metrics.centerX,
+        y: metrics.topY - 10,
+        value: metrics.value,
+        color: COLORS.TEXT_DARK,
+        anchorElement: rect,
+        annotationNodeId: nodeId,
+      }).end()
+    } catch { /* interrupted */ }
+  }
+
+  state.annotationRecords.push({ cssClass: NTH_ANNOTATION_CLASS, role: 'result', persistent: false })
+}
+
+async function runNthOperation(
+  run: ParsedOperationRun,
+  operation: OperationSpec,
+  operationIndex: number,
+  state: ChainState,
+): Promise<{ result: DatumValue[]; nextState: ChainState }> {
+  await run.options?.onOperationReady?.({ operation, operationIndex })
+  const result = nthData(state.workingData, operation)
+  await annotateNth(run.container, result, state, operation, run.options?.referencedResultIds)
+  await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
+  console.log('[operation-next] simple-bar nth', { operationIndex, operation, result })
+  return { result, nextState: { ...state, lastResult: result } }
+}
+
 export async function runSimpleBarOperations(run: ParsedOperationRun) {
   let nextIndex = run.options?.operationIndexStart ?? 0
   let lastResult: DatumValue[] | null = null
 
   // Initialise state once from the raw data; each operation threads it forward.
   let state = restoreChainState(getWorkingData(run), run.options?.initialChainState)
+
+  // Per-op live reference set: refs consumed by the current op or any op after
+  // it in the remaining sequence. Used by annotate functions to decide which
+  // prior annotations are still needed vs. should be cleaned up.
+  const allOpsInOrder = run.groups.flatMap((g) => g.ops)
+  let cursor = 0
 
   for (const group of run.groups) {
     // Reset transient visual/derived state at group boundaries while keeping
@@ -1185,23 +1428,35 @@ export async function runSimpleBarOperations(run: ParsedOperationRun) {
       const operation = group.ops[groupOperationIndex]
       const operationIndex = nextIndex
       nextIndex += 1
+      const liveRefIds = computeLiveReferencedIds(allOpsInOrder, cursor)
+      cursor += 1
+      const runForOp: ParsedOperationRun = {
+        ...run,
+        options: { ...(run.options ?? {}), referencedResultIds: liveRefIds },
+      }
       let opResult: { result: DatumValue[]; nextState: ChainState }
       const operationState = stateWithOperationDependencies(operation, state)
 
       if (isRetrieveValueOperation(operation)) {
-        opResult = await runRetrieveValueOperation(run, operation, operationIndex, operationState)
+        opResult = await runRetrieveValueOperation(runForOp, operation, operationIndex, operationState)
       } else if (isFilterOperation(operation)) {
-        opResult = await runFilterOperation(run, operation, operationIndex, group.ops, groupOperationIndex, operationState)
+        opResult = await runFilterOperation(runForOp, operation, operationIndex, group.ops, groupOperationIndex, operationState)
       } else if (isDiffOperation(operation)) {
-        opResult = await runDiffOperation(run, operation, operationIndex, operationState)
+        opResult = await runDiffOperation(runForOp, operation, operationIndex, operationState)
       } else if (isDiffByValueOperation(operation)) {
-        opResult = await runDiffByValueOperation(run, operation, operationIndex, operationState)
+        opResult = await runDiffByValueOperation(runForOp, operation, operationIndex, operationState)
       } else if (isAverageOperation(operation)) {
-        opResult = await runAverageOperation(run, operation, operationIndex, operationState)
+        opResult = await runAverageOperation(runForOp, operation, operationIndex, operationState)
       } else if (isFindExtremumOperation(operation)) {
-        opResult = await runFindExtremumOperation(run, operation, operationIndex, operationState)
+        opResult = await runFindExtremumOperation(runForOp, operation, operationIndex, operationState)
       } else if (isSortOperation(operation)) {
-        opResult = await runSortOperation(run, operation, operationIndex, operationState)
+        opResult = await runSortOperation(runForOp, operation, operationIndex, operationState)
+      } else if (isNthOperation(operation)) {
+        opResult = await runNthOperation(runForOp, operation, operationIndex, operationState)
+      } else if (isTerminalBadgeOperation(operation)) {
+        opResult = await runTerminalBadgeOperation(runForOp.container, operation, operationState, {
+          chartType: ChartType.SIMPLE_BAR,
+        })
       } else {
         continue
       }
@@ -1217,4 +1472,17 @@ export async function runSimpleBarOperations(run: ParsedOperationRun) {
     lastResult = Array.isArray(stub) ? stub : null
   }
   return buildOperationNextRunOutcome(lastResult, state)
+}
+
+/**
+ * Returns the union of `ref:` ids consumed by ops from `startIndex` onward.
+ * Used per-op so annotate functions can decide which prior annotations are
+ * still needed downstream and which should fade out + be removed.
+ */
+function computeLiveReferencedIds(allOps: OperationSpec[], startIndex: number): string[] {
+  const ids = new Set<string>()
+  for (let i = startIndex; i < allOps.length; i += 1) {
+    referencesFromOperation(allOps[i]).forEach((key) => ids.add(key))
+  }
+  return Array.from(ids)
 }

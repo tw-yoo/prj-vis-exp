@@ -84,6 +84,14 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Age Group';
     const seriesField = 'Candidate';
     const yField = 'Percentage of votes';
@@ -174,6 +182,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -247,8 +256,234 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getE4Q8Geometry(d3) {
+    const xField = 'Age Group';
+    const seriesField = 'Candidate';
+    const yField = 'Percentage of votes';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
+    const aggregated = [];
+    xDomain.forEach((cat) => {
+        seriesDomain.forEach((ser) => {
+            const row = data_rows.find((d) => String(d[xField]) === cat && String(d[seriesField]) === ser);
+            if (!row) return;
+            aggregated.push({ category: cat, series: ser, value: Number(row[yField]) });
+        });
+    });
+    const maxY = Math.max(0, ...aggregated.map((d) => d.value));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendOffsetX = 64;
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).paddingInner(0.18).paddingOuter(0.08);
+    const innerScale = d3.scaleBand().domain(seriesDomain).range([0, Math.max(xScale.bandwidth(), 1)]).padding(0.08);
+    const yScale = d3.scaleLinear().domain([0, maxY]).nice().range([plotH, 0]);
+    return { xField, seriesField, yField, xDomain, seriesDomain, aggregated, plotW, plotH, xScale, innerScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getE4Q8ClintonLowerGroups() {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d['Age Group']))));
+    return xDomain.filter((cat) => {
+        const clinton = Number(data_rows.find((d) => String(d['Age Group']) === cat && d.Candidate === 'Hillary Clinton')?.['Percentage of votes'] ?? 0);
+        const sanders = Number(data_rows.find((d) => String(d['Age Group']) === cat && d.Candidate === 'Bernie Sanders')?.['Percentage of votes'] ?? 0);
+        return clinton < sanders;
+    });
+}
 
-export function function3({ d3, container }) {}
+function getE4Q8ClintonAverages() {
+    const clintonLowerGroups = getE4Q8ClintonLowerGroups();
+    const clintonValues = clintonLowerGroups.map((cat) =>
+        Number(data_rows.find((d) => String(d['Age Group']) === cat && d.Candidate === 'Hillary Clinton')?.['Percentage of votes'] ?? 0),
+    );
+    const clintonAvg = clintonValues.reduce((s, v) => s + v, 0) / clintonValues.length;
+
+    // Age-group percentages from labels e.g. "18–29 (19%)"
+    const agePercents = clintonLowerGroups.map((label) => {
+        const m = /\((\d+)%\)/.exec(label);
+        return m ? Number(m[1]) : 0;
+    });
+    const ageAvg = agePercents.reduce((s, v) => s + v, 0) / agePercents.length;
+    return { clintonAvg, ageAvg, clintonLowerGroups };
+}
+
+export function function1({ d3, container }) {
+    const { xScale, innerScale, yScale, xDomain, seriesDomain } = getE4Q8Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q8-cs-line, .validation-q8-cs-indicator').remove();
+
+    xDomain.forEach((cat) => {
+        const clinton = Number(data_rows.find((d) => String(d['Age Group']) === cat && d.Candidate === 'Hillary Clinton')?.['Percentage of votes'] ?? 0);
+        const sanders = Number(data_rows.find((d) => String(d['Age Group']) === cat && d.Candidate === 'Bernie Sanders')?.['Percentage of votes'] ?? 0);
+        const xClinton = (xScale(cat) ?? 0) + (innerScale('Hillary Clinton') ?? 0) + innerScale.bandwidth() / 2;
+        const xSanders = (xScale(cat) ?? 0) + (innerScale('Bernie Sanders') ?? 0) + innerScale.bandwidth() / 2;
+        const yClinton = yScale(clinton);
+        const ySanders = yScale(sanders);
+        g.append('line')
+            .attr('class', 'validation-q8-cs-line')
+            .attr('data-cat', cat)
+            .attr('x1', xClinton)
+            .attr('y1', yClinton)
+            .attr('x2', xClinton)
+            .attr('y2', yClinton)
+            .attr('stroke', '#6b7280')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '3 3')
+            .transition()
+            .duration(650)
+            .attr('x2', xSanders)
+            .attr('y2', ySanders);
+
+        const isLower = clinton < sanders;
+        g.append('text')
+            .attr('class', 'validation-q8-cs-indicator')
+            .attr('data-cat', cat)
+            .attr('x', (xClinton + xSanders) / 2)
+            .attr('y', Math.min(yClinton, ySanders) - 8)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 12)
+            .attr('font-weight', 700)
+            .attr('fill', isLower ? '#ef4444' : '#16a34a')
+            .attr('opacity', 0)
+            .text(isLower ? 'Clinton ▼' : 'Clinton ▲')
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
+    });
+}
+
+export function function2({ d3, container }) {
+    const { xScale, plotH } = getE4Q8Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q8-focus-band').remove();
+
+    const focusGroups = getE4Q8ClintonLowerGroups();
+    if (focusGroups.length === 0) return;
+    const xs = focusGroups.map((cat) => xScale(cat) ?? 0);
+    const xStart = Math.min(...xs) - 6;
+    const xEnd = Math.max(...xs.map((x) => x + xScale.bandwidth())) + 6;
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q8-focus-band')
+        .attr('x', xStart)
+        .attr('y', 0)
+        .attr('width', xEnd - xStart)
+        .attr('height', plotH)
+        .attr('fill', '#fde68a')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.45);
+
+    g.selectAll('.main-bar')
+        .transition()
+        .duration(600)
+        .attr('opacity', function (d) {
+            return focusGroups.includes(d.category) ? 1 : 0.35;
+        });
+}
+
+export function function3({ d3, container }) {
+    const { xScale, yScale } = getE4Q8Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q8-clinton-avg-line, .validation-q8-clinton-avg-label').remove();
+
+    const { clintonAvg, clintonLowerGroups } = getE4Q8ClintonAverages();
+    if (clintonLowerGroups.length === 0) return;
+    const xs = clintonLowerGroups.map((cat) => xScale(cat) ?? 0);
+    const xStart = Math.min(...xs);
+    const xEnd = Math.max(...xs.map((x) => x + xScale.bandwidth()));
+    const y = yScale(clintonAvg);
+
+    g.append('line')
+        .attr('class', 'validation-q8-clinton-avg-line')
+        .attr('x1', xStart)
+        .attr('x2', xStart)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 2)
+        .attr('stroke-dasharray', '5 4')
+        .transition()
+        .duration(650)
+        .attr('x2', xEnd);
+
+    g.append('text')
+        .attr('class', 'validation-q8-clinton-avg-label')
+        .attr('x', xEnd - 4)
+        .attr('y', y - 6)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`avg Clinton = ${(clintonAvg * 100).toFixed(0)}%`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function4({ d3, container }) {
+    const { plotW } = getE4Q8Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q8-age-avg-label').remove();
+
+    const { ageAvg } = getE4Q8ClintonAverages();
+
+    g.append('text')
+        .attr('class', 'validation-q8-age-avg-label')
+        .attr('x', plotW - 4)
+        .attr('y', 32)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 600)
+        .attr('fill', '#6b7280')
+        .attr('opacity', 0)
+        .text(`age-group avg = ${ageAvg.toFixed(1)}%`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function5({ d3, container }) {
+    const { plotW } = getE4Q8Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q8-summary').remove();
+
+    const { clintonAvg, ageAvg } = getE4Q8ClintonAverages();
+
+    g.append('text')
+        .attr('class', 'validation-q8-summary')
+        .attr('x', plotW - 4)
+        .attr('y', 12)
+        .attr('text-anchor', 'end')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`≈ ${(clintonAvg * 100).toFixed(0)}% (Clinton-share) or ${ageAvg.toFixed(0)}% (age-share)`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

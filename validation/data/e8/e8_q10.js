@@ -106,6 +106,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Group';
     const yField = 'Average weight in metric grams';
@@ -209,6 +217,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -369,13 +378,15 @@ export function function1({ d3, container }) {
             .text(`${series} > ${value}`);
     });
 
+    // Theme D (#32 round 3): move summary to top-center so it doesn't sit on
+    // top of the chart's right-edge labels.
     g.append('text')
         .attr('class', 'e8-q10-function1')
-        .attr('x', plotW)
-        .attr('y', 16)
-        .attr('text-anchor', 'end')
-        .attr('fill', '#111827')
-        .attr('font-size', 12)
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#dc2626')
+        .attr('font-size', 13)
         .attr('font-weight', 700)
         .text('Boys: 3  Girls: 5  Sum: 8');
 }

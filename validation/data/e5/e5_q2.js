@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Country: 'Czechia', Factor: 'China – exports', Decrease_in_GDP_Percentage: 0.011 },
@@ -90,19 +90,47 @@ function injectStackedChartStyles() {
     document.head.appendChild(style);
 }
 
-export function renderValidationStackedBarChart({ container }) {
-    const seriesKeys = ['desktop', 'mobile', 'tablet'];
-    const seriesLabels = { desktop: 'Desktop', mobile: 'Mobile', tablet: 'Tablet' };
-    const getSeriesColor = (key) => {
-        const index = seriesKeys.indexOf(key);
-        return WORKBENCH_PALETTE[index] ?? WORKBENCH_PALETTE[0];
-    };
+const E5_Q2_X_FIELD = 'Country';
+const E5_Q2_SERIES_FIELD = 'Factor';
+const E5_Q2_Y_FIELD = 'Decrease_in_GDP_Percentage';
 
+function buildE5_Q2Segments() {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[E5_Q2_X_FIELD]))));
+    // Exclude the synthetic "Total" series — it's a precomputed aggregate, not
+    // a real stack contributor, and stacking it on top would double-count.
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[E5_Q2_SERIES_FIELD]))))
+        .filter((s) => s !== 'Total');
+    const segments = [];
+    xDomain.forEach((cat) => {
+        let y0 = 0;
+        seriesDomain.forEach((ser) => {
+            const value = Number(
+                data_rows.find((d) => String(d[E5_Q2_X_FIELD]) === cat && String(d[E5_Q2_SERIES_FIELD]) === ser)?.[E5_Q2_Y_FIELD] ?? 0,
+            );
+            const y1 = y0 + value;
+            segments.push({ target: cat, series: ser, value, y0, y1 });
+            y0 = y1;
+        });
+    });
+    return { xDomain, seriesDomain, segments };
+}
+
+export function renderValidationStackedBarChart({ container }) {
+    // R1 idempotent-renderer guard. If the container already has SVG (drawn by
+    // an earlier call or a helper layout switch), preserve it — don't redraw.
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectStackedChartStyles();
 
-    const data = data_rows;
+    const { xDomain, seriesDomain, segments } = buildE5_Q2Segments();
+    const seriesLabels = Object.fromEntries(seriesDomain.map((s) => [s, s]));
+    const getSeriesColor = (key) => {
+        const index = seriesDomain.indexOf(String(key));
+        return WORKBENCH_PALETTE[index >= 0 ? index % WORKBENCH_PALETTE.length : 0];
+    };
 
-    // Canvas / layout constants matching e10 stacked validation charts
+    // Canvas / layout constants matching other stacked validation charts
     const width = 640;
     const height = 360;
     const margin = { top: 32, right: 16, bottom: 48, left: 56 };
@@ -111,31 +139,11 @@ export function renderValidationStackedBarChart({ container }) {
     const plotW = width - margin.left - margin.right - legendReserve;
     const plotH = height - margin.top - margin.bottom;
 
-    // Build stacked segments using d3.stack (same logic as Workbench buildStackedSegments)
-    const stackedData = d3.stack().keys(seriesKeys)(data);
-
-    // Flatten to StackedSegment objects matching Workbench's data model:
-    // { target, series, value, y0, y1 }
-    const segments = [];
-    stackedData.forEach((layer) => {
-        layer.forEach((d) => {
-            segments.push({
-                target: d.data.year,
-                series: layer.key,
-                value: d.data[layer.key],
-                y0: d[0],
-                y1: d[1],
-            });
-        });
-    });
-
     const maxY = d3.max(segments, (s) => s.y1) ?? 0;
 
     // Clear and prepare container
     container.innerHTML = '';
     container.classList.add('validation-stacked-chart-host');
-
-    const xDomain = data.map((d) => d.year);
 
     const xScale = d3.scaleBand()
         .domain(xDomain)
@@ -178,6 +186,7 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('y', (s) => yScale(Math.max(s.y0, s.y1)))
         .attr('height', (s) => Math.abs(yScale(s.y0) - yScale(s.y1)))
         .attr('fill', (s) => getSeriesColor(s.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (s) => s.target)
         .attr('data-value', (s) => s.value)
@@ -192,9 +201,9 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('class', 'color-legend')
         .attr('transform', `translate(${legendX},${margin.top})`);
 
-    const legendRowH = 24;
+    const legendRowH = 22;
 
-    seriesKeys.forEach((key, i) => {
+    seriesDomain.forEach((key, i) => {
         const rowY = i * legendRowH;
         const cy = rowY + 8;
 
@@ -221,15 +230,15 @@ export function renderValidationStackedBarChart({ container }) {
     tooltip.setAttribute('hidden', '');
     tooltip.innerHTML = `
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">year</span>
+            <span class="validation-stacked-chart-tooltip__label">${E5_Q2_X_FIELD}</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-x"></span>
         </div>
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">series</span>
+            <span class="validation-stacked-chart-tooltip__label">${E5_Q2_SERIES_FIELD}</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-s"></span>
         </div>
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">value</span>
+            <span class="validation-stacked-chart-tooltip__label">${E5_Q2_Y_FIELD}</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-y"></span>
         </div>
     `;
@@ -291,10 +300,10 @@ function renderEuropeanFactorStackedChart({ d3, container, highlightCountry = nu
     const xScale = d3.scaleBand().domain(countries).range([0, plotW]).padding(0.24);
     const yScale = d3.scaleLinear().domain([0, d3.max(countries, (country) => csvTotals[country]) ?? 0]).nice().range([plotH, 0]);
 
-    container.innerHTML = '';
+
     container.classList.add('validation-stacked-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evaluation — Participant Code</title>
+  <link rel="stylesheet" id="evaluationStylesheet">
+  <script>
+    window.__EVALUATION_BASE_PATH__ = location.pathname.split('/').filter(Boolean)[0] === 'evaluation'
+      ? '/evaluation'
+      : '';
+    document.getElementById('evaluationStylesheet').href = `${window.__EVALUATION_BASE_PATH__}/viewer.css`;
+  </script>
+</head>
+<body>
+  <main class="entry-wrap">
+    <section class="entry-card">
+      <h1 class="entry-title">Evaluation</h1>
+      <p class="entry-subtitle">Enter your 6-character participant code to begin.</p>
+      <form id="entryForm" class="entry-form" autocomplete="off">
+        <label class="entry-label" for="codeInput">Participant code</label>
+        <input
+          id="codeInput"
+          class="entry-input"
+          type="text"
+          inputmode="latin"
+          autocapitalize="characters"
+          spellcheck="false"
+          maxlength="6"
+          required
+          placeholder="ABC123"
+        />
+        <div class="entry-message" id="entryMessage" role="status" aria-live="polite"></div>
+        <button class="entry-submit" id="entrySubmit" type="submit">Start</button>
+      </form>
+    </section>
+  </main>
+  <script type="module" src="__EVALUATION_ENTRY_SCRIPT__"></script>
+</body>
+</html>

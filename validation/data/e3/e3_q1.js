@@ -84,6 +84,14 @@ function injectChartStyles() {
 }
 
 export function renderValidationSimpleBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectChartStyles();
 
     const data = data_rows;
@@ -151,6 +159,7 @@ export function renderValidationSimpleBarChart({ container }) {
         })
         .attr('height', (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
         .attr('fill', '#69b3a2')
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => Number(d[yField]))
         .attr('data-x-value', (d) => String(d[xField]))
@@ -190,8 +199,123 @@ export function renderValidationSimpleBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+// ── Shared geometry for function1/function2 ──
+function getQ1Geometry(d3) {
+    const xField = 'Year';
+    const yField = 'Production in billion heads';
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+    const xDomain = data_rows.map((d) => String(d[xField]));
+    const yValues = data_rows.map((d) => Number(d[yField])).filter(Number.isFinite);
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.2);
+    const yScale = d3.scaleLinear()
+        .domain([Math.min(0, ...yValues), Math.max(0, ...yValues)])
+        .nice()
+        .range([plotH, 0]);
+    return { xField, yField, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function ensureQ1ArrowMarker(svg) {
+    if (!svg.select('defs#e3-q1-defs').empty()) return;
+    const defs = svg.append('defs').attr('id', 'e3-q1-defs');
+    defs.append('marker')
+        .attr('id', 'e3-q1-arrow')
+        .attr('viewBox', '0 0 10 10')
+        .attr('refX', 5)
+        .attr('refY', 5)
+        .attr('markerWidth', 5)
+        .attr('markerHeight', 5)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+        .attr('fill', '#ef4444');
+}
+
+function drawQ1JumpArrow({ g, xScale, yScale, fromYear, toYear, fromValue, toValue, label, className }) {
+    g.selectAll(`.${className}`).remove();
+    const cx = (xScale(String(toYear)) ?? 0) + xScale.bandwidth() / 2;
+    const y0 = yScale(fromValue);
+    const y1 = yScale(toValue);
+    const group = g.append('g').attr('class', className);
+    group.append('line')
+        .attr('x1', cx)
+        .attr('x2', cx)
+        .attr('y1', y0)
+        .attr('y2', y0)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 2)
+        .attr('marker-end', 'url(#e3-q1-arrow)')
+        .transition()
+        .duration(650)
+        .attr('y2', y1 + (y1 < y0 ? 6 : -6));
+    group.append('text')
+        .attr('x', cx + 8)
+        .attr('y', (y0 + y1) / 2)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(label)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function1({ d3, container }) {
+    const { xField, yField, xScale, yScale } = getQ1Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    ensureQ1ArrowMarker(svg);
+
+    const focusYears = new Set(['2016', '2017']);
+    g.selectAll('.main-bar')
+        .transition()
+        .duration(600)
+
+        .attr('opacity', (d) => focusYears.has(String(d[xField])) ? 1 : 0.35);
+
+    const v2016 = Number(data_rows.find((d) => d.Year === 2016)?.[yField] ?? 0);
+    const v2017 = Number(data_rows.find((d) => d.Year === 2017)?.[yField] ?? 0);
+    drawQ1JumpArrow({
+        g, xScale, yScale,
+        fromYear: 2016, toYear: 2017,
+        fromValue: v2016, toValue: v2017,
+        label: `+${(v2017 - v2016).toFixed(2)}`,
+        className: 'validation-q1-jump-16-17',
+    });
+}
+
+export function function2({ d3, container }) {
+    const { xField, yField, xScale, yScale } = getQ1Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    ensureQ1ArrowMarker(svg);
+
+    const focusYears = new Set(['2016', '2017', '2018']);
+    g.selectAll('.main-bar')
+        .transition()
+        .duration(600)
+
+        .attr('opacity', (d) => focusYears.has(String(d[xField])) ? 1 : 0.35);
+
+    const v2017 = Number(data_rows.find((d) => d.Year === 2017)?.[yField] ?? 0);
+    const v2018 = Number(data_rows.find((d) => d.Year === 2018)?.[yField] ?? 0);
+    drawQ1JumpArrow({
+        g, xScale, yScale,
+        fromYear: 2017, toYear: 2018,
+        fromValue: v2017, toValue: v2018,
+        label: `+${(v2018 - v2017).toFixed(2)}`,
+        className: 'validation-q1-jump-17-18',
+    });
+}
 
 export function function3({ d3, container }) {}

@@ -7,7 +7,7 @@ import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } fr
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../common/displayLabels'
 import { wrapAxisTickLabels } from '../common/wrapAxisTickLabels'
 import { renderColorLegend, resolveColorLegendTitle as resolveChannelLegendTitle } from '../common/colorLegend'
-import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveLayoutModel, estimateBottomPaddingForRotatedLabels } from '../common/chartLayout'
 import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { createTemporalTickFormatter } from '../common/temporalTicks'
@@ -503,11 +503,19 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
   )
 
   const colorScale = d3.scaleOrdinal<string, string>(resolveColorPalette(spec)).domain(uniqueSeries)
+  const minBottomPadding = estimateBottomPaddingForRotatedLabels(
+    filteredData.map((row) => {
+      const raw = row[encoding.xField]
+      const key = raw == null ? '' : String(raw)
+      return xLabelMap.get(key) ?? key
+    }),
+  )
   const initialLayout = resolveLayoutModel({
     container,
     chartType: ChartType.MULTI_LINE,
     spec,
     legend: { visible: showLegend },
+    minBottomPadding,
   })
 
   const svg = renderWithMeasuredLayout(

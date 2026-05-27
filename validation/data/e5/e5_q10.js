@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2008, Gender: 'female', 'Life expectancy at birth in years': 80 },
@@ -198,6 +198,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -292,7 +293,7 @@ export function function1({ d3, container }) {
     const csvDifferenceLabel = '6.7 years';
 
     injectMultiLineStyles();
-    container.innerHTML = '';
+
     container.classList.add('validation-multi-line-host');
 
     const width = 640;
@@ -311,10 +312,7 @@ export function function1({ d3, container }) {
         .nice()
         .range([plotH, 0]);
 
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
 
     const markerId = 'e5-q10-arrow-marker';
     svg.append('defs')
@@ -353,6 +351,7 @@ export function function1({ d3, container }) {
         .attr('y', (d) => yScale(d.value))
         .attr('height', (d) => plotH - yScale(d.value))
         .attr('fill', '#4f46e5')
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.label)
         .attr('data-value', (d) => String(d.value))
         .attr('data-x-value', (d) => d.label)

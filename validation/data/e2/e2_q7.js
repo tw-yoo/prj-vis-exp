@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Race: 'White', 'Discussion Frequency': 'Almost all of the time', Percentage: 10 },
@@ -82,17 +82,45 @@ function injectStackedChartStyles() {
     document.head.appendChild(style);
 }
 
-export function renderValidationStackedBarChart({ container }) {
-    const seriesKeys = ['desktop', 'mobile', 'tablet'];
-    const seriesLabels = { desktop: 'Desktop', mobile: 'Mobile', tablet: 'Tablet' };
-    const getSeriesColor = (key) => {
-        const index = seriesKeys.indexOf(key);
-        return WORKBENCH_PALETTE[index] ?? WORKBENCH_PALETTE[0];
-    };
+const E2_Q7_X_FIELD = 'Race';
+const E2_Q7_SERIES_FIELD = 'Discussion Frequency';
+const E2_Q7_Y_FIELD = 'Percentage';
 
+function buildE2Q7Segments() {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[E2_Q7_X_FIELD]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[E2_Q7_SERIES_FIELD]))));
+    const segments = [];
+    xDomain.forEach((cat) => {
+        let y0 = 0;
+        seriesDomain.forEach((ser) => {
+            const value = Number(
+                data_rows.find((d) => String(d[E2_Q7_X_FIELD]) === cat && String(d[E2_Q7_SERIES_FIELD]) === ser)?.[E2_Q7_Y_FIELD] ?? 0,
+            );
+            const y1 = y0 + value;
+            segments.push({ target: cat, series: ser, value, y0, y1 });
+            y0 = y1;
+        });
+    });
+    return { xDomain, seriesDomain, segments };
+}
+
+export function renderValidationStackedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectStackedChartStyles();
 
-    const data = data_rows;
+    const { xDomain, seriesDomain, segments } = buildE2Q7Segments();
+    const seriesLabels = Object.fromEntries(seriesDomain.map((s) => [s, s]));
+    const getSeriesColor = (key) => {
+        const index = seriesDomain.indexOf(String(key));
+        return WORKBENCH_PALETTE[index >= 0 ? index % WORKBENCH_PALETTE.length : 0];
+    };
 
     // Canvas / layout constants matching e10 stacked validation charts
     const width = 640;
@@ -103,31 +131,11 @@ export function renderValidationStackedBarChart({ container }) {
     const plotW = width - margin.left - margin.right - legendReserve;
     const plotH = height - margin.top - margin.bottom;
 
-    // Build stacked segments using d3.stack (same logic as Workbench buildStackedSegments)
-    const stackedData = d3.stack().keys(seriesKeys)(data);
-
-    // Flatten to StackedSegment objects matching Workbench's data model:
-    // { target, series, value, y0, y1 }
-    const segments = [];
-    stackedData.forEach((layer) => {
-        layer.forEach((d) => {
-            segments.push({
-                target: d.data.year,
-                series: layer.key,
-                value: d.data[layer.key],
-                y0: d[0],
-                y1: d[1],
-            });
-        });
-    });
-
     const maxY = d3.max(segments, (s) => s.y1) ?? 0;
 
     // Clear and prepare container
     container.innerHTML = '';
     container.classList.add('validation-stacked-chart-host');
-
-    const xDomain = data.map((d) => d.year);
 
     const xScale = d3.scaleBand()
         .domain(xDomain)
@@ -170,6 +178,7 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('y', (s) => yScale(Math.max(s.y0, s.y1)))
         .attr('height', (s) => Math.abs(yScale(s.y0) - yScale(s.y1)))
         .attr('fill', (s) => getSeriesColor(s.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (s) => s.target)
         .attr('data-value', (s) => s.value)
@@ -184,13 +193,15 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('class', 'color-legend')
         .attr('transform', `translate(${legendX},${margin.top})`);
 
-    const legendRowH = 24;
+    const legendRowH = 22;
 
-    seriesKeys.forEach((key, i) => {
+    seriesDomain.forEach((key, i) => {
         const rowY = i * legendRowH;
         const cy = rowY + 8;
 
         legend.append('circle')
+            .attr('class', 'validation-legend-swatch')
+            .attr('data-series', key)
             .attr('cx', 8)
             .attr('cy', cy)
             .attr('r', 5)
@@ -198,6 +209,8 @@ export function renderValidationStackedBarChart({ container }) {
             .attr('opacity', 0.85);
 
         legend.append('text')
+            .attr('class', 'validation-legend-label')
+            .attr('data-series', key)
             .attr('x', 20)
             .attr('y', cy)
             .attr('font-size', 11)
@@ -253,74 +266,239 @@ function getRaceDiscussionRows() {
     ));
 }
 
-function renderRaceDiscussionStackedChart({ d3, container, showDifference = false }) {
-    const rows = getRaceDiscussionRows();
+const E2_Q7_FOCUS_FREQS = new Set(['Almost all of the time', 'Most of the time']);
+
+function getE2Q7FocusTotals() {
+    const races = ['White', 'Black'];
+    return races.map((race) => {
+        const total = data_rows
+            .filter((d) => d.Race === race && E2_Q7_FOCUS_FREQS.has(String(d['Discussion Frequency'])))
+            .reduce((s, d) => s + Number(d.Percentage), 0);
+        return { race, total };
+    });
+}
+
+function renderRaceDiscussionStackedChart({ d3, container }) {
+    // Smooth-transition implementation: subset BOTH x-axis (3 races → 2 races:
+    // White, Black) AND series (4 frequencies → 2 focus frequencies). Bars
+    // matching the new `race|frequency` key smoothly UPDATE their y0/y1 in the
+    // new yScale; exiting bars (Hispanic; Sometimes; Hardly ever/Never) fade
+    // out. The legend also smoothly transitions from right-vertical layout to
+    // top-horizontal layout — surviving items move to their new positions,
+    // exiting items fade out.
     const races = ['White', 'Black'];
     const frequencies = ['Almost all of the time', 'Most of the time'];
+    // Per reviewer (round-2 row 3 / system-wide R7): each frequency must keep
+    // the color the BASE render assigned to it. Look up indices in the FULL
+    // seriesDomain (all 4 frequencies from data_rows).
+    const fullSeriesDomain = Array.from(new Set(data_rows.map((d) => String(d['Discussion Frequency']))));
+    const baseColor = (frequency) => {
+        const i = fullSeriesDomain.indexOf(String(frequency));
+        return WORKBENCH_PALETTE[i >= 0 ? i % WORKBENCH_PALETTE.length : 0];
+    };
+
     const width = 640;
     const height = 360;
-    const margin = { top: 32, right: 92, bottom: 56, left: 56 };
+    // Per reviewer: legend goes ABOVE the chart (horizontal layout); top margin
+    // reserved for legend row, right margin shrunk because no side legend.
+    const margin = { top: 64, right: 32, bottom: 56, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
-    const color = d3.scaleOrdinal().domain(frequencies).range(WORKBENCH_PALETTE);
-    const segments = [];
 
+    // Build new segments (only White/Black × Almost all + Most of the time)
+    const segments = [];
     races.forEach((race) => {
         let y0 = 0;
         frequencies.forEach((frequency) => {
-            const value = rows.find((d) => d.Race === race && d['Discussion Frequency'] === frequency)?.Percentage ?? 0;
+            const value = data_rows.find((d) => d.Race === race && d['Discussion Frequency'] === frequency)?.Percentage ?? 0;
             const y1 = y0 + Number(value);
-            segments.push({ race, frequency, value: Number(value), y0, y1 });
+            segments.push({ target: race, series: frequency, value: Number(value), y0, y1 });
             y0 = y1;
         });
     });
 
     const totals = races.map((race) => ({
         race,
-        total: d3.sum(segments.filter((d) => d.race === race), (d) => d.value)
+        total: d3.sum(segments.filter((d) => d.target === race), (d) => d.value),
     }));
     const xScale = d3.scaleBand().domain(races).range([0, plotW]).padding(0.34);
     const yScale = d3.scaleLinear().domain([0, d3.max(totals, (d) => d.total) ?? 0]).nice().range([plotH, 0]);
 
-    container.innerHTML = '';
     container.classList.add('validation-stacked-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
 
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
+    // Locate the plot g (handle base + previous-round modeswitch wrapper).
+    let g = svg.select('g.validation-modeswitch-e2q7');
+    g = g.empty() ? svg.select('g') : g.select('g');
+    if (g.empty()) return;
+
+    const duration = 700;
+
+    // Smoothly transition axes.
+    g.select('.y-axis').transition().duration(duration).call(d3.axisLeft(yScale).ticks(5));
+    g.select('.x-axis').transition().duration(duration).call(d3.axisBottom(xScale));
+
+    const newX = (d) => xScale(d.target) ?? 0;
+    const newW = () => xScale.bandwidth();
+    const newY = (d) => yScale(d.y1);
+    const newH = (d) => Math.max(0, yScale(d.y0) - yScale(d.y1));
+
+    // D3 join with `race|frequency` key — bars existing on both sides smoothly
+    // UPDATE; bars only on one side ENTER (fade in) or EXIT (fade out).
+    const keyFn = function (d) {
+        if (d && d.target != null) return `${d.target}|${d.series}`;
+        return `${this.getAttribute('data-target')}|${this.getAttribute('data-series')}`;
+    };
 
     g.selectAll('rect.main-bar')
-        .data(segments)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.race))
-        .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => color(d.frequency))
-        .attr('data-target', (d) => d.race)
-        .attr('data-series', (d) => d.frequency)
-        .attr('data-value', (d) => d.value)
-        .transition()
-        .duration(700)
-        .attr('y', (d) => yScale(d.y1))
-        .attr('height', (d) => yScale(d.y0) - yScale(d.y1));
+        .data(segments, keyFn)
+        .join(
+            (enter) => enter.append('rect')
+                .attr('class', 'main-bar')
+                .attr('x', newX)
+                .attr('width', newW)
+                .attr('y', newY)
+                .attr('height', newH)
+                .attr('fill', (d) => baseColor(d.series))
+                .attr('opacity', 0)
+                .attr('data-target', (d) => d.target)
+                .attr('data-series', (d) => d.series)
+                .attr('data-value', (d) => d.value)
+                .call((sel) => sel.transition().duration(duration).attr('opacity', 1)),
+            (update) => update
+                .call((sel) => sel.transition().duration(duration)
+                    .attr('x', newX)
+                    .attr('width', newW)
+                    .attr('y', newY)
+                    .attr('height', newH)
+                    .attr('fill', (d) => baseColor(d.series))
+                    .attr('opacity', 1)
+                ),
+            (exit) => exit
+                .call((sel) => sel.transition().duration(Math.round(duration * 0.7))
+                    .attr('opacity', 0)
+                    .remove()
+                ),
+        );
 
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${margin.left + plotW - 120},${margin.top + 8})`);
+    // Smooth-update the legend: move from right (vertical) to top (horizontal).
+    // Surviving items (Almost all of the time, Most of the time) reposition;
+    // exiting items (Sometimes, Hardly ever/Never) fade out.
+    const legendItemSpacing = 180;
+    const legendY = margin.top - 26;
+    const legendStartX = margin.left;
+    let legend = svg.select('g.color-legend');
+    if (legend.empty()) {
+        legend = svg.append('g')
+            .attr('class', 'color-legend')
+            .attr('transform', `translate(${legendStartX},${legendY})`);
+    } else {
+        // Transition the legend container to its new (top) position.
+        legend.transition().duration(duration).attr('transform', `translate(${legendStartX},${legendY})`);
+    }
+
+    const seenFrequencies = new Set();
+    legend.selectAll('text').nodes().forEach((textEl) => {
+        const frequency = textEl.textContent;
+        seenFrequencies.add(frequency);
+        const circleEl = textEl.previousElementSibling;
+        if (frequencies.includes(frequency)) {
+            const newIndex = frequencies.indexOf(frequency);
+            const newCx = newIndex * legendItemSpacing + 6;
+            const newTextX = newIndex * legendItemSpacing + 18;
+            d3.select(textEl).transition().duration(duration)
+                .attr('x', newTextX)
+                .attr('y', 6)
+                .attr('opacity', 1);
+            if (circleEl) {
+                d3.select(circleEl).transition().duration(duration)
+                    .attr('cx', newCx)
+                    .attr('cy', 6)
+                    .attr('opacity', 1);
+            }
+        } else {
+            d3.select(textEl).transition().duration(Math.round(duration * 0.7))
+                .attr('opacity', 0)
+                .on('end', function () { this.remove(); });
+            if (circleEl) {
+                d3.select(circleEl).transition().duration(Math.round(duration * 0.7))
+                    .attr('opacity', 0)
+                    .on('end', function () { this.remove(); });
+            }
+        }
+    });
     frequencies.forEach((frequency, index) => {
-        const y = index * 24;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', color(frequency));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 11).text(frequency);
+        if (seenFrequencies.has(frequency)) return;
+        const x = index * legendItemSpacing;
+        legend.append('circle')
+            .attr('cx', x + 6)
+            .attr('cy', 6)
+            .attr('r', 5)
+            .attr('fill', baseColor(frequency))
+            .attr('opacity', 0)
+            .transition()
+            .duration(duration)
+            .attr('opacity', 1);
+        legend.append('text')
+            .attr('x', x + 18)
+            .attr('y', 6)
+            .attr('dominant-baseline', 'middle')
+            .attr('font-size', 11)
+            .attr('fill', '#111827')
+            .attr('opacity', 0)
+            .text(frequency)
+            .transition()
+            .duration(duration)
+            .attr('opacity', 1);
+    });
+}
+
+export function function1({ d3, container }) {
+    renderRaceDiscussionStackedChart({ d3, container });
+}
+
+export function function2({ d3, container }) {
+    // Per reviewer (review_e2.csv row 11): annotation-only — no rebuild, no grow animation.
+    // Add the two total-tick dashed lines + bidirectional Δ arrow on top of f1's existing bars.
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+
+    // Round 5 fix: after rebuildSvgInPlace, the structure is
+    //   svg > g.validation-modeswitch-e2q7 > g[transform="translate(margin)"]
+    // We must drill into the INNER plot g so annotations share the bars'
+    // coordinate system (bar.x/y attributes are relative to the inner plot g).
+    const modeWrapper = svg.select('g.validation-modeswitch-e2q7');
+    const g = modeWrapper.empty() ? svg.select('g') : modeWrapper.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-total-line, .validation-difference-arrow, .validation-difference-label').remove();
+    svg.select('defs#e2-q7-defs').remove();
+
+    // Reconstruct the geometry from existing bar attributes so we don't recompute scales differently.
+    // Keep these in sync with renderRaceDiscussionStackedChart (function1) — legend was
+    // moved ABOVE the chart, so right margin shrank from 92 to 32 and top from 32 to 64.
+    const width = 640;
+    const margin = { top: 64, right: 32, bottom: 56, left: 56 };
+    const plotW = width - margin.left - margin.right;
+
+    const totals = getE2Q7FocusTotals();
+    // Find each race's total y by summing existing bar heights for that race.
+    const totalY = {};
+    ['White', 'Black'].forEach((race) => {
+        const bars = g.selectAll('.main-bar').filter(function () { return this.getAttribute('data-target') === race; });
+        const tops = bars.nodes().map((node) => Number(node.getAttribute('y')));
+        totalY[race] = tops.length ? Math.min(...tops) : 0;
+    });
+    const xByRace = {};
+    ['White', 'Black'].forEach((race) => {
+        const bar = g.selectAll('.main-bar').filter(function () { return this.getAttribute('data-target') === race; }).node();
+        if (bar) {
+            xByRace[race] = Number(bar.getAttribute('x')) + Number(bar.getAttribute('width'));
+        }
     });
 
-    if (!showDifference) return;
-
-    svg.select('defs#e2-q7-defs').remove();
     const defs = svg.append('defs').attr('id', 'e2-q7-defs');
     defs.append('marker')
         .attr('id', 'e2-q7-arrow')
@@ -334,14 +512,14 @@ function renderRaceDiscussionStackedChart({ d3, container, showDifference = fals
         .attr('d', 'M 0 0 L 10 5 L 0 10 z')
         .attr('fill', '#ef4444');
 
-    totals.forEach((total) => {
-        const y = yScale(total.total);
+    ['White', 'Black'].forEach((race) => {
         g.append('line')
             .attr('class', 'validation-total-line')
-            .attr('x1', (xScale(total.race) ?? 0) + xScale.bandwidth())
-            .attr('x2', (xScale(total.race) ?? 0) + xScale.bandwidth())
-            .attr('y1', y)
-            .attr('y2', y)
+            .attr('data-race', race)
+            .attr('x1', xByRace[race])
+            .attr('x2', xByRace[race])
+            .attr('y1', totalY[race])
+            .attr('y2', totalY[race])
             .attr('stroke', '#111827')
             .attr('stroke-width', 1.6)
             .attr('stroke-dasharray', '5 4')
@@ -350,42 +528,34 @@ function renderRaceDiscussionStackedChart({ d3, container, showDifference = fals
             .attr('x2', plotW);
     });
 
-    const whiteY = yScale(totals.find((d) => d.race === 'White').total);
-    const blackY = yScale(totals.find((d) => d.race === 'Black').total);
     const arrowX = plotW + 26;
     g.append('line')
         .attr('class', 'validation-difference-arrow')
         .attr('x1', arrowX)
         .attr('x2', arrowX)
-        .attr('y1', whiteY)
-        .attr('y2', whiteY)
+        .attr('y1', totalY.White)
+        .attr('y2', totalY.White)
         .attr('stroke', '#ef4444')
         .attr('stroke-width', 2)
         .attr('marker-start', 'url(#e2-q7-arrow)')
         .attr('marker-end', 'url(#e2-q7-arrow)')
         .transition()
         .duration(650)
-        .attr('y2', blackY);
+        .attr('y2', totalY.Black);
+
     g.append('text')
+        .attr('class', 'validation-difference-label')
         .attr('x', arrowX + 8)
-        .attr('y', (whiteY + blackY) / 2)
+        .attr('y', (totalY.White + totalY.Black) / 2)
         .attr('dominant-baseline', 'middle')
         .attr('font-size', 12)
         .attr('font-weight', 700)
         .attr('fill', '#ef4444')
         .attr('opacity', 0)
-        .text('11')
+        .text(Math.abs((totals.find((t) => t.race === 'Black')?.total ?? 0) - (totals.find((t) => t.race === 'White')?.total ?? 0)).toString())
         .transition()
         .duration(650)
         .attr('opacity', 1);
-}
-
-export function function1({ d3, container }) {
-    renderRaceDiscussionStackedChart({ d3, container, showDifference: false });
-}
-
-export function function2({ d3, container }) {
-    renderRaceDiscussionStackedChart({ d3, container, showDifference: true });
 }
 
 export function function3({ d3, container }) {}

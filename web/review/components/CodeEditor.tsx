@@ -9,7 +9,7 @@ import { searchKeymap } from '@codemirror/search'
 import { json, jsonParseLinter } from '@codemirror/lang-json'
 import { opsSpecCompletionSource } from '../services/opsSpecCompletion'
 
-export type CodeEditorLanguage = 'json' | 'json-ops'
+export type CodeEditorLanguage = 'json' | 'json-ops' | 'plaintext'
 
 type Props = {
   value: string
@@ -20,7 +20,8 @@ type Props = {
   autoFocus?: boolean
 }
 
-function prettify(raw: string): string {
+function prettify(raw: string, language: CodeEditorLanguage): string {
+  if (language === 'plaintext') return raw
   const trimmed = raw.trim()
   if (!trimmed) return ''
   try {
@@ -52,9 +53,11 @@ export default function CodeEditor({
   useEffect(() => {
     if (!hostRef.current) return
 
+    const isPlaintext = language === 'plaintext'
+
     const tryCommit = () => {
       const text = viewRef.current?.state.doc.toString() ?? ''
-      if (text.trim()) {
+      if (!isPlaintext && text.trim()) {
         try {
           JSON.parse(text)
         } catch (err) {
@@ -66,21 +69,29 @@ export default function CodeEditor({
       onCommitRef.current(text)
     }
 
+    // Line numbers / history / active-line are shared across all languages.
+    // JSON-only goodies (bracket matching, auto-close, linter, autocompletion)
+    // are skipped for plaintext to keep the editor light and free of red
+    // squigglies on free-form text like the question field.
     const extensions: Extension[] = [
       lineNumbers(),
       highlightActiveLine(),
       history(),
-      bracketMatching(),
-      closeBrackets(),
-      indentOnInput(),
-      json(),
-      linter(jsonParseLinter()),
-      lintGutter(),
-      autocompletion(
-        language === 'json-ops'
-          ? { override: [opsSpecCompletionSource] }
-          : undefined,
-      ),
+      ...(isPlaintext
+        ? []
+        : [
+            bracketMatching(),
+            closeBrackets(),
+            indentOnInput(),
+            json(),
+            linter(jsonParseLinter()),
+            lintGutter(),
+            autocompletion(
+              language === 'json-ops'
+                ? { override: [opsSpecCompletionSource] }
+                : undefined,
+            ),
+          ]),
       keymap.of([
         {
           key: 'Mod-Enter',
@@ -96,12 +107,12 @@ export default function CodeEditor({
             return true
           },
         },
-        ...closeBracketsKeymap,
+        ...(isPlaintext ? [] : closeBracketsKeymap),
         ...defaultKeymap,
         ...historyKeymap,
         ...searchKeymap,
-        ...completionKeymap,
-        ...lintKeymap,
+        ...(isPlaintext ? [] : completionKeymap),
+        ...(isPlaintext ? [] : lintKeymap),
         indentWithTab,
       ]),
       EditorView.theme(
@@ -130,7 +141,7 @@ export default function CodeEditor({
 
     const view = new EditorView({
       state: EditorState.create({
-        doc: prettify(value),
+        doc: prettify(value, language),
         extensions,
       }),
       parent: hostRef.current,

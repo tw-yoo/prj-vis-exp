@@ -405,10 +405,19 @@ function compareStepSnapshot(kind, stepIndex, nextSnapshot) {
 }
 
 function renderCurrentChart() {
-    containerEl.innerHTML = '';
+    // R1 (no-flash rule): don't wipe the container. The renderer's own idempotency
+    // check (via data-render-key on the SVG) decides whether to redraw. If the SVG
+    // already matches the current data_rows, the renderer no-ops and we preserve
+    // any color/opacity that functionN applied — so step clicks don't flash.
     const renderFn = findRenderFn(currentMod);
     if (renderFn) renderFn({ container: containerEl });
     fitSvgViewBoxToContent();
+}
+
+function resetChartContainer() {
+    // Hard reset used only when switching to a different chart (loadChart),
+    // not between step clicks within the same chart.
+    containerEl.innerHTML = '';
 }
 
 async function loadChart(index) {
@@ -421,6 +430,10 @@ async function loadChart(index) {
     const chartId = chartIds[currentIndex];
     currentMod = await getModule(chartId);
 
+    // Switching to a different chart — wipe the previous SVG so the new chart's
+    // renderer draws fresh. (Intra-chart step clicks use renderCurrentChart which
+    // delegates to the renderer's idempotency check, no wipe.)
+    resetChartContainer();
     renderCurrentChart();
 
     stepsUnlocked = 0;
@@ -463,37 +476,70 @@ async function runStep(stepIndex) {
     stepRunInProgress = true;
     updateUI();
 
+    // R13 (round 5): runStep is DIRECTIONAL.
+    //   Forward (stepIndex > previousSelected): the live SVG already carries
+    //     the post-(stepIndex-1) state from the user's prior clicks. Don't
+    //     reset — just run the target function on it. The user sees ONLY the
+    //     target's transitions, no chart-rebuild flash.
+    //   Backward / revisit (stepIndex <= previousSelected): functions ahead of
+    //     this step may have added annotations the current step doesn't expect.
+    //     We must reset + render base + replay 0..stepIndex-1. The freezeOverlay
+    //     covers this whole reset+replay block.
+    const previousSelected = selectedStepIndex;
+    const isForward = stepIndex > previousSelected;
+
+    console.log(`[viewer debug] runStep(${stepIndex}) ENTER chartId=${getCurrentChartId()} fn=${fnName} previousSelected=${previousSelected} isForward=${isForward} t=${Math.round(performance.now())}ms`);
+    console.log(`[viewer debug]   container child count: ${containerEl.children.length}, bars: ${containerEl.querySelectorAll('rect.main-bar').length}`);
+
     const freezeOverlay = createChartFreezeOverlay();
+    console.log(`[viewer debug]   freezeOverlay created. body now has ${document.querySelectorAll('.validation-chart-freeze-overlay').length} overlay(s).`);
 
     try {
-        renderCurrentChart();
-        await nextFrame();
+        if (!isForward) {
+            console.log('[viewer debug]   BACKWARD path: resetChartContainer + renderCurrentChart');
+            resetChartContainer();
+            renderCurrentChart();
+            await nextFrame();
 
-        for (let i = 0; i < stepIndex; i++) {
-            const [replayFnName] = sentences[i] ?? [];
-            const replayFn = currentMod?.[replayFnName];
+            for (let i = 0; i < stepIndex; i++) {
+                const [replayFnName] = sentences[i] ?? [];
+                const replayFn = currentMod?.[replayFnName];
 
-            if (typeof replayFn !== 'function') {
-                warnMissingFunction(getCurrentChartId(), replayFnName ?? `step${i + 1}`);
-                return;
+                if (typeof replayFn !== 'function') {
+                    warnMissingFunction(getCurrentChartId(), replayFnName ?? `step${i + 1}`);
+                    return;
+                }
+
+                console.log(`[viewer debug]   replay ${replayFnName} (motion off)`);
+                await invokeStepFunction(replayFn, { replay: true });
+                fitSvgViewBoxToContent();
+                await waitForStepSettled();
+                fitSvgViewBoxToContent();
             }
-
-            await invokeStepFunction(replayFn, { replay: true });
-            fitSvgViewBoxToContent();
-            await waitForStepSettled();
-            fitSvgViewBoxToContent();
+        } else {
+            console.log('[viewer debug]   FORWARD path: no reset, no replay');
         }
 
         fitSvgViewBoxToContent();
         const startSnapshot = getSvgSnapshot();
+        console.log(`[viewer debug]   pre-overlay-remove: bars=${containerEl.querySelectorAll('rect.main-bar').length} svgViewBox=${containerEl.querySelector('svg')?.getAttribute('viewBox')} svgOpacity=${containerEl.querySelector('svg')?.getAttribute('opacity')}`);
+
+        // Remove overlay BEFORE the target's transitions begin so the user
+        // sees the animation play. For forward navigation this is essentially
+        // an instant overlay clear with no visible change (overlay's content
+        // == live SVG). For backward navigation, this is the moment the
+        // post-reset+replay state becomes visible — overlay covered the wipe.
+        freezeOverlay.remove();
+        console.log(`[viewer debug]   freezeOverlay.remove() DONE. About to invoke target ${fnName}.`);
 
         await invokeStepFunction(targetFn, { replay: false });
+        console.log(`[viewer debug]   target invoke RETURNED. bars=${containerEl.querySelectorAll('rect.main-bar').length}`);
         await nextFrame();
         fitSvgViewBoxToContent();
-        freezeOverlay.remove();
         await waitForStepSettled();
         fitSvgViewBoxToContent();
         const endSnapshot = getSvgSnapshot();
+        console.log(`[viewer debug]   waitForStepSettled DONE. bars=${containerEl.querySelectorAll('rect.main-bar').length} t=${Math.round(performance.now())}ms`);
 
         compareStepSnapshot('start', stepIndex, startSnapshot);
         compareStepSnapshot('end', stepIndex, endSnapshot);
@@ -606,7 +652,7 @@ function renderCompletionArea() {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'completion-btn';
-        button.textContent = 'Click to confirm that all visual explanation have been checked';
+        button.textContent = 'Click here to confirm that all visual explanation have been checked';
         button.addEventListener('click', returnToFirstChartAfterCompletion);
         panel.appendChild(button);
     }

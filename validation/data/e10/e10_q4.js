@@ -74,6 +74,14 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = "Month 'Year";
     const yField = 'Consumer Price Index (100 = 1982-1984)';
 
@@ -162,6 +170,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -281,7 +290,7 @@ function addCpiDeviationDots(d3, container) {
         { year: '2021', x: midX + 18, y: yScale(yearAverages['2021']), value: yearAverages['2021'] }
     ];
 
-    g.selectAll('.validation-cpi-deviation-dot').remove();
+    g.selectAll('.validation-cpi-deviation-dot, .validation-cpi-deviation-label').remove();
     g.selectAll('circle.validation-cpi-deviation-dot')
         .data(dotRows)
         .join('circle')
@@ -294,6 +303,24 @@ function addCpiDeviationDots(d3, container) {
         .attr('stroke-width', 2)
         .attr('data-year', (d) => d.year)
         .attr('data-value', (d) => String(d.value));
+
+    // Theme L (#41 round 3): explicit "Average 2020" / "Average 2021" labels
+    // placed near each point so the eye can pair color to year. The 2020 label
+    // points left, the 2021 label points right so they don't crowd the dots.
+    dotRows.forEach((d) => {
+        const anchor = d.year === '2020' ? 'end' : 'start';
+        const offsetX = d.year === '2020' ? -10 : 10;
+        g.append('text')
+            .attr('class', 'validation-cpi-deviation-label')
+            .attr('x', d.x + offsetX)
+            .attr('y', d.y - 8)
+            .attr('text-anchor', anchor)
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .attr('fill', '#dc2626')
+            .text(`Average ${d.year} (${d.value.toFixed(2)})`);
+    });
 }
 
 export function function1({ d3, container }) {

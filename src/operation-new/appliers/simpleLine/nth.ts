@@ -1,0 +1,123 @@
+import { nthData } from '../../../domain/operation/dataOps'
+import { OperationOp, type OperationSpec } from '../../../domain/operation/types'
+import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
+import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
+import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
+import { findPointByTarget, pointToRootCoords } from '../../primitives/annotationLayer'
+import { applyAnnotationContextFade } from '../../primitives/contextFade'
+import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
+import { FILTER_ANNOTATION_CLASS } from './filter'
+
+/**
+ * `nth` is semantically a sibling of `findExtremum`: both pick a single row
+ * (or list of rows) from the sorted dataset. Visually we treat them
+ * identically — highlight the selected point in red + value label above.
+ *
+ * If `n` is a list, every matching row is highlighted (mirrors nthData's
+ * multi-result shape).
+ */
+
+export const NTH_ANNOTATION_CLASS = 'operation-next-line-nth'
+
+function operationNodeId(operation: OperationSpec): string | null {
+  const raw = operation as OperationSpec & { id?: string | number; key?: string | number }
+  const nodeId = operation.meta?.nodeId
+  if (typeof nodeId === 'string' || typeof nodeId === 'number') return String(nodeId)
+  if (raw.id != null) return String(raw.id)
+  if (raw.key != null) return String(raw.key)
+  return null
+}
+
+export const nthApplier: OperationApplier = {
+  op: OperationOp.Nth,
+
+  async apply({ operation, state, instance }: ApplierArgs): Promise<ApplierResult> {
+    const result = nthData(state.workingData, operation)
+    console.info('[operation-new] applier:nth', {
+      nodeId: operation.meta?.nodeId,
+      n: operation.n,
+      from: (operation as OperationSpec & { from?: string }).from,
+      resultCount: result.length,
+    })
+    if (result.length === 0) {
+      return { result, nextState: { ...state, lastResult: result } }
+    }
+
+    const layer = instance.annotationLayer
+    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+
+    const nodeId = operationNodeId(operation)
+    if (nodeId) {
+      layer
+        .selectAll<SVGElement, unknown>(
+          `.${NTH_ANNOTATION_CLASS}[${DataAttributes.AnnotationNodeId}="${CSS.escape(nodeId)}"]`,
+        )
+        .interrupt()
+        .remove()
+    } else {
+      fadeRemoveAnnotations(layer, NTH_ANNOTATION_CLASS)
+    }
+
+    const highlightPromises: Promise<unknown>[] = []
+    const labelPromises: Promise<unknown>[] = []
+
+    for (const datum of result) {
+      const target = datum.target
+      if (target == null) continue
+      const pointSel = findPointByTarget(instance, String(target))
+      const point = pointSel.nodes()[0]
+      if (!point) continue
+      const metrics = pointToRootCoords(point, instance)
+
+      highlightPromises.push(
+        pointSel
+          .interrupt()
+          .transition()
+          .duration(DURATIONS.HIGHLIGHT)
+          .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+          .attr(SvgAttributes.R, 6)
+          .end()
+          .catch(() => {}),
+      )
+
+      const naturalAbove = metrics.y - 12
+      const labelMinY = instance.layout.marginTop + 12
+      const labelY = naturalAbove >= labelMinY ? naturalAbove : metrics.y + 20
+      const labelNode = layer
+        .append(SvgElements.Text)
+        .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${NTH_ANNOTATION_CLASS}`)
+        .attr(SvgAttributes.X, metrics.x)
+        .attr(SvgAttributes.Y, labelY)
+        .attr(SvgAttributes.TextAnchor, 'middle')
+        .attr(SvgAttributes.FontSize, 12)
+        .attr(SvgAttributes.FontWeight, 700)
+        .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
+        .style(SvgAttributes.Opacity, 0)
+        .text(formatOperationValue(metrics.value))
+      if (nodeId) labelNode.attr(DataAttributes.AnnotationNodeId, nodeId)
+      labelPromises.push(
+        labelNode
+          .transition()
+          .duration(DURATIONS.LABEL_FADE_IN)
+          .style(SvgAttributes.Opacity, 1)
+          .end()
+          .catch(() => {}),
+      )
+    }
+
+    await Promise.all([...highlightPromises, ...labelPromises])
+
+    return {
+      result,
+      nextState: {
+        ...state,
+        lastResult: result,
+        annotationRecords: [
+          ...state.annotationRecords,
+          { cssClass: NTH_ANNOTATION_CLASS, role: 'result', persistent: false },
+        ],
+      },
+    }
+  },
+}

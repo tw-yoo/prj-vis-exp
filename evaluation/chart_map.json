@@ -1,27 +1,44 @@
 {
-  "e1": {
+  "charts": {
     "e1_q1": {
-      "question": "Which year range is used, and what is the average sales value after filtering?",
+      "question": "What is the difference between the average of Commercial and the average of Matchday?",
       "description": "",
-      "steps": [
-        { "id": "ops", "text": "Filter the chart to show values from 2010 through 2013." }
-      ]
+      "ours": {
+        "steps": [
+          { "id": "ops", "text": "1. Take the Commercial revenues across all seasons and compute their average, then take the Matchday revenues across all seasons and compute their average." },
+          { "id": "ops3", "text": "3. Subtract the Matchday average from the Commercial average to get a difference of 885.5 million euros." }
+        ]
+      }
     },
     "e1_q2": {
       "question": "What is the difference between the maximum and minimum values?",
-      "description": "Second evaluation fixture for navigation and replay.",
-      "steps": [
-        { "id": "ops", "text": "Find the maximum value." },
-        { "id": "ops2", "text": "Find the minimum value." },
-        { "id": "ops3", "text": "Compute the difference between those two values." }
-      ]
+      "description": "",
+      "ours": {
+        "steps": [
+          { "id": "ops", "text": "Find the maximum value." },
+          { "id": "ops2", "text": "Find the minimum value." },
+          { "id": "ops3", "text": "Compute the difference between those two values." }
+        ]
+      }
     },
-    "e1_bad": {
-      "question": "This chart intentionally contains an invalid operation step.",
-      "description": "Used to verify that the viewer reports errors without blanking the chart.",
-      "steps": [
-        { "id": "ops", "text": "Run an invalid operation spec." }
-      ]
+    "presentation": {
+      "question": "What is the difference between the largest and smallest emission increase from 2019 to 2023?"
+    },
+    "2kmpy10btl65kr2j": {
+      "question": "What is the average of the percentage of responses in the last three years of Favourable views of the US?"
+    },
+    "0g0xma0b0k29lk5j": {
+      "question": "Which year has the second largest difference between 65 years and older and 15-64 years?"
+    },
+    "0rfuaawgi58ajpsv": {
+      "question": "What is the difference in the average between North America and Latin America?"
+    },
+    "0w88bu7qm4ilsqmh": {
+      "question": "What is the difference between the average of before 2000 and from 2010?"
     }
+  },
+  "defaults": {
+    "d3": { "model": "gpt-5.2" },
+    "svg": { "model": "gpt-5.2" }
   }
 }

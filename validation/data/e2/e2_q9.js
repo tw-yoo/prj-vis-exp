@@ -81,6 +81,14 @@ function injectSimpleLineStyles() {
 }
 
 export function renderValidationSimpleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const yField = 'Percentage_of_Population';
 
@@ -169,6 +177,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -233,87 +242,133 @@ function getPopulationTargets() {
     return { smallest, secondLargest };
 }
 
-function renderFocusedPopulationLine({ d3, container }) {
-    const rows = getFocusedPopulationRows();
+function focusPopulationInPlace({ d3, container }) {
+    // Per reviewer (round-2 row 7): do NOT rebuild the chart. Reuse the existing
+    // line + circles + axes. Transition xScale/yScale to the focus range so
+    // points outside 2000–2008 fade out and the line + axes rescale smoothly.
     const xField = 'Year';
     const yField = 'Percentage_of_Population';
     const width = 640;
     const height = 360;
-    const margin = { top: 32, right: 80, bottom: 48, left: 56 };
+    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
-    const xDomain = rows.map((d) => String(d[xField]));
-    const yValues = rows.map((d) => Number(d[yField]));
-    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
-    const yScale = d3.scaleLinear().domain([d3.min(yValues) ?? 0, d3.max(yValues) ?? 1]).nice().range([plotH, 0]);
-    const line = d3.line().x((d) => xScale(String(d[xField])) ?? 0).y((d) => yScale(Number(d[yField])));
 
-    container.innerHTML = '';
-    container.classList.add('validation-simple-line-host');
+    const focusedRows = getFocusedPopulationRows();
+    const focusedYears = new Set(focusedRows.map((d) => String(d[xField])));
+    const focusedYValues = focusedRows.map((d) => Number(d[yField]));
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).attr('data-m-left', margin.left).attr('data-m-top', margin.top).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+    const newXDomain = focusedRows.map((d) => String(d[xField]));
+    const newXScale = d3.scalePoint().domain(newXDomain).range([0, plotW]).padding(0.5);
+    const newYScale = d3.scaleLinear().domain([d3.min(focusedYValues), d3.max(focusedYValues)]).nice().range([plotH, 0]);
 
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(6));
-    const xAxis = g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(xAxis);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
 
-    const path = g.append('path')
-        .datum(rows)
-        .attr('class', 'main-line')
-        .attr('fill', 'none')
-        .attr('stroke', '#4f46e5')
-        .attr('stroke-width', 2)
-        .attr('d', line);
-    const length = path.node()?.getTotalLength?.() ?? 0;
-    path.attr('stroke-dasharray', `${length} ${length}`)
-        .attr('stroke-dashoffset', length)
+    // Re-fit each axis with the new scales.
+    g.select('.y-axis').transition().duration(700).call(d3.axisLeft(newYScale).ticks(6));
+    g.select('.x-axis').transition().duration(700).call(d3.axisBottom(newXScale)).on('end', function () {
+        autoRotateXAxisLabels(d3.select(this));
+    });
+
+    // Slide focused circles to their new positions; fade out non-focused ones.
+    g.selectAll('circle[data-target]')
         .transition()
         .duration(700)
-        .attr('stroke-dashoffset', 0);
-
-    g.selectAll('circle[data-target]')
-        .data(rows)
-        .join('circle')
-        .attr('cx', (d) => xScale(String(d[xField])) ?? 0)
-        .attr('cy', (d) => yScale(Number(d[yField])))
-        .attr('r', 0)
-        .attr('fill', '#4f46e5')
-        .attr('opacity', 0.85)
-        .attr('data-target', (d) => String(d[xField]))
-        .attr('data-value', (d) => String(d[yField]))
-        .attr('data-x-value', (d) => String(d[xField]))
-        .attr('data-y-value', (d) => String(d[yField]))
-        .transition()
-        .duration(550)
-        .attr('r', 4);
-}
-
-function highlightPopulationPoint(d3, container, year) {
-    d3.select(container).selectAll('circle[data-target]')
-        .transition()
-        .duration(600)
-        .attr('r', function () {
-            return this.getAttribute('data-target') === String(year) ? 8 : 3.5;
+        .attr('cx', function () {
+            const year = this.getAttribute('data-target');
+            if (!focusedYears.has(year)) return Number(this.getAttribute('cx'));
+            return newXScale(year);
         })
-        .attr('fill', function () {
-            return this.getAttribute('data-target') === String(year) ? '#ef4444' : '#bfdbfe';
+        .attr('cy', function () {
+            const year = this.getAttribute('data-target');
+            if (!focusedYears.has(year)) return Number(this.getAttribute('cy'));
+            const v = Number(this.getAttribute('data-y-value'));
+            return newYScale(v);
         })
         .attr('opacity', function () {
-            return this.getAttribute('data-target') === String(year) ? 1 : 0.35;
+            return focusedYears.has(this.getAttribute('data-target')) ? 0.85 : 0;
+        });
+
+    // Recompute the line path to span only focused years.
+    const lineGen = d3.line()
+        .x((d) => newXScale(String(d[xField])))
+        .y((d) => newYScale(Number(d[yField])));
+    g.select('path.main-line')
+        .datum(focusedRows)
+        .transition()
+        .duration(700)
+        .attrTween('d', function () {
+            const prev = this.getAttribute('d') ?? '';
+            const next = lineGen(focusedRows);
+            return d3.interpolateString(prev, next);
+        })
+        .attr('stroke-dasharray', null)
+        .attr('stroke-dashoffset', null);
+}
+
+function highlightPopulationPoints(d3, container, years) {
+    // R12 + cumulative-highlight (round 4 fix per reviewer): explicitly reset
+    // every circle, but accept MULTIPLE target years. function3 must KEEP
+    // function2's red circle visible while adding its own — so it calls this
+    // with [smallest, secondLargest] (both red), not just [secondLargest].
+    // Non-focused-range circles (2009–2019) stay hidden at opacity 0.
+    const focusedYears = new Set(getFocusedPopulationRows().map((d) => String(d.Year)));
+    const targetYears = new Set((years ?? []).map((y) => String(y)));
+
+    d3.select(container).selectAll('circle[data-target]')
+        .each(function () {
+            const targetYear = this.getAttribute('data-target');
+            const isTarget = targetYears.has(targetYear);
+            const isInFocusRange = focusedYears.has(targetYear);
+
+            let nextR, nextFill, nextOpacity;
+            if (isTarget && isInFocusRange) {
+                nextR = 8;
+                nextFill = '#ef4444';
+                nextOpacity = 1;
+            } else if (isInFocusRange) {
+                nextR = 3.5;
+                nextFill = '#bfdbfe';
+                nextOpacity = 0.35;
+            } else {
+                // Non-focused range — must remain invisible.
+                nextR = 3.5;
+                nextFill = '#bfdbfe';
+                nextOpacity = 0;
+            }
+
+            // R6 no-op-skip: don't transition if the attr is already at the target.
+            const curOpacity = Number(this.getAttribute('opacity') ?? 1);
+            const curR = Number(this.getAttribute('r') ?? 4);
+            const curFill = this.getAttribute('fill');
+            const needsChange = Math.abs(curOpacity - nextOpacity) > 0.001
+                || Math.abs(curR - nextR) > 0.001
+                || curFill !== nextFill;
+            if (!needsChange) return;
+
+            d3.select(this).transition().duration(600)
+                .attr('r', nextR)
+                .attr('fill', nextFill)
+                .attr('opacity', nextOpacity);
         });
 }
 
 export function function1({ d3, container }) {
-    renderFocusedPopulationLine({ d3, container });
+    focusPopulationInPlace({ d3, container });
 }
 
 export function function2({ d3, container }) {
-    highlightPopulationPoint(d3, container, getPopulationTargets().smallest.Year);
+    const { smallest } = getPopulationTargets();
+    highlightPopulationPoints(d3, container, [smallest.Year]);
 }
 
 export function function3({ d3, container }) {
-    highlightPopulationPoint(d3, container, getPopulationTargets().secondLargest.Year);
+    // Cumulative per reviewer: smallest's red circle (function2) must STAY visible
+    // when secondLargest is also highlighted. So we pass BOTH years.
+    const { smallest, secondLargest } = getPopulationTargets();
+    highlightPopulationPoints(d3, container, [smallest.Year, secondLargest.Year]);
 }
 
 export function function4({ d3, container }) {

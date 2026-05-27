@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { State: 'Iowa', Type: 'Maximum', Payment_Million_USD: 25 },
@@ -174,6 +174,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -268,17 +269,14 @@ function renderTransposedPaymentChart({ d3, container, showDifference = false })
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
 
-    container.innerHTML = '';
+
     container.classList.add('validation-grouped-chart-host');
 
     const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.22);
     const innerScale = d3.scaleBand().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.12);
     const yScale = d3.scaleLinear().domain([0, 25]).nice().range([plotH, 0]);
 
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
@@ -296,6 +294,7 @@ function renderTransposedPaymentChart({ d3, container, showDifference = false })
         .attr('y', (d) => yScale(d.value))
         .attr('height', (d) => plotH - yScale(d.value))
         .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.series))
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.category)
         .attr('data-series', (d) => d.series)
         .attr('data-value', (d) => d.value)
@@ -379,7 +378,71 @@ export function function1({ d3, container }) {
 }
 
 export function function2({ d3, container }) {
-    renderTransposedPaymentChart({ d3, container, showDifference: true });
+    // Per reviewer: do NOT rebuild the whole chart — only add the difference
+    // line + label annotation on top of function1's existing chart.
+    const csvAverage = { Maximum: 20.0, Minimum: 6.25 };
+    const csvDifference = 13.75;
+    const xDomain = ['Maximum', 'Minimum'];
+    const width = 640;
+    const margin = { top: 32, right: 176, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = 360 - margin.top - margin.bottom;
+    const yScale = d3.scaleLinear().domain([0, 25]).nice().range([plotH, 0]);
+
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+    // Locate the inner plot g (translated by margin). With rebuildSvgInPlace
+    // direct API there's no wrapper, so it's the first g child.
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    // Remove any prior diff annotation (re-clicks).
+    g.selectAll('.e8-q3-function2').remove();
+    svg.select('defs#e8-q3-defs').remove();
+
+    const defs = svg.append('defs').attr('id', 'e8-q3-defs');
+    defs.append('marker')
+        .attr('id', 'e8-q3-arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 5)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#111827');
+
+    const x = plotW + 18;
+    const yMax = yScale(csvAverage.Maximum);
+    const yMin = yScale(csvAverage.Minimum);
+    g.append('line')
+        .attr('class', 'e8-q3-function2')
+        .attr('x1', x)
+        .attr('x2', x)
+        .attr('y1', (yMax + yMin) / 2)
+        .attr('y2', (yMax + yMin) / 2)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('marker-start', 'url(#e8-q3-arrow)')
+        .attr('marker-end', 'url(#e8-q3-arrow)')
+        .transition()
+        .duration(650)
+        .attr('y1', yMax)
+        .attr('y2', yMin);
+    g.append('text')
+        .attr('class', 'e8-q3-function2')
+        .attr('x', x + 8)
+        .attr('y', (yMax + yMin) / 2)
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', '#111827')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('opacity', 0)
+        .text(`${csvDifference} million USD`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
 }
 
 export function function3({ d3, container }) {}

@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2014, Sector: 'Healthcare', Revenue_Million_Euros: 6621 },
@@ -187,6 +187,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -288,10 +289,10 @@ function renderSectorYearStackedBarChart({ d3, container }) {
     const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.2);
     const yScale = d3.scaleLinear().domain([0, d3.max(segments, (d) => d.y1) ?? 0]).nice().range([plotH, 0]);
 
-    container.innerHTML = '';
+
     container.classList.add('validation-grouped-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
@@ -307,6 +308,7 @@ function renderSectorYearStackedBarChart({ d3, container }) {
         .attr('y', (d) => yScale(d.y1))
         .attr('height', (d) => yScale(d.y0) - yScale(d.y1))
         .attr('fill', (d) => colorScale(d.sector))
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.year)
         .attr('data-series', (d) => d.sector)
         .attr('data-value', (d) => d.value)

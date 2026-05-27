@@ -35,6 +35,21 @@ export const DataAttributes = {
   XValue: 'data-x-value',
   YValue: 'data-y-value',
   GroupValue: 'data-group-value',
+  /**
+   * Stable mark identity for D3 enter/update/exit joins across ops.
+   *
+   * Composition depends on chart type:
+   *   - SimpleBar/SimpleLine:  `${target}`                 (target alone is unique)
+   *   - StackedBar:            `${target}|${series}`       (each segment is a (target, series) cell)
+   *   - GroupedBar:            `${panel}|${target}|${series}` (panel for faceted charts)
+   *
+   * Renderers stamp this attribute on each main mark (`rect.main-bar`, point
+   * circle, etc.) during build so downstream transitions can use it as the
+   * key in `.data(items, d => d.markKey)` joins. This avoids the previous
+   * pattern of reading `data-target` + `data-series` separately on every node
+   * and composing the key on the fly.
+   */
+  MarkKey: 'data-mark-key',
 } as const
 
 export type DataAttribute = (typeof DataAttributes)[keyof typeof DataAttributes]

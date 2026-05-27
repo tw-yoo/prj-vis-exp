@@ -12,7 +12,8 @@ import {
   resolveColorLegendTitle,
   resolveTopLevelColorChannel,
 } from '../common/colorLegend'
-import { resolveLayoutModel } from '../common/chartLayout'
+import { resolveLayoutModel, estimateBottomPaddingForRotatedLabels } from '../common/chartLayout'
+import { composeGroupedMarkKey } from '../common/markKey'
 import { resolveAxisTitle } from '../common/resolveAxisTitle'
 import { renderWithMeasuredLayout } from '../common/renderWithMeasuredLayout'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
@@ -313,6 +314,14 @@ export async function renderGroupedBarChart(
 
   const xAxisLabel = resolveAxisTitle(spec, normalizedRows, 'x')
   const yAxisLabel = resolveAxisTitle(spec, normalizedRows, 'y')
+  const xLabelMap = buildCategoricalDisplayLabelMap(normalizedRows, runtime.xField)
+  const minBottomPadding = estimateBottomPaddingForRotatedLabels(
+    normalizedRows.map((row) => {
+      const raw = row[runtime.xField]
+      const key = raw == null ? '' : String(raw)
+      return xLabelMap.get(key) ?? key
+    }),
+  )
   const layout = resolveLayoutModel({
     container,
     chartType: ChartType.GROUPED_BAR,
@@ -323,9 +332,9 @@ export async function renderGroupedBarChart(
       orientation: runtime.facet?.orientation ?? null,
       count: facetDomain.length,
     },
+    minBottomPadding,
   })
   const panelIndex = new Map(facetDomain.map((value, index) => [String(value ?? '__single__'), index]))
-  const xLabelMap = buildCategoricalDisplayLabelMap(normalizedRows, runtime.xField)
   const svg = renderWithMeasuredLayout(
     container,
     layout,
@@ -476,6 +485,13 @@ export async function renderGroupedBarChart(
             return value == null ? null : String(value)
           })
           .attr(DataAttributes.ChartId, panelKey)
+          .attr(DataAttributes.MarkKey, (datum) => {
+            const seriesValue =
+              runtime.colorField && datum.rows[0]?.[runtime.colorField] != null
+                ? datum.rows[0][runtime.colorField]
+                : datum.series
+            return composeGroupedMarkKey(panelKey, String(datum.category), seriesValue as string | number | null | undefined)
+          })
       })
 
       if (xAxisLabel) {

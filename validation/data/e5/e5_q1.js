@@ -90,6 +90,14 @@ function injectChartStyles() {
 }
 
 export function renderValidationSimpleBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     injectChartStyles();
 
     const data = data_rows;
@@ -157,6 +165,7 @@ export function renderValidationSimpleBarChart({ container }) {
         })
         .attr('height', (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
         .attr('fill', '#69b3a2')
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => Number(d[yField]))
         .attr('data-x-value', (d) => String(d[xField]))
@@ -265,7 +274,7 @@ export function function2({ d3, container }) {
     if (g.empty()) return;
     g.selectAll('.e5-q1-max-label').remove();
     g.selectAll('.main-bar')
-        .attr('fill', (d) => Number(d['Number of fires']) === csvMax ? '#ef4444' : '#d1d5db')
+
         .attr('opacity', (d) => Number(d['Number of fires']) === csvMax ? 1 : 0.35)
         .attr('stroke', (d) => Number(d['Number of fires']) === csvMax ? '#111827' : 'none')
         .attr('stroke-width', (d) => Number(d['Number of fires']) === csvMax ? 2 : 0);

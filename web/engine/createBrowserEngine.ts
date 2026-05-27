@@ -1,5 +1,6 @@
 import {
   renderChart as renderChartApi,
+  resetChartHost as resetChartHostApi,
   toDomSurface,
   type ChartSpec,
 } from '../../src/api/rendering'
@@ -17,6 +18,15 @@ import type { RunPythonPlanCommand, RunPythonPlanResult } from '../../src/api/py
 
 export type BrowserEngine = {
   renderChart: (container: HTMLElement, spec: ChartSpec) => Promise<unknown>
+  /**
+   * Forces the next `renderChart` call on `container` to rebuild from scratch.
+   * Detaches the cached ChartInstance and clears the host DOM, defeating the
+   * idempotent NO-OP path inside `ChartInstance.ensureRendered` (which would
+   * otherwise leave prior annotations and persisted instance state — e.g.
+   * `activeTargets`, `outOfScopeOpacity` — intact when the spec is unchanged).
+   * Used by the review page's "Reset chart" button.
+   */
+  resetChartHost: (container: HTMLElement) => void
   runChartOps: (
     container: HTMLElement,
     spec: ChartSpec,
@@ -36,6 +46,9 @@ export function createBrowserEngine(): BrowserEngine {
   return {
     async renderChart(container, spec) {
       return renderChartApi({ surface: toDomSurface(container), spec })
+    },
+    resetChartHost(container) {
+      resetChartHostApi(container)
     },
     async runChartOps(container, spec, opsSpec, options) {
       return runChartOpsApi({ container, spec, opsSpec, options })

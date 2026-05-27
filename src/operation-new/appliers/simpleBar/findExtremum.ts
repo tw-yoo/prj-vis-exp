@@ -24,7 +24,7 @@ function operationNodeId(operation: OperationSpec): string | null {
 export const findExtremumApplier: OperationApplier<SimpleBarChartInstance> = {
   op: OperationOp.FindExtremum,
 
-  async apply({ operation, state, instance }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
+  async apply({ operation, state, instance, options }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
     console.info('[operation-new] bar applier:findExtremum', {
       nodeId: operation.meta?.nodeId,
       which: operation.which,
@@ -39,7 +39,7 @@ export const findExtremumApplier: OperationApplier<SimpleBarChartInstance> = {
     if (target == null) return { result, nextState: { ...state, lastResult: result } }
 
     const layer = instance.annotationLayer
-    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, options?.referencedResultIds)
 
     const nodeId = operationNodeId(operation)
     if (nodeId) {

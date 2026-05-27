@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import { ChartType, type ChartSpec, type ChartTypeValue } from '../../domain/chart'
 import { toDatumValuesFromRaw, type RawRow } from '../../domain/data/datum'
-import { averageData, diffData, filterData, storeRuntimeResult } from '../../domain/operation/dataOps'
+import { averageData, diffData, filterData, findExtremum, nthData, retrieveValue, storeRuntimeResult } from '../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec, type JsonValue, type TargetSelector } from '../../domain/operation/types'
 import { COLORS, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 import {
@@ -1394,4 +1394,159 @@ export async function runBarTransformOperation(
 
   if (!transformed) return active
   return createBarChartState(container, transformed.chartType, transformed.spec)
+}
+
+// ---------------------------------------------------------------------------
+// findExtremum / retrieveValue / nth — shared for grouped + stacked bars.
+//
+// All three ops select one or more bars from the dataset and visualize them
+// identically: color the bar red and append a value label above. Difference
+// between the three is purely in the data-selection function used
+// (findExtremum / retrieveValue / nthData) — the annotation layer is shared.
+// ---------------------------------------------------------------------------
+
+const GROUPED_BAR_EXTREMUM_CLASS = 'operation-next-grouped-bar-extremum'
+const GROUPED_BAR_RETRIEVE_CLASS = 'operation-next-grouped-bar-retrieve-value'
+const GROUPED_BAR_NTH_CLASS = 'operation-next-grouped-bar-nth'
+const STACKED_BAR_EXTREMUM_CLASS = 'operation-next-stacked-bar-extremum'
+const STACKED_BAR_RETRIEVE_CLASS = 'operation-next-stacked-bar-retrieve-value'
+const STACKED_BAR_NTH_CLASS = 'operation-next-stacked-bar-nth'
+
+function findBarsByDatum(
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  datum: DatumValue,
+): d3.Selection<SVGRectElement, unknown, null, undefined> {
+  const target = datum.target == null ? null : String(datum.target)
+  const group = datum.group == null ? null : String(datum.group)
+  return svg
+    .selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+    .filter(function () {
+      const node = this as SVGRectElement
+      if (target != null) {
+        const tMatch =
+          node.getAttribute(DataAttributes.Target) === target ||
+          node.getAttribute(DataAttributes.Id) === target
+        if (!tMatch) return false
+      }
+      if (group != null) {
+        const gMatch =
+          node.getAttribute(DataAttributes.Series) === group ||
+          node.getAttribute(DataAttributes.GroupValue) === group
+        if (!gMatch) return false
+      }
+      return true
+    })
+}
+
+async function annotateBarSelection(
+  container: HTMLElement,
+  result: DatumValue[],
+  state: ChainState,
+  cssClass: string,
+): Promise<void> {
+  if (result.length === 0) return
+  const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
+  if (svg.empty()) return
+  const layer = ensureAnnotationLayer(svg)
+
+  applyAnnotationContextTransitions(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
+  layer.selectAll(`.${cssClass}`).interrupt().remove()
+
+  for (const datum of result) {
+    const bars = findBarsByDatum(svg, datum)
+    const rect = bars.nodes()[0]
+    if (!rect) continue
+    const metrics = barRootMetrics(rect)
+    bars
+      .interrupt()
+      .transition()
+      .duration(DURATIONS.HIGHLIGHT)
+      .style(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+
+    const labelText = formatOperationValue(metrics.value)
+    const labelY = Math.max(12, metrics.y - 10)
+    const labelNode = layer
+      .append(SvgElements.Text)
+      .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${cssClass}`)
+      .attr(SvgAttributes.X, metrics.x)
+      .attr(SvgAttributes.Y, labelY)
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.FontSize, 12)
+      .attr(SvgAttributes.FontWeight, 700)
+      .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
+      .style(SvgAttributes.Opacity, 0)
+      .text(labelText)
+    try {
+      await labelNode
+        .transition()
+        .duration(DURATIONS.LABEL_FADE_IN)
+        .ease(EASINGS.SMOOTH)
+        .style(SvgAttributes.Opacity, 1)
+        .end()
+    } catch {
+      /* interrupted */
+    }
+  }
+
+  state.annotationRecords.push({ cssClass, role: 'result', persistent: false })
+}
+
+export async function runGroupedBarFindExtremumOperation(
+  container: HTMLElement,
+  operation: OperationSpec,
+  state: ChainState,
+): Promise<OperationRunResult> {
+  const result = findExtremum(state.workingData, operation)
+  await annotateBarSelection(container, result, state, GROUPED_BAR_EXTREMUM_CLASS)
+  return { result, nextState: { ...state, lastResult: result } }
+}
+
+export async function runGroupedBarRetrieveValueOperation(
+  container: HTMLElement,
+  operation: OperationSpec,
+  state: ChainState,
+): Promise<OperationRunResult> {
+  const result = retrieveValue(state.workingData, operation)
+  await annotateBarSelection(container, result, state, GROUPED_BAR_RETRIEVE_CLASS)
+  return { result, nextState: { ...state, lastResult: result } }
+}
+
+export async function runGroupedBarNthOperation(
+  container: HTMLElement,
+  operation: OperationSpec,
+  state: ChainState,
+): Promise<OperationRunResult> {
+  const result = nthData(state.workingData, operation)
+  await annotateBarSelection(container, result, state, GROUPED_BAR_NTH_CLASS)
+  return { result, nextState: { ...state, lastResult: result } }
+}
+
+export async function runStackedBarFindExtremumOperation(
+  container: HTMLElement,
+  operation: OperationSpec,
+  state: ChainState,
+): Promise<OperationRunResult> {
+  const result = findExtremum(state.workingData, operation)
+  await annotateBarSelection(container, result, state, STACKED_BAR_EXTREMUM_CLASS)
+  return { result, nextState: { ...state, lastResult: result } }
+}
+
+export async function runStackedBarRetrieveValueOperation(
+  container: HTMLElement,
+  operation: OperationSpec,
+  state: ChainState,
+): Promise<OperationRunResult> {
+  const result = retrieveValue(state.workingData, operation)
+  await annotateBarSelection(container, result, state, STACKED_BAR_RETRIEVE_CLASS)
+  return { result, nextState: { ...state, lastResult: result } }
+}
+
+export async function runStackedBarNthOperation(
+  container: HTMLElement,
+  operation: OperationSpec,
+  state: ChainState,
+): Promise<OperationRunResult> {
+  const result = nthData(state.workingData, operation)
+  await annotateBarSelection(container, result, state, STACKED_BAR_NTH_CLASS)
+  return { result, nextState: { ...state, lastResult: result } }
 }

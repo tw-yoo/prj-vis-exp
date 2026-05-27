@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { 'Month Year': 'Dec \'17', 'Index (2010=100)': 106 },
@@ -157,6 +157,7 @@ export function renderValidationSimpleLineChart({ container }) {
         .attr('fill', 'none')
         .attr('stroke', lineStroke)
         .attr('stroke-width', lineStrokeWidth)
+        .attr('opacity', 1)
         .attr('d', lineGenerator);
 
     // Point circles — no class (Workbench style); use data-target for selection
@@ -226,10 +227,10 @@ function renderIndexDivergingBarChart({ d3, container, colorBySign = false }) {
     const zeroY = yScale(0);
 
     d3.select(container).selectAll('.validation-simple-line-tooltip').remove();
-    container.innerHTML = '';
+
     container.classList.add('validation-chart-host');
 
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(6));
@@ -257,6 +258,7 @@ function renderIndexDivergingBarChart({ d3, container, colorBySign = false }) {
             if (!colorBySign) return '#4f46e5';
             return d.value >= 0 ? '#16a34a' : '#dc2626';
         })
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.label)
         .attr('data-value', (d) => d.value)
         .attr('data-x-value', (d) => d.label)

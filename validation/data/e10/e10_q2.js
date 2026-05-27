@@ -130,19 +130,39 @@ function injectStackedChartStyles() {
     document.head.appendChild(style);
 }
 
-export function renderValidationStackedBarChart({ container }) {
-    const seriesKeys = ['desktop', 'mobile', 'tablet'];
-    const seriesLabels = { desktop: 'Desktop', mobile: 'Mobile', tablet: 'Tablet' };
-    const getSeriesColor = (key) => {
-        const index = seriesKeys.indexOf(key);
-        return WORKBENCH_PALETTE[index] ?? WORKBENCH_PALETTE[0];
-    };
+const E10_Q2_X_FIELD = 'Year';
+const E10_Q2_SERIES_FIELD = 'Region';
+const E10_Q2_Y_FIELD = 'Number_of_Employees';
 
+function buildE10_Q2Segments() {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[E10_Q2_X_FIELD]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[E10_Q2_SERIES_FIELD]))));
+    const segments = [];
+    xDomain.forEach((cat) => {
+        let y0 = 0;
+        seriesDomain.forEach((ser) => {
+            const value = Number(
+                data_rows.find((d) => String(d[E10_Q2_X_FIELD]) === cat && String(d[E10_Q2_SERIES_FIELD]) === ser)?.[E10_Q2_Y_FIELD] ?? 0,
+            );
+            const y1 = y0 + value;
+            segments.push({ target: cat, series: ser, value, y0, y1 });
+            y0 = y1;
+        });
+    });
+    return { xDomain, seriesDomain, segments };
+}
+
+export function renderValidationStackedBarChart({ container }) {
+    if (container.querySelector('svg')) { return; }
     injectStackedChartStyles();
 
-    const data = data_rows;
+    const { xDomain, seriesDomain, segments } = buildE10_Q2Segments();
+    const seriesLabels = Object.fromEntries(seriesDomain.map((s) => [s, s]));
+    const getSeriesColor = (key) => {
+        const index = seriesDomain.indexOf(String(key));
+        return WORKBENCH_PALETTE[index >= 0 ? index % WORKBENCH_PALETTE.length : 0];
+    };
 
-    // Canvas / layout constants matching e10 stacked validation charts
     const width = 640;
     const height = 360;
     const margin = { top: 32, right: 16, bottom: 48, left: 56 };
@@ -150,65 +170,21 @@ export function renderValidationStackedBarChart({ container }) {
     const legendReserve = 220;
     const plotW = width - margin.left - margin.right - legendReserve;
     const plotH = height - margin.top - margin.bottom;
-
-    // Build stacked segments using d3.stack (same logic as Workbench buildStackedSegments)
-    const stackedData = d3.stack().keys(seriesKeys)(data);
-
-    // Flatten to StackedSegment objects matching Workbench's data model:
-    // { target, series, value, y0, y1 }
-    const segments = [];
-    stackedData.forEach((layer) => {
-        layer.forEach((d) => {
-            segments.push({
-                target: d.data.year,
-                series: layer.key,
-                value: d.data[layer.key],
-                y0: d[0],
-                y1: d[1],
-            });
-        });
-    });
-
     const maxY = d3.max(segments, (s) => s.y1) ?? 0;
 
-    // Clear and prepare container
     container.innerHTML = '';
     container.classList.add('validation-stacked-chart-host');
 
-    const xDomain = data.map((d) => d.year);
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.2);
+    const yScale = d3.scaleLinear().domain([0, maxY]).nice().range([plotH, 0]);
 
-    const xScale = d3.scaleBand()
-        .domain(xDomain)
-        .range([0, plotW])
-        .padding(0.2);
+    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-    const yScale = d3.scaleLinear()
-        .domain([0, maxY])
-        .nice()
-        .range([plotH, 0]);
-
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
-
-    const g = svg.append('g')
-        .attr('transform', `translate(${margin.left},${margin.top})`);
-
-    // Y axis
-    g.append('g')
-        .attr('class', 'y-axis')
-        .call(d3.axisLeft(yScale).ticks(5));
-
-    // X axis
-    g.append('g')
-        .attr('class', 'x-axis')
-        .attr('transform', `translate(0,${plotH})`)
-        .call(d3.axisBottom(xScale));
-
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
     autoRotateXAxisLabels(g.select('.x-axis'));
 
-    // Stacked bars — class "main-bar" matches Workbench
     g.selectAll('rect.main-bar')
         .data(segments)
         .join('rect')
@@ -218,7 +194,7 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('y', (s) => yScale(Math.max(s.y0, s.y1)))
         .attr('height', (s) => Math.abs(yScale(s.y0) - yScale(s.y1)))
         .attr('fill', (s) => getSeriesColor(s.series))
-        // Workbench data attributes
+        .attr('opacity', 1)
         .attr('data-target', (s) => s.target)
         .attr('data-value', (s) => s.value)
         .attr('data-series', (s) => s.series)
@@ -226,50 +202,30 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('data-y-value', (s) => String(s.value))
         .attr('data-group-value', (s) => s.series);
 
-    // Color legend
     const legendX = margin.left + plotW + legendOffsetX;
-    const legend = svg.append('g')
-        .attr('class', 'color-legend')
-        .attr('transform', `translate(${legendX},${margin.top})`);
-
-    const legendRowH = 24;
-
-    seriesKeys.forEach((key, i) => {
+    const legend = svg.append('g').attr('class', 'color-legend').attr('transform', `translate(${legendX},${margin.top})`);
+    const legendRowH = 22;
+    seriesDomain.forEach((key, i) => {
         const rowY = i * legendRowH;
         const cy = rowY + 8;
-
-        legend.append('circle')
-            .attr('cx', 8)
-            .attr('cy', cy)
-            .attr('r', 5)
-            .attr('fill', getSeriesColor(key))
-            .attr('opacity', 0.85);
-
-        legend.append('text')
-            .attr('x', 20)
-            .attr('y', cy)
-            .attr('font-size', 11)
-            .attr('dominant-baseline', 'middle')
-            .attr('font-family', 'sans-serif')
-            .attr('fill', '#000000')
-            .text(seriesLabels[key]);
+        legend.append('circle').attr('cx', 8).attr('cy', cy).attr('r', 5).attr('fill', getSeriesColor(key)).attr('opacity', 0.85);
+        legend.append('text').attr('x', 20).attr('y', cy).attr('font-size', 11).attr('dominant-baseline', 'middle').attr('font-family', 'sans-serif').attr('fill', '#000000').text(seriesLabels[key]);
     });
 
-    // Hover tooltip
     const tooltip = document.createElement('div');
     tooltip.className = 'validation-stacked-chart-tooltip';
     tooltip.setAttribute('hidden', '');
     tooltip.innerHTML = `
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">year</span>
+            <span class="validation-stacked-chart-tooltip__label">${E10_Q2_X_FIELD}</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-x"></span>
         </div>
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">series</span>
+            <span class="validation-stacked-chart-tooltip__label">${E10_Q2_SERIES_FIELD}</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-s"></span>
         </div>
         <div class="validation-stacked-chart-tooltip__row">
-            <span class="validation-stacked-chart-tooltip__label">value</span>
+            <span class="validation-stacked-chart-tooltip__label">${E10_Q2_Y_FIELD}</span>
             <span class="validation-stacked-chart-tooltip__value" id="stk-tt-y"></span>
         </div>
     `;
@@ -291,6 +247,7 @@ export function renderValidationStackedBarChart({ container }) {
             tooltip.setAttribute('hidden', '');
         });
 }
+
 
 function renderEmployeeStackedBarChart({ d3, container, rows, xDomain, seriesDomain, xLabel = 'Year' }) {
     const valueField = 'Number_of_Employees';

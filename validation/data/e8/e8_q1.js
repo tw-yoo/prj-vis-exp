@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Company: 'Conad', 'Market shares': 0.148 },
@@ -156,6 +156,7 @@ export function renderValidationSimpleBarChart({ container }) {
         })
         .attr('height', (d) => Math.abs(yScale(Number(d[yField])) - zeroY))
         .attr('fill', '#69b3a2')
+        .attr('opacity', 1)
         .attr('data-target', (d) => String(d[xField]))
         .attr('data-value', (d) => Number(d[yField]))
         .attr('data-x-value', (d) => String(d[xField]))
@@ -210,7 +211,7 @@ function renderCompanyNameLengthChart({ d3, container, showAverage = false }) {
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
 
-    container.innerHTML = '';
+
     container.classList.add('validation-chart-host');
 
     const xScale = d3.scaleBand()
@@ -222,10 +223,7 @@ function renderCompanyNameLengthChart({ d3, container, showAverage = false }) {
         .nice()
         .range([plotH, 0]);
 
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 

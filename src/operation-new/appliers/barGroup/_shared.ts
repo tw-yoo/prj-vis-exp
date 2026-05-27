@@ -19,6 +19,23 @@ export function barMarkKeyFromDatum(datum: DatumValue): string {
 }
 
 export function barMarkKeyFromNode(node: SVGElement): string {
+  // Prefer the explicit `data-mark-key` attribute stamped by the base renderer
+  // (composeGroupedMarkKey / composeStackedMarkKey from rendering/common/markKey).
+  // For stacked-bar nodes (which carry `${target}|${series}` without a panel
+  // prefix), normalize to `panel|target|series` so the key shape matches what
+  // `barMarkKeyFromDatum` returns. Falls back to the legacy `data-target +
+  // data-series` composition when an old SVG has no MarkKey attribute yet
+  // (e.g. cached chunk-scene SVGs rendered before this change).
+  const markKey = node.getAttribute(DataAttributes.MarkKey)
+  if (markKey != null && markKey.length > 0) {
+    // Stacked-bar mark keys are `${target}|${series}` (no panel). Grouped-bar
+    // mark keys are `${panel}|${target}|${series}` (3 parts). Detect by the
+    // pipe count: <2 means a stacked key, prepend 'root' panel.
+    if (markKey.split('|').length < 3) {
+      return `root|${markKey}`
+    }
+    return markKey
+  }
   const panel = node.getAttribute(DataAttributes.ChartId) ?? 'root'
   const target = node.getAttribute(DataAttributes.Target) ?? ''
   const group =

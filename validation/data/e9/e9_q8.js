@@ -84,6 +84,14 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Region';
     const seriesField = 'Year';
     const yField = 'Production in million barrels per day';
@@ -174,6 +182,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -259,20 +268,26 @@ export function function1({ d3, container }) {
     const svgNode = svg.node();
     const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
     const [, , width, height] = viewBox.split(/\s+/).map(Number);
-    const margin = { top: 32, right: 32, bottom: 64, left: 72 };
+    // R11 (round 3): reserve extra top margin for the summary title above the chart.
+    const margin = { top: 48, right: 32, bottom: 64, left: 72 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
+
+    // R7 (round 3): match the base render's palette. The change/increase bars
+    // derive from 2020 vs 2000. Use the 2020 series color (index 1 → palette[1]).
+    const fullSeriesDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    const seriesColor = resolveSeriesColor(fullSeriesDomain, '2020');
 
     const chartRows = [
         {
             label: 'Alaska change',
             value: 0.97 - 0.49,
-            color: '#60a5fa'
+            color: seriesColor
         },
         {
             label: 'Total increase',
             value: 6.7 - 5.82,
-            color: '#2563eb'
+            color: seriesColor
         }
     ];
 
@@ -323,34 +338,49 @@ export function function1({ d3, container }) {
         .attr('class', 'main-bar')
         .attr('x', (d) => xScale(d.label))
         .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
         .attr('fill', (d) => d.color)
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.label)
         .attr('data-value', (d) => d.value)
         .attr('data-x-value', (d) => d.label)
         .attr('data-y-value', (d) => String(d.value))
         .attr('y', (d) => yScale(d.value))
         .attr('height', (d) => plotH - yScale(d.value));
+
+    // R11 (round 3): function1 draws every visual chunk the explanation describes:
+    // per-bar values AND the comparison (Alaska change 0.48 < Total increase 0.88).
+    g.selectAll('text.validation-q8-value')
+        .data(chartRows)
+        .join('text')
+        .attr('class', 'validation-q8-value')
+        .attr('x', (d) => (xScale(d.label) ?? 0) + xScale.bandwidth() / 2)
+        .attr('y', (d) => yScale(d.value) - 8)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text((d) => d.value.toFixed(2));
+
+    const alaska = chartRows[0].value;
+    const totalIncrease = chartRows[1].value;
+    g.append('text')
+        .attr('class', 'validation-q8-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#dc2626')
+        .text(`Alaska change ${alaska.toFixed(2)} ${alaska < totalIncrease ? '<' : '>'} Total increase ${totalIncrease.toFixed(2)}`);
 }
 
+// R11 (round 3): function2 / function3 re-apply function1's complete visual idempotently.
 export function function2({ d3, container }) {
-    const svg = d3.select(container).select('svg');
+    function1({ d3, container });
+}
 
-    svg.selectAll('rect.main-bar')
-        .attr('opacity', (datum) => datum.category === '2024' && datum.series === 'Beta' ? 1 : 0.18)
-        .attr('stroke', (datum) => datum.category === '2024' && datum.series === 'Beta' ? '#ef4444' : 'none')
-        .attr('stroke-width', (datum) => datum.category === '2024' && datum.series === 'Beta' ? 3 : 0);
-
-    svg.selectAll('.step-annotation-2').remove();
-
-    svg.append('text')
-        .attr('class', 'step-annotation step-annotation-2')
-        .attr('x', 610)
-        .attr('y', 68)
-        .attr('text-anchor', 'end')
-        .attr('font-size', 14)
-        .attr('font-weight', 700)
-        .attr('fill', '#ef4444')
-        .text('function2: focus 2024 Beta');
+export function function3({ d3, container }) {
+    function1({ d3, container });
 }

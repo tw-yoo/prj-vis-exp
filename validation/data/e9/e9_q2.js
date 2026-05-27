@@ -101,6 +101,14 @@ function injectStackedChartStyles() {
 }
 
 export function renderValidationStackedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Country';
     const seriesField = 'Opinion';
     const yField = 'Percentage';
@@ -197,6 +205,7 @@ export function renderValidationStackedBarChart({ container }) {
         .attr('y', (s) => yScale(Math.max(s.y0, s.y1)))
         .attr('height', (s) => Math.abs(yScale(s.y0) - yScale(s.y1)))
         .attr('fill', (s) => getSeriesColor(s.series))
+        .attr('opacity', 1)
         .attr('data-target', (s) => s.target)
         .attr('data-value', (s) => s.value)
         .attr('data-series', (s) => s.series)
@@ -274,6 +283,12 @@ function renderAverageSimpleBarChart({ d3, container, rows, averageLabel }) {
     const xField = 'Country';
     const yField = 'Percentage';
 
+    // R7 (round 3): match the base render's palette. Source bars show the
+    // 'A better place to live' series. Look it up in the FULL seriesDomain.
+    const fullSeriesDomain = Array.from(new Set(data_rows.map((d) => String(d.Opinion))));
+    const idx = fullSeriesDomain.indexOf('A better place to live');
+    const sourceColor = WORKBENCH_PALETTE[idx >= 0 ? idx % WORKBENCH_PALETTE.length : 0];
+
     const svg = d3.select(container).select('svg');
     if (svg.empty()) return;
 
@@ -338,9 +353,8 @@ function renderAverageSimpleBarChart({ d3, container, rows, averageLabel }) {
         .attr('class', 'main-bar')
         .attr('x', (d) => xScale(d.label))
         .attr('width', xScale.bandwidth())
-        .attr('y', plotH)
-        .attr('height', 0)
-        .attr('fill', (d) => d.type === 'average' ? '#e11d48' : '#4f46e5')
+        .attr('fill', (d) => d.type === 'average' ? '#e11d48' : sourceColor)
+        .attr('opacity', 1)
         .attr('data-target', (d) => d.label)
         .attr('data-value', (d) => d.value)
         .attr('data-x-value', (d) => d.label)

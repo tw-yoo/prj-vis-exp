@@ -95,6 +95,14 @@ function injectMultiLineStyles() {
 }
 
 export function renderValidationMultipleLineChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Opinion';
     const yField = 'Percentage';
@@ -198,6 +206,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -284,8 +293,179 @@ export function renderValidationMultipleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getQ5Geometry(d3) {
+    const xField = 'Year';
+    const seriesField = 'Opinion';
+    const yField = 'Percentage';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
+    const yValues = data_rows.map((d) => Number(d[yField]));
+    const minY = d3.min(yValues) ?? 0;
+    const maxY = d3.max(yValues) ?? 1;
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scalePoint().domain(xDomain).range([0, plotW]).padding(0.5);
+    const yScale = d3.scaleLinear().domain([minY, maxY]).nice().range([plotH, 0]);
+    return { xField, seriesField, yField, xDomain, seriesDomain, plotW, plotH, xScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function findQ5Crossovers() {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    const yearDominant = xDomain.map((year) => {
+        const good = Number(data_rows.find((d) => String(d.Year) === year && d.Opinion === 'Good')?.Percentage ?? 0);
+        const bad = Number(data_rows.find((d) => String(d.Year) === year && d.Opinion === 'Bad')?.Percentage ?? 0);
+        return { year, good, bad, dominant: good >= bad ? 'Good' : 'Bad' };
+    });
+    const crossovers = [];
+    for (let i = 1; i < yearDominant.length; i++) {
+        if (yearDominant[i].dominant !== yearDominant[i - 1].dominant) {
+            crossovers.push({
+                fromYear: yearDominant[i - 1].year,
+                toYear: yearDominant[i].year,
+                fromSide: yearDominant[i - 1].dominant,
+                toSide: yearDominant[i].dominant,
+                fromGood: yearDominant[i - 1].good,
+                fromBad: yearDominant[i - 1].bad,
+                toGood: yearDominant[i].good,
+                toBad: yearDominant[i].bad,
+            });
+        }
+    }
+    return { yearDominant, crossovers };
+}
 
-export function function3({ d3, container }) {}
+export function function1({ d3, container }) {
+    const { plotH, xScale, xDomain } = getQ5Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q5-dominant-band').remove();
+
+    const { yearDominant } = findQ5Crossovers();
+    const halfStep = (xScale(xDomain[1]) - xScale(xDomain[0])) / 2;
+
+    yearDominant.forEach(({ year, dominant }) => {
+        const cx = xScale(year) ?? 0;
+        const x0 = cx - halfStep;
+        const x1 = cx + halfStep;
+        g.insert('rect', ':first-child')
+            .attr('class', 'validation-q5-dominant-band')
+            .attr('data-year', year)
+            .attr('data-dominant', dominant)
+            .attr('x', x0)
+            .attr('y', 0)
+            .attr('width', x1 - x0)
+            .attr('height', plotH)
+            .attr('fill', dominant === 'Good' ? '#bfdbfe' : '#fecaca')
+            .attr('opacity', 0)
+            .transition()
+            .duration(600)
+            .attr('opacity', 0.35);
+    });
+}
+
+export function function2({ d3, container }) {
+    const { plotH, xScale, yScale } = getQ5Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q5-crossover, .validation-q5-crossover-label').remove();
+
+    const { crossovers } = findQ5Crossovers();
+
+    crossovers.forEach((c, i) => {
+        const xFrom = xScale(c.fromYear) ?? 0;
+        const xTo = xScale(c.toYear) ?? 0;
+        const cx = (xFrom + xTo) / 2;
+
+        // Approximate crossover y via linear interpolation of Good and Bad between fromYear and toYear
+        // Good crosses Bad where (good - bad) changes sign; the y at midpoint:
+        const yGoodMid = (c.fromGood + c.toGood) / 2;
+        const yBadMid = (c.fromBad + c.toBad) / 2;
+        const cy = yScale((yGoodMid + yBadMid) / 2);
+
+        g.append('line')
+            .attr('class', 'validation-q5-crossover')
+            .attr('x1', cx)
+            .attr('x2', cx)
+            .attr('y1', 0)
+            .attr('y2', 0)
+            .attr('stroke', '#111827')
+            .attr('stroke-width', 1.5)
+            .attr('stroke-dasharray', '5 4')
+            .transition()
+            .duration(650)
+            .attr('y2', plotH);
+
+        g.append('circle')
+            .attr('class', 'validation-q5-crossover')
+            .attr('cx', cx)
+            .attr('cy', cy)
+            .attr('r', 0)
+            .attr('fill', '#ffffff')
+            .attr('stroke', '#ef4444')
+            .attr('stroke-width', 2.5)
+            .transition()
+            .duration(550)
+            .attr('r', 7);
+
+        g.append('text')
+            .attr('class', 'validation-q5-crossover-label')
+            .attr('x', cx)
+            .attr('y', cy - 14)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .attr('fill', '#ef4444')
+            .attr('opacity', 0)
+            .text(`${c.fromSide}→${c.toSide}`)
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
+    });
+}
+
+export function function3({ d3, container }) {
+    const { plotW } = getQ5Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q5-summary').remove();
+
+    const { crossovers } = findQ5Crossovers();
+
+    g.selectAll('path[data-series]')
+        .transition()
+        .duration(600)
+        .attr('stroke-opacity', 0.4);
+
+    g.selectAll('circle[data-target]')
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.4);
+
+    // Theme D (#6 round 3): summary moves to top-center, above the chart, so it
+    // doesn't overlap the line.
+    g.append('text')
+        .attr('class', 'validation-q5-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`${crossovers.length} dominance change${crossovers.length === 1 ? '' : 's'}`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

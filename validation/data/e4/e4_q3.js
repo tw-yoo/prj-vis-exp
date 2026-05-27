@@ -88,6 +88,14 @@ function injectGroupedChartStyles() {
 }
 
 export function renderValidationGroupedBarChart({ container }) {
+    // R1 idempotent-renderer guard (round 2). If the container already has any
+    // SVG (drawn by an earlier call, a helper, or a function2 layout switch),
+    // preserve it — don't redraw. Switching to a different chart wipes the
+    // container via loadChart's resetChartContainer, so this guard only triggers
+    // for the same chart's repeated render calls (step clicks).
+    if (container.querySelector('svg')) {
+        return;
+    }
     const xField = 'Year';
     const seriesField = 'Type';
     const yField = 'Value in billion US dollars';
@@ -178,6 +186,7 @@ export function renderValidationGroupedBarChart({ container }) {
         .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
         .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
         .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
         // Workbench data attributes
         .attr('data-target', (datum) => String(datum.category))
         .attr('data-value', (datum) => datum.value)
@@ -251,8 +260,185 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {}
+function getE4Q3Geometry(d3) {
+    const xField = 'Year';
+    const seriesField = 'Type';
+    const yField = 'Value in billion US dollars';
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d[seriesField]))));
+    const aggregated = [];
+    xDomain.forEach((cat) => {
+        seriesDomain.forEach((ser) => {
+            const row = data_rows.find((d) => String(d[xField]) === cat && String(d[seriesField]) === ser);
+            if (!row) return;
+            aggregated.push({ category: cat, series: ser, value: Number(row[yField]) });
+        });
+    });
+    const maxY = Math.max(0, ...aggregated.map((d) => d.value));
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendOffsetX = 64;
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).paddingInner(0.18).paddingOuter(0.08);
+    const innerScale = d3.scaleBand().domain(seriesDomain).range([0, Math.max(xScale.bandwidth(), 1)]).padding(0.08);
+    const yScale = d3.scaleLinear().domain([0, maxY]).nice().range([plotH, 0]);
+    return { xField, seriesField, yField, xDomain, seriesDomain, aggregated, plotW, plotH, xScale, innerScale, yScale };
+}
 
-export function function2({ d3, container }) {}
+function getE4Q3LendInvestGaps() {
+    const xDomain = Array.from(new Set(data_rows.map((d) => String(d.Year))));
+    return xDomain.map((year) => {
+        const lending = Number(data_rows.find((d) => String(d.Year) === year && d.Type === 'Lending')?.['Value in billion US dollars'] ?? 0);
+        const investment = Number(data_rows.find((d) => String(d.Year) === year && d.Type === 'Investment')?.['Value in billion US dollars'] ?? 0);
+        return { year, lending, investment, gap: Math.abs(lending - investment) };
+    });
+}
 
-export function function3({ d3, container }) {}
+export function function1({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.main-bar')
+        .transition()
+        .duration(600)
+        .attr('opacity', function () {
+            return this.getAttribute('data-series') === 'Donation' ? 0.22 : 1;
+        });
+
+    svg.selectAll('.color-legend text, .color-legend circle')
+        .each(function () {
+            // Donation is the third entry — fade it
+        });
+    // Legend cells don't have data-series; dim by index (3rd row in seriesDomain order)
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => String(d.Type))));
+    const donationIdx = seriesDomain.indexOf('Donation');
+    if (donationIdx >= 0) {
+        svg.selectAll('.color-legend circle').filter((_, i) => i === donationIdx)
+            .transition().duration(600).attr('opacity', 0.25);
+        svg.selectAll('.color-legend text').filter((_, i) => i === donationIdx)
+            .transition().duration(600).attr('fill-opacity', 0.35);
+    }
+}
+
+function ensureE4Q3ArrowMarker(svg) {
+    if (!svg.select('defs#e4-q3-defs').empty()) return;
+    const defs = svg.append('defs').attr('id', 'e4-q3-defs');
+    defs.append('marker')
+        .attr('id', 'e4-q3-arrow')
+        .attr('viewBox', '0 0 10 10')
+        .attr('refX', 8)
+        .attr('refY', 5)
+        .attr('markerWidth', 5)
+        .attr('markerHeight', 5)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+        .attr('fill', '#ef4444');
+}
+
+export function function2({ d3, container }) {
+    const { xScale, innerScale, yScale } = getE4Q3Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    // R8 (round 3): comparison line must be RED with arrowhead.
+    ensureE4Q3ArrowMarker(svg);
+
+    g.selectAll('.validation-q3-gap-line, .validation-q3-gap-label').remove();
+
+    const gaps = getE4Q3LendInvestGaps();
+    gaps.forEach(({ year, lending, investment, gap }) => {
+        const xLending = (xScale(year) ?? 0) + (innerScale('Lending') ?? 0) + innerScale.bandwidth() / 2;
+        const xInvest = (xScale(year) ?? 0) + (innerScale('Investment') ?? 0) + innerScale.bandwidth() / 2;
+        const yLending = yScale(lending);
+        const yInvest = yScale(investment);
+        g.append('line')
+            .attr('class', 'validation-q3-gap-line')
+            .attr('data-year', year)
+            .attr('x1', xLending)
+            .attr('y1', yLending)
+            .attr('x2', xLending)
+            .attr('y2', yLending)
+            .attr('stroke', '#ef4444')
+            .attr('stroke-width', 2)
+            .attr('marker-end', 'url(#e4-q3-arrow)')
+            .transition()
+            .duration(650)
+            .attr('x2', xInvest)
+            .attr('y2', yInvest);
+        g.append('text')
+            .attr('class', 'validation-q3-gap-label')
+            .attr('data-year', year)
+            .attr('x', (xLending + xInvest) / 2)
+            .attr('y', Math.min(yLending, yInvest) - 6)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .attr('fill', '#ef4444')
+            .attr('opacity', 0)
+            .text(`Δ${gap.toFixed(2)}`)
+            .transition()
+            .duration(650)
+            .attr('opacity', 1);
+    });
+}
+
+export function function3({ d3, container }) {
+    const { plotH, plotW, xScale } = getE4Q3Geometry(d3);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.validation-q3-min-rect, .validation-q3-summary').remove();
+
+    const best = getE4Q3LendInvestGaps().reduce((b, row) => row.gap < b.gap ? row : b, { gap: Infinity });
+
+    g.insert('rect', ':first-child')
+        .attr('class', 'validation-q3-min-rect')
+        .attr('x', (xScale(best.year) ?? 0) - 6)
+        .attr('y', 0)
+        .attr('width', xScale.bandwidth() + 12)
+        .attr('height', plotH)
+        .attr('fill', '#fde68a')
+        .attr('opacity', 0)
+        .transition()
+        .duration(600)
+        .attr('opacity', 0.55);
+
+    g.selectAll('.validation-q3-gap-line')
+        .filter(function () { return this.getAttribute('data-year') === best.year; })
+        .transition()
+        .duration(600)
+        .attr('stroke', '#ef4444')
+        .attr('stroke-width', 2.5)
+        .attr('stroke-dasharray', null);
+
+    g.selectAll('.validation-q3-gap-label')
+        .filter(function () { return this.getAttribute('data-year') === best.year; })
+        .transition()
+        .duration(600)
+        .attr('fill', '#ef4444')
+        .attr('font-size', 13);
+
+    // Theme D (#15 round 3): move summary to top-center, above the chart.
+    g.append('text')
+        .attr('class', 'validation-q3-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .attr('opacity', 0)
+        .text(`smallest gap → ${best.year} (Δ ${best.gap.toFixed(2)})`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}

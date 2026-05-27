@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels } from '../chartUtils.js';
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
 
 export const data_rows = [
     { Year: 2002, Opinion: 'Favorable', Value: 72 },
@@ -190,6 +190,7 @@ export function renderValidationMultipleLineChart({ container }) {
             .attr('fill', 'none')
             .attr('stroke', stroke)
             .attr('stroke-width', lineStrokeWidth)
+            .attr('opacity', 1)
             .attr('d', (d) => lineGen(d.points))
             .attr('data-series', sg.series);
 
@@ -312,13 +313,10 @@ function renderOpinionDifferenceBarChart({ d3, container, showAverage = false })
         .range([plotH, 0]);
 
     d3.select(container).selectAll('.validation-multi-line-tooltip').remove();
-    container.innerHTML = '';
+
     container.classList.add('validation-chart-host');
 
-    const svg = d3.select(container)
-        .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
-        .style('overflow', 'visible');
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}` });
     const g = svg.append('g')
         .attr('transform', `translate(${margin.left},${margin.top})`);
 
@@ -340,6 +338,7 @@ function renderOpinionDifferenceBarChart({ d3, container, showAverage = false })
         .attr('y', (d) => yScale(d.value))
         .attr('height', (d) => plotH - yScale(d.value))
         .attr('fill', (d) => d.excluded ? '#d1d5db' : '#4f46e5')
+        .attr('opacity', 1)
         .attr('stroke', (d) => d.excluded ? '#6b7280' : 'none')
         .attr('data-target', (d) => d.year)
         .attr('data-value', (d) => d.value)
