@@ -638,6 +638,47 @@ textarea {
   transition: background 0.15s, box-shadow 0.15s, color 0.15s, text-decoration-color 0.15s;
 }
 
+/* Numbered badge (1, 2, 3 …) prefix — matches the Evaluation + Validation
+   pages so each reasoning step reads as a distinct numbered block. */
+.sentence__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-right: 6px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  color: #1e293b;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.sentence--active .sentence__badge {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.sentence--completed .sentence__badge {
+  background: #94a3b8;
+  color: #ffffff;
+}
+
+.sentence--selected .sentence__badge {
+  background: #1d4ed8;
+  color: #ffffff;
+}
+
+.sentence--pending .sentence__badge {
+  background: #e5e7eb;
+  color: #9ca3af;
+}
+
 .sentence--active {
   color: #111827;
   cursor: pointer;
