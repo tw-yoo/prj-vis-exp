@@ -6,7 +6,8 @@ function withValidationBase(path) {
 
 const requestedExpertId = (() => {
     const parts = location.pathname.split('/').filter(Boolean);
-    const routeParts = parts[0] === 'validation' ? parts.slice(1) : parts;
+    const validationPathIndex = parts.indexOf('validation');
+    const routeParts = validationPathIndex >= 0 ? parts.slice(validationPathIndex + 1) : parts;
     if (routeParts.length === 0) return '';
     const last = routeParts.at(-1) ?? '';
     if (last === 'index.html' || last === 'index') return routeParts.at(-2) ?? '';

@@ -6,8 +6,10 @@
     <title>Validation Viewer</title>
     <link rel="stylesheet" id="validationStylesheet">
     <script>
-        window.__VALIDATION_BASE_PATH__ = location.pathname.split('/').filter(Boolean)[0] === 'validation'
-            ? '/validation'
+        const validationPathParts = location.pathname.split('/').filter(Boolean);
+        const validationPathIndex = validationPathParts.indexOf('validation');
+        window.__VALIDATION_BASE_PATH__ = validationPathIndex >= 0
+            ? `/${validationPathParts.slice(0, validationPathIndex + 1).join('/')}`
             : '';
         document.getElementById('validationStylesheet').href = `${window.__VALIDATION_BASE_PATH__}/viewer.css`;
     </script>
