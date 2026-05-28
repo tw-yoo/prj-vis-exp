@@ -1,0 +1,22 @@
+{
+  "ops": [
+    {
+      "op": "diffByValue",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Revenue in billion US dollars",
+      "value": 2,
+      "signed": true
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 2 },
+      "field": "Revenue in billion US dollars",
+      "operator": "<",
+      "value": 2
+    }
+  ]
+}

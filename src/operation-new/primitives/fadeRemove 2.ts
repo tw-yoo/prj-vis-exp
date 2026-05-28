@@ -1,7 +1,6 @@
 import type * as d3 from 'd3'
 import { SvgAttributes } from '../../rendering/interfaces'
 import { DURATIONS, EASINGS } from '../../rendering/common/d3Helpers'
-import type { ParentTransition } from './sharedTransition'
 
 const DEFAULT_FADE_OUT_MS = 150
 
@@ -17,28 +16,14 @@ const DEFAULT_FADE_OUT_MS = 150
  *
  * Idempotent: callable even when no matching elements exist (selectAll
  * returns an empty selection).
- *
- * @param parent  When supplied, the fade-out joins the caller's parent
- *                transition (validation-page idiom: every sub-op in a phase
- *                ticks on the same scheduler frame). When omitted, the
- *                primitive creates its own root transition with `duration`.
  */
 export function fadeRemoveAnnotations(
   scope: d3.Selection<d3.BaseType, unknown, d3.BaseType, unknown>,
   cssClass: string,
   duration: number = DEFAULT_FADE_OUT_MS,
-  parent?: ParentTransition,
 ): void {
   const sel = scope.selectAll<SVGElement, unknown>(`.${cssClass}`)
   if (sel.empty()) return
-  if (parent) {
-    sel
-      .interrupt()
-      .transition(parent as never)
-      .style(SvgAttributes.Opacity, 0)
-      .remove()
-    return
-  }
   sel
     .interrupt()
     .transition()

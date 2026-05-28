@@ -1,7 +1,6 @@
 import * as d3 from 'd3'
 import { DataAttributes, SvgAttributes, SvgClassNames } from '../../rendering/interfaces'
 import { DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
-import type { ParentTransition } from './sharedTransition'
 
 /**
  * Smoothly transitions the chart's color legend in response to a series-
@@ -28,22 +27,14 @@ import type { ParentTransition } from './sharedTransition'
  * @param activeSeries   Set of series keys to keep (out-of-scope = fade out).
  * @param duration       Transition duration (default DURATIONS.AXIS_RESCALE).
  * @param ease           Easing function (default EASINGS.SMOOTH).
- * @param parent         Optional shared parent transition. When supplied,
- *                       the circle/text fades + y-position tweens inherit
- *                       the parent's timeline (validation-page lockstep
- *                       idiom). When omitted, the primitive creates its own
- *                       legend-scoped transition with `duration`/`ease`,
- *                       awaits its `end()`, and resolves — matching the
- *                       legacy behavior of every existing caller.
  */
 export async function transitionLegendScope(args: {
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>
   activeSeries: Set<string>
   duration?: number
   ease?: (t: number) => number
-  parent?: ParentTransition
 }): Promise<void> {
-  const { svg, activeSeries, parent } = args
+  const { svg, activeSeries } = args
   const duration = args.duration ?? DURATIONS.AXIS_RESCALE
   const ease = args.ease ?? EASINGS.SMOOTH
 
@@ -82,12 +73,13 @@ export async function transitionLegendScope(args: {
     totalRows: circleNodes.length,
   })
 
-  // Pick the timeline: either the caller's shared parent (validation-page
-  // lockstep) or a freshly-minted legend-scoped transition (legacy default).
-  const ownedParent = parent
-    ? null
-    : (legend.transition().duration(duration).ease(ease) as unknown as ParentTransition)
-  const inheritT = ((parent ?? ownedParent) as unknown) as never
+  const parent = legend.transition().duration(duration).ease(ease) as unknown as d3.Transition<
+    d3.BaseType,
+    unknown,
+    d3.BaseType,
+    unknown
+  >
+  const inheritT = parent as never
 
   // Apply to BOTH circles and text rows via a single selector pass.
   legend
@@ -121,15 +113,9 @@ export async function transitionLegendScope(args: {
       return newY != null ? newY : Number(this.getAttribute(SvgAttributes.Y) ?? 0)
     })
 
-  // Only await the transition we created. When inheriting a caller-supplied
-  // parent, the caller is responsible for awaiting its parent's `end()` once
-  // (avoids the historical double-await race that hung d3's end event in
-  // some scheduler conditions — see `contextFade.ts:59-63`).
-  if (ownedParent) {
-    try {
-      await ownedParent.end()
-    } catch {
-      /* interrupted */
-    }
+  try {
+    await parent.end()
+  } catch {
+    /* interrupted */
   }
 }

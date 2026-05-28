@@ -1,7 +1,7 @@
 import { retrieveValue } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
-import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
+import { COLORS, DURATIONS, EASINGS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { StackedBarChartInstance } from '../../../rendering-new/instances/stackedBarInstance'
@@ -111,12 +111,21 @@ export const retrieveValueApplier: OperationApplier<StackedBarChartInstance> = {
       resultLen: result.length,
     })
     const layer = instance.annotationLayer
-    fadeRemoveAnnotations(layer, RETRIEVE_ANNOTATION_CLASS)
+
+    // Shared parent transition for per-bar label fade-ins + the stale
+    // annotation fade-out. All labels appear on the same frame so the
+    // selection feels like one coherent reveal (validation-page lockstep
+    // idiom). drawReferenceLine has its own internal sequence (line draws
+    // then label fades in over GUIDELINE_DRAW + LABEL_FADE_IN) — it runs
+    // independently and is awaited alongside the parent via Promise.all.
+    const labelParent = instance.createPhaseTransition(DURATIONS.LABEL_FADE_IN, EASINGS.SMOOTH)
+    fadeRemoveAnnotations(layer, RETRIEVE_ANNOTATION_CLASS, undefined, labelParent)
     if (result.length === 0) {
+      try { await labelParent.end() } catch { /* interrupted */ }
       return { result, nextState: { ...state, lastResult: result } }
     }
 
-    const transitions: Promise<unknown>[] = []
+    const standaloneTransitions: Promise<unknown>[] = []
     const allBars = instance.mainBars().nodes() as SVGRectElement[]
 
     if (isReverse) {
@@ -124,7 +133,7 @@ export const retrieveValueApplier: OperationApplier<StackedBarChartInstance> = {
       const refY = valueToRootYFallback(instance, targetValue)
       const x1 = instance.layout.marginLeft
       const x2 = instance.layout.marginLeft + instance.layout.plotWidth
-      transitions.push(
+      standaloneTransitions.push(
         drawReferenceLine({
           layer,
           cssClass: RETRIEVE_ANNOTATION_CLASS,
@@ -150,7 +159,7 @@ export const retrieveValueApplier: OperationApplier<StackedBarChartInstance> = {
           const cx = rectCenterRootX(rect, instance)
           const top = rectTopRootY(rect, instance)
           const labelY = Math.max(top - 8, instance.layout.marginTop + 12)
-          const labelNode = layer
+          layer
             .append(SvgElements.Text)
             .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${RETRIEVE_ANNOTATION_CLASS}`)
             .attr(SvgAttributes.X, cx)
@@ -162,14 +171,8 @@ export const retrieveValueApplier: OperationApplier<StackedBarChartInstance> = {
             .attr(DataAttributes.Target, target)
             .style(SvgAttributes.Opacity, 0)
             .text(String(datum.displayTarget ?? datum.target))
-          transitions.push(
-            labelNode
-              .transition()
-              .duration(DURATIONS.LABEL_FADE_IN)
-              .style(SvgAttributes.Opacity, 1)
-              .end()
-              .catch(() => {}),
-          )
+            .transition(labelParent as never)
+            .style(SvgAttributes.Opacity, 1)
         })
       })
     } else {
@@ -187,7 +190,7 @@ export const retrieveValueApplier: OperationApplier<StackedBarChartInstance> = {
           const stackedAbove = top - 10 - index * 16
           const labelMinY = instance.layout.marginTop + 12
           const labelY = stackedAbove >= labelMinY ? stackedAbove : top + 20 + index * 16
-          const labelNode = layer
+          layer
             .append(SvgElements.Text)
             .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${RETRIEVE_ANNOTATION_CLASS}`)
             .attr(SvgAttributes.X, cx)
@@ -199,19 +202,16 @@ export const retrieveValueApplier: OperationApplier<StackedBarChartInstance> = {
             .attr(DataAttributes.Target, target)
             .style(SvgAttributes.Opacity, 0)
             .text(formatOperationValue(value))
-          transitions.push(
-            labelNode
-              .transition()
-              .duration(DURATIONS.LABEL_FADE_IN)
-              .style(SvgAttributes.Opacity, 1)
-              .end()
-              .catch(() => {}),
-          )
+            .transition(labelParent as never)
+            .style(SvgAttributes.Opacity, 1)
         })
       })
     }
 
-    await Promise.all(transitions)
+    await Promise.all([
+      labelParent.end().catch(() => undefined),
+      ...standaloneTransitions,
+    ])
 
     return {
       result,

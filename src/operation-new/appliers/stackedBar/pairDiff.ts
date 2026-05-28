@@ -7,6 +7,7 @@ import { COLORS, DURATIONS, EASINGS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import { operationResultRef } from '../../../operation-next/diffEndpoint'
 import { transitionLegendScope } from '../../primitives/transitionLegend'
+import type { ParentTransition } from '../../primitives/sharedTransition'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { StackedBarChartInstance } from '../../../rendering-new/instances/stackedBarInstance'
 import { getStackedBarStoredData, type StackedSpec } from '../../../rendering/bar/stackedBarRenderer'
@@ -91,15 +92,30 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
     }
 
     const layer = instance.annotationLayer
-    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, options?.referencedResultIds)
-    fadeRemoveAnnotations(layer, PAIR_DIFF_ANNOTATION_CLASS)
 
     // -----------------------------------------------------------------------
     // Phase 1: narrow the stacked chart to {groupA, groupB}.
+    //
+    // Shared-parent transition: bars + legend + annotation context-fade all
+    // ride one d3 timeline so they finish on the same frame (validation-page
+    // lockstep idiom). Annotation fades that previously ran on their own
+    // 200 ms clock now inherit `phase1Parent` and end with the bars.
     // -----------------------------------------------------------------------
     const activeSeries = new Set<string>([groupA, groupB])
     const hasPersistentAnchor = state.annotationRecords.some((r) => r.persistent)
     const phase1Mode: 'recompose' | 'dim' = hasPersistentAnchor ? 'dim' : 'recompose'
+    const phase1Duration = phase1Mode === 'dim' ? DURATIONS.DIM : DURATIONS.AXIS_RESCALE
+    const phase1Parent = instance.createPhaseTransition(phase1Duration, EASINGS.SMOOTH)
+
+    applyAnnotationContextFade(
+      layer,
+      state.annotationRecords,
+      FILTER_ANNOTATION_CLASS,
+      options?.referencedResultIds,
+      phase1Parent,
+    )
+    fadeRemoveAnnotations(layer, PAIR_DIFF_ANNOTATION_CLASS, undefined, phase1Parent)
+
     console.info('[operation-new] stacked-bar applier:pairDiff PHASE 1 start', {
       activeSeries: [...activeSeries],
       phase1Mode,
@@ -109,11 +125,17 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
       instance.transitionSeriesScope({
         isInScope: (_target, series) => activeSeries.has(series),
         mode: phase1Mode,
+        parent: phase1Parent,
       }),
       phase1Mode === 'recompose'
-        ? instance.transitionLegend({ activeSeries })
+        ? instance.transitionLegend({ activeSeries, parent: phase1Parent })
         : Promise.resolve(),
     ])
+    try {
+      await phase1Parent.end()
+    } catch {
+      /* interrupted */
+    }
     console.info('[operation-new] stacked-bar applier:pairDiff PHASE 1 done')
 
     // -----------------------------------------------------------------------
@@ -323,18 +345,36 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
       if (Number.isFinite(v)) diffByTarget.set(t, v)
     })
 
+    // Phase 3 shared-parent transition: legend narrow + all per-pair annotation
+    // draws inherit the same `phase3Parent` so the d3 scheduler ticks every
+    // sub-transition in one frame loop. Children override `.delay()` /
+    // `.duration()` to keep the existing staggered timing (connector draw →
+    // shaft extend → heads/label fade in); the parent only provides the shared
+    // id + ease defaults and a single `end()` to await.
+    //
+    // Note: the imperative `.append()`-per-pair pattern below is intentional
+    // for the pilot — first-draw of pairDiff annotations is the only case
+    // exercised today. The validation-page-style `.data(pairs).join()` refactor
+    // (which would make re-running pairDiff with different group params
+    // crossfade rather than fade-out-and-rebuild) is filed as Tier 2 follow-up.
+    const PHASE3_TAIL = DURATIONS.GUIDELINE_DRAW + DURATIONS.HIGHLIGHT
+    const phase3Duration = PHASE3_TAIL + Math.max(DURATIONS.FADE, DURATIONS.LABEL_FADE_IN)
+    const phase3Parent = (groupedSvg
+      .transition()
+      .duration(phase3Duration)
+      .ease(EASINGS.SMOOTH) as unknown) as ParentTransition
+    const inheritPhase3 = phase3Parent as never
+
     // Narrow the legend on the new grouped SVG to {groupA, groupB}. Phase 1's
     // earlier narrowing happened on the stacked SVG that `transitionToGrouped`
     // then replaced, so the freshly-rendered grouped chart starts with every
-    // original series visible. Run this in parallel with the per-pair Δ-arrow
-    // draws so the legend collapse animates in lockstep.
-    const drawPromises: Promise<unknown>[] = []
-    drawPromises.push(
-      transitionLegendScope({
-        svg: groupedSvg,
-        activeSeries: new Set<string>([groupA, groupB]),
-      }).catch(() => undefined),
-    )
+    // original series visible. Inheriting `phase3Parent` makes the collapse
+    // tick in lockstep with the first wave of arrow connectors.
+    transitionLegendScope({
+      svg: groupedSvg,
+      activeSeries: new Set<string>([groupA, groupB]),
+      parent: phase3Parent,
+    }).catch(() => undefined)
     pairs.forEach((pair) => {
       const aTop = barTopRootY(pair.barA, marginTop)
       const bTop = barTopRootY(pair.barB, marginTop)
@@ -358,66 +398,51 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
       })
 
       // Horizontal connectors from each bar top to the arrow x.
-      drawPromises.push(
-        groupedLayer
-          .append(SvgElements.Line)
-          .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
-          .attr(DataAttributes.Target, pair.target)
-          .attr(SvgAttributes.X1, aMidX)
-          .attr(SvgAttributes.X2, aMidX)
-          .attr(SvgAttributes.Y1, aTop)
-          .attr(SvgAttributes.Y2, aTop)
-          .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
-          .attr(SvgAttributes.StrokeWidth, 2)
-          .transition()
-          .duration(DURATIONS.GUIDELINE_DRAW)
-          .ease(EASINGS.SMOOTH)
-          .attr(SvgAttributes.X2, arrowX)
-          .end()
-          .catch(() => undefined),
-      )
-      drawPromises.push(
-        groupedLayer
-          .append(SvgElements.Line)
-          .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
-          .attr(DataAttributes.Target, pair.target)
-          .attr(SvgAttributes.X1, bMidX)
-          .attr(SvgAttributes.X2, bMidX)
-          .attr(SvgAttributes.Y1, bTop)
-          .attr(SvgAttributes.Y2, bTop)
-          .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
-          .attr(SvgAttributes.StrokeWidth, 2)
-          .transition()
-          .duration(DURATIONS.GUIDELINE_DRAW)
-          .ease(EASINGS.SMOOTH)
-          .attr(SvgAttributes.X2, arrowX)
-          .end()
-          .catch(() => undefined),
-      )
+      groupedLayer
+        .append(SvgElements.Line)
+        .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
+        .attr(DataAttributes.Target, pair.target)
+        .attr(SvgAttributes.X1, aMidX)
+        .attr(SvgAttributes.X2, aMidX)
+        .attr(SvgAttributes.Y1, aTop)
+        .attr(SvgAttributes.Y2, aTop)
+        .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
+        .attr(SvgAttributes.StrokeWidth, 2)
+        .transition(inheritPhase3)
+        .duration(DURATIONS.GUIDELINE_DRAW)
+        .attr(SvgAttributes.X2, arrowX)
+      groupedLayer
+        .append(SvgElements.Line)
+        .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
+        .attr(DataAttributes.Target, pair.target)
+        .attr(SvgAttributes.X1, bMidX)
+        .attr(SvgAttributes.X2, bMidX)
+        .attr(SvgAttributes.Y1, bTop)
+        .attr(SvgAttributes.Y2, bTop)
+        .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
+        .attr(SvgAttributes.StrokeWidth, 2)
+        .transition(inheritPhase3)
+        .duration(DURATIONS.GUIDELINE_DRAW)
+        .attr(SvgAttributes.X2, arrowX)
 
       // Vertical shaft (grows from midpoint).
-      drawPromises.push(
-        groupedLayer
-          .append(SvgElements.Line)
-          .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
-          .attr(DataAttributes.Target, pair.target)
-          .attr(SvgAttributes.X1, arrowX)
-          .attr(SvgAttributes.X2, arrowX)
-          .attr(SvgAttributes.Y1, (topY + bottomY) / 2)
-          .attr(SvgAttributes.Y2, (topY + bottomY) / 2)
-          .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
-          .attr(SvgAttributes.StrokeWidth, 2)
-          .transition()
-          .delay(DURATIONS.GUIDELINE_DRAW)
-          .duration(DURATIONS.HIGHLIGHT)
-          .ease(EASINGS.SMOOTH)
-          .attr(SvgAttributes.Y1, topY)
-          .attr(SvgAttributes.Y2, bottomY)
-          .end()
-          .catch(() => undefined),
-      )
+      groupedLayer
+        .append(SvgElements.Line)
+        .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
+        .attr(DataAttributes.Target, pair.target)
+        .attr(SvgAttributes.X1, arrowX)
+        .attr(SvgAttributes.X2, arrowX)
+        .attr(SvgAttributes.Y1, (topY + bottomY) / 2)
+        .attr(SvgAttributes.Y2, (topY + bottomY) / 2)
+        .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
+        .attr(SvgAttributes.StrokeWidth, 2)
+        .transition(inheritPhase3)
+        .delay(DURATIONS.GUIDELINE_DRAW)
+        .duration(DURATIONS.HIGHLIGHT)
+        .attr(SvgAttributes.Y1, topY)
+        .attr(SvgAttributes.Y2, bottomY)
 
-      // Arrowheads at both ends (no transition — appear with the shaft's end).
+      // Arrowheads at both ends (fade in after the shaft finishes extending).
       const heads = [
         { x1: arrowX, y1: topY, x2: arrowX - ARROW_HEAD_SIZE_PX, y2: topY + ARROW_HEAD_SIZE_PX },
         { x1: arrowX, y1: topY, x2: arrowX + ARROW_HEAD_SIZE_PX, y2: topY + ARROW_HEAD_SIZE_PX },
@@ -436,37 +461,37 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
           .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
           .attr(SvgAttributes.StrokeWidth, 2)
           .style(SvgAttributes.Opacity, 0)
-          .transition()
-          .delay(DURATIONS.GUIDELINE_DRAW + DURATIONS.HIGHLIGHT)
+          .transition(inheritPhase3)
+          .delay(PHASE3_TAIL)
           .duration(DURATIONS.FADE)
           .style(SvgAttributes.Opacity, 1)
       })
 
       // Label (signed or absolute, based on spec).
       const labelText = formatOperationValue(diffValue)
-      drawPromises.push(
-        groupedLayer
-          .append(SvgElements.Text)
-          .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
-          .attr(DataAttributes.Target, pair.target)
-          .attr(SvgAttributes.X, arrowX + ARROW_LABEL_GAP_PX + 6)
-          .attr(SvgAttributes.Y, (topY + bottomY) / 2)
-          .attr(SvgAttributes.DominantBaseline, 'middle')
-          .attr(SvgAttributes.FontSize, 11)
-          .attr(SvgAttributes.FontWeight, 700)
-          .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
-          .style(SvgAttributes.Opacity, 0)
-          .text(labelText)
-          .transition()
-          .delay(DURATIONS.GUIDELINE_DRAW + DURATIONS.HIGHLIGHT)
-          .duration(DURATIONS.LABEL_FADE_IN)
-          .style(SvgAttributes.Opacity, 1)
-          .end()
-          .catch(() => undefined),
-      )
+      groupedLayer
+        .append(SvgElements.Text)
+        .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${PAIR_DIFF_ANNOTATION_CLASS}`)
+        .attr(DataAttributes.Target, pair.target)
+        .attr(SvgAttributes.X, arrowX + ARROW_LABEL_GAP_PX + 6)
+        .attr(SvgAttributes.Y, (topY + bottomY) / 2)
+        .attr(SvgAttributes.DominantBaseline, 'middle')
+        .attr(SvgAttributes.FontSize, 11)
+        .attr(SvgAttributes.FontWeight, 700)
+        .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+        .style(SvgAttributes.Opacity, 0)
+        .text(labelText)
+        .transition(inheritPhase3)
+        .delay(PHASE3_TAIL)
+        .duration(DURATIONS.LABEL_FADE_IN)
+        .style(SvgAttributes.Opacity, 1)
     })
 
-    await Promise.all(drawPromises)
+    try {
+      await phase3Parent.end()
+    } catch {
+      /* interrupted */
+    }
     console.info('[operation-new] stacked-bar applier:pairDiff PHASE 3 done', {
       arrowsDrawn: pairs.length,
       annotationLineCount: groupedLayer.selectAll(`line.${PAIR_DIFF_ANNOTATION_CLASS}`).size(),

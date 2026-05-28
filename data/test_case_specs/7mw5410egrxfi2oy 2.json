@@ -1,0 +1,33 @@
+{
+  "ops": [
+    {
+      "op": "pairDiff",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "by": "Year",
+      "seriesField": "Opinion",
+      "field": "Value",
+      "groupA": "Favorable",
+      "groupB": "Unfavorable",
+      "signed": true,
+      "absolute": false
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2 },
+      "field": "Year",
+      "include": ["2003", "2005", "2009", "2013", "2015"]
+    }
+  ],
+  "ops3": [
+    {
+      "op": "average",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 3 },
+      "field": "Value"
+    }
+  ]
+}

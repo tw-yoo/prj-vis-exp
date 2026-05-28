@@ -3,7 +3,6 @@ import { SvgAttributes, SvgClassNames } from '../../rendering/interfaces'
 import { STYLES } from '../../rendering/common/d3Helpers'
 import type { AnnotationRecord } from '../../operation-next/chainState'
 import { RESULT_REF_ATTRIBUTE } from '../../operation-next/diffEndpoint'
-import type { ParentTransition } from './sharedTransition'
 
 const CONTEXT_TRANSITION_MS = 200
 const REMOVAL_TRANSITION_MS = 200
@@ -33,19 +32,12 @@ const LABEL_CONTEXT_OPACITY = 0.6
  *                           the current op or any future op. Pass `undefined`
  *                           to preserve the legacy fade-to-context behaviour
  *                           across the board.
- * @param parent             Optional shared parent transition. When supplied,
- *                           the fade-to-context steps (2/3/4 below) inherit
- *                           the parent's timeline so they finish on the same
- *                           frame as the bars/legend/axes. The synchronous
- *                           `.remove()` step (1) deliberately stays
- *                           synchronous — see the d3-hang note below.
  */
 export function applyAnnotationContextFade(
   layer: d3.Selection<SVGGElement, unknown, d3.BaseType, unknown>,
   annotationRecords: AnnotationRecord[],
   filterClass: string,
   referencedResultIds?: string[],
-  parent?: ParentTransition,
 ): void {
   const referencedSet = referencedResultIds == null
     ? null
@@ -99,27 +91,16 @@ export function applyAnnotationContextFade(
     }
   }
 
-  // Helper: start a context-fade transition either inheriting the parent's
-  // timeline or creating a local one. Centralized so steps 2/3/4 stay
-  // symmetric and the parent-vs-standalone branching lives in one place.
-  const contextTransition = <El extends d3.BaseType>(
-    sel: d3.Selection<El, unknown, d3.BaseType, unknown>,
-  ) => {
-    const interrupted = sel.interrupt()
-    if (parent) {
-      return interrupted.transition(parent as never)
-    }
-    return interrupted.transition().duration(CONTEXT_TRANSITION_MS)
-  }
-
   // 2. Fade-to-context for still-referenced persistent filter annotations.
   const hasReferencedFilter = annotationRecords.some(
     (r) => r.cssClass === filterClass && r.persistent && isStillReferenced(r),
   )
   if (hasReferencedFilter) {
-    contextTransition(
-      layer.selectAll<SVGLineElement, unknown>(`line.${filterClass}`),
-    )
+    layer
+      .selectAll<SVGLineElement, unknown>(`line.${filterClass}`)
+      .interrupt()
+      .transition()
+      .duration(CONTEXT_TRANSITION_MS)
       .style(SvgAttributes.Opacity, FILTER_CONTEXT_OPACITY)
       .attr(SvgAttributes.StrokeDasharray, STYLES.GUIDELINE.strokeDasharray)
   }
@@ -127,21 +108,26 @@ export function applyAnnotationContextFade(
   // 3. Fade-to-context for other still-referenced persistent anchor lines.
   for (const record of annotationRecords) {
     if (record.persistent && record.cssClass !== filterClass && isStillReferenced(record)) {
-      contextTransition(
-        layer.selectAll<SVGLineElement, unknown>(`line.${record.cssClass}`),
-      ).style(SvgAttributes.Opacity, FILTER_CONTEXT_OPACITY)
+      layer
+        .selectAll<SVGLineElement, unknown>(`line.${record.cssClass}`)
+        .interrupt()
+        .transition()
+        .duration(CONTEXT_TRANSITION_MS)
+        .style(SvgAttributes.Opacity, FILTER_CONTEXT_OPACITY)
     }
   }
 
   // 4. Fade remaining text annotations to context opacity (skipping the ones
   //    already being removed in step 1).
-  contextTransition(
-    layer
-      .selectAll<SVGTextElement, unknown>(`text.${SvgClassNames.TextAnnotation}`)
-      .filter(function () {
-        const ref = this.getAttribute(RESULT_REF_ATTRIBUTE)
-        if (ref != null && referencedSet != null && !referencedSet.has(ref)) return false
-        return true
-      }),
-  ).style(SvgAttributes.Opacity, LABEL_CONTEXT_OPACITY)
+  layer
+    .selectAll<SVGTextElement, unknown>(`text.${SvgClassNames.TextAnnotation}`)
+    .filter(function () {
+      const ref = this.getAttribute(RESULT_REF_ATTRIBUTE)
+      if (ref != null && referencedSet != null && !referencedSet.has(ref)) return false
+      return true
+    })
+    .interrupt()
+    .transition()
+    .duration(CONTEXT_TRANSITION_MS)
+    .style(SvgAttributes.Opacity, LABEL_CONTEXT_OPACITY)
 }

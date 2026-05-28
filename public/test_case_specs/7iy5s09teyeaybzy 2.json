@@ -1,0 +1,33 @@
+{
+  "ops": [
+    {
+      "op": "average",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Life expectancy at virth in years"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "pairDiff",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 2 },
+      "by": "Year",
+      "seriesField": "Gender",
+      "field": "Life expectancy at virth in years",
+      "groupA": "female",
+      "groupB": "male",
+      "signed": false,
+      "absolute": true
+    }
+  ],
+  "ops3": [
+    {
+      "op": "findExtremum",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 3 },
+      "field": "Life expectancy at virth in years",
+      "which": "min"
+    }
+  ]
+}

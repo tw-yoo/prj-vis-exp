@@ -101,8 +101,6 @@ export const filterApplier: OperationApplier<StackedBarChartInstance> = {
     })
 
     const layer = instance.annotationLayer
-    applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
-    fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS)
 
     const pairDiffInput = isPairDiffResultInput(result)
     const activeKeys = buildScopeKeys(result)
@@ -128,6 +126,30 @@ export const filterApplier: OperationApplier<StackedBarChartInstance> = {
           result.map((d) => String(d.group ?? d.series ?? '')).filter((s) => s.length > 0),
         )
 
+    // Shared parent transition for the phase — bars, legend, annotation
+    // context-fades, and pairDiff annotation dim/restore all ride the same
+    // d3 scheduler tick so they finish on the same frame (validation-page
+    // lockstep idiom; see `validation/data/e2/e2_q2.js:350-402`).
+    //
+    // Duration choice: dim mode uses `DURATIONS.DIM` (faster, opacity-only
+    // change); recompose mode uses `DURATIONS.AXIS_RESCALE` (slower, axis +
+    // bar geometry). Matches the legacy per-method defaults so the visual
+    // timing stays unchanged.
+    const phaseDuration = mode === 'dim' ? DURATIONS.DIM : DURATIONS.AXIS_RESCALE
+    const phaseParent = instance.createPhaseTransition(phaseDuration, EASINGS.SMOOTH)
+
+    // Context fade + remove of stale annotations: these now inherit the
+    // phase parent so their opacity tweens finish in lockstep with the bars
+    // (no more independent 200 ms clock that ends before the 600 ms bars).
+    applyAnnotationContextFade(
+      layer,
+      state.annotationRecords,
+      FILTER_ANNOTATION_CLASS,
+      undefined,
+      phaseParent,
+    )
+    fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS, undefined, phaseParent)
+
     // When the filter input is a pairDiff result, dim the per-target
     // Δ-arrow annotations (line connectors + arrow shaft + arrow heads +
     // numeric label) drawn by the pairDiff applier. Each pairDiff
@@ -135,7 +157,7 @@ export const filterApplier: OperationApplier<StackedBarChartInstance> = {
     // (stamped in pairDiff applier Phase 3), so we can scope the dim to
     // only the targets that fall outside the filter result — surviving
     // targets stay at FULL opacity to highlight the selection.
-    const fadePairDiffAnnotations = async () => {
+    const queuePairDiffAnnotationFades = () => {
       if (!pairDiffInput) return
       const survivingTargets = new Set<string>(result.map((r) => String(r.target)))
       const svgNode = instance.host.querySelector('svg')
@@ -144,35 +166,40 @@ export const filterApplier: OperationApplier<StackedBarChartInstance> = {
         svgNode.querySelectorAll<SVGElement>(`.${PAIR_DIFF_ANNOTATION_CLASS}[${DataAttributes.Target}]`),
       )
       if (nodes.length === 0) return
-      await Promise.all(
-        nodes.map((node) => {
-          const target = node.getAttribute(DataAttributes.Target) ?? ''
-          const next = survivingTargets.has(target) ? OPACITIES.FULL : OPACITIES.DIM
-          return d3
-            .select(node)
-            .transition()
-            .duration(DURATIONS.HIGHLIGHT)
-            .ease(EASINGS.SMOOTH)
-            .style('opacity', next)
-            .end()
-            .catch(() => undefined)
-        }),
-      )
+      // Inherit the phase parent so the dim/restore tweens finish on the
+      // same frame as the bars + legend. Fire-and-forget: the caller awaits
+      // `phaseParent.end()` once.
+      nodes.forEach((node) => {
+        const target = node.getAttribute(DataAttributes.Target) ?? ''
+        const next = survivingTargets.has(target) ? OPACITIES.FULL : OPACITIES.DIM
+        d3.select(node)
+          .interrupt()
+          .transition(phaseParent as never)
+          .style('opacity', next)
+      })
     }
+    queuePairDiffAnnotationFades()
 
-    // Bars + legend transition in lockstep — both ride the same duration so
-    // the chart's visual state stays coherent every frame.
+    // Bars + legend transition in lockstep with the phase parent. Both
+    // `transitionSeriesScope` and `transitionLegend` skip their own
+    // `parent.end()` when given a shared parent — the caller awaits it once
+    // below.
     await Promise.all([
       instance.transitionSeriesScope({
         isInScope: isCellInScope,
         mode,
         outOfScopeOpacity: OPACITIES.DIM,
+        parent: phaseParent,
       }),
       mode === 'recompose' && activeSeriesValues.size > 0
-        ? instance.transitionLegend({ activeSeries: activeSeriesValues })
+        ? instance.transitionLegend({ activeSeries: activeSeriesValues, parent: phaseParent })
         : Promise.resolve(),
-      fadePairDiffAnnotations(),
     ])
+    try {
+      await phaseParent.end()
+    } catch {
+      /* interrupted */
+    }
 
     // Threshold reference line for numeric filters. Skip when the input is
     // a pairDiff result — the diff is computed pairwise per Period (already

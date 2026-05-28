@@ -1,0 +1,1414 @@
+/* ──────────────────────────────────────────────────────────────────────
+   QA Review page — own design language (not bound to workbench).
+   Goals: legible at a glance, calm dark UI, white chart canvas, clear
+   affordances for click-to-edit and unsaved state.
+   ──────────────────────────────────────────────────────────────────── */
+
+:root {
+  --review-bg: #0b1220;
+  --review-panel: #111827;
+  --review-panel-2: #0f172a;
+  --review-border: #1f2937;
+  --review-border-soft: #1e293b;
+  --review-accent: #2563eb;
+  --review-accent-2: #60a5fa;
+  --review-text: #e2e8f0;
+  --review-text-dim: #94a3b8;
+  --review-text-faint: #64748b;
+  --review-warn: #f59e0b;
+  --review-danger: #f87171;
+  --review-success: #34d399;
+}
+
+.review-shell {
+  max-width: none;
+  width: 100%;
+  padding: 20px 24px 48px;
+  box-sizing: border-box;
+  background: var(--review-bg);
+  color: var(--review-text);
+  min-height: 100vh;
+}
+
+.review-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.review-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: 0.01em;
+}
+
+.review-subtitle {
+  font-size: 12px;
+  color: var(--review-text-dim);
+}
+
+.review-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(360px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.review-left { min-width: 0; }
+.review-right { position: sticky; top: 16px; min-width: 0; }
+
+/* ── Toolbar ─────────────────────────────────────────────────────────── */
+
+.review-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: var(--review-panel);
+  border: 1px solid var(--review-border);
+  border-radius: 12px;
+}
+
+.review-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.review-toolbar-spacer { flex: 1 1 auto; }
+
+.review-counts { font-size: 12px; color: var(--review-text-dim); font-weight: 600; }
+
+.review-file-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.review-file-picker-label {
+  color: var(--review-text-dim);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.review-file-picker-select {
+  background: var(--review-panel-2);
+  color: var(--review-text);
+  border: 1px solid var(--review-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 220px;
+}
+
+.review-file-picker-select:hover:not(:disabled) {
+  border-color: var(--review-accent-2);
+}
+
+.review-file-picker-select:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.review-save-error {
+  color: var(--review-danger);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.review-save-btn {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--review-text-dim);
+  border: 1px solid var(--review-border);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.review-save-btn:hover:not(:disabled) {
+  border-color: var(--review-accent-2);
+  color: var(--review-text);
+}
+
+.review-save-btn.is-dirty {
+  background: var(--review-warn);
+  color: #1f1300;
+  border-color: var(--review-warn);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4), 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.review-save-btn.is-dirty:hover:not(:disabled) {
+  background: #fbbf24;
+  border-color: #fbbf24;
+  color: #1f1300;
+}
+
+.review-save-btn:disabled { cursor: default; opacity: 0.7; }
+
+.review-add-btn {
+  background: var(--review-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.review-add-btn:hover { background: #1d4ed8; }
+
+.review-status-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+
+.review-status-chip {
+  background: transparent;
+  color: var(--review-text-dim);
+  border: 1px solid var(--review-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.review-status-chip:hover { border-color: var(--review-accent-2); color: #f1f5f9; }
+.review-status-chip.is-active { background: var(--review-accent); border-color: var(--review-accent); color: #fff; }
+
+.review-chart-type-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+
+.review-chart-type-chip {
+  background: transparent;
+  color: var(--review-text-dim);
+  border: 1px solid var(--review-border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.review-chart-type-chip:hover { border-color: var(--review-accent-2); color: #f1f5f9; }
+.review-chart-type-chip.is-active {
+  background: #334155;
+  border-color: var(--review-accent-2);
+  color: #f8fafc;
+}
+
+.review-row .chart-type-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--review-text-dim);
+  background: #1e293b;
+  border: 1px solid var(--review-border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.review-feedback-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--review-text-dim);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ── Grid (replaces <table>) ────────────────────────────────────────── */
+
+.review-grid {
+  background: var(--review-panel);
+  border: 1px solid var(--review-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.review-table-empty {
+  background: var(--review-panel);
+  border: 1px dashed var(--review-border-soft);
+  border-radius: 12px;
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--review-text-dim);
+  font-size: 13px;
+}
+
+.review-grid-header {
+  background: var(--review-panel-2);
+  border-bottom: 1px solid var(--review-border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: 10px;
+  color: var(--review-text-faint);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.review-grid-header-row {
+  display: grid;
+  padding: 6px 14px;
+  gap: 12px;
+}
+
+.review-grid-header-row:not(.review-grid-header-row--secondary) {
+  grid-template-columns: 36px minmax(160px, auto) 100px minmax(0, 1fr);
+  border-bottom: 1px dashed var(--review-border);
+}
+
+.review-grid-header-row--secondary {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+}
+
+.review-grid-header .cell-num { text-align: center; }
+
+.review-grid-body { display: flex; flex-direction: column; }
+
+/* ── Rows ────────────────────────────────────────────────────────────── */
+
+.review-row {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--review-border);
+  padding: 10px 14px 14px;
+  gap: 8px;
+  transition: background 0.12s ease;
+}
+
+/* Zebra striping — subtle, same hue different opacity. */
+.review-grid-body .review-row:nth-child(odd)  { background: rgba(255, 255, 255, 0.012); }
+.review-grid-body .review-row:nth-child(even) { background: rgba(255, 255, 255, 0.035); }
+
+.review-row:hover { background: rgba(96, 165, 250, 0.06); }
+.review-row.is-selected,
+.review-grid-body .review-row.is-selected:nth-child(odd),
+.review-grid-body .review-row.is-selected:nth-child(even) { background: rgba(37, 99, 235, 0.13); }
+
+.review-row.status-bug { box-shadow: inset 3px 0 0 var(--review-danger); }
+.review-row.status-verified { box-shadow: inset 3px 0 0 var(--review-success); }
+.review-row.status-wontfix { box-shadow: inset 3px 0 0 var(--review-text-dim); }
+.review-row.is-dirty { box-shadow: inset 3px 0 0 var(--review-warn); }
+/* dirty overrides status color since it's the more urgent signal */
+
+.review-row__line1 {
+  display: grid;
+  grid-template-columns: 36px minmax(160px, auto) 100px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.review-row__line2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.review-row .cell-num,
+.review-row .cell-chart-id,
+.review-row .cell-status,
+.review-row .cell-question,
+.review-row .cell-explanation,
+.review-row .cell-ops {
+  min-width: 0;
+}
+
+.review-row .cell-num {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding-top: 4px;
+}
+
+.row-number {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--review-text-faint);
+  letter-spacing: 0.04em;
+}
+
+.review-row.is-selected .row-number { color: var(--review-accent-2); }
+.review-row.is-dirty .row-number { color: var(--review-warn); }
+
+.row-dirty-dot {
+  color: var(--review-warn);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.review-row .cell-chart-id {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-start;
+}
+
+.review-row .cell-explanation,
+.review-row .cell-ops {
+  background: var(--review-panel-2);
+  border: 1px solid var(--review-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.review-cell-editable { cursor: text; }
+.review-cell-editable:hover { background: rgba(96, 165, 250, 0.06); }
+
+.review-cell-preview {
+  display: block;
+  color: var(--review-text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+.review-row .cell-question .review-cell-preview {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.review-cell-preview.is-empty,
+.cell-empty {
+  color: var(--review-text-faint);
+  font-style: italic;
+}
+
+.review-cell-multiline {
+  font-size: 12px;
+  color: var(--review-text);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Explanation cell is the main reading surface; bump its size so it's
+   actually legible. The other multiline cells (feedback, ops preview)
+   keep the compact 12px. */
+.review-row .cell-explanation .review-cell-multiline,
+.review-row .cell-explanation .review-cell-preview {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.review-row .cell-explanation .review-editor-textarea {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* ── Read-only line-numbered renderer (LineNumberedText component) ───── */
+/* Cheap CodeMirror-gutter look without spinning up an editor on every row.
+   Two-column grid: a small right-aligned number column + content column. */
+.review-line-numbered {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 1px;
+  font-size: 12px;
+  color: var(--review-text);
+  line-height: 1.55;
+}
+
+.review-line-numbered-row {
+  display: contents;
+}
+
+.review-line-numbered-num {
+  text-align: right;
+  color: var(--review-text-faint);
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  user-select: none;
+  padding-right: 4px;
+  border-right: 1px solid var(--review-border);
+  /* Keep the gutter number anchored at the first wrapped line of its row. */
+  align-self: start;
+}
+
+.review-line-numbered-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* The explanation cell is the main reading surface — bump its size for
+   legibility, just like the previous `.review-cell-multiline` rules. */
+.review-row .cell-explanation .review-line-numbered {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.review-row .cell-explanation .review-line-numbered-num {
+  font-size: 12px;
+}
+
+/* ── chart_id (click to render) ────────────────────────────────────── */
+
+.chart-id-link {
+  background: transparent;
+  color: var(--review-accent-2);
+  border: none;
+  border-bottom: 1px dashed transparent;
+  padding: 2px 0;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+.chart-id-link:hover:not(:disabled) {
+  color: #93c5fd;
+  border-bottom-color: rgba(96, 165, 250, 0.5);
+}
+
+.chart-id-link:disabled,
+.chart-id-link.is-empty {
+  color: var(--review-text-faint);
+  cursor: default;
+  font-style: italic;
+}
+
+.review-row.is-selected .chart-id-link {
+  color: #ffffff;
+  border-bottom-color: var(--review-accent-2);
+}
+
+/* ── Status (two axes: op_status + viz_status) ───────────────────────── */
+
+.review-row .cell-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.status-axis-row {
+  display: inline-grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 5px;
+}
+
+.status-axis-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--review-text-faint);
+  text-align: right;
+}
+
+.review-status-select {
+  background: var(--review-panel-2);
+  color: var(--review-text);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  padding: 4px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.review-status-select.status-bug { color: #fca5a5; }
+.review-status-select.status-verified { color: #6ee7b7; }
+.review-status-select.status-wontfix { color: var(--review-text-dim); }
+
+/* Toolbar filter axis groups (one row per axis: "Op" chips and "Viz" chips). */
+.review-status-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px 2px 4px;
+  border: 1px dashed var(--review-border);
+  border-radius: 8px;
+}
+
+.review-status-filter-axis {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--review-text-faint);
+}
+
+/* ── Inline editors (question / explanation) ─────────────────────────── */
+
+.review-editor-input,
+.review-editor-textarea {
+  width: 100%;
+  background: var(--review-bg);
+  color: var(--review-text);
+  border: 1px solid var(--review-accent);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.review-editor-textarea {
+  min-height: 48px;
+  resize: none;
+  line-height: 1.55;
+  overflow: hidden;
+}
+
+.review-editor-input.has-error,
+.review-editor-textarea.has-error { border-color: var(--review-danger); }
+
+.review-editor-error { color: var(--review-danger); font-size: 11px; font-weight: 600; margin-top: 4px; }
+.review-editor-hint { color: var(--review-text-faint); font-size: 10px; margin-top: 2px; }
+
+/* ── CodeMirror ─────────────────────────────────────────────────────── */
+
+.review-code-editor {
+  border: 1px solid var(--review-accent);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--review-bg);
+}
+
+.review-code-editor-host { background: var(--review-bg); }
+.review-code-editor .cm-editor { background: var(--review-bg); outline: none; }
+.review-code-editor .cm-editor.cm-focused { outline: none; }
+.review-code-editor .cm-content {
+  caret-color: #fff !important;
+}
+.review-code-editor .cm-cursor,
+.review-code-editor .cm-cursor-primary,
+.review-code-editor .cm-dropCursor {
+  border-left: 2px solid #fff !important;
+  border-right: none !important;
+  margin-left: 0 !important;
+}
+.review-code-editor .cm-gutters {
+  background: var(--review-panel-2);
+  border-right: 1px solid var(--review-border);
+  color: var(--review-text-faint);
+}
+.review-code-editor .cm-activeLine { background: rgba(37, 99, 235, 0.08); }
+.review-code-editor .cm-activeLineGutter { background: rgba(37, 99, 235, 0.08); color: var(--review-text); }
+.review-code-editor .cm-selectionBackground,
+.review-code-editor .cm-content ::selection {
+  background: rgba(37, 99, 235, 0.35) !important;
+}
+.review-code-editor .cm-tooltip {
+  background: var(--review-panel-2);
+  border: 1px solid var(--review-border-soft);
+  color: var(--review-text);
+  border-radius: 6px;
+}
+.review-code-editor .cm-tooltip-autocomplete > ul > li {
+  padding: 4px 8px;
+}
+.review-code-editor .cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--review-accent);
+  color: #fff;
+}
+.review-code-editor .cm-completionLabel { font-weight: 600; }
+.review-code-editor .cm-completionDetail { color: var(--review-text-dim); margin-left: 8px; font-style: normal; }
+.review-code-editor .cm-completionInfo {
+  background: var(--review-panel);
+  border: 1px solid var(--review-border-soft);
+  color: var(--review-text);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.review-editor-loading {
+  color: var(--review-text-dim);
+  font-size: 12px;
+  padding: 12px;
+  text-align: center;
+}
+
+/* ── Feedback chips + slash dropdown ────────────────────────────────── */
+
+.review-feedback-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  cursor: text;
+  line-height: 1.75;
+  font-size: 12px;
+  min-height: 22px;
+}
+
+.review-feedback-text {
+  color: var(--review-text);
+  white-space: pre-wrap;
+}
+
+.review-feedback-trigger {
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  color: var(--review-text-faint);
+  font-style: italic;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.review-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-weight: 600;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.review-chip-key { opacity: 0.75; }
+.review-chip-sep { opacity: 0.6; }
+
+.review-chip--blue { background: rgba(37, 99, 235, 0.15); color: #93c5fd; border-color: rgba(37, 99, 235, 0.35); }
+.review-chip--purple { background: rgba(168, 85, 247, 0.15); color: #d8b4fe; border-color: rgba(168, 85, 247, 0.35); }
+.review-chip--teal { background: rgba(20, 184, 166, 0.15); color: #5eead4; border-color: rgba(20, 184, 166, 0.35); }
+.review-chip--red { background: rgba(248, 113, 113, 0.15); color: #fca5a5; border-color: rgba(248, 113, 113, 0.4); }
+.review-chip--amber { background: rgba(245, 158, 11, 0.15); color: #fcd34d; border-color: rgba(245, 158, 11, 0.4); }
+.review-chip--slate { background: rgba(148, 163, 184, 0.15); color: var(--review-text); border-color: rgba(148, 163, 184, 0.35); }
+
+/* SlashTextarea wrapper provides the positioning context for the dropdown,
+   which is `position: absolute; top: 100%` (sits just under the textarea). */
+.review-feedback-slash-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.review-slash-dropdown {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 2px;
+  background: var(--review-panel-2);
+  border: 1px solid var(--review-border-soft);
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.55);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.review-slash-dropdown-header {
+  padding: 6px 10px;
+  font-size: 10px;
+  color: var(--review-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--review-border);
+  background: var(--review-bg);
+}
+
+.review-slash-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--review-text);
+}
+
+.review-slash-option:hover,
+.review-slash-option.is-active { background: rgba(37, 99, 235, 0.25); }
+.review-slash-option-label { font-family: "SFMono-Regular", Menlo, Consolas, monospace; font-size: 12px; font-weight: 600; }
+.review-slash-option-hint { color: var(--review-text-dim); font-size: 11px; margin-top: 1px; }
+
+/* ── Row-level feedback trigger button ──────────────────────────────── */
+/* Lives inside `.cell-chart-id` below chart_id / chart_type badge. Clicking
+   it toggles the detached FeedbackPanel above the chart preview. */
+.row-feedback-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  color: var(--review-text-dim);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  margin-top: 2px;
+  align-self: flex-start;
+  transition: all 0.15s ease;
+}
+
+.row-feedback-toggle:hover {
+  border-color: var(--review-accent-2);
+  color: var(--review-text);
+}
+
+.row-feedback-toggle.has-content {
+  border-color: var(--review-warn);
+  color: var(--review-warn);
+}
+
+.row-feedback-toggle.is-active {
+  background: var(--review-accent);
+  border-color: var(--review-accent);
+  color: #fff;
+}
+
+.row-feedback-toggle-dot {
+  font-size: 8px;
+  line-height: 1;
+}
+
+/* ── Right pane: feedback panel sits above the chart card when open ──── */
+
+.review-feedback-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--review-panel);
+  border: 1px solid var(--review-warn);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.review-feedback-card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-feedback-card .card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.review-feedback-card .card-actions { display: flex; gap: 6px; }
+
+.review-feedback-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.review-feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.review-feedback-axis-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--review-text-dim);
+}
+
+.review-feedback-axis-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--review-panel-2);
+  color: var(--review-text);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.review-feedback-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--review-bg);
+  color: var(--review-text);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.5;
+  min-height: 90px;
+  resize: vertical;
+  outline: none;
+}
+
+.review-feedback-textarea:focus { border-color: var(--review-accent-2); }
+
+.review-feedback-hint {
+  font-size: 11px;
+  color: var(--review-text-faint);
+  font-style: italic;
+}
+
+/* ── Right pane (chart preview) ─────────────────────────────────────── */
+
+.review-chart-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--review-panel);
+  border: 1px solid var(--review-border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.review-chart-card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-chart-card .card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.review-chart-card .card-actions { display: flex; gap: 6px; }
+
+.review-chart-card .pill-btn,
+.review-chart-card .section-toggle-btn {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--review-text);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.review-chart-card .pill-btn:hover:not(:disabled) {
+  border-color: var(--review-accent-2);
+}
+
+.review-chart-card .pill-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.review-chart-id {
+  color: var(--review-text-dim);
+  font-weight: 500;
+  font-size: 12px;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.review-stale-pin {
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  color: #fde68a;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.review-chart-status {
+  color: var(--review-text-dim);
+  font-size: 11px;
+}
+
+/* White canvas — dark axes/labels become legible.
+   ─────────────────────────────────────────────────────────────────────
+   Sizing notes (subtle bug fix vs. the original `height: 480px`):
+   The chart engine sizes its viewBox to the host's *measured width* with
+   a roughly 16:9 / 2:1 natural aspect (`canvasHeight = 300` for bar,
+   ~360 for line — see `src/rendering/common/chartLayout.ts`). A fixed
+   `height: 480px` therefore did two bad things:
+     • The SVG, which has only `viewBox` + the global rule
+       `.chart-host > svg { max-width: 100%; margin: 0 auto }` (App.css),
+       rendered at its intrinsic viewBox dimensions (~613×323). When the
+       host was narrower than ~613px the SVG overflowed left+right and
+       got clipped by `overflow: hidden` → the user's "차트가 잘리는
+       느낌".
+     • When the host was wide enough, the SVG (≈323px tall) sat
+       centered in a 480px-tall host with ~80px of dead white space
+       above and below → the user's "차트가 작아진 느낌".
+
+   Fix: drive the host height from a 16:9 aspect ratio (matches the
+   chart engine's natural canvas) with min/max safety bounds, and force
+   the SVG to fully fill the host (`width: 100%; height: 100%`). The
+   default `preserveAspectRatio="xMidYMid meet"` keeps the chart from
+   distorting if the host aspect drifts from the SVG aspect.
+   ─────────────────────────────────────────────────────────────────── */
+.review-chart-host {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 320px;
+  max-height: 540px;
+  background: #ffffff;
+  border: 1px solid var(--review-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #0b1220;
+}
+
+/* Override the global `.chart-host > svg { max-width: 100%; margin: 0 auto }`
+   (App.css line 716) so the SVG fully fills the host instead of rendering
+   at intrinsic viewBox size. preserveAspectRatio (engine default
+   "xMidYMid meet") then keeps the chart proportions without clipping. */
+.review-chart-host > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   OperationSpecView (tree + json toggle + DAG popover)
+   ──────────────────────────────────────────────────────────────────── */
+
+.ops-view {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+}
+
+.ops-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.ops-view-toggle {
+  display: inline-flex;
+  background: var(--review-bg);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ops-view-toggle-btn {
+  background: transparent;
+  color: var(--review-text-dim);
+  border: none;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.ops-view-toggle-btn:hover:not(.is-active) { color: var(--review-text); }
+
+.ops-view-toggle-btn.is-active {
+  background: var(--review-accent);
+  color: #fff;
+}
+
+.ops-view-expand {
+  background: transparent;
+  color: var(--review-text-dim);
+  border: 1px solid var(--review-border);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.ops-view-expand:hover:not(:disabled) {
+  color: var(--review-accent-2);
+  border-color: var(--review-accent-2);
+}
+
+.ops-view-expand:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Run button placed beside Tree/JSON tabs to start the per-row ops walkthrough. */
+.ops-view-run-btn {
+  background: var(--review-accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  line-height: 1;
+  margin-left: 4px;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.ops-view-run-btn:hover:not(:disabled) { background: #1d4ed8; }
+
+.ops-view-run-btn:disabled {
+  background: var(--review-panel-2);
+  color: var(--review-text-faint);
+  cursor: default;
+  border: 1px solid var(--review-border);
+}
+
+/* Chart context strip */
+.ops-view-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  background: rgba(96, 165, 250, 0.06);
+  border: 1px solid rgba(96, 165, 250, 0.18);
+  border-radius: 4px;
+  color: var(--review-text-dim);
+  font-size: 10px;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ops-view-context-emoji {
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 11px;
+}
+
+.ops-view-context-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Empty state */
+.ops-view-empty {
+  color: var(--review-text-faint);
+  font-style: italic;
+  font-size: 11px;
+  padding: 4px 2px;
+}
+
+/* Tree (group cards + SVG edge overlay) */
+.ops-view-tree {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ops-group-card {
+  position: relative;
+  z-index: 1;
+  border: 1px solid var(--review-border);
+  background: rgba(148, 163, 184, 0.04);
+  border-radius: 6px;
+  padding: 6px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ops-group-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ops-view-sentence-tag {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--review-text-faint);
+  background: rgba(148, 163, 184, 0.12);
+  border-radius: 3px;
+  padding: 1px 5px;
+  letter-spacing: 0.05em;
+}
+
+.ops-group-card-key {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 9px;
+  color: var(--review-text-faint);
+  letter-spacing: 0.03em;
+}
+
+.ops-group-card-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, var(--review-border) 0%, transparent 100%);
+}
+
+.ops-group-card-count {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 9px;
+  color: var(--review-text-faint);
+}
+
+.ops-group-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 2px 0;
+}
+
+.ops-op-node {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: var(--review-panel);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  cursor: help;
+  line-height: 1.4;
+}
+
+.ops-op-node:hover {
+  background: rgba(96, 165, 250, 0.10);
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.ops-view-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ops-view-dot.tone-blue   { background: #60a5fa; box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35); }
+.ops-view-dot.tone-purple { background: #c084fc; box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.35); }
+.ops-view-dot.tone-teal   { background: #5eead4; box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.35); }
+.ops-view-dot.tone-red    { background: #fca5a5; box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.4);  }
+.ops-view-dot.tone-amber  { background: #fcd34d; box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);   }
+.ops-view-dot.tone-slate  { background: #94a3b8; box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.35); }
+
+.ops-view-op-name {
+  color: var(--review-text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ops-view-op-params {
+  color: var(--review-text-dim);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ops-view-op-id {
+  color: var(--review-text-faint);
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+/* SVG overlay sits above the cards so cross-group arrows stay visible. */
+.ops-edge-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 3;
+  color: rgba(148, 163, 184, 0.7);
+}
+
+.ops-edge-path {
+  stroke: currentColor;
+  stroke-width: 1.3;
+  fill: none;
+  opacity: 0.55;
+}
+
+.ops-edge-path.is-cross-group {
+  color: rgba(96, 165, 250, 0.85);
+  stroke-dasharray: 4 3;
+  opacity: 0.85;
+}
+
+/* ── DAG Popover ────────────────────────────────────────────────────── */
+
+.ops-dag-popover {
+  position: fixed;
+  z-index: 100;
+  background: var(--review-panel);
+  border: 1px solid var(--review-border);
+  border-radius: 10px;
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 420px;
+}
+
+.ops-dag-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--review-border);
+  background: var(--review-panel-2);
+  color: var(--review-text-dim);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ops-dag-close {
+  background: transparent;
+  border: none;
+  color: var(--review-text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.ops-dag-close:hover { color: var(--review-text); }
+
+.ops-dag-scroll {
+  overflow: auto;
+  background: var(--review-bg);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ops-dag-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--review-text-faint);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.ops-dag-svg {
+  display: block;
+}
+
+.ops-dag-edge {
+  stroke: var(--review-border);
+  stroke-width: 1.4;
+  color: var(--review-border);
+  transition: stroke 0.12s ease, color 0.12s ease;
+}
+
+.ops-dag-edge.is-hot {
+  stroke: var(--review-accent-2);
+  color: var(--review-accent-2);
+  stroke-width: 1.8;
+}
+
+.ops-dag-node {
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+.ops-dag-node:hover {
+  filter: brightness(1.15);
+}
+
+.ops-dag-node-bg {
+  fill: var(--review-panel-2);
+  stroke: var(--review-border);
+  stroke-width: 1;
+}
+
+.ops-dag-node.is-hot .ops-dag-node-bg,
+.ops-dag-node.is-linked .ops-dag-node-bg {
+  stroke: var(--review-accent-2);
+  stroke-width: 1.5;
+}
+
+.ops-dag-node-stripe { fill: #94a3b8; }
+.ops-dag-node.tone-blue   .ops-dag-node-stripe { fill: #60a5fa; }
+.ops-dag-node.tone-purple .ops-dag-node-stripe { fill: #c084fc; }
+.ops-dag-node.tone-teal   .ops-dag-node-stripe { fill: #5eead4; }
+.ops-dag-node.tone-red    .ops-dag-node-stripe { fill: #fca5a5; }
+.ops-dag-node.tone-amber  .ops-dag-node-stripe { fill: #fcd34d; }
+.ops-dag-node.tone-slate  .ops-dag-node-stripe { fill: #94a3b8; }
+
+.ops-dag-node-op {
+  fill: #e2e8f0;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ops-dag-node-params {
+  fill: #94a3b8;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 9px;
+}
+
+.ops-dag-node-id {
+  fill: #64748b;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ops-dag-tooltip {
+  border-top: 1px solid var(--review-border);
+  background: var(--review-bg);
+  padding: 8px 12px;
+  max-height: 140px;
+  overflow: auto;
+}
+
+.ops-dag-tooltip pre {
+  margin: 0;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--review-text);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ops-dag-hint {
+  border-top: 1px solid var(--review-border);
+  padding: 6px 12px;
+  background: var(--review-panel-2);
+  color: var(--review-text-faint);
+  font-size: 10px;
+}

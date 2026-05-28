@@ -1,0 +1,34 @@
+{
+  "ops": [
+    {
+      "op": "average",
+      "id": "n1",
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+      "field": "Revenue_Million_Euros",
+      "group": "Healthcare"
+    },
+    {
+      "op": "average",
+      "id": "n2",
+      "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 1 },
+      "field": "Revenue_Million_Euros",
+      "group": "Life Science"
+    },
+    {
+      "op": "average",
+      "id": "n3",
+      "meta": { "nodeId": "n3", "inputs": [], "sentenceIndex": 1 },
+      "field": "Revenue_Million_Euros",
+      "group": "Performance Materials"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n4",
+      "meta": { "nodeId": "n4", "inputs": [], "sentenceIndex": 2 },
+      "field": "Year",
+      "include": ["2020"]
+    }
+  ]
+}

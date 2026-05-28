@@ -1,0 +1,66 @@
+{
+  "TEST12": {
+    "sequence": [
+
+      { "chart_id": "2jromeq5u9lloh1s", "method": "ours" },
+      { "chart_id": "4pi1e6ev8e0zobww", "method": "ours" },
+      { "chart_id": "2jromeq5u9lloh1s", "method": "d3" },
+      { "chart_id": "4pi1e6ev8e0zobww", "method": "d3" },
+
+      { "chart_id": "11e148qcs7x70t8v", "method": "ours" },
+      { "chart_id": "11e148qcs7x70t8v", "method": "d3" },
+      { "chart_id": "11e148qcs7x70t8v", "method": "svg" },
+
+      { "chart_id": "0s6zi9dyw22qo4rp", "method": "ours" },
+      { "chart_id": "16fif5hdi8yzml00", "method": "ours" },
+      { "chart_id": "0s6zi9dyw22qo4rp", "method": "d3" },
+      { "chart_id": "16fif5hdi8yzml00", "method": "d3" },
+      { "chart_id": "0s6zi9dyw22qo4rp", "method": "svg" },
+      { "chart_id": "16fif5hdi8yzml00", "method": "svg" },
+      { "chart_id": "2jromeq5u9lloh1s", "method": "svg" },
+      { "chart_id": "4pi1e6ev8e0zobww", "method": "svg" }
+    ]
+  },
+  "ABC123": {
+    "sequence": [
+      { "chart_id": "0s6zi9dyw22qo4rp", "method": "ours" },
+      { "chart_id": "11e148qcs7x70t8v", "method": "ours" },
+      { "chart_id": "16fif5hdi8yzml00", "method": "ours" },
+      { "chart_id": "2jromeq5u9lloh1s", "method": "ours" },
+      { "chart_id": "4pi1e6ev8e0zobww", "method": "ours" },
+
+      { "chart_id": "0s6zi9dyw22qo4rp", "method": "d3" },
+      { "chart_id": "11e148qcs7x70t8v", "method": "d3" },
+      { "chart_id": "16fif5hdi8yzml00", "method": "d3" },
+      { "chart_id": "2jromeq5u9lloh1s", "method": "d3" },
+      { "chart_id": "4pi1e6ev8e0zobww", "method": "d3" },
+
+      { "chart_id": "0s6zi9dyw22qo4rp", "method": "svg" },
+      { "chart_id": "11e148qcs7x70t8v", "method": "svg" },
+      { "chart_id": "16fif5hdi8yzml00", "method": "svg" },
+      { "chart_id": "2jromeq5u9lloh1s", "method": "svg" },
+      { "chart_id": "4pi1e6ev8e0zobww", "method": "svg" }
+    ]
+  },
+  "ABC456": {
+    "sequence": [
+      { "chart_id": "0s6zi9dyw22qo4rp", "method": "ours" },
+      { "chart_id": "11e148qcs7x70t8v", "method": "ours" },
+      { "chart_id": "16fif5hdi8yzml00", "method": "ours" },
+      { "chart_id": "2jromeq5u9lloh1s", "method": "ours" },
+      { "chart_id": "4pi1e6ev8e0zobww", "method": "ours" },
+
+      { "chart_id": "1jgaguuh4rqlk7sq", "method": "d3" },
+      { "chart_id": "221xwpab655f7g8x", "method": "d3" },
+      { "chart_id": "1p6uue3hxdxit3ey", "method": "d3" },
+      { "chart_id": "2jki13q54zizc6i4", "method": "d3" },
+      { "chart_id": "bkemtvekxtnuk8bf", "method": "d3" },
+
+      { "chart_id": "0w88bu7qm4ilsqmh", "method": "svg" },
+      { "chart_id": "0g0xma0b0k29lk5j", "method": "svg" },
+      { "chart_id": "0rfuaawgi58ajpsv", "method": "svg" },
+      { "chart_id": "1vni31fp2ii7wz68", "method": "svg" },
+      { "chart_id": "2kmpy10btl65kr2j", "method": "svg" }
+    ]
+  }
+}

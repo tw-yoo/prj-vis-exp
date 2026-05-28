@@ -19,6 +19,7 @@ import {
   type StackedRectLayout,
 } from '../../operation-new/primitives/stackComposition'
 import { transitionLegendScope } from '../../operation-new/primitives/transitionLegend'
+import type { ParentTransition } from '../../operation-new/primitives/sharedTransition'
 import {
   attachInstance,
   detachInstance,
@@ -60,9 +61,16 @@ function computeSpecKey(spec: ChartSpec): string {
  * stays on the existing `runStackedBarOperations` runner, which is already
  * well-tested.
  *
- * Future work: rewrite stack recalculation, color-legend transitions, and
- * filter-driven `transitionChartScale` from scratch using the d3
- * shared-transition idiom that simple-line + simple-bar use.
+ * Shared-parent transition pattern: every per-phase mutation method
+ * (`transitionSeriesScope`, `transitionLegend`) accepts an optional `parent`
+ * — a d3 transition the caller creates once per phase. When supplied, the
+ * method inherits that timeline so the bars, legend, axes, and annotation
+ * fades all tick on the same scheduler frame; when omitted, the method falls
+ * back to creating its own root transition for backward compatibility. The
+ * applier-side entry point is `createPhaseTransition(duration, ease)` below.
+ * Mirrors the validated pattern in `simpleBarInstance.transitionChartScale`
+ * (lines ~459–532) and the validation-page idiom in
+ * `validation/data/e2/e2_q2.js` and friends.
  */
 export class StackedBarChartInstance implements ChartInstance {
   readonly chartTypeKey = 'stacked-bar' as const
@@ -253,6 +261,12 @@ export class StackedBarChartInstance implements ChartInstance {
     outOfScopeOpacity?: number
     duration?: number
     ease?: (t: number) => number
+    /** Optional shared parent transition. When supplied, the bar + y-axis
+     *  sub-transitions inherit its timeline (validation-page lockstep) and
+     *  this method does NOT await — the caller awaits the parent's `end()`
+     *  exactly once. When omitted, the method creates and awaits its own
+     *  root transition (legacy behavior). */
+    parent?: ParentTransition
   }): Promise<void> {
     if (!this.svg || this.svg.empty()) return
     const mode = opts.mode ?? 'recompose'
@@ -265,18 +279,16 @@ export class StackedBarChartInstance implements ChartInstance {
     console.info('[operation-new] StackedBarChartInstance.transitionSeriesScope', {
       mode,
       barCount: bars.size(),
+      inheritedParent: !!opts.parent,
     })
 
     if (mode === 'dim') {
       // Backward-compat: opacity-only fade, no y-axis rescale.
       const outOpacity = opts.outOfScopeOpacity ?? OPACITIES.DIM
-      const parent = this.svg.transition().duration(DURATIONS.DIM).ease(ease) as unknown as d3.Transition<
-        d3.BaseType,
-        unknown,
-        d3.BaseType,
-        unknown
-      >
-      const inheritT = parent as never
+      const ownedParent = opts.parent
+        ? null
+        : (this.svg.transition().duration(DURATIONS.DIM).ease(ease) as unknown as ParentTransition)
+      const inheritT = ((opts.parent ?? ownedParent) as unknown) as never
       bars
         .interrupt('series-scope')
         .transition(inheritT)
@@ -286,10 +298,12 @@ export class StackedBarChartInstance implements ChartInstance {
           const series = node.getAttribute('data-series') ?? node.getAttribute('data-group-value') ?? ''
           return opts.isInScope(target, series) ? OPACITIES.FULL : outOpacity
         })
-      try {
-        await parent.end()
-      } catch {
-        /* interrupted */
+      if (ownedParent) {
+        try {
+          await ownedParent.end()
+        } catch {
+          /* interrupted */
+        }
       }
       return
     }
@@ -311,13 +325,10 @@ export class StackedBarChartInstance implements ChartInstance {
     const layoutByNode = new Map<SVGRectElement, StackedRectLayout>()
     layouts.forEach((layout) => layoutByNode.set(layout.node, layout))
 
-    const parent = this.svg.transition().duration(duration).ease(ease) as unknown as d3.Transition<
-      d3.BaseType,
-      unknown,
-      d3.BaseType,
-      unknown
-    >
-    const inheritT = parent as never
+    const ownedParent = opts.parent
+      ? null
+      : (this.svg.transition().duration(duration).ease(ease) as unknown as ParentTransition)
+    const inheritT = ((opts.parent ?? ownedParent) as unknown) as never
 
     // Y-axis transitions in lockstep with the bars. Stacked-bar layouts have
     // the y-axis inside the plot <g> (at translate(marginLeft, marginTop)),
@@ -354,10 +365,12 @@ export class StackedBarChartInstance implements ChartInstance {
     this.activeTargets = activeKeysSet.size > 0 ? activeKeysSet : null
     this.outOfScopeOpacity = 0
 
-    try {
-      await parent.end()
-    } catch {
-      /* interrupted */
+    if (ownedParent) {
+      try {
+        await ownedParent.end()
+      } catch {
+        /* interrupted */
+      }
     }
   }
 
@@ -396,11 +409,17 @@ export class StackedBarChartInstance implements ChartInstance {
    * instance for the same ergonomics as `transitionSeriesScope`. Callers
    * typically invoke this right after a `transitionSeriesScope` recompose
    * so the legend animates in lockstep with the bars.
+   *
+   * @param parent  Optional shared parent transition (validation-page
+   *                lockstep idiom). When supplied, the underlying primitive
+   *                inherits it instead of creating its own — the caller
+   *                awaits the parent's `end()` exactly once.
    */
   async transitionLegend(opts: {
     activeSeries: Set<string>
     duration?: number
     ease?: (t: number) => number
+    parent?: ParentTransition
   }): Promise<void> {
     if (!this.svg || this.svg.empty()) return
     await transitionLegendScope({
@@ -408,7 +427,25 @@ export class StackedBarChartInstance implements ChartInstance {
       activeSeries: opts.activeSeries,
       duration: opts.duration,
       ease: opts.ease,
+      parent: opts.parent,
     })
+  }
+
+  /**
+   * Creates the shared parent transition an applier rides for a single phase.
+   * Sub-operations (`transitionSeriesScope`, `transitionLegend`, primitive
+   * fades) receive this object and call `selection.transition(parent)` so the
+   * d3 scheduler ticks every child in lockstep — matches the validation-page
+   * "single `duration` constant" idiom and
+   * `simpleBarInstance.transitionChartScale`'s shared-parent pattern.
+   *
+   * The caller awaits `parent.end()` exactly once at the end of the phase.
+   */
+  createPhaseTransition(
+    duration: number = DURATIONS.AXIS_RESCALE,
+    ease: (t: number) => number = EASINGS.SMOOTH,
+  ): ParentTransition {
+    return this.svg.transition().duration(duration).ease(ease) as unknown as ParentTransition
   }
 
   // -------------------------------------------------------------------------
