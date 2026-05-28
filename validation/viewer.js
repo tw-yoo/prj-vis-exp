@@ -20,9 +20,10 @@ const expertId = requestedExpertId && chartMap[requestedExpertId]
 const expertCharts = chartMap[expertId] ?? {};
 const chartIds = Object.keys(expertCharts);
 
-const counterEl     = document.getElementById('chartCounter');
-const chartIdEl     = document.getElementById('chartId');
-const containerEl   = document.getElementById('chartContainer');
+const counterEl        = document.getElementById('chartCounter');
+const chartIdEl        = document.getElementById('chartId');
+const completionChipEl = document.getElementById('completionChip');
+const containerEl      = document.getElementById('chartContainer');
 const questionEl    = document.getElementById('questionText');
 const explanationEl = document.getElementById('explanationArea');
 const completionEl  = document.getElementById('completionArea');
@@ -54,12 +55,10 @@ let commentLoadToken = 0;
 let commentMutationVersion = 0;
 let activeCommentSentenceKey = '';
 let editingCommentId = '';
-let completionAcknowledged = false;
 let completionChecked = false;
 let completionStatus = '';
 let completionError = '';
 let completionLoadToken = 0;
-let completionReturnTimer = null;
 
 function clampChartIndex(index) {
     if (chartIds.length === 0) return 0;
@@ -421,11 +420,6 @@ function resetChartContainer() {
 }
 
 async function loadChart(index) {
-    if (completionReturnTimer) {
-        clearTimeout(completionReturnTimer);
-        completionReturnTimer = null;
-    }
-
     currentIndex = clampChartIndex(index);
     const chartId = chartIds[currentIndex];
     currentMod = await getModule(chartId);
@@ -447,7 +441,6 @@ async function loadChart(index) {
     commentMutationVersion = 0;
     activeCommentSentenceKey = '';
     editingCommentId = '';
-    completionAcknowledged = false;
     completionStatus = '';
     completionError = '';
     updateUI();
@@ -554,6 +547,13 @@ async function runStep(stepIndex) {
     }
 }
 
+// Strip a leading "N. " (or "N) ") from authored sentence text so the rendered
+// numbered badge is the single source of the step number. Mirrors the
+// Evaluation page's `stripLeadingNumber` (src/evaluation/viewer.ts).
+function stripLeadingNumber(text) {
+    return String(text ?? '').replace(/^\s*\d+[.)]\s*/, '');
+}
+
 function updateUI() {
     const total     = chartIds.length;
     const chartId   = getCurrentChartId();
@@ -590,7 +590,20 @@ function updateUI() {
 
         const span = document.createElement('span');
         span.className = `sentence sentence--${state}`;
-        span.textContent = displayText;
+
+        // Numbered badge (1, 2, 3 …) prefix — matches the Evaluation page so
+        // every numbered block reads as one reasoning step. The badge carries
+        // the number; the text span holds the prose with any pre-existing
+        // leading "N. " stripped so the number isn't duplicated.
+        const badge = document.createElement('span');
+        badge.className = 'sentence__badge';
+        badge.textContent = String(i + 1);
+        span.appendChild(badge);
+
+        const textSpan = document.createElement('span');
+        textSpan.className = 'sentence__text';
+        textSpan.textContent = stripLeadingNumber(displayText);
+        span.appendChild(textSpan);
 
         if (isMissing) {
             warnMissingFunction(chartId, fnName);
@@ -609,25 +622,69 @@ function updateUI() {
         }
     });
 
+    renderCompletionChip();
     renderCompletionArea();
     renderCommentArea();
 }
 
-function returnToFirstChartAfterCompletion() {
-    if (completionReturnTimer) {
-        clearTimeout(completionReturnTimer);
-    }
-
-    completionAcknowledged = true;
+function handleCompletionConfirm() {
     completionChecked = true;
     saveCompletionStatus(true);
     renderCompletionArea();
+    renderCompletionChip();
+    showCompletionModal();
+}
 
-    completionReturnTimer = setTimeout(() => {
-        completionReturnTimer = null;
-        completionAcknowledged = false;
-        navigateToChart(0);
-    }, 1200);
+function showCompletionModal() {
+    document.querySelector('.completion-modal-backdrop')?.remove();
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'completion-modal-backdrop';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'completion-modal';
+
+    const title = document.createElement('div');
+    title.className = 'completion-modal__title';
+    title.textContent = 'Thank you!';
+
+    const body = document.createElement('div');
+    body.className = 'completion-modal__body';
+    body.textContent = 'Your responses have been saved.';
+
+    const okButton = document.createElement('button');
+    okButton.type = 'button';
+    okButton.className = 'completion-modal__btn';
+    okButton.textContent = 'OK';
+
+    const close = () => {
+        backdrop.remove();
+        document.removeEventListener('keydown', onKeydown);
+    };
+
+    function onKeydown(event) {
+        if (event.key === 'Escape' || event.key === 'Enter') close();
+    }
+
+    okButton.addEventListener('click', close);
+    backdrop.addEventListener('click', (event) => {
+        if (event.target === backdrop) close();
+    });
+    document.addEventListener('keydown', onKeydown);
+
+    dialog.appendChild(title);
+    dialog.appendChild(body);
+    dialog.appendChild(okButton);
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+    okButton.focus();
+}
+
+function renderCompletionChip() {
+    if (!completionChipEl) return;
+
+    completionChipEl.hidden = !completionChecked;
+    completionChipEl.textContent = completionChecked ? '✓ All checked and commented' : '';
 }
 
 function renderCompletionArea() {
@@ -641,19 +698,17 @@ function renderCompletionArea() {
     const panel = document.createElement('div');
     panel.className = 'completion-panel';
 
-    if (completionChecked || completionAcknowledged) {
+    if (completionChecked) {
         const message = document.createElement('div');
         message.className = 'completion-message';
-        message.textContent = completionAcknowledged
-            ? 'All checked. Returning to page 1...'
-            : 'All checked';
+        message.textContent = 'All checked and commented';
         panel.appendChild(message);
     } else {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'completion-btn';
-        button.textContent = 'Click here to confirm that all visual explanation have been checked';
-        button.addEventListener('click', returnToFirstChartAfterCompletion);
+        button.textContent = 'Click here to confirm that all visual explanations have been checked';
+        button.addEventListener('click', handleCompletionConfirm);
         panel.appendChild(button);
     }
 
@@ -848,6 +903,7 @@ async function loadCompletionStatus() {
         completionError = error.message || 'Failed to load completion status';
     }
 
+    renderCompletionChip();
     renderCompletionArea();
 }
 

@@ -32,6 +32,25 @@ body {
     color: #111;
 }
 
+.completion-chip {
+    margin-left: auto;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    color: #15803d;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.completion-chip[hidden] {
+    display: none;
+}
+
 .chart-row {
     display: flex;
     align-items: center;
@@ -127,6 +146,48 @@ body {
     padding: 1px 3px;
     font-weight: 400;
     transition: background 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+/* Numbered badge (1, 2, 3 …) prefix — matches the Evaluation page so each
+   reasoning step reads as a distinct numbered block. */
+.sentence__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-right: 6px;
+    border-radius: 999px;
+    background: #cbd5e1;
+    color: #1e293b;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: 0.02em;
+    vertical-align: 1px;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.sentence--active .sentence__badge {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+.sentence--completed .sentence__badge {
+    background: #94a3b8;
+    color: #ffffff;
+}
+
+.sentence--selected .sentence__badge {
+    background: #1d4ed8;
+    color: #ffffff;
+}
+
+.sentence--pending .sentence__badge,
+.sentence--missing .sentence__badge {
+    background: #e5e7eb;
+    color: #9ca3af;
 }
 
 .sentence--active {
@@ -239,6 +300,62 @@ body {
 
 .completion-status--error {
     color: #b91c1c;
+}
+
+.completion-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(17, 24, 39, 0.45);
+}
+
+.completion-modal {
+    width: 100%;
+    max-width: 420px;
+    padding: 24px;
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+    text-align: center;
+    display: grid;
+    gap: 12px;
+}
+
+.completion-modal__title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #15803d;
+}
+
+.completion-modal__body {
+    font-size: 15px;
+    line-height: 1.55;
+    color: #374151;
+}
+
+.completion-modal__btn {
+    justify-self: center;
+    margin-top: 4px;
+    min-width: 120px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    background: #15803d;
+    color: #ffffff;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.completion-modal__btn:hover {
+    background: #166534;
 }
 
 #commentArea {

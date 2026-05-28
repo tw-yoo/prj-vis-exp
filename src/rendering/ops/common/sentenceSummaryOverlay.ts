@@ -1,6 +1,16 @@
 const OVERLAY_ATTR = 'data-visual-sentence-summary'
 const OVERLAY_SLOT_ATTR = 'data-summary-overlay-slot'
 
+/**
+ * Strip a leading "N. " (or "N) ") from authored sentence text so the rendered
+ * numbered badge is the single source of the step number. Mirrors the
+ * Evaluation page's `stripLeadingNumber` (src/evaluation/viewer.ts) so all
+ * explanation surfaces number their chunks identically.
+ */
+function stripLeadingNumber(text: string): string {
+  return text.replace(/^\s*\d+[.)]\s*/, '')
+}
+
 export type SentenceSummaryOverlayControl = {
   label: string
   disabled?: boolean
@@ -118,11 +128,24 @@ function renderOverlayItems(overlay: HTMLElement, items: SentenceSummaryOverlayI
   const list = document.createElement('div')
   list.className = 'chart-sentence-summary-list'
   items.forEach((item, index) => {
-    const text = item.text.trim()
+    const rawText = item.text.trim()
+    const displayText = rawText.length > 0 ? stripLeadingNumber(rawText) : `operation${index + 1}`
     const hasAction = typeof item.onClick === 'function'
     const node = document.createElement(hasAction ? 'button' : 'span')
     node.className = `chart-sentence-summary-item sentence sentence--${item.state}`
-    node.textContent = text.length > 0 ? text : `operation${index + 1}`
+
+    // Numbered badge (1, 2, 3 …) prefix — matches the Evaluation page so each
+    // reasoning step reads as a distinct numbered block across all surfaces.
+    const badge = document.createElement('span')
+    badge.className = 'sentence__badge'
+    badge.textContent = String(index + 1)
+    node.appendChild(badge)
+
+    const textNode = document.createElement('span')
+    textNode.className = 'sentence__text'
+    textNode.textContent = displayText
+    node.appendChild(textNode)
+
     node.setAttribute('data-summary-item-index', String(index))
     node.setAttribute('data-summary-item-state', item.state)
     if (hasAction && node instanceof HTMLButtonElement) {
