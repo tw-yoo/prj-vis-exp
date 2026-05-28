@@ -41,7 +41,7 @@ const LABEL_CONTEXT_OPACITY = 0.6
  *                           synchronous — see the d3-hang note below.
  */
 export function applyAnnotationContextFade(
-  layer: d3.Selection<SVGGElement, unknown, d3.BaseType, unknown>,
+  layer: d3.Selection<any, any, any, any>,
   annotationRecords: AnnotationRecord[],
   filterClass: string,
   referencedResultIds?: string[],
@@ -102,8 +102,8 @@ export function applyAnnotationContextFade(
   // Helper: start a context-fade transition either inheriting the parent's
   // timeline or creating a local one. Centralized so steps 2/3/4 stay
   // symmetric and the parent-vs-standalone branching lives in one place.
-  const contextTransition = <El extends d3.BaseType>(
-    sel: d3.Selection<El, unknown, d3.BaseType, unknown>,
+  const contextTransition = (
+    sel: d3.Selection<any, any, any, any>,
   ) => {
     const interrupted = sel.interrupt()
     if (parent) {

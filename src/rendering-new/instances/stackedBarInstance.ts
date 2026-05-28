@@ -507,9 +507,6 @@ export class StackedBarChartInstance implements ChartInstance {
           '[operation-new] StackedBarChartInstance.transitionToGrouped: grouped instance adoption FAILED — next op will rebuild and lose annotations',
         )
       }
-    } else if (result && result.chartType !== ChartType.STACKED_BAR) {
-      // Some other chart type (defensive — not currently exercised).
-      detachInstance(this.host)
     }
     return result
   }

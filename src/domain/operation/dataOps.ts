@@ -1401,9 +1401,9 @@ export function rangeData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 /** 3.17 rollingWindow — sliding aggregate (sum / avg / min / max).
  *
  * For each starting position i (0 ≤ i ≤ N − window), aggregates the next
- * `window` rows. Returns N − window + 1 DatumValues, one per window, each
+ * `window` rows. Returns N − window + 1 DatumValues, one per interval, each
  * carrying `windowStart` / `windowEnd` / `windowKeys` metadata so a
- * downstream `findExtremum` / `nth` can pick the best window.
+ * downstream `findExtremum` / `nth` can pick the best interval.
  */
 export function rollingWindowData(data: DatumValue[], op: OperationSpec): DatumValue[] {
   const arr = cloneData(data)

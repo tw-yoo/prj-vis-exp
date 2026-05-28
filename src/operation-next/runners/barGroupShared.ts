@@ -1415,7 +1415,7 @@ const STACKED_BAR_NTH_CLASS = 'operation-next-stacked-bar-nth'
 function findBarsByDatum(
   svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
   datum: DatumValue,
-): d3.Selection<SVGRectElement, unknown, null, undefined> {
+): d3.Selection<SVGRectElement, unknown, SVGSVGElement, unknown> {
   const target = datum.target == null ? null : String(datum.target)
   const group = datum.group == null ? null : String(datum.group)
   return svg

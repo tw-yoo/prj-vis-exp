@@ -447,7 +447,7 @@ export class GroupedBarChartInstance implements ChartInstance {
   }): Promise<StackGroupTransformResult | null> {
     console.info('[operation-new] GroupedBarChartInstance.transitionToStacked: starting')
     const result = await convertGroupedToStacked(this.host, opts.currentSpec, opts.stackGroup)
-    if (result && result.chartType !== ChartType.GROUPED_BAR) {
+    if (result) {
       detachInstance(this.host)
     }
     return result

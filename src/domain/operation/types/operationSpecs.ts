@@ -159,9 +159,9 @@ export interface OpRangeSpec extends OperationSpec {
  *
  * For each starting position i (0 ≤ i ≤ N − window), aggregates the next
  * `window` rows using `aggregate` (default 'avg'). Returns N − window + 1
- * DatumValues, one per window, each carrying `{ value, windowStart,
+ * DatumValues, one per interval, each carrying `{ value, windowStart,
  * windowEnd, windowKeys[] }` so a downstream `findExtremum` / `nth` can
- * pick the best window.
+ * pick the best interval.
  *
  * `orderField` is the axis to slide along (typically the x-axis field);
  * defaults to natural data order when omitted.
@@ -170,7 +170,7 @@ export interface OpRollingWindowSpec extends OperationSpec {
   op: typeof OperationOp.RollingWindow
   /** Size of the sliding window (positive integer ≥ 1). Required. */
   window: number
-  /** Aggregate function applied within each window. Default `'avg'`. */
+  /** Aggregate function applied within each interval. Default `'avg'`. */
   aggregate?: 'sum' | 'avg' | 'min' | 'max'
   /** Measure field to aggregate. Defaults to the chart's primary measure. */
   field?: string
@@ -201,4 +201,3 @@ export interface OpMonotonicRunSpec extends OperationSpec {
   orderField?: string
   group?: string | null
 }
-

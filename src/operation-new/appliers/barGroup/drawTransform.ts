@@ -37,7 +37,7 @@ import { createChainState, type ChainState } from '../../../operation-next/chain
  * picks the appropriate runner (simple-bar / grouped-bar) for the new type.
  */
 function buildApplier<TInstance extends GroupedBarChartInstance | StackedBarChartInstance>(
-  startChartType: ChartType.GROUPED_BAR | ChartType.STACKED_BAR,
+  startChartType: typeof ChartType.GROUPED_BAR | typeof ChartType.STACKED_BAR,
 ): OperationApplier<TInstance> {
   return {
     op: OperationOp.Draw,
@@ -69,7 +69,10 @@ function buildApplier<TInstance extends GroupedBarChartInstance | StackedBarChar
         // Same code path as before for the small subset of cases the typed
         // instance API doesn't cover yet (currently: action type mismatch
         // against the instance's current chart type).
-        const active = createBarChartState(instance.host, startChartType, runtimeSpec ?? instance.host)
+        if (!resolvedSpec) {
+          return { result: state.lastResult ?? [], nextState: state }
+        }
+        const active = createBarChartState(instance.host, startChartType, resolvedSpec)
         const transformed = await runBarTransformOperation(instance.host, { ...active, chainState: state }, drawOp)
         const nextResult: DatumValue[] = transformed.chainState.lastResult ?? state.lastResult ?? []
         return { result: nextResult, nextState: transformed.chainState }
@@ -94,7 +97,7 @@ function buildApplier<TInstance extends GroupedBarChartInstance | StackedBarChar
  */
 async function dispatchInstanceTransition(
   instance: GroupedBarChartInstance | StackedBarChartInstance,
-  startChartType: ChartType.GROUPED_BAR | ChartType.STACKED_BAR,
+  startChartType: typeof ChartType.GROUPED_BAR | typeof ChartType.STACKED_BAR,
   drawOp: DrawOp,
   spec: ChartSpec | null,
 ): Promise<{ chartType: ChartTypeValue; spec: ChartSpec } | 'legacy-fallback'> {

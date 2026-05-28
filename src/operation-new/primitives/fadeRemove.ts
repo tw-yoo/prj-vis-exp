@@ -24,7 +24,7 @@ const DEFAULT_FADE_OUT_MS = 150
  *                primitive creates its own root transition with `duration`.
  */
 export function fadeRemoveAnnotations(
-  scope: d3.Selection<d3.BaseType, unknown, d3.BaseType, unknown>,
+  scope: d3.Selection<any, any, any, any>,
   cssClass: string,
   duration: number = DEFAULT_FADE_OUT_MS,
   parent?: ParentTransition,

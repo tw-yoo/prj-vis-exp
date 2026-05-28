@@ -4,16 +4,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import '../../App.css'
 import '../review.css'
-import type { ChartSpec, OpsSpecInput } from '../../../src/api/types'
+import { getChartType, type ChartSpec, type OperationSpec, type OpsSpecInput, type RawRow } from '../../../src/api/types'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import { consumeDerivedChartState } from '../../../src/api/rendering'
-import { collectReferencedResultIds } from '../../../src/operation-next/diffEndpoint'
-import { isOperationNextRunOutcome } from '../../../src/operation-next/executionState'
 import type {
-  OperationNextRunOutcome,
   OperationRuntimeSnapshot,
   RunChartOpsOptions,
-} from '../../../src/operation-next/runChartOps'
+} from '../../../src/api/review-runtime'
+import {
+  buildDatumValuesForSpec,
+  collectReferencedResultIds,
+  isOperationNextRunOutcome,
+} from '../../../src/api/review-runtime'
 import {
   clearSentenceSummaryOverlay,
   renderSentenceSummaryOverlay,
@@ -21,12 +23,8 @@ import {
   type SentenceSummaryOverlayRenderInput,
 } from '../../../src/api/sentence-summary-overlay'
 import { analyzeSplitPlan, splitPlanRoleFor, type SplitPlan } from '../../../src/api/splitPlan'
-import { SurfaceManager } from '../../../src/runtime/surfaceManager'
-import { applySplitSharedYAxisPolicy } from '../../../src/operation-next/splitSurfaceVisuals'
-import { getChartType } from '../../../src/domain/chart/chartType'
-import { resolveEncodingFields } from '../../../src/rendering/ops/common/resolveEncodingFields'
-import { toDatumValuesFromRaw, type RawRow } from '../../../src/domain/data/datum'
-import type { OperationSpec } from '../../../src/domain/operation/types'
+import { SurfaceManager } from '../../../src/api/surface-manager'
+import { applySplitSharedYAxisPolicy } from '../../../src/api/split-surface-visuals'
 import ReviewToolbar from '../components/ReviewToolbar'
 import ReviewTable, { type EditingCell } from '../components/ReviewTable'
 import ReviewChartPane, { type ChartPaneStatus } from '../components/ReviewChartPane'
@@ -84,24 +82,6 @@ function extractSpecRows(spec: ChartSpec | null | undefined): RawRow[] {
   return ((data as { values: unknown[] }).values).filter(
     (row): row is RawRow => !!row && typeof row === 'object' && !Array.isArray(row),
   )
-}
-
-/**
- * Convert raw rows into the `DatumValue[]` shape `SurfaceManager` expects.
- * Mirrors the helper of the same name in visual-execution-player.ts so the
- * review page's split orchestration produces surface-data in the same format
- * the operation-next runners read.
- */
-function buildDatumValuesForSpec(spec: ChartSpec, rows: RawRow[]) {
-  const resolved = resolveEncodingFields(spec)
-  if (!resolved) return []
-  return toDatumValuesFromRaw(rows, {
-    xField: resolved.xField,
-    yField: resolved.yField,
-    groupField: resolved.groupField ?? undefined,
-  }, {
-    panelField: resolved.panelField,
-  })
 }
 
 function parseOpsGroups(opsRaw: string): OpsGroupsParse {

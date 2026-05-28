@@ -37,7 +37,7 @@ import type { ParentTransition } from './sharedTransition'
  *                       legacy behavior of every existing caller.
  */
 export async function transitionLegendScope(args: {
-  svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | d3.Selection<SVGSVGElement, unknown, d3.BaseType, unknown>
+  svg: d3.Selection<SVGSVGElement, unknown, any, any>
   activeSeries: Set<string>
   duration?: number
   ease?: (t: number) => number
@@ -87,14 +87,14 @@ export async function transitionLegendScope(args: {
   const ownedParent = parent
     ? null
     : (legend.transition().duration(duration).ease(ease) as unknown as ParentTransition)
-  const inheritT = ((parent ?? ownedParent) as unknown) as never
+  const inheritT = (parent ?? ownedParent) as d3.Transition<d3.BaseType, unknown, any, any>
 
   // Apply to BOTH circles and text rows via a single selector pass.
   legend
     .selectAll<SVGElement, unknown>(`[${DataAttributes.Series}]`)
     .interrupt('legend-scope')
     .transition(inheritT)
-    .style(SvgAttributes.Opacity, function () {
+    .style(SvgAttributes.Opacity, function (this: SVGElement) {
       const series = this.getAttribute(DataAttributes.Series) ?? ''
       if (!activeSeries.has(series)) return 0
       // Circle row keeps its 0.85 base opacity; text gets full opacity.
@@ -106,7 +106,7 @@ export async function transitionLegendScope(args: {
   legend
     .selectAll<SVGCircleElement, unknown>(`circle[${DataAttributes.Series}]`)
     .transition(inheritT)
-    .attr(SvgAttributes.CY, function () {
+    .attr(SvgAttributes.CY, function (this: SVGCircleElement) {
       const series = this.getAttribute(DataAttributes.Series) ?? ''
       const newY = seriesToNewY.get(series)
       return newY != null ? newY : Number(this.getAttribute(SvgAttributes.CY) ?? 0)
@@ -115,7 +115,7 @@ export async function transitionLegendScope(args: {
   legend
     .selectAll<SVGTextElement, unknown>(`text[${DataAttributes.Series}]`)
     .transition(inheritT)
-    .attr(SvgAttributes.Y, function () {
+    .attr(SvgAttributes.Y, function (this: SVGTextElement) {
       const series = this.getAttribute(DataAttributes.Series) ?? ''
       const newY = seriesToNewY.get(series)
       return newY != null ? newY : Number(this.getAttribute(SvgAttributes.Y) ?? 0)

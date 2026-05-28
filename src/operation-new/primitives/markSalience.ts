@@ -2,7 +2,7 @@ import type * as d3 from 'd3'
 import { DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 
 export interface MarkSalienceOptions {
-  marks: d3.Selection<SVGElement, unknown, d3.BaseType, unknown>
+  marks: d3.Selection<SVGElement, unknown, any, any>
   isInScope: (node: SVGElement) => boolean
   inOpacity?: number
   outOpacity?: number
@@ -42,7 +42,7 @@ export async function applyMarkSalience(opts: MarkSalienceOptions): Promise<void
 }
 
 export async function restoreMarkSalience(
-  marks: d3.Selection<SVGElement, unknown, d3.BaseType, unknown>,
+  marks: d3.Selection<SVGElement, unknown, any, any>,
   duration = DURATIONS.FADE,
 ): Promise<void> {
   if (marks.empty()) return

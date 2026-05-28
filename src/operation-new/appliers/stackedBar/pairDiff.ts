@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import { pairDiffData } from '../../../domain/operation/dataOps'
-import { OperationOp } from '../../../domain/operation/types'
+import { OperationOp, type JsonValue } from '../../../domain/operation/types'
 import { assertPairDiffSpec } from '../../../domain/operation/types/operationValidators'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS, EASINGS } from '../../../rendering/common/d3Helpers'
@@ -232,7 +232,7 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
 
     const filteredStackedSpec: StackedSpec = {
       ...stackedSpec,
-      data: { values: filteredValues },
+      data: { values: filteredValues as JsonValue[] },
       encoding: {
         ...baseEncoding,
         color: {
