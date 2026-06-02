@@ -1,40 +1,18 @@
-import { OperationOp } from '../../../domain/operation/types'
-import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
+import { makeBarGroupAverageApplier } from '../barGroup/average'
 import type { GroupedBarChartInstance } from '../../../rendering-new/instances/groupedBarInstance'
-import { runGroupedBarAverageOperation } from '../../../operation-next/runners/barGroupShared'
+import { FILTER_ANNOTATION_CLASS } from './filter'
+
+export { AVERAGE_ANNOTATION_CLASS } from '../barGroup/average'
 
 /**
- * grouped-bar average applier.
+ * grouped-bar average applier — native (shared logic in `barGroup/average.ts`).
  *
- * Delegates to the legacy `runGroupedBarAverageOperation`. Average for
- * grouped/stacked bar is structurally complex — when a `group` is
- * specified, the chart is CONVERTED to a simple-bar showing only that
- * group's bars, then the average ref line is drawn on the simple-bar.
- * This chart-conversion logic is well-tested in legacy and re-implementing
- * it would be substantial. The wrapper preserves the visual behavior and
- * threads ChainState through our applier interface.
+ * Group-scoped averages convert the grouped chart to a simple bar of that group
+ * (signalled via `storeDerivedChartState`, so the swap survives the next op) and
+ * draw the average line on it; otherwise a global average line is drawn across
+ * the panels. Either way the line is stamped with the result-ref so a
+ * cross-surface diff can resolve it.
  */
-export const averageApplier: OperationApplier<GroupedBarChartInstance> = {
-  op: OperationOp.Average,
-
-  async apply({
-    operation,
-    state,
-    instance,
-    options,
-  }: ApplierArgs<GroupedBarChartInstance>): Promise<ApplierResult> {
-    console.info('[operation-new] grouped-bar applier:average (delegating to legacy)', {
-      nodeId: operation.meta?.nodeId,
-      group: operation.group,
-      workingLen: state.workingData.length,
-    })
-
-    const outcome = await runGroupedBarAverageOperation(
-      instance.host,
-      operation,
-      state,
-      options?.referencedResultIds,
-    )
-    return outcome
-  },
-}
+export const averageApplier = makeBarGroupAverageApplier<GroupedBarChartInstance>({
+  filterClass: FILTER_ANNOTATION_CLASS,
+})

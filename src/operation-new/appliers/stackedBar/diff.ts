@@ -1,33 +1,13 @@
-import { OperationOp } from '../../../domain/operation/types'
-import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
+import { makeBarGroupDiffApplier } from '../barGroup/diff'
 import type { StackedBarChartInstance } from '../../../rendering-new/instances/stackedBarInstance'
-import { runGroupedBarDiffOperation } from '../../../operation-next/runners/barGroupShared'
+
+export { DIFF_ANNOTATION_CLASS } from '../barGroup/diff'
 
 /**
- * stacked-bar diff applier — shares the legacy `runGroupedBarDiffOperation`
- * with grouped-bar. Stacked-context diff goes through the same vertical
- * arrow + ref line annotation path internally.
+ * stacked-bar diff applier — native (shared logic in `barGroup/diff.ts`).
+ *
+ * A root merge diff on a split layout resolves its endpoints from the two
+ * surfaces' stamped average lines and draws the cross-surface Δ arrow; the
+ * non-split / intra-panel branch delegates to the legacy bar-to-bar diff.
  */
-export const diffApplier: OperationApplier<StackedBarChartInstance> = {
-  op: OperationOp.Diff,
-
-  async apply({
-    operation,
-    state,
-    instance,
-    options,
-  }: ApplierArgs<StackedBarChartInstance>): Promise<ApplierResult> {
-    console.info('[operation-new] stacked-bar applier:diff (delegating to legacy)', {
-      nodeId: operation.meta?.nodeId,
-      targetA: operation.targetA,
-      targetB: operation.targetB,
-      workingLen: state.workingData.length,
-    })
-    return runGroupedBarDiffOperation(
-      instance.host,
-      operation,
-      state,
-      options?.surfaceManager,
-    )
-  },
-}
+export const diffApplier = makeBarGroupDiffApplier<StackedBarChartInstance>()

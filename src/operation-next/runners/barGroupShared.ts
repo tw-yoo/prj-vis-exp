@@ -1183,7 +1183,7 @@ export async function runGroupedBarAverageOperation(
  * (post-filter). Returns null if the source spec's encoding is incomplete or
  * the resulting filter would leave no rows.
  */
-function buildSimpleBarFromGroup(
+export function buildSimpleBarFromGroup(
   source: { type: ChartTypeValue; spec: ChartSpec },
   groupStr: string,
   workingData: DatumValue[],

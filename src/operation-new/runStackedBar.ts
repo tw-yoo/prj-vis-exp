@@ -26,6 +26,7 @@ import { averageApplier } from './appliers/stackedBar/average'
 import { diffApplier } from './appliers/stackedBar/diff'
 import { pairDiffApplier } from './appliers/stackedBar/pairDiff'
 import { retrieveValueApplier } from './appliers/stackedBar/retrieveValue'
+import { countApplier, findExtremumApplier, nthApplier } from './appliers/stackedBar/selection'
 import { drawTransformApplierStacked } from './appliers/barGroup/drawTransform'
 import type { ApplierArgs, OperationApplier } from './applier'
 
@@ -36,7 +37,10 @@ function isPortedOp(op: OperationSpec): boolean {
     op.op === OperationOp.Average ||
     op.op === OperationOp.Diff ||
     op.op === OperationOp.PairDiff ||
-    op.op === OperationOp.RetrieveValue
+    op.op === OperationOp.RetrieveValue ||
+    op.op === OperationOp.FindExtremum ||
+    op.op === OperationOp.Nth ||
+    op.op === OperationOp.Count
   )
 }
 
@@ -53,6 +57,12 @@ function pickApplier(op: OperationSpec): OperationApplier<StackedBarChartInstanc
       return pairDiffApplier
     case OperationOp.RetrieveValue:
       return retrieveValueApplier
+    case OperationOp.FindExtremum:
+      return findExtremumApplier
+    case OperationOp.Nth:
+      return nthApplier
+    case OperationOp.Count:
+      return countApplier
     default:
       return null
   }
