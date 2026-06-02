@@ -1,0 +1,87 @@
+{
+  "ops": [
+    {
+      "op": "filter",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "field": "Risk index score",
+      "operator": ">=",
+      "value": 5.8
+    },
+    {
+      "op": "filter",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 1
+      },
+      "field": "Risk index score",
+      "operator": "<=",
+      "value": 6.2
+    },
+    {
+      "op": "findExtremum",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n2"
+        ],
+        "sentenceIndex": 1
+      },
+      "which": "max",
+      "field": "Risk index score"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [],
+        "sentenceIndex": 2
+      },
+      "field": "Risk index score",
+      "operator": "<",
+      "value": 4.8
+    },
+    {
+      "op": "findExtremum",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n4"
+        ],
+        "sentenceIndex": 2
+      },
+      "which": "max",
+      "field": "Risk index score"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "diff",
+      "id": "n6",
+      "meta": {
+        "nodeId": "n6",
+        "inputs": [
+          "n3",
+          "n5"
+        ],
+        "sentenceIndex": 3
+      },
+      "targetA": "ref:n3",
+      "targetB": "ref:n5",
+      "signed": false
+    }
+  ]
+}

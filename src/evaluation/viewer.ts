@@ -1,8 +1,16 @@
-import { loadSession, type ParticipantData, type SequenceItem } from './participantSession'
+import {
+  loadSession,
+  buildSequence,
+  type ParticipantData,
+  type SequenceItem,
+  type OrderSystemFile,
+  type OrderChartFile,
+  type ChartGroupFile,
+} from './participantSession'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './renderers/types'
 import { OursRenderer } from './renderers/oursRenderer'
-import { D3Renderer } from './renderers/d3Renderer'
 import { SvgRenderer } from './renderers/svgRenderer'
+import { BaselineRenderer } from './renderers/baselineRenderer'
 
 declare global {
   interface Window {
@@ -119,6 +127,7 @@ const taskBannerEl = document.getElementById('taskBanner') as HTMLElement
 const containerEl = document.getElementById('chartContainer') as HTMLElement
 const questionEl = document.getElementById('questionText') as HTMLElement
 const descriptionEl = document.getElementById('descriptionText') as HTMLElement
+const debugMetaEl = document.getElementById('debugMeta') as HTMLElement
 const explanationEl = document.getElementById('explanationArea') as HTMLElement
 const statusEl = document.getElementById('statusArea') as HTMLElement
 const surveyEl = document.getElementById('surveyArea') as HTMLFormElement
@@ -143,6 +152,7 @@ const chartMap = await fetch(withBase('/chart_map.json')).then((r) => r.json()) 
 const charts = chartMap.charts ?? {}
 const defaultD3Model = chartMap.defaults?.d3?.model ?? 'gpt-5.2'
 const defaultSvgModel = chartMap.defaults?.svg?.model ?? 'gpt-5.2'
+const baselineModel = chartMap.defaults?.svg?.model ?? 'gpt-5.2'
 
 const rendererContext: RendererContext = {
   container: containerEl,
@@ -150,9 +160,25 @@ const rendererContext: RendererContext = {
   oursBase: withBase('/data/ours'),
   defaultD3Model,
   defaultSvgModel,
+  baselineModel,
 }
 
-const sequence: SequenceItem[] = participant.sequence
+// Build the per-participant sequence from the order model:
+//   order.system -> order_system.json -> [Ours, B1, B2]
+//   order.chart  -> order_chart.json  -> [G1, G2, G3]
+// system i is paired with group i; each group's 5 charts (chart_group.json) are
+// listed in an order randomized deterministically by the participant code (so
+// reloads / ?page navigation stay aligned). 3 systems x 5 charts = 15 items.
+const [orderSystem, orderChart, chartGroup] = await Promise.all([
+  fetch(withBase('/order_system.json')).then((r) => r.json()) as Promise<OrderSystemFile>,
+  fetch(withBase('/order_chart.json')).then((r) => r.json()) as Promise<OrderChartFile>,
+  fetch(withBase('/chart_group.json')).then((r) => r.json()) as Promise<ChartGroupFile>,
+])
+const sequence: SequenceItem[] = buildSequence(
+  participant.order,
+  { orderSystem, orderChart, chartGroup },
+  participant.code,
+)
 const allPages: PageDescriptor[] = (() => {
   const intros: PageDescriptor[] = INTRO_PAGE_KINDS.map((kind) => ({ kind }))
   const surveys: PageDescriptor[] = []
@@ -212,13 +238,10 @@ function getItemKey(item: SequenceItem) {
   return `${item.chart_id}::${item.method}`
 }
 
-function createRenderer(method: ExplanationMethod, item: SequenceItem): ExplanationRenderer {
-  if (method === 'ours') {
-    const oursSteps = charts[item.chart_id]?.ours?.steps
-    return new OursRenderer(rendererContext, oursSteps)
-  }
-  if (method === 'd3') return new D3Renderer(rendererContext)
-  if (method === 'svg') return new SvgRenderer(rendererContext)
+function createRenderer(method: ExplanationMethod): ExplanationRenderer {
+  if (method === 'ours') return new OursRenderer(rendererContext)
+  if (method === 'b1') return new BaselineRenderer(rendererContext, 'b1')
+  if (method === 'b2') return new BaselineRenderer(rendererContext, 'b2')
   throw new Error(`Unknown method: ${method}`)
 }
 
@@ -531,6 +554,7 @@ function updateUI() {
 
   if (!page || page.kind !== 'survey') {
     if (methodBadgeEl) methodBadgeEl.textContent = ''
+    debugMetaEl.textContent = ''
     if (page?.kind === 'intro-welcome') progressLabelEl.textContent = 'Introduction · 1 of 3'
     else if (page?.kind === 'tutorial-interact') progressLabelEl.textContent = 'Introduction · 2 of 3'
     else if (page?.kind === 'tutorial-task') progressLabelEl.textContent = 'Introduction · 3 of 3'
@@ -539,11 +563,11 @@ function updateUI() {
   }
 
   const item = sequence[page.itemIdx]
-  const entry = charts[item.chart_id]
   progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
   if (methodBadgeEl) methodBadgeEl.textContent = `Question ${page.itemIdx + 1} / ${sequence.length}`
-  questionEl.textContent = entry?.question ?? ''
-  descriptionEl.textContent = entry?.description ?? ''
+  questionEl.textContent = item.question
+  descriptionEl.textContent = ''
+  debugMetaEl.textContent = `System ${item.system} · Group ${item.group} · ID ${item.chart_id}`
 
   const stepTexts = currentRenderer?.getStepTexts() ?? []
   buildSentenceSpans(explanationEl, stepTexts, {
@@ -572,7 +596,7 @@ async function activateItem(item: SequenceItem) {
   statusEl.textContent = ''
 
   try {
-    const renderer = createRenderer(item.method, item)
+    const renderer = createRenderer(item.method)
     await renderer.loadChart(item.chart_id)
     currentRenderer = renderer
     currentItemKey = key

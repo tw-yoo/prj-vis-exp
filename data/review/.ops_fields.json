@@ -1,0 +1,201 @@
+{
+ "retrieveValue": {
+  "required": [],
+  "allowed": [
+   "field",
+   "group",
+   "target",
+   "targetAxis"
+  ]
+ },
+ "filter": {
+  "required": [],
+  "allowed": [
+   "exclude",
+   "field",
+   "group",
+   "include",
+   "operator",
+   "value",
+   "xKindHint"
+  ]
+ },
+ "findExtremum": {
+  "required": [],
+  "allowed": [
+   "field",
+   "group",
+   "rank",
+   "which"
+  ]
+ },
+ "diffByValue": {
+  "required": [],
+  "allowed": [
+   "field",
+   "group",
+   "signed",
+   "targetValue",
+   "value"
+  ]
+ },
+ "compareBool": {
+  "required": [
+   "operator"
+  ],
+  "allowed": [
+   "aggregate",
+   "field",
+   "group",
+   "groupA",
+   "groupB",
+   "operator",
+   "targetA",
+   "targetB"
+  ]
+ },
+ "sort": {
+  "required": [],
+  "allowed": [
+   "field",
+   "group",
+   "order",
+   "orderField"
+  ]
+ },
+ "sum": {
+  "required": [],
+  "allowed": [
+   "field",
+   "group"
+  ]
+ },
+ "average": {
+  "required": [],
+  "allowed": [
+   "field",
+   "group"
+  ]
+ },
+ "diff": {
+  "required": [],
+  "allowed": [
+   "aggregate",
+   "field",
+   "group",
+   "groupA",
+   "groupB",
+   "mode",
+   "percent",
+   "precision",
+   "scale",
+   "signed",
+   "targetA",
+   "targetB",
+   "targetName"
+  ]
+ },
+ "lagDiff": {
+  "required": [],
+  "allowed": [
+   "absolute",
+   "field",
+   "group",
+   "order",
+   "signed"
+  ]
+ },
+ "pairDiff": {
+  "required": [
+   "by",
+   "groupA",
+   "groupB"
+  ],
+  "allowed": [
+   "absolute",
+   "by",
+   "field",
+   "group",
+   "groupA",
+   "groupB",
+   "precision",
+   "seriesField",
+   "signed"
+  ]
+ },
+ "nth": {
+  "required": [
+   "n"
+  ],
+  "allowed": [
+   "field",
+   "from",
+   "group",
+   "n",
+   "order",
+   "orderField"
+  ]
+ },
+ "count": {
+  "required": [],
+  "allowed": [
+   "field",
+   "group"
+  ]
+ },
+ "add": {
+  "required": [
+   "targetA",
+   "targetB"
+  ],
+  "allowed": [
+   "field",
+   "group",
+   "targetA",
+   "targetB"
+  ]
+ },
+ "scale": {
+  "required": [
+   "target",
+   "factor"
+  ],
+  "allowed": [
+   "factor",
+   "field",
+   "group",
+   "target"
+  ]
+ },
+ "range": {
+  "required": [],
+  "allowed": [
+   "field",
+   "group"
+  ]
+ },
+ "rollingWindow": {
+  "required": [
+   "window"
+  ],
+  "allowed": [
+   "aggregate",
+   "field",
+   "group",
+   "orderField",
+   "window"
+  ]
+ },
+ "monotonicRun": {
+  "required": [],
+  "allowed": [
+   "direction",
+   "field",
+   "group",
+   "minLength",
+   "mode",
+   "orderField",
+   "strict"
+  ]
+ }
+}

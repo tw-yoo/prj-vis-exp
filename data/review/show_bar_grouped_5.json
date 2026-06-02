@@ -1,0 +1,200 @@
+{
+ "1ar60b8rke2d8e64": {
+  "row": "135",
+  "type": "bar_grouped",
+  "x": "Type",
+  "y": "Retention rate",
+  "series": "Type",
+  "x_vals": [
+   "Average",
+   "Messaging apps"
+  ],
+  "series_vals": [
+   "Average",
+   "Messaging apps"
+  ],
+  "other_dims": {
+   "Time Period": [
+    "12th month",
+    "1st month",
+    "2nd month",
+    "3rd month",
+    "6th month"
+   ]
+  },
+  "y_min": 0.11,
+  "y_max": 0.68,
+  "y_mean": 0.443,
+  "n_rows": 10,
+  "q": "What year is the smallest difference between the two types?",
+  "e": "1. Calculate the rate differences between two types for each year\n2. Sort them\n3. Find the minimum value",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Average\",\"groupB\":\"Messaging apps\",\"seriesField\":\"Type\",\"by\":\"Time Period\",\"field\":\"Retention rate\",\"absolute\":true}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"min\",\"field\":\"Retention rate\"}]}"
+ },
+ "16fif5hdi8yzml00": {
+  "row": "139",
+  "type": "bar_grouped",
+  "x": "Type",
+  "y": "Payment_Million_USD",
+  "series": "Type",
+  "x_vals": [
+   "Maximum",
+   "Minimum"
+  ],
+  "series_vals": [
+   "Maximum",
+   "Minimum"
+  ],
+  "other_dims": {
+   "State": [
+    "Illinois",
+    "Iowa",
+    "Kansas",
+    "Oklahoma"
+   ]
+  },
+  "y_min": 10.0,
+  "y_max": 25.0,
+  "y_mean": 16.25,
+  "n_rows": 8,
+  "q": "What is the difference between average of maximum payment in all states and average of minimum payment in all states?",
+  "e": "1. sum up the maximum payment value of all states\n2. Divide it with the number of states to calculate the average\n3. sum up the minimum payment value of all states\n4. Divide it with the number of states to calculate the average \n5. Calculate the difference between two average values",
+  "cand": "{\"ops\":[{\"op\":\"average\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Payment_Million_USD\",\"group\":\"Maximum\"}],\"ops2\":[{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Payment_Million_USD\",\"group\":\"Minimum\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":3},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":true}]}"
+ },
+ "1jatwi94v2d8cr9u": {
+  "row": "144",
+  "type": "bar_grouped",
+  "x": "Market Type",
+  "y": "Value in billion US dollars",
+  "series": "Market Type",
+  "x_vals": [
+   "Digital market",
+   "Package market"
+  ],
+  "series_vals": [
+   "Digital market",
+   "Package market"
+  ],
+  "other_dims": {
+   "Year": [
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020",
+    "2021",
+    "2022"
+   ]
+  },
+  "y_min": 5.3,
+  "y_max": 34.4,
+  "y_mean": 14.916667,
+  "n_rows": 24,
+  "q": "What is the difference between the yearly sum of the digital market and the annual sum of the package market?",
+  "e": "Sum all the annual values of the digital market\nSum all the annual values of the package market\nFind the difference between the two values",
+  "cand": "{\"ops\":[{\"op\":\"sum\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Value in billion US dollars\",\"group\":\"Digital market\"}],\"ops2\":[{\"op\":\"sum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Value in billion US dollars\",\"group\":\"Package market\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":3},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":true}]}"
+ },
+ "1hokbw2gmzar9ye8": {
+  "row": "150",
+  "type": "bar_grouped",
+  "x": "Age Group",
+  "y": "Percentage of adults",
+  "series": "Age Group",
+  "x_vals": [
+   "18 to 39 years",
+   "18 years and over",
+   "40 to 59 years",
+   "60 years and over"
+  ],
+  "series_vals": [
+   "18 to 39 years",
+   "18 years and over",
+   "40 to 59 years",
+   "60 years and over"
+  ],
+  "other_dims": {
+   "Group": [
+    "Men",
+    "Total",
+    "Women"
+   ]
+  },
+  "y_min": 0.13,
+  "y_max": 0.752,
+  "y_mean": 0.49175,
+  "n_rows": 12,
+  "q": "What's the difference between women over 60 and men under 40?",
+  "e": "Find the percentage of women over 60 years old.\nFind and add percentage values for men under 40.\nSubtract two values.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Group\",\"include\":[\"Women\"]},{\"op\":\"retrieveValue\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"target\":\"60 years and over\",\"field\":\"Percentage of adults\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Group\",\"include\":[\"Men\"]},{\"op\":\"retrieveValue\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\"],\"sentenceIndex\":2},\"target\":\"18 to 39 years\",\"field\":\"Percentage of adults\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[\"n2\",\"n4\"],\"sentenceIndex\":3},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n4\",\"signed\":true}]}"
+ },
+ "1j7gx35h6i9mpi6j": {
+  "row": "155",
+  "type": "bar_grouped",
+  "x": "Response",
+  "y": "Share of respondents",
+  "series": "Response",
+  "x_vals": [
+   "A little less important/Much less important",
+   "About the same",
+   "Much more important/A little more important"
+  ],
+  "series_vals": [
+   "A little less important/Much less important",
+   "About the same",
+   "Much more important/A little more important"
+  ],
+  "other_dims": {
+   "Item": [
+    "Beauty products",
+    "Books",
+    "Electronic items",
+    "Home improvement",
+    "Music – CDs/DVDs",
+    "Travel and hotels"
+   ]
+  },
+  "y_min": 0.08,
+  "y_max": 0.68,
+  "y_mean": 0.333889,
+  "n_rows": 18,
+  "q": "What is the difference between the proportion of respondents who value beauty products and the proportion of respondents who value books?",
+  "e": "Find the proportion of respondents who value beauty products.\nFind the percentage of respondents who value books.\nSubtract two values.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Item\",\"include\":[\"Beauty products\"]},{\"op\":\"retrieveValue\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"target\":\"Much more important/A little more important\",\"field\":\"Share of respondents\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Item\",\"include\":[\"Books\"]},{\"op\":\"retrieveValue\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\"],\"sentenceIndex\":2},\"target\":\"Much more important/A little more important\",\"field\":\"Share of respondents\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[\"n2\",\"n4\"],\"sentenceIndex\":3},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n4\",\"signed\":true}]}"
+ },
+ "1mzcynif2s4mm6ps": {
+  "row": "160",
+  "type": "bar_grouped",
+  "x": "Respondent Group",
+  "y": "Share of respondents",
+  "series": "Respondent Group",
+  "x_vals": [
+   "Enterprises",
+   "Provider"
+  ],
+  "series_vals": [
+   "Enterprises",
+   "Provider"
+  ],
+  "other_dims": {
+   "Item": [
+    "Whether local broadband infrastructure is good enough to sustain working from home during the crisis",
+    "Whether our IT infrastructure will cope with extra working from home",
+    "Whether we can source the necessary equipment",
+    "Whether we have the financial reserves to last us until the situation is clear",
+    "Whether we have the management structure in place to manage decentralized teams",
+    "Whether we have the support resources in place to manage the wellness of our teams"
+   ]
+  },
+  "y_min": 0.25,
+  "y_max": 0.64,
+  "y_mean": 0.485833,
+  "n_rows": 12,
+  "q": "What is the difference between the Enterprises sum and the Providers sum?",
+  "e": "Find the sum of Enterprises values.\nFind the sum of Provider values.\nFind the difference between the two values.",
+  "cand": "{\"ops\":[{\"op\":\"sum\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Share of respondents\",\"group\":\"Enterprises\"}],\"ops2\":[{\"op\":\"sum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Share of respondents\",\"group\":\"Provider\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":3},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":true}]}"
+ }
+}

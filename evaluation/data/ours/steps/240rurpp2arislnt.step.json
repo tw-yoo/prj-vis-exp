@@ -1,0 +1,21 @@
+{
+  "chart_id": "240rurpp2arislnt",
+  "question": "Find the difference between the response with the smallest percentage in the youngest group and the response with the highest percentage in the oldest group",
+  "description": "",
+  "specPath": "specs/240rurpp2arislnt.vl.json",
+  "opsPath": "ops/240rurpp2arislnt.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Sort the share values in 18-29 age group. Find the minimum value of them"
+    },
+    {
+      "id": "ops2",
+      "text": "Sort the share values in 65+ age group. Find the maximum value if them"
+    },
+    {
+      "id": "ops3",
+      "text": "Get the difference between youngest group's minimum value and oldest group's maximum value"
+    }
+  ]
+}

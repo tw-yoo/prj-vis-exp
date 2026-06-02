@@ -1,0 +1,8 @@
+{
+ "file": "data/review/human_explanation_filled.csv",
+ "ran_ok": 195,
+ "failed": 0,
+ "empty": 45,
+ "top_failure_causes": {},
+ "report": "data/review/.fix_exec.json"
+}

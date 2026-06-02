@@ -1,0 +1,119 @@
+{
+ "23bplnbw291p6nil": {
+  "row": "185",
+  "type": "bar_grouped",
+  "x": "Gender",
+  "y": "Median_Annual_Pay_GBP",
+  "series": "Gender",
+  "x_vals": [
+   "Female",
+   "Male"
+  ],
+  "series_vals": [
+   "Female",
+   "Male"
+  ],
+  "other_dims": {
+   "Age_Group": [
+    "18 to 21",
+    "22 to 29",
+    "30 to 39",
+    "40 to 49",
+    "50 to 59",
+    "60 and over"
+   ]
+  },
+  "y_min": 17831.0,
+  "y_max": 38829.0,
+  "y_mean": 28700.333333,
+  "n_rows": 12,
+  "q": "How much less were women's median earning then men's in age group from 50-59?",
+  "e": "1. Determine female and male median f=30,000 gbp and m= 34,000\n2. Subtract f from m to find difference = 4000",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Age_Group\",\"include\":[\"50 to 59\"]}],\"ops2\":[{\"op\":\"retrieveValue\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"target\":\"Male\",\"field\":\"Median_Annual_Pay_GBP\"},{\"op\":\"retrieveValue\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"target\":\"Female\",\"field\":\"Median_Annual_Pay_GBP\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n2\",\"n3\"],\"sentenceIndex\":2},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n3\",\"signed\":true}]}"
+ },
+ "qk7m2x9w4p1n8r3t": {
+  "row": "",
+  "type": null,
+  "x": null,
+  "y": null,
+  "series": null,
+  "x_vals": [],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": null,
+  "y_max": null,
+  "y_mean": null,
+  "n_rows": null,
+  "q": "",
+  "e": "",
+  "cand": null
+ },
+ "x9f4k2m7p3w8n1q6": {
+  "row": "",
+  "type": null,
+  "x": null,
+  "y": null,
+  "series": null,
+  "x_vals": [],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": null,
+  "y_max": null,
+  "y_mean": null,
+  "n_rows": null,
+  "q": "",
+  "e": "",
+  "cand": null
+ },
+ "5h8j2k4m9n3p7r1t": {
+  "row": "",
+  "type": null,
+  "x": null,
+  "y": null,
+  "series": null,
+  "x_vals": [],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": null,
+  "y_max": null,
+  "y_mean": null,
+  "n_rows": null,
+  "q": "",
+  "e": "",
+  "cand": null
+ },
+ "p2w9x4k7m1n8q3r6": {
+  "row": "",
+  "type": null,
+  "x": null,
+  "y": null,
+  "series": null,
+  "x_vals": [],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": null,
+  "y_max": null,
+  "y_mean": null,
+  "n_rows": null,
+  "q": "",
+  "e": "",
+  "cand": null
+ },
+ "n7r3k9m2p4w8x1q5": {
+  "row": "",
+  "type": null,
+  "x": null,
+  "y": null,
+  "series": null,
+  "x_vals": [],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": null,
+  "y_max": null,
+  "y_mean": null,
+  "n_rows": null,
+  "q": "",
+  "e": "",
+  "cand": null
+ }
+}

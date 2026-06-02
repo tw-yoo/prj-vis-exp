@@ -1,0 +1,187 @@
+{
+ "2a8mliwolqqo6s5u": {
+  "row": "131",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Market_Size_Billion_USD",
+  "series": "Region",
+  "x_vals": [
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020",
+   "2021"
+  ],
+  "series_vals": [
+   "Americas",
+   "Asia Pacific",
+   "Europe",
+   "Japan"
+  ],
+  "other_dims": {},
+  "y_min": 1.42,
+  "y_max": 37.2,
+  "y_mean": 11.493889,
+  "n_rows": 36,
+  "q": "In what year is the smallest difference between the market size of Asia Pacific region and the remaining three regions?",
+  "e": "1. For each year, get the difference between Asia Pacific's market size and sum of the remaining regions' market size\n2. Sort the difference values\n3. Find the minimum value and year",
+  "cand": "{\"ops\":[{\"op\":\"sum\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Market_Size_Billion_USD\",\"group\":[\"Americas\",\"Europe\",\"Japan\"]}],\"ops2\":[{\"op\":\"sum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Market_Size_Billion_USD\",\"group\":\"Asia Pacific\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":3},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":false}]}"
+ },
+ "2mi8b2r0oalayl6g": {
+  "row": "142",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Revenue in million US dollars",
+  "series": "Product Category",
+  "x_vals": [
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "series_vals": [
+   "Footjoy golf wear",
+   "Titleist golf balls",
+   "Titleist golf clubs",
+   "Titleist golf gear"
+  ],
+  "other_dims": {},
+  "y_min": 127.88,
+  "y_max": 551.6,
+  "y_mean": 379.148571,
+  "n_rows": 28,
+  "q": "Which year has the smallest sum of golf wear and golf gear?",
+  "e": "Find all the year-by-year values of the playoff teams.\nFind all the annual values of all teams.\nSum the values by year.\nSort the subtracted values in ascending order.\nFind the first value.",
+  "cand": null
+ },
+ "2bhsybiilde28j87": {
+  "row": "145",
+  "type": "bar_stacked",
+  "x": "Race_Ethnicity",
+  "y": "Share_of_Respondents",
+  "series": "Interest_Level",
+  "x_vals": [
+   "Black",
+   "Hispanic",
+   "Other",
+   "White"
+  ],
+  "series_vals": [
+   "Don't know/no opinion",
+   "Not interested at all",
+   "Not very interested",
+   "Somewhat interested",
+   "Very interested"
+  ],
+  "other_dims": {},
+  "y_min": 0.05,
+  "y_max": 0.43,
+  "y_mean": 0.1995,
+  "n_rows": 20,
+  "q": "What is the average percentage of non-black races that they answered very interested?",
+  "e": "Find the values of white, hispanic, and other very interested.\nSum all these values.\nDivide by three.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Race_Ethnicity\",\"operator\":\"!=\",\"value\":\"Black\",\"group\":\"Very interested\"}],\"ops2\":[{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Share_of_Respondents\"}]}"
+ },
+ "2n0g3tsz1rsz6fgr": {
+  "row": "153",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Share of total employment",
+  "series": "Sector",
+  "x_vals": [
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "series_vals": [
+   "Agriculture",
+   "Industry",
+   "Services"
+  ],
+  "other_dims": {},
+  "y_min": 5.75,
+  "y_max": 66.78,
+  "y_mean": 33.330303,
+  "n_rows": 33,
+  "q": "What is the largest average value in the industry when you get the average value for each of the five consecutive years?",
+  "e": "Find values for each year in the industry.\nFind the average value in five-year increments from 2010.\nsort in descending order.\nFind the first value.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"group\":\"Industry\"}],\"ops2\":[{\"op\":\"rollingWindow\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"window\":5,\"aggregate\":\"avg\",\"field\":\"Share of total employment\",\"orderField\":\"Year\"}],\"ops3\":[{\"op\":\"findExtremum\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3},\"which\":\"max\",\"field\":\"Share of total employment\"}]}"
+ },
+ "2yech0pea1xihind": {
+  "row": "156",
+  "type": "bar_stacked",
+  "x": "Platform",
+  "y": "Percentage",
+  "series": "Frequency",
+  "x_vals": [
+   "Facebook",
+   "Instagram",
+   "Snapchat",
+   "Twitter",
+   "YouTube"
+  ],
+  "series_vals": [
+   "About once a day",
+   "Less often",
+   "Several times a day"
+  ],
+  "other_dims": {},
+  "y_min": 14.0,
+  "y_max": 55.0,
+  "y_mean": 33.2,
+  "n_rows": 15,
+  "q": "What is the sum of percentage using META's platform as a separate times a day?",
+  "e": "Count 'several times a day' of the meta platform\nSum all the values",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Platform\",\"include\":[\"Facebook\",\"Instagram\"],\"group\":\"Several times a day\"}],\"ops2\":[{\"op\":\"sum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Percentage\"}]}"
+ },
+ "54gh54f24irr63pb": {
+  "row": "161",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Number_of_States",
+  "series": "Party_Advantage",
+  "x_vals": [
+   "2008",
+   "2009",
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018"
+  ],
+  "series_vals": [
+   "Competitive",
+   "Lean Democrat",
+   "Lean Republican",
+   "Solid Democrat",
+   "Solid Republican"
+  ],
+  "other_dims": {},
+  "y_min": 1.0,
+  "y_max": 29.0,
+  "y_mean": 10.0,
+  "n_rows": 55,
+  "q": "Which of the most recent year's Party_advantage values has the largest Party_Advantage value of all years?",
+  "e": "Find the most recent year Number_of_States.\nFind the smallest of the values.\nFinds the value with the largest value in the entire year.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Year\",\"include\":[\"2018\"]}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"max\",\"field\":\"Number_of_States\"}]}"
+ }
+}

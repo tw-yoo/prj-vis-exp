@@ -1,0 +1,81 @@
+{
+ "a6gnu78mgn3xmqhu": {
+  "row": "223",
+  "type": "line_simple",
+  "x": "Year",
+  "y": "Index score on a scale from 0 to 100",
+  "series": null,
+  "x_vals": [
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": 28.0,
+  "y_max": 35.0,
+  "y_mean": 31.222222,
+  "n_rows": 9,
+  "q": "How many years have a lower index score than the average score across the years?",
+  "e": "1. Find the average index score across years.\n2. Count the years which have a lower index score than the average.",
+  "cand": "{\"ops\":[{\"op\":\"average\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Index score on a scale from 0 to 100\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Index score on a scale from 0 to 100\",\"operator\":\"<\",\"value\":\"ref:n1\"}],\"ops3\":[{\"op\":\"count\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3}}]}"
+ },
+ "ae2xp7bacbbs0kmx": {
+  "row": "238",
+  "type": "line_simple",
+  "x": "Month Year",
+  "y": "Index (2010=100)",
+  "series": null,
+  "x_vals": [
+   "Apr '18",
+   "Dec '17",
+   "Feb '18",
+   "Jan '18",
+   "Jul '18",
+   "Jun '18",
+   "Mar '18",
+   "May '18"
+  ],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": 105.2,
+  "y_max": 107.9,
+  "y_mean": 106.025,
+  "n_rows": 8,
+  "q": "How many months have a lower index than the average of index across the years?",
+  "e": "1. Calculate the average of index across the years.\n2. Count the months which have a lower index than the average.",
+  "cand": "{\"ops\":[{\"op\":\"average\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Index (2010=100)\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Index (2010=100)\",\"operator\":\"<\",\"value\":\"ref:n1\"}],\"ops3\":[{\"op\":\"count\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3}}]}"
+ },
+ "9r3kyy2jo2o66msh": {
+  "row": "240",
+  "type": "line_simple",
+  "x": "Month",
+  "y": "Number of femicides",
+  "series": null,
+  "x_vals": [
+   "April",
+   "August",
+   "February",
+   "January",
+   "July",
+   "June",
+   "March",
+   "May"
+  ],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": 10.0,
+  "y_max": 30.0,
+  "y_mean": 20.375,
+  "n_rows": 8,
+  "q": "Which month has the biggest increasing rate in number of femicides comparing with the previous month except for april?",
+  "e": "1. Calculate the difference between the number of femicides of a specific month and its previous count.\n2. Get the month which has the biggest difference for positive values.",
+  "cand": "{\"ops\":[{\"op\":\"lagDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Number of femicides\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Month\",\"operator\":\"!=\",\"value\":\"April\"}],\"ops3\":[{\"op\":\"findExtremum\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3},\"which\":\"max\",\"field\":\"Number of femicides\"}]}"
+ }
+}

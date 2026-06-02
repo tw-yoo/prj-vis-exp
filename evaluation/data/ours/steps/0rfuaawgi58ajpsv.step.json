@@ -1,0 +1,21 @@
+{
+  "chart_id": "0rfuaawgi58ajpsv",
+  "question": "What is the difference in the average between North America and Latin America?",
+  "description": "",
+  "specPath": "specs/0rfuaawgi58ajpsv.vl.json",
+  "opsPath": "ops/0rfuaawgi58ajpsv.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Get the average of Northern America"
+    },
+    {
+      "id": "ops2",
+      "text": "Get the average of Latin America"
+    },
+    {
+      "id": "ops3",
+      "text": "Get the difference between the two average values"
+    }
+  ]
+}

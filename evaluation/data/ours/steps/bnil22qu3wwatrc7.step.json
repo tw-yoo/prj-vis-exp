@@ -1,0 +1,21 @@
+{
+  "chart_id": "bnil22qu3wwatrc7",
+  "question": "According to this chart, what is the difference between the average number of \"A better place to live\" opinion of Western Europe and the rest?",
+  "description": "",
+  "specPath": "specs/bnil22qu3wwatrc7.vl.json",
+  "opsPath": "ops/bnil22qu3wwatrc7.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Define Western Europe: Netherlands, Germany, UK, France"
+    },
+    {
+      "id": "ops2",
+      "text": "Find the average number of \"A better place to live\" opinion of Western Europe and the rest."
+    },
+    {
+      "id": "ops3",
+      "text": "Find the difference of the two numbers"
+    }
+  ]
+}

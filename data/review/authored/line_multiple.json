@@ -1,0 +1,2168 @@
+{
+ "28bxxhd6omv2l2h1": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Canada",
+     "groupB": "Newfoundland and Labrador",
+     "seriesField": "Region",
+     "field": "Life expectancy in years",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "range",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Life expectancy in years"
+    }
+   ]
+  },
+  "note": "max-minus-min of the per-year |gap| = range of the pairDiff series."
+ },
+ "29rxoltwhongoday": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Dissatisfied",
+     "groupB": "Satisfied",
+     "seriesField": "Opinion",
+     "field": "Percentage",
+     "absolute": true
+    },
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "include": [
+      "2002",
+      "2017"
+     ]
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "field": "Percentage"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "2eiyyw562tcvjypp": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Russia favorability in US",
+     "groupB": "US favorability in Russia",
+     "seriesField": "Favorability_Direction",
+     "field": "Favorable_View_Percentage",
+     "signed": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "operator": ">",
+     "value": 0
+    }
+   ],
+   "ops3": [
+    {
+     "op": "count",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     }
+    }
+   ]
+  },
+  "note": "series live in other_dims.Favorability_Direction (series_vals empty); pairDiff over those two labels."
+ },
+ "1h4rj9i2jtzq589y": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "group": "EU 5-country median"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Favorable_View_Percentage",
+     "operator": ">=",
+     "value": 51
+    },
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Favorable_View_Percentage",
+     "operator": "<=",
+     "value": 61
+    }
+   ],
+   "ops3": [
+    {
+     "op": "sort",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3"
+      ],
+      "sentenceIndex": 4
+     },
+     "field": "Year",
+     "order": "desc"
+    },
+    {
+     "op": "nth",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n4"
+      ],
+      "sentenceIndex": 4
+     },
+     "n": 1,
+     "from": "left"
+    }
+   ]
+  },
+  "note": "value range 51..61 = two comparison filters; 'largest year' = sort Year desc + first."
+ },
+ "14jt6jor7iknkjkl": {
+  "spec": null,
+  "note": "GAP: explanation selects a multi-year region (2009-2011) where 'Favorable view of US' is lowest, then sums the *other* series ('Confidence in US president') over those years. findExtremum min yields a single x, and there is no op to carry an x-set from one series to sum another series."
+ },
+ "16aphfabldrpgcmd": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Average weight in metric grams",
+     "operator": ">",
+     "value": 3670,
+     "group": "Boys"
+    },
+    {
+     "op": "count",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     }
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "field": "Average weight in metric grams",
+     "operator": ">",
+     "value": 3550,
+     "group": "Girls"
+    },
+    {
+     "op": "count",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3"
+      ],
+      "sentenceIndex": 2
+     }
+    }
+   ],
+   "ops3": [
+    {
+     "op": "add",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n2",
+       "n4"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n4"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "1k8qhmg9rui7gtzh": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "operator": "between",
+     "value": [
+      "2010",
+      "2015"
+     ]
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "field": "Favorable_View_Percentage",
+     "group": "Germany"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "findExtremum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 3
+     },
+     "which": "min",
+     "field": "Favorable_View_Percentage",
+     "group": "US"
+    }
+   ],
+   "ops4": [
+    {
+     "op": "diff",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n2",
+       "n3"
+      ],
+      "sentenceIndex": 4
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n3",
+     "signed": false
+    }
+   ]
+  },
+  "note": ""
+ },
+ "1p4nnba4568wza9n": {
+  "spec": null,
+  "note": "GAP: counting how many times the dominant (>50%) opinion flips between Good and Bad year-over-year; no op counts changes-of-dominance / sign-flips of a per-year comparison."
+ },
+ "20gpvz4ylu4olrm7": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "operator": ">=",
+     "value": "2000"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "pairDiff",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "by": "Year",
+     "groupA": "Women",
+     "groupB": "Men",
+     "seriesField": "Gender",
+     "field": "Percentage",
+     "signed": true
+    }
+   ],
+   "ops3": [
+    {
+     "op": "average",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Percentage"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "20qa83ih1gn6toqt": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Convenience",
+     "groupB": "Price",
+     "seriesField": "Metric",
+     "field": "Has a great impact",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "field": "Has a great impact"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "0cjk67q39ee6dhzj": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Republicans",
+     "groupB": "Democats",
+     "seriesField": "Party",
+     "field": "Percentage of people negative on China",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "field": "Percentage of people negative on China"
+    },
+    {
+     "op": "findExtremum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "field": "Percentage of people negative on China"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "diff",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n2",
+       "n3"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n3",
+     "signed": false
+    }
+   ]
+  },
+  "note": "diff between the year with the highest and the year with the lowest |gap| = max gap - min gap."
+ },
+ "0bunvsqd54e3qahz": {
+  "spec": {
+   "ops": [
+    {
+     "op": "retrieveValue",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "target": "2010",
+     "field": "Life expectancy at birth in years",
+     "group": "female"
+    },
+    {
+     "op": "retrieveValue",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "target": "2016",
+     "field": "Life expectancy at birth in years",
+     "group": "male"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "diff",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1",
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "targetA": "ref:n1",
+     "targetB": "ref:n2",
+     "signed": true
+    }
+   ]
+  },
+  "note": ""
+ },
+ "08iur64i01boakg5": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Male",
+     "groupB": "Female",
+     "seriesField": "Gender",
+     "field": "Percentage of 25 to 29 year olds",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "field": "Percentage of 25 to 29 year olds"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "0b9o2vahkw2a1bxy": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "group": "No"
+    },
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "field": "Share of respondents"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [],
+      "sentenceIndex": 3
+     },
+     "group": "Yes"
+    },
+    {
+     "op": "sort",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3"
+      ],
+      "sentenceIndex": 4
+     },
+     "field": "Share of respondents",
+     "order": "desc"
+    },
+    {
+     "op": "nth",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n4"
+      ],
+      "sentenceIndex": 4
+     },
+     "n": 3,
+     "from": "left"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "diff",
+     "id": "n6",
+     "meta": {
+      "nodeId": "n6",
+      "inputs": [
+       "n2",
+       "n5"
+      ],
+      "sentenceIndex": 5
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n5",
+     "signed": false
+    }
+   ]
+  },
+  "note": ""
+ },
+ "2hjkdo5w242alvjd": {
+  "spec": null,
+  "note": "GAP: compares the fixed window 2006-2011 length against the count of satisfied-dominant years; the final boolean hinges on an external constant ('greater than 3') not derived from the data."
+ },
+ "2kmpy10btl65kr2j": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "operator": "between",
+     "value": [
+      "2015",
+      "2017"
+     ],
+     "group": "Favorable view of US"
+    },
+    {
+     "op": "average",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Percentage_of_Respondents"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "2s65jcap9pn289qx": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "operator": "between",
+     "value": [
+      "2016",
+      "2020"
+     ]
+    }
+   ],
+   "ops2": [
+    {
+     "op": "pairDiff",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "by": "Year",
+     "groupA": "Female",
+     "groupB": "Male",
+     "seriesField": "Gender",
+     "field": "Population_Million_Inhabitants",
+     "signed": true
+    }
+   ],
+   "ops3": [
+    {
+     "op": "sum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Population_Million_Inhabitants"
+    }
+   ]
+  },
+  "note": "sum of the per-year differences (not avg*n)."
+ },
+ "3tc31k5k2o6wmvyp": {
+  "spec": null,
+  "note": "GAP: needs the per-date SUM of the two series (Dem+Rep) then count dates where that total < 70. pairDiff yields differences not sums, and there is no per-row cross-series sum op."
+ },
+ "4p1m4tsmzmtvsrys": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Date_Range",
+     "groupA": "Obama",
+     "groupB": "Romney",
+     "seriesField": "Candidate",
+     "field": "Share_of_Respondents",
+     "signed": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "operator": ">",
+     "value": 0
+    },
+    {
+     "op": "count",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     }
+    }
+   ],
+   "ops3": [
+    {
+     "op": "filter",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 3
+     },
+     "operator": "<",
+     "value": 0
+    },
+    {
+     "op": "count",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n4"
+      ],
+      "sentenceIndex": 3
+     }
+    }
+   ],
+   "ops4": [
+    {
+     "op": "diff",
+     "id": "n6",
+     "meta": {
+      "nodeId": "n6",
+      "inputs": [
+       "n3",
+       "n5"
+      ],
+      "sentenceIndex": 4
+     },
+     "targetA": "ref:n3",
+     "targetB": "ref:n5",
+     "signed": false
+    }
+   ]
+  },
+  "note": ""
+ },
+ "3z678inbp0t89ahu": {
+  "spec": {
+   "ops": [
+    {
+     "op": "average",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Percentage_of_Respondents",
+     "group": "Dissatisfied"
+    },
+    {
+     "op": "average",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Percentage_of_Respondents",
+     "group": "Satisfied"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "diff",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1",
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "targetA": "ref:n1",
+     "targetB": "ref:n2",
+     "signed": false
+    }
+   ],
+   "ops3": [
+    {
+     "op": "pairDiff",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [],
+      "sentenceIndex": 3
+     },
+     "by": "Year",
+     "groupA": "Dissatisfied",
+     "groupB": "Satisfied",
+     "seriesField": "Opinion",
+     "field": "Percentage_of_Respondents",
+     "absolute": true
+    }
+   ],
+   "ops4": [
+    {
+     "op": "filter",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n4",
+       "n3"
+      ],
+      "sentenceIndex": 4
+     },
+     "field": "Percentage_of_Respondents",
+     "operator": "<",
+     "value": "ref:n3"
+    },
+    {
+     "op": "count",
+     "id": "n6",
+     "meta": {
+      "nodeId": "n6",
+      "inputs": [
+       "n5"
+      ],
+      "sentenceIndex": 5
+     }
+    }
+   ]
+  },
+  "note": "per-year |Dissatisfied-Satisfied| vs |mean_Dissatisfied - mean_Satisfied|; magnitudes throughout."
+ },
+ "3un2wyjae3ebkncl": {
+  "spec": null,
+  "note": "GAP: keep years where Internet value is above Radio AND below Newspaper that same year, then average Internet. This is a per-row comparison across three series; filter only compares a column to a constant/series-value, not another series at the same x."
+ },
+ "4ldjaoujpydpkbu5": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Female",
+     "groupB": "Male",
+     "seriesField": "Gender",
+     "field": "Inhabitants in millions",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "average",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Inhabitants in millions"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1",
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Inhabitants in millions",
+     "operator": ">",
+     "value": "ref:n2"
+    }
+   ],
+   "ops4": [
+    {
+     "op": "count",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3"
+      ],
+      "sentenceIndex": 4
+     }
+    }
+   ]
+  },
+  "note": ""
+ },
+ "4wqpl5jrdmc75go3": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "operator": "between",
+     "value": [
+      "2026",
+      "2029"
+     ]
+    }
+   ],
+   "ops2": [
+    {
+     "op": "average",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Economic_Impact_Billion_USD"
+    }
+   ]
+  },
+  "note": "Question/explanation ambiguous; followed explanation: average the impact for both types over the future years (after 2025)."
+ },
+ "4pi1e6ev8e0zobww": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "operator": "between",
+     "value": [
+      "2009",
+      "2011"
+     ],
+     "group": "Male"
+    },
+    {
+     "op": "average",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     },
+     "field": "Population"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "field": "Year",
+     "operator": "between",
+     "value": [
+      "2018",
+      "2020"
+     ],
+     "group": "Female"
+    },
+    {
+     "op": "average",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Population"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "diff",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n2",
+       "n4"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n4",
+     "signed": false
+    }
+   ]
+  },
+  "note": ""
+ },
+ "4vcdm7lwwlgdd0h1": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Senate",
+     "groupB": "House",
+     "seriesField": "Chamber",
+     "field": "Median_Wealth_Million_USD",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "field": "Median_Wealth_Million_USD"
+    }
+   ]
+  },
+  "note": "Q asks the least difference; explanation's 'maximum' is a typo (followed the question)."
+ },
+ "4twwx65oath7vrkt": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Trade_Type",
+     "include": [
+      "Imports"
+     ]
+    },
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     },
+     "which": "min",
+     "field": "Value_Trillion_USD"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "field": "Trade_Type",
+     "include": [
+      "Exports"
+     ]
+    },
+    {
+     "op": "filter",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3",
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Value_Trillion_USD",
+     "operator": ">",
+     "value": "ref:n2"
+    }
+   ]
+  },
+  "note": "Years where Exports > min(Imports): series subset via filter(field=Trade_Type,include=[..]) (group= does not subset rows here), then '>' vs ref:min-imports."
+ },
+ "6ah60yba8o7rw0i9": {
+  "spec": {
+   "ops": [
+    {
+     "op": "findExtremum",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "which": "max",
+     "field": "Average_Price_Euros",
+     "group": "Yoghurt with additives"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "field": "Average_Price_Euros",
+     "group": "Yoghurt without additives"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "diff",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1",
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n1",
+     "targetB": "ref:n2",
+     "signed": false
+    }
+   ]
+  },
+  "note": ""
+ },
+ "5p6g89v7l99aes05": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Playoff teams",
+     "groupB": "All teams",
+     "seriesField": "Team_Group",
+     "field": "Average_Payroll_Million_USD",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "field": "Average_Payroll_Million_USD"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "5wpw8detqynmqv1s": {
+  "spec": {
+   "ops": [
+    {
+     "op": "findExtremum",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "which": "max",
+     "field": "Number_of_Victims",
+     "group": "Female"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "field": "Number_of_Victims",
+     "group": "Male"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "diff",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1",
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n1",
+     "targetB": "ref:n2",
+     "signed": false
+    }
+   ]
+  },
+  "note": ""
+ },
+ "64ue1v00wj8vg48e": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "group": "Should be valid"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Year",
+     "operator": "<",
+     "value": "2010"
+    },
+    {
+     "op": "average",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Share of respondent"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "filter",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Year",
+     "operator": ">",
+     "value": "2010"
+    },
+    {
+     "op": "average",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n4"
+      ],
+      "sentenceIndex": 3
+     },
+     "field": "Share of respondent"
+    }
+   ],
+   "ops4": [
+    {
+     "op": "diff",
+     "id": "n6",
+     "meta": {
+      "nodeId": "n6",
+      "inputs": [
+       "n3",
+       "n5"
+      ],
+      "sentenceIndex": 4
+     },
+     "targetA": "ref:n3",
+     "targetB": "ref:n5",
+     "signed": false
+    }
+   ]
+  },
+  "note": ""
+ },
+ "6rvtt4egfl5nmyue": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Year",
+     "operator": "between",
+     "value": [
+      "2012",
+      "2017"
+     ],
+     "group": "female"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "sort",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Life expectancy at birth in years",
+     "order": "desc"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "nth",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "n": 2,
+     "from": "left"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "6p4fnscalopvysnn": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "field": "Share of the population",
+     "operator": ">",
+     "value": 40
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "field": "Share of the population"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "7extlfw651gqc5fk": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "group": "Large"
+    },
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 1
+     },
+     "which": "max",
+     "field": "Percentage"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "group": "Small"
+    },
+    {
+     "op": "findExtremum",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "field": "Percentage"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "diff",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n2",
+       "n4"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n2",
+     "targetB": "ref:n4",
+     "signed": false
+    }
+   ],
+   "ops4": [
+    {
+     "op": "average",
+     "id": "n6",
+     "meta": {
+      "nodeId": "n6",
+      "inputs": [],
+      "sentenceIndex": 4
+     },
+     "field": "Percentage"
+    }
+   ],
+   "ops5": [
+    {
+     "op": "compareBool",
+     "id": "n7",
+     "meta": {
+      "nodeId": "n7",
+      "inputs": [
+       "n5",
+       "n6"
+      ],
+      "sentenceIndex": 5
+     },
+     "operator": "==",
+     "targetA": "ref:n5",
+     "targetB": "ref:n6"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "6rqevjp16hadlyly": {
+  "spec": {
+   "ops": [
+    {
+     "op": "retrieveValue",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "target": "2011/12",
+     "field": "Percentage of tests passed",
+     "group": "Male"
+    },
+    {
+     "op": "retrieveValue",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "target": "2007/08",
+     "field": "Percentage of tests passed",
+     "group": "Male"
+    },
+    {
+     "op": "diff",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1",
+       "n2"
+      ],
+      "sentenceIndex": 1
+     },
+     "targetA": "ref:n1",
+     "targetB": "ref:n2",
+     "signed": false
+    }
+   ],
+   "ops2": [
+    {
+     "op": "retrieveValue",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "target": "2011/12",
+     "field": "Percentage of tests passed",
+     "group": "Female"
+    },
+    {
+     "op": "retrieveValue",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [],
+      "sentenceIndex": 2
+     },
+     "target": "2007/08",
+     "field": "Percentage of tests passed",
+     "group": "Female"
+    },
+    {
+     "op": "diff",
+     "id": "n6",
+     "meta": {
+      "nodeId": "n6",
+      "inputs": [
+       "n4",
+       "n5"
+      ],
+      "sentenceIndex": 2
+     },
+     "targetA": "ref:n4",
+     "targetB": "ref:n5",
+     "signed": false
+    }
+   ],
+   "ops3": [
+    {
+     "op": "compareBool",
+     "id": "n7",
+     "meta": {
+      "nodeId": "n7",
+      "inputs": [
+       "n3",
+       "n6"
+      ],
+      "sentenceIndex": 3
+     },
+     "operator": "==",
+     "targetA": "ref:n3",
+     "targetB": "ref:n6"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "au22oa0vjosoagxu": {
+  "spec": {
+   "ops": [
+    {
+     "op": "filter",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "group": "male"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "monotonicRun",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "direction": "decreasing",
+     "mode": "longest",
+     "field": "Life expectancy at birth in years",
+     "orderField": "Year"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "bhaqrpqx0hwtcol5": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Canada",
+     "groupB": "Northwest Territories",
+     "seriesField": "Region",
+     "field": "Life expectancy in years",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "max",
+     "field": "Life expectancy in years"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "b1jrtiwi2x01zdtw": {
+  "spec": {
+   "ops": [
+    {
+     "op": "retrieveValue",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "target": "2005",
+     "field": "Share of respondents",
+     "group": "Actively disengaged"
+    },
+    {
+     "op": "retrieveValue",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "target": "2005",
+     "field": "Share of respondents",
+     "group": "Not engaged"
+    },
+    {
+     "op": "add",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1",
+       "n2"
+      ],
+      "sentenceIndex": 2
+     },
+     "targetA": "ref:n1",
+     "targetB": "ref:n2"
+    },
+    {
+     "op": "retrieveValue",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "target": "2005",
+     "field": "Share of respondents",
+     "group": "Engaged"
+    }
+   ],
+   "ops2": [
+    {
+     "op": "diff",
+     "id": "n5",
+     "meta": {
+      "nodeId": "n5",
+      "inputs": [
+       "n3",
+       "n4"
+      ],
+      "sentenceIndex": 3
+     },
+     "targetA": "ref:n3",
+     "targetB": "ref:n4",
+     "signed": false
+    }
+   ]
+  },
+  "note": "explanation defines disengaged = Actively disengaged + Not engaged, then |that - Engaged| in 2005."
+ },
+ "c41fny6w7gwpawbn": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Confidence",
+     "groupB": "No confidence",
+     "seriesField": "Opinion",
+     "field": "Percentage",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "field": "Percentage"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "cby91tt3tvahsmuj": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Dem/Lean Dem",
+     "groupB": "Rep/Lean Rep",
+     "seriesField": "Party",
+     "field": "Percentage",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "average",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "field": "Percentage"
+    }
+   ],
+   "ops3": [
+    {
+     "op": "retrieveValue",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 3
+     },
+     "target": "2012",
+     "field": "Percentage"
+    }
+   ],
+   "ops4": [
+    {
+     "op": "compareBool",
+     "id": "n4",
+     "meta": {
+      "nodeId": "n4",
+      "inputs": [
+       "n3",
+       "n2"
+      ],
+      "sentenceIndex": 4
+     },
+     "operator": ">",
+     "targetA": "ref:n3",
+     "targetB": "ref:n2"
+    }
+   ]
+  },
+  "note": "retrieveValue(target=2012) reads the per-year |gap| produced by pairDiff."
+ },
+ "ciqofa9lr4z5kz7d": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Revenue",
+     "groupB": "Expenditure",
+     "seriesField": "Type",
+     "field": "Revenue and expending in million Canadian dollars",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "rank": 2,
+     "field": "Revenue and expending in million Canadian dollars"
+    }
+   ]
+  },
+  "note": "2nd lowest |gap| = findExtremum(min, rank=2)."
+ },
+ "bkemtvekxtnuk8bf": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Favorable view of US",
+     "groupB": "Confidence in Obama",
+     "seriesField": "Metric",
+     "field": "Percentage",
+     "absolute": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "findExtremum",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "which": "min",
+     "rank": 2,
+     "field": "Percentage"
+    }
+   ]
+  },
+  "note": ""
+ },
+ "7iy5s09teyeaybzy": {
+  "spec": null,
+  "note": "GAP: needs the per-year SUM of female+male life expectancy, the average of those sums, then the year closest to it. No op forms a per-row cross-series sum to aggregate over."
+ },
+ "83hx57gqlkd9sldn": {
+  "spec": {
+   "ops": [
+    {
+     "op": "pairDiff",
+     "id": "n1",
+     "meta": {
+      "nodeId": "n1",
+      "inputs": [],
+      "sentenceIndex": 1
+     },
+     "by": "Year",
+     "groupA": "Bad",
+     "groupB": "Good",
+     "seriesField": "Opinion",
+     "field": "Percentage",
+     "signed": true
+    }
+   ],
+   "ops2": [
+    {
+     "op": "filter",
+     "id": "n2",
+     "meta": {
+      "nodeId": "n2",
+      "inputs": [
+       "n1"
+      ],
+      "sentenceIndex": 2
+     },
+     "operator": ">",
+     "value": 0
+    }
+   ],
+   "ops3": [
+    {
+     "op": "findExtremum",
+     "id": "n3",
+     "meta": {
+      "nodeId": "n3",
+      "inputs": [
+       "n2"
+      ],
+      "sentenceIndex": 3
+     },
+     "which": "max",
+     "rank": 3,
+     "field": "Percentage"
+    }
+   ]
+  },
+  "note": "years with more bad than good = signed(Bad-Good)>0; 3rd biggest gap among them = max rank 3."
+ },
+ "7mw5410egrxfi2oy": {
+  "spec": null,
+  "note": "GAP: drop the two years that are the per-series maxima (argmax Favorable year and argmax Unfavorable year), then average the remaining gaps. filter/exclude take literal x labels; the years to exclude are computed argmaxima that cannot be fed back into exclude."
+ }
+}

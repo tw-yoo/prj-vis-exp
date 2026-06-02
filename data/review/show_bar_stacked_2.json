@@ -1,0 +1,179 @@
+{
+ "0gzowodb2py0d1s9": {
+  "row": "43",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Revenue_Million_USD",
+  "series": "Country_Region",
+  "x_vals": [
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020",
+   "2021"
+  ],
+  "series_vals": [
+   "China",
+   "Japan",
+   "Malaysia",
+   "Others",
+   "Philippines",
+   "Thailand",
+   "United States"
+  ],
+  "other_dims": {},
+  "y_min": 0.0,
+  "y_max": 1471.18,
+  "y_mean": 377.779286,
+  "n_rows": 42,
+  "q": "How many years did Thailand's revenue exceed that of the Philippines'?",
+  "e": "1. Filter for the revenue of Thailand and the Philippines\n2. Compare the revenue of Thailand and the Philippines\n3. count the years for which Thailand's revenue was higher.",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Thailand\",\"groupB\":\"Philippines\",\"seriesField\":\"Country_Region\",\"by\":\"Year\",\"field\":\"Revenue_Million_USD\",\"signed\":true}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"operator\":\">\",\"value\":0}],\"ops3\":[{\"op\":\"count\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3}}]}"
+ },
+ "0nmj7sdej4cipma7": {
+  "row": "44",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Net sales in million US dollars",
+  "series": "Segment",
+  "x_vals": [
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "series_vals": [
+   "International",
+   "North America",
+   "Retail"
+  ],
+  "other_dims": {},
+  "y_min": 356.9,
+  "y_max": 1686.5,
+  "y_mean": 826.111111,
+  "n_rows": 9,
+  "q": "Which country had the most significant difference in net sales between the years 2019 and 2020?",
+  "e": "1. filter year 2019 and 2020\n2. filter for the values of each given group and subtract the 2020 value from the 2019 values.\n3. compare absolute values and choose the highest\n",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"2020\",\"groupB\":\"2019\",\"seriesField\":\"Year\",\"by\":\"Segment\",\"field\":\"Net sales in million US dollars\",\"absolute\":true}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"max\",\"field\":\"Net sales in million US dollars\"}]}"
+ },
+ "0ufvwi9xv37e597q": {
+  "row": "52",
+  "type": "bar_stacked",
+  "x": "Season",
+  "y": "Revenue_Million_Euros",
+  "series": "Revenue_Type",
+  "x_vals": [
+   "2008/09",
+   "2009/10",
+   "2010/11",
+   "2011/12",
+   "2012/13",
+   "2013/14",
+   "2014/15",
+   "2015/16",
+   "2016/17",
+   "2017/18",
+   "2018/19"
+  ],
+  "series_vals": [
+   "Broadcasting",
+   "Commercial",
+   "Matchday"
+  ],
+  "other_dims": {},
+  "y_min": 33.8,
+  "y_max": 276.7,
+  "y_mean": 86.915152,
+  "n_rows": 33,
+  "q": "Which season has the biggest gap between Matchday and Commercial?",
+  "e": "1. Calculate the difference between Matchday and Commercial for each season\n2. find the season with the maximum difference",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Matchday\",\"groupB\":\"Commercial\",\"seriesField\":\"Revenue_Type\",\"by\":\"Season\",\"field\":\"Revenue_Million_Euros\",\"absolute\":true}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"max\",\"field\":\"Revenue_Million_Euros\"}]}"
+ },
+ "0vfqjaxeiv96ww7g": {
+  "row": "57",
+  "type": "bar_stacked",
+  "x": "Race",
+  "y": "Percentage",
+  "series": "Discussion Frequency",
+  "x_vals": [
+   "Black",
+   "Hispanic",
+   "White"
+  ],
+  "series_vals": [
+   "Almost all of the time",
+   "Hardly ever/Never",
+   "Most of the time",
+   "Sometimes"
+  ],
+  "other_dims": {},
+  "y_min": 9.0,
+  "y_max": 48.0,
+  "y_mean": 25.0,
+  "n_rows": 12,
+  "q": "What is the difference between white and black who answer more than most of all time?",
+  "e": "1. sum \"almost of all of the time\" and \"most of the time\" of white\n2. sum \"almost of all of the time\" and \"most of the time\" of black\n3. calcuate the difference",
+  "cand": "{\"ops\":[{\"op\":\"retrieveValue\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"Black\",\"field\":\"Percentage\",\"group\":\"Almost all of the time\"},{\"op\":\"retrieveValue\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"White\",\"field\":\"Percentage\",\"group\":\"Almost all of the time\"}],\"ops2\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":2},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":true}]}"
+ },
+ "075i5mfewy2uvwej": {
+  "row": "73",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Share_of_Total_Employment",
+  "series": "Sector",
+  "x_vals": [
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "series_vals": [
+   "Agriculture",
+   "Industry",
+   "Services"
+  ],
+  "other_dims": {},
+  "y_min": 0.1009,
+  "y_max": 0.6308,
+  "y_mean": 0.333973,
+  "n_rows": 33,
+  "q": "What is the difference between the service value in 2010 and the service value in 2020?",
+  "e": "Find the service value for 2010.\nFind the service value for 2020.\nFind the difference between the two values.",
+  "cand": "{\"ops\":[{\"op\":\"retrieveValue\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"2010\",\"field\":\"Share_of_Total_Employment\",\"group\":\"Services\"},{\"op\":\"retrieveValue\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"2020\",\"field\":\"Share_of_Total_Employment\",\"group\":\"Services\"}],\"ops2\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":2},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n1\",\"signed\":true}]}"
+ },
+ "004fhteah0l9kud2": {
+  "row": "75",
+  "type": "bar_stacked",
+  "x": "Season",
+  "y": "Revenue_Million_Euros",
+  "series": "Revenue_Type",
+  "x_vals": [
+   "2015/16",
+   "2016/17",
+   "2017/18",
+   "2018/19",
+   "2019/20",
+   "2020/21"
+  ],
+  "series_vals": [
+   "Broadcasting",
+   "Commercial",
+   "Matchday"
+  ],
+  "other_dims": {},
+  "y_min": 391.0,
+  "y_max": 4133.0,
+  "y_mean": 1644.944444,
+  "n_rows": 18,
+  "q": "What is the difference between the average of Commercial and the average of Matchday?",
+  "e": "1. Add all the Commercial values for each year.\n2. Divide the value by six.\n3. Add all the values of the matchday for each year.\n4. Divide the value by six.\n5. Find the difference between the two computed values.",
+  "cand": "{\"ops\":[{\"op\":\"average\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Revenue_Million_Euros\",\"group\":\"Commercial\"}],\"ops2\":[{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Revenue_Million_Euros\",\"group\":\"Matchday\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":3},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":true}]}"
+ }
+}

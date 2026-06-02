@@ -1,0 +1,32 @@
+{
+ "file": "data/review/human_explanation_filled.csv",
+ "rows": 240,
+ "filled": 35,
+ "empty": 205,
+ "clean": 35,
+ "with_errors": 0,
+ "error_codes": {},
+ "warn_codes": {
+  "SUM_ON_NONBAR": 4
+ },
+ "op_usage": {
+  "filter": 23,
+  "findExtremum": 21,
+  "average": 11,
+  "diff": 10,
+  "nth": 8,
+  "sort": 6,
+  "retrieveValue": 6,
+  "count": 5,
+  "lagDiff": 4,
+  "pairDiff": 4,
+  "sum": 4,
+  "add": 3,
+  "compareBool": 2,
+  "monotonicRun": 2,
+  "scale": 2,
+  "rollingWindow": 1,
+  "diffByValue": 1
+ },
+ "report": "data/review/.b2_report.json"
+}

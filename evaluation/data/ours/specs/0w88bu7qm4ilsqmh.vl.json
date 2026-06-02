@@ -1,0 +1,19 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Simple Bar chart for 0w88bu7qm4ilsqmh.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/simple/0w88bu7qm4ilsqmh.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "y": {
+      "field": "Installed base in million units",
+      "type": "quantitative"
+    },
+    "x": {
+      "field": "Year",
+      "type": "nominal",
+      "sort": null
+    }
+  }
+}

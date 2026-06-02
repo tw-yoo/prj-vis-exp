@@ -1,0 +1,88 @@
+{
+  "ops": [
+    {
+      "op": "pairDiff",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "by": "Date_Range",
+      "groupA": "Obama",
+      "groupB": "Romney",
+      "seriesField": "Candidate",
+      "field": "Share_of_Respondents",
+      "signed": true
+    }
+  ],
+  "ops2": [
+    {
+      "op": "filter",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "operator": ">",
+      "value": 0
+    },
+    {
+      "op": "count",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n2"
+        ],
+        "sentenceIndex": 2
+      }
+    }
+  ],
+  "ops3": [
+    {
+      "op": "filter",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 3
+      },
+      "operator": "<",
+      "value": 0
+    },
+    {
+      "op": "count",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n4"
+        ],
+        "sentenceIndex": 3
+      }
+    }
+  ],
+  "ops4": [
+    {
+      "op": "diff",
+      "id": "n6",
+      "meta": {
+        "nodeId": "n6",
+        "inputs": [
+          "n3",
+          "n5"
+        ],
+        "sentenceIndex": 4
+      },
+      "targetA": "ref:n3",
+      "targetB": "ref:n5",
+      "signed": false
+    }
+  ]
+}

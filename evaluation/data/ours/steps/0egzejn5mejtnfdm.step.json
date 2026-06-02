@@ -1,0 +1,21 @@
+{
+  "chart_id": "0egzejn5mejtnfdm",
+  "question": "What is the difference between Scotland's largest value and England and Wales's smallest value?",
+  "description": "",
+  "specPath": "specs/0egzejn5mejtnfdm.vl.json",
+  "opsPath": "ops/0egzejn5mejtnfdm.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Check Scotland's Biggest Value"
+    },
+    {
+      "id": "ops2",
+      "text": "Check the smallest value for England & Wales"
+    },
+    {
+      "id": "ops3",
+      "text": "Check if the value is greater than the value of number 1 or number 2. Subtract small value from large value"
+    }
+  ]
+}

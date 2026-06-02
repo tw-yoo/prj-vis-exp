@@ -1,0 +1,571 @@
+{
+ "0prhtod4tli879nh": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "City", "groupA": "2025", "groupB": "2010", "seriesField": "Year", "field": "Population in millions", "absolute": true}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "field": "Population in millions"}
+   ]
+  },
+  "note": "Biggest jump per city across the two years -> pairDiff(by=City) then findExtremum max. |jump| via absolute."
+ },
+ "0rfuaawgi58ajpsv": {
+  "spec": {
+   "ops": [
+    {"op": "average", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Media rights revenue in billion US dollars", "group": "North America"}
+   ],
+   "ops2": [
+    {"op": "average", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 2}, "field": "Media rights revenue in billion US dollars", "group": "Latin America"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3}, "targetA": "ref:n1", "targetB": "ref:n2", "signed": true}
+   ]
+  },
+  "note": "avg(North America) minus avg(Latin America)."
+ },
+ "0rdpculfpyw3bv5p": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Year", "groupA": "Lending", "groupB": "Investment", "seriesField": "Type", "field": "Value in billion US dollars", "absolute": true}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "min", "field": "Value in billion US dollars"}
+   ]
+  },
+  "note": "Lowest |Lending-Investment| gap per year -> pairDiff(by=Year) then findExtremum min. (series=Type, key dim=Year.)"
+ },
+ "0egzejn5mejtnfdm": {
+  "spec": {
+   "ops": [
+    {"op": "findExtremum", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "which": "max", "field": "SharePercentage", "group": "Scotland"}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 2}, "which": "min", "field": "SharePercentage", "group": "England & Wales"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3}, "targetA": "ref:n1", "targetB": "ref:n2", "signed": false}
+   ]
+  },
+  "note": "Scotland's max minus England & Wales's min; step3 'subtract small from large' -> unsigned diff."
+ },
+ "0fhm43s0j7glca29": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "2018"},
+    {"op": "average", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Revenue in billion US dollars"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 2}, "group": "2020"},
+    {"op": "average", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 2}, "field": "Revenue in billion US dollars"}
+   ],
+   "ops3": [
+    {"op": "compareBool", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n2", "n4"], "sentenceIndex": 3}, "operator": ">", "targetA": "ref:n2", "targetB": "ref:n4"}
+   ]
+  },
+  "note": "Compare mean of 2018 vs mean of 2020 (explanation step5 'determine which year has the greater of the two means') -> compareBool. Fixed cand (cand wrongly used findExtremum on the 2020 subset)."
+ },
+ "0gacqohbzj07n25s": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Country", "include": ["Germany", "France", "Italy"], "group": "Surgical"},
+    {"op": "average", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Number of procedures"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 2}, "field": "Country", "include": ["Japan", "India", "Turkey"], "group": "Surgical"},
+    {"op": "average", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 2}, "field": "Number of procedures"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n2", "n4"], "sentenceIndex": 3}, "targetA": "ref:n2", "targetB": "ref:n4", "signed": false}
+   ]
+  },
+  "note": "avg of Surgical procedures in European countries (Germany/France/Italy) minus Asian (Japan/India/Turkey); step5 'subtract smaller from larger' -> unsigned. European/Asian country sets chosen from the chart's Country values."
+ },
+ "0ihx2vzdsej883sq": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "Female"},
+    {"op": "sort", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Share of employees", "order": "asc"},
+    {"op": "nth", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 1}, "n": 2, "from": "left"}
+   ],
+   "ops2": [
+    {"op": "retrieveValue", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 2}, "target": "ref:n3", "field": "Share of employees", "group": "Male"}
+   ]
+  },
+  "note": "2nd-lowest Female category (filter Female, sort asc, nth=2), then the Male value in that category via retrieveValue(target=that category)."
+ },
+ "0lua5jsw92d3enb4": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "2019"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "field": "Share of respondents", "operator": ">", "value": 0.03}
+   ],
+   "ops3": [
+    {"op": "count", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 3}}
+   ]
+  },
+  "note": "Question asks count of diet types >0.03 in 2019: filter year=2019, filter share>0.03, count. (Explanation text muddled across 2018/2019 and a spurious 'difference', but the question is unambiguous; followed the question.)"
+ },
+ "0oinwvo88bvvs25b": {
+  "spec": {
+   "ops": [
+    {"op": "findExtremum", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "which": "max", "field": "Share of women and men", "group": "Men"}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 2}, "which": "max", "field": "Share of women and men", "group": "Women"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3}, "targetA": "ref:n2", "targetB": "ref:n1", "signed": false}
+   ]
+  },
+  "note": "max(Men) and max(Women), then absolute difference -> unsigned diff."
+ },
+ "0opt5fjw2xphdgp2": {
+  "spec": null,
+  "note": "GAP: per-group (Race/Ethnicity) sum of two selected x-categories (Occasionally + Infrequently) then max over groups -> per-key aggregate over a selected subset of categories then select; no group-by-aggregate op in the 18-op grammar. (Not a Total series.)"
+ },
+ "01h0jkno5l7jola8": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Artist", "groupA": "Men", "groupB": "Women", "seriesField": "Gender", "field": "Share of respondents", "absolute": true}
+   ],
+   "ops2": [
+    {"op": "average", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "field": "Share of respondents"}
+   ]
+  },
+  "note": "Average |Men-Women| over artists -> pairDiff(by=Artist, abs) then average. (Explanation 'divide sum by 5' = mean over the 5 artists.)"
+ },
+ "01mksjs373fhcl4q": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Sector", "groupA": "2003", "groupB": "mid-2013", "seriesField": "Year", "field": "Average length of lease in years", "signed": true}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "field": "Average length of lease in years"}
+   ]
+  },
+  "note": "Most decline per sector = largest (2003 - mid-2013) drop -> signed pairDiff(by=Sector) then findExtremum max of the positive decline."
+ },
+ "07lo3vvwztz32ifq": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Region", "groupA": "2010", "groupB": "2009", "seriesField": "Year", "field": "Net_Sales_Percentage", "absolute": true}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "field": "Net_Sales_Percentage"},
+    {"op": "findExtremum", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1"], "sentenceIndex": 2}, "which": "min", "field": "Net_Sales_Percentage"}
+   ],
+   "ops3": [
+    {"op": "add", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n2", "n3"], "sentenceIndex": 3}, "targetA": "ref:n2", "targetB": "ref:n3"}
+   ]
+  },
+  "note": "Per-region year-to-year diff, then sum of the highest and lowest of those diffs -> pairDiff(by=Region) then findExtremum max + min + add."
+ },
+ "0bgcjlbz7nv5vnjc": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Period", "groupA": "11–15 years", "groupB": "5–10 years", "seriesField": "AgeGroup", "field": "SharePercentage", "absolute": true}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "rank": 1, "field": "SharePercentage"},
+    {"op": "findExtremum", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "rank": 2, "field": "SharePercentage"},
+    {"op": "findExtremum", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "rank": 3, "field": "SharePercentage"}
+   ],
+   "ops3": [
+    {"op": "add", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n2", "n3"], "sentenceIndex": 3}, "targetA": "ref:n2", "targetB": "ref:n3"},
+    {"op": "add", "id": "n6", "meta": {"nodeId": "n6", "inputs": ["n5", "n4"], "sentenceIndex": 3}, "targetA": "ref:n5", "targetB": "ref:n4"},
+    {"op": "scale", "id": "n7", "meta": {"nodeId": "n7", "inputs": ["n6"], "sentenceIndex": 3}, "target": "ref:n6", "factor": 0.3333333333333333}
+   ]
+  },
+  "note": "Average of the 3 largest per-period |age-group| diffs -> pairDiff(by=Period, abs), top-3 via findExtremum(max, rank 1..3), add+add+scale(1/3). (rank-based per GOLD bar_simple 0baf5ch9; cand's nth-list returns only the first.)"
+ },
+ "0vw6ydim9cff8ji6": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Industry Sector", "include": ["Construction"]},
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "which": "max", "field": "Share of SMEs"}
+   ]
+  },
+  "note": "Construction sector across all periods, pick the highest -> filter Industry Sector=Construction (via include, the executor-verified way to select an other-dim category) then findExtremum max, both in the single explanation step. (x/series=Period; the selecting dimension is Industry Sector.) Verified: -> Q2 2019 = 0.22."
+ },
+ "0w5jptak9peti0mj": {
+  "spec": null,
+  "note": "GAP: count years where APAC is the lowest of the three regions -> per-year min (group-by Year, min over Region) then membership test (is it APAC?) then count. No group-by-extremum nor per-key argmin op in the 18-op grammar."
+ },
+ "0wgqpso2vnilpym6": {
+  "spec": {
+   "ops": [
+    {"op": "retrieveValue", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "target": "Alaska", "field": "Production in million barrels per day", "group": "2000"},
+    {"op": "retrieveValue", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 1}, "target": "Alaska", "field": "Production in million barrels per day", "group": "2020"},
+    {"op": "diff", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1}, "targetA": "ref:n1", "targetB": "ref:n2", "signed": false}
+   ],
+   "ops2": [
+    {"op": "retrieveValue", "id": "n4", "meta": {"nodeId": "n4", "inputs": [], "sentenceIndex": 2}, "target": "Total", "field": "Production in million barrels per day", "group": "2020"},
+    {"op": "retrieveValue", "id": "n5", "meta": {"nodeId": "n5", "inputs": [], "sentenceIndex": 2}, "target": "Total", "field": "Production in million barrels per day", "group": "2000"},
+    {"op": "diff", "id": "n6", "meta": {"nodeId": "n6", "inputs": ["n4", "n5"], "sentenceIndex": 2}, "targetA": "ref:n4", "targetB": "ref:n5", "signed": true}
+   ],
+   "ops3": [
+    {"op": "compareBool", "id": "n7", "meta": {"nodeId": "n7", "inputs": ["n3", "n6"], "sentenceIndex": 3}, "operator": ">", "targetA": "ref:n3", "targetB": "ref:n6"}
+   ]
+  },
+  "note": "|Alaska(2000)-Alaska(2020)| vs (Total 2020 - Total 2000); compareBool >. x=Region (Alaska/Total are x labels), series=Year."
+ },
+ "0xc7sx6ll8fl5rgh": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Age Group", "groupA": "Hillary Clinton", "groupB": "Bernie Sanders", "seriesField": "Candidate", "field": "Percentage of votes", "signed": true},
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "operator": "<", "value": 0}
+   ],
+   "ops2": [
+    {"op": "average", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 2}, "field": "Percentage of votes"}
+   ]
+  },
+  "note": "Age groups where Clinton<Sanders (signed Clinton-Sanders<0), then average the vote share. pairDiff(by=Age Group) + filter(<0) [step1 = identify the age groups] + average [step2]."
+ },
+ "12sdcc2xjltg7qj2": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Year", "groupA": "Total contributions to presidential candidates", "groupB": "Total spending by presidential candidates", "seriesField": "Category", "field": "Value_Million_USD", "absolute": true}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "field": "Value_Million_USD"},
+    {"op": "findExtremum", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1"], "sentenceIndex": 2}, "which": "min", "field": "Value_Million_USD"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n2", "n3"], "sentenceIndex": 3}, "targetA": "ref:n2", "targetB": "ref:n3", "mode": "ratio"}
+   ]
+  },
+  "note": "Per-year |contributions-spending| diff, then max/min ratio -> pairDiff(by=Year, abs) + findExtremum max+min + diff(mode=ratio) (how many times larger)."
+ },
+ "0ykydh8vao50ceou": {
+  "spec": null,
+  "note": "GAP: per-channel range (max-min over years for each Channel) then select the channel with the largest range -> per-key range then argmax over keys; no group-by-aggregate op. (range op aggregates over the whole field, not per channel; channel is the x dimension here.)"
+ },
+ "0zjxkqy20iibpdvo": {
+  "spec": null,
+  "note": "GAP: avg of Female on platforms where Male>Female minus avg of Male on platforms where Female>Male. Requires per-platform cross-series comparison to select platform subsets, then average the OTHER series over those subsets -> conditional per-key membership plus cross-group aggregation, not expressible in the 18-op grammar (pairDiff yields the diff, but selecting the opposite series' values by that sign for a separate average is not supported)."
+ },
+ "0yx2080f08329xxb": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Year", "operator": "between", "value": ["2009", "2013"]},
+    {"op": "average", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Value market share"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 2}, "field": "Year", "operator": "between", "value": ["2014", "2018"]},
+    {"op": "average", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 2}, "field": "Value market share"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n2", "n4"], "sentenceIndex": 3}, "targetA": "ref:n2", "targetB": "ref:n4", "signed": false}
+   ]
+  },
+  "note": "avg over both channels in the first five years (2009-2013) minus avg over both channels in the last five years (2014-2018), then diff. The explanation splits blue/orange per period but its net operation is (overall first-5 avg) vs (overall last-5 avg); averaging the whole filtered subset is equivalent."
+ },
+ "1gb8sqnptdsdvagz": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "Under 30s"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "field": "Share of respondents", "operator": ">=", "value": 0.1}
+   ]
+  },
+  "note": "Hair removal types with share >=10% (0.1) in Under 30s -> filter group=Under 30s then filter share>=0.1."
+ },
+ "1hm2mi3o0ejxp7tn": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Group", "include": ["Hypertensive untreated", "Normotensive untreated"]}
+   ],
+   "ops2": [
+    {"op": "sum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "field": "Share of respondents", "group": "Men"}
+   ],
+   "ops3": [
+    {"op": "sum", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1"], "sentenceIndex": 3}, "field": "Share of respondents", "group": "Women"}
+   ],
+   "ops4": [
+    {"op": "diff", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n2", "n3"], "sentenceIndex": 4}, "targetA": "ref:n2", "targetB": "ref:n3", "signed": true}
+   ]
+  },
+  "note": "Untreated groups (both untreated rows): sum Men's shares, sum Women's shares, then Men-Women diff. (x/series=Gender; Group=the untreated dimension.)"
+ },
+ "1ar60b8rke2d8e64": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Time Period", "groupA": "Average", "groupB": "Messaging apps", "seriesField": "Type", "field": "Retention rate", "absolute": true}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "min", "field": "Retention rate"}
+   ]
+  },
+  "note": "Smallest |Average - Messaging apps| diff across time periods -> pairDiff(by=Time Period, abs) then findExtremum min. (Q says 'year' but the key dimension is Time Period.)"
+ },
+ "16fif5hdi8yzml00": {
+  "spec": {
+   "ops": [
+    {"op": "average", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Payment_Million_USD", "group": "Maximum"}
+   ],
+   "ops2": [
+    {"op": "average", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 2}, "field": "Payment_Million_USD", "group": "Minimum"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3}, "targetA": "ref:n1", "targetB": "ref:n2", "signed": true}
+   ]
+  },
+  "note": "avg of Maximum-payment series across states minus avg of Minimum-payment series. (sum/n over states = average.)"
+ },
+ "1jatwi94v2d8cr9u": {
+  "spec": {
+   "ops": [
+    {"op": "sum", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Value in billion US dollars", "group": "Digital market"}
+   ],
+   "ops2": [
+    {"op": "sum", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 2}, "field": "Value in billion US dollars", "group": "Package market"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3}, "targetA": "ref:n1", "targetB": "ref:n2", "signed": true}
+   ]
+  },
+  "note": "Sum over years of Digital market minus sum over years of Package market."
+ },
+ "1hokbw2gmzar9ye8": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Group", "include": ["Women"]},
+    {"op": "retrieveValue", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "target": "60 years and over", "field": "Percentage of adults"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 2}, "field": "Group", "include": ["Men"]},
+    {"op": "retrieveValue", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 2}, "target": "18 to 39 years", "field": "Percentage of adults"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n2", "n4"], "sentenceIndex": 3}, "targetA": "ref:n2", "targetB": "ref:n4", "signed": false}
+   ]
+  },
+  "note": "Women '60 years and over' minus Men '18 to 39 years' (under-40 = the 18-39 bucket). x=Age Group (the labels), Group series picks Women/Men. Unsigned diff per 'subtract two values'."
+ },
+ "1j7gx35h6i9mpi6j": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Item", "include": ["Beauty products"]},
+    {"op": "retrieveValue", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "target": "Much more important/A little more important", "field": "Share of respondents"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 2}, "field": "Item", "include": ["Books"]},
+    {"op": "retrieveValue", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 2}, "target": "Much more important/A little more important", "field": "Share of respondents"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n2", "n4"], "sentenceIndex": 3}, "targetA": "ref:n2", "targetB": "ref:n4", "signed": false}
+   ]
+  },
+  "note": "Proportion who value (rate 'more important') beauty products minus that for books. Item picks the bar; Response='Much more important/A little more important' = the 'value it' bucket. Unsigned diff."
+ },
+ "1mzcynif2s4mm6ps": {
+  "spec": {
+   "ops": [
+    {"op": "sum", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Share of respondents", "group": "Enterprises"}
+   ],
+   "ops2": [
+    {"op": "sum", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 2}, "field": "Share of respondents", "group": "Provider"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3}, "targetA": "ref:n1", "targetB": "ref:n2", "signed": true}
+   ]
+  },
+  "note": "sum(Enterprises) minus sum(Provider). (series value is 'Provider'.)"
+ },
+ "1p6uue3hxdxit3ey": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "30 to 44 years"}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "field": "Percentage of respondents"}
+   ]
+  },
+  "note": "Among the 30-44 age group, which Response is highest (vs Yes and No) -> filter group=30 to 44 years then findExtremum max over its responses."
+ },
+ "1suppecte0dm69gm": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Respondent Group", "include": ["Men"]},
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Response", "operator": "==", "value": "Not at all"},
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 1}, "field": "Respondent Group", "include": ["Women"]},
+    {"op": "filter", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 1}, "field": "Response", "operator": "==", "value": "Not at all"},
+    {"op": "add", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n2", "n4"], "sentenceIndex": 1}, "targetA": "ref:n2", "targetB": "ref:n4"}
+   ],
+   "ops2": [
+    {"op": "scale", "id": "n6", "meta": {"nodeId": "n6", "inputs": ["n5"], "sentenceIndex": 2}, "target": "ref:n5", "factor": 0.5}
+   ],
+   "ops3": [
+    {"op": "filter", "id": "n7", "meta": {"nodeId": "n7", "inputs": [], "sentenceIndex": 3}, "field": "Respondent Group", "include": ["All adults"]},
+    {"op": "filter", "id": "n8", "meta": {"nodeId": "n8", "inputs": ["n7"], "sentenceIndex": 3}, "field": "Response", "operator": "==", "value": "Not at all"},
+    {"op": "compareBool", "id": "n9", "meta": {"nodeId": "n9", "inputs": ["n6", "n8"], "sentenceIndex": 3}, "operator": ">", "targetA": "ref:n6", "targetB": "ref:n8"}
+   ]
+  },
+  "note": "avg(Men 'Not at all', Women 'Not at all') vs All adults 'Not at all'. This chart's grouped layout has primary_dimension==series_field==Response, so a single (Respondent Group, Response) cell is selected by chaining filter(Respondent Group) -> filter(Response) rather than retrieveValue+group (which can't address the two-dimension cell here). Step1 builds Men+Women sum, step2 halves it, step3 compares to All adults. ('All Results' = 'All adults'.) Verified non-empty via real executor (mid=0.06 > all=0.05 -> true)."
+ },
+ "1qm2z3ooawf339jz": {
+  "spec": {
+   "ops": [
+    {"op": "sum", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Share of respondents", "group": "East"}
+   ],
+   "ops2": [
+    {"op": "sum", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 2}, "field": "Share of respondents", "group": "Scotland"}
+   ],
+   "ops3": [
+    {"op": "compareBool", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3}, "operator": ">", "targetA": "ref:n1", "targetB": "ref:n2"}
+   ]
+  },
+  "note": "Sum East responses vs sum Scotland responses, compare which total is greater -> sum(group)x2 + compareBool."
+ },
+ "1x37jzohqd666qc0": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "Don't know/no opinion"},
+    {"op": "average", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Percentage of respondents"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 2}, "field": "Category", "include": ["Family"]},
+    {"op": "retrieveValue", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 2}, "target": "Very unlikely", "field": "Percentage of respondents"},
+    {"op": "filter", "id": "n5", "meta": {"nodeId": "n5", "inputs": [], "sentenceIndex": 2}, "field": "Category", "include": ["Local community"]},
+    {"op": "retrieveValue", "id": "n6", "meta": {"nodeId": "n6", "inputs": ["n5"], "sentenceIndex": 2}, "target": "Very unlikely", "field": "Percentage of respondents"},
+    {"op": "diff", "id": "n7", "meta": {"nodeId": "n7", "inputs": ["n4", "n6"], "sentenceIndex": 2}, "targetA": "ref:n4", "targetB": "ref:n6", "signed": true}
+   ],
+   "ops3": [
+    {"op": "filter", "id": "n8", "meta": {"nodeId": "n8", "inputs": [], "sentenceIndex": 3}, "field": "Category", "include": ["Family"]},
+    {"op": "retrieveValue", "id": "n9", "meta": {"nodeId": "n9", "inputs": ["n8"], "sentenceIndex": 3}, "target": "Somewhat unlikely", "field": "Percentage of respondents"},
+    {"op": "filter", "id": "n10", "meta": {"nodeId": "n10", "inputs": [], "sentenceIndex": 3}, "field": "Category", "include": ["Local community"]},
+    {"op": "retrieveValue", "id": "n11", "meta": {"nodeId": "n11", "inputs": ["n10"], "sentenceIndex": 3}, "target": "Somewhat unlikely", "field": "Percentage of respondents"},
+    {"op": "diff", "id": "n12", "meta": {"nodeId": "n12", "inputs": ["n9", "n11"], "sentenceIndex": 3}, "targetA": "ref:n9", "targetB": "ref:n11", "signed": true}
+   ],
+   "ops4": [
+    {"op": "add", "id": "n13", "meta": {"nodeId": "n13", "inputs": ["n7", "n12"], "sentenceIndex": 4}, "targetA": "ref:n7", "targetB": "ref:n12"},
+    {"op": "compareBool", "id": "n14", "meta": {"nodeId": "n14", "inputs": ["n13", "n2"], "sentenceIndex": 4}, "operator": "==", "targetA": "ref:n13", "targetB": "ref:n2"}
+   ]
+  },
+  "note": "Equality check: avg('Don't know/no opinion' over all categories) == (Family-Local 'Very unlikely' diff) + (Family-Local 'Somewhat unlikely' diff). Category=Family/Local community picks bars; Response x labels picked via retrieveValue; compareBool ==."
+ },
+ "23zc8kuhnpespj98": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "Boys"}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "field": "Share_of_Respondents"}
+   ]
+  },
+  "note": "Most popular genre among Boys -> filter group=Boys then findExtremum max (tallest bar)."
+ },
+ "221xoyhy3yziwabm": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "2014"},
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Satisfaction_Level", "include": ["Very satisfied", "Somewhat satisfied"]},
+    {"op": "sum", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 1}, "field": "Share_of_Respondents"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n1"], "sentenceIndex": 2}, "field": "Satisfaction_Level", "include": ["Very dissatisfied", "Somewhat dissatisfied"]},
+    {"op": "sum", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n4"], "sentenceIndex": 2}, "field": "Share_of_Respondents"}
+   ],
+   "ops3": [
+    {"op": "compareBool", "id": "n6", "meta": {"nodeId": "n6", "inputs": ["n3", "n5"], "sentenceIndex": 3}, "operator": ">", "targetA": "ref:n3", "targetB": "ref:n5"}
+   ]
+  },
+  "note": "2014: sum(satisfied = Very+Somewhat satisfied) vs sum(dissatisfied = Very+Somewhat dissatisfied), compareBool >. filter group=2014 once, branch on Satisfaction_Level."
+ },
+ "25n4mzhv6y1p36dl": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "group": "Spend more"}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "min", "field": "Share_of_Respondents"}
+   ]
+  },
+  "note": "Sector where 'Spend more' is lowest -> filter group=Spend more then findExtremum min."
+ },
+ "263367gingx3k5hu": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Region", "include": ["China", "Japan", "South Korea", "Taiwan", "Other Asia"]}
+   ],
+   "ops2": [
+    {"op": "pairDiff", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "by": "Region", "groupA": "2017", "groupB": "2011", "seriesField": "Year", "field": "Demand_Million_Metric_Tons", "signed": true},
+    {"op": "sum", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 2}, "field": "Demand_Million_Metric_Tons"}
+   ]
+  },
+  "note": "Asian countries excl. Middle East: filter Region to those, per-region (2017-2011) increase via pairDiff, then sum the increases. signed pairDiff = increase."
+ },
+ "2a7luy1tzrplr2as": {
+  "spec": null,
+  "note": "GAP: count fiscal years where the per-year TOTAL rice export (Basmati + Non-basmati) exceeds 6B -> per-key (Fiscal Year) sum across the two series then threshold-count. No group-by-aggregate op; bare sum would total all rows, not per year. (No Total series.)"
+ },
+ "2ecy6apyrdfpoqbo": {
+  "spec": null,
+  "note": "GAP: count fiscal years where Beer < (Soft drink + Hot dog) -> per-year sum of two series compared against a third series per year, then count -> per-key conditional comparison across series; not expressible (pairDiff handles two series, not 'sum of two vs a third')."
+ },
+ "273wm22z47ptlhzz": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Gender", "include": ["Male"]},
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Usage_Period", "operator": "==", "value": "Today"},
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 1}, "field": "Gender", "include": ["Male"]},
+    {"op": "filter", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 1}, "field": "Usage_Period", "operator": "==", "value": "Within the previous week"},
+    {"op": "add", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n2", "n4"], "sentenceIndex": 1}, "targetA": "ref:n2", "targetB": "ref:n4"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n6", "meta": {"nodeId": "n6", "inputs": [], "sentenceIndex": 2}, "field": "Gender", "include": ["Female"]},
+    {"op": "filter", "id": "n7", "meta": {"nodeId": "n7", "inputs": ["n6"], "sentenceIndex": 2}, "field": "Usage_Period", "operator": "==", "value": "Today"},
+    {"op": "filter", "id": "n8", "meta": {"nodeId": "n8", "inputs": [], "sentenceIndex": 2}, "field": "Gender", "include": ["Female"]},
+    {"op": "filter", "id": "n9", "meta": {"nodeId": "n9", "inputs": ["n8"], "sentenceIndex": 2}, "field": "Usage_Period", "operator": "==", "value": "Within the previous week"},
+    {"op": "add", "id": "n10", "meta": {"nodeId": "n10", "inputs": ["n7", "n9"], "sentenceIndex": 2}, "targetA": "ref:n7", "targetB": "ref:n9"}
+   ],
+   "ops3": [
+    {"op": "compareBool", "id": "n11", "meta": {"nodeId": "n11", "inputs": ["n5", "n10"], "sentenceIndex": 3}, "operator": ">", "targetA": "ref:n5", "targetB": "ref:n10"}
+   ]
+  },
+  "note": "Male (Today + Within the previous week) vs Female (Today + Within the previous week), compareBool >. This chart's grouped layout has primary_dimension==series_field==Usage_Period, so a (Gender, Usage_Period) cell is selected by chaining filter(Gender) -> filter(Usage_Period) rather than retrieveValue+group. Step1=Male sum, step2=Female sum, step3=compare. Verified non-empty via real executor (male=0.78 > female=0.673 -> true)."
+ },
+ "2203wq7kgv5ha9fi": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Age_Group", "groupA": "Buying with mortgage", "groupB": "Own outright", "seriesField": "Housing_Status", "field": "Share_of_Respondents", "signed": true}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "operator": ">", "value": 0}
+   ],
+   "ops3": [
+    {"op": "findExtremum", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 3}, "which": "max", "field": "Share_of_Respondents"}
+   ]
+  },
+  "note": "Among age groups where Buying-with-mortgage > Own-outright (signed pairDiff>0), find the largest such diff -> pairDiff(by=Age_Group) + filter(>0) + findExtremum max."
+ },
+ "20lb7iojghs85r21": {
+  "spec": null,
+  "note": "GAP: per-year pick the two smallest of the three grades, diff them, then select the year with the biggest such diff -> per-key bottom-2 selection then diff then argmax over keys; no group-by-aggregate / per-key rank op in the 18-op grammar."
+ },
+ "1xj7x49epprmpod7": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Year", "groupA": "Total market", "groupB": "Domestic market", "seriesField": "Market Type", "field": "Number of companies", "signed": true}
+   ],
+   "ops2": [
+    {"op": "average", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "field": "Number of companies"}
+   ],
+   "ops3": [
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3}, "field": "Number of companies", "operator": ">", "value": "ref:n2"}
+   ],
+   "ops4": [
+    {"op": "sum", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n3"], "sentenceIndex": 4}, "field": "Number of companies"}
+   ]
+  },
+  "note": "Per-year (Total - Domestic) diff, average those diffs, keep diffs above the average, sum them. pairDiff(by=Year) + average + filter(>ref:n2) + sum."
+ },
+ "21klhgimadx4zsi9": {
+  "spec": null,
+  "note": "GAP: year with the most revenue across all sectors -> per-year sum over Sector series then argmax over years; group-by-aggregate-then-extremum, not expressible in the 18-op grammar. (No Total sector.)"
+ }
+}

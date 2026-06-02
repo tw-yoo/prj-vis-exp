@@ -1,0 +1,21 @@
+{
+  "chart_id": "72yqb8jwj9a6g4nx",
+  "question": "What is the difference between the average from 2011 and the average up to 2010?",
+  "description": "",
+  "specPath": "specs/72yqb8jwj9a6g4nx.vl.json",
+  "opsPath": "ops/72yqb8jwj9a6g4nx.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Calculate the average from 2011 to 2015."
+    },
+    {
+      "id": "ops2",
+      "text": "Calculate the average from 2005 to 2010."
+    },
+    {
+      "id": "ops3",
+      "text": "Calculate the difference."
+    }
+  ]
+}

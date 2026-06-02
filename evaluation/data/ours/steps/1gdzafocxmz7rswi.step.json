@@ -1,0 +1,17 @@
+{
+  "chart_id": "1gdzafocxmz7rswi",
+  "question": "How many years have the lower traffic in petabytes than the difference of two biggest traffics in petabytes.",
+  "description": "",
+  "specPath": "specs/1gdzafocxmz7rswi.vl.json",
+  "opsPath": "ops/1gdzafocxmz7rswi.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Find two biggest traffics in year. Get the difference of those values."
+    },
+    {
+      "id": "ops3",
+      "text": "Count the years which have a lower traffic than the difference."
+    }
+  ]
+}

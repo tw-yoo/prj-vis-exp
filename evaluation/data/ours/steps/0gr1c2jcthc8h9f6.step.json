@@ -1,0 +1,21 @@
+{
+  "chart_id": "0gr1c2jcthc8h9f6",
+  "question": "What is the difference between a value for a year with a score value between 6.2 and 5.8 and a value for a year with a score value below 4.8?",
+  "description": "",
+  "specPath": "specs/0gr1c2jcthc8h9f6.vl.json",
+  "opsPath": "ops/0gr1c2jcthc8h9f6.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Find values for years with values between 6.2 and 5.8."
+    },
+    {
+      "id": "ops2",
+      "text": "Find the value of the year with the value below 4.8."
+    },
+    {
+      "id": "ops3",
+      "text": "Find the difference between the two values."
+    }
+  ]
+}

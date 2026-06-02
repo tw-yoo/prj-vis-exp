@@ -1,0 +1,25 @@
+{
+  "chart_id": "cby91tt3tvahsmuj",
+  "question": "Is the difference between the parties in 2012 bigger than the average of the differences of all years?",
+  "description": "",
+  "specPath": "specs/cby91tt3tvahsmuj.vl.json",
+  "opsPath": "ops/cby91tt3tvahsmuj.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Calculate the difference for each year"
+    },
+    {
+      "id": "ops2",
+      "text": "Calculate the average of the difference from the previous step."
+    },
+    {
+      "id": "ops3",
+      "text": "Retrieve the difference for 2012."
+    },
+    {
+      "id": "ops4",
+      "text": "Compare the values between the difference in 2012 and the average difference."
+    }
+  ]
+}

@@ -1,16 +1,38 @@
 import type { ExplanationMethod } from './renderers/types'
 
-export type SequenceItem = {
-  chart_id: string
-  method: ExplanationMethod
+// ---- Participant model -----------------------------------------------------
+// participants.json: { CODE: { order: { system: "SO1", chart: "CO1" } } }
+//   order.system -> order_system.json -> ordered systems, e.g. ["Ours","B1","B2"]
+//   order.chart  -> order_chart.json  -> ordered groups,  e.g. ["G1","G2","G3"]
+// The i-th system is paired with the i-th group (Latin square). Each group's
+// 5 charts (chart_group.json) are then shown in a per-participant random order.
+
+export type SystemName = 'Ours' | 'B1' | 'B2'
+
+export type ParticipantOrder = {
+  system: string
+  chart: string
 }
 
 export type ParticipantData = {
   code: string
-  sequence: SequenceItem[]
+  order: ParticipantOrder
 }
 
-type ParticipantsFile = Record<string, { sequence: SequenceItem[] }>
+export type SequenceItem = {
+  chart_id: string
+  method: ExplanationMethod
+  system: string
+  group: string
+  question: string
+}
+
+export type OrderSystemFile = Record<string, string[]>
+export type OrderChartFile = Record<string, string[]>
+export type ChartGroupEntry = { id: string; question?: string; answer?: string }
+export type ChartGroupFile = Record<string, Record<string, ChartGroupEntry>>
+
+type ParticipantsFile = Record<string, { order?: ParticipantOrder }>
 
 const STORAGE_KEY = 'eval.participant'
 const CODE_PATTERN = /^[A-Za-z0-9]{6}$/
@@ -23,6 +45,10 @@ export function isValidCodeFormat(input: string): boolean {
   return CODE_PATTERN.test(input.trim())
 }
 
+function isValidOrder(order: ParticipantOrder | undefined): order is ParticipantOrder {
+  return !!order && typeof order.system === 'string' && typeof order.chart === 'string'
+}
+
 export async function lookupParticipant(rawCode: string, participantsUrl: string): Promise<ParticipantData | null> {
   const code = normalizeCode(rawCode)
   if (!isValidCodeFormat(code)) return null
@@ -30,8 +56,8 @@ export async function lookupParticipant(rawCode: string, participantsUrl: string
   if (!response.ok) throw new Error(`Failed to load participants file (${response.status})`)
   const data = (await response.json()) as ParticipantsFile
   const entry = data[code]
-  if (!entry || !Array.isArray(entry.sequence) || entry.sequence.length === 0) return null
-  return { code, sequence: entry.sequence }
+  if (!entry || !isValidOrder(entry.order)) return null
+  return { code, order: { system: entry.order.system, chart: entry.order.chart } }
 }
 
 export function saveSession(data: ParticipantData): void {
@@ -43,7 +69,7 @@ export function loadSession(): ParticipantData | null {
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw) as ParticipantData
-    if (!parsed.code || !Array.isArray(parsed.sequence) || parsed.sequence.length === 0) return null
+    if (!parsed.code || !isValidOrder(parsed.order)) return null
     return parsed
   } catch {
     return null
@@ -52,4 +78,84 @@ export function loadSession(): ParticipantData | null {
 
 export function clearSession(): void {
   sessionStorage.removeItem(STORAGE_KEY)
+}
+
+export function systemToMethod(system: string): ExplanationMethod {
+  if (system === 'Ours') return 'ours'
+  if (system === 'B1') return 'b1'
+  if (system === 'B2') return 'b2'
+  throw new Error(`Unknown system "${system}" (expected Ours | B1 | B2).`)
+}
+
+// ---- Deterministic shuffle (seeded by participant code) --------------------
+// Stable across reloads / re-entry so ?page navigation stays aligned with the
+// same chart on each page, and orders are reproducible for analysis.
+function hashString(str: string): number {
+  let h = 2166136261 >>> 0
+  for (let i = 0; i < str.length; i += 1) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return function () {
+    a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function shuffle<T>(items: readonly T[], rng: () => number): T[] {
+  const a = items.slice()
+  for (let i = a.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+/**
+ * Build the flat presentation sequence for a participant. The i-th system in
+ * `orderSystem[order.system]` is paired with the i-th group in
+ * `orderChart[order.chart]`; that group's charts are emitted in an order
+ * randomized deterministically by `seed` (the participant code). With 3 systems
+ * and 3 groups of 5 charts, this yields 15 items.
+ */
+export function buildSequence(
+  order: ParticipantOrder,
+  cfg: { orderSystem: OrderSystemFile; orderChart: OrderChartFile; chartGroup: ChartGroupFile },
+  seed: string,
+): SequenceItem[] {
+  const systems = cfg.orderSystem[order.system]
+  const groups = cfg.orderChart[order.chart]
+  if (!Array.isArray(systems)) throw new Error(`Unknown system order "${order.system}".`)
+  if (!Array.isArray(groups)) throw new Error(`Unknown chart order "${order.chart}".`)
+
+  const rng = mulberry32(hashString(seed))
+  const pairCount = Math.min(systems.length, groups.length)
+  const sequence: SequenceItem[] = []
+
+  for (let i = 0; i < pairCount; i += 1) {
+    const system = systems[i]
+    const group = groups[i]
+    const method = systemToMethod(system)
+    const groupCharts = cfg.chartGroup[group]
+    if (!groupCharts) throw new Error(`Unknown chart group "${group}".`)
+    const charts = shuffle(Object.values(groupCharts), rng)
+    for (const chart of charts) {
+      sequence.push({
+        chart_id: chart.id,
+        method,
+        system,
+        group,
+        question: chart.question ?? '',
+      })
+    }
+  }
+
+  return sequence
 }

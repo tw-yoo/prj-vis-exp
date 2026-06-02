@@ -1,0 +1,70 @@
+{
+  "ops": [
+    {
+      "op": "findExtremum",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "which": "max",
+      "rank": 1,
+      "field": "Traffic in petabytes per month"
+    },
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "which": "max",
+      "rank": 2,
+      "field": "Traffic in petabytes per month"
+    },
+    {
+      "op": "diff",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 2
+      },
+      "targetA": "ref:n1",
+      "targetB": "ref:n2",
+      "signed": false
+    }
+  ],
+  "ops3": [
+    {
+      "op": "filter",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n3"
+        ],
+        "sentenceIndex": 3
+      },
+      "field": "Traffic in petabytes per month",
+      "operator": "<",
+      "value": "ref:n3"
+    },
+    {
+      "op": "count",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n4"
+        ],
+        "sentenceIndex": 3
+      }
+    }
+  ]
+}

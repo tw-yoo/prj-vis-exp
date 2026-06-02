@@ -1,0 +1,100 @@
+{
+ "77xb5ug5lhfmkb74": {
+  "row": "233",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Number_of_Employees",
+  "series": "Region",
+  "x_vals": [
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "series_vals": [
+   "Germany",
+   "Great Britain",
+   "North and Sourth America",
+   "Other regions",
+   "Rest of Europe",
+   "Spain"
+  ],
+  "other_dims": {},
+  "y_min": 3080.0,
+  "y_max": 22594.0,
+  "y_mean": 11351.283333,
+  "n_rows": 60,
+  "q": "What is the sum of number of employees from Europe region before 2015?",
+  "e": "1. Filter out the data after 2015.\n2. Get the number of employees from Europe region.\n3. Sum the count of the numbers.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Year\",\"operator\":\"<\",\"value\":\"2015\",\"group\":[\"Germany\",\"Great Britain\",\"Spain\",\"Rest of Europe\"]}],\"ops2\":[{\"op\":\"sum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Number_of_Employees\"}]}"
+ },
+ "a7byilpdrc3cbjr4": {
+  "row": "234",
+  "type": "bar_stacked",
+  "x": "Country",
+  "y": "Percentage",
+  "series": "Opinion",
+  "x_vals": [
+   "Canada",
+   "France",
+   "Germany",
+   "Greece",
+   "Hungary",
+   "Italy",
+   "Netherlands",
+   "Poland",
+   "Spain",
+   "UK",
+   "US"
+  ],
+  "series_vals": [
+   "Decrease",
+   "Increase",
+   "Keep the same"
+  ],
+  "other_dims": {},
+  "y_min": 3.0,
+  "y_max": 52.0,
+  "y_mean": 32.151515,
+  "n_rows": 33,
+  "q": "How many countries have the highest percentage of opinions to keep the same and its following higher opinion is to decrease?",
+  "e": "1. Filter countries which have the highest percentage of opinion to keep the same.\n2. Filter countries which have the 2nd higher percentage of opinion to decrease for the above countries.\n3. Count the filtered countries.",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Decrease\",\"groupB\":\"Increase\",\"seriesField\":\"Opinion\",\"by\":\"Country\",\"field\":\"Percentage\",\"signed\":true}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"operator\":\">\",\"value\":0}],\"ops3\":[{\"op\":\"count\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3}}]}"
+ },
+ "90tonvacpe7zniv9": {
+  "row": "237",
+  "type": "bar_stacked",
+  "x": "Royal_Figure",
+  "y": "Share_of_Respondents",
+  "series": "Perception",
+  "x_vals": [
+   "Catherine, Duchess of Cambridge",
+   "Meghan, Duchess of Sussex",
+   "Prince Andrew",
+   "Prince Harry",
+   "Prince Philip",
+   "Prince William",
+   "Queen Elizabeth II"
+  ],
+  "series_vals": [
+   "Don't know",
+   "Fair and balanced",
+   "Overly critical",
+   "Overly favourable"
+  ],
+  "other_dims": {},
+  "y_min": 0.04,
+  "y_max": 0.55,
+  "y_mean": 0.25,
+  "n_rows": 28,
+  "q": "Which perception has the biggest share across the royal figures whose gender is female?",
+  "e": "1. Find royal figures whose gender is female.\n2. Get the perceptions with the biggest share for those figures.\n3. Find the most-counted perception with the biggest share.",
+  "cand": null
+ }
+}

@@ -1,0 +1,194 @@
+{
+ "08iur64i01boakg5": {
+  "row": "78",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Percentage of 25 to 29 year olds",
+  "series": "Gender",
+  "x_vals": [
+   "1996",
+   "1997",
+   "1998",
+   "1999",
+   "2000",
+   "2001",
+   "2002",
+   "2003",
+   "2004",
+   "2005",
+   "2006",
+   "2007",
+   "2008",
+   "2009",
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018"
+  ],
+  "series_vals": [
+   "Female",
+   "Male"
+  ],
+  "other_dims": {},
+  "y_min": 9.0,
+  "y_max": 30.0,
+  "y_mean": 18.065217,
+  "n_rows": 46,
+  "q": "Which year has the highest difference in values between Male and Female?",
+  "e": "Find the difference between the male and female percentages for each year.\nSort the values in descending order.\nChoose the highest value.",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Male\",\"groupB\":\"Female\",\"seriesField\":\"Gender\",\"by\":\"Year\",\"field\":\"Percentage of 25 to 29 year olds\",\"absolute\":true}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"max\",\"field\":\"Percentage of 25 to 29 year olds\"}]}"
+ },
+ "0b9o2vahkw2a1bxy": {
+  "row": "80",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Share of respondents",
+  "series": "Opinion",
+  "x_vals": [
+   "2008",
+   "2013",
+   "2014",
+   "2015",
+   "2016"
+  ],
+  "series_vals": [
+   "No",
+   "Yes"
+  ],
+  "other_dims": {},
+  "y_min": 18.0,
+  "y_max": 76.0,
+  "y_mean": 47.7,
+  "n_rows": 10,
+  "q": "What is the difference between the value of the year with the highest percentage of no and the value of the year with the third highest percentage of yes?",
+  "e": "Sort the percentage values that answered no for each year in descending order.\nFind the highest value.\nSort the percentage values that answered Yes for each year in descending order.\nFind the third-highest value.\nFind the difference between the two values obtained.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"group\":\"No\"},{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"which\":\"max\",\"field\":\"Share of respondents\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[],\"sentenceIndex\":2},\"group\":\"Yes\"},{\"op\":\"sort\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\"],\"sentenceIndex\":2},\"field\":\"Share of respondents\",\"order\":\"desc\"},{\"op\":\"nth\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[\"n4\"],\"sentenceIndex\":2},\"n\":3,\"from\":\"left\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n6\",\"meta\":{\"nodeId\":\"n6\",\"inputs\":[\"n2\",\"n5\"],\"sentenceIndex\":3},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n5\",\"signed\":true}]}"
+ },
+ "2hjkdo5w242alvjd": {
+  "row": "85",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Percentage_of_Respondents",
+  "series": "Opinion",
+  "x_vals": [
+   "2006",
+   "2007",
+   "2008",
+   "2009",
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014"
+  ],
+  "series_vals": [
+   "Dissatisfied",
+   "Satisfied"
+  ],
+  "other_dims": {},
+  "y_min": 24.0,
+  "y_max": 72.0,
+  "y_mean": 48.222222,
+  "n_rows": 18,
+  "q": "Was the period from 2006 to 2011 longer than the period when people were more likely to be satisfied than the period when they were dissatisfied?",
+  "e": "- Filter responses only from 2006 to 2011\n- Count the number of years over 50% of the respondents said they were satisfied\n- Check the number is greater than 3",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Satisfied\",\"groupB\":\"Dissatisfied\",\"seriesField\":\"Opinion\",\"by\":\"Year\",\"field\":\"Percentage_of_Respondents\",\"signed\":true}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"operator\":\">\",\"value\":0},{\"op\":\"count\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":2}}],\"ops3\":[{\"op\":\"compareBool\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\"],\"sentenceIndex\":3},\"operator\":\">\",\"targetA\":6,\"targetB\":\"ref:n3\"}]}"
+ },
+ "2kmpy10btl65kr2j": {
+  "row": "90",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Percentage_of_Respondents",
+  "series": "Opinion_Type",
+  "x_vals": [
+   "2006",
+   "2007",
+   "2008",
+   "2009",
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017"
+  ],
+  "series_vals": [
+   "Confidence in US President",
+   "Favorable view of US"
+  ],
+  "other_dims": {},
+  "y_min": 24.0,
+  "y_max": 85.0,
+  "y_mean": 62.25,
+  "n_rows": 24,
+  "q": "What is the average of the percentage of responses in the last three years of Favourable views of the US?",
+  "e": "- Filters data from 2015 to 2017\n- Average the the percentage of responses of Favourable views of U.S from filtered data",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Year\",\"operator\":\"between\",\"value\":[\"2015\",\"2017\"],\"group\":\"Favorable view of US\"},{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Percentage_of_Respondents\"}]}"
+ },
+ "2s65jcap9pn289qx": {
+  "row": "95",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Population_Million_Inhabitants",
+  "series": "Gender",
+  "x_vals": [
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "series_vals": [
+   "Female",
+   "Male"
+  ],
+  "other_dims": {},
+  "y_min": 653.43,
+  "y_max": 723.34,
+  "y_mean": 687.520909,
+  "n_rows": 22,
+  "q": "What is the sum of the differences between women and men in the last five years?",
+  "e": "- Filter data from 2016 to 2020\n- Find both the differences between women and men in the filtered data.\n- Add all the values",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Year\",\"operator\":\"between\",\"value\":[\"2016\",\"2020\"]}],\"ops2\":[{\"op\":\"pairDiff\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"groupA\":\"Female\",\"groupB\":\"Male\",\"seriesField\":\"Gender\",\"by\":\"Year\",\"field\":\"Population_Million_Inhabitants\",\"signed\":true}],\"ops3\":[{\"op\":\"average\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3},\"field\":\"Population_Million_Inhabitants\"},{\"op\":\"scale\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\"],\"sentenceIndex\":3},\"target\":\"ref:n3\",\"factor\":5.0}]}"
+ },
+ "3tc31k5k2o6wmvyp": {
+  "row": "100",
+  "type": "line_multiple",
+  "x": "Date",
+  "y": "Percent_Do_Not_Want_Reelected",
+  "series": "Candidate_Support",
+  "x_vals": [
+   "Jul 14",
+   "Jun 02",
+   "Jun 06",
+   "Jun 10",
+   "Mar 98",
+   "Oct 94"
+  ],
+  "series_vals": [
+   "Support Dem candidate",
+   "Support Rep candidate"
+  ],
+  "other_dims": {},
+  "y_min": 20.0,
+  "y_max": 44.0,
+  "y_mean": 28.916667,
+  "n_rows": 12,
+  "q": "How many dates were there in total when the percentage sum of dem and rep was less than 70?",
+  "e": "- For all days, the sum of each dem and rep values is obtained, and values higher than 70 are filtered.\n- Count the total number of filtered values",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Percent_Do_Not_Want_Reelected\",\"operator\":\"<\",\"value\":35,\"group\":\"Support Dem candidate\"}],\"ops2\":[{\"op\":\"count\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2}}]}"
+ }
+}

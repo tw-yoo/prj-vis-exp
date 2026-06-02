@@ -1,0 +1,204 @@
+{
+ "25n4mzhv6y1p36dl": {
+  "row": "192",
+  "type": "bar_grouped",
+  "x": "Intent",
+  "y": "Share_of_Respondents",
+  "series": "Intent",
+  "x_vals": [
+   "No change",
+   "Spend less",
+   "Spend more",
+   "Unsure"
+  ],
+  "series_vals": [
+   "No change",
+   "Spend less",
+   "Spend more",
+   "Unsure"
+  ],
+  "other_dims": {
+   "Sector": [
+    "Education",
+    "Financial services & accounting",
+    "IT & computer software",
+    "Marketing & advertising",
+    "Medical & health care"
+   ]
+  },
+  "y_min": 0.12,
+  "y_max": 0.49,
+  "y_mean": 0.249,
+  "n_rows": 20,
+  "q": "In what sector did respondents spend more least frequently",
+  "e": "determine spend more category is red\nfind lowest bar in computer software",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"group\":\"Spend more\"}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"min\",\"field\":\"Share_of_Respondents\"}]}"
+ },
+ "263367gingx3k5hu": {
+  "row": "203",
+  "type": "bar_grouped",
+  "x": "Year",
+  "y": "Demand_Million_Metric_Tons",
+  "series": "Year",
+  "x_vals": [
+   "2011",
+   "2017"
+  ],
+  "series_vals": [
+   "2011",
+   "2017"
+  ],
+  "other_dims": {
+   "Region": [
+    "China",
+    "Japan",
+    "Other Asia",
+    "Others (including Middle East and other DRI)",
+    "South Korea",
+    "Taiwan",
+    "Western Europe"
+   ]
+  },
+  "y_min": 19.0,
+  "y_max": 999.0,
+  "y_mean": 187.571429,
+  "n_rows": 14,
+  "q": "What is the Sum of the increases between the two terms for Asian countries (excluding the Middle East)?",
+  "e": "1 Subtract the number of two terms and find the difference: only from China, Japan, South Korea, Taiwan, and other Asian countries\n2. Sum the difference calculated in step 1",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Region\",\"include\":[\"China\",\"Japan\",\"Other Asia\",\"South Korea\",\"Taiwan\"]}],\"ops2\":[{\"op\":\"pairDiff\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"groupA\":\"2017\",\"groupB\":\"2011\",\"seriesField\":\"Year\",\"by\":\"Region\",\"field\":\"Demand_Million_Metric_Tons\",\"signed\":true}],\"ops3\":[{\"op\":\"sum\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3},\"field\":\"Demand_Million_Metric_Tons\"}]}"
+ },
+ "2a7luy1tzrplr2as": {
+  "row": "206",
+  "type": "bar_grouped",
+  "x": "Rice Type",
+  "y": "Export value in billion US dollars",
+  "series": "Rice Type",
+  "x_vals": [
+   "Basmati rice",
+   "Non–basmati rice"
+  ],
+  "series_vals": [
+   "Basmati rice",
+   "Non–basmati rice"
+  ],
+  "other_dims": {
+   "Fiscal Year": [
+    "FY 2015",
+    "FY 2016",
+    "FY 2017",
+    "FY 2018",
+    "FY 2019",
+    "FY 2020"
+   ]
+  },
+  "y_min": 1.41,
+  "y_max": 4.71,
+  "y_mean": 3.056667,
+  "n_rows": 12,
+  "q": "What is the number of years where the total rice export shows over 6 billion?",
+  "e": "1. each year, calculate the sum of Basmati rice and Non-Basmati rice\n2. Count the number over 6 billion",
+  "cand": "{\"ops\":[{\"op\":\"sum\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Export value in billion US dollars\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Export value in billion US dollars\",\"operator\":\">\",\"value\":6}],\"ops3\":[{\"op\":\"count\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3}}]}"
+ },
+ "2ecy6apyrdfpoqbo": {
+  "row": "214",
+  "type": "bar_grouped",
+  "x": "Item",
+  "y": "Sales price in US dollars",
+  "series": "Item",
+  "x_vals": [
+   "Beer",
+   "Hot dog",
+   "Soft drink"
+  ],
+  "series_vals": [
+   "Beer",
+   "Hot dog",
+   "Soft drink"
+  ],
+  "other_dims": {
+   "Fiscal Year": [
+    "2010/11",
+    "2011/12",
+    "2012/13",
+    "2013/14",
+    "2014/15",
+    "2015/16"
+   ]
+  },
+  "y_min": 2.5,
+  "y_max": 5.5,
+  "y_mean": 4.041667,
+  "n_rows": 18,
+  "q": "How many fiscal year exist where the beer is smaller than the sum of soft drink and hot dog?",
+  "e": "1. For each year, calculate the sum of soft drink and hot dog.\n2. For each year, compare the value between the beer and the sum value acquired in the previous step.\n3. Count the number of years where the beer is smaller than the sum of soft drink and hot dog",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"group\":[\"Soft drink\",\"Hot dog\"]},{\"op\":\"sum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"field\":\"Sales price in US dollars\"}],\"ops2\":[{\"op\":\"sum\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Sales price in US dollars\",\"group\":\"Beer\"}],\"ops3\":[{\"op\":\"compareBool\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\",\"n2\"],\"sentenceIndex\":3},\"operator\":\"<\",\"targetA\":\"ref:n3\",\"targetB\":\"ref:n2\"}]}"
+ },
+ "273wm22z47ptlhzz": {
+  "row": "220",
+  "type": "bar_grouped",
+  "x": "Usage_Period",
+  "y": "Share_of_Respondents",
+  "series": "Usage_Period",
+  "x_vals": [
+   "I have never used this application",
+   "More than a year ago",
+   "Today",
+   "Within the previous month",
+   "Within the previous week",
+   "Within the previous year"
+  ],
+  "series_vals": [
+   "I have never used this application",
+   "More than a year ago",
+   "Today",
+   "Within the previous month",
+   "Within the previous week",
+   "Within the previous year"
+  ],
+  "other_dims": {
+   "Gender": [
+    "Female",
+    "Male"
+   ]
+  },
+  "y_min": 0.03,
+  "y_max": 0.67,
+  "y_mean": 0.165833,
+  "n_rows": 12,
+  "q": "With today and previous week, do male respondents used the application than female respondents?",
+  "e": "1. Sum the percentage of the data \"Today\" and \"Within the previous week\" \n2. Compare the number from step 1 between two genders",
+  "cand": "{\"ops\":[{\"op\":\"retrieveValue\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"Male\",\"field\":\"Share_of_Respondents\",\"group\":\"Today\"},{\"op\":\"retrieveValue\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"Male\",\"field\":\"Share_of_Respondents\",\"group\":\"Within the previous week\"},{\"op\":\"add\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":1},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\"}],\"ops2\":[{\"op\":\"retrieveValue\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[],\"sentenceIndex\":2},\"target\":\"Female\",\"field\":\"Share_of_Respondents\",\"group\":\"Today\"},{\"op\":\"retrieveValue\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[],\"sentenceIndex\":2},\"target\":\"Female\",\"field\":\"Share_of_Respondents\",\"group\":\"Within the previous week\"},{\"op\":\"add\",\"id\":\"n6\",\"meta\":{\"nodeId\":\"n6\",\"inputs\":[\"n4\",\"n5\"],\"sentenceIndex\":2},\"targetA\":\"ref:n4\",\"targetB\":\"ref:n5\"}],\"ops3\":[{\"op\":\"compareBool\",\"id\":\"n7\",\"meta\":{\"nodeId\":\"n7\",\"inputs\":[\"n3\",\"n6\"],\"sentenceIndex\":3},\"operator\":\">\",\"targetA\":\"ref:n3\",\"targetB\":\"ref:n6\"}]}"
+ },
+ "2203wq7kgv5ha9fi": {
+  "row": "225",
+  "type": "bar_grouped",
+  "x": "Housing_Status",
+  "y": "Share_of_Respondents",
+  "series": "Housing_Status",
+  "x_vals": [
+   "Buying with mortgage",
+   "Own outright"
+  ],
+  "series_vals": [
+   "Buying with mortgage",
+   "Own outright"
+  ],
+  "other_dims": {
+   "Age_Group": [
+    "16–24",
+    "25–34",
+    "35–44",
+    "45–54",
+    "55–64",
+    "65 or over"
+   ]
+  },
+  "y_min": 0.003,
+  "y_max": 0.625,
+  "y_mean": 0.16675,
+  "n_rows": 12,
+  "q": "Which age group has the highest difference in share between housing status within the groups which have a higher portion on housing status with buying with mortage?",
+  "e": "1. List age groups which have a higher portion on housing status with buying with mortage.\n2. Calculate the difference in share between housing status for those age groups.\n3. Find the age group which has the highest difference.",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Buying with mortgage\",\"groupB\":\"Own outright\",\"seriesField\":\"Housing_Status\",\"by\":\"Age_Group\",\"field\":\"Share_of_Respondents\",\"signed\":true}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"operator\":\">\",\"value\":0}],\"ops3\":[{\"op\":\"findExtremum\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3},\"which\":\"max\",\"field\":\"Share_of_Respondents\"}]}"
+ }
+}

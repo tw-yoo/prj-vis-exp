@@ -1,0 +1,45 @@
+{
+  "ops": [
+    {
+      "op": "average",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "field": "Media rights revenue in billion US dollars",
+      "group": "North America"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "average",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [],
+        "sentenceIndex": 2
+      },
+      "field": "Media rights revenue in billion US dollars",
+      "group": "Latin America"
+    }
+  ],
+  "ops3": [
+    {
+      "op": "diff",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 3
+      },
+      "targetA": "ref:n1",
+      "targetB": "ref:n2",
+      "signed": true
+    }
+  ]
+}

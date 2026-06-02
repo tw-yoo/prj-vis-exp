@@ -316,7 +316,7 @@ export class OursRenderer implements ExplanationRenderer {
   }
 
   async loadChart(chartId: string): Promise<void> {
-    const manifestUrl = `${this.context.oursBase}/${chartId}.json`
+    const manifestUrl = `${this.context.oursBase}/steps/${chartId}.step.json`
     const manifest = await fetchJson<ChartManifest>(manifestUrl)
     if (this.overrideSteps && this.overrideSteps.length > 0) {
       manifest.steps = this.overrideSteps

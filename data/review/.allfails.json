@@ -1,0 +1,33 @@
+{
+ "exec_rows": 196,
+ "n_fail": 1,
+ "fails": [
+  {
+   "id": "8hiwwys6qkrbtapb",
+   "err": "could not convert string to float: '2002/03'"
+  }
+ ],
+ "n_suspicious": 4,
+ "suspicious": [
+  {
+   "id": "4twwx65oath7vrkt",
+   "final": "empty",
+   "value": null
+  },
+  {
+   "id": "9douccar3m9ruah4",
+   "final": "empty",
+   "value": null
+  },
+  {
+   "id": "23bplnbw291p6nil",
+   "final": "scalar",
+   "value": NaN
+  },
+  {
+   "id": "bpmaqi8nt785y4ay",
+   "final": "empty",
+   "value": null
+  }
+ ]
+}

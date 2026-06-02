@@ -1,0 +1,78 @@
+{
+ "1g17ep9vho38jvcz": {
+  "row": "230",
+  "type": "bar_simple",
+  "x": "Continent",
+  "y": "Share of mobile app developers",
+  "series": null,
+  "x_vals": [
+   "Africa",
+   "Asia",
+   "Europe",
+   "North America",
+   "Oceania",
+   "South America"
+  ],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": 0.015,
+  "y_max": 0.329,
+  "y_mean": 0.166667,
+  "n_rows": 6,
+  "q": "How many continents have a bigger share than the share difference between the continents which have the biggest share and the lowest share?",
+  "e": "1. Sort continents by share.\n2. Find continents with the biggest share and the lowest share.\n3. Calculate the difference between the shares.\n4. Find the continents which have a bigger share than the difference.",
+  "cand": "{\"ops\":[{\"op\":\"range\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Share of mobile app developers\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Share of mobile app developers\",\"operator\":\">\",\"value\":\"ref:n1\"}],\"ops3\":[{\"op\":\"count\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3}}]}"
+ },
+ "1hlsoeyqlr1r1n41": {
+  "row": "236",
+  "type": "bar_simple",
+  "x": "Region",
+  "y": "Revenue in million US dollars",
+  "series": null,
+  "x_vals": [
+   "Asia Pacific",
+   "Continental Europe",
+   "Latin America",
+   "Other",
+   "United Kingdom",
+   "United States"
+  ],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": 323.4,
+  "y_max": 5211.4,
+  "y_mean": 1344.083333,
+  "n_rows": 6,
+  "q": "How many regions have the smaller revenue than the average of revenue across regions except for the one with the highest revenue?",
+  "e": "1. Filter out the region which has the highest revenue.\n2. Calculate the average of the revenue for those regions.\n3. Count the regions which have a smaller revenue than the average.",
+  "cand": "{\"ops\":[{\"op\":\"findExtremum\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"which\":\"max\",\"field\":\"Revenue in million US dollars\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Revenue in million US dollars\",\"operator\":\"!=\",\"value\":\"ref:n1\"},{\"op\":\"average\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":2},\"field\":\"Revenue in million US dollars\"}],\"ops3\":[{\"op\":\"filter\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n2\",\"n3\"],\"sentenceIndex\":3},\"field\":\"Revenue in million US dollars\",\"operator\":\"<\",\"value\":\"ref:n3\"}],\"ops4\":[{\"op\":\"count\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[\"n4\"],\"sentenceIndex\":4}}]}"
+ },
+ "1g95in84ywix6pcf": {
+  "row": "239",
+  "type": "bar_simple",
+  "x": "Creator",
+  "y": "Number of subscribers in thousands",
+  "series": null,
+  "x_vals": [
+   "Amixem",
+   "Andy",
+   "Cyprien",
+   "Le rire jaune",
+   "Mister V",
+   "Natoo",
+   "Norman",
+   "Rémi Gaillard",
+   "Seb",
+   "Squeezie"
+  ],
+  "series_vals": [],
+  "other_dims": {},
+  "y_min": 3409.0,
+  "y_max": 12151.0,
+  "y_mean": 6444.4,
+  "n_rows": 10,
+  "q": "Which creator has the 2nd biggest number of subscribers within creators starting with alphabet \"a\"?",
+  "e": "1. Find creators starting with alphabet \"a\".\n2. Sort the creators by the number of subscribers.\n3. Get the creator which has 2nd biggest number of subscribers.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Creator\",\"include\":[\"Amixem\",\"Andy\"]}],\"ops2\":[{\"op\":\"sort\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Number of subscribers in thousands\",\"order\":\"desc\"}],\"ops3\":[{\"op\":\"nth\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3},\"n\":2,\"from\":\"left\"}]}"
+ }
+}

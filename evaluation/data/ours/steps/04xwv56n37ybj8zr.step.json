@@ -1,0 +1,21 @@
+{
+  "chart_id": "04xwv56n37ybj8zr",
+  "question": "What is the difference between the third most index scores and the fifth most index scores?",
+  "description": "",
+  "specPath": "specs/04xwv56n37ybj8zr.vl.json",
+  "opsPath": "ops/04xwv56n37ybj8zr.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "List the index scores of each year in descending order."
+    },
+    {
+      "id": "ops2",
+      "text": "Find the third highest value and the fifth highest value among them."
+    },
+    {
+      "id": "ops3",
+      "text": "Find the difference between the two values."
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "chart_id": "1sf5c8wqw1192q6b",
+  "question": "How many dates was the growth rate below the average?",
+  "description": "",
+  "specPath": "specs/1sf5c8wqw1192q6b.vl.json",
+  "opsPath": "ops/1sf5c8wqw1192q6b.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "calculate average growth rate"
+    },
+    {
+      "id": "ops2",
+      "text": "filter for the date for which the growth rate was below the average"
+    },
+    {
+      "id": "ops3",
+      "text": "count the number of filtered dates"
+    }
+  ]
+}

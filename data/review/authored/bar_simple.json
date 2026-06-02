@@ -1,0 +1,2205 @@
+{
+  "0s6zi9dyw22qo4rp": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Month/Year",
+          "operator": "between",
+          "value": [
+            "Sep 1896",
+            "Dec 1896"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Month/Year",
+          "operator": "between",
+          "value": [
+            "Jan 1897",
+            "Apr 1897"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Fatality rate among plague cases"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "note": "diff of two period averages; between-slices are positional x ranges (note x also has an 'Average' bar; explanation scopes only the month ranges)."
+  },
+  "0qz3v0bszsex7jjm": {
+    "spec": {
+      "ops": [
+        {
+          "op": "average",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Expenditure in billion GBP"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Expenditure in billion GBP",
+          "operator": "<",
+          "value": "ref:n1"
+        }
+      ]
+    },
+    "note": "below-average: average -> filter(<,ref). Explanation 'filter to ... below average'; no explicit count, left as filter."
+  },
+  "0egdxqun1m2n9k4z": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2006",
+            "2011"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Revenue multiple"
+        }
+      ]
+    },
+    "note": "avg from 2006 to 2011 (filter between -> average). 'divide by six' = the averaging."
+  },
+  "0gvrmm8qbn6o1vya": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Average ticket price in US dollars",
+          "operator": "<=",
+          "value": 60
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Average ticket price in US dollars"
+        }
+      ]
+    },
+    "note": "measure-value filter (<=60) on ticket price -> average."
+  },
+  "0eq4w2wsl864mhcj": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Sales volume in million units",
+          "operator": ">=",
+          "value": 60
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Sales volume in million units"
+        }
+      ]
+    },
+    "note": "the only measure is 'Sales volume in million units'; Q's '60 or more' threshold and the averaged value are the same column. filter(>=60)->average."
+  },
+  "0fh0emp095qhq3ag": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2010",
+            "2019"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "field": "Number of victims"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2010",
+            "2019"
+          ]
+        },
+        {
+          "op": "findExtremum",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "which": "min",
+          "field": "Number of victims"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "note": "largest-smallest within 2010-2019: filter then max, filter then min, then diff (mirrors 3-step explanation)."
+  },
+  "0i9bxppwocx0tyop": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2008",
+            "2011"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Number of employees"
+        }
+      ]
+    },
+    "note": "avg 2008-2011; explanation sum-then-average == average of filtered subset."
+  },
+  "0iv07908ph6y6ifj": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Date",
+          "include": [
+            "Mar '16",
+            "Mar '17",
+            "Mar '18",
+            "Mar '19"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Active users in millions"
+        }
+      ]
+    },
+    "note": "x_vals are not in chronological order (Dec'19, Mar'14, ...), so a positional 'between' slice would be wrong; used explicit include of the four March dates from Mar'16 to Mar'19."
+  },
+  "0jbrb1dcbliiampz": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2011",
+            "2014"
+          ]
+        },
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Investments in Billion Euros",
+          "operator": ">",
+          "value": 22
+        },
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 1
+          }
+        }
+      ]
+    },
+    "note": "count 2011-2014 with investment>22B: positional x slice -> value filter -> count."
+  },
+  "0k7bm9iqewnrzj47": {
+    "spec": {
+      "ops": [
+        {
+          "op": "findExtremum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "rank": 1,
+          "field": "Production in million liters"
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "rank": 2,
+          "field": "Production in million liters"
+        },
+        {
+          "op": "findExtremum",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "rank": 3,
+          "field": "Production in million liters"
+        },
+        {
+          "op": "add",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 1
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2"
+        },
+        {
+          "op": "add",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n4",
+              "n3"
+            ],
+            "sentenceIndex": 1
+          },
+          "targetA": "ref:n4",
+          "targetB": "ref:n3"
+        },
+        {
+          "op": "scale",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n5"
+            ],
+            "sentenceIndex": 2
+          },
+          "target": "ref:n5",
+          "factor": 0.3333333333333333
+        }
+      ],
+      "ops3": [
+        {
+          "op": "findExtremum",
+          "id": "n7",
+          "meta": {
+            "nodeId": "n7",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "which": "min",
+          "rank": 1,
+          "field": "Production in million liters"
+        },
+        {
+          "op": "findExtremum",
+          "id": "n8",
+          "meta": {
+            "nodeId": "n8",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "which": "min",
+          "rank": 2,
+          "field": "Production in million liters"
+        },
+        {
+          "op": "findExtremum",
+          "id": "n9",
+          "meta": {
+            "nodeId": "n9",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "which": "min",
+          "rank": 3,
+          "field": "Production in million liters"
+        },
+        {
+          "op": "add",
+          "id": "n10",
+          "meta": {
+            "nodeId": "n10",
+            "inputs": [
+              "n7",
+              "n8"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n7",
+          "targetB": "ref:n8"
+        },
+        {
+          "op": "add",
+          "id": "n11",
+          "meta": {
+            "nodeId": "n11",
+            "inputs": [
+              "n10",
+              "n9"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n10",
+          "targetB": "ref:n9"
+        },
+        {
+          "op": "scale",
+          "id": "n12",
+          "meta": {
+            "nodeId": "n12",
+            "inputs": [
+              "n11"
+            ],
+            "sentenceIndex": 4
+          },
+          "target": "ref:n11",
+          "factor": 0.3333333333333333
+        }
+      ],
+      "ops5": [
+        {
+          "op": "scale",
+          "id": "n13",
+          "meta": {
+            "nodeId": "n13",
+            "inputs": [
+              "n12"
+            ],
+            "sentenceIndex": 5
+          },
+          "target": "ref:n12",
+          "factor": 2.0
+        }
+      ],
+      "ops6": [
+        {
+          "op": "compareBool",
+          "id": "n14",
+          "meta": {
+            "nodeId": "n14",
+            "inputs": [
+              "n6",
+              "n13"
+            ],
+            "sentenceIndex": 6
+          },
+          "operator": ">",
+          "targetA": "ref:n6",
+          "targetB": "ref:n13"
+        }
+      ]
+    },
+    "note": "yes/no: avg(top3) > 2*avg(bottom3). top3/bottom3 via findExtremum rank1..3 (GOLD 0baf5ch9 pattern) + add + scale(1/3); double via scale(2); compareBool(>)."
+  },
+  "0abj8blv663ussbr": {
+    "spec": {
+      "ops": [
+        {
+          "op": "retrieveValue",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2010"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "2020"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        }
+      ]
+    },
+    "note": "diff(2010,2020). retrieveValue targets are exact x labels."
+  },
+  "0cad2xfrwdgvo9zk": {
+    "spec": {
+      "ops": [
+        {
+          "op": "sort",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Number of fatalities",
+          "order": "asc"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "nth",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "n": 5
+        },
+        {
+          "op": "nth",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "n": 6
+        },
+        {
+          "op": "nth",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "n": 7
+        }
+      ],
+      "ops3": [
+        {
+          "op": "add",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n3"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n3"
+        },
+        {
+          "op": "add",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n5",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n5",
+          "targetB": "ref:n4"
+        }
+      ]
+    },
+    "note": "n=11; 'three median values' = the 3 central ascending values (5th,6th,7th) summed. sort+nth(5,6,7)+add+add."
+  },
+  "0a5npu4o61dz4r5f": {
+    "spec": {
+      "ops": [
+        {
+          "op": "findExtremum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "field": "Damage (in billion US dollars)"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "which": "min",
+          "field": "Damage (in billion US dollars)"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        }
+      ]
+    },
+    "note": "diff(highest,lowest) damage; 3-step explanation -> max, min, diff (could also be range)."
+  },
+  "0v0l4wdbx7orkqz1": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Age group",
+          "include": [
+            "15–19",
+            "20–24",
+            "25–29"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Suicides per 100,000 population"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Age group",
+          "include": [
+            "70–74",
+            "75–79",
+            "80–84",
+            "85–89",
+            "90+"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Suicides per 100,000 population"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "compareBool",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "operator": ">",
+          "targetA": "ref:n2",
+          "targetB": "ref:n4"
+        }
+      ]
+    },
+    "note": "under-30 = age bands 15-19,20-24,25-29; over-70 = 70-74..90+. include-filter each band set -> sum -> compareBool(>). x labels use en-dash exactly as in x_vals."
+  },
+  "0vmvmj77j3p6vcy7": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2010",
+            "2015"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Net income in USD"
+        }
+      ]
+    },
+    "note": "net income sum 2010-2015 (filter between -> sum)."
+  },
+  "0vqxnzu0mpbz12ch": {
+    "spec": {
+      "ops": [
+        {
+          "op": "retrieveValue",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2018"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2019"
+        },
+        {
+          "op": "diff",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 1
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n1",
+          "signed": false
+        }
+      ],
+      "ops2": [
+        {
+          "op": "retrieveValue",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "2023*"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "target": "2025*"
+        },
+        {
+          "op": "diff",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n4",
+              "n5"
+            ],
+            "sentenceIndex": 2
+          },
+          "targetA": "ref:n5",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ],
+      "ops3": [
+        {
+          "op": "compareBool",
+          "id": "n7",
+          "meta": {
+            "nodeId": "n7",
+            "inputs": [
+              "n3",
+              "n6"
+            ],
+            "sentenceIndex": 3
+          },
+          "operator": ">",
+          "targetA": "ref:n3",
+          "targetB": "ref:n6"
+        }
+      ]
+    },
+    "note": "compare two differences; 2023/2025 labels carry a trailing '*' in x_vals (2023*, 2025*). compareBool(>)."
+  },
+  "0vvz9mdgdiazke5o": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2012",
+            "2015"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Gross payment volume in billion USD"
+        }
+      ]
+    },
+    "note": "Q asks the average 2012-2015; explanation says 'add all' but question is average -> used average (guide rule 1)."
+  },
+  "0xo3r87obscjsktm": {
+    "spec": null,
+    "note": "GAP: final step divides the larger diff by the smaller diff (ratio of two differences). No divide/ratio-of-two-node-results op (scale needs a constant factor, not a ref). Not expressible."
+  },
+  "0wflwm4jebx7n12y": {
+    "spec": {
+      "ops": [
+        {
+          "op": "findExtremum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "field": "Number of fires"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Number of fires"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        }
+      ]
+    },
+    "note": "diff(max, average)."
+  },
+  "0xnim79vztf8hjor": {
+    "spec": {
+      "ops": [
+        {
+          "op": "average",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Average ticket price in US dollars"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "diffByValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "targetValue": "ref:n1",
+          "signed": false,
+          "field": "Average ticket price in US dollars"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "findExtremum",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "which": "max"
+        }
+      ]
+    },
+    "note": "year with highest |value-average|: average -> diffByValue(|x-mean|) -> findExtremum max."
+  },
+  "0w88bu7qm4ilsqmh": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "<",
+          "value": "2000"
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Installed base in million units"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "operator": ">=",
+          "value": "2010"
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Installed base in million units"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "note": "diff(avg before 2000, avg from 2010). before-2000 = 1995,1999; from-2010 = 2010,2013,2017."
+  },
+  "1a6pxfig1xf4oeu3": {
+    "spec": null,
+    "note": "GAP: answer is a PERIOD (first & last year with franchise value <=200M), i.e. a [startX,endX] span of x labels, not a measure aggregate. No op returns a period span."
+  },
+  "1ashoniy42n3n5jr": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2013",
+            "2019"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Operating revenue in m million NOK"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2013",
+            "2020"
+          ]
+        },
+        {
+          "op": "average",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Operating revenue in m million NOK"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "note": "diff(avg with 2020 == 2013-2020, avg excluding 2020 == 2013-2019)."
+  },
+  "1a09xqtrj8zms716": {
+    "spec": {
+      "ops": [
+        {
+          "op": "retrieveValue",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "City (Street)",
+          "target": "Sydney (Pitt Street Mall)"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "City (Street)",
+          "target": "Melbourne (Bourke Street Mall)"
+        },
+        {
+          "op": "retrieveValue",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "City (Street)",
+          "target": "Brisbane (Brisbane Mall)"
+        },
+        {
+          "op": "add",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 1
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2"
+        },
+        {
+          "op": "add",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n4",
+              "n3"
+            ],
+            "sentenceIndex": 1
+          },
+          "targetA": "ref:n4",
+          "targetB": "ref:n3"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "scale",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n5"
+            ],
+            "sentenceIndex": 2
+          },
+          "target": "ref:n5",
+          "factor": 0.3333333333333333
+        }
+      ]
+    },
+    "note": "avg of 3 named malls (Sydney/Melbourne/Brisbane). x_vals carry street suffixes; used full labels. NOTE: two Brisbane entries exist (Brisbane Mall / Queen Street Mall); picked 'Brisbane (Brisbane Mall)' (ambiguous)."
+  },
+  "1bbe64wpvq06sknm": {
+    "spec": {
+      "ops": [
+        {
+          "op": "average",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Number of days in thousands"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "diffByValue",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "targetValue": "ref:n1",
+          "signed": true,
+          "field": "Number of days in thousands"
+        }
+      ]
+    },
+    "note": "for each year, value minus overall average: average -> diffByValue(per-row minus mean, signed)."
+  },
+  "1bv05pu9d8jnidty": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "<",
+          "value": "2026"
+        },
+        {
+          "op": "average",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "National debt in billion US dollars"
+        }
+      ]
+    },
+    "note": "avg before 2026 == 2020-2025; 'sum then /6' == average of the six filtered."
+  },
+  "1bywaj7stsb3060c": {
+    "spec": null,
+    "note": "GAP: filter predicate is on a property of the x label string ('5 or fewer letters in name') — string-length test on category labels, not a measure filter or positional slice. Not expressible."
+  },
+  "1ce802l2rdg98d7d": {
+    "spec": {
+      "ops": [
+        {
+          "op": "sort",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Share of respondents",
+          "order": "desc"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "nth",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "n": 3
+        }
+      ]
+    },
+    "note": "3rd most: sort(desc)+nth(3)."
+  },
+  "1dm30xw1gpjo8ke5": {
+    "spec": {
+      "ops": [
+        {
+          "op": "findExtremum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "field": "Share of GDP"
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "min",
+          "field": "Share of GDP"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "add",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 2
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2"
+        },
+        {
+          "op": "scale",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "target": "ref:n3",
+          "factor": 0.5
+        }
+      ]
+    },
+    "note": "average of (max,min): max+min -> add -> scale(0.5)."
+  },
+  "1fngt6cb1d60a2ow": {
+    "spec": null,
+    "note": "GAP: requires compareBool of a single summed value against the constant 50000. compareBool needs two node refs (targetA/targetB both 'ref:nN'); there is no op producing the scalar 50000 to compare against (no literal-injection op). filter(exclude=['Metro Total'])+sum is expressible but the final constant comparison is not. (Also 'Metro Total' is likely a precomputed total bar, making the sum double-count.)"
+  },
+  "1e56qqj7moat9gqa": {
+    "spec": null,
+    "note": "GAP: explanation 'find the same value for Spending and add the corresponding values' is underspecified/garbled (no clear selection criterion). Not deterministically mappable."
+  },
+  "1esx2fbduhqn7knk": {
+    "spec": null,
+    "note": "GAP: average after removing the single max row and single min row (trimmed mean). Dropping the argmax/argmin rows is not expressible (filter is by value/position thresholds, not 'remove the extremum row'; with duplicate values a value-filter would over-remove). No trimmed-mean op."
+  },
+  "1epzpacytv3wx2i6": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2010",
+            "2013"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "monotonicRun",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "direction": "increasing",
+          "field": "Market size in million GBP",
+          "orderField": "Year"
+        }
+      ]
+    },
+    "note": "yes/no 'are values 2010-2013 rising': filter 2010-2013 -> monotonicRun(increasing) to detect the rising run."
+  },
+  "1hv85ef35tbvldiq": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Revenue in billion US dollars",
+          "operator": "<",
+          "value": 2
+        }
+      ],
+      "ops2": [
+        {
+          "op": "count",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          }
+        }
+      ]
+    },
+    "note": "count years with revenue<2 billion: filter(<2) -> count."
+  },
+  "1hm06wtar7gh92c8": {
+    "spec": {
+      "ops": [
+        {
+          "op": "retrieveValue",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "target": "2020"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "scale",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "target": "ref:n1",
+          "factor": 100000
+        }
+      ]
+    },
+    "note": "population over 65 in 2020 = share(2020) * 100000: retrieveValue(2020) -> scale(100000). (100000 is given in the question, not external.)"
+  },
+  "1hp11sl0mo4ohtpo": {
+    "spec": {
+      "ops": [
+        {
+          "op": "lagDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Average ticket price in US dollars"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "which": "max"
+        }
+      ]
+    },
+    "note": "greatest increase vs previous year + its magnitude: lagDiff -> findExtremum max (year-over-year, x already chronological)."
+  },
+  "1it2ia9kmdihxan8": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Number of incidents",
+          "operator": "<",
+          "value": 50
+        }
+      ],
+      "ops2": [
+        {
+          "op": "count",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          }
+        }
+      ]
+    },
+    "note": "count years with <50 incidents: filter(<50) -> count."
+  },
+  "1lg9qn6shf8ifsdq": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Time Period",
+          "include": [
+            "Feb 2008 to Jan 2009",
+            "Feb 2009 to Jan 2010",
+            "Feb 2010 to Jan 2011",
+            "Feb 2011 to Jan 2012",
+            "Feb 2012 to Jan 2013"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Listener hours in billions"
+        },
+        {
+          "op": "scale",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 2
+          },
+          "target": "ref:n2",
+          "factor": 3
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [],
+            "sentenceIndex": 3
+          },
+          "field": "Time Period",
+          "include": [
+            "Feb to Dec 2013",
+            "Jan to Dec 2014",
+            "Jan to Dec 2015",
+            "Jan to Dec 2016",
+            "Jan to Dec 2017"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Listener hours in billions"
+        }
+      ],
+      "ops4": [
+        {
+          "op": "compareBool",
+          "id": "n6",
+          "meta": {
+            "nodeId": "n6",
+            "inputs": [
+              "n3",
+              "n5"
+            ],
+            "sentenceIndex": 4
+          },
+          "operator": "<",
+          "targetA": "ref:n3",
+          "targetB": "ref:n5"
+        }
+      ]
+    },
+    "note": "yes/no: sum(until Jan2013, first 5 periods)*3 < sum(from Feb2013, last 5). include-filter each 5-period block (labels are period strings) -> sum; scale(3); compareBool(<)."
+  },
+  "1lf1h5jf9ymeid5q": {
+    "spec": {
+      "ops": [
+        {
+          "op": "lagDiff",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Unit shipments in millions"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Unit shipments in millions",
+          "operator": ">",
+          "value": 3
+        },
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 2
+          }
+        }
+      ]
+    },
+    "note": "count years with >3M increase vs previous: lagDiff -> filter(>3) -> count."
+  },
+  "1jgaguuh4rqlk7sq": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2008",
+            "2013"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 1
+          },
+          "field": "Sales volume in tonnes"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [],
+            "sentenceIndex": 2
+          },
+          "field": "Year",
+          "operator": "between",
+          "value": [
+            "2014",
+            "2019"
+          ]
+        },
+        {
+          "op": "sum",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Sales volume in tonnes"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "diff",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n2",
+              "n4"
+            ],
+            "sentenceIndex": 3
+          },
+          "targetA": "ref:n2",
+          "targetB": "ref:n4",
+          "signed": false
+        }
+      ]
+    },
+    "note": "diff(sum 2008-2013, sum 2014-2019) i.e. first six vs last six years."
+  },
+  "1j86ensex8nyvdyk": {
+    "spec": {
+      "ops": [
+        {
+          "op": "rollingWindow",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "window": 3,
+          "aggregate": "sum",
+          "field": "Number of arrivals in millions",
+          "orderField": "Year"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "which": "max"
+        }
+      ]
+    },
+    "note": "'3-year range with highest increase' approximated by the 3-year window with the max summed total (rollingWindow window=3) then max. (Grammar has no 3-span delta; rolling-sum window is the closest range measure.)"
+  },
+  "1gdzafocxmz7rswi": {
+    "spec": {
+      "ops": [
+        {
+          "op": "findExtremum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "rank": 1,
+          "field": "Traffic in petabytes per month"
+        },
+        {
+          "op": "findExtremum",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "rank": 2,
+          "field": "Traffic in petabytes per month"
+        },
+        {
+          "op": "diff",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n1",
+              "n2"
+            ],
+            "sentenceIndex": 2
+          },
+          "targetA": "ref:n1",
+          "targetB": "ref:n2",
+          "signed": false
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n3"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Traffic in petabytes per month",
+          "operator": "<",
+          "value": "ref:n3"
+        },
+        {
+          "op": "count",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n4"
+            ],
+            "sentenceIndex": 3
+          }
+        }
+      ]
+    },
+    "note": "count years with traffic < (1st-largest minus 2nd-largest): findExtremum max rank1,rank2 -> diff -> filter(<,ref) -> count."
+  },
+  "1g17ep9vho38jvcz": {
+    "spec": {
+      "ops": [
+        {
+          "op": "range",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Share of mobile app developers"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Share of mobile app developers",
+          "operator": ">",
+          "value": "ref:n1"
+        },
+        {
+          "op": "count",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 2
+          }
+        }
+      ]
+    },
+    "note": "count continents whose share > (max-min share). range -> filter(>,ref) -> count."
+  },
+  "1hlsoeyqlr1r1n41": {
+    "spec": {
+      "ops": [
+        {
+          "op": "findExtremum",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "which": "max",
+          "field": "Revenue in million US dollars"
+        }
+      ],
+      "ops2": [
+        {
+          "op": "filter",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Revenue in million US dollars",
+          "operator": "<",
+          "value": "ref:n1"
+        },
+        {
+          "op": "average",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Revenue in million US dollars"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "filter",
+          "id": "n4",
+          "meta": {
+            "nodeId": "n4",
+            "inputs": [
+              "n2",
+              "n3"
+            ],
+            "sentenceIndex": 3
+          },
+          "field": "Revenue in million US dollars",
+          "operator": "<",
+          "value": "ref:n3"
+        },
+        {
+          "op": "count",
+          "id": "n5",
+          "meta": {
+            "nodeId": "n5",
+            "inputs": [
+              "n4"
+            ],
+            "sentenceIndex": 3
+          }
+        }
+      ]
+    },
+    "note": "count regions with revenue < average-of-revenue-excluding-the-highest. findExtremum max -> filter(<max) drops the top region -> average of the rest -> filter(< that avg) within the rest -> count. (Assumes a unique max.)"
+  },
+  "1g95in84ywix6pcf": {
+    "spec": {
+      "ops": [
+        {
+          "op": "filter",
+          "id": "n1",
+          "meta": {
+            "nodeId": "n1",
+            "inputs": [],
+            "sentenceIndex": 1
+          },
+          "field": "Creator",
+          "include": [
+            "Amixem",
+            "Andy"
+          ]
+        }
+      ],
+      "ops2": [
+        {
+          "op": "sort",
+          "id": "n2",
+          "meta": {
+            "nodeId": "n2",
+            "inputs": [
+              "n1"
+            ],
+            "sentenceIndex": 2
+          },
+          "field": "Number of subscribers in thousands",
+          "order": "desc"
+        }
+      ],
+      "ops3": [
+        {
+          "op": "nth",
+          "id": "n3",
+          "meta": {
+            "nodeId": "n3",
+            "inputs": [
+              "n2"
+            ],
+            "sentenceIndex": 3
+          },
+          "n": 2
+        }
+      ]
+    },
+    "note": "2nd biggest among creators starting with 'a' (Amixem, Andy). include-filter the two a-creators -> sort(desc) -> nth(2). (Only Amixem/Andy start with 'a' in x_vals.)"
+  }
+}

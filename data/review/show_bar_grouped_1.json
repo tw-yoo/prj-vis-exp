@@ -1,0 +1,204 @@
+{
+ "0prhtod4tli879nh": {
+  "row": "10",
+  "type": "bar_grouped",
+  "x": "Year",
+  "y": "Population in millions",
+  "series": "Year",
+  "x_vals": [
+   "2010",
+   "2025"
+  ],
+  "series_vals": [
+   "2010",
+   "2025"
+  ],
+  "other_dims": {
+   "City": [
+    "Calcutta",
+    "Delhi",
+    "Dhaka",
+    "Karachi",
+    "Mexico City",
+    "Mumbai",
+    "New York-Newark",
+    "Shanghai",
+    "São Paulo",
+    "Tokyo"
+   ]
+  },
+  "y_min": 13.1,
+  "y_max": 37.1,
+  "y_mean": 21.61,
+  "n_rows": 20,
+  "q": "Which city had the biggest jump in population from 2010 to 2025?",
+  "e": "1. get the difference of every city in every year\n2. find the extremum",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"2025\",\"groupB\":\"2010\",\"seriesField\":\"Year\",\"by\":\"City\",\"field\":\"Population in millions\",\"signed\":true}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"max\",\"field\":\"Population in millions\"}]}"
+ },
+ "0rfuaawgi58ajpsv": {
+  "row": "13",
+  "type": "bar_grouped",
+  "x": "Region",
+  "y": "Media rights revenue in billion US dollars",
+  "series": "Region",
+  "x_vals": [
+   "Asia Pacific",
+   "Europe, Middle East and Africa",
+   "Latin America",
+   "North America"
+  ],
+  "series_vals": [
+   "Asia Pacific",
+   "Europe, Middle East and Africa",
+   "Latin America",
+   "North America"
+  ],
+  "other_dims": {
+   "Year": [
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013"
+   ]
+  },
+  "y_min": 0.99,
+  "y_max": 13.46,
+  "y_mean": 6.562,
+  "n_rows": 20,
+  "q": "What is the difference in the average between North America and Latin America?",
+  "e": "1. Get the average of Northern America\n2. Get the average of Latin America\n3. Get the difference between the two average values",
+  "cand": "{\"ops\":[{\"op\":\"average\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Media rights revenue in billion US dollars\",\"group\":\"North America\"}],\"ops2\":[{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Media rights revenue in billion US dollars\",\"group\":\"Latin America\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":3},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":true}]}"
+ },
+ "0rdpculfpyw3bv5p": {
+  "row": "14",
+  "type": "bar_grouped",
+  "x": "Type",
+  "y": "Value in billion US dollars",
+  "series": "Type",
+  "x_vals": [
+   "Donation",
+   "Investment",
+   "Lending"
+  ],
+  "series_vals": [
+   "Donation",
+   "Investment",
+   "Lending"
+  ],
+  "other_dims": {
+   "Year": [
+    "2011",
+    "2012",
+    "2013",
+    "2014"
+   ]
+  },
+  "y_min": 0.11,
+  "y_max": 11.1,
+  "y_mean": 1.935833,
+  "n_rows": 12,
+  "q": "Which year shows the lowest gap between lending and investment?",
+  "e": "1. Get the difference between lending and investment in every year\n2. Find the year with the smallest value",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Lending\",\"groupB\":\"Investment\",\"seriesField\":\"Type\",\"by\":\"Year\",\"field\":\"Value in billion US dollars\",\"absolute\":true}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"min\",\"field\":\"Value in billion US dollars\"}]}"
+ },
+ "0egzejn5mejtnfdm": {
+  "row": "31",
+  "type": "bar_grouped",
+  "x": "Region",
+  "y": "SharePercentage",
+  "series": "Region",
+  "x_vals": [
+   "England & Wales",
+   "Scotland"
+  ],
+  "series_vals": [
+   "England & Wales",
+   "Scotland"
+  ],
+  "other_dims": {
+   "ResponseCategory": [
+    "Neither in favour nor against",
+    "Somewhat against",
+    "Somewhat in favour",
+    "Strongly against",
+    "Strongly in favour"
+   ]
+  },
+  "y_min": 2.0,
+  "y_max": 28.0,
+  "y_mean": 17.7,
+  "n_rows": 10,
+  "q": "What is the difference between Scotland's largest value and England and Wales's smallest value?",
+  "e": "1. Check Scotland's Biggest Value\n2. Check the smallest value for England & Wales\n3. Check if the value is greater than the value of number 1 or number 2\n4. Subtract small value from large value\n",
+  "cand": "{\"ops\":[{\"op\":\"findExtremum\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"which\":\"max\",\"field\":\"SharePercentage\",\"group\":\"Scotland\"}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"which\":\"min\",\"field\":\"SharePercentage\",\"group\":\"England & Wales\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":3},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":true}]}"
+ },
+ "0fhm43s0j7glca29": {
+  "row": "35",
+  "type": "bar_grouped",
+  "x": "Year",
+  "y": "Revenue in billion US dollars",
+  "series": "Year",
+  "x_vals": [
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "series_vals": [
+   "2018",
+   "2019",
+   "2020"
+  ],
+  "other_dims": {
+   "Product Category": [
+    "Diabetes care",
+    "Medication delivery solutions",
+    "Medication management solutions",
+    "Pharmaceutical systems"
+   ]
+  },
+  "y_min": 1.08,
+  "y_max": 3.85,
+  "y_mean": 2.198333,
+  "n_rows": 12,
+  "q": "Which year has the average of the values corresponding to 2018 or the larger value corresponding to 2020?",
+  "e": "1. Check all values for 2018\n2. Calculated the mean\n3. Check all values for 2020\n4. Calculated the mean\n5. Determine which year has the greater of the two means",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"group\":\"2018\"},{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"field\":\"Revenue in billion US dollars\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[],\"sentenceIndex\":2},\"group\":\"2020\"},{\"op\":\"findExtremum\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\"],\"sentenceIndex\":2},\"which\":\"max\",\"field\":\"Revenue in billion US dollars\"}],\"ops3\":[{\"op\":\"compareBool\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[\"n2\",\"n4\"],\"sentenceIndex\":3},\"operator\":\">\",\"targetA\":\"ref:n2\",\"targetB\":\"ref:n4\"}]}"
+ },
+ "0gacqohbzj07n25s": {
+  "row": "36",
+  "type": "bar_grouped",
+  "x": "Procedure Type",
+  "y": "Number of procedures",
+  "series": "Procedure Type",
+  "x_vals": [
+   "Nonsurgical",
+   "Surgical"
+  ],
+  "series_vals": [
+   "Nonsurgical",
+   "Surgical"
+  ],
+  "other_dims": {
+   "Country": [
+    "Brazil",
+    "France",
+    "Germany",
+    "India",
+    "Italy",
+    "Japan",
+    "Mexico",
+    "Russia",
+    "Turkey",
+    "United States"
+   ]
+  },
+  "y_min": 93735.0,
+  "y_max": 2630832.0,
+  "y_mean": 700667.8,
+  "n_rows": 20,
+  "q": "What is the difference between the average of surgical values in European countries and the average of surgical values in Asian countries?",
+  "e": "1. European countries identified\n2. Obtain the average of the surgical values of European countries\n3. Check out Asian countries\n4. Find the average of the surgical values of Asian countries\n5. Subtract smaller values from larger values",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Country\",\"include\":[\"Germany\",\"France\",\"Italy\"],\"group\":\"Surgical\"},{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"field\":\"Number of procedures\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Country\",\"include\":[\"India\",\"Turkey\",\"Japan\"],\"group\":\"Surgical\"},{\"op\":\"average\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\"],\"sentenceIndex\":2},\"field\":\"Number of procedures\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[\"n2\",\"n4\"],\"sentenceIndex\":3},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n4\",\"signed\":true}]}"
+ }
+}

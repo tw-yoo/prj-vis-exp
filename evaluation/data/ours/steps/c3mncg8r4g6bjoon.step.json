@@ -1,0 +1,21 @@
+{
+  "chart_id": "c3mncg8r4g6bjoon",
+  "question": "Is Germany has higher share of respondents in Gasoline or diesel compared to the average of rest of the countries?",
+  "description": "",
+  "specPath": "specs/c3mncg8r4g6bjoon.vl.json",
+  "opsPath": "ops/c3mncg8r4g6bjoon.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Retrieve Germany's share in Gasoline or diesel."
+    },
+    {
+      "id": "ops2",
+      "text": "Calculate the average of the share of respondents in Gasoline or diesel of other countries."
+    },
+    {
+      "id": "ops3",
+      "text": "Compare the average value acquired from the previous step and the value of Germany in Gasoline and diesel."
+    }
+  ]
+}

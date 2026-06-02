@@ -1,0 +1,25 @@
+{
+  "chart_id": "1k8qhmg9rui7gtzh",
+  "question": "What is the difference between the largest value in Germany and the smallest value in the U.S. between 2010 and 2015?",
+  "description": "",
+  "specPath": "specs/1k8qhmg9rui7gtzh.vl.json",
+  "opsPath": "ops/1k8qhmg9rui7gtzh.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Filter the data to the years 2010 to 2015."
+    },
+    {
+      "id": "ops2",
+      "text": "Find the largest value in Germany between 2010 and 2015."
+    },
+    {
+      "id": "ops3",
+      "text": "Find the smallest value in the U.S. between 2010 and 2015."
+    },
+    {
+      "id": "ops4",
+      "text": "Subtract value 2 from value 1."
+    }
+  ]
+}

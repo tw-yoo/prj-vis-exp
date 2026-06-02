@@ -1,0 +1,197 @@
+{
+ "6rvtt4egfl5nmyue": {
+  "row": "164",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Life expectancy at birth in years",
+  "series": "Gender",
+  "x_vals": [
+   "2009",
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019"
+  ],
+  "series_vals": [
+   "female",
+   "male"
+  ],
+  "other_dims": {},
+  "y_min": 72.9,
+  "y_max": 81.6,
+  "y_mean": 77.4,
+  "n_rows": 22,
+  "q": "If you find the second largest year in value when you sort the values from 2012 to 2017 in descending order when the gender is female?",
+  "e": "Check the value of the person who is a woman.\nCheck the values from 2012 to 2017 among these values.\nSort the values in descending order.\nFind the year of the second-largest value among the values sorted in descending order.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Year\",\"operator\":\"between\",\"value\":[\"2012\",\"2017\"],\"group\":\"female\"}],\"ops2\":[{\"op\":\"sort\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Life expectancy at birth in years\",\"order\":\"desc\"}],\"ops3\":[{\"op\":\"nth\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3},\"n\":2,\"from\":\"left\"}]}"
+ },
+ "6p4fnscalopvysnn": {
+  "row": "167",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Share of the population",
+  "series": "Region",
+  "x_vals": [
+   "",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019"
+  ],
+  "series_vals": [
+   "",
+   "Belgium",
+   "Brussels–Capital Region",
+   "Flemish Region",
+   "Walloon Region"
+  ],
+  "other_dims": {},
+  "y_min": 24.0,
+  "y_max": 43.0,
+  "y_mean": 35.857143,
+  "n_rows": 24,
+  "q": "What is the highest value of all year values above 40?",
+  "e": "Find a value over 40.\nFind the highest value of each value.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Share of the population\",\"operator\":\">\",\"value\":40}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"max\",\"field\":\"Share of the population\"}]}"
+ },
+ "7extlfw651gqc5fk": {
+  "row": "170",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Percentage",
+  "series": "Role",
+  "x_vals": [
+   "2002",
+   "2005",
+   "2010",
+   "2012",
+   "2014"
+  ],
+  "series_vals": [
+   "Large",
+   "Small"
+  ],
+  "other_dims": {},
+  "y_min": 19.0,
+  "y_max": 69.0,
+  "y_mean": 45.0,
+  "n_rows": 10,
+  "q": "Is the difference between the maximum value of having a large role and the minimum value of having a small role in the entire year equal to the average value of all values in the entire year?",
+  "e": "Find the maximum value of the role being large and the minimum value of the role being small in the entire year.\nFind the difference between the two values.\nFinds the average of all values for the entire year.\nCompare the difference and the mean value.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"group\":\"Large\"},{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"which\":\"max\",\"field\":\"Percentage\"}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[],\"sentenceIndex\":2},\"group\":\"Small\"},{\"op\":\"findExtremum\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\"],\"sentenceIndex\":2},\"which\":\"min\",\"field\":\"Percentage\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[\"n2\",\"n4\"],\"sentenceIndex\":3},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n4\",\"signed\":true}],\"ops4\":[{\"op\":\"average\",\"id\":\"n6\",\"meta\":{\"nodeId\":\"n6\",\"inputs\":[],\"sentenceIndex\":4},\"field\":\"Percentage\"}],\"ops5\":[{\"op\":\"compareBool\",\"id\":\"n7\",\"meta\":{\"nodeId\":\"n7\",\"inputs\":[\"n5\",\"n6\"],\"sentenceIndex\":5},\"operator\":\"==\",\"targetA\":\"ref:n5\",\"targetB\":\"ref:n6\"}]}"
+ },
+ "6rqevjp16hadlyly": {
+  "row": "171",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Percentage of tests passed",
+  "series": "Gender",
+  "x_vals": [
+   "",
+   "2007/08",
+   "2008/09",
+   "2009/10",
+   "2010/11",
+   "2011/12",
+   "2012/13",
+   "2013/14",
+   "2014/15",
+   "2015/16",
+   "2016/17",
+   "2017/18",
+   "2018/19",
+   "2019/20"
+  ],
+  "series_vals": [
+   "",
+   "Female",
+   "Male"
+  ],
+  "other_dims": {
+   "": [
+    ""
+   ]
+  },
+  "y_min": 41.3,
+  "y_max": 50.7,
+  "y_mean": 46.446154,
+  "n_rows": 30,
+  "q": "Is the difference between the values of 2007/08 and 2011/12 the same for men and women?",
+  "e": "Find the difference between the values of 2007/08 and 2011/12 respectively.\nCompare the two.",
+  "cand": "{\"ops\":[{\"op\":\"retrieveValue\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"2011/12\",\"field\":\"Percentage of tests passed\",\"group\":\"Male\"},{\"op\":\"retrieveValue\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"2007/08\",\"field\":\"Percentage of tests passed\",\"group\":\"Male\"},{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":1},\"targetA\":\"ref:n1\",\"targetB\":\"ref:n2\",\"signed\":true}],\"ops2\":[{\"op\":\"retrieveValue\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[],\"sentenceIndex\":2},\"target\":\"2011/12\",\"field\":\"Percentage of tests passed\",\"group\":\"Female\"},{\"op\":\"retrieveValue\",\"id\":\"n5\",\"meta\":{\"nodeId\":\"n5\",\"inputs\":[],\"sentenceIndex\":2},\"target\":\"2007/08\",\"field\":\"Percentage of tests passed\",\"group\":\"Female\"},{\"op\":\"diff\",\"id\":\"n6\",\"meta\":{\"nodeId\":\"n6\",\"inputs\":[\"n4\",\"n5\"],\"sentenceIndex\":2},\"targetA\":\"ref:n4\",\"targetB\":\"ref:n5\",\"signed\":true}],\"ops3\":[{\"op\":\"compareBool\",\"id\":\"n7\",\"meta\":{\"nodeId\":\"n7\",\"inputs\":[\"n3\",\"n6\"],\"sentenceIndex\":3},\"operator\":\"==\",\"targetA\":\"ref:n3\",\"targetB\":\"ref:n6\"}]}"
+ },
+ "au22oa0vjosoagxu": {
+  "row": "183",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Life expectancy at birth in years",
+  "series": "Gender",
+  "x_vals": [
+   "2008",
+   "2009",
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018"
+  ],
+  "series_vals": [
+   "female",
+   "male"
+  ],
+  "other_dims": {},
+  "y_min": 64.02,
+  "y_max": 77.76,
+  "y_mean": 71.619091,
+  "n_rows": 22,
+  "q": "What time period was there a decrease in life expectancy for males?",
+  "e": "1. Attend to the orange male line\n2. Notice inflection point in 2014 \n3. Note decrease from 2008-2014",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"group\":\"male\"}],\"ops2\":[{\"op\":\"monotonicRun\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"direction\":\"decreasing\",\"mode\":\"longest\",\"field\":\"Life expectancy at birth in years\",\"orderField\":\"Year\"}]}"
+ },
+ "bhaqrpqx0hwtcol5": {
+  "row": "194",
+  "type": "line_multiple",
+  "x": "Year",
+  "y": "Life expectancy in years",
+  "series": "Region",
+  "x_vals": [
+   "2005-2007",
+   "2006-2008",
+   "2007-2009",
+   "2008-2010",
+   "2009-2011",
+   "2010-2012",
+   "2011-2013",
+   "2012-2014",
+   "2013-2015",
+   "2014-2016",
+   "2015-2017",
+   "2016-2018",
+   "2017-2019"
+  ],
+  "series_vals": [
+   "Canada",
+   "Northwest Territories"
+  ],
+  "other_dims": {},
+  "y_min": 76.4,
+  "y_max": 82.1,
+  "y_mean": 79.35,
+  "n_rows": 26,
+  "q": "What year is the greatest difference in life expectancy observed in northwest territories vs canada?",
+  "e": "observe the largest gap occurs in 2016-2017",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"Canada\",\"groupB\":\"Northwest Territories\",\"seriesField\":\"Region\",\"by\":\"Year\",\"field\":\"Life expectancy in years\",\"signed\":true}],\"ops2\":[{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"which\":\"max\",\"field\":\"Life expectancy in years\"}]}"
+ }
+}

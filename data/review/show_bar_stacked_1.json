@@ -1,0 +1,183 @@
+{
+ "11e148qcs7x70t8v": {
+  "row": "7",
+  "type": "bar_stacked",
+  "x": "Period",
+  "y": "Share_of_Import_Value",
+  "series": "Country",
+  "x_vals": [
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "Jan-Oct 2019"
+  ],
+  "series_vals": [
+   "France",
+   "Japan",
+   "South Korea",
+   "UK",
+   "US"
+  ],
+  "other_dims": {},
+  "y_min": 0.047,
+  "y_max": 0.368,
+  "y_mean": 0.172633,
+  "n_rows": 30,
+  "q": "in which years does south korea have a bigger value than france?",
+  "e": "1. Get difference between south korea and france in every year\n2. Filter the year with a positive value",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"South Korea\",\"groupB\":\"France\",\"seriesField\":\"Country\",\"by\":\"Period\",\"field\":\"Share_of_Import_Value\",\"signed\":true}],\"ops2\":[{\"op\":\"filter\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"operator\":\">\",\"value\":0}]}"
+ },
+ "10x2rgiqw97wdspi": {
+  "row": "15",
+  "type": "bar_stacked",
+  "x": "Season",
+  "y": "Revenue_Million_Euros",
+  "series": "Revenue_Type",
+  "x_vals": [
+   "2009/10",
+   "2010/11",
+   "2011/12",
+   "2012/13",
+   "2013/14",
+   "2014/15",
+   "2015/16",
+   "2016/17",
+   "2017/18",
+   "2018/19",
+   "2019/20"
+  ],
+  "series_vals": [
+   "Broadcasting",
+   "Commercial",
+   "Matchday"
+  ],
+  "other_dims": {},
+  "y_min": 108.2,
+  "y_max": 359.6,
+  "y_mean": 199.115152,
+  "n_rows": 33,
+  "q": "Which season was above average in both commercial and broadcasting?",
+  "e": "1. Find the average of the commercial\n2. Find the average of the broadcasting\n3. Find the season that is above average for both commercial and broadcasting",
+  "cand": "{\"ops\":[{\"op\":\"average\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Revenue_Million_Euros\",\"group\":\"Commercial\"}],\"ops2\":[{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Revenue_Million_Euros\",\"group\":\"Broadcasting\"}],\"ops3\":[{\"op\":\"filter\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\"],\"sentenceIndex\":3},\"field\":\"Revenue_Million_Euros\",\"operator\":\">\",\"value\":\"ref:n1\",\"group\":\"Commercial\"}],\"ops4\":[{\"op\":\"filter\",\"id\":\"n4\",\"meta\":{\"nodeId\":\"n4\",\"inputs\":[\"n3\",\"n2\"],\"sentenceIndex\":4},\"field\":\"Revenue_Million_Euros\",\"operator\":\">\",\"value\":\"ref:n2\",\"group\":\"Broadcasting\"}]}"
+ },
+ "0gf8ugj84bs1ko2k": {
+  "row": "22",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Revenue_Million_USD",
+  "series": "Service_Area",
+  "x_vals": [
+   "2016",
+   "2017",
+   "2018",
+   "2019",
+   "2020",
+   "2021",
+   "2022"
+  ],
+  "series_vals": [
+   "BPO",
+   "Cloud",
+   "Data Centers"
+  ],
+  "other_dims": {},
+  "y_min": 197.0,
+  "y_max": 1848.0,
+  "y_mean": 922.666667,
+  "n_rows": 21,
+  "q": "What is the average value for each service area in the year when the data center's revenue was highest?",
+  "e": "1. Check the graph for the data center with the highest value.\n2. Check the value for each service area.\n3. Calculate the average.",
+  "cand": "{\"ops\":[{\"op\":\"filter\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"group\":\"Data Centers\"},{\"op\":\"findExtremum\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":1},\"which\":\"max\",\"field\":\"Revenue_Million_USD\"}],\"ops2\":[{\"op\":\"average\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":2},\"field\":\"Revenue_Million_USD\"}]}"
+ },
+ "0dglnk2wbf5ll15t": {
+  "row": "25",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Share_of_Respondents",
+  "series": "Rating",
+  "x_vals": [
+   "2014",
+   "2015",
+   "2016",
+   "2017"
+  ],
+  "series_vals": [
+   "Fair",
+   "Good",
+   "Poor",
+   "Very good",
+   "Very poor"
+  ],
+  "other_dims": {},
+  "y_min": 0.0,
+  "y_max": 62.0,
+  "y_mean": 20.0,
+  "n_rows": 20,
+  "q": "What is the difference between the average of values corresponding to Poor and the average of values corresponding to Good?",
+  "e": "1. Check the values for each year's Poor\n2. Obtaining the mean of the values found in number 1\n3. Check the value corresponding to Good for each year\n4. Obtaining the mean of the values found in number 3\n5. Find the difference between the two mean values",
+  "cand": "{\"ops\":[{\"op\":\"average\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"field\":\"Share_of_Respondents\",\"group\":\"Poor\"}],\"ops2\":[{\"op\":\"average\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":2},\"field\":\"Share_of_Respondents\",\"group\":\"Good\"}],\"ops3\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":3},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n1\",\"signed\":true}]}"
+ },
+ "0aj7na7tkqb7iomu": {
+  "row": "29",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Installed_Base_Millions",
+  "series": "Device_Type",
+  "x_vals": [
+   "2017",
+   "2018",
+   "2019",
+   "2020",
+   "2021",
+   "2022"
+  ],
+  "series_vals": [
+   "Desktop PCs",
+   "Mobile PCs",
+   "Tablets"
+  ],
+  "other_dims": {},
+  "y_min": 61.76,
+  "y_max": 244.43,
+  "y_mean": 162.985556,
+  "n_rows": 18,
+  "q": "What is the difference between the installed base million value of Tablets in 2017 and the installed base million value of Mobile PCs in 2022?",
+  "e": "1. Check the value of the installed Base Millions in Tablets for 2017\n2. Check Mobile PCs' Installed Base Millions value for 2022\n3. Check the values of 1 and 2 which are greater\n4. Subtract small value from large value",
+  "cand": "{\"ops\":[{\"op\":\"retrieveValue\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"2017\",\"field\":\"Installed_Base_Millions\",\"group\":\"Tablets\"},{\"op\":\"retrieveValue\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[],\"sentenceIndex\":1},\"target\":\"2022\",\"field\":\"Installed_Base_Millions\",\"group\":\"Mobile PCs\"}],\"ops2\":[{\"op\":\"diff\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n1\",\"n2\"],\"sentenceIndex\":2},\"targetA\":\"ref:n2\",\"targetB\":\"ref:n1\",\"signed\":true}]}"
+ },
+ "0g0xma0b0k29lk5j": {
+  "row": "34",
+  "type": "bar_stacked",
+  "x": "Year",
+  "y": "Share_of_Total_Population",
+  "series": "Age_Group",
+  "x_vals": [
+   "2009",
+   "2010",
+   "2011",
+   "2012",
+   "2013",
+   "2014",
+   "2015",
+   "2016",
+   "2017",
+   "2018",
+   "2019"
+  ],
+  "series_vals": [
+   "0–14 years",
+   "15–64 years",
+   "65 years and older"
+  ],
+  "other_dims": {},
+  "y_min": 0.0726,
+  "y_max": 0.6731,
+  "y_mean": 0.333327,
+  "n_rows": 33,
+  "q": "Which year has the second largest difference between 65 years and older and 15–64 years?\n\n",
+  "e": "1. Check the graph with the second smallest value of 65 years and old and check the value \n2. Check the graph with the second largest value of 15–64 years and check the value\n3. Check the year in question (Compare the value between 1 and 2)",
+  "cand": "{\"ops\":[{\"op\":\"pairDiff\",\"id\":\"n1\",\"meta\":{\"nodeId\":\"n1\",\"inputs\":[],\"sentenceIndex\":1},\"groupA\":\"15–64 years\",\"groupB\":\"65 years and older\",\"seriesField\":\"Age_Group\",\"by\":\"Year\",\"field\":\"Share_of_Total_Population\",\"signed\":true}],\"ops2\":[{\"op\":\"sort\",\"id\":\"n2\",\"meta\":{\"nodeId\":\"n2\",\"inputs\":[\"n1\"],\"sentenceIndex\":2},\"field\":\"Share_of_Total_Population\",\"order\":\"desc\"}],\"ops3\":[{\"op\":\"nth\",\"id\":\"n3\",\"meta\":{\"nodeId\":\"n3\",\"inputs\":[\"n2\"],\"sentenceIndex\":3},\"n\":2,\"from\":\"left\"}]}"
+ }
+}

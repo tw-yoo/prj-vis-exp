@@ -1,0 +1,110 @@
+{
+  "G1": {
+    "bar_simple": {
+      "id": "0pzdf7hfbxgjghsa",
+      "question": "How big was the change from 2016 to 2017 compared to the change from 2017 to 2018?",
+      "answer": "X"
+    },
+    "bar_stacked": {
+      "id": "0gzowodb2py0d1s9",
+      "question": "How many years did Thailand's revenue exceed that of the Philippines'?",
+      "answer": "X"
+    },
+    "bar_grouped": {
+      "id": "0gacqohbzj07n25s",
+      "question": "What is the difference between the average of surgical values in European countries and the average of surgical values in Asian countries?",
+      "answer": "X"
+    },
+    "line_simple": {
+      "id": "1sf5c8wqw1192q6b",
+      "question": "How many dates was the growth rate below the average?",
+      "answer": "X"
+    },
+    "line_multiple": {
+      "id": "4p1m4tsmzmtvsrys",
+      "question": "What is the difference between the days when Obama is higher than Romney and the days when Romney is higher than Obama?",
+      "answer": "X"
+    }
+  },
+  "G2": {
+    "bar_simple": {
+      "id": "0w88bu7qm4ilsqmh",
+      "question": "What is the difference between the average of before 2000 and from 2010?",
+      "answer": "X"
+    },
+    "bar_stacked": {
+      "id": "bnil22qu3wwatrc7",
+      "question": "According to this chart, what is the difference between the average number of \"A better place to live\" opinion of Western Europe and the rest?",
+      "answer": "X"
+    },
+    "bar_grouped": {
+      "id": "0rfuaawgi58ajpsv",
+      "question": "What is the difference in the average between North America and Latin America?",
+      "answer": "X"
+    },
+    "line_simple": {
+      "id": "72yqb8jwj9a6g4nx",
+      "question": "What is the difference between the average from 2011 and the average up to 2010?",
+      "answer": "X"
+    },
+    "line_multiple": {
+      "id": "3z678inbp0t89ahu",
+      "question": "In how many years was the difference between Disatisfied and Satisfied less than the difference between their means?",
+      "answer": "X"
+    }
+  },
+  "G3": {
+    "bar_simple": {
+      "id": "1hlsoeyqlr1r1n41",
+      "question": "How many regions have the smaller revenue than the average of revenue across regions except for the one with the highest revenue?",
+      "answer": "X"
+    },
+    "bar_stacked": {
+      "id": "240rurpp2arislnt",
+      "question": "Find the difference between the response with the smallest percentage in the youngest group and the response with the highest percentage in the oldest group",
+      "answer": "X"
+    },
+    "bar_grouped": {
+      "id": "0egzejn5mejtnfdm",
+      "question": "What is the difference between Scotland's largest value and England and Wales's smallest value?",
+      "answer": "X"
+    },
+    "line_simple": {
+      "id": "0gr1c2jcthc8h9f6",
+      "question": "What is the difference between a value for a year with a score value between 6.2 and 5.8 and a value for a year with a score value below 4.8?",
+      "answer": "X"
+    },
+    "line_multiple": {
+      "id": "1k8qhmg9rui7gtzh",
+      "question": "What is the difference between the largest value in Germany and the smallest value in the U.S. between 2010 and 2015?",
+      "answer": "X"
+    }
+  },
+  "G4": {
+    "bar_simple": {
+      "id": "1gdzafocxmz7rswi",
+      "question": "How many years have the lower traffic in petabytes than the difference of two biggest traffics in petabytes.",
+      "answer": "X"
+    },
+    "bar_stacked": {
+      "id": "c3mncg8r4g6bjoon",
+      "question": "Is Germany has higher share of respondents in Gasoline or diesel compared to the average of rest of the countries?",
+      "answer": "X"
+    },
+    "bar_grouped": {
+      "id": "1hokbw2gmzar9ye8",
+      "question": "What's the difference between women over 60 and men under 40?",
+      "answer": "X"
+    },
+    "line_simple": {
+      "id": "04xwv56n37ybj8zr",
+      "question": "What is the difference between the third most index scores and the fifth most index scores?",
+      "answer": "X"
+    },
+    "line_multiple": {
+      "id": "cby91tt3tvahsmuj",
+      "question": "Is the difference between the parties in 2012 bigger than the average of the differences of all years?",
+      "answer": "X"
+    }
+  }
+}

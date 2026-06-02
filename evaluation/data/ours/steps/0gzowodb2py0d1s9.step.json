@@ -1,0 +1,21 @@
+{
+  "chart_id": "0gzowodb2py0d1s9",
+  "question": "How many years did Thailand's revenue exceed that of the Philippines'?",
+  "description": "",
+  "specPath": "specs/0gzowodb2py0d1s9.vl.json",
+  "opsPath": "ops/0gzowodb2py0d1s9.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Filter for the revenue of Thailand and the Philippines"
+    },
+    {
+      "id": "ops2",
+      "text": "Compare the revenue of Thailand and the Philippines"
+    },
+    {
+      "id": "ops3",
+      "text": "count the years for which Thailand's revenue was higher."
+    }
+  ]
+}

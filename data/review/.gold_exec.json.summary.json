@@ -1,0 +1,10 @@
+{
+ "file": "nlp_server/example.csv",
+ "ran_ok": 0,
+ "failed": 35,
+ "empty": 0,
+ "top_failure_causes": {
+  "KeyError: ''": 35
+ },
+ "report": "data/review/.gold_exec.json"
+}

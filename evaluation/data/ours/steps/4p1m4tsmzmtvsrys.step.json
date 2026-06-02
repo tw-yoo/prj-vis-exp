@@ -1,0 +1,25 @@
+{
+  "chart_id": "4p1m4tsmzmtvsrys",
+  "question": "What is the difference between the days when Obama is higher than Romney and the days when Romney is higher than Obama?",
+  "description": "",
+  "specPath": "specs/4p1m4tsmzmtvsrys.vl.json",
+  "opsPath": "ops/4p1m4tsmzmtvsrys.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Calculate the difference for each date."
+    },
+    {
+      "id": "ops2",
+      "text": "Count where Obama is higher than Romney."
+    },
+    {
+      "id": "ops3",
+      "text": "Count where Romney is higher than Obama."
+    },
+    {
+      "id": "ops4",
+      "text": "Calculate the difference."
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "chart_id": "1hlsoeyqlr1r1n41",
+  "question": "How many regions have the smaller revenue than the average of revenue across regions except for the one with the highest revenue?",
+  "description": "",
+  "specPath": "specs/1hlsoeyqlr1r1n41.vl.json",
+  "opsPath": "ops/1hlsoeyqlr1r1n41.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Filter out the region which has the highest revenue."
+    },
+    {
+      "id": "ops2",
+      "text": "Calculate the average of the revenue for those regions."
+    },
+    {
+      "id": "ops3",
+      "text": "Count the regions which have a smaller revenue than the average."
+    }
+  ]
+}

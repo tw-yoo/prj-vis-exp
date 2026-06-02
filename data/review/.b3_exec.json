@@ -1,0 +1,463 @@
+[
+ {
+  "id": "2jromeq5u9lloh1s",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 12.1,
+  "target": "2011"
+ },
+ {
+  "id": "0o12tngadmjjux2n",
+  "ok": true,
+  "final": "rows",
+  "node": "n2",
+  "n": 9,
+  "sample": [
+   {
+    "t": "2002",
+    "v": 2.89
+   },
+   {
+    "t": "2003",
+    "v": 2.93
+   },
+   {
+    "t": "2004",
+    "v": 3.0
+   },
+   {
+    "t": "2005",
+    "v": 2.98
+   },
+   {
+    "t": "2006",
+    "v": 2.96
+   }
+  ]
+ },
+ {
+  "id": "10t8o5vhethzeod1",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.3498,
+  "target": "2011"
+ },
+ {
+  "id": "2o3fyauxv32p571i",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.14,
+  "target": "2014"
+ },
+ {
+  "id": "2ebtadc07b7bo277",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 3.74,
+  "target": "2016"
+ },
+ {
+  "id": "2jki13q54zizc6i4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "0pzdf7hfbxgjghsa",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 1.17,
+  "target": "__diff__"
+ },
+ {
+  "id": "23wg8zio5ahp40tg",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 38.0,
+  "target": "1996"
+ },
+ {
+  "id": "10gtgmmgh599jnr7",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 0.023,
+  "target": "__diff__"
+ },
+ {
+  "id": "0roec4s0drcyiuz4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 9.4333,
+  "target": "__avg__"
+ },
+ {
+  "id": "1c80b6i7wdu3m1ir",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 15.4,
+  "target": "__sum__"
+ },
+ {
+  "id": "0k75gqf8ckjikdym",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 2.9,
+  "target": "2020"
+ },
+ {
+  "id": "1jabqwjz9pmd7qwz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 268.0,
+  "target": "__scale__"
+ },
+ {
+  "id": "1sf5c8wqw1192q6b",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 5.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1vh62ks9wweck6m2",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.2,
+  "target": "2010"
+ },
+ {
+  "id": "1vni31fp2ii7wz68",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": -6.61,
+  "target": "May '21"
+ },
+ {
+  "id": "25gpdzxh8nu0c0vf",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "0baf5ch9y4z8914p",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 2.46,
+  "target": "__scale__"
+ },
+ {
+  "id": "04xwv56n37ybj8zr",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.02,
+  "target": "__diff__"
+ },
+ {
+  "id": "0cymcilknp8krjwz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 3.25,
+  "target": "__diff__"
+ },
+ {
+  "id": "0gr1c2jcthc8h9f6",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 1.42,
+  "target": "__diff__"
+ },
+ {
+  "id": "001dao0mq0pplbzj",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 234.07,
+  "target": "2020"
+ },
+ {
+  "id": "08x3crju85yix5ab",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 5.0,
+  "target": "__count__"
+ },
+ {
+  "id": "5lhrulhnl0io2r81",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 9.0,
+  "target": "__count__"
+ },
+ {
+  "id": "5po479f2ju9lqv16",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 50.78,
+  "target": "__sum__"
+ },
+ {
+  "id": "651x1l1swysyy6vp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 62.0,
+  "target": "Jun 10 to 11, 2020"
+ },
+ {
+  "id": "66va2s35es5t86l3",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 15.0,
+  "target": "2010"
+ },
+ {
+  "id": "72yqb8jwj9a6g4nx",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 39.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "6al86e9qyokma74i",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 5.0,
+  "target": "__count__"
+ },
+ {
+  "id": "724mfnyk34kp97le",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 11.0,
+  "target": "__count__"
+ },
+ {
+  "id": "7272hodb02i6e09q",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.03,
+  "target": "__diff__"
+ },
+ {
+  "id": "74p313e1n8rzkfzp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 15.0,
+  "target": "18-19"
+ },
+ {
+  "id": "7mgydgux0ay0flv4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 10865.3333,
+  "target": "2016__2018"
+ },
+ {
+  "id": "827lhm2w7n652knp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 7.0,
+  "target": "__count__"
+ },
+ {
+  "id": "82aqt0k0jnbj3irf",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 494099.0,
+  "target": "2015"
+ },
+ {
+  "id": "8e9wp443ff1i6snq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 5.63,
+  "target": "2011"
+ },
+ {
+  "id": "8chfa8n079zpfigi",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 11.0,
+  "target": "__count__"
+ },
+ {
+  "id": "8hiwwys6qkrbtapb",
+  "ok": false,
+  "err": "could not convert string to float: '2002/03'"
+ },
+ {
+  "id": "95wcyze391ifhegp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 1.775,
+  "target": "__scale__"
+ },
+ {
+  "id": "9douccar3m9ruah4",
+  "ok": true,
+  "final": "empty",
+  "node": "n6"
+ },
+ {
+  "id": "9mlpjn6pddrbthj8",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "albgfrf44bz6134k",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 25.83,
+  "target": "__avg__"
+ },
+ {
+  "id": "23bplnbw291p6nil",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": NaN,
+  "target": "__diff__"
+ },
+ {
+  "id": "aqowly2mmavof3f1",
+  "ok": true,
+  "final": "rows",
+  "node": "n1",
+  "n": 10,
+  "sample": [
+   {
+    "t": "10",
+    "v": 6.3
+   },
+   {
+    "t": "11",
+    "v": 5.6
+   },
+   {
+    "t": "12",
+    "v": 4.8
+   },
+   {
+    "t": "13",
+    "v": 4.4
+   },
+   {
+    "t": "14",
+    "v": 4.0
+   }
+  ]
+ },
+ {
+  "id": "b8um9hhxelrqowd9",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "awg12vb36ndo75tq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "b4o9bh8f969q6kqa",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 4.0,
+  "target": "__count__"
+ },
+ {
+  "id": "avwb8xstxx1lmfpk",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 7.64,
+  "target": "May '21"
+ },
+ {
+  "id": "9r7co7yl1osn3zg4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 2.0,
+  "target": "__count__"
+ },
+ {
+  "id": "a6gnu78mgn3xmqhu",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 6.0,
+  "target": "__count__"
+ },
+ {
+  "id": "9sdl1j9l1fbhwq09",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 9.0,
+  "target": "__count__"
+ },
+ {
+  "id": "ae2xp7bacbbs0kmx",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 6.0,
+  "target": "__count__"
+ },
+ {
+  "id": "9r3kyy2jo2o66msh",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 13.0,
+  "target": "February"
+ }
+]

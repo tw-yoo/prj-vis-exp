@@ -1,0 +1,1713 @@
+[
+ {
+  "id": "2jromeq5u9lloh1s",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 12.1,
+  "target": "2011"
+ },
+ {
+  "id": "0o12tngadmjjux2n",
+  "ok": true,
+  "final": "rows",
+  "node": "n2",
+  "n": 9,
+  "sample": [
+   {
+    "t": "2002",
+    "v": 2.89
+   },
+   {
+    "t": "2003",
+    "v": 2.93
+   },
+   {
+    "t": "2004",
+    "v": 3.0
+   },
+   {
+    "t": "2005",
+    "v": 2.98
+   },
+   {
+    "t": "2006",
+    "v": 2.96
+   }
+  ]
+ },
+ {
+  "id": "10t8o5vhethzeod1",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.3498,
+  "target": "2011"
+ },
+ {
+  "id": "2o3fyauxv32p571i",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.14,
+  "target": "2014"
+ },
+ {
+  "id": "11e148qcs7x70t8v",
+  "ok": true,
+  "final": "rows",
+  "node": "n2",
+  "n": 4,
+  "sample": [
+   {
+    "t": "2016",
+    "v": 0.036
+   },
+   {
+    "t": "2017",
+    "v": 0.078
+   },
+   {
+    "t": "2018",
+    "v": 0.111
+   },
+   {
+    "t": "Jan-Oct 2019",
+    "v": 0.065
+   }
+  ]
+ },
+ {
+  "id": "0s6zi9dyw22qo4rp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0735,
+  "target": "__diff__"
+ },
+ {
+  "id": "2ebtadc07b7bo277",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 3.74,
+  "target": "2016"
+ },
+ {
+  "id": "0prhtod4tli879nh",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 6.4,
+  "target": "Delhi"
+ },
+ {
+  "id": "2jki13q54zizc6i4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "0pzdf7hfbxgjghsa",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 1.17,
+  "target": "__diff__"
+ },
+ {
+  "id": "0rfuaawgi58ajpsv",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 8.422,
+  "target": "__diff__"
+ },
+ {
+  "id": "0rdpculfpyw3bv5p",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.41,
+  "target": "2011"
+ },
+ {
+  "id": "0qz3v0bszsex7jjm",
+  "ok": true,
+  "final": "rows",
+  "node": "n2",
+  "n": 11,
+  "sample": [
+   {
+    "t": "00/01",
+    "v": 1.4
+   },
+   {
+    "t": "01/02",
+    "v": 1.7
+   },
+   {
+    "t": "02/03",
+    "v": 2.1
+   },
+   {
+    "t": "03/04",
+    "v": 2.3
+   },
+   {
+    "t": "04/05",
+    "v": 2.5
+   }
+  ]
+ },
+ {
+  "id": "23wg8zio5ahp40tg",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 38.0,
+  "target": "1996"
+ },
+ {
+  "id": "28bxxhd6omv2l2h1",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.8,
+  "target": "__range__"
+ },
+ {
+  "id": "29rxoltwhongoday",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 72.0,
+  "target": "2017"
+ },
+ {
+  "id": "2eiyyw562tcvjypp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 2.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1h4rj9i2jtzq589y",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 54.0,
+  "target": "2014"
+ },
+ {
+  "id": "16aphfabldrpgcmd",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 8.0,
+  "target": "__add__"
+ },
+ {
+  "id": "0dglnk2wbf5ll15t",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 48.25,
+  "target": "__diff__"
+ },
+ {
+  "id": "10gtgmmgh599jnr7",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 0.023,
+  "target": "__diff__"
+ },
+ {
+  "id": "0egdxqun1m2n9k4z",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 4.415,
+  "target": "__avg__"
+ },
+ {
+  "id": "0aj7na7tkqb7iomu",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 70.87,
+  "target": "__diff__"
+ },
+ {
+  "id": "0gvrmm8qbn6o1vya",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 53.405,
+  "target": "__avg__"
+ },
+ {
+  "id": "0egzejn5mejtnfdm",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 26.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "0roec4s0drcyiuz4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 9.4333,
+  "target": "__avg__"
+ },
+ {
+  "id": "0eq4w2wsl864mhcj",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 84.1133,
+  "target": "__avg__"
+ },
+ {
+  "id": "0g0xma0b0k29lk5j",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.5976,
+  "target": "2010"
+ },
+ {
+  "id": "0fhm43s0j7glca29",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "0gacqohbzj07n25s",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 8176.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "1c80b6i7wdu3m1ir",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 15.4,
+  "target": "__sum__"
+ },
+ {
+  "id": "1k8qhmg9rui7gtzh",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 31.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "0ihx2vzdsej883sq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.267,
+  "target": "Female"
+ },
+ {
+  "id": "0fh0emp095qhq3ag",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 227.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "0k75gqf8ckjikdym",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 2.9,
+  "target": "2020"
+ },
+ {
+  "id": "0gzowodb2py0d1s9",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 2.0,
+  "target": "__count__"
+ },
+ {
+  "id": "0nmj7sdej4cipma7",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 88.3,
+  "target": "North America"
+ },
+ {
+  "id": "0i9bxppwocx0tyop",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 74375.0,
+  "target": "__avg__"
+ },
+ {
+  "id": "0lua5jsw92d3enb4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 8.0,
+  "target": "__count__"
+ },
+ {
+  "id": "0iv07908ph6y6ifj",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 76.0,
+  "target": "__avg__"
+ },
+ {
+  "id": "1jabqwjz9pmd7qwz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 268.0,
+  "target": "__scale__"
+ },
+ {
+  "id": "1sf5c8wqw1192q6b",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 5.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1vh62ks9wweck6m2",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.2,
+  "target": "2010"
+ },
+ {
+  "id": "0jbrb1dcbliiampz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 3.0,
+  "target": "__count__"
+ },
+ {
+  "id": "0ufvwi9xv37e597q",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 59.4,
+  "target": "2018/19"
+ },
+ {
+  "id": "0oinwvo88bvvs25b",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 0.03,
+  "target": "__diff__"
+ },
+ {
+  "id": "1vni31fp2ii7wz68",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": -6.61,
+  "target": "May '21"
+ },
+ {
+  "id": "20gpvz4ylu4olrm7",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 9.0,
+  "target": "__avg__"
+ },
+ {
+  "id": "0k7bm9iqewnrzj47",
+  "ok": true,
+  "final": "scalar",
+  "node": "n14",
+  "value": 1.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "0vfqjaxeiv96ww7g",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 11.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "25gpdzxh8nu0c0vf",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "20qa83ih1gn6toqt",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 15.0,
+  "target": "2013"
+ },
+ {
+  "id": "0baf5ch9y4z8914p",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 2.46,
+  "target": "__scale__"
+ },
+ {
+  "id": "01h0jkno5l7jola8",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.013,
+  "target": "__avg__"
+ },
+ {
+  "id": "0cjk67q39ee6dhzj",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 14.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "01mksjs373fhcl4q",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 4.3,
+  "target": "Large companies"
+ },
+ {
+  "id": "04xwv56n37ybj8zr",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.02,
+  "target": "__diff__"
+ },
+ {
+  "id": "0cymcilknp8krjwz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 3.25,
+  "target": "__diff__"
+ },
+ {
+  "id": "0abj8blv663ussbr",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 8.58,
+  "target": "__diff__"
+ },
+ {
+  "id": "0cad2xfrwdgvo9zk",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 967.0,
+  "target": "__add__"
+ },
+ {
+  "id": "0gr1c2jcthc8h9f6",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 1.42,
+  "target": "__diff__"
+ },
+ {
+  "id": "001dao0mq0pplbzj",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 234.07,
+  "target": "2020"
+ },
+ {
+  "id": "0a5npu4o61dz4r5f",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 347.83,
+  "target": "__diff__"
+ },
+ {
+  "id": "07lo3vvwztz32ifq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.03,
+  "target": "__add__"
+ },
+ {
+  "id": "075i5mfewy2uvwej",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 0.0504,
+  "target": "__diff__"
+ },
+ {
+  "id": "08x3crju85yix5ab",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 5.0,
+  "target": "__count__"
+ },
+ {
+  "id": "004fhteah0l9kud2",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 785.6667,
+  "target": "__diff__"
+ },
+ {
+  "id": "0bunvsqd54e3qahz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 6.7,
+  "target": "__diff__"
+ },
+ {
+  "id": "0bgcjlbz7nv5vnjc",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 1.4667,
+  "target": "__scale__"
+ },
+ {
+  "id": "08iur64i01boakg5",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 16.0,
+  "target": "2017"
+ },
+ {
+  "id": "0b9o2vahkw2a1bxy",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 19.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "0v0l4wdbx7orkqz1",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "0vw6ydim9cff8ji6",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.22,
+  "target": "Q2 2019"
+ },
+ {
+  "id": "5lhrulhnl0io2r81",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 9.0,
+  "target": "__count__"
+ },
+ {
+  "id": "0vmvmj77j3p6vcy7",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 41581.0,
+  "target": "__sum__"
+ },
+ {
+  "id": "174uq759pluu079w",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 3.7,
+  "target": "__add__"
+ },
+ {
+  "id": "5po479f2ju9lqv16",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 50.78,
+  "target": "__sum__"
+ },
+ {
+  "id": "2kmpy10btl65kr2j",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 65.6667,
+  "target": "__avg__"
+ },
+ {
+  "id": "0vqxnzu0mpbz12ch",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 1.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "0wgqpso2vnilpym6",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "651x1l1swysyy6vp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 62.0,
+  "target": "Jun 10 to 11, 2020"
+ },
+ {
+  "id": "2s65jcap9pn289qx",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": -128.38,
+  "target": "__sum__"
+ },
+ {
+  "id": "0vvz9mdgdiazke5o",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 20.19,
+  "target": "__avg__"
+ },
+ {
+  "id": "0xc7sx6ll8fl5rgh",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": -0.3667,
+  "target": "__avg__"
+ },
+ {
+  "id": "66va2s35es5t86l3",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 15.0,
+  "target": "2010"
+ },
+ {
+  "id": "12sdcc2xjltg7qj2",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 51.8994,
+  "target": "__diff__"
+ },
+ {
+  "id": "72yqb8jwj9a6g4nx",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 39.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "6al86e9qyokma74i",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 5.0,
+  "target": "__count__"
+ },
+ {
+  "id": "724mfnyk34kp97le",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 11.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1q3mzgt77lwo172f",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 9.8,
+  "target": "2011"
+ },
+ {
+  "id": "4p1m4tsmzmtvsrys",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 11.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "0wflwm4jebx7n12y",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 141.25,
+  "target": "__diff__"
+ },
+ {
+  "id": "21fa7gb8l1ix6yfm",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.42,
+  "target": "Text messaging"
+ },
+ {
+  "id": "0xnim79vztf8hjor",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 3.14,
+  "target": "05/06"
+ },
+ {
+  "id": "0w88bu7qm4ilsqmh",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 55.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "0yx2080f08329xxb",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0197,
+  "target": "__diff__"
+ },
+ {
+  "id": "3z678inbp0t89ahu",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 5.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1xz4egh52kvh2xwx",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 1.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "7272hodb02i6e09q",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.03,
+  "target": "__diff__"
+ },
+ {
+  "id": "4ldjaoujpydpkbu5",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 4.0,
+  "target": "__count__"
+ },
+ {
+  "id": "221xwpab655f7g8x",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 30.84,
+  "target": "__diff__"
+ },
+ {
+  "id": "23an1hozb7myw4e2",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.24,
+  "target": "2016"
+ },
+ {
+  "id": "4wqpl5jrdmc75go3",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 9722.4286,
+  "target": "__avg__"
+ },
+ {
+  "id": "74p313e1n8rzkfzp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 15.0,
+  "target": "18-19"
+ },
+ {
+  "id": "7mgydgux0ay0flv4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 10865.3333,
+  "target": "2016__2018"
+ },
+ {
+  "id": "4pi1e6ev8e0zobww",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 500490.3333,
+  "target": "__diff__"
+ },
+ {
+  "id": "1gb8sqnptdsdvagz",
+  "ok": true,
+  "final": "rows",
+  "node": "n2",
+  "n": 3,
+  "sample": [
+   {
+    "t": "Under 30s",
+    "v": 0.35
+   },
+   {
+    "t": "Under 30s",
+    "v": 0.15
+   },
+   {
+    "t": "Under 30s",
+    "v": 0.1
+   }
+  ]
+ },
+ {
+  "id": "4vcdm7lwwlgdd0h1",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 1.05,
+  "target": "2008"
+ },
+ {
+  "id": "1hm2mi3o0ejxp7tn",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": -0.01,
+  "target": "__diff__"
+ },
+ {
+  "id": "240rurpp2arislnt",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 51.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "1ashoniy42n3n5jr",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 285.3036,
+  "target": "__diff__"
+ },
+ {
+  "id": "4twwx65oath7vrkt",
+  "ok": true,
+  "final": "empty",
+  "node": "n4"
+ },
+ {
+  "id": "1ar60b8rke2d8e64",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.32,
+  "target": "1st month"
+ },
+ {
+  "id": "1a09xqtrj8zms716",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 600.0,
+  "target": "__scale__"
+ },
+ {
+  "id": "1bbe64wpvq06sknm",
+  "ok": true,
+  "final": "rows",
+  "node": "n2",
+  "n": 9,
+  "sample": [
+   {
+    "t": "2010/11",
+    "v": -94.0
+   },
+   {
+    "t": "2011/12",
+    "v": -64.0
+   },
+   {
+    "t": "2012/13",
+    "v": 589.0
+   },
+   {
+    "t": "2013/14",
+    "v": -161.0
+   },
+   {
+    "t": "2014/15",
+    "v": -524.0
+   }
+  ]
+ },
+ {
+  "id": "16fif5hdi8yzml00",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 7.5,
+  "target": "__diff__"
+ },
+ {
+  "id": "827lhm2w7n652knp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 7.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1bv05pu9d8jnidty",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 29949.5,
+  "target": "__avg__"
+ },
+ {
+  "id": "82aqt0k0jnbj3irf",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 494099.0,
+  "target": "2015"
+ },
+ {
+  "id": "1jatwi94v2d8cr9u",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 26.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "2bhsybiilde28j87",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.19,
+  "target": "__avg__"
+ },
+ {
+  "id": "6ah60yba8o7rw0i9",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 0.91,
+  "target": "__diff__"
+ },
+ {
+  "id": "5p6g89v7l99aes05",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 31.9,
+  "target": "2004"
+ },
+ {
+  "id": "1ce802l2rdg98d7d",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.031,
+  "target": "Azione"
+ },
+ {
+  "id": "1hokbw2gmzar9ye8",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.427,
+  "target": "__diff__"
+ },
+ {
+  "id": "5wpw8detqynmqv1s",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 151.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "8e9wp443ff1i6snq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 5.63,
+  "target": "2011"
+ },
+ {
+  "id": "2n0g3tsz1rsz6fgr",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 27.564,
+  "target": "2010__2014"
+ },
+ {
+  "id": "8chfa8n079zpfigi",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 11.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1j7gx35h6i9mpi6j",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.19,
+  "target": "__diff__"
+ },
+ {
+  "id": "2yech0pea1xihind",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 89.0,
+  "target": "__sum__"
+ },
+ {
+  "id": "64ue1v00wj8vg48e",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 21.7386,
+  "target": "__diff__"
+ },
+ {
+  "id": "1dm30xw1gpjo8ke5",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.034,
+  "target": "__scale__"
+ },
+ {
+  "id": "8hiwwys6qkrbtapb",
+  "ok": false,
+  "err": "could not convert string to float: '2002/03'"
+ },
+ {
+  "id": "1mzcynif2s4mm6ps",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 0.97,
+  "target": "__diff__"
+ },
+ {
+  "id": "54gh54f24irr63pb",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 14.0,
+  "target": "2018"
+ },
+ {
+  "id": "1p6uue3hxdxit3ey",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.51,
+  "target": "30 to 44 years"
+ },
+ {
+  "id": "6rvtt4egfl5nmyue",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 80.2,
+  "target": "2013"
+ },
+ {
+  "id": "1suppecte0dm69gm",
+  "ok": true,
+  "final": "scalar",
+  "node": "n9",
+  "value": 1.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "6p4fnscalopvysnn",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 43.0,
+  "target": "2019"
+ },
+ {
+  "id": "50y71e5i2n28gkbx",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 7266.0,
+  "target": "__avg__"
+ },
+ {
+  "id": "75yz7pci1w1dif3g",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.18,
+  "target": "60 +"
+ },
+ {
+  "id": "7extlfw651gqc5fk",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "6rqevjp16hadlyly",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "1epzpacytv3wx2i6",
+  "ok": true,
+  "final": "rows",
+  "node": "n2",
+  "n": 4,
+  "sample": [
+   {
+    "t": "2010",
+    "v": 730.0
+   },
+   {
+    "t": "2011",
+    "v": 751.0
+   },
+   {
+    "t": "2012",
+    "v": 772.0
+   },
+   {
+    "t": "2013",
+    "v": 806.0
+   }
+  ]
+ },
+ {
+  "id": "1qm2z3ooawf339jz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 1.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "95yhyqjyeu4fohbj",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "62w3xg16iivw11et",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "95wcyze391ifhegp",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 1.775,
+  "target": "__scale__"
+ },
+ {
+  "id": "9douccar3m9ruah4",
+  "ok": true,
+  "final": "empty",
+  "node": "n6"
+ },
+ {
+  "id": "9mlpjn6pddrbthj8",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "1x37jzohqd666qc0",
+  "ok": true,
+  "final": "scalar",
+  "node": "n14",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "1hv85ef35tbvldiq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 3.0,
+  "target": "__count__"
+ },
+ {
+  "id": "au22oa0vjosoagxu",
+  "ok": true,
+  "final": "rows",
+  "node": "n2",
+  "n": 8,
+  "sample": [
+   {
+    "t": "2008",
+    "v": 70.72
+   },
+   {
+    "t": "2009",
+    "v": 69.51
+   },
+   {
+    "t": "2010",
+    "v": 68.11
+   },
+   {
+    "t": "2011",
+    "v": 66.7
+   },
+   {
+    "t": "2012",
+    "v": 65.45
+   }
+  ]
+ },
+ {
+  "id": "albgfrf44bz6134k",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 25.83,
+  "target": "__avg__"
+ },
+ {
+  "id": "23bplnbw291p6nil",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": NaN,
+  "target": "__diff__"
+ },
+ {
+  "id": "aqowly2mmavof3f1",
+  "ok": true,
+  "final": "rows",
+  "node": "n1",
+  "n": 10,
+  "sample": [
+   {
+    "t": "10",
+    "v": 6.3
+   },
+   {
+    "t": "11",
+    "v": 5.6
+   },
+   {
+    "t": "12",
+    "v": 4.8
+   },
+   {
+    "t": "13",
+    "v": 4.4
+   },
+   {
+    "t": "14",
+    "v": 4.0
+   }
+  ]
+ },
+ {
+  "id": "23zc8kuhnpespj98",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.572,
+  "target": "Boys"
+ },
+ {
+  "id": "1hm06wtar7gh92c8",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 6200.0,
+  "target": "__scale__"
+ },
+ {
+  "id": "221xoyhy3yziwabm",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 1.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "25n4mzhv6y1p36dl",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.12,
+  "target": "Spend more"
+ },
+ {
+  "id": "bhaqrpqx0hwtcol5",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 5.1,
+  "target": "2016-2018"
+ },
+ {
+  "id": "b1jrtiwi2x01zdtw",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 48.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "1hp11sl0mo4ohtpo",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 11.5,
+  "target": "2013/14"
+ },
+ {
+  "id": "1it2ia9kmdihxan8",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 9.0,
+  "target": "__count__"
+ },
+ {
+  "id": "b8um9hhxelrqowd9",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "c41fny6w7gwpawbn",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 0.0,
+  "target": "2010"
+ },
+ {
+  "id": "263367gingx3k5hu",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 288.0,
+  "target": "__sum__"
+ },
+ {
+  "id": "bnil22qu3wwatrc7",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 4.5,
+  "target": "__diff__"
+ },
+ {
+  "id": "1lg9qn6shf8ifsdq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n6",
+  "value": 1.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "awg12vb36ndo75tq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n7",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "cby91tt3tvahsmuj",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "1lf1h5jf9ymeid5q",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 2.0,
+  "target": "__count__"
+ },
+ {
+  "id": "bpmaqi8nt785y4ay",
+  "ok": true,
+  "final": "empty",
+  "node": "n4"
+ },
+ {
+  "id": "c3mncg8r4g6bjoon",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 1.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "c1dkepdvg39l54su",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "1jgaguuh4rqlk7sq",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 227915.0,
+  "target": "__diff__"
+ },
+ {
+  "id": "b4o9bh8f969q6kqa",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 4.0,
+  "target": "__count__"
+ },
+ {
+  "id": "ciqofa9lr4z5kz7d",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 646.0,
+  "target": "2007"
+ },
+ {
+  "id": "avwb8xstxx1lmfpk",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 7.64,
+  "target": "May '21"
+ },
+ {
+  "id": "bkemtvekxtnuk8bf",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 7.0,
+  "target": "2009"
+ },
+ {
+  "id": "1j86ensex8nyvdyk",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 78.4,
+  "target": "2017__2019"
+ },
+ {
+  "id": "273wm22z47ptlhzz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n11",
+  "value": 0.0,
+  "target": "__compareBool__"
+ },
+ {
+  "id": "1gdzafocxmz7rswi",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 4.0,
+  "target": "__count__"
+ },
+ {
+  "id": "9r7co7yl1osn3zg4",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 2.0,
+  "target": "__count__"
+ },
+ {
+  "id": "a6gnu78mgn3xmqhu",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 6.0,
+  "target": "__count__"
+ },
+ {
+  "id": "2203wq7kgv5ha9fi",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 0.243,
+  "target": "35–44"
+ },
+ {
+  "id": "1xj7x49epprmpod7",
+  "ok": true,
+  "final": "scalar",
+  "node": "n4",
+  "value": 122.0,
+  "target": "__sum__"
+ },
+ {
+  "id": "9sdl1j9l1fbhwq09",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 9.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1g17ep9vho38jvcz",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 1.0,
+  "target": "__count__"
+ },
+ {
+  "id": "83hx57gqlkd9sldn",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 64.0,
+  "target": "2013"
+ },
+ {
+  "id": "77xb5ug5lhfmkb74",
+  "ok": true,
+  "final": "scalar",
+  "node": "n2",
+  "value": 230769.0,
+  "target": "__sum__"
+ },
+ {
+  "id": "1hlsoeyqlr1r1n41",
+  "ok": true,
+  "final": "scalar",
+  "node": "n5",
+  "value": 2.0,
+  "target": "__count__"
+ },
+ {
+  "id": "ae2xp7bacbbs0kmx",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 6.0,
+  "target": "__count__"
+ },
+ {
+  "id": "1g95in84ywix6pcf",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 4085.0,
+  "target": "Amixem"
+ },
+ {
+  "id": "9r3kyy2jo2o66msh",
+  "ok": true,
+  "final": "scalar",
+  "node": "n3",
+  "value": 13.0,
+  "target": "February"
+ }
+]

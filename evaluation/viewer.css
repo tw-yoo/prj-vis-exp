@@ -257,6 +257,18 @@ body {
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
+.debug-meta {
+  margin-bottom: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: #94a3b8;
+}
+
+.debug-meta:empty {
+  display: none;
+}
+
 .question-text {
   font-size: 22px;
   font-weight: 700;
