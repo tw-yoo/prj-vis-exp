@@ -648,6 +648,15 @@ export default function ReviewPage() {
         // alone only references n3; but ops3:n5 still consumes n2.
         // Passing the cross-group set keeps the n2 line alive until ops3 runs.
         const fullReferencedResultIds = collectReferencedResultIds(opsGroups as OperationSpec[][])
+        // Refs consumed by groups STRICTLY AFTER the target group. The simple-bar
+        // / simple-line runners union this with their intra-call live refs to
+        // build a per-op "still-live" keep set, so a consumed annotation is
+        // removed once no current-or-later op needs it (case 1hlsoeyqlr1r1n41 —
+        // the extremum / average lingered dimmed). `fullReferencedResultIds`
+        // stays as the back-compat field other chart types still read.
+        const futureReferencedResultIds = collectReferencedResultIds(
+          opsGroups.slice(targetIndex + 1) as OperationSpec[][],
+        )
         console.info(
           '[review] runOpsUpToGroup: cross-group referencedResultIds ' +
             JSON.stringify({
@@ -712,6 +721,12 @@ export default function ReviewPage() {
                   // transition + averages) preserves annotations that future
                   // groups will need (e.g. n2 line for ops3:n5).
                   referencedResultIds: fullReferencedResultIds,
+                  // Future groups relative to the replayed range (priorIndex):
+                  // the target group + beyond, so the simple-bar/line per-op
+                  // keep set keeps what the target group still needs.
+                  futureReferencedResultIds: collectReferencedResultIds(
+                    opsGroups.slice(priorIndex + 1) as OperationSpec[][],
+                  ),
                 } as RunChartOpsOptions,
               )
               // If the cumulative replay transitioned chart type (e.g.
@@ -816,6 +831,11 @@ export default function ReviewPage() {
           // fadeRemove the n2 line — even though ops3:n5 still needs it
           // (case 4pi1e6ev8e0zobww).
           referencedResultIds: fullReferencedResultIds,
+          // Strictly-future groups (after the target). The simple-bar/line
+          // runners union this with intra-call live refs for a per-op keep set,
+          // so a consumed annotation (e.g. an upstream extremum/average) is
+          // removed once no current-or-later op needs it (case 1hlsoeyqlr1r1n41).
+          futureReferencedResultIds,
           // Surface manager is required for split-aware appliers (diff arrow,
           // filter y-axis lock). Always pass it when active; passing it when
           // single-layout is harmless (appliers fall back to non-split paths).

@@ -351,9 +351,24 @@ export const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve
 
 export function applyAxisTickLabelSize<T extends d3.BaseType, D>(
   axisGroup: d3.Selection<T, D, d3.BaseType, unknown>,
-  fontSize = CHART_TEXT_SIZE.axisLabel,
+  fontSize: number = CHART_TEXT_SIZE.axisLabel,
 ) {
   axisGroup.selectAll<SVGTextElement, unknown>(SvgElements.Text).attr(SvgAttributes.FontSize, fontSize)
+}
+
+/**
+ * Width-aware x-axis tick font size. Wide plots keep the default
+ * `CHART_TEXT_SIZE.axisLabel` (15); narrow plots — e.g. the ~140–190px panels a
+ * chart splits into — get a smaller, floored size so labels aren't cramped.
+ * Because `wrapAxisTickLabels` measures via `getComputedTextLength()` AFTER this
+ * is applied, the smaller font also yields cleaner re-wrapping (e.g. "2017" on
+ * one line). Returns the default for non-finite / wide widths, so normal charts
+ * are unaffected.
+ */
+export function resolveAxisTickFontSize(plotWidth: number): number {
+  const base = CHART_TEXT_SIZE.axisLabel
+  if (!Number.isFinite(plotWidth) || plotWidth <= 0 || plotWidth >= 280) return base
+  return Math.max(12, Math.min(base, Math.round((base * plotWidth) / 280)))
 }
 
 // ---------------------------------------------------------------------------

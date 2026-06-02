@@ -1,14 +1,16 @@
 import { findExtremum } from '../../../domain/operation/dataOps'
 import { OperationOp, type OperationSpec } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { RESULT_REF_ATTRIBUTE } from '../../../operation-next/diffEndpoint'
+import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { FILTER_ANNOTATION_CLASS } from './filter'
-import { findBarByTarget, readBarMetrics } from './_shared'
+import { findBarByTarget, readBarMetrics, resolveBarAnnotationViewport } from './_shared'
 
 export const EXTREMUM_ANNOTATION_CLASS = 'operation-next-extremum'
 
@@ -66,25 +68,22 @@ export const findExtremumApplier: OperationApplier<SimpleBarChartInstance> = {
       .end()
       .catch(() => {})
 
-    // Label above the bar top by default; flip below if that would land above
-    // the chart's top margin. Matches the simpleLine findExtremum pattern —
-    // no collision avoidance, SVG root has overflow:visible so the label can
-    // sit anywhere relative to the anchor.
-    const naturalAbove = metrics.topY - 12
-    const labelMinY = instance.layout.marginTop + 12
-    const labelY = naturalAbove >= labelMinY ? naturalAbove : metrics.topY + 20
-    const labelNode = layer
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${EXTREMUM_ANNOTATION_CLASS}`)
-      .attr(SvgAttributes.X, metrics.centerX)
-      .attr(SvgAttributes.Y, labelY)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, 12)
-      .attr(SvgAttributes.FontWeight, 700)
-      .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-      .style(SvgAttributes.Opacity, 0)
-      .text(formatOperationValue(metrics.value))
-    if (nodeId) labelNode.attr(DataAttributes.AnnotationNodeId, nodeId)
+    // Value label above the bar top, positioned by the shared collision-aware
+    // placer (avoids bars + other labels; never lands inside the bar). Tagged
+    // with both the node id (same-node replacement) and the result-ref (so the
+    // per-op keep-set cleanup can remove it once no later op references it —
+    // case 1hlsoeyqlr1r1n41, where the extremum text lingered).
+    const labelNode = placeValueLabel({
+      layer,
+      svg: instance.svg,
+      viewport: resolveBarAnnotationViewport(instance),
+      preferred: { x: metrics.centerX, y: metrics.topY - 12 },
+      text: formatOperationValue(metrics.value),
+      className: EXTREMUM_ANNOTATION_CLASS,
+      dataAttrs: nodeId
+        ? [[DataAttributes.AnnotationNodeId, nodeId], [RESULT_REF_ATTRIBUTE, nodeId]]
+        : [],
+    })
     const labelPromise = labelNode
       .transition()
       .duration(DURATIONS.LABEL_FADE_IN)

@@ -15,7 +15,7 @@ const SPLIT_DEBUG_PREFIX = '[split-simple-bar-debug]'
  * (flex: 0 → 1) + fade in over this many ms. Affects every chart type
  * because all splits go through `splitSurface()`.
  */
-const SPLIT_ANIMATION_MS = 600
+const SPLIT_ANIMATION_MS = 800
 
 function isSplitDebugEnabled() {
   return Boolean((globalThis as typeof globalThis & { __OPERATION_NEXT_DEBUG__?: unknown }).__OPERATION_NEXT_DEBUG__)
@@ -282,25 +282,30 @@ export class SurfaceManager {
     const hostA = this.createSplitHost(idA)
     const hostB = this.createSplitHost(idB)
 
+    // Literal "duplicate & slide apart": each half-width panel starts as a copy
+    // translated to the container CENTER (overlapping the still-visible source)
+    // and transparent, then on trigger fades in and slides out to its half. The
+    // chart is never blank — replaces the old scaleX(0)+source-fade that read as
+    // "disappear/reappear".
+    const centerOffset = (chartHostWidth - halfWidth) / 2
     const setupSplitHostForBuild = (host: HTMLElement, side: 'left' | 'right') => {
       host.style.position = 'absolute'
       host.style.top = '0'
       if (side === 'left') {
         host.style.left = '0'
-        host.style.transformOrigin = 'right center'
       } else {
         host.style.right = '0'
-        host.style.transformOrigin = 'left center'
       }
       host.style.width = `${halfWidth}px`
       host.style.height = `${chartHostHeight}px`
       host.style.overflow = 'hidden'
       host.style.zIndex = '2'
-      // Start invisible via transform (no width change → no measure race).
-      host.style.transform = 'scaleX(0)'
-      // Transition is for the trigger phase; install it now so when we
-      // assign scaleX(1) below it actually animates.
-      host.style.transition = `transform ${SPLIT_ANIMATION_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1)`
+      // Start centered (over the source) + transparent; transition installed now
+      // so the trigger-phase assignment animates.
+      host.style.transform = `translateX(${side === 'left' ? centerOffset : -centerOffset}px)`
+      host.style.opacity = '0'
+      host.style.transition =
+        `transform ${SPLIT_ANIMATION_MS}ms cubic-bezier(0.22, 0.61, 0.36, 1), opacity ${SPLIT_ANIMATION_MS}ms ease-out`
     }
     setupSplitHostForBuild(hostA, 'left')
     setupSplitHostForBuild(hostB, 'right')
@@ -330,18 +335,20 @@ export class SurfaceManager {
     this.layout = { type: layoutType, surfaces: [surfaceA, surfaceB], gap: SPLIT_SURFACE_GAP_PX }
     this.rootContainer.classList.add('surface-layout--split')
 
-    // Force a layout reflow so the just-applied transform:scaleX(0) is
-    // committed before we change it to scaleX(1).
+    // Force a layout reflow so the initial centered transform + opacity:0 are
+    // committed before we animate them.
     void hostA.offsetWidth
 
-    // 4. Kick off animations on the next frame. Source fades; hostA/hostB
-    //    grow from the centerline (transform-origin: right / left) into
-    //    full half-width.
+    // 4. Kick off animations on the next frame: the two copies fade in and slide
+    //    out from the center to their halves while the source fades away — a
+    //    duplicate-and-slide-apart, with no blank frame.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (sourcePivot) sourcePivot.style.opacity = '0'
-        hostA.style.transform = 'scaleX(1)'
-        hostB.style.transform = 'scaleX(1)'
+        hostA.style.transform = 'translateX(0)'
+        hostA.style.opacity = '1'
+        hostB.style.transform = 'translateX(0)'
+        hostB.style.opacity = '1'
       })
     })
 
@@ -389,6 +396,7 @@ export class SurfaceManager {
         host.style.transform = ''
         host.style.transformOrigin = ''
         host.style.transition = ''
+        host.style.opacity = ''
         host.style.zIndex = ''
         host.style.flex = '1 1 0'
         host.style.minWidth = '0'

@@ -1,6 +1,6 @@
 import { retrieveValue } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
@@ -8,6 +8,7 @@ import type { GroupedBarChartInstance } from '../../../rendering-new/instances/g
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
 import { readNumberAttr, type AnnotationViewport } from '../../primitives/annotationLayer'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 
 export const RETRIEVE_ANNOTATION_CLASS = 'operation-new-grouped-bar-retrieve-value'
 
@@ -153,19 +154,15 @@ export const retrieveValueApplier: OperationApplier<GroupedBarChartInstance> = {
           if (series != null && rectSeries !== series) return
           const cx = rectCenterRootX(rect, instance)
           const top = rectTopRootY(rect, instance)
-          const labelY = Math.max(top - 8, instance.layout.marginTop + 12)
-          const labelNode = layer
-            .append(SvgElements.Text)
-            .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${RETRIEVE_ANNOTATION_CLASS}`)
-            .attr(SvgAttributes.X, cx)
-            .attr(SvgAttributes.Y, labelY)
-            .attr(SvgAttributes.TextAnchor, 'middle')
-            .attr(SvgAttributes.FontSize, 12)
-            .attr(SvgAttributes.FontWeight, 700)
-            .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-            .attr(DataAttributes.Target, target)
-            .style(SvgAttributes.Opacity, 0)
-            .text(String(datum.displayTarget ?? datum.target))
+          const labelNode = placeValueLabel({
+            layer,
+            svg: instance.svg,
+            viewport: viewport(instance),
+            preferred: { x: cx, y: top - 8 },
+            text: String(datum.displayTarget ?? datum.target),
+            className: RETRIEVE_ANNOTATION_CLASS,
+            dataAttrs: [[DataAttributes.Target, target]],
+          })
           transitions.push(
             labelNode
               .transition()
@@ -190,21 +187,15 @@ export const retrieveValueApplier: OperationApplier<GroupedBarChartInstance> = {
           const cx = rectCenterRootX(rect, instance)
           const top = rectTopRootY(rect, instance)
           const value = Number(rect.getAttribute(DataAttributes.Value))
-          const stackedAbove = top - 10 - index * 16
-          const labelMinY = instance.layout.marginTop + 12
-          const labelY = stackedAbove >= labelMinY ? stackedAbove : top + 20 + index * 16
-          const labelNode = layer
-            .append(SvgElements.Text)
-            .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${RETRIEVE_ANNOTATION_CLASS}`)
-            .attr(SvgAttributes.X, cx)
-            .attr(SvgAttributes.Y, labelY)
-            .attr(SvgAttributes.TextAnchor, 'middle')
-            .attr(SvgAttributes.FontSize, 12)
-            .attr(SvgAttributes.FontWeight, 700)
-            .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-            .attr(DataAttributes.Target, target)
-            .style(SvgAttributes.Opacity, 0)
-            .text(formatOperationValue(value))
+          const labelNode = placeValueLabel({
+            layer,
+            svg: instance.svg,
+            viewport: viewport(instance),
+            preferred: { x: cx, y: top - 10 - index * 16 },
+            text: formatOperationValue(value),
+            className: RETRIEVE_ANNOTATION_CLASS,
+            dataAttrs: [[DataAttributes.Target, target]],
+          })
           transitions.push(
             labelNode
               .transition()

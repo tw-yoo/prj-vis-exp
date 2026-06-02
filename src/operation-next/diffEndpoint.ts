@@ -58,6 +58,21 @@ export function referencesFromOperation(operation: OperationSpec): string[] {
   return Array.from(ids).filter((key) => key.trim().length > 0)
 }
 
+/**
+ * Result ids consumed by `allOps[startIndex..]` (the current op and everything
+ * after it within one runChartOps call). Union with the cross-call future set
+ * (`futureReferencedResultIds`) to get a per-op "still-live" keep set: an
+ * annotation whose id is NOT in that union is no longer needed by the current
+ * or any later op, so it can be removed rather than lingering dimmed.
+ */
+export function computeLiveReferencedIds(allOps: OperationSpec[], startIndex: number): string[] {
+  const ids = new Set<string>()
+  for (let i = Math.max(0, startIndex); i < allOps.length; i += 1) {
+    referencesFromOperation(allOps[i]).forEach((key) => ids.add(key))
+  }
+  return Array.from(ids)
+}
+
 export function operationResultIds(operation: OperationSpec): string[] {
   const ids = new Set<string>()
   const raw = operation as OperationSpec & { id?: string | number; key?: string | number }

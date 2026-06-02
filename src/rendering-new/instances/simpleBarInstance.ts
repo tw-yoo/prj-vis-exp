@@ -7,7 +7,7 @@ import { renderWithMeasuredLayout } from '../../rendering/common/renderWithMeasu
 import { resolveAxisTitle } from '../../rendering/common/resolveAxisTitle'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../../rendering/common/displayLabels'
 import { wrapAxisTickLabels } from '../../rendering/common/wrapAxisTickLabels'
-import { applyAxisTickLabelSize, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
+import { applyAxisTickLabelSize, resolveAxisTickFontSize, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 import { formatTooltipValue, writeTooltipRootAttrs } from '../../rendering/common/chartHoverTooltip'
 import { CHART_TEXT_SIZE } from '../../rendering/config/chartTextConfig'
 import { bumpRenderEpoch } from '../../rendering/common/renderEpoch'
@@ -525,7 +525,7 @@ export class SimpleBarChartInstance implements ChartInstance {
       this.xAxisGroup
         .transition(inheritT)
         .call(d3.axisBottom(this.xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
-      applyAxisTickLabelSize(this.xAxisGroup)
+      applyAxisTickLabelSize(this.xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
     }
 
     try {
@@ -725,7 +725,7 @@ export class SimpleBarChartInstance implements ChartInstance {
       null,
       undefined
     >
-    applyAxisTickLabelSize(xAxisGroup)
+    applyAxisTickLabelSize(xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
     this.xAxisGroup = xAxisGroup
     const xTicks = Array.from(xAxisGroup.selectAll<SVGGElement, unknown>('.tick').nodes())
     const axisLayout = wrapAxisTickLabels(xAxisGroup.selectAll<SVGTextElement, unknown>(SvgElements.Text), {

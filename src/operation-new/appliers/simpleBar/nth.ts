@@ -1,14 +1,15 @@
 import { nthData } from '../../../domain/operation/dataOps'
 import { OperationOp, type OperationSpec } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { FILTER_ANNOTATION_CLASS } from './filter'
-import { findBarByTarget, readBarMetrics } from './_shared'
+import { findBarByTarget, readBarMetrics, resolveBarAnnotationViewport } from './_shared'
 
 /**
  * `nth` on a simple-bar chart — picks the row at position `n` from the
@@ -93,22 +94,17 @@ export const nthApplier: OperationApplier<SimpleBarChartInstance> = {
           .catch(() => undefined),
       )
 
-      // Label above the bar top — flip below if it would clip the top margin.
-      const naturalAbove = metrics.topY - 12
-      const labelMinY = instance.layout.marginTop + 12
-      const labelY = naturalAbove >= labelMinY ? naturalAbove : metrics.topY + 18
-      const labelNode = layer
-        .append(SvgElements.Text)
-        .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${NTH_ANNOTATION_CLASS}`)
-        .attr(SvgAttributes.X, metrics.centerX)
-        .attr(SvgAttributes.Y, labelY)
-        .attr(SvgAttributes.TextAnchor, 'middle')
-        .attr(SvgAttributes.FontSize, 12)
-        .attr(SvgAttributes.FontWeight, 700)
-        .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-        .style(SvgAttributes.Opacity, 0)
-        .text(formatOperationValue(metrics.value))
-      if (nodeId) labelNode.attr(DataAttributes.AnnotationNodeId, nodeId)
+      // Value label above the bar top, placed by the shared collision-aware
+      // placer (avoids bars + other labels; never lands inside the bar).
+      const labelNode = placeValueLabel({
+        layer,
+        svg: instance.svg,
+        viewport: resolveBarAnnotationViewport(instance),
+        preferred: { x: metrics.centerX, y: metrics.topY - 12 },
+        text: formatOperationValue(metrics.value),
+        className: NTH_ANNOTATION_CLASS,
+        dataAttrs: nodeId ? [[DataAttributes.AnnotationNodeId, nodeId]] : [],
+      })
       labelPromises.push(
         labelNode
           .transition()

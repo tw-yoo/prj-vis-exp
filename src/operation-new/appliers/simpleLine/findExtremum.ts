@@ -1,10 +1,12 @@
 import { findExtremum } from '../../../domain/operation/dataOps'
 import { OperationOp, type OperationSpec } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { RESULT_REF_ATTRIBUTE } from '../../../operation-next/diffEndpoint'
+import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS, EASINGS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
-import { findPointByTarget, pointToRootCoords } from '../../primitives/annotationLayer'
+import { findPointByTarget, pointToRootCoords, resolveAnnotationViewport } from '../../primitives/annotationLayer'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { FILTER_ANNOTATION_CLASS } from './filter'
@@ -229,6 +231,13 @@ export const findExtremumApplier: OperationApplier = {
     if (!point) return { result, nextState: { ...state, lastResult: result } }
     const metrics = pointToRootCoords(point, instance)
 
+    // Tag the highlighted point with its result-ref so a downstream split diff
+    // can locate this endpoint on its surface (primitives/splitDiffOverlay).
+    // Generalizes what the average applier does for its reference line: every
+    // op that can be a diff endpoint stamps its primary mark, so the split-diff
+    // resolver is endpoint-op-agnostic.
+    if (nodeId) pointSel.attr(RESULT_REF_ATTRIBUTE, nodeId)
+
     const highlightPromise = pointSel
       .interrupt()
       .transition()
@@ -242,21 +251,15 @@ export const findExtremumApplier: OperationApplier = {
     // margin, flip below. No collision avoidance — SVG root has
     // overflow:visible, so the label can sit anywhere relative to the point
     // and remain visible even past the plot box.
-    const naturalAbove = metrics.y - 12
-    const labelMinY = instance.layout.marginTop + 12
-    const labelY = naturalAbove >= labelMinY ? naturalAbove : metrics.y + 20
-    const labelNode = layer
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${EXTREMUM_ANNOTATION_CLASS}`)
-      .attr(SvgAttributes.X, metrics.x)
-      .attr(SvgAttributes.Y, labelY)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, 12)
-      .attr(SvgAttributes.FontWeight, 700)
-      .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-      .style(SvgAttributes.Opacity, 0)
-      .text(formatOperationValue(metrics.value))
-    if (nodeId) labelNode.attr(DataAttributes.AnnotationNodeId, nodeId)
+    const labelNode = placeValueLabel({
+      layer,
+      svg: instance.svg,
+      viewport: resolveAnnotationViewport(instance),
+      preferred: { x: metrics.x, y: metrics.y - 12 },
+      text: formatOperationValue(metrics.value),
+      className: EXTREMUM_ANNOTATION_CLASS,
+      dataAttrs: nodeId ? [[DataAttributes.AnnotationNodeId, nodeId]] : [],
+    })
     const labelPromise = labelNode
       .transition()
       .duration(DURATIONS.LABEL_FADE_IN)

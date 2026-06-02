@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import { diffData } from '../../../domain/operation/dataOps'
 import { OperationOp, type TargetSelector } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import {
@@ -20,6 +20,8 @@ import {
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawVerticalComparisonArrow } from '../../primitives/drawDifferenceArrow'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
+import { computeSplitDiffGeometry, mountRootDiffOverlay } from '../../primitives/splitDiffOverlay'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { FILTER_ANNOTATION_CLASS } from './filter'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 
@@ -65,22 +67,18 @@ function appendValueLabel(
   color: string,
   _anchor: Element | null,
 ) {
-  // Label above the anchor by default; flip below if that would clip the
-  // chart's top margin. No collision avoidance — overflow:visible keeps
-  // labels rendered past the plot box.
-  const labelMinY = instance.layout.marginTop + 12
-  const labelY = y >= labelMinY ? y : y + 28
-  const labelNode = layer
-    .append(SvgElements.Text)
-    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${className}`)
-    .attr(SvgAttributes.X, x)
-    .attr(SvgAttributes.Y, labelY)
-    .attr(SvgAttributes.TextAnchor, 'middle')
-    .attr(SvgAttributes.FontSize, 12)
-    .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, color)
-    .style(SvgAttributes.Opacity, 0)
-    .text(text)
+  // Collision-aware placement via the shared placer (avoids marks + other
+  // labels, including the "Difference: N" readout). Caller owns the fade-in.
+  void _anchor
+  const labelNode = placeValueLabel({
+    layer,
+    svg: instance.svg,
+    viewport: resolveAnnotationViewport(instance),
+    preferred: { x, y },
+    text,
+    className,
+    fill: color,
+  })
   return labelNode.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1)
 }
 
@@ -141,6 +139,71 @@ export const diffApplier: OperationApplier = {
         .transition()
         .duration(150)
         .style('opacity', 1)
+    }
+
+    // ── Split-layout path ───────────────────────────────────────────────────
+    // When ops1/ops2 ran on separate split surfaces, the two endpoints we want
+    // to compare live on `split-left` / `split-right`, and this `diff` runs on
+    // the (hidden) root surface. Resolve each endpoint's on-screen position per
+    // surface — by result-ref (works for average lines AND findExtremum / nth
+    // point marks), falling back to the surface's average line — place the Δ
+    // arrow in the GAP between the panels, and overlay the root SVG on top so it
+    // is visible. Geometry + overlay are shared with the simple-bar diff via
+    // `primitives/splitDiffOverlay`, so any endpoint-op combination renders the
+    // same way across chart types. Compute geometry BEFORE mounting the overlay
+    // (the root SVG may still be `display:none`, so geometry falls back to the
+    // chart-host rect; the overlay then matches it at 100%×100%).
+    // Only the ROOT merge diff overlays the surfaces. A diff that runs ON a
+    // split child surface (an intra-panel diff) owns its own visible panel —
+    // overlaying/hiding its skeleton would hide the very line it annotates, so
+    // it falls through to the normal in-place path below.
+    const svgNode = instance.svg.node()
+    const surfaceId = (instance.host as HTMLElement | undefined)
+      ?.closest?.('[data-surface-id]')
+      ?.getAttribute('data-surface-id')
+    const onSplitChildSurface = surfaceId === 'split-left' || surfaceId === 'split-right'
+    const splitLayoutType = options?.surfaceManager?.getLayout()?.type
+    const isSplit = splitLayoutType === 'split-horizontal' || splitLayoutType === 'split-vertical'
+    if (isSplit && !onSplitChildSurface && svgNode) {
+      const splitGeometry = computeSplitDiffGeometry({ host: instance.host, svgNode, refKeys: referencedRefKeys })
+      // hideSkeleton only when the endpoints are anchored on the panels (arrow
+      // mode); otherwise keep the root chart visible.
+      mountRootDiffOverlay(svgNode, { hideSkeleton: !!splitGeometry })
+      if (splitGeometry) {
+        await drawVerticalComparisonArrow({
+          layer,
+          cssClass: DIFF_ANNOTATION_CLASS,
+          x: splitGeometry.arrowX,
+          topY: splitGeometry.topY,
+          bottomY: splitGeometry.bottomY,
+          refLines: [],
+          phaseOnePromises: [],
+          color: COLORS.ANNOTATION_RED,
+          label: `Difference: ${formatOperationValue(Number(result[0]?.value))}`,
+          svg: instance.svg,
+          viewport: resolveAnnotationViewport(instance),
+        })
+        return {
+          result,
+          nextState: {
+            ...state,
+            lastResult: result,
+            annotationRecords: [
+              ...state.annotationRecords,
+              {
+                cssClass: DIFF_ANNOTATION_CLASS,
+                role: 'anchor',
+                persistent: true,
+                operationId: opRef == null ? undefined : String(opRef),
+                resultRef: opRef == null ? undefined : String(opRef),
+              },
+            ],
+          },
+        }
+      }
+      // Endpoints not resolvable on the surfaces (unexpected for a valid
+      // convergent diff) → the overlay is mounted; fall through to the in-SVG
+      // arrow below as a best-effort fallback.
     }
 
     const marginLeft = instance.layout.marginLeft
@@ -217,55 +280,12 @@ export const diffApplier: OperationApplier = {
         endpoint.x,
         endpoint.y - 8,
         formatOperationValue(endpoint.value),
-        COLORS.ANNOTATION_RED,
+        COLORS.TEXT_DARK,
         endpoint.anchor,
       )
         .end()
         .catch(() => {}),
     )
-
-    // Split-layout overlay handling (mirrors simpleBar diff).
-    //
-    // When ops1/ops2 were routed to different split surfaces (e.g. for a
-    // cross-surface diff that references two earlier averages), surfaceManager
-    // hides the root surface's SVG via `style.display = 'none'`. Our diff
-    // annotation lives inside that root SVG, so the user can't see it. Per
-    // reviewer feedback for the simpleBar twin case (`0s6zi9dyw22qo4rp`), we
-    // restore the root SVG and overlay it absolutely on top of the two split
-    // surfaces so the diff arrow visually sits between them.
-    // pointer-events:none keeps hover behaviour on the split surfaces intact.
-    const svgNode = instance.svg.node()
-    const splitLayoutType = options?.surfaceManager?.getLayout()?.type
-    const isSplit = splitLayoutType === 'split-horizontal' || splitLayoutType === 'split-vertical'
-    if (isSplit) {
-      const rootHost = svgNode?.parentElement as HTMLElement | null
-      const splitWrapper = rootHost?.parentElement as HTMLElement | null
-      if (svgNode) {
-        svgNode.style.display = ''
-        svgNode.style.pointerEvents = 'none'
-      }
-      if (rootHost && rootHost.dataset.surfaceId === 'root') {
-        rootHost.style.display = ''
-        rootHost.style.position = 'absolute'
-        rootHost.style.inset = '0'
-        rootHost.style.pointerEvents = 'none'
-        rootHost.style.zIndex = '5'
-      }
-      if (splitWrapper && splitWrapper.classList.contains('surface-layout--split')) {
-        if (!splitWrapper.style.position) splitWrapper.style.position = 'relative'
-      }
-      // Hide every visual on the root SVG except the diff annotation layer so
-      // the user sees only the diff arrow + label on top of the split surfaces.
-      // The chart-skeleton (axes + line path + point marks) and axis-title
-      // texts would otherwise double-render on top of the split surfaces'
-      // versions.
-      if (svgNode) {
-        svgNode.querySelectorAll<SVGElement>('g.chart-skeleton').forEach((g) => { g.style.opacity = '0' })
-        svgNode
-          .querySelectorAll<SVGElement>('text.x-axis-label, text.y-axis-label')
-          .forEach((t) => { t.style.opacity = '0' })
-      }
-    }
 
     await drawVerticalComparisonArrow({
       layer,

@@ -12,6 +12,7 @@ import type { MultipleLineChartInstance } from '../../../rendering-new/instances
 import { FILTER_ANNOTATION_CLASS } from './filter'
 import { LAG_DIFF_ANNOTATION_CLASS } from './lagDiff'
 import { annotationViewport, findMultiLinePoint, pointMetrics } from './_shared'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 
 // PairDiff arrows use a distinct class set by the legacy pairDiff runner.
 const PAIR_DIFF_ANNOTATION_CLASS = 'operation-next-multiple-line-pair-diff'
@@ -232,23 +233,17 @@ export const findExtremumApplier: OperationApplier<MultipleLineChartInstance> = 
       .end()
       .catch(() => {})
 
-    // Label above the point; flip below if that would clip the chart's top
-    // margin. No collision avoidance — overflow:visible on SVG root.
-    const naturalAbove = metrics.y - 12
-    const labelMinY = instance.layout.marginTop + 12
-    const labelY = naturalAbove >= labelMinY ? naturalAbove : metrics.y + 20
-    const labelNode = layer
-      .append(SvgElements.Text)
-      .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${EXTREMUM_ANNOTATION_CLASS}`)
-      .attr(SvgAttributes.X, metrics.x)
-      .attr(SvgAttributes.Y, labelY)
-      .attr(SvgAttributes.TextAnchor, 'middle')
-      .attr(SvgAttributes.FontSize, 12)
-      .attr(SvgAttributes.FontWeight, 700)
-      .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-      .style(SvgAttributes.Opacity, 0)
-      .text(formatOperationValue(metrics.value))
-    if (nodeId) labelNode.attr(DataAttributes.AnnotationNodeId, nodeId)
+    // Value label above the point, positioned by the shared collision-aware
+    // placer (avoids other labels; stays near the point).
+    const labelNode = placeValueLabel({
+      layer,
+      svg: instance.svg,
+      viewport: annotationViewport(instance),
+      preferred: { x: metrics.x, y: metrics.y - 12 },
+      text: formatOperationValue(metrics.value),
+      className: EXTREMUM_ANNOTATION_CLASS,
+      dataAttrs: nodeId ? [[DataAttributes.AnnotationNodeId, nodeId]] : [],
+    })
     const labelPromise = labelNode
       .transition()
       .duration(DURATIONS.LABEL_FADE_IN)

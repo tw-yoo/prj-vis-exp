@@ -1,7 +1,7 @@
 import type * as d3 from 'd3'
 import { diffData } from '../../../domain/operation/dataOps'
 import { OperationOp, type TargetSelector } from '../../../domain/operation/types'
-import { SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import {
@@ -19,6 +19,7 @@ import { inferBarYFromAxis } from '../barGroup/_shared'
 import type { MultipleLineChartInstance } from '../../../rendering-new/instances/multipleLineInstance'
 import { FILTER_ANNOTATION_CLASS } from './filter'
 import { annotationViewport, findMultiLinePoint, pointMetrics } from './_shared'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 
 export const DIFF_ANNOTATION_CLASS = 'operation-next-multiple-line-diff'
 
@@ -60,19 +61,15 @@ function appendValueLabel(
   text: string,
   color: string,
 ) {
-  const labelMinY = instance.layout.marginTop + 12
-  const labelY = y >= labelMinY ? y : y + 28
-  const labelNode = layer
-    .append(SvgElements.Text)
-    .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${className}`)
-    .attr(SvgAttributes.X, x)
-    .attr(SvgAttributes.Y, labelY)
-    .attr(SvgAttributes.TextAnchor, 'middle')
-    .attr(SvgAttributes.FontSize, 12)
-    .attr(SvgAttributes.FontWeight, 700)
-    .attr(SvgAttributes.Fill, color)
-    .style(SvgAttributes.Opacity, 0)
-    .text(text)
+  const labelNode = placeValueLabel({
+    layer,
+    svg: instance.svg,
+    viewport: annotationViewport(instance),
+    preferred: { x, y },
+    text,
+    className,
+    fill: color,
+  })
   return labelNode.transition().duration(DURATIONS.LABEL_FADE_IN).style(SvgAttributes.Opacity, 1)
 }
 
@@ -186,7 +183,7 @@ export const diffApplier: OperationApplier<MultipleLineChartInstance> = {
         endpoint.x,
         endpoint.y - 8,
         formatOperationValue(endpoint.value),
-        COLORS.ANNOTATION_RED,
+        COLORS.TEXT_DARK,
       )
         .end()
         .catch(() => {}),

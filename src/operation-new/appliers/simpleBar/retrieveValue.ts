@@ -1,12 +1,13 @@
 import { retrieveValue } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { findBarByTarget, readBarMetrics, resolveBarAnnotationViewport, valueToRootY } from './_shared'
 
 export const RETRIEVE_ANNOTATION_CLASS = 'operation-next-retrieve-value'
@@ -72,20 +73,17 @@ export const retrieveValueApplier: OperationApplier<SimpleBarChartInstance> = {
             .end()
             .catch(() => {}),
         )
-        // Place a label at the bar top showing the matched x category.
-        const labelY = Math.max(metrics.topY - 8, instance.layout.marginTop + 12)
-        const labelNode = layer
-          .append(SvgElements.Text)
-          .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${RETRIEVE_ANNOTATION_CLASS}`)
-          .attr(SvgAttributes.X, metrics.centerX)
-          .attr(SvgAttributes.Y, labelY)
-          .attr(SvgAttributes.TextAnchor, 'middle')
-          .attr(SvgAttributes.FontSize, 12)
-          .attr(SvgAttributes.FontWeight, 700)
-          .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-          .attr(DataAttributes.Target, target)
-          .style(SvgAttributes.Opacity, 0)
-          .text(String(datum.displayTarget ?? datum.target))
+        // Category label at the bar top, placed by the shared collision-aware
+        // placer (avoids bars + other labels).
+        const labelNode = placeValueLabel({
+          layer,
+          svg: instance.svg,
+          viewport: resolveBarAnnotationViewport(instance),
+          preferred: { x: metrics.centerX, y: metrics.topY - 8 },
+          text: String(datum.displayTarget ?? datum.target),
+          className: RETRIEVE_ANNOTATION_CLASS,
+          dataAttrs: [[DataAttributes.Target, target]],
+        })
         transitions.push(
           labelNode
             .transition()
@@ -114,25 +112,18 @@ export const retrieveValueApplier: OperationApplier<SimpleBarChartInstance> = {
             .catch(() => {}),
         )
 
-        // Stack labels above the bar top; flip below if the top of the stack
-        // would clip the chart's top margin. No collision avoidance —
-        // overflow:visible on the SVG root keeps the labels rendered past the
-        // plot box if needed.
-        const stackedAbove = metrics.topY - 10 - index * 16
-        const labelMinY = instance.layout.marginTop + 12
-        const labelY = stackedAbove >= labelMinY ? stackedAbove : metrics.topY + 20 + index * 16
-        const labelNode = layer
-          .append(SvgElements.Text)
-          .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${RETRIEVE_ANNOTATION_CLASS}`)
-          .attr(SvgAttributes.X, metrics.centerX)
-          .attr(SvgAttributes.Y, labelY)
-          .attr(SvgAttributes.TextAnchor, 'middle')
-          .attr(SvgAttributes.FontSize, 12)
-          .attr(SvgAttributes.FontWeight, 700)
-          .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-          .attr(DataAttributes.Target, target)
-          .style(SvgAttributes.Opacity, 0)
-          .text(formatOperationValue(metrics.value))
+        // Value label above the bar top (stack offset per index as the starting
+        // preference), then de-collided by the shared placer so multiple labels
+        // and any prior annotations don't overlap and none lands inside a bar.
+        const labelNode = placeValueLabel({
+          layer,
+          svg: instance.svg,
+          viewport: resolveBarAnnotationViewport(instance),
+          preferred: { x: metrics.centerX, y: metrics.topY - 10 - index * 16 },
+          text: formatOperationValue(metrics.value),
+          className: RETRIEVE_ANNOTATION_CLASS,
+          dataAttrs: [[DataAttributes.Target, target]],
+        })
 
         transitions.push(
           labelNode

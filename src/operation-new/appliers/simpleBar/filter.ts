@@ -194,8 +194,15 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
       reason: decision.reason,
     })
 
-    // Phase 0: threshold ref line if value-based filter.
-    const threshold = resolveNumericThreshold(operation, state.workingData)
+    // Phase 0: threshold ref line — ONLY for a filter on the Y MEASURE. An
+    // x-axis-field filter (e.g. Year < 2000) compares a category/x value, so a
+    // horizontal y-threshold is meaningless: `yScale(2000)` is finite but wildly
+    // off-plot, which used to draw a stray "2000" label at the plot edge with a
+    // nonsensical anchor-y (case 0w88bu7qm4ilsqmh). Such filters only narrow the
+    // x-axis; no threshold line/label.
+    const yField = instance.resolvedEncoding?.yField
+    const isMeasureFilter = !operation.field || operation.field === yField
+    const threshold = isMeasureFilter ? resolveNumericThreshold(operation, state.workingData) : null
     if (threshold != null && Number.isFinite(instance.yScale(threshold))) {
       const thresholdY = instance.layout.marginTop + instance.yScale(threshold)
       await drawReferenceLine({

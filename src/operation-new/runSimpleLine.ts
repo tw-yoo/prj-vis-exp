@@ -9,6 +9,7 @@ import {
   stateWithOperationDependencies,
   storeOperationRuntimeResult,
 } from '../operation-next/executionState'
+import { computeLiveReferencedIds } from '../operation-next/diffEndpoint'
 import type { ParsedOperationRun } from '../operation-next/types'
 import { runStubChartOperationRenderer } from '../operation-next/runners/shared'
 import {
@@ -95,6 +96,10 @@ export async function runSimpleLineOperationsNew(run: ParsedOperationRun) {
 
   let state: ChainState = restoreChainState(workingDataFromInstance(instance, lineSpec), run.options?.initialChainState)
 
+  // Flattened op order for the per-op "still-live" keep set (see below).
+  const allOpsInOrder = run.groups.flatMap((g) => g.ops)
+  let callOpIndex = 0
+
   for (const group of run.groups) {
     console.info('[operation-new] runSimpleLineOperationsNew: group start', {
       groupName: group.name,
@@ -103,6 +108,8 @@ export async function runSimpleLineOperationsNew(run: ParsedOperationRun) {
     state = clearGroupBoundary(state)
 
     for (const operation of group.ops) {
+      const opIndexInCall = callOpIndex
+      callOpIndex += 1
       const operationIndex = nextIndex
       nextIndex += 1
       const opKey = typeof operation.op === 'string' ? operation.op : ''
@@ -119,12 +126,23 @@ export async function runSimpleLineOperationsNew(run: ParsedOperationRun) {
       })
 
       const operationState = stateWithOperationDependencies(operation, state)
+      // Per-op "still-live" keep set: refs consumed by THIS op or any later op
+      // (intra-call + cross-call future groups from the viewer). Annotations
+      // outside it are removed by the appliers' applyAnnotationContextFade, so a
+      // consumed node's annotation drops once no current-or-later op needs it
+      // rather than lingering dimmed (mirrors the simple-bar runner).
+      const liveReferencedIds = Array.from(
+        new Set([
+          ...computeLiveReferencedIds(allOpsInOrder, opIndexInCall),
+          ...(run.options?.futureReferencedResultIds ?? run.options?.referencedResultIds ?? []),
+        ]),
+      )
       const { result, nextState } = await applier.apply({
         operation,
         operationIndex,
         state: operationState,
         instance,
-        options: run.options,
+        options: { ...run.options, referencedResultIds: liveReferencedIds },
       })
 
       lastResult = result

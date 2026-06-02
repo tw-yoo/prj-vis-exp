@@ -1,12 +1,16 @@
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec } from '../../../domain/operation/types'
 import { COLORS, DURATIONS, OPACITIES } from '../../../rendering/common/d3Helpers'
-import { SvgAttributes } from '../../../rendering/interfaces'
+import { SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 import { resolveAnnotationViewport } from '../../primitives/annotationLayer'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
-import { drawReferenceLine, transitionPersistentRefLines } from '../../primitives/drawReferenceLine'
+import {
+  drawReferenceLine,
+  transitionPersistentRefLines,
+  REF_LINE_ANCHOR_VALUE_ATTR,
+} from '../../primitives/drawReferenceLine'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 
 export const FILTER_ANNOTATION_CLASS = 'operation-next-line-filter'
@@ -147,29 +151,55 @@ export const filterApplier: OperationApplier = {
     const x1 = instance.layout.marginLeft
     const x2 = instance.layout.marginLeft + instance.layout.plotWidth
 
-    // Phase 0: threshold ref line (if value-based filter).
+    // Phase 0: threshold reference line.
     const threshold = resolveNumericThreshold(operation, state.workingData)
     const valueBased = isValueBasedFilter(operation, instance)
     if (threshold != null && Number.isFinite(instance.yScale(threshold))) {
       const thresholdY = instance.layout.marginTop + instance.yScale(threshold)
-      const refPromise = drawReferenceLine({
-        layer,
-        cssClass: FILTER_ANNOTATION_CLASS,
-        x1,
-        x2,
-        y: thresholdY,
-        label: String(threshold),
-        svg: instance.svg,
-        viewport,
-        anchorValue: threshold,
-      })
-      // For value-based filter we don't gate the highlight on the ref line's
-      // label/transition settling — the ref line is contextual, the highlight
-      // is the answer. For categorical filter the legacy ordering is preserved.
-      if (!valueBased) {
-        await refPromise
+      if (valueBased) {
+        // Option A (reviewer: "필요한 숫자 텍스트 들만 보여야 함 / 텍스트 위치가
+        // 잘못된 것으로 보임"): a value-based filter draws ONLY a faint dashed
+        // guide at the cutoff — no numeric label. The y-axis ticks already
+        // encode the cutoff; stacking threshold numbers (5.8 / 6.2 / 4.8 …) at
+        // the plot's right edge beside the real answer (extremum / diff) reads
+        // as competing, mispositioned "weird numbers".
+        //
+        // Drawn at full width with NO X2 draw-transition (a following op's
+        // `interrupt()` used to freeze the animated line collapsed at x2=x1)
+        // and with no deferred label (the label used to be appended only AFTER
+        // the un-awaited line transition, so a subsequent filter's fadeRemove
+        // ran before it existed and left an orphan — exactly the duplicated
+        // 5.8 / 6.2 labels in the report). `anchorValue` keeps the faint guide
+        // sliding with the axes on a later rescale.
+        layer
+          .append(SvgElements.Line)
+          .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${FILTER_ANNOTATION_CLASS}`)
+          .attr(SvgAttributes.X1, x1)
+          .attr(SvgAttributes.X2, x2)
+          .attr(SvgAttributes.Y1, thresholdY)
+          .attr(SvgAttributes.Y2, thresholdY)
+          .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
+          .attr(SvgAttributes.StrokeWidth, 2)
+          .attr(SvgAttributes.StrokeDasharray, '4 4')
+          .attr(REF_LINE_ANCHOR_VALUE_ATTR, String(threshold))
+          .style(SvgAttributes.Opacity, 0)
+          .transition()
+          .duration(DURATIONS.LABEL_FADE_IN)
+          .style(SvgAttributes.Opacity, OPACITIES.DIM)
       } else {
-        refPromise.catch(() => undefined)
+        // Categorical / non-value-based filter keeps the labelled guide and the
+        // legacy ordering (await so the label settles before the marks move).
+        await drawReferenceLine({
+          layer,
+          cssClass: FILTER_ANNOTATION_CLASS,
+          x1,
+          x2,
+          y: thresholdY,
+          label: String(threshold),
+          svg: instance.svg,
+          viewport,
+          anchorValue: threshold,
+        })
       }
     }
 

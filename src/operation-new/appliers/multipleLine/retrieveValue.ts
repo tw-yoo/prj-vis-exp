@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import { retrieveValue } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
@@ -9,6 +9,7 @@ import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import type { MultipleLineChartInstance } from '../../../rendering-new/instances/multipleLineInstance'
 import { findMultiLinePoint, pointMetrics, annotationViewport } from './_shared'
 import { drawVerticalReferenceLine } from '../../primitives/drawVerticalReferenceLine'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 
 export const RETRIEVE_ANNOTATION_CLASS = 'operation-next-multiple-line-retrieve-value'
 
@@ -47,7 +48,6 @@ export const retrieveValueApplier: OperationApplier<MultipleLineChartInstance> =
     }
 
     const transitions: Promise<unknown>[] = []
-    const labelMinY = instance.layout.marginTop + 12
 
     if (isReverse) {
       // Reverse (y → x): one vertical guideline per matched point, with the
@@ -108,22 +108,17 @@ export const retrieveValueApplier: OperationApplier<MultipleLineChartInstance> =
             .catch(() => {}),
         )
 
-        // Stack labels above the point; if the topmost would clip the chart's
-        // top margin, flip the stack below.
-        const stackedAbove = metrics.y - 10 - index * 16
-        const labelY = stackedAbove >= labelMinY ? stackedAbove : metrics.y + 20 + index * 16
-        const labelNode = layer
-          .append(SvgElements.Text)
-          .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${RETRIEVE_ANNOTATION_CLASS}`)
-          .attr(SvgAttributes.X, metrics.x)
-          .attr(SvgAttributes.Y, labelY)
-          .attr(SvgAttributes.TextAnchor, 'middle')
-          .attr(SvgAttributes.FontSize, 12)
-          .attr(SvgAttributes.FontWeight, 700)
-          .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-          .attr(DataAttributes.Target, target)
-          .style(SvgAttributes.Opacity, 0)
-          .text(formatOperationValue(metrics.value))
+        // Value label above the point (stack offset as starting preference),
+        // de-collided by the shared placer.
+        const labelNode = placeValueLabel({
+          layer,
+          svg: instance.svg,
+          viewport: annotationViewport(instance),
+          preferred: { x: metrics.x, y: metrics.y - 10 - index * 16 },
+          text: formatOperationValue(metrics.value),
+          className: RETRIEVE_ANNOTATION_CLASS,
+          dataAttrs: [[DataAttributes.Target, target]],
+        })
         transitions.push(
           labelNode
             .transition()

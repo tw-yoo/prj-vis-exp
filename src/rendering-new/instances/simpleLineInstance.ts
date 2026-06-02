@@ -8,7 +8,7 @@ import { resolveAxisTitle } from '../../rendering/common/resolveAxisTitle'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../../rendering/common/displayLabels'
 import { wrapAxisTickLabels } from '../../rendering/common/wrapAxisTickLabels'
 import { createTemporalTickFormatter } from '../../rendering/common/temporalTicks'
-import { applyAxisTickLabelSize, COLORS, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
+import { applyAxisTickLabelSize, resolveAxisTickFontSize, COLORS, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
 import { formatTooltipValue, writeTooltipRootAttrs } from '../../rendering/common/chartHoverTooltip'
 import { CHART_TEXT_SIZE } from '../../rendering/config/chartTextConfig'
 import { bumpRenderEpoch } from '../../rendering/common/renderEpoch'
@@ -740,7 +740,7 @@ export class SimpleLineChartInstance implements ChartInstance {
             ? d3.axisBottom(this.xScale as d3.ScaleLinear<number, number>)
             : d3.axisBottom(this.xScale as d3.ScalePoint<string>)
       this.xAxisGroup.transition(inheritT).call(xAxisFn)
-      applyAxisTickLabelSize(this.xAxisGroup)
+      applyAxisTickLabelSize(this.xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
     }
 
     try {
@@ -990,7 +990,7 @@ export class SimpleLineChartInstance implements ChartInstance {
       .attr(SvgAttributes.Class, SvgClassNames.XAxis)
       .attr(SvgAttributes.Transform, `translate(0,${plotH})`)
       .call(xAxis) as d3.Selection<SVGGElement, unknown, null, undefined>
-    applyAxisTickLabelSize(xAxisGroup)
+    applyAxisTickLabelSize(xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
     this.xAxisGroup = xAxisGroup
 
     const xTicks = Array.from(xAxisGroup.selectAll<SVGGElement, unknown>('.tick').nodes())

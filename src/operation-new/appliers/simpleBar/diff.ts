@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import { diffData } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { DataAttributes, SvgAttributes, SvgClassNames } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import {
@@ -16,8 +16,11 @@ import { readNumberAttr } from '../../primitives/annotationLayer'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawVerticalComparisonArrow } from '../../primitives/drawDifferenceArrow'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
+import { computeSplitDiffGeometry, mountRootDiffOverlay } from '../../primitives/splitDiffOverlay'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { rebindDerivedBars } from '../../../operation-next/primitives/rebindDerivedBars'
 import { FILTER_ANNOTATION_CLASS } from './filter'
+import { RETRIEVE_ANNOTATION_CLASS } from './retrieveValue'
 import {
   findBarByTarget,
   readBarMetrics,
@@ -143,6 +146,11 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
       rectB = findBarByRef(instance, derivedB.refKey)
       existingA = null
       existingB = null
+      // The rebind replaced the chart's bars, so any prior per-bar value labels
+      // (retrieveValue results placed on the OLD bars) now float at stale
+      // positions — the "weird number position" report. Remove them; the diff
+      // draws its own bar-value labels on the new bars further below.
+      fadeRemoveAnnotations(layer, RETRIEVE_ANNOTATION_CLASS)
       console.info('[operation-new] bar applier:diff DEBUG post-rebind', {
         rectAAfter: !!rectA,
         rectBAfter: !!rectB,
@@ -268,87 +276,51 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
     let refStartB = bothAreMarks ? b.x : marginLeft
     let suppressRefLines = false
 
+    // A diff runs in one of three split contexts, each handled differently:
+    //   • on a split CHILD surface (split-left/right) — an INTRA-panel diff
+    //     (e.g. retrieveValue+retrieveValue+diff in one sentence). It owns its
+    //     panel: render the (possibly rebound) bars + arrow in place, no overlay.
+    //   • on the ROOT with both endpoints anchored on the panels (avg lines /
+    //     extremum points) — a cross-surface ARROW: overlay just the arrow in
+    //     the gap, hide the root skeleton, keep the panels.
+    //   • on the ROOT with abstract scalar endpoints (diff-of-diffs) — a REBIND:
+    //     new bars are drawn on the root skeleton; show them and hide the panels.
+    // `onSplitChildSurface` picks the first; a resolved `splitGeometry` separates
+    // the second (arrow) from the third (rebind). Hiding the skeleton on a child
+    // surface or a root rebind was the "bars not visible" bug (case 0pzdf7hfbxgjghsa).
+    const surfaceId = (instance.host as HTMLElement | undefined)
+      ?.closest?.('[data-surface-id]')
+      ?.getAttribute('data-surface-id')
+    const onSplitChildSurface = surfaceId === 'split-left' || surfaceId === 'split-right'
+
     // -----------------------------------------------------------------------
-    // Split-layout endpoint override (reviewer feedback on case
-    // 0s6zi9dyw22qo4rp): "diff line은 n2와 n4에서 만든 average line의
-    // 차이를 보여주어야 함."
-    //
-    // When the chart is split, the two endpoints we actually want to compare
-    // are the average lines on each split surface (left + right), NOT the
-    // derived bars we rebound onto the root SVG. We read each split
-    // surface's average line via DOM, convert its on-screen y position into
-    // the root SVG's viewBox coordinate space, and override `topY/bottomY`
-    // (and arrowX) with those values. Horizontal connectors are suppressed
-    // since the two split surfaces' own average lines already provide the
-    // visual anchor at the matching y.
+    // Cross-surface endpoint override (reviewer feedback on case
+    // 0s6zi9dyw22qo4rp): when both endpoints live on the split panels, place the
+    // Δ arrow in the gap between them and suppress the horizontal connectors.
+    // Shared with the simple-line diff via `primitives/splitDiffOverlay`. Only
+    // the ROOT merge diff can resolve geometry (a child diff's endpoints are
+    // local to its own panel), so skip the lookup on a child surface.
     // -----------------------------------------------------------------------
     const splitLayoutHint = options?.surfaceManager?.getLayout()?.type
     const isSplitForOverride = splitLayoutHint === 'split-horizontal' || splitLayoutHint === 'split-vertical'
-    if (isSplitForOverride && svgNode) {
-      const chartHost = instance.host
-      const splitLeftAvg = chartHost.querySelector<SVGLineElement>(
-        '[data-surface-id="split-left"] line.operation-next-average',
-      )
-      const splitRightAvg = chartHost.querySelector<SVGLineElement>(
-        '[data-surface-id="split-right"] line.operation-next-average',
-      )
-      console.info('[operation-new] bar applier:diff DEBUG split-endpoint-override', {
-        splitLeftAvgFound: !!splitLeftAvg,
-        splitRightAvgFound: !!splitRightAvg,
+    let splitGeometry: ReturnType<typeof computeSplitDiffGeometry> = null
+    if (isSplitForOverride && !onSplitChildSurface && svgNode) {
+      splitGeometry = computeSplitDiffGeometry({
+        host: instance.host,
+        svgNode,
+        refKeys: [derivedA?.refKey, derivedB?.refKey].filter((k): k is string => !!k),
       })
-      if (splitLeftAvg && splitRightAvg) {
-        // Root SVG may still be `display: none` from the split cleanup (the
-        // split-overlay branch below makes it visible AFTER this, but we
-        // need a usable rect right now). When `getBoundingClientRect()`
-        // returns 0×0, fall back to the chart-host's rect — the chart-host
-        // is always laid out (it's the flex container for split surfaces).
-        // The viewBox-vs-rect ratio used to convert screen y → viewBox y
-        // is then derived from the host rect, which makes the conversion
-        // 1:1 when the SVG eventually overlays the host at 100%×100%.
-        const rootRectRaw = svgNode.getBoundingClientRect()
-        const chartHostRect = chartHost.getBoundingClientRect()
-        const rootIsZeroed = !(rootRectRaw.width > 0 && rootRectRaw.height > 0)
-        const effRect = rootIsZeroed ? chartHostRect : rootRectRaw
-        const vbW = svgNode.viewBox?.baseVal?.width || effRect.width || 1
-        const vbH = svgNode.viewBox?.baseVal?.height || effRect.height || 1
-        const xRatio = vbW / Math.max(effRect.width, 1)
-        const yRatio = vbH / Math.max(effRect.height, 1)
-        const leftRect = splitLeftAvg.getBoundingClientRect()
-        const rightRect = splitRightAvg.getBoundingClientRect()
-        // y center of each average line, converted from screen → viewBox.
-        const yLeftVB = (leftRect.top + leftRect.height / 2 - effRect.top) * yRatio
-        const yRightVB = (rightRect.top + rightRect.height / 2 - effRect.top) * yRatio
-        // Place arrow x at the midpoint of the two surfaces' bounding boxes
-        // (basically the gap between split-left and split-right).
-        const leftSurfaceRect = (chartHost.querySelector('[data-surface-id="split-left"]') as HTMLElement | null)?.getBoundingClientRect()
-        const rightSurfaceRect = (chartHost.querySelector('[data-surface-id="split-right"]') as HTMLElement | null)?.getBoundingClientRect()
-        const arrowScreenX = leftSurfaceRect && rightSurfaceRect
-          ? (leftSurfaceRect.right + rightSurfaceRect.left) / 2
-          : effRect.left + effRect.width / 2
-        const arrowXVB = (arrowScreenX - effRect.left) * xRatio
-        // Override geometry.
-        topY = Math.min(yLeftVB, yRightVB)
-        bottomY = Math.max(yLeftVB, yRightVB)
-        arrowX = arrowXVB
+      console.info('[operation-new] bar applier:diff DEBUG split-endpoint-override', {
+        resolved: !!splitGeometry,
+        splitGeometry,
+      })
+      if (splitGeometry) {
+        topY = splitGeometry.topY
+        bottomY = splitGeometry.bottomY
+        arrowX = splitGeometry.arrowX
         refStartA = arrowX
         refStartB = arrowX
         suppressRefLines = true
-        console.info('[operation-new] bar applier:diff DEBUG split-endpoint-override result', {
-          rootRectRaw: { left: rootRectRaw.left, top: rootRectRaw.top, width: rootRectRaw.width, height: rootRectRaw.height },
-          chartHostRect: { left: chartHostRect.left, top: chartHostRect.top, width: chartHostRect.width, height: chartHostRect.height },
-          rootIsZeroed,
-          effRectIsRoot: !rootIsZeroed,
-          effRect: { left: effRect.left, top: effRect.top, width: effRect.width, height: effRect.height },
-          viewBox: { w: vbW, h: vbH },
-          xRatio,
-          yRatio,
-          yLeftVB,
-          yRightVB,
-          arrowScreenX,
-          arrowXVB,
-          newTopY: topY,
-          newBottomY: bottomY,
-        })
       }
     }
 
@@ -372,36 +344,28 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
     })
 
     const viewport = resolveBarAnnotationViewport(instance)
-    // In split-layout overlay mode, the two split surfaces already display
-    // their own average lines + numeric labels (`Avg (filtered): 0.67`,
-    // `Avg (filtered): 0.61`). Re-rendering the same numbers next to the
-    // hidden derived bars would just visually duplicate them, so we skip
-    // the per-endpoint bar-value labels entirely in that mode. The Δ arrow
-    // and the `Difference: 0.06` text remain.
-    const splitLayoutTypeEarly = options?.surfaceManager?.getLayout()?.type
-    const isSplitEarly =
-      splitLayoutTypeEarly === 'split-horizontal' || splitLayoutTypeEarly === 'split-vertical'
-    const markEndpoints = isSplitEarly
+    // Suppress per-endpoint bar-value labels ONLY in cross-surface arrow mode:
+    // there the two panels already display the endpoint values (`Avg (filtered):
+    // 0.67`, …), so repeating them next to the hidden root bars would duplicate.
+    // For an intra-panel diff or a root rebind the bar-value labels ARE the
+    // content — keep them, anchored on the (possibly rebound) bars.
+    const crossSurfaceArrow = isSplitForOverride && !onSplitChildSurface && !!splitGeometry
+    const markEndpoints = crossSurfaceArrow
       ? []
       : [a, b].filter((endpoint) => endpoint.kind === 'mark')
     const labelPromises = markEndpoints.map((endpoint) => {
-      // Label above the endpoint; flip below if that would clip the top
-      // margin. No collision avoidance — overflow:visible keeps labels
-      // rendered past the plot box.
-      const naturalAbove = endpoint.y - 8
-      const labelMinY = instance.layout.marginTop + 12
-      const labelY = naturalAbove >= labelMinY ? naturalAbove : endpoint.y + 18
-      const labelNode = layer
-        .append(SvgElements.Text)
-        .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${DIFF_ANNOTATION_CLASS} bar-value`)
-        .attr(SvgAttributes.X, endpoint.x)
-        .attr(SvgAttributes.Y, labelY)
-        .attr(SvgAttributes.TextAnchor, 'middle')
-        .attr(SvgAttributes.FontSize, 12)
-        .attr(SvgAttributes.FontWeight, 700)
-        .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
-        .style(SvgAttributes.Opacity, 0)
-        .text(formatOperationValue(endpoint.value))
+      // Value label above the endpoint, positioned by the shared collision-aware
+      // placer so it avoids the bars + the "Difference: N" label and never lands
+      // inside a bar. Dark fill (placeValueLabel default) keeps it legible on the
+      // red derived bars (was red-on-red).
+      const labelNode = placeValueLabel({
+        layer,
+        svg: instance.svg,
+        viewport,
+        preferred: { x: endpoint.x, y: endpoint.y - 8 },
+        text: formatOperationValue(endpoint.value),
+        className: `${DIFF_ANNOTATION_CLASS} bar-value`,
+      })
       return labelNode
         .transition()
         .duration(DURATIONS.LABEL_FADE_IN)
@@ -420,148 +384,14 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
       layerLinesBefore: layer.selectAll('line').size(),
     })
 
-    // Split-layout overlay handling.
-    //
-    // When the chart was previously split (e.g. ops1+ops2 ran on left/right
-    // surfaces), surfaceManager hides the root surface's SVG via
-    // `style.display = 'none'` so it doesn't take up flex space. Our diff
-    // annotation (and the derived-bars rebind that precedes it) lives inside
-    // that root SVG, which means the user can't see it. Per reviewer feedback
-    // ("두 splited charts 가운데에 vertical line이 생겨야 함"), we restore the
-    // root SVG and overlay it absolutely on top of the two split surfaces so
-    // the diff arrow visually sits between them. pointer-events:none lets the
-    // user still hover bars on the split surfaces.
-    //
-    // The overlay's positioning is driven from the split wrapper (the host
-    // that carries `surface-layout--split`): we promote it to position:relative
-    // so the absolute child anchors correctly without disturbing existing flex
-    // sizing of split-left/split-right.
-    const splitLayoutType = options?.surfaceManager?.getLayout()?.type
-    const isSplit = splitLayoutType === 'split-horizontal' || splitLayoutType === 'split-vertical'
-    if (isSplit) {
-      const rootHost = svgNode?.parentElement as HTMLElement | null
-      const splitWrapper = rootHost?.parentElement as HTMLElement | null
-      // Three host topologies in the wild:
-      //   (a) `rootHost` IS the split flex container itself (carries the
-      //       `surface-layout--split` class and `data-surface-id="root"`,
-      //       same element). The split-left / split-right divs are its
-      //       children alongside the root SVG.
-      //   (b) `rootHost` is a SEPARATE `data-surface-id="root"` child of the
-      //       wrapper.
-      //   (c) `rootHost` is the source-pivot wrapper div that surfaceManager
-      //       created during the split animation (carries
-      //       `data-split-source-pivot="true"`). It was hidden via
-      //       `display: none` in cleanup; its parent IS the
-      //       `surface-layout--split` chart-host. — case 0s6zi9dyw22qo4rp.
-      //
-      // For (a), we must NOT set `position: absolute` on the host: doing so
-      // takes the flex container itself out of normal document flow, and
-      // its children (the two split surfaces) lose their visible layout —
-      // the user sees the chart "disappear". Instead, promote the host to
-      // a positioning context and absolutely position the root SVG INSIDE
-      // it so the diff annotations overlay the split surfaces while leaving
-      // the flex layout intact.
-      // For (b), the legacy path (absolute host on top of the wrapper)
-      // still works.
-      // For (c), the source pivot wrapper is already absolutely positioned
-      // from the split animation, so we just need to unhide it (and the SVG
-      // inside it) and reposition with `inset: 0` so it overlays the live
-      // flex layout of the chart-host.
-      const rootHostIsSplitWrapper = !!rootHost?.classList.contains('surface-layout--split')
-      const rootHostIsSourcePivot = !!(rootHost && rootHost.dataset?.splitSourcePivot === 'true')
-      console.info('[operation-new] bar applier:diff DEBUG split-overlay', {
-        splitLayoutType,
-        rootHostSurfaceId: rootHost?.dataset.surfaceId ?? null,
-        rootHostIsSplitWrapper,
-        rootHostIsSourcePivot,
-        splitWrapperClass: splitWrapper?.className ?? null,
-        svgDisplayBefore: svgNode?.style.display ?? null,
-        rootHostDisplayBefore: rootHost?.style.display ?? null,
-      })
-      if (rootHostIsSplitWrapper && rootHost) {
-        // (a) — host is the flex container; absolutize the SVG only.
-        if (!rootHost.style.position) rootHost.style.position = 'relative'
-        if (svgNode) {
-          svgNode.style.display = ''
-          svgNode.style.position = 'absolute'
-          svgNode.style.top = '0'
-          svgNode.style.left = '0'
-          svgNode.style.width = '100%'
-          svgNode.style.height = '100%'
-          svgNode.style.pointerEvents = 'none'
-          svgNode.style.zIndex = '5'
-        }
-      } else if (rootHostIsSourcePivot && rootHost && splitWrapper) {
-        // (c) — host is the source-pivot wrapper that surfaceManager hid
-        // during cleanup. The wrapper is already a child of the
-        // `surface-layout--split` chart-host. Unhide the wrapper, restore
-        // its absolute positioning to overlay the chart-host fully, and
-        // unhide the SVG inside it.
-        if (!splitWrapper.style.position) splitWrapper.style.position = 'relative'
-        rootHost.style.display = ''
-        rootHost.style.opacity = '1'
-        rootHost.style.position = 'absolute'
-        rootHost.style.top = '0'
-        rootHost.style.left = '0'
-        rootHost.style.right = ''
-        rootHost.style.bottom = ''
-        rootHost.style.width = '100%'
-        rootHost.style.height = '100%'
-        rootHost.style.overflow = 'visible'
-        rootHost.style.pointerEvents = 'none'
-        rootHost.style.zIndex = '5'
-        if (svgNode) {
-          svgNode.style.display = ''
-          svgNode.style.width = '100%'
-          svgNode.style.height = '100%'
-          svgNode.style.pointerEvents = 'none'
-        }
-      } else {
-        // (b) — host is a separate child; absolutize the host.
-        if (svgNode) {
-          svgNode.style.display = ''
-          svgNode.style.pointerEvents = 'none'
-        }
-        if (rootHost && rootHost.dataset.surfaceId === 'root') {
-          rootHost.style.display = ''
-          rootHost.style.position = 'absolute'
-          rootHost.style.inset = '0'
-          rootHost.style.pointerEvents = 'none'
-          rootHost.style.zIndex = '5'
-        }
-        if (splitWrapper && splitWrapper.classList.contains('surface-layout--split')) {
-          // Make the split wrapper a positioning context for the overlay.
-          // flex properties stay intact; we only set `position: relative`
-          // if absent.
-          if (!splitWrapper.style.position) splitWrapper.style.position = 'relative'
-        }
-      }
-      // Hide every visual on the root SVG except the diff annotation layer:
-      //   - chart-skeleton wraps the y-axis, x-axis (with derived ticks), and
-      //     the bar-marks group (where rebound derived bars live)
-      //   - the x-/y-axis title texts live as direct children of the SVG root
-      //
-      // Use `display: none` rather than `opacity: 0` so that any in-flight d3
-      // transition (e.g. on a freshly rebound derived bar) cannot animate
-      // these elements back into view. Per-bar value labels ('0.67', '0.61')
-      // are not created at all in split mode (see isSplitEarly above) — the
-      // two split surfaces already display those numbers via their own
-      // `Avg (filtered): N` annotations.
-      //
-      // What remains visible: the diff arrow shaft, the horizontal connectors
-      // (if any), the arrowheads, and the "Difference: 0.06" label — all of
-      // which sit inside `g.annotation-layer.operation-next-annotation-layer`
-      // which is left untouched.
-      if (svgNode) {
-        svgNode.querySelectorAll<SVGElement>('g.chart-skeleton').forEach((g) => {
-          g.style.display = 'none'
-        })
-        svgNode
-          .querySelectorAll<SVGElement>('text.x-axis-label, text.y-axis-label')
-          .forEach((t) => {
-            t.style.display = 'none'
-          })
-      }
+    // Split-layout overlay — only for a ROOT merge diff (a child-surface diff
+    // renders in its own visible panel, no overlay). `hideSkeleton` selects the
+    // mode: arrow (endpoints on panels → show only the Δ arrow, keep panels) vs
+    // rebind (new bars on the root → show the root chart, hide the panels). All
+    // three host topologies are handled inside the shared primitive, which the
+    // simple-line diff also uses.
+    if (isSplitForOverride && !onSplitChildSurface && svgNode) {
+      mountRootDiffOverlay(svgNode, { hideSkeleton: !!splitGeometry })
     }
 
     // In split mode the two split surfaces' own average lines play the role

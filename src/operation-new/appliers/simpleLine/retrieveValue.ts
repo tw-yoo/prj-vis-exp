@@ -1,10 +1,11 @@
 import { retrieveValue } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
-import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import { findPointByTarget, pointToRootCoords, resolveAnnotationViewport } from '../../primitives/annotationLayer'
+import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { drawVerticalReferenceLine } from '../../primitives/drawVerticalReferenceLine'
 
@@ -84,24 +85,17 @@ export const retrieveValueApplier: OperationApplier = {
             .end()
             .catch(() => {}),
         )
-        // Stack labels above the point; if the topmost would clip the chart's
-        // top margin, flip the stack below. No collision avoidance — the SVG's
-        // overflow:visible lets labels render past the plot box.
-        const stackedAbove = metrics.y - 10 - index * 16
-        const labelMinY = instance.layout.marginTop + 12
-        const labelY = stackedAbove >= labelMinY ? stackedAbove : metrics.y + 20 + index * 16
-        const labelNode = layer
-          .append(SvgElements.Text)
-          .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${RETRIEVE_ANNOTATION_CLASS}`)
-          .attr(SvgAttributes.X, metrics.x)
-          .attr(SvgAttributes.Y, labelY)
-          .attr(SvgAttributes.TextAnchor, 'middle')
-          .attr(SvgAttributes.FontSize, 12)
-          .attr(SvgAttributes.FontWeight, 700)
-          .attr(SvgAttributes.Fill, COLORS.TEXT_DARK)
-          .attr(DataAttributes.Target, String(datum.target))
-          .style(SvgAttributes.Opacity, 0)
-          .text(formatOperationValue(metrics.value))
+        // Value label above the point (stack offset per index as the starting
+        // preference), de-collided by the shared placer.
+        const labelNode = placeValueLabel({
+          layer,
+          svg: instance.svg,
+          viewport: resolveAnnotationViewport(instance),
+          preferred: { x: metrics.x, y: metrics.y - 10 - index * 16 },
+          text: formatOperationValue(metrics.value),
+          className: RETRIEVE_ANNOTATION_CLASS,
+          dataAttrs: [[DataAttributes.Target, String(datum.target)]],
+        })
         transitions.push(
           labelNode
             .transition()

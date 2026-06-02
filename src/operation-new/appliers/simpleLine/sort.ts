@@ -6,6 +6,7 @@ import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../..
 import { DURATIONS, EASINGS } from '../../../rendering/common/d3Helpers'
 import { composeSimpleMarkKey } from '../../../rendering/common/markKey'
 import { storeRuntimeChartState } from '../../../rendering/utils/runtimeChartState'
+import { storeDerivedChartState } from '../../../rendering/utils/derivedChartState'
 import { setSimpleBarStoredData, type SimpleBarSpec } from '../../../rendering/bar/simpleBarRenderer'
 import { detachInstance } from '../../../rendering-new/chartInstance'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
@@ -108,7 +109,11 @@ export const sortApplier: OperationApplier<SimpleLineChartInstance> = {
     })
 
     // -----------------------------------------------------------------------
-    // Phase A: line + circles fade out → bars rise from baseline
+    // Phase A: bars rise from the baseline WHILE the line + circles fade out
+    // in the same window — the bars come up and the line dissolves INTO them,
+    // not the line vanishing first onto an empty plot (reviewer requirement on
+    // case 04xwv56n37ybj8zr: "bar가 생기고 line이 사라져야 함"). The rise and
+    // fade run concurrently; the line is gone a touch before the bars settle.
     // -----------------------------------------------------------------------
     const fadeDuration = 400
     const riseDuration = DURATIONS.HIGHLIGHT // 600ms
@@ -146,9 +151,22 @@ export const sortApplier: OperationApplier<SimpleLineChartInstance> = {
 
     debugLog('PHASE-A-BARS-CREATED', { barCount: initialBars.size() })
 
-    // Phase A1: fade out line + circles (in parallel with bars-opacity rising
-    // to 0.85 so the eye sees a clean handoff).
-    const fadePromises: Array<Promise<unknown>> = []
+    // Bars rise from the baseline: y=plotH → y=cy, height=0 → height=plotH-cy,
+    // opacity 0 → 1. Launched first so the growth has already begun as the
+    // line/circles start dissolving.
+    const risePromise = initialBars
+      .transition()
+      .duration(riseDuration)
+      .ease(EASINGS.SMOOTH)
+      .attr(SvgAttributes.Y, (d) => d.cy)
+      .attr(SvgAttributes.Height, (d) => Math.max(0, plotH - d.cy))
+      .style(SvgAttributes.Opacity, 1)
+      .end()
+      .catch(() => undefined)
+
+    // Line + circles fade out concurrently (shorter duration → gone before the
+    // bars finish settling).
+    const fadePromises: Array<Promise<unknown>> = [risePromise]
     if (linePathSel && !linePathSel.empty()) {
       fadePromises.push(
         linePathSel
@@ -176,20 +194,8 @@ export const sortApplier: OperationApplier<SimpleLineChartInstance> = {
     if (linePathSel && !linePathSel.empty()) linePathSel.remove()
     if (pointMarksSel && !pointMarksSel.empty()) pointMarksSel.remove()
 
-    debugLog('PHASE-A-FADE-DONE', { fadeDurationMs: fadeDuration })
-
-    // Phase A2: bars rise from baseline. y=plotH → y=cy, height=0 → height=plotH-cy.
-    await initialBars
-      .transition()
-      .duration(riseDuration)
-      .ease(EASINGS.SMOOTH)
-      .attr(SvgAttributes.Y, (d) => d.cy)
-      .attr(SvgAttributes.Height, (d) => Math.max(0, plotH - d.cy))
-      .style(SvgAttributes.Opacity, 1)
-      .end()
-      .catch(() => undefined)
-
-    debugLog('PHASE-A-RISE-DONE', {
+    debugLog('PHASE-A-DONE', {
+      fadeDurationMs: fadeDuration,
       riseDurationMs: riseDuration,
       barAttrSample: initialBars.nodes().slice(0, 3).map((node) => ({
         target: node.getAttribute(DataAttributes.Target),
@@ -292,6 +298,22 @@ export const sortApplier: OperationApplier<SimpleLineChartInstance> = {
       spec: simpleBarSpec,
       renderer: 'd3',
     })
+    // Signal the chart-type transition through the SAME channel every
+    // orchestrator consumes (`consumeDerivedChartState`): ReviewPage
+    // (ReviewPage.tsx), the workbench, and the eval `oursRenderer` all read
+    // `consumeDerivedChartState(host)` after a group's run and, when set,
+    // re-dispatch the NEXT group through the derived chart-type's runner.
+    //
+    // The new dispatcher (`runChartOps` → `prepareChartRuntimeSpec(spec)`)
+    // derives chartType from the SPEC ALONE and never consults
+    // `runtimeChartState`, so the `storeRuntimeChartState` call above is inert
+    // for routing. Without this line the orchestrator keeps the original LINE
+    // spec, ops2 (e.g. nth) re-dispatches through the simple-line runner, and
+    // the chart rebuilds as a line — the regression reported on case
+    // 04xwv56n37ybj8zr. This mirrors the legacy `simpleLineOps` transition and
+    // the other chart-type transforms (`toSimpleTransforms`,
+    // `stackGroupTransforms`, `multiLineToBarTransforms`).
+    storeDerivedChartState(instance.host, ChartType.SIMPLE_BAR, simpleBarSpec)
     detachInstance(instance.host)
 
     debugLog('PHASE-C-CHART-TYPE-SWAP', {

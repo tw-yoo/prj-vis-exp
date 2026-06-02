@@ -21,6 +21,16 @@ export type RunChartOpsOptions = {
   runtimeSnapshot?: OperationRuntimeSnapshot
   initialChainState?: SerializableChainState | null
   referencedResultIds?: string[]
+  /**
+   * Result ids consumed by ops in groups that run AFTER this call (strictly
+   * future groups). Lets the simple-bar / simple-line runners build a per-op
+   * "still-live" keep set (`computeLiveReferencedIds(callOps, i) ∪ this`) so a
+   * consumed annotation is removed once no current-or-later op needs it —
+   * rather than the static all-groups `referencedResultIds`, which kept every
+   * referenced annotation dimmed forever (case 1hlsoeyqlr1r1n41). Other chart
+   * types ignore this field and keep the legacy `referencedResultIds` behavior.
+   */
+  futureReferencedResultIds?: string[]
   initialRenderMode?: 'always' | 'reuse-existing'
   surfaceManager?: SurfaceManager
   operationIndexStart?: number

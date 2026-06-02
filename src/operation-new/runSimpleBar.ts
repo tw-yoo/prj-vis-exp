@@ -9,7 +9,7 @@ import {
   stateWithOperationDependencies,
   storeOperationRuntimeResult,
 } from '../operation-next/executionState'
-import { referencesFromOperation } from '../operation-next/diffEndpoint'
+import { computeLiveReferencedIds } from '../operation-next/diffEndpoint'
 import type { ParsedOperationRun } from '../operation-next/types'
 import { runStubChartOperationRenderer } from '../operation-next/runners/shared'
 import {
@@ -133,13 +133,25 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
 
       const operationState = stateWithOperationDependencies(operation, state)
       await run.options?.onOperationReady?.({ operation, operationIndex })
+      // Per-op "still-live" keep set: refs consumed by THIS op or any later op
+      // (intra-call via computeLiveReferencedIds + cross-call future groups from
+      // the viewer). Passed to appliers as `referencedResultIds` so their
+      // applyAnnotationContextFade removes a prior annotation once no
+      // current-or-later op needs it — instead of the static all-groups set,
+      // which kept consumed annotations dimmed forever (case 1hlsoeyqlr1r1n41).
+      const liveReferencedIds = Array.from(
+        new Set([
+          ...computeLiveReferencedIds(allOpsInOrder, cursor),
+          ...(run.options?.futureReferencedResultIds ?? run.options?.referencedResultIds ?? []),
+        ]),
+      )
       cursor += 1
       const { result, nextState } = await applier.apply({
         operation,
         operationIndex,
         state: operationState,
         instance,
-        options: run.options,
+        options: { ...run.options, referencedResultIds: liveReferencedIds },
         groupOps: group.ops,
         groupOperationIndex,
         nextGroupHeadOp,
@@ -163,17 +175,4 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
     lastResult = Array.isArray(stub) ? stub : null
   }
   return buildOperationNextRunOutcome(lastResult, state)
-}
-
-/**
- * Returns the union of `ref:` ids consumed by ops from `startIndex` onward.
- * Used per-op so appliers can decide which prior annotations are still needed
- * downstream and which should fade out + be removed.
- */
-function computeLiveReferencedIds(allOps: OperationSpec[], startIndex: number): string[] {
-  const ids = new Set<string>()
-  for (let i = startIndex; i < allOps.length; i += 1) {
-    referencesFromOperation(allOps[i]).forEach((key) => ids.add(key))
-  }
-  return Array.from(ids)
 }
