@@ -8,7 +8,8 @@ import { composeSimpleMarkKey } from '../../../rendering/common/markKey'
 import { storeRuntimeChartState } from '../../../rendering/utils/runtimeChartState'
 import { storeDerivedChartState } from '../../../rendering/utils/derivedChartState'
 import { setSimpleBarStoredData, type SimpleBarSpec } from '../../../rendering/bar/simpleBarRenderer'
-import { detachInstance } from '../../../rendering-new/chartInstance'
+import { attachInstance, detachInstance } from '../../../rendering-new/chartInstance'
+import { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 
@@ -270,6 +271,14 @@ export const sortApplier: OperationApplier<SimpleLineChartInstance> = {
     const xField = resolved?.xField ?? 'target'
     const yField = resolved?.yField ?? 'value'
 
+    // The bars were drawn within the LINE's (niced, zoomed) y-domain — e.g.
+    // [0.69,0.72] — not a from-zero bar domain. Capture it now (before teardown;
+    // the conversion does no Y rescale) so we can both (a) reconstruct the
+    // adopted bar instance's yScale identically and (b) encode it in the stored
+    // spec, so a non-adopt REBUILD (split surface / replay) reproduces this
+    // domain instead of recomputing [0, max] from zero.
+    const lineYDomain = instance.yScale?.domain() as [number, number] | undefined
+
     // Build a SimpleBarSpec from the sorted data. The new spec drives the
     // next runChartOps call: dispatcher reads runtimeChartState → SIMPLE_BAR,
     // ensures a SimpleBarChartInstance on the host, base renderer reads the
@@ -288,7 +297,11 @@ export const sortApplier: OperationApplier<SimpleLineChartInstance> = {
       mark: 'bar',
       encoding: {
         x: { field: xField, type: 'nominal', sort: sortedRows.map((r) => r[xField]) as Array<string | number> },
-        y: { field: yField, type: 'quantitative' },
+        y: {
+          field: yField,
+          type: 'quantitative',
+          ...(lineYDomain ? { scale: { domain: lineYDomain } } : {}),
+        },
       },
     } as unknown as SimpleBarSpec
 
@@ -314,7 +327,38 @@ export const sortApplier: OperationApplier<SimpleLineChartInstance> = {
     // the other chart-type transforms (`toSimpleTransforms`,
     // `stackGroupTransforms`, `multiLineToBarTransforms`).
     storeDerivedChartState(instance.host, ChartType.SIMPLE_BAR, simpleBarSpec)
-    detachInstance(instance.host)
+
+    // Adopt the just-converted bar SVG as a SimpleBarChartInstance instead of
+    // detaching and letting the next op rebuild from scratch (which recomputed a
+    // from-zero domain + smaller dimensions → the chart "re-shaped" on the next
+    // op, case 04xwv56n37ybj8zr). `rehydrateFromHost` re-acquires this SVG, reads
+    // its layout from the data-* attrs (preserving plot size + margins),
+    // reconstructs the yScale from the LINE's domain, re-binds bar __data__, and
+    // pre-seeds specKey — so the next `ensureSimpleBarChartInstance` →
+    // `ensureRendered(simpleBarSpec)` is a NO-OP and the next op (nth/diff/…)
+    // draws on THIS exact SVG. Requires barData populated first.
+    const barInstance = new SimpleBarChartInstance(instance.host)
+    barInstance.resolvedEncoding = { xField, yField, xType: 'nominal', yType: 'quantitative' }
+    barInstance.dataRows = sortedRows
+    barInstance.barData = result.map((d) => {
+      const target = String(d.target)
+      const value = Number(d.value)
+      return {
+        row: { [xField]: d.target, [yField]: d.value },
+        target,
+        id: target,
+        value: Number.isFinite(value) ? value : 0,
+        xLabel: target,
+        xDisplayLabel: target,
+      }
+    })
+    const adopted = barInstance.rehydrateFromHost(simpleBarSpec, {
+      yDomain: lineYDomain,
+      xLabelDomain: result.map((d) => String(d.target)),
+      activeTargets: null,
+    })
+    if (adopted) attachInstance(instance.host, barInstance)
+    else detachInstance(instance.host)
 
     debugLog('PHASE-C-CHART-TYPE-SWAP', {
       newChartType: ChartType.SIMPLE_BAR,
