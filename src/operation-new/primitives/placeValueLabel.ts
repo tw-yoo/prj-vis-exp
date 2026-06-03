@@ -60,12 +60,35 @@ export function placeValueLabel(
     for (const [key, value] of opts.dataAttrs) node.attr(key, value)
   }
 
+  // A value label's natural home is just ABOVE its bar top / point. For a tall
+  // bar (value near the y-axis max) the top sits at the plot top, so that
+  // natural spot is ABOVE the plot area — outside `opts.viewport` (whose top is
+  // marginTop). The collision placer then penalizes it (scoreWeightOutside) and
+  // its final clamp shoves it back into the plot, where the tall bar fills the
+  // space, so the label spirals into the gap BESIDE the bar at mid-height (the
+  // "weird position" symptom on findExtremum / retrieveValue / diff of a max
+  // bar). The chart renders with overflow:visible and the top margin is empty,
+  // so extend the viewport upward by one label row's worth (capped by the
+  // available margin) and let the label live there. Normal (short-bar) labels
+  // are unaffected — their preferred spot is already inside the viewport.
+  const TOP_HEADROOM_PX = 36
+  const headroom = Math.max(0, Math.min(TOP_HEADROOM_PX, opts.viewport.y - 4))
+  const viewport: AnnotationViewport =
+    headroom > 0
+      ? {
+          x: opts.viewport.x,
+          y: opts.viewport.y - headroom,
+          width: opts.viewport.width,
+          height: opts.viewport.height + headroom,
+        }
+      : opts.viewport
+
   placeOperationTextLabel({
     svg: opts.svg,
     text: node,
     preferred: opts.preferred,
     anchorElement: opts.anchorElement ?? null,
-    viewport: opts.viewport,
+    viewport,
   })
 
   return node
