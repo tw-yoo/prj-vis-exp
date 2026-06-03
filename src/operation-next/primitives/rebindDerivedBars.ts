@@ -69,8 +69,19 @@ export async function rebindDerivedBars(opts: RebindDerivedBarsOptions): Promise
   if (samples.length === 0) return
   const reference = samples[0]
   const zeroY = reference.value >= 0 ? reference.y + reference.height : reference.y
-  const pixelsPerValue = reference.height / Math.abs(reference.value)
-  const yForValue = (value: number) => zeroY - value * pixelsPerValue
+  // Map a value → bar-top y from TWO distinct-value samples (a linear fit across
+  // the existing bars), so the new bars sit on the SAME scale regardless of the
+  // chart's baseline. The old `reference.height / reference.value` ratio assumed
+  // a FROM-ZERO domain and collapsed to 0 when the first existing bar was the
+  // domain MINIMUM (height 0) — e.g. on a zoomed [0.69,0.72] domain after a
+  // sort→bar conversion — which mapped every value to the baseline and made all
+  // derived bars vanish (height 1). For a from-zero chart this fit is identical
+  // to the old behaviour; for a non-zero baseline it stays correct.
+  const other = samples.find((sample) => sample.value !== reference.value)
+  const yForValue = other
+    ? (value: number) =>
+        reference.y + (value - reference.value) * ((other.y - reference.y) / (other.value - reference.value))
+    : (value: number) => zeroY - value * (reference.height / Math.abs(reference.value || 1))
 
   // Fade out + remove the existing bars.
   const existingBars = barMarks.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
