@@ -1,4 +1,5 @@
 import * as d3 from 'd3'
+import { attachChartHoverTooltip } from '../../rendering/common/chartHoverTooltip'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 
 // Renders a study baseline (B1 or B2). Both share the same scene shape and base
@@ -90,15 +91,20 @@ export class BaselineRenderer implements ExplanationRenderer {
   }
 
   async loadChart(chartId: string): Promise<void> {
-    const model = this.context.baselineModel
     const result = await loadResult(this.context.baselineBase, this.kind)
     const input = await loadInput(this.context.baselineBase)
-    const scenes = result?.[model]?.[chartId]
-    if (!Array.isArray(scenes)) {
-      throw new Error(`No ${this.kind} baseline scenes for chart "${chartId}" under model "${model}".`)
-    }
-    this.scenes = scenes
+    // Each baseline result file is keyed by a single model (B1 = gpt-5.2,
+    // B2 = gemini-3.1-pro-preview). Prefer the configured model, else fall back
+    // to whichever model the file actually contains.
+    const byModel = result?.[this.context.baselineModel] ?? Object.values(result ?? {})[0]
+    const scenes = byModel?.[chartId]
+    this.scenes = Array.isArray(scenes) ? scenes : []
     this.baseSvg = input?.[chartId]?.svg ?? ''
+    // Missing scenes are non-fatal: renderStep(-1) still shows the base SVG from
+    // baseline_input.json; there just won't be explanation steps.
+    if (!this.scenes.length) {
+      console.warn(`[baselineRenderer] no ${this.kind} scenes for chart "${chartId}"; showing base SVG only.`)
+    }
   }
 
   getStepCount(): number {
@@ -112,6 +118,7 @@ export class BaselineRenderer implements ExplanationRenderer {
   async renderStep(index: number): Promise<void> {
     if (index < 0) {
       this.context.container.innerHTML = this.baseSvg || '<div class="renderer-empty">No base SVG.</div>'
+      attachChartHoverTooltip(this.context.container)
       return
     }
     const scene = this.scenes[index]
@@ -128,6 +135,10 @@ export class BaselineRenderer implements ExplanationRenderer {
         this.context.container.appendChild(errEl)
       }
     }
+    // Baseline SVGs carry the engine's data-* attributes (data-x-value, etc.),
+    // so the same hover tooltip Ours uses works here too. Re-attach after each
+    // swap (it cleans up the prior attachment on the same container).
+    attachChartHoverTooltip(this.context.container)
   }
 
   teardown(): void {

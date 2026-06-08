@@ -1,14 +1,14 @@
 {
   "TESTP1": {
     "order": {
-      "system": "SO1",
+      "system": "SO3",
       "chart": "CO1"
     }
   },
-  "TESTP2": {
+  "DVNLPR": {
     "order": {
-      "system": "SO1",
-      "chart": "CO2"
+      "system": "PRE",
+      "chart": "PRE"
     }
   }
 }

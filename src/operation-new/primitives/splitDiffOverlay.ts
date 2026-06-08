@@ -25,6 +25,7 @@
  */
 
 import { RESULT_REF_ATTRIBUTE } from '../../operation-next/diffEndpoint'
+import { ANNOTATION_LAYER_CLASS } from '../../operation-next/primitives/annotationLayer'
 
 const SPLIT_LEFT_ID = 'split-left'
 const SPLIT_RIGHT_ID = 'split-right'
@@ -225,7 +226,6 @@ export function mountRootDiffOverlay(
   }
 
   const skeletons = svgNode.querySelectorAll<SVGElement>('g.chart-skeleton')
-  const titles = svgNode.querySelectorAll<SVGElement>('text.x-axis-label, text.y-axis-label')
   const splitRoot = svgNode.closest('.surface-layout--split') as HTMLElement | null
   const panels = splitRoot
     ? Array.from(
@@ -234,10 +234,19 @@ export function mountRootDiffOverlay(
     : []
 
   if (hideSkeleton) {
-    // Arrow mode: hide the root chart, keep the two panels (they carry the
-    // endpoint values the arrow connects).
-    skeletons.forEach((g) => { g.style.display = 'none' })
-    titles.forEach((t) => { t.style.display = 'none' })
+    // Arrow mode: hide EVERYTHING in the root SVG except the annotation layer
+    // (which carries the Δ arrow), then show the two panels (they carry the
+    // endpoint values the arrow connects). Chart-type-agnostic — grouped /
+    // stacked / multipleLine emit no `g.chart-skeleton`, so the old
+    // skeleton-only hide was a no-op and the full root chart showed through
+    // the source-pivot overlay. Hiding every non-annotation child (plot group,
+    // axes, axis titles, color legend) subsumes the old skeleton + title hide
+    // and works for every chart type. `defs` is harmless to keep.
+    Array.from(svgNode.children).forEach((child) => {
+      if (child.classList?.contains(ANNOTATION_LAYER_CLASS)) return
+      if (child.tagName.toLowerCase() === 'defs') return
+      ;(child as SVGElement).style.display = 'none'
+    })
     panels.forEach((p) => { p.style.display = '' })
   } else {
     // Rebind mode: the root skeleton holds the freshly rebound bars — show it,

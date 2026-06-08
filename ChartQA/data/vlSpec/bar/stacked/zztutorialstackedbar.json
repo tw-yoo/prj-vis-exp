@@ -2,38 +2,22 @@
   "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
   "encoding": {
     "x": {
-      "field": "month",
+      "field": "Year",
       "type": "nominal",
-      "sort": null
+      "sort":null
+
     },
     "color": {
-      "field": "weather",
+      "field": "Company",
       "type": "nominal"
     },
     "y": {
-      "field": "count",
+      "field": "Total GHG Emissions (Million tCO2e)",
       "type": "quantitative"
-    },
-    "tooltip": [
-      {
-        "field": "month",
-        "type": "nominal",
-        "title": "month"
-      },
-      {
-        "field": "weather",
-        "type": "nominal",
-        "title": "weather"
-      },
-      {
-        "field": "count",
-        "type": "quantitative",
-        "title": "count"
-      }
-    ]
+    }
   },
   "data": {
-    "url": "ChartQA/data/csv/bar/stacked/zztutorialstackedbar.csv"
+    "url": "data/test/data/presentation.csv"
   },
   "mark": "bar"
 }

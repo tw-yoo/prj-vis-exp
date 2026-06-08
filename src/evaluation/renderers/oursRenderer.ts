@@ -146,8 +146,23 @@ function formatSvgNumber(value: number) {
 function fitSvgViewBoxToContent(container: HTMLElement) {
   const svgNode = container.querySelector<SVGSVGElement>('svg')
   if (!svgNode || typeof svgNode.getBBox !== 'function') return
-  let contentBox: DOMRect | SVGRect
-  try { contentBox = svgNode.getBBox() } catch { return }
+  // getBBox() includes the geometry of opacity:0 elements. Filtered-out marks
+  // are left in the DOM at opacity:0 and can be wildly off-scale (e.g. a bar
+  // whose value dwarfs the rescaled axis), which would blow up the fitted
+  // viewBox and add huge empty space. Hide fully-transparent elements while
+  // measuring so only visible content drives the viewBox.
+  const measureHidden: SVGElement[] = []
+  svgNode.querySelectorAll<SVGElement>('*').forEach((el) => {
+    if (el.style.display === 'none') return
+    const opacity = el.style.opacity !== '' ? el.style.opacity : getComputedStyle(el).opacity
+    if (opacity === '0') {
+      measureHidden.push(el)
+      el.style.display = 'none'
+    }
+  })
+  let contentBox: DOMRect | SVGRect | null = null
+  try { contentBox = svgNode.getBBox() } catch { contentBox = null }
+  measureHidden.forEach((el) => el.style.removeProperty('display'))
   if (!contentBox || contentBox.width <= 0 || contentBox.height <= 0) return
   const padding = 16
   const current = parseSvgViewBox(svgNode)

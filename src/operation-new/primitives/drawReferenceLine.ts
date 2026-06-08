@@ -2,7 +2,7 @@ import * as d3 from 'd3'
 import { SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
 import { COLORS, DURATIONS, EASINGS, STYLES } from '../../rendering/common/d3Helpers'
 import { placeOperationTextLabel } from './placeLabel'
-import type { AnnotationViewport } from './annotationLayer'
+import { annotationFontSize, type AnnotationViewport } from './annotationLayer'
 
 export type ReferenceLineStyle = 'solid' | 'guideline'
 
@@ -80,7 +80,7 @@ export async function drawReferenceLine(opts: ReferenceLineOptions): Promise<voi
     .attr(SvgAttributes.X, preferredX)
     .attr(SvgAttributes.Y, preferredY)
     .attr(SvgAttributes.TextAnchor, 'end')
-    .attr(SvgAttributes.FontSize, 12)
+    .attr(SvgAttributes.FontSize, annotationFontSize(svg.node()))
     .attr(SvgAttributes.FontWeight, 700)
     .attr(SvgAttributes.Fill, color)
     .style(SvgAttributes.Opacity, 0)

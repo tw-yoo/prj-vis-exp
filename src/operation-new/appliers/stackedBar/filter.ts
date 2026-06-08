@@ -120,11 +120,20 @@ export const filterApplier: OperationApplier<StackedBarChartInstance> = {
     // in-scope (target, series) cell in the filtered result. When the input
     // is a pairDiff result we keep the whole stack at each surviving target,
     // so the legend should stay untouched (skip the narrowing transition).
-    const activeSeriesValues = pairDiffInput
-      ? new Set<string>()
-      : new Set<string>(
-          result.map((d) => String(d.group ?? d.series ?? '')).filter((s) => s.length > 0),
-        )
+    //
+    // A split surface's color legend is a SHARED cross-surface reference: the
+    // sibling surface's legend is hidden (`applySplitSharedYAxisPolicy`) and
+    // reads colors from this one, so it must keep ALL series — never declutter
+    // it. Same skip the pairDiff input already takes. (The split is established
+    // before each parallel sentence runs, so `data-surface-id` is set here.)
+    const surfaceId = instance.host.closest('[data-surface-id]')?.getAttribute('data-surface-id')
+    const onSplitSurface = surfaceId === 'split-left' || surfaceId === 'split-right'
+    const activeSeriesValues =
+      pairDiffInput || onSplitSurface
+        ? new Set<string>()
+        : new Set<string>(
+            result.map((d) => String(d.group ?? d.series ?? '')).filter((s) => s.length > 0),
+          )
 
     // Shared parent transition for the phase — bars, legend, annotation
     // context-fades, and pairDiff annotation dim/restore all ride the same

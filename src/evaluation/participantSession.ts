@@ -25,6 +25,7 @@ export type SequenceItem = {
   system: string
   group: string
   question: string
+  answer: string
 }
 
 export type OrderSystemFile = Record<string, string[]>
@@ -153,6 +154,7 @@ export function buildSequence(
         system,
         group,
         question: chart.question ?? '',
+        answer: chart.answer ?? '',
       })
     }
   }

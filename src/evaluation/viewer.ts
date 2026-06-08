@@ -1,5 +1,6 @@
 import {
   loadSession,
+  clearSession,
   buildSequence,
   type ParticipantData,
   type SequenceItem,
@@ -9,8 +10,8 @@ import {
 } from './participantSession'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './renderers/types'
 import { OursRenderer } from './renderers/oursRenderer'
-import { SvgRenderer } from './renderers/svgRenderer'
 import { BaselineRenderer } from './renderers/baselineRenderer'
+import { loadFirestoreSettings, getDocumentFields, patchDocumentFields, type FirestoreSettings, type FsJson } from './firestore'
 
 declare global {
   interface Window {
@@ -34,10 +35,13 @@ type ChartMap = {
   }
 }
 
+type ScaleLabels = { low: string; high: string }
+
 type SurveyQuestion = {
   id: string
   text: string
-  kind: 'yes-no' | 'likert7'
+  kind: 'yes-no' | 'likert7' | 'text'
+  scale?: ScaleLabels
 }
 
 type SurveyPage = {
@@ -46,31 +50,67 @@ type SurveyPage = {
 
 type IntroKind = 'intro-welcome' | 'tutorial-interact' | 'tutorial-task'
 
+// One block = the 5 charts a participant sees for a single (system, group) pair.
+type SessionBlock = { system: string; group: string; startIdx: number; endIdx: number }
+
+// A draggable system in the final ranking. `label` (System A/B/C) is shown to
+// the participant; `system` (Ours/B1/B2) is recorded internally.
+type FinalItem = { key: string; label: string; system: string }
+
 type PageDescriptor =
   | { kind: IntroKind }
   | { kind: 'survey'; itemIdx: number; surveyPageIdx: number }
+  | { kind: 'post-session'; blockIdx: number }
+  | { kind: 'final' }
 
 const surveyPages: SurveyPage[] = [
   {
     questions: [
-      {
-        id: 'answer-correct',
-        text: 'Is the answer correct?',
-        kind: 'yes-no',
-      },
+      // {
+      //   id: 'answer-correct',
+      //   text: 'The answer is correct.',
+      //   kind: 'yes-no',
+      // },
     ],
   },
   {
     questions: [
-      { id: 'reasoning-easy', text: 'The output of the system is easy to understand.', kind: 'likert7' },
-      { id: 'derivation-clear', text: 'The the reasoning process of the system is transparent.', kind: 'likert7' },
-      { id: 'trust-judgment', text: 'I trust this system.', kind: 'likert7' },
+      // H2 (understanding) + H3 (transparency). Trust (H3) is measured per
+      // system on the post-session page, not here.
+      // { id: 'reasoning-easy', text: 'The explanation was easy to understand.', kind: 'likert7' },
+      // { id: 'derivation-clear', text: 'The explanation was transparent.', kind: 'likert7' },
     ],
   },
 ]
 
+const AGREE_SCALE: ScaleLabels = { low: 'Strongly disagree', high: 'Strongly agree' }
+
+// Shown once at the END of each system block (after that system's 5 charts):
+// the 6 NASA-TLX cognitive-load dimensions, phrased about "this explanation" as
+// agreement statements on a Strongly disagree–Strongly agree scale (note:
+// tlx-performance is positively valenced, the others negatively) + an optional
+// open-ended. The system identity (Ours/B1/B2) is not revealed.
+const postSessionQuestions: SurveyQuestion[] = [
+  { id: 'tlx-mental', text: 'Understanding this explanation was mentally demanding.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'tlx-physical', text: 'Understanding this explanation was physically demanding.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'tlx-temporal', text: 'I felt hurried or rushed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'tlx-performance', text: 'I was successful in understanding the explanation.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'tlx-effort', text: 'I had to work hard to understand this explanation.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'tlx-frustration', text: 'I felt frustrated, irritated, or stressed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
+  // Per-system open-ended (optional).
+  { id: 'open-feedback', text: 'What helped or made this system hard to use? (optional)', kind: 'text' },
+]
+
+const RANKING_DIMENSIONS: Array<{ id: string; promptHtml: string }> = [
+  { id: 'trust', promptHtml: 'Rank the three systems by <strong>how much you trusted the explanation</strong>, from the one you trusted <strong>most (1)</strong> to the one you trusted <strong>least (3)</strong>. Drag each system into a numbered slot.' },
+  { id: 'transparency', promptHtml: 'Rank the three systems by <strong>how clearly the explanation showed how the answer was reached</strong>, from the <strong>clearest (1)</strong> to the <strong>least clear (3)</strong>. Drag each system into a numbered slot.' },
+  { id: 'error-detection', promptHtml: 'Rank the three systems by <strong>how easily you could tell whether the explanation was correct or contained a mistake</strong>, from the <strong>easiest (1)</strong> to the <strong>hardest (3)</strong>. Drag each system into a numbered slot.' },
+  { id: 'ease', promptHtml: 'Rank the three systems by <strong>how easy the explanation was to understand</strong>, from the <strong>easiest (1)</strong> to the <strong>hardest (3)</strong>. Drag each system into a numbered slot.' },
+  { id: 'preference', promptHtml: 'Rank the three systems by <strong>which you would most prefer to use</strong>, from <strong>most preferred (1)</strong> to <strong>least preferred (3)</strong>. Drag each system into a numbered slot.' },
+]
+
 const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-task']
-const EVAL_TUTORIAL_CHART_ID = '0w88bu7qm4ilsqmh'
+const EVAL_TUTORIAL_CHART_ID = '1gdzafocxmz7rswi'
 
 const WELCOME_BODY_HTML = `
   <p>Thank you for participating in this research study.</p>
@@ -81,7 +121,7 @@ const WELCOME_BODY_HTML = `
     <li>Decide whether the provided answer is correct.</li>
     <li>Rate how clearly the explanation showed the reasoning behind the answer.</li>
   </ol>
-  <p>The study takes about <strong>50&ndash;60 minutes</strong>. Your responses are anonymous and linked only to your participant code (<code>{code}</code>).</p>
+  <p>The study takes about <strong>70&ndash;90 minutes</strong>. Your responses are anonymous and linked only to your participant code (<code>{code}</code>).</p>
   <p>The next two pages will walk you through how to interact with the explanations and what we'll ask you to do.</p>
 `
 
@@ -103,9 +143,8 @@ const TUTORIAL_TASK_BODY_HTML = `
   <div class="intro-notes">
     <p class="intro-notes__title">Important notes</p>
     <ul>
-      <li><strong>Answer the first question quickly.</strong> We measure how long you take to answer the "Is the answer correct?" question on each page. Please stay focused and respond as soon as you have made your decision.</li>
+      <li><strong>Answer the first question accurately.</strong> We measure how long you take to answer the "The answer is correct." question on each page. Please stay focused and respond as accurate as you have made your decision.</li>
       <li><strong>Use external tools freely.</strong> A calculator or scrap paper is fine if you need to verify a calculation &mdash; just try to keep it brief.</li>
-      <li><strong>One direction.</strong> Once you advance past a question's survey, you cannot return to that question.</li>
     </ul>
   </div>
   <p>When you're ready, click <strong>Next</strong> to begin the survey.</p>
@@ -129,10 +168,10 @@ const questionEl = document.getElementById('questionText') as HTMLElement
 const descriptionEl = document.getElementById('descriptionText') as HTMLElement
 const debugMetaEl = document.getElementById('debugMeta') as HTMLElement
 const explanationEl = document.getElementById('explanationArea') as HTMLElement
-const statusEl = document.getElementById('statusArea') as HTMLElement
 const surveyEl = document.getElementById('surveyArea') as HTMLFormElement
 const prevBtn = document.getElementById('prevBtn') as HTMLButtonElement
 const nextBtn = document.getElementById('nextBtn') as HTMLButtonElement
+const nextBtnLabel = nextBtn.querySelector('.nav-btn__label') as HTMLElement
 const progressFillEl = document.getElementById('progressFill') as HTMLElement
 const progressLabelEl = document.getElementById('progressLabel') as HTMLElement
 const progressTrackEl = document.getElementById('progressTrack') as HTMLElement
@@ -147,9 +186,16 @@ const introDemoChartEl = document.getElementById('introDemoChart') as HTMLElemen
 const introDemoQuestionEl = document.getElementById('introDemoQuestion') as HTMLElement
 const introDemoExplanationEl = document.getElementById('introDemoExplanation') as HTMLElement
 const introDemoHintEl = document.getElementById('introDemoHint') as HTMLElement
+const reviewPanelEl = document.getElementById('reviewPanel') as HTMLElement
+const postSessionHeadingEl = document.getElementById('postSessionHeading') as HTMLElement
+const reviewPrevBtn = document.getElementById('reviewPrev') as HTMLButtonElement
+const reviewNextBtn = document.getElementById('reviewNext') as HTMLButtonElement
+const reviewCounterEl = document.getElementById('reviewCounter') as HTMLElement
+const reviewChartEl = document.getElementById('reviewChart') as HTMLElement
+const reviewQuestionEl = document.getElementById('reviewQuestion') as HTMLElement
+const reviewExplanationEl = document.getElementById('reviewExplanation') as HTMLElement
 
 const chartMap = await fetch(withBase('/chart_map.json')).then((r) => r.json()) as ChartMap
-const charts = chartMap.charts ?? {}
 const defaultD3Model = chartMap.defaults?.d3?.model ?? 'gpt-5.2'
 const defaultSvgModel = chartMap.defaults?.svg?.model ?? 'gpt-5.2'
 const baselineModel = chartMap.defaults?.svg?.model ?? 'gpt-5.2'
@@ -179,15 +225,42 @@ const sequence: SequenceItem[] = buildSequence(
   { orderSystem, orderChart, chartGroup },
   participant.code,
 )
-const allPages: PageDescriptor[] = (() => {
-  const intros: PageDescriptor[] = INTRO_PAGE_KINDS.map((kind) => ({ kind }))
-  const surveys: PageDescriptor[] = []
-  for (let i = 0; i < sequence.length; i += 1) {
-    for (let j = 0; j < surveyPages.length; j += 1) {
-      surveys.push({ kind: 'survey', itemIdx: i, surveyPageIdx: j })
+// Group the flat sequence into blocks (one (system, group) pair = 5 charts).
+const blocks: SessionBlock[] = (() => {
+  const result: SessionBlock[] = []
+  sequence.forEach((item, i) => {
+    const last = result[result.length - 1]
+    if (last && last.system === item.system && last.group === item.group) {
+      last.endIdx = i
+    } else {
+      result.push({ system: item.system, group: item.group, startIdx: i, endIdx: i })
     }
-  }
-  return [...intros, ...surveys]
+  })
+  return result
+})()
+
+// The 3 systems, labelled A/B/C in presentation (block) order, for the final
+// ranking. The label is participant-facing; `system` (Ours/B1/B2) is internal.
+const finalItems: FinalItem[] = blocks.map((block, i) => ({
+  key: String.fromCharCode(65 + i),
+  label: `System ${String.fromCharCode(65 + i)}`,
+  system: block.system,
+}))
+
+// Page flow: 3 intros, then per block [ each chart's survey pages, then one
+// post-session reflection page ], then one final ranking + comments page.
+const allPages: PageDescriptor[] = (() => {
+  const pages: PageDescriptor[] = INTRO_PAGE_KINDS.map((kind) => ({ kind }))
+  blocks.forEach((block, blockIdx) => {
+    for (let i = block.startIdx; i <= block.endIdx; i += 1) {
+      for (let j = 0; j < surveyPages.length; j += 1) {
+        pages.push({ kind: 'survey', itemIdx: i, surveyPageIdx: j })
+      }
+    }
+    pages.push({ kind: 'post-session', blockIdx })
+  })
+  pages.push({ kind: 'final' })
+  return pages
 })()
 
 let currentPageIndex = getPageIndexFromUrl()
@@ -199,14 +272,34 @@ let selectedStepIndex = -1
 let stepRunInProgress = false
 let stepErrors = new Map<number, string>()
 const surveyResponses = new Map<string, string>()
+// Accumulated dwell time (ms) on each chart's Yes/No page, summed across visits.
+const responseTimes = new Map<string, number>()
+let activeTimer: { chartId: string; startedAt: number } | null = null
+let firestoreSettings: FirestoreSettings | null = null
+let persistenceReady = false
+let saveTimer: number | null = null
 
 let demoRenderer: ExplanationRenderer | null = null
 let demoChartId = ''
 let demoStepTexts: string[] = []
+let demoAnswer = ''
 let demoStepsUnlocked = 0
 let demoSelectedStepIndex = -1
 let demoStepRunInProgress = false
 let demoErrors = new Map<number, string>()
+
+// Post-session review carousel: replay this system's 5 chart/question/
+// explanation sets one at a time, above the survey. Mirrors the demo pattern
+// (a renderer pointed at its own container + interactive steps).
+const reviewContext: RendererContext = { ...rendererContext, container: reviewChartEl }
+let reviewItems: SequenceItem[] = []
+let reviewIdx = 0
+let reviewRenderer: ExplanationRenderer | null = null
+let reviewStepTexts: string[] = []
+let reviewStepsUnlocked = 0
+let reviewSelectedStepIndex = -1
+let reviewStepRunInProgress = false
+let reviewErrors = new Map<number, string>()
 
 function clampPageIndex(idx: number) {
   if (allPages.length === 0) return 0
@@ -238,26 +331,39 @@ function getItemKey(item: SequenceItem) {
   return `${item.chart_id}::${item.method}`
 }
 
-function createRenderer(method: ExplanationMethod): ExplanationRenderer {
-  if (method === 'ours') return new OursRenderer(rendererContext)
-  if (method === 'b1') return new BaselineRenderer(rendererContext, 'b1')
-  if (method === 'b2') return new BaselineRenderer(rendererContext, 'b2')
+function createRenderer(method: ExplanationMethod, context: RendererContext = rendererContext): ExplanationRenderer {
+  if (method === 'ours') return new OursRenderer(context)
+  if (method === 'b1') return new BaselineRenderer(context, 'b1')
+  if (method === 'b2') return new BaselineRenderer(context, 'b2')
   throw new Error(`Unknown method: ${method}`)
 }
 
-function currentSurveyDescriptor(): { surveyPageIdx: number; item: SequenceItem } | null {
+// Unifies the two survey contexts: per-chart survey pages and the per-system
+// post-session page. `keyPrefix` makes input names + stored responses unique.
+type SurveyContext = { questions: SurveyQuestion[]; keyPrefix: string }
+
+function currentSurveyContext(): SurveyContext | null {
   const page = allPages[currentPageIndex]
-  if (!page || page.kind !== 'survey') return null
-  return { surveyPageIdx: page.surveyPageIdx, item: sequence[page.itemIdx] }
+  if (!page) return null
+  if (page.kind === 'survey') {
+    const item = sequence[page.itemIdx]
+    const surveyPage = surveyPages[page.surveyPageIdx]
+    if (!item || !surveyPage) return null
+    return { questions: surveyPage.questions, keyPrefix: `${getItemKey(item)}:${page.surveyPageIdx}` }
+  }
+  if (page.kind === 'post-session') {
+    const block = blocks[page.blockIdx]
+    if (!block) return null
+    return { questions: postSessionQuestions, keyPrefix: `postsession:${block.system}` }
+  }
+  return null
 }
 
-function getSurveyResponseKey(questionId: string) {
-  const info = currentSurveyDescriptor()
-  if (!info) return `none:${questionId}`
-  return `${getItemKey(info.item)}:${info.surveyPageIdx}:${questionId}`
+function fieldKey(keyPrefix: string, questionId: string): string {
+  return `${keyPrefix}::${questionId}`
 }
 
-function renderSurveyQuestion(question: SurveyQuestion): HTMLFieldSetElement {
+function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTMLFieldSetElement {
   const fieldset = document.createElement('fieldset')
   fieldset.className = `survey-question survey-question--${question.kind === 'yes-no' ? 'choice' : 'likert'}`
 
@@ -266,11 +372,8 @@ function renderSurveyQuestion(question: SurveyQuestion): HTMLFieldSetElement {
   legend.textContent = question.text
   fieldset.appendChild(legend)
 
-  const info = currentSurveyDescriptor()
-  const itemKey = info ? getItemKey(info.item) : 'unknown'
-  const surveyPageIdx = info?.surveyPageIdx ?? 0
-  const inputName = `${itemKey}-${surveyPageIdx}-${question.id}`
-  const selectedValue = surveyResponses.get(getSurveyResponseKey(question.id))
+  const name = fieldKey(keyPrefix, question.id)
+  const selectedValue = surveyResponses.get(name)
 
   const buildOption = (value: string, optionClass: string) => {
     const label = document.createElement('label')
@@ -278,12 +381,13 @@ function renderSurveyQuestion(question: SurveyQuestion): HTMLFieldSetElement {
 
     const input = document.createElement('input')
     input.type = 'radio'
-    input.name = inputName
+    input.name = name
     input.value = value
     input.checked = selectedValue === value
 
     label.addEventListener('click', () => {
-      surveyResponses.set(getSurveyResponseKey(question.id), value)
+      surveyResponses.set(name, value)
+      scheduleSave()
     })
 
     const text = document.createElement('span')
@@ -296,11 +400,25 @@ function renderSurveyQuestion(question: SurveyQuestion): HTMLFieldSetElement {
   }
 
   if (question.kind === 'yes-no') {
+    const hint = document.createElement('p')
+    hint.className = 'survey-question__hint'
+    hint.textContent = '(Answer this question as accurate as possible)'
+    fieldset.appendChild(hint)
+
     const row = document.createElement('div')
     row.className = 'choice-row'
     ;['Yes', 'No'].forEach((opt) => row.appendChild(buildOption(opt, 'choice-option')))
     fieldset.appendChild(row)
+  } else if (question.kind === 'text') {
+    const textarea = document.createElement('textarea')
+    textarea.className = 'survey-text'
+    textarea.rows = 3
+    textarea.name = name
+    textarea.value = surveyResponses.get(name) ?? ''
+    textarea.addEventListener('input', () => { surveyResponses.set(name, textarea.value); scheduleSave() })
+    fieldset.appendChild(textarea)
   } else {
+    const labels = question.scale ?? { low: 'Strongly disagree', high: 'Strongly agree' }
     const scale = document.createElement('div')
     scale.className = 'likert-scale'
 
@@ -313,10 +431,10 @@ function renderSurveyQuestion(question: SurveyQuestion): HTMLFieldSetElement {
     endpoints.className = 'likert-scale__endpoints'
     const leftLabel = document.createElement('span')
     leftLabel.className = 'likert-scale__endpoint likert-scale__endpoint--low'
-    leftLabel.textContent = 'Strongly disagree'
+    leftLabel.textContent = labels.low
     const rightLabel = document.createElement('span')
     rightLabel.className = 'likert-scale__endpoint likert-scale__endpoint--high'
-    rightLabel.textContent = 'Strongly agree'
+    rightLabel.textContent = labels.high
     endpoints.appendChild(leftLabel)
     endpoints.appendChild(rightLabel)
     scale.appendChild(endpoints)
@@ -329,22 +447,279 @@ function renderSurveyQuestion(question: SurveyQuestion): HTMLFieldSetElement {
 
 function renderSurveyPage() {
   surveyEl.innerHTML = ''
-  const info = currentSurveyDescriptor()
-  if (!info) return
-  const surveyPage = surveyPages[info.surveyPageIdx]
-  surveyPage?.questions.forEach((q) => surveyEl.appendChild(renderSurveyQuestion(q)))
+  const ctx = currentSurveyContext()
+  if (!ctx) return
+  ctx.questions.forEach((q) => surveyEl.appendChild(renderSurveyQuestion(q, ctx.keyPrefix)))
 }
 
 function isSurveyPageComplete(): boolean {
-  const info = currentSurveyDescriptor()
-  if (!info) return true
-  const surveyPage = surveyPages[info.surveyPageIdx]
-  if (!surveyPage) return true
-  const itemKey = getItemKey(info.item)
-  return surveyPage.questions.every((q) => {
-    const name = `${itemKey}-${info.surveyPageIdx}-${q.id}`
+  const ctx = currentSurveyContext()
+  if (!ctx) return true
+  return ctx.questions.every((q) => {
+    if (q.kind === 'text') return true // open-ended is optional
+    const name = fieldKey(ctx.keyPrefix, q.id)
     return surveyEl.querySelector(`input[name="${CSS.escape(name)}"]:checked`) !== null
   })
+}
+
+// Stop timing the current Yes/No page and add the elapsed time to its running
+// total (so revisits accumulate). Idempotent when no timer is active.
+function flushTimer() {
+  if (!activeTimer) return
+  const elapsed = Math.max(0, performance.now() - activeTimer.startedAt)
+  responseTimes.set(activeTimer.chartId, (responseTimes.get(activeTimer.chartId) ?? 0) + elapsed)
+  activeTimer = null
+}
+
+// Per-participant document, structured for later aggregation across participants.
+// One doc per code: evaluation_responses/{code}.
+function buildSubmission(): Record<string, FsJson> {
+  const charts: Record<string, FsJson> = {}
+  sequence.forEach((item) => {
+    const k = getItemKey(item)
+    const ratings: Record<string, FsJson> = {}
+    surveyPages[1].questions.forEach((q) => {
+      const v = surveyResponses.get(`${k}:1::${q.id}`)
+      if (v != null) ratings[q.id] = v
+    })
+    charts[item.chart_id] = {
+      system: item.system,
+      group: item.group,
+      answerCorrect: surveyResponses.get(`${k}:0::answer-correct`) ?? '',
+      responseTimeMs: Math.round(responseTimes.get(item.chart_id) ?? 0),
+      ratings,
+    }
+  })
+
+  const postSession: Record<string, FsJson> = {}
+  blocks.forEach((block) => {
+    const obj: Record<string, FsJson> = {}
+    postSessionQuestions.forEach((q) => {
+      const v = surveyResponses.get(`postsession:${block.system}::${q.id}`)
+      if (v != null) obj[q.id] = v
+    })
+    postSession[block.system] = obj
+  })
+
+  // One ranking per dimension: rankings[dim] = { '1': system, '2': system, '3': system }.
+  const rankings: Record<string, FsJson> = {}
+  RANKING_DIMENSIONS.forEach((dim) => {
+    const ranks: Record<string, FsJson> = {}
+    ;(['1', '2', '3'] as const).forEach((n) => {
+      const v = surveyResponses.get(`final::rank-${dim.id}-${n}`)
+      if (v != null) ranks[n] = v
+    })
+    rankings[dim.id] = ranks
+  })
+  const systems: Record<string, FsJson> = {}
+  finalItems.forEach((it) => { systems[it.key] = it.system })
+
+  return {
+    code: participant.code,
+    order: { system: participant.order.system, chart: participant.order.chart },
+    systems,
+    sequence: sequence.map((it) => ({ chart_id: it.chart_id, system: it.system, group: it.group })),
+    charts,
+    postSession,
+    final: { rankings, comment: surveyResponses.get('final::comment') ?? '' },
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+// Restore in-memory state from a previously saved document, so back/forward and
+// reloads both show prior answers.
+function hydrateFromDoc(fields: Record<string, FsJson>) {
+  const charts = (fields.charts as Record<string, any>) ?? {}
+  sequence.forEach((item) => {
+    const c = charts[item.chart_id]
+    if (!c || typeof c !== 'object') return
+    const k = getItemKey(item)
+    if (c.answerCorrect) surveyResponses.set(`${k}:0::answer-correct`, String(c.answerCorrect))
+    if (typeof c.responseTimeMs === 'number') responseTimes.set(item.chart_id, c.responseTimeMs)
+    Object.entries(c.ratings ?? {}).forEach(([qid, val]) => {
+      if (val != null && val !== '') surveyResponses.set(`${k}:1::${qid}`, String(val))
+    })
+  })
+  Object.entries((fields.postSession as Record<string, any>) ?? {}).forEach(([system, obj]) => {
+    Object.entries((obj as Record<string, any>) ?? {}).forEach(([qid, val]) => {
+      if (val != null && val !== '') surveyResponses.set(`postsession:${system}::${qid}`, String(val))
+    })
+  })
+  const final = (fields.final as any) ?? {}
+  Object.entries(final.rankings ?? {}).forEach(([dimId, ranks]) => {
+    Object.entries((ranks as Record<string, any>) ?? {}).forEach(([n, system]) => {
+      if (system != null && system !== '') surveyResponses.set(`final::rank-${dimId}-${n}`, String(system))
+    })
+  })
+  if (typeof final.comment === 'string' && final.comment) surveyResponses.set('final::comment', final.comment)
+}
+
+async function saveNow(keepalive = false) {
+  if (!firestoreSettings || !persistenceReady) return
+  try {
+    await patchDocumentFields(firestoreSettings, ['evaluation_responses', participant.code], buildSubmission(), keepalive)
+  } catch (error) {
+    console.error('[evaluation] save failed', error)
+  }
+}
+
+function scheduleSave() {
+  if (saveTimer != null) clearTimeout(saveTimer)
+  saveTimer = window.setTimeout(() => { saveTimer = null; void saveNow() }, 600)
+}
+
+// Final page: one drag-and-drop ranking per RANKING_DIMENSIONS entry (the 3
+// systems A/B/C into numbered slots 1..3), plus an optional free-text comment.
+// Each dimension's ranking is stored as `final::rank-{dim.id}-{1,2,3}` -> system;
+// comment as `final::comment`. Rebuilt from stored responses on every render so
+// it survives back/forward navigation.
+function renderFinalPage() {
+  surveyEl.innerHTML = ''
+  const wrap = document.createElement('div')
+  wrap.className = 'final-survey'
+
+  const doneNote = document.createElement('p')
+  doneNote.className = 'final-done'
+  doneNote.hidden = true
+  doneNote.textContent = 'Thank you — you have completed the study.'
+
+  // Keep the "done" note and Submit button in sync with full completion (all
+  // rankings filled). Recomputed from surveyResponses across every widget.
+  const syncDoneAndNav = () => {
+    doneNote.hidden = !isFinalComplete()
+    updateFinalNav()
+  }
+
+  // One self-contained ranking widget: its own 3 chips + 3 slots, lookups scoped
+  // to this widget's board, storing into `final::rank-{dim.id}-{1,2,3}`.
+  const buildRanking = (dim: { id: string; promptHtml: string }) => {
+    const section = document.createElement('section')
+    section.className = 'final-section'
+    const prompt = document.createElement('p')
+    prompt.className = 'final-prompt'
+    prompt.innerHTML = dim.promptHtml
+    section.appendChild(prompt)
+
+    const board = document.createElement('div')
+    board.className = 'rank-board'
+
+    const pool = document.createElement('div')
+    pool.className = 'rank-pool'
+    const poolHint = document.createElement('div')
+    poolHint.className = 'rank-pool__hint'
+    poolHint.textContent = 'Systems'
+    const poolDrop = document.createElement('div')
+    poolDrop.className = 'rank-pool__drop'
+    pool.append(poolHint, poolDrop)
+
+    const slotsWrap = document.createElement('div')
+    slotsWrap.className = 'rank-slots'
+    const slotDrops: HTMLElement[] = []
+    ;[1, 2, 3].forEach((n) => {
+      const slot = document.createElement('div')
+      slot.className = 'rank-slot'
+      const num = document.createElement('div')
+      num.className = 'rank-slot__num'
+      num.textContent = String(n)
+      const drop = document.createElement('div')
+      drop.className = 'rank-slot__drop'
+      drop.dataset.rank = String(n)
+      slot.append(num, drop)
+      slotsWrap.appendChild(slot)
+      slotDrops.push(drop)
+    })
+
+    board.append(pool, slotsWrap)
+    section.appendChild(board)
+
+    const findChip = (key: string) => board.querySelector<HTMLElement>(`.rank-item[data-item="${CSS.escape(key)}"]`)
+
+    const updateState = () => {
+      slotDrops.forEach((drop) => {
+        const chip = drop.querySelector<HTMLElement>('.rank-item')
+        const rank = drop.dataset.rank as string
+        const item = chip ? finalItems.find((it) => it.key === chip.dataset.item) : undefined
+        if (item) surveyResponses.set(`final::rank-${dim.id}-${rank}`, item.system)
+        else surveyResponses.delete(`final::rank-${dim.id}-${rank}`)
+      })
+      syncDoneAndNav()
+      scheduleSave()
+    }
+
+    const makeChip = (item: FinalItem) => {
+      const chip = document.createElement('div')
+      chip.className = 'rank-item'
+      chip.draggable = true
+      chip.dataset.item = item.key
+      chip.textContent = item.label
+      chip.addEventListener('dragstart', (e) => {
+        chip.classList.add('rank-item--dragging')
+        e.dataTransfer?.setData('text/plain', item.key)
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+      })
+      chip.addEventListener('dragend', () => chip.classList.remove('rank-item--dragging'))
+      return chip
+    }
+
+    const wireZone = (zone: HTMLElement, isSlot: boolean) => {
+      zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('rank-drop--over') })
+      zone.addEventListener('dragleave', () => zone.classList.remove('rank-drop--over'))
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault()
+        zone.classList.remove('rank-drop--over')
+        const key = e.dataTransfer?.getData('text/plain')
+        const chip = key ? findChip(key) : null
+        if (!chip) return
+        const origin = chip.parentElement as HTMLElement | null
+        if (isSlot) {
+          // A slot holds one chip: displace the current occupant (swap back to
+          // the dragged chip's slot, or to the pool).
+          const existing = zone.querySelector<HTMLElement>('.rank-item')
+          if (existing && existing !== chip) {
+            if (origin && origin.classList.contains('rank-slot__drop')) origin.appendChild(existing)
+            else poolDrop.appendChild(existing)
+          }
+        }
+        zone.appendChild(chip)
+        updateState()
+      })
+    }
+
+    wireZone(poolDrop, false)
+    slotDrops.forEach((drop) => wireZone(drop, true))
+
+    // Initial placement: restore saved ranks, otherwise everything in the pool.
+    finalItems.forEach((item) => {
+      const chip = makeChip(item)
+      const savedRank = (['1', '2', '3'] as const).find((r) => surveyResponses.get(`final::rank-${dim.id}-${r}`) === item.system)
+      if (savedRank) slotDrops[Number(savedRank) - 1].appendChild(chip)
+      else poolDrop.appendChild(chip)
+    })
+    updateState()
+    return section
+  }
+
+  RANKING_DIMENSIONS.forEach((dim) => wrap.appendChild(buildRanking(dim)))
+  wrap.appendChild(doneNote)
+
+  // --- Any other comments (optional) ---
+  const commentSection = document.createElement('section')
+  commentSection.className = 'final-section'
+  const commentLabel = document.createElement('label')
+  commentLabel.className = 'final-prompt'
+  commentLabel.htmlFor = 'finalComment'
+  commentLabel.textContent = 'Any other comments? (optional)'
+  const commentInput = document.createElement('textarea')
+  commentInput.id = 'finalComment'
+  commentInput.className = 'final-comment'
+  commentInput.rows = 4
+  commentInput.value = surveyResponses.get('final::comment') ?? ''
+  commentInput.addEventListener('input', () => { surveyResponses.set('final::comment', commentInput.value); scheduleSave() })
+  commentSection.append(commentLabel, commentInput)
+  wrap.appendChild(commentSection)
+
+  surveyEl.appendChild(wrap)
+  syncDoneAndNav()
 }
 
 function stripLeadingNumber(text: string): string {
@@ -361,6 +736,7 @@ function buildSentenceSpans(
     stepRunInProgress: boolean
     onClick: (index: number) => void
   },
+  answer = '',
 ) {
   container.innerHTML = ''
   stepTexts.forEach((text, index) => {
@@ -396,28 +772,43 @@ function buildSentenceSpans(
     container.appendChild(span)
     if (index < stepTexts.length - 1) container.appendChild(document.createTextNode(' '))
   })
+
+  // The proposed answer the participant verifies, shown below the reasoning
+  // steps (value comes from chart_group.json's `answer` per chart).
+  const answerText = answer.trim()
+  if (answerText) {
+    const answerEl = document.createElement('div')
+    answerEl.className = 'explanation-answer'
+    const label = document.createElement('span')
+    label.className = 'explanation-answer__label'
+    label.textContent = 'Answer:'
+    const value = document.createElement('span')
+    value.className = 'explanation-answer__value'
+    value.textContent = answerText
+    answerEl.append(label, ' ', value)
+    container.appendChild(answerEl)
+  }
 }
 
 async function runStep(stepIndex: number) {
   if (stepRunInProgress || !currentRenderer) return
+  // Re-clicking the currently shown step undoes it: step back to the previous
+  // step, or to the original chart (renderStep(-1)) when undoing the first step.
+  const isUndo = stepIndex === selectedStepIndex
+  const target = isUndo ? stepIndex - 1 : stepIndex
   stepRunInProgress = true
-  statusEl.className = ''
-  statusEl.textContent = 'Running...'
   updateUI()
 
   try {
-    await currentRenderer.renderStep(stepIndex)
-    selectedStepIndex = stepIndex
-    stepsUnlocked = Math.max(stepsUnlocked, stepIndex + 1)
-    stepErrors.delete(stepIndex)
-    statusEl.textContent = ''
+    await currentRenderer.renderStep(target)
+    selectedStepIndex = target
+    stepsUnlocked = isUndo ? target + 1 : Math.max(stepsUnlocked, target + 1)
+    if (target >= 0) stepErrors.delete(target)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.error('[evaluation] renderStep failed', { itemKey: currentItemKey, stepIndex, error })
-    stepErrors.set(stepIndex, message)
-    selectedStepIndex = stepIndex
-    statusEl.className = 'status--error'
-    statusEl.textContent = message
+    console.error('[evaluation] renderStep failed', { itemKey: currentItemKey, stepIndex: target, error })
+    if (target >= 0) stepErrors.set(target, message)
+    selectedStepIndex = target
   } finally {
     stepRunInProgress = false
     updateUI()
@@ -426,22 +817,25 @@ async function runStep(stepIndex: number) {
 
 async function runDemoStep(stepIndex: number) {
   if (demoStepRunInProgress || !demoRenderer) return
+  // Re-clicking the shown step undoes it (back to the previous step / original).
+  const isUndo = stepIndex === demoSelectedStepIndex
+  const target = isUndo ? stepIndex - 1 : stepIndex
   demoStepRunInProgress = true
   // Update state synchronously so the user sees responsive feedback even if
   // the underlying chart re-run takes time or fails silently.
-  demoSelectedStepIndex = stepIndex
-  demoStepsUnlocked = Math.max(demoStepsUnlocked, stepIndex + 1)
+  demoSelectedStepIndex = target
+  demoStepsUnlocked = isUndo ? target + 1 : Math.max(demoStepsUnlocked, target + 1)
   renderDemoExplanation()
   try {
     await Promise.race([
-      demoRenderer.renderStep(stepIndex),
+      demoRenderer.renderStep(target),
       new Promise<void>((resolve) => setTimeout(resolve, 4000)),
     ])
-    demoErrors.delete(stepIndex)
+    if (target >= 0) demoErrors.delete(target)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.error('[evaluation] demo renderStep failed', { stepIndex, error })
-    demoErrors.set(stepIndex, message)
+    console.error('[evaluation] demo renderStep failed', { stepIndex: target, error })
+    if (target >= 0) demoErrors.set(target, message)
   } finally {
     demoStepRunInProgress = false
     renderDemoExplanation()
@@ -455,13 +849,13 @@ function renderDemoExplanation() {
     stepErrors: demoErrors,
     stepRunInProgress: demoStepRunInProgress,
     onClick: (i) => { void runDemoStep(i) },
-  })
+  }, demoAnswer)
 }
 
 async function ensureDemoLoaded() {
   if (demoRenderer) return
   const demoContext: RendererContext = { ...rendererContext, container: introDemoChartEl }
-  const renderer = new SvgRenderer(demoContext)
+  const renderer = new BaselineRenderer(demoContext, 'b2')
   try {
     await renderer.loadChart(EVAL_TUTORIAL_CHART_ID)
   } catch (error) {
@@ -478,6 +872,7 @@ async function ensureDemoLoaded() {
   demoRenderer = renderer
   demoChartId = EVAL_TUTORIAL_CHART_ID
   demoStepTexts = renderer.getStepTexts()
+  demoAnswer = Object.values(chartGroup).flatMap((g) => Object.values(g)).find((c) => c.id === EVAL_TUTORIAL_CHART_ID)?.answer ?? ''
   demoStepsUnlocked = 0
   demoSelectedStepIndex = -1
   demoErrors = new Map()
@@ -490,6 +885,7 @@ function teardownDemo() {
   }
   demoChartId = ''
   demoStepTexts = []
+  demoAnswer = ''
   demoStepsUnlocked = 0
   demoSelectedStepIndex = -1
   demoErrors = new Map()
@@ -497,11 +893,102 @@ function teardownDemo() {
   introDemoExplanationEl.innerHTML = ''
 }
 
+// ---- Post-session review carousel -------------------------------------------
+function renderReviewExplanation() {
+  buildSentenceSpans(reviewExplanationEl, reviewStepTexts, {
+    selectedStepIndex: reviewSelectedStepIndex,
+    stepsUnlocked: reviewStepsUnlocked,
+    stepErrors: reviewErrors,
+    stepRunInProgress: reviewStepRunInProgress,
+    onClick: (i) => { void runReviewStep(i) },
+  }, reviewItems[reviewIdx]?.answer ?? '')
+}
+
+async function runReviewStep(stepIndex: number) {
+  if (reviewStepRunInProgress || !reviewRenderer) return
+  // Re-clicking the shown step undoes it (back to the previous step / original).
+  const isUndo = stepIndex === reviewSelectedStepIndex
+  const target = isUndo ? stepIndex - 1 : stepIndex
+  reviewStepRunInProgress = true
+  reviewSelectedStepIndex = target
+  reviewStepsUnlocked = isUndo ? target + 1 : Math.max(reviewStepsUnlocked, target + 1)
+  renderReviewExplanation()
+  try {
+    await reviewRenderer.renderStep(target)
+    if (target >= 0) reviewErrors.delete(target)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('[evaluation] review renderStep failed', { stepIndex: target, error })
+    if (target >= 0) reviewErrors.set(target, message)
+  } finally {
+    reviewStepRunInProgress = false
+    renderReviewExplanation()
+  }
+}
+
+function updateReviewArrows() {
+  reviewPrevBtn.disabled = reviewIdx <= 0
+  reviewNextBtn.disabled = reviewIdx >= reviewItems.length - 1
+  reviewCounterEl.textContent = reviewItems.length ? `Explanation ${reviewIdx + 1} of ${reviewItems.length}` : ''
+}
+
+// Load one of the block's items into the review panel and reset its step state.
+async function activateReviewItem(idx: number) {
+  if (idx < 0 || idx >= reviewItems.length) return
+  reviewIdx = idx
+  const item = reviewItems[idx]
+  if (reviewRenderer) { reviewRenderer.teardown(); reviewRenderer = null }
+  reviewChartEl.innerHTML = ''
+  reviewStepTexts = []
+  reviewStepsUnlocked = 0
+  reviewSelectedStepIndex = -1
+  reviewStepRunInProgress = false
+  reviewErrors = new Map()
+  reviewQuestionEl.textContent = item.question
+  updateReviewArrows()
+  renderReviewExplanation()
+  try {
+    const renderer = createRenderer(item.method, reviewContext)
+    await renderer.loadChart(item.chart_id)
+    await renderer.renderStep(-1)
+    reviewRenderer = renderer
+    reviewStepTexts = renderer.getStepTexts()
+  } catch (error) {
+    console.error('[evaluation] review item load failed', { item, error })
+    reviewChartEl.innerHTML = '<div class="renderer-empty">Explanation unavailable.</div>'
+    reviewStepTexts = []
+  }
+  renderReviewExplanation()
+}
+
+async function setupReview(block: SessionBlock | undefined) {
+  teardownReview()
+  if (!block) return
+  reviewItems = sequence.slice(block.startIdx, block.endIdx + 1)
+  await activateReviewItem(0)
+}
+
+function teardownReview() {
+  if (reviewRenderer) { reviewRenderer.teardown(); reviewRenderer = null }
+  reviewItems = []
+  reviewIdx = 0
+  reviewStepTexts = []
+  reviewStepsUnlocked = 0
+  reviewSelectedStepIndex = -1
+  reviewStepRunInProgress = false
+  reviewErrors = new Map()
+  reviewChartEl.innerHTML = ''
+  reviewQuestionEl.textContent = ''
+  reviewExplanationEl.innerHTML = ''
+  reviewCounterEl.textContent = ''
+}
+
 async function renderIntroPage(kind: IntroKind) {
   introCardEl.hidden = false
   chartCardEl.hidden = true
   bottomAreaEl.hidden = true
   taskBannerEl.hidden = true
+  introCardEl.classList.toggle('intro-card--welcome', kind === 'intro-welcome')
 
   if (kind === 'intro-welcome') {
     introEyebrowEl.textContent = 'WELCOME'
@@ -519,8 +1006,8 @@ async function renderIntroPage(kind: IntroKind) {
     introDemoHintEl.textContent = '↑ Try clicking each block to see how the chart changes.'
 
     await ensureDemoLoaded()
-    const demoEntry = charts[demoChartId]
-    introDemoQuestionEl.textContent = demoEntry?.question ?? ''
+    const tutorialEntry = Object.values(chartGroup).flatMap((g) => Object.values(g)).find((c) => c.id === demoChartId)
+    introDemoQuestionEl.textContent = tutorialEntry?.question ?? ''
     renderDemoExplanation()
     return
   }
@@ -540,19 +1027,59 @@ function showSurveyLayout() {
   introDemoEl.hidden = true
 }
 
+function showPostSessionLayout() {
+  introCardEl.hidden = true
+  chartCardEl.hidden = true
+  bottomAreaEl.hidden = false
+  taskBannerEl.hidden = true
+  introDemoEl.hidden = true
+}
+
+// The final page is complete when all three systems are ranked AND the required
+// "reason for your ranking" is non-empty. (The extra free comment is optional.)
+function isFinalComplete(): boolean {
+  // Complete when every dimension's 3 slots are filled (the open comment is optional).
+  return RANKING_DIMENSIONS.every((dim) =>
+    (['1', '2', '3'] as const).every((n) => !!surveyResponses.get(`final::rank-${dim.id}-${n}`)),
+  )
+}
+
+// On the final page the Next button becomes Submit, enabled once the page is complete.
+function updateFinalNav() {
+  const complete = isFinalComplete()
+  nextBtnLabel.textContent = complete ? 'Submit' : 'Next'
+  nextBtn.disabled = !complete || stepRunInProgress
+}
+
+// Final save to Firebase, then return to the participant-code entry page.
+async function submitAndExit() {
+  if (!isFinalComplete()) return
+  flushTimer()
+  if (saveTimer != null) { clearTimeout(saveTimer); saveTimer = null }
+  nextBtn.disabled = true
+  nextBtnLabel.textContent = 'Submitting…'
+  await saveNow()
+  clearSession()
+  location.assign(withBase('/'))
+}
+
 function updateUI() {
   const page = allPages[currentPageIndex]
   const totalPages = allPages.length
 
   prevBtn.disabled = currentPageIndex === 0 || stepRunInProgress
   nextBtn.disabled = currentPageIndex === totalPages - 1 || stepRunInProgress
+  nextBtnLabel.textContent = 'Next'
 
   const pct = totalPages > 0 ? Math.round((currentPageIndex + 1) / totalPages * 100) : 0
   progressFillEl.style.width = `${pct}%`
   progressTrackEl.setAttribute('aria-valuenow', String(pct))
   surveyWarningEl.textContent = ''
 
-  if (!page || page.kind !== 'survey') {
+  explanationEl.hidden = false
+
+  // Intro pages.
+  if (!page || (page.kind !== 'survey' && page.kind !== 'post-session' && page.kind !== 'final')) {
     if (methodBadgeEl) methodBadgeEl.textContent = ''
     debugMetaEl.textContent = ''
     if (page?.kind === 'intro-welcome') progressLabelEl.textContent = 'Introduction · 1 of 3'
@@ -562,6 +1089,38 @@ function updateUI() {
     return
   }
 
+  // Final ranking + comments page (no chart).
+  if (page.kind === 'final') {
+    progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
+    if (methodBadgeEl) methodBadgeEl.textContent = ''
+    debugMetaEl.textContent = `Final · ${finalItems.map((it) => `${it.key}=${it.system}`).join(' ')}`
+    questionEl.textContent = 'Final step: rank the systems and share any comments.'
+    descriptionEl.textContent = ''
+    explanationEl.hidden = true
+    explanationEl.innerHTML = ''
+    renderFinalPage()
+    updateFinalNav()
+    return
+  }
+
+  // Post-session reflection page (one per system block; no chart).
+  if (page.kind === 'post-session') {
+    const block = blocks[page.blockIdx]
+    progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
+    if (methodBadgeEl) methodBadgeEl.textContent = ''
+    debugMetaEl.textContent = block ? `Post-session · System ${block.system} · Group ${block.group}` : ''
+    // Heading sits ABOVE the review carousel (#postSessionHeading); keep the
+    // in-flow questionText empty so it is not duplicated below the panel.
+    postSessionHeadingEl.textContent = 'You have finished one system. Please answer a few questions about the system you just used.'
+    questionEl.textContent = ''
+    descriptionEl.textContent = ''
+    explanationEl.hidden = true
+    explanationEl.innerHTML = ''
+    renderSurveyPage()
+    return
+  }
+
+  // Per-chart survey page.
   const item = sequence[page.itemIdx]
   progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
   if (methodBadgeEl) methodBadgeEl.textContent = `Question ${page.itemIdx + 1} / ${sequence.length}`
@@ -576,7 +1135,7 @@ function updateUI() {
     stepErrors,
     stepRunInProgress,
     onClick: (i) => { void runStep(i) },
-  })
+  }, item.answer)
 
   renderSurveyPage()
 }
@@ -592,8 +1151,6 @@ async function activateItem(item: SequenceItem) {
   stepsUnlocked = 0
   selectedStepIndex = -1
   stepErrors = new Map()
-  statusEl.className = ''
-  statusEl.textContent = ''
 
   try {
     const renderer = createRenderer(item.method)
@@ -604,17 +1161,20 @@ async function activateItem(item: SequenceItem) {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     console.error('[evaluation] activateItem failed', { item, error })
-    statusEl.className = 'status--error'
-    statusEl.textContent = `Failed to load (${item.method}) for ${item.chart_id}: ${message}`
     currentItemKey = key
   }
 }
 
 async function loadPage(idx: number) {
+  flushTimer() // accumulate dwell time on the page we are leaving
   const nextPageIndex = clampPageIndex(idx)
   currentPageIndex = nextPageIndex
   const page = allPages[nextPageIndex]
   if (!page) return
+  scheduleSave()
+  teardownReview()
+  reviewPanelEl.hidden = true
+  postSessionHeadingEl.hidden = true
 
   if (page.kind === 'survey') {
     showSurveyLayout()
@@ -622,6 +1182,25 @@ async function loadPage(idx: number) {
     const itemChanged = page.itemIdx !== currentItemIndex || currentRenderer == null
     currentItemIndex = page.itemIdx
     if (itemChanged) await activateItem(item)
+    updateUI()
+    // Time the Yes/No page (surveyPageIdx 0) until the participant navigates away.
+    if (page.surveyPageIdx === 0) activeTimer = { chartId: item.chart_id, startedAt: performance.now() }
+    return
+  }
+
+  if (page.kind === 'post-session') {
+    currentItemIndex = -1
+    showPostSessionLayout()
+    updateUI()
+    postSessionHeadingEl.hidden = false
+    reviewPanelEl.hidden = false
+    await setupReview(blocks[page.blockIdx])
+    return
+  }
+
+  if (page.kind === 'final') {
+    currentItemIndex = -1
+    showPostSessionLayout()
     updateUI()
     return
   }
@@ -638,7 +1217,13 @@ function navigateToPage(idx: number, replace = false) {
 }
 
 prevBtn.addEventListener('click', () => navigateToPage(currentPageIndex - 1))
+reviewPrevBtn.addEventListener('click', () => { void activateReviewItem(reviewIdx - 1) })
+reviewNextBtn.addEventListener('click', () => { void activateReviewItem(reviewIdx + 1) })
 nextBtn.addEventListener('click', () => {
+  if (allPages[currentPageIndex]?.kind === 'final') {
+    void submitAndExit()
+    return
+  }
   if (!isSurveyPageComplete()) {
     surveyWarningEl.textContent = 'Please answer all questions before proceeding.'
     surveyWarningEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
@@ -651,6 +1236,20 @@ nextBtn.addEventListener('click', () => {
 window.addEventListener('popstate', () => {
   void loadPage(getPageIndexFromUrl())
 })
+
+// Load persisted responses (so back/forward and reloads show prior answers),
+// then start. If Firestore is unreachable, the study still runs without saving.
+try {
+  firestoreSettings = await loadFirestoreSettings(withBase('/config.json'))
+  const existing = await getDocumentFields(firestoreSettings, ['evaluation_responses', participant.code])
+  if (existing) hydrateFromDoc(existing)
+  persistenceReady = true
+} catch (error) {
+  console.error('[evaluation] Firestore unavailable; responses will not be saved.', error)
+}
+
+// Best-effort flush of the final dwell + a save when the tab is hidden/closed.
+window.addEventListener('pagehide', () => { flushTimer(); void saveNow(true) })
 
 syncPageUrl(currentPageIndex, true)
 void loadPage(currentPageIndex)

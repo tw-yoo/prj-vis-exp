@@ -186,6 +186,15 @@ export function valueToRootYForBars(instance: BarGroupGeometryInstance, value: n
   for (const rect of bars) {
     const v = Number(rect.getAttribute(DataAttributes.Value))
     if (!Number.isFinite(v)) continue
+    // Skip collapsed / hidden bars. A recompose-filter parks out-of-scope and
+    // other-series bars at height 0 / opacity 0 on the baseline; including them
+    // drags both fit anchors to the baseline (the global min/max values are
+    // often hidden bars), flattening the result to value 0. Only bars actually
+    // drawn at their value height carry the value→pixel scale. (Dimmed bars in
+    // 'dim' mode keep their real height + non-zero opacity, so they stay.)
+    const height = readNumberAttr(rect, SvgAttributes.Height) ?? 0
+    if (Math.abs(height) < 0.5) continue
+    if (rect.style.opacity === '0') continue
     const top = barRootMetrics(rect).topY
     if (v < minV) {
       minV = v

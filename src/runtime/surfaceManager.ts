@@ -398,7 +398,12 @@ export class SurfaceManager {
         host.style.transition = ''
         host.style.opacity = ''
         host.style.zIndex = ''
-        host.style.flex = '1 1 0'
+        // Don't clobber a flex-grow the split-visuals policy scaled for
+        // equal-size panels (data-split-flex-managed); only default unmanaged
+        // hosts to equal `1 1 0`.
+        if (host.dataset.splitFlexManaged !== 'true') {
+          host.style.flex = '1 1 0'
+        }
         host.style.minWidth = '0'
         host.style.minHeight = '0'
       }
@@ -563,6 +568,13 @@ export class SurfaceManager {
 
     if (this.layout.type === 'single') {
       this.rootContainer.classList.remove('surface-layout--split')
+      // Drop the standalone split legend panel mounted by the split-visuals
+      // policy (only present for grouped/stacked splits with a color legend),
+      // and its wrap mode.
+      this.rootContainer
+        .querySelectorAll<HTMLElement>(':scope > .surface-split-legend')
+        .forEach((node) => node.remove())
+      this.rootContainer.style.flexWrap = ''
       this.rootContainer.style.display = ''
       this.rootContainer.style.flexDirection = ''
       this.rootContainer.style.gap = ''
@@ -599,10 +611,11 @@ export class SurfaceManager {
 
     if (this.layout.type === 'split-horizontal') {
       this.rootContainer.style.flexDirection = 'row'
-      // 각 surface host가 동등한 너비를 갖도록
+      // 각 surface host가 동등한 너비를 갖도록 (단, split-visuals 정책이
+      // 패널 동일 크기를 위해 스케일한 flex는 보존: data-split-flex-managed).
       this.layout.surfaces.forEach((surface) => {
         const host = this.asHostElement(surface)
-        host.style.flex = '1 1 0'
+        if (host.dataset.splitFlexManaged !== 'true') host.style.flex = '1 1 0'
         host.style.minWidth = '0'
       })
     } else {
@@ -610,7 +623,7 @@ export class SurfaceManager {
       this.rootContainer.style.flexDirection = 'column'
       this.layout.surfaces.forEach((surface) => {
         const host = this.asHostElement(surface)
-        host.style.flex = '1 1 0'
+        if (host.dataset.splitFlexManaged !== 'true') host.style.flex = '1 1 0'
         host.style.minHeight = '0'
       })
     }

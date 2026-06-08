@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Evaluation Viewer</title>
+  <title>Evaluation</title>
   <link rel="stylesheet" id="evaluationStylesheet">
   <script>
     window.__EVALUATION_BASE_PATH__ = location.pathname.split('/').filter(Boolean)[0] === 'evaluation'
@@ -42,12 +42,25 @@
       <div id="chartContainer"></div>
     </section>
 
+    <div id="postSessionHeading" class="question-text post-session-heading" hidden></div>
+
+    <section class="review-panel" id="reviewPanel" aria-label="System explanations" hidden>
+      <button class="review-arrow review-arrow--prev" id="reviewPrev" type="button" aria-label="Previous explanation">&#8249;</button>
+      <div class="review-stage">
+        <p class="review-title">Below are the 5 explanations this system produced. Use the arrows to look back through them.</p>
+        <div class="review-counter" id="reviewCounter"></div>
+        <div id="reviewChart" class="review-chart"></div>
+        <div id="reviewQuestion" class="question-text"></div>
+        <div id="reviewExplanation" class="explanation-area"></div>
+      </div>
+      <button class="review-arrow review-arrow--next" id="reviewNext" type="button" aria-label="Next explanation">&#8250;</button>
+    </section>
+
     <section class="bottom-area" id="bottomArea" aria-label="Question and survey">
       <div id="debugMeta" class="debug-meta"></div>
       <div id="questionText" class="question-text"></div>
       <div id="descriptionText" class="description-text"></div>
       <div id="explanationArea" class="explanation-area"></div>
-      <div id="statusArea" class="status-area"></div>
       <form id="surveyArea" class="survey-area"></form>
     </section>
 

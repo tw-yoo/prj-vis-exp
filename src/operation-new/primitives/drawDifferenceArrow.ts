@@ -2,7 +2,7 @@ import type * as d3 from 'd3'
 import { SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
 import { COLORS, DURATIONS, EASINGS } from '../../rendering/common/d3Helpers'
 import { placeOperationTextLabel } from './placeLabel'
-import type { AnnotationViewport } from './annotationLayer'
+import { annotationFontSize, type AnnotationViewport } from './annotationLayer'
 
 const ENDPOINT_PADDING_PX = 8
 const HEAD_LENGTH_PX = 10
@@ -112,7 +112,7 @@ export async function drawVerticalComparisonArrow(opts: VerticalComparisonArrowO
     .attr(SvgAttributes.X, labelX)
     .attr(SvgAttributes.Y, labelY)
     .attr(SvgAttributes.DominantBaseline, 'middle')
-    .attr(SvgAttributes.FontSize, 12)
+    .attr(SvgAttributes.FontSize, annotationFontSize(svg.node()))
     .attr(SvgAttributes.FontWeight, 700)
     .attr(SvgAttributes.Fill, color)
     .text(label)
@@ -230,7 +230,7 @@ export function drawDirectionalArrow(opts: DirectionalArrowOptions): Promise<voi
       .attr(SvgAttributes.Y, Math.max(12, labelY))
       .attr(SvgAttributes.TextAnchor, 'middle')
       .attr(SvgAttributes.DominantBaseline, 'middle')
-      .attr(SvgAttributes.FontSize, 12)
+      .attr(SvgAttributes.FontSize, annotationFontSize(svg.node()))
       .attr(SvgAttributes.FontWeight, 700)
       .attr(SvgAttributes.Fill, color)
       .style(SvgAttributes.Opacity, 0)

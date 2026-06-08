@@ -26,6 +26,14 @@ const SHARED_COLOR_LEGEND_COMPACT_OFFSET_ATTRIBUTE = 'data-shared-color-legend-c
 // charts; using a constant keeps this independent of whether y-axis
 // compaction already collapsed marginLeft to 0.
 const SHARED_COLOR_LEGEND_RIGHT_PADDING = 18
+// Standalone legend panel mounted as the last flex child of the split
+// container when a grouped/stacked split hides the legend on BOTH chart
+// surfaces (so neither chart is widened by the legend reserve → equal sizes).
+const SPLIT_LEGEND_PANEL_CLASS = 'surface-split-legend'
+// Marks a split host whose flex-grow was scaled by the legend-compaction
+// policy, so SurfaceManager's post-animation `finalizeHost` / `applyLayoutStyles`
+// do NOT reset it back to `flex: 1 1 0` and undo the equal-sizing.
+const SPLIT_FLEX_MANAGED_DATASET = 'splitFlexManaged'
 
 function isSplitDebugEnabled() {
   return Boolean((globalThis as typeof globalThis & { __OPERATION_NEXT_DEBUG__?: unknown }).__OPERATION_NEXT_DEBUG__)
@@ -85,11 +93,16 @@ function parseTranslate(transform: string | null | undefined) {
   }
 }
 
-function primaryPlotGroup(svg: SVGSVGElement) {
-  return Array.from(svg.children).find(
+/**
+ * Every plot group in the SVG: a non-faceted chart has exactly one (the
+ * axes + bars group), a faceted chart has one per facet panel. All must move
+ * together when reclaiming the shared y-axis margin.
+ */
+function allPlotGroups(svg: SVGSVGElement): SVGGElement[] {
+  return Array.from(svg.children).filter(
     (child): child is SVGGElement =>
       child instanceof SVGGElement && child.querySelector(`rect.${SvgClassNames.MainBar}`) != null,
-  ) ?? null
+  )
 }
 
 function shiftNumericAttr(node: SVGElement | null, attr: string, offset: number) {
@@ -116,19 +129,27 @@ function compactSharedYAxisSurface(host: HTMLElement) {
     return { compacted: false, reason: 'invalid-margin-left', offset: marginLeft }
   }
 
-  const plotGroup = primaryPlotGroup(svg)
-  if (!plotGroup) return { compacted: false, reason: 'plot-group-not-found', offset: marginLeft }
+  const plotGroups = allPlotGroups(svg)
+  if (plotGroups.length === 0) return { compacted: false, reason: 'plot-group-not-found', offset: marginLeft }
 
-  const translate = parseTranslate(plotGroup.getAttribute(SvgAttributes.Transform))
-  const currentX = translate?.x ?? marginLeft
-  const currentY = translate?.y ?? Number(svg.getAttribute(DataAttributes.MarginTop) ?? 0)
-  const offset = Math.min(marginLeft, currentX)
+  // Offset is the reclaimed left-margin (the hidden y-axis gutter), derived from
+  // the first plot group's x. ALL plot groups then shift by that SAME offset so
+  // the inter-panel spacing of a faceted chart is preserved (shifting only the
+  // first panel detached it and pushed the rest past the viewBox edge).
+  const marginTop = Number(svg.getAttribute(DataAttributes.MarginTop) ?? 0)
+  const firstX = parseTranslate(plotGroups[0].getAttribute(SvgAttributes.Transform))?.x ?? marginLeft
+  const offset = Math.min(marginLeft, firstX)
 
   if (!Number.isFinite(offset) || offset <= 0) {
     return { compacted: false, reason: 'invalid-offset', offset }
   }
 
-  plotGroup.setAttribute(SvgAttributes.Transform, `translate(${currentX - offset},${currentY})`)
+  plotGroups.forEach((group) => {
+    const t = parseTranslate(group.getAttribute(SvgAttributes.Transform))
+    const gx = t?.x ?? marginLeft
+    const gy = t?.y ?? marginTop
+    group.setAttribute(SvgAttributes.Transform, `translate(${gx - offset},${gy})`)
+  })
   shiftNumericAttr(svg.querySelector<SVGElement>(`.${SvgClassNames.XAxisLabel}`), SvgAttributes.X, offset)
 
   svg.setAttribute(DataAttributes.MarginLeft, String(Math.max(0, marginLeft - offset)))
@@ -202,9 +223,12 @@ function compactSharedColorLegendSurface(host: HTMLElement) {
 
   // Scale flex-grow so the compacted surface receives proportionally less
   // pixel width, keeping the same `pixels per viewBox-unit` ratio as the
-  // still-full neighbor.
+  // still-full neighbor. Mark the host as managed so SurfaceManager's
+  // post-animation `finalizeHost` / `applyLayoutStyles` won't reset it back
+  // to `flex: 1 1 0` and undo the equal-sizing across panels.
   const flexGrow = newViewBoxWidth / vbW
   host.style.flex = `${flexGrow} 1 0`
+  host.dataset[SPLIT_FLEX_MANAGED_DATASET] = 'true'
 
   return {
     compacted: true,
@@ -223,7 +247,6 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
     return
   }
 
-  const lastIndex = surfaces.length - 1
   surfaces.forEach((surface, index) => {
     const host = surface.hostElement as HTMLElement
     const hideYAxis = index > 0
@@ -236,7 +259,15 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
       compactSharedYAxisSurface(host)
     }
 
-    const hideColorLegend = index < lastIndex
+    // Hide + compact the color legend out of EVERY chart surface (not just the
+    // left). Carrying the legend inside a surface's viewBox widens it, so with
+    // equal `flex: 1 1 0` the legend-bearing panel renders smaller. With the
+    // legend compacted out of all surfaces (and each flex-scaled ∝ its content
+    // width by `compactSharedColorLegendSurface`), the bars render at the same
+    // scale across panels. The legend is shown once in a dedicated panel
+    // (`mountSplitLegendPanel`, below). Runs AFTER the y-axis compaction so it
+    // reads the already-reduced `marginLeft`.
+    const hideColorLegend = true
     host.dataset.sharedColorLegendHidden = hideColorLegend ? 'true' : 'false'
     host.querySelectorAll<SVGElement>(`.${SvgClassNames.ColorLegend}`).forEach((node) => {
       node.style.display = hideColorLegend ? 'none' : ''
@@ -246,6 +277,10 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
       compactSharedColorLegendSurface(host)
     }
   })
+
+  // Shared legend now lives in its own far-right panel so neither chart carries
+  // it (keeps the two charts equal size).
+  mountSplitLegendPanel(surfaceManager)
   splitDebug('splitVisuals.applySharedYAxisPolicy-applied', {
     surfaces: surfaces.map((surface, index) => {
       const host = surface.hostElement as HTMLElement
@@ -264,6 +299,84 @@ export function applySplitSharedYAxisPolicy(surfaceManager: SurfaceManager | nul
       }
     }),
   })
+}
+
+/**
+ * Mount (or refresh) the shared color legend as a compact horizontal strip
+ * ABOVE the two chart panels, so neither chart's viewBox carries the legend and
+ * both use the FULL container width (a side legend stole ~half the width and
+ * shrank the charts — the reported problem). The split container is set to
+ * `flex-wrap: wrap`; the legend is a full-width row pinned first via `order:-1`,
+ * and the two chart panels wrap to the row below (still flex-scaled for equal
+ * bar size). Built as lightweight HTML so long labels wrap naturally. The
+ * (series, color) pairs come from a surface's `g.color-legend` — which carries
+ * ALL series (the filter applier skips legend-narrowing on split surfaces).
+ * Idempotent; no-op when there is no color legend (e.g. simple bar).
+ */
+function mountSplitLegendPanel(surfaceManager: SurfaceManager | null | undefined) {
+  const surfaces = activeHorizontalSplitSurfaces(surfaceManager)
+  if (!surfaces) return
+  const firstHost = surfaces[0].hostElement as HTMLElement
+  const container = firstHost.closest('.surface-layout--split') as HTMLElement | null
+  if (!container) return
+
+  // Idempotent re-apply: drop any prior panel and its wrap mode.
+  container.querySelectorAll(`:scope > .${SPLIT_LEGEND_PANEL_CLASS}`).forEach((node) => node.remove())
+  container.style.flexWrap = ''
+
+  // Source legend: the first surface that actually has one.
+  let sourceLegend: SVGGElement | null = null
+  for (const surface of surfaces) {
+    const host = surface.hostElement as HTMLElement
+    const legend = host.querySelector<SVGGElement>(`${SvgElements.Svg} .${SvgClassNames.ColorLegend}`)
+    if (legend) {
+      sourceLegend = legend
+      break
+    }
+  }
+  if (!sourceLegend) return
+
+  // Title (the one legend <text> without a data-series) + (series, color) items.
+  const title =
+    Array.from(sourceLegend.querySelectorAll('text')).find((t) => !t.hasAttribute(DataAttributes.Series))
+      ?.textContent ?? ''
+  const seen = new Set<string>()
+  const items: Array<{ series: string; color: string }> = []
+  sourceLegend.querySelectorAll<SVGCircleElement>(`circle[${DataAttributes.Series}]`).forEach((circle) => {
+    const series = circle.getAttribute(DataAttributes.Series) ?? ''
+    if (!series || seen.has(series)) return
+    seen.add(series)
+    items.push({ series, color: circle.getAttribute(SvgAttributes.Fill) ?? '#999' })
+  })
+  if (items.length === 0) return
+
+  const panel = document.createElement('div')
+  panel.className = SPLIT_LEGEND_PANEL_CLASS
+  panel.style.cssText =
+    'flex:0 0 100%;order:-1;display:flex;flex-wrap:wrap;align-items:center;' +
+    'gap:4px 16px;padding:2px 4px 6px;font-family:sans-serif;font-size:14px;pointer-events:none;'
+
+  if (title) {
+    const titleEl = document.createElement('span')
+    titleEl.textContent = title
+    titleEl.style.cssText = 'font-weight:700;margin-right:4px;'
+    panel.appendChild(titleEl)
+  }
+  items.forEach(({ series, color }) => {
+    const item = document.createElement('span')
+    item.style.cssText = 'display:inline-flex;align-items:center;gap:6px;white-space:nowrap;'
+    const dot = document.createElement('span')
+    dot.style.cssText = `width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:${color};`
+    const label = document.createElement('span')
+    label.textContent = series
+    item.append(dot, label)
+    panel.appendChild(item)
+  })
+
+  // Wrap mode: legend takes the first full-width row, the two chart panels wrap
+  // to the row below and share its full width (by their managed flex-grow).
+  container.style.flexWrap = 'wrap'
+  container.appendChild(panel)
 }
 
 function readOperationRefs(operation: OperationSpec) {

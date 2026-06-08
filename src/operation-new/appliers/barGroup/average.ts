@@ -2,7 +2,8 @@ import * as d3 from 'd3'
 import { averageData } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
 import { ChartType } from '../../../domain/chart'
-import { SvgClassNames } from '../../../rendering/interfaces'
+import { DataAttributes, SvgClassNames } from '../../../rendering/interfaces'
+import { DURATIONS, EASINGS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import {
   RESULT_REF_ATTRIBUTE,
@@ -24,6 +25,7 @@ import {
   type BarGroupGeometryInstance,
 } from './_geometry'
 import { convertGroupToSimpleBarSurface } from './groupConversion'
+import { barMarkKeyFromNode, inferBarYFromAxis } from './_shared'
 
 /** Shared with simpleBar + the split-diff fallback selector
  *  (`line.operation-next-average`), so a grouped/stacked average can anchor a
@@ -46,7 +48,16 @@ async function drawBarGroupAverageLine(args: {
   resultRef: string | null
 }): Promise<void> {
   const { geo, layer, average, label, resultRef } = args
-  const y = valueToRootYForBars(geo, average)
+  // Resolve the line's y from the rendered y-axis ticks (the ground truth) —
+  // the same axis-based resolver the filter applier uses for its threshold
+  // line (`stackedBar/filter.ts`). `inferBarYFromAxis` returns a plot-local y,
+  // so add the plot group's marginTop for root-SVG coords. This is immune to
+  // collapsed/out-of-scope bars: a recompose-filter parks them at height 0 on
+  // the baseline, which a `valueToRootYForBars` two-sample fit would otherwise
+  // anchor to, flattening the line to value 0. Fall back to the bar fit only
+  // when the axis has <2 numeric ticks.
+  const axisLocalY = inferBarYFromAxis(geo.svg, average)
+  const y = axisLocalY != null ? geo.layout.marginTop + axisLocalY : valueToRootYForBars(geo, average)
   const { x1, x2 } = resolveBarPlotBounds(geo)
 
   // `drawReferenceLine` appends the <line> synchronously before its first await
@@ -199,6 +210,28 @@ export function makeBarGroupAverageApplier<T extends BarGroupApplierInstance>(op
           .remove()
       }
 
+      // Group-scoped average drawn on the (un-converted) grouped/stacked chart
+      // — a faceted chart can't collapse to a simple bar, so highlight the
+      // average's group by dimming every out-of-group bar (mirrors a filter to
+      // that group). Persist via the salience map so a re-render keeps it.
+      let nextSalienceMap = state.salienceMap
+      if (group) {
+        const salience = new Map<string, number>()
+        instance.mainBars().each(function (this: SVGRectElement) {
+          const series =
+            this.getAttribute(DataAttributes.Series) ?? this.getAttribute(DataAttributes.GroupValue) ?? ''
+          const next = series === group ? OPACITIES.FULL : OPACITIES.DIM
+          d3.select(this)
+            .interrupt()
+            .transition()
+            .duration(DURATIONS.DIM)
+            .ease(EASINGS.SMOOTH)
+            .style('opacity', next)
+          salience.set(barMarkKeyFromNode(this), next)
+        })
+        nextSalienceMap = salience
+      }
+
       const isFiltered = state.filterContext != null || state.salienceMap.size > 0
       const label = isFiltered
         ? `Avg (filtered): ${formatOperationValue(average)}`
@@ -211,6 +244,7 @@ export function makeBarGroupAverageApplier<T extends BarGroupApplierInstance>(op
           ...state,
           derivedData: null,
           lastResult: result,
+          salienceMap: nextSalienceMap,
           annotationRecords: [
             ...state.annotationRecords,
             {

@@ -127,11 +127,18 @@ export const filterApplier: OperationApplier<GroupedBarChartInstance> = {
     // opacity 0. Skip the legend narrowing entirely for that case — the
     // pairDiff applier already collapsed the legend down to {groupA,
     // groupB} when phase 3 ran on the freshly-rendered grouped SVG.
-    const activeSeriesValues = pairDiffInput
-      ? new Set<string>()
-      : new Set<string>(
-          result.map((d) => String(d.group ?? d.series ?? '')).filter((s) => s.length > 0),
-        )
+    //
+    // Likewise skip on a split surface: its color legend is a SHARED
+    // cross-surface reference (the sibling surface's legend is hidden and
+    // reads from it), so it must keep ALL series — never declutter it.
+    const surfaceId = instance.host.closest('[data-surface-id]')?.getAttribute('data-surface-id')
+    const onSplitSurface = surfaceId === 'split-left' || surfaceId === 'split-right'
+    const activeSeriesValues =
+      pairDiffInput || onSplitSurface
+        ? new Set<string>()
+        : new Set<string>(
+            result.map((d) => String(d.group ?? d.series ?? '')).filter((s) => s.length > 0),
+          )
 
     // When the filter input is a pairDiff result, dim the per-target
     // Δ-arrow annotations (line connectors + arrow shaft + arrow heads +

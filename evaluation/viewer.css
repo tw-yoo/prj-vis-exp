@@ -86,6 +86,20 @@ body {
   font-weight: 600;
 }
 
+/* Larger text on the Welcome page only (first intro page). */
+.intro-card--welcome .intro-eyebrow {
+  font-size: 14px;
+}
+
+.intro-card--welcome .intro-title {
+  font-size: 34px;
+}
+
+.intro-card--welcome .intro-body {
+  font-size: 19px;
+  line-height: 1.75;
+}
+
 .intro-body code {
   padding: 1px 6px;
   background: #f1f5f9;
@@ -125,6 +139,7 @@ body {
 }
 
 .intro-demo__chart {
+  position: relative;
   min-height: 280px;
   margin-bottom: 18px;
   display: flex;
@@ -168,12 +183,12 @@ body {
 /* ---------- Task banner (above chart card) ---------- */
 
 .task-banner {
-  padding: 12px 20px;
+  padding: 18px 26px;
   border: 1px solid #bfdbfe;
   border-radius: 10px;
   background: #eff6ff;
   color: #1e3a8a;
-  font-size: 15px;
+  font-size: 21px;
   line-height: 1.5;
   text-align: center;
 }
@@ -219,15 +234,23 @@ body {
 
 #chartContainer {
   position: relative;
-  min-height: 380px;
-  overflow: auto;
+  height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
+/* Fixed box: the SVG scales to fit within it (contain), preserving aspect
+   ratio, so the chart card never resizes as annotations change the viewBox. */
 #chartContainer svg {
   display: block;
-  margin: 0 auto;
   max-width: 100%;
+  max-height: 100%;
+  width: auto;
   height: auto;
+  min-width: 0;
+  min-height: 0;
   overflow: visible;
 }
 
@@ -269,12 +292,293 @@ body {
   display: none;
 }
 
+/* Final ranking + comments page */
+.final-survey {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.final-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.final-prompt {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #0f172a;
+}
+
+.rank-board {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rank-pool {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rank-pool__hint {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.rank-slot__num {
+  font-size: 20px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.rank-pool__drop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 56px;
+  padding: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.rank-slots {
+  display: flex;
+  gap: 12px;
+}
+
+.rank-slot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rank-slot__drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 68px;
+  padding: 12px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.rank-drop--over {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.rank-item {
+  padding: 12px 20px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  user-select: none;
+}
+
+.rank-item--dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+.final-done {
+  font-size: 16px;
+  font-weight: 600;
+  color: #16a34a;
+}
+
+.final-comment {
+  width: 100%;
+  resize: vertical;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.final-comment:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.survey-text {
+  width: 100%;
+  resize: vertical;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.survey-text:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* Post-session review carousel */
+.review-panel {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.review-panel[hidden] {
+  display: none;
+}
+
+.review-arrow {
+  flex: 0 0 auto;
+  width: 60px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  color: #334155;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.review-arrow:hover:not(:disabled) {
+  background: #eff6ff;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.review-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.review-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.review-counter {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #64748b;
+}
+
+.review-chart {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.review-chart svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Chart hover tooltip (engine adds `.chart-hover-tooltip` via attachChartHoverTooltip;
+   these rules normally live in web/App.css, which the evaluation viewer doesn't load). */
+.chart-hover-tooltip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  min-width: 132px;
+  max-width: min(260px, calc(100% - 24px));
+  padding: 12px 14px;
+  border: 1px solid rgba(203, 213, 225, 0.9);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+.chart-hover-tooltip[hidden] {
+  display: none;
+}
+
+.chart-hover-tooltip__row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 10px;
+  align-items: baseline;
+}
+
+.chart-hover-tooltip__row + .chart-hover-tooltip__row {
+  margin-top: 6px;
+}
+
+.chart-hover-tooltip__label {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.chart-hover-tooltip__value {
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: right;
+  word-break: break-word;
+}
+
 .question-text {
   font-size: 22px;
   font-weight: 700;
   line-height: 1.4;
   letter-spacing: -0.01em;
   color: #0f172a;
+}
+
+/* Post-session heading sits above the review carousel (#postSessionHeading). */
+.post-session-heading {
+  margin: 0 0 4px;
+  text-align: center;
+}
+
+.post-session-heading[hidden] {
+  display: none;
 }
 
 .description-text {
@@ -312,6 +616,24 @@ body {
 
 .explanation-area:empty {
   display: none;
+}
+
+/* Proposed answer line under the reasoning steps. */
+.explanation-answer {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 17px;
+  color: #0f172a;
+}
+
+.explanation-answer__label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.explanation-answer__value {
+  font-weight: 700;
 }
 
 .sentence {
@@ -456,6 +778,15 @@ body {
   color: #0f172a;
   line-height: 1.5;
   letter-spacing: -0.01em;
+}
+
+/* Smaller hint under a Yes/No question text. */
+.survey-question__hint {
+  margin: -14px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  font-style: italic;
+  color: #64748b;
 }
 
 /* Yes / No */
