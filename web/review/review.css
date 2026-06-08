@@ -170,6 +170,67 @@
 
 .review-add-btn:hover { background: #1d4ed8; }
 
+/* ── chart_id search (commit-on-submit, not a live filter) ───────────── */
+
+.review-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.review-search-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--review-text-faint);
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+.review-search-input {
+  background: var(--review-panel-2);
+  color: var(--review-text);
+  border: 1px solid var(--review-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 12px;
+  min-width: 240px;
+  outline: none;
+}
+
+.review-search-input::placeholder { color: var(--review-text-faint); }
+.review-search-input:focus { border-color: var(--review-accent-2); }
+
+.review-search-btn {
+  background: var(--review-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.review-search-btn:hover { background: #1d4ed8; }
+
+.review-search-clear {
+  background: transparent;
+  color: var(--review-text-dim);
+  border: 1px solid var(--review-border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.review-search-clear:hover {
+  border-color: var(--review-accent-2);
+  color: var(--review-text);
+}
+
 .review-status-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 
 .review-status-chip {

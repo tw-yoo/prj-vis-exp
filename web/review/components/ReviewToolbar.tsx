@@ -15,6 +15,15 @@ type Props = {
   onChartTypeFilterChange: (next: ReviewChartType | 'all') => void
   feedbackOnly: boolean
   onFeedbackOnlyChange: (next: boolean) => void
+  /** Live chart_id search text (controlled input value; does NOT filter yet). */
+  chartIdSearchInput: string
+  onChartIdSearchInputChange: (next: string) => void
+  /** Commit the pending text as the active chart_id filter (Search button / Enter). */
+  onChartIdSearchSubmit: () => void
+  /** Clear both the input and the active chart_id filter. */
+  onChartIdSearchClear: () => void
+  /** Whether a chart_id search is currently applied (toggles the Clear button). */
+  chartIdSearchActive: boolean
   saving: boolean
   saveError: string | null
   onAddRow: () => void
@@ -99,6 +108,41 @@ export default function ReviewToolbar(props: Props) {
       {props.saveError ? (
         <div className="review-toolbar-row review-save-error">Save failed: {props.saveError}</div>
       ) : null}
+      <div className="review-toolbar-row">
+        <form
+          className="review-search"
+          onSubmit={(event) => {
+            // Commit-on-submit only: keystrokes never filter; the Search button
+            // (type="submit") and Enter both route through here.
+            event.preventDefault()
+            props.onChartIdSearchSubmit()
+          }}
+        >
+          <span className="review-search-label">chart_id</span>
+          <input
+            type="text"
+            className="review-search-input"
+            placeholder="Search by chart_id…"
+            value={props.chartIdSearchInput}
+            onChange={(event) => props.onChartIdSearchInputChange(event.target.value)}
+            spellCheck={false}
+            autoComplete="off"
+          />
+          <button type="submit" className="review-search-btn">
+            Search
+          </button>
+          {props.chartIdSearchActive ? (
+            <button
+              type="button"
+              className="review-search-clear"
+              onClick={props.onChartIdSearchClear}
+              title="Clear chart_id search"
+            >
+              Clear
+            </button>
+          ) : null}
+        </form>
+      </div>
       <div className="review-toolbar-row">
         <div className="review-status-filter-group" title="Operation_spec correctness">
           <span className="review-status-filter-axis">Op</span>

@@ -240,6 +240,16 @@ export default function ReviewPage() {
   const [availableFiles, setAvailableFiles] = useState<string[]>([])
   const [currentFile, setCurrentFile] = useState<string>('')
 
+  // chart_id search. Deliberately NOT a live filter: `chartIdSearchInput` is
+  // the controlled text-box value (updates on every keystroke), while
+  // `chartIdSearchQuery` is the *committed* needle that `visibleIndexes`
+  // actually filters on. They diverge until the user presses Search (or Enter,
+  // which submits the same form) — typing alone never re-filters the table.
+  // Transient on purpose (plain useState, no localStorage): a search is a
+  // one-off lookup, not a sticky preference like the status/chart-type chips.
+  const [chartIdSearchInput, setChartIdSearchInput] = useState('')
+  const [chartIdSearchQuery, setChartIdSearchQuery] = useState('')
+
   // Ops-session state for the sentence-summary walkthrough.
   // The sentence-text label rendered for each group is simply its group key
   // (`ops`, `ops2`, `ops3`, ...) — no derivation from explanation.
@@ -522,6 +532,18 @@ export default function ReviewPage() {
     setRows((prev) =>
       prev.map((row, i) => (i === rowIndex ? { ...row, viz_feedback: value } : row)),
     )
+  }, [])
+
+  // ── chart_id search: commit / clear ─────────────────────────────────────
+  // Commit copies the live input into the applied query — this is the ONLY
+  // place the query changes, so filtering happens solely on Search/Enter.
+  const handleChartIdSearchSubmit = useCallback(() => {
+    setChartIdSearchQuery(chartIdSearchInput.trim())
+  }, [chartIdSearchInput])
+
+  const handleChartIdSearchClear = useCallback(() => {
+    setChartIdSearchInput('')
+    setChartIdSearchQuery('')
   }, [])
 
   const renderRowChart = useCallback(
@@ -1058,6 +1080,7 @@ export default function ReviewPage() {
   }, [overlayRenderInput])
 
   const visibleIndexes = useMemo(() => {
+    const chartIdNeedle = chartIdSearchQuery.trim().toLowerCase()
     return rows
       .map((row, index) => ({ row, index }))
       .filter(({ row }) => {
@@ -1065,10 +1088,11 @@ export default function ReviewPage() {
         if (vizStatusFilter !== 'all' && row.viz_status !== vizStatusFilter) return false
         if (chartTypeFilter !== 'all' && row.chart_type !== chartTypeFilter) return false
         if (feedbackOnly && !rowHasFeedback(row)) return false
+        if (chartIdNeedle && !row.chart_id.toLowerCase().includes(chartIdNeedle)) return false
         return true
       })
       .map(({ index }) => index)
-  }, [chartTypeFilter, feedbackOnly, opStatusFilter, rows, vizStatusFilter])
+  }, [chartIdSearchQuery, chartTypeFilter, feedbackOnly, opStatusFilter, rows, vizStatusFilter])
 
   const feedbackRows = useMemo(
     () => rows.reduce((acc, row) => acc + (rowHasFeedback(row) ? 1 : 0), 0),
@@ -1102,6 +1126,11 @@ export default function ReviewPage() {
             onChartTypeFilterChange={setChartTypeFilter}
             feedbackOnly={feedbackOnly}
             onFeedbackOnlyChange={setFeedbackOnly}
+            chartIdSearchInput={chartIdSearchInput}
+            onChartIdSearchInputChange={setChartIdSearchInput}
+            onChartIdSearchSubmit={handleChartIdSearchSubmit}
+            onChartIdSearchClear={handleChartIdSearchClear}
+            chartIdSearchActive={chartIdSearchQuery.trim() !== ''}
             saving={saving}
             saveError={saveError}
             onAddRow={handleAddRow}
