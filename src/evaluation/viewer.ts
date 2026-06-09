@@ -42,9 +42,19 @@ type ScaleLabels = { low: string; high: string }
 type SurveyQuestion = {
   id: string
   text: string
-  kind: 'yes-no' | 'likert7' | 'text'
+  kind: 'yes-no' | 'likert7' | 'text' | 'error-localization'
   scale?: ScaleLabels
+  // Declarative conditional: render (and require) this question only when the
+  // predicate holds. The getter reads sibling responses on the SAME survey page
+  // (by question id). Absent → always shown/required. When the predicate flips
+  // to false the question is hidden, its stored responses are reset, and it is
+  // dropped from the page's completeness check.
+  showWhen?: (get: (questionId: string) => string | undefined) => boolean
 }
+
+// The 'error-localization' question stores TWO values: the selected step index
+// under its own question id, and the free-text reason under this sibling id.
+const ERROR_DESCRIPTION_FIELD = 'error-description'
 
 type SurveyPage = {
   questions: SurveyQuestion[]
@@ -76,14 +86,24 @@ const surveyPages: SurveyPage[] = [
         text: 'The answer is correct.',
         kind: 'yes-no',
       },
+      // Conditional error-localization: only when the participant judged the
+      // answer wrong ("No"). They mark the explanation step where the reasoning
+      // first goes wrong + describe what is wrong. Both required while shown.
+      {
+        id: 'first-error-step',
+        text: 'At which step does the reasoning first go wrong? Select the step.',
+        kind: 'error-localization',
+        showWhen: (get) => get('answer-correct') === 'No',
+      },
     ],
   },
   {
     questions: [
-      // H2 (understanding) + H3 (transparency). Trust (H3) is measured per
-      // system on the post-session page, not here.
+      // Per-chart judgments: ease/understanding (H2), transparency (H3), and
+      // usefulness. Trust is measured per system on the post-session page.
       { id: 'reasoning-easy', text: 'The explanation was easy to understand.', kind: 'likert7' },
       { id: 'derivation-clear', text: 'The explanation was transparent.', kind: 'likert7' },
+      { id: 'usefulness', text: 'The explanation was useful.', kind: 'likert7' },
     ],
   },
 ]
@@ -91,27 +111,25 @@ const surveyPages: SurveyPage[] = [
 const AGREE_SCALE: ScaleLabels = { low: 'Strongly disagree', high: 'Strongly agree' }
 
 // Shown once at the END of each system block (after that system's 5 charts):
-// the 6 NASA-TLX cognitive-load dimensions, phrased about "this explanation" as
-// agreement statements on a Strongly disagree–Strongly agree scale (note:
-// tlx-performance is positively valenced, the others negatively) + an optional
-// open-ended. The system identity (Ours/B1/B2) is not revealed.
+// per-system summary judgments of the three target constructs (trust,
+// usefulness, transparency), then the 6 NASA-TLX cognitive-load dimensions,
+// then an optional open-ended. All are agreement statements on a Strongly
+// disagree–Strongly agree scale (note: tlx-performance is positively valenced,
+// the others negatively). The system identity (Ours/B1/B2/B3) is not revealed.
 const postSessionQuestions: SurveyQuestion[] = [
+  // Trust / Usefulness / Transparency — measured per system here (the per-chart
+  // page measures ease + transparency + usefulness at the single-chart level).
+  { id: 'trust', text: 'I trusted the explanations from this system.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'usefulness', text: 'The explanations from this system were useful.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'transparency', text: 'The explanations from this system were transparent about how the answers were reached.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-mental', text: 'Understanding this explanation was mentally demanding.', kind: 'likert7', scale: AGREE_SCALE },
   // { id: 'tlx-physical', text: 'Understanding this explanation was physically demanding.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-temporal', text: 'I felt hurried or rushed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-performance', text: 'I was successful in understanding the explanation.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-effort', text: 'I had to work hard to understand this explanation.', kind: 'likert7', scale: AGREE_SCALE },
-  { id: 'tlx-frustration', text: 'I felt frustrated, irritated, or stressed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
+  // { id: 'tlx-frustration', text: 'I felt frustrated, irritated, or stressed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
   // Per-system open-ended (optional).
   { id: 'open-feedback', text: 'What helped or made this system hard to use? (optional)', kind: 'text' },
-]
-
-const RANKING_DIMENSIONS: Array<{ id: string; promptHtml: string }> = [
-  { id: 'trust', promptHtml: 'Rank the systems by <strong>how much you trusted the explanation</strong>, from the one you trusted <strong>most</strong> to the one you trusted <strong>least</strong>. Drag each system into a numbered slot (1 = trusted most).' },
-  { id: 'transparency', promptHtml: 'Rank the systems by <strong>how clearly the explanation showed how the answer was reached</strong>, from the <strong>clearest</strong> to the <strong>least clear</strong>. Drag each system into a numbered slot (1 = clearest).' },
-  { id: 'error-detection', promptHtml: 'Rank the systems by <strong>how easily you could tell whether the explanation was correct or contained a mistake</strong>, from the <strong>easiest</strong> to the <strong>hardest</strong>. Drag each system into a numbered slot (1 = easiest).' },
-  { id: 'ease', promptHtml: 'Rank the systems by <strong>how easy the explanation was to understand</strong>, from the <strong>easiest</strong> to the <strong>hardest</strong>. Drag each system into a numbered slot (1 = easiest).' },
-  { id: 'preference', promptHtml: 'Rank the systems by <strong>which you would most prefer to use</strong>, from <strong>most preferred</strong> to <strong>least preferred</strong>. Drag each system into a numbered slot (1 = most preferred).' },
 ]
 
 const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-text', 'tutorial-task']
@@ -126,12 +144,13 @@ const EVAL_TUTORIAL_TEXT_CHART_ID = '20qa83ih1gn6toqt'
 const WELCOME_BODY_HTML = `
   <p>Thank you for participating in this research study.</p>
   <p>We are investigating how different <strong>visual explanations</strong> help people understand and verify answers to questions about charts.</p>
-  <p>In this study, you will see a series of charts paired with questions and AI-generated answers. For each pair, an explanation will show how the answer was derived. <strong>Four different explanation systems</strong> are compared in this study; you will see explanations from all four, in a mixed order, throughout the survey. A label such as <strong>System A</strong> at the top of each chart tells you which system produced that explanation. At the end you will answer a few questions about each system in turn.</p>
+  <p>In this study, you will see a series of charts paired with questions and AI-generated answers. For each pair, an explanation will show how the answer was derived. <strong>Four different explanation systems</strong> are compared in this study; you will see explanations from all four, in a mixed order, throughout the survey.</p>
   <p>Your task on each question:</p>
   <ol>
     <li>Decide whether the provided answer is correct.</li>
     <li>Rate how clearly the explanation showed the reasoning behind the answer.</li>
   </ol>
+  <p><strong>These systems can make mistakes while producing an explanation.</strong> The reasoning an explanation shows may itself contain an error. Please decide for yourself whether each answer and its explanation are actually correct &mdash; do not assume they are right.</p>
   <p>The study takes about <strong>70&ndash;90 minutes</strong>. Your responses are anonymous and linked only to your participant code (<code>{code}</code>).</p>
   <p>The next pages will walk you through how the explanations are shown and what we'll ask you to do.</p>
 `
@@ -167,6 +186,7 @@ const TUTORIAL_TASK_BODY_HTML = `
     <p class="intro-notes__title">Important notes</p>
     <ul>
       <li><strong>Some answers are correct and some are not.</strong> Whether the shown answer is right is exactly what we ask you to judge &mdash; read the explanation and decide for yourself.</li>
+      <li><strong>Systems can make mistakes while producing an explanation.</strong> An explanation may go wrong at one of its steps. Do not assume an explanation is correct just because it looks confident &mdash; check the reasoning yourself. If you judge the answer incorrect, you will then be asked which step the reasoning first goes wrong.</li>
       <li><strong>Answer the first question accurately.</strong> We measure how long you take to answer the "The answer is correct." question on each page. Please stay focused and respond as accurate as you have made your decision.</li>
       <li><strong>Use external tools freely.</strong> A calculator or scrap paper is fine if you need to verify a calculation &mdash; just try to keep it brief.</li>
     </ul>
@@ -191,6 +211,7 @@ const containerEl = document.getElementById('chartContainer') as HTMLElement
 const questionEl = document.getElementById('questionText') as HTMLElement
 const descriptionEl = document.getElementById('descriptionText') as HTMLElement
 const debugMetaEl = document.getElementById('debugMeta') as HTMLElement
+debugMetaEl.style.display = 'none' // researcher readout removed from the participant UI
 const explanationEl = document.getElementById('explanationArea') as HTMLElement
 const surveyEl = document.getElementById('surveyArea') as HTMLFormElement
 const prevBtn = document.getElementById('prevBtn') as HTMLButtonElement
@@ -201,6 +222,7 @@ const progressLabelEl = document.getElementById('progressLabel') as HTMLElement
 const progressTrackEl = document.getElementById('progressTrack') as HTMLElement
 const surveyWarningEl = document.getElementById('surveyWarning') as HTMLElement
 const methodBadgeEl = document.getElementById('methodBadge') as HTMLElement | null
+if (methodBadgeEl) methodBadgeEl.style.display = 'none' // system/question badge removed from the participant UI
 const introCardEl = document.getElementById('introCard') as HTMLElement
 const introEyebrowEl = document.getElementById('introEyebrow') as HTMLElement
 const introTitleEl = document.getElementById('introTitle') as HTMLElement
@@ -272,10 +294,6 @@ const finalItems: FinalItem[] = blocks.map((block, i) => ({
 // internal system (Ours/B1/B2/B3) -> participant-facing label ("System A"...).
 const systemLabels = new Map(finalItems.map((it) => [it.system, it.label]))
 const labelForSystem = (system: string): string => systemLabels.get(system) ?? 'System ?'
-
-// Rank slots for the final ranking: one per system ('1'..'N'). Derived so the
-// page generalizes to any system count (4 in this study).
-const RANK_SLOTS: string[] = finalItems.map((_, i) => String(i + 1))
 
 // Page flow: 3 intros, then EVERY chart's survey pages in the fully-interleaved
 // presentation order (all 20 charts, systems randomized), then the per-system
@@ -401,7 +419,9 @@ function fieldKey(keyPrefix: string, questionId: string): string {
 
 function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTMLFieldSetElement {
   const fieldset = document.createElement('fieldset')
-  fieldset.className = `survey-question survey-question--${question.kind === 'yes-no' ? 'choice' : 'likert'}`
+  fieldset.className = `survey-question survey-question--${
+    question.kind === 'yes-no' ? 'choice' : question.kind === 'error-localization' ? 'error-loc' : 'likert'
+  }`
 
   const legend = document.createElement('legend')
   legend.className = 'survey-question__text'
@@ -423,7 +443,7 @@ function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTML
 
     label.addEventListener('click', () => {
       surveyResponses.set(name, value)
-      scheduleSave()
+      handleSurveyChange()
     })
 
     const text = document.createElement('span')
@@ -453,6 +473,67 @@ function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTML
     textarea.value = surveyResponses.get(name) ?? ''
     textarea.addEventListener('input', () => { surveyResponses.set(name, textarea.value); scheduleSave() })
     fieldset.appendChild(textarea)
+  } else if (question.kind === 'error-localization') {
+    // (a) Full-width, single-select list of the explanation's step chunks
+    //     (currentRenderer.getStepTexts() — Ours steps / B2 scenes / B3 manifest
+    //     steps / B1 single chunk). Stores the chosen index under the question id.
+    const stepTexts = currentRenderer?.getStepTexts() ?? []
+    const selectedStep = surveyResponses.get(name)
+    const list = document.createElement('div')
+    list.className = 'error-loc-steps'
+    stepTexts.forEach((stepText, index) => {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'error-loc-step'
+      const isSelected = selectedStep === String(index)
+      btn.classList.toggle('is-selected', isSelected)
+      btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false')
+
+      const badge = document.createElement('span')
+      badge.className = 'error-loc-step__badge'
+      badge.textContent = String(index + 1)
+      const span = document.createElement('span')
+      span.className = 'error-loc-step__text'
+      span.textContent = stepText
+
+      btn.appendChild(badge)
+      btn.appendChild(span)
+      btn.addEventListener('click', () => {
+        surveyResponses.set(name, String(index))
+        // Single-select highlight without a full re-render (visibility unchanged).
+        list.querySelectorAll('.error-loc-step').forEach((el) => {
+          const on = el === btn
+          el.classList.toggle('is-selected', on)
+          el.setAttribute('aria-pressed', on ? 'true' : 'false')
+        })
+        scheduleSave()
+      })
+      list.appendChild(btn)
+    })
+    if (stepTexts.length === 0) {
+      const empty = document.createElement('p')
+      empty.className = 'survey-question__hint'
+      empty.textContent = 'No explanation steps are available for this item.'
+      list.appendChild(empty)
+    }
+    fieldset.appendChild(list)
+
+    // (b) Required free-text reason for the selected step.
+    const descName = fieldKey(keyPrefix, ERROR_DESCRIPTION_FIELD)
+    const descLabel = document.createElement('label')
+    descLabel.className = 'error-loc-desc__label'
+    descLabel.htmlFor = descName
+    descLabel.textContent = 'Describe what is wrong with this step.'
+    fieldset.appendChild(descLabel)
+
+    const descArea = document.createElement('textarea')
+    descArea.className = 'survey-text'
+    descArea.rows = 3
+    descArea.id = descName
+    descArea.name = descName
+    descArea.value = surveyResponses.get(descName) ?? ''
+    descArea.addEventListener('input', () => { surveyResponses.set(descName, descArea.value); scheduleSave() })
+    fieldset.appendChild(descArea)
   } else {
     const labels = question.scale ?? { low: 'Strongly disagree', high: 'Strongly agree' }
     const scale = document.createElement('div')
@@ -481,18 +562,61 @@ function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTML
   return fieldset
 }
 
+// True iff a question should be shown/required right now (its showWhen holds,
+// reading sibling responses on the same page). Questions without showWhen always show.
+function isQuestionVisible(question: SurveyQuestion, keyPrefix: string): boolean {
+  if (!question.showWhen) return true
+  return question.showWhen((id) => surveyResponses.get(fieldKey(keyPrefix, id)))
+}
+
 function renderSurveyPage() {
   surveyEl.innerHTML = ''
   const ctx = currentSurveyContext()
   if (!ctx) return
-  ctx.questions.forEach((q) => surveyEl.appendChild(renderSurveyQuestion(q, ctx.keyPrefix)))
+  ctx.questions.forEach((q) => {
+    if (!isQuestionVisible(q, ctx.keyPrefix)) return
+    surveyEl.appendChild(renderSurveyQuestion(q, ctx.keyPrefix))
+  })
+}
+
+// Remove every response a question owns — used when a conditional question is
+// hidden so stale values never reach the submission. error-localization owns its
+// step value (question id) plus the sibling description field.
+function clearQuestionResponses(question: SurveyQuestion, keyPrefix: string) {
+  surveyResponses.delete(fieldKey(keyPrefix, question.id))
+  if (question.kind === 'error-localization') {
+    surveyResponses.delete(fieldKey(keyPrefix, ERROR_DESCRIPTION_FIELD))
+  }
+}
+
+// A response on the current survey page changed: persist, then — only if the
+// page has a conditional (showWhen) question — re-render so dependent blocks
+// appear/disappear, resetting any now-hidden question's responses first.
+function handleSurveyChange() {
+  scheduleSave()
+  const ctx = currentSurveyContext()
+  if (!ctx || !ctx.questions.some((q) => q.showWhen)) return
+  ctx.questions.forEach((q) => {
+    if (q.showWhen && !isQuestionVisible(q, ctx.keyPrefix)) clearQuestionResponses(q, ctx.keyPrefix)
+  })
+  renderSurveyPage()
 }
 
 function isSurveyPageComplete(): boolean {
+  // Pilot exception: PILOTA / PILOTB may leave any question blank (nothing required).
+  if (['PILOTA', 'PILOTB'].includes(participant.code.toUpperCase())) return true
   const ctx = currentSurveyContext()
   if (!ctx) return true
   return ctx.questions.every((q) => {
+    // Hidden conditional questions are not required.
+    if (!isQuestionVisible(q, ctx.keyPrefix)) return true
     if (q.kind === 'text') return true // open-ended is optional
+    if (q.kind === 'error-localization') {
+      // Both the step selection and the reason text are required while shown.
+      const step = surveyResponses.get(fieldKey(ctx.keyPrefix, q.id)) ?? ''
+      const desc = surveyResponses.get(fieldKey(ctx.keyPrefix, ERROR_DESCRIPTION_FIELD)) ?? ''
+      return step !== '' && desc.trim() !== ''
+    }
     const name = fieldKey(ctx.keyPrefix, q.id)
     return surveyEl.querySelector(`input[name="${CSS.escape(name)}"]:checked`) !== null
   })
@@ -518,11 +642,17 @@ function buildSubmission(): Record<string, FsJson> {
       const v = surveyResponses.get(`${k}:1::${q.id}`)
       if (v != null) ratings[q.id] = v
     })
+    const errStep = surveyResponses.get(`${k}:0::first-error-step`) ?? ''
+    const errDesc = surveyResponses.get(`${k}:0::${ERROR_DESCRIPTION_FIELD}`) ?? ''
     charts[item.chart_id] = {
       system: item.system,
       group: item.group,
       // Participant's judgment (their Yes/No to "The answer is correct.").
       answerCorrect: surveyResponses.get(`${k}:0::answer-correct`) ?? '',
+      // Conditional error-localization (only populated when answerCorrect === 'No';
+      // reset to empty/null otherwise so stale picks aren't submitted).
+      firstErrorChunkIndex: errStep === '' ? null : Number(errStep),
+      errorDescription: errDesc,
       // Ground truth of the correct/incorrect-answer manipulation, for scoring
       // (was the shown answer actually correct, and what was the true value).
       answerShown: item.answer,
@@ -543,16 +673,6 @@ function buildSubmission(): Record<string, FsJson> {
     postSession[block.system] = obj
   })
 
-  // One ranking per dimension: rankings[dim] = { '1': system, ..., 'N': system }.
-  const rankings: Record<string, FsJson> = {}
-  RANKING_DIMENSIONS.forEach((dim) => {
-    const ranks: Record<string, FsJson> = {}
-    RANK_SLOTS.forEach((n) => {
-      const v = surveyResponses.get(`final::rank-${dim.id}-${n}`)
-      if (v != null) ranks[n] = v
-    })
-    rankings[dim.id] = ranks
-  })
   const systems: Record<string, FsJson> = {}
   finalItems.forEach((it) => { systems[it.key] = it.system })
 
@@ -563,7 +683,7 @@ function buildSubmission(): Record<string, FsJson> {
     sequence: sequence.map((it) => ({ chart_id: it.chart_id, system: it.system, group: it.group })),
     charts,
     postSession,
-    final: { rankings, comment: surveyResponses.get('final::comment') ?? '' },
+    final: { comment: surveyResponses.get('final::comment') ?? '' },
     updatedAt: new Date().toISOString(),
   }
 }
@@ -577,6 +697,10 @@ function hydrateFromDoc(fields: Record<string, FsJson>) {
     if (!c || typeof c !== 'object') return
     const k = getItemKey(item)
     if (c.answerCorrect) surveyResponses.set(`${k}:0::answer-correct`, String(c.answerCorrect))
+    if (c.firstErrorChunkIndex != null && c.firstErrorChunkIndex !== '') {
+      surveyResponses.set(`${k}:0::first-error-step`, String(c.firstErrorChunkIndex))
+    }
+    if (c.errorDescription) surveyResponses.set(`${k}:0::${ERROR_DESCRIPTION_FIELD}`, String(c.errorDescription))
     if (typeof c.responseTimeMs === 'number') responseTimes.set(item.chart_id, c.responseTimeMs)
     Object.entries(c.ratings ?? {}).forEach(([qid, val]) => {
       if (val != null && val !== '') surveyResponses.set(`${k}:1::${qid}`, String(val))
@@ -588,11 +712,6 @@ function hydrateFromDoc(fields: Record<string, FsJson>) {
     })
   })
   const final = (fields.final as any) ?? {}
-  Object.entries(final.rankings ?? {}).forEach(([dimId, ranks]) => {
-    Object.entries((ranks as Record<string, any>) ?? {}).forEach(([n, system]) => {
-      if (system != null && system !== '') surveyResponses.set(`final::rank-${dimId}-${n}`, String(system))
-    })
-  })
   if (typeof final.comment === 'string' && final.comment) surveyResponses.set('final::comment', final.comment)
 }
 
@@ -610,11 +729,8 @@ function scheduleSave() {
   saveTimer = window.setTimeout(() => { saveTimer = null; void saveNow() }, 600)
 }
 
-// Final page: one drag-and-drop ranking per RANKING_DIMENSIONS entry (the
-// systems A/B/C/D into numbered slots 1..N), plus an optional free-text comment.
-// Each dimension's ranking is stored as `final::rank-{dim.id}-{1..N}` -> system;
-// comment as `final::comment`. Rebuilt from stored responses on every render so
-// it survives back/forward navigation.
+// Final page: an optional free-text comment (stored as `final::comment`) plus a
+// "you're done" note and the Submit button. (System rankings were removed.)
 function renderFinalPage() {
   surveyEl.innerHTML = ''
   const wrap = document.createElement('div')
@@ -622,126 +738,7 @@ function renderFinalPage() {
 
   const doneNote = document.createElement('p')
   doneNote.className = 'final-done'
-  doneNote.hidden = true
-  doneNote.textContent = 'Thank you — you have completed the study.'
-
-  // Keep the "done" note and Submit button in sync with full completion (all
-  // rankings filled). Recomputed from surveyResponses across every widget.
-  const syncDoneAndNav = () => {
-    doneNote.hidden = !isFinalComplete()
-    updateFinalNav()
-  }
-
-  // One self-contained ranking widget: its own chips + slots (one per system),
-  // lookups scoped to this widget's board, storing into `final::rank-{dim.id}-{1..N}`.
-  const buildRanking = (dim: { id: string; promptHtml: string }) => {
-    const section = document.createElement('section')
-    section.className = 'final-section'
-    const prompt = document.createElement('p')
-    prompt.className = 'final-prompt'
-    prompt.innerHTML = dim.promptHtml
-    section.appendChild(prompt)
-
-    const board = document.createElement('div')
-    board.className = 'rank-board'
-
-    const pool = document.createElement('div')
-    pool.className = 'rank-pool'
-    const poolHint = document.createElement('div')
-    poolHint.className = 'rank-pool__hint'
-    poolHint.textContent = 'Systems'
-    const poolDrop = document.createElement('div')
-    poolDrop.className = 'rank-pool__drop'
-    pool.append(poolHint, poolDrop)
-
-    const slotsWrap = document.createElement('div')
-    slotsWrap.className = 'rank-slots'
-    const slotDrops: HTMLElement[] = []
-    RANK_SLOTS.forEach((rank) => {
-      const slot = document.createElement('div')
-      slot.className = 'rank-slot'
-      const num = document.createElement('div')
-      num.className = 'rank-slot__num'
-      num.textContent = rank
-      const drop = document.createElement('div')
-      drop.className = 'rank-slot__drop'
-      drop.dataset.rank = rank
-      slot.append(num, drop)
-      slotsWrap.appendChild(slot)
-      slotDrops.push(drop)
-    })
-
-    board.append(pool, slotsWrap)
-    section.appendChild(board)
-
-    const findChip = (key: string) => board.querySelector<HTMLElement>(`.rank-item[data-item="${CSS.escape(key)}"]`)
-
-    const updateState = () => {
-      slotDrops.forEach((drop) => {
-        const chip = drop.querySelector<HTMLElement>('.rank-item')
-        const rank = drop.dataset.rank as string
-        const item = chip ? finalItems.find((it) => it.key === chip.dataset.item) : undefined
-        if (item) surveyResponses.set(`final::rank-${dim.id}-${rank}`, item.system)
-        else surveyResponses.delete(`final::rank-${dim.id}-${rank}`)
-      })
-      syncDoneAndNav()
-      scheduleSave()
-    }
-
-    const makeChip = (item: FinalItem) => {
-      const chip = document.createElement('div')
-      chip.className = 'rank-item'
-      chip.draggable = true
-      chip.dataset.item = item.key
-      chip.textContent = item.label
-      chip.addEventListener('dragstart', (e) => {
-        chip.classList.add('rank-item--dragging')
-        e.dataTransfer?.setData('text/plain', item.key)
-        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'
-      })
-      chip.addEventListener('dragend', () => chip.classList.remove('rank-item--dragging'))
-      return chip
-    }
-
-    const wireZone = (zone: HTMLElement, isSlot: boolean) => {
-      zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('rank-drop--over') })
-      zone.addEventListener('dragleave', () => zone.classList.remove('rank-drop--over'))
-      zone.addEventListener('drop', (e) => {
-        e.preventDefault()
-        zone.classList.remove('rank-drop--over')
-        const key = e.dataTransfer?.getData('text/plain')
-        const chip = key ? findChip(key) : null
-        if (!chip) return
-        const origin = chip.parentElement as HTMLElement | null
-        if (isSlot) {
-          // A slot holds one chip: displace the current occupant (swap back to
-          // the dragged chip's slot, or to the pool).
-          const existing = zone.querySelector<HTMLElement>('.rank-item')
-          if (existing && existing !== chip) {
-            if (origin && origin.classList.contains('rank-slot__drop')) origin.appendChild(existing)
-            else poolDrop.appendChild(existing)
-          }
-        }
-        zone.appendChild(chip)
-        updateState()
-      })
-    }
-
-    wireZone(poolDrop, false)
-    slotDrops.forEach((drop) => wireZone(drop, true))
-
-    // Initial placement: restore saved ranks, otherwise everything in the pool.
-    finalItems.forEach((item) => {
-      const chip = makeChip(item)
-      const savedRank = RANK_SLOTS.find((r) => surveyResponses.get(`final::rank-${dim.id}-${r}`) === item.system)
-      if (savedRank) slotDrops[Number(savedRank) - 1].appendChild(chip)
-      else poolDrop.appendChild(chip)
-    })
-    updateState()
-    return section
-  }
-
-  RANKING_DIMENSIONS.forEach((dim) => wrap.appendChild(buildRanking(dim)))
+  doneNote.textContent = 'Thank you — you have reached the end. Add any comments below (optional), then submit.'
   wrap.appendChild(doneNote)
 
   // --- Any other comments (optional) ---
@@ -761,7 +758,7 @@ function renderFinalPage() {
   wrap.appendChild(commentSection)
 
   surveyEl.appendChild(wrap)
-  syncDoneAndNav()
+  updateFinalNav()
 }
 
 function stripLeadingNumber(text: string): string {
@@ -1147,13 +1144,10 @@ function showPostSessionLayout() {
   introDemoEl.hidden = true
 }
 
-// The final page is complete when all systems are ranked on every dimension.
-// (The extra free comment is optional.)
+// The final page now holds only an optional free-text comment, so it is always
+// complete — the Next button is immediately a ready-to-Submit button.
 function isFinalComplete(): boolean {
-  // Complete when every dimension's slots are all filled (open comment optional).
-  return RANKING_DIMENSIONS.every((dim) =>
-    RANK_SLOTS.every((n) => !!surveyResponses.get(`final::rank-${dim.id}-${n}`)),
-  )
+  return true
 }
 
 // On the final page the Next button becomes Submit, enabled once the page is complete.
@@ -1209,7 +1203,7 @@ function updateUI() {
     // Anonymized: the A->system mapping is persisted in the saved doc's `systems`
     // field for the researcher; never reveal it in the participant-facing UI.
     debugMetaEl.textContent = `Final · ${finalItems.length} systems (${finalItems.map((it) => it.key).join('/')})`
-    questionEl.textContent = 'Final step: rank the systems and share any comments.'
+    questionEl.textContent = 'Final step: share any comments, then submit.'
     descriptionEl.textContent = ''
     explanationEl.hidden = true
     explanationEl.innerHTML = ''
@@ -1229,7 +1223,7 @@ function updateUI() {
     // Heading sits ABOVE the review carousel (#postSessionHeading); keep the
     // in-flow questionText empty so it is not duplicated below the panel. Name
     // the (anonymized) system so the participant knows which one they're rating.
-    postSessionHeadingEl.textContent = `Questions about ${blockLabel}. Below are the 5 explanations ${blockLabel} produced — use the arrows to review them, then answer the questions about ${blockLabel}.`
+    postSessionHeadingEl.textContent = `Questions about "${blockLabel}". Below are the 5 explanations "${blockLabel}" produced. Use the arrows to review them, then answer the questions about "${blockLabel}".`
     questionEl.textContent = ''
     descriptionEl.textContent = ''
     explanationEl.hidden = true

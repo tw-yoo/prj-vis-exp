@@ -113,11 +113,11 @@
       },
       {
         "fn": "function2",
-        "text": "Then take the average level of fires across the years, which sits at about 230."
+        "text": "Then take the average level of fires across the years, which is 238.75."
       },
       {
         "fn": "function3",
-        "text": "Finally, subtract the average from the maximum: 380 − 230 = 150."
+        "text": "Finally, subtract the average from the maximum: 380 − 238.75 = 141.25."
       }
     ]
   },
@@ -249,7 +249,7 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Review each year’s FIFA World Ranking position and count those that fall between 20 and 30 (inclusive). \nThe qualifying years are 2003 (27), 2004 (27), 2009 (29), 2012 (27), 2013 (27), 2014 (26), 2015 (28), 2016 (25), 2017 (22), 2018 (23), and 2019 (20). \nThat makes 11 years in total."
+        "text": "Review each year’s FIFA World Ranking position and count those whose value is above 20 and at most 30. The qualifying years are 2003 (27), 2004 (27), 2009 (29), 2012 (27), 2013 (27), 2014 (26), 2015 (28), 2016 (25), 2017 (22), and 2018 (23). That makes 10 years in total."
       }
     ]
   },

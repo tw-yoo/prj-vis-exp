@@ -1,6 +1,7 @@
 import type { OperationSpec } from '../domain/operation/types'
 import { referencesFromOperation } from '../operation-next/diffEndpoint'
 import { ChartType, type ChartTypeValue } from '../domain/chart'
+import { getOperationCategory } from '../domain/operation/operationCategory'
 
 /**
  * Chart types whose operation appliers DO NOT restructure mark geometry —
@@ -89,6 +90,36 @@ function intersects(a: Set<string>, b: Set<string>): boolean {
 }
 
 /**
+ * Chart types where a convergent diff splits ONLY when BOTH parallel branches
+ * "need their own surface" (see `branchNeedsOwnSurface`). When a branch is a
+ * pure in-place selection (findExtremum / retrieveValue / nth), the comparison
+ * stays on the single chart — the marks don't move, so two bars (and the Δ
+ * arrow between them) read fine in place, and the fragile cross-surface split
+ * orchestration is avoided. (multipleLine never splits — it's in
+ * CHART_TYPES_WITHOUT_SPLIT. stackedBar keeps the legacy always-split.)
+ */
+const SPLIT_ONLY_WHEN_BOTH_RESTRUCTURE: ReadonlySet<ChartTypeValue> = new Set([
+  ChartType.GROUPED_BAR,
+  // NOTE: simpleBar/simpleLine intentionally NOT here. Extending the no-split
+  // rule to them exposed a second gap (single-chart simpleBar findExtremum→value
+  // →diff doesn't commit its annotations) and risks regressing simpleLine
+  // findExtremum-diffs (e.g. correct chart 10gtgmmgh). Kept grouped-bar only
+  // (verified). 0wflwm needs a different fix — see investigation notes.
+])
+
+/**
+ * A branch "needs its own surface" if any op RESTRUCTURES the chart — either an
+ * aggregate (sum/average/count/range/rolling-window → a derived value/line) or
+ * a `filter` (drops/recomputes marks, so two filtered subsets must coexist on
+ * separate surfaces, e.g. simpleBar case 0s6zi9dyw22qo4rp). Pure selections
+ * (findExtremum, retrieveValue, nth) and sort highlight EXISTING marks in
+ * place, so they don't need a surface.
+ */
+function branchNeedsOwnSurface(groupOps: OperationSpec[]): boolean {
+  return groupOps.some((op) => getOperationCategory(op.op) === 'aggregate' || op.op === 'filter')
+}
+
+/**
  * Scan `opsGroups` for a convergent DAG pattern. Returns a `SplitPlan` for
  * the first match, or `null` if no split is needed.
  *
@@ -156,6 +187,24 @@ export function analyzeSplitPlan(
         // a parallel sibling. (L cannot depend on R because L < R: L was
         // already materialized when R is analyzed; but R could still ref L.)
         if (intersects(consumed[r], produced[l])) continue
+        // Split policy (grouped/simple bar, simple line): only split when BOTH
+        // parallel branches RESTRUCTURE the chart (aggregate or filter — e.g.
+        // average vs average, or two filtered subsets). When a branch is a pure
+        // in-place selection (findExtremum/retrieveValue/nth), the comparison
+        // stays on the single chart — selecting existing marks and drawing the
+        // Δ arrow between them in place avoids the fragile cross-surface split
+        // (case 0wflwm: findExtremum vs retrieveValue must NOT split).
+        if (
+          chartType != null &&
+          SPLIT_ONLY_WHEN_BOTH_RESTRUCTURE.has(chartType) &&
+          !(branchNeedsOwnSurface(opsGroups[l]) && branchNeedsOwnSurface(opsGroups[r]))
+        ) {
+          console.info(
+            '[splitPlan] analyzeSplitPlan: selection-diff → no split ' +
+              JSON.stringify({ chartType, leftGroupIndex: l, rightGroupIndex: r, mergeGroupIndex: m }),
+          )
+          continue
+        }
         const plan: SplitPlan = {
           leftGroupIndex: l,
           rightGroupIndex: r,

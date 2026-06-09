@@ -14,43 +14,30 @@
   ],
   "ops2": [
     {
-      "op": "sort",
+      "op": "average",
       "id": "n2",
       "meta": {
         "nodeId": "n2",
         "inputs": [],
         "sentenceIndex": 2
       },
-      "field": "Number of fires",
-      "order": "asc"
-    },
-    {
-      "op": "nth",
-      "id": "n3",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": [
-          "n2"
-        ],
-        "sentenceIndex": 2
-      },
-      "n": 8
+      "field": "Number of fires"
     }
   ],
   "ops3": [
     {
       "op": "diff",
-      "id": "n4",
+      "id": "n3",
       "meta": {
-        "nodeId": "n4",
+        "nodeId": "n3",
         "inputs": [
           "n1",
-          "n3"
+          "n2"
         ],
         "sentenceIndex": 3
       },
       "targetA": "ref:n1",
-      "targetB": "ref:n3",
+      "targetB": "ref:n2",
       "signed": false
     }
   ]

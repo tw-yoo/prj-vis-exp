@@ -109,8 +109,21 @@ function installD3ReplayMotionController(): D3MotionController | null {
 }
 
 function nextFrame() {
+  // Two rAFs let pending style/layout commit before we read geometry. But the
+  // browser PAUSES requestAnimationFrame while the page is hidden (a
+  // backgrounded tab), which would hang this await — and with it the whole
+  // step pipeline — until the tab is refocused. Race a setTimeout fallback so
+  // a hidden page still advances. On a visible page the rAF pair (~32ms) wins,
+  // so behaviour is unchanged.
   return new Promise<void>((resolve) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    let settled = false
+    const done = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    requestAnimationFrame(() => requestAnimationFrame(done))
+    setTimeout(done, 100)
   })
 }
 

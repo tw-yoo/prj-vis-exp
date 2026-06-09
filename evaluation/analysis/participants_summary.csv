@@ -1,0 +1,10 @@
+participant_code,has_document,order_system,order_chart,systems_A,systems_B,systems_C,systems_D,n_trials_total,n_trials_answered,n_postsession_systems_done,final_comment,updated_at
+DVNLPR,True,PRE,PRE,Ours,B1,B2,B3,20,0,4,,2026-06-09T08:16:32.108Z
+PILOT1,False,,,,,,,,,,,
+PILOT2,False,,,,,,,,,,,
+PILOT3,False,,,,,,,,,,,
+PILOT4,False,,,,,,,,,,,
+PILOTA,True,SO1,CO1,Ours,B1,B2,B3,20,3,4,,2026-06-09T16:32:47.175Z
+PILOTB,False,,,,,,,,,,,
+TESTP1,True,SO3,CO1,B2,B3,Ours,B1,20,3,4,The animations in B1 were distracting.,2026-06-09T08:27:10.034Z
+TESTP4,False,,,,,,,,,,,

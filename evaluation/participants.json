@@ -1,4 +1,40 @@
 {
+  "PILOTA": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO1"
+    }
+  },
+  "PILOTB": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO3"
+    }
+  },
+  "PILOT1": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO1"
+    }
+  },
+  "PILOT2": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO3"
+    }
+  },
+  "PILOT3": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO3"
+    }
+  },
+  "PILOT4": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO1"
+    }
+  },
   "TESTP1": {
     "order": {
       "system": "SO3",

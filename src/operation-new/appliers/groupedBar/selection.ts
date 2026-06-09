@@ -10,10 +10,12 @@ const EXTREMUM_CLASS = 'operation-next-grouped-bar-extremum'
 const NTH_CLASS = 'operation-next-grouped-bar-nth'
 const COUNT_CLASS = 'operation-next-grouped-bar-count'
 
-/** grouped-bar findExtremum / nth / count — native (shared `barGroup/selection.ts`). */
+/** grouped-bar findExtremum / nth / count — native (shared `barGroup/selection.ts`).
+ *  findExtremum dims the rest of the scoped series (keeps only its extremum bar). */
 export const findExtremumApplier = makeBarFindExtremumApplier<GroupedBarChartInstance>(
   EXTREMUM_CLASS,
   FILTER_ANNOTATION_CLASS,
+  { dimGroupSiblings: true },
 )
 export const nthApplier = makeBarNthApplier<GroupedBarChartInstance>(NTH_CLASS, FILTER_ANNOTATION_CLASS)
 export const countApplier = makeBarCountApplier<GroupedBarChartInstance>({

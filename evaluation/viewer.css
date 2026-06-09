@@ -571,10 +571,19 @@ body {
   color: #0f172a;
 }
 
-/* Post-session heading sits above the review carousel (#postSessionHeading). */
+/* Post-session heading sits above the review carousel (#postSessionHeading),
+   framed as its own panel. */
 .post-session-heading {
-  margin: 0 0 4px;
+  margin: 0 0 16px;
+  padding: 18px 22px;
+  border: 1px solid #d8dfe8;
+  border-radius: 14px;
+  background: #eef2f7;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   text-align: center;
+  font-size: 16px;
+  line-height: 1.55;
+  color: #1e293b;
 }
 
 .post-session-heading[hidden] {
@@ -833,6 +842,85 @@ body {
 .choice-option:has(input:focus-visible) {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+/* Conditional error-localization (shown only when the answer is judged wrong) */
+
+.survey-question--error-loc .error-loc-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.error-loc-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #334155;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, box-shadow 120ms ease, transform 80ms ease;
+}
+
+.error-loc-step:hover {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.error-loc-step:active {
+  transform: scale(0.99);
+}
+
+.error-loc-step.is-selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 1px #2563eb inset;
+}
+
+.error-loc-step:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.error-loc-step__badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.error-loc-step.is-selected .error-loc-step__badge {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.error-loc-step__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.error-loc-desc__label {
+  display: block;
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
 }
 
 /* Likert 7-point */

@@ -2,14 +2,16 @@ import * as d3 from 'd3'
 import { findExtremum, nthData, countData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec } from '../../../domain/operation/types'
 import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
-import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
+import { COLORS, DURATIONS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import { RESULT_REF_ATTRIBUTE, operationResultRef } from '../../../operation-next/diffEndpoint'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
+import { applyMarkSalience } from '../../primitives/markSalience'
 import { drawResultBadge } from '../../primitives/drawResultBadge'
 import { placeValueLabel } from '../../primitives/placeValueLabel'
+import { barMarkKeyFromNode } from './_shared'
 import {
   barAnnotationViewport,
   barRootMetrics,
@@ -46,6 +48,13 @@ export function makeBarSelectionApplier<T extends BarGroupApplierInstance>(opts:
   filterClass: string
   /** Prefer `state.derivedData` over `workingData` (findExtremum does, nth does not). */
   preferDerived?: boolean
+  /**
+   * Grouped-bar only: when the operation is scoped to a `group` (series), keep
+   * the winning bar of that series and dim the rest of the SAME series; other
+   * series are left untouched. Accumulates across substeps via the salience
+   * map. (Off by default so stacked-bar selection is unaffected.)
+   */
+  dimGroupSiblings?: boolean
 }): OperationApplier<T> {
   return {
     op: opts.op,
@@ -137,11 +146,41 @@ export function makeBarSelectionApplier<T extends BarGroupApplierInstance>(opts:
 
       await Promise.all(transitions)
 
+      // Grouped-bar findExtremum scoped to a series: keep the winning bar of
+      // that series highlighted and dim the rest of the SAME series; other
+      // series are left as-is. Accumulate into the salience map so sequential
+      // substeps (e.g. max(Scotland) then min(England & Wales)) stack.
+      let nextSalienceMap = state.salienceMap
+      const group =
+        typeof (operation as OperationSpec & { group?: unknown }).group === 'string'
+          ? String((operation as OperationSpec & { group?: unknown }).group)
+          : null
+      if (opts.dimGroupSiblings && group) {
+        const winners = new Set<SVGRectElement>(result.flatMap((datum) => findBarsByDatum(instance, datum)))
+        const seriesOf = (node: SVGElement) =>
+          node.getAttribute(DataAttributes.Series) ?? node.getAttribute(DataAttributes.GroupValue) ?? ''
+        const groupBars = instance.mainBars().filter(function () {
+          return seriesOf(this as SVGRectElement) === group
+        })
+        await applyMarkSalience({
+          marks: groupBars as unknown as d3.Selection<SVGElement, unknown, d3.BaseType, unknown>,
+          isInScope: (node) => winners.has(node as SVGRectElement),
+          outOpacity: OPACITIES.DIM,
+        })
+        const merged = new Map(state.salienceMap)
+        groupBars.each(function () {
+          const node = this as SVGRectElement
+          merged.set(barMarkKeyFromNode(node), winners.has(node) ? OPACITIES.FULL : OPACITIES.DIM)
+        })
+        nextSalienceMap = merged
+      }
+
       return {
         result,
         nextState: {
           ...state,
           lastResult: result,
+          salienceMap: nextSalienceMap,
           annotationRecords: [
             ...state.annotationRecords,
             { cssClass: opts.cssClass, role: 'result' as const, persistent: false },
@@ -210,6 +249,7 @@ export function makeBarCountApplier<T extends BarGroupApplierInstance>(opts: {
 export function makeBarFindExtremumApplier<T extends BarGroupApplierInstance>(
   cssClass: string,
   filterClass: string,
+  extra?: { dimGroupSiblings?: boolean },
 ): OperationApplier<T> {
   return makeBarSelectionApplier<T>({
     op: OperationOp.FindExtremum,
@@ -217,6 +257,7 @@ export function makeBarFindExtremumApplier<T extends BarGroupApplierInstance>(
     cssClass,
     filterClass,
     preferDerived: true,
+    dimGroupSiblings: extra?.dimGroupSiblings ?? false,
   })
 }
 

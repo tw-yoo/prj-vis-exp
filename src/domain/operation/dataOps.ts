@@ -881,8 +881,20 @@ export function findExtremum(data: DatumValue[], op: OperationSpec): DatumValue[
   const spec = assertFindExtremumSpec(op)
   const { field, which, group } = spec
   const byGroup = sliceByGroup(arr, group ?? null)
-  const kind = inferFieldKind(byGroup, field) || 'category'
-  const section = byGroup.filter(predicateByField(field, kind))
+  let kind = inferFieldKind(byGroup, field) || 'category'
+  let effectiveField = field
+  // Field-less findExtremum on a DERIVED/measure dataset (lagDiff / diffByValue
+  // / aggregate results carry measure==='value'): extremize by the numeric
+  // `value` (the delta), not by the categorical target. inferFieldKind returns
+  // undefined whenever `field` is missing, so without this a field-less
+  // findExtremum after lagDiff would fall back to category and sort by the year
+  // label — picking the wrong point. Raw category data (measure = real field
+  // name) does not match measure==='value' and keeps category semantics.
+  if (!field && byGroup.some((d) => d.measure === 'value')) {
+    kind = 'measure'
+    effectiveField = 'value'
+  }
+  const section = byGroup.filter(predicateByField(effectiveField, kind))
   if (section.length === 0) return []
   const normalized = section
     .map((datum) => ({
@@ -1143,7 +1155,13 @@ export function lagDiffData(data: DatumValue[], op: OperationSpec): DatumValue[]
 
     const resultDatum: DatumValue = {
       category: categoryName,
-      measure: measureName,
+      // The lag delta is a derived numeric value, not the original measure.
+      // Tag measure as 'value' so a downstream field-less findExtremum extremizes
+      // by the delta (inferFieldKind/predicateByField) rather than by the
+      // categorical target. The original field name survives in semanticMeasure
+      // (used for labels); the lagDiff applier labels arrows from `value`, not
+      // `measure`, so this does not affect rendering.
+      measure: 'value',
       semanticMeasure: buildSemanticMeasure(OperationOp.LagDiff, measureName),
       target: curr.target,
       group: curr.group ?? null,

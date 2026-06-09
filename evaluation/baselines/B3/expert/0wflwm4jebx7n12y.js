@@ -261,7 +261,7 @@ function drawFireHorizontalLine(g, y, plotW, className, label, color = '#111827'
 }
 
 export function function1({ d3, container }) {
-    const csvAverage = 230;
+    const csvAverage = 238.75;
     const { g, plotW, yScale } = getFireChartMetrics(d3, container);
     if (g.empty()) return;
     g.selectAll('.e5-q1-average').remove();
@@ -296,9 +296,9 @@ export function function2({ d3, container }) {
 }
 
 export function function3({ d3, container }) {
-    const csvAverage = 230;
+    const csvAverage = 238.75;
     const csvMax = 380;
-    const csvDifference = 150;
+    const csvDifference = 141.25;
     const { svg, g, plotW, yScale } = getFireChartMetrics(d3, container);
     if (g.empty()) return;
     g.selectAll('.e5-q1-diff').remove();

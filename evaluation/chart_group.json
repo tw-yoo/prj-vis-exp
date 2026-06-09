@@ -3,9 +3,9 @@
     "bar_simple": {
       "id": "0wflwm4jebx7n12y",
       "question": "What is the difference between the average and the maximum number?",
-      "answer": "150",
+      "answer": "141.25",
       "correctAnswer": "141.25",
-      "answerIsCorrect": false
+      "answerIsCorrect": true
     },
     "bar_stacked": {
       "id": "11e148qcs7x70t8v",
@@ -24,9 +24,9 @@
     "line_simple": {
       "id": "8chfa8n079zpfigi",
       "question": "How many years correspond to a value between 20 and 30?",
-      "answer": "11",
+      "answer": "10",
       "correctAnswer": "11",
-      "answerIsCorrect": true
+      "answerIsCorrect": false
     },
     "line_multiple": {
       "id": "1k8qhmg9rui7gtzh",
@@ -146,7 +146,6 @@
       "correctAnswer": "2",
       "answerIsCorrect": true
     }
-
   },
   "G5": {
     "bar_simple": {

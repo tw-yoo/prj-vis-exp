@@ -9,7 +9,7 @@
         "sentenceIndex": 1
       },
       "field": "FIFA World Ranking position",
-      "operator": ">=",
+      "operator": ">",
       "value": 20
     },
     {

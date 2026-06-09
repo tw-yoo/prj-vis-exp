@@ -247,7 +247,7 @@ export function function1({ d3, container }) {
     if (svg.empty() || g.empty()) return;
 
     const csvRange = { min: 20, max: 30 };
-    const csvYears = new Set(['2003', '2004', '2009', '2012', '2013', '2014', '2015', '2016', '2017', '2018', '2019']);
+    const csvYears = new Set(['2003', '2004', '2009', '2012', '2013', '2014', '2015', '2016', '2017', '2018']);
     const { plotW, yScale } = getRankingLineMetrics(d3);
 
     g.selectAll('.e8-q9-function1').remove();
@@ -293,7 +293,7 @@ export function function1({ d3, container }) {
         .attr('fill', '#dc2626')
         .attr('font-size', 13)
         .attr('font-weight', 700)
-        .text('Count: 11 years');
+        .text('Count: 10 years');
 }
 
 export function function2({ d3, container }) {}
