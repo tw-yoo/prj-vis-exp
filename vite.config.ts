@@ -343,11 +343,13 @@ function collectStaticFiles(dir: string, files: string[] = []) {
 
 function evaluationViewerPlugin(): Plugin {
   let isBuild = false
+  let base = '/'
 
   return {
     name: 'evaluation-viewer',
     configResolved(config) {
       isBuild = config.command === 'build'
+      base = config.base
     },
     configureServer(server) {
       installEvaluationMiddleware(server.middlewares, '/src/evaluation/entry.ts', '/src/evaluation/viewer.ts')
@@ -369,8 +371,11 @@ function evaluationViewerPlugin(): Plugin {
       })
     },
     generateBundle() {
-      const entrySource = evaluationEntrySource('/evaluation/entry.js')
-      const viewerSource = evaluationViewerSource('/evaluation/viewer.js')
+      // `base` ends with '/', so this yields e.g. '/prj-vis-exp/evaluation/entry.js'
+      // (or '/evaluation/entry.js' when base is '/'). Matches the chunk fileNames
+      // emitted in buildStart, which Pages serves under the same base.
+      const entrySource = evaluationEntrySource(`${base}evaluation/entry.js`)
+      const viewerSource = evaluationViewerSource(`${base}evaluation/viewer.js`)
 
       for (const filePath of collectStaticFiles(evaluationRoot)) {
         const relativePath = path.relative(evaluationRoot, filePath)
@@ -558,7 +563,11 @@ function reviewApiPlugin(): Plugin {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // GitHub Pages serves this project site under /prj-vis-exp/. Production builds
+  // must prefix every asset URL with it; dev + e2e stay at root '/' so the
+  // existing middleware routes (/evaluation, /validation, /api/review) keep working.
+  base: command === 'build' ? '/prj-vis-exp/' : '/',
   plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin(), reviewApiPlugin()],
   optimizeDeps: {
     entries: ['index.html'],
@@ -588,4 +597,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

@@ -6,9 +6,15 @@
   <title>Evaluation</title>
   <link rel="stylesheet" id="evaluationStylesheet">
   <script>
-    window.__EVALUATION_BASE_PATH__ = location.pathname.split('/').filter(Boolean)[0] === 'evaluation'
-      ? '/evaluation'
-      : '';
+    // Derive the evaluation base from the URL so the app works whether it is served
+    // at the domain root (/evaluation/...) or under a project-pages prefix
+    // (/prj-vis-exp/evaluation/...). Take everything up to and including the
+    // "evaluation" path segment; withBase() then appends '/config.json' etc.
+    (function () {
+      var segs = location.pathname.split('/').filter(Boolean);
+      var i = segs.indexOf('evaluation');
+      window.__EVALUATION_BASE_PATH__ = i >= 0 ? '/' + segs.slice(0, i + 1).join('/') : '';
+    })();
     document.getElementById('evaluationStylesheet').href = `${window.__EVALUATION_BASE_PATH__}/viewer.css`;
   </script>
 </head>
