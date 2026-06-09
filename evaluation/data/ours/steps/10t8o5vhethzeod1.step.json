@@ -1,0 +1,17 @@
+{
+  "chart_id": "10t8o5vhethzeod1",
+  "question": "In which year was the agriculture sector the highest",
+  "description": "",
+  "specPath": "specs/10t8o5vhethzeod1.vl.json",
+  "opsPath": "ops/10t8o5vhethzeod1.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Track the agriculture-coloured band across the years."
+    },
+    {
+      "id": "ops2",
+      "text": "Its tallest year is 2017."
+    }
+  ]
+}

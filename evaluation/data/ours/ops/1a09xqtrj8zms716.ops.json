@@ -1,0 +1,80 @@
+{
+  "ops": [
+    {
+      "op": "retrieveValue",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "field": "City (Street)",
+      "target": "Sydney (Pitt Street Mall)"
+    },
+    {
+      "op": "retrieveValue",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "field": "City (Street)",
+      "target": "Melbourne (Bourke Street Mall)"
+    },
+    {
+      "op": "retrieveValue",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "field": "City (Street)",
+      "target": "Brisbane (Brisbane Mall)"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "add",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 2
+      },
+      "targetA": "ref:n1",
+      "targetB": "ref:n2"
+    },
+    {
+      "op": "add",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [
+          "n4",
+          "n3"
+        ],
+        "sentenceIndex": 2
+      },
+      "targetA": "ref:n4",
+      "targetB": "ref:n3"
+    },
+    {
+      "op": "scale",
+      "id": "n6",
+      "meta": {
+        "nodeId": "n6",
+        "inputs": [
+          "n5"
+        ],
+        "sentenceIndex": 2
+      },
+      "target": "ref:n5",
+      "factor": 0.3333333333333333
+    }
+  ]
+}

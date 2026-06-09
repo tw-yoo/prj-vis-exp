@@ -1,0 +1,17 @@
+{
+  "chart_id": "01mksjs373fhcl4q",
+  "question": "Which sector showed the most decline?",
+  "description": "",
+  "specPath": "specs/01mksjs373fhcl4q.vl.json",
+  "opsPath": "ops/01mksjs373fhcl4q.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Within each sector's panel, subtract the mid-2013 bar from the 2003 bar to get the decline."
+    },
+    {
+      "id": "ops2",
+      "text": "Select the sector with the largest drop (Large companies)."
+    }
+  ]
+}

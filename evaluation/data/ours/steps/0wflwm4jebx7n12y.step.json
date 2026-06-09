@@ -1,0 +1,21 @@
+{
+  "chart_id": "0wflwm4jebx7n12y",
+  "question": "What is the difference between the average and the maximum number?",
+  "description": "",
+  "specPath": "specs/0wflwm4jebx7n12y.vl.json",
+  "opsPath": "ops/0wflwm4jebx7n12y.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Find the maximum bar height in the chart (380)."
+    },
+    {
+      "id": "ops2",
+      "text": "Take a middle “Number of fires” value as the average (about 230)."
+    },
+    {
+      "id": "ops3",
+      "text": "Subtract that from the maximum, leaving 150."
+    }
+  ]
+}

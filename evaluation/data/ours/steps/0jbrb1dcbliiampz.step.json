@@ -1,0 +1,21 @@
+{
+  "chart_id": "0jbrb1dcbliiampz",
+  "question": "How many years had investments of over 22 Billion Euros in the years 2011 to 2014?",
+  "description": "",
+  "specPath": "specs/0jbrb1dcbliiampz.vl.json",
+  "opsPath": "ops/0jbrb1dcbliiampz.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Restrict attention to the bars for the years 2011 through 2014."
+    },
+    {
+      "id": "ops2",
+      "text": "Keep the bars whose investments value is greater than 22 on the y-axis."
+    },
+    {
+      "id": "ops3",
+      "text": "Count the qualifying years."
+    }
+  ]
+}

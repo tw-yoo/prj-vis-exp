@@ -7,7 +7,7 @@ import type { ExplanationMethod } from './renderers/types'
 // The i-th system is paired with the i-th group (Latin square). Each group's
 // 5 charts (chart_group.json) are then shown in a per-participant random order.
 
-export type SystemName = 'Ours' | 'B1' | 'B2'
+export type SystemName = 'Ours' | 'B1' | 'B2' | 'B3'
 
 export type ParticipantOrder = {
   system: string
@@ -26,11 +26,17 @@ export type SequenceItem = {
   group: string
   question: string
   answer: string
+  // Ground truth for the correct/incorrect-answer manipulation. `answer` is the
+  // value SHOWN to the participant (wrong for incorrect items); `answerIsCorrect`
+  // is whether that shown answer is actually correct; `correctAnswer` is the true
+  // value. Carried through to the saved doc for scoring (none of these are shown).
+  answerIsCorrect: boolean
+  correctAnswer: string
 }
 
 export type OrderSystemFile = Record<string, string[]>
 export type OrderChartFile = Record<string, string[]>
-export type ChartGroupEntry = { id: string; question?: string; answer?: string }
+export type ChartGroupEntry = { id: string; question?: string; answer?: string; answerIsCorrect?: boolean; correctAnswer?: string }
 export type ChartGroupFile = Record<string, Record<string, ChartGroupEntry>>
 
 type ParticipantsFile = Record<string, { order?: ParticipantOrder }>
@@ -85,7 +91,8 @@ export function systemToMethod(system: string): ExplanationMethod {
   if (system === 'Ours') return 'ours'
   if (system === 'B1') return 'b1'
   if (system === 'B2') return 'b2'
-  throw new Error(`Unknown system "${system}" (expected Ours | B1 | B2).`)
+  if (system === 'B3') return 'b3'
+  throw new Error(`Unknown system "${system}" (expected Ours | B1 | B2 | B3).`)
 }
 
 // ---- Deterministic shuffle (seeded by participant code) --------------------
@@ -122,9 +129,12 @@ function shuffle<T>(items: readonly T[], rng: () => number): T[] {
 /**
  * Build the flat presentation sequence for a participant. The i-th system in
  * `orderSystem[order.system]` is paired with the i-th group in
- * `orderChart[order.chart]`; that group's charts are emitted in an order
- * randomized deterministically by `seed` (the participant code). With 3 systems
- * and 3 groups of 5 charts, this yields 15 items.
+ * `orderChart[order.chart]` (each system explains its paired group's 5 charts).
+ * All paired charts are then shuffled together into one fully-interleaved
+ * presentation order, deterministic in `seed` (the participant code) so reloads
+ * / ?page navigation stay aligned. Each item still carries its `system`, so the
+ * viewer can group by system for the per-system evaluations shown at the end.
+ * With 4 systems and 4 groups of 5 charts, this yields 20 items.
  */
 export function buildSequence(
   order: ParticipantOrder,
@@ -138,7 +148,7 @@ export function buildSequence(
 
   const rng = mulberry32(hashString(seed))
   const pairCount = Math.min(systems.length, groups.length)
-  const sequence: SequenceItem[] = []
+  const items: SequenceItem[] = []
 
   for (let i = 0; i < pairCount; i += 1) {
     const system = systems[i]
@@ -146,18 +156,22 @@ export function buildSequence(
     const method = systemToMethod(system)
     const groupCharts = cfg.chartGroup[group]
     if (!groupCharts) throw new Error(`Unknown chart group "${group}".`)
-    const charts = shuffle(Object.values(groupCharts), rng)
-    for (const chart of charts) {
-      sequence.push({
+    for (const chart of Object.values(groupCharts)) {
+      items.push({
         chart_id: chart.id,
         method,
         system,
         group,
         question: chart.question ?? '',
         answer: chart.answer ?? '',
+        answerIsCorrect: chart.answerIsCorrect ?? true,
+        correctAnswer: chart.correctAnswer ?? (chart.answer ?? ''),
       })
     }
   }
 
-  return sequence
+  // Fully interleave: shuffle every (system, group) chart together so the
+  // participant sees systems in random order, one chart at a time, rather than
+  // five-in-a-row per system. Per-system evaluations are deferred to the end.
+  return shuffle(items, rng)
 }

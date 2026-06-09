@@ -1,12 +1,21 @@
 {
   "charts": {
-    "0s6zi9dyw22qo4rp": {
-      "question": "What is the difference between the average of September 1896 until December 1896 and the average of January 1897 until April 1897?",
+    "0jbrb1dcbliiampz": {
+      "question": "How many years had investments of over 22 Billion Euros in the years 2011 to 2014?",
       "ours": {
         "steps": [
-          { "id": "ops", "text": "Select the four bars from September 1896 through December 1896 and compute their mean fatality rate. " },
-          { "id": "ops2", "text": "Select the four bars from January 1897 through April 1897 and compute their mean fatality rate." },
-          { "id": "ops3", "text": "Subtract the earlier-period mean from the later-period mean." }
+          {
+            "id": "ops",
+            "text": "Restrict attention to the bars for the years 2011 through 2014."
+          },
+          {
+            "id": "ops2",
+            "text": "Keep the bars whose investments value is greater than 22 on the y-axis."
+          },
+          {
+            "id": "ops3",
+            "text": "Count the qualifying years."
+          }
         ]
       }
     },
@@ -14,43 +23,417 @@
       "question": "in which years does south korea have a bigger value than france?",
       "ours": {
         "steps": [
-          { "id": "ops", "text": "Locate the South Korea and France segments within each stacked bar for every Period and compare their Share_of_Import_Value values." },
-          { "id": "ops2", "text": "List the Periods where South Korea’s value is greater than France’s value." }
+          {
+            "id": "ops",
+            "text": "Compare the South Korea and France segments within each Period."
+          },
+          {
+            "id": "ops2",
+            "text": "List the Periods where South Korea's segment is taller than France's."
+          }
         ]
       }
     },
-    "16fif5hdi8yzml00": {
-      "question": "What is the difference between average of maximum payment in all states and average of minimum payment in all states?",
+    "66va2s35es5t86l3": {
+      "question": "What is the year with the largest increase compared to the previous year?",
       "ours": {
         "steps": [
-          { "id": "ops", "text": "Collect the bar heights for the Maximum type across all state panels and compute their average." },
-          { "id": "ops2", "text": "Gather the bar heights for the Minimum type across all state panels and compute their average." },
-          { "id": "ops3", "text": "Subtract the minimum-type average from the maximum-type average." }
+          {
+            "id": "ops",
+            "text": "Calculate the year-over-year increase in “In millions” between adjacent years."
+          },
+          {
+            "id": "ops2",
+            "text": "Select the later year of the pair with the largest increase (2010)."
+          }
         ]
       }
     },
-    "2jromeq5u9lloh1s": {
-      "question": "Which years has the biggest jump?",
+    "0gvrmm8qbn6o1vya": {
+      "question": "What is the average of Season's ticket prices with a ticket price of $60 or less?",
       "ours": {
         "steps": [
-          { "id": "ops", "text": "Calculate the year-to-year change in Audience_Millions between each pair of consecutive years on the line. Compare these changes to find the largest increase. " },
-          { "id": "ops2", "text": "Select the later year of the pair with the maximum increase." }
+          {
+            "id": "ops",
+            "text": "Filter the bars to the seasons priced at or below $60."
+          },
+          {
+            "id": "ops2",
+            "text": "Average those filtered ticket prices."
+          }
         ]
       }
     },
-    "4pi1e6ev8e0zobww": {
-      "question": "Find the difference between the average of the first three years of the male group and the average of the last three years of the female group",
+    "10gtgmmgh599jnr7": {
+      "question": "What is the difference between the second largest and the smallest values between 2000 and 2008?",
       "ours": {
         "steps": [
-          { "id": "ops", "text": "Select the male values for the first three years shown on the chart and compute their average." },
-          { "id": "ops2", "text": "Select the female values for the last three years shown on the chart and compute their average." },
-          { "id": "ops3", "text": "Subtract the male average from the female average to get the difference." }
+          {
+            "id": "ops",
+            "text": "Filter the chart to the years 2000–2008 and find the smallest value."
+          },
+          {
+            "id": "ops2",
+            "text": "Within the same range, find the second-largest value."
+          },
+          {
+            "id": "ops3",
+            "text": "Subtract the smallest from the second-largest."
+          }
+        ]
+      }
+    },
+    "1k8qhmg9rui7gtzh": {
+      "question": "What is the difference between the largest value in Germany and the smallest value in the U.S. between 2010 and 2015?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Filter the chart to the years 2010 through 2015 inclusive."
+          },
+          {
+            "id": "ops2",
+            "text": "Find Germany's maximum favorable-view percentage in that range."
+          },
+          {
+            "id": "ops3",
+            "text": "Find the U.S. minimum favorable-view percentage in that range."
+          },
+          {
+            "id": "ops4",
+            "text": "Subtract the U.S. minimum from the Germany maximum."
+          }
+        ]
+      }
+    },
+    "0wflwm4jebx7n12y": {
+      "question": "What is the difference between the average and the maximum number?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Find the maximum bar height in the chart."
+          },
+          {
+            "id": "ops2",
+            "text": "Calculate the average of the “Number of fires” values across all years."
+          },
+          {
+            "id": "ops3",
+            "text": "Subtract the average from the maximum."
+          }
+        ]
+      }
+    },
+    "0lua5jsw92d3enb4": {
+      "question": "How many diet types surpassed the threshold of 0.03% in 2019?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Focus on the bars for the year 2019 across all diet-type panels."
+          },
+          {
+            "id": "ops2",
+            "text": "Keep the 2019 bars whose share is strictly greater than 0.03."
+          },
+          {
+            "id": "ops3",
+            "text": "Count the diet types that surpass the threshold."
+          }
+        ]
+      }
+    },
+    "0egzejn5mejtnfdm": {
+      "question": "What is the difference between Scotland's largest value and England and Wales's smallest value?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Find Scotland's highest SharePercentage across the response-category panels."
+          },
+          {
+            "id": "ops2",
+            "text": "Find England & Wales's lowest SharePercentage across the same panels."
+          },
+          {
+            "id": "ops3",
+            "text": "Subtract the smaller value from the larger."
+          }
+        ]
+      }
+    },
+    "1a09xqtrj8zms716": {
+      "question": "What is the average value of top 3 malls' per sqaure foot cost?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Read off the top three malls' values by US dollars per square foot."
+          },
+          {
+            "id": "ops2",
+            "text": "Add the three values and divide by three to get the average."
+          }
+        ]
+      }
+    },
+    "25gpdzxh8nu0c0vf": {
+      "question": "In average and median values, which one is bigger?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Calculate the average of the Number_of_Fatalities values across all years."
+          },
+          {
+            "id": "ops2",
+            "text": "Sort the values and take the middle one as the median."
+          },
+          {
+            "id": "ops3",
+            "text": "Compare the average and the median to see which is bigger."
+          }
+        ]
+      }
+    },
+    "2eiyyw562tcvjypp": {
+      "question": "How many years has Russia had higher favorability than the US?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Compare the Russia and US favorable-view percentages for each year."
+          },
+          {
+            "id": "ops2",
+            "text": "Keep the years where Russia's value is greater than the US value."
+          },
+          {
+            "id": "ops3",
+            "text": "Count those years."
+          }
+        ]
+      }
+    },
+    "2s65jcap9pn289qx": {
+      "question": "What is the sum of the differences between women and men in the last five years?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Restrict the chart to the last five years (2016 through 2020)."
+          },
+          {
+            "id": "ops2",
+            "text": "Subtract the men's value from the women's value for each of those years."
+          },
+          {
+            "id": "ops3",
+            "text": "Sum those five yearly differences."
+          }
+        ]
+      }
+    },
+    "0prhtod4tli879nh": {
+      "question": "Which city had the biggest jump in population from 2010 to 2025?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Compute each city's population change from its 2010 bar to its 2025 bar."
+          },
+          {
+            "id": "ops2",
+            "text": "Select the city with the largest increase (Delhi)."
+          }
+        ]
+      }
+    },
+    "0vmvmj77j3p6vcy7": {
+      "question": "What is the net income sum from 2010 to 2015?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Select the bars for the years 2010 through 2015 inclusive."
+          },
+          {
+            "id": "ops2",
+            "text": "Add their “Net income in USD” values together."
+          }
+        ]
+      }
+    },
+    "2bhsybiilde28j87": {
+      "question": "What is the average percentage of non-black races that they answered very interested?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Take the “Very interested” segment values for the non-black races (White, Hispanic, Other)."
+          },
+          {
+            "id": "ops2",
+            "text": "Average those three values."
+          }
+        ]
+      }
+    },
+    "8chfa8n079zpfigi": {
+      "question": "How many years correspond to a value between 20 and 30?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Filter to the years whose FIFA World Ranking position is between 20 and 30 inclusive."
+          },
+          {
+            "id": "ops2",
+            "text": "Count the remaining year points."
+          }
+        ]
+      }
+    },
+    "77xb5ug5lhfmkb74": {
+      "question": "What is the sum of number of employees from Europe region before 2015?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Filter to the Europe-region segments (Germany, Great Britain, Spain, Rest of Europe) for the years before 2015."
+          },
+          {
+            "id": "ops2",
+            "text": "Sum the Number_of_Employees across those regions and years."
+          }
+        ]
+      }
+    },
+    "avwb8xstxx1lmfpk": {
+      "question": "What is the Year that has the biggest deviation from the total average?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Calculate the overall average Consumer Price Index across all plotted months."
+          },
+          {
+            "id": "ops2",
+            "text": "Measure each point's deviation from the overall average."
+          },
+          {
+            "id": "ops3",
+            "text": "Select the year with the largest deviation."
+          }
+        ]
+      }
+    },
+    "16aphfabldrpgcmd": {
+      "question": "What is the sum of the number of weights exceeding 3670 in the Boys group and the number of weights exceeding 3550 in the Girls group?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Filter to the Boys group and count the years where the weight exceeds 3670."
+          },
+          {
+            "id": "ops2",
+            "text": "Filter to the Girls group and count the years where the weight exceeds 3550."
+          },
+          {
+            "id": "ops3",
+            "text": "Add the two counts together."
+          }
+        ]
+      }
+    },
+    "20qa83ih1gn6toqt": {
+      "question": "Which year shows the lowest gap between convenience and price",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "For each year, take the absolute difference between the Convenience and Price values."
+          },
+          {
+            "id": "ops2",
+            "text": "Find the year with the smallest gap (2013)."
+          }
+        ]
+      }
+    },
+    "0rfuaawgi58ajpsv": {
+      "question": "What is the difference in the average between North America and Latin America?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Average the North America values across all years."
+          },
+          {
+            "id": "ops2",
+            "text": "Average the Latin America values across all years."
+          },
+          {
+            "id": "ops3",
+            "text": "Subtract the Latin America average from the North America average."
+          }
+        ]
+      }
+    },
+    "01mksjs373fhcl4q": {
+      "question": "Which sector showed the most decline?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Within each sector's panel, subtract the mid-2013 bar from the 2003 bar to get the decline."
+          },
+          {
+            "id": "ops2",
+            "text": "Select the sector with the largest drop (Large companies)."
+          }
+        ]
+      }
+    },
+    "10t8o5vhethzeod1": {
+      "question": "In which year was the agriculture sector the highest",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Isolate the Agriculture-colored segment in each year's stacked bar."
+          },
+          {
+            "id": "ops2",
+            "text": "Select the year whose Agriculture segment is tallest."
+          }
+        ]
+      }
+    },
+    "21fa7gb8l1ix6yfm": {
+      "question": "Which method shows the highest difference between every day and less often?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "For each method, take the absolute difference between the “EVERY DAY” and “LESS OFTEN” segments."
+          },
+          {
+            "id": "ops2",
+            "text": "Select the method with the largest gap."
+          }
         ]
       }
     }
   },
   "defaults": {
-    "d3": { "model": "gpt-5.2" },
-    "svg": { "model": "gpt-5.2" }
+    "d3": {
+      "model": "gpt-5.2"
+    },
+    "svg": {
+      "model": "gpt-5.2"
+    }
   }
 }

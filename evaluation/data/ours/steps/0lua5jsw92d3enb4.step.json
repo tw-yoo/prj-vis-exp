@@ -1,0 +1,21 @@
+{
+  "chart_id": "0lua5jsw92d3enb4",
+  "question": "How many diet types surpassed the threshold of 0.03% in 2019?",
+  "description": "",
+  "specPath": "specs/0lua5jsw92d3enb4.vl.json",
+  "opsPath": "ops/0lua5jsw92d3enb4.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Focus on the 2019 bars across all diet-type panels."
+    },
+    {
+      "id": "ops2",
+      "text": "Keep the 2019 bars at or above 0.03."
+    },
+    {
+      "id": "ops3",
+      "text": "Count them — 12."
+    }
+  ]
+}

@@ -101,6 +101,24 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
     let rectA = derivedA ? null : findBarFor(instance, selectors.targetA)
     let rectB = derivedB ? null : findBarFor(instance, selectors.targetB)
 
+    // M2 (audit simpleBar-4): a derived endpoint that resolves to a single
+    // on-chart category — e.g. a findExtremum result (ref:n1) whose row targets
+    // the max bar's year — DOES have a real, highlighted bar. Recover it so the
+    // Δ arrow anchors to the visible bar instead of floating past the right plot
+    // edge. Aggregate endpoints (average → target "__avg__", sum → "__sum__", …)
+    // match no bar and correctly stay derived (their own reference line anchors).
+    const recoverDerivedBar = (
+      derived: typeof derivedA,
+    ): SVGRectElement | null => {
+      const t = derived?.rows?.[0]?.target
+      if (t == null) return null
+      const key = String(t)
+      if (key.startsWith('__')) return null
+      return findBarByTarget(instance, key).nodes()[0] ?? null
+    }
+    if (rectA == null && derivedA) rectA = recoverDerivedBar(derivedA)
+    if (rectB == null && derivedB) rectB = recoverDerivedBar(derivedB)
+
     console.info('[operation-new] bar applier:diff DEBUG endpoints', {
       nodeId: operation.meta?.nodeId,
       selectors,
@@ -269,11 +287,16 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
     // fall back to the legacy "outside the plot" position so the arrow
     // doesn't sit on top of empty space.
     const bothAreMarks = a.kind === 'mark' && b.kind === 'mark'
+    // When exactly one endpoint is a real bar and the other is a derived
+    // reference line (e.g. max bar vs average line, #31), anchor the Δ arrow at
+    // the bar's x so it drops from the bar top to the reference line — instead
+    // of floating past the right plot edge (audit simpleBar-4).
+    const soleMarkX = bothAreMarks ? null : a.kind === 'mark' ? a.x : b.kind === 'mark' ? b.x : null
     let arrowX = bothAreMarks
       ? (a.x + b.x) / 2
-      : marginLeft + plotWidth + 18
-    let refStartA = bothAreMarks ? a.x : marginLeft
-    let refStartB = bothAreMarks ? b.x : marginLeft
+      : soleMarkX ?? (marginLeft + plotWidth + 18)
+    let refStartA = a.kind === 'mark' ? a.x : marginLeft
+    let refStartB = b.kind === 'mark' ? b.x : marginLeft
     let suppressRefLines = false
 
     // A diff runs in one of three split contexts, each handled differently:

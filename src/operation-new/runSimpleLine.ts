@@ -29,6 +29,8 @@ import { sumApplier } from './appliers/simpleLine/sum'
 import { nthApplier } from './appliers/simpleLine/nth'
 import { sortApplier } from './appliers/simpleLine/sort'
 import { diffByValueApplier } from './appliers/simpleLine/diffByValue'
+import { addApplier } from './appliers/simpleLine/add'
+import { scaleApplier } from './appliers/simpleLine/scale'
 
 const APPLIERS: OperationApplier[] = [
   retrieveValueApplier,
@@ -43,6 +45,8 @@ const APPLIERS: OperationApplier[] = [
   nthApplier,
   sortApplier,
   diffByValueApplier,
+  addApplier,
+  scaleApplier,
 ]
 
 const REGISTRY = createApplierRegistry(APPLIERS)

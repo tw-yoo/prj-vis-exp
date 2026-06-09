@@ -9,21 +9,32 @@
         "sentenceIndex": 1
       },
       "field": "Year",
-      "operator": "between",
-      "value": [
-        "2010",
-        "2015"
-      ]
-    }
-  ],
-  "ops2": [
+      "operator": ">=",
+      "value": "2010"
+    },
     {
-      "op": "findExtremum",
+      "op": "filter",
       "id": "n2",
       "meta": {
         "nodeId": "n2",
         "inputs": [
           "n1"
+        ],
+        "sentenceIndex": 1
+      },
+      "field": "Year",
+      "operator": "<=",
+      "value": "2015"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "findExtremum",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n2"
         ],
         "sentenceIndex": 2
       },
@@ -35,11 +46,11 @@
   "ops3": [
     {
       "op": "findExtremum",
-      "id": "n3",
+      "id": "n4",
       "meta": {
-        "nodeId": "n3",
+        "nodeId": "n4",
         "inputs": [
-          "n1"
+          "n2"
         ],
         "sentenceIndex": 3
       },
@@ -51,17 +62,17 @@
   "ops4": [
     {
       "op": "diff",
-      "id": "n4",
+      "id": "n5",
       "meta": {
-        "nodeId": "n4",
+        "nodeId": "n5",
         "inputs": [
-          "n2",
-          "n3"
+          "n3",
+          "n4"
         ],
         "sentenceIndex": 4
       },
-      "targetA": "ref:n2",
-      "targetB": "ref:n3",
+      "targetA": "ref:n3",
+      "targetB": "ref:n4",
       "signed": false
     }
   ]

@@ -1,0 +1,17 @@
+{
+  "chart_id": "2bhsybiilde28j87",
+  "question": "What is the average percentage of non-black races that they answered very interested?",
+  "description": "",
+  "specPath": "specs/2bhsybiilde28j87.vl.json",
+  "opsPath": "ops/2bhsybiilde28j87.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Take the “Very interested” segment values for the non-black races (White, Hispanic, Other)."
+    },
+    {
+      "id": "ops2",
+      "text": "Average those three values."
+    }
+  ]
+}

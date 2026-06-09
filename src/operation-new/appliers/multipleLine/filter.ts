@@ -321,8 +321,16 @@ export const filterApplier: OperationApplier<MultipleLineChartInstance> = {
       /* interrupted */
     }
 
-    // ----- Phase 2: threshold reference line (numeric filters only) -------
-    const threshold = resolveNumericThreshold(operation, state.workingData)
+    // ----- Phase 2: threshold reference line (y-measure filters only) -----
+    // Skip for x-range filters (e.g. Year>=2010, #10/#50): their value is an x
+    // label, so inferYForValue would extrapolate it against the y-axis and draw
+    // a spurious horizontal line + stray "2010"/"2015" label off the measure
+    // scale (audit multiLine-10-xfilter-refline). Point dimming already conveys
+    // scope. Only a filter targeting the y-measure field gets a threshold line.
+    const yField = instance.svg.attr(DataAttributes.YField)
+    const filterField = typeof operation.field === 'string' ? operation.field : null
+    const isYMeasureFilter = filterField != null && yField != null && filterField === yField
+    const threshold = isYMeasureFilter ? resolveNumericThreshold(operation, state.workingData) : null
     if (threshold != null) {
       const thresholdY = inferYForValue(instance.svg, threshold)
       if (thresholdY != null) {

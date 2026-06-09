@@ -1,0 +1,17 @@
+{
+  "chart_id": "0vmvmj77j3p6vcy7",
+  "question": "What is the net income sum from 2010 to 2015?",
+  "description": "",
+  "specPath": "specs/0vmvmj77j3p6vcy7.vl.json",
+  "opsPath": "ops/0vmvmj77j3p6vcy7.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Select the bars for the years 2010 through 2015 inclusive."
+    },
+    {
+      "id": "ops2",
+      "text": "Add their “Net income in USD” values together."
+    }
+  ]
+}

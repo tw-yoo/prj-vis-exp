@@ -1,0 +1,17 @@
+{
+  "chart_id": "8chfa8n079zpfigi",
+  "question": "How many years correspond to a value between 20 and 30?",
+  "description": "",
+  "specPath": "specs/8chfa8n079zpfigi.vl.json",
+  "opsPath": "ops/8chfa8n079zpfigi.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Filter to the years whose FIFA World Ranking position is between 20 and 30 inclusive."
+    },
+    {
+      "id": "ops2",
+      "text": "Count the remaining year points."
+    }
+  ]
+}

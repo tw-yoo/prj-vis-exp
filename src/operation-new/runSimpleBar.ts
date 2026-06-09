@@ -28,6 +28,8 @@ import { countApplier } from './appliers/simpleBar/count'
 import { sumApplier } from './appliers/simpleBar/sum'
 import { compareBoolApplier } from './appliers/simpleBar/compareBool'
 import { nthApplier } from './appliers/simpleBar/nth'
+import { addApplier } from './appliers/simpleBar/add'
+import { scaleApplier } from './appliers/simpleBar/scale'
 
 const APPLIERS: OperationApplier<SimpleBarChartInstance>[] = [
   retrieveValueApplier,
@@ -41,6 +43,8 @@ const APPLIERS: OperationApplier<SimpleBarChartInstance>[] = [
   sumApplier,
   compareBoolApplier,
   nthApplier,
+  addApplier,
+  scaleApplier,
 ]
 
 const REGISTRY = createApplierRegistry(APPLIERS)

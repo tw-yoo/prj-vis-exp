@@ -30,8 +30,13 @@ const FILTER_HIGHLIGHT_R = 6
  */
 function isValueBasedFilter(operation: OperationSpec, instance: SimpleLineChartInstance): boolean {
   const op = operation as OperationSpec & { operator?: unknown }
-  if (typeof op.operator === 'string' && op.operator.trim().length > 0) return true
+  const xField = instance.resolvedEncoding?.xField
   const yField = instance.resolvedEncoding?.yField
+  // An operator on the X dimension is an x-range filter (e.g. Year <= 2008), NOT
+  // a measure threshold — route it to the dim+rescale path so the x-axis zooms
+  // to the range instead of staying full-width (audit simpleLine-9-2).
+  if (typeof operation.field === 'string' && xField && operation.field === xField) return false
+  if (typeof op.operator === 'string' && op.operator.trim().length > 0) return true
   if (yField && typeof operation.field === 'string' && operation.field === yField) return true
   return false
 }

@@ -1,0 +1,21 @@
+{
+  "chart_id": "2eiyyw562tcvjypp",
+  "question": "How many years has Russia had higher favorability than the US?",
+  "description": "",
+  "specPath": "specs/2eiyyw562tcvjypp.vl.json",
+  "opsPath": "ops/2eiyyw562tcvjypp.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Compare the Russia and US favorable-view percentages for each year."
+    },
+    {
+      "id": "ops2",
+      "text": "Keep the years where Russia's value is greater than the US value."
+    },
+    {
+      "id": "ops3",
+      "text": "Count those years."
+    }
+  ]
+}

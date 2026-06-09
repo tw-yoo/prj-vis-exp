@@ -1417,25 +1417,42 @@ function findBarsByDatum(
   datum: DatumValue,
 ): d3.Selection<SVGRectElement, unknown, SVGSVGElement, unknown> {
   const target = datum.target == null ? null : String(datum.target)
-  const group = datum.group == null ? null : String(datum.group)
-  return svg
-    .selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
-    .filter(function () {
-      const node = this as SVGRectElement
-      if (target != null) {
-        const tMatch =
-          node.getAttribute(DataAttributes.Target) === target ||
-          node.getAttribute(DataAttributes.Id) === target
-        if (!tMatch) return false
-      }
-      if (group != null) {
-        const gMatch =
-          node.getAttribute(DataAttributes.Series) === group ||
-          node.getAttribute(DataAttributes.GroupValue) === group
-        if (!gMatch) return false
-      }
-      return true
-    })
+  const rawGroup = datum.group == null ? null : String(datum.group)
+  const rawPanel = datum.panel == null ? null : String(datum.panel)
+  const all = svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
+  const nodes = all.nodes()
+  // Drop a constraint no rendered bar can satisfy (compound pairDiff group "A-B";
+  // a panel absent from the DOM) so the looser match wins; keep it when bars do
+  // carry it (faceted chart) to avoid cross-panel mismatches. Mirrors
+  // operation-new/appliers/barGroup/_geometry.ts findBarsByDatum.
+  const groupMatchesSomeBar =
+    rawGroup == null ||
+    nodes.some(
+      (node) =>
+        node.getAttribute(DataAttributes.Series) === rawGroup ||
+        node.getAttribute(DataAttributes.GroupValue) === rawGroup,
+    )
+  const group = groupMatchesSomeBar ? rawGroup : null
+  const panelMatchesSomeBar =
+    rawPanel == null || nodes.some((node) => node.getAttribute(DataAttributes.ChartId) === rawPanel)
+  const panel = panelMatchesSomeBar ? rawPanel : null
+  return all.filter(function () {
+    const node = this as SVGRectElement
+    if (panel != null && node.getAttribute(DataAttributes.ChartId) !== panel) return false
+    if (target != null) {
+      const tMatch =
+        node.getAttribute(DataAttributes.Target) === target ||
+        node.getAttribute(DataAttributes.Id) === target
+      if (!tMatch) return false
+    }
+    if (group != null) {
+      const gMatch =
+        node.getAttribute(DataAttributes.Series) === group ||
+        node.getAttribute(DataAttributes.GroupValue) === group
+      if (!gMatch) return false
+    }
+    return true
+  })
 }
 
 async function annotateBarSelection(

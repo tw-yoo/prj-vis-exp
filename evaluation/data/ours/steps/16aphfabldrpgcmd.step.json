@@ -1,0 +1,21 @@
+{
+  "chart_id": "16aphfabldrpgcmd",
+  "question": "What is the sum of the number of weights exceeding 3670 in the Boys group and the number of weights exceeding 3550 in the Girls group?",
+  "description": "",
+  "specPath": "specs/16aphfabldrpgcmd.vl.json",
+  "opsPath": "ops/16aphfabldrpgcmd.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Filter to the Boys group and count the years where the weight exceeds 3670."
+    },
+    {
+      "id": "ops2",
+      "text": "Filter to the Girls group and count the years where the weight exceeds 3550."
+    },
+    {
+      "id": "ops3",
+      "text": "Add the two counts together."
+    }
+  ]
+}

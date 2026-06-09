@@ -1,0 +1,17 @@
+{
+  "chart_id": "0prhtod4tli879nh",
+  "question": "Which city had the biggest jump in population from 2010 to 2025?",
+  "description": "",
+  "specPath": "specs/0prhtod4tli879nh.vl.json",
+  "opsPath": "ops/0prhtod4tli879nh.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Compare each city’s 2010 and 2025 population bars."
+    },
+    {
+      "id": "ops2",
+      "text": "Tokyo stands out among the cities, so the biggest jump is Tokyo."
+    }
+  ]
+}

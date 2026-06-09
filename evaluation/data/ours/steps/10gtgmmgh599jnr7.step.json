@@ -1,0 +1,21 @@
+{
+  "chart_id": "10gtgmmgh599jnr7",
+  "question": "What is the difference between the second largest and the smallest values between 2000 and 2008?",
+  "description": "",
+  "specPath": "specs/10gtgmmgh599jnr7.vl.json",
+  "opsPath": "ops/10gtgmmgh599jnr7.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Filter to the years 2000–2008 and find the second-largest value (0.106)."
+    },
+    {
+      "id": "ops2",
+      "text": "Find the smallest value in that range (0.086)."
+    },
+    {
+      "id": "ops3",
+      "text": "Subtract the smallest from the second-largest, leaving 0.02."
+    }
+  ]
+}

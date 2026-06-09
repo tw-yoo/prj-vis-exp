@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 2bhsybiilde28j87.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/2bhsybiilde28j87.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Race_Ethnicity",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Share_of_Respondents",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Interest_Level",
+      "type": "nominal"
+    }
+  }
+}

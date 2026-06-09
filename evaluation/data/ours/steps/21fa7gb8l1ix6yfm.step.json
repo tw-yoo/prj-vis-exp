@@ -1,0 +1,17 @@
+{
+  "chart_id": "21fa7gb8l1ix6yfm",
+  "question": "Which method shows the highest difference between every day and less often?",
+  "description": "",
+  "specPath": "specs/21fa7gb8l1ix6yfm.vl.json",
+  "opsPath": "ops/21fa7gb8l1ix6yfm.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "For each method, take the absolute difference between the “EVERY DAY” and “LESS OFTEN” segments."
+    },
+    {
+      "id": "ops2",
+      "text": "Select the method with the largest gap."
+    }
+  ]
+}

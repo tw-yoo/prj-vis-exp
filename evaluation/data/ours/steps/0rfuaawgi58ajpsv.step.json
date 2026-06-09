@@ -7,15 +7,15 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Get the average of Northern America"
+      "text": "Average the North America values across all years."
     },
     {
       "id": "ops2",
-      "text": "Get the average of Latin America"
+      "text": "Average the Latin America values across all years."
     },
     {
       "id": "ops3",
-      "text": "Get the difference between the two average values"
+      "text": "Subtract the Latin America average from the North America average."
     }
   ]
 }

@@ -2,13 +2,12 @@ import * as d3 from 'd3'
 import { attachChartHoverTooltip } from '../../rendering/common/chartHoverTooltip'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 
-// Renders a study baseline (B1 or B2). Both share the same scene shape and base
-// SVG (baselines/baseline_input.json); they differ only in the result file and
-// whether scenes carry `d3_code`:
-//   B1 (baseline1_result.json) — svg_code + d3_code (animated, executed here)
-//   B2 (baseline2_result.json) — svg_code only (static)
-// The d3_code path is a no-op for B2 since its scenes have no d3_code.
-type BaselineKind = 'b1' | 'b2'
+// Renders the B2 study baseline: an SVG-scene visual explanation. The base chart
+// SVG comes from baselines/baseline_input.json; each reasoning step is a full SVG
+// (svg_code) in baselines/B2/baseline2_result.json, optionally animated by a
+// `d3_code` snippet executed here. (B1 = simple text → TextRenderer; B3 = expert
+// explanation → ExpertRenderer.)
+type BaselineKind = 'b2'
 
 type BaselineScene = {
   scene_number?: number
@@ -21,7 +20,6 @@ type BaselineResult = Record<string, Record<string, BaselineScene[]>>
 type BaselineInput = Record<string, { question?: string; explanation?: string; svg?: string }>
 
 const RESULT_FILE: Record<BaselineKind, string> = {
-  b1: 'B1/baseline1_result.json',
   b2: 'B2/baseline2_result.json',
 }
 

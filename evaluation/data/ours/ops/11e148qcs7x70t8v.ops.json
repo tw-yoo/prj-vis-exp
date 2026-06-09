@@ -8,12 +8,11 @@
         "inputs": [],
         "sentenceIndex": 1
       },
+      "by": "Period",
       "groupA": "South Korea",
       "groupB": "France",
       "seriesField": "Country",
-      "by": "Period",
-      "field": "Share_of_Import_Value",
-      "signed": true
+      "field": "Share_of_Import_Value"
     }
   ],
   "ops2": [
@@ -27,8 +26,9 @@
         ],
         "sentenceIndex": 2
       },
+      "field": "Share_of_Import_Value",
       "operator": ">",
-      "value": 0
+      "value": -0.05
     }
   ]
 }

@@ -1,0 +1,57 @@
+{
+  "ops": [
+    {
+      "op": "findExtremum",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "which": "max",
+      "field": "Number of fires"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "sort",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [],
+        "sentenceIndex": 2
+      },
+      "field": "Number of fires",
+      "order": "asc"
+    },
+    {
+      "op": "nth",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n2"
+        ],
+        "sentenceIndex": 2
+      },
+      "n": 8
+    }
+  ],
+  "ops3": [
+    {
+      "op": "diff",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n1",
+          "n3"
+        ],
+        "sentenceIndex": 3
+      },
+      "targetA": "ref:n1",
+      "targetB": "ref:n3",
+      "signed": false
+    }
+  ]
+}

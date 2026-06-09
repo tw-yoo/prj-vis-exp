@@ -1,0 +1,17 @@
+{
+  "chart_id": "0gvrmm8qbn6o1vya",
+  "question": "What is the average of Season's ticket prices with a ticket price of $60 or less?",
+  "description": "",
+  "specPath": "specs/0gvrmm8qbn6o1vya.vl.json",
+  "opsPath": "ops/0gvrmm8qbn6o1vya.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Filter to the lower-priced seasons (including 2012/13 at about $63)."
+    },
+    {
+      "id": "ops2",
+      "text": "Average those ticket prices, giving about 54.79."
+    }
+  ]
+}

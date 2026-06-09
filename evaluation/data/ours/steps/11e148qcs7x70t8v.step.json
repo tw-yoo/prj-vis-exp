@@ -7,11 +7,11 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Locate the South Korea and France segments within each stacked bar for every Period and compare their Share_of_Import_Value values."
+      "text": "Compare the South Korea and France segments within each Period."
     },
     {
       "id": "ops2",
-      "text": "List the Periods where South Korea's value is greater than France's value."
+      "text": "List the Periods where South Korea is about even with or above France: 2015, 2016, 2017, 2018, Jan-Oct 2019."
     }
   ]
 }

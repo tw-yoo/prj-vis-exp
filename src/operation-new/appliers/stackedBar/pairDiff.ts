@@ -103,8 +103,15 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
     // -----------------------------------------------------------------------
     const activeSeries = new Set<string>([groupA, groupB])
     const hasPersistentAnchor = state.annotationRecords.some((r) => r.persistent)
-    const phase1Mode: 'recompose' | 'dim' = hasPersistentAnchor ? 'dim' : 'recompose'
-    const phase1Duration = phase1Mode === 'dim' ? DURATIONS.DIM : DURATIONS.AXIS_RESCALE
+    // M5 (audit stackedBar-pairDiff-phase1-recompose-3): use opacity-only 'dim'
+    // for Phase 1 rather than 'recompose'. A recompose rescales the y-axis to the
+    // 2-series stack total here, and then Phase 2's stacked→grouped rescales
+    // again to the grouped max — a visible DOUBLE axis jump (two different
+    // layouts/domains in quick succession). Dimming the out-of-scope series
+    // leaves the y-axis untouched so Phase 2 performs the single, smooth
+    // rescale. (hasPersistentAnchor already forced dim before.)
+    const phase1Mode: 'recompose' | 'dim' = 'dim'
+    const phase1Duration = DURATIONS.DIM
     const phase1Parent = instance.createPhaseTransition(phase1Duration, EASINGS.SMOOTH)
 
     applyAnnotationContextFade(
@@ -121,16 +128,13 @@ export const pairDiffApplier: OperationApplier<StackedBarChartInstance> = {
       phase1Mode,
       hasPersistentAnchor,
     })
-    await Promise.all([
-      instance.transitionSeriesScope({
-        isInScope: (_target, series) => activeSeries.has(series),
-        mode: phase1Mode,
-        parent: phase1Parent,
-      }),
-      phase1Mode === 'recompose'
-        ? instance.transitionLegend({ activeSeries, parent: phase1Parent })
-        : Promise.resolve(),
-    ])
+    // Phase 1 is opacity-only 'dim' (M5): the legend stays full while the
+    // out-of-scope series are dimmed; Phase 3 narrows it on the grouped chart.
+    await instance.transitionSeriesScope({
+      isInScope: (_target, series) => activeSeries.has(series),
+      mode: phase1Mode,
+      parent: phase1Parent,
+    })
     try {
       await phase1Parent.end()
     } catch {

@@ -603,19 +603,17 @@ body {
   line-height: 1.95;
 }
 
-.explanation-area::before {
-  content: 'Visual Explanation';
-  display: block;
-  margin-bottom: 10px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-
 .explanation-area:empty {
   display: none;
+}
+
+/* B1 (text condition): a plain, non-interactive explanation paragraph. No
+   badges, no step blocks, no pointer affordance — the whole explanation is shown
+   at once and pressing it does nothing. */
+.explanation-plain {
+  margin: 0;
+  color: #1f2937;
+  cursor: default;
 }
 
 /* Proposed answer line under the reasoning steps. */

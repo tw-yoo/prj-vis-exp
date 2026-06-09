@@ -1,0 +1,34 @@
+{
+  "ops": [
+    {
+      "op": "pairDiff",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "by": "Year",
+      "groupA": "Convenience",
+      "groupB": "Price",
+      "seriesField": "Metric",
+      "field": "Has a great impact",
+      "absolute": true
+    }
+  ],
+  "ops2": [
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "which": "min",
+      "field": "Has a great impact"
+    }
+  ]
+}

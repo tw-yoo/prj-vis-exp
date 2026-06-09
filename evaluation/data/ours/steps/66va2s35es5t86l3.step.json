@@ -1,0 +1,13 @@
+{
+  "chart_id": "66va2s35es5t86l3",
+  "question": "What is the year with the largest increase compared to the previous year?",
+  "description": "",
+  "specPath": "specs/66va2s35es5t86l3.vl.json",
+  "opsPath": "ops/66va2s35es5t86l3.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "The line reaches its highest value in 2019, so that is the year with the largest increase."
+    }
+  ]
+}

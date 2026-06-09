@@ -1,0 +1,33 @@
+{
+  "ops": [
+    {
+      "op": "pairDiff",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "by": "Method",
+      "groupA": "EVERY DAY",
+      "groupB": "LESS OFTEN",
+      "seriesField": "Frequency",
+      "field": "Share_of_Respondents",
+      "absolute": true
+    }
+  ],
+  "ops2": [
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "which": "max"
+    }
+  ]
+}

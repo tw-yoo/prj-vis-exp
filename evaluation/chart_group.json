@@ -1,137 +1,188 @@
 {
   "G1": {
     "bar_simple": {
-      "id": "1hlsoeyqlr1r1n41",
-      "question": "How many regions have the smaller revenue than the average of revenue across regions except for the one with the highest revenue?",
-      "answer": "5"
+      "id": "0wflwm4jebx7n12y",
+      "question": "What is the difference between the average and the maximum number?",
+      "answer": "150",
+      "correctAnswer": "141.25",
+      "answerIsCorrect": false
     },
     "bar_stacked": {
-      "id": "0gzowodb2py0d1s9",
-      "question": "How many years did Thailand's revenue exceed that of the Philippines'?",
-      "answer": "3 years"
+      "id": "11e148qcs7x70t8v",
+      "question": "in which years does south korea have a bigger value than france?",
+      "answer": "2015, 2016, 2017, 2018, Jan-Oct 2019",
+      "correctAnswer": "2016, 2017, 2018, Jan-Oct 2019",
+      "answerIsCorrect": false
     },
     "bar_grouped": {
       "id": "0rfuaawgi58ajpsv",
       "question": "What is the difference in the average between North America and Latin America?",
-      "answer": "8.82 billion U.S. dollars"
+      "answer": "8.422",
+      "correctAnswer": "8.422",
+      "answerIsCorrect": true
     },
     "line_simple": {
-      "id": "72yqb8jwj9a6g4nx",
-      "question": "What is the difference between the average from 2011 and the average up to 2010?",
-      "answer": "20.5"
+      "id": "8chfa8n079zpfigi",
+      "question": "How many years correspond to a value between 20 and 30?",
+      "answer": "11",
+      "correctAnswer": "11",
+      "answerIsCorrect": true
     },
     "line_multiple": {
       "id": "1k8qhmg9rui7gtzh",
       "question": "What is the difference between the largest value in Germany and the smallest value in the U.S. between 2010 and 2015?",
-      "answer": "31"
+      "answer": "31",
+      "correctAnswer": "31",
+      "answerIsCorrect": true
     }
   },
   "G2": {
     "bar_simple": {
-      "id": "0w88bu7qm4ilsqmh",
-      "question": "What is the difference between the average of before 2000 and from 2010?",
-      "answer": "55"
+      "id": "0jbrb1dcbliiampz",
+      "question": "How many years had investments of over 22 Billion Euros in the years 2011 to 2014?",
+      "answer": "3",
+      "correctAnswer": "3",
+      "answerIsCorrect": true
     },
     "bar_stacked": {
-      "id": "bnil22qu3wwatrc7",
-      "question": "According to this chart, what is the difference between the average number of \"A better place to live\" opinion of Western Europe and the rest?",
-      "answer": "13.0476"
-    },
-    "bar_grouped": {
-      "id": "1hokbw2gmzar9ye8",
-      "question": "What's the difference between women over 60 and men under 40?",
-      "answer": "0.427"
-    },
-    "line_simple": {
-      "id": "1sf5c8wqw1192q6b",
-      "question": "How many dates was the growth rate below the average?",
-      "answer": "5"
-    },
-    "line_multiple": {
-      "id": "3z678inbp0t89ahu",
-      "question": "In how many years was the difference between Disatisfied and Satisfied less than the difference between their means?",
-      "answer": "X"
-    }
-  },
-  "G3": {
-    "bar_simple": {
-      "id": "0pzdf7hfbxgjghsa",
-      "question": "How big was the change from 2016 to 2017 compared to the change from 2017 to 2018?",
-      "answer": "5 years"
-    },
-    "bar_stacked": {
-      "id": "240rurpp2arislnt",
-      "question": "Find the difference between the response with the smallest percentage in the youngest group and the response with the highest percentage in the oldest group",
-      "answer": "51"
+      "id": "2bhsybiilde28j87",
+      "question": "What is the average percentage of non-black races that they answered very interested?",
+      "answer": "19%",
+      "correctAnswer": "19%",
+      "answerIsCorrect": true
     },
     "bar_grouped": {
       "id": "0egzejn5mejtnfdm",
       "question": "What is the difference between Scotland's largest value and England and Wales's smallest value?",
-      "answer": "26"
+      "answer": "26",
+      "correctAnswer": "26",
+      "answerIsCorrect": true
     },
     "line_simple": {
-      "id": "0gr1c2jcthc8h9f6",
-      "question": "What is the difference between a value for a year with a score value between 6.2 and 5.8 and a value for a year with a score value below 4.8?",
-      "answer": "1.22"
+      "id": "66va2s35es5t86l3",
+      "question": "What is the year with the largest increase compared to the previous year?",
+      "answer": "2019",
+      "correctAnswer": "2010",
+      "answerIsCorrect": false
     },
     "line_multiple": {
-      "id": "4p1m4tsmzmtvsrys",
-      "question": "What is the difference between the days when Obama is higher than Romney and the days when Romney is higher than Obama?",
-      "answer": "6"
+      "id": "16aphfabldrpgcmd",
+      "question": "What is the sum of the number of weights exceeding 3670 in the Boys group and the number of weights exceeding 3550 in the Girls group?",
+      "answer": "8",
+      "correctAnswer": "8",
+      "answerIsCorrect": true
+    }
+  },
+  "G3": {
+    "bar_simple": {
+      "id": "0gvrmm8qbn6o1vya",
+      "question": "What is the average of Season's ticket prices with a ticket price of $60 or less?",
+      "answer": "54.79",
+      "correctAnswer": "53.41",
+      "answerIsCorrect": false
+    },
+    "bar_stacked": {
+      "id": "77xb5ug5lhfmkb74",
+      "question": "What is the sum of number of employees from Europe region before 2015?",
+      "answer": "230769",
+      "correctAnswer": "230769",
+      "answerIsCorrect": true
+    },
+    "bar_grouped": {
+      "id": "0lua5jsw92d3enb4",
+      "question": "How many diet types surpassed the threshold of 0.03% in 2019?",
+      "answer": "12",
+      "correctAnswer": "8",
+      "answerIsCorrect": false
+    },
+    "line_simple": {
+      "id": "10gtgmmgh599jnr7",
+      "question": "What is the difference between the second largest and the smallest values between 2000 and 2008?",
+      "answer": "0.02",
+      "correctAnswer": "0.02",
+      "answerIsCorrect": true
+    },
+    "line_multiple": {
+      "id": "2s65jcap9pn289qx",
+      "question": "What is the sum of the differences between women and men in the last five years?",
+      "answer": "-196.94",
+      "correctAnswer": "-163.28",
+      "answerIsCorrect": false
     }
   },
   "G4": {
     "bar_simple": {
-      "id": "1gdzafocxmz7rswi",
-      "question": "How many years have the lower traffic in petabytes than the difference of two biggest traffics in petabytes.",
-      "answer": "4"
+      "id": "1a09xqtrj8zms716",
+      "question": "What is the average value of top 3 malls' per sqaure foot cost?",
+      "answer": "600",
+      "correctAnswer": "600",
+      "answerIsCorrect": true
     },
     "bar_stacked": {
-      "id": "c3mncg8r4g6bjoon",
-      "question": "Is Germany has higher share of respondents in Gasoline or diesel compared to the average of rest of the countries?",
-      "answer": "Yes"
+      "id": "10t8o5vhethzeod1",
+      "question": "In which year was the agriculture sector the highest",
+      "answer": "2017",
+      "correctAnswer": "2011",
+      "answerIsCorrect": false
     },
     "bar_grouped": {
-      "id": "0gacqohbzj07n25s",
-      "question": "What is the difference between the average of surgical values in European countries and the average of surgical values in Asian countries?",
-      "answer": "65715"
+      "id": "0prhtod4tli879nh",
+      "question": "Which city had the biggest jump in population from 2010 to 2025?",
+      "answer": "Tokyo",
+      "correctAnswer": "Delhi",
+      "answerIsCorrect": false
     },
     "line_simple": {
-      "id": "04xwv56n37ybj8zr",
-      "question": "What is the difference between the third most index scores and the fifth most index scores?",
-      "answer": "0.02"
+      "id": "25gpdzxh8nu0c0vf",
+      "question": "In average and median values, which one is bigger?",
+      "answer": "median",
+      "correctAnswer": "median",
+      "answerIsCorrect": true
     },
     "line_multiple": {
-      "id": "cby91tt3tvahsmuj",
-      "question": "Is the difference between the parties in 2012 bigger than the average of the differences of all years?",
-      "answer": "Yes"
+      "id": "2eiyyw562tcvjypp",
+      "question": "How many years has Russia had higher favorability than the US?",
+      "answer": "2",
+      "correctAnswer": "2",
+      "answerIsCorrect": true
     }
+
   },
   "G5": {
     "bar_simple": {
-      "id": "0w88bu7qm4ilsqmh",
-      "question": "What is the difference between the average of before 2000 and from 2010?",
-      "answer": "55"
+      "id": "0vmvmj77j3p6vcy7",
+      "question": "What is the net income sum from 2010 to 2015?",
+      "answer": "41581",
+      "correctAnswer": "41581",
+      "answerIsCorrect": true
     },
     "bar_stacked": {
-      "id": "0gzowodb2py0d1s9",
-      "question": "How many years did Thailand's revenue exceed that of the Philippines'?",
-      "answer": "3 years"
+      "id": "21fa7gb8l1ix6yfm",
+      "question": "Which method shows the highest difference between every day and less often?",
+      "answer": "Text messaging",
+      "correctAnswer": "Text messaging",
+      "answerIsCorrect": true
     },
     "bar_grouped": {
-      "id": "0rfuaawgi58ajpsv",
-      "question": "What is the difference in the average between North America and Latin America?",
-      "answer": "8.82 billion U.S. dollars"
+      "id": "01mksjs373fhcl4q",
+      "question": "Which sector showed the most decline?",
+      "answer": "Large companies",
+      "correctAnswer": "Large companies",
+      "answerIsCorrect": true
     },
     "line_simple": {
-      "id": "1sf5c8wqw1192q6b",
-      "question": "How many dates was the growth rate below the average?",
-      "answer": "5"
+      "id": "avwb8xstxx1lmfpk",
+      "question": "What is the Year that has the biggest deviation from the total average?",
+      "answer": "2021",
+      "correctAnswer": "2021",
+      "answerIsCorrect": true
     },
     "line_multiple": {
-      "id": "1k8qhmg9rui7gtzh",
-      "question": "What is the difference between the largest value in Germany and the smallest value in the U.S. between 2010 and 2015?",
-      "answer": "31"
+      "id": "20qa83ih1gn6toqt",
+      "question": "Which year shows the lowest gap between convenience and price",
+      "answer": "2013",
+      "correctAnswer": "2013",
+      "answerIsCorrect": true
     }
   }
 }

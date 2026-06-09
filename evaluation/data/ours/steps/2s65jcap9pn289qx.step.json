@@ -1,0 +1,21 @@
+{
+  "chart_id": "2s65jcap9pn289qx",
+  "question": "What is the sum of the differences between women and men in the last five years?",
+  "description": "",
+  "specPath": "specs/2s65jcap9pn289qx.vl.json",
+  "opsPath": "ops/2s65jcap9pn289qx.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Take the recent years as 2015 through 2020."
+    },
+    {
+      "id": "ops2",
+      "text": "Subtract the men’s value from the women’s value for each year."
+    },
+    {
+      "id": "ops3",
+      "text": "Sum those yearly differences to get -196.94."
+    }
+  ]
+}

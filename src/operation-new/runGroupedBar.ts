@@ -26,6 +26,7 @@ import { averageApplier } from './appliers/groupedBar/average'
 import { diffApplier } from './appliers/groupedBar/diff'
 import { retrieveValueApplier } from './appliers/groupedBar/retrieveValue'
 import { countApplier, findExtremumApplier, nthApplier } from './appliers/groupedBar/selection'
+import { pairDiffApplier } from './appliers/groupedBar/pairDiff'
 import { drawTransformApplierGrouped } from './appliers/barGroup/drawTransform'
 import type { ApplierArgs, OperationApplier } from './applier'
 
@@ -38,7 +39,8 @@ function isPortedOp(op: OperationSpec): boolean {
     op.op === OperationOp.RetrieveValue ||
     op.op === OperationOp.FindExtremum ||
     op.op === OperationOp.Nth ||
-    op.op === OperationOp.Count
+    op.op === OperationOp.Count ||
+    op.op === OperationOp.PairDiff
   )
 }
 
@@ -59,6 +61,8 @@ function pickApplier(op: OperationSpec): OperationApplier<GroupedBarChartInstanc
       return nthApplier
     case OperationOp.Count:
       return countApplier
+    case OperationOp.PairDiff:
+      return pairDiffApplier
     default:
       return null
   }

@@ -1,0 +1,21 @@
+{
+  "chart_id": "25gpdzxh8nu0c0vf",
+  "question": "In average and median values, which one is bigger?",
+  "description": "",
+  "specPath": "specs/25gpdzxh8nu0c0vf.vl.json",
+  "opsPath": "ops/25gpdzxh8nu0c0vf.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Calculate the average of the Number_of_Fatalities values across all years."
+    },
+    {
+      "id": "ops2",
+      "text": "Sort the values and take the middle one as the median."
+    },
+    {
+      "id": "ops3",
+      "text": "Compare the average and the median to see which is bigger."
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "chart_id": "77xb5ug5lhfmkb74",
+  "question": "What is the sum of number of employees from Europe region before 2015?",
+  "description": "",
+  "specPath": "specs/77xb5ug5lhfmkb74.vl.json",
+  "opsPath": "ops/77xb5ug5lhfmkb74.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Filter to the Europe-region segments (Germany, Great Britain, Spain, Rest of Europe) for the years before 2015."
+    },
+    {
+      "id": "ops2",
+      "text": "Sum the Number_of_Employees across those regions and years."
+    }
+  ]
+}

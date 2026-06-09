@@ -5,7 +5,8 @@ import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
-import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
+import { ANNOTATION_FADE_OUT_MS } from '../../primitives/fadeRemove'
+import { RESULT_REF_ATTRIBUTE, operationResultRef } from '../../../operation-next/diffEndpoint'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
 import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { findBarByTarget, readBarMetrics, resolveBarAnnotationViewport, valueToRootY } from './_shared'
@@ -15,7 +16,7 @@ export const RETRIEVE_ANNOTATION_CLASS = 'operation-next-retrieve-value'
 export const retrieveValueApplier: OperationApplier<SimpleBarChartInstance> = {
   op: OperationOp.RetrieveValue,
 
-  async apply({ operation, state, instance }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
+  async apply({ operation, state, instance, options }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
     const result = retrieveValue(state.workingData, operation)
     const isReverse = operation.targetAxis === 'y'
     console.info('[operation-new] bar applier:retrieveValue', {
@@ -26,7 +27,28 @@ export const retrieveValueApplier: OperationApplier<SimpleBarChartInstance> = {
     })
 
     const layer = instance.annotationLayer
-    fadeRemoveAnnotations(layer, RETRIEVE_ANNOTATION_CLASS)
+    // Reference-aware cleanup (mirror average.ts): only fade this op's OWN prior
+    // labels (idempotent re-run) and labels no current-or-later op still
+    // references — keep referenced siblings so a top-N chain (retrieveValue×3 →
+    // add → add → scale, case 1a09xqtrj8zms716) shows all N values at once.
+    // The old unconditional fadeRemoveAnnotations wiped every sibling label,
+    // leaving only the last retrieve visible (audit simpleBar-3).
+    const selfRef = operationResultRef(operation)
+    const selfId = selfRef == null ? String(operation.meta?.nodeId ?? '') : String(selfRef)
+    const keep = new Set(
+      (options?.referencedResultIds ?? []).map((id) => String(id).replace(/^ref:/, '').trim()),
+    )
+    layer
+      .selectAll<SVGElement, unknown>(`.${RETRIEVE_ANNOTATION_CLASS}`)
+      .filter(function () {
+        const ref = this.getAttribute(RESULT_REF_ATTRIBUTE) ?? ''
+        return ref === '' || ref === selfId || !keep.has(ref)
+      })
+      .interrupt()
+      .transition()
+      .duration(ANNOTATION_FADE_OUT_MS)
+      .style('opacity', 0)
+      .remove()
     if (result.length === 0) {
       return { result, nextState: { ...state, lastResult: result } }
     }
@@ -82,7 +104,7 @@ export const retrieveValueApplier: OperationApplier<SimpleBarChartInstance> = {
           preferred: { x: metrics.centerX, y: metrics.topY - 8 },
           text: String(datum.displayTarget ?? datum.target),
           className: RETRIEVE_ANNOTATION_CLASS,
-          dataAttrs: [[DataAttributes.Target, target]],
+          dataAttrs: [[DataAttributes.Target, target], [RESULT_REF_ATTRIBUTE, selfId]],
         })
         transitions.push(
           labelNode
@@ -122,7 +144,7 @@ export const retrieveValueApplier: OperationApplier<SimpleBarChartInstance> = {
           preferred: { x: metrics.centerX, y: metrics.topY - 10 - index * 16 },
           text: formatOperationValue(metrics.value),
           className: RETRIEVE_ANNOTATION_CLASS,
-          dataAttrs: [[DataAttributes.Target, target]],
+          dataAttrs: [[DataAttributes.Target, target], [RESULT_REF_ATTRIBUTE, selfId]],
         })
 
         transitions.push(

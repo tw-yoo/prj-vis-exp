@@ -144,9 +144,38 @@ export function findBarsByDatum(
   datum: DatumValue,
 ): SVGRectElement[] {
   const target = datum.target == null ? null : String(datum.target)
-  const group =
+  const rawGroup =
     datum.group != null ? String(datum.group) : datum.series != null ? String(datum.series) : null
-  return (instance.mainBars().nodes() as SVGRectElement[]).filter((node) => {
+  const rawPanel = datum.panel == null ? null : String(datum.panel)
+  const nodes = instance.mainBars().nodes() as SVGRectElement[]
+
+  // Two constraints are dropped when no rendered bar can satisfy them, so the
+  // looser match wins — preserving the pre-existing behaviour for ordinary data
+  // while fixing two failure modes:
+  //  (a) compound pairDiff group ("A-B") never equals any rendered data-series
+  //      (a stacked→grouped pairDiff result feeding findExtremum) — match by
+  //      target only, highlighting the winning key's pair of bars.
+  //  (b) a panel that no bar carries (single-panel chart) must not filter
+  //      everything out. Conversely, when bars DO carry the panel (faceted
+  //      chart), require it so the same (target,series) in another panel is not
+  //      wrongly highlighted.
+  const groupMatchesSomeBar =
+    rawGroup == null ||
+    nodes.some(
+      (node) =>
+        node.getAttribute(DataAttributes.Series) === rawGroup ||
+        node.getAttribute(DataAttributes.GroupValue) === rawGroup,
+    )
+  const group = groupMatchesSomeBar ? rawGroup : null
+
+  const panelMatchesSomeBar =
+    rawPanel == null || nodes.some((node) => node.getAttribute(DataAttributes.ChartId) === rawPanel)
+  const panel = panelMatchesSomeBar ? rawPanel : null
+
+  return nodes.filter((node) => {
+    if (panel != null) {
+      if (node.getAttribute(DataAttributes.ChartId) !== panel) return false
+    }
     if (target != null) {
       const tMatch =
         node.getAttribute(DataAttributes.Target) === target ||

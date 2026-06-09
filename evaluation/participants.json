@@ -5,6 +5,12 @@
       "chart": "CO1"
     }
   },
+  "TESTP4": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO4"
+    }
+  },
   "DVNLPR": {
     "order": {
       "system": "PRE",

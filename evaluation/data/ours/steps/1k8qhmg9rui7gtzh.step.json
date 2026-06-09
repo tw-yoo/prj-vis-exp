@@ -7,19 +7,19 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Filter the data to the years 2010 to 2015."
+      "text": "Filter the chart to the years 2010 through 2015 inclusive."
     },
     {
       "id": "ops2",
-      "text": "Find the largest value in Germany between 2010 and 2015."
+      "text": "Find Germany's maximum favorable-view percentage in that range."
     },
     {
       "id": "ops3",
-      "text": "Find the smallest value in the U.S. between 2010 and 2015."
+      "text": "Find the U.S. minimum favorable-view percentage in that range."
     },
     {
       "id": "ops4",
-      "text": "Subtract value 2 from value 1."
+      "text": "Subtract the U.S. minimum from the Germany maximum."
     }
   ]
 }

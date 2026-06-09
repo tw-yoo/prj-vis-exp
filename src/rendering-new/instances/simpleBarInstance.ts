@@ -501,7 +501,14 @@ export class SimpleBarChartInstance implements ChartInstance {
           .transition(inheritT)
           .attr(SvgAttributes.Y, (d) => newY(d))
           .attr(SvgAttributes.Height, (d) => newH(d))
-          .style(SvgAttributes.Opacity, outOpacity)
+          // Clamp to the bar's CURRENT opacity so a second filter's DIM pass
+          // never re-reveals a bar a prior filter already drove to 0
+          // (two-filter chain, case 0jbrb1dcbliiampz → 0→0.2→0 flicker).
+          .style(SvgAttributes.Opacity, function () {
+            const raw = (this as SVGElement).style.opacity
+            const cur = raw === '' ? OPACITIES.FULL : Number(raw)
+            return Math.min(Number.isFinite(cur) ? cur : OPACITIES.FULL, outOpacity)
+          })
       } else {
         // No active filter — every bar repositions and stays full opacity.
         this.bars

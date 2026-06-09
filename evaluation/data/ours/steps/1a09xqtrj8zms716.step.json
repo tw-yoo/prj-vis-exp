@@ -1,0 +1,17 @@
+{
+  "chart_id": "1a09xqtrj8zms716",
+  "question": "What is the average value of top 3 malls' per sqaure foot cost?",
+  "description": "",
+  "specPath": "specs/1a09xqtrj8zms716.vl.json",
+  "opsPath": "ops/1a09xqtrj8zms716.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Read off the top three malls' values by US dollars per square foot."
+    },
+    {
+      "id": "ops2",
+      "text": "Add the three values and divide by three to get the average."
+    }
+  ]
+}

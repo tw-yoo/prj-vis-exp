@@ -7,15 +7,15 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Check Scotland's Biggest Value"
+      "text": "Find Scotland's highest SharePercentage across the response-category panels."
     },
     {
       "id": "ops2",
-      "text": "Check the smallest value for England & Wales"
+      "text": "Find England & Wales's lowest SharePercentage across the same panels."
     },
     {
       "id": "ops3",
-      "text": "Check if the value is greater than the value of number 1 or number 2. Subtract small value from large value"
+      "text": "Subtract the smaller value from the larger."
     }
   ]
 }

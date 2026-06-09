@@ -2,6 +2,7 @@ import * as d3 from 'd3'
 import { ChartType, type ChartSpec } from '../../domain/chart'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
 import { DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
+import type { ParentTransition } from '../../operation-new/primitives/sharedTransition'
 import {
   renderGroupedBarChart,
   type GroupedSpec,
@@ -143,6 +144,19 @@ export class GroupedBarChartInstance implements ChartInstance {
     // `transitionFilterScope` below.
   }
 
+  /**
+   * Shared parent transition for a phase — bars, legend, annotation fades all
+   * ride one d3 scheduler so they finish on the same frame (validation-page
+   * lockstep idiom). Mirrors `StackedBarChartInstance.createPhaseTransition`.
+   * The caller awaits `parent.end()` exactly once at the end of the phase.
+   */
+  createPhaseTransition(
+    duration: number = DURATIONS.AXIS_RESCALE,
+    ease: (t: number) => number = EASINGS.SMOOTH,
+  ): ParentTransition {
+    return this.svg.transition().duration(duration).ease(ease) as unknown as ParentTransition
+  }
+
   /** All data `<rect>` bars across panels. */
   mainBars(): d3.Selection<SVGRectElement, unknown, d3.BaseType, unknown> {
     return this.svg.selectAll<SVGRectElement, unknown>(`rect.${SvgClassNames.MainBar}`)
@@ -231,6 +245,11 @@ export class GroupedBarChartInstance implements ChartInstance {
     outOfScopeOpacity?: number
     duration?: number
     ease?: (t: number) => number
+    /** Optional shared parent transition (validation-page lockstep). When
+     *  supplied the sub-transitions inherit its timeline and this method does
+     *  NOT await — the caller awaits the parent's `end()` once. Mirrors
+     *  StackedBarChartInstance.transitionSeriesScope. */
+    parent?: ParentTransition
   }): Promise<void> {
     if (!this.svg || this.svg.empty()) return
     const mode = opts.mode ?? 'recompose'
@@ -247,13 +266,10 @@ export class GroupedBarChartInstance implements ChartInstance {
 
     if (mode === 'dim') {
       const outOpacity = opts.outOfScopeOpacity ?? OPACITIES.DIM
-      const parent = this.svg.transition().duration(DURATIONS.DIM).ease(ease) as unknown as d3.Transition<
-        d3.BaseType,
-        unknown,
-        d3.BaseType,
-        unknown
-      >
-      const inheritT = parent as never
+      const ownedParent = opts.parent
+        ? null
+        : (this.svg.transition().duration(DURATIONS.DIM).ease(ease) as unknown as ParentTransition)
+      const inheritT = ((opts.parent ?? ownedParent) as unknown) as never
       bars
         .interrupt('series-scope')
         .transition(inheritT)
@@ -262,12 +278,20 @@ export class GroupedBarChartInstance implements ChartInstance {
           const panel = node.getAttribute('data-chart-id') ?? 'root'
           const target = node.getAttribute('data-target') ?? ''
           const series = node.getAttribute('data-series') ?? node.getAttribute('data-group-value') ?? ''
-          return opts.isInScope(panel, target, series) ? OPACITIES.FULL : outOpacity
+          if (opts.isInScope(panel, target, series)) return OPACITIES.FULL
+          // Don't re-reveal a bar a prior recompose already parked at opacity 0
+          // (e.g. filter(group)→recompose then filter(value)→dim, case
+          // 0lua5jsw92d3enb4): clamp out-of-scope to its current opacity so a
+          // hidden bar stays hidden instead of popping to DIM. Inline style is
+          // the codebase's hidden-bar sentinel (see _geometry.ts).
+          return node.style.opacity === '0' ? 0 : outOpacity
         })
-      try {
-        await parent.end()
-      } catch {
-        /* interrupted */
+      if (ownedParent) {
+        try {
+          await ownedParent.end()
+        } catch {
+          /* interrupted */
+        }
       }
       return
     }
@@ -281,13 +305,10 @@ export class GroupedBarChartInstance implements ChartInstance {
     const layoutByNode = new Map<SVGRectElement, GroupedRectLayout>()
     layouts.forEach((layout) => layoutByNode.set(layout.node, layout))
 
-    const parent = this.svg.transition().duration(duration).ease(ease) as unknown as d3.Transition<
-      d3.BaseType,
-      unknown,
-      d3.BaseType,
-      unknown
-    >
-    const inheritT = parent as never
+    const ownedParent = opts.parent
+      ? null
+      : (this.svg.transition().duration(duration).ease(ease) as unknown as ParentTransition)
+    const inheritT = ((opts.parent ?? ownedParent) as unknown) as never
 
     bars
       .interrupt('series-scope')
@@ -313,10 +334,12 @@ export class GroupedBarChartInstance implements ChartInstance {
     this.activeTargets = activeKeysSet.size > 0 ? activeKeysSet : null
     this.outOfScopeOpacity = 0
 
-    try {
-      await parent.end()
-    } catch {
-      /* interrupted */
+    if (ownedParent) {
+      try {
+        await ownedParent.end()
+      } catch {
+        /* interrupted */
+      }
     }
   }
 

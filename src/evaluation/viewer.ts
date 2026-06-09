@@ -11,6 +11,8 @@ import {
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './renderers/types'
 import { OursRenderer } from './renderers/oursRenderer'
 import { BaselineRenderer } from './renderers/baselineRenderer'
+import { TextRenderer } from './renderers/textRenderer'
+import { ExpertRenderer } from './renderers/expertRenderer'
 import { loadFirestoreSettings, getDocumentFields, patchDocumentFields, type FirestoreSettings, type FsJson } from './firestore'
 
 declare global {
@@ -48,13 +50,16 @@ type SurveyPage = {
   questions: SurveyQuestion[]
 }
 
-type IntroKind = 'intro-welcome' | 'tutorial-interact' | 'tutorial-task'
+type IntroKind = 'intro-welcome' | 'tutorial-interact' | 'tutorial-text' | 'tutorial-task'
 
-// One block = the 5 charts a participant sees for a single (system, group) pair.
-type SessionBlock = { system: string; group: string; startIdx: number; endIdx: number }
+// One block = the 5 charts a participant saw for a single (system, group) pair.
+// After full interleaving those 5 charts are scattered across the presentation
+// order, so `items` holds them grouped back together (in presentation order) for
+// the per-system evaluation + review carousel shown at the end of the study.
+type SessionBlock = { system: string; group: string; items: SequenceItem[] }
 
-// A draggable system in the final ranking. `label` (System A/B/C) is shown to
-// the participant; `system` (Ours/B1/B2) is recorded internally.
+// A draggable system in the final ranking. `label` (System A/B/C/D) is shown to
+// the participant; `system` (Ours/B1/B2/B3) is recorded internally.
 type FinalItem = { key: string; label: string; system: string }
 
 type PageDescriptor =
@@ -66,19 +71,19 @@ type PageDescriptor =
 const surveyPages: SurveyPage[] = [
   {
     questions: [
-      // {
-      //   id: 'answer-correct',
-      //   text: 'The answer is correct.',
-      //   kind: 'yes-no',
-      // },
+      {
+        id: 'answer-correct',
+        text: 'The answer is correct.',
+        kind: 'yes-no',
+      },
     ],
   },
   {
     questions: [
       // H2 (understanding) + H3 (transparency). Trust (H3) is measured per
       // system on the post-session page, not here.
-      // { id: 'reasoning-easy', text: 'The explanation was easy to understand.', kind: 'likert7' },
-      // { id: 'derivation-clear', text: 'The explanation was transparent.', kind: 'likert7' },
+      { id: 'reasoning-easy', text: 'The explanation was easy to understand.', kind: 'likert7' },
+      { id: 'derivation-clear', text: 'The explanation was transparent.', kind: 'likert7' },
     ],
   },
 ]
@@ -92,7 +97,7 @@ const AGREE_SCALE: ScaleLabels = { low: 'Strongly disagree', high: 'Strongly agr
 // open-ended. The system identity (Ours/B1/B2) is not revealed.
 const postSessionQuestions: SurveyQuestion[] = [
   { id: 'tlx-mental', text: 'Understanding this explanation was mentally demanding.', kind: 'likert7', scale: AGREE_SCALE },
-  { id: 'tlx-physical', text: 'Understanding this explanation was physically demanding.', kind: 'likert7', scale: AGREE_SCALE },
+  // { id: 'tlx-physical', text: 'Understanding this explanation was physically demanding.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-temporal', text: 'I felt hurried or rushed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-performance', text: 'I was successful in understanding the explanation.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-effort', text: 'I had to work hard to understand this explanation.', kind: 'likert7', scale: AGREE_SCALE },
@@ -102,33 +107,51 @@ const postSessionQuestions: SurveyQuestion[] = [
 ]
 
 const RANKING_DIMENSIONS: Array<{ id: string; promptHtml: string }> = [
-  { id: 'trust', promptHtml: 'Rank the three systems by <strong>how much you trusted the explanation</strong>, from the one you trusted <strong>most (1)</strong> to the one you trusted <strong>least (3)</strong>. Drag each system into a numbered slot.' },
-  { id: 'transparency', promptHtml: 'Rank the three systems by <strong>how clearly the explanation showed how the answer was reached</strong>, from the <strong>clearest (1)</strong> to the <strong>least clear (3)</strong>. Drag each system into a numbered slot.' },
-  { id: 'error-detection', promptHtml: 'Rank the three systems by <strong>how easily you could tell whether the explanation was correct or contained a mistake</strong>, from the <strong>easiest (1)</strong> to the <strong>hardest (3)</strong>. Drag each system into a numbered slot.' },
-  { id: 'ease', promptHtml: 'Rank the three systems by <strong>how easy the explanation was to understand</strong>, from the <strong>easiest (1)</strong> to the <strong>hardest (3)</strong>. Drag each system into a numbered slot.' },
-  { id: 'preference', promptHtml: 'Rank the three systems by <strong>which you would most prefer to use</strong>, from <strong>most preferred (1)</strong> to <strong>least preferred (3)</strong>. Drag each system into a numbered slot.' },
+  { id: 'trust', promptHtml: 'Rank the systems by <strong>how much you trusted the explanation</strong>, from the one you trusted <strong>most</strong> to the one you trusted <strong>least</strong>. Drag each system into a numbered slot (1 = trusted most).' },
+  { id: 'transparency', promptHtml: 'Rank the systems by <strong>how clearly the explanation showed how the answer was reached</strong>, from the <strong>clearest</strong> to the <strong>least clear</strong>. Drag each system into a numbered slot (1 = clearest).' },
+  { id: 'error-detection', promptHtml: 'Rank the systems by <strong>how easily you could tell whether the explanation was correct or contained a mistake</strong>, from the <strong>easiest</strong> to the <strong>hardest</strong>. Drag each system into a numbered slot (1 = easiest).' },
+  { id: 'ease', promptHtml: 'Rank the systems by <strong>how easy the explanation was to understand</strong>, from the <strong>easiest</strong> to the <strong>hardest</strong>. Drag each system into a numbered slot (1 = easiest).' },
+  { id: 'preference', promptHtml: 'Rank the systems by <strong>which you would most prefer to use</strong>, from <strong>most preferred</strong> to <strong>least preferred</strong>. Drag each system into a numbered slot (1 = most preferred).' },
 ]
 
-const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-task']
-const EVAL_TUTORIAL_CHART_ID = '1gdzafocxmz7rswi'
+const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-text', 'tutorial-task']
+// Tutorial demo charts: G5 (backup) charts, so they are NOT in the main-study
+// sequence for CO1–CO4 participants (G5 appears only in the PRE practice order).
+// The step-by-step practice uses the Ours engine; the text practice uses the
+// TextRenderer (the base chart SVG + plain explanation prose). Two different G5
+// charts so the two practice pages don't show the same chart twice.
+const EVAL_TUTORIAL_CHART_ID = '0vmvmj77j3p6vcy7'
+const EVAL_TUTORIAL_TEXT_CHART_ID = '20qa83ih1gn6toqt'
 
 const WELCOME_BODY_HTML = `
   <p>Thank you for participating in this research study.</p>
   <p>We are investigating how different <strong>visual explanations</strong> help people understand and verify answers to questions about charts.</p>
-  <p>In this study, you will see a series of charts paired with questions and AI-generated answers. For each pair, a step-by-step visual explanation will show how the answer was derived. <strong>Three different explanation systems</strong> are compared in this study; you will see explanations from all three throughout the survey.</p>
+  <p>In this study, you will see a series of charts paired with questions and AI-generated answers. For each pair, an explanation will show how the answer was derived. <strong>Four different explanation systems</strong> are compared in this study; you will see explanations from all four, in a mixed order, throughout the survey. A label such as <strong>System A</strong> at the top of each chart tells you which system produced that explanation. At the end you will answer a few questions about each system in turn.</p>
   <p>Your task on each question:</p>
   <ol>
     <li>Decide whether the provided answer is correct.</li>
     <li>Rate how clearly the explanation showed the reasoning behind the answer.</li>
   </ol>
   <p>The study takes about <strong>70&ndash;90 minutes</strong>. Your responses are anonymous and linked only to your participant code (<code>{code}</code>).</p>
-  <p>The next two pages will walk you through how to interact with the explanations and what we'll ask you to do.</p>
+  <p>The next pages will walk you through how the explanations are shown and what we'll ask you to do.</p>
 `
 
+// Step-by-step (visual) practice page. The body introduces BOTH formats
+// neutrally (the participant meets them in a random order, so both must be
+// previewed) and frames the live demo below as the step-by-step format.
 const TUTORIAL_INTERACT_BODY_HTML = `
-  <p>Each visual explanation is broken into a few reasoning steps. <strong>Every numbered block is one step</strong> &mdash; a single step may include one or more sentences.</p>
-  <p>To see what a step looks like on the chart, <strong>click on a block</strong>. The chart will update to reflect that step. You can click blocks in any order &mdash; revisit earlier steps, jump ahead, or replay.</p>
-  <p>Try it now on the live example below.</p>
+  <p>For each item you will see a chart, a question, and an answer to that question. Each answer comes with an explanation of how the answer was reached.</p>
+  <p>Explanations may be presented in <strong>different formats</strong> from one item to the next:</p>
+  <ul>
+    <li>Some are shown <strong>step by step on the chart</strong> &mdash; pressing the screen or a step block reveals each step in turn.</li>
+    <li>Some are shown <strong>as text</strong>, with the full explanation visible all at once. There is nothing to press, and pressing it reveals no further content; the text you see is the whole explanation. This is not an error &mdash; it is simply that explanation's format.</li>
+  </ul>
+  <p>We will now practice each format once. The example below is the <strong>step-by-step</strong> format &mdash; try pressing the blocks to move through it.</p>
+`
+
+// Text-format practice page.
+const TUTORIAL_TEXT_BODY_HTML = `
+  <p>This explanation is in <strong>text format</strong>. Try pressing it &mdash; it is normal for no further content to appear. Read the text shown and continue.</p>
 `
 
 const TUTORIAL_TASK_BODY_HTML = `
@@ -136,13 +159,14 @@ const TUTORIAL_TASK_BODY_HTML = `
   <ol>
     <li><strong>Read the chart.</strong> Examine the data carefully (e.g., axes, labels, values.)</li>
     <li><strong>Read the question and the proposed answer.</strong></li>
-    <li><strong>Read the visual explanation</strong> by clicking through each numbered block.</li>
+    <li><strong>Read the explanation.</strong> If it is shown step by step, press each block to move through it; if it is shown as text, the full explanation is already visible.</li>
     <li><strong>Verify the answer.</strong> After reviewing the explanation, decide: Yes (correct) or No (incorrect).</li>
-    <li><strong>Rate the explanation.</strong> Three statements use a 7-point scale (Strongly disagree &rarr; Strongly agree).</li>
+    <li><strong>Rate the explanation.</strong> Two statements use a 7-point scale (Strongly disagree &rarr; Strongly agree).</li>
   </ol>
   <div class="intro-notes">
     <p class="intro-notes__title">Important notes</p>
     <ul>
+      <li><strong>Some answers are correct and some are not.</strong> Whether the shown answer is right is exactly what we ask you to judge &mdash; read the explanation and decide for yourself.</li>
       <li><strong>Answer the first question accurately.</strong> We measure how long you take to answer the "The answer is correct." question on each page. Please stay focused and respond as accurate as you have made your decision.</li>
       <li><strong>Use external tools freely.</strong> A calculator or scrap paper is fine if you need to verify a calculation &mdash; just try to keep it brief.</li>
     </ul>
@@ -210,11 +234,12 @@ const rendererContext: RendererContext = {
 }
 
 // Build the per-participant sequence from the order model:
-//   order.system -> order_system.json -> [Ours, B1, B2]
-//   order.chart  -> order_chart.json  -> [G1, G2, G3]
-// system i is paired with group i; each group's 5 charts (chart_group.json) are
-// listed in an order randomized deterministically by the participant code (so
-// reloads / ?page navigation stay aligned). 3 systems x 5 charts = 15 items.
+//   order.system -> order_system.json -> [Ours, B1, B2, B3]
+//   order.chart  -> order_chart.json  -> [G1, G2, G3, G4]
+// system i is paired with group i; all paired charts are then fully interleaved
+// (shuffled together) into one presentation order, deterministic in the
+// participant code (so reloads / ?page navigation stay aligned). The per-system
+// evaluations come at the end, not after each system. 4 systems x 5 = 20 items.
 const [orderSystem, orderChart, chartGroup] = await Promise.all([
   fetch(withBase('/order_system.json')).then((r) => r.json()) as Promise<OrderSystemFile>,
   fetch(withBase('/order_chart.json')).then((r) => r.json()) as Promise<OrderChartFile>,
@@ -225,38 +250,45 @@ const sequence: SequenceItem[] = buildSequence(
   { orderSystem, orderChart, chartGroup },
   participant.code,
 )
-// Group the flat sequence into blocks (one (system, group) pair = 5 charts).
-const blocks: SessionBlock[] = (() => {
-  const result: SessionBlock[] = []
-  sequence.forEach((item, i) => {
-    const last = result[result.length - 1]
-    if (last && last.system === item.system && last.group === item.group) {
-      last.endIdx = i
-    } else {
-      result.push({ system: item.system, group: item.group, startIdx: i, endIdx: i })
-    }
-  })
-  return result
-})()
+// Group the interleaved sequence back into per-system blocks, ordered by the
+// participant's canonical system order (orderSystem[...]), NOT presentation
+// order. This stable order drives the System A/B/C/D labels and the order of the
+// per-system evaluation pages shown at the end. Each block's 5 charts are the
+// (scattered) items whose `system` matches.
+const blocks: SessionBlock[] = (orderSystem[participant.order.system] ?? [])
+  .map((system) => ({ system, items: sequence.filter((it) => it.system === system) }))
+  .filter((b) => b.items.length > 0)
+  .map((b) => ({ system: b.system, group: b.items[0].group, items: b.items }))
 
-// The 3 systems, labelled A/B/C in presentation (block) order, for the final
-// ranking. The label is participant-facing; `system` (Ours/B1/B2) is internal.
+// The systems, labelled A/B/C/D in canonical block order, for the per-chart
+// label, the per-system evaluation, and the final ranking. The label is
+// participant-facing; `system` (Ours/B1/B2/B3) is internal.
 const finalItems: FinalItem[] = blocks.map((block, i) => ({
   key: String.fromCharCode(65 + i),
   label: `System ${String.fromCharCode(65 + i)}`,
   system: block.system,
 }))
 
-// Page flow: 3 intros, then per block [ each chart's survey pages, then one
-// post-session reflection page ], then one final ranking + comments page.
+// internal system (Ours/B1/B2/B3) -> participant-facing label ("System A"...).
+const systemLabels = new Map(finalItems.map((it) => [it.system, it.label]))
+const labelForSystem = (system: string): string => systemLabels.get(system) ?? 'System ?'
+
+// Rank slots for the final ranking: one per system ('1'..'N'). Derived so the
+// page generalizes to any system count (4 in this study).
+const RANK_SLOTS: string[] = finalItems.map((_, i) => String(i + 1))
+
+// Page flow: 3 intros, then EVERY chart's survey pages in the fully-interleaved
+// presentation order (all 20 charts, systems randomized), then the per-system
+// evaluation pages (one per system, in canonical A/B/C/D order), then one final
+// ranking + comments page.
 const allPages: PageDescriptor[] = (() => {
   const pages: PageDescriptor[] = INTRO_PAGE_KINDS.map((kind) => ({ kind }))
-  blocks.forEach((block, blockIdx) => {
-    for (let i = block.startIdx; i <= block.endIdx; i += 1) {
-      for (let j = 0; j < surveyPages.length; j += 1) {
-        pages.push({ kind: 'survey', itemIdx: i, surveyPageIdx: j })
-      }
+  for (let i = 0; i < sequence.length; i += 1) {
+    for (let j = 0; j < surveyPages.length; j += 1) {
+      pages.push({ kind: 'survey', itemIdx: i, surveyPageIdx: j })
     }
+  }
+  blocks.forEach((_, blockIdx) => {
     pages.push({ kind: 'post-session', blockIdx })
   })
   pages.push({ kind: 'final' })
@@ -332,9 +364,13 @@ function getItemKey(item: SequenceItem) {
 }
 
 function createRenderer(method: ExplanationMethod, context: RendererContext = rendererContext): ExplanationRenderer {
+  // B1 = simple text (chart + explanation prose, no visual annotation).
+  // B2 = SVG-scene visual explanation (baselines/B2, scenes filled by pipeline).
+  // B3 = expert explanation (validation/ expert modules, baselines/B3/expert).
   if (method === 'ours') return new OursRenderer(context)
-  if (method === 'b1') return new BaselineRenderer(context, 'b1')
+  if (method === 'b1') return new TextRenderer(context)
   if (method === 'b2') return new BaselineRenderer(context, 'b2')
+  if (method === 'b3') return new ExpertRenderer(context)
   throw new Error(`Unknown method: ${method}`)
 }
 
@@ -485,7 +521,13 @@ function buildSubmission(): Record<string, FsJson> {
     charts[item.chart_id] = {
       system: item.system,
       group: item.group,
+      // Participant's judgment (their Yes/No to "The answer is correct.").
       answerCorrect: surveyResponses.get(`${k}:0::answer-correct`) ?? '',
+      // Ground truth of the correct/incorrect-answer manipulation, for scoring
+      // (was the shown answer actually correct, and what was the true value).
+      answerShown: item.answer,
+      answerIsCorrect: item.answerIsCorrect,
+      correctAnswer: item.correctAnswer,
       responseTimeMs: Math.round(responseTimes.get(item.chart_id) ?? 0),
       ratings,
     }
@@ -501,11 +543,11 @@ function buildSubmission(): Record<string, FsJson> {
     postSession[block.system] = obj
   })
 
-  // One ranking per dimension: rankings[dim] = { '1': system, '2': system, '3': system }.
+  // One ranking per dimension: rankings[dim] = { '1': system, ..., 'N': system }.
   const rankings: Record<string, FsJson> = {}
   RANKING_DIMENSIONS.forEach((dim) => {
     const ranks: Record<string, FsJson> = {}
-    ;(['1', '2', '3'] as const).forEach((n) => {
+    RANK_SLOTS.forEach((n) => {
       const v = surveyResponses.get(`final::rank-${dim.id}-${n}`)
       if (v != null) ranks[n] = v
     })
@@ -568,9 +610,9 @@ function scheduleSave() {
   saveTimer = window.setTimeout(() => { saveTimer = null; void saveNow() }, 600)
 }
 
-// Final page: one drag-and-drop ranking per RANKING_DIMENSIONS entry (the 3
-// systems A/B/C into numbered slots 1..3), plus an optional free-text comment.
-// Each dimension's ranking is stored as `final::rank-{dim.id}-{1,2,3}` -> system;
+// Final page: one drag-and-drop ranking per RANKING_DIMENSIONS entry (the
+// systems A/B/C/D into numbered slots 1..N), plus an optional free-text comment.
+// Each dimension's ranking is stored as `final::rank-{dim.id}-{1..N}` -> system;
 // comment as `final::comment`. Rebuilt from stored responses on every render so
 // it survives back/forward navigation.
 function renderFinalPage() {
@@ -590,8 +632,8 @@ function renderFinalPage() {
     updateFinalNav()
   }
 
-  // One self-contained ranking widget: its own 3 chips + 3 slots, lookups scoped
-  // to this widget's board, storing into `final::rank-{dim.id}-{1,2,3}`.
+  // One self-contained ranking widget: its own chips + slots (one per system),
+  // lookups scoped to this widget's board, storing into `final::rank-{dim.id}-{1..N}`.
   const buildRanking = (dim: { id: string; promptHtml: string }) => {
     const section = document.createElement('section')
     section.className = 'final-section'
@@ -615,15 +657,15 @@ function renderFinalPage() {
     const slotsWrap = document.createElement('div')
     slotsWrap.className = 'rank-slots'
     const slotDrops: HTMLElement[] = []
-    ;[1, 2, 3].forEach((n) => {
+    RANK_SLOTS.forEach((rank) => {
       const slot = document.createElement('div')
       slot.className = 'rank-slot'
       const num = document.createElement('div')
       num.className = 'rank-slot__num'
-      num.textContent = String(n)
+      num.textContent = rank
       const drop = document.createElement('div')
       drop.className = 'rank-slot__drop'
-      drop.dataset.rank = String(n)
+      drop.dataset.rank = rank
       slot.append(num, drop)
       slotsWrap.appendChild(slot)
       slotDrops.push(drop)
@@ -691,7 +733,7 @@ function renderFinalPage() {
     // Initial placement: restore saved ranks, otherwise everything in the pool.
     finalItems.forEach((item) => {
       const chip = makeChip(item)
-      const savedRank = (['1', '2', '3'] as const).find((r) => surveyResponses.get(`final::rank-${dim.id}-${r}`) === item.system)
+      const savedRank = RANK_SLOTS.find((r) => surveyResponses.get(`final::rank-${dim.id}-${r}`) === item.system)
       if (savedRank) slotDrops[Number(savedRank) - 1].appendChild(chip)
       else poolDrop.appendChild(chip)
     })
@@ -790,6 +832,38 @@ function buildSentenceSpans(
   }
 }
 
+// B1 (text condition) explanation: the full prose shown at once as a plain,
+// non-interactive paragraph — no badges, no step blocks, no pointer/hover
+// affordance. A passive listener records taps silently (no state/visual change),
+// so pressing the text does nothing the participant can see.
+function buildPlainExplanation(container: HTMLElement, text: string, answer = '', onTap?: () => void) {
+  container.innerHTML = ''
+  const para = document.createElement('p')
+  para.className = 'explanation-plain'
+  para.textContent = stripLeadingNumber(text).trim()
+  container.appendChild(para)
+
+  const answerText = answer.trim()
+  if (answerText) {
+    const answerEl = document.createElement('div')
+    answerEl.className = 'explanation-answer'
+    const label = document.createElement('span')
+    label.className = 'explanation-answer__label'
+    label.textContent = 'Answer:'
+    const value = document.createElement('span')
+    value.className = 'explanation-answer__value'
+    value.textContent = answerText
+    answerEl.append(label, ' ', value)
+    container.appendChild(answerEl)
+  }
+
+  if (onTap) {
+    container.addEventListener('click', () => {
+      try { onTap() } catch { /* logging must never break the study */ }
+    })
+  }
+}
+
 async function runStep(stepIndex: number) {
   if (stepRunInProgress || !currentRenderer) return
   // Re-clicking the currently shown step undoes it: step back to the previous
@@ -855,7 +929,7 @@ function renderDemoExplanation() {
 async function ensureDemoLoaded() {
   if (demoRenderer) return
   const demoContext: RendererContext = { ...rendererContext, container: introDemoChartEl }
-  const renderer = new BaselineRenderer(demoContext, 'b2')
+  const renderer = createRenderer('ours', demoContext)
   try {
     await renderer.loadChart(EVAL_TUTORIAL_CHART_ID)
   } catch (error) {
@@ -895,13 +969,21 @@ function teardownDemo() {
 
 // ---- Post-session review carousel -------------------------------------------
 function renderReviewExplanation() {
+  const item = reviewItems[reviewIdx]
+  if (item?.method === 'b1') {
+    // Text condition: static paragraph, no interaction (same as the main view).
+    buildPlainExplanation(reviewExplanationEl, reviewStepTexts.join(' '), item.answer ?? '', () => {
+      console.log('[evaluation] text-condition tap (no-op, review)', { chartId: item.chart_id, condition: item.method })
+    })
+    return
+  }
   buildSentenceSpans(reviewExplanationEl, reviewStepTexts, {
     selectedStepIndex: reviewSelectedStepIndex,
     stepsUnlocked: reviewStepsUnlocked,
     stepErrors: reviewErrors,
     stepRunInProgress: reviewStepRunInProgress,
     onClick: (i) => { void runReviewStep(i) },
-  }, reviewItems[reviewIdx]?.answer ?? '')
+  }, item?.answer ?? '')
 }
 
 async function runReviewStep(stepIndex: number) {
@@ -954,7 +1036,7 @@ async function activateReviewItem(idx: number) {
     reviewRenderer = renderer
     reviewStepTexts = renderer.getStepTexts()
   } catch (error) {
-    console.error('[evaluation] review item load failed', { item, error })
+    console.error('[evaluation] review item load failed', { chartId: item.chart_id, error })
     reviewChartEl.innerHTML = '<div class="renderer-empty">Explanation unavailable.</div>'
     reviewStepTexts = []
   }
@@ -964,7 +1046,7 @@ async function activateReviewItem(idx: number) {
 async function setupReview(block: SessionBlock | undefined) {
   teardownReview()
   if (!block) return
-  reviewItems = sequence.slice(block.startIdx, block.endIdx + 1)
+  reviewItems = block.items
   await activateReviewItem(0)
 }
 
@@ -992,19 +1074,21 @@ async function renderIntroPage(kind: IntroKind) {
 
   if (kind === 'intro-welcome') {
     introEyebrowEl.textContent = 'WELCOME'
-    introTitleEl.textContent = 'Compistional Chart Question and Explanation Study'
+    introTitleEl.textContent = 'Compositional Chart Question and Explanation Study'
     introBodyEl.innerHTML = WELCOME_BODY_HTML.replace('{code}', participant.code)
     introDemoEl.hidden = true
     return
   }
 
   if (kind === 'tutorial-interact') {
-    introEyebrowEl.textContent = 'TUTORIAL · 1 OF 2'
-    introTitleEl.textContent = 'How the Visual Explanation Works'
+    introEyebrowEl.textContent = 'TUTORIAL · 1 OF 3'
+    introTitleEl.textContent = 'How Explanations Are Shown'
     introBodyEl.innerHTML = TUTORIAL_INTERACT_BODY_HTML
     introDemoEl.hidden = false
-    introDemoHintEl.textContent = '↑ Try clicking each block to see how the chart changes.'
+    introDemoHintEl.textContent = '↑ Try pressing each block to move through the explanation.'
 
+    // ensureDemoLoaded reloads when the demo was torn down by the text-practice
+    // page, so the step-by-step chart is always present in the shared container.
     await ensureDemoLoaded()
     const tutorialEntry = Object.values(chartGroup).flatMap((g) => Object.values(g)).find((c) => c.id === demoChartId)
     introDemoQuestionEl.textContent = tutorialEntry?.question ?? ''
@@ -1012,8 +1096,36 @@ async function renderIntroPage(kind: IntroKind) {
     return
   }
 
+  if (kind === 'tutorial-text') {
+    // Text-format practice: a static chart + plain-text explanation (no
+    // stepping). Tear down the step-by-step demo so the shared demo container
+    // shows this chart; render via TextRenderer (the B1 condition's renderer).
+    teardownDemo()
+    introEyebrowEl.textContent = 'TUTORIAL · 2 OF 3'
+    introTitleEl.textContent = 'Text-Format Explanation'
+    introBodyEl.innerHTML = TUTORIAL_TEXT_BODY_HTML
+    introDemoEl.hidden = false
+    introDemoHintEl.textContent = '↑ Press the text — nothing more appears, and that is normal.'
+
+    const textCtx: RendererContext = { ...rendererContext, container: introDemoChartEl }
+    const renderer = createRenderer('b1', textCtx)
+    try {
+      await renderer.loadChart(EVAL_TUTORIAL_TEXT_CHART_ID)
+      await renderer.renderStep(-1)
+      const entry = Object.values(chartGroup).flatMap((g) => Object.values(g)).find((c) => c.id === EVAL_TUTORIAL_TEXT_CHART_ID)
+      introDemoQuestionEl.textContent = entry?.question ?? ''
+      buildPlainExplanation(introDemoExplanationEl, renderer.getStepTexts().join(' '), entry?.answer ?? '', () => {
+        console.log('[evaluation] tutorial text-practice tap (no-op)', { chartId: EVAL_TUTORIAL_TEXT_CHART_ID })
+      })
+    } catch (error) {
+      console.error('[evaluation] text demo load failed', error)
+      introDemoChartEl.innerHTML = '<div class="renderer-empty">Demo chart unavailable.</div>'
+    }
+    return
+  }
+
   // tutorial-task
-  introEyebrowEl.textContent = 'TUTORIAL · 2 OF 2'
+  introEyebrowEl.textContent = 'TUTORIAL · 3 OF 3'
   introTitleEl.textContent = 'Your Task'
   introBodyEl.innerHTML = TUTORIAL_TASK_BODY_HTML.replace(/\{sequenceLength\}/g, String(sequence.length))
   introDemoEl.hidden = true
@@ -1035,12 +1147,12 @@ function showPostSessionLayout() {
   introDemoEl.hidden = true
 }
 
-// The final page is complete when all three systems are ranked AND the required
-// "reason for your ranking" is non-empty. (The extra free comment is optional.)
+// The final page is complete when all systems are ranked on every dimension.
+// (The extra free comment is optional.)
 function isFinalComplete(): boolean {
-  // Complete when every dimension's 3 slots are filled (the open comment is optional).
+  // Complete when every dimension's slots are all filled (open comment optional).
   return RANKING_DIMENSIONS.every((dim) =>
-    (['1', '2', '3'] as const).every((n) => !!surveyResponses.get(`final::rank-${dim.id}-${n}`)),
+    RANK_SLOTS.every((n) => !!surveyResponses.get(`final::rank-${dim.id}-${n}`)),
   )
 }
 
@@ -1082,9 +1194,10 @@ function updateUI() {
   if (!page || (page.kind !== 'survey' && page.kind !== 'post-session' && page.kind !== 'final')) {
     if (methodBadgeEl) methodBadgeEl.textContent = ''
     debugMetaEl.textContent = ''
-    if (page?.kind === 'intro-welcome') progressLabelEl.textContent = 'Introduction · 1 of 3'
-    else if (page?.kind === 'tutorial-interact') progressLabelEl.textContent = 'Introduction · 2 of 3'
-    else if (page?.kind === 'tutorial-task') progressLabelEl.textContent = 'Introduction · 3 of 3'
+    if (page?.kind === 'intro-welcome') progressLabelEl.textContent = 'Introduction · 1 of 4'
+    else if (page?.kind === 'tutorial-interact') progressLabelEl.textContent = 'Introduction · 2 of 4'
+    else if (page?.kind === 'tutorial-text') progressLabelEl.textContent = 'Introduction · 3 of 4'
+    else if (page?.kind === 'tutorial-task') progressLabelEl.textContent = 'Introduction · 4 of 4'
     else progressLabelEl.textContent = ''
     return
   }
@@ -1093,7 +1206,9 @@ function updateUI() {
   if (page.kind === 'final') {
     progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
     if (methodBadgeEl) methodBadgeEl.textContent = ''
-    debugMetaEl.textContent = `Final · ${finalItems.map((it) => `${it.key}=${it.system}`).join(' ')}`
+    // Anonymized: the A->system mapping is persisted in the saved doc's `systems`
+    // field for the researcher; never reveal it in the participant-facing UI.
+    debugMetaEl.textContent = `Final · ${finalItems.length} systems (${finalItems.map((it) => it.key).join('/')})`
     questionEl.textContent = 'Final step: rank the systems and share any comments.'
     descriptionEl.textContent = ''
     explanationEl.hidden = true
@@ -1106,12 +1221,15 @@ function updateUI() {
   // Post-session reflection page (one per system block; no chart).
   if (page.kind === 'post-session') {
     const block = blocks[page.blockIdx]
+    const blockLabel = block ? labelForSystem(block.system) : 'System ?'
     progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
     if (methodBadgeEl) methodBadgeEl.textContent = ''
-    debugMetaEl.textContent = block ? `Post-session · System ${block.system} · Group ${block.group}` : ''
+    // Anonymized researcher readout (the System label, never the raw name).
+    debugMetaEl.textContent = block ? `Post-session · ${blockLabel} · Group ${block.group}` : ''
     // Heading sits ABOVE the review carousel (#postSessionHeading); keep the
-    // in-flow questionText empty so it is not duplicated below the panel.
-    postSessionHeadingEl.textContent = 'You have finished one system. Please answer a few questions about the system you just used.'
+    // in-flow questionText empty so it is not duplicated below the panel. Name
+    // the (anonymized) system so the participant knows which one they're rating.
+    postSessionHeadingEl.textContent = `Questions about ${blockLabel}. Below are the 5 explanations ${blockLabel} produced — use the arrows to review them, then answer the questions about ${blockLabel}.`
     questionEl.textContent = ''
     descriptionEl.textContent = ''
     explanationEl.hidden = true
@@ -1122,20 +1240,32 @@ function updateUI() {
 
   // Per-chart survey page.
   const item = sequence[page.itemIdx]
+  const itemLabel = labelForSystem(item.system)
   progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
-  if (methodBadgeEl) methodBadgeEl.textContent = `Question ${page.itemIdx + 1} / ${sequence.length}`
+  // Participant-facing badge names the (anonymized) system for this chart so the
+  // participant always knows which system produced the explanation they see.
+  if (methodBadgeEl) methodBadgeEl.textContent = `${itemLabel} · Question ${page.itemIdx + 1} / ${sequence.length}`
   questionEl.textContent = item.question
   descriptionEl.textContent = ''
-  debugMetaEl.textContent = `System ${item.system} · Group ${item.group} · ID ${item.chart_id}`
+  // debugMeta is a subtle researcher readout; keep it anonymized (the System
+  // label, never the raw Ours/B1/B2/B3 name) so identity can't be inferred.
+  debugMetaEl.textContent = `${itemLabel} · Group ${item.group} · ID ${item.chart_id}`
 
   const stepTexts = currentRenderer?.getStepTexts() ?? []
-  buildSentenceSpans(explanationEl, stepTexts, {
-    selectedStepIndex,
-    stepsUnlocked,
-    stepErrors,
-    stepRunInProgress,
-    onClick: (i) => { void runStep(i) },
-  }, item.answer)
+  if (item.method === 'b1') {
+    // Text condition: static paragraph, no interaction.
+    buildPlainExplanation(explanationEl, stepTexts.join(' '), item.answer, () => {
+      console.log('[evaluation] text-condition tap (no-op)', { chartId: item.chart_id, condition: item.method })
+    })
+  } else {
+    buildSentenceSpans(explanationEl, stepTexts, {
+      selectedStepIndex,
+      stepsUnlocked,
+      stepErrors,
+      stepRunInProgress,
+      onClick: (i) => { void runStep(i) },
+    }, item.answer)
+  }
 
   renderSurveyPage()
 }
@@ -1160,7 +1290,7 @@ async function activateItem(item: SequenceItem) {
     await renderer.renderStep(-1)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.error('[evaluation] activateItem failed', { item, error })
+    console.error('[evaluation] activateItem failed', { chartId: item.chart_id, error })
     currentItemKey = key
   }
 }
@@ -1181,7 +1311,16 @@ async function loadPage(idx: number) {
     const item = sequence[page.itemIdx]
     const itemChanged = page.itemIdx !== currentItemIndex || currentRenderer == null
     currentItemIndex = page.itemIdx
-    if (itemChanged) await activateItem(item)
+    if (itemChanged) {
+      await activateItem(item)
+      // Researcher log of each item's condition + format (the condition is also
+      // persisted per chart in the saved doc). Console only — never shown in the UI.
+      console.log('[evaluation] item', {
+        chartId: item.chart_id,
+        condition: item.method,
+        format: item.method === 'b1' ? 'text' : 'visual',
+      })
+    }
     updateUI()
     // Time the Yes/No page (surveyPageIdx 0) until the participant navigates away.
     if (page.surveyPageIdx === 0) activeTimer = { chartId: item.chart_id, startedAt: performance.now() }

@@ -414,6 +414,39 @@ function drawFilterLineSegments(svg: d3.Selection<SVGSVGElement, unknown, null, 
   return hasSegments
 }
 
+/**
+ * Map a pairDiff op's groupA/groupB (which are `seriesField` values, e.g.
+ * "Russia favorability in US") to the chart's rendered `data-series` values
+ * (the COLOR-field values, e.g. "Russia"). When the chart colors by a field
+ * derived from the data (a Vega `calculate`, case 2eiyyw562tcvjypp where
+ * Country is derived from Favorability_Direction), the two diverge — and the
+ * raw groups match no `data-series`, so the focus transform would fade every
+ * line to 0 (blank chart — audit multiLine-45-blankchart). When seriesField ==
+ * colorField (or either is unknown) the groups pass through unchanged.
+ */
+function resolvePairDiffColorGroups(
+  container: HTMLElement,
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
+  operation: OperationSpec,
+  groupA: string,
+  groupB: string,
+): { colorA: string; colorB: string } {
+  const colorField = svg.attr(DataAttributes.ColorField) || null
+  const seriesFieldRaw = (operation as { seriesField?: unknown }).seriesField
+  const seriesField = seriesFieldRaw == null ? null : String(seriesFieldRaw)
+  if (!seriesField || !colorField || seriesField === colorField) {
+    return { colorA: groupA, colorB: groupB }
+  }
+  const rows = getMultipleLineStoredData(container) as Array<Record<string, unknown>>
+  const map = new Map<string, string>()
+  for (const row of rows) {
+    const sv = row?.[seriesField]
+    const cv = row?.[colorField]
+    if (sv != null && cv != null && !map.has(String(sv))) map.set(String(sv), String(cv))
+  }
+  return { colorA: map.get(groupA) ?? groupA, colorB: map.get(groupB) ?? groupB }
+}
+
 async function applyPairDiffFocusTransform(
   container: HTMLElement,
   operation: OperationSpec,
@@ -426,7 +459,8 @@ async function applyPairDiffFocusTransform(
   if (svg.empty()) return null
   container.dataset.operationNextFocusState = 'pairDiff'
   svg.attr('data-operation-next-focus-state', 'pairDiff')
-  const keptGroups = new Set([groupA, groupB])
+  const { colorA, colorB } = resolvePairDiffColorGroups(container, svg, operation, groupA, groupB)
+  const keptGroups = new Set([colorA, colorB])
   const plotHeight = Number(svg.attr(DataAttributes.PlotHeight) ?? 0)
   if (!Number.isFinite(plotHeight) || plotHeight <= 0) return null
 
@@ -437,7 +471,15 @@ async function applyPairDiffFocusTransform(
     domBefore: summarizeMultipleLineDom(container),
   })
 
-  svg.selectAll(`.${FILTER_LINE_LAYER_CLASS}`).interrupt().remove()
+  // M6: fade the filter's ghost-segment overlay out instead of a synchronous
+  // pop at the new→legacy seam (audit shared-mlpairdiff-sum-noteworthy-1).
+  svg
+    .selectAll(`.${FILTER_LINE_LAYER_CLASS}`)
+    .interrupt()
+    .transition()
+    .duration(DURATIONS.REMOVE)
+    .style(SvgAttributes.Opacity, 0)
+    .remove()
   const transformDuration = DURATIONS.AXIS_RESCALE
   const fadeDuration = DURATIONS.REMOVE
   const transitions: Promise<void>[] = []
@@ -453,35 +495,9 @@ async function applyPairDiffFocusTransform(
       return !keptGroups.has(series)
     })
 
-  debugLog('pairDiff-focus-targets', {
-    t: debugNow(),
-    unrelatedPathCount: unrelatedPaths.size(),
-    unrelatedPointGroupCount: unrelatedPointGroups.size(),
-    keptPathCount: mainLinePath(svg).size() - unrelatedPaths.size(),
-  })
-
-  if (!unrelatedPaths.empty()) {
-    transitions.push(
-      unrelatedPaths
-        .interrupt()
-        .transition()
-        .duration(fadeDuration)
-        .style(SvgAttributes.Opacity, 0)
-        .end(),
-    )
-  }
-
-  if (!unrelatedPointGroups.empty()) {
-    transitions.push(
-      unrelatedPointGroups
-        .interrupt()
-        .transition()
-        .duration(fadeDuration)
-        .style(SvgAttributes.Opacity, 0)
-        .end(),
-    )
-  }
-
+  // Compute the kept points BEFORE fading anything: if the groups resolve to no
+  // rendered series, bail with the chart intact instead of leaving every line
+  // faded to 0 (audit multiLine-45-blankchart).
   const keptPoints = svg
     .selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Series}]`)
     .filter(function () {
@@ -492,7 +508,29 @@ async function applyPairDiffFocusTransform(
     .nodes()
     .map((point) => Number(point.getAttribute(DataAttributes.Value)))
     .filter(Number.isFinite)
-  if (values.length === 0) return null
+  if (values.length === 0) {
+    debugLog('pairDiff-focus-abort-empty', { t: debugNow(), keptGroups: [...keptGroups] })
+    return null
+  }
+
+  debugLog('pairDiff-focus-targets', {
+    t: debugNow(),
+    unrelatedPathCount: unrelatedPaths.size(),
+    unrelatedPointGroupCount: unrelatedPointGroups.size(),
+    keptPathCount: mainLinePath(svg).size() - unrelatedPaths.size(),
+  })
+
+  if (!unrelatedPaths.empty()) {
+    transitions.push(
+      unrelatedPaths.interrupt().transition().duration(fadeDuration).style(SvgAttributes.Opacity, 0).end(),
+    )
+  }
+
+  if (!unrelatedPointGroups.empty()) {
+    transitions.push(
+      unrelatedPointGroups.interrupt().transition().duration(fadeDuration).style(SvgAttributes.Opacity, 0).end(),
+    )
+  }
 
   // Capture original domain (from current circle values) before rescaling,
   // so subsequent operations can detect the pairDiff rescale via scaleState.
@@ -912,6 +950,9 @@ async function annotatePairDiff(container: HTMLElement, result: DatumValue[], op
   if (svg.empty()) return
   const layer = ensureAnnotationLayer(svg)
   layer.selectAll(`.${PAIR_DIFF_ANNOTATION_CLASS}`).interrupt().remove()
+  // Resolve the op's groups to rendered data-series (color-field) values so the
+  // endpoints are found when the chart colors by a derived field (#45).
+  const { colorA, colorB } = resolvePairDiffColorGroups(container, svg, operation, groupA, groupB)
   const marginLeft = Number(svg.attr(DataAttributes.MarginLeft) ?? 0)
   const marginTop = Number(svg.attr(DataAttributes.MarginTop) ?? 0)
   const viewport = resolveAnnotationViewport(svg)
@@ -920,8 +961,8 @@ async function annotatePairDiff(container: HTMLElement, result: DatumValue[], op
 
   result.forEach((entry) => {
     const target = String(entry.target)
-    const pointA = findPointByTarget(svg, target, groupA).nodes()[0]
-    const pointB = findPointByTarget(svg, target, groupB).nodes()[0]
+    const pointA = findPointByTarget(svg, target, colorA).nodes()[0]
+    const pointB = findPointByTarget(svg, target, colorB).nodes()[0]
     if (!pointA || !pointB) {
       console.error('[operation-next] multiple-line pairDiff: pair endpoint was not found in rendered points.', {
         target,
@@ -1509,6 +1550,11 @@ export async function runMultipleLineOperations(run: ParsedOperationRun) {
       } else if (isTerminalBadgeOperation(operation)) {
         opResult = await runTerminalBadgeOperation(run.container, operation, operationState, {
           chartType: ChartType.MULTI_LINE,
+          // Per-op badge class so two terminal badges in one chain (e.g. two
+          // counts then add, #22 16aphfabldrpgcmd) don't delete each other —
+          // the shared class made the second count wipe the first (audit
+          // multiLine-22-count-badge-collision).
+          cssClassPrefix: `operation-next-terminal-badge-${String(operation.id ?? operation.meta?.nodeId ?? operationIndex)}`,
         })
       } else {
         continue

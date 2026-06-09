@@ -1,0 +1,21 @@
+{
+  "chart_id": "avwb8xstxx1lmfpk",
+  "question": "What is the Year that has the biggest deviation from the total average?",
+  "description": "",
+  "specPath": "specs/avwb8xstxx1lmfpk.vl.json",
+  "opsPath": "ops/avwb8xstxx1lmfpk.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Calculate the overall average Consumer Price Index across all plotted months."
+    },
+    {
+      "id": "ops2",
+      "text": "Measure each point's deviation from the overall average."
+    },
+    {
+      "id": "ops3",
+      "text": "Select the year with the largest deviation."
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v3.0.0-rc4.json",
+  "description": "Stacked Bar chart for 21fa7gb8l1ix6yfm.csv",
+  "data": {
+    "url": "ChartQA/data/csv/bar/stacked/21fa7gb8l1ix6yfm.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Method",
+      "type": "nominal",
+      "sort": null
+    },
+    "y": {
+      "field": "Share_of_Respondents",
+      "type": "quantitative"
+    },
+    "color": {
+      "field": "Frequency",
+      "type": "nominal"
+    }
+  }
+}
