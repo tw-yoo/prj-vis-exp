@@ -196,9 +196,12 @@ function normalizeEvaluationDataUrl(rawUrl: string) {
   if (!trimmed) return trimmed
   if (/^[a-z][a-z0-9+\-.]*:/i.test(trimmed)) return trimmed
   if (trimmed.startsWith('/')) return trimmed
-  if (trimmed.startsWith('ChartQA/')) return `/${trimmed}`
-  if (trimmed.startsWith('data/test/')) return `/${trimmed}`
-  if (trimmed.startsWith('data/')) return `/ChartQA/${trimmed}`
+  // Prefix the deploy base (import.meta.env.BASE_URL ends with '/'; it is '/' in
+  // dev and '/prj-vis-exp/' on GitHub Pages) so the CSV/spec URLs resolve under
+  // the project-pages subpath instead of the domain root.
+  if (trimmed.startsWith('ChartQA/')) return `${import.meta.env.BASE_URL}${trimmed}`
+  if (trimmed.startsWith('data/test/')) return `${import.meta.env.BASE_URL}${trimmed}`
+  if (trimmed.startsWith('data/')) return `${import.meta.env.BASE_URL}ChartQA/${trimmed}`
   return trimmed
 }
 

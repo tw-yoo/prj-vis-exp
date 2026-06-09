@@ -405,6 +405,28 @@ function evaluationViewerPlugin(): Plugin {
   }
 }
 
+// Copy the ChartQA runtime data (CSV + Vega-Lite specs fetched at runtime) into
+// the build so GitHub Pages can serve <base>/ChartQA/data/**. In dev these are
+// served straight from the project root by Vite, so this only runs on build.
+// Only `data/` (csv + vlSpec, ~2 MB) is emitted; the large `used_for_study/`
+// images are not fetched at runtime and are intentionally excluded.
+function chartQaDataPlugin(): Plugin {
+  const chartQaDataRoot = path.join(projectRoot, 'ChartQA/data')
+  return {
+    name: 'chartqa-data',
+    generateBundle() {
+      for (const filePath of collectStaticFiles(chartQaDataRoot)) {
+        const relativePath = path.relative(chartQaDataRoot, filePath)
+        this.emitFile({
+          type: 'asset',
+          fileName: `ChartQA/data/${toPosixPath(relativePath)}`,
+          source: fs.readFileSync(filePath),
+        })
+      }
+    },
+  }
+}
+
 const reviewDirPath = path.join(projectRoot, 'data/review')
 // Default file shown when the review page first opens. Falls back to
 // review_cases.csv if the preferred file is missing.
@@ -568,7 +590,7 @@ export default defineConfig(({ command }) => ({
   // must prefix every asset URL with it; dev + e2e stay at root '/' so the
   // existing middleware routes (/evaluation, /validation, /api/review) keep working.
   base: command === 'build' ? '/prj-vis-exp/' : '/',
-  plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin(), reviewApiPlugin()],
+  plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin(), chartQaDataPlugin(), reviewApiPlugin()],
   optimizeDeps: {
     entries: ['index.html'],
   },

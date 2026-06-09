@@ -22,7 +22,9 @@ export function normalizeVegaLiteDataUrl(rawUrl: string | undefined): string | u
   if (/^[a-z][a-z0-9+\-.]*:/i.test(url)) return url
   if (url.startsWith('/')) return url
   if (url.startsWith('./') || url.startsWith('../')) return url
-  if (url.startsWith('ChartQA/')) return `/${url}`
+  // Prefix the deploy base ('/' in dev, '/prj-vis-exp/' on Pages) so ChartQA data
+  // resolves under the project-pages subpath rather than the domain root.
+  if (url.startsWith('ChartQA/')) return `${import.meta.env.BASE_URL}${url}`
   return url
 }
 
@@ -32,7 +34,7 @@ function buildDataUrlCandidates(rawUrl: string): string[] {
   if (/^[a-z][a-z0-9+\-.]*:/i.test(base)) return [base]
   if (base.startsWith('/')) return [base]
   if (base.startsWith('./') || base.startsWith('../')) return [base]
-  return [base, `/${base}`]
+  return [base, `${import.meta.env.BASE_URL}${base}`]
 }
 
 function toAbsoluteUrl(raw: string) {
