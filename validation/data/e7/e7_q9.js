@@ -236,8 +236,8 @@ function getInternetLineMetrics({ d3, container }) {
 
 function drawInternetAverageSegments({ d3, container }) {
     const csvGroups = [
-        { key: 'upTo2010', years: ['2005', '2006', '2008', '2009', '2010'], average: 32.0, color: '#2563eb' },
-        { key: 'from2011', years: ['2011', '2012', '2013', '2014', '2015'], average: 52.5, color: '#dc2626' },
+        { key: 'upTo2010', years: ['2005', '2006', '2008', '2009', '2010'], average: 32.0, color: '#2563eb', label: 'Average up to 2010' },
+        { key: 'from2011', years: ['2011', '2012', '2013', '2014', '2015'], average: 52.5, color: '#dc2626', label: 'Average from 2011' },
     ];
     const { g, xScale, yScale } = getInternetLineMetrics({ d3, container });
     const line = d3.line()
@@ -258,27 +258,29 @@ function drawInternetAverageSegments({ d3, container }) {
             .attr('opacity', 1)
             .attr('d', line);
 
-        const x1 = xScale(group.years[0]) ?? 0;
-        const x2 = xScale(group.years[group.years.length - 1]) ?? 0;
         const y = yScale(group.average);
+        // y-axis indicator (E7 feedback): on a line chart the average belongs on
+        // the y-axis as a short tick + descriptive label, not a horizontal line
+        // crossing the data region. The label names which average it is so the
+        // two ticks are distinguishable.
         g.append('line')
             .attr('class', 'e7-q9-function1 e7-q9-average-line')
             .attr('data-group', group.key)
-            .attr('x1', x1)
-            .attr('x2', x2)
+            .attr('x1', 0)
+            .attr('x2', 6)
             .attr('y1', y)
             .attr('y2', y)
             .attr('stroke', group.color)
-            .attr('stroke-width', 2.2);
+            .attr('stroke-width', 3);
         g.append('text')
             .attr('class', 'e7-q9-function1')
-            .attr('x', x2 + 6)
+            .attr('x', 14)
             .attr('y', y)
             .attr('dominant-baseline', 'middle')
             .attr('font-size', 11)
             .attr('font-weight', 700)
             .attr('fill', group.color)
-            .text(group.average.toFixed(1));
+            .text(`${group.label}: ${group.average.toFixed(1)}`);
     });
 }
 
@@ -290,11 +292,13 @@ export function function2({ d3, container }) {
     function1({ d3, container });
 
     const csvDifference = 20.5;
-    const { svg, g, plotW, yScale } = getInternetLineMetrics({ d3, container });
+    const { svg, g, yScale } = getInternetLineMetrics({ d3, container });
     const markerId = 'e7-q9-difference-arrow';
     const yLow = yScale(32.0);
     const yHigh = yScale(52.5);
-    const arrowX = plotW + 10;
+    // E7 feedback: keep the difference arrow at the y-axis (next to the average
+    // ticks), not floating at the right edge detached from the axis.
+    const arrowX = 10;
 
     svg.select(`#${markerId}`).remove();
     svg.append('defs')
@@ -305,23 +309,14 @@ export function function2({ d3, container }) {
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
-        .attr('orient', 'auto')
+        // auto-start-reverse: both heads of the difference arrow point outward (↕).
+        .attr('orient', 'auto-start-reverse')
         .append('path')
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('fill', '#111827');
 
     g.selectAll('.e7-q9-function2').remove();
-    [yLow, yHigh].forEach((y) => {
-        g.append('line')
-            .attr('class', 'e7-q9-function2')
-            .attr('x1', plotW - 60)
-            .attr('x2', arrowX)
-            .attr('y1', y)
-            .attr('y2', y)
-            .attr('stroke', '#111827')
-            .attr('stroke-width', 1.4)
-            .attr('stroke-dasharray', '4 3');
-    });
+    // Vertical double arrow spanning the two average ticks, right at the axis.
     g.append('line')
         .attr('class', 'e7-q9-function2')
         .attr('x1', arrowX)
@@ -334,7 +329,7 @@ export function function2({ d3, container }) {
         .attr('marker-end', `url(#${markerId})`);
     g.append('text')
         .attr('class', 'e7-q9-function2')
-        .attr('x', arrowX + 8)
+        .attr('x', arrowX + 6)
         .attr('y', (yHigh + yLow) / 2)
         .attr('dominant-baseline', 'middle')
         .attr('font-size', 12)

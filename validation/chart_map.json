@@ -445,7 +445,8 @@
     "e7_q4": {
       "question": "which year had the second lowest value?",
       "explanation": {
-        "function1": "List the operating profit margins by year and sort them from lowest to highest. \nThe lowest value is 0.07 in 2016. \nThe next (second lowest) value is 0.14, which occurs in both 2014 and 2015, so they tie for second lowest.\n"
+        "function1": "List the operating profit margins by year and sort them from lowest to highest. The lowest value is 0.07 in 2016.",
+        "function2": "The next (second lowest) value is 0.14, which occurs in both 2014 and 2015, so they tie for second lowest."
       }
     },
     "e7_q5": {

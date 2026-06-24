@@ -213,20 +213,16 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-export function function1({ d3, container }) {
-    const csvLowest = { year: '2016', value: 0.07 };
-    const svg = d3.select(container).select('svg');
-    const g = svg.select('g');
-    const point = d3.select(container).select(`circle[data-target="${csvLowest.year}"]`);
-    const cx = Number(point.attr('cx'));
-    const cy = Number(point.attr('cy'));
-    const markerId = 'e7-q4-pointer';
+// E7 feedback: the lowest and second-lowest findings are split into two
+// separate sentences/steps (see chart_map.json), so the annotation is split to
+// match — function1 marks the lowest, function2 adds the second-lowest.
+const E7_Q4_SECOND_YEARS = new Set(['2014', '2015']);
 
-    g.selectAll('.e7-q4-function1').remove();
-    svg.select(`#${markerId}`).remove();
+function ensureQ4Marker(svg, id, color) {
+    svg.select(`#${id}`).remove();
     svg.append('defs')
         .append('marker')
-        .attr('id', markerId)
+        .attr('id', id)
         .attr('viewBox', '0 -5 10 10')
         .attr('refX', 8)
         .attr('refY', 0)
@@ -235,33 +231,63 @@ export function function1({ d3, container }) {
         .attr('orient', 'auto')
         .append('path')
         .attr('d', 'M0,-5L10,0L0,5')
-        .attr('fill', '#dc2626');
+        .attr('fill', color);
+}
 
-    d3.select(container).selectAll('circle[data-target]')
-        .attr('opacity', (p) => (String(p.target) === csvLowest.year ? 1 : 0.35))
-        .attr('fill', (p) => (String(p.target) === csvLowest.year ? '#dc2626' : '#4f46e5'))
-        .attr('r', (p) => (String(p.target) === csvLowest.year ? 6 : 4));
+function drawQ4Pointer({ d3, container, g, markerId, color, year, label, dx, dy, cls }) {
+    const c = d3.select(container).select(`circle[data-target="${year}"]`);
+    const cx = Number(c.attr('cx'));
+    const cy = Number(c.attr('cy'));
 
     g.append('line')
-        .attr('class', 'e7-q4-function1')
-        .attr('x1', cx + 58)
-        .attr('x2', cx + 9)
-        .attr('y1', cy - 58)
-        .attr('y2', cy - 7)
-        .attr('stroke', '#dc2626')
+        .attr('class', cls)
+        .attr('x1', cx + dx)
+        .attr('x2', cx + Math.sign(dx) * 9)
+        .attr('y1', cy + dy)
+        .attr('y2', cy + Math.sign(dy) * 7)
+        .attr('stroke', color)
         .attr('stroke-width', 2)
         .attr('marker-end', `url(#${markerId})`);
 
     g.append('text')
-        .attr('class', 'e7-q4-function1')
-        .attr('x', cx + 62)
-        .attr('y', cy - 62)
+        .attr('class', cls)
+        .attr('x', cx + dx + (dx > 0 ? 4 : -4))
+        .attr('y', cy + dy - 4)
+        .attr('text-anchor', dx > 0 ? 'start' : 'end')
         .attr('font-size', 12)
         .attr('font-weight', 800)
-        .attr('fill', '#dc2626')
-        .text(`${csvLowest.year}: ${csvLowest.value}`);
+        .attr('fill', color)
+        .text(label);
 }
 
-export function function2({ d3, container }) {}
+export function function1({ d3, container }) {
+    // Step 1 — the lowest point (2016, 0.07).
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    g.selectAll('.e7-q4-function1, .e7-q4-function2').remove();
+
+    ensureQ4Marker(svg, 'e7-q4-pointer-low', '#dc2626');
+    d3.select(container).selectAll('circle[data-target]')
+        .attr('opacity', (p) => (String(p.target) === '2016' ? 1 : 0.25))
+        .attr('fill', (p) => (String(p.target) === '2016' ? '#dc2626' : '#4f46e5'))
+        .attr('r', (p) => (String(p.target) === '2016' ? 6 : 4));
+    drawQ4Pointer({ d3, container, g, markerId: 'e7-q4-pointer-low', color: '#dc2626', year: '2016', label: '2016: 0.07 (lowest)', dx: 58, dy: -58, cls: 'e7-q4-function1' });
+}
+
+export function function2({ d3, container }) {
+    // Step 2 — keep the lowest, add the second-lowest points (tie: 2014 & 2015).
+    function1({ d3, container });
+
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+
+    ensureQ4Marker(svg, 'e7-q4-pointer-second', '#f59e0b');
+    d3.select(container).selectAll('circle[data-target]')
+        .attr('opacity', (p) => (String(p.target) === '2016' || E7_Q4_SECOND_YEARS.has(String(p.target)) ? 1 : 0.2))
+        .attr('fill', (p) => (String(p.target) === '2016' ? '#dc2626' : (E7_Q4_SECOND_YEARS.has(String(p.target)) ? '#f59e0b' : '#4f46e5')))
+        .attr('r', (p) => (String(p.target) === '2016' ? 6 : (E7_Q4_SECOND_YEARS.has(String(p.target)) ? 5.5 : 4)));
+    drawQ4Pointer({ d3, container, g, markerId: 'e7-q4-pointer-second', color: '#f59e0b', year: '2014', label: '2014: 0.14', dx: -54, dy: -54, cls: 'e7-q4-function2' });
+    drawQ4Pointer({ d3, container, g, markerId: 'e7-q4-pointer-second', color: '#f59e0b', year: '2015', label: '2015: 0.14 (2nd lowest)', dx: 54, dy: 48, cls: 'e7-q4-function2' });
+}
 
 export function function3({ d3, container }) {}

@@ -213,52 +213,72 @@ function getInstalledBaseMetrics({ d3, container }) {
     return { svg: d3.select(container).select('svg'), g: d3.select(container).select('svg > g'), plotW, xScale, yScale };
 }
 
-function drawInstalledAverageLines({ d3, container }) {
-    const csvAverages = [
-        { key: 'before', years: ['1995', '1999'], value: 59, label: 'Before 2000 avg: 59', color: '#2563eb' },
-        { key: 'after', years: ['2010', '2013', '2017'], value: 114, label: 'From 2010 avg: 114', color: '#dc2626' },
-    ];
+// Sequential reveal (E7 feedback): each average indicator appears only in its
+// own step — before-2000 in step 1, from-2010 in step 2 — never both at once.
+const E7_Q1_AVERAGES = [
+    { key: 'before', years: ['1995', '1999'], value: 59, label: 'Before 2000 avg: 59', color: '#2563eb' },
+    { key: 'after', years: ['2010', '2013', '2017'], value: 114, label: 'From 2010 avg: 114', color: '#dc2626' },
+];
+
+// Highlight the given years; all others dim to the blur-in-place opacity.
+function highlightInstalledYears({ d3, container, years }) {
+    const targetYears = new Set(years);
+    d3.select(container).selectAll('rect.main-bar')
+        .attr('opacity', (d) => (targetYears.has(String(d.Year)) ? 1 : 0.18))
+        .attr('fill', (d) => (targetYears.has(String(d.Year)) ? '#4f46e5' : '#9ca3af'));
+}
+
+// Draw one group's horizontal average line + label. Keyed per group so a later
+// step's line does not erase an earlier one.
+function drawInstalledAverageLine({ d3, container, groupKey }) {
+    const avg = E7_Q1_AVERAGES.find((a) => a.key === groupKey);
+    if (!avg) return;
     const { g, xScale, yScale } = getInstalledBaseMetrics({ d3, container });
+    const cls = `e7-q1-avg-${avg.key}`;
+    g.selectAll(`.${cls}`).remove();
 
-    g.selectAll('.e7-q1-function2').remove();
-    csvAverages.forEach((avg) => {
-        const x1 = xScale(avg.years[0]) ?? 0;
-        const lastYear = avg.years[avg.years.length - 1];
-        const x2 = (xScale(lastYear) ?? 0) + xScale.bandwidth();
-        const y = yScale(avg.value);
+    const x1 = xScale(avg.years[0]) ?? 0;
+    const lastYear = avg.years[avg.years.length - 1];
+    const x2 = (xScale(lastYear) ?? 0) + xScale.bandwidth();
+    const y = yScale(avg.value);
 
-        g.append('line')
-            .attr('class', 'e7-q1-function2')
-            .attr('x1', x1)
-            .attr('x2', x2)
-            .attr('y1', y)
-            .attr('y2', y)
-            .attr('stroke', avg.color)
-            .attr('stroke-width', 2.4);
+    g.append('line')
+        .attr('class', `e7-q1-function2 ${cls}`)
+        .attr('x1', x1)
+        .attr('x2', x2)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', avg.color)
+        .attr('stroke-width', 2.4);
 
-        g.append('text')
-            .attr('class', 'e7-q1-function2')
-            .attr('x', x2 + 6)
-            .attr('y', y)
-            .attr('dominant-baseline', 'middle')
-            .attr('font-size', 11)
-            .attr('font-weight', 700)
-            .attr('fill', avg.color)
-            .text(avg.label);
-    });
+    g.append('text')
+        .attr('class', `e7-q1-function2 ${cls}`)
+        .attr('x', x2 + 6)
+        .attr('y', y)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-size', 11)
+        .attr('font-weight', 700)
+        .attr('fill', avg.color)
+        .text(avg.label);
 }
 
 export function function1({ d3, container }) {
-    const csvTargetYears = new Set(['1995', '1999', '2010', '2013', '2017']);
-    d3.select(container).selectAll('.e7-q1-function1').remove();
-    d3.select(container).selectAll('rect.main-bar')
-        .attr('opacity', (d) => (csvTargetYears.has(String(d.Year)) ? 1 : 0.22))
-        .attr('fill', (d) => (csvTargetYears.has(String(d.Year)) ? '#4f46e5' : '#9ca3af'));
+    // Step 1: only the before-2000 group — highlight its years and its average.
+    highlightInstalledYears({ d3, container, years: E7_Q1_AVERAGES[0].years });
+    drawInstalledAverageLine({ d3, container, groupKey: 'before' });
 }
 
 export function function2({ d3, container }) {
     function1({ d3, container });
-    drawInstalledAverageLines({ d3, container });
+    // Step 2: add the from-2010 group — highlight all five years now, and add
+    // the from-2010 average alongside the before-2000 one drawn in step 1.
+    highlightInstalledYears({
+        d3,
+        container,
+        years: [...E7_Q1_AVERAGES[0].years, ...E7_Q1_AVERAGES[1].years],
+    });
+    drawInstalledAverageLine({ d3, container, groupKey: 'before' });
+    drawInstalledAverageLine({ d3, container, groupKey: 'after' });
 }
 
 export function function3({ d3, container }) {
@@ -276,13 +296,17 @@ export function function3({ d3, container }) {
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
-        .attr('orient', 'auto')
+        // auto-start-reverse: both heads of the difference arrow point outward (↕).
+        .attr('orient', 'auto-start-reverse')
         .append('path')
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('fill', '#111827');
 
     g.selectAll('.e7-q1-function3').remove();
-    const arrowX = ((xScale('1999') ?? 0) + xScale.bandwidth() + (xScale('2010') ?? 0)) / 2;
+    // Sit the arrow near the RIGHT edge of the gap between the 1999 and 2010
+    // bars (just left of the 2010 group), so it clears the "Before 2000 avg"
+    // label that extends into the left half of that gap.
+    const arrowX = (xScale('2010') ?? 0) - 30;
     const yBefore = yScale(59);
     const yAfter = yScale(114);
 

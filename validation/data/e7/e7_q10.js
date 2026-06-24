@@ -334,30 +334,30 @@ export function function2({ d3, container }) {
     function1({ d3, container });
 
     const csvAverage = 65.67;
-    const { g, xScale, yScale } = getFavorableViewMetrics({ d3, container });
+    const { g, yScale } = getFavorableViewMetrics({ d3, container });
     const y = yScale(csvAverage);
-    const x1 = xScale('2015') ?? 0;
-    const x2 = xScale('2017') ?? 0;
 
     g.selectAll('.e7-q10-function2').remove();
+    // y-axis indicator (consistent with q9): on a line chart the average is
+    // marked on the y-axis with a short tick + value, not a horizontal line
+    // crossing the data region.
     g.append('line')
         .attr('class', 'e7-q10-function2')
-        .attr('x1', x1)
-        .attr('x2', x2)
+        .attr('x1', -6)
+        .attr('x2', 14)
         .attr('y1', y)
         .attr('y2', y)
         .attr('stroke', '#dc2626')
-        .attr('stroke-width', 2.4)
-        .attr('stroke-dasharray', '6 4');
+        .attr('stroke-width', 3);
     g.append('text')
         .attr('class', 'e7-q10-function2')
-        .attr('x', x2 + 8)
+        .attr('x', 18)
         .attr('y', y)
         .attr('dominant-baseline', 'middle')
-        .attr('font-size', 12)
+        .attr('font-size', 11)
         .attr('font-weight', 800)
         .attr('fill', '#dc2626')
-        .text('Average: 65.67%');
+        .text('Avg 65.67%');
 }
 
 export function function3({ d3, container }) {}

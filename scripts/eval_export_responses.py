@@ -42,8 +42,7 @@ COLLECTION = "evaluation_responses"
 # Hardcoded participant codes -- a default run fetches ONLY these. Edit freely.
 # (Seeded from evaluation/participants.json; --all ignores this list.)
 PARTICIPANT_IDS = [
-    "PILOTA", "PILOTB", "PILOT1", "PILOT2", "PILOT3", "PILOT4",
-    "TESTP1", "TESTP4", "DVNLPR",
+    "PILOT1", "PILOT2", "PILOT3", "PILOT4",
 ]
 
 # Preferred column order for the dynamic rating / post-session blocks. Any keys

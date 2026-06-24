@@ -222,64 +222,41 @@ export function renderValidationStackedBarChart({ container }) {
 }
 
 
-function renderAgricultureSimpleChart({ d3, container, highlightYear = null }) {
-    const csvTarget = { year: '2011', value: 0.3498 };
-    const rows = data_rows
-        .filter((d) => d.Sector === 'Agriculture')
-        .map((d) => ({ year: String(d.Year), value: d.Year === 2011 ? csvTarget.value : Number(d.Share_of_GDP) }));
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 48, bottom: 52, left: 56 };
-    const plotW = width - margin.left - margin.right;
-    const plotH = height - margin.top - margin.bottom;
-
-    injectStackedChartStyles();
-    container.innerHTML = '';
-    container.classList.add('validation-stacked-chart-host');
-
-    const xScale = d3.scaleBand().domain(rows.map((d) => d.year)).range([0, plotW]).padding(0.24);
-    const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => d.value) ?? 1]).nice().range([plotH, 0]);
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(g.select('.x-axis'));
-
-    g.selectAll('rect.main-bar')
-        .data(rows)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.year))
-        .attr('width', xScale.bandwidth())
-        .attr('y', (d) => yScale(d.value))
-        .attr('height', (d) => plotH - yScale(d.value))
-        .attr('fill', (d) => (d.year === highlightYear ? '#dc2626' : '#4f46e5'))
-        .attr('opacity', (d) => (!highlightYear || d.year === highlightYear ? 1 : 0.25))
-        .attr('data-target', (d) => d.year)
-        .attr('data-series', 'Agriculture')
-        .attr('data-value', (d) => String(d.value));
-
-    if (highlightYear) {
-        const target = rows.find((d) => d.year === highlightYear);
-        g.append('text')
-            .attr('class', 'e7-q2-function2')
-            .attr('x', (xScale(highlightYear) ?? 0) + xScale.bandwidth() / 2)
-            .attr('y', yScale(target.value) - 8)
-            .attr('text-anchor', 'middle')
-            .attr('font-size', 12)
-            .attr('font-weight', 800)
-            .attr('fill', '#dc2626')
-            .text(target.value.toFixed(4));
-    }
-}
-
 export function function1({ d3, container }) {
-    renderAgricultureSimpleChart({ d3, container });
+    // Blur-in-place (E7 feedback): keep the stacked chart, axes and legend
+    // intact; just dim the non-Agriculture segments so the chart still reads as
+    // "the same chart, different annotation". Agriculture is the bottom segment,
+    // so its position never shifts.
+    d3.select(container).selectAll('rect.main-bar')
+        .attr('opacity', (s) => (s.series === 'Agriculture' ? 1 : 0.18));
 }
 
 export function function2({ d3, container }) {
-    renderAgricultureSimpleChart({ d3, container, highlightYear: '2011' });
+    function1({ d3, container });
+
+    const target = d3.select(container).selectAll('rect.main-bar')
+        .filter((s) => s.series === 'Agriculture' && String(s.target) === '2011');
+    const node = target.node();
+    if (!node) return;
+
+    target.attr('fill', '#dc2626').attr('opacity', 1);
+
+    const g = d3.select(node.parentNode);
+    g.selectAll('.e7-q2-function2').remove();
+
+    const x = Number(node.getAttribute('x'));
+    const w = Number(node.getAttribute('width'));
+    const y = Number(node.getAttribute('y'));
+
+    g.append('text')
+        .attr('class', 'e7-q2-function2')
+        .attr('x', x + w / 2)
+        .attr('y', y - 8)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', 12)
+        .attr('font-weight', 800)
+        .attr('fill', '#dc2626')
+        .text(target.datum().value.toFixed(4));
 }
 
 export function function3({ d3, container }) {}

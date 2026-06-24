@@ -216,128 +216,88 @@ export function renderValidationStackedBarChart({ container }) {
 }
 
 
-function renderMethodFrequencyComparison({ d3, container, highlightMethod = null }) {
-    const selectedFrequencies = ['EVERY DAY', 'LESS OFTEN'];
-    const csvTarget = { method: 'Text messaging', difference: 0.42 };
+// Blur-in-place comparison of EVERY DAY vs LESS OFTEN (E7's same-layout
+// principle): keep the stacked chart, dim the uncompared EVERY FEW DAYS
+// segment, and label the two compared segments + their difference. A stacked
+// segment's pixel HEIGHT equals value × scale regardless of its stack position,
+// so the two bright segment thicknesses are directly comparable — no misleading
+// vertical gap arrow needed.
+const E7_Q7_COMPARED = new Set(['EVERY DAY', 'LESS OFTEN']);
+const E7_Q7_TARGET = { method: 'Text messaging', difference: 0.42 };
+
+function annotateMethodDifferences({ d3, container, highlightMethod = null }) {
+    const bars = d3.select(container).selectAll('rect.main-bar');
+    const g = d3.select(bars.node()?.parentNode);
+    if (g.empty()) return;
+
+    g.selectAll('.e7-q7-annotation').remove();
+
     const methods = Array.from(new Set(data_rows.map((d) => d.Method)));
-    const rows = methods.map((method) => {
-        const row = { method };
-        selectedFrequencies.forEach((frequency) => {
-            row[frequency] = Number(data_rows.find((d) => d.Method === method && d.Frequency === frequency)?.Share_of_Respondents ?? 0);
+    methods.forEach((method) => {
+        const edSel = bars.filter((s) => s.target === method && s.series === 'EVERY DAY');
+        const loSel = bars.filter((s) => s.target === method && s.series === 'LESS OFTEN');
+        const edNode = edSel.node();
+        const loNode = loSel.node();
+        if (!edNode || !loNode) return;
+
+        const vEd = edSel.datum().value;
+        const vLo = loSel.datum().value;
+        const diff = method === E7_Q7_TARGET.method ? E7_Q7_TARGET.difference : Math.abs(vEd - vLo);
+
+        const isFocus = !highlightMethod || method === highlightMethod;
+        const isHi = method === highlightMethod;
+        const labelOpacity = isFocus ? 1 : 0.2;
+
+        // Value label centered in each compared segment.
+        [{ sel: edSel, node: edNode, v: vEd }, { sel: loSel, node: loNode, v: vLo }].forEach(({ node, v }) => {
+            const x = Number(node.getAttribute('x')) + Number(node.getAttribute('width')) / 2;
+            const y = Number(node.getAttribute('y')) + Number(node.getAttribute('height')) / 2;
+            g.append('text')
+                .attr('class', 'e7-q7-annotation')
+                .attr('x', x)
+                .attr('y', y)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('font-size', isHi ? 11 : 9)
+                .attr('font-weight', 700)
+                .attr('fill', '#ffffff')
+                .attr('opacity', labelOpacity)
+                .text(v.toFixed(2));
         });
-        row.difference = method === csvTarget.method
-            ? csvTarget.difference
-            : Math.abs(row['EVERY DAY'] - row['LESS OFTEN']);
-        return row;
-    });
 
-    injectStackedChartStyles();
-    container.innerHTML = '';
-    container.classList.add('validation-stacked-chart-host');
-
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 132, bottom: 62, left: 56 };
-    const plotW = width - margin.left - margin.right;
-    const plotH = height - margin.top - margin.bottom;
-    const xScale = d3.scaleBand().domain(methods).range([0, plotW]).paddingInner(0.18).paddingOuter(0.08);
-    const innerScale = d3.scaleBand().domain(selectedFrequencies).range([0, xScale.bandwidth()]).padding(0.08);
-    const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => Math.max(d['EVERY DAY'], d['LESS OFTEN'])) ?? 1]).nice().range([plotH, 0]);
-    const color = d3.scaleOrdinal().domain(selectedFrequencies).range(['#4f46e5', '#14b8a6']);
-    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${width} ${height}`).style('overflow', 'visible');
-    const markerId = 'e7-q7-difference-arrow';
-    svg.append('defs').append('marker')
-        .attr('id', markerId)
-        .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 5)
-        .attr('refY', 0)
-        .attr('markerWidth', 6)
-        .attr('markerHeight', 6)
-        .attr('orient', 'auto')
-        .append('path')
-        .attr('d', 'M0,-5L10,0L0,5')
-        .attr('fill', '#dc2626');
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(g.select('.x-axis'));
-
-    const bars = rows.flatMap((row) => selectedFrequencies.map((frequency) => ({ method: row.method, frequency, value: row[frequency], difference: row.difference })));
-    g.selectAll('rect.main-bar')
-        .data(bars)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => (xScale(d.method) ?? 0) + (innerScale(d.frequency) ?? 0))
-        .attr('width', innerScale.bandwidth())
-        .attr('y', (d) => yScale(d.value))
-        .attr('height', (d) => plotH - yScale(d.value))
-        .attr('fill', (d) => color(d.frequency))
-        .attr('opacity', (d) => (!highlightMethod || d.method === highlightMethod ? 1 : 0.22))
-        .attr('data-target', (d) => d.method)
-        .attr('data-series', (d) => d.frequency)
-        .attr('data-value', (d) => String(d.value));
-
-    rows.forEach((row) => {
-        const values = selectedFrequencies.map((frequency) => ({ frequency, value: row[frequency] })).sort((a, b) => b.value - a.value);
-        const high = values[0];
-        const low = values[1];
-        const x = (xScale(row.method) ?? 0) + (innerScale(low.frequency) ?? 0) + innerScale.bandwidth() / 2;
-        const highY = yScale(high.value);
-        const lowY = yScale(low.value);
-        const left = xScale(row.method) ?? 0;
-        const right = left + xScale.bandwidth();
-        const isFocus = !highlightMethod || row.method === highlightMethod;
-        const isHighlight = row.method === highlightMethod;
-
-        g.append('line')
-            .attr('class', 'e7-q7-annotation')
-            .attr('x1', left + 4)
-            .attr('x2', right - 4)
-            .attr('y1', highY)
-            .attr('y2', highY)
-            .attr('stroke', '#dc2626')
-            .attr('stroke-width', isHighlight ? 2.8 : 1.6)
-            .attr('opacity', isFocus ? 1 : 0.22);
-
-        g.append('line')
-            .attr('class', 'e7-q7-annotation')
-            .attr('x1', x)
-            .attr('x2', x)
-            .attr('y1', lowY)
-            .attr('y2', highY)
-            .attr('stroke', '#dc2626')
-            .attr('stroke-width', isHighlight ? 2.8 : 1.6)
-            .attr('opacity', isFocus ? 1 : 0.22)
-            .attr('marker-start', `url(#${markerId})`)
-            .attr('marker-end', `url(#${markerId})`);
-
+        // Difference label above the bar (top segment = LESS OFTEN is topmost).
+        const barLeft = Number(edNode.getAttribute('x'));
+        const barWidth = Number(edNode.getAttribute('width'));
+        const topY = Number(loNode.getAttribute('y'));
         g.append('text')
             .attr('class', 'e7-q7-annotation')
-            .attr('x', x + 5)
-            .attr('y', (highY + lowY) / 2)
-            .attr('dominant-baseline', 'middle')
-            .attr('font-size', isHighlight ? 12 : 10)
-            .attr('font-weight', isHighlight ? 800 : 700)
+            .attr('x', barLeft + barWidth / 2)
+            .attr('y', topY - 8)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', isHi ? 13 : 10)
+            .attr('font-weight', isHi ? 800 : 700)
             .attr('fill', '#dc2626')
-            .attr('opacity', isFocus ? 1 : 0.22)
-            .text(row.difference.toFixed(2));
-    });
-
-    const legend = svg.append('g').attr('class', 'color-legend').attr('transform', `translate(${margin.left + plotW + 24},${margin.top})`);
-    selectedFrequencies.forEach((frequency, index) => {
-        const y = index * 24 + 8;
-        legend.append('circle').attr('cx', 8).attr('cy', y).attr('r', 5).attr('fill', color(frequency));
-        legend.append('text').attr('x', 20).attr('y', y).attr('dominant-baseline', 'middle').attr('font-size', 11).text(frequency);
+            .attr('opacity', labelOpacity)
+            .text(`Δ ${diff.toFixed(2)}`);
     });
 }
 
 export function function1({ d3, container }) {
-    renderMethodFrequencyComparison({ d3, container });
+    // Dim the uncompared frequency; keep EVERY DAY + LESS OFTEN bright.
+    d3.select(container).selectAll('rect.main-bar')
+        .attr('opacity', (s) => (E7_Q7_COMPARED.has(s.series) ? 1 : 0.18));
+    annotateMethodDifferences({ d3, container });
 }
 
 export function function2({ d3, container }) {
-    renderMethodFrequencyComparison({ d3, container, highlightMethod: 'Text messaging' });
+    // Emphasize the winner (Text messaging); fade other methods' compared
+    // segments so the largest difference stands out.
+    d3.select(container).selectAll('rect.main-bar')
+        .attr('opacity', (s) => {
+            if (!E7_Q7_COMPARED.has(s.series)) return 0.18;
+            return s.target === E7_Q7_TARGET.method ? 1 : 0.3;
+        });
+    annotateMethodDifferences({ d3, container, highlightMethod: E7_Q7_TARGET.method });
 }
 
 export function function3({ d3, container }) {}

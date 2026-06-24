@@ -330,7 +330,8 @@ function drawCityPopulationJumps({ d3, container, highlightCity = null }) {
             .attr('stroke', '#dc2626')
             .attr('stroke-width', city === highlightCity ? 2.8 : 1.6)
             .attr('opacity', isFocus ? 1 : 0.2)
-            .attr('marker-start', `url(#${markerId})`)
+            // Single-sided (E7 feedback): a population jump is a directional
+            // change over time, so the arrow points up to the 2025 value only.
             .attr('marker-end', `url(#${markerId})`);
 
         g.append('text')

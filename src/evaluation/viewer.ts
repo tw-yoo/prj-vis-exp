@@ -45,10 +45,13 @@ type SurveyQuestion = {
   kind: 'yes-no' | 'likert7' | 'text' | 'error-localization'
   scale?: ScaleLabels
   // Declarative conditional: render (and require) this question only when the
-  // predicate holds. The getter reads sibling responses on the SAME survey page
-  // (by question id). Absent → always shown/required. When the predicate flips
-  // to false the question is hidden, its stored responses are reset, and it is
-  // dropped from the page's completeness check.
+  // predicate holds. The getter reads responses by question id — its own survey
+  // page first, then (for per-chart pages) the same item's OTHER survey pages,
+  // so a question may depend on an answer given one page earlier (e.g. the
+  // error-localization page depends on the Yes/No page). Absent → always
+  // shown/required. When the predicate flips to false the question is hidden,
+  // its stored responses are reset, and it is dropped from the completeness
+  // check; a page whose questions are ALL hidden is skipped during navigation.
   showWhen?: (get: (questionId: string) => string | undefined) => boolean
 }
 
@@ -79,6 +82,9 @@ type PageDescriptor =
   | { kind: 'final' }
 
 const surveyPages: SurveyPage[] = [
+  // Page 0 — the timed Yes/No judgment ONLY. responseTimeMs measures the dwell
+  // on this page until Next is pressed, so nothing else may live here (writing
+  // the error reason must NOT count toward the decision time).
   {
     questions: [
       {
@@ -86,9 +92,15 @@ const surveyPages: SurveyPage[] = [
         text: 'The answer is correct.',
         kind: 'yes-no',
       },
-      // Conditional error-localization: only when the participant judged the
-      // answer wrong ("No"). They mark the explanation step where the reasoning
-      // first goes wrong + describe what is wrong. Both required while shown.
+    ],
+  },
+  // Page 1 — error localization, on its own (untimed) page AFTER the Yes/No.
+  // Shown only when the participant judged the answer wrong ("No"); on "Yes"
+  // every question here is hidden and the whole page is skipped by
+  // resolveSkips(). They mark the explanation step where the reasoning first
+  // goes wrong + describe what is wrong. Both required while shown.
+  {
+    questions: [
       {
         id: 'first-error-step',
         text: 'At which step does the reasoning first go wrong? Select the step.',
@@ -97,16 +109,22 @@ const surveyPages: SurveyPage[] = [
       },
     ],
   },
+  // Page 2 — per-chart judgments: ease/understanding (H2), transparency (H3),
+  // and usefulness. Trust is measured per system on the post-session page.
   {
     questions: [
-      // Per-chart judgments: ease/understanding (H2), transparency (H3), and
-      // usefulness. Trust is measured per system on the post-session page.
       { id: 'reasoning-easy', text: 'The explanation was easy to understand.', kind: 'likert7' },
       { id: 'derivation-clear', text: 'The explanation was transparent.', kind: 'likert7' },
       { id: 'usefulness', text: 'The explanation was useful.', kind: 'likert7' },
     ],
   },
 ]
+
+// Survey-page indices, used wherever stored response keys (`${itemKey}:${idx}::id`)
+// are read or written. Keep in sync with the surveyPages array above.
+const YES_NO_PAGE_IDX = 0
+const ERROR_LOC_PAGE_IDX = 1
+const RATINGS_PAGE_IDX = 2
 
 const AGREE_SCALE: ScaleLabels = { low: 'Strongly disagree', high: 'Strongly agree' }
 
@@ -121,7 +139,7 @@ const postSessionQuestions: SurveyQuestion[] = [
   // page measures ease + transparency + usefulness at the single-chart level).
   { id: 'trust', text: 'I trusted the explanations from this system.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'usefulness', text: 'The explanations from this system were useful.', kind: 'likert7', scale: AGREE_SCALE },
-  { id: 'transparency', text: 'The explanations from this system were transparent about how the answers were reached.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'transparency', text: 'The explanations from this system were transparent.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-mental', text: 'Understanding this explanation was mentally demanding.', kind: 'likert7', scale: AGREE_SCALE },
   // { id: 'tlx-physical', text: 'Understanding this explanation was physically demanding.', kind: 'likert7', scale: AGREE_SCALE },
   { id: 'tlx-temporal', text: 'I felt hurried or rushed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
@@ -562,11 +580,24 @@ function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTML
   return fieldset
 }
 
-// True iff a question should be shown/required right now (its showWhen holds,
-// reading sibling responses on the same page). Questions without showWhen always show.
+// True iff a question should be shown/required right now (its showWhen holds).
+// The getter checks the question's own page first, then — for per-chart survey
+// prefixes (`${itemKey}:${pageIdx}`) — the same item's other survey pages, so
+// the error-localization page can read the Yes/No given one page earlier.
+// Questions without showWhen always show.
 function isQuestionVisible(question: SurveyQuestion, keyPrefix: string): boolean {
   if (!question.showWhen) return true
-  return question.showWhen((id) => surveyResponses.get(fieldKey(keyPrefix, id)))
+  return question.showWhen((id) => {
+    const own = surveyResponses.get(fieldKey(keyPrefix, id))
+    if (own != null) return own
+    const itemScope = keyPrefix.match(/^(.+):(\d+)$/)
+    if (!itemScope) return undefined
+    for (let j = 0; j < surveyPages.length; j += 1) {
+      const v = surveyResponses.get(fieldKey(`${itemScope[1]}:${j}`, id))
+      if (v != null) return v
+    }
+    return undefined
+  })
 }
 
 function renderSurveyPage() {
@@ -589,11 +620,26 @@ function clearQuestionResponses(question: SurveyQuestion, keyPrefix: string) {
   }
 }
 
-// A response on the current survey page changed: persist, then — only if the
-// page has a conditional (showWhen) question — re-render so dependent blocks
-// appear/disappear, resetting any now-hidden question's responses first.
+// A response on the current survey page changed: persist, then re-evaluate the
+// conditional (showWhen) questions. For per-chart pages a conditional can live
+// on ANY of the item's survey pages (the error-localization page depends on the
+// Yes/No page), so every page of the item is checked and any now-hidden
+// question's responses are reset so stale values never reach the submission.
+// The visible page only re-renders when it has conditionals of its own.
 function handleSurveyChange() {
   scheduleSave()
+  const page = allPages[currentPageIndex]
+  if (page?.kind === 'survey') {
+    const item = sequence[page.itemIdx]
+    if (item) {
+      surveyPages.forEach((sp, j) => {
+        const prefix = `${getItemKey(item)}:${j}`
+        sp.questions.forEach((q) => {
+          if (q.showWhen && !isQuestionVisible(q, prefix)) clearQuestionResponses(q, prefix)
+        })
+      })
+    }
+  }
   const ctx = currentSurveyContext()
   if (!ctx || !ctx.questions.some((q) => q.showWhen)) return
   ctx.questions.forEach((q) => {
@@ -638,17 +684,17 @@ function buildSubmission(): Record<string, FsJson> {
   sequence.forEach((item) => {
     const k = getItemKey(item)
     const ratings: Record<string, FsJson> = {}
-    surveyPages[1].questions.forEach((q) => {
-      const v = surveyResponses.get(`${k}:1::${q.id}`)
+    surveyPages[RATINGS_PAGE_IDX].questions.forEach((q) => {
+      const v = surveyResponses.get(`${k}:${RATINGS_PAGE_IDX}::${q.id}`)
       if (v != null) ratings[q.id] = v
     })
-    const errStep = surveyResponses.get(`${k}:0::first-error-step`) ?? ''
-    const errDesc = surveyResponses.get(`${k}:0::${ERROR_DESCRIPTION_FIELD}`) ?? ''
+    const errStep = surveyResponses.get(`${k}:${ERROR_LOC_PAGE_IDX}::first-error-step`) ?? ''
+    const errDesc = surveyResponses.get(`${k}:${ERROR_LOC_PAGE_IDX}::${ERROR_DESCRIPTION_FIELD}`) ?? ''
     charts[item.chart_id] = {
       system: item.system,
       group: item.group,
       // Participant's judgment (their Yes/No to "The answer is correct.").
-      answerCorrect: surveyResponses.get(`${k}:0::answer-correct`) ?? '',
+      answerCorrect: surveyResponses.get(`${k}:${YES_NO_PAGE_IDX}::answer-correct`) ?? '',
       // Conditional error-localization (only populated when answerCorrect === 'No';
       // reset to empty/null otherwise so stale picks aren't submitted).
       firstErrorChunkIndex: errStep === '' ? null : Number(errStep),
@@ -696,14 +742,14 @@ function hydrateFromDoc(fields: Record<string, FsJson>) {
     const c = charts[item.chart_id]
     if (!c || typeof c !== 'object') return
     const k = getItemKey(item)
-    if (c.answerCorrect) surveyResponses.set(`${k}:0::answer-correct`, String(c.answerCorrect))
+    if (c.answerCorrect) surveyResponses.set(`${k}:${YES_NO_PAGE_IDX}::answer-correct`, String(c.answerCorrect))
     if (c.firstErrorChunkIndex != null && c.firstErrorChunkIndex !== '') {
-      surveyResponses.set(`${k}:0::first-error-step`, String(c.firstErrorChunkIndex))
+      surveyResponses.set(`${k}:${ERROR_LOC_PAGE_IDX}::first-error-step`, String(c.firstErrorChunkIndex))
     }
-    if (c.errorDescription) surveyResponses.set(`${k}:0::${ERROR_DESCRIPTION_FIELD}`, String(c.errorDescription))
+    if (c.errorDescription) surveyResponses.set(`${k}:${ERROR_LOC_PAGE_IDX}::${ERROR_DESCRIPTION_FIELD}`, String(c.errorDescription))
     if (typeof c.responseTimeMs === 'number') responseTimes.set(item.chart_id, c.responseTimeMs)
     Object.entries(c.ratings ?? {}).forEach(([qid, val]) => {
-      if (val != null && val !== '') surveyResponses.set(`${k}:1::${qid}`, String(val))
+      if (val != null && val !== '') surveyResponses.set(`${k}:${RATINGS_PAGE_IDX}::${qid}`, String(val))
     })
   })
   Object.entries((fields.postSession as Record<string, any>) ?? {}).forEach(([system, obj]) => {
@@ -1316,8 +1362,10 @@ async function loadPage(idx: number) {
       })
     }
     updateUI()
-    // Time the Yes/No page (surveyPageIdx 0) until the participant navigates away.
-    if (page.surveyPageIdx === 0) activeTimer = { chartId: item.chart_id, startedAt: performance.now() }
+    // Time ONLY the Yes/No page until the participant navigates away (Next).
+    // The error-localization and ratings pages are deliberately untimed so
+    // writing the reason never counts toward responseTimeMs.
+    if (page.surveyPageIdx === YES_NO_PAGE_IDX) activeTimer = { chartId: item.chart_id, startedAt: performance.now() }
     return
   }
 
@@ -1343,8 +1391,32 @@ async function loadPage(idx: number) {
   updateUI()
 }
 
+// A per-chart survey page whose questions are ALL currently hidden (e.g. the
+// error-localization page when the participant answered "Yes") must never be
+// shown; navigation passes over it in the direction of travel.
+function pageHasVisibleQuestions(idx: number): boolean {
+  const page = allPages[idx]
+  if (!page || page.kind !== 'survey') return true
+  const item = sequence[page.itemIdx]
+  const surveyPage = surveyPages[page.surveyPageIdx]
+  if (!item || !surveyPage) return true
+  const keyPrefix = `${getItemKey(item)}:${page.surveyPageIdx}`
+  return surveyPage.questions.some((q) => isQuestionVisible(q, keyPrefix))
+}
+
+function resolveSkips(idx: number, dir: 1 | -1): number {
+  let i = clampPageIndex(idx)
+  while (!pageHasVisibleQuestions(i)) {
+    const next = clampPageIndex(i + dir)
+    if (next === i) return i
+    i = next
+  }
+  return i
+}
+
 function navigateToPage(idx: number, replace = false) {
-  const next = clampPageIndex(idx)
+  const dir: 1 | -1 = idx >= currentPageIndex ? 1 : -1
+  const next = resolveSkips(idx, dir)
   syncPageUrl(next, replace)
   void loadPage(next)
 }
@@ -1367,7 +1439,13 @@ nextBtn.addEventListener('click', () => {
 })
 
 window.addEventListener('popstate', () => {
-  void loadPage(getPageIndexFromUrl())
+  // Browser back/forward can land on a fully-hidden conditional page (e.g. the
+  // error page after a "Yes"); resolve skips in the direction of travel and
+  // keep the URL in sync with where we actually settle.
+  const urlIdx = getPageIndexFromUrl()
+  const resolved = resolveSkips(urlIdx, urlIdx >= currentPageIndex ? 1 : -1)
+  if (resolved !== urlIdx) syncPageUrl(resolved, true)
+  void loadPage(resolved)
 })
 
 // Load persisted responses (so back/forward and reloads show prior answers),
@@ -1384,5 +1462,8 @@ try {
 // Best-effort flush of the final dwell + a save when the tab is hidden/closed.
 window.addEventListener('pagehide', () => { flushTimer(); void saveNow(true) })
 
+// Resolve AFTER hydration so a reload/deep link onto a fully-hidden conditional
+// page (e.g. the error page of a "Yes" item) settles on the next visible page.
+currentPageIndex = resolveSkips(currentPageIndex, 1)
 syncPageUrl(currentPageIndex, true)
 void loadPage(currentPageIndex)

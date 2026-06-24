@@ -1,0 +1,23 @@
+expert_id,confirmed,confirmed_at,q1_feedback,q2_feedback,q3_feedback,q4_feedback,q5_feedback,q6_feedback,q7_feedback,q8_feedback,q9_feedback,q10_feedback
+e1,no,,,,,,,,,,,
+e2,no,,[S1] Sounds good,[S1] 이상한데? 왜 stacked로 비교를 합니까,[S1] Sounds good,[S1] Good,,,,,,
+e3,no,,,,,,,,,,,
+e4,no,,,,,,,,,,,
+e5,yes,2026-05-29T06:42:53.357Z,"[S1] sentence says maximum but the graph shows the average
+[S2] sentence says average but the graph is showing the maximum",,,,,,,,,
+e6,yes,2026-05-28T13:20:46.000Z,,,,,,,,,,
+e7,yes,2026-06-12T05:18:30.199Z,"[S1] I am not pretty sure about my previous comments, but I guess this operation may need to be revised.
+1) When I gave some comments, I was intended to give overview when the people see the question (not the 1st paragraph!)
+2) Therefore, the indicator for each average would be sequential; not simultaneous one.
+3) In short, I expected to see this annotation before the 1st sentence, and for 1st sentence, I expected to have an indicator for values before 2000.
+[S2] See the comments for the 1st sentence. This indicator should be placed in sequential order.
+[S3] Seems good, but maybe we need to be careful about the direction of arrow (we may just leave it as two-side arrow.","[S1] Even when we remove all the others, we still need to have legends or title to explain the value.","[S1] When we want to just show the difference, we may just have a single sided arrow.
+[S2] It is not the fault of the annotation, but I guess the information that we expected for this sentence is too dense. We may want to have some animation for e.g.s; But annotation looks good.","The same happens for this one--the sentence itself contains too much information. I expected to have a bit more dedicated version, and having some of the interactions (e.g., ~the lowest value is 0.07 in 2016 have one annotation, and The next~ would have another).","[S1] Seems good, but be careful with the arrow!",,,[S1] I personally don't like this change--It may introduce additional mental burden to understand the chart. We should have same layout for this kind of filtering--so that the readers easily grasp that it is identical chart but with different annotation. So... I expected to have kind of blurred version.,"[S1] When I say, I told that line chart and bar chart should have different annotation style. And for the line chart, I told you it would be better to have our indicator at the y-axis, instead of this kind of line.
+[S2] The same. It would be better to be positioned at y-axis","[S2] For this one, I guess this average would be OK (or, maybe we can introduce alternative y-axis for simplicity), since it only takes care of very small subset."
+e8,yes,2026-05-30T03:35:21.113Z,[S1] 사소한 문제 같긴 하지만 Aspiag가 5 or fewer letters 가 아닌 것  같네요.,"[S1] Sentence1 에 해당하는 차트만 독립적으로 놓고본다면 설명과 시각화가 잘 맞습니다만, 가장 처음에 보여줬던 차트에서 Sentence1의 차트로 전환되는 관점에서는 Very interested 에 인코딩되었던 컬러가 그대로 유지되면 좋을 듯 합니다.",[S2] 사소하지만 위쪽 arrow head의 방향이 위를 가리키도록 하면 더 일반적인 convention에 맞을 것 같습니다,[S2] 2010-2011이 가장 difference가 큰 것 같네요.,[S2] arrow head방향만 맞춰주면 좋겠습니다,,"[S1] and add them together에 해당하는 합친 bar가 하나 더 표시되야할 것 같습니다
+[S2] several 합, once합, total합이 각각 따로 표시되어야 할 것 같습니다","[S1] 카테고리 자체가 18 years and under 가 되야 하는거 아닐까 싶네요. 그런 관점으로 보면 문항의 men under 40은 첫 두개 카테고리를 포함해야할 것 같은데, 현재는 18 to 39 years만 하이라이트 되고 있습니다
+[S2] arrow head 방향만 맞춰주면 좋겠습니다",,
+e9,yes,2026-05-28T17:12:15.704Z,,,[S1] line chart 직선을 생각했었는데 smoothing 이 된 것 같습니다,,,,,,line chart 에 대해서 직선을 생각했었던 것 같아요~,
+e10,yes,2026-05-28T14:45:00.626Z,,[S2] 설명은 맞는데 총합 값이 그림이랑 달라보여요.,"[S2] Since 0.17 is less than 0.19, males did not use the application more than females over those two periods. 이 부분을 별도로 분리해야 설명이 자연스러워 보입니다.","[S1] 설명이랑 시각화랑 불일치함. 시각화에서는 그냥 Year 구분선 그어줬는데 설명이 그 내용이 아닙니다. 이 내용이랑 맞는 시각화는 2에서 나오는듯 합니다.
+[S2] 1단계서 가로 평균선 먼저 긋고 2단계에서 세로 구분선 긋는 것이 설명이랑 맞는 것 같습니다.. 그리고 여기서 각 년도별 평균선까지 그어줘야 설명이랑 흐름이 맞는것 같아요.
+[S3] 정확히는 각 연도별 평균 점을 선 위에다가 찍어줬던 것 같습니다.",[S2] 맞는데 상단 바에서 최소인 점이 좀 다른 것 같아요. 값은 신경쓰지 않아도 되나요?,,,,,[S2] 제가 기억이 안나는데 이거 그냥 투명하게 보여주기랑 아예 없애기 중에서 아예 없애기로 했던가요? 없앤 부분들 0으로 하는게 아니라 N/A로 하는 것이 더 정확할 것 같네요.

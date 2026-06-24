@@ -1,4 +1,4 @@
-import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
+import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
     { 'Hair Removal Type': 'Hollywood', 'Age Group': 'Under 30s', 'Share of respondents': 0.35 },
@@ -252,72 +252,78 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-function renderUnder30HairRemovalChart({ d3, container, showThreshold = false }) {
-    const csvThreshold = 0.10;
-    const csvTarget = { type: 'Hollywood', value: 0.35 };
-    const rows = data_rows
-        .filter((d) => d['Age Group'] === 'Under 30s')
-        .map((d) => ({
-            type: d['Hair Removal Type'],
-            value: d['Hair Removal Type'] === csvTarget.type ? csvTarget.value : Number(d['Share of respondents']),
-        }));
+const E7_Q8_THRESHOLD = 0.10;
+const E7_Q8_TARGET = { type: 'Hollywood', value: 0.35 };
 
-    injectGroupedChartStyles();
+// Blur-in-place filter (E7 feedback): keep the grouped chart, axes and legend
+// intact; dim the Over 30s series rather than rebuilding to an Under-30s-only
+// chart, so the reader sees the same chart with a different annotation.
 
-    container.classList.add('validation-grouped-chart-host');
+// Reconstruct the y mapping from the Hollywood Under-30s bar (value 0.35).
+function getUnder30Scale({ d3, container }) {
+    const bars = d3.select(container).selectAll('rect.main-bar');
+    const ref = bars.filter((d) => d.series === 'Under 30s' && d.category === E7_Q8_TARGET.type);
+    const refNode = ref.node();
+    if (!refNode) return null;
+    const vRef = ref.datum().value || 1;
+    const refY = Number(refNode.getAttribute('y'));
+    const refH = Number(refNode.getAttribute('height'));
+    const baseline = refY + refH;
+    const k = refH / vRef;
+    return { bars, ref, refNode, refY, yOf: (v) => baseline - k * v };
+}
 
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 76, bottom: 64, left: 56 };
-    const plotW = width - margin.left - margin.right;
-    const plotH = height - margin.top - margin.bottom;
-    const xScale = d3.scaleBand().domain(rows.map((d) => d.type)).range([0, plotW]).padding(0.24);
-    const yScale = d3.scaleLinear().domain([0, d3.max(rows, (d) => d.value) ?? 1]).nice().range([plotH, 0]);
-    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
-    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+// Sentence 1: establish the "≥ 0.10" criterion as a threshold line.
+function drawUnder30ThresholdLine({ d3, container }) {
+    const scale = getUnder30Scale({ d3, container });
+    if (!scale) return;
+    const { bars, yOf } = scale;
+    const g = d3.select(bars.node().parentNode);
+    g.selectAll('.e7-q8-function1-line').remove();
 
-    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
-    g.append('g').attr('class', 'x-axis').attr('transform', `translate(0,${plotH})`).call(d3.axisBottom(xScale));
-    autoRotateXAxisLabels(g.select('.x-axis'));
+    let minX = Infinity;
+    let maxX = -Infinity;
+    bars.each(function () {
+        const x = Number(this.getAttribute('x'));
+        const w = Number(this.getAttribute('width'));
+        minX = Math.min(minX, x);
+        maxX = Math.max(maxX, x + w);
+    });
 
-    g.selectAll('rect.main-bar')
-        .data(rows)
-        .join('rect')
-        .attr('class', 'main-bar')
-        .attr('x', (d) => xScale(d.type))
-        .attr('width', xScale.bandwidth())
-        .attr('y', (d) => yScale(d.value))
-        .attr('height', (d) => plotH - yScale(d.value))
-        .attr('fill', (d) => (showThreshold && d.type === csvTarget.type ? '#dc2626' : '#4f46e5'))
-        .attr('opacity', (d) => (!showThreshold || d.type === csvTarget.type ? 1 : 0.22))
-        .attr('data-target', (d) => d.type)
-        .attr('data-series', 'Under 30s')
-        .attr('data-value', (d) => String(d.value));
-
-    if (!showThreshold) return;
-    const y = yScale(csvThreshold);
+    const y = yOf(E7_Q8_THRESHOLD);
     g.append('line')
-        .attr('class', 'e7-q8-function2')
-        .attr('x1', 0)
-        .attr('x2', plotW)
+        .attr('class', 'e7-q8-function1-line')
+        .attr('x1', minX)
+        .attr('x2', maxX)
         .attr('y1', y)
         .attr('y2', y)
         .attr('stroke', '#111827')
         .attr('stroke-width', 2)
         .attr('stroke-dasharray', '6 4');
     g.append('text')
-        .attr('class', 'e7-q8-function2')
-        .attr('x', plotW + 8)
+        .attr('class', 'e7-q8-function1-line')
+        .attr('x', maxX + 8)
         .attr('y', y)
         .attr('dominant-baseline', 'middle')
         .attr('font-size', 12)
         .attr('font-weight', 700)
         .attr('fill', '#111827')
         .text('0.10');
+}
+
+// Sentence 2: highlight the qualifying Under-30s bar (Hollywood, 0.35).
+function highlightHollywood({ d3, container }) {
+    const scale = getUnder30Scale({ d3, container });
+    if (!scale) return;
+    const { ref, refNode, refY } = scale;
+    const g = d3.select(refNode.parentNode);
+    g.selectAll('.e7-q8-function2').remove();
+
+    ref.attr('fill', '#dc2626').attr('opacity', 1);
     g.append('text')
         .attr('class', 'e7-q8-function2')
-        .attr('x', (xScale(csvTarget.type) ?? 0) + xScale.bandwidth() / 2)
-        .attr('y', yScale(csvTarget.value) - 8)
+        .attr('x', Number(refNode.getAttribute('x')) + Number(refNode.getAttribute('width')) / 2)
+        .attr('y', refY - 8)
         .attr('text-anchor', 'middle')
         .attr('font-size', 12)
         .attr('font-weight', 800)
@@ -326,11 +332,14 @@ function renderUnder30HairRemovalChart({ d3, container, showThreshold = false })
 }
 
 export function function1({ d3, container }) {
-    renderUnder30HairRemovalChart({ d3, container });
+    d3.select(container).selectAll('rect.main-bar')
+        .attr('opacity', (d) => (d.series === 'Under 30s' ? 1 : 0.18));
+    drawUnder30ThresholdLine({ d3, container });
 }
 
 export function function2({ d3, container }) {
-    renderUnder30HairRemovalChart({ d3, container, showThreshold: true });
+    function1({ d3, container });
+    highlightHollywood({ d3, container });
 }
 
 export function function3({ d3, container }) {}

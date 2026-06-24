@@ -1,10 +1,5 @@
 participant_code,has_document,order_system,order_chart,systems_A,systems_B,systems_C,systems_D,n_trials_total,n_trials_answered,n_postsession_systems_done,final_comment,updated_at
-DVNLPR,True,PRE,PRE,Ours,B1,B2,B3,20,0,4,,2026-06-09T08:16:32.108Z
-PILOT1,False,,,,,,,,,,,
-PILOT2,False,,,,,,,,,,,
-PILOT3,False,,,,,,,,,,,
-PILOT4,False,,,,,,,,,,,
-PILOTA,True,SO1,CO1,Ours,B1,B2,B3,20,3,4,,2026-06-09T16:32:47.175Z
-PILOTB,False,,,,,,,,,,,
-TESTP1,True,SO3,CO1,B2,B3,Ours,B1,20,3,4,The animations in B1 were distracting.,2026-06-09T08:27:10.034Z
-TESTP4,False,,,,,,,,,,,
+PILOT1,True,SO1,CO1,Ours,B1,B2,B3,20,20,4,설명을 보며 찾는게 도움이 되는지 모르겟다. 오히려 시간을 더 잡아먹는거같다,2026-06-10T02:09:58.654Z
+PILOT2,True,SO3,CO3,B2,B3,Ours,B1,20,20,4,,2026-06-10T02:04:50.277Z
+PILOT3,True,SO2,CO3,B1,B2,B3,Ours,20,20,4,잘 모르겠지만 차트 QA 난이도가 시스템별로 유사해야 좋은 실험이 될 것 같단 생각이 들었습니다. 좋은 결과 얻으시길 바랍니다~,2026-06-10T02:55:48.693Z
+PILOT4,True,SO4,CO1,B3,Ours,B1,B2,20,20,4,,2026-06-10T03:32:25.927Z
