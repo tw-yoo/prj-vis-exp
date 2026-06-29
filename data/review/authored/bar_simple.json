@@ -1,4 +1,46 @@
 {
+ "0gt3h2146jc47ovx": {
+  "spec": {
+   "ops": [
+    {"op": "retrieveValue", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "target": "Iron"},
+    {"op": "retrieveValue", "id": "n2", "meta": {"nodeId": "n2", "inputs": [], "sentenceIndex": 1}, "target": "Zinc"},
+    {"op": "add", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 1}, "targetA": "ref:n1", "targetB": "ref:n2"}
+   ],
+   "ops2": [
+    {"op": "retrieveValue", "id": "n4", "meta": {"nodeId": "n4", "inputs": [], "sentenceIndex": 2}, "target": "Water"},
+    {"op": "diff", "id": "n5", "meta": {"nodeId": "n5", "inputs": ["n3", "n4"], "sentenceIndex": 2}, "targetA": "ref:n3", "targetB": "ref:n4", "mode": "ratio"}
+   ]
+  },
+  "note": "#254 (Iron + Zinc) / Water -> add the two shares then diff(mode=ratio); 'how many times larger' = plain ratio (no percent)."
+ },
+ "0cy2ufyjsinsswpm": {
+  "spec": null,
+  "note": "#256 GAP: cumulative running sum from the 20s age group until the cumulative share first exceeds 50% of the total; no cumulative-sum / first-crossing-threshold op in the grammar."
+ },
+ "0ivzc37gi49isy9n": {
+  "spec": {
+   "ops": [
+    {"op": "rollingWindow", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "window": 3, "aggregate": "sum", "field": "Import value in billion Indian rupees", "orderField": "Year"}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "field": "Import value in billion Indian rupees"}
+   ]
+  },
+  "note": "#257 highest 3-year total -> rollingWindow(window=3, sum) then findExtremum max. (Executes; rollingWindow may not render in the TS visualizer yet.)"
+ },
+ "0ijwrg723j4v8s3e": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Continent", "include": ["Asia", "Africa", "Europe", "Nothern America"]},
+    {"op": "sum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Share of the global population (%)"}
+   ],
+   "ops2": [
+    {"op": "retrieveValue", "id": "n3", "meta": {"nodeId": "n3", "inputs": [], "sentenceIndex": 2}, "target": "Asia"},
+    {"op": "diff", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n2", "n3"], "sentenceIndex": 2}, "targetA": "ref:n3", "targetB": "ref:n2", "mode": "ratio", "percent": true}
+   ]
+  },
+  "note": "#259 Asia / sum(Northern-Hemisphere continents) as a percentage -> filter NH continents + sum, then diff(mode=ratio, percent). NH membership is an authoring judgment: included Asia/Africa/Europe/Nothern America (data spelling), excluded Latin America & Caribbean and Oceania (predominantly Southern Hemisphere)."
+ },
   "0s6zi9dyw22qo4rp": {
     "spec": {
       "ops": [

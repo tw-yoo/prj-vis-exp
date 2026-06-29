@@ -3,11 +3,7 @@
     {
       "op": "findExtremum",
       "id": "n1",
-      "meta": {
-        "nodeId": "n1",
-        "inputs": [],
-        "sentenceIndex": 1
-      },
+      "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
       "which": "max",
       "field": "Number of fires"
     }
@@ -16,11 +12,7 @@
     {
       "op": "average",
       "id": "n2",
-      "meta": {
-        "nodeId": "n2",
-        "inputs": [],
-        "sentenceIndex": 2
-      },
+      "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 2 },
       "field": "Number of fires"
     }
   ],
@@ -28,14 +20,7 @@
     {
       "op": "diff",
       "id": "n3",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": [
-          "n1",
-          "n2"
-        ],
-        "sentenceIndex": 3
-      },
+      "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3 },
       "targetA": "ref:n1",
       "targetB": "ref:n2",
       "signed": false

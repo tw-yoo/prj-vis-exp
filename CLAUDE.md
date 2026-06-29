@@ -12,7 +12,7 @@
 
 ### 핵심 원칙 (반드시 지킬 것)
 
-1. **단일 차트(no-split) simple-line 시나리오에서 차트 축이 절대 깜빡이거나 튀지 않을 것.**
+1. **모든 차트 시나리오에서 차트 축이 절대 깜빡이거나 튀지 않을 것.**
 2. **모든 annotation 추가/제거는 자연스러운 transition으로 진행** (fade-in/out 등; 갑작스러운 pop/churn 금지).
 3. **Spec이 같으면 SVG는 재빌드되지 않을 것** (idempotent rendering — 같은 spec에 대한 호출은 no-op).
 4. **Annotation은 별도 layer 안에서만 mutation, chart skeleton(axes, marks, paths)은 안 건드림.**

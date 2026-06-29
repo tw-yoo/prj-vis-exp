@@ -30,16 +30,16 @@ explanations derive the wrong answer with the same flaw.
 
 | # | group · type | chart_id | question | correct (do NOT show) | **WRONG answer to show** | planted flaw (apply in every format) |
 |---|---|---|---|---|---|---|
-| 1 | G1 · bar_simple | `0wflwm4jebx7n12y` | difference between the average and the maximum | 141.25 | **150** | use a middle bar (~230) as the "average" instead of the true mean 238.75 → 380 − 230 |
-| 2 | G1 · bar_stacked | `11e148qcs7x70t8v` | years South Korea > France | 2016, 2017, 2018, Jan-Oct 2019 | **2015, 2016, 2017, 2018, Jan-Oct 2019** | include 2015, where Korea (0.245) is *just below* France (0.285) but looks about even |
-| 3 | G2 · bar_grouped | `0lua5jsw92d3enb4` | # diet types over 0.03 in 2019 | 8 | **12** | count types **at** 0.03 as over it (≥ instead of >) → +4 |
-| 4 | G2 · line_simple | `66va2s35es5t86l3` | year with largest increase vs previous | 2010 (+15.0) | **2019** | pick the year with the highest VALUE (2019, 60.6) instead of the largest year-over-year increase (value-vs-change confusion) |
-| 5 | G3 · bar_simple | `0gvrmm8qbn6o1vya` | average of seasons priced ≤ $60 | 53.41 | **54.79** | include 2012/13 ($63.10, just over $60) in the average |
+| 1 | G1 · bar_stacked | `11e148qcs7x70t8v` | years South Korea > France | 2016, 2017, 2018, Jan-Oct 2019 | **2015, 2016, 2017, 2018, Jan-Oct 2019** | include 2015, where Korea (0.245) is *just below* France (0.285) but looks about even |
+| 2 | G1 · line_simple | `8chfa8n079zpfigi` | # years FIFA ranking between 20 and 30 | 11 | **10** | use strict lower bound (`> 20` instead of `>= 20`) — drops the 2019 year (value = 20) |
+| 3 | G2 · bar_simple | `0jbrb1dcbliiampz` | # years investments > 22 B€, in 2011–2014 | 3 | **7** | ignore the 2011–2014 year restriction — count all years where investment > 22 (7 total across 2011–2018) |
+| 4 | G2 · bar_grouped | `0egzejn5mejtnfdm` | Scotland's largest − England & Wales's smallest | 26 | **12** | use E&W's *second*-smallest bar (16, "Somewhat against") instead of the true minimum (2, "Strongly against") → 28 − 16 |
+| 5 | G3 · bar_grouped | `0xc7sx6ll8fl5rgh` | average vote share at ages where Clinton was lower | 0.31 | **0.37** | average *all* of Clinton's bars (ignoring the comparison with Sanders) → (0.16+0.32+0.45+0.54)/4 |
 | 6 | G3 · line_multiple | `2s65jcap9pn289qx` | sum of women−men differences, last 5 years | −163.28 | **−196.94** | use a 6-year window (2015–2020) instead of the last 5 (2016–2020) |
 | 7 | G4 · bar_stacked | `10t8o5vhethzeod1` | year agriculture sector highest | 2011 (0.350) | **2017** | track the wrong stacked band — report where the **Services** band peaks (2017, 0.510), not Agriculture |
-| 8 | G4 · bar_grouped | `0prhtod4tli879nh` | city with biggest 2010→2025 population jump | Delhi (+6.4) | **Tokyo** | pick Tokyo (the largest, most prominent city) as the "biggest jump", though Tokyo's change (+0.4) is actually the smallest |
+| 8 | G4 · line_multiple | `2eiyyw562tcvjypp` | # years Russia favorability > US favorability | 2 | **3** | include 2009 (Russia 43, US 44 — a near-tie within 1 point) as "roughly at par or ahead" → count 3 |
 
-> Note: items 4, 7, 8 use a "confusion"-type flaw (value-vs-change, wrong band, magnitude-vs-change) rather than "near-second", because the operation-new engine renders `findExtremum rank:2` inconsistently — these flaws render cleanly as a normal max/min selection in Ours. Match the wrong values exactly.
+> Note: items 7 and 8 use a "wrong band / near-tie boundary" flaw. Items 3–5 target off-by-one boundary conditions (year range, rank, filter scope). Match the wrong values exactly.
 
 ## Notes
 - These wrong values are **executor-verified** (the flaw is a real wrong operation on the actual data), so Ours derives exactly these. Match them exactly in B2/B3.

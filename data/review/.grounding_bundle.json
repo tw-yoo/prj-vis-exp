@@ -11274,5 +11274,914 @@
    }
   },
   "context_warnings": []
+ },
+ "ckptmodbya2m1mih": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Subscriptions in millions",
+  "measure_field": "Subscriptions in millions",
+  "series_field": "Type",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Type",
+   "Subscriptions in millions"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Type"
+  ],
+  "measure_fields": [
+   "Subscriptions in millions"
+  ],
+  "n_rows": 56,
+  "categorical_values": {
+   "Year": [
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020",
+    "2021",
+    "2022",
+    "2023"
+   ],
+   "Type": [
+    "2G",
+    "3G",
+    "4G",
+    "5G"
+   ]
+  },
+  "numeric_stats": {
+   "Subscriptions in millions": {
+    "min": 0.0,
+    "max": 6200.0,
+    "mean": 1865.178571
+   }
+  },
+  "context_warnings": []
+ },
+ "rx7zzpt8c0ue86y3": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Favorability ratio of US on China(%)",
+  "measure_field": "Favorability ratio of US on China(%)",
+  "series_field": "Type",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Type",
+   "Favorability ratio of US on China(%)"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Type"
+  ],
+  "measure_fields": [
+   "Favorability ratio of US on China(%)"
+  ],
+  "n_rows": 26,
+  "categorical_values": {
+   "Year": [
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017"
+   ],
+   "Type": [
+    "Favorable",
+    "Unfavorable"
+   ]
+  },
+  "numeric_stats": {
+   "Favorability ratio of US on China(%)": {
+    "min": 29.0,
+    "max": 55.0,
+    "mean": 42.884615
+   }
+  },
+  "context_warnings": []
+ },
+ "88sup9tkwx0lwkgw": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Sales in million US dollars",
+  "measure_field": "Sales in million US dollars",
+  "series_field": "Region",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Region",
+   "Sales in million US dollars"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Region"
+  ],
+  "measure_fields": [
+   "Sales in million US dollars"
+  ],
+  "n_rows": 21,
+  "categorical_values": {
+   "Year": [
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ],
+   "Region": [
+    "Americas",
+    "Asia Pacific",
+    "EMEA"
+   ]
+  },
+  "numeric_stats": {
+   "Sales in million US dollars": {
+    "min": 809.6,
+    "max": 4875.8,
+    "mean": 2337.257143
+   }
+  },
+  "context_warnings": []
+ },
+ "9g5a38vcep03acdu": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Net sales in billion US dollars",
+  "measure_field": "Net sales in billion US dollars",
+  "series_field": "Mart",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Mart",
+   "Net sales in billion US dollars"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Mart"
+  ],
+  "measure_fields": [
+   "Net sales in billion US dollars"
+  ],
+  "n_rows": 42,
+  "categorical_values": {
+   "Year": [
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020",
+    "2021"
+   ],
+   "Mart": [
+    "Sam's Club",
+    "Walmart International",
+    "Walmart US"
+   ]
+  },
+  "numeric_stats": {
+   "Net sales in billion US dollars": {
+    "min": 44.34,
+    "max": 369.96,
+    "mean": 155.155714
+   }
+  },
+  "context_warnings": []
+ },
+ "fsraebh4cpmzc7ut": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Number of fatalities",
+  "measure_field": "Number of fatalities",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Number of fatalities"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Number of fatalities"
+  ],
+  "n_rows": 14,
+  "categorical_values": {
+   "Year": [
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019"
+   ]
+  },
+  "numeric_stats": {
+   "Number of fatalities": {
+    "min": 173.0,
+    "max": 760.0,
+    "mean": 340.785714
+   }
+  },
+  "context_warnings": []
+ },
+ "h33j4k50c44wni7l": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Date",
+  "y_field": "Growth rate of HICP(%)",
+  "measure_field": "Growth rate of HICP(%)",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Date",
+   "Growth rate of HICP(%)"
+  ],
+  "dimension_fields": [
+   "Date"
+  ],
+  "measure_fields": [
+   "Growth rate of HICP(%)"
+  ],
+  "n_rows": 12,
+  "categorical_values": {
+   "Date": [
+    "Apr 18",
+    "Aug 18",
+    "Dec 18",
+    "Feb 18",
+    "Jan 19",
+    "Jul 18",
+    "Jun 18",
+    "Mar 18",
+    "May 18",
+    "Nov 18",
+    "Oct 18",
+    "Sep 18"
+   ]
+  },
+  "numeric_stats": {
+   "Growth rate of HICP(%)": {
+    "min": 1.8,
+    "max": 3.3,
+    "mean": 2.633333
+   }
+  },
+  "context_warnings": []
+ },
+ "gnin1xu8b8rbtv34": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Ratio of unfavorable view(%)",
+  "measure_field": "Ratio of unfavorable view(%)",
+  "series_field": "Group",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Group",
+   "Ratio of unfavorable view(%)"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Group"
+  ],
+  "measure_fields": [
+   "Ratio of unfavorable view(%)"
+  ],
+  "n_rows": 14,
+  "categorical_values": {
+   "Year": [
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014"
+   ],
+   "Group": [
+    "Taliban",
+    "al Qaeda"
+   ]
+  },
+  "numeric_stats": {
+   "Ratio of unfavorable view(%)": {
+    "min": 33.0,
+    "max": 70.0,
+    "mean": 54.714286
+   }
+  },
+  "context_warnings": []
+ },
+ "58wxo6da4x2w1ass": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Candidate",
+  "y_field": "Share of Voters",
+  "measure_field": "Share of Voters",
+  "series_field": "Candidate",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Worker Type",
+   "Candidate",
+   "Share of Voters"
+  ],
+  "dimension_fields": [
+   "Worker Type",
+   "Candidate"
+  ],
+  "measure_fields": [
+   "Share of Voters"
+  ],
+  "n_rows": 8,
+  "categorical_values": {
+   "Worker Type": [
+    "All Government workers",
+    "Federal Government workers",
+    "Local Government workers",
+    "State Government workers"
+   ],
+   "Candidate": [
+    "Barack Obama",
+    "Mitt Romney"
+   ]
+  },
+  "numeric_stats": {
+   "Share of Voters": {
+    "min": 37.0,
+    "max": 55.0,
+    "mean": 45.625
+   }
+  },
+  "context_warnings": []
+ },
+ "f12st3qo0kz1egmp": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Ratio of voters who say(%)",
+  "measure_field": "Ratio of voters who say(%)",
+  "series_field": "Answer",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Answer",
+   "Ratio of voters who say(%)"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Answer"
+  ],
+  "measure_fields": [
+   "Ratio of voters who say(%)"
+  ],
+  "n_rows": 12,
+  "categorical_values": {
+   "Year": [
+    "2000",
+    "2004",
+    "2008",
+    "2012",
+    "2016",
+    "2020"
+   ],
+   "Answer": [
+    "It really matters who wins the election",
+    "Things will be the same"
+   ]
+  },
+  "numeric_stats": {
+   "Ratio of voters who say(%)": {
+    "min": 16.0,
+    "max": 83.0,
+    "mean": 48.083333
+   }
+  },
+  "context_warnings": []
+ },
+ "a0m3af45az33ngmr": {
+  "chart_type": "bar_stacked",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Production in million metric tons",
+  "measure_field": "Production in million metric tons",
+  "series_field": "Type",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Type",
+   "Production in million metric tons"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Type"
+  ],
+  "measure_fields": [
+   "Production in million metric tons"
+  ],
+  "n_rows": 20,
+  "categorical_values": {
+   "Year": [
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ],
+   "Type": [
+    "Beef and veal",
+    "Pork",
+    "Poultry",
+    "Sheep"
+   ]
+  },
+  "numeric_stats": {
+   "Production in million metric tons": {
+    "min": 14.47,
+    "max": 132.07,
+    "mean": 81.123
+   }
+  },
+  "context_warnings": []
+ },
+ "i0fd8sbi945erf7p": {
+  "chart_type": "line_multiple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Ratio of news sources(%)",
+  "measure_field": "Ratio of news sources(%)",
+  "series_field": "Type",
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Type",
+   "Ratio of news sources(%)"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Type"
+  ],
+  "measure_fields": [
+   "Ratio of news sources(%)"
+  ],
+  "n_rows": 27,
+  "categorical_values": {
+   "Year": [
+    "2002",
+    "2003",
+    "2004",
+    "2005",
+    "2006",
+    "2007",
+    "2008",
+    "2009",
+    "2010"
+   ],
+   "Type": [
+    "Broadcase network news",
+    "Cable news networks",
+    "Local news programming"
+   ]
+  },
+  "numeric_stats": {
+   "Ratio of news sources(%)": {
+    "min": 13.0,
+    "max": 44.0,
+    "mean": 27.555556
+   }
+  },
+  "context_warnings": []
+ },
+ "50pei8jwlb2g5h1q": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Period",
+  "y_field": "Sales in billion GBP",
+  "measure_field": "Sales in billion GBP",
+  "series_field": "Period",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Country",
+   "Period",
+   "Sales in billion GBP"
+  ],
+  "dimension_fields": [
+   "Country",
+   "Period"
+  ],
+  "measure_fields": [
+   "Sales in billion GBP"
+  ],
+  "n_rows": 8,
+  "categorical_values": {
+   "Country": [
+    "France",
+    "Germany",
+    "Italy",
+    "United Kingdom"
+   ],
+   "Period": [
+    "Post-lockdown 2020",
+    "Pre-lockdown 2020"
+   ]
+  },
+  "numeric_stats": {
+   "Sales in billion GBP": {
+    "min": 33.11,
+    "max": 84.46,
+    "mean": 61.0725
+   }
+  },
+  "context_warnings": []
+ },
+ "g1s9b91z7xw8flg2": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Beer sales in million hectoliters",
+  "measure_field": "Beer sales in million hectoliters",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Beer sales in million hectoliters"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Beer sales in million hectoliters"
+  ],
+  "n_rows": 8,
+  "categorical_values": {
+   "Year": [
+    "2008",
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015"
+   ]
+  },
+  "numeric_stats": {
+   "Beer sales in million hectoliters": {
+    "min": 2.07,
+    "max": 3.68,
+    "mean": 2.70125
+   }
+  },
+  "context_warnings": []
+ },
+ "0gt3h2146jc47ovx": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Components",
+  "y_field": "Share of composites(%)",
+  "measure_field": "Share of composites(%)",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Components",
+   "Share of composites(%)"
+  ],
+  "dimension_fields": [
+   "Components"
+  ],
+  "measure_fields": [
+   "Share of composites(%)"
+  ],
+  "n_rows": 6,
+  "categorical_values": {
+   "Components": [
+    "Electrolytes",
+    "Iron",
+    "Manganic oxide",
+    "Other",
+    "Water",
+    "Zinc"
+   ]
+  },
+  "numeric_stats": {
+   "Share of composites(%)": {
+    "min": 6.0,
+    "max": 38.0,
+    "mean": 16.666667
+   }
+  },
+  "context_warnings": []
+ },
+ "31d6673lje5rb1nw": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "States",
+  "y_field": "Number of soldiers",
+  "measure_field": "Number of soldiers",
+  "series_field": "States",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Type",
+   "States",
+   "Number of soldiers"
+  ],
+  "dimension_fields": [
+   "Type",
+   "States"
+  ],
+  "measure_fields": [
+   "Number of soldiers"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Type": [
+    "Army Size",
+    "Killed",
+    "Missing or captured",
+    "Total Casualties",
+    "Wounded"
+   ],
+   "States": [
+    "Confederacy States",
+    "Union States"
+   ]
+  },
+  "numeric_stats": {
+   "Number of soldiers": {
+    "min": 3155.0,
+    "max": 93921.0,
+    "mean": 26784.4
+   }
+  },
+  "context_warnings": []
+ },
+ "0cy2ufyjsinsswpm": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Age Group",
+  "y_field": "Number of single men households",
+  "measure_field": "Number of single men households",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Age Group",
+   "Number of single men households"
+  ],
+  "dimension_fields": [
+   "Age Group"
+  ],
+  "measure_fields": [
+   "Number of single men households"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Age Group": [
+    "100 years and older",
+    "20-29 years",
+    "30-39 years",
+    "40-49 years",
+    "50-59 years",
+    "60-69 years",
+    "70-79 years",
+    "80-89 years",
+    "90-99 years",
+    "Under 20 years"
+   ]
+  },
+  "numeric_stats": {
+   "Number of single men households": {
+    "min": 147.0,
+    "max": 99943.0,
+    "mean": 54037.9
+   }
+  },
+  "context_warnings": []
+ },
+ "0ivzc37gi49isy9n": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Import value in billion Indian rupees",
+  "measure_field": "Import value in billion Indian rupees",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Import value in billion Indian rupees"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Import value in billion Indian rupees"
+  ],
+  "n_rows": 10,
+  "categorical_values": {
+   "Year": [
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ]
+  },
+  "numeric_stats": {
+   "Import value in billion Indian rupees": {
+    "min": 315.33,
+    "max": 533.11,
+    "mean": 441.81
+   }
+  },
+  "context_warnings": []
+ },
+ "guhd9zsodg7n408g": {
+  "chart_type": "line_simple",
+  "errors": [],
+  "x_field": "Year",
+  "y_field": "Exchange rate in Indonesian rupiah",
+  "measure_field": "Exchange rate in Indonesian rupiah",
+  "series_field": null,
+  "mark": "line",
+  "is_stacked": false,
+  "columns": [
+   "Year",
+   "Exchange rate in Indonesian rupiah"
+  ],
+  "dimension_fields": [
+   "Year"
+  ],
+  "measure_fields": [
+   "Exchange rate in Indonesian rupiah"
+  ],
+  "n_rows": 12,
+  "categorical_values": {
+   "Year": [
+    "2009",
+    "2010",
+    "2011",
+    "2012",
+    "2013",
+    "2014",
+    "2015",
+    "2016",
+    "2017",
+    "2018",
+    "2019",
+    "2020"
+   ]
+  },
+  "numeric_stats": {
+   "Exchange rate in Indonesian rupiah": {
+    "min": 8991.0,
+    "max": 14481.0,
+    "mean": 12085.333333
+   }
+  },
+  "context_warnings": []
+ },
+ "0ijwrg723j4v8s3e": {
+  "chart_type": "bar_simple",
+  "errors": [],
+  "x_field": "Continent",
+  "y_field": "Share of the global population (%)",
+  "measure_field": "Share of the global population (%)",
+  "series_field": null,
+  "mark": "bar",
+  "is_stacked": false,
+  "columns": [
+   "Continent",
+   "Share of the global population (%)"
+  ],
+  "dimension_fields": [
+   "Continent"
+  ],
+  "measure_fields": [
+   "Share of the global population (%)"
+  ],
+  "n_rows": 6,
+  "categorical_values": {
+   "Continent": [
+    "Africa",
+    "Asia",
+    "Europe",
+    "Latin America and Carribean",
+    "Nothern America",
+    "Oceania"
+   ]
+  },
+  "numeric_stats": {
+   "Share of the global population (%)": {
+    "min": 0.56,
+    "max": 59.51,
+    "mean": 16.668333
+   }
+  },
+  "context_warnings": []
+ },
+ "56010lp5kjl1p4by": {
+  "chart_type": "bar_grouped",
+  "errors": [],
+  "x_field": "Type",
+  "y_field": "Average number of emplyees",
+  "measure_field": "Average number of emplyees",
+  "series_field": "Type",
+  "mark": "bar",
+  "is_stacked": true,
+  "columns": [
+   "Year",
+   "Type",
+   "Average number of emplyees"
+  ],
+  "dimension_fields": [
+   "Year",
+   "Type"
+  ],
+  "measure_fields": [
+   "Average number of emplyees"
+  ],
+  "n_rows": 8,
+  "categorical_values": {
+   "Year": [
+    "2012",
+    "2013",
+    "2014",
+    "2015"
+   ],
+   "Type": [
+    "Full time",
+    "Part time"
+   ]
+  },
+  "numeric_stats": {
+   "Average number of emplyees": {
+    "min": 1.5,
+    "max": 2.5,
+    "mean": 1.9875
+   }
+  },
+  "context_warnings": []
  }
 }

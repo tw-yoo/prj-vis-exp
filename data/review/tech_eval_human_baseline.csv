@@ -1,0 +1,772 @@
+chart_id,chart_type,question,explanation,operation_spec,status,updated_at
+2jromeq5u9lloh1s,line_simple,Which years has the biggest jump?,"1. Get the difference between every year
+2. Get the extremum ",,pending,
+13guplcbmfu1tjzu,bar_stacked,Which country has the highest european factor?,"1. Get the sum of germany and italy for each country
+2. Get the country with the highest value",,pending,
+0q8vqyb35mbq0efx,bar_grouped,Which year had the lowest amount of suicides of all ages combined?,"1. Sum of all the age ranges for every year
+2. Find the extremum (lowest)",,pending,
+0o12tngadmjjux2n,bar_simple,How many years are above the average?,"1. Find average
+2. filter which countries are above the average",,pending,
+10t8o5vhethzeod1,bar_stacked,In which year was the agriculture sector the highest,"1. get the all values from the agriculture sector
+2. find the maximum value",,pending,
+2o3fyauxv32p571i,line_simple,Which year had the second-lowest value?,"1. Sort  in ascending order by year
+2. find the second lowest",,pending,
+11e148qcs7x70t8v,bar_stacked,in which years does south korea have a bigger value than france?,"1. Get difference between south korea and france in every year
+2. Filter the year with a positive value",,pending,
+0s6zi9dyw22qo4rp,bar_simple,What is the difference between the average of September 1896 until December 1896 and the average of January 1897 until April 1897?,"1. calculate the average of sep 1896 until dec 1896
+2. calculate the average of jan 1897 until april 1897
+3. compare the two averages",,pending,
+2ebtadc07b7bo277,line_simple,Which year had the second lowest value?,"1. sort the values from lowest to highest
+2. find the second lowest ",,pending,
+0prhtod4tli879nh,bar_grouped,Which city had the biggest jump in population from 2010 to 2025?,"1. get the difference of every city in every year
+2. find the extremum",,pending,
+2jki13q54zizc6i4,line_simple,"If you compare the average value from july 2008 until june 2012 and july 2013 until june 2017, which value is higher?","1. get the average from july 2008 until june 2012
+2. get the average from july 2013 until june 2017
+3. compare 
+4. find extremum",,pending,
+0pzdf7hfbxgjghsa,bar_simple,How big was the change from 2016 to 2017 compared to the change from 2017 to 2018?,"1. retrieve value of 2016 and 2017
+2. retrieve value of 2017 and 2018
+3. get the difference of the retrieved values",,pending,
+0rfuaawgi58ajpsv,bar_grouped,What is the difference in the average between North America and Latin America?,"1. Get the average of Northern America
+2. Get the average of Latin America
+3. Get the difference between the two average values",,pending,
+0rdpculfpyw3bv5p,bar_grouped,Which year shows the lowest gap between lending and investment?,"1. Get the difference between lending and investment in every year
+2. Find the year with the smallest value",,pending,
+10x2rgiqw97wdspi,bar_stacked,Which season was above average in both commercial and broadcasting?,"1. Find the average of the commercial
+2. Find the average of the broadcasting
+3. Find the season that is above average for both commercial and broadcasting",,pending,
+0qz3v0bszsex7jjm,bar_simple,Which fiscal years' expenditures are below average?,"1. Determine average
+2. Compare each year's value with the average
+3. Filter to countries that are below average",,pending,
+23wg8zio5ahp40tg,line_multiple,Which year had the biggest gap between favor and oppose?,"1. calculate difference between the values of favor and oppose
+2. find extremum",,pending,
+28bxxhd6omv2l2h1,line_multiple,What is the difference between the maximum and minimum gap between the two groups?,"1. calculate the difference for each value
+2. find the maximum value",,pending,
+29rxoltwhongoday,line_multiple,"In 2002 and 2017, which year shows the highest gap between two opinion?","1. calculate the difference in 2002 and 2017
+2. find the year which has the bigger difference",,pending,
+2eiyyw562tcvjypp,line_multiple,How many years has Russia had higher favorability than the US?,"1. calculate the difference between Russia and the US
+2. count the number of years that Russia is higher than the US",,pending,
+1h4rj9i2jtzq589y,line_multiple,"Which of the most recent years is the value of the EU 5-country media with y-axis values between 51 and 61?
+","1. Check y-axis number
+2. Check the points between 51 and 61
+3. Check the year of values corresponding to the EU 5-country media between 51 and 61 
+4. Choose the largest year",,pending,
+0gf8ugj84bs1ko2k,bar_stacked,What is the average value for each service area in the year when the data center's revenue was highest?,"1. Check the graph for the data center with the highest value.
+2. Check the value for each service area.
+3. Calculate the average.",,pending,
+14jt6jor7iknkjkl,line_multiple,What is the sum of the Confidence in U.S. present values for the period in which the favorite view of the U.S. is the lowest?,"1. Check the section with the lowest favorite view of U.S. value (2009, 2010, 2011)
+2. Check Confidence in U.S. present value corresponding to section 1
+3. Add all values of number 2",,pending,
+16aphfabldrpgcmd,line_multiple,What is the sum of the number of weights exceeding 3670 in the Boys group and the number of weights exceeding 3550 in the Girls group?,"1. Counting the number of values above 3670 on the Boys graph
+2. Counting the number of values above 3550 on the Girls graph
+3. Add the number of 1 and 2",,pending,
+0dglnk2wbf5ll15t,bar_stacked,What is the difference between the average of values corresponding to Poor and the average of values corresponding to Good?,"1. Check the values for each year's Poor
+2. Obtaining the mean of the values found in number 1
+3. Check the value corresponding to Good for each year
+4. Obtaining the mean of the values found in number 3
+5. Find the difference between the two mean values",,pending,
+10gtgmmgh599jnr7,line_simple,What is the difference between the second largest and the smallest values between 2000 and 2008?,"1. Check the largest value between 2000 and 2009
+2. Determine the second largest value after the largest value between 2000 and 2009
+3. Determine the smallest value between 2000 and 2009 
+4. Subtract small value from large value","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2000"", ""2009""], ""xKindHint"": ""ordinal""}, {""op"": ""findExtremum"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Percentage_of_Population"", ""which"": ""max""}, {""op"": ""filter"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2000"", ""2009""], ""xKindHint"": ""ordinal""}, {""op"": ""findExtremum"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 1}, ""field"": ""Percentage_of_Population"", ""which"": ""max"", ""rank"": 2}], ""ops3"": [{""op"": ""filter"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [], ""sentenceIndex"": 3}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2000"", ""2009""], ""xKindHint"": ""ordinal""}, {""op"": ""findExtremum"", ""id"": ""n6"", ""meta"": {""nodeId"": ""n6"", ""inputs"": [""n5""], ""sentenceIndex"": 3}, ""field"": ""Percentage_of_Population"", ""which"": ""min""}], ""ops4"": [{""op"": ""diff"", ""id"": ""n7"", ""meta"": {""nodeId"": ""n7"", ""inputs"": [""n4"", ""n6""], ""sentenceIndex"": 4}, ""field"": ""Percentage_of_Population"", ""targetA"": ""ref:n4"", ""targetB"": ""ref:n6"", ""signed"": false}]}",pending,2026-06-28T21:20:30.640Z
+0ix8hz9qvakto18g,line_simple,What is the sum of the year when the Ease of Doing Business score is the second largest and the year when the Ease of Doing Business score is the second smallest?,"1. Check the top of the graph
+2. Then check the value of the dot above
+3. Check the bottom of the graph
+4. Compare each of the bottom three point values
+5. Check the smallest value and check the Year
+6. Add values of 2 and 5",,pending,
+0egdxqun1m2n9k4z,bar_simple,What is the average of the revenue multiple from 2006 to 2011?,"1. Check the Revenue multiple values from 2006 to 2011.
+2. Add all the values
+3. Divide by six.",,pending,
+0aj7na7tkqb7iomu,bar_stacked,What is the difference between the installed base million value of Tablets in 2017 and the installed base million value of Mobile PCs in 2022?,"1. Check the value of the installed Base Millions in Tablets for 2017
+2. Check Mobile PCs' Installed Base Millions value for 2022
+3. Check the values of 1 and 2 which are greater
+4. Subtract small value from large value",,pending,
+0gvrmm8qbn6o1vya,bar_simple,"What is the average of Season's ticket prices with a ticket price of $60 or less?
+","1. Identify the 60 line on the Y-axis.
+2. Identify the bar graphs with values ​​under 60.
+3. Calculate the average of each bar.",,pending,
+0egzejn5mejtnfdm,bar_grouped,What is the difference between Scotland's largest value and England and Wales's smallest value?,"1. Check Scotland's Biggest Value
+2. Check the smallest value for England & Wales
+3. Check if the value is greater than the value of number 1 or number 2
+4. Subtract small value from large value
+",,pending,
+0roec4s0drcyiuz4,line_simple,"What is the average of the values in the period in which the Unemployment rate value falls for more than two years?
+","1. Check for sections where prices have fallen for more than two years
+2. Check all values for each year from Quarter obtained by 1
+3. Finds the average of the values obtained in number 2 ",,pending,
+0eq4w2wsl864mhcj,bar_simple,"What is the average of the sales values of a company with a sales volume in million units of 60 or more?
+","1. Confirmation of a company with a Sales value of more than 60
+2. Finds the average of the values found in number 1",,pending,
+0g0xma0b0k29lk5j,bar_stacked,"Which year has the second largest difference between 65 years and older and 15–64 years?
+
+","1. Check the graph with the second smallest value of 65 years and old and check the value 
+2. Check the graph with the second largest value of 15–64 years and check the value
+3. Check the year in question (Compare the value between 1 and 2)",,pending,
+0fhm43s0j7glca29,bar_grouped,Which year has the average of the values corresponding to 2018 or the larger value corresponding to 2020?,"1. Check all values for 2018
+2. Calculated the mean
+3. Check all values for 2020
+4. Calculated the mean
+5. Determine which year has the greater of the two means",,pending,
+0gacqohbzj07n25s,bar_grouped,What is the difference between the average of surgical values in European countries and the average of surgical values in Asian countries?,"1. European countries identified
+2. Obtain the average of the surgical values of European countries
+3. Check out Asian countries
+4. Find the average of the surgical values of Asian countries
+5. Subtract smaller values from larger values",,pending,
+1c80b6i7wdu3m1ir,line_simple,What is the sum of the y-values ​​for the period in which the y-axis value increased most sharply for two or more consecutive years?,"1. Identify lines that trend upward for two or more years.
+2. Find the difference between the starting and ending values.
+3. Identify the line with the largest value.
+4. Add all values ​​corresponding to number 3.",,pending,
+1k8qhmg9rui7gtzh,line_multiple,What is the difference between the largest value in Germany and the smallest value in the U.S. between 2010 and 2015?,"1. Find the largest value in Germany between 2010 and 2015.
+2. Find the smallest value in the U.S. between 2010 and 2015.
+3. Subtract value 2 from value 1.",,pending,
+0ihx2vzdsej883sq,bar_grouped,What is the Male value in the category with the second-lowest Female share of employees?,"1. Check the second-lowest Female value.
+2. Check the Male value in that Category.","{""ops"": [{""op"": ""sort"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Share of employees"", ""group"": ""Female"", ""order"": ""asc"", ""orderField"": ""Category""}, {""op"": ""nth"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Share of employees"", ""group"": ""Female"", ""orderField"": ""Category"", ""n"": 2, ""from"": ""left""}], ""ops2"": [{""op"": ""retrieveValue"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 2}, ""field"": ""Gender"", ""target"": ""Male""}]}",pending,2026-06-28T21:19:56.834Z
+0fh0emp095qhq3ag,bar_simple,What is the difference between the largest and smallest values between 2010 and 2019?,"1. Check the highest bar graph between 2010 and 2019 and find the value
+2. Check the lowest bar graph between 2010 and 2019 and find the value
+3. Subtract value 2 from value 1",,pending,
+0k75gqf8ckjikdym,bar_grouped,For which year was the difference between the average age at marriage for men and women the lowest?,"1. Calculate the difference between the average age at marriage for each year.
+2. Compare the differences between each year.
+3. Choose the year with the lowest difference ",,pending,
+1p4nnba4568wza9n,line_multiple,How many times did the dominant opinion change?,"1. determine what if the dominant opinion was good or bad for each year (if higher than >50% dominant)
+2. compare the dominant opinion for each year with the following and count if there was a change",,pending,
+0gzowodb2py0d1s9,bar_stacked,How many years did Thailand's revenue exceed that of the Philippines'?,"1. Filter for the revenue of Thailand and the Philippines
+2. Compare the revenue of Thailand and the Philippines
+3. count the years for which Thailand's revenue was higher.","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""group"": [""Thailand"", ""Philippines""]}], ""ops2"": [{""op"": ""pairDiff"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""by"": ""Year"", ""seriesField"": ""Country_Region"", ""field"": ""Revenue_Million_USD"", ""groupA"": ""Thailand"", ""groupB"": ""Philippines"", ""signed"": true, ""absolute"": false}], ""ops3"": [{""op"": ""filter"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 3}, ""field"": ""Revenue_Million_USD"", ""operator"": "">"", ""value"": 0}, {""op"": ""count"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 3}, ""field"": ""Revenue_Million_USD""}]}",pending,2026-06-28T21:20:20.955Z
+0nmj7sdej4cipma7,bar_stacked,Which country had the most significant difference in net sales between the years 2019 and 2020?,"1. filter year 2019 and 2020
+2. filter for the values of each given group and subtract the 2020 value from the 2019 values.
+3. compare absolute values and choose the highest
+",,pending,
+0i9bxppwocx0tyop,bar_simple,How many employees did they have on average between 2008 and 2011?,"1. filter for the years 2008, 2009, 2010 and 2011
+2. sum up the number of employees
+3. calculate the average ",,pending,
+0lua5jsw92d3enb4,bar_grouped,How many diet types surpassed the threshold of 0.03% in 2019?,"1. Filter for which diet type surpased the 0.03% threshold. in 2018 and 2019.
+2. Calculate the amount of diet types in 2018 and 2019.
+3. and calculate the absolute difference of the two results.",,pending,2026-06-28T21:18:46.111Z
+0iv07908ph6y6ifj,bar_simple,What was the average of active users from March '16 to March '19?,"1. filter for the dates March 16 to MARCH 19
+2. calculate the average of those filtered dates",,pending,
+1jabqwjz9pmd7qwz,line_simple,What was the median number of facilities between the years 2010 and 2019?,"1. Filter for the years 2010 to 2019
+2. Calculate the median number","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2010"", ""2019""], ""xKindHint"": ""ordinal""}], ""ops2"": [{""op"": ""nth"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""field"": ""Number of facilities"", ""order"": ""asc"", ""orderField"": ""Number of facilities"", ""n"": 5}]}",pending,2026-06-28T21:20:25.840Z
+1sf5c8wqw1192q6b,line_simple,How many dates was the growth rate below the average?,"1. calculate average growth rate
+2. filter for the date for which the growth rate was below the average
+3. count the number of filtered dates ",,pending,
+1vh62ks9wweck6m2,line_multiple,In which year did men and women report the most similar stress levels?,"1. Calculate the absolute differences in stress level of men and women
+2. find the minimum",,pending,
+0jbrb1dcbliiampz,bar_simple,How many years had investments of over 22 Billion Euros in the years 2011 to 2014?,"1. filter for the years 2011 to 2014
+filter for the years higher than 22 Billion Euros
+ count the filtered number of years ",,pending,
+0ufvwi9xv37e597q,bar_stacked,Which season has the biggest gap between Matchday and Commercial?,"1. Calculate the difference between Matchday and Commercial for each season
+2. find the season with the maximum difference",,pending,
+0oinwvo88bvvs25b,bar_grouped,What was the difference between the maximum value of women and men?,"1. find the maximum value in the men group
+2. find the maximum value in the women group
+3. calculate the absolute difference from the two values",,pending,
+1vni31fp2ii7wz68,line_simple,Which year showed the highest drop?,"1. calculate the difference for each year,
+2. find the minimum value",,pending,
+20gpvz4ylu4olrm7,line_multiple,What is the average difference between Women and Men from 2000?,"1. calculate the average of Women from 2000
+2. calculate the average of Men from 2000
+3. calculate the difference",,pending,
+0k7bm9iqewnrzj47,bar_simple,Is the average of the top three greater than twice the average of the lowest three?,"1. find the top three values
+2. calculate the average
+3. find the lowest three values
+4. calculate the average
+5. double the lowest average
+6. compare the two values to find which one is bigger","{""ops"": [{""op"": ""sort"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Production in million liters"", ""order"": ""desc""}], ""ops2"": [{""op"": ""nth"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""n"": [1, 2, 3], ""from"": ""left""}, {""op"": ""average"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 2}, ""field"": ""Production in million liters""}], ""ops3"": [{""op"": ""sort"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [], ""sentenceIndex"": 3}, ""field"": ""Production in million liters"", ""order"": ""asc""}], ""ops4"": [{""op"": ""nth"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n4""], ""sentenceIndex"": 4}, ""n"": [1, 2, 3], ""from"": ""left""}, {""op"": ""average"", ""id"": ""n6"", ""meta"": {""nodeId"": ""n6"", ""inputs"": [""n5""], ""sentenceIndex"": 4}, ""field"": ""Production in million liters""}], ""ops5"": [{""op"": ""scale"", ""id"": ""n7"", ""meta"": {""nodeId"": ""n7"", ""inputs"": [""n6""], ""sentenceIndex"": 5}, ""target"": ""ref:n6"", ""factor"": 2.0}], ""ops6"": [{""op"": ""compareBool"", ""id"": ""n8"", ""meta"": {""nodeId"": ""n8"", ""inputs"": [""n3"", ""n7""], ""sentenceIndex"": 6}, ""targetA"": ""ref:n3"", ""targetB"": ""ref:n7"", ""operator"": "">""}]}",pending,2026-06-28T21:19:37.091Z
+0vfqjaxeiv96ww7g,bar_stacked,What is the difference between white and black who answer more than most of all time?,"1. sum ""almost of all of the time"" and ""most of the time"" of white
+2. sum ""almost of all of the time"" and ""most of the time"" of black
+3. calcuate the difference",,pending,
+0opt5fjw2xphdgp2,bar_grouped,Which group shows the highest value in the sum of occasionally and infrequently answered?,"1. calculate the sum of each value of occasionally and infrequently
+2. find the maximum",,pending,
+25gpdzxh8nu0c0vf,line_simple,"In average and median values, which one is bigger?","1. calculate the average
+2. calculate the median
+3. compare which one is bigger",,pending,
+20qa83ih1gn6toqt,line_multiple,Which year shows the lowest gap between convenience and price,"1. calculate the difference between convenience and price for each year
+2. find the minimum",,pending,
+0baf5ch9y4z8914p,bar_simple,What is the average of the three lowest rate values?,"List the Rate values in ascending order.
+Add the first three values.
+Divide the added value by three.",,pending,
+01h0jkno5l7jola8,bar_grouped,What is the average difference between the male and female proportions of each artist?,"Get the difference between the Men and the Women in the share of respondents for each artist.
+Sum all of the differences.
+Divide the sum by 5.
+",,pending,
+0cjk67q39ee6dhzj,line_multiple,What is the difference between the year with the smallest difference between Republicans and Democrats and the year with the highest difference?,"Find the difference between Republicans and Democrats for each year.
+Sort the values in descending order.
+Find the highest and lowest values.
+Find the difference between the two values.",,pending,
+01mksjs373fhcl4q,bar_grouped,Which sector showed the most decline?,"Find the difference between the two years of each sector.
+List the values in descending order.
+Find the sector with the highest value.",,pending,
+04xwv56n37ybj8zr,line_simple,What is the difference between the third most index scores and the fifth most index scores?,"List the index scores of each year in descending order.
+Find the third highest value and the fifth highest value among them.
+Find the difference between the two values.
+",,pending,
+0cymcilknp8krjwz,line_simple,What is the difference between the sum of the values above 4.0 and the sum of the values below 2.5?,"Find the line of 4.0.
+Add the values of the dots above 4.0.
+Find the line of 2.5.
+Add the values of the dots below 2.5.
+Find the difference between the two values.",,pending,
+0abj8blv663ussbr,bar_simple,What is the difference between 2010 and 2020 values?,"Find the value for 2010.
+Find the value for 2020.
+Find the difference between the two values.",,pending,
+0cad2xfrwdgvo9zk,bar_simple,What is the sum of the three median values for each year?,"List the values ​​for each year in descending order.
+Find the three medians.
+Add those values.","{""ops"": [{""op"": ""sort"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Number of fatalities"", ""order"": ""desc"", ""orderField"": ""Year""}], ""ops2"": [{""op"": ""nth"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""field"": ""Number of fatalities"", ""n"": 3, ""from"": ""left""}], ""ops3"": [{""op"": ""sum"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 3}, ""field"": ""Number of fatalities""}]}",pending,2026-06-28T21:19:40.410Z
+0gr1c2jcthc8h9f6,line_simple,What is the difference between a value for a year with a score value between 6.2 and 5.8 and a value for a year with a score value below 4.8?,"Find values for years with values between 6.2 and 5.8.
+Find the value of the year with the value below 4.8.
+Find the difference between the two values.",,pending,
+001dao0mq0pplbzj,bar_stacked,What year has the biggest difference between commercial and matchday?,"Get the difference between the Commercial and the Matchday for each year.
+Find the year with the maximum difference.",,pending,
+0a5npu4o61dz4r5f,bar_simple,What is the difference between the countries with the highest and lowest images?," Find the highest damage value.
+Find the lowest damage value.
+Get the difference between the two values",,pending,
+07lo3vvwztz32ifq,bar_grouped,What is the sum of the values with the highest and lowest percentage differences for each year?,"Find the difference in values between the years in each region.
+List the values in descending order.
+Sum the highest and lowest values.",,pending,
+075i5mfewy2uvwej,bar_stacked,What is the difference between the service value in 2010 and the service value in 2020?,"Find the service value for 2010.
+Find the service value for 2020.
+Find the difference between the two values.",,pending,
+08x3crju85yix5ab,line_simple,How many years have a score below 80 in total?,"Find the value of 80.
+Find the points below the 80-value line.
+Count the number of dots.",,pending,
+004fhteah0l9kud2,bar_stacked,What is the difference between the average of Commercial and the average of Matchday?,"1. Add all the Commercial values for each year.
+2. Divide the value by six.
+3. Add all the values of the matchday for each year.
+4. Divide the value by six.
+5. Find the difference between the two computed values.",,pending,
+0bunvsqd54e3qahz,line_multiple,What is the difference between the female value in 2010 and the male value in 2016?,"Find the female value for 2010.
+Find the male value for 2016.
+Find the difference between the two values.",,pending,
+0bgcjlbz7nv5vnjc,bar_grouped,What is the average value of the difference between the three years with the largest difference between age groups?,"Find the difference in values for each year.
+Sort the values in descending order.
+Find the top 3 years with the highest difference.
+Divide the values by three.","{""ops"": [{""op"": ""pairDiff"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""by"": ""Period"", ""seriesField"": ""AgeGroup"", ""field"": ""SharePercentage"", ""groupA"": ""11–15 years"", ""groupB"": ""5–10 years"", ""signed"": true, ""absolute"": true}, {""op"": ""sort"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""SharePercentage"", ""order"": ""desc""}, {""op"": ""nth"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 1}, ""field"": ""SharePercentage"", ""n"": [1, 2, 3], ""from"": ""left""}, {""op"": ""average"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 1}, ""field"": ""SharePercentage""}]}",pending,2026-06-28T21:19:54.796Z
+08iur64i01boakg5,line_multiple,Which year has the highest difference in values between Male and Female?,"Find the difference between the male and female percentages for each year.
+Sort the values in descending order.
+Choose the highest value.",,pending,
+05qg5ubxklojfze7,bar_stacked,Which one has the highest percentage sum between major and minor?,"Find the sum of the major and minor problems of each of the problems.
+Find the highest value among them.",,pending,
+0b9o2vahkw2a1bxy,line_multiple,What is the difference between the value of the year with the highest percentage of no and the value of the year with the third highest percentage of yes?,"Sort the percentage values that answered no for each year in descending order.
+Find the highest value.
+Sort the percentage values that answered Yes for each year in descending order.
+Find the third-highest value.
+Find the difference between the two values obtained.","{""ops"": [{""op"": ""sort"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Share of respondents"", ""group"": ""No"", ""order"": ""desc""}, {""op"": ""nth"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""n"": 1, ""from"": ""left""}, {""op"": ""sort"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Share of respondents"", ""group"": ""Yes"", ""order"": ""desc""}], ""ops2"": [{""op"": ""nth"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 2}, ""n"": 3, ""from"": ""left""}], ""ops3"": [{""op"": ""diff"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n2"", ""n4""], ""sentenceIndex"": 3}, ""field"": ""Share of respondents"", ""targetA"": ""ref:n2"", ""targetB"": ""ref:n4"", ""signed"": true}]}",pending,2026-06-28T21:20:44.163Z
+0v0l4wdbx7orkqz1,bar_simple,"Which is more, the number of suicides under the age of 30 or over the age of 70?","- Filters the number of suicides under the age of 30 and over the age of 70, respectively.
+- Add each value within each filtered group.
+- Compare the magnitude of the total of each group.",,pending,
+14jud3ymyoonba4e,bar_stacked,Which sector accounted for the largest portion of this chart as a whole?,"- Add all year values for each sector by sector
+- Find the largest value by comparing the sum of values for each sector added",,pending,
+0vw6ydim9cff8ji6,bar_grouped,In which year did construction record the highest percentage?,- Compare the percentage values for all years in the construction sector to each other,,pending,
+5lhrulhnl0io2r81,line_simple,How many months were the month when the producer price index was lower than 210 in total?,"- Compare that the price index was lower than 210 for each month
+- Counting the number of all low months",,pending,
+2hjkdo5w242alvjd,line_multiple,Was the period from 2006 to 2011 longer than the period when people were more likely to be satisfied than the period when they were dissatisfied?,"- Filter responses only from 2006 to 2011
+- Count the number of years over 50% of the respondents said they were satisfied
+- Check the number is greater than 3",,pending,
+0vmvmj77j3p6vcy7,bar_simple,What is the net income sum from 2010 to 2015?,"- Filters data from 2010 to 2015
+- Add all filtered data.",,pending,
+174uq759pluu079w,bar_stacked,What is the sum of Sony's rankings for 2017 and 2018?,"- Filtering from 2017 to 2018
+- Find the ranking for each year of Sony
+- Add each rank",,pending,
+0w5jptak9peti0mj,bar_grouped,How many years in total did APAC have the lowest annual revenue?,"- Check APAC's ranking for all years.
+- Count the number of years in which APAC ranks lowest.",,pending,
+5po479f2ju9lqv16,line_simple,What is the total from 2011 to 2017?,"- Filters data from 2011 to 2017
+- Add all filtered data",,pending,
+2kmpy10btl65kr2j,line_multiple,What is the average of the percentage of responses in the last three years of Favourable views of the US?,"- Filters data from 2015 to 2017
+- Average the the percentage of responses of Favourable views of U.S from filtered data",,pending,
+0vqxnzu0mpbz12ch,bar_simple,Which of the differences between 2018 and 2019 or the differences between 2023 and 2025 is the bigger value?,"- Calculate the difference between 2019 and 2018, the difference between 2025 and 2023
+- Compare which of each difference is greater",,pending,
+19xwo5oscmgpcdyl,bar_stacked,What the average of the agricultural values for all years in which the value of industry is greater than 0.2?,"- Find all years in which the value of indusrtry is greater than 0.2.
+- Average the agricultural values for all years found.",,pending,
+0wgqpso2vnilpym6,bar_grouped,Is the difference between Alaska's 2000 value and 2020 value greater than Total's 2020 minus 2000 value?,"- Subtract Alaska's 2020 value from Alaska's 2000 value
+- Subtract Total's 2000 value from Total's 2020 value
+- Compare each",,pending,
+651x1l1swysyy6vp,line_simple,When was the fifth highest percentage of the values on the chart?,"- Sort in order of percent higher
+- Check the date of the fifth highest percentage.",,pending,
+2s65jcap9pn289qx,line_multiple,What is the sum of the differences between women and men in the last five years?,"- Filter data from 2016 to 2020
+- Find both the differences between women and men in the filtered data.
+- Add all the values",,pending,
+0vvz9mdgdiazke5o,bar_simple,What the average of values from 2012 to 2015?,"- Filter data from 2012 to 2015
+- Add all the values from filtered data",,pending,
+19msoowya2szdynd,bar_stacked,What is the sum of the Coal values for all years in which the value of Gas is greater than 1/3 of the value of Oil?,"- For all years, divide the oil value by 3 and filter all years with larger gas values compared to the value of gas.
+- Add all Coal values from filtered years.",,pending,
+0xc7sx6ll8fl5rgh,bar_grouped,What is the average of the vote share at an age when Clinton received a lower vote share?,"- Filters the age group where Clinton gets a lower vote share.
+- Find the average of the votes for a filtered age group.",,pending,
+66va2s35es5t86l3,line_simple,What is the year with the largest increase compared to the previous year?,"- Find the difference between the current value and the previous data value for all years with previous years.
+- Find the year in which the highest value was recorded among the differences.",,pending,
+3tc31k5k2o6wmvyp,line_multiple,How many dates were there in total when the percentage sum of dem and rep was less than 70?,"- For all days, the sum of each dem and rep values is obtained, and values higher than 70 are filtered.
+- Count the total number of filtered values",,pending,
+12sdcc2xjltg7qj2,bar_grouped,"Among the differences between the blue and orange bars, how many times is the largest value greater than the smallest value?","1. Calculate the difference between the two bars for each year.
+2. Find the maximum and minimum differences.
+3. Divide the maximum value by the minimum value.",,pending,
+72yqb8jwj9a6g4nx,line_simple,What is the difference between the average from 2011 and the average up to 2010?,"1. Calculate the average from 2011 to 2015.
+2. Calculate the average from 2005 to 2010.
+3. Calculate the difference.",,pending,
+6al86e9qyokma74i,line_simple,How many years are below average?,"1. Calculate the average value.
+2. Count how many years are below average.",,pending,
+724mfnyk34kp97le,line_simple,How many years are there that have a lower value than the average?,"1. Calculate the difference.
+2. Find all values that have a lower value than the average.
+3. Count the values.",,pending,
+1q3mzgt77lwo172f,bar_stacked,In which year is the difference between the blue and gray bars the greatest?,"1. Calculate the difference between the blue bar and the gray bar each year.
+2. Find the year with the highest difference.",,pending,
+0xo3r87obscjsktm,bar_simple,How many times is the difference between El Salvador and Ukraine greater than the difference between El Salvador and Denmark?,"1. Find the value of El Salvador.
+2. Find the value of Ukraine.
+3. Calculate the difference between the two values.
+4. Find the value of Denmark.
+5. Calculate the difference between Denmark and El Salvador
+6. Compare which difference value is higher.
+7. Divide the higher value by the lower value.",,pending,
+0ykydh8vao50ceou,bar_grouped,Which channel shows the maximum difference between the highest value and the lowest value of each channel?,"1. Find the maximum value and the minimum value for each channel
+2. Calculate the difference between the minimum value and the maximum value for each channel
+3. Find the channel that shows the maximum value",,pending,
+4p1m4tsmzmtvsrys,line_multiple,What is the difference between the days when Obama is higher than Romney and the days when Romney is higher than Obama?,"1. Calculate the difference for each date.
+2. Count where Obama is higher than Romney.
+3. Count where Romney is higher than Obama.
+4. Calculate the difference.",,pending,
+0wflwm4jebx7n12y,bar_simple,What is the difference between the average and the maximum number?,"1. Calculate the average value.
+2. Find the maximum value.
+3. Calculate the difference.",,pending,
+21fa7gb8l1ix6yfm,bar_stacked,Which method shows the highest difference between every day and less often?,"1. Calculate the difference between everyday and less often for each method.
+2. Find the method with the highest difference.",,pending,
+0zjxkqy20iibpdvo,bar_grouped,What is the difference between the average for Female on platforms more used by Male and the average for Male on platforms more used by Female?,"1. Find the Platforms where the Male shows a higher value than the Female.
+2. Calculate the average of the Female values from the Platforms just found.
+3. Find the Platforms where the Female shows a higher value than the Male.
+4. Calculate the average of the Male values from the Platforms just found.
+5. Calculate the difference between the two average values.
+",,pending,
+0xnim79vztf8hjor,bar_simple,Which year shows the highest difference from the average?,"1. Calculate the average of Average ticket price in US dollars.
+2. Calculate the difference between the average and each year.
+3. Find the year that shows the highest absolute difference.",,pending,
+0w88bu7qm4ilsqmh,bar_simple,What is the difference between the average of before 2000 and from 2010?,"1. Find the average of the values for 1995 and 1999.
+2. Find the average of the values for 2010, 2013, and 2017.
+3. Calculate the difference between the two averages.",,pending,
+0yx2080f08329xxb,bar_grouped,What is the difference between the average of the blue and orange bars in the first five years and the average of the blue and orange bars in the last five years?,"1. Get the values of the blue bar for the first five years.
+2. Calculate the average.
+3. Get the values of the orange bar for the first five years.
+4. Calculate the average.
+5. Calculate the difference between the two average values.
+6. Get the values of the blue bar for the last five years.
+7. Calculate the average.
+8. Get the values of the orange bar for the last five years.
+9. Calculate the average.
+10. Calculate the difference between the two average values.
+11. Calculate the difference between the two difference values between the two groups.",,pending,
+3z678inbp0t89ahu,line_multiple,In how many years was the difference between Disatisfied and Satisfied less than the difference between their means?,"1. Calculate the average of Dissatisfied.
+2. Calculate the average of Satisfied.
+3. Calculate the difference between the two values.
+4. Calculate the difference for each year. (PairDiffOp)
+5. Count all years that have a lower difference than the difference between the averages.","{""ops"": [{""op"": ""average"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Percentage_of_Respondents"", ""group"": ""Dissatisfied""}], ""ops2"": [{""op"": ""average"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [], ""sentenceIndex"": 2}, ""field"": ""Percentage_of_Respondents"", ""group"": ""Satisfied""}], ""ops3"": [{""op"": ""diff"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n1"", ""n2""], ""sentenceIndex"": 3}, ""field"": ""Percentage_of_Respondents"", ""targetA"": ""ref:n1"", ""targetB"": ""ref:n2"", ""signed"": false}], ""ops4"": [{""op"": ""pairDiff"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [], ""sentenceIndex"": 4}, ""by"": ""Year"", ""seriesField"": ""Opinion"", ""field"": ""Percentage_of_Respondents"", ""groupA"": ""Dissatisfied"", ""groupB"": ""Satisfied"", ""signed"": true, ""absolute"": false}], ""ops5"": [{""op"": ""filter"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n4"", ""n3""], ""sentenceIndex"": 5}, ""field"": ""Percentage_of_Respondents"", ""operator"": ""<"", ""value"": ""ref:n3""}, {""op"": ""count"", ""id"": ""n6"", ""meta"": {""nodeId"": ""n6"", ""inputs"": [""n5""], ""sentenceIndex"": 5}, ""field"": ""Percentage_of_Respondents""}]}",pending,2026-06-28T21:20:47.963Z
+3un2wyjae3ebkncl,line_multiple,"What is the average of the Internet, where the value of the year is higher than that of Radio and lower than that of Newspaper?","1. Find the years that the value of the Internet is above Radio and below Newspaper.
+2. Calculate the average.",,pending,
+1xz4egh52kvh2xwx,bar_stacked,Is the sum of the orange and red values ​​from 2017 to 2020 greater than the US value in 2020?,"1. Sum all of the orange and red bars from 2017 to 2020.
+2. Find the value of the US in 2020.
+3. Determine which one is bigger.","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2017"", ""2020""], ""xKindHint"": ""nominal""}, {""op"": ""filter"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""group"": [""Canada"", ""Other International""]}, {""op"": ""sum"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 1}, ""field"": ""Total_Revenue_Million_USD""}, {""op"": ""retrieveValue"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""target"": ""2020"", ""group"": ""US""}], ""ops2"": [{""op"": ""compareBool"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n3"", ""n4""], ""sentenceIndex"": 2}, ""targetA"": ""ref:n3"", ""targetB"": ""ref:n4"", ""operator"": "">""}]}",pending,2026-06-28T21:20:24.360Z
+7272hodb02i6e09q,line_simple,What is the difference between the maximum before 2014 and the maximum after 2014?,"1. Calculate the maximum between the values before 2014.
+2. Calculate the maximum between the values after 2014.
+3. Calculate the difference.",,pending,
+1y6itl6f2ho959ec,bar_stacked,How many countries have higher red and orange values than Chile?,"1. Find the value of the red(Disapproves) bar of Chile.
+2. Find the value of the orange(No answer) bar of Chile.
+3. Compare each country to see if the red(Disapproves) value and the orange(No answer) value are higher than those of Chile.
+4. Count the number of the countries.",,pending,
+4ldjaoujpydpkbu5,line_multiple,In how many years was the difference between Female and Male higher than average?,"1. Calculate the difference between females and males for each year.
+2. Calculate the average.
+3. Find the years where the difference shows a higher value than the average difference.
+4. Count all the found values.",,pending,
+221xwpab655f7g8x,bar_stacked,What is the difference between the youngest age group's population values in an earliest year and the oldest age group's population values in an latest year?,"1. Check the 0-14 age group's population value in 2009
+2. Check the over-65 age group's population value in 2019
+3. Calculate the difference between them",,pending,
+23an1hozb7myw4e2,bar_stacked,Find the year when the share of men's apparel starts to decrease.,"1. Retrieve the share values of men's apparel
+2. Get the share differences between neighboring years
+3. Find the first year where the difference value is negative",,pending,
+4wqpl5jrdmc75go3,line_multiple,What is the average of direct and total content predicted in the future based on the present(2025)?,"1. Retrieve the values after year of 2026 for both contribution types
+2. Calculate the average impact values for both types",,pending,
+74p313e1n8rzkfzp,line_simple,Find the a pair of age group with the largest difference between adjacent groups,"1. Calculate the differences between adjacent groups
+2. Sort the differences
+3. Find the maximum value and pair of age group",,pending,
+7mgydgux0ay0flv4,line_simple,What is the highest period of three years of average sales?,"1. Find the average sales volume between -1 and +1 for each year
+2. Sort the average values
+3. Find the maximum average value
+4. Set the period as [maximum average's year -1 ~ maximum average's year +1]",,pending,
+4pi1e6ev8e0zobww,line_multiple,Find the difference between the average of the first three years of the male group and the average of the last three years of the female group,"1. Calculate the average of the male group population value in 2009, 2010, and 2011
+2. Calculate the average of the female group population value in 2018, 2019, and 2020
+3. Get the difference between two average values",,pending,
+1gb8sqnptdsdvagz,bar_grouped,Find a hair removal type with a share of 10% or more in the under 30s group,"1. Retrieve the share values for each hair removal type in under 30s group
+2. Check whether each value exceeds 10% or not
+3. Find the hair removal types that satisfy the condition",,pending,
+4vcdm7lwwlgdd0h1,line_multiple,When was the year when the difference in wealth between the Senate and the House was the least?,"1. Calculate the wealth differences between the Senate and the House in each year
+2. Sort the differences
+3. Find the maximum value and year",,pending,
+1hm2mi3o0ejxp7tn,bar_grouped,"Among untreated people, find the difference between the proportion of males and the proportion of females","1. Retrieve the share values who are currently untreated
+2. Sum the male's share values among them
+3. Sum the female's share values among them
+4. Get the difference between male's value and female's value",,pending,
+240rurpp2arislnt,bar_stacked,Find the difference between the response with the smallest percentage in the youngest group and the response with the highest percentage in the oldest group,"1. Sort the share values in 18-29 age group
+2. Find the minimum value of them
+3. Sort the share values in 65+ age group
+4. Find the maximum value if them
+5. Get the difference between youngest group's minimum value and oldest group's maximum value",,pending,
+2a8mliwolqqo6s5u,bar_stacked,In what year is the smallest difference between the market size of Asia Pacific region and the remaining three regions?,"1. For each year, get the difference between Asia Pacific's market size and sum of the remaining regions' market size
+2. Sort the difference values
+3. Find the minimum value and year",,pending,
+1a6pxfig1xf4oeu3,bar_simple,Find a period with a franchise value of $200 million or less,"1. Find the first year where the franchise value is less than $200 million
+2. Find the last year where the franchise value is over than $200 million
+3. Get the period ",,pending,
+1ashoniy42n3n5jr,bar_simple,Find the difference between the average revue with 2020 and the average revue with 2020 excluded,"1. Calculate the average revenue from 2013 to 2019
+2. Calculate the average revenue from 2013 to 2020
+3. Get the difference between them",,pending,
+4twwx65oath7vrkt,line_multiple,Find the year in which the value of exports was greater than the minimum value of imports.,"1. Retrieve the minimum value of imports
+2. Compare the exports' value of each year and the minimum imports' value
+3. Select the years when the export's value is higher than the minimum imports' value",,pending,
+1ar60b8rke2d8e64,bar_grouped,What year is the smallest difference between the two types?,"1. Calculate the rate differences between two types for each year
+2. Sort them
+3. Find the minimum value",,pending,
+7w9v4fsbg5ydxsr2,line_simple,Find the difference between the average percentage of even and odd years,"1. Retrieve the even years' percentage value
+2. calculate the average of them
+3. Retrieve the odd years' percentage value
+4. Calculate the average of them
+5. Get the difference between even years' average and odd   years' average",,pending,
+1a09xqtrj8zms716,bar_simple,What is the average value of top 3 malls' per sqaure foot cost?,"1. Sum up the top 3 values(Sydney, Melbourne, Brisbane)
+2. Divide the sum value with 3",,pending,
+1bbe64wpvq06sknm,bar_simple,"For each fiscal year, find the difference between the corresponding year value and the overall average
+","1. Calculate the average value for all fiscal years
+2. Get the differences between each year's value and average value",,pending,
+16fif5hdi8yzml00,bar_grouped,What is the difference between average of maximum payment in all states and average of minimum payment in all states?,"1. sum up the maximum payment value of all states
+2. Divide it with the number of states to calculate the average
+3. sum up the minimum payment value of all states
+4. Divide it with the number of states to calculate the average 
+5. Calculate the difference between two average values",,pending,
+827lhm2w7n652knp,line_simple,Count all the years that change from increasing to decreasing,"1. Find a difference between the neighboring years(year - previous year)
+2. Check whether each year's difference value is positive or negative
+3. Count the years where the difference values are negative",,pending,
+1bv05pu9d8jnidty,bar_simple,What is the average value up to before 2026?,"Counts from 2020 to 2025.
+Sum all the values.
+divide by six.",,pending,
+2mi8b2r0oalayl6g,bar_stacked,Which year has the smallest sum of golf wear and golf gear?,"Find all the year-by-year values of the playoff teams.
+Find all the annual values of all teams.
+Sum the values by year.
+Sort the subtracted values in ascending order.
+Find the first value.",,pending,
+82aqt0k0jnbj3irf,line_simple,Which year is the median number of enterprises?,"count the number of enterprises in each year.
+Sort in ascending order.
+Find the year of the fifth value.",,pending,
+1jatwi94v2d8cr9u,bar_grouped,What is the difference between the yearly sum of the digital market and the annual sum of the package market?,"Sum all the annual values of the digital market
+Sum all the annual values of the package market
+Find the difference between the two values",,pending,
+2bhsybiilde28j87,bar_stacked,What is the average percentage of non-black races that they answered very interested?,"Find the values of white, hispanic, and other very interested.
+Sum all these values.
+Divide by three.",,pending,
+1bywaj7stsb3060c,bar_simple,What is the average market share for a company with 5 or fewer letters in its name?,"Look for companies with fewer than five letters.
+Find all the values of those companies.
+Find the average of those values.",,pending,
+6ah60yba8o7rw0i9,line_multiple,What is the difference between the maximum value of yogurt with additives and the minimum value of yogurt without additives?,"Find the maximum value of yogurt with additives.
+Find the minimum value of the yogurt without additives.
+Find the difference between the two values.",,pending,
+5p6g89v7l99aes05,line_multiple,What year has the biggest difference between playoff teams and all teams?,"Obtain all year-by-year values of playoff teams.
+Obtain all the yearly values of all teams.
+Subtract values by year.
+Sort the subtracted values in descending order.
+Find the first value.",,pending,
+1ce802l2rdg98d7d,bar_simple,Which party has the third most respondents?,"sort the number of respondents by party in descending order.
+Find the third party.",,pending,
+1hokbw2gmzar9ye8,bar_grouped,What's the difference between women over 60 and men under 40?,"Find the percentage of women over 60 years old.
+Find and add percentage values for men under 40.
+Subtract two values.",,pending,
+5wpw8detqynmqv1s,line_multiple,What is the difference between the maximum value for female victims and the minimum value for male victims?,"Find the maximum value for the female victims.
+Find the minimum value for male victims.
+Find the difference between the two values.",,pending,
+8e9wp443ff1i6snq,line_simple,Which year has the biggest difference in value from the following year?,"Find the values for each year.
+Find the difference between the values for each of the following years.
+Sort the values obtained in descending order.
+Find the first value.",,pending,
+2n0g3tsz1rsz6fgr,bar_stacked,What is the largest average value in the industry when you get the average value for each of the five consecutive years?,"Find values for each year in the industry.
+Find the average value in five-year increments from 2010.
+sort in descending order.
+Find the first value.",,pending,
+8chfa8n079zpfigi,line_simple,How many years correspond to a value between 20 and 30?,"Find all the values for each year.
+count the number of values between 20 and 30.
+",,pending,
+1j7gx35h6i9mpi6j,bar_grouped,What is the difference between the proportion of respondents who value beauty products and the proportion of respondents who value books?,"Find the proportion of respondents who value beauty products.
+Find the percentage of respondents who value books.
+Subtract two values.",,pending,
+2yech0pea1xihind,bar_stacked,What is the sum of percentage using META's platform as a separate times a day?,"Count 'several times a day' of the meta platform
+Sum all the values",,pending,
+64ue1v00wj8vg48e,line_multiple,What is the difference between the average of the values before 2010 and the average of the values after 2010 in should be valid?,"Find the average value of the values before 2010 of should be value.
+Find the average value of the should be value since 2010.
+Find the difference between the two values.",,pending,
+1dm30xw1gpjo8ke5,bar_simple,What is the average of the maximum and minimum values of share of GDP?,"Find the maximum value of shared of GDP.
+Find the minimum value of shared of GDP.
+Find the average of the two values.",,pending,
+8hiwwys6qkrbtapb,line_simple,What is the difference between the average crime rate in the years before 2010 and the average crime rate in the years since 2010?,"Find the crime rates for the years before 2010.
+Average the values.
+Find the crime rates for the years since 2010.
+Average the values.
+Find the difference between the two values.",,pending,
+1mzcynif2s4mm6ps,bar_grouped,What is the difference between the Enterprises sum and the Providers sum?,"Find the sum of Enterprises values.
+Find the sum of Provider values.
+Find the difference between the two values.",,pending,
+54gh54f24irr63pb,bar_stacked,Which of the most recent year's Party_advantage values has the largest Party_Advantage value of all years?,"Find the most recent year Number_of_States.
+Find the smallest of the values.
+Finds the value with the largest value in the entire year.",,pending,
+1p6uue3hxdxit3ey,bar_grouped,Which of the responses of people who are 30 to 44 years old have a higher value compared to those who are yes and no?,"1. Check the value of 30 to 44 years.
+2. In number 1, compare the value with the value with the response No and the value Yes.",,pending,
+1fngt6cb1d60a2ow,bar_simple,"Does the value of all regions except Metro Total exceed 50,000?","Add all the values of the regions except Metro Total.
+Compare that value to 50,000.",,pending,
+6rvtt4egfl5nmyue,line_multiple,If you find the second largest year in value when you sort the values from 2012 to 2017 in descending order when the gender is female?,"Check the value of the person who is a woman.
+Check the values from 2012 to 2017 among these values.
+Sort the values in descending order.
+Find the year of the second-largest value among the values sorted in descending order.",,pending,
+1suppecte0dm69gm,bar_grouped,Is the average of Men's Not at all and Women's Not at all greater than All Results' Not at all?,"Add Men's Not at all value and Women's Not at all value.
+Divide the added value by two.
+Compare to the All results value.",,pending,
+1e56qqj7moat9gqa,bar_simple,What is the value of Spending in Billion US Dollars if you find it and add it?,"Finds the same value for Spending in billion US Dollars.
+Add the corresponding values.",,pending,
+6p4fnscalopvysnn,line_multiple,What is the highest value of all year values above 40?,"Find a value over 40.
+Find the highest value of each value.",,pending,
+50y71e5i2n28gkbx,bar_stacked,What is the average of Sportswear and Running in 2017 and 2018 combined?,"Get the years 2017 and 2018.
+Add the Sportswear and Running values for the years.
+Divide the added value by two.",,pending,
+75yz7pci1w1dif3g,bar_stacked,Which of the total Age_Group has the third largest difference between none of these values in terms of cheese and onion values 18–24?,"Find None of these and Cheese and onion values from the entire Age_Group, respectively.
+Find the third largest number of those values",,pending,
+7extlfw651gqc5fk,line_multiple,Is the difference between the maximum value of having a large role and the minimum value of having a small role in the entire year equal to the average value of all values in the entire year?,"Find the maximum value of the role being large and the minimum value of the role being small in the entire year.
+Find the difference between the two values.
+Finds the average of all values for the entire year.
+Compare the difference and the mean value.","{""ops"": [{""op"": ""findExtremum"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Percentage"", ""group"": ""Large"", ""which"": ""max""}, {""op"": ""findExtremum"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Percentage"", ""group"": ""Small"", ""which"": ""min""}], ""ops2"": [{""op"": ""diff"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n1"", ""n2""], ""sentenceIndex"": 2}, ""field"": ""Percentage"", ""targetA"": ""ref:n1"", ""targetB"": ""ref:n2"", ""signed"": false}], ""ops3"": [{""op"": ""average"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [], ""sentenceIndex"": 3}, ""field"": ""Percentage""}], ""ops4"": [{""op"": ""compareBool"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n3"", ""n4""], ""sentenceIndex"": 4}, ""targetA"": ""ref:n3"", ""targetB"": ""ref:n4"", ""operator"": ""==""}]}",pending,2026-06-28T21:20:41.413Z
+6rqevjp16hadlyly,line_multiple,Is the difference between the values of 2007/08 and 2011/12 the same for men and women?,"Find the difference between the values of 2007/08 and 2011/12 respectively.
+Compare the two.",,pending,
+1esx2fbduhqn7knk,bar_simple,What is the average of the remaining values except for the maximum and minimum values?,"Find the maximum and minimum values.
+Add the remaining values except for the two.
+Divide the remaining values by the number of them from the added values.",,pending,
+1epzpacytv3wx2i6,bar_simple,Are the values from 2010 to 2013 going up?,"Find the 2010 and 2013 values.
+Verify that the size values are rising.",,pending,
+1qm2z3ooawf339jz,bar_grouped,"Which of the total responses is greater when comparing the value of East with the value of Scotland?
+","Add East and Scotland values for each response
+Compare the additional values.",,pending,
+95yhyqjyeu4fohbj,line_simple,Is the average of the minimum and maximum values greater compared to the value in 2010?,"
+Add the minimum and maximum values.
+Divide the added value by two.
+Find the value for 2010.
+Compare the value in 2010 with the average value added.","{""ops"": [{""op"": ""findExtremum"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Number of people in millions"", ""which"": ""min""}, {""op"": ""findExtremum"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Number of people in millions"", ""which"": ""max""}, {""op"": ""add"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n1"", ""n2""], ""sentenceIndex"": 1}, ""targetA"": ""ref:n1"", ""targetB"": ""ref:n2"", ""field"": ""Number of people in millions""}, {""op"": ""scale"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 1}, ""target"": ""ref:n3"", ""factor"": 0.5}, {""op"": ""retrieveValue"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Number of people in millions"", ""target"": ""2010""}, {""op"": ""compareBool"", ""id"": ""n6"", ""meta"": {""nodeId"": ""n6"", ""inputs"": [""n4"", ""n5""], ""sentenceIndex"": 1}, ""targetA"": ""ref:n4"", ""targetB"": ""ref:n5"", ""operator"": "">""}]}",pending,2026-06-28T21:20:32.828Z
+62w3xg16iivw11et,bar_stacked,Is the average of the 2010s industry values the same as the Services average?,"Add to the Industry values of the 2010s.
+Divide the added Industry values by the number of years.
+Add the services values from the 2010s.
+Divide the additional Services values by the number of years.
+Compare the two values.",,pending,
+95wcyze391ifhegp,line_simple,What is the average of the highest and lowest values in the entire year?,"Find the highest and lowest values.
+Add the value obtained.
+Divide the value by 2.",,pending,
+9douccar3m9ruah4,line_simple,Is the average of Men's Not at all and Women's Not at all greater than All Results' Not at all?,"Add Men's Not at all value and Women's Not at all value.
+Divide the added value by two.
+Compare to the All results value.",,pending,
+9mlpjn6pddrbthj8,line_simple,"When the values for the entire year are sorted in ascending order, is the third value greater than the average of the values added in 2011 and 2012?","Sort the values for the entire year in ascending order.
+Verify the third of the sorted values.
+Find the average of the values for 2011 and 2012
+Compare the third value with the corresponding average value.",,pending,
+1x37jzohqd666qc0,bar_grouped,"Is the average value of ""Don't know/no opinion"" in all categories equal to the difference between ""Very unlikely"" in ""Family"" and ""Very unlikely"" in ""Local community"" plus the difference between ""Somewhat unlikely"" in ""Family"" and ""Local community""?","Find the Don't know/no opinion average for all categories.
+Find the value of Very Unlikely of the family category minus the Very Unlikely value of the Local community.
+Find the value of Somewhat unlikely the family category minus the value of the community's Somewhat unlikely value of the Local community..
+Add these two values.
+Compare the mean and these two values to the added value.",,pending,2026-06-28T21:18:29.482Z
+9u3xwiltv2hlcqq1,line_multiple,Strong leader= preference for current leadership in respondents. What is a general rlationship between the preference for strong leadership and democratic government between 2007 and 2012. Can this generalize to other periods?,"1. Notice in 2007 -2012 the preference for Democratic government
+ steadily increases and preference for strong leader steadily decreases, defining an inverse relationship between variables. 
+2. See this inverse relationship exist in other periods, 2012-2015 (reversed but still inverse) amd 2002-2007. Inflection points same for all periods.",,pending,
+1hv85ef35tbvldiq,bar_simple,How many years was revenue less than 2 billion us dollars?,"1. find the y axis line for 2 billion 
+2. select years bellow that line = 2010 2019 2020
+3. answer 3 years",,pending,
+au22oa0vjosoagxu,line_multiple,What time period was there a decrease in life expectancy for males?,"1. Attend to the orange male line
+2. Notice inflection point in 2014 
+3. Note decrease from 2008-2014",,pending,
+albgfrf44bz6134k,line_simple,Is the average annual increase from 2009-2019 same as any annual increase in inhabitants?,"1. Determine the average annual increase
+2. Notice that the slope is steady so that this increase reprenents the anual increase.",,pending,
+23bplnbw291p6nil,bar_grouped,How much less were women's median earning then men's in age group from 50-59?,"1. Determine female and male median f=30,000 gbp and m= 34,000
+2. Subtract f from m to find difference = 4000",,pending,
+aoycx517slbw0ifa,bar_stacked,Which division contributed the most revenue in the years of 2015 -2018 and how much revenue did the industry contribute total?,"1. Filter out 2019 and 2020 data
+2. sum 4 year contributions from 2015 -2018 for all three divisions or visually identify entertainment is clear high contributor 
+3. Entertainment div. sum (750-200+800-200+750-210+650-220)",,pending,
+aqowly2mmavof3f1,line_simple,What years saw the longest continous period of decrease in the unemplowment rate,"Find the longest domain range without increase. 
+2011-2019",,pending,
+23zc8kuhnpespj98,bar_grouped,Which Genre is most popular among Boys respondents?,"1. Determine boys are represented by blue.
+2. Look for the tallest bar. 
+3. Comedy!",,pending,
+1hm06wtar7gh92c8,bar_simple,"If the total population was 100,000 in 2020, what was the population over 65 years old?","1. Identify population share of 65 +, which is .065.
+2. Multiply total population times above rate.",,pending,
+amn6abwhwmc7ksaz,line_simple,What year did the greatest total change in us dollars per whatt occur?,"1. Notice that we are looking for absolute value difference and changes can be positive or negative.
+2. Realize a year is sum of change over 4 quarters.
+3. The year 2016 has the greatest change by far.",,pending,
+221xoyhy3yziwabm,bar_grouped,"In 2014, were more respondents satisfied (very satisfied+ satisfied) or disatified (very dissatisfied+ dissatisfied)?","1. Focus on blue bars only 
+2. Determine total satisfied percentage for 2014 (.13+.43)
+3. Determine disatissfied (.8+_.32)
+4. Compare satisfied and disatisfied find disatisfied is slightly smaller percentage","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""group"": ""2014""}, {""op"": ""filter"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Satisfaction_Level"", ""include"": [""Somewhat satisfied"", ""Very satisfied""]}, {""op"": ""sum"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 1}, ""field"": ""Share_of_Respondents""}, {""op"": ""filter"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Satisfaction_Level"", ""include"": [""Somewhat dissatisfied"", ""Very dissatisfied""]}, {""op"": ""sum"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n4""], ""sentenceIndex"": 1}, ""field"": ""Share_of_Respondents""}], ""ops2"": [{""op"": ""compareBool"", ""id"": ""n6"", ""meta"": {""nodeId"": ""n6"", ""inputs"": [""n3"", ""n5""], ""sentenceIndex"": 2}, ""targetA"": ""ref:n3"", ""targetB"": ""ref:n5"", ""operator"": "">""}]}",pending,2026-06-28T21:19:58.802Z
+25n4mzhv6y1p36dl,bar_grouped,In what sector did respondents spend more least frequently,"determine spend more category is red
+find lowest bar in computer software",,pending,
+ay58pwlf97q0osw6,bar_stacked,Which channel has the most variation in revenue range?,"1. Filter red channel visually to compare orange and blue
+2. calculate orange range: min = 20, max = 280
+3. calculate blue range min= 50, max = 310
+4. compare range totals  260=260
+5. Range is the same for blue and orange = they have the same max varriance! ",,pending,
+bhaqrpqx0hwtcol5,line_multiple,What year is the greatest difference in life expectancy observed in northwest territories vs canada?,observe the largest gap occurs in 2016-2017,,pending,
+b1jrtiwi2x01zdtw,line_multiple,In 2005 what is the differnce between share of engaged and disengaged respondents?,"1. engaged respondent = orange =26%
+2. disengaged = red plus blue= 15%+58% = 73%
+3 find difference 73-26= 47%","{""ops"": [{""op"": ""retrieveValue"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Share of respondents"", ""target"": ""2005"", ""group"": ""Engaged""}], ""ops2"": [{""op"": ""retrieveValue"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [], ""sentenceIndex"": 2}, ""field"": ""Share of respondents"", ""target"": ""2005"", ""group"": ""Not engaged""}, {""op"": ""diff"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2"", ""n1""], ""sentenceIndex"": 2}, ""field"": ""Share of respondents"", ""targetA"": ""ref:n2"", ""targetB"": ""ref:n1"", ""signed"": true}]}",pending,2026-06-28T21:20:50.206Z
+bfi0ia7zx8pjb5g8,bar_stacked,How many years is the share of retail revenue from foreign operations fom hardlines and diversified greater then 60?,"determine we are excluding blue apparel category 
+find y=60 line
+determine 2 years below line (2018 and 2019)",,pending,
+ahxo354yj7g4m6h1,line_simple,"If the total GDP is 2 billion, what was the average annual percentage increase in this industry's gdp contribution from 2000 to 2010?","1. Determine industry gdp percentage increase from 2000-2010 (10-8)= 2% increase 
+2. 2 billion times .02
+3. divide percentage by 10 years to find anual =x/2 billion ",,pending,
+apsxmes1emdu9vtk,bar_stacked,"In the age group with the most steady inhabiants, how may inhabitants were there in 2018?","1. deterrmine the green color group (80 and over) exhibits little to know change.
+2. Find the year 2018 and read value =.25= 250,000",,pending,
+1hp11sl0mo4ohtpo,bar_simple,In which fiscal year was there the greatest increase in average ticket price and what was the value of the increase?,"1. Determine the greatest increase was between 2012/13 and 2013/14.
+2. subtract ticket price in 2012/13 from 2013/2014 =58-44= $6",,pending,
+1it2ia9kmdihxan8,bar_simple,How many years were ther less then 50 incidents observed,"1. find the line for y=50 
+2. deteremine how many year total are below line = 9 years",,pending,
+b8um9hhxelrqowd9,line_simple,Is the value in 2010 bigger than the average?,"1. Calculate the average
+2. Compare the average value with the value in 2010",,pending,
+c41fny6w7gwpawbn,line_multiple,When is the year that has the lowest difference between two opinions?,"1. For each year, find the difference between two opinion
+2. By the number from step 1, find the year that has the lowest difference.",,pending,
+263367gingx3k5hu,bar_grouped,What is the Sum of the increases between the two terms for Asian countries (excluding the Middle East)?,"1 Subtract the number of two terms and find the difference: only from China, Japan, South Korea, Taiwan, and other Asian countries
+2. Sum the difference calculated in step 1",,pending,
+bnil22qu3wwatrc7,bar_stacked,"According to this chart, what is the difference between the average number of ""A better place to live"" opinion of Western Europe and the rest?","1. Define Western Europe: Netherlands, Germany, UK, France
+2. Find the average number of ""A better place to live"" opinion of Western Europe and the rest.
+3. Find the difference of the two numbers",,pending,
+1lg9qn6shf8ifsdq,bar_simple,Is the sum of the values until Jan 2013 times three smaller than the sum of the values from Feb 2013?,"1. Calculate the sum of the first five values and the last five values.
+2. Calculate the value of the sum of the first five values times three
+3. Compare the value acquired from step 2 and the sum of the last five value acquired from step 1.",,pending,
+2a7luy1tzrplr2as,bar_grouped,What is the number of years where the total rice export shows over 6 billion?,"1. each year, calculate the sum of Basmati rice and Non-Basmati rice
+2. Count the number over 6 billion",,pending,
+awg12vb36ndo75tq,line_simple,Do poverty range increase faster in last 6 years than the first 6 years from this chart?,"1. Find the delta number of the last 6 years(2015-2020) and first 6 years(2008-2013)
+2. Compare the number from step 1","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2015"", ""2020""], ""xKindHint"": ""ordinal""}, {""op"": ""range"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Absolute poverty rate""}], ""ops2"": [{""op"": ""filter"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [], ""sentenceIndex"": 2}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2008"", ""2013""], ""xKindHint"": ""ordinal""}, {""op"": ""range"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 2}, ""field"": ""Absolute poverty rate""}], ""ops3"": [{""op"": ""compareBool"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n2"", ""n4""], ""sentenceIndex"": 3}, ""targetA"": ""ref:n2"", ""targetB"": ""ref:n4"", ""operator"": "">""}]}",pending,2026-06-28T21:20:28.295Z
+cby91tt3tvahsmuj,line_multiple,Is the difference between the parties in 2012 bigger than the average of the differences of all years?,"1. Calculate the difference for each year
+2. Calculate the average of the difference from the previous step.
+3. Compare the values between the difference in 2012 and the average difference.",,pending,
+1lf1h5jf9ymeid5q,bar_simple,Count the number of year that consists more than 3 million shipments increase compared to last year.,"1. Find all of the number of difference between 'this year' and 'last year' (from 2001 to 2017)
+2. Count that has the difference more than 3 million. ","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2001"", ""2017""], ""xKindHint"": ""ordinal""}, {""op"": ""lagDiff"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Unit shipments in millions"", ""order"": ""asc""}, {""op"": ""filter"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 1}, ""field"": ""Unit shipments in millions"", ""operator"": "">"", ""value"": 3}, {""op"": ""count"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 1}, ""field"": ""Unit shipments in millions""}]}",pending,2026-06-28T21:19:44.844Z
+bpmaqi8nt785y4ay,bar_stacked,Count the year when American flims occupied the majority(more than 50%) of cinema admissions. Do they occupied the majority more than 3 years?,"1. Filter the year American flims occupied more than 50% of cinema admissions
+2. Count the year and compare to the criteria: 3 years",,pending,
+c3mncg8r4g6bjoon,bar_stacked,Is Germany has higher share of respondents in Gasoline or diesel compared to the average of rest of the countries?,"1. Calculate the average of the share of respondents in Gasoline or diesel of other countries.
+2. Compare the average value acquired from the previous step and the value of Germany in Gasoline and diesel.",,pending,2026-06-28T17:51:16.959Z
+c1dkepdvg39l54su,bar_stacked,Do respondents from London has more preference to used car compared to the average of whole region?,"1. Find the percentage of preference of used car from London
+2. Find the average percentage of preference of used car from whole region
+3. Compare the two numbers and get the answer",,pending,
+1jgaguuh4rqlk7sq,bar_simple,What is the difference of the sum of sales between the first six years and the last six years?,"1. Sum the numbers: first rage: 2008 to  2013, second range: 2014 to 2019
+2. Subtract the two numbers and find the difference",,pending,
+2ecy6apyrdfpoqbo,bar_grouped,How many fiscal year exist where the beer is smaller than the sum of soft drink and hot dog?,"1. For each year, calculate the sum of soft drink and hot dog.
+2. For each year, compare the value between the beer and the sum value acquired in the previous step.
+3. Count the number of years where the beer is smaller than the sum of soft drink and hot dog",,pending,
+b4o9bh8f969q6kqa,line_simple,What is the number of years where the value is lower than the average?,"1. Calculate the average of the index score.
+2. Count the number of years where the index score is lower than the average",,pending,
+ciqofa9lr4z5kz7d,line_multiple,What year shows the second lowest absolute difference between Revenue and Expenditure?,"1. Calculate the difference between Revenue and Expenditure for each year
+2. Find the year where the difference is second lowest.",,pending,
+avwb8xstxx1lmfpk,line_simple,What is the Year that has the biggest deviation from the total average?,"1. Find the average CPI by the data.
+2. Calculate standard deviation from each of the data
+3. Find the Biggest standard deviation.",,pending,
+bkemtvekxtnuk8bf,line_multiple,"What is the year when the ""Favorable view of US"" data and ""Confidence in Obama"" is the second nearest?","1. Each year, find the difference between the percentage of ""Favorable view of US"" and ""Confidence in Obama""
+2. Compare the number from step 1 and find the 2nd lowest number.",,pending,
+1j86ensex8nyvdyk,bar_simple,What 3-year range shows the highest increase?,"1. Find all of the 3-year increasing rate(delta)
+2. Compare all of the ranges and find the 3-year range showing the highest increase.",,pending,
+273wm22z47ptlhzz,bar_grouped,"With today and previous week, do male respondents used the application than female respondents?","1. Sum the percentage of the data ""Today"" and ""Within the previous week"" 
+2. Compare the number from step 1 between two genders",,pending,
+1gdzafocxmz7rswi,bar_simple,How many years have the lower traffic in petabytes than the difference of two biggest traffics in petabytes.,"1. Find two biggest traffics in year.
+2. Get the difference of those values.
+3. Count the years which have a lower traffic than the difference.",,pending,
+9r7co7yl1osn3zg4,line_simple,How many years have a bigger export value than the average of them?,"1. Calculate the average of export values.
+2. Find the years which have a bigger export value than the average.
+3. Count the years found.",,pending,
+a6gnu78mgn3xmqhu,line_simple,How many years have a lower index score than the average score across the years?,"1. Find the average index score across years.
+2. Count the years which have a lower index score than the average.",,pending,
+87b7sitfbe4ttuns,bar_stacked,How many restaurant types have smaller difference between currently-active and currently-inactive share of respondents than 1.0?,"1. Get the summation of currently-active(very active, somewhat active) share of respondents and currently-inactive(not active, plan to be more active in 2015) share of respondents for every restaurant type.
+2. Calculate the difference between those two values.
+3. Count the restaurant types which has smaller difference than 1.0.",,pending,
+2203wq7kgv5ha9fi,bar_grouped,Which age group has the highest difference in share between housing status within the groups which have a higher portion on housing status with buying with mortage?,"1. List age groups which have a higher portion on housing status with buying with mortage.
+2. Calculate the difference in share between housing status for those age groups.
+3. Find the age group which has the highest difference.",,pending,
+20lb7iojghs85r21,bar_grouped,Which year has the biggest difference in percentage of respondents between two percentages which is smaller than the other percentage for every year?,"1. Find the two smallest percentages of respondents for every year.
+2. Calculate the difference for every year.
+3. Find the year which has the biggest difference.",,pending,
+1xj7x49epprmpod7,bar_grouped,What is the sum of the difference of number of companies from between domestic market and total market which has a bigger difference than the average difference.,"1. Get the difference of number of companies for every year.
+2. Calculate the average of the difference.
+3. Find the difference values which are bigger than the average.
+4. Sum the filtered difference values.",,pending,
+7iy5s09teyeaybzy,line_multiple,Which year has the closest value with the average value in sum of life expectancy for both genders?,"1. Calculate the sum of life expectancy for female and male for every year.
+2. Get the average of the sum.
+3. Calculate the difference with the average for every year.
+4. Find the year which has the smallest difference.",,pending,
+9sdl1j9l1fbhwq09,line_multiple,How many years have higher life expectancy than its average for both genders?,"1. Calculate the average of life expectancy for both genders.
+2. Count the years where life expectancy is higher than the average for both genders.",,pending,
+1g17ep9vho38jvcz,bar_simple,How many continents have a bigger share than the share difference between the continents which have the biggest share and the lowest share?,"1. Sort continents by share.
+2. Find continents with the biggest share and the lowest share.
+3. Calculate the difference between the shares.
+4. Find the continents which have a bigger share than the difference.",,pending,
+83hx57gqlkd9sldn,line_multiple,Which year has the 3rd biggest difference between the percentage of bad and good opinion for the years which have more bad opinions than the good ones.,"1. Find the years which have more bad opinions than  good opinions.
+2. Sort the years by the difference of the percentage of bad and good opinions.
+3. Get the year with 3rd biggest difference.",,pending,
+21klhgimadx4zsi9,bar_grouped,Which year has the most revenue across all sectors?,"1. Get the summation of revenue for all sectors for years.
+2. Find the year which has the biggest sum.",,pending,
+77xb5ug5lhfmkb74,bar_stacked,What is the sum of number of employees from Europe region before 2015?,"1. Filter out the data after 2015.
+2. Get the number of employees from Europe region.
+3. Sum the count of the numbers.",,pending,
+a7byilpdrc3cbjr4,bar_stacked,How many countries have the highest percentage of opinions to keep the same and its following higher opinion is to decrease?,"1. Filter countries which have the highest percentage of opinion to keep the same.
+2. Filter countries which have the 2nd higher percentage of opinion to decrease for the above countries.
+3. Count the filtered countries.",,pending,
+7mw5410egrxfi2oy,line_multiple,"What is the average of difference in values except for two years which have the biggest opinion value for favorable and unfavorable, respectively?","1. Filter out two years which have the biggest opinion value for favorable opinion and unfavorable one.
+2. Calculate the differences in values of two opinion for those years.
+3. Get the average of the differences.",,pending,
+1hlsoeyqlr1r1n41,bar_simple,How many regions have the smaller revenue than the average of revenue across regions except for the one with the highest revenue?,"1. Filter out the region which has the highest revenue.
+2. Calculate the average of the revenue for those regions.
+3. Count the regions which have a smaller revenue than the average.","{""ops"": [{""op"": ""findExtremum"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Revenue in million US dollars"", ""which"": ""max""}, {""op"": ""filter"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Region"", ""exclude"": [""United States""]}, {""op"": ""average"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 1}, ""field"": ""Revenue in million US dollars""}], ""ops2"": [{""op"": ""filter"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 2}, ""field"": ""Revenue in million US dollars"", ""operator"": ""<"", ""value"": ""ref:n3""}, {""op"": ""count"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n4""], ""sentenceIndex"": 2}}]}",pending,2026-06-28T21:19:43.211Z
+90tonvacpe7zniv9,bar_stacked,Which perception has the biggest share across the royal figures whose gender is female?,"1. Find royal figures whose gender is female.
+2. Get the perceptions with the biggest share for those figures.
+3. Find the most-counted perception with the biggest share.",,pending,
+ae2xp7bacbbs0kmx,line_simple,How many months have a lower index than the average of index across the years?,"1. Calculate the average of index across the years.
+2. Count the months which have a lower index than the average.",,pending,
+1g95in84ywix6pcf,bar_simple,"Which creator has the 2nd biggest number of subscribers within creators starting with alphabet ""a""?","1. Find creators starting with alphabet ""a"".
+2. Sort the creators by the number of subscribers.
+3. Get the creator which has 2nd biggest number of subscribers.",,pending,
+9r3kyy2jo2o66msh,line_simple,Which month has the biggest increasing rate in number of femicides comparing with the previous month except for april?,"1. Calculate the difference between the number of femicides of a specific month and its previous count.
+2. Get the month which has the biggest difference for positive values.",,pending,
+ckptmodbya2m1mih,bar_stacked,In which year was the difference between the number of 2G and 3G subscription the smallest?,"For each year, calculate the difference between the subscription number of 2G and 3G.
+Identify the year with the minimum difference.",,pending,
+rx7zzpt8c0ue86y3,line_multiple,"For the years when the unfavorable ratting of China among Americans exceeded 50%, what was the average favorable ratio?","Filter the years in which unfavorable rating of US views toward China is bigger than 50.
+Calculate the average favorable ratio across those years.",,pending,
+88sup9tkwx0lwkgw,bar_stacked,"Among the years in which Asia's sales value was bigger than 1000, what is the difference between the average sales of EMEA and the average sales of Asia?","Filter the years where Asia's sales value is greater than 1000.
+Compute the average sales for EMEA and Asia over those years.
+Caculate the difference between the who averages.",,pending,
+9g5a38vcep03acdu,bar_stacked,Which year had the highest year-over-year growth rate in Walmart's total net sales?,"For each year, sum the net sales of Walmart US and Walmart International.
+For each year, divide the net sales by the net sales of the previous year.
+Find the year with the highest resulting ratio.","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""group"": [""Walmart US"", ""Walmart International""]}, {""op"": ""sum"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Net sales in billion US dollars""}, {""op"": ""rollingWindow"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 1}, ""window"": 2, ""aggregate"": ""avg"", ""field"": ""Net sales in billion US dollars"", ""orderField"": ""Year""}, {""op"": ""diff"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3"", ""n3""], ""sentenceIndex"": 1}, ""field"": ""Net sales in billion US dollars"", ""targetA"": ""ref:n3"", ""targetB"": ""ref:n3"", ""signed"": false, ""mode"": ""ratio""}, {""op"": ""findExtremum"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n4""], ""sentenceIndex"": 1}, ""which"": ""max""}]}",pending,2026-06-28T21:20:22.720Z
+fsraebh4cpmzc7ut,line_simple,Count the number of years in the 2010s in which the number of fatalities increased compared to the previous year.,"Filter the data to include only the years in the 2010s.
+For each year, subtract the previous year's value from the current year's value.
+Count the number of years for which the eresulting difference is positive.",,pending,
+h33j4k50c44wni7l,line_simple,How many times was growth rate of HICP greater than 2.6 and less than 3.0?,"Filter the dates where growth rate is greater than 2.6.
+Filter the dates where growth rate is less than 3.0.
+Count the number of dates.",,pending,
+gnin1xu8b8rbtv34,line_multiple,In how many years was the percentage of unfavorable views toward the Taliban at least 10 percentage points higher than toward Al-Qaeda?,"For each year, calculate the difference between the percentage of unfavorable views of Taliban and Al-Qaeda.
+Count the number of years that Taliban's unfavorable view was at least 10 percentage points higher.",,pending,
+58wxo6da4x2w1ass,bar_grouped,"Which worker type has the smallest difference from the ""All Government workers"" in Barack Obama's share of voters?","For each worker type, calculate the absolute difference between its share of voters and all government workers for Barack Obama.
+Identify the worker type with the smallest difference.",,pending,
+f12st3qo0kz1egmp,line_multiple,"In the first year after 2004 when the percentage of people who considered elections important increased relative to 2004, did the percentage of people who considered elections unimportant decrease?","Filter the years after 2004.
+For each year, subtract the 2004 percentage of people who considered elections important from that year's percentage.
+Identify the first year that difference is positive.
+Determine whether the percentage of people who considered elections unimportant increased compaared to the previous year.",,pending,
+a0m3af45az33ngmr,bar_stacked,Which year had the highest share of sheep production?,"For each year, calculate the proportion of sheep production relative to total.
+Identify the year with the highest proportion.",,pending,
+i0fd8sbi945erf7p,line_multiple,In which year did the ratio of news sources for local news programming increase the most?,"Compute the difference between each year's local news programming's ratio and that of the previous year.
+Find the year with the biggest positive change.",,pending,
+50pei8jwlb2g5h1q,bar_grouped,which country had the smallest decrease rate in sales after the lockdown?,"For each country, calculate the percentage decrease in sales between the pre-lockdown and post-lockdown periods.
+Identify the country with the smallest decrease rate.",,pending,
+g1s9b91z7xw8flg2,line_simple,What is the difference between the average beer sales before 2012 and after including 2012?,"Calculate the average beer sales for the years before 2012.
+Calculate the average beer sales for the years after including 2012.
+Compute the difference between the two averages.",,pending,
+0gt3h2146jc47ovx,bar_simple,How many times larger is the combined share of iron and zinc than water in the composites?,"Add the shares of iron and zinc.
+Divide the result by share of water.",,pending,
+31d6673lje5rb1nw,bar_grouped,"Which side had higher propolation of killed among its casualties, the Union or the Confederacy?","For each side, divide the number of killed by the number of casualties.
+Compare the sides based on that ration and determine which side has the higher value.",,pending,
+0cy2ufyjsinsswpm,bar_simple,"Starting from men in their 20s, up to which age group must be included for the cumulative share of single-men households to exceed 50%?","Caculate each age group's share of the total.
+Starting from the 20s age group, cumulatively add the shares.
+Identify the age group at which the cumulative percentage first exceed 50%.",,pending,
+0ivzc37gi49isy9n,bar_simple,Which three-year period had the highest total import value?,"For each year, calculate the sum of the import values for that year and the following two years.
+Identify the year corresponding to the maximum sum.",,pending,
+guhd9zsodg7n408g,line_simple,What was the change in the exchange rate in Indonesian rupiah during the 2010s?,"Filter the years in 2010s.
+Subtract the exchange rate in the first year from last year.
+Calculate the increase.",,pending,
+0ijwrg723j4v8s3e,bar_simple,What percentage of the polulation in the Northern Hemisphere is accounted for Asia?,"Filter the continents located in the Northern Hemisphere.
+Divide Asia's population by the sum of population of those continents.","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Continent"", ""include"": [""Asia"", ""Europe"", ""Nothern America""]}], ""ops2"": [{""op"": ""sum"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""field"": ""Share of the global population (%)""}, {""op"": ""retrieveValue"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [], ""sentenceIndex"": 2}, ""field"": ""Continent"", ""target"": ""Asia""}, {""op"": ""diff"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3"", ""n2""], ""sentenceIndex"": 2}, ""field"": ""Share of the global population (%)"", ""targetA"": ""ref:n3"", ""targetB"": ""ref:n2"", ""signed"": false, ""mode"": ""ratio"", ""scale"": 100.0}]}",pending,2026-06-28T21:19:38.879Z
+56010lp5kjl1p4by,bar_grouped,What is the difference in the growth rates of the average number of employees for full time and part time from 2012 to 2014?,"Divide the 2014 average number of employees by 2012 for part time.
+Divide the 2014 average number of employees by 2012 for full time.
+Calculate the difference.",,pending,

@@ -27,7 +27,7 @@
         "sentenceIndex": 2
       },
       "field": "Share_of_Import_Value",
-      "operator": ">",
+      "operator": ">=",
       "value": -0.05
     }
   ]

@@ -1,0 +1,17 @@
+{
+  "chart_id": "0xc7sx6ll8fl5rgh",
+  "question": "What is the average of the vote share at an age when Clinton received a lower vote share?",
+  "description": "",
+  "specPath": "specs/0xc7sx6ll8fl5rgh.vl.json",
+  "opsPath": "ops/0xc7sx6ll8fl5rgh.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Keep only Hillary Clinton's vote-share bars across all age groups."
+    },
+    {
+      "id": "ops2",
+      "text": "Average those values to get 0.37."
+    }
+  ]
+}

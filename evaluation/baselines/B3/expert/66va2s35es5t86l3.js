@@ -296,7 +296,7 @@ export function function2({ d3, container }) {
     // Per reviewer (review_e2.csv row 6): dual-panel layout — keep f1's line chart on TOP,
     // add a bar chart of year-to-year deltas BELOW. Both panels highlight the 2000-2010 band.
     const rows = getPopulationChangeRows();
-    const maxRow = rows.reduce((best, row) => row.toValue > best.toValue ? row : best, rows[0]);
+    const maxRow = rows.reduce((best, row) => row.diff > best.diff ? row : best, rows[0]);
     const xField = 'Year';
     const yField = 'In millions';
     const lineMargin = { top: 32, right: 24, bottom: 48, left: 56 };
@@ -320,13 +320,13 @@ export function function2({ d3, container }) {
     svg.attr('viewBox', `0 0 ${newWidth} ${newHeight}`);
 
     // 2) Add highlight rect on the top (line) panel spanning 2000 → 2010 on the x-axis.
-    const xFrom = xScaleLine(String(maxRow.fromYear)) ?? 0;
-    const xTo = xScaleLine(String(maxRow.toYear)) ?? 0;
+    const x2000 = xScaleLine('2000') ?? 0;
+    const x2010 = xScaleLine('2010') ?? 0;
     topG.insert('rect', ':first-child')
         .attr('class', 'validation-q4-line-highlight')
-        .attr('x', xFrom)
+        .attr('x', x2000)
         .attr('y', 0)
-        .attr('width', Math.max(0, xTo - xFrom))
+        .attr('width', Math.max(0, x2010 - x2000))
         .attr('height', linePlotH)
         .attr('fill', '#fde68a')
         .attr('opacity', 0)
@@ -411,7 +411,7 @@ export function function2({ d3, container }) {
         .attr('font-weight', 700)
         .attr('fill', '#ef4444')
         .attr('opacity', 0)
-        .text(`${maxRow.toYear}: ${maxRow.toValue.toFixed(1)}`)
+        .text(`+${maxRow.diff.toFixed(1)}`)
         .transition()
         .duration(650)
         .attr('opacity', 1);

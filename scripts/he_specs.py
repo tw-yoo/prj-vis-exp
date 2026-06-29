@@ -375,6 +375,34 @@ GOLD["ahxo354yj7g4m6h1"] = (  # average annual % increase 2000->2010
     "increase = (value@2010 - value@2000) / 10 years.")
 
 
+# ── line_simple batch 2 (new rows #245, #246, #253, #258) ─────────────────────
+GOLD["fsraebh4cpmzc7ut"] = (  # #245 count 2010s years with year-over-year increase
+    {"ops": [mk("filter", 1, sent=1, field="Year", operator=">=", value="2010")],
+     "ops2": [mk("lagDiff", 2, [1], sent=2, field="Number of fatalities")],
+     "ops3": [mk("filter", 3, [2], sent=3, field="Number of fatalities", operator=">", value=0),
+              mk("count", 4, [3], sent=3)]},
+    "Count 2010s years where fatalities rose vs the prior year. Filter precedes lagDiff per the "
+    "explanation's order, so 2010's rise vs 2009 is not counted (first filtered year has no predecessor).")
+GOLD["h33j4k50c44wni7l"] = (  # #246 count dates with 2.6 < HICP growth < 3.0
+    {"ops": [mk("filter", 1, sent=1, field="Growth rate of HICP(%)", operator=">", value=2.6)],
+     "ops2": [mk("filter", 2, [1], sent=2, field="Growth rate of HICP(%)", operator="<", value=3.0)],
+     "ops3": [mk("count", 3, [2], sent=3)]},
+    "Two value-range filters (>2.6 AND <3.0), then count the qualifying dates.")
+GOLD["g1s9b91z7xw8flg2"] = (  # #253 diff(avg beer sales before 2012, avg 2012+)
+    {"ops": [mk("filter", 1, sent=1, field="Year", operator="<", value="2012"),
+             mk("average", 2, [1], sent=1, field="Beer sales in million hectoliters")],
+     "ops2": [mk("filter", 3, sent=2, field="Year", operator=">=", value="2012"),
+              mk("average", 4, [3], sent=2, field="Beer sales in million hectoliters")],
+     "ops3": [mk("diff", 5, [2, 4], sent=3, targetA="ref:n2", targetB="ref:n4", signed=False)]},
+    "avg(year<2012) vs avg(year>=2012), then |difference|.")
+GOLD["guhd9zsodg7n408g"] = (  # #258 change in exchange rate during the 2010s = value(2019) - value(2010)
+    {"ops": [mk("retrieveValue", 1, sent=1, field="Year", target="2010"),
+             mk("retrieveValue", 2, sent=1, field="Year", target="2019")],
+     "ops2": [mk("diff", 3, [1, 2], sent=2, targetA="ref:n2", targetB="ref:n1", signed=True)]},
+    "'change during the 2010s' = exchange rate in the last 2010s year (2019) minus the first (2010); "
+    "signed increase. Data spans 2009-2020 so 2010 and 2019 are both present.")
+
+
 def load_authored() -> dict:
     """Merge subagent-authored specs from data/review/authored/*.json.
     Each file: {chart_id: {"spec": {ops..}|null, "note": "..."}}. GOLD wins on conflict.

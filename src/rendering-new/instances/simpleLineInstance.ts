@@ -730,7 +730,6 @@ export class SimpleLineChartInstance implements ChartInstance {
     // internally and smoothly interpolates positions to the new scale.
     if (willChangeY) {
       this.yAxisGroup.transition(inheritT).call(d3.axisLeft(this.yScale).ticks(6))
-      applyAxisTickLabelSize(this.yAxisGroup)
     }
     if (willChangeX) {
       const xAxisFn =
@@ -740,7 +739,6 @@ export class SimpleLineChartInstance implements ChartInstance {
             ? d3.axisBottom(this.xScale as d3.ScaleLinear<number, number>)
             : d3.axisBottom(this.xScale as d3.ScalePoint<string>)
       this.xAxisGroup.transition(inheritT).call(xAxisFn)
-      applyAxisTickLabelSize(this.xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
     }
 
     try {
@@ -748,6 +746,11 @@ export class SimpleLineChartInstance implements ChartInstance {
     } catch {
       /* interrupted */
     }
+
+    // Apply font-size styling after the transition settles to avoid label-size
+    // jumps while axis ticks are mid-animation.
+    if (willChangeY) applyAxisTickLabelSize(this.yAxisGroup)
+    if (willChangeX) applyAxisTickLabelSize(this.xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
   }
 
   // ----- build (private) -----

@@ -279,7 +279,7 @@ function getReferendumChartMetrics({ d3, container }) {
 function applyReferendumTargetHighlight({ d3, container }) {
     const csvTargets = [
         { category: 'Strongly against', region: 'Scotland', value: 28 },
-        { category: 'Strongly against', region: 'England & Wales', value: 2 },
+        { category: 'Somewhat against', region: 'England & Wales', value: 16 },
     ];
     const isTarget = (datum) => csvTargets.some((target) => (
         datum.category === target.category && datum.series === target.region
@@ -337,7 +337,7 @@ export function function1({ d3, container }) {
 export function function2({ d3, container }) {
     applyReferendumTargetHighlight({ d3, container });
 
-    const csvValues = { scotlandMax: 28, englandWalesMin: 2, difference: 26 };
+    const csvValues = { scotlandMax: 28, englandWalesMin: 16, difference: 12 };
     const { svg, g, plotW, yScale } = getReferendumChartMetrics({ d3, container });
     const markerId = ensureReferendumArrowMarker({ d3, svg });
 

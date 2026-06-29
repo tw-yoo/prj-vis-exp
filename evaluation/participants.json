@@ -1,8 +1,8 @@
 {
   "PILOTA": {
     "order": {
-      "system": "SO1",
-      "chart": "CO1"
+      "system": "SO2",
+      "chart": "CO2"
     }
   },
   "PILOTB": {
@@ -51,6 +51,12 @@
     "order": {
       "system": "PRE",
       "chart": "PRE"
+    }
+  },
+  "TESTP6": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO2"
     }
   }
 }

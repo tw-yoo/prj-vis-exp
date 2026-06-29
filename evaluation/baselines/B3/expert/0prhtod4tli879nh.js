@@ -1,8 +1,6 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { City: 'Tokyo', Year: 2025, 'Population in millions': 37.1 },
-    { City: 'Tokyo', Year: 2010, 'Population in millions': 36.7 },
     { City: 'Delhi', Year: 2025, 'Population in millions': 28.6 },
     { City: 'Delhi', Year: 2010, 'Population in millions': 22.2 },
     { City: 'Mumbai', Year: 2025, 'Population in millions': 25.8 },
@@ -264,7 +262,6 @@ export function renderValidationGroupedBarChart({ container }) {
 
 function drawCityPopulationJumps({ d3, container, highlightCity = null }) {
     const csvJumps = {
-        Tokyo: 0.4,
         Delhi: 6.4,
         Mumbai: 5.8,
         'New York-Newark': 1.2,
@@ -333,7 +330,8 @@ function drawCityPopulationJumps({ d3, container, highlightCity = null }) {
             .attr('stroke', '#dc2626')
             .attr('stroke-width', city === highlightCity ? 2.8 : 1.6)
             .attr('opacity', isFocus ? 1 : 0.2)
-            .attr('marker-start', `url(#${markerId})`)
+            // Single-sided (E7 feedback): a population jump is a directional
+            // change over time, so the arrow points up to the 2025 value only.
             .attr('marker-end', `url(#${markerId})`);
 
         g.append('text')
@@ -367,7 +365,7 @@ export function function1({ d3, container }) {
 }
 
 export function function2({ d3, container }) {
-    drawCityPopulationJumps({ d3, container, highlightCity: 'Tokyo' });
+    drawCityPopulationJumps({ d3, container, highlightCity: 'Delhi' });
 }
 
 export function function3({ d3, container }) {}

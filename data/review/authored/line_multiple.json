@@ -1,4 +1,35 @@
 {
+ "rx7zzpt8c0ue86y3": {
+  "spec": null,
+  "note": "#242 GAP: average of the Favorable series over ONLY the years where the Unfavorable series > 50 — selecting x-keys by one series' threshold and aggregating another series over those keys (cross-series conditional subset) is not expressible."
+ },
+ "gnin1xu8b8rbtv34": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Year", "groupA": "Taliban", "groupB": "al Qaeda", "seriesField": "Group", "field": "Ratio of unfavorable view(%)", "signed": true}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "field": "Ratio of unfavorable view(%)", "operator": ">=", "value": 10},
+    {"op": "count", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 2}}
+   ]
+  },
+  "note": "#247 per-year (Taliban - al Qaeda) signed gap via pairDiff, filter gap >= 10, then count the qualifying years."
+ },
+ "f12st3qo0kz1egmp": {
+  "spec": null,
+  "note": "#249 GAP: needs the FIRST year after 2004 whose 'important' value rose vs 2004 (ordered first-match, no such op), then a conditional check on the OTHER series' YoY direction at that year (cross-series conditional) — neither is expressible."
+ },
+ "i0fd8sbi945erf7p": {
+  "spec": {
+   "ops": [
+    {"op": "lagDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Ratio of news sources(%)", "group": "Local news programming"}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "max", "field": "Ratio of news sources(%)"}
+   ]
+  },
+  "note": "#251 biggest YoY rise of the 'Local news programming' series -> lagDiff on that series then findExtremum max."
+ },
  "28bxxhd6omv2l2h1": {
   "spec": {
    "ops": [

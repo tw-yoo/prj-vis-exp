@@ -7,15 +7,15 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Compare the Russia and US favorable-view percentages for each year."
+      "text": "Compare Russia's and the US's favorable-view percentages for each year shown."
     },
     {
       "id": "ops2",
-      "text": "Keep the years where Russia's value is greater than the US value."
+      "text": "Keep the years where Russia is at or above the US, including near-ties (within 1 point): 2007, 2009, 2015."
     },
     {
       "id": "ops3",
-      "text": "Count those years."
+      "text": "Count those years — 3."
     }
   ]
 }

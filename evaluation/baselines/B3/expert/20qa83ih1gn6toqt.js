@@ -312,7 +312,10 @@ function drawPriceConvenienceGaps({ d3, container, highlightYear = null }) {
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
-        .attr('orient', 'auto')
+        // auto-start-reverse so a double-headed gap arrow has BOTH heads pointing
+        // outward (↕). Plain 'auto' leaves the start head pointing inward, which
+        // is the arrow glitch E7 flagged on this gap annotation.
+        .attr('orient', 'auto-start-reverse')
         .append('path')
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('fill', '#dc2626');

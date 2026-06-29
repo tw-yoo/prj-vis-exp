@@ -44,6 +44,7 @@ type SurveyQuestion = {
   text: string
   kind: 'yes-no' | 'likert7' | 'text' | 'error-localization'
   scale?: ScaleLabels
+  required?: boolean  // text questions are optional by default; set true to require
   // Declarative conditional: render (and require) this question only when the
   // predicate holds. The getter reads responses by question id — its own survey
   // page first, then (for per-chart pages) the same item's OTHER survey pages,
@@ -138,16 +139,24 @@ const postSessionQuestions: SurveyQuestion[] = [
   // Trust / Usefulness / Transparency — measured per system here (the per-chart
   // page measures ease + transparency + usefulness at the single-chart level).
   { id: 'trust', text: 'I trusted the explanations from this system.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'trust-reason', text: 'Why did you choose this response?', kind: 'text', required: true },
   { id: 'usefulness', text: 'The explanations from this system were useful.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'usefulness-reason', text: 'Why did you choose this response?', kind: 'text', required: true },
   { id: 'transparency', text: 'The explanations from this system were transparent.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'transparency-reason', text: 'Why did you choose this response?', kind: 'text', required: true },
   { id: 'tlx-mental', text: 'Understanding this explanation was mentally demanding.', kind: 'likert7', scale: AGREE_SCALE },
   // { id: 'tlx-physical', text: 'Understanding this explanation was physically demanding.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'tlx-mental-reason', text: 'Why did you choose this response?', kind: 'text', required: true },
   { id: 'tlx-temporal', text: 'I felt hurried or rushed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'tlx-temporal-reason', text: 'Why did you choose this response?', kind: 'text', required: true },
   { id: 'tlx-performance', text: 'I was successful in understanding the explanation.', kind: 'likert7', scale: AGREE_SCALE },
+  { id: 'tlx-performance-reason', text: 'Why did you choose this response?', kind: 'text', required: true },
   { id: 'tlx-effort', text: 'I had to work hard to understand this explanation.', kind: 'likert7', scale: AGREE_SCALE },
   // { id: 'tlx-frustration', text: 'I felt frustrated, irritated, or stressed while going through this explanation.', kind: 'likert7', scale: AGREE_SCALE },
-  // Per-system open-ended (optional).
-  { id: 'open-feedback', text: 'What helped or made this system hard to use? (optional)', kind: 'text' },
+  { id: 'tlx-effort-reason', text: 'Why did you choose this response?', kind: 'text', required: true },
+  // Per-system open-ended.
+  { id: 'best-aspect', text: 'What was the best thing about this system?', kind: 'text', required: true },
+  { id: 'worst-aspect', text: 'What was the most disappointing thing about this system?', kind: 'text', required: true },
 ]
 
 const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-text', 'tutorial-task']
@@ -229,7 +238,7 @@ const containerEl = document.getElementById('chartContainer') as HTMLElement
 const questionEl = document.getElementById('questionText') as HTMLElement
 const descriptionEl = document.getElementById('descriptionText') as HTMLElement
 const debugMetaEl = document.getElementById('debugMeta') as HTMLElement
-debugMetaEl.style.display = 'none' // researcher readout removed from the participant UI
+debugMetaEl.style.display = 'none'
 const explanationEl = document.getElementById('explanationArea') as HTMLElement
 const surveyEl = document.getElementById('surveyArea') as HTMLFormElement
 const prevBtn = document.getElementById('prevBtn') as HTMLButtonElement
@@ -600,14 +609,44 @@ function isQuestionVisible(question: SurveyQuestion, keyPrefix: string): boolean
   })
 }
 
+function appendReasonTextarea(fieldset: HTMLFieldSetElement, question: SurveyQuestion, keyPrefix: string) {
+  const name = fieldKey(keyPrefix, question.id)
+  const label = document.createElement('label')
+  label.className = 'survey-question__reason-label'
+  label.htmlFor = name
+  label.textContent = question.text
+  fieldset.appendChild(label)
+
+  const textarea = document.createElement('textarea')
+  textarea.className = 'survey-text'
+  textarea.rows = 3
+  textarea.id = name
+  textarea.name = name
+  textarea.value = surveyResponses.get(name) ?? ''
+  textarea.addEventListener('input', () => { surveyResponses.set(name, textarea.value); scheduleSave() })
+  fieldset.appendChild(textarea)
+}
+
 function renderSurveyPage() {
   surveyEl.innerHTML = ''
   const ctx = currentSurveyContext()
   if (!ctx) return
-  ctx.questions.forEach((q) => {
-    if (!isQuestionVisible(q, ctx.keyPrefix)) return
-    surveyEl.appendChild(renderSurveyQuestion(q, ctx.keyPrefix))
-  })
+  const visible = ctx.questions.filter((q) => isQuestionVisible(q, ctx.keyPrefix))
+  let i = 0
+  while (i < visible.length) {
+    const q = visible[i]
+    const next = visible[i + 1]
+    // Group a likert7 question with its immediately following required-text reason into one fieldset.
+    if (q.kind === 'likert7' && next?.kind === 'text' && next.required) {
+      const fieldset = renderSurveyQuestion(q, ctx.keyPrefix)
+      appendReasonTextarea(fieldset, next, ctx.keyPrefix)
+      surveyEl.appendChild(fieldset)
+      i += 2
+    } else {
+      surveyEl.appendChild(renderSurveyQuestion(q, ctx.keyPrefix))
+      i += 1
+    }
+  }
 }
 
 // Remove every response a question owns — used when a conditional question is
@@ -656,7 +695,10 @@ function isSurveyPageComplete(): boolean {
   return ctx.questions.every((q) => {
     // Hidden conditional questions are not required.
     if (!isQuestionVisible(q, ctx.keyPrefix)) return true
-    if (q.kind === 'text') return true // open-ended is optional
+    if (q.kind === 'text') {
+      if (!q.required) return true // open-ended is optional unless marked required
+      return (surveyResponses.get(fieldKey(ctx.keyPrefix, q.id)) ?? '').trim() !== ''
+    }
     if (q.kind === 'error-localization') {
       // Both the step selection and the reason text are required while shown.
       const step = surveyResponses.get(fieldKey(ctx.keyPrefix, q.id)) ?? ''

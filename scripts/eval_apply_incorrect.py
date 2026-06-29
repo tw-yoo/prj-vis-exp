@@ -5,11 +5,11 @@ For the 8 designated INCORRECT charts (2 per active group G1-G4):
   - chart_group.json: `answer` = the (executor-verified) WRONG value;
     `answerIsCorrect` = false; `correctAnswer` = the true value.
   - baselines/baseline_input.json[id].explanation = flawed B1 prose.
-  - data/ours/ops/<id>.ops.json = flawed (verified) ops (from /tmp/flawed_ops.json).
+  - data/ours/ops/<id>.ops.json = flawed (verified) ops (from data/review/eval_flawed_ops.json).
   - data/ours/steps/<id>.step.json = flawed step narration (matching the ops groups).
 For all 25 charts: chart_group gets `answerIsCorrect` + `correctAnswer` (ground truth).
 
-Re-runnable. The flawed ops come from the executor-verified /tmp/flawed_ops.json.
+Re-runnable. The flawed ops come from data/review/eval_flawed_ops.json.
 """
 import json, os
 
@@ -19,17 +19,24 @@ CG = os.path.join(EVAL, 'chart_group.json')
 BI = os.path.join(EVAL, 'baselines/baseline_input.json')
 OPS_DIR = os.path.join(EVAL, 'data/ours/ops')
 STEPS_DIR = os.path.join(EVAL, 'data/ours/steps')
-FLAWED_OPS = json.load(open('/tmp/flawed_ops.json'))
+FLAWED_OPS = json.load(open(os.path.join(ROOT, 'data/review/eval_flawed_ops.json')))
 
 # chart_id -> { wrong, prose (B1), steps (list, one per ops group, in order) }
+# 8 incorrect items = 2 per active group G1-G4:
+#   G1: 11e148 (bar_stacked), 8chfa8n (line_simple)
+#   G2: 0jbrb1d (bar_simple), 0egzejn (bar_grouped)
+#   G3: 0xc7sx6ll (bar_grouped), 2s65jcap (line_multiple)
+#   G4: 10t8o5v (bar_stacked), 2eiyyw (line_multiple)
 INCORRECT = {
-    '0wflwm4jebx7n12y': {
-        'wrong': '150',
-        'prose': 'Find the maximum bar height in the chart to get 380. Take a middle “Number of fires” value as the typical (average) level, about 230. Subtract that from the maximum, leaving a difference of 150.',
+    '8chfa8n079zpfigi': {
+        'wrong': '10',
+        'prose': (
+            'Filter the chart to the years whose FIFA World Ranking position is above 20 '
+            'and no more than 30. Count the remaining year points to get 10.'
+        ),
         'steps': [
-            'Find the maximum bar height in the chart (380).',
-            'Take a middle “Number of fires” value as the average (about 230).',
-            'Subtract that from the maximum, leaving 150.',
+            'Keep the years whose FIFA World Ranking position is above 20 and at most 30.',
+            'Count the remaining year points to get 10.',
         ],
     },
     '11e148qcs7x70t8v': {
@@ -40,37 +47,43 @@ INCORRECT = {
             'List the Periods where South Korea is about even with or above France: 2015, 2016, 2017, 2018, Jan-Oct 2019.',
         ],
     },
-    '0lua5jsw92d3enb4': {
+    '0jbrb1dcbliiampz': {
+        'wrong': '7',
+        'prose': 'Count all years where the investments value is greater than 22 billion euros. Seven years in total exceed this level.',
+        'steps': [
+            'Keep all years whose investments value is greater than 22 billion euros (ignoring the 2011–2014 restriction).',
+            'Count the qualifying years — 7.',
+        ],
+    },
+    '0egzejn5mejtnfdm': {
         'wrong': '12',
-        'prose': 'Focus on the bars for 2019 across the diet-type panels. Counting the diet types whose 2019 share is 0.03 or higher gives 12.',
+        'prose': ("Find Scotland's highest SharePercentage (28). Then find England & Wales's"
+                  ' second-lowest SharePercentage (16, the "Somewhat against" bar) as the'
+                  ' smallest-looking bar other than the outlier. Subtract to get 12.'),
         'steps': [
-            'Focus on the 2019 bars across all diet-type panels.',
-            'Keep the 2019 bars at or above 0.03.',
-            'Count them — 12.',
+            "Find Scotland's highest SharePercentage across the response-category panels (28).",
+            "Find England & Wales's second-lowest SharePercentage (16), treating the 2% outlier as anomalous.",
+            '28 − 16 = 12.',
         ],
     },
-    '66va2s35es5t86l3': {
-        'wrong': '2019',
-        'prose': 'The line reaches its highest value in 2019, so the year with the largest year-over-year increase is 2019.',
+    '0xc7sx6ll8fl5rgh': {
+        'wrong': '0.37',
+        'prose': ("Focus only on Hillary Clinton's vote-share bars across all age groups."
+                  ' Average those values — ignoring the comparison to Sanders — to get 0.37.'),
         'steps': [
-            'The line reaches its highest value in 2019, so that is the year with the largest increase.',
-        ],
-    },
-    '0gvrmm8qbn6o1vya': {
-        'wrong': '54.79',
-        'prose': 'Filter the bars to the lower-priced seasons, counting 2012/13 (about $63) as well. Average those ticket prices to get about 54.79.',
-        'steps': [
-            'Filter to the lower-priced seasons (including 2012/13 at about $63).',
-            'Average those ticket prices, giving about 54.79.',
+            "Keep only Hillary Clinton's vote-share bars across all age groups.",
+            'Average those values to get 0.37.',
         ],
     },
     '2s65jcap9pn289qx': {
         'wrong': '-196.94',
-        'prose': 'Treat the recent years as 2015 through 2020. Subtract the men’s value from the women’s value for each of those years, then add the yearly differences together to get -196.94.',
+        'prose': ("Treat the recent years as 2015 through 2020. Subtract the men's value"
+                  " from the women's value for each of those years, then add the yearly"
+                  ' differences together to get −196.94.'),
         'steps': [
             'Take the recent years as 2015 through 2020.',
-            'Subtract the men’s value from the women’s value for each year.',
-            'Sum those yearly differences to get -196.94.',
+            "Subtract the men's value from the women's value for each year.",
+            'Sum those yearly differences to get −196.94.',
         ],
     },
     '10t8o5vhethzeod1': {
@@ -81,12 +94,15 @@ INCORRECT = {
             'Its tallest year is 2017.',
         ],
     },
-    '0prhtod4tli879nh': {
-        'wrong': 'Tokyo',
-        'prose': 'Compare each city’s 2010 and 2025 population bars. Tokyo stands out among the cities, so the city with the biggest jump is Tokyo.',
+    '2eiyyw562tcvjypp': {
+        'wrong': '3',
+        'prose': ('Compare the Russia and US favorable-view percentages for each year.'
+                  ' Count the years where Russia is clearly ahead or roughly at par with the'
+                  ' US (within 1 point). That gives 3 years: 2007, 2009, and 2015.'),
         'steps': [
-            'Compare each city’s 2010 and 2025 population bars.',
-            'Tokyo stands out among the cities, so the biggest jump is Tokyo.',
+            "Compare Russia's and the US's favorable-view percentages for each year shown.",
+            'Keep the years where Russia is at or above the US, including near-ties (within 1 point): 2007, 2009, 2015.',
+            'Count those years — 3.',
         ],
     },
 }
@@ -114,6 +130,7 @@ def main():
                 entry['answerIsCorrect'] = False
             else:
                 entry['correctAnswer'] = true_answer
+                entry['answer'] = true_answer
                 entry['answerIsCorrect'] = True
             seen.add(cid)
     dump(CG, cg)

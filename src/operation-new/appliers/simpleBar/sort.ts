@@ -73,11 +73,13 @@ export const sortApplier: OperationApplier<SimpleBarChartInstance> = {
       })
 
     // X-axis ticks: each tick's transform moves to match the bar's new center.
+    // Use D3's datum binding (the raw domain value) rather than .text() so that
+    // label formatters or wrapAxisTickLabels don't break the match.
     const ticks = instance.xAxisGroup.selectAll<SVGGElement, unknown>(`.${SvgClassNames.Tick}`)
     ticks.each(function () {
       const tick = d3.select(this)
-      const label = tick.select(SvgElements.Text).text().trim()
-      const nextX = targetToX.get(label)
+      const rawDomain = tick.datum() as string
+      const nextX = targetToX.get(rawDomain)
       if (nextX == null) return
       tick.transition(inheritT).attr(SvgAttributes.Transform, `translate(${nextX + firstWidth / 2},0)`)
     })

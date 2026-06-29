@@ -7,15 +7,11 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Restrict attention to the bars for the years 2011 through 2014."
+      "text": "Keep all years whose investments value is greater than 22 billion euros (ignoring the 2011–2014 restriction)."
     },
     {
       "id": "ops2",
-      "text": "Keep the bars whose investments value is greater than 22 on the y-axis."
-    },
-    {
-      "id": "ops3",
-      "text": "Count the qualifying years."
+      "text": "Count the qualifying years — 7."
     }
   ]
 }

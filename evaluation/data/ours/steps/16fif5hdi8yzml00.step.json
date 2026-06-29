@@ -1,0 +1,21 @@
+{
+  "chart_id": "16fif5hdi8yzml00",
+  "question": "What is the difference between average of maximum payment in all states and average of minimum payment in all states?",
+  "description": "",
+  "specPath": "specs/16fif5hdi8yzml00.vl.json",
+  "opsPath": "ops/16fif5hdi8yzml00.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Average the Maximum payment values across all state panels."
+    },
+    {
+      "id": "ops2",
+      "text": "Average the Minimum payment values across all state panels."
+    },
+    {
+      "id": "ops3",
+      "text": "Subtract the minimum average from the maximum average."
+    }
+  ]
+}

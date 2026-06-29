@@ -259,6 +259,10 @@ export class SimpleBarChartInstance implements ChartInstance {
   clipPathId = ''
   dataRows: RawDatum[] = []
 
+  /** True if the most recent ensureRendered triggered a full SVG rebuild.
+   *  Runners read this after waitForBuild() to detect scale-state divergence. */
+  wasLastBuildRebuild = false
+
   private specKey = ''
   private currentSpec: ChartSpec | null = null
   private buildPromise: Promise<void> | null = null
@@ -273,11 +277,23 @@ export class SimpleBarChartInstance implements ChartInstance {
       console.info('[operation-new] SimpleBarChartInstance.ensureRendered: NO-OP (specKey match)', {
         specKeyHash: nextKey.length,
       })
+      this.wasLastBuildRebuild = false
       return false
+    }
+    // SVG detached but spec is the same: try rehydrating d3 selections from the
+    // existing DOM before falling back to a full rebuild that clears the axes.
+    if (nextKey === this.specKey && this.barData.length > 0) {
+      const rehydrated = this.rehydrateFromHost(spec)
+      if (rehydrated) {
+        console.info('[operation-new] SimpleBarChartInstance.ensureRendered: rehydrated (SVG was detached)')
+        this.wasLastBuildRebuild = false
+        return false
+      }
     }
     console.info('[operation-new] SimpleBarChartInstance.ensureRendered: rebuilding', {
       reason: this.specKey === '' ? 'first-build' : nextKey !== this.specKey ? 'spec-changed' : 'svg-detached',
     })
+    this.wasLastBuildRebuild = true
     this.specKey = nextKey
     this.currentSpec = spec
     this.buildPromise = this.buildFromSpec(spec)
@@ -525,14 +541,12 @@ export class SimpleBarChartInstance implements ChartInstance {
     // smoothly interpolates positions for the new scale.
     if (willChangeY) {
       this.yAxisGroup.transition(inheritT).call(d3.axisLeft(this.yScale).ticks(5))
-      applyAxisTickLabelSize(this.yAxisGroup)
     }
     if (willChangeX) {
       const xLabelMap = buildCategoricalDisplayLabelMap(this.dataRows, this.resolvedEncoding?.xField ?? '')
       this.xAxisGroup
         .transition(inheritT)
         .call(d3.axisBottom(this.xScale).tickFormat(categoricalTickFormatter(xLabelMap)))
-      applyAxisTickLabelSize(this.xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
     }
 
     try {
@@ -540,6 +554,12 @@ export class SimpleBarChartInstance implements ChartInstance {
     } catch {
       /* interrupted */
     }
+
+    // Apply font-size styling AFTER the transition settles so that tick element
+    // creation (which D3 does synchronously via .call(axis)) has fully resolved
+    // and the label size doesn't jump mid-animation.
+    if (willChangeY) applyAxisTickLabelSize(this.yAxisGroup)
+    if (willChangeX) applyAxisTickLabelSize(this.xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
   }
 
   // -------------------------------------------------------------------------

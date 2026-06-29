@@ -306,7 +306,7 @@ function ensureFavorabilityMarker({ d3, svg, markerId, color }) {
 }
 
 export function function1({ d3, container }) {
-    const csvRussiaHigherYears = new Set(['2007', '2015']);
+    const csvRussiaHigherYears = new Set(['2007', '2009', '2015']);
     const seriesColors = {
         'US favorability in Russia': '#60a5fa',
         'Russia favorability in US': '#fb7185',
@@ -377,7 +377,7 @@ export function function1({ d3, container }) {
         .attr('font-size', 13)
         .attr('font-weight', 800)
         .attr('fill', seriesColors['Russia favorability in US'])
-        .text('Russia higher: 2 years');
+        .text('Russia higher: 3 years (incl. near-tie 2009)');
 }
 
 export function function2({ d3, container }) {}

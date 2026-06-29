@@ -1,0 +1,448 @@
+import { autoRotateXAxisLabels, rebuildSvgInPlace } from '../chartUtils.js';
+
+export const data_rows = [
+    { State: 'Iowa', Type: 'Maximum', Payment_Million_USD: 25 },
+    { State: 'Iowa', Type: 'Minimum', Payment_Million_USD: 15 },
+    { State: 'Oklahoma', Type: 'Maximum', Payment_Million_USD: 25 },
+    { State: 'Oklahoma', Type: 'Minimum', Payment_Million_USD: 15 },
+    { State: 'Minnesota', Type: 'Maximum', Payment_Million_USD: 15 },
+    { State: 'Minnesota', Type: 'Minimum', Payment_Million_USD: 10 },
+    { State: 'Washington', Type: 'Maximum', Payment_Million_USD: 10 },
+    { State: 'Washington', Type: 'Minimum', Payment_Million_USD: 5 }
+];
+
+// Workbench default category color palette (DEFAULT_CATEGORY_COLORS)
+const WORKBENCH_PALETTE = ['#4f46e5', '#14b8a6', '#f97316', '#e11d48', '#8b5cf6', '#0ea5e9', '#16a34a', '#f59e0b'];
+
+function resolveSeriesColor(seriesDomain, key) {
+    const index = seriesDomain.indexOf(String(key));
+    return WORKBENCH_PALETTE[index >= 0 ? index % WORKBENCH_PALETTE.length : 0];
+}
+
+function injectGroupedChartStyles() {
+    if (document.getElementById('validation-grouped-chart-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'validation-grouped-chart-styles';
+    style.textContent = `
+        .validation-grouped-chart-host {
+            position: relative;
+            background: #ffffff;
+            color: #000000;
+        }
+        .validation-grouped-chart-host svg {
+            display: block;
+            overflow: visible;
+            max-width: 100%;
+            height: auto;
+        }
+        .validation-grouped-chart-host .x-axis line,
+        .validation-grouped-chart-host .x-axis path,
+        .validation-grouped-chart-host .y-axis line,
+        .validation-grouped-chart-host .y-axis path {
+            stroke: #000000;
+            stroke-opacity: 1;
+        }
+        .validation-grouped-chart-host .x-axis text,
+        .validation-grouped-chart-host .y-axis text,
+        .validation-grouped-chart-host .x-axis-label,
+        .validation-grouped-chart-host .y-axis-label {
+            fill: #000000;
+            fill-opacity: 1;
+            font-size: 11px;
+            font-family: sans-serif;
+        }
+        .validation-grouped-chart-host .main-bar {
+            cursor: pointer;
+        }
+        .validation-grouped-chart-host .color-legend text {
+            fill: #000000;
+            font-family: sans-serif;
+        }
+        .validation-grouped-chart-tooltip {
+            position: absolute;
+            z-index: 6;
+            min-width: 120px;
+            padding: 10px 12px;
+            border: 1px solid rgba(203, 213, 225, 0.9);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.14);
+            pointer-events: none;
+            font-family: sans-serif;
+        }
+        .validation-grouped-chart-tooltip[hidden] { display: none; }
+        .validation-grouped-chart-tooltip__row {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            column-gap: 10px;
+            align-items: baseline;
+        }
+        .validation-grouped-chart-tooltip__label { color: #6b7280; font-size: 12px; }
+        .validation-grouped-chart-tooltip__value { color: #111827; font-size: 13px; font-weight: 600; text-align: right; }
+    `;
+    document.head.appendChild(style);
+}
+
+export function renderValidationGroupedBarChart({ container }) {
+    const xField = 'State';
+    const seriesField = 'Type';
+    const yField = 'Payment_Million_USD';
+
+    injectGroupedChartStyles();
+
+    const data = data_rows;
+
+    // Derive domains from data — no hardcoded variable names
+    const xDomain = Array.from(new Set(data.map((d) => String(d[xField]))));
+    const seriesDomain = Array.from(new Set(data.map((d) => String(d[seriesField]))));
+
+    // Aggregate rows into GroupedBarPoint objects matching Workbench's data model:
+    // { category, series, value, rows }
+    const aggregated = [];
+    xDomain.forEach((cat) => {
+        seriesDomain.forEach((ser) => {
+            const rows = data.filter((d) => String(d[xField]) === cat && String(d[seriesField]) === ser);
+            if (!rows.length) return;
+            const value = rows.reduce((sum, d) => sum + Number(d[yField]), 0);
+            aggregated.push({ category: cat, series: ser, value, rows });
+        });
+    });
+
+    const maxY = Math.max(0, ...aggregated.map((d) => d.value));
+
+    // Canvas / layout constants matching Workbench defaults (with legend)
+    // legendReserve = legendWidth(136) + legendOffsetX(64) = 200
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 16, bottom: 48, left: 56 };
+    const legendOffsetX = 64;
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const plotH = height - margin.top - margin.bottom;
+
+    // Outer scale (categories), inner scale (series) — same padding as Workbench
+    const xScale = d3.scaleBand()
+        .domain(xDomain)
+        .range([0, plotW])
+        .paddingInner(0.18)
+        .paddingOuter(0.08);
+
+    const innerScale = d3.scaleBand()
+        .domain(seriesDomain)
+        .range([0, Math.max(xScale.bandwidth(), 1)])
+        .padding(0.08);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, maxY])
+        .nice()
+        .range([plotH, 0]);
+
+    const zeroY = yScale(0);
+
+    // Clear and prepare container
+    container.innerHTML = '';
+    container.classList.add('validation-grouped-chart-host');
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', `0 0 ${width} ${height}`)
+        .style('overflow', 'visible');
+
+    const g = svg.append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    // Y axis
+    g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).ticks(5));
+
+    // X axis
+    g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    autoRotateXAxisLabels(g.select('.x-axis'));
+
+    // Grouped bars — class "main-bar" matches Workbench
+    g.selectAll('rect.main-bar')
+        .data(aggregated)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (datum) => (xScale(datum.category) ?? 0) + (innerScale(datum.series) ?? 0))
+        .attr('width', innerScale.bandwidth())
+        .attr('y', (datum) => (datum.value >= 0 ? yScale(datum.value) : zeroY))
+        .attr('height', (datum) => Math.abs(yScale(datum.value) - zeroY))
+        .attr('fill', (datum) => resolveSeriesColor(seriesDomain, datum.series))
+        .attr('opacity', 1)
+        // Workbench data attributes
+        .attr('data-target', (datum) => String(datum.category))
+        .attr('data-value', (datum) => datum.value)
+        .attr('data-series', (datum) => String(datum.series))
+        .attr('data-x-value', (datum) => String(datum.category))
+        .attr('data-y-value', (datum) => String(datum.value))
+        .attr('data-group-value', (datum) => String(datum.series));
+
+    // Color legend — matches Workbench renderColorLegend (circles, not rects)
+    // legendLabel=20, rowGap=10 → each row height = 30; circle cy = rowY + 10
+    const legendX = margin.left + plotW + legendOffsetX;
+    const legend = svg.append('g')
+        .attr('class', 'color-legend')
+        .attr('transform', `translate(${legendX},${margin.top})`);
+
+    const legendRowH = 30; // legendLabel(20) + rowGap(10)
+
+    seriesDomain.forEach((ser, i) => {
+        const rowY = i * legendRowH;
+        const cy = rowY + 10; // legendLabel / 2
+
+        legend.append('circle')
+            .attr('cx', 8)
+            .attr('cy', cy)
+            .attr('r', 5)
+            .attr('fill', resolveSeriesColor(seriesDomain, ser))
+            .attr('opacity', 0.85);
+
+        legend.append('text')
+            .attr('x', 20)
+            .attr('y', cy)
+            .attr('font-size', 20) // CHART_TEXT_SIZE.legendLabel
+            .attr('dominant-baseline', 'middle')
+            .text(ser);
+    });
+
+    // Hover tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'validation-grouped-chart-tooltip';
+    tooltip.setAttribute('hidden', '');
+    tooltip.innerHTML = `
+        <div class="validation-grouped-chart-tooltip__row">
+            <span class="validation-grouped-chart-tooltip__label">${xField}</span>
+            <span class="validation-grouped-chart-tooltip__value" id="grp-tt-x"></span>
+        </div>
+        <div class="validation-grouped-chart-tooltip__row">
+            <span class="validation-grouped-chart-tooltip__label">${seriesField}</span>
+            <span class="validation-grouped-chart-tooltip__value" id="grp-tt-s"></span>
+        </div>
+        <div class="validation-grouped-chart-tooltip__row">
+            <span class="validation-grouped-chart-tooltip__label">${yField}</span>
+            <span class="validation-grouped-chart-tooltip__value" id="grp-tt-y"></span>
+        </div>
+    `;
+    container.appendChild(tooltip);
+
+    g.selectAll('rect.main-bar')
+        .on('mouseover', function (event, datum) {
+            tooltip.removeAttribute('hidden');
+            tooltip.querySelector('#grp-tt-x').textContent = String(datum.category);
+            tooltip.querySelector('#grp-tt-s').textContent = String(datum.series);
+            tooltip.querySelector('#grp-tt-y').textContent = String(datum.value);
+        })
+        .on('mousemove', function (event) {
+            const rect = container.getBoundingClientRect();
+            tooltip.style.left = `${event.clientX - rect.left + 12}px`;
+            tooltip.style.top = `${event.clientY - rect.top - 10}px`;
+        })
+        .on('mouseout', function () {
+            tooltip.setAttribute('hidden', '');
+        });
+}
+
+function renderTransposedPaymentChart({ d3, container, showDifference = false }) {
+    injectGroupedChartStyles();
+
+    const csvAverage = { Maximum: 20.0, Minimum: 6.25 };
+    const csvDifference = 13.75;
+    const xDomain = ['Maximum', 'Minimum'];
+    const seriesDomain = Array.from(new Set(data_rows.map((d) => d.State)));
+    const data = [];
+    xDomain.forEach((type) => {
+        seriesDomain.forEach((state) => {
+            const row = data_rows.find((d) => d.Type === type && d.State === state);
+            if (row) data.push({ category: type, series: state, value: Number(row.Payment_Million_USD) });
+        });
+    });
+
+    const width = 640;
+    const height = 360;
+    const margin = { top: 32, right: 176, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+
+    container.classList.add('validation-grouped-chart-host');
+
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.22);
+    const innerScale = d3.scaleBand().domain(seriesDomain).range([0, xScale.bandwidth()]).padding(0.12);
+    const yScale = d3.scaleLinear().domain([0, 25]).nice().range([plotH, 0]);
+
+    const svg = rebuildSvgInPlace({ d3, container, viewBox: `0 0 ${width} ${height}`, instant: true });
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+    g.append('g').attr('class', 'y-axis').call(d3.axisLeft(yScale).ticks(5));
+    g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    g.selectAll('rect.main-bar')
+        .data(data)
+        .join('rect')
+        .attr('class', 'main-bar')
+        .attr('x', (d) => (xScale(d.category) ?? 0) + (innerScale(d.series) ?? 0))
+        .attr('width', innerScale.bandwidth())
+        .attr('y', (d) => yScale(d.value))
+        .attr('height', (d) => plotH - yScale(d.value))
+        .attr('fill', (d) => resolveSeriesColor(seriesDomain, d.series))
+        .attr('opacity', 1)
+        .attr('data-target', (d) => d.category)
+        .attr('data-series', (d) => d.series)
+        .attr('data-value', (d) => d.value)
+        .attr('data-x-value', (d) => d.category)
+        .attr('data-y-value', (d) => String(d.value))
+        .attr('data-group-value', (d) => d.series);
+
+    xDomain.forEach((type) => {
+        const x0 = xScale(type) ?? 0;
+        const y = yScale(csvAverage[type]);
+        g.append('line')
+            .attr('class', 'e8-q3-function1')
+            .attr('x1', x0)
+            .attr('x2', x0 + xScale.bandwidth())
+            .attr('y1', y)
+            .attr('y2', y)
+            .attr('stroke', '#dc2626')
+            .attr('stroke-width', 2)
+            .attr('stroke-dasharray', '5 4');
+        g.append('text')
+            .attr('class', 'e8-q3-function1')
+            .attr('x', x0 + xScale.bandwidth() / 2)
+            .attr('y', y - 7)
+            .attr('text-anchor', 'middle')
+            .attr('fill', '#dc2626')
+            .attr('font-size', 11)
+            .attr('font-weight', 700)
+            .text(`${type} avg: ${csvAverage[type]}`);
+    });
+
+    const legend = svg.append('g')
+        .attr('class', 'color-legend')
+        .attr('transform', `translate(${margin.left + plotW + 28},${margin.top})`);
+    seriesDomain.forEach((state, i) => {
+        const y = i * 22;
+        legend.append('circle').attr('cx', 6).attr('cy', y + 7).attr('r', 5).attr('fill', resolveSeriesColor(seriesDomain, state));
+        legend.append('text').attr('x', 18).attr('y', y + 11).attr('font-size', 11).text(state);
+    });
+
+    if (!showDifference) return;
+
+    const defs = svg.append('defs');
+    defs.append('marker')
+        .attr('id', 'e8-q3-arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 5)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#111827');
+
+    const x = plotW + 18;
+    const yMax = yScale(csvAverage.Maximum);
+    const yMin = yScale(csvAverage.Minimum);
+    g.append('line')
+        .attr('class', 'e8-q3-function2')
+        .attr('x1', x)
+        .attr('x2', x)
+        .attr('y1', yMax)
+        .attr('y2', yMin)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('marker-start', 'url(#e8-q3-arrow)')
+        .attr('marker-end', 'url(#e8-q3-arrow)');
+    g.append('text')
+        .attr('class', 'e8-q3-function2')
+        .attr('x', x + 8)
+        .attr('y', (yMax + yMin) / 2)
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', '#111827')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .text(`${csvDifference} million USD`);
+}
+
+export function function1({ d3, container }) {
+    renderTransposedPaymentChart({ d3, container, showDifference: false });
+}
+
+export function function2({ d3, container }) {
+    // Per reviewer: do NOT rebuild the whole chart — only add the difference
+    // line + label annotation on top of function1's existing chart.
+    const csvAverage = { Maximum: 20.0, Minimum: 6.25 };
+    const csvDifference = 13.75;
+    const xDomain = ['Maximum', 'Minimum'];
+    const width = 640;
+    const margin = { top: 32, right: 176, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = 360 - margin.top - margin.bottom;
+    const yScale = d3.scaleLinear().domain([0, 25]).nice().range([plotH, 0]);
+
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+    // Locate the inner plot g (translated by margin). With rebuildSvgInPlace
+    // direct API there's no wrapper, so it's the first g child.
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    // Remove any prior diff annotation (re-clicks).
+    g.selectAll('.e8-q3-function2').remove();
+    svg.select('defs#e8-q3-defs').remove();
+
+    const defs = svg.append('defs').attr('id', 'e8-q3-defs');
+    defs.append('marker')
+        .attr('id', 'e8-q3-arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 5)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+        .append('path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#111827');
+
+    const x = plotW + 18;
+    const yMax = yScale(csvAverage.Maximum);
+    const yMin = yScale(csvAverage.Minimum);
+    g.append('line')
+        .attr('class', 'e8-q3-function2')
+        .attr('x1', x)
+        .attr('x2', x)
+        .attr('y1', (yMax + yMin) / 2)
+        .attr('y2', (yMax + yMin) / 2)
+        .attr('stroke', '#111827')
+        .attr('stroke-width', 2)
+        .attr('marker-start', 'url(#e8-q3-arrow)')
+        .attr('marker-end', 'url(#e8-q3-arrow)')
+        .transition()
+        .duration(650)
+        .attr('y1', yMax)
+        .attr('y2', yMin);
+    g.append('text')
+        .attr('class', 'e8-q3-function2')
+        .attr('x', x + 8)
+        .attr('y', (yMax + yMin) / 2)
+        .attr('dominant-baseline', 'middle')
+        .attr('fill', '#111827')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('opacity', 0)
+        .text(`${csvDifference} million USD`)
+        .transition()
+        .duration(650)
+        .attr('opacity', 1);
+}
+
+export function function3({ d3, container }) {}

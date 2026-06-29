@@ -281,7 +281,7 @@ export function function2({ d3, container }) {
 
     const filteredYears = new Set(
         data_rows
-            .filter((d) => Number(d[E2_Q6_Y_FIELD]) <= E2_Q6_THRESHOLD + 4)
+            .filter((d) => Number(d[E2_Q6_Y_FIELD]) <= E2_Q6_THRESHOLD)
             .map((d) => String(d['Season']))
     );
     const filteredValues = data_rows

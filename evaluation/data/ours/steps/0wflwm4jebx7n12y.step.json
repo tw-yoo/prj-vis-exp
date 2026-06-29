@@ -11,11 +11,11 @@
     },
     {
       "id": "ops2",
-      "text": "Calculate the average of the “Number of fires” values across all years (238.75)."
+      "text": "Take a middle \"Number of fires\" value as the typical average (about 230)."
     },
     {
       "id": "ops3",
-      "text": "Subtract the average from the maximum, leaving a difference of 141.25."
+      "text": "Subtract that from the maximum, leaving 150."
     }
   ]
 }

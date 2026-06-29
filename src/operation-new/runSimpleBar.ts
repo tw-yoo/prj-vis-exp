@@ -87,6 +87,17 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
   const instance = ensureSimpleBarChartInstance(run.container, barSpec)
   await instance.waitForBuild()
 
+  // If a full SVG rebuild just occurred (e.g., spec-change or SVG detached),
+  // the instance's yScale resets to the original full domain. Restore the
+  // filtered domain recorded in initialChainState so subsequent annotation
+  // positions stay consistent with the data state from prior substeps.
+  if (instance.wasLastBuildRebuild && run.options?.initialChainState?.scaleState?.currentDomain) {
+    await instance.transitionChartScale({
+      yDomain: run.options.initialChainState.scaleState.currentDomain,
+      duration: 0,
+    })
+  }
+
   let nextIndex = run.options?.operationIndexStart ?? 0
   let lastResult: DatumValue[] | null = null
   let state: ChainState = restoreChainState(

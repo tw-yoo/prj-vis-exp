@@ -372,7 +372,7 @@ export function function2({ d3, container }) {
     const differenceRows = getPopulationDifferenceRows();
     // Per reviewer: differences are now absolute (positive), so sum is positive.
     const sumOfDifferences = differenceRows.reduce((s, d) => s + d.difference, 0);
-    const csvSumLabel = `The sum of differences is -${sumOfDifferences.toFixed(2)} million inhabitants`;
+    const csvSumLabel = `The sum of differences is ${sumOfDifferences.toFixed(2)} million inhabitants`;
     const width = 640;
     const height = 360;
     // Reserve extra top margin (was 32) so the sum label sits ABOVE the bars

@@ -69,10 +69,10 @@ STEP_TEXTS = {
         "Calculate the average of the “Number of fires” values across all years.",
         "Subtract the average from the maximum.",
     ],
-    '0lua5jsw92d3enb4': [
-        "Focus on the bars for the year 2019 across all diet-type panels.",
-        "Keep the 2019 bars whose share is strictly greater than 0.03.",
-        "Count the diet types that surpass the threshold.",
+    '0xc7sx6ll8fl5rgh': [
+        "For each age group, compute the difference between Clinton's and Sanders's vote share.",
+        "Filter to the age groups where Clinton's share was lower than Sanders's.",
+        "Average Clinton's vote share at those age groups.",
     ],
     '0egzejn5mejtnfdm': [
         "Find Scotland's highest SharePercentage across the response-category panels.",
@@ -132,10 +132,10 @@ STEP_TEXTS = {
         "For each year, take the absolute difference between the Convenience and Price values.",
         "Find the year with the smallest gap (2013).",
     ],
-    '0rfuaawgi58ajpsv': [
-        "Average the North America values across all years.",
-        "Average the Latin America values across all years.",
-        "Subtract the Latin America average from the North America average.",
+    '16fif5hdi8yzml00': [
+        "Average the Maximum payment values across all state panels.",
+        "Average the Minimum payment values across all state panels.",
+        "Subtract the minimum average from the maximum average.",
     ],
     '01mksjs373fhcl4q': [
         "Within each sector's panel, subtract the mid-2013 bar from the 2003 bar to get the decline.",
@@ -160,7 +160,7 @@ ANSWERS = {
     '10gtgmmgh599jnr7': "0.023",
     '1k8qhmg9rui7gtzh': "31",
     '0wflwm4jebx7n12y': "141.25",
-    '0lua5jsw92d3enb4': "8",
+    '0xc7sx6ll8fl5rgh': "0.31",
     '0egzejn5mejtnfdm': "26",
     '1a09xqtrj8zms716': "600",
     '25gpdzxh8nu0c0vf': "median",
@@ -174,7 +174,7 @@ ANSWERS = {
     'avwb8xstxx1lmfpk': "2021",
     '16aphfabldrpgcmd': "8",
     '20qa83ih1gn6toqt': "2013",
-    '0rfuaawgi58ajpsv': "8.422",
+    '16fif5hdi8yzml00': "7.5",
     '01mksjs373fhcl4q': "Large companies",
     '10t8o5vhethzeod1': "2011",
     '21fa7gb8l1ix6yfm': "Text messaging",

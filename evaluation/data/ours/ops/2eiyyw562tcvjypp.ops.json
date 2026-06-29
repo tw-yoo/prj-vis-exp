@@ -27,8 +27,8 @@
         ],
         "sentenceIndex": 2
       },
-      "operator": ">",
-      "value": 0
+      "operator": ">=",
+      "value": -1
     }
   ],
   "ops3": [

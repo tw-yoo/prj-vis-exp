@@ -15,10 +15,10 @@
       "answerIsCorrect": false
     },
     "bar_grouped": {
-      "id": "0rfuaawgi58ajpsv",
-      "question": "What is the difference in the average between North America and Latin America?",
-      "answer": "8.422",
-      "correctAnswer": "8.422",
+      "id": "16fif5hdi8yzml00",
+      "question": "What is the difference between average of maximum payment in all states and average of minimum payment in all states?",
+      "answer": "7.5",
+      "correctAnswer": "7.5",
       "answerIsCorrect": true
     },
     "line_simple": {
@@ -40,9 +40,9 @@
     "bar_simple": {
       "id": "0jbrb1dcbliiampz",
       "question": "How many years had investments of over 22 Billion Euros in the years 2011 to 2014?",
-      "answer": "3",
+      "answer": "7",
       "correctAnswer": "3",
-      "answerIsCorrect": true
+      "answerIsCorrect": false
     },
     "bar_stacked": {
       "id": "2bhsybiilde28j87",
@@ -54,16 +54,16 @@
     "bar_grouped": {
       "id": "0egzejn5mejtnfdm",
       "question": "What is the difference between Scotland's largest value and England and Wales's smallest value?",
-      "answer": "26",
+      "answer": "12",
       "correctAnswer": "26",
-      "answerIsCorrect": true
+      "answerIsCorrect": false
     },
     "line_simple": {
       "id": "66va2s35es5t86l3",
       "question": "What is the year with the largest increase compared to the previous year?",
-      "answer": "2019",
+      "answer": "2010",
       "correctAnswer": "2010",
-      "answerIsCorrect": false
+      "answerIsCorrect": true
     },
     "line_multiple": {
       "id": "16aphfabldrpgcmd",
@@ -77,9 +77,9 @@
     "bar_simple": {
       "id": "0gvrmm8qbn6o1vya",
       "question": "What is the average of Season's ticket prices with a ticket price of $60 or less?",
-      "answer": "54.79",
+      "answer": "53.41",
       "correctAnswer": "53.41",
-      "answerIsCorrect": false
+      "answerIsCorrect": true
     },
     "bar_stacked": {
       "id": "77xb5ug5lhfmkb74",
@@ -89,10 +89,10 @@
       "answerIsCorrect": true
     },
     "bar_grouped": {
-      "id": "0lua5jsw92d3enb4",
-      "question": "How many diet types surpassed the threshold of 0.03% in 2019?",
-      "answer": "12",
-      "correctAnswer": "8",
+      "id": "0xc7sx6ll8fl5rgh",
+      "question": "What is the average of the vote share at an age when Clinton received a lower vote share?",
+      "answer": "0.37",
+      "correctAnswer": "0.31",
       "answerIsCorrect": false
     },
     "line_simple": {
@@ -128,9 +128,9 @@
     "bar_grouped": {
       "id": "0prhtod4tli879nh",
       "question": "Which city had the biggest jump in population from 2010 to 2025?",
-      "answer": "Tokyo",
+      "answer": "Delhi",
       "correctAnswer": "Delhi",
-      "answerIsCorrect": false
+      "answerIsCorrect": true
     },
     "line_simple": {
       "id": "25gpdzxh8nu0c0vf",
@@ -142,9 +142,9 @@
     "line_multiple": {
       "id": "2eiyyw562tcvjypp",
       "question": "How many years has Russia had higher favorability than the US?",
-      "answer": "2",
+      "answer": "3",
       "correctAnswer": "2",
-      "answerIsCorrect": true
+      "answerIsCorrect": false
     }
   },
   "G5": {

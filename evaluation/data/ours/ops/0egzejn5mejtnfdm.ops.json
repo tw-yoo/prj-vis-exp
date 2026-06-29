@@ -23,6 +23,7 @@
         "sentenceIndex": 2
       },
       "which": "min",
+      "rank": 2,
       "field": "SharePercentage",
       "group": "England & Wales"
     }

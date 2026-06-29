@@ -1,0 +1,206 @@
+{
+  "8chfa8n079zpfigi": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+        "field": "FIFA World Ranking position",
+        "operator": ">",
+        "value": 20
+      },
+      {
+        "op": "filter",
+        "id": "n2",
+        "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1 },
+        "field": "FIFA World Ranking position",
+        "operator": "<=",
+        "value": 30
+      }
+    ],
+    "ops2": [
+      {
+        "op": "count",
+        "id": "n3",
+        "meta": { "nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 2 }
+      }
+    ]
+  },
+  "11e148qcs7x70t8v": {
+    "ops": [
+      {
+        "op": "pairDiff",
+        "id": "n1",
+        "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+        "by": "Period",
+        "groupA": "South Korea",
+        "groupB": "France",
+        "seriesField": "Country",
+        "field": "Share_of_Import_Value"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n2",
+        "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2 },
+        "field": "Share_of_Import_Value",
+        "operator": ">=",
+        "value": -0.05
+      }
+    ]
+  },
+  "2s65jcap9pn289qx": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+        "field": "Year",
+        "operator": ">",
+        "value": "2014"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "pairDiff",
+        "id": "n2",
+        "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2 },
+        "by": "Year",
+        "groupA": "Female",
+        "groupB": "Male",
+        "seriesField": "Gender",
+        "field": "Population_Million_Inhabitants",
+        "signed": true
+      }
+    ],
+    "ops3": [
+      {
+        "op": "sum",
+        "id": "n3",
+        "meta": { "nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 3 },
+        "field": "Population_Million_Inhabitants"
+      }
+    ]
+  },
+  "10t8o5vhethzeod1": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+        "group": "Services"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "findExtremum",
+        "id": "n2",
+        "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2 },
+        "which": "max",
+        "field": "Share_of_GDP"
+      }
+    ]
+  },
+  "0jbrb1dcbliiampz": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+        "field": "Investments in Billion Euros",
+        "operator": ">",
+        "value": 22
+      }
+    ],
+    "ops2": [
+      {
+        "op": "count",
+        "id": "n2",
+        "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2 }
+      }
+    ]
+  },
+  "0egzejn5mejtnfdm": {
+    "ops": [
+      {
+        "op": "findExtremum",
+        "id": "n1",
+        "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+        "which": "max",
+        "field": "SharePercentage",
+        "group": "Scotland"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "findExtremum",
+        "id": "n2",
+        "meta": { "nodeId": "n2", "inputs": [], "sentenceIndex": 2 },
+        "which": "min",
+        "rank": 2,
+        "field": "SharePercentage",
+        "group": "England & Wales"
+      }
+    ],
+    "ops3": [
+      {
+        "op": "diff",
+        "id": "n3",
+        "meta": { "nodeId": "n3", "inputs": ["n1", "n2"], "sentenceIndex": 3 },
+        "targetA": "ref:n1",
+        "targetB": "ref:n2",
+        "signed": false
+      }
+    ]
+  },
+  "2eiyyw562tcvjypp": {
+    "ops": [
+      {
+        "op": "pairDiff",
+        "id": "n1",
+        "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+        "by": "Year",
+        "groupA": "Russia favorability in US",
+        "groupB": "US favorability in Russia",
+        "seriesField": "Favorability_Direction",
+        "field": "Favorable_View_Percentage",
+        "signed": true
+      }
+    ],
+    "ops2": [
+      {
+        "op": "filter",
+        "id": "n2",
+        "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2 },
+        "operator": ">=",
+        "value": -1
+      }
+    ],
+    "ops3": [
+      {
+        "op": "count",
+        "id": "n3",
+        "meta": { "nodeId": "n3", "inputs": ["n2"], "sentenceIndex": 3 }
+      }
+    ]
+  },
+  "0xc7sx6ll8fl5rgh": {
+    "ops": [
+      {
+        "op": "filter",
+        "id": "n1",
+        "meta": { "nodeId": "n1", "inputs": [], "sentenceIndex": 1 },
+        "group": "Hillary Clinton"
+      }
+    ],
+    "ops2": [
+      {
+        "op": "average",
+        "id": "n2",
+        "meta": { "nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2 },
+        "field": "Percentage of votes"
+      }
+    ]
+  }
+}

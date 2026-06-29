@@ -7,15 +7,15 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Find Scotland's highest SharePercentage across the response-category panels."
+      "text": "Find Scotland's highest SharePercentage across the response-category panels (28)."
     },
     {
       "id": "ops2",
-      "text": "Find England & Wales's lowest SharePercentage across the same panels."
+      "text": "Find England & Wales's second-lowest SharePercentage (16), treating the 2% outlier as anomalous."
     },
     {
       "id": "ops3",
-      "text": "Subtract the smaller value from the larger."
+      "text": "28 − 16 = 12."
     }
   ]
 }

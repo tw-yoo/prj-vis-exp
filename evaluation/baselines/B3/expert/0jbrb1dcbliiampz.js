@@ -252,7 +252,7 @@ export function renderValidationSimpleBarChart({ container }) {
     }
 }
 
-const E2_Q1_FOCUS_YEARS = new Set(['2011', '2012', '2013', '2014']);
+const E2_Q1_FOCUS_YEARS = new Set(['2011', '2012', '2013', '2014', '2015', '2016', '2017', '2018']);
 const E2_Q1_ABOVE_THRESHOLD_YEARS = new Set(['2011', '2012', '2014']);
 const E2_Q1_BELOW_THRESHOLD_YEARS = new Set(['2013']);
 const E2_Q1_BASE_FILL = '#69b3a2';
@@ -451,7 +451,7 @@ export function function2({ d3, container }) {
         .attr('font-weight', 700)
         .attr('fill', '#2563eb')
         .attr('opacity', 0)
-        .text('3 years > 22 (2011, 2012, 2014)')
+        .text('7 years > 22')
         .transition()
         .duration(650)
         .attr('opacity', 1);

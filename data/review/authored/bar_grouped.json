@@ -1,4 +1,59 @@
 {
+ "58wxo6da4x2w1ass": {
+  "spec": null,
+  "note": "#248 GAP (chart orientation): the question asks WHICH worker type is closest to 'All Government workers' for Obama, but this grouped bar's executor context sets primary_dimension = series_field = Candidate, so the Worker Type dimension is neither addressable as an op target (retrieveValue keys only on Candidate) nor returnable as the result label (findExtremum would label the answer by Candidate). The worker-type answer is not expressible against this chart."
+ },
+ "50pei8jwlb2g5h1q": {
+  "spec": {
+   "ops": [
+    {"op": "pairDiff", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "by": "Country", "groupA": "Pre-lockdown 2020", "groupB": "Post-lockdown 2020", "seriesField": "Period", "field": "Sales in billion GBP", "absolute": true}
+   ],
+   "ops2": [
+    {"op": "findExtremum", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 2}, "which": "min", "field": "Sales in billion GBP"}
+   ]
+  },
+  "note": "#252 APPROX: true metric is smallest %-decrease (pre->post) per country; approximated by smallest ABSOLUTE decrease via pairDiff(by=Country) + findExtremum min. Per-key ratio + min-over-keys is not expressible. (All four countries decline, so the absolute-min proxy matches the %-min here.)"
+ },
+ "31d6673lje5rb1nw": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "States", "include": ["Union States"]},
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Type", "include": ["Killed"]},
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Type", "include": ["Total Casualties"]},
+    {"op": "diff", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n2", "n3"], "sentenceIndex": 1}, "targetA": "ref:n2", "targetB": "ref:n3", "mode": "ratio"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n5", "meta": {"nodeId": "n5", "inputs": [], "sentenceIndex": 2}, "field": "States", "include": ["Confederacy States"]},
+    {"op": "filter", "id": "n6", "meta": {"nodeId": "n6", "inputs": ["n5"], "sentenceIndex": 2}, "field": "Type", "include": ["Killed"]},
+    {"op": "filter", "id": "n7", "meta": {"nodeId": "n7", "inputs": ["n5"], "sentenceIndex": 2}, "field": "Type", "include": ["Total Casualties"]},
+    {"op": "diff", "id": "n8", "meta": {"nodeId": "n8", "inputs": ["n6", "n7"], "sentenceIndex": 2}, "targetA": "ref:n6", "targetB": "ref:n7", "mode": "ratio"}
+   ],
+   "ops3": [
+    {"op": "compareBool", "id": "n9", "meta": {"nodeId": "n9", "inputs": ["n4", "n8"], "sentenceIndex": 3}, "operator": ">", "targetA": "ref:n4", "targetB": "ref:n8"}
+   ]
+  },
+  "note": "#255 killed/casualties ratio per side, then compareBool(Union > Confederacy). Series=States is addressable by target, but the Type dimension (Killed/Total Casualties) is reached via filter(field=Type) raw-row lookup; each filtered single cell feeds diff(mode=ratio) by ref."
+ },
+ "56010lp5kjl1p4by": {
+  "spec": {
+   "ops": [
+    {"op": "filter", "id": "n1", "meta": {"nodeId": "n1", "inputs": [], "sentenceIndex": 1}, "field": "Type", "include": ["Part time"]},
+    {"op": "filter", "id": "n2", "meta": {"nodeId": "n2", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Year", "include": ["2014"]},
+    {"op": "filter", "id": "n3", "meta": {"nodeId": "n3", "inputs": ["n1"], "sentenceIndex": 1}, "field": "Year", "include": ["2012"]},
+    {"op": "diff", "id": "n4", "meta": {"nodeId": "n4", "inputs": ["n2", "n3"], "sentenceIndex": 1}, "targetA": "ref:n2", "targetB": "ref:n3", "mode": "ratio"}
+   ],
+   "ops2": [
+    {"op": "filter", "id": "n5", "meta": {"nodeId": "n5", "inputs": [], "sentenceIndex": 2}, "field": "Type", "include": ["Full time"]},
+    {"op": "filter", "id": "n6", "meta": {"nodeId": "n6", "inputs": ["n5"], "sentenceIndex": 2}, "field": "Year", "include": ["2014"]},
+    {"op": "filter", "id": "n7", "meta": {"nodeId": "n7", "inputs": ["n5"], "sentenceIndex": 2}, "field": "Year", "include": ["2012"]},
+    {"op": "diff", "id": "n8", "meta": {"nodeId": "n8", "inputs": ["n6", "n7"], "sentenceIndex": 2}, "targetA": "ref:n6", "targetB": "ref:n7", "mode": "ratio"}
+   ],
+   "ops3": [
+    {"op": "diff", "id": "n9", "meta": {"nodeId": "n9", "inputs": ["n8", "n4"], "sentenceIndex": 3}, "targetA": "ref:n8", "targetB": "ref:n4", "signed": false}
+   ]
+  },
+  "note": "#260 growth rate 2014/2012 per Type, then |full-time growth - part-time growth|. Series=Type is the executor's primary dimension, so the Year cells are reached via filter(field=Year) raw-row lookup; each filtered single cell feeds diff(mode=ratio) by ref. (field 'Average number of emplyees' keeps the data's spelling.)"
+ },
  "0prhtod4tli879nh": {
   "spec": {
    "ops": [

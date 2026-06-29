@@ -507,9 +507,9 @@ export function function3({ d3, container }) {
 
     g.selectAll('.validation-country-highlight').remove();
 
-    // Find the 2018 bars in the current grouped chart (drawn by f2) to compute the highlight x-band.
+    // Find the 2015 bars in the current grouped chart (drawn by f2) to show the near-tie flaw.
     const targetBars = g.selectAll('.main-bar')
-        .filter(function () { const t = this.getAttribute('data-target'); return t === '2015' || t === '2018'; });
+        .filter(function () { return this.getAttribute('data-target') === '2015'; });
     if (targetBars.empty()) return;
 
     const xValues = targetBars.nodes().map((node) => Number(node.getAttribute('x')));

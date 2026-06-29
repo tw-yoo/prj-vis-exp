@@ -8,17 +8,14 @@
         "inputs": [],
         "sentenceIndex": 1
       },
-      "field": "Year",
-      "operator": "between",
-      "value": [
-        "2011",
-        "2014"
-      ]
+      "field": "Investments in Billion Euros",
+      "operator": ">",
+      "value": 22
     }
   ],
   "ops2": [
     {
-      "op": "filter",
+      "op": "count",
       "id": "n2",
       "meta": {
         "nodeId": "n2",
@@ -26,22 +23,6 @@
           "n1"
         ],
         "sentenceIndex": 2
-      },
-      "field": "Investments in Billion Euros",
-      "operator": ">",
-      "value": 22
-    }
-  ],
-  "ops3": [
-    {
-      "op": "count",
-      "id": "n3",
-      "meta": {
-        "nodeId": "n3",
-        "inputs": [
-          "n2"
-        ],
-        "sentenceIndex": 3
       }
     }
   ]

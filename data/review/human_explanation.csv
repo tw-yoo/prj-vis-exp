@@ -720,3 +720,53 @@ determine 2 years below line (2018 and 2019)"
 3. Get the creator which has 2nd biggest number of subscribers."
 240,line_simple,9r3kyy2jo2o66msh,line_simple_9r3kyy2jo2o66msh,Which month has the biggest increasing rate in number of femicides comparing with the previous month except for april?,"1. Calculate the difference between the number of femicides of a specific month and its previous count.
 2. Get the month which has the biggest difference for positive values."
+241,bar_stacked,ckptmodbya2m1mih,bar_stacked_ckptmodbya2m1mih,In which year was the difference between the number of 2G and 3G subscription the smallest?,"For each year, calculate the difference between the subscription number of 2G and 3G.
+Identify the year with the minimum difference."
+242,line_multiple,rx7zzpt8c0ue86y3,line_multiple_rx7zzpt8c0ue86y3,"For the years when the unfavorable ratting of China among Americans exceeded 50%, what was the average favorable ratio?","Filter the years in which unfavorable rating of US views toward China is bigger than 50.
+Calculate the average favorable ratio across those years."
+243,bar_stacked,88sup9tkwx0lwkgw,bar_stacked_88sup9tkwx0lwkgw,"Among the years in which Asia's sales value was bigger than 1000, what is the difference between the average sales of EMEA and the average sales of Asia?","Filter the years where Asia's sales value is greater than 1000.
+Compute the average sales for EMEA and Asia over those years.
+Caculate the difference between the who averages."
+244,bar_stacked,9g5a38vcep03acdu,bar_stacked_9g5a38vcep03acdu,Which year had the highest year-over-year growth rate in Walmart's total net sales?,"For each year, sum the net sales of Walmart US and Walmart International.
+For each year, divide the net sales by the net sales of the previous year.
+Find the year with the highest resulting ratio."
+245,line_simple,fsraebh4cpmzc7ut,line_simple_fsraebh4cpmzc7ut,Count the number of years in the 2010s in which the number of fatalities increased compared to the previous year.,"Filter the data to include only the years in the 2010s.
+For each year, subtract the previous year's value from the current year's value.
+Count the number of years for which the eresulting difference is positive."
+246,line_simple,h33j4k50c44wni7l,line_simple_h33j4k50c44wni7l,How many times was growth rate of HICP greater than 2.6 and less than 3.0?,"Filter the dates where growth rate is greater than 2.6.
+Filter the dates where growth rate is less than 3.0.
+Count the number of dates."
+247,line_multiple,gnin1xu8b8rbtv34,line_multiple_gnin1xu8b8rbtv34,In how many years was the percentage of unfavorable views toward the Taliban at least 10 percentage points higher than toward Al-Qaeda?,"For each year, calculate the difference between the percentage of unfavorable views of Taliban and Al-Qaeda.
+Count the number of years that Taliban's unfavorable view was at least 10 percentage points higher."
+248,bar_grouped,58wxo6da4x2w1ass,bar_grouped_58wxo6da4x2w1ass,"Which worker type has the smallest difference from the ""All Government workers"" in Barack Obama's share of voters?","For each worker type, calculate the absolute difference between its share of voters and all government workers for Barack Obama.
+Identify the worker type with the smallest difference."
+249,line_multiple,f12st3qo0kz1egmp,line_multiple_f12st3qo0kz1egmp,"In the first year after 2004 when the percentage of people who considered elections important increased relative to 2004, did the percentage of people who considered elections unimportant decrease?","Filter the years after 2004.
+For each year, subtract the 2004 percentage of people who considered elections important from that year's percentage.
+Identify the first year that difference is positive.
+Determine whether the percentage of people who considered elections unimportant increased compaared to the previous year."
+250,bar_stacked,a0m3af45az33ngmr,bar_stacked_a0m3af45az33ngmr,Which year had the highest share of sheep production?,"For each year, calculate the proportion of sheep production relative to total.
+Identify the year with the highest proportion."
+251,line_multiple,i0fd8sbi945erf7p,line_multiple_i0fd8sbi945erf7p,In which year did the ratio of news sources for local news programming increase the most?,"Compute the difference between each year's local news programming's ratio and that of the previous year.
+Find the year with the biggest positive change."
+252,bar_grouped,50pei8jwlb2g5h1q,bar_grouped_50pei8jwlb2g5h1q,which country had the smallest decrease rate in sales after the lockdown?,"For each country, calculate the percentage decrease in sales between the pre-lockdown and post-lockdown periods.
+Identify the country with the smallest decrease rate."
+253,line_simple,g1s9b91z7xw8flg2,line_simple_g1s9b91z7xw8flg2,What is the difference between the average beer sales before 2012 and after including 2012?,"Calculate the average beer sales for the years before 2012.
+Calculate the average beer sales for the years after including 2012.
+Compute the difference between the two averages."
+254,bar_simple,0gt3h2146jc47ovx,bar_simple_0gt3h2146jc47ovx,How many times larger is the combined share of iron and zinc than water in the composites?,"Add the shares of iron and zinc.
+Divide the result by share of water."
+255,bar_grouped,31d6673lje5rb1nw,bar_grouped_31d6673lje5rb1nw,"Which side had higher propolation of killed among its casualties, the Union or the Confederacy?","For each side, divide the number of killed by the number of casualties.
+Compare the sides based on that ration and determine which side has the higher value."
+256,bar_simple,0cy2ufyjsinsswpm,bar_simple_0cy2ufyjsinsswpm,"Starting from men in their 20s, up to which age group must be included for the cumulative share of single-men households to exceed 50%?","Caculate each age group's share of the total.
+Starting from the 20s age group, cumulatively add the shares.
+Identify the age group at which the cumulative percentage first exceed 50%."
+257,bar_simple,0ivzc37gi49isy9n,bar_simple_0ivzc37gi49isy9n,Which three-year period had the highest total import value?,"For each year, calculate the sum of the import values for that year and the following two years.
+Identify the year corresponding to the maximum sum."
+258,line_simple,guhd9zsodg7n408g,line_simple_guhd9zsodg7n408g,What was the change in the exchange rate in Indonesian rupiah during the 2010s?,"Filter the years in 2010s.
+Subtract the exchange rate in the first year from last year.
+Calculate the increase."
+259,bar_simple,0ijwrg723j4v8s3e,bar_simple_0ijwrg723j4v8s3e,What percentage of the polulation in the Northern Hemisphere is accounted for Asia?,"Filter the continents located in the Northern Hemisphere.
+Divide Asia's population by the sum of population of those continents."
+260,bar_grouped,56010lp5kjl1p4by,bar_grouped_56010lp5kjl1p4by,What is the difference in the growth rates of the average number of employees for full time and part time from 2012 to 2014?,"Divide the 2014 average number of employees by 2012 for part time.
+Divide the 2014 average number of employees by 2012 for full time.
+Calculate the difference."
