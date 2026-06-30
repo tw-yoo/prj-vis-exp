@@ -1,0 +1,261 @@
+chart_id,chart_type,ours_correct,baseline_correct,true_answer,gold_looks_wrong,note
+2jromeq5u9lloh1s,line_simple,1,1,,0,
+13guplcbmfu1tjzu,bar_stacked,0,0,"Hungary (European factor = Germany exports 0.004 + Italy exports 0.069 = 0.073, highest of the four countries)",0,"Answer is country ""Hungary""; ours grouped by Factor not Country and returned scalar 0.562, not a country name, so it never identifies the answer."
+0q8vqyb35mbq0efx,bar_grouped,0,0,"2015 (yearly total 731, the lowest across all age groups combined)",0,Both summed all rows into grand total 9347 instead of per-year sums; correct answer is year 2015 (total 731).
+0o12tngadmjjux2n,bar_simple,0,1,9 years are above the average (avg = 2.7825),0,Avg=2.7825; 9 years exceed it; baseline count=9 correct; ours empty; gold returns rows (no count reduction) but value=null so not wrong.
+10t8o5vhethzeod1,bar_stacked,1,1,,0,
+2o3fyauxv32p571i,line_simple,1,1,,0,
+11e148qcs7x70t8v,bar_stacked,1,1,"2016, 2017, 2018, and Jan-Oct 2019 (the periods where South Korea > France)",0,"""Which years"" list question; pairDiff(SK-France) then filter>0 yields rows for 2016/2017/2018/Jan-Oct2019 — ours, baseline, and gold all use this logic correctly."
+0s6zi9dyw22qo4rp,bar_simple,1,1,,0,
+2ebtadc07b7bo277,line_simple,0,0,2016 (value 3.74),0,"Second lowest price is 3.74 (2016); gold correct, ours and baseline both returned 2011/4.88."
+0prhtod4tli879nh,bar_grouped,0,0,"Delhi, with a jump of 6.4 million (28.6 - 22.2)",0,"Max jump is Delhi 6.4; gold correct, but ours and baseline both returned 5.6 (Karachi's diff), the wrong extremum."
+2jki13q54zizc6i4,line_simple,1,1,,0,
+0pzdf7hfbxgjghsa,bar_simple,1,1,,0,
+0rfuaawgi58ajpsv,bar_grouped,1,1,,0,
+0rdpculfpyw3bv5p,bar_grouped,1,1,,0,
+10x2rgiqw97wdspi,bar_stacked,0,0,"2015/16, 2016/17, 2017/18, 2018/19, 2019/20 (Commercial avg ~257.8, Broadcasting avg ~211.95; these 5 seasons exceed both)",0,"Answer is 5 seasons; ours only computed two averages (NaN scalar), baseline returned empty—neither produced the season list."
+0qz3v0bszsex7jjm,bar_simple,1,1,"Average ≈ 3.447; below-average fiscal years (11): 00/01, 01/02, 02/03, 03/04, 04/05, 05/06, 06/07, 07/08, 08/09, 10/11, 12/13",0,"Both ours and baseline filter Expenditure < average, returning the correct 11 below-average fiscal-year rows; baseline's extra diffByValue step is harmless."
+23wg8zio5ahp40tg,line_multiple,1,1,,0,
+28bxxhd6omv2l2h1,line_multiple,1,1,,0,
+29rxoltwhongoday,line_multiple,0,1,"2017 (gap 72 = |85-13|, vs 2002 gap 63 = |79-16|)",0,"2017 gap 72 > 2002 gap 63; baseline compareBool n6(72)>n3(63)=true→2017 correct; ours compares filter nodes n1/n3 not diffs, returns 0.0 wrong."
+2eiyyw562tcvjypp,line_multiple,0,0,,0,
+1h4rj9i2jtzq589y,line_multiple,0,0,"2014 (EU 5-country median value 54; points in 51-61 are 2012=60, 2013=58, 2014=54, most recent is 2014)",0,"True answer is 2014 (54); ours and baseline both returned 2016 (50), wrong; gold's 2014/54 is correct."
+0gf8ugj84bs1ko2k,bar_stacked,0,0,"1319 (in 2022, max Data Centers year: (1848+564+1545)/3 = 3957/3 = 1319)",0,"Max Data Centers in 2022; avg of 1848/564/1545 = 1319; ours=616 (sum failed, = 1848/3) and baseline=1848 (max only) both wrong; gold absent."
+14jt6jor7iknkjkl,line_multiple,0,0,56 (min Favorable view = 71 at 2009; Confidence in US president for 2009 = 56; sum over single year = 56),0,True answer 56; ours returned 0 (sum op lacks year filter and reports 0); baseline produced no spec; gold absent.
+16aphfabldrpgcmd,line_multiple,1,1,,0,
+0dglnk2wbf5ll15t,bar_stacked,0,1,48.25 (Good avg 51.5 - Poor avg 3.25),0,"Poor avg=3.25, Good avg=51.5, diff=48.25; ours value is NaN (wrong), baseline & gold both 48.25."
+10gtgmmgh599jnr7,line_simple,0,0,"0.023 (second-largest 0.109 minus smallest 0.086, years 2000-2008)",0,"True diff=0.023; gold=0.023 correct; ours empty (no_spec); baseline=0.002 wrong (its nth picked 2nd-smallest minus smallest, not second-largest)."
+0ix8hz9qvakto18g,line_simple,0,0,4035 (2019 + 2016),0,"Second-largest-score year=2019, second-smallest-score year=2016, sum=4035; both systems returned 157.66 (summed scores not years), wrong."
+0egdxqun1m2n9k4z,bar_simple,1,1,,0,
+0aj7na7tkqb7iomu,bar_stacked,1,1,,0,
+0gvrmm8qbn6o1vya,bar_simple,0,1,"53.405 (average of 6 seasons with ticket price <= 60: 52.49,57,54.5,53.5,51.47,51.47 = 320.43/6)",0,Ours returns count=6 (__count__) instead of the average; baseline and gold both yield 53.405.
+0egzejn5mejtnfdm,bar_grouped,0,1,26 (Scotland max 28 minus England & Wales min 2),0,"Scotland max=28, E&W min=2, diff=26; ours returned NaN (broken extremum chaining), baseline and gold both 26."
+0roec4s0drcyiuz4,line_simple,0,0,"9.5167 (average of the longest strictly-decreasing run Q1 2019..Q2 2020: 10.4,10,9.6,9.5,9.2,8.4 → 57.1/6)",1,"Longest decreasing run is 6 quarters (avg 9.5167); ours returned count 3.0; baseline & gold both returned 9.4333 (only the 3-quarter sub-window, ignoring mode:longest)."
+0eq4w2wsl864mhcj,bar_simple,0,1,"84.1133 (avg of 102.55, 77.56, 72.23 = 252.34/3)",0,"Ours final value is the count (3.0), not the average (84.11); baseline and gold both give 84.1133."
+0g0xma0b0k29lk5j,bar_stacked,0,0,2010 (second-largest 15–64 vs 65+ difference = 0.5976; largest is 2009 = 0.6005; diffs decrease monotonically 2009→2019),0,"Answer is 2010; gold correct; ours picked 2018 (second-smallest, wrong end of sort); baseline executed to empty/null."
+0fhm43s0j7glca29,bar_grouped,1,0,"2020 (2018 average = 2.1575 < 2020 max = 3.56, so the larger quantity belongs to year 2020)",0,"2018 avg 2.1575 < 2020 max 3.56 → answer 2020; ours' compareBool=false correctly implies 2020, baseline's appended retrieveValues yield empty/null final."
+0gacqohbzj07n25s,bar_grouped,0,1,8176 (European surgical avg 323891 − Asian surgical avg 332067 = −8176; abs 8176),0,"Ours wired both averages to the same European filter (inputs n1,n1) → diff 0; baseline -8176 is correct by sign convention."
+1c80b6i7wdu3m1ir,line_simple,0,0,"10.5 (run 1999-2001, greatest total rise 3.5; sum 1.7+3.6+5.2). Longest-run interpretation gives 15.4 (run 2004-2008).",0,"Ours/baseline both returned 0.1 (summed lagDiff values, not y-values) — wrong; gold's 15.4 is the longest increasing run (2004-2008), a defensible reading of the question's ambiguity."
+1k8qhmg9rui7gtzh,line_multiple,1,1,,0,
+0ihx2vzdsej883sq,bar_grouped,0,0,"0.733 (Male share for Leadership, the category with the second-lowest Female share)",1,"Sorted Female asc: Tech .236, Leadership .267, Overall .32, Non-tech .474; 2nd-lowest=Leadership so Male=0.733; gold & baseline return 0.267 (the Female value, not Male), ours is empty."
+0fh0emp095qhq3ag,bar_simple,1,1,,0,
+0k75gqf8ckjikdym,bar_grouped,1,1,,0,
+1p4nnba4568wza9n,line_multiple,0,0,2,0,"Dominant opinion sequence Good,Good,Bad,Bad,Good...Good changes twice; ours=10 and baseline=0 both wrong; gold absent."
+0gzowodb2py0d1s9,bar_stacked,1,1,,0,
+0nmj7sdej4cipma7,bar_stacked,1,1,,0,
+0i9bxppwocx0tyop,bar_simple,1,1,,0,
+0lua5jsw92d3enb4,bar_grouped,1,1,,0,
+0iv07908ph6y6ifj,bar_simple,1,1,,0,
+1jabqwjz9pmd7qwz,line_simple,1,1,,0,
+1sf5c8wqw1192q6b,line_simple,1,1,,0,
+1vh62ks9wweck6m2,line_multiple,1,1,,0,
+0jbrb1dcbliiampz,bar_simple,1,1,,0,
+0ufvwi9xv37e597q,bar_stacked,1,0,2018/19 (gap of 59.4 = |92.5 - 151.9| between Matchday and Commercial),0,"Ours returns 2018/19 (59.4) matching gold; baseline's two-filter pairDiff yields empty/null, no answer."
+0oinwvo88bvvs25b,bar_grouped,1,1,0.03 (Women max 0.37 - Men max 0.40 = -0.03; magnitude 0.03),0,"Women max 0.37, Men max 0.40; diff magnitude 0.03; both ours/baseline -0.03 correct under sign convention, auto-WRONG is just a sign mismatch."
+1vni31fp2ii7wz68,line_simple,0,0,"2020 (its biggest month-to-month drop was -2.00 May'20→Jun'20, larger than 2021's biggest drop of -0.25 Apr'21→May'21)",1,"Question wants the year with the largest within-year drop (=2020); ours/gold return May'21 (2021) with -6.61 (overall change, no per-year grouping); baseline returns compareBool 0.0, not a year."
+20gpvz4ylu4olrm7,line_multiple,0,0,9.0,0,"True avg of (Women-Men) over 2000/2004/2008/2012 = (12+7+7+10)/4 = 9.0; gold=9.0 correct, ours=8.6667 (averaged only 3 diffs), baseline=NaN."
+0k7bm9iqewnrzj47,bar_simple,1,0,Yes/True — top-3 avg 345.93 > 2×bottom-3 avg (2×165.2=330.4),0,Ours=1.0 (True) matches; baseline=0.0 (False) is wrong since 345.93 > 330.4; gold=1.0 correct.
+0vfqjaxeiv96ww7g,bar_stacked,1,1,"16 (Black 26 − White 10 in the ""Almost all of the time"" segment); gold's 11 uses a two-segment ""Almost all""+""Most of the time"" reading (42 vs 53)",0,"Ambiguous ""more than most of all time"": ours/baseline use the ""Almost all of the time"" segment (26−10=16) matching the explanation's stated method; gold's 11 is a valid alternative summing two segments, so all three are defensible."
+0opt5fjw2xphdgp2,bar_grouped,0,0,"White (Occasionally 0.4 + Infrequently 0.48 = 0.88, the highest per-group sum)",0,Both summed across all groups (ours=1.71 Occasionally-only total; baseline=3.23 both-category grand total) instead of per-group sums; correct answer is White at 0.88.
+25gpdzxh8nu0c0vf,line_simple,0,1,Median is bigger (median=183 > average=171.57); compareBool average>median = false/0,0,Median 183 > avg 171.57; gold/baseline return 0 (avg>median false) = correct; ours sort wrongly input n1 (avg scalar) yielding empty result.
+20qa83ih1gn6toqt,line_multiple,1,1,,0,
+0baf5ch9y4z8914p,bar_simple,0,0,"2.46 (three lowest rates 2.38, 2.5, 2.5 -> 7.38/3 = 2.46)",0,Ours averaged all 9 bars (3.3656) instead of the nth subset; baseline mis-wired scale to get 0.7933; gold's 2.46 matches my computation.
+01h0jkno5l7jola8,bar_grouped,1,1,,0,
+0cjk67q39ee6dhzj,line_multiple,0,0,"2 years (2010 with largest gap 19, minus 2008 with smallest gap 5). Note: gold/baseline compute the gap-value difference 19-5=14 instead.",1,"Question/explanation ask for the YEAR difference (2010-2008=2); gold & baseline return 14 (gap-value diff 19-5), ours returns 0 (two min extrema diffed to zero) — all wrong vs intended year difference."
+01mksjs373fhcl4q,bar_grouped,0,1,"Large companies (decline of 4.3 = 9.5 - 5.2), the largest drop among sectors",0,"Ours used findExtremum which=min on positive declines, picking smallest drop (Offices 0.8) instead of largest (Large companies 4.3); baseline and gold correct."
+04xwv56n37ybj8zr,line_simple,0,1,,0,
+0cymcilknp8krjwz,line_simple,0,1,,0,
+0abj8blv663ussbr,bar_simple,1,1,,0,
+0cad2xfrwdgvo9zk,bar_simple,1,1,,0,
+0gr1c2jcthc8h9f6,line_simple,1,0,"1.42 (6.17 - 4.75) using extremum from each set; 1.22 (5.97 - 4.75) is also valid since ""one score"" from set A is ambiguous",0,"Set A (5.8-6.2)={5.97,6.17}, Set B(<4.8)={4.75}; ours=1.42 valid, baseline=1.03 uses 5.78 (2015, below 5.8, not in set) so wrong."
+001dao0mq0pplbzj,bar_stacked,1,1,,0,
+0a5npu4o61dz4r5f,bar_simple,1,1,,0,
+07lo3vvwztz32ifq,bar_grouped,0,0,0.35 (Latin America 0.09+0.12=0.21 has the largest |diff|=0.03; Developing EMEA 0.07+0.07=0.14 has the smallest |diff|=0.00; sum of their Net_Sales values = 0.35),1,"Ours summed all signed pairDiffs = 0.0 (wrong); gold returned 0.03 (max+min diff values), contradicting its own explanation which yields 0.35."
+075i5mfewy2uvwej,bar_stacked,1,1,,0,
+08x3crju85yix5ab,line_simple,1,0,5,0,"5 years have CPI_Score < 80 (2012,2013,2014,2019,2020); ours=5 correct, baseline=1 wrong (double count collapses scalar to 1)."
+004fhteah0l9kud2,bar_stacked,1,1,,0,
+0bunvsqd54e3qahz,line_multiple,1,1,,0,
+0bgcjlbz7nv5vnjc,bar_grouped,0,0,"1.4667 (average of three largest per-period absolute gaps: 2.1, 1.3, 1.0)",0,"True avg=1.4667; gold matches; ours=NaN (correct filter but failed exec); baseline=0.1, both wrong."
+08iur64i01boakg5,line_multiple,1,1,,0,
+05qg5ubxklojfze7,bar_stacked,0,0,"Anxiety and depression (Major 0.7 + Minor 0.26 = 0.96, the highest combined Major+Minor sum)",0,Both summed all Major+Minor shares globally (6.98) instead of per-Problem; neither identifies Anxiety and depression (0.96) as the max category.
+0b9o2vahkw2a1bxy,line_multiple,1,0,"19 (highest No = 2015:46; third-highest Yes = 2014:65; 46-65 = -19, absolute 19)",0,"True answer ±19; ours=-19 correct under sign convention, baseline=47 is the wrong number, gold=19 matches."
+0v0l4wdbx7orkqz1,bar_simple,1,1,,0,
+14jud3ymyoonba4e,bar_stacked,0,1,"Global Nutritionals (total 9678.1 across all years, the largest sector)",0,"Ours summed all sectors together (20142.2) instead of comparing per-sector; baseline's 9678.1 matches Global Nutritionals, the winning sector."
+0vw6ydim9cff8ji6,bar_grouped,1,1,,0,
+5lhrulhnl0io2r81,line_simple,1,1,,0,
+2hjkdo5w242alvjd,line_multiple,0,1,"Yes — 2006–2011 spans 6 years vs 3 years where Satisfied>Dissatisfied (2006, 2011, 2012); 6 > 3 is true.",0,"Ours n5 wired to n1 (not n4), so it compares 6>6=false; baseline compares 12>3=true matching the true ""yes"" outcome."
+0vmvmj77j3p6vcy7,bar_simple,1,1,,0,
+174uq759pluu079w,bar_stacked,1,0,,0,
+0w5jptak9peti0mj,bar_grouped,1,0,6 (APAC is the lowest of the three regions in all six years 2015-2020),0,APAC is lowest every year (6); ours value 6.0 matches (via count of APAC rows = 6); baseline produced no spec.
+5po479f2ju9lqv16,line_simple,1,1,,0,
+2kmpy10btl65kr2j,line_multiple,1,1,,0,
+0vqxnzu0mpbz12ch,bar_simple,1,0,,0,
+19xwo5oscmgpcdyl,bar_stacked,0,0,~91.14 (Gas avg for years where Coal>0.2: (105+96+122+109+50+57+99)/7 = 638/7 ≈ 91.14),0,Both returned NaN (cross-group filter Coal>0.2 then avg Gas mis-wired); true answer ≈91.14; gold has no spec.
+0wgqpso2vnilpym6,bar_grouped,0,0,,0,
+651x1l1swysyy6vp,line_simple,0,0,"5th highest value = 78, on ""Apr 28 to 29, 2020"" (tied with ""Oct 29, 2020"" at 78)",1,"True 5th-highest is 78 (Apr 28 to 29, 2020); gold/baseline give 62, ours gives 69 — all wrong; auto labels graded against the wrong gold."
+2s65jcap9pn289qx,line_multiple,0,1,,0,
+0vvz9mdgdiazke5o,bar_simple,1,1,,0,
+19msoowya2szdynd,bar_stacked,0,0,"0 (no Coal/Gas/Oil sectors exist in the data; only Agriculture/Industry/Services, so the qualifying-year set is empty and the Coal sum is 0)",0,"All three systems produced no spec (exists=false); question references nonexistent Coal/Gas/Oil fields, true answer is 0."
+0xc7sx6ll8fl5rgh,bar_grouped,0,0,"0.31 (mean of Clinton's vote shares for the 3 ages where Clinton < Sanders: 0.16, 0.32, 0.45)",1,True=0.31; gold -0.3667 averaged signed diffs not Clinton values; baseline 0.3675 averaged Clinton over all 4 ages not the 3 selected; ours empty.
+66va2s35es5t86l3,line_simple,1,0,"2010 (largest year-over-year increase of 15.0, from 35.7 in 2000 to 50.7 in 2010)",0,"Largest lagDiff is 15.0 at 2010; ours=2010/15.0 correct, baseline=1980/4.9 (took first/min diff) wrong."
+3tc31k5k2o6wmvyp,line_multiple,0,0,5,0,"Per-date Rep+Dem sums: 58,43,47,61,66 are <70 and only Jul 14 (72) is not, so 5 dates; both systems returned 0 by mis-grouping (sum by candidate not by date), so both incorrect; gold absent."
+12sdcc2xjltg7qj2,bar_grouped,1,1,,0,
+72yqb8jwj9a6g4nx,line_simple,1,1,,0,
+6al86e9qyokma74i,line_simple,1,0,5,0,Avg=1989.375; 5 years below (2008-2012). Ours=5 correct; baseline=7 wrong (filter wired to diffByValue node n2 not original data).
+724mfnyk34kp97le,line_simple,1,1,,0,
+1q3mzgt77lwo172f,bar_stacked,0,0,2011 (absolute difference 9.8: 24.8 vs 15.0),0,"Gold correct (2011, 9.8); ours and baseline both produced empty/null results so neither yields the answer."
+0xo3r87obscjsktm,bar_simple,1,1,2.92 times (1110 / 380 = 2.9211),0,"Ukraine-ElSalvador=1110, Denmark-ElSalvador=380, 1110/380=2.9211; both ours and baseline match; gold absent."
+0ykydh8vao50ceou,bar_grouped,0,0,Direct writing (range 0.009 = 0.200 - 0.191),0,All three systems exists=false (no spec); true answer is Direct writing with the largest range 0.009.
+4p1m4tsmzmtvsrys,line_multiple,0,0,"11 (Obama higher on 12 days, Romney higher on 1 day; 12 - 1 = 11)",0,"Obama>Romney on 12 dates, Romney>Obama on 1; diff=11 matches gold; ours/baseline both返回 0."
+0wflwm4jebx7n12y,bar_simple,0,1,141.25 (max 380 minus average 238.75),0,"Ours averaged only the extremum (input n1) yielding 380, so diff=0; baseline and gold correctly average all 16 values for 141.25."
+21fa7gb8l1ix6yfm,bar_stacked,1,0,Text messaging (difference 0.42),0,"Max |EVERY DAY - LESS OFTEN| = Text messaging 0.42; ours matches, baseline returned empty/null."
+0zjxkqy20iibpdvo,bar_grouped,0,0,~-0.046 (avg Female 0.487 on Male-higher platforms minus avg Male 0.5325 on Female-higher platforms; abs ~0.046 / ~4.6pp),0,"True diff ~-0.046; both ours and baseline executed to NaN, so neither produced the correct number; gold has no spec."
+0xnim79vztf8hjor,bar_simple,1,1,,0,
+0w88bu7qm4ilsqmh,bar_simple,1,1,,0,
+0yx2080f08329xxb,bar_grouped,1,1,,0,
+3z678inbp0t89ahu,line_multiple,1,1,,0,
+3un2wyjae3ebkncl,line_multiple,0,0,"22.4 (Internet values for qualifying years 2003-2007: 20,24,20,24,24; sum=112, count=5)",0,Ours returned 0.0 (broken: filters Internet against sum ref:n1 and counts) vs true avg 22.4; gold and baseline produced no spec.
+1xz4egh52kvh2xwx,bar_stacked,1,1,,0,
+7272hodb02i6e09q,line_simple,0,0,0.03 (max before 2014 = 2.76; max after 2014 = 2.73; 2.76 - 2.73 = 0.03),0,"Both ours and baseline used between[2014,2019] for ""after 2014"", wrongly including 2014 (2.75), yielding 0.01 instead of 0.03; gold's strict >2014 gives correct 0.03."
+1y6itl6f2ho959ec,bar_stacked,1,0,1 (only Peru: Approves 0.17>0.16 and Disapproves 0.71>0.68),0,"Count countries with Approves>0.16 AND Disapproves>0.68 = 1 (Peru); ours=1 correct, baseline=0 wrong, gold absent."
+4ldjaoujpydpkbu5,line_multiple,0,0,4,0,Avg abs diff ~0.274; 4 years (2009-2012) exceed it = 4 (gold correct); baseline used signed/non-absolute diff so filter>avg yields 0 (wrong); ours has no spec.
+221xwpab655f7g8x,bar_stacked,1,1,,0,
+23an1hozb7myw4e2,bar_stacked,1,1,,0,
+4wqpl5jrdmc75go3,line_multiple,0,0,,0,
+74p313e1n8rzkfzp,line_simple,1,0,"Largest adjacent difference is 15, at the 16-17→18-19 pair (target group 18-19; values 45→60).",0,"Ours: 15 @18-19 (correct); baseline's extra nth ops returned 14 @""70 and older"" (the last diff, not the max)."
+7mgydgux0ay0flv4,line_simple,1,1,,0,
+4pi1e6ev8e0zobww,line_multiple,1,1,,0,
+1gb8sqnptdsdvagz,bar_grouped,1,1,"Any of Hollywood (0.35), Standard bikini line (0.15), or Full bikini line (0.10) — all have Under 30s share >= 10%. A single valid answer is Hollywood.",0,"Question asks for one Under 30s type with share >=10%; both return Hollywood (0.35), a valid qualifying type."
+4vcdm7lwwlgdd0h1,line_multiple,1,1,,0,
+1hm2mi3o0ejxp7tn,bar_grouped,1,1,,0,
+240rurpp2arislnt,bar_stacked,0,1,51 (57 max in 65+ minus 6 min in 18-29),0,"Ours returns NaN because ops2 filter chains off n1 (already 18-29), so 65+ filter is empty; baseline=51 matches gold/computed 51."
+2a8mliwolqqo6s5u,bar_stacked,0,0,2015 (smallest absolute difference ≈ 0.41 between Asia Pacific 15.78 and the other three regions' combined 15.37; 2013 is a near tie at 0.42),0,"Both collapsed sums across all years instead of per-year grouping; ours target=2021/value=376.58 and baseline value=43.26, neither yields the correct year 2015; gold has no spec."
+1a6pxfig1xf4oeu3,bar_simple,0,0,"The period 2006–2012 (all those years have franchise value ≤ $200M: 149,162,169,170,169,173,175); from 2013 on values exceed 200.",0,"Answer is contiguous period 2006–2012; ours adds a wrong strict-decreasing monotonicRun (data is rising) so rows aren't that period; baseline reduces to single year 2009/170, not a period."
+1ashoniy42n3n5jr,bar_simple,1,1,"285.3036 (avg incl 2020 = 4580.125, avg excl 2020 = 4865.4286, difference = -285.3036; magnitude 285.3)",0,Baseline -285.3036 matches true diff magnitude; sign convention makes it correct despite auto_baseline=WRONG.
+4twwx65oath7vrkt,line_multiple,0,1,"Min imports = 1.15 (2001); exports > 1.15 occur in 2007 (1.16), 2008 (1.31), 2010 (1.29), 2011 (1.50). First/primary answer year = 2007.",0,"Ours returns empty (wrong); baseline returns 2007 (1.16), the first year exports exceed min imports 1.15 — correct."
+1ar60b8rke2d8e64,bar_grouped,1,1,,0,
+7w9v4fsbg5ydxsr2,line_simple,0,0,0.156 (even avg 2.418 - odd avg 2.262),0,"True diff is 0.156; gold matches. Ours (0.1491) and baseline (0.1444) used ""between"" range filters that captured all years instead of isolating even/odd, so both are wrong."
+1a09xqtrj8zms716,bar_simple,0,0,"600 (top 3: 732+646+422=1800, /3=600)",0,"True avg of top-3 (732,646,422)=600; gold=600 correct; ours=47 and baseline=190 both genuinely wrong."
+1bbe64wpvq06sknm,bar_simple,1,1,"Average = 41373/9 = 4597; per-year diffs (value-avg): 2010/11 -94, 2011/12 -64, 2012/13 +589, 2013/14 -161, 2014/15 -524, 2015/16 -108, 2016/17 +935, 2017/18 -682, 2018/19 +109",0,"Question wants per-year diffs (a row list); all three compute avg=4597 then signed diffByValue, yielding correct rows (baseline derives avg via sum×1/9, then sorts)."
+16fif5hdi8yzml00,bar_grouped,0,1,7.5 (max avg 20 - min avg 12.5),0,"Max avg=20, Min avg=12.5, diff=7.5; baseline=7.5 correct, ours=NaN (ops2 average mis-wired with inputs[n1]) incorrect, gold=7.5 correct."
+827lhm2w7n652knp,line_simple,0,0,2,1,"Question counts inc→dec peaks (2007, 2011) = 2; ours=15 (all abs diffs), baseline=7 and gold=7 (decreasing-interval count), none match true answer of 2."
+1bv05pu9d8jnidty,bar_simple,1,1,,0,
+2mi8b2r0oalayl6g,bar_stacked,0,0,"2015 (combined golf wear + golf gear = 548.26, the smallest yearly total)",0,"Answer is year 2015; both systems summed all years into one grand total (ours 10616.16, baseline 3989.76) instead of grouping by year, so neither yields a year. Gold has no spec."
+82aqt0k0jnbj3irf,line_simple,0,0,"2015 (median number of enterprises = 494099, the 5th of 9 sorted values)",0,"Median is 494099 (2015); both ours and baseline returned 575733/2014 (the max), so both wrong; gold correct."
+1jatwi94v2d8cr9u,bar_grouped,1,1,,0,
+2bhsybiilde28j87,bar_stacked,0,0,"19% (0.19) — average of White 0.20, Hispanic 0.16, Other 0.21 for ""Very interested""",0,"Ours omitted the ""Very interested"" filter, averaging all 15 non-Black rows (19.93%) instead of 19%; baseline returned NaN."
+1bywaj7stsb3060c,bar_simple,0,0,"0.067 (avg of Conad 0.148, Selex 0.101, Agorà 0.031, MD 0.031, Crai 0.024 = 0.335/5)",0,"Baseline 0.0596 is the all-15 average (filter included every company), not the ≤5-letter subset avg 0.067; gold and ours produced no spec."
+6ah60yba8o7rw0i9,line_multiple,1,1,,0,
+5p6g89v7l99aes05,line_multiple,1,1,,0,
+1ce802l2rdg98d7d,bar_simple,0,0,PD (Partito Democratico) (0.19) — the third highest Share of respondents,1,"3rd-most desc = PD (0.19); gold/ours returned Azione (0.031, 3rd-from-bottom) and baseline Forza Italia (0.075, 5th) — all wrong."
+1hokbw2gmzar9ye8,bar_grouped,0,0,,0,
+5wpw8detqynmqv1s,line_multiple,1,1,151 (female max 207 in 2002 minus male min 358 in 2013 = -151; absolute difference 151),0,"Both ours and baseline return -151 (signed); equals gold 151 under sign-convention equivalence, so both correct despite auto-judge flagging WRONG."
+8e9wp443ff1i6snq,line_simple,1,1,,0,
+2n0g3tsz1rsz6fgr,bar_stacked,1,1,,0,
+8chfa8n079zpfigi,line_simple,0,0,11,0,"11 years have ranking 20-30 inclusive; gold=11 correct; ours/baseline both returned 1 (between-filter failed), wrong."
+1j7gx35h6i9mpi6j,bar_grouped,0,1,"0.19 (Books 0.63 - Beauty products 0.44; absolute difference 0.19, or -0.19 signed)",0,"True diff is 0.19; gold and baseline both 0.19 (correct), ours produced NaN (failed execution, incorrect)."
+2yech0pea1xihind,bar_stacked,0,0,"89 (Facebook 51 + Instagram 38, ""Several times a day"")",0,"Ours got 193 (summed all 5 platforms' ""Several times a day"", missing Platform filter to Facebook+Instagram); gold=89 correct; baseline empty."
+64ue1v00wj8vg48e,line_multiple,0,1,~21.74 (after-2010 avg 60.36 minus before-2010 avg 38.63; sign convention allows ±21.74),0,"Gold=21.74 matches (excl 2010); baseline=20.375 includes 2010 in after-group, a defensible boundary interpretation; ours=-1.375 averages the same wrong subset twice."
+1dm30xw1gpjo8ke5,bar_simple,1,1,,0,
+8hiwwys6qkrbtapb,line_simple,0,1,,0,
+1mzcynif2s4mm6ps,bar_grouped,1,1,,0,
+54gh54f24irr63pb,bar_stacked,1,0,,0,
+1p6uue3hxdxit3ey,bar_grouped,0,0,,0,
+1fngt6cb1d60a2ow,bar_simple,0,0,"Yes — sum of all regions except Metro Total = 89359, which exceeds 50,000 (true)",0,"Both executed to final=""empty""/value=null, producing no boolean answer; true answer is true (89359>50000). Ours also mis-wires (sum group=""Metro Total"", compare ref:n1); baseline spec is logically correct but still executed empty."
+6rvtt4egfl5nmyue,line_multiple,1,1,,0,
+1suppecte0dm69gm,bar_grouped,0,1,"Yes — avg(Men 0.42, Women 0.59)=0.505 > All adults 0.5 (True)",0,"avg(0.42,0.59)=0.505>0.5 → True; gold/baseline=1.0 correct, ours returned empty (compareBool got no value)."
+1e56qqj7moat9gqa,bar_simple,1,0,82.64 (sum of 13.15 + 14.98 + 16.94 + 18.79 + 18.78),0,"Sum of all 5 spending values = 82.64; ours returns 82.64, baseline's extra retrieveValue step yields empty/null; gold has no spec."
+6p4fnscalopvysnn,line_multiple,1,1,,0,
+50y71e5i2n28gkbx,bar_stacked,0,0,7266,0,"True avg of 4 values (9272+4576+10720+4496)/4=7266; gold=7266 correct, ours=14748.75 and baseline=6142 both wrong."
+75yz7pci1w1dif3g,bar_stacked,0,0,3rd largest |None-of-these − Cheese&onion| diff = 60+ at 0.18 (literal/gold reading); under explanation's reading (diff vs 18-24's 0.23 cheese&onion) 3rd = 25-39 at 0.02.,0,"Baseline returned 2nd-largest (25-39/0.19), not 3rd (60+/0.18) — off by one, so auto_baseline=CORRECT is wrong; ours returned 18-24/0.03 (diff 0.00 group), also wrong."
+7extlfw651gqc5fk,line_multiple,1,1,,0,
+6rqevjp16hadlyly,line_multiple,1,1,,0,
+1esx2fbduhqn7knk,bar_simple,0,0,"639.5625 (avg of 1279.13, 715.86, 555.8, 7.46 after excluding max 5003.23 and min 0)",0,"Ours returned count=4.0 (never divided sum/count); correct average is ~639.56, so the executed value is wrong."
+1epzpacytv3wx2i6,bar_simple,1,0,"Yes, the values rise monotonically: 730 < 751 < 772 < 806 (each year higher than the previous), so they are going up = true.",0,"Ours returns compareBool=1.0 (true=going up), matching truth; baseline's final is empty/null so it answers nothing; gold's monotonicRun rows are the correct intended check."
+1qm2z3ooawf339jz,bar_grouped,1,1,,0,
+95yhyqjyeu4fohbj,line_simple,1,1,,0,
+62w3xg16iivw11et,bar_stacked,1,1,,0,
+95wcyze391ifhegp,line_simple,1,1,,0,
+9douccar3m9ruah4,line_simple,0,0,"Uncomputable: question references ""Men's/Women's/All Results' Not at all"", but the chart data is E-commerce sales share by Year (2017-2025) with no such categories.",0,"Question/data mismatch: targets (""Not at all"" by gender) absent from E-commerce data; baseline returned empty (null), ours/gold produced no spec."
+9mlpjn6pddrbthj8,line_simple,1,1,,0,
+1x37jzohqd666qc0,bar_grouped,0,0,,0,
+9u3xwiltv2hlcqq1,line_multiple,0,0,"Inverse (negative) relationship: democratic-government preference and strong-leader preference move in opposite directions across 2007-2012 (Dem 55->61->68 rises, Strong leader 34->30->26 falls), and this opposite-direction pattern holds for every transition in 2002,2005,2015 too — so it generalizes to the full span.",0,"Qualitative ""general relationship + does it generalize"" question; true answer is a consistent inverse relationship, but ours returned empty/null and baseline returned 0.0 (count 3==6 false), neither conveying the inverse-and-generalizes answer."
+1hv85ef35tbvldiq,bar_simple,1,1,,0,
+au22oa0vjosoagxu,line_multiple,1,1,2008–2015 (male life expectancy fell continuously each year from 70.72 in 2008 to 64.02 in 2015),0,"All three use monotonicRun(decreasing,longest) on male series; rows = the 2008–2015 continuous decline, which is the answer."
+albgfrf44bz6134k,line_simple,1,0,"No — the average annual increase is 25.83M, which does not equal any individual year-to-year increase (range 23.37–28.16).",0,"Avg increase=25.83 matches no yearly increase; ours compareBool=1.0 (not equal→""No"") is correct; baseline returned empty."
+23bplnbw291p6nil,bar_grouped,1,1,,0,
+aoycx517slbw0ifa,bar_stacked,1,1,Entertainment division contributed most (1983.2 million euros); industry total 2015-2018 = 3575.3 million euros,0,Both return industry total 3575.3 (matches my sum) with findExtremum selecting Entertainment as top division; gold absent (exists=false).
+aqowly2mmavof3f1,line_simple,1,0,"Years 10 to 19 (the longest continuous decrease: 6.3→5.6→4.8→4.4→4→3.5→3.1→3→2.6→2.3, 9 consecutive year-over-year decreases)",0,"Ours uses monotonicRun longest (rows = years 10-19, the right answer); baseline's lagDiff→filter→findExtremum returns scalar -0.2 at year 05, not the run of years."
+23zc8kuhnpespj98,bar_grouped,1,0,,0,
+1hm06wtar7gh92c8,bar_simple,1,1,,0,
+amn6abwhwmc7ksaz,line_simple,0,0,"2016 (year with greatest absolute total change: 0.39 - 0.63 = -0.24, |change|=0.24, larger than 2017:+0.07, 2018:-0.14, 2019:-0.05, 2020:-0.03)",0,"Answer is year 2016 (|change|=0.24); ours returned 0.63 (max price, findExtremum read filtered data not diffs), baseline returned 0.34 (whole-period diff, not per-year max); gold has no spec."
+221xoyhy3yziwabm,bar_grouped,0,0,,0,
+25n4mzhv6y1p36dl,bar_grouped,1,1,,0,
+ay58pwlf97q0osw6,bar_stacked,0,0,"Commercial (largest range = 284.6 - 21.1 = 263.5; Broadcasting=230.5, Matchday=45.8)",0,"Answer is Commercial (range 263.5); both systems returned Broadcasting's range 230.5, not the true max."
+bhaqrpqx0hwtcol5,line_multiple,1,1,,0,
+b1jrtiwi2x01zdtw,line_multiple,1,1,11 (Engaged 26 − Actively disengaged 15 in 2005),1,"2005: Engaged 26 − Actively disengaged 15 = 11; ours/baseline both 11; gold's 48 wrongly lumps Not engaged+Actively disengaged as ""disengaged""."
+bfi0ia7zx8pjb5g8,bar_stacked,0,0,0 years (no year's Hardlines+Diversified sum exceeds 60; max is 49.2 in 2012),0,"Per-year Hardlines+Diversified sums all fall in 30-49 range, never >60, so true count is 0; both systems returned 1."
+ahxo354yj7g4m6h1,line_simple,0,0,~2.43% per year (CAGR per explanation: (10.3/8.1)^(1/10)-1); simple-average reading gives ~2.72%/yr,1,"Answer is ~2.43% (CAGR) or ~2.72% simple avg/yr; gold=0.22 (pts/yr, wrong metric/scale), ours=2.06e10 (raw dollars), baseline=127.16 (ratio×100) all wrong."
+apsxmes1emdu9vtk,bar_stacked,0,0,"1.56 million (age group 40–59 years has the smallest overall change, range 0.03; its 2018 value is 1.56)",0,"Most-steady group is 40–59 years (range 0.03), 2018=1.56; baseline returned 1.31 (0–19 group's 2018 value), wrong; gold/ours absent."
+1hp11sl0mo4ohtpo,bar_simple,1,0,"2013/14, increase of 11.5 (from 45.65 to 57.15)",0,"Max year-to-year increase is +11.5 at 2013/14; ours matches, baseline returned first diff 3.34 (2007/08) via nth-from-left instead of the max."
+1it2ia9kmdihxan8,bar_simple,1,1,,0,
+b8um9hhxelrqowd9,line_simple,1,1,,0,
+c41fny6w7gwpawbn,line_multiple,1,1,,0,
+263367gingx3k5hu,bar_grouped,0,0,288 (China 243 + Japan 7 + South Korea 13 + Other Asia 21 + Taiwan 4),0,"Gold=288 matches; ours used diffByValue(ref:n1) instead of year pairDiff, yielding -627.6; baseline produced no spec."
+bnil22qu3wwatrc7,bar_stacked,0,1,9.125 (Western Europe avg 24.625 − rest avg 15.5),1,Baseline=9.125 matches explanation grouping; ours=0 (diffed identical all-country averages); gold=4.5 uses a wrong country split.
+1lg9qn6shf8ifsdq,bar_simple,0,1,"TRUE: (0.9+1.8+3.8+8.23+14.01)=28.74, ×3=86.22; later sum (15.31+20.03+21.11+21.96+20.61)=99.02; 86.22 < 99.02 so answer is True (1.0)",0,"Ours returned False (0.0) but tripled early subtotal 86.22 is indeed < later 99.02, so correct answer is True; baseline and gold agree at 1.0."
+2a7luy1tzrplr2as,bar_grouped,0,0,"3 (FY2018=7.81, FY2019=7.71, FY2020=6.34 all exceed 6 billion)",0,"Both summed globally instead of grouping by fiscal year then counting; true count is 3, both returned 1; gold has no spec."
+awg12vb36ndo75tq,line_simple,0,1,,0,
+cby91tt3tvahsmuj,line_multiple,0,0,"No — 2012 abs diff = 55, avg of all yearly abs diffs ≈ 58.36, so 55 is NOT bigger (compareBool = false).",0,"Gold compareBool=0.0 (false) matches true answer No; ours spec ran to empty/null (n3 re-runs pairDiff instead of retrieving 2012), baseline has no spec."
+1lf1h5jf9ymeid5q,bar_simple,1,1,,0,
+bpmaqi8nt785y4ay,bar_stacked,0,0,"3 years (2013, 2015, 2016 exceed 50%); so No, not more than 3 years.",0,"Gold count=3 matches data (2013/2015/2016 >50%); both ours and baseline returned empty/null final, no usable value."
+c3mncg8r4g6bjoon,bar_stacked,1,1,,0,
+c1dkepdvg39l54su,bar_stacked,1,1,,0,
+1jgaguuh4rqlk7sq,bar_simple,1,1,,0,
+2ecy6apyrdfpoqbo,bar_grouped,0,0,6,0,"All 6 fiscal years have Beer < (SoftDrink+HotDog); true answer is 6, but ours=1 and baseline=0 are both wrong; gold absent."
+b4o9bh8f969q6kqa,line_simple,1,0,,0,
+ciqofa9lr4z5kz7d,line_multiple,1,1,,0,
+avwb8xstxx1lmfpk,line_simple,0,0,"2021 (year-average deviation 3.58; 2020 dev 2.24, overall avg 261.56)",1,"Year w/ biggest dev = 2021 (3.58); ours=0.0 wrong, baseline=2.24 is the smaller 2020 dev (wrong extremum), gold=7.64/May'21 answers most-deviant-month not year as explanation requires."
+bkemtvekxtnuk8bf,line_multiple,1,1,,0,
+1j86ensex8nyvdyk,bar_simple,0,0,"2015–2017 (net increase of 4.8 million, from 19.8 to 24.6)",1,"Question wants largest net increase per 3-yr window (2015–2017, +4.8); all three instead aggregated levels — gold=max sum 78.4/2017–2019, ours&baseline=max avg 26.13/2017–2019."
+273wm22z47ptlhzz,bar_grouped,0,1,No — Male total (0.08+0.09=0.17) is NOT greater than Female total (0.10+0.09=0.19); compareBool > is false (0.0),0,"Male 0.17 < Female 0.19 so answer is false(0.0); ours returned 1.0 (wrong), baseline and gold returned 0.0 (correct)."
+1gdzafocxmz7rswi,bar_simple,0,0,4,0,"Diff of two biggest (335-209=126); 4 years (15,34,68,125) are below it; gold=4 correct, ours=0 and baseline=1 both wrong."
+9r7co7yl1osn3zg4,line_simple,1,1,,0,
+a6gnu78mgn3xmqhu,line_simple,0,1,6,0,"Avg=31.22; 6 years (2015,2016,2017,2018,2019,2020) below avg. Gold=6 and baseline=6 correct; ours counted diffByValue's 9 rows instead of the filter node, giving 9."
+87b7sitfbe4ttuns,bar_stacked,0,0,5,0,"All 5 active-vs-inactive diffs (0.60,0.78,0.67,0.64,0.61) are <1.0 so answer=5; both systems returned 0.0, wrong."
+2203wq7kgv5ha9fi,bar_grouped,1,1,,0,
+20lb7iojghs85r21,bar_grouped,1,1,2015 (largest within-year gap = 0.075 - 0.01 = 0.065),0,"Question asks for a year; both ours and baseline return target=2015 which is the true answer (max within-year gap 0.065), though their scalar value 0.042 reflects only a partial-diff path."
+1xj7x49epprmpod7,bar_grouped,0,1,122,0,"Diffs sum 140, avg ~15.56; years >avg sum to 122. Ours filtered >0 (kept all) giving 140; baseline/gold filtered >avg giving 122."
+7iy5s09teyeaybzy,line_multiple,0,0,"2013 (combined total ~141.41, closest to overall average ~141.05)",0,"True answer is year 2013; both ours and baseline returned scalar 0.0 instead of identifying the year, so both wrong; gold absent."
+9sdl1j9l1fbhwq09,line_multiple,0,1,"6 years (2013-2018, where both female > 63.63 and male > 57.37)",1,"True count is 6; baseline=6 correct, ours=11 incorrect, gold=9 wrong (collapsed both genders into one average instead of per-gender intersection)."
+1g17ep9vho38jvcz,bar_simple,1,1,,0,
+83hx57gqlkd9sldn,line_multiple,0,0,"2013 (Bad-Good difference of 64; sorted desc: 2012=80, 2011=73, 2013=64 is 3rd)",0,"Correct answer is 2013 (diff 64); gold matches, ours and baseline both returned 2014/14 (wrong filter+nth)."
+21klhgimadx4zsi9,bar_grouped,0,0,"2020 (yearly total 17534 million euros; per-year sums: 2014=11364, 2015=12845, 2016=15024, 2017=15327, 2018=14837, 2019=16153, 2020=17534)",0,Both summed all rows globally (103084 grand total) instead of grouping by year; answer should be 2020 (total 17534).
+77xb5ug5lhfmkb74,bar_stacked,0,0,230769,0,"True Europe sum 2011-2014 = 230769 (gold matches); ours 232378 is off by 1609 (incorrect despite auto label), baseline 527900 double-counts."
+a7byilpdrc3cbjr4,bar_stacked,0,0,"1 (only Spain: Keep the same is largest at 52, and Decrease 33 > Increase 14)",0,All systems have exists=false (no spec); true answer is 1 country (Spain).
+7mw5410egrxfi2oy,line_multiple,0,0,"33.4 (exclude 2002 max-Favorable and 2007 max-Unfavorable; avg of remaining diffs 29,22,40,34,42 = 167/5)",0,Baseline averaged all 7 diffs (32.14) because its filter between 2002-2015 excluded nothing; true answer excludes 2002 & 2007 giving 33.4.
+1hlsoeyqlr1r1n41,bar_simple,1,0,,0,
+90tonvacpe7zniv9,bar_stacked,0,0,Fair and balanced (combined share 0.69 = 0.25 + 0.44),0,"True answer is Fair and balanced (0.69); ours returned 0.5/Meghan (raw max, no per-perception sum), baseline returned 0.38 (wrong extremum over sums); gold absent."
+ae2xp7bacbbs0kmx,line_simple,0,0,6,0,"Avg=106.025; 6 of 8 months below it (gold=6 correct); ours=8 counted all rows, not filtered subset; baseline empty."
+1g95in84ywix6pcf,bar_simple,0,1,"Andy (3409 thousand) — the 2nd-highest subscriber count among creators starting with ""a"" (Amixem 4085 is 1st, Andy 3409 is 2nd)",1,"2nd-biggest ""a"" creator is Andy=3409; baseline got it, ours+gold returned Amixem=4085 (the 1st-biggest) due to off-by-one nth indexing."
+9r3kyy2jo2o66msh,line_simple,1,0,,0,
+ckptmodbya2m1mih,bar_stacked,1,0,2016 (minimum absolute |2G-3G| difference = 350),0,"Min |2G-3G|=350 at 2016; ours value=350/target=2016 correct; baseline returned null/rows (extra retrieveValue step unreduced), no scalar answer."
+rx7zzpt8c0ue86y3,line_multiple,0,0,36.75%,0,Years with Unfavorable>50 (2013-16) give Favorable avg (37+35+38+37)/4=36.75%; both systems returned NaN (wrong); gold has no spec.
+88sup9tkwx0lwkgw,bar_stacked,0,0,420.0 (EMEA avg 1683.14 − Asia Pacific avg 1263.14 over years 2016–2020 where Asia Pacific > 1000),0,"Both ours and baseline executed to NaN (no usable value); gold has no spec (exists=false), so not judged wrong."
+9g5a38vcep03acdu,bar_stacked,0,0,2009 (highest YoY growth rate of total net sales = +7.29%; 2021 is only 2nd at +6.79%),1,"True highest YoY growth-rate year is 2009 (7.29%); gold/explanation say 2021 using Walmart-US-only absolute change (28.96), ours reduced to scalar -0.0088, baseline empty/null."
+fsraebh4cpmzc7ut,line_simple,0,1,3,0,"Increases at 2012/2014/2019 = 3; baseline=3 correct, ours=9 wrong (broken ref:n2 self-filter), gold=3 matches."
+h33j4k50c44wni7l,line_simple,0,0,5,0,"True count of values strictly in (2.6,3.0) is 5 (2.7,2.7,2.8,2.9,2.9); gold=5 correct; ours duplicated >2.6 filter (no upper bound) and baseline left filters unchained, both returning 7."
+gnin1xu8b8rbtv34,line_multiple,1,0,4,0,"Diffs ≥10: 2010(12),2012(11),2013(18),2014(17)=4; ours/gold=4 correct, baseline=0 (extra group filter breaks pairDiff result); explanation text says 6 but executed gold value 4 is right."
+58wxo6da4x2w1ass,bar_grouped,0,0,"Local Government workers (Obama 50, diff |50-51|=1, the smallest gap from All Government workers' 51)",0,"True answer is Local Government workers (diff=1); both ours and baseline returned empty/null final, so neither yields the answer."
+f12st3qo0kz1egmp,line_multiple,0,0,"Yes. First year after 2004 with higher ""important"" value than 2004 (67) is 2016 (74); ""Things will be the same"" in 2016 is 22, down from 29 in 2004, so the unimportant share decreased.",0,"Baseline spec logic is correct (would yield Yes/true) but executed final=""empty"" with null value, so it produced no answer; ours/gold absent."
+a0m3af45az33ngmr,bar_stacked,0,0,"2020 (sheep share ~4.745%, highest of all years)",0,"True answer is 2020; gold's target=""2020"" is correct; ours=-1622.46 and baseline=1547.94 are meaningless cross-year aggregates, neither identifies a year."
+i0fd8sbi945erf7p,line_multiple,1,1,,0,
+50pei8jwlb2g5h1q,bar_grouped,0,0,"Germany (smallest decrease rate ≈5.7%; UK 13.0%, France 18.6%, Italy 14.3%)",0,Germany has smallest decrease rate; gold lands on Germany; ours value=NaN and baseline final=empty/null both fail.
+g1s9b91z7xw8flg2,line_simple,1,1,,0,
+0gt3h2146jc47ovx,bar_simple,0,1,3.6,0,"(19+17)/10 = 3.6; baseline=3.6 correct, ours=0.0 (sum mis-grouped Iron+Zinc), gold=3.6 matches."
+31d6673lje5rb1nw,bar_grouped,0,0,Confederacy (killed proportion 3903/28063=0.1391 > Union 3155/23049=0.1369),0,"Gold ratio compareBool=0.0 correctly implies Confederacy higher; ours empty; baseline summed Killed+TotalCasualties counts instead of computing the killed/casualties proportion, answering the wrong quantity."
+0cy2ufyjsinsswpm,bar_simple,0,0,"50-59 years (cumulative from 20-29: 89034+70660+84570+99943=344207, which first exceeds 50% of total 540379 = 270189.5 when 50-59 is added)",0,"Answer is ""50-59 years""; both systems return compareBool=0.0 (false), but cumulative 344207 > threshold 270189.5 should be true, and neither returns the age group asked for."
+0ivzc37gi49isy9n,bar_simple,1,0,"2018-2020 (sum = 1395.62 billion rupees), the highest 3-year sliding-window total",0,"Max window is 2018-2020=1395.62; ours/gold match. Baseline added compareBool vs wrong period ""2012-2014"" (from misleading explanation) → empty/null, wrong."
+guhd9zsodg7n408g,line_simple,1,1,,0,
+0ijwrg723j4v8s3e,bar_simple,1,0,65.35% (Asia 59.51 / Northern Hemisphere total 91.07 = 65.345%),0,Ours=65.3453 matches true 65.35%; baseline produced a spec but executed to empty/null (no value). Explanation's stated 65.03% is a typo vs actual data.
+56010lp5kjl1p4by,bar_grouped,0,0,≈0.2175 (full-time growth 0.6/1.9=0.3158 minus part-time growth 0.8/1.5=0.5333 = -0.2175; magnitude 0.2175),0,"True diff of growth rates ≈0.2175; gold=0.2175 correct (explanation's 0.133 is wrong), but ours and baseline both produce NaN."

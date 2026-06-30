@@ -10,6 +10,7 @@ import {
 import { refKeyFromScalarValue, resolveFilterRefThresholdFromResults } from '../domain/operation/dataOps'
 import type { LogicalExecutionArtifacts, NodeResultKind } from './visual-derived-chart'
 import type { VisualExecutionStep } from './nlp-ops'
+import { drawSummaryTextBox } from '../operation-new/primitives/drawSummaryTextBox'
 
 export type OperandPhraseContext = {
   mode: 'bare-entity' | 'value' | 'summary'
@@ -1136,3 +1137,5 @@ export function buildExplanationTextForOperations(args: {
     refineOnNodeIds: refineOnNodeIds.length > 0 ? refineOnNodeIds : undefined,
   }
 }
+
+export { drawSummaryTextBox } from '../operation-new/primitives/drawSummaryTextBox'

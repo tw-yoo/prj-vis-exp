@@ -1186,6 +1186,7 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     pendingRuntimeSnapshot = null
     return primed
   }
+  let currentSummaryText = ''
   const wrappedRunOps: RunOpsCallback = async (ops, opts) => {
     const primed = takeFirstRunPriming()
     await args.runOps(ops, {
@@ -1193,6 +1194,9 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
       initialChainState: opts.initialChainState ?? primed.initialChainState,
       runtimeSnapshot: opts.runtimeSnapshot ?? primed.runtimeSnapshot,
     })
+    if (currentSummaryText && args.renderSentenceSummary) {
+      await args.renderSentenceSummary(currentSummaryText)
+    }
   }
   const context: VisualSubstepExecutionContext = {
     container: args.container,
@@ -1220,7 +1224,6 @@ export async function runVisualSentenceStep(args: RunVisualSentenceStepArgs): Pr
     step: sentenceStep,
     logicalArtifacts: context.logicalArtifacts,
   })
-  let currentSummaryText = ''
   const renderSummary = async (text: string | null | undefined) => {
     if (!text || !args.renderSentenceSummary) return
     currentSummaryText = text

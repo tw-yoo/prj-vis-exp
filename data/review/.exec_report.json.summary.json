@@ -1,0 +1,20 @@
+{
+ "file": "data/review/tech_eval_chatgpt_ours.csv",
+ "ran_ok": 0,
+ "failed": 235,
+ "empty": 25,
+ "top_failure_causes": {
+  "KeyError: 'simpleBar'": 50,
+  "KeyError: 'stackedBar'": 49,
+  "KeyError: 'simpleLine'": 46,
+  "KeyError: 'multipleLine'": 46,
+  "KeyError: 'groupedBar'": 44
+ },
+ "report": "/Users/taewon_1/Desktop/vis-exp/explainable_chart_qa/prj-vis-exp/prj-vis-exp/data/review/.exec_report.json",
+ "shown": [
+  {
+   "id": "2jromeq5u9lloh1s",
+   "err": "'simpleLine'"
+  }
+ ]
+}

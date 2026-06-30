@@ -107,6 +107,7 @@ import {
   captureMarkPresentationSnapshot,
   playPresentationTransition,
 } from '../../../src/api/presentation-transition-controller'
+import { drawSummaryTextBox } from '../../../src/api/operation-summary-text'
 import { browserEngine } from '../../engine/createBrowserEngine'
 import OpsBuilder from '../opsBuilder/OpsBuilder'
 import DrawTimelinePanel from '../components/DrawTimelinePanel'
@@ -3406,6 +3407,16 @@ function ChartWorkbenchPage() {
         renderPlaybackChart: renderPlaybackChartForVisualPlayback,
         initialChainState: options?.initialChainState ?? null,
         runtimeSnapshot: options?.runtimeSnapshot ?? null,
+        renderSentenceSummary: (text) => {
+          if (chartRef.current) {
+            drawSummaryTextBox(chartRef.current, text)
+          }
+        },
+        clearSentenceSummary: () => {
+          if (chartRef.current) {
+            drawSummaryTextBox(chartRef.current, '')
+          }
+        },
         runOps: async (ops, runOptions) => {
           logSplitSimpleBarDebug('workbench.visualPlayer-runOps-callback', {
             ops: summarizeOpsForDebug(ops),

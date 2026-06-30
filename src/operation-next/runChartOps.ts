@@ -135,7 +135,7 @@ export async function runChartOps(
     dom: summarizeChartDom(container),
   })
 
-  return runner({
+  const outcome = await runner({
     container,
     originalSpec: spec,
     runtimeSpec: runtime.spec,
@@ -144,6 +144,8 @@ export async function runChartOps(
     groups,
     options: runOptions,
   })
+
+  return outcome
 }
 
 export type { RunChartOpsOptions }

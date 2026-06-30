@@ -12,6 +12,7 @@ import { resolveEncodingFields } from '../../rendering/ops/common/resolveEncodin
 import { toDatumValuesFromRaw, type RawRow } from '../../domain/data/datum'
 import type { OperationSpec } from '../../domain/operation/types'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
+import { buildSummaryTextForOperations, drawSummaryTextBox } from '../../api/operation-summary-text'
 
 type StepManifest = {
   id: string
@@ -501,6 +502,11 @@ export class OursRenderer implements ExplanationRenderer {
       // passed-in surfaceManager and draws the cross-surface arrow over
       // both panels (see splitSurfaceVisuals.ts).
     }
+
+    const groups = normalizeOpsGroups(step.opsSpec)
+    const allOps = groups.flatMap((g) => g.ops)
+    const summaryText = buildSummaryTextForOperations({ operations: allOps, logicalArtifacts: null })?.initialText || ''
+    drawSummaryTextBox(this.context.container, summaryText)
 
     const result = await runChartOps(runHost, this.activeSpec, step.opsSpec, {
       initialRenderMode: 'reuse-existing',

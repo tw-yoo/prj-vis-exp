@@ -156,7 +156,7 @@ const postSessionQuestions: SurveyQuestion[] = [
   { id: 'tlx-effort-reason', text: 'Why did you choose this response?', kind: 'text', required: true },
   // Per-system open-ended.
   { id: 'best-aspect', text: 'What was the best thing about this system?', kind: 'text', required: true },
-  { id: 'worst-aspect', text: 'What was the most disappointing thing about this system?', kind: 'text', required: true },
+  { id: 'worst-aspect', text: 'What recommendations or suggestions do you have for improving this system?', kind: 'text', required: true },
 ]
 
 const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-text', 'tutorial-task']
@@ -267,6 +267,7 @@ const reviewCounterEl = document.getElementById('reviewCounter') as HTMLElement
 const reviewChartEl = document.getElementById('reviewChart') as HTMLElement
 const reviewQuestionEl = document.getElementById('reviewQuestion') as HTMLElement
 const reviewExplanationEl = document.getElementById('reviewExplanation') as HTMLElement
+const reviewTitleEl = reviewPanelEl.querySelector('.review-title') as HTMLElement
 
 const chartMap = await fetch(withBase('/chart_map.json')).then((r) => r.json()) as ChartMap
 const defaultD3Model = chartMap.defaults?.d3?.model ?? 'gpt-5.2'
@@ -1131,6 +1132,8 @@ async function activateReviewItem(idx: number) {
 async function setupReview(block: SessionBlock | undefined) {
   teardownReview()
   if (!block) return
+  const blockLabel = labelForSystem(block.system)
+  reviewTitleEl.innerHTML = `Below are 5 explanations from <b><u>${blockLabel}</u></b>. Use the <b><u>arrows</u></b> (&#8249; &#8250;) to review them.`
   reviewItems = block.items
   await activateReviewItem(0)
 }
@@ -1265,7 +1268,22 @@ function updateUI() {
   nextBtn.disabled = currentPageIndex === totalPages - 1 || stepRunInProgress
   nextBtnLabel.textContent = 'Next'
 
-  const pct = totalPages > 0 ? Math.round((currentPageIndex + 1) / totalPages * 100) : 0
+  let logicalCurrentPage = 0
+  const logicalTotalPages = sequence.length + blocks.length + 1
+  if (page) {
+    if (page.kind === 'survey') logicalCurrentPage = page.itemIdx + 1
+    else if (page.kind === 'post-session') logicalCurrentPage = sequence.length + page.blockIdx + 1
+    else if (page.kind === 'final') logicalCurrentPage = sequence.length + blocks.length + 1
+  }
+
+  const totalLogicalSteps = INTRO_PAGE_KINDS.length + logicalTotalPages
+  let pct = 0
+  if (page && (page.kind === 'survey' || page.kind === 'post-session' || page.kind === 'final')) {
+    pct = Math.round((INTRO_PAGE_KINDS.length + logicalCurrentPage) / totalLogicalSteps * 100)
+  } else {
+    pct = Math.round((currentPageIndex + 1) / totalLogicalSteps * 100)
+  }
+  
   progressFillEl.style.width = `${pct}%`
   progressTrackEl.setAttribute('aria-valuenow', String(pct))
   surveyWarningEl.textContent = ''
@@ -1286,7 +1304,7 @@ function updateUI() {
 
   // Final ranking + comments page (no chart).
   if (page.kind === 'final') {
-    progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
+    progressLabelEl.textContent = `Page ${logicalCurrentPage} of ${logicalTotalPages}`
     if (methodBadgeEl) methodBadgeEl.textContent = ''
     // Anonymized: the A->system mapping is persisted in the saved doc's `systems`
     // field for the researcher; never reveal it in the participant-facing UI.
@@ -1304,14 +1322,14 @@ function updateUI() {
   if (page.kind === 'post-session') {
     const block = blocks[page.blockIdx]
     const blockLabel = block ? labelForSystem(block.system) : 'System ?'
-    progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
+    progressLabelEl.textContent = `Page ${logicalCurrentPage} of ${logicalTotalPages}`
     if (methodBadgeEl) methodBadgeEl.textContent = ''
     // Anonymized researcher readout (the System label, never the raw name).
     debugMetaEl.textContent = block ? `Post-session · ${blockLabel} · Group ${block.group}` : ''
     // Heading sits ABOVE the review carousel (#postSessionHeading); keep the
     // in-flow questionText empty so it is not duplicated below the panel. Name
     // the (anonymized) system so the participant knows which one they're rating.
-    postSessionHeadingEl.textContent = `Questions about "${blockLabel}". Below are the 5 explanations "${blockLabel}" produced. Use the arrows to review them, then answer the questions about "${blockLabel}".`
+    postSessionHeadingEl.innerHTML = `Questions about <b><u>${blockLabel}</u></b>. Below are the 5 explanations <b><u>${blockLabel}</u></b> produced. Use the <b><u>arrows</u></b> (&#8249; &#8250;) to review them, then answer the questions about <b><u>${blockLabel}</u></b>.`
     questionEl.textContent = ''
     descriptionEl.textContent = ''
     explanationEl.hidden = true
@@ -1323,7 +1341,7 @@ function updateUI() {
   // Per-chart survey page.
   const item = sequence[page.itemIdx]
   const itemLabel = labelForSystem(item.system)
-  progressLabelEl.textContent = `Page ${currentPageIndex + 1} of ${totalPages}`
+  progressLabelEl.textContent = `Page ${logicalCurrentPage} of ${logicalTotalPages}`
   // Participant-facing badge names the (anonymized) system for this chart so the
   // participant always knows which system produced the explanation they see.
   if (methodBadgeEl) methodBadgeEl.textContent = `${itemLabel} · Question ${page.itemIdx + 1} / ${sequence.length}`
