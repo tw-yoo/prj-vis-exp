@@ -1,0 +1,87 @@
+chart_id,chart_type,question,explanation,operation_spec,status,updated_at
+0k7bm9iqewnrzj47,bar_simple,Is the average of the top three greater than twice the average of the lowest three?,"1. find the top three values
+2. calculate the average
+3. find the lowest three values
+4. calculate the average
+5. double the lowest average
+6. compare the two values to find which one is bigger","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""include"": [""2018"", ""2019"", ""2020""]}], ""ops2"": [{""op"": ""average"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""field"": ""Production in million liters""}], ""ops3"": [{""op"": ""filter"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [], ""sentenceIndex"": 3}, ""field"": ""Year"", ""include"": [""1995"", ""2000"", ""2005""]}], ""ops4"": [{""op"": ""average"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 4}, ""field"": ""Production in million liters""}], ""ops5"": [{""op"": ""scale"", ""id"": ""n5"", ""meta"": {""nodeId"": ""n5"", ""inputs"": [""n4""], ""sentenceIndex"": 5}, ""target"": ""ref:n4"", ""factor"": 2.0}], ""ops6"": [{""op"": ""compareBool"", ""id"": ""n6"", ""meta"": {""nodeId"": ""n6"", ""inputs"": [""n2"", ""n5""], ""sentenceIndex"": 6}, ""targetA"": ""ref:n2"", ""targetB"": ""ref:n5"", ""operator"": "">""}]}",pending,2026-06-29T11:56:55.884Z
+0ijwrg723j4v8s3e,bar_simple,What percentage of the polulation in the Northern Hemisphere is accounted for Asia?,"Filter the continents located in the Northern Hemisphere.
+Divide Asia's population by the sum of population of those continents.","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Continent"", ""include"": [""Europe"", ""Nothern America""]}, {""op"": ""sum"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 1}, ""field"": ""Share of the global population (%)""}, {""op"": ""retrieveValue"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Share of the global population (%)"", ""target"": ""Asia""}, {""op"": ""diff"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n2"", ""n3""], ""sentenceIndex"": 1}, ""targetA"": ""ref:n3"", ""targetB"": ""ref:n2"", ""signed"": false, ""mode"": ""ratio"", ""percent"": true, ""precision"": 2}]}",pending,2026-06-29T12:00:24.739Z
+0cad2xfrwdgvo9zk,bar_simple,What is the sum of the three median values for each year?,"List the values ​​for each year in descending order.
+Find the three medians.
+Add those values.",,pending,
+1hlsoeyqlr1r1n41,bar_simple,How many regions have the smaller revenue than the average of revenue across regions except for the one with the highest revenue?,"1. Filter out the region which has the highest revenue.
+2. Calculate the average of the revenue for those regions.
+3. Count the regions which have a smaller revenue than the average.","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Region"", ""exclude"": [""United States""]}], ""ops2"": [{""op"": ""average"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""field"": ""Revenue in million US dollars""}], ""ops3"": [{""op"": ""filter"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n1"", ""n2""], ""sentenceIndex"": 3}, ""field"": ""Revenue in million US dollars"", ""operator"": ""<"", ""value"": ""ref:n2""}, {""op"": ""count"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 3}}]}",pending,2026-06-29T12:06:36.750Z
+1lf1h5jf9ymeid5q,bar_simple,Count the number of year that consists more than 3 million shipments increase compared to last year.,"1. Find all of the number of difference between 'this year' and 'last year' (from 2001 to 2017)
+2. Count that has the difference more than 3 million. ","{""ops"": [{""op"": ""lagDiff"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Unit shipments in millions"", ""order"": ""asc""}], ""ops2"": [{""op"": ""filter"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""field"": ""Unit shipments in millions"", ""operator"": "">"", ""value"": 3.0}, {""op"": ""count"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 2}, ""field"": ""Unit shipments in millions""}]}",pending,2026-06-29T12:09:44.041Z
+1x37jzohqd666qc0,bar_grouped,"Is the average value of ""Don't know/no opinion"" in all categories equal to the difference between ""Very unlikely"" in ""Family"" and ""Very unlikely"" in ""Local community"" plus the difference between ""Somewhat unlikely"" in ""Family"" and ""Local community""?","Find the Don't know/no opinion average for all categories.
+Find the value of Very Unlikely of the family category minus the Very Unlikely value of the Local community.
+Find the value of Somewhat unlikely the family category minus the value of the community's Somewhat unlikely value of the Local community..
+Add these two values.
+Compare the mean and these two values to the added value.",,pending,
+0bgcjlbz7nv5vnjc,bar_grouped,What is the average value of the difference between the three years with the largest difference between age groups?,"Find the difference in values for each year.
+Sort the values in descending order.
+Find the top 3 years with the highest difference.
+Divide the values by three.",,pending,
+0ihx2vzdsej883sq,bar_grouped,What is the Male value in the category with the second-lowest Female share of employees?,"1. Check the second-lowest Female value.
+2. Check the Male value in that Category.",,pending,
+221xoyhy3yziwabm,bar_grouped,"In 2014, were more respondents satisfied (very satisfied+ satisfied) or disatified (very dissatisfied+ dissatisfied)?","1. Focus on blue bars only 
+2. Determine total satisfied percentage for 2014 (.13+.43)
+3. Determine disatissfied (.8+_.32)
+4. Compare satisfied and disatisfied find disatisfied is slightly smaller percentage",,pending,
+0lua5jsw92d3enb4,bar_grouped,How many diet types surpassed the threshold of 0.03% in 2019?,"1. Filter for which diet type surpased the 0.03% threshold. in 2018 and 2019.
+2. Calculate the amount of diet types in 2018 and 2019.
+3. and calculate the absolute difference of the two results.",,pending,
+c3mncg8r4g6bjoon,bar_stacked,Is Germany has higher share of respondents in Gasoline or diesel compared to the average of rest of the countries?,"1. Calculate the average of the share of respondents in Gasoline or diesel of other countries.
+2. Compare the average value acquired from the previous step and the value of Germany in Gasoline and diesel.",,pending,
+0vfqjaxeiv96ww7g,bar_stacked,What is the difference between white and black who answer more than most of all time?,"1. sum ""almost of all of the time"" and ""most of the time"" of white
+2. sum ""almost of all of the time"" and ""most of the time"" of black
+3. calcuate the difference",,pending,
+0gzowodb2py0d1s9,bar_stacked,How many years did Thailand's revenue exceed that of the Philippines'?,"1. Filter for the revenue of Thailand and the Philippines
+2. Compare the revenue of Thailand and the Philippines
+3. count the years for which Thailand's revenue was higher.","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""group"": [""Thailand"", ""Philippines""]}], ""ops2"": [{""op"": ""pairDiff"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""by"": ""Year"", ""seriesField"": ""Country_Region"", ""field"": ""Revenue_Million_USD"", ""groupA"": ""Thailand"", ""groupB"": ""Philippines"", ""signed"": true, ""absolute"": false}], ""ops3"": [{""op"": ""filter"", ""id"": ""n3"", ""meta"": {""nodeId"": ""n3"", ""inputs"": [""n2""], ""sentenceIndex"": 3}, ""field"": ""Revenue_Million_USD"", ""operator"": "">"", ""value"": 0}, {""op"": ""count"", ""id"": ""n4"", ""meta"": {""nodeId"": ""n4"", ""inputs"": [""n3""], ""sentenceIndex"": 3}, ""field"": ""Revenue_Million_USD""}]}",pending,2026-06-29T12:47:39.592Z
+9g5a38vcep03acdu,bar_stacked,Which year had the highest year-over-year growth rate in Walmart's total net sales?,"For each year, sum the net sales of Walmart US and Walmart International.
+For each year, divide the net sales by the net sales of the previous year.
+Find the year with the highest resulting ratio.",,pending,
+1xz4egh52kvh2xwx,bar_stacked,Is the sum of the orange and red values ​​from 2017 to 2020 greater than the US value in 2020?,"1. Sum all of the orange and red bars from 2017 to 2020.
+2. Find the value of the US in 2020.
+3. Determine which one is bigger.",,pending,
+1jabqwjz9pmd7qwz,line_simple,What was the median number of facilities between the years 2010 and 2019?,"1. Filter for the years 2010 to 2019
+2. Calculate the median number","{""ops"": [{""op"": ""filter"", ""id"": ""n1"", ""meta"": {""nodeId"": ""n1"", ""inputs"": [], ""sentenceIndex"": 1}, ""field"": ""Year"", ""operator"": ""between"", ""value"": [""2010"", ""2019""]}], ""ops2"": [{""op"": ""average"", ""id"": ""n2"", ""meta"": {""nodeId"": ""n2"", ""inputs"": [""n1""], ""sentenceIndex"": 2}, ""field"": ""Number of facilities""}]}",pending,2026-06-29T13:00:07.957Z
+awg12vb36ndo75tq,line_simple,Do poverty range increase faster in last 6 years than the first 6 years from this chart?,"1. Find the delta number of the last 6 years(2015-2020) and first 6 years(2008-2013)
+2. Compare the number from step 1",{},pending,2026-06-29T13:00:07.981Z
+10gtgmmgh599jnr7,line_simple,What is the difference between the second largest and the smallest values between 2000 and 2008?,"1. Check the largest value between 2000 and 2009
+2. Determine the second largest value after the largest value between 2000 and 2009
+3. Determine the smallest value between 2000 and 2009 
+4. Subtract small value from large value",,pending,
+95yhyqjyeu4fohbj,line_simple,Is the average of the minimum and maximum values greater compared to the value in 2010?,"
+Add the minimum and maximum values.
+Divide the added value by two.
+Find the value for 2010.
+Compare the value in 2010 with the average value added.",,pending,
+0cymcilknp8krjwz,line_simple,What is the difference between the sum of the values above 4.0 and the sum of the values below 2.5?,"Find the line of 4.0.
+Add the values of the dots above 4.0.
+Find the line of 2.5.
+Add the values of the dots below 2.5.
+Find the difference between the two values.",,pending,
+7extlfw651gqc5fk,line_multiple,Is the difference between the maximum value of having a large role and the minimum value of having a small role in the entire year equal to the average value of all values in the entire year?,"Find the maximum value of the role being large and the minimum value of the role being small in the entire year.
+Find the difference between the two values.
+Finds the average of all values for the entire year.
+Compare the difference and the mean value.",,pending,
+0b9o2vahkw2a1bxy,line_multiple,What is the difference between the value of the year with the highest percentage of no and the value of the year with the third highest percentage of yes?,"Sort the percentage values that answered no for each year in descending order.
+Find the highest value.
+Sort the percentage values that answered Yes for each year in descending order.
+Find the third-highest value.
+Find the difference between the two values obtained.",,pending,
+3z678inbp0t89ahu,line_multiple,In how many years was the difference between Disatisfied and Satisfied less than the difference between their means?,"1. Calculate the average of Dissatisfied.
+2. Calculate the average of Satisfied.
+3. Calculate the difference between the two values.
+4. Calculate the difference for each year. (PairDiffOp)
+5. Count all years that have a lower difference than the difference between the averages.",,pending,
+b1jrtiwi2x01zdtw,line_multiple,In 2005 what is the differnce between share of engaged and disengaged respondents?,"1. engaged respondent = orange =26%
+2. disengaged = red plus blue= 15%+58% = 73%
+3 find difference 73-26= 47%",,pending,
+2s65jcap9pn289qx,line_multiple,What is the sum of the differences between women and men in the last five years?,"- Filter data from 2016 to 2020
+- Find both the differences between women and men in the filtered data.
+- Add all the values",,pending,
