@@ -85,3 +85,6 @@ pdfs/
  CLAUDE.md
 
  docs/expert-study/
+# Scratch / throwaway experiment files (convention: name temp files "scratch_<purpose>.<ext>").
+# Single rule, extension-agnostic, matches in every directory.
+scratch_*
