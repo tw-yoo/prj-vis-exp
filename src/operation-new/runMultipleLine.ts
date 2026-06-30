@@ -27,6 +27,7 @@ import { averageApplier } from './appliers/multipleLine/average'
 import { lagDiffApplier } from './appliers/multipleLine/lagDiff'
 import { retrieveValueApplier } from './appliers/multipleLine/retrieveValue'
 import { pairDiffApplier } from './appliers/multipleLine/pairDiff'
+import { sumApplier } from './appliers/multipleLine/sum'
 import type { ApplierArgs, OperationApplier } from './applier'
 
 const PORTED_OPS = new Set<string>([
@@ -37,6 +38,7 @@ const PORTED_OPS = new Set<string>([
   OperationOp.LagDiff,
   OperationOp.RetrieveValue,
   OperationOp.PairDiff,
+  OperationOp.Sum,
 ])
 
 function getInlineRows(spec: MultiLineSpec): RawRow[] {
@@ -65,6 +67,8 @@ function pickApplier(op: string): OperationApplier<MultipleLineChartInstance> | 
       return retrieveValueApplier
     case OperationOp.PairDiff:
       return pairDiffApplier
+    case OperationOp.Sum:
+      return sumApplier
     default:
       return null
   }

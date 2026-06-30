@@ -80,6 +80,9 @@ LLM_BACKEND = "openai"
 # OpenAI 모델명. None 이면 서버의 OPENAI_MODEL 환경변수 또는 서버 기본값(gpt-5.4-mini)을 사용.
 OPENAI_MODEL: str | None = "gpt-5.4"
 
+# Ollama 모델명. backend=ollama 일 때만 사용. None 이면 서버 기본값(main.py 의 OLLAMA_MODEL).
+OLLAMA_MODEL: str | None = None
+
 # 처리할 chart_id 목록 (여기에 직접 넣으세요).
 # 비워두고 --all 을 주면, operation_spec 이 비어있는 모든 row 를 대상으로 합니다.
 #
@@ -192,17 +195,20 @@ def check_health() -> None:
 def call_generate_grammar(chart_id: str, question: str, explanation: str, mode: str) -> Dict[str, Any]:
     """chart_id -> request body 빌드 -> mode 엔드포인트 실행. 원본 응답(dict)을 반환."""
     # 1) 서버가 chart_id 로 ChartQA spec/csv 를 로딩해서 완전한 request body 생성
+    req_payload = {
+        "chart_id": chart_id,
+        "question": question,
+        "explanation": explanation,
+        "debug": False,
+        "llm_backend": LLM_BACKEND,
+        "openai_model": OPENAI_MODEL,
+    }
+    if LLM_BACKEND == "ollama" and OLLAMA_MODEL:
+        req_payload["ollama_model"] = OLLAMA_MODEL
     body = _http_json(
         f"{API_BASE}/generate_grammar_request_body",
         method="POST",
-        payload={
-            "chart_id": chart_id,
-            "question": question,
-            "explanation": explanation,
-            "debug": False,
-            "llm_backend": LLM_BACKEND,
-            "openai_model": OPENAI_MODEL,
-        },
+        payload=req_payload,
         timeout=HEALTH_TIMEOUT_SEC,
     )
     if not isinstance(body, dict):
@@ -211,6 +217,8 @@ def call_generate_grammar(chart_id: str, question: str, explanation: str, mode: 
     # 2) 실제 grammar 생성 (ours=recursive / baseline=single-shot)
     body["debug"] = False
     body["llm_backend"] = LLM_BACKEND
+    if LLM_BACKEND == "ollama" and OLLAMA_MODEL:
+        body["ollama_model"] = OLLAMA_MODEL
     endpoint = ENDPOINT_BY_MODE[mode]
     resp = _http_json(
         f"{API_BASE}{endpoint}",
@@ -294,7 +302,7 @@ def now_iso() -> str:
 
 
 def main() -> None:
-    global MODE, TARGET, LLM_BACKEND, OPENAI_MODEL, OVERWRITE, API_BASE
+    global MODE, TARGET, LLM_BACKEND, OPENAI_MODEL, OLLAMA_MODEL, OVERWRITE, API_BASE
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--mode", choices=["ours", "baseline"], default=MODE,
@@ -305,6 +313,10 @@ def main() -> None:
                         help="시스템 내부 LLM 백엔드. 기본값 openai(chatgpt). 로컬 테스트 시 ollama.")
     parser.add_argument("--model", default=OPENAI_MODEL,
                         help="OpenAI 모델명 (예: gpt-5.2-mini, gpt-4o). 기본값: gpt-5.2-mini. 서버 env 보다 우선.")
+    parser.add_argument("--ollama-model", default=OLLAMA_MODEL,
+                        help="Ollama 모델명 (예: qwen2.5:32b). backend=ollama 일 때만 적용. 서버 env 보다 우선.")
+    parser.add_argument("--csv", default=None,
+                        help="입출력 CSV 경로 직접 지정. 주면 --target/--mode 기반 자동 경로를 무시.")
     parser.add_argument("--all", action="store_true", help="CHART_IDS 무시하고 operation_spec 이 빈 모든 row 대상")
     parser.add_argument("--overwrite", action="store_true", help="이미 채워진 operation_spec 도 다시 생성")
     parser.add_argument("--dry-run", action="store_true", help="실제 호출 없이 대상 row 만 출력")
@@ -316,10 +328,11 @@ def main() -> None:
     TARGET = args.target
     LLM_BACKEND = args.backend
     OPENAI_MODEL = args.model or None
+    OLLAMA_MODEL = args.ollama_model or None
     OVERWRITE = args.overwrite or OVERWRITE
     API_BASE = args.api_base.rstrip("/")
 
-    csv_path = csv_path_for(TARGET, MODE)
+    csv_path = Path(args.csv).expanduser().resolve() if args.csv else csv_path_for(TARGET, MODE)
     if not csv_path.exists():
         raise SystemExit(f"[ERROR] CSV 가 없습니다: {csv_path}")
     log_path = csv_path.with_name(csv_path.stem + ".apifill.log.jsonl")
@@ -357,7 +370,10 @@ def main() -> None:
         resolved = resolved[: args.limit]
 
     print(f"[INFO] mode={MODE} endpoint={ENDPOINT_BY_MODE[MODE]} target(설명소스)={TARGET} file={csv_path.name}")
-    model_note = OPENAI_MODEL or "(서버 env 기본값)"
+    if LLM_BACKEND == "ollama":
+        model_note = OLLAMA_MODEL or "(서버 기본값)"
+    else:
+        model_note = OPENAI_MODEL or "(서버 env 기본값)"
     print(f"[INFO] 내부 LLM={LLM_BACKEND} model={model_note} meta_mode={META_MODE} overwrite={OVERWRITE}")
     print(f"[INFO] 대상 chart_id {len(resolved)}개")
 
