@@ -23,6 +23,7 @@ import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { computeSplitDiffGeometry, mountRootDiffOverlay } from '../../primitives/splitDiffOverlay'
 import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { FILTER_ANNOTATION_CLASS } from './filter'
+import { diffByValueApplier } from './diffByValue'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 
 const DIFF_ANNOTATION_CLASS = 'operation-next-line-diff'
@@ -85,7 +86,16 @@ function appendValueLabel(
 export const diffApplier: OperationApplier = {
   op: OperationOp.Diff,
 
-  async apply({ operation, state, instance, options }: ApplierArgs): Promise<ApplierResult> {
+  async apply(args: ApplierArgs): Promise<ApplierResult> {
+    const { operation, state, instance, options } = args
+    // op-consolidation Tier 1: a folded op="diff" carrying a row-vs-scalar operand
+    // (value|targetValue, formerly diffByValue) is DRAWN by the diffByValue applier.
+    if (
+      (typeof operation.value === 'number' && Number.isFinite(operation.value)) ||
+      (typeof operation.targetValue === 'string' && operation.targetValue.trim() !== '')
+    ) {
+      return diffByValueApplier.apply(args)
+    }
     const result = diffData(state.workingData, operation)
     const opRef = operationResultRef(operation)
     console.info('[operation-new] applier:diff', {

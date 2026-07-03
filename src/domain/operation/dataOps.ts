@@ -995,6 +995,11 @@ export function countData(data: DatumValue[], op: OperationSpec): DatumValue[] {
 /** 3.9 sum — returns a single numeric DatumValue */
 /** Op 3.9: sum numeric values; returns single DatumValue. */
 export function sumData(data: DatumValue[], op: OperationSpec): DatumValue[] {
+  // op-consolidation Tier 1: two-scalar addition shape (formerly `add`). When both operands
+  // are present, route to addData; otherwise fall through to row-aggregation sum.
+  if (op.targetA != null && op.targetB != null) {
+    return addData(data, op)
+  }
   const arr = cloneData(data)
   const spec = assertSumSpec(op)
   const { field, group } = spec
@@ -1022,6 +1027,19 @@ export function averageData(data: DatumValue[], op: OperationSpec): DatumValue[]
 /** 3.11 diff — returns a single numeric DatumValue (signed if op.signed) */
 /** Op 3.11: difference/ratio/percent-of-total between targets. */
 export function diffData(data: DatumValue[], op: OperationSpec = {}): DatumValue[] {
+  // op-consolidation Tier 1: folded shapes routed by OPERAND SHAPE (not op name):
+  //  - value|targetValue present  -> ROW-vs-SCALAR (formerly diffByValue)
+  //  - groupA+groupB+(by|keyField) -> SERIES-vs-SERIES per-key (formerly pairDiff)
+  //  - else                        -> existing two-scalar / slice diff
+  const hasRowScalar =
+    (typeof op.value === 'number' && Number.isFinite(op.value)) ||
+    (typeof op.targetValue === 'string' && op.targetValue.trim() !== '')
+  if (hasRowScalar) {
+    return diffByValueOp(data, op)
+  }
+  if (op.groupA && op.groupB && (op.by || op.keyField)) {
+    return pairDiffData(data, op)
+  }
   const arr = cloneData(data)
   const spec = assertDiffSpec(op)
   const {

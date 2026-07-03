@@ -94,6 +94,8 @@ export interface OperationSpec {
     | 'between'
     | string
   value?: JsonValue
+  /** diff ROW-vs-SCALAR shape (folded diffByValue): scalar reference V as "ref:nX". */
+  targetValue?: string | null
   group?: string | null
   groupA?: string | null
   groupB?: string | null

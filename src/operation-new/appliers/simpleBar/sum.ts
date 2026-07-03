@@ -6,13 +6,19 @@ import type { SimpleBarChartInstance } from '../../../rendering-new/instances/si
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawResultBadge } from '../../primitives/drawResultBadge'
 import { FILTER_ANNOTATION_CLASS } from './filter'
+import { addApplier } from './add'
 
 export const SUM_ANNOTATION_CLASS = 'operation-next-bar-sum'
 
 export const sumApplier: OperationApplier<SimpleBarChartInstance> = {
   op: OperationOp.Sum,
 
-  async apply({ operation, state, instance, options }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
+  async apply(args: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
+    const { operation, state, instance, options } = args
+    // op-consolidation Tier 1: folded two-scalar sum (targetA+targetB, formerly add) → add drawing.
+    if (operation.targetA != null && operation.targetB != null) {
+      return addApplier.apply(args)
+    }
     const result = sumData(state.workingData, operation)
     const value = Number(result[0]?.value)
     console.info('[operation-new] bar applier:sum', {

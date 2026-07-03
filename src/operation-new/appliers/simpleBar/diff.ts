@@ -11,6 +11,7 @@ import {
   resolveDerivedDiffEndpoint,
 } from '../../../operation-next/diffEndpoint'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
+import { diffByValueApplier } from './diffByValue'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { readNumberAttr } from '../../primitives/annotationLayer'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
@@ -68,7 +69,15 @@ function existingReferenceLineY(
 export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
   op: OperationOp.Diff,
 
-  async apply({ operation, state, instance, options }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
+  async apply(args: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
+    const { operation, state, instance, options } = args
+    // op-consolidation Tier 1: folded row-vs-scalar diff (value|targetValue) → diffByValue drawing.
+    if (
+      (typeof operation.value === 'number' && Number.isFinite(operation.value)) ||
+      (typeof operation.targetValue === 'string' && operation.targetValue.trim() !== '')
+    ) {
+      return diffByValueApplier.apply(args)
+    }
     const result = diffData(state.workingData, operation)
     const opRef = operationResultRef(operation)
     console.info('[operation-new] bar applier:diff', {

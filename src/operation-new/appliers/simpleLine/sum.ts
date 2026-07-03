@@ -7,6 +7,7 @@ import { formatOperationValue } from '../../../operation-next/primitives/formatV
 import { RESULT_REF_ATTRIBUTE } from '../../../operation-next/diffEndpoint'
 import { drawResultBadge } from '../../primitives/drawResultBadge'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
+import { addApplier } from './add'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 
 /**
@@ -75,7 +76,13 @@ function resolveBarWidth(points: SummedPoint[], plotWidth: number): number {
 export const sumApplier: OperationApplier<SimpleLineChartInstance> = {
   op: OperationOp.Sum,
 
-  async apply({ operation, state, instance }: ApplierArgs<SimpleLineChartInstance>): Promise<ApplierResult> {
+  async apply(args: ApplierArgs<SimpleLineChartInstance>): Promise<ApplierResult> {
+    const { operation, state, instance } = args
+    // op-consolidation Tier 1: a folded op="sum" with two named scalars (targetA+targetB,
+    // formerly add) is DRAWN by the add applier (result badge); N-value totals stay here.
+    if (operation.targetA != null && operation.targetB != null) {
+      return addApplier.apply(args)
+    }
     const result = sumData(state.workingData, operation)
     const total = Number(result[0]?.value)
     const summedTargets = new Set(state.workingData.map((d) => String(d.target)))

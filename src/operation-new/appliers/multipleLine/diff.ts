@@ -11,6 +11,7 @@ import {
   resolveDerivedDiffEndpoint,
 } from '../../../operation-next/diffEndpoint'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
+import { pairDiffApplier } from './pairDiff'
 import { readNumberAttr } from '../../primitives/annotationLayer'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawVerticalComparisonArrow } from '../../primitives/drawDifferenceArrow'
@@ -85,11 +86,13 @@ function appendValueLabel(
 export const diffApplier: OperationApplier<MultipleLineChartInstance> = {
   op: OperationOp.Diff,
 
-  async apply({
-    operation,
-    state,
-    instance,
-  }: ApplierArgs<MultipleLineChartInstance>): Promise<ApplierResult> {
+  async apply(args: ApplierArgs<MultipleLineChartInstance>): Promise<ApplierResult> {
+    const { operation, state, instance } = args
+    // op-consolidation Tier 1: a folded op="diff" with series operands (groupA+groupB per `by`,
+    // formerly pairDiff) is DRAWN by the pairDiff applier (per-key Δ arrows).
+    if (operation.groupA && operation.groupB && (operation.by || operation.keyField)) {
+      return pairDiffApplier.apply(args)
+    }
     const result = diffData(state.workingData, operation)
     const opRef = operationResultRef(operation)
     console.info('[operation-new] multi-line applier:diff', {

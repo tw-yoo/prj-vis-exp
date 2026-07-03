@@ -584,13 +584,57 @@ function reviewApiPlugin(): Plugin {
   }
 }
 
+// Gold-spec review tool (scratch). Served at /techeval straight from
+// data/review so the standalone HTML + its embedded data JS need no copy.
+// Dev + preview only; not emitted in production builds.
+const techEvalRoot = path.join(projectRoot, 'data/review')
+const techEvalUrlPrefix = '/techeval'
+
+function installTechEvalMiddleware(middlewares: Connect.Server) {
+  middlewares.use((request, response, next) => {
+    const url = new URL(request.url ?? '/', 'http://localhost')
+
+    if (url.pathname === techEvalUrlPrefix || url.pathname === `${techEvalUrlPrefix}/`) {
+      const html = fs.readFileSync(path.join(techEvalRoot, 'scratch_gold_review.html'), 'utf8')
+        .replace('scratch_gold_review_data.js', `${techEvalUrlPrefix}/data.js`)
+      response.statusCode = 200
+      response.setHeader('Content-Type', 'text/html; charset=utf-8')
+      response.setHeader('Cache-Control', 'no-store')
+      response.end(html)
+      return
+    }
+
+    if (url.pathname === `${techEvalUrlPrefix}/data.js`) {
+      response.statusCode = 200
+      response.setHeader('Content-Type', 'text/javascript; charset=utf-8')
+      response.setHeader('Cache-Control', 'no-store')
+      response.end(fs.readFileSync(path.join(techEvalRoot, 'scratch_gold_review_data.js')))
+      return
+    }
+
+    next()
+  })
+}
+
+function techEvalPlugin(): Plugin {
+  return {
+    name: 'tech-eval-review',
+    configureServer(server) {
+      installTechEvalMiddleware(server.middlewares)
+    },
+    configurePreviewServer(server) {
+      installTechEvalMiddleware(server.middlewares)
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   // GitHub Pages serves this project site under /prj-vis-exp/. Production builds
   // must prefix every asset URL with it; dev + e2e stay at root '/' so the
   // existing middleware routes (/evaluation, /validation, /api/review) keep working.
   base: command === 'build' ? '/prj-vis-exp/' : '/',
-  plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin(), chartQaDataPlugin(), reviewApiPlugin()],
+  plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin(), chartQaDataPlugin(), reviewApiPlugin(), techEvalPlugin()],
   optimizeDeps: {
     entries: ['index.html'],
   },
