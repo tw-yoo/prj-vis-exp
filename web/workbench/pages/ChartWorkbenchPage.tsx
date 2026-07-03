@@ -3288,6 +3288,11 @@ function ChartWorkbenchPage() {
 
   const renderSourceChartForVisualPlayback = useCallback(async () => {
     const sourceSpec = JSON.parse(sanitizeJsonInput(vlSpec.trim() === '' ? vlSpecPlaceholder : vlSpec)) as VegaLiteSpec
+    const liveSvg = chartRef.current?.querySelector('svg') as (SVGSVGElement & { __debugSvgId?: string }) | null
+    const liveSvgId = liveSvg?.__debugSvgId ?? 'none'
+    const specHash = JSON.stringify(sourceSpec).length
+    console.warn(`[workbench:renderSourceChartForVisualPlayback] CALLED — about to call renderChart() which WILL REBUILD THE SVG. liveSvgId=${liveSvgId} specHashLen=${specHash}`)
+    console.trace('[workbench:renderSourceChartForVisualPlayback] stack')
     logSplitSimpleBarDebug('workbench.renderSourceChartForVisualPlayback-call', {
       spec: summarizeSpecForDebug(sourceSpec),
       host: summarizeHostForDebug(chartRef.current),
@@ -3306,6 +3311,14 @@ function ChartWorkbenchPage() {
 
   const renderPlaybackChartForVisualPlayback = useCallback(
     async (spec: VegaLiteSpec) => {
+      const liveSvg = chartRef.current?.querySelector('svg') as (SVGSVGElement & { __debugSvgId?: string }) | null
+      const liveSvgId = liveSvg?.__debugSvgId ?? 'none'
+      const specStr = JSON.stringify(spec)
+      const specHash = specStr.length
+      const currentSpecStr = currentSpecRef.current ? JSON.stringify(currentSpecRef.current) : 'null'
+      const sameAsCurrentSpec = currentSpecStr === specStr
+      console.warn(`[workbench:renderPlaybackChartForVisualPlayback] CALLED ⚠️ — about to call renderChart() which WILL REBUILD THE SVG. liveSvgId=${liveSvgId} specHashLen=${specHash} sameAsCurrentSpec=${sameAsCurrentSpec} currentSpecHashLen=${currentSpecStr === 'null' ? 0 : currentSpecStr.length}`)
+      console.trace('[workbench:renderPlaybackChartForVisualPlayback] stack — THIS IS THE SVG-REBUILD ENTRY POINT')
       logSplitSimpleBarDebug('workbench.renderPlaybackChartForVisualPlayback-call', {
         spec: summarizeSpecForDebug(spec),
         host: summarizeHostForDebug(chartRef.current),
