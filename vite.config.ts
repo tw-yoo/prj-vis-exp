@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import type { ServerResponse } from 'node:http'
 import path from 'node:path'
@@ -609,6 +610,53 @@ function installTechEvalMiddleware(middlewares: Connect.Server) {
       response.setHeader('Content-Type', 'text/javascript; charset=utf-8')
       response.setHeader('Cache-Control', 'no-store')
       response.end(fs.readFileSync(path.join(techEvalRoot, 'scratch_gold_review_data.js')))
+      return
+    }
+
+    // Verdict persistence so the review survives across reloads AND is readable on disk
+    // (data/review/scratch_techeval_verdicts.json). GET restores; PUT/POST saves.
+    if (url.pathname === `${techEvalUrlPrefix}/verdicts`) {
+      const verdictsPath = path.join(techEvalRoot, 'scratch_techeval_verdicts.json')
+      if (request.method === 'GET') {
+        let body = '{}'
+        try { body = fs.readFileSync(verdictsPath, 'utf8') } catch { /* none yet */ }
+        response.statusCode = 200
+        response.setHeader('Content-Type', 'application/json; charset=utf-8')
+        response.setHeader('Cache-Control', 'no-store')
+        response.end(body)
+        return
+      }
+      if (request.method === 'PUT' || request.method === 'POST') {
+        const chunks: Buffer[] = []
+        request.on('data', (c) => chunks.push(c as Buffer))
+        request.on('end', () => {
+          try {
+            const text = Buffer.concat(chunks).toString('utf8')
+            JSON.parse(text) // validate
+            fs.writeFileSync(verdictsPath, text, 'utf8')
+            response.statusCode = 200
+            response.setHeader('Content-Type', 'application/json; charset=utf-8')
+            response.end(JSON.stringify({ ok: true, savedAt: new Date().toISOString() }))
+          } catch (e) {
+            response.statusCode = 400
+            response.end(JSON.stringify({ ok: false, error: String(e) }))
+          }
+        })
+        return
+      }
+    }
+
+    // Merge the saved verdicts into review_sheet_*.csv (my_gold_verdict/my_gen_verdict/my_note).
+    // Triggered on prev/next navigation so the CSVs stay in sync per chart.
+    if (url.pathname === `${techEvalUrlPrefix}/commit-csv` && (request.method === 'POST' || request.method === 'GET')) {
+      const py = spawn('python3', [path.join(techEvalRoot, 'scratch_merge_verdicts_to_sheets.py')], {
+        cwd: projectRoot,
+        stdio: 'ignore',
+      })
+      py.on('error', () => { /* python missing — JSON store still has the data */ })
+      response.statusCode = 200
+      response.setHeader('Content-Type', 'application/json; charset=utf-8')
+      response.end(JSON.stringify({ ok: true, committed: true }))
       return
     }
 

@@ -83,8 +83,12 @@ async function drawBarGroupAverageLine(args: {
     })
     .attr(OPERATION_ROLE_ATTRIBUTE, 'average-reference')
   if (resultRef) {
+    // Stamp the ref on the LINE only, not the value label <text> — the
+    // cross-surface diff resolver anchors the Δ arrow on the first element
+    // carrying the ref, and a label box sits offset from the actual reference
+    // line (endpointRectOnSurface also prefers lines, belt and braces).
     layer
-      .selectAll<SVGElement, unknown>(`.${AVERAGE_ANNOTATION_CLASS}`)
+      .selectAll<SVGElement, unknown>(`line.${AVERAGE_ANNOTATION_CLASS}`)
       .filter(function () {
         return this.getAttribute(RESULT_REF_ATTRIBUTE) == null
       })

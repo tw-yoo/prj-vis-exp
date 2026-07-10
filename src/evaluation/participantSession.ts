@@ -147,12 +147,7 @@ export function buildSequence(
   if (!Array.isArray(groups)) throw new Error(`Unknown chart order "${order.chart}".`)
 
   const rng = mulberry32(hashString(seed))
-  const pairCount = Math.min(systems.length, groups.length)
-  const items: SequenceItem[] = []
-
-  for (let i = 0; i < pairCount; i += 1) {
-    const system = systems[i]
-    const group = groups[i]
+  const pushGroup = (system: string, group: string) => {
     const method = systemToMethod(system)
     const groupCharts = cfg.chartGroup[group]
     if (!groupCharts) throw new Error(`Unknown chart group "${group}".`)
@@ -169,6 +164,20 @@ export function buildSequence(
       })
     }
   }
+  const items: SequenceItem[] = []
+
+  // Any DEMO* order (DEMO=Ours, DEMOB1/B2/B3=one baseline) is a single-system
+  // walkthrough for verifying that ONE system renders correctly across the WHOLE
+  // real study. Instead of the Latin-square 1:1 pairing, it pairs its single
+  // system with EVERY listed group in declared order, and skips the shuffle so
+  // charts appear group-by-group.
+  if (order.system.startsWith('DEMO')) {
+    for (const group of groups) pushGroup(systems[0], group)
+    return items
+  }
+
+  const pairCount = Math.min(systems.length, groups.length)
+  for (let i = 0; i < pairCount; i += 1) pushGroup(systems[i], groups[i])
 
   // Fully interleave: shuffle every (system, group) chart together so the
   // participant sees systems in random order, one chart at a time, rather than

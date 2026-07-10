@@ -46,6 +46,12 @@ export interface OpFindExtremumSpec extends OperationSpec {
   which: 'max' | 'min'
   field?: string
   group?: string | null
+  /**
+   * 1-based extremum rank: 1 (default) = the max/min itself, 2 = the
+   * second-largest/-smallest, etc. Lets a spec skip an outlier ("treat the 2%
+   * bar as anomalous, take the second-lowest") without a sort+nth chain.
+   */
+  rank?: number
 }
 
 export interface OpDiffByValueSpec extends OperationSpec {

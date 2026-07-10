@@ -58,5 +58,29 @@
       "system": "SO2",
       "chart": "CO2"
     }
+  },
+  "DEMOPR": {
+    "order": {
+      "system": "DEMO",
+      "chart": "DEMO"
+    }
+  },
+  "DEMOB1": {
+    "order": {
+      "system": "DEMOB1",
+      "chart": "DEMO"
+    }
+  },
+  "DEMOB2": {
+    "order": {
+      "system": "DEMOB2",
+      "chart": "DEMO"
+    }
+  },
+  "DEMOB3": {
+    "order": {
+      "system": "DEMOB3",
+      "chart": "DEMO"
+    }
   }
 }

@@ -7,7 +7,11 @@
   "steps": [
     {
       "id": "ops",
-      "text": "The line reaches its highest value in 2019, so that is the year with the largest increase."
+      "text": "Take each year's increase over the previous year's value."
+    },
+    {
+      "id": "ops2",
+      "text": "The largest year-over-year increase is at 2010 (35.7 → 50.7, +15.0)."
     }
   ]
 }

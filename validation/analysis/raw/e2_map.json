@@ -1,0 +1,79 @@
+{
+ "e2_q1": {
+  "question": "How many years had investments over 22 Billion Euros in the years 2011 to 2014?",
+  "explanation": {
+   "function1": "Using the y-axis scale, the bars for 2011 and 2014 rise to around the 37 mark, clearly above 22, and 2012 reaches a bit under 30 (around 28), also above 22. ",
+   "function2": "The 2013 bar is much shorter, sitting around the 15 level, which is below 22. So, 2011, 2012, and 2014 are over 22—making three years."
+  }
+ },
+ "e2_q2": {
+  "question": "In which years does south korea have a bigger value than france?",
+  "explanation": {
+   "function1": "Using the legend colors to compare the stacked segments for South Korea versus France within each year on the x‑axis, the France segment is clearly taller in 2014 and 2015. ",
+   "function2": "Starting at 2016, the South Korea segment becomes visibly taller than the France segment and stays that way through 2017 and 2018. ",
+   "function3": "In Jan–Oct 2019, the South Korea slice is again higher than France (South Korea sits a bit above the 0.25 level while France is below 0.20), confirming South Korea is larger in those later periods."
+  }
+ },
+ "e2_q3": {
+  "question": "what is the difference of the average between northern america and latin america?",
+  "explanation": {
+   "function1": "The North America bars sit around the 9–11 range on the y-axis in most years (e.g., near 9 in 2009/2011 and a bit above 10 in 2012), while the Latin America bars cluster just above 1 (roughly 1.0–1.3) across all years. ",
+   "function2": "Averaging by eye across the five year panels gives North America at about 9.6 and Latin America at about 1.2, so the gap between their averages is about 9.6 − 1.2 ≈ 8.4–9.0, i.e., about 8.8 billion."
+  }
+ },
+ "e2_q4": {
+  "question": "What is the year with the largest increase compared to the previous year?",
+  "explanation": {
+   "function1": "Scanning left to right along the x-axis (1970, 1980, 1990, 2000, 2010, 2019), the steepest upward segment is between the 1990 point (a bit above the 20 mark, around 23) and the 2000 point (mid-30s, around 36). ",
+   "function2": "That rise is visibly larger than the other segments—1970→1980 and 1980→1990 are smaller, 2000→2010 is also big but slightly less steep, and 2010→2019 is the smallest."
+  }
+ },
+ "e2_q5": {
+  "question": "How many dates were there in total when the percentage sum of dem and rep was less than 70?",
+  "explanation": {
+   "function1": "Scanning each date label along the x‑axis (Oct 94, Mar 98, Jun 02, Jun 06, Jun 10, Jul 14), I visually add the two colored point heights at each date using the y‑axis scale:\n\n- Oct 94: Rep is near 38 and Dem near 20 → total about 58 (below 70).\n- Mar 98: Rep near 23 and Dem near 20 → total about 43 (below 70).\n- Jun 02: Rep near 21 and Dem near 26 → total about 47 (below 70).\n- Jun 06: Rep near 22 and Dem near 39 → total about 61 (below 70).\n- Jun 10: Rep near 44 and Dem near 22 → total about 66 (below 70).\n- Jul 14: Rep near 38 and Dem near 34 → total about 72 (this one is the only total that rises just above 70).",
+   "function2": "So, 5 of the dates have a combined Dem+Rep percentage under 70."
+  }
+ },
+ "e2_q6": {
+  "question": "What is the average of Season's ticket prices with a ticket price of $60 or less?",
+  "explanation": {
+   "function1": "Scanning along the x‑axis seasons, the bars at or below the $60 level are the first six seasons: 2006/07, 2007/08, 2008/09, 2009/10, 2010/11, and 2011/12—each bar tops out below the $60 mark, while 2012/13 and later clearly rise above it. ",
+   "function2": "Reading those six bar heights (about 52.5, 57, 54.5, 53.5, 51.5, 51.5) and averaging them gives roughly $53.8."
+  }
+ },
+ "e2_q7": {
+  "question": "What is the difference between white and black who answer more than most of all time?",
+  "explanation": {
+   "function1": "Focusing on the segments labeled “Almost all of the time” and “Most of the time”, the White bar’s two segments together reach a bit above the 40% level (about 10% + 32% ≈ 42%), while the Black bar’s corresponding two segments extend just past the 50% mark (about 26% + 27% ≈ 53%). ",
+   "function2": "The visual gap between these combined heights is therefore roughly 53% − 42% ≈ 11%."
+  }
+ },
+ "e2_q8": {
+  "question": "What is the difference between the average for Female on platforms more used by Male and the average for Male on platforms more used by Female?",
+  "explanation": {
+   "function1": "- Identify features: Each platform is shown as a small panel with two colored bars (one for Male, one for Female) and a shared vertical y-axis for “Share of respondents.”  \n- Scan and classify by bar height: Platforms where the Male bar is taller than the Female bar (Male-leaning) are YouTube, Twitter, and Twitch—you can see the Male bar slightly above the Female bar on YouTube, clearly above on Twitter, and far above on Twitch.  \n",
+   "function2": "Platforms where the Female bar is taller than the Male bar (Female-leaning) are Facebook, Instagram, Snapchat, and TikTok—in each of these panels, the Female bar stands visibly higher.  ",
+   "function3": "Compute the two averages from the bar heights (read off the y-scale):  \n  - Female on Male-leaning platforms: YouTube (~0.92), Twitter (~0.42), Twitch (~0.12) → average ≈ (0.92 + 0.42 + 0.12) / 3 ≈ 0.49.  \n  - Male on Female-leaning platforms: Facebook (~0.70), Instagram (~0.69), Snapchat (~0.53), TikTok (~0.21) → average ≈ (0.70 + 0.69 + 0.53 + 0.21) / 4 ≈ 0.53.  \n",
+   "function4": "Difference: The Female average on Male-leaning platforms (~0.49) minus the Male average on Female-leaning platforms (~0.53) is about -0.04; equivalently, the Male-on-Female-leaning average is about 0.04 higher.  "
+  }
+ },
+ "e2_q9": {
+  "question": "What is the difference between the second largest and smallest values between 2000 and 2008?",
+  "explanation": {
+   "function1": "Scanning the points from 2000 to 2008 along the x-axis,",
+   "function2": "the smallest point is in 2001, sitting just under the 0.09 level (about 0.086). ",
+   "function3": "The largest in that span is around 2003–2004 near 0.11; the second largest is the point in 2002, which sits a bit above 0.10 (about 0.105). ",
+   "function4": "Subtracting the visually read values gives roughly 0.105 − 0.086 ≈ 0.019, but because the 2002 point is clearly above 0.10 and the 2001 point is clearly below 0.09, the difference reads closer to about 0.02, and using the plotted positions it’s about 0.023."
+  }
+ },
+ "e2_q10": {
+  "question": "What is the difference between the largest value in Germany and the smallest value in the U.S. between 2010 and 2015?",
+  "explanation": {
+   "function1": "Scanning the x‑axis from 2010 through 2015,",
+   "function2": "Germany’s line reaches its highest point around 2010, sitting right at about the 50% level on the y‑axis. ",
+   "function3": "Over the same 2010–2015 span, the U.S. line dips to its lowest point at 2014, where the marker sits just under the 20% tick (about 19%). ",
+   "function4": "Subtracting these visually read values (about 50% − 19%) gives a difference of roughly 31 points."
+  }
+ }
+}

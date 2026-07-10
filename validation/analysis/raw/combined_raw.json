@@ -1,0 +1,3674 @@
+{
+ "rows": [
+  {
+   "item_id": "e7_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between pre-2000 average and post-2010 average",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "local_reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e7_q1.js:265-269 function1 → highlightInstalledYears (l224-229: non-target bars opacity 0.18 + fill #9ca3af, targets #4f46e5) + drawInstalledAverageLine 'before' (l233-263: g.append('line') spanning only 1995..1999 group x1..x2, plus text 'Before 2000 avg: 59')",
+   "confidence": "high",
+   "notes": "Average line spans only the before-2000 group (x1=first year, x2=last year+bandwidth), hence local_reference_line not full-width. Line created here is referenced/diffed in function3 (cross-step). No transitions — static attr set."
+  },
+  {
+   "item_id": "e7_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between pre-2000 average and post-2010 average",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "local_reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e7_q1.js:271-282 function2 → calls function1 then highlightInstalledYears for all five years + drawInstalledAverageLine 'before' AND 'after' (l280-281); 'after' line spans 2010..2017 group, text 'From 2010 avg: 114'",
+   "confidence": "high",
+   "notes": "Cumulative: re-invokes function1. Second (after) local average line added alongside the first. Keyed classes prevent erasing the earlier line."
+  },
+  {
+   "item_id": "e7_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between pre-2000 average and post-2010 average",
+   "operation_index": 3,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e7_q1.js:284-333 function3 → defs marker orient auto-start-reverse (l291-303), vertical two-headed line between yScale(59) and yScale(114) with marker-start+marker-end (l313-322), text '55' (l324-332)",
+   "confidence": "high",
+   "notes": "Consumes the two averages drawn in fn1/fn2. Two-headed arrow annotates magnitude of the difference."
+  },
+  {
+   "item_id": "e7_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "In which year was agriculture sector highest",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context"
+   ],
+   "evidence": "e7_q2.js:225-232 function1 → selectAll rect.main-bar .attr('opacity', Agriculture?1:0.18) blur-in-place isolating the Agriculture segment across years",
+   "confidence": "medium",
+   "notes": "fn1 only isolates the Agriculture series (reshape/isolate subset); computes no scalar. Named extremum because the two-step op (fn1 isolate + fn2 mark max) as a whole is argmax-over-years per explanation. Restructure = isolate-subset via dimming."
+  },
+  {
+   "item_id": "e7_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "In which year was agriculture sector highest",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "text_value_label"
+   ],
+   "evidence": "e7_q2.js:234-260 function2 → filter Agriculture&2011 bar, recolor #dc2626 opacity 1 (l242), append text with value.toFixed(4)='0.3498' above bar (l251-259)",
+   "confidence": "high",
+   "notes": "Marks the argmax bar (2011) and labels its value. function3 empty — skipped."
+  },
+  {
+   "item_id": "e7_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which city had biggest population jump 2010→2025",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "local_reference_line",
+    "single_arrow_change",
+    "text_value_label"
+   ],
+   "evidence": "e7_q3.js:363-365 function1 → drawCityPopulationJumps (no highlight); per city horizontal top line groupLeft..groupRight at highY (l314-322), vertical line lowY→highY with marker-end single head (l324-335), text '+jump' (l337-346)",
+   "confidence": "high",
+   "notes": "fn1 draws every city's jump (all opacity 1, no fade). Single-headed up arrow = directional change. Horizontal connector spans only the city group → local_reference_line. Shared helper reused by fn2."
+  },
+  {
+   "item_id": "e7_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which city had biggest population jump 2010→2025",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "local_reference_line",
+    "single_arrow_change",
+    "text_value_label"
+   ],
+   "evidence": "e7_q3.js:367-369 function2 → drawCityPopulationJumps highlightCity='Delhi'; non-Delhi bars opacity 0.2 (l291-294), Delhi bars stroke #111827, thicker lines/larger text for Delhi, x-axis label recolor (l349-360)",
+   "confidence": "medium",
+   "notes": "Selects argmax-of-diffs (winner). Reuses same helper as fn1 with highlight param. Note: code comment/data pick Delhi as winner though explanation text waffles (Dhaka vs Delhi). function3 empty."
+  },
+  {
+   "item_id": "e7_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year had the second lowest value",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "single_arrow_change",
+    "text_value_label"
+   ],
+   "evidence": "e7_q4.js:263-275 function1 → circles: 2016 opacity1 fill #dc2626 r6, others 0.25 (l270-273); drawQ4Pointer marker-end line + text '2016: 0.07 (lowest)' (l274)",
+   "confidence": "high",
+   "notes": "Marks the minimum (2016). Pointer is a single-headed leader arrow to the point."
+  },
+  {
+   "item_id": "e7_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year had the second lowest value",
+   "operation_index": 2,
+   "operation_type": "rank",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "single_arrow_change",
+    "text_value_label"
+   ],
+   "evidence": "e7_q4.js:277-291 function2 → calls function1; 2014&2015 amber #f59e0b r5.5, others 0.2 (l285-288); two drawQ4Pointer leaders labeled '2014: 0.14' and '2015: 0.14 (2nd lowest)' (l289-290)",
+   "confidence": "high",
+   "notes": "Ordinal/nth position (second-lowest) with a tie (2014,2015) → rank. Cumulative on fn1. function3 empty."
+  },
+  {
+   "item_id": "e7_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Which year shows lowest gap between convenience and price",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e7_q5.js:376-378 function1 → drawPriceConvenienceGaps (no highlight); non Price/Convenience paths+points opacity 0.08 (l324-329), per-year vertical two-headed arrow price.y↔convenience.y marker-start+end (l345-355), gap text (l357-366)",
+   "confidence": "high",
+   "notes": "Isolates Price & Convenience series (reshape), draws per-year gap magnitude arrows for all years. Double-headed = magnitude of Price−Convenience."
+  },
+  {
+   "item_id": "e7_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Which year shows lowest gap between convenience and price",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e7_q5.js:380-382 function2 → drawPriceConvenienceGaps highlightYear='2013'; non-2013 annotations opacity 0.18, 2013 point r6 opacity1, thicker arrow (l343-373)",
+   "confidence": "high",
+   "notes": "argmin over the gaps (smallest gap 2013). Reuses helper. function3 empty."
+  },
+  {
+   "item_id": "e7_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Net income sum from 2010 to 2015",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "window_shading"
+   ],
+   "evidence": "e7_q6.js:224-239 function1 → g.insert('rect',':first-child') behind bars spanning 2010..2015 (x1-4 .. x2+8), full plotH, fill #fef3c7 opacity 0.75",
+   "confidence": "high",
+   "notes": "Range-selection substep of the sum: shades the 2010-2015 window behind the bars. No scalar computed in fn1; named sum per the overall operation/explanation."
+  },
+  {
+   "item_id": "e7_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Net income sum from 2010 to 2015",
+   "operation_index": 2,
+   "operation_type": "sum",
+   "visual_effects": [
+    "connector_arrow_cumulative",
+    "text_value_label"
+   ],
+   "evidence": "e7_q6.js:241-299 function2 → calls function1; per year running-total text (cumulative: 2901,5705,...,41581) above each bar (l274-282) and connector line bar→next bar with marker-end (l289-297)",
+   "confidence": "high",
+   "notes": "Cumulative build-up: arrows chain successive bars and labels show the running sum reaching 41581. function3 empty."
+  },
+  {
+   "item_id": "e7_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Which method has highest everyday vs less-often difference",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "fade_context",
+    "text_value_label"
+   ],
+   "evidence": "e7_q7.js:285-290 function1 → dim EVERY FEW DAYS segments opacity 0.18 (l287-288); annotateMethodDifferences labels each compared segment value (white, centered) + 'Δ diff' above each bar (l251-282)",
+   "confidence": "high",
+   "notes": "Isolates EVERY DAY vs LESS OFTEN segments (reshape) and labels per-method absolute difference. Uses segment pixel-height equivalence instead of an arrow (per code comment)."
+  },
+  {
+   "item_id": "e7_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Which method has highest everyday vs less-often difference",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "text_value_label"
+   ],
+   "evidence": "e7_q7.js:292-301 function2 → compared segments of non-winner methods opacity 0.3, Text messaging opacity 1 (l295-299); annotateMethodDifferences highlightMethod='Text messaging' bigger red Δ 0.42 (l247-281)",
+   "confidence": "high",
+   "notes": "argmax of the per-method differences (Text messaging 0.42). function3 empty."
+  },
+  {
+   "item_id": "e7_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Hair removal type with under-30s share ≥10%",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "fade_context",
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e7_q8.js:334-338 function1 → dim Over 30s bars opacity 0.18 (l335-336); drawUnder30ThresholdLine dashed line minX..maxX at yOf(0.10), stroke-dasharray '6 4', text '0.10' (l277-312)",
+   "confidence": "high",
+   "notes": "Threshold test (≥0.10). Dashed line spans all bars minX..maxX ≈ full plot width → reference_line. y mapping reconstructed from the Hollywood bar geometry. NOTE: this renderer lacks the idempotent svg guard that q1/q3/q4/q5/q6/q9/q10 have."
+  },
+  {
+   "item_id": "e7_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Hair removal type with under-30s share ≥10%",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "opacity_emphasis",
+    "text_value_label"
+   ],
+   "evidence": "e7_q8.js:340-343 function2 → calls function1; highlightHollywood recolors Hollywood Under-30s bar #dc2626 opacity1 (l322) + text '0.35' above (l323-331)",
+   "confidence": "medium",
+   "notes": "Identifies the qualifying bar meeting the threshold (could also read as lookup/retrieve). Named boolean for consistency with the ≥threshold question. function3 empty."
+  },
+  {
+   "item_id": "e7_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between avg from 2011 and avg up to 2010",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "local_reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e7_q9.js:287-289 function1 → drawInternetAverageSegments: main-line dimmed opacity 0.12 (l247); per group colored overlay path over its year subset stroke-width 3 (l252-259); short y-axis avg tick x1=0 x2=6 at yScale(avg) (l266-274) + label 'Average up to 2010: 32.0' / 'Average from 2011: 52.5' (l275-283)",
+   "confidence": "high",
+   "notes": "Two group averages. Average drawn as a short y-axis tick (x2=6), not full-width → local_reference_line. Colored subset overlays emphasize each group segment → opacity_emphasis. Averages consumed by fn2 diff (cross-step)."
+  },
+  {
+   "item_id": "e7_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between avg from 2011 and avg up to 2010",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e7_q9.js:291-339 function2 → calls function1; vertical two-headed arrow at arrowX=10 between yScale(32.0) and yScale(52.5) marker-start+end auto-start-reverse (l303-329), text '20.5' (l330-338)",
+   "confidence": "high",
+   "notes": "Difference of the two averages, anchored at the y-axis next to the avg ticks. function3 empty."
+  },
+  {
+   "item_id": "e7_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average of favourable-US percentage over last three years",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis"
+   ],
+   "evidence": "e7_q10.js:319-331 function1 → non-target series paths opacity 0.12 stroke 1.5 (l324-326); Favorable-view circles for 2015/2016/2017 red #dc2626 r6, all others opacity 0.18 r3 (l327-330)",
+   "confidence": "medium",
+   "notes": "Isolates one series (Favorable view of US) and its last three years (subset selection) → filter. No scalar computed here; the average is computed in fn2. Restructure = isolate subset via dimming."
+  },
+  {
+   "item_id": "e7_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average of favourable-US percentage over last three years",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "local_reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e7_q10.js:333-361 function2 → calls function1; short y-axis tick x1=-6 x2=14 at yScale(65.67) stroke #dc2626 (l344-351) + text 'Avg 65.67%' (l352-360)",
+   "confidence": "high",
+   "notes": "Average marked as a y-axis tick (consistent with q9), not full-width line → local_reference_line. function3 empty."
+  },
+  {
+   "item_id": "e5_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between the average and the maximum number of fires",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label"
+   ],
+   "evidence": "e5_q1.js:263-291 — selects .main-bar, sets opacity 0.35 on non-max + stroke/highlight on max bar (v===380), appends '.e5-q1-max-label' text '380' above the max bar.",
+   "confidence": "high",
+   "notes": "Reviewer comment (l264-266) says function1/2 bodies were swapped to align with sentences; now function1=max highlight. No transition (static attr set)."
+  },
+  {
+   "item_id": "e5_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between the average and the maximum number of fires",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e5_q1.js:293-301 — drawFireHorizontalLine at yScale(225): full-width (x1=0,x2=plotW) dashed line class 'e5-q1-average' + '225' text label at plotW+8.",
+   "confidence": "high",
+   "notes": "Average line created here is consumed by function3 (cross-step diff). No transition."
+  },
+  {
+   "item_id": "e5_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between the average and the maximum number of fires",
+   "operation_index": 3,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e5_q1.js:303-337 — red full-width max line at yScale(380); vertical line at plotW+44 from maxY→averageY with marker-start/marker-end arrows (#e5-q1-arrow); '155' text at midpoint.",
+   "confidence": "high",
+   "notes": "Two-headed vertical arrow spans max→avg; references the avg line from function2 (cross-step). No transition."
+  },
+  {
+   "item_id": "e5_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which country has the highest European factor?",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "remove_rescale",
+    "text_value_label"
+   ],
+   "evidence": "e5_q2.js:264-355 — renderEuropeanFactorStackedChart rebuilds SVG (rebuildSvgInPlace instant) isolating only Germany-exports+Italy-exports factors, new y-scale over csvTotals, per-country total labels '.e5-q2-total-label' (.toFixed(3)).",
+   "confidence": "medium",
+   "notes": "Restructure: drops China factors + Total series, keeps only 2 European factors and rescales (isolate-subset + sum of the two per country). Full SVG rebuild, instant (no transition). operation_type by computation (combined sum)."
+  },
+  {
+   "item_id": "e5_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which country has the highest European factor?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label"
+   ],
+   "evidence": "e5_q2.js:357-359 → renderEuropeanFactorStackedChart(highlightCountry='Hungary'): bars opacity 0.22 on non-Hungary, stroke #111827 + red total label on Hungary (l322-341).",
+   "confidence": "high",
+   "notes": "argmax over combined European decrease. Whole chart re-rendered again with highlight; instant, no transition."
+  },
+  {
+   "item_id": "e5_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "How many diet types surpassed 0.03% in 2019?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "reencode_group_to_bar"
+   ],
+   "evidence": "e5_q3.js:343-352 — filters data_rows to Year===2019, maps to {diet,value}, renderDietSimpleBarChart(showThreshold=false): rebuilds as a single-series simple bar chart over 2019 diets with fresh band+linear scales.",
+   "confidence": "medium",
+   "notes": "Grouped bar (2018/2019 series) collapsed to a 2019-only simple bar chart — filter that drops a series and re-encodes to simple bars. No threshold/labels drawn in this step. Instant rebuild, no transition."
+  },
+  {
+   "item_id": "e5_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "How many diet types surpassed 0.03% in 2019?",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "opacity_emphasis",
+    "fade_context",
+    "reencode_group_to_bar"
+   ],
+   "evidence": "e5_q3.js:354-370 → renderDietSimpleBarChart(showThreshold=true): threshold line at yScale(0.03) full width + '0.03' label (l308-327), value labels on targets (l329-340), non-targets gray opacity 0.25 (l301-302).",
+   "confidence": "medium",
+   "notes": "Counts diets above 0.03 via threshold + emphasis. Uses hardcoded getCsvDietTargets() (8 diets, e.g. 'Clean eating','Intermittent fasting') that are NOT in data_rows — authored/overridden target set. Full rebuild, instant. count vs boolean: question is a count."
+  },
+  {
+   "item_id": "e5_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years have a score below 80 in total?",
+   "operation_index": 1,
+   "operation_type": "count",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "opacity_emphasis",
+    "fade_context"
+   ],
+   "evidence": "e5_q4.js:219-289 — threshold line at yScale(80) full width + '80' label; target circles (2012-2014,2019,2020) r=7 red stroke, non-targets r=3.5 opacity 0.28; per-target value labels '.e5-q4-value-label'.",
+   "confidence": "high",
+   "notes": "Threshold-below count (5 years). Only function1 draws; function2/3 empty ({}) matching explanation having only function1. No transition."
+  },
+  {
+   "item_id": "e5_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between max and min gap between the two groups",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "materialized_chart",
+    "axis_rescale",
+    "text_value_label"
+   ],
+   "evidence": "e5_q5.js:309-355,434-436 — getLifeGapRows computes per-year gap (Canada − Newfoundland, with CSV overrides); renderLifeGapLine rebuilds a single derived gap line (own scalePoint/linear scales) with a title 'Gap between Canada and Newfoundland...'.",
+   "confidence": "high",
+   "notes": "Chart-type change: MultipleLine → single derived gap line (title added, l333-342). Derived per-year diff = materialized_chart with fresh axes. Instant rebuild, no transition."
+  },
+  {
+   "item_id": "e5_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between max and min gap between the two groups",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label",
+    "opacity_emphasis",
+    "fade_context"
+   ],
+   "evidence": "e5_q5.js:367-431 (showDifference) — two full-width dashed lines at 2.5 and 1.7 with labels; vertical two-headed arrow (#e5-q5-arrow) yMax→yMin with '0.8' label; max/min-gap points r=7 red, others opacity 0.25 (l361-363).",
+   "confidence": "high",
+   "notes": "max gap 2.5, min gap 1.7, diff 0.8. Whole gap chart re-rendered with difference layer; instant, no transition. Also embeds extremum identification but the annotated computation is the diff."
+  },
+  {
+   "item_id": "e5_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average of Revenue multiple from 2006 to 2011",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "window_shading"
+   ],
+   "evidence": "e5_q6.js:236-249 — getRevenueFocusBounds over years 2006-2011; g.insert('rect', ':first-child') class 'e5-q6-focus' behind the span (fill #dbeafe opacity 0.55).",
+   "confidence": "high",
+   "notes": "Range selection (2006-2011) drawn as a background shading rect behind the contiguous span. No transition."
+  },
+  {
+   "item_id": "e5_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average of Revenue multiple from 2006 to 2011",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "local_reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e5_q6.js:251-277 — line at yScale(4.42) spanning only bounds.x1..bounds.x2 (the 2006-2011 span, NOT full plotW), dashed red, '4.42' text at bounds.x2+6.",
+   "confidence": "high",
+   "notes": "Reference line is local to the shaded 2006-2011 window (uses getRevenueFocusBounds), hence local_reference_line. No transition."
+  },
+  {
+   "item_id": "e5_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between service value in 2010 and 2020",
+   "operation_index": 1,
+   "operation_type": "lookup",
+   "visual_effects": [
+    "materialized_chart",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e5_q7.js:225-296,354-355 — renderServicesComparisonChart builds a NEW 2-bar chart of hardcoded Services 2010 (0.5804) and 2020 (0.6308) with fresh band+linear scales; value labels '.e5-q7-value-label' (.toFixed(4)).",
+   "confidence": "medium",
+   "notes": "Retrieves two Services values and re-presents them as a brand-new 2-bar comparison (clears container, redraws). Values are raw (looked-up), not derived — materialized_chart chosen as best fit for the new auxiliary chart. Instant, no transition."
+  },
+  {
+   "item_id": "e5_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between service value in 2010 and 2020",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e5_q7.js:297-352 (showDifference) — two full-width dashed red lines at each value; vertical two-headed arrow (#e5-q7-arrow-marker) highY→lowY at plotW+36; '0.0504' label.",
+   "confidence": "high",
+   "notes": "Whole comparison chart rebuilt with difference layer (container cleared each call). Instant, no transition."
+  },
+  {
+   "item_id": "e5_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference between Scotland's largest and England&Wales' smallest value",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label"
+   ],
+   "evidence": "e5_q8.js:279-335 — applyReferendumTargetHighlight: non-target bars opacity 0.22, target bars (Scotland 'Strongly against'=28, E&W 'Strongly against'=2) stroke #111827, value-label text appended per target.",
+   "confidence": "high",
+   "notes": "Identifies two extrema (Scotland max 28, E&W min 2) via in-place highlight on the existing grouped bars (no rebuild). No transition."
+  },
+  {
+   "item_id": "e5_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference between Scotland's largest and England&Wales' smallest value",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label",
+    "opacity_emphasis",
+    "fade_context"
+   ],
+   "evidence": "e5_q8.js:337-383 — re-applies highlight then draws two full-width dashed red lines at 28 and 2, vertical two-headed arrow (#e5-q8-arrow-marker) highY→lowY at plotW+36, '26' label.",
+   "confidence": "high",
+   "notes": "Re-calls applyReferendumTargetHighlight (reuses step1's emphasis/fade) then adds diff arrow. 28−2=26. No transition."
+  },
+  {
+   "item_id": "e5_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Total inhabitants from 2011 to 2017",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "remove_rescale",
+    "reencode_line_to_bar",
+    "text_value_label"
+   ],
+   "evidence": "e5_q9.js:213-298 — rebuilds (rebuildSvgInPlace instant) as a bar chart of 7 hardcoded years 2011-2017 with fresh band+linear scales; per-bar value labels + 'Sum: 51.78' text top-right.",
+   "confidence": "high",
+   "notes": "Filters to 2011-2017 and re-encodes the line as bars; sum shown as text label only (no collapse bar). Only function1 draws; function2/3 empty. Instant, no transition."
+  },
+  {
+   "item_id": "e5_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between female 2010 value and male 2016 value",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "materialized_chart",
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e5_q10.js:288-410 — rebuilds as a NEW 2-bar chart of Female-2010 (80.6) and Male-2016 (73.9); value labels; two full-width dashed red lines; vertical two-headed arrow (#e5-q10-arrow-marker) with '6.7 years' label.",
+   "confidence": "high",
+   "notes": "MultipleLine → brand-new 2-bar comparison of two looked-up values plus diff annotation (80.6−73.9=6.7). Only function1 draws; function2/3 empty. Instant rebuild, no transition."
+  },
+  {
+   "item_id": "e6_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average per-square-foot cost of the top-3 malls",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context"
+   ],
+   "evidence": "e6_q1.js:226-231 — selectAll('rect.main-bar').attr('opacity', targets?1:0.22).attr('fill', targets?'#ef4444':'#9ca3af') + red stroke on the 3 highest cities.",
+   "confidence": "high",
+   "notes": "Top-3 selection, not a single argmax — closest rubric term is extremum (could also read as rank/top-k); tagged extremum. Direct .attr, no d3 transition."
+  },
+  {
+   "item_id": "e6_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average per-square-foot cost of the top-3 malls",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e6_q1.js:242-260 — g.append('line') x1=0 x2=plotW dashed '6 4' at yScale(674) + append('text') 'Average: 674'.",
+   "confidence": "high",
+   "notes": "Calls function1() first to re-assert step1 emphasis; the emphasis belongs to step1. Hardcoded csvAverage=674. No transition."
+  },
+  {
+   "item_id": "e6_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Year of smallest gap: Asia-Pacific vs other three regions",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reencode_stack_to_group",
+    "materialized_chart",
+    "local_reference_line",
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e6_q2.js:246-383 — getMarketComparisonRows() sums the 3 non-AP regions then abs-diffs vs AP; renderMarketComparisonChart rebuilds container as a 2-series grouped bar (AP vs Remaining-three-sum) with per-year top line (x1=xScale(year)+4..bandwidth), vertical two-headed marker arrow, and gap.toFixed(2) label.",
+   "confidence": "medium",
+   "notes": "Restructures stacked→grouped AND shows a derived sum (Remaining three regions), so both reencode_stack_to_group and materialized_chart apply; primary computation is the per-year gap = diff (sum is a sub-computation). csvGapOverride pins 2015 gap=0.41. No transition."
+  },
+  {
+   "item_id": "e6_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Year of smallest gap: Asia-Pacific vs other three regions",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "reencode_stack_to_group",
+    "materialized_chart",
+    "local_reference_line",
+    "double_arrow_diff",
+    "text_value_label",
+    "fade_context",
+    "opacity_emphasis"
+   ],
+   "evidence": "e6_q2.js:385-387 calls renderMarketComparisonChart({emphasizeYear:'2015'}); l321/335 set opacity 0.22 for non-2015 bars/annotations and thicker stroke+larger font for 2015 (l344,364-365).",
+   "confidence": "medium",
+   "notes": "argmin over the per-year gaps (smallest = 2015). Full re-render of the same derived grouped chart with emphasis. No transition."
+  },
+  {
+   "item_id": "e6_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Year with lowest combined suicides across all ages",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "reencode_group_to_stack"
+   ],
+   "evidence": "e6_q3.js:259-345 — renderSuicideStackedTotals sums the 4 age groups per year (row.total) and rebuilds via rebuildSvgInPlace(instant) as a STACKED bar of the age-group segments.",
+   "confidence": "high",
+   "notes": "Re-encodes the grouped bar as stacked totals; per-year total is derived but no text label drawn until function2. instant:true rebuild → no transition."
+  },
+  {
+   "item_id": "e6_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Year with lowest combined suicides across all ages",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "reencode_group_to_stack",
+    "fade_context",
+    "opacity_emphasis",
+    "text_value_label"
+   ],
+   "evidence": "e6_q3.js:347-348 calls renderSuicideStackedTotals({highlightYear:'2019'}); l313 opacity 0.22 for non-2019, l314-315 dark stroke on 2019, l322-330 append('text') total (746) above the 2019 stack.",
+   "confidence": "high",
+   "notes": "argmin over yearly totals (2019=746). csvMinimum forces 2019 total=746. instant rebuild, no transition."
+  },
+  {
+   "item_id": "e6_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which is larger, the mean or the median fatalities",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e6_q4.js:249-282 — drawFatalityStatisticLines draws two full-width lines at yScale(166.6) dashed and yScale(173) solid with 'Mean: 166.6' / 'Median: 173' labels.",
+   "confidence": "high",
+   "notes": "Step computes both mean and median; named by the average computation. Values hardcoded. No transition."
+  },
+  {
+   "item_id": "e6_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which is larger, the mean or the median fatalities",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "opacity_emphasis",
+    "fade_context"
+   ],
+   "evidence": "e6_q4.js:288-289 calls drawFatalityStatisticLines({emphasizeMedian:true}); l267 median stroke-width 3.5, l269/279 mean opacity dropped to 0.35/0.45.",
+   "confidence": "medium",
+   "notes": "Comparison test 'which one is bigger' → boolean (could read as diff); emphasizes median line, dims mean. No transition."
+  },
+  {
+   "item_id": "e6_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many years Russia's favorability exceeded the US's",
+   "operation_index": 1,
+   "operation_type": "count",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "opacity_emphasis",
+    "fade_context"
+   ],
+   "evidence": "e6_q5.js:308-381 — per year draws a vertical two-headed marker arrow between the two series' circles with the abs-diff label; Russia-higher years (2007,2015) get width 2.4/opacity 1 vs others 0.55; summary text 'Russia higher: 2 years' at l372-380.",
+   "confidence": "high",
+   "notes": "Reads circle cx/cy off the rendered DOM. Only function1 draws — function2 and function3 empty, matching the single-function chart_map explanation. No transition."
+  },
+  {
+   "item_id": "e6_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average sales of companies with volume >= 60",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e6_q6.js:244-265 — selectAll('rect.main-bar') recolor targets(>=60) red vs grey 0.22, plus drawSalesReferenceLine at yScale(60) full-width dashed with label '60'.",
+   "confidence": "high",
+   "notes": "Threshold filter (volume>=60). csvThreshold=60, csvTargets Huawei/Oppo/Vivo. No transition."
+  },
+  {
+   "item_id": "e6_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average sales of companies with volume >= 60",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e6_q6.js:267-282 — calls function1() then drawSalesReferenceLine at yScale(81.45) full-width dashed with 'Average: 81.45'.",
+   "confidence": "high",
+   "notes": "Reuses step1 emphasis via function1() call. Hardcoded csvAverage=81.45. No transition."
+  },
+  {
+   "item_id": "e6_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between White and Black 'almost all the time'",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "isolated_subset_chart",
+    "text_value_label"
+   ],
+   "evidence": "e6_q7.js:204-256,312 — renderRaceFocusChart rebuilds container as a fresh 2-bar simple chart of White(10)/Black(26) 'Almost all of the time' with value labels above each bar.",
+   "confidence": "medium",
+   "notes": "Isolates a raw subset (2 races x 1 category) into a brand-new chart; no scalar computed → reshape. Values are RAW not derived, so materialized_chart (which is for computed values) doesn't fit → new tag isolated_subset_chart. No transition."
+  },
+  {
+   "item_id": "e6_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between White and Black 'almost all the time'",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "isolated_subset_chart",
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e6_q7.js:257-310,316 — renderRaceFocusChart({showDifference:true}) adds full-width dashed lines at each bar top, a two-headed marker arrow at arrowX between the two levels, and '11 percentage points' label.",
+   "confidence": "high",
+   "notes": "Difference 26-10=11pp. Rebuilds the isolated 2-bar chart then annotates. No transition."
+  },
+  {
+   "item_id": "e6_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which sector showed the greatest lease-length decline",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "local_reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e6_q8.js:281-357 — drawLeaseDeclines: per sector reads the 2003 vs mid-2013 bar y/x from DOM, draws a horizontal group-top line, a vertical two-headed marker arrow (2003→mid-2013), and the decline value (e.g. 4.3) label.",
+   "confidence": "high",
+   "notes": "Per-sector decline = diff (2003 - mid-2013), values hardcoded in csvDeclines. All bars opacity 1 in step1. No transition."
+  },
+  {
+   "item_id": "e6_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which sector showed the greatest lease-length decline",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "double_arrow_diff",
+    "local_reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e6_q8.js:364-365 calls drawLeaseDeclines({emphasizeSector:'Large companies'}); l296 non-target bars opacity 0.18, l297-298 dark stroke on Large companies, l330/352 thicker/larger emphasized annotation.",
+   "confidence": "high",
+   "notes": "argmax over declines (Large companies=4.3). Re-draws all decline annotations with emphasis. No transition."
+  },
+  {
+   "item_id": "e6_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years fall below the average renunciations",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e6_q9.js:260-287 — drawRenunciationAverage draws full-width dashed line at yScale(1781) with 'Average: 1781' label.",
+   "confidence": "high",
+   "notes": "chart_map explanation.function1 bundles average+compare+count, but code splits: average line only here (count in function2). Hardcoded csvAverage=1781. No transition."
+  },
+  {
+   "item_id": "e6_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years fall below the average renunciations",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label"
+   ],
+   "evidence": "e6_q9.js:291-340 — re-draws average line, then per year a vertical two-headed marker arrow from the point to the average line (below=red width2, above=blue 0.5); below points enlarged r5.5 red opacity1, above dimmed 0.45; 'Below average: 4 years' summary.",
+   "confidence": "high",
+   "notes": "Counts years below average (4). Reuses/redraws the step1 average reference_line via drawRenunciationAverage. No transition."
+  },
+  {
+   "item_id": "e6_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Sum of Female-minus-Male differences over last five years",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "fade_context",
+    "opacity_emphasis"
+   ],
+   "evidence": "e6_q10.js:324-369 — getPopulationDifferenceRows filters 2016-2020 and computes abs(male-female); function1 dims non-target circles to 0.28, enlarges target circles r5, and draws per-year vertical two-headed marker arrows between Female/Male circles with the diff label.",
+   "confidence": "high",
+   "notes": "Involves a last-5-years subset filter, but the drawn computation is the per-year difference = diff. Reviewer note: uses abs value so bars are positive. No transition."
+  },
+  {
+   "item_id": "e6_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Sum of Female-minus-Male differences over last five years",
+   "operation_index": 2,
+   "operation_type": "sum",
+   "visual_effects": [
+    "materialized_chart",
+    "reencode_line_to_bar",
+    "axis_rescale",
+    "text_value_label"
+   ],
+   "evidence": "e6_q10.js:371-456 — sums the 5 differences and rebuildSvgInPlace(instant) draws a brand-new bar chart of the per-year differences (own band x-scale + fresh [0,max] y-scale) with per-bar labels and a sum label 'The sum of differences is ... million inhabitants'.",
+   "confidence": "high",
+   "notes": "Derived differences materialized as bars (line→bar) with a fresh rescaled axis. Reviewer note: differences forced positive so sum is positive (chart_map still says -150.86). instant rebuild → no transition."
+  },
+  {
+   "item_id": "e8_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average market share of companies with 5-or-fewer-letter names",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis"
+   ],
+   "evidence": "e8_q1.js:199-250 renderCompanyNameLengthChart(showAverage=false); rebuildSvgInPlace instant; qualifying 5 companies fill #2563eb opacity .95, others fill #d1d5db opacity .12",
+   "confidence": "high",
+   "notes": "Isolates the 5 qualifying companies by highlight+dim (no row removal, y-scale still spans all data). Also reorders selected to front (restructure with no named tag). The exported base renderValidationSimpleBarChart is unused by the steps; helper renderCompanyNameLengthChart drives both."
+  },
+  {
+   "item_id": "e8_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average market share of companies with 5-or-fewer-letter names",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "local_reference_line",
+    "text_value_label",
+    "fade_context",
+    "opacity_emphasis"
+   ],
+   "evidence": "e8_q1.js:252-273 showAverage=true adds line x1=firstX..x2=lastX at yScale(0.082) dashed + text 'Average: 0.082'",
+   "confidence": "high",
+   "notes": "Ref line spans only the contiguous selected-company group (firstX..lastX), hence local_reference_line not full-plot. Fully rebuilds chart (re-applies fade/emphasis). rebuildSvgInPlace instant so no transition."
+  },
+  {
+   "item_id": "e8_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Average very-interested share across non-Black race groups",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "axis_rescale"
+   ],
+   "evidence": "e8_q2.js:212-269 renderNonBlackVeryInterestedChart(showAverage=false); innerHTML='' then fresh svg with only White/Hispanic/Other 'Very interested' bars, yScale domain [0,max(csvValues)]",
+   "confidence": "medium",
+   "notes": "Extracts one series (Very interested) for 3 of 4 groups out of the stacked chart into simple bars; Black + other interest levels removed and axis recomputed to the surviving subset. Restructure stacked->isolated-subset bars."
+  },
+  {
+   "item_id": "e8_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Average very-interested share across non-Black race groups",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e8_q2.js:273-290 line x1=0 x2=plotW at yScale(0.19) dashed + text '19%'",
+   "confidence": "high",
+   "notes": "Full-plot-width dashed average line. Rebuilds the subset chart then adds the line."
+  },
+  {
+   "item_id": "e8_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference between mean maximum and mean minimum state payment",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "transpose_encoding",
+    "axis_rescale",
+    "local_reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e8_q3.js:251-326 renderTransposedPaymentChart(showDifference=false); x=Type(Maximum/Minimum), inner=State; per-Type avg line x0..x0+bandwidth + text 'Maximum avg: 20'/'Minimum avg: 6.25'",
+   "confidence": "high",
+   "notes": "Transposes the encoding (State-grouped -> Type-grouped), computing two per-Type averages. Two band-local reference lines. rebuildSvgInPlace instant."
+  },
+  {
+   "item_id": "e8_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference between mean maximum and mean minimum state payment",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e8_q3.js:376-446 function2 adds vertical two-headed arrow (marker-start/end) between yMax and yMin, animates y1/y2 from midpoint outward 650ms; text '13.75 million USD' fades opacity 0->1 650ms",
+   "confidence": "high",
+   "notes": "Annotation-only: operates on function1's existing chart (no rebuild). Consumes the two average lines drawn in step1."
+  },
+  {
+   "item_id": "e8_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year has the biggest change to the next year",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "materialized_chart",
+    "reencode_line_to_bar",
+    "axis_rescale"
+   ],
+   "evidence": "e8_q4.js:214-268 renderAdjacentDifferenceChart(highlightMax=false); rebuildSvgInPlace builds bar-per-adjacent-pair of |next-current| with new band x-scale and new y-scale",
+   "confidence": "medium",
+   "notes": "Line replaced by a derived bar chart of adjacent-year absolute differences. Torn between materialized_chart (values are computed/derived) and reencode_line_to_bar (line materialized as bars); tagged both."
+  },
+  {
+   "item_id": "e8_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year has the biggest change to the next year",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e8_q4.js:289-339 function2 transitions bars 600ms: max pair 2008-2009 -> #dc2626 opacity .95, others -> gray opacity .35; label '4.70' fade 0->1 650ms above max bar",
+   "confidence": "high",
+   "notes": "Argmax over the difference bars. Annotation-only on function1's bars (no rebuild)."
+  },
+  {
+   "item_id": "e8_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between max female victims and min male victims",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "text_value_label"
+   ],
+   "evidence": "e8_q5.js:331-370 dim all paths opacity .25 / circles .18 r3; two targets (Female 2002=207, Male 2002=375) circles r6 colored red/blue + labels 'Female max: 207'/'Male min: 375'",
+   "confidence": "high",
+   "notes": "Finds female maximum and male minimum (two extrema). Instant attr changes, no transition."
+  },
+  {
+   "item_id": "e8_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between max female victims and min male victims",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e8_q5.js:372-441 calls function1; two horizontal dashed lines x1=0 x2=plotW+28 at 207 and 375 + value labels; vertical two-headed arrow between them + text '168'",
+   "confidence": "high",
+   "notes": "Reuses function1 for the highlight, then draws the magnitude arrow. Full-width value reference lines."
+  },
+  {
+   "item_id": "e8_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Which party has the third-most respondents",
+   "operation_index": 1,
+   "operation_type": "rank",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label"
+   ],
+   "evidence": "e8_q6.js:202-242 PD bar -> #dc2626 opacity .95, others -> #d1d5db opacity .2; texts '3rd' and '0.19' above target bar",
+   "confidence": "high",
+   "notes": "Ordinal rank (3rd) highlight. function2 and function3 are empty ({}) and skipped."
+  },
+  {
+   "item_id": "e8_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Sum of META platforms' several-times-a-day percentages",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "materialized_chart",
+    "collapse_to_single",
+    "text_value_label"
+   ],
+   "evidence": "e8_q7.js:207-277 renderMetaFrequencyChart(showSum=false); bars Facebook 51, Instagram 38, plus 'Several sum' 89 (isSum red) + per-bar value labels",
+   "confidence": "medium",
+   "notes": "Isolates FB/IG several-times values out of the stacked chart and adds a computed summary sum bar (89). rebuildSvgInPlace instant=true (no crossfade)."
+  },
+  {
+   "item_id": "e8_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Sum of META platforms' several-times-a-day percentages",
+   "operation_index": 2,
+   "operation_type": "sum",
+   "visual_effects": [
+    "materialized_chart",
+    "collapse_to_single",
+    "text_value_label"
+   ],
+   "evidence": "e8_q7.js:224-289 totals bars 'Several sum' 89 / 'Once sum' 45 / 'Total sum' 134 + labels + 'Sum: 134'",
+   "confidence": "medium",
+   "notes": "Three computed summary bars. Reviewer comment corrects the gold arithmetic to 89+23+22=134 (explanation text says 134); a mismatch note vs original 138 is in the code comment."
+  },
+  {
+   "item_id": "e8_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference between women 60+ and men under 40",
+   "operation_index": 1,
+   "operation_type": "lookup",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label"
+   ],
+   "evidence": "e8_q8.js:280-326 two target bars (Women/60+, Men/18-39) -> #dc2626 opacity .95 + stroke, others gray opacity .18; value labels 0.739 / 0.312",
+   "confidence": "high",
+   "notes": "Retrieves two specific cell values (not extrema). Instant, no transition."
+  },
+  {
+   "item_id": "e8_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference between women 60+ and men under 40",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e8_q8.js:328-389 calls function1; two horizontal dashed lines at the two values (x2=plotW+28) + vertical two-headed arrow + text '0.427'",
+   "confidence": "high",
+   "notes": "Reuses function1 for highlight, then draws magnitude arrow between the two value lines."
+  },
+  {
+   "item_id": "e8_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years fall between 20 and 30",
+   "operation_index": 1,
+   "operation_type": "count",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e8_q9.js:244-297 main-line opacity .3; qualifying-year circles -> #dc2626 r5.5, others .18; two full-width dashed threshold lines at 20 and 30 + labels + 'Count: 11 years'",
+   "confidence": "high",
+   "notes": "Counts points inside a value range; the two reference lines bound the 20-30 band. function2/function3 empty and skipped."
+  },
+  {
+   "item_id": "e8_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Sum of boys>3670 and girls>3550 weight counts",
+   "operation_index": 1,
+   "operation_type": "count",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e8_q10.js:323-391 Total path opacity .12, others .45; qualifying circles r6 colored (Boys blue, Girls red), others gray; per-series threshold lines Boys>3670 / Girls>3550 (full width) + summary 'Boys: 3  Girls: 5  Sum: 8'",
+   "confidence": "high",
+   "notes": "Two per-series threshold counts summed. function2/function3 empty and skipped."
+  },
+  {
+   "item_id": "e1_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "How many years are above the average?",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q1.js:162-198 — append('line') full-width dashed at yScale(AVG_VALUE), x2 tweened 0→plotW (transition_grow); append('text') 'average = X' opacity 0→1 (transition_fade).",
+   "confidence": "high",
+   "notes": "AVG_VALUE computed once at module scope (l159); line consumed conceptually by function2's threshold, but created here."
+  },
+  {
+   "item_id": "e1_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "How many years are above the average?",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e1_q1.js:201-229 — bars transition fill to ABOVE_FILL(blue) if >avg else BASE_FILL, opacity 1 vs 0.3 (recolor+fade_context); append('text') 'N years above average' opacity 0→1.",
+   "confidence": "high",
+   "notes": "Explanation says compare-then-count; count is the closest term. Recolor of already-present bars = transition_recolor."
+  },
+  {
+   "item_id": "e1_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which season above average in both revenue types?",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "side_by_side_views",
+    "axis_rescale",
+    "transition_fade",
+    "transition_grow",
+    "transition_stagger"
+   ],
+   "evidence": "e1_q2.js:248-268 + buildPanel 215-245 — viewBox grows to 500; new split-layer with Commercial (top) & Broadcasting (bottom) panels, each own y-scale; bars grow height 0→h delay 300; old layers crossfade out.",
+   "confidence": "high",
+   "notes": "Pure structural split of stacked bars into two simple-bar panels (vertical stack, not literally side-by-side); no scalar computed. buildPanel delay(300).duration(700) grow; two panels sequential."
+  },
+  {
+   "item_id": "e1_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which season above average in both revenue types?",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q2.js:288-297 via drawPanelAverage 270-285 — each panel gets dashed avg line x2 0→plotW and 'avg X' label fade-in.",
+   "confidence": "high",
+   "notes": "Two per-panel averages (Commercial, Broadcasting)."
+  },
+  {
+   "item_id": "e1_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which season above average in both revenue types?",
+   "operation_index": 3,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "transition_recolor"
+   ],
+   "evidence": "e1_q2.js:300-313 — each panel's bars transition opacity to 1 if data-value>panelAvg else 0.3.",
+   "confidence": "high",
+   "notes": "Per-panel above-average threshold test; dims below-avg as context."
+  },
+  {
+   "item_id": "e1_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which season above average in both revenue types?",
+   "operation_index": 4,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "window_shading",
+    "text_value_label",
+    "transition_fade",
+    "transition_stagger"
+   ],
+   "evidence": "e1_q2.js:316-349 — for seasons above avg in BOTH, insert('rect') spanning top panel to bottom of lower panel (topY..bottomY), opacity 0→0.65 delay i*90 (stagger); label listing seasons fades in.",
+   "confidence": "high",
+   "notes": "AND-intersection of the two threshold sets; shading rect spans vertically across both panels."
+  },
+  {
+   "item_id": "e1_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of surgical averages, European vs Asian.",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "side_by_side_views",
+    "axis_rescale",
+    "transition_fade",
+    "transition_grow"
+   ],
+   "evidence": "e1_q3.js:216-239 + buildPanel 187-213 — split grouped bars into Surgical(left, leftX) & Nonsurgical(right, rightX) panels, independent y-scales; bars grow 0→h delay 300; old layers crossfade out.",
+   "confidence": "high",
+   "notes": "Structural split, no scalar computed."
+  },
+  {
+   "item_id": "e1_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of surgical averages, European vs Asian.",
+   "operation_index": 2,
+   "operation_type": "filter",
+   "visual_effects": [
+    "side_by_side_views",
+    "remove_rescale",
+    "axis_rescale",
+    "transition_fade",
+    "transition_grow"
+   ],
+   "evidence": "e1_q3.js:248-267 — new region-layer keeps only EUROPEAN (Germany/France/Italy) and ASIAN (India/Turkey/Japan) as two panels on a shared regionYScale; old layers fade out.",
+   "confidence": "high",
+   "notes": "Filters countries to two 3-country subsets and rebuilds; restructure under a filter. Shared y-scale across both region panels."
+  },
+  {
+   "item_id": "e1_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of surgical averages, European vs Asian.",
+   "operation_index": 3,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q3.js:287-295 via drawPanelAverage 269-284 — dashed avg line x2 0→plotW + 'avg N' label on each region panel.",
+   "confidence": "high",
+   "notes": "European & Asian surgical averages drawn as per-panel reference lines."
+  },
+  {
+   "item_id": "e1_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of surgical averages, European vs Asian.",
+   "operation_index": 4,
+   "operation_type": "diff",
+   "visual_effects": [
+    "materialized_chart",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q3.js:298-360 — brand-new diff-layer bar chart of the two computed averages (rows: European avg, Asian avg); value labels + 'European − Asian = X' title fade in; bars grow; old layers fade out.",
+   "confidence": "high",
+   "notes": "Auxiliary chart of computed averages = materialized_chart; difference shown as text (no arrow)."
+  },
+  {
+   "item_id": "e1_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Sum of y-values in the steepest multi-year rise.",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "segment_highlight_overlay",
+    "opacity_emphasis",
+    "transition_fade",
+    "transition_stagger",
+    "transition_recolor"
+   ],
+   "evidence": "e1_q4.js:204-239 — for each increasing run (getIncreasingRuns) append a thick RISE_COLOR path over that segment, opacity 0→1 delay idx*120 (stagger); circles in rising years recolor red & enlarge r 4→5 (transition_recolor/opacity_emphasis).",
+   "confidence": "medium",
+   "notes": "Computation = year-to-year change / consecutive-increase detection (lagDiff-like), so operation_type=diff. Red segment paths tracing subsets of the data line don't fit reference tags → new tag segment_highlight_overlay."
+  },
+  {
+   "item_id": "e1_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Sum of y-values in the steepest multi-year rise.",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e1_q4.js:242-282 — getBiggestRun (argmax total rise); insert('rect') HIGHLIGHT_BG span x0-pad..x1+pad, opacity 0→0.7; 'Steepest rise: yA–yB' caption fades in.",
+   "confidence": "high",
+   "notes": "Argmax over runs by total rise; shading behind the winning span."
+  },
+  {
+   "item_id": "e1_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Sum of y-values in the steepest multi-year rise.",
+   "operation_index": 3,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "reencode_line_to_bar",
+    "axis_rescale",
+    "transition_fade",
+    "transition_grow"
+   ],
+   "evidence": "e1_q4.js:285-334 — new bar-layer: run rows materialized as bars (scaleBand over run years), own y-scale; bars grow 0→h delay 350; old layers fade out.",
+   "confidence": "high",
+   "notes": "Isolates run as a small bar chart = line subset re-encoded to bars."
+  },
+  {
+   "item_id": "e1_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Sum of y-values in the steepest multi-year rise.",
+   "operation_index": 4,
+   "operation_type": "sum",
+   "visual_effects": [
+    "collapse_to_single",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q4.js:337-407 — new sum-layer, single bar domain ['Sum'] to yScale(sum), grows 0→h; 'Sum = X' and 'a + b + c' labels fade in; old layers fade out.",
+   "confidence": "high",
+   "notes": "Multiple run bars collapsed into one summary Sum bar."
+  },
+  {
+   "item_id": "e1_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average Internet where Radio<Internet<Newspaper.",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "transition_fade"
+   ],
+   "evidence": "e1_q5.js:225-249 — Television line/points/legend fade out & remove; remaining 3 series re-path and circles re-cy to yScaleFor(remaining); y-axis re-called on new scale (duration 750).",
+   "confidence": "high",
+   "notes": "Series dropped + y-axis recomputed to survivors + marks re-laid = remove_rescale. The path/point reposition is a geometry tween (no exact transition tag); fade covers the removal."
+  },
+  {
+   "item_id": "e1_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average Internet where Radio<Internet<Newspaper.",
+   "operation_index": 2,
+   "operation_type": "filter",
+   "visual_effects": [
+    "window_shading",
+    "transition_fade"
+   ],
+   "evidence": "e1_q5.js:252-271 — insert('rect') validation-focus-bg over FOCUS_YEARS 2003-2007 span (x0-pad..x1+pad), opacity 0→0.7.",
+   "confidence": "medium",
+   "notes": "Keep-years-between-Radio-and-Newspaper is a boolean between-test, but FOCUS_YEARS is hardcoded; explanation frames it as a filter. Only shading drawn."
+  },
+  {
+   "item_id": "e1_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average Internet where Radio<Internet<Newspaper.",
+   "operation_index": 3,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "axis_rescale",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e1_q5.js:274-329 — new internet-layer: only Internet series over 2003-2007 as a simple line+points, own x/y scales; 'Internet (2003–2007)' label; old layers fade out.",
+   "confidence": "high",
+   "notes": "Isolates one series subset into its own line panel; structural, no scalar computed."
+  },
+  {
+   "item_id": "e1_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average Internet where Radio<Internet<Newspaper.",
+   "operation_index": 4,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q5.js:332-360 — dashed avg line on internet-layer x2 0→plotW; 'average = X' label fade-in.",
+   "confidence": "high",
+   "notes": "Average over the isolated Internet focus-year values."
+  },
+  {
+   "item_id": "e1_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Sum of the three median-year values.",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "reorder_slide"
+   ],
+   "evidence": "e1_q6.js:161-184 — bars transition x to sorted-ascending scaleBand positions (duration 750); x-axis re-called with sorted domain.",
+   "confidence": "high",
+   "notes": "Sort has no vocab term → reshape (structural). Position tween of existing marks fits no transition tag → new tag reorder_slide."
+  },
+  {
+   "item_id": "e1_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Sum of the three median-year values.",
+   "operation_index": 2,
+   "operation_type": "rank",
+   "visual_effects": [
+    "remove_rescale",
+    "opacity_emphasis",
+    "transition_fade",
+    "transition_recolor",
+    "reorder_slide"
+   ],
+   "evidence": "e1_q6.js:187-224 — non-median bars fade out & remove; median trio (middle 3 of sorted, getMedianYears) recolor MEDIAN_FILL and slide to recentered 3-band scale; x-axis re-called.",
+   "confidence": "medium",
+   "notes": "Median = ordinal middle position → closest term rank (not max/min). Rest removed + x rescaled to 3 bars = remove_rescale; recolor to red = transition_recolor/opacity_emphasis."
+  },
+  {
+   "item_id": "e1_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Sum of the three median-year values.",
+   "operation_index": 3,
+   "operation_type": "sum",
+   "visual_effects": [
+    "collapse_to_single",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q6.js:227-310 — new sum-layer, single 'Median sum' bar grows to yScale(sum); 'Sum = X' and 'a + b + c' labels fade in; old layers crossfade out.",
+   "confidence": "high",
+   "notes": "Three median bars collapsed into one summed bar."
+  },
+  {
+   "item_id": "e1_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Year with greatest blue-vs-gray difference.",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "transition_fade"
+   ],
+   "evidence": "e1_q7.js:214-253 — new kept-layer stacked bar of only KEEP=[blue,gray] series, y rescaled to their sum; legend redrawn (KEEP only); old layers fade out.",
+   "confidence": "high",
+   "notes": "Filters to two series, still stacked, y-domain recomputed = remove_rescale."
+  },
+  {
+   "item_id": "e1_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Year with greatest blue-vs-gray difference.",
+   "operation_index": 2,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "reencode_stack_to_group",
+    "axis_rescale",
+    "transition_fade",
+    "transition_grow"
+   ],
+   "evidence": "e1_q7.js:256-294 — new grouped-layer: the two kept series placed side-by-side per year via innerScale, y rescaled to single-value max; bars grow 0→h delay 300; prior non-legend layers fade out.",
+   "confidence": "high",
+   "notes": "Stacked-to-grouped re-encode of the kept series."
+  },
+  {
+   "item_id": "e1_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Year with greatest blue-vs-gray difference.",
+   "operation_index": 3,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "local_reference_line",
+    "text_value_label",
+    "transition_fade",
+    "transition_stagger"
+   ],
+   "evidence": "e1_q7.js:302-361 — per year: dashed horizontal guide from taller bar top to arrowX (local ref line), vertical two-headed line marker-start/end #q7-arrow between the two tops (double_arrow_diff), diff text; all fade in delay i*60 (stagger).",
+   "confidence": "high",
+   "notes": "Absolute per-year difference annotated with bracket arrow + connector guide + value."
+  },
+  {
+   "item_id": "e1_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Year with greatest blue-vs-gray difference.",
+   "operation_index": 4,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e1_q7.js:364-395 — argmax over per-year diffs; insert('rect') MAX_BG over that year's band opacity 0→0.7; 'Greatest difference: YEAR (D)' label fades in.",
+   "confidence": "high",
+   "notes": "Argmax of the differences from step3."
+  },
+  {
+   "item_id": "e1_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Group with highest Occasionally+Infrequently sum.",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "transition_fade"
+   ],
+   "evidence": "e1_q8.js:186-211 — Frequently bars fade out & remove; remaining Occasionally/Infrequently groups transition x/width to a rescaled 2-group scaleBand; x-axis re-called.",
+   "confidence": "high",
+   "notes": "Removes one x-category and re-lays the survivors on a recomputed band scale."
+  },
+  {
+   "item_id": "e1_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Group with highest Occasionally+Infrequently sum.",
+   "operation_index": 2,
+   "operation_type": "sum",
+   "visual_effects": [
+    "materialized_chart",
+    "text_value_label",
+    "axis_rescale",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q8.js:214-267 — new sum-layer bar chart, one bar per race = val(Occasionally)+val(Infrequently); value labels; bars grow 0→h delay 350; old layers fade out.",
+   "confidence": "high",
+   "notes": "Per-group aggregate; new chart of computed sums (4 bars, not one) = materialized_chart, not collapse_to_single."
+  },
+  {
+   "item_id": "e1_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Group with highest Occasionally+Infrequently sum.",
+   "operation_index": 3,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q8.js:270-298 — argmax sum; dashed horizontal line at yScale(max) x2 0→plotW; 'Highest: RACE (V)' label fades in.",
+   "confidence": "high",
+   "notes": "Max of the per-group sums marked with a full-width reference line."
+  },
+  {
+   "item_id": "e1_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years below the average?",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e1_q9.js:175-211 — dashed avg line x2 0→plotW at yScale(AVG_VALUE); 'average = X' label fade-in.",
+   "confidence": "high",
+   "notes": "AVG_VALUE at module scope l172."
+  },
+  {
+   "item_id": "e1_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years below the average?",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "text_value_label",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e1_q9.js:214-249 — points transition to BELOW_FILL & r 4→6 & opacity 1 if <avg else stroke color, r4, opacity 0.55; 'N years below average' label fades in.",
+   "confidence": "high",
+   "notes": "Below-avg points emphasized (recolor+enlarge), above dimmed as context; count is the closest term."
+  },
+  {
+   "item_id": "e1_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference in lead-days: Obama vs Romney.",
+   "operation_index": 1,
+   "operation_type": "count",
+   "visual_effects": [
+    "window_shading",
+    "text_value_label",
+    "transition_fade",
+    "transition_stagger"
+   ],
+   "evidence": "e1_q10.js:228-282 — getWinners per date; per non-tie date insert('rect') band width=xScale.step() colored OBAMA_BG/ROMNEY_BG opacity 0→0.75 delay i*25 (stagger); two count labels ('Obama higher: N days', 'Romney higher: N days') fade in.",
+   "confidence": "high",
+   "notes": "Per-date boolean compare + tally; explanation frames as counting days each leads. Many per-date shading bands."
+  },
+  {
+   "item_id": "e1_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference in lead-days: Obama vs Romney.",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e1_q10.js:285-308 — diff=|obamaCount-romneyCount|; append('text') 'O − R = D days' opacity 0→1.",
+   "confidence": "high",
+   "notes": "Difference of the two counts shown purely as a text label; no geometric annotation."
+  },
+  {
+   "item_id": "e3_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Compare 2016→2017 change vs 2017→2018 change",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "fade_context",
+    "single_arrow_change",
+    "text_value_label",
+    "transition_fade",
+    "transition_grow"
+   ],
+   "evidence": "e3_q1.js:269-293; main-bars opacity→0.35 for non-{2016,2017} (transition 600ms), drawQ1JumpArrow appends single-head arrow line (marker-end, y2 grows 650ms) + '+1.31' label fade-in",
+   "confidence": "high",
+   "notes": "Isolates 2016/2017 via dimming (fade_context); arrow+label annotate the 2016→2017 magnitude. Shared helpers getQ1Geometry/drawQ1JumpArrow reused by function2."
+  },
+  {
+   "item_id": "e3_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Compare 2016→2017 change vs 2017→2018 change",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "fade_context",
+    "single_arrow_change",
+    "text_value_label",
+    "transition_fade",
+    "transition_grow"
+   ],
+   "evidence": "e3_q1.js:295-319; focus set {2016,2017,2018} opacity 0.35 dim, drawQ1JumpArrow for 2017→2018 with '+0.22' label",
+   "confidence": "high",
+   "notes": "Second diff step reusing same drawQ1JumpArrow primitive. function3 body is empty {} (e3_q1.js:321) — skipped."
+  },
+  {
+   "item_id": "e3_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "How many years Thailand revenue exceeded Philippines",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "transition_fade",
+    "transition_recolor"
+   ],
+   "evidence": "e3_q2.js:320-347; main-bar opacity→1 for {Thailand,Philippines} else 0.18 (600ms); legend swatches dimmed and labels get font-weight 700 / fill-opacity tween",
+   "confidence": "high",
+   "notes": "Isolates the two compared series to set up the per-year comparison; no scalar yet. Restructure = isolate subset via dimming."
+  },
+  {
+   "item_id": "e3_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "How many years Thailand revenue exceeded Philippines",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "boolean_marker_glyph",
+    "transition_fade"
+   ],
+   "evidence": "e3_q2.js:349-379; per-year text glyph appended at y=-8: '▲' green size18 for winning years (Thailand>Philippines) else '·' gray, opacity 0→1; title tooltip with values",
+   "confidence": "high",
+   "notes": "getQ2WinningYears computes t>p per year. Glyph markers over categories mark boolean pass/fail — no existing tag fits, new boolean_marker_glyph."
+  },
+  {
+   "item_id": "e3_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "How many years Thailand revenue exceeded Philippines",
+   "operation_index": 3,
+   "operation_type": "count",
+   "visual_effects": [
+    "transition_recolor",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e3_q2.js:381-416; winning markers recolor red + font-size 20 in place (500ms), then summary text 'Thailand > Philippines: 2 years (2020, 2021)' fade-in",
+   "confidence": "high",
+   "notes": "Final count of winning years; consumes getQ2WinningYears again (cross-step reuse of the boolean set from function2)."
+  },
+  {
+   "item_id": "e3_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year has smallest male-female marriage-age gap",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "single_arrow_change",
+    "transition_grow"
+   ],
+   "evidence": "e3_q3.js:320-354; per-year red line from male-bar top to female-bar top, marker-end arrow, x2/y2 grow 650ms (class validation-gender-gap-line)",
+   "confidence": "high",
+   "notes": "Draws the male−female gap connector for every year (computed via getQ3YearGaps). Lines are consumed/re-styled by function2 and function3 (cross-step)."
+  },
+  {
+   "item_id": "e3_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year has smallest male-female marriage-age gap",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "text_value_label",
+    "transition_fade",
+    "transition_recolor"
+   ],
+   "evidence": "e3_q3.js:356-403; insert bg rect #fde68a behind smallest-gap year column (opacity→0.55), thicken that year's gap line, 'gap 3.4' label fade-in",
+   "confidence": "high",
+   "notes": "findQ3SmallestGapYear = argmin over gaps. window_shading = highlight rect behind the winning category column."
+  },
+  {
+   "item_id": "e3_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year has smallest male-female marriage-age gap",
+   "operation_index": 3,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e3_q3.js:405-445; main-bars opacity 0.35 except best year, gap-lines opacity 0.25 except best, 'smallest gap → 2015' summary top-center fade-in",
+   "confidence": "high",
+   "notes": "Confirms argmin result. Code min = 2015 (Male38.1/Female34.6 gap 3.5) vs 2010 in explanation — data starts 2015 not 2010, so chart data differs from explanation years; classification by code."
+  },
+  {
+   "item_id": "e3_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between avg-from-2011 and avg-up-to-2010",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "window_shading",
+    "reference_line",
+    "transition_fade",
+    "transition_grow"
+   ],
+   "evidence": "e3_q4.js:261-309; two bg tint rects split at midpoint of 2010/2011 (#f3f4f6 & #dbeafe, opacity fade), full-height vertical dashed divider line y2 grows to plotH",
+   "confidence": "high",
+   "notes": "Partitions timeline into ≤2010 / ≥2011 eras; no scalar computed here (restructure only). Divider = full-height vertical reference_line."
+  },
+  {
+   "item_id": "e3_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between avg-from-2011 and avg-up-to-2010",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "local_reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e3_q4.js:311-358; drawAvg twice — dashed red avg line spanning only left era (0→dividerX) and only right era (dividerX→plotW), x2 grows, labels 'avg ≤2010 = ...' / 'avg ≥2011 = ...' fade-in",
+   "confidence": "high",
+   "notes": "getQ4Averages splits ≤2010 / ≥2011. Lines are segment-local (not full plot width) → local_reference_line."
+  },
+  {
+   "item_id": "e3_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between avg-from-2011 and avg-up-to-2010",
+   "operation_index": 3,
+   "operation_type": "diff",
+   "visual_effects": [
+    "single_arrow_change",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e3_q4.js:360-402; vertical single-head arrow from yBot(avgUpTo) to yTop(avgFrom) at plotW-18, 'Δ ...' label fade-in",
+   "confidence": "high",
+   "notes": "Diff of the two era averages (cross-step: reuses getQ4Averages computed for function2)."
+  },
+  {
+   "item_id": "e3_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many times dominant opinion changed",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "window_shading",
+    "transition_fade"
+   ],
+   "evidence": "e3_q5.js:341-370; per-year full-height bg band, blue (#bfdbfe) if Good dominant else red (#fecaca), opacity 0→0.35",
+   "confidence": "high",
+   "notes": "findQ5Crossovers computes dominant=good>=bad per year; bands encode the boolean per year. window_shading per category column."
+  },
+  {
+   "item_id": "e3_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many times dominant opinion changed",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e3_q5.js:372-433; at each crossover midpoint a full-height dashed vertical line (y2 grows), a circle r0→7, and 'Good→Bad' label fade-in",
+   "confidence": "high",
+   "notes": "Marks each dominance-change location (sign change of good−bad). Vertical line full-height = reference_line; circle grow is transition_grow."
+  },
+  {
+   "item_id": "e3_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many times dominant opinion changed",
+   "operation_index": 3,
+   "operation_type": "count",
+   "visual_effects": [
+    "fade_context",
+    "text_value_label",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e3_q5.js:435-471; series paths stroke-opacity→0.4 and points opacity→0.4 (dim context), summary 'N dominance changes' top-center fade-in",
+   "confidence": "high",
+   "notes": "Final count of crossovers; reuses findQ5Crossovers."
+  },
+  {
+   "item_id": "e3_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Which fiscal years' expenditures are below average",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "axis_gridlines",
+    "transition_grow",
+    "transition_stagger"
+   ],
+   "evidence": "e3_q6.js:235-259; for each yScale tick insert horizontal gridline #e5e7eb x2:0→plotW with duration 500+i*60 (staggered)",
+   "confidence": "low",
+   "notes": "Non-computational scaffolding: draws evenly-spaced horizontal gridlines to aid value reading — no data op. operation_type is a forced closest term; new tag axis_gridlines. Duration ramp (not delay) approximates stagger."
+  },
+  {
+   "item_id": "e3_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Which fiscal years' expenditures are below average",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e3_q6.js:261-299; full-width dashed avg line y=yScale(avg), x2:0→plotW grow 650ms, 'avg 3.36' label fade-in",
+   "confidence": "high",
+   "notes": "getQ6Average over all bars. Classic full-plot-width horizontal reference_line."
+  },
+  {
+   "item_id": "e3_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Which fiscal years' expenditures are below average",
+   "operation_index": 4,
+   "operation_type": "count",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e3_q6.js:316-341; belowCount = bars < avg, summary text 'N fiscal years below avg' fade-in",
+   "confidence": "high",
+   "notes": "function3 (e3_q6.js:301-314) only transitions main-bars opacity 1→1 (no visible change) — skipped as no-op; the intended below-avg bar highlight appears dropped. This function4 delivers the count result."
+  },
+  {
+   "item_id": "e3_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between average Poor and average Good",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "text_value_label",
+    "transition_fade",
+    "transition_recolor"
+   ],
+   "evidence": "e3_q7.js:294-347; main-bar opacity→1 for {Good,Poor} else 0.18, legend dim/bold, per-focus-segment centered numeric value labels fade-in (skip segH<10)",
+   "confidence": "high",
+   "notes": "Isolates Good/Poor series and labels their segment values; the averages themselves are computed in function2. Restructure = isolate subset."
+  },
+  {
+   "item_id": "e3_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between average Poor and average Good",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e3_q7.js:349-410; summary card (rect + two colored rows 'avg Good: x' / 'avg Poor: y' + 'Δ ... pp') built in legend area, all opacity 0→1",
+   "confidence": "medium",
+   "notes": "getQ7Averages computes avgGood & avgPoor; salient result is their diff. Rendered as a text summary card (rect+circles+text), not a bar chart — tagged text_value_label rather than materialized_chart; note the auxiliary card."
+  },
+  {
+   "item_id": "e3_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year/category recorded the highest percentage",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "text_value_label",
+    "transition_fade",
+    "transition_recolor"
+   ],
+   "evidence": "e3_q8.js:287-332; argmax over aggregated; max bar opacity 1 + black stroke width2, others 0.32; 'max 0.40 (Army · Men)' label fade-in",
+   "confidence": "high",
+   "notes": "Chart data is military-service women/men share, but the explanation/question text is about construction 2019 — data mismatches the map question; classified from code (argmax over grouped bars)."
+  },
+  {
+   "item_id": "e3_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year/category recorded the highest percentage",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e3_q8.js:334-372; full-width dashed line at y=yScale(maxValue), x2:0→plotW grow, value label at plotW+6 fade-in",
+   "confidence": "high",
+   "notes": "Full-plot-width horizontal reference_line at the max value; reuses argmax from function1."
+  },
+  {
+   "item_id": "e3_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many dates had growth rate below average",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e3_q9.js:245-283; full-width dashed avg line x2:0→plotW grow 650ms, 'avg 1.15' label fade-in",
+   "confidence": "high",
+   "notes": "getQ9Average over all months; full-plot-width horizontal reference_line."
+  },
+  {
+   "item_id": "e3_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many dates had growth rate below average",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "window_shading",
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e3_q9.js:285-323; bg tint rect below avg line (y=yAvg→plotH, #fee2e2 opacity 0.35); circles recolor/resize in place: r7 red opacity1 if v<avg else r3.5 blue opacity0.4",
+   "confidence": "high",
+   "notes": "Below-average threshold test on each point; below points emphasized (opacity_emphasis), above points dimmed (fade_context), region shaded (window_shading below avg)."
+  },
+  {
+   "item_id": "e3_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many dates had growth rate below average",
+   "operation_index": 3,
+   "operation_type": "count",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e3_q9.js:325-369; per-below-point numeric value labels + summary 'N months below average' fade-in",
+   "confidence": "high",
+   "notes": "Counts below-avg months; reuses getQ9Average threshold."
+  },
+  {
+   "item_id": "e3_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average Women−Men difference from year 2000",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "window_shading",
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e3_q10.js:344-405; pre-2000 bg tint rect (#f3f4f6 opacity 0.6); per year≥2000 vertical dashed gap line Women-top→Men-top (y2 grows, no arrowhead) + numeric gap label fade-in",
+   "confidence": "high",
+   "notes": "getQ10GapsFrom2000 computes women−men per year. Gap lines are headless vertical spans annotating the difference magnitude → double_arrow_diff; pre-2000 region shaded out."
+  },
+  {
+   "item_id": "e3_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average Women−Men difference from year 2000",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "single_arrow_change",
+    "collapse_to_single",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e3_q10.js:407-455; single vertical arrow from yScale(avgMen)→yScale(avgWomen) at plotW-18 (marker-end, y2 grows), 'avg gap = 9' label fade-in",
+   "confidence": "high",
+   "notes": "Averages the per-year gaps (avgWomen/avgMen/avgGap) into one summary arrow — collapse of many gaps to a single mark; cross-step reuse of getQ10GapsFrom2000 from function1."
+  },
+  {
+   "item_id": "e4_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Which year has the largest difference from the average?",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q1.js:250-276 — g.append('line') avg dashed line x2 0→plotW via .transition().duration(650); avg label opacity 0→1",
+   "confidence": "high",
+   "notes": "Full-width dashed average reference line + 'avg 47.xx' label. Explanation fn1 describes bar cluster; code draws the average level (typical-height baseline)."
+  },
+  {
+   "item_id": "e4_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Which year has the largest difference from the average?",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "transition_grow"
+   ],
+   "evidence": "e4_q1.js:290-307 — per-row red dashed vertical segment from yAvg to bar top, y2 grows via transition",
+   "confidence": "medium",
+   "notes": "Per-datum deviation spans (each bar's difference from avg). Tagged double_arrow_diff as vertical magnitude spans, but they are single dashed lines with no arrowheads; one per bar."
+  },
+  {
+   "item_id": "e4_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Which year has the largest difference from the average?",
+   "operation_index": 3,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "opacity_emphasis",
+    "transition_recolor",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q1.js:320-357 — insert('rect') #fde68a behind best year (opacity 0→0.55); matching diff-segment recolored bold red; 'max |Δ|' label",
+   "confidence": "high",
+   "notes": "argmax of |bar-avg|. Consumes the diff-segment created in fn2 (cross-step reuse), emphasizing the winning year's segment."
+  },
+  {
+   "item_id": "e4_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which season has biggest Matchday-vs-Commercial gap?",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "transition_recolor"
+   ],
+   "evidence": "e4_q2.js:306-333 — main-bar opacity tween: focus set {Matchday,Commercial}=1, others=0.18; legend swatches/labels dimmed",
+   "confidence": "medium",
+   "notes": "Isolate-subset by dimming non-focus segments (no removal/rescale). operation_type reshape (isolate subset); explanation fn1 introduces the two colored segments."
+  },
+  {
+   "item_id": "e4_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which season has biggest Matchday-vs-Commercial gap?",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q2.js:335-382 — per-season gray dashed connector from Matchday top to Commercial top (y2 grows); 'Δn' label fade-in",
+   "confidence": "high",
+   "notes": "Gap connector per season between the two segment tops; magnitude label."
+  },
+  {
+   "item_id": "e4_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which season has biggest Matchday-vs-Commercial gap?",
+   "operation_index": 3,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "opacity_emphasis",
+    "transition_recolor",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q2.js:384-435 — insert('rect') #fde68a behind best season; winning connector recolored red bold; top-center summary text",
+   "confidence": "high",
+   "notes": "argmax gap. Emphasizes the connector from fn2 (cross-step reuse)."
+  },
+  {
+   "item_id": "e4_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year has lowest lending-vs-investment gap?",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "fade_context",
+    "transition_recolor"
+   ],
+   "evidence": "e4_q3.js:300-325 — main-bar opacity tween: Donation series→0.22, others=1; Donation legend circle/text dimmed by index",
+   "confidence": "medium",
+   "notes": "Isolate Lending & Investment by dimming the third series (Donation). No removal/rescale → reshape isolate-subset."
+  },
+  {
+   "item_id": "e4_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year has lowest lending-vs-investment gap?",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q3.js:343-390 — red arrow line (marker-end via ensureE4Q3ArrowMarker) from Lending bar top to Investment bar top, x2/y2 grow; 'Δn.nn' label",
+   "confidence": "high",
+   "notes": "Per-year diagonal diff arrow between the two bars. Single-headed arrowhead (marker-end only)."
+  },
+  {
+   "item_id": "e4_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year has lowest lending-vs-investment gap?",
+   "operation_index": 3,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "opacity_emphasis",
+    "transition_recolor",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q3.js:392-444 — insert('rect') #fde68a behind min-gap year; winning gap-line recolored; top-center 'smallest gap' summary",
+   "confidence": "high",
+   "notes": "argmin gap. Consumes gap-line from fn2."
+  },
+  {
+   "item_id": "e4_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which consecutive years show the biggest jump?",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "single_arrow_change",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q4.js:263-306 — per consecutive pair a red vertical arrow (marker-end) at toYear from fromValue→toValue, y2 grows; '+delta' label",
+   "confidence": "high",
+   "notes": "Year-to-year change (lag diff) as single-headed change arrows. Explanation fn1/fn2 describe steepest segments."
+  },
+  {
+   "item_id": "e4_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which consecutive years show the biggest jump?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor"
+   ],
+   "evidence": "e4_q4.js:308-359 — insert('rect') #fde68a spanning midpoints centered on best jump year; winning arrow opacity 1/width 3, others→0.3",
+   "confidence": "high",
+   "notes": "argmax delta. Emphasizes winning arrow (opacity_emphasis) and dims the rest (fade_context); consumes fn1 arrows."
+  },
+  {
+   "item_id": "e4_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which consecutive years show the biggest jump?",
+   "operation_index": 3,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q4.js:362-388 — g.append('text') top-center 'biggest jump → from→to (+delta)' opacity 0→1",
+   "confidence": "high",
+   "notes": "Final answer summary text (reports the argmax jump)."
+  },
+  {
+   "item_id": "e4_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Which year has biggest favor-vs-oppose gap?",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q5.js:323-364 — per-year gray dashed vertical connector Oppose→Favor (y2 grows); 'Δn' label fade-in",
+   "confidence": "high",
+   "notes": "Per-year gap span between the two lines."
+  },
+  {
+   "item_id": "e4_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Which year has biggest favor-vs-oppose gap?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q5.js:366-418 — insert('rect') #fde68a (halfStep width) behind best year; winning gap-line red/bold, others faded; summary text",
+   "confidence": "high",
+   "notes": "argmax gap. Explanation has 2 functions matching 2 code functions. Consumes fn1 gap-lines."
+  },
+  {
+   "item_id": "e4_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between largest and smallest values 2010-2019?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "window_shading",
+    "fade_context",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e4_q6.js:249-278 — insert('rect') #dbeafe band over 2010..2019 span (opacity 0→0.45); out-of-range bars dimmed to 0.35",
+   "confidence": "high",
+   "notes": "Filter-to-range (2010-2019) shown by shaded band + dimming; NO axis rescale (dim, not remove). Count/content offset vs explanation: code fn1=range focus while explanation fn1 describes the max bar."
+  },
+  {
+   "item_id": "e4_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between largest and smallest values 2010-2019?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q6.js:281-311 — 'max 491' (blue) and 'min 264' (red) labels above the two extreme bars, opacity 0→1",
+   "confidence": "high",
+   "notes": "Identifies max and min within the range. Contains a no-op g.selectAll('.main-bar'); with empty body (l291-292)."
+  },
+  {
+   "item_id": "e4_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Difference between largest and smallest values 2010-2019?",
+   "operation_index": 3,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q6.js:314-356 — two-headed arrow (marker-start + marker-end) from min top to max top, y2 grows; 'Δ 197' label",
+   "confidence": "high",
+   "notes": "True double-headed difference arrow (max-min)."
+  },
+  {
+   "item_id": "e4_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between average Commercial and average Matchday?",
+   "operation_index": 1,
+   "operation_type": "reshape",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "transition_recolor"
+   ],
+   "evidence": "e4_q7.js:292-319 — main-bar opacity tween focus {Matchday,Commercial}=1 others=0.18; legend dimmed",
+   "confidence": "medium",
+   "notes": "Isolate-subset by dimming (no removal/rescale). Identical idiom to q2 fn1."
+  },
+  {
+   "item_id": "e4_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between average Commercial and average Matchday?",
+   "operation_index": 2,
+   "operation_type": "lookup",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q7.js:321-351 — white value labels centered on Matchday & Commercial segments (skips segH<12), opacity 0→1",
+   "confidence": "medium",
+   "notes": "Retrieves/labels each focus segment's value. Explanation fn2 frames it as averaging-by-eye; code shows per-segment values as the reading substrate."
+  },
+  {
+   "item_id": "e4_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between average Commercial and average Matchday?",
+   "operation_index": 3,
+   "operation_type": "average",
+   "visual_effects": [
+    "materialized_chart",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q7.js:353-414 — summary <g> card (rect+rows) in legend area: 'avg Commercial', 'avg Matchday', and headline 'Δ' of the two averages",
+   "confidence": "medium",
+   "notes": "Computes both series averages and their difference in an auxiliary card. operation_type average (core computed quantities); diff also shown as the headline answer."
+  },
+  {
+   "item_id": "e4_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Average vote share in age groups where Clinton is lower?",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q8.js:312-359 — per age-group dashed connector Clinton↔Sanders bar tops (x2/y2 grow); indicator text 'Clinton ▼'(red)/'▲'(green) per clinton<sanders test",
+   "confidence": "medium",
+   "notes": "Per-group comparison test (Clinton<Sanders). Connector tagged double_arrow_diff (span between two values, no arrowheads); the ▼/▲ indicator encodes the boolean."
+  },
+  {
+   "item_id": "e4_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Average vote share in age groups where Clinton is lower?",
+   "operation_index": 2,
+   "operation_type": "filter",
+   "visual_effects": [
+    "window_shading",
+    "fade_context",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e4_q8.js:361-393 — insert('rect') #fde68a band over Clinton-lower groups (opacity 0→0.45); non-focus bars dimmed to 0.35",
+   "confidence": "high",
+   "notes": "Filter to the subset of groups where Clinton is lower (from fn1's boolean); shaded band + dim, no rescale."
+  },
+  {
+   "item_id": "e4_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Average vote share in age groups where Clinton is lower?",
+   "operation_index": 3,
+   "operation_type": "average",
+   "visual_effects": [
+    "local_reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q8.js:395-437 — red dashed line from xStart→xEnd spanning only the Clinton-lower groups at clintonAvg (x2 grows); 'avg Clinton = 31%' label",
+   "confidence": "high",
+   "notes": "Average of Clinton's shares in the lower groups; local (subset-width) reference line, not full plot."
+  },
+  {
+   "item_id": "e4_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Average vote share in age groups where Clinton is lower?",
+   "operation_index": 4,
+   "operation_type": "average",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q8.js:439-462 — 'age-group avg = 27.7%' label parsed from age-label percentages, opacity 0→1",
+   "confidence": "high",
+   "notes": "Alternate interpretation: average of the age-group weight percentages (19/22/42). Matches explanation fn4."
+  },
+  {
+   "item_id": "e4_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Average vote share in age groups where Clinton is lower?",
+   "operation_index": 5,
+   "operation_type": "average",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q8.js:465-489 — summary '≈31% (Clinton-share) or 28% (age-share)' label, opacity 0→1",
+   "confidence": "high",
+   "notes": "Final dual-answer summary. Explanation fn5. 5 explanation functions cleanly map to 5 code functions."
+  },
+  {
+   "item_id": "e4_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years are below average?",
+   "operation_index": 1,
+   "operation_type": "lookup",
+   "visual_effects": [
+    "reference_line",
+    "transition_grow",
+    "transition_stagger"
+   ],
+   "evidence": "e4_q9.js:241-265 — per y-tick insert('line') horizontal gridline x2 0→plotW via transition, per-element .duration(500+i*60)",
+   "confidence": "low",
+   "notes": "Pure value-reading gridline aid (no scalar computed); maps to explanation fn1 'scanning the y-axis values'. Stagger is via per-element varying duration, not delay()."
+  },
+  {
+   "item_id": "e4_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years are below average?",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q9.js:267-305 — full-width dashed avg line x2 0→plotW; 'avg 2264' label fade-in",
+   "confidence": "high",
+   "notes": "Average reference line. Explanation fn2 (~2200 midline)."
+  },
+  {
+   "item_id": "e4_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years are below average?",
+   "operation_index": 3,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "threshold_region_shade",
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e4_q9.js:307-345 — insert('rect') #fee2e2 filling plot BELOW the avg line (y=yAvg..plotH); circles recolored: below-avg r7 red opacity1, above r3.5 #bfdbfe opacity0.4",
+   "confidence": "high",
+   "notes": "Per-point below-average test with a below-threshold value-region tint (new tag threshold_region_shade — a y-region below the reference line, not an x-span). Consumes fn2 avg line."
+  },
+  {
+   "item_id": "e4_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many years are below average?",
+   "operation_index": 4,
+   "operation_type": "count",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q9.js:347-390 — value labels on below-avg points; summary 'N years below avg' opacity 0→1",
+   "confidence": "high",
+   "notes": "Counts below-average years. Matches explanation fn4."
+  },
+  {
+   "item_id": "e4_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many years had Female-Male difference above average?",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e4_q10.js:326-367 — per-year gray dashed vertical connector Female→Male (y2 grows); gap.toFixed(2) label fade-in",
+   "confidence": "high",
+   "notes": "Per-year gender gap span between the two lines."
+  },
+  {
+   "item_id": "e4_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many years had Female-Male difference above average?",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor"
+   ],
+   "evidence": "e4_q10.js:369-409 — computes avgGap; recolors gap-lines/labels where gap>avgGap to red/bold/opacity1, others gray/0.35",
+   "confidence": "high",
+   "notes": "Threshold test each year's gap against the average gap. Computes avgGap internally; consumes fn1 connectors (cross-step reuse)."
+  },
+  {
+   "item_id": "e4_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many years had Female-Male difference above average?",
+   "operation_index": 3,
+   "operation_type": "count",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e4_q10.js:411-437 — top-center summary 'N years above avg gap (avgGap)' opacity 0→1",
+   "confidence": "high",
+   "notes": "Counts years above the average gap. Matches explanation fn3."
+  },
+  {
+   "item_id": "e2_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "How many years had investments over 22 billion euros (2011-2014)?",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "window_shading",
+    "opacity_emphasis",
+    "fade_context",
+    "reference_line",
+    "text_value_label",
+    "transition_recolor",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q1.js:322-419. insert('rect',':first-child') focus band over 2011-2014 fades 0→0.55 (l347-357); bars .transition('e2q1-bar-recolor') recolor above-years to blue #2563eb and dim non-focus to 0.35 (l367-386); threshold line y=22 x2 grows 0→plotW dashed (l392-403); '22' text fades in (l405-418).",
+   "confidence": "high",
+   "notes": "Threshold-comparison step (bars vs 22). Reviewer note in code moved f2's recolor into f1. Focus band + recolor + threshold all in one function. Explanation has 2 functions; f3 empty (skipped)."
+  },
+  {
+   "item_id": "e2_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "How many years had investments over 22 billion euros (2011-2014)?",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "transition_recolor",
+    "fade_context",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e2_q1.js:421-458. bars .transition().duration(600) final scheme: above→blue, below(2013)→orange #f97316, non-focus base+0.35 (l433-442); summary text '3 years > 22 (2011, 2012, 2014)' fades in (l444-457).",
+   "confidence": "high",
+   "notes": "Counting result stated as text label. Recolors 2013 to orange (below-threshold) cumulative with f1's blue."
+  },
+  {
+   "item_id": "e2_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which years does South Korea exceed France?",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "remove_rescale",
+    "transition_morph",
+    "transition_fade"
+   ],
+   "evidence": "e2_q2.js:483-485 → renderCountryComparisonChart mode='stacked' (l278-408). Isolates France+South Korea from 5 countries; D3 join keyed period|country: enter fade 0→1, update morph x/w/y/h, exit fade+remove (l379-408); y/x axes .transition() rescale (l357-360).",
+   "confidence": "medium",
+   "notes": "Semantic = SK-vs-France comparison (boolean); code mechanism is subset-isolation of 2 series with y rescale, so effects read as filter/remove_rescale. transition_morph = surviving bars interpolate to new scale."
+  },
+  {
+   "item_id": "e2_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which years does South Korea exceed France?",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "reencode_stack_to_group",
+    "transition_morph",
+    "transition_fade"
+   ],
+   "evidence": "e2_q2.js:487-489 → renderCountryComparisonChart mode='grouped' (l278-408). innerScale added (l345-346); bars re-encoded stacked→grouped via update-morph of x/width/y/height (l362-408); axes transition.",
+   "confidence": "medium",
+   "notes": "Explanation = SK taller 2016-2018 (comparison/boolean); code re-encodes the same 2 series from stacked to grouped."
+  },
+  {
+   "item_id": "e2_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Which years does South Korea exceed France?",
+   "operation_index": 3,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "window_shading",
+    "opacity_emphasis",
+    "transition_fade",
+    "transition_recolor"
+   ],
+   "evidence": "e2_q2.js:491-545. insert('rect',':first-child') highlight band over the '2018' bars fades 0→0.55 (l527-537); 2018 bars get stroke outline via transition (l540-544).",
+   "confidence": "low",
+   "notes": "Explanation-vs-code mismatch: explanation.function3 discusses 'Jan-Oct 2019' SK>France, but the code hardcodes and highlights the 2018 period band. Comparison-at-a-period step."
+  },
+  {
+   "item_id": "e2_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of average between North America and Latin America?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "transition_morph",
+    "transition_fade"
+   ],
+   "evidence": "e2_q3.js:643-645 → renderSelectedRegionGroupedChart (l276-430). Filters 4 regions→North America+Latin America; join keyed year|region: enter fade, update morph, exit fade+remove (l344-373); y/x axes transition-rescale (l320-323); legend fades non-selected.",
+   "confidence": "high",
+   "notes": "Isolates 2 of 4 regions and rescales y. transition_morph for surviving bars sliding to new inner scale."
+  },
+  {
+   "item_id": "e2_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of average between North America and Latin America?",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "side_by_side_views",
+    "axis_rescale",
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q3.js:647-649 → renderRegionAverageComparison→buildRegionAverageComparison (l432-641). Two panels via rebuildSvgInPlace (l457-462, l480-547), each own axes; per-panel avg dashed line x2 grows 0→panelW with 'avg N.NN' label (l517-546); vertical Δ arrow marker-start+end y2 grows yNA→yLA (l607-623) + 'Δ N.NN' label (l625-638); staged delays 400/500/1200ms.",
+   "confidence": "medium",
+   "notes": "Step both averages (per-region reference lines) AND diffs them; named by the culminating diff. Sequential (delayed) reveal, not per-element stagger. Explanation has 2 functions; f3 empty (skipped)."
+  },
+  {
+   "item_id": "e2_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year had the largest increase over previous year?",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "single_arrow_change",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q4.js:226-293. getPopulationChangeRows() consecutive deltas; per segment a vertical line with marker-end (single arrowhead) y2 grows y0→y1 (l261-273) and '+N.N' delta label fades in (l276-291).",
+   "confidence": "medium",
+   "notes": "Draws ALL year-over-year change arrows (lagDiff/diff). The extremum identification (steepest segment) is deferred to f2; here it's the change computation. Explanation.function1 names the steepest segment."
+  },
+  {
+   "item_id": "e2_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year had the largest increase over previous year?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "side_by_side_views",
+    "materialized_chart",
+    "reencode_line_to_bar",
+    "window_shading",
+    "opacity_emphasis",
+    "text_value_label",
+    "axis_rescale",
+    "transition_fade"
+   ],
+   "evidence": "e2_q4.js:295-418. viewBox expands to 720 tall (l320); line panel kept on top with 2000-2010 highlight band fade-in (l325-335); new delta bar panel below built (l352-399) — bars of computed diffs enter at final position with opacity fade (l385-399), max bar recolored red #ef4444 (l393) with '+N.N' label (l404-417); 2000-2010 band shaded in bar panel (l372-382).",
+   "confidence": "high",
+   "notes": "Identifies the max increase (extremum over lagDiffs) by materializing a derived delta bar chart below the line and coloring the max bar. reencode_line_to_bar = line changes materialized as bars. Explanation has 2 functions; f3 empty (skipped)."
+  },
+  {
+   "item_id": "e2_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many dates had Dem+Rep percentage sum below 70?",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "reencode_line_to_bar",
+    "axis_rescale",
+    "transition_fade"
+   ],
+   "evidence": "e2_q5.js:387-389 → renderCandidateStackedBars (l318-385). rebuildSvgInPlace crossfade multi-line→stacked bars (l331-384); segments stacked y0/y1 so each date's stack height = Dem+Rep sum; new yScale domain max(70,...) (l311-314); title 'Stacked candidate support per date (sum of all candidates)'.",
+   "confidence": "high",
+   "notes": "Chart-type change (multi-line→stacked bar) materializes the per-date SUM as stack height. reencode_line_to_bar used for the line→stacked-bar re-encoding (note: stacked). Explanation has 2 functions; f3 empty (skipped)."
+  },
+  {
+   "item_id": "e2_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "How many dates had Dem+Rep percentage sum below 70?",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "fade_context",
+    "transition_grow",
+    "transition_recolor",
+    "transition_fade"
+   ],
+   "evidence": "e2_q5.js:391-444. threshold line y=yScale(70) x2 grows 0→plotW dashed (l409-420); '70' label fades in (l421-433); stacks with total>=70 dimmed to 0.25 via .transition() opacity (l436-443).",
+   "confidence": "high",
+   "notes": "Counting dates under 70 via threshold line + dimming over-threshold stacks. '70' tagged as numeric threshold text_value_label."
+  },
+  {
+   "item_id": "e2_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average of ticket prices at or below $60?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "fade_context",
+    "reference_line",
+    "text_value_label",
+    "transition_recolor",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q6.js:221-268. bars with value>60 dimmed to 0.35 via .transition() opacity (l233-239); threshold line y=yScale(60) x2 grows 0→plotW (l242-253); '60' label fades in (l254-267).",
+   "confidence": "high",
+   "notes": "Isolates the ≤60 subset by dimming above-threshold bars (filter/threshold). '60' numeric label."
+  },
+  {
+   "item_id": "e2_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Average of ticket prices at or below $60?",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "local_reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q6.js:270-329. reads rendered filtered bars' x/width to compute xStart..xEnd (l294-299); avg line spans only filtered bars xStart→xEnd (x2 grows) dashed red (l303-314); 'avg N.NN' label fades in (l316-328).",
+   "confidence": "high",
+   "notes": "local_reference_line: avg line deliberately spans only the filtered ≤60 bar region, not full plot width. Explanation has 2 functions; f3 empty (skipped)."
+  },
+  {
+   "item_id": "e2_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between White and Black answering more than most of the time?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "transition_morph",
+    "transition_fade"
+   ],
+   "evidence": "e2_q7.js:465-467 → renderRaceDiscussionStackedChart (l281-463). Double subset: 3 races→White+Black AND 4 freqs→2 focus freqs; join keyed race|frequency enter/update-morph/exit (l362-391); y/x axes transition-rescale (l345-348); legend relayouts right→top (l393-462).",
+   "confidence": "high",
+   "notes": "Filters both x (races) and series (frequencies) with y rescale; the two kept segments stack (partial sum). transition_morph for surviving bars; legend also transitions position (not separately tagged)."
+  },
+  {
+   "item_id": "e2_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference between White and Black answering more than most of the time?",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q7.js:469-566. reads existing bar tops per race for total y (l496-507); two total dashed lines x2 grow to plotW (l522-536); bidirectional Δ arrow marker-start+end y2 grows White→Black (l539-551); diff label fades in (l553-565).",
+   "confidence": "high",
+   "notes": "Difference of the two stacked totals via double-headed arrow. Explanation has 2 functions; f3 empty (skipped)."
+  },
+  {
+   "item_id": "e2_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of two cross-group gender averages across platforms?",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "transition_recolor"
+   ],
+   "evidence": "e2_q8.js:382-384 → highlightPlatformGroups(['YouTube','Twitter','Twitch']) (l274-295). non-selected bars opacity→0.22 via transition (l278-284); selected x-axis labels bold 800 + recolor #111827, others grey (l286-294).",
+   "confidence": "high",
+   "notes": "Classifies Male-leaning platforms (male>female boolean test) by dimming non-selected bars and emphasizing selected labels."
+  },
+  {
+   "item_id": "e2_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of two cross-group gender averages across platforms?",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "transition_recolor"
+   ],
+   "evidence": "e2_q8.js:386-388 → highlightPlatformGroups(['Facebook','Instagram','Snapchat','TikTok']) (l274-295). Same mechanism, Female-leaning set.",
+   "confidence": "high",
+   "notes": "Classifies Female-leaning platforms (female>male). Reuses same highlight helper as f1."
+  },
+  {
+   "item_id": "e2_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of two cross-group gender averages across platforms?",
+   "operation_index": 3,
+   "operation_type": "average",
+   "visual_effects": [
+    "side_by_side_views",
+    "axis_rescale",
+    "reference_line",
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e2_q8.js:390-392 → renderPlatformAverageComparison (l317-380). rebuildSvgInPlace crossfade to two panels (G1 Male-leaning, G2 Female-leaning), each own xScale/axes (l336-343); per-panel avg dashed line x1=0→x2=panelW static (l358-366) + avg value label (l367-374); root group fades in.",
+   "confidence": "high",
+   "notes": "Computes the two group averages, shown as per-panel reference lines. Panels show raw group bars (not purely computed), so materialized_chart not tagged; avg lines are static (no grow)."
+  },
+  {
+   "item_id": "e2_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Difference of two cross-group gender averages across platforms?",
+   "operation_index": 4,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q8.js:394-445. Δ arrow between the two panels' avg y-positions marker-start+end y2 grows y1→y2 (l419-431); diff label |g1Average-g2Average| fades in (l432-444).",
+   "confidence": "high",
+   "notes": "Difference of the two averages via double-headed arrow across panels."
+  },
+  {
+   "item_id": "e2_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between second-largest and smallest values, 2000-2008?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "transition_morph",
+    "transition_fade"
+   ],
+   "evidence": "e2_q9.js:358-360 → focusPopulationInPlace (l245-309). Filters to 2000-2008; y/x axes transition to new focus scales (l270-273); circles outside range fade to 0, focused circles slide cx/cy (l276-292); line path attrTween morph to focused shape (l298-308).",
+   "confidence": "high",
+   "notes": "In-place filter+rescale (no rebuild). transition_morph = points slide + line d interpolates via attrTween."
+  },
+  {
+   "item_id": "e2_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between second-largest and smallest values, 2000-2008?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor"
+   ],
+   "evidence": "e2_q9.js:362-365 → highlightPopulationPoints([smallest.Year]) (l311-356). smallest point → r=8 red #ef4444 opacity 1; other in-range points dim r=3.5 #bfdbfe opacity 0.35; out-of-range stay 0 (l327-355) via .transition().",
+   "confidence": "high",
+   "notes": "Argmin over focus range (smallest = 2001). Emphasis + context-dim."
+  },
+  {
+   "item_id": "e2_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between second-largest and smallest values, 2000-2008?",
+   "operation_index": 3,
+   "operation_type": "rank",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor"
+   ],
+   "evidence": "e2_q9.js:367-372 → highlightPopulationPoints([smallest.Year, secondLargest.Year]) (l311-356). secondLargest (2002, distinctValues[1]) also red-enlarged; smallest kept red (cumulative).",
+   "confidence": "high",
+   "notes": "Second-largest = ordinal/nth rank (distinctValues sorted desc, index 1). Cumulative: keeps f2's smallest red dot visible."
+  },
+  {
+   "item_id": "e2_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Difference between second-largest and smallest values, 2000-2008?",
+   "operation_index": 4,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q9.js:374-462. two horizontal dashed value lines at smallest & secondLargest, x2 grow 0→plotW (l403-431) with value labels; Δ vertical arrow marker-start+end y2 grows y1→y2 (l436-448) + |diff| label (l449-461).",
+   "confidence": "high",
+   "notes": "Difference of the two selected values via reference lines + double-headed arrow."
+  },
+  {
+   "item_id": "e2_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between Germany's largest and US's smallest, 2010-2015?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "transition_morph",
+    "transition_fade"
+   ],
+   "evidence": "e2_q10.js:437-439 → focusCountryLineInPlace (l311-376). Filters to 2010-2015; y/x axes transition to focus scales (l333-336); circles outside range fade to 0, focused slide cx/cy (l339-355); each series path attrTween morph to filtered shape (l359-375).",
+   "confidence": "high",
+   "notes": "In-place filter+rescale of both series. transition_morph = points slide + both line paths interpolate."
+  },
+  {
+   "item_id": "e2_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between Germany's largest and US's smallest, 2010-2015?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor"
+   ],
+   "evidence": "e2_q10.js:441-444 → highlightCountryPoints([{Germany, germanyMax.Year}]) (l378-435). Germany max point r=8 red opacity 1; other in-range points dim opacity 0.25 keeping palette fill (l398-427); legend text for highlighted country bold 800 (l429-434).",
+   "confidence": "high",
+   "notes": "Argmax for Germany (max in 2010-2015). Legend bold = opacity_emphasis on legend."
+  },
+  {
+   "item_id": "e2_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between Germany's largest and US's smallest, 2010-2015?",
+   "operation_index": 3,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "opacity_emphasis",
+    "fade_context",
+    "transition_recolor"
+   ],
+   "evidence": "e2_q10.js:446-454 → highlightCountryPoints([Germany max, US min]) (l378-435). US min point also red-enlarged; Germany max kept red (cumulative).",
+   "confidence": "high",
+   "notes": "Argmin for US, added cumulatively while keeping f2's Germany max highlight."
+  },
+  {
+   "item_id": "e2_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Difference between Germany's largest and US's smallest, 2010-2015?",
+   "operation_index": 4,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reference_line",
+    "double_arrow_diff",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e2_q10.js:456-547. two horizontal dashed value lines at germanyMax & usMin, x2 grow 0→plotW (l488-516) with value labels; Δ vertical arrow marker-start+end y2 grows y1→y2 (l521-533) + diff label (34→... value) (l534-546).",
+   "confidence": "high",
+   "notes": "Difference of the two extrema (50-19=31) via reference lines + double-headed arrow."
+  },
+  {
+   "item_id": "e10_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "2nd-most subscribers among creators starting with 'a'?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis"
+   ],
+   "evidence": "e10_q1.js:202-209 function1 — selectAll('.main-bar').attr('opacity', selected?1:0.18) dims non-'a' creators; selected (Amixem/Andy) get stroke #111827 width 2.",
+   "confidence": "high",
+   "notes": "Filter is an in-place highlight (no rebuild/rescale); non-selected kept as faint context. No transition."
+  },
+  {
+   "item_id": "e10_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "2nd-most subscribers among creators starting with 'a'?",
+   "operation_index": 2,
+   "operation_type": "rank",
+   "visual_effects": [
+    "text_value_label",
+    "opacity_emphasis"
+   ],
+   "evidence": "e10_q1.js:211-243 function2 — re-emphasizes Amixem/Andy, then appends '.validation-rank-label' text '1'/'2' above each bar (index+1).",
+   "confidence": "high",
+   "notes": "Reuses the two bars highlighted in function1; adds ordinal rank numerals. No transition."
+  },
+  {
+   "item_id": "e10_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Sum of Europe employees before 2015?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale",
+    "axis_rescale"
+   ],
+   "evidence": "e10_q2.js:349-368 function1 — filters to 2011-2014 x Germany/GB/Spain/Rest-of-Europe, renderEmployeeStackedBarChart rebuilds SVG on subset domains; y-axis recomputed to subset max.",
+   "confidence": "high",
+   "notes": "Full container rebuild (innerHTML='') restructures to isolated subset then rescales; instant, no transition."
+  },
+  {
+   "item_id": "e10_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Sum of Europe employees before 2015?",
+   "operation_index": 2,
+   "operation_type": "sum",
+   "visual_effects": [
+    "collapse_to_single",
+    "axis_rescale"
+   ],
+   "evidence": "e10_q2.js:370-389 function2 — sums the four regions per year, renders a single x-category 'Europe before 2015' whose stack segments are the four yearly totals.",
+   "confidence": "high",
+   "notes": "Aggregates the filtered subset into one summary bar (years become stack series); axis rescaled to total. Restructure recorded per rubric rule."
+  },
+  {
+   "item_id": "e10_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Did males use app more than females (today+prev week)?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale"
+   ],
+   "evidence": "e10_q3.js:374-378 function1 — filters Usage_Period to Today/Within-previous-week, renderUsageGroupedBarChart rebuilds grouped bars via rebuildSvgInPlace with subset series domain and rescaled y.",
+   "confidence": "high",
+   "notes": "Code function1 = filter, but explanation.function1 is the male total (0.17) — code/explanation are offset by one; semantics recovered from code+explanation jointly."
+  },
+  {
+   "item_id": "e10_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Did males use app more than females (today+prev week)?",
+   "operation_index": 2,
+   "operation_type": "sum",
+   "visual_effects": [
+    "reencode_group_to_stack",
+    "axis_rescale"
+   ],
+   "evidence": "e10_q3.js:380-384 function2 — renderUsageStackedBarChart stacks the two periods per gender (y0/y1 accumulation), re-encoding the grouped bars as stacked so each gender's total height is the sum.",
+   "confidence": "high",
+   "notes": "Re-encode from grouped to stacked materializes the per-gender sums (0.17 / 0.19)."
+  },
+  {
+   "item_id": "e10_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "Did males use app more than females (today+prev week)?",
+   "operation_index": 3,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "text_value_label",
+    "transition_fade"
+   ],
+   "evidence": "e10_q3.js:390-448 function3 — appends total labels over each stacked bar and a red comparison sentence '0.17 < 0.19 — males did not use more', each with .transition().duration(400) opacity 0→1.",
+   "confidence": "high",
+   "notes": "Only step in e10 with an explicit fade transition. Comment (l386-389) says the comparison was split out of function2 — extra step vs the 2-op norm."
+  },
+  {
+   "item_id": "e10_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year deviates most from total average CPI?",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e10_q4.js:332-335 -> addCpiAverageLine l256-281 — full-width dashed line at yScale(mean) plus 'avg 262.10' text label.",
+   "confidence": "high",
+   "notes": "Overall average reference line consumed by later diff steps (cross-step reuse)."
+  },
+  {
+   "item_id": "e10_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year deviates most from total average CPI?",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "partition_divider",
+    "opacity_emphasis",
+    "text_value_label"
+   ],
+   "evidence": "e10_q4.js:337-375 function2 — vertical divider line at Dec'20/Jan'21 midpoint with '2020'/'2021' labels, then addCpiDeviationDots (l283-324) draws red per-year-average dots and 'Average 2020/2021 (value)' labels.",
+   "confidence": "medium",
+   "notes": "Divider partitions plot into year regions (new tag partition_divider). Red dots materialize per-year average values; dots reused by function3's arrows."
+  },
+  {
+   "item_id": "e10_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year deviates most from total average CPI?",
+   "operation_index": 3,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e10_q4.js:436-439 -> addCpiDeviationArrows l377-434 — two-headed arrows (marker-start & marker-end) from each year dot up/down to avg line, with |deviation| text.",
+   "confidence": "high",
+   "notes": "Absolute deviation of each year average from overall average, annotated as magnitude arrows."
+  },
+  {
+   "item_id": "e10_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year deviates most from total average CPI?",
+   "operation_index": 4,
+   "operation_type": "diff",
+   "visual_effects": [
+    "double_arrow_diff",
+    "text_value_label"
+   ],
+   "evidence": "e10_q4.js:441-453 function4 — conclusion step re-calls addCpiDeviationArrows (removes then re-appends identical arrows/labels).",
+   "confidence": "low",
+   "notes": "Idempotent redraw — draws no new marks. Code comment (l446-451) flags the gold conclusion (2020 biggest) is wrong: recompute gives 2021 larger; kept as a stimulus decision, not a render bug."
+  },
+  {
+   "item_id": "e10_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Which year's combined life expectancy is closest to average?",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "materialized_chart",
+    "side_by_side_views",
+    "reencode_line_to_bar",
+    "reference_line",
+    "axis_rescale"
+   ],
+   "evidence": "e10_q5.js:416-418 -> renderLifeExpectancyCompositeChart l307-414 — top panel diverging bars of (female+male total − avg-of-totals) over a zero(=average) line, bottom panel the original two-series lines; two stacked g panels.",
+   "confidence": "medium",
+   "notes": "Combines sum (per-year combined total) and average (of totals). Top bar panel is a derived materialized chart re-encoding the line data as deviation bars; two panels share x but own y-scales."
+  },
+  {
+   "item_id": "e10_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Which year's combined life expectancy is closest to average?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading"
+   ],
+   "evidence": "e10_q5.js:420-450 function2 — svg.insert('rect',':first-child') '.validation-highlight-2013' spanning both panels at the 2013 column, fill #d1d5db opacity 0.42.",
+   "confidence": "medium",
+   "notes": "Argmin of |total − average| = 2013 (year hardcoded). Guard re-renders composite if panel missing. Salient effect is a shaded vertical window behind the winning year."
+  },
+  {
+   "item_id": "e10_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "How many years had revenue below 2 billion USD?",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e10_q6.js:203-243 function1 — appends '.validation-reference-line' full-width dashed line at yScale(2.0) and a '2.0' text label.",
+   "confidence": "high",
+   "notes": "Threshold reference line for the <2.0 test; consumed by function2's count."
+  },
+  {
+   "item_id": "e10_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "How many years had revenue below 2 billion USD?",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "fade_context"
+   ],
+   "evidence": "e10_q6.js:245-251 function2 — selectAll('.main-bar').attr('opacity', value>2.0 ? 0.22 : 1) dims above-threshold bars, leaving the three below-2.0 bars at full opacity.",
+   "confidence": "high",
+   "notes": "Counts the surviving (non-dimmed) bars = 3 years. No transition; no rescale."
+  },
+  {
+   "item_id": "e10_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Top perception share across female royal figures?",
+   "operation_index": 1,
+   "operation_type": "filter",
+   "visual_effects": [
+    "remove_rescale"
+   ],
+   "evidence": "e10_q7.js:338-350 function1 — filters to Meghan/Catherine/Queen Elizabeth II, renderRoyalStackedBarChart rebuilds stacked bars on the 3-figure subset with rescaled y.",
+   "confidence": "high",
+   "notes": "Isolates the female-figure subset; full rebuild, instant."
+  },
+  {
+   "item_id": "e10_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Top perception share across female royal figures?",
+   "operation_index": 2,
+   "operation_type": "sum",
+   "visual_effects": [
+    "materialized_chart",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e10_q7.js:352-358 -> renderPerceptionTotalBarChart l285-336 — sums Share per perception across the 3 figures, renders a new simple bar chart sorted desc with per-bar total labels.",
+   "confidence": "high",
+   "notes": "Re-encodes the stacked chart into a fresh aggregated bar chart of perception totals; sorted (implicit rank) with value labels."
+  },
+  {
+   "item_id": "e10_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year has most revenue across all sectors?",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "reencode_group_to_stack",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e10_q8.js:343-345 -> renderSectorYearStackedBarChart l264-341 — accumulates y0/y1 per sector per year (grouped→stacked) so each year's stack height is the total; adds white per-segment value labels.",
+   "confidence": "high",
+   "notes": "Stacking sums sectors into per-year totals; y rescaled to stacked max."
+  },
+  {
+   "item_id": "e10_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Which year has most revenue across all sectors?",
+   "operation_index": 2,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis"
+   ],
+   "evidence": "e10_q8.js:347-372 function2 — dims non-2020 bars to opacity 0.28, strokes 2020 bars, recolors the 2020 x-axis label red/bold, enlarges & red-recolors 2020 segment labels.",
+   "confidence": "high",
+   "notes": "Argmax year = 2020 (hardcoded). In-place emphasis over the stacked totals from function1; no transition tween (plain attr)."
+  },
+  {
+   "item_id": "e10_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many months below the average index?",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reencode_line_to_bar",
+    "reference_line",
+    "axis_rescale"
+   ],
+   "evidence": "e10_q9.js:268-270 -> renderIndexDivergingBarChart(colorBySign:false) l210-266 — rebuilds the line as diverging bars of (index − mean) about a zero(=average) baseline line; single blue fill.",
+   "confidence": "high",
+   "notes": "Zero line equals the average since bars are value−average. Re-encodes line to deviation bars with symmetric rescale."
+  },
+  {
+   "item_id": "e10_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "How many months below the average index?",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "reencode_line_to_bar",
+    "reference_line",
+    "opacity_emphasis"
+   ],
+   "evidence": "e10_q9.js:272-274 -> renderIndexDivergingBarChart(colorBySign:true) l257-260 — same diverging bars re-rendered with below-average bars red (#dc2626) and above green (#16a34a).",
+   "confidence": "medium",
+   "notes": "Sign-coloring marks the 4 below-average months (the count). Effected by a full rebuild (rebuildSvgInPlace instant), not an in-place recolor tween — so no transition_recolor tag."
+  },
+  {
+   "item_id": "e10_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average difference excluding top favorable and unfavorable years?",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "window_shading",
+    "fade_context",
+    "opacity_emphasis"
+   ],
+   "evidence": "e10_q10.js:386-420 function1 — inserts dark background bands behind 2002 & 2007 columns (opacity 0.12), dims other circles to 0.28, recolors excluded-year circles #374151.",
+   "confidence": "medium",
+   "notes": "Identifies/excludes the argmax-Favorable (2002) and argmax-Unfavorable (2007) years; shading + fade mark the two excluded extremes."
+  },
+  {
+   "item_id": "e10_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average difference excluding top favorable and unfavorable years?",
+   "operation_index": 2,
+   "operation_type": "diff",
+   "visual_effects": [
+    "reencode_line_to_bar",
+    "text_value_label",
+    "axis_rescale",
+    "fade_context"
+   ],
+   "evidence": "e10_q10.js:422-423 -> renderOpinionDifferenceBarChart(showAverage:false) l296-361 — re-encodes the two lines into per-year Favorable−Unfavorable bars; excluded years grey with 'N/A' label, others show diff value.",
+   "confidence": "high",
+   "notes": "Per-year difference of the two series; excluded years zeroed/greyed as context."
+  },
+  {
+   "item_id": "e10_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Average difference excluding top favorable and unfavorable years?",
+   "operation_index": 3,
+   "operation_type": "average",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label"
+   ],
+   "evidence": "e10_q10.js:426-427 -> renderOpinionDifferenceBarChart(showAverage:true) l362-384 — redraws diff bars plus a full-width dashed average line and 'avg 34.6' label over the five included years.",
+   "confidence": "high",
+   "notes": "Average of the five remaining differences; re-renders the bar chart then adds the reference line."
+  },
+  {
+   "item_id": "e9_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Do all regions except Metro Total exceed 50,000 combined?",
+   "operation_index": 1,
+   "operation_type": "sum",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q1.js:214-329 — filters out 'Metro Total', d3.sum of remaining 7 rows; wipes base bars, rebuilds a fresh panel with xDomain ['Sum','Baseline'] and new yScale [0,max(total,50000)]. The 'Sum' bar is a stacked breakdown of the 7 region segments (stackedSegments, YlGnBu colorScale); a grey 'Baseline' bar = 50000.",
+   "confidence": "high",
+   "notes": "Cross-step: the 'Baseline' bar it creates is consumed by function2. Legend items set opacity 0 then 1 with NO .transition() (instant, not a fade). No numeric text label drawn here."
+  },
+  {
+   "item_id": "e9_q1",
+   "chart_type": "SimpleBar",
+   "question_summary": "Do all regions except Metro Total exceed 50,000 combined?",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "reference_line",
+    "text_value_label",
+    "transition_grow",
+    "transition_fade"
+   ],
+   "evidence": "e9_q1.js:351-377 — reads y from the 'Baseline' bar created in f1, appends a red dashed line (x1=0) that transitions x2 0→plotW over 650ms (grow), plus a right-side label 'baseline = 50,000' whose opacity transitions 0→1 over 650ms (fade).",
+   "confidence": "high",
+   "notes": "Additive annotation on f1's existing panel (only function here that does NOT wipe/rebuild). Consumes f1's baseline bar (cross-step reuse). The threshold-exceed test is the boolean operation."
+  },
+  {
+   "item_id": "e9_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference in avg 'better place' between Western Europe and rest?",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q2.js:374-382 → renderAverageSimpleBarChart 282-364 — isolates the 6 Western-Europe countries' 'A better place to live' rows, draws them as simple source bars plus one red 'Western Europe average' bar (d3.mean); svg.selectAll('*').remove() then fresh scales.",
+   "confidence": "high",
+   "notes": "Restructures stacked→simple bars isolating one series subset (no exact reencode tag for stack→simple; recorded as materialized_chart + axis_rescale). Bars set with opacity 1 directly, no transition."
+  },
+  {
+   "item_id": "e9_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference in avg 'better place' between Western Europe and rest?",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q2.js:384-395 → renderAverageSimpleBarChart — same helper for the 'rest' countries (Greece/Italy/Hungary/Poland) + red 'Rest Average' bar.",
+   "confidence": "high",
+   "notes": "Mirror of function1 for the complementary country set. No transition."
+  },
+  {
+   "item_id": "e9_q2",
+   "chart_type": "StackedBar",
+   "question_summary": "Difference in avg 'better place' between Western Europe and rest?",
+   "operation_index": 3,
+   "operation_type": "diff",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q2.js:397-423 — builds comparisonRows = two computed averages ('Western Europe average', 'Rest Average'), averageLabel:null so both render as red 'average'-type bars side by side.",
+   "confidence": "medium",
+   "notes": "Matches rubric's materialized_chart example ('bar chart of two computed averages'). The difference itself is implied by the two bars — NO double_arrow_diff or numeric diff text is drawn, hence medium."
+  },
+  {
+   "item_id": "e9_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "How many years is beer < soft-drink + hot-dog?",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "materialized_chart",
+    "window_shading",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q3.js:269-452 — rebuilds grouped bars into a 2-series multiple-LINE chart (Beer vs precomputed 'Soft drink + Hot dog'); for each qualifying year inserts a yellow full-height background band (insert('rect',':first-child') l430-440 = window_shading) and a summary text '4 fiscal years...' (l442-451).",
+   "confidence": "high",
+   "notes": "Per-year sum+compare (boolean) is the f1 semantic. Grouped→line restructure has no reencode tag → materialized_chart. Combined 'Soft drink+Hot dog' values are hardcoded in explanationMatchedCombinedValues (l287-294). Point circles set r 0 then r 4 with no .transition() (instant). Legend opacity set instant."
+  },
+  {
+   "item_id": "e9_q3",
+   "chart_type": "GroupedBar",
+   "question_summary": "How many years is beer < soft-drink + hot-dog?",
+   "operation_index": 2,
+   "operation_type": "count",
+   "visual_effects": [
+    "materialized_chart",
+    "window_shading",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q3.js:456-458 — function2 body is just function1({d3,container}); re-applies the full function1 visual idempotently.",
+   "confidence": "medium",
+   "notes": "Emitted because explanation.function2 exists (the counting step → 4). Draws nothing new; idempotent re-application of function1. The count result is already shown by f1's summary text."
+  },
+  {
+   "item_id": "e9_q4",
+   "chart_type": "SimpleLine",
+   "question_summary": "Is the min-max average greater than the 2010 value?",
+   "operation_index": 1,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "reencode_line_to_bar",
+    "collapse_to_single",
+    "materialized_chart",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q4.js:231-403 — finds min(1.88@2000)/max(2.71@2020) via reduce, computes average; wipes the line and draws two bars: a stacked 'average' bar (two half-segments colored per year) and a grey 2010 target bar, plus summary text 'Average 2.295 < 2010 (2.39)' (l393-402) and a color legend.",
+   "confidence": "medium",
+   "notes": "Compound op (extremum→average→boolean comparison); named by the decisive comparison (boolean). Min&max collapse into one average bar (collapse_to_single). Line re-encoded as bars. No transition."
+  },
+  {
+   "item_id": "e9_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Diff: male first-3-years avg vs female last-3-years avg?",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "reencode_line_to_bar",
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q5.js:395-410 → renderAveragePopulationBarChart 298-393 — filters Male 2009-2011, draws 3 source bars + a blue 'Male 2009–2011 average' bar (d3.mean); svg wiped and rebuilt as a bar panel.",
+   "confidence": "high",
+   "notes": "Multiple-line filtered subset re-encoded as bars with an appended average bar. No transition (opacity set directly)."
+  },
+  {
+   "item_id": "e9_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Diff: male first-3-years avg vs female last-3-years avg?",
+   "operation_index": 2,
+   "operation_type": "average",
+   "visual_effects": [
+    "reencode_line_to_bar",
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q5.js:412-427 → renderAveragePopulationBarChart — Female 2018-2020 subset + 'Female 2018–2020 average' bar.",
+   "confidence": "high",
+   "notes": "Mirror of function1 for the female late-years subset."
+  },
+  {
+   "item_id": "e9_q5",
+   "chart_type": "MultipleLine",
+   "question_summary": "Diff: male first-3-years avg vs female last-3-years avg?",
+   "operation_index": 3,
+   "operation_type": "diff",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q5.js:429-458 — comparisonRows = [Male average, Female average] (two computed means) rendered as two side-by-side bars.",
+   "confidence": "medium",
+   "notes": "Two computed averages compared; difference implied, NO diff arrow or numeric diff text drawn (medium)."
+  },
+  {
+   "item_id": "e9_q6",
+   "chart_type": "SimpleBar",
+   "question_summary": "Diff of sales sum between first six and last six years?",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q6.js:204-390 — aggregates first-six (813,431) and last-six (598,516) years into two stacked 'total' bars (each a 6-segment YlGnBu stack); per-bar total labels (l365-377) and 'Difference: 214,915 tonnes' summary (l379-389).",
+   "confidence": "high",
+   "notes": "Compound sum+diff; named by final diff. Each period's 6 years collapse into one total bar (collapse_to_single). Legend opacity set instant, no transition."
+  },
+  {
+   "item_id": "e9_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Is Germany's ICE share higher than other countries' average?",
+   "operation_index": 1,
+   "operation_type": "average",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q7.js:383-392 → renderIceSimpleBarChart 276-373 — isolates the 5 non-Germany countries' 'Gasoline or diesel (ICE)' rows as source bars + a red 'Average' bar (mean).",
+   "confidence": "high",
+   "notes": "Stacked→simple bars isolating one series subset + appended average bar. No transition."
+  },
+  {
+   "item_id": "e9_q7",
+   "chart_type": "StackedBar",
+   "question_summary": "Is Germany's ICE share higher than other countries' average?",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q7.js:394-415 — renders exactly two bars: Germany (59, source color) vs 'Average' (57, red average color) for the higher-than comparison.",
+   "confidence": "medium",
+   "notes": "Germany-vs-average comparison via two bars; the boolean result is implied by bar heights, NO arrow or result text drawn. Average 57 is hardcoded (l399)."
+  },
+  {
+   "item_id": "e9_q8",
+   "chart_type": "GroupedBar",
+   "question_summary": "Is Alaska's 2000-2020 change greater than Total's change?",
+   "operation_index": 1,
+   "operation_type": "diff",
+   "visual_effects": [
+    "collapse_to_single",
+    "materialized_chart",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q8.js:259-377 — computes 'Alaska change' (0.97-0.49=0.48) and 'Total increase' (6.7-5.82=0.88); wipes grouped bars, draws two change bars with per-bar value labels (l352-363) and summary 'Alaska change 0.48 < Total increase 0.88' (l367-376).",
+   "confidence": "high",
+   "notes": "Each region's two-year pair collapses into one change bar (collapse_to_single). Compound diff+boolean comparison; named diff. Change values hardcoded as literals. No transition."
+  },
+  {
+   "item_id": "e9_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year had the greatest total price change?",
+   "operation_index": 1,
+   "operation_type": "extremum",
+   "visual_effects": [
+    "materialized_chart",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q9.js:229-338 — builds changeRows = abs(Q1−lastQ) per year 2016-2020 (values hardcoded), wipes the line and draws a fresh line+points of the per-year absolute changes.",
+   "confidence": "low",
+   "notes": "Mismatch: explanation's decisive step is argmax (greatest change = 2016), but the code only MATERIALIZES the per-year diff line and does NOT mark/highlight the maximum. Could equally be tagged 'diff' for what's drawn. Point circles r 0→4 set instant (no transition)."
+  },
+  {
+   "item_id": "e9_q9",
+   "chart_type": "SimpleLine",
+   "question_summary": "Which year had the greatest total price change?",
+   "operation_index": 2,
+   "operation_type": "boolean",
+   "visual_effects": [
+    "fade_context",
+    "opacity_emphasis",
+    "single_arrow_change",
+    "text_value_label"
+   ],
+   "evidence": "e9_q9.js:340-382 — dims all circles to r4/opacity0.25/blue and main-line to opacity0.4 (fade_context), tries to emphasize circles with data-target 'Jun'/'Jul' (r8 red), draws a red line between junCircle/julCircle and a 'function2: compare Jun to Jul' text.",
+   "confidence": "low",
+   "notes": "BROKEN COPY-PASTE LEFTOVER: references month tokens 'Jun'/'Jul' that do not exist in this quarter/year dataset, and has NO corresponding explanation.function2. No point matches, so junCircle/julCircle are empty selections → cx/cy resolve to 0 → the connecting line is degenerate (zero-length at the margin origin); net visible effect is everything dimmed plus a stray placeholder text. Flagged as anomaly."
+  },
+  {
+   "item_id": "e9_q10",
+   "chart_type": "MultipleLine",
+   "question_summary": "Which year are the two metrics second-nearest?",
+   "operation_index": 1,
+   "operation_type": "rank",
+   "visual_effects": [
+    "materialized_chart",
+    "opacity_emphasis",
+    "text_value_label",
+    "axis_rescale"
+   ],
+   "evidence": "e9_q10.js:288-435 — computes abs(Favorable−Confidence) per year, wipes the two lines and draws a single diff line; then draws a green ring+label on the smallest-diff year (2009) and red rings on the second-smallest tie (2010 & 2011) plus a '2nd nearest: 2010 & 2011 (Δ15)' summary.",
+   "confidence": "medium",
+   "notes": "Compound diff→ordinal selection; named 'rank' (second-nearest = 2nd smallest). Highlight rings = opacity_emphasis added markers (base points not dimmed). Circles r 0→4 set instant, no transition. Correctly surfaces the 2010/2011 tie."
+  }
+ ],
+ "new_tags": [
+  {
+   "tag": "reencode_group_to_bar",
+   "definition": "Grouped (multi-series) bars reduced/re-encoded to single-series simple bars — e.g. filtering a grouped bar chart to one series/year collapses the grouping into plain bars on a rebuilt scale.",
+   "first_seen": "e5_q3.js function1 (l343-352, renderDietSimpleBarChart over Year===2019 subset)"
+  },
+  {
+   "tag": "isolated_subset_chart",
+   "definition": "A brand-new auxiliary chart built by isolating a RAW subset of the source data (not re-encoding the full dataset, and not showing computed/derived values as materialized_chart does).",
+   "first_seen": "e6_q7.js:204-256 renderRaceFocusChart — rebuilds container as a 2-bar chart of just White/Black 'Almost all of the time' raw percentages."
+  },
+  {
+   "tag": "transpose_encoding",
+   "definition": "An encoding transpose that swaps which field maps to the category/x axis versus the series/color grouping, restructuring the same data under a new grouping (distinct from stack<->group or line->bar re-encodings).",
+   "first_seen": "e8_q3 function1"
+  },
+  {
+   "tag": "segment_highlight_overlay",
+   "definition": "A highlight-colored stroke drawn ON TOP OF a contiguous subset of an existing data line to emphasize that segment (traces the data path, unlike reference/local_reference lines which mark a computed level).",
+   "first_seen": "e1_q4.js:217-231 (function1 — RISE_COLOR paths over each increasing run)"
+  },
+  {
+   "tag": "reorder_slide",
+   "definition": "Existing marks animate their position (x/y) to a re-sorted or re-centered order with the axis re-called, with no data removed and no color/size change as the salient effect (a pure reordering position tween).",
+   "first_seen": "e1_q6.js:161-184 (function1 — bars slide into ascending-sorted scaleBand positions)"
+  },
+  {
+   "tag": "boolean_marker_glyph",
+   "definition": "A per-category glyph/symbol (e.g. ▲ vs ·) placed above each category to mark which categories pass a boolean/comparison test, distinct from a numeric text label or an opacity highlight.",
+   "first_seen": "e3_q2.js:364-375 (function2)"
+  },
+  {
+   "tag": "axis_gridlines",
+   "definition": "A set of evenly-spaced horizontal (or vertical) grid reference lines spanning the plot at axis-tick positions to aid value reading — scaffolding, not a single computed threshold/avg/median line.",
+   "first_seen": "e3_q6.js:247-257 (function1)"
+  },
+  {
+   "tag": "threshold_region_shade",
+   "definition": "A background rectangle filling the plot area on one side of a horizontal reference/threshold line (e.g. the whole region below the average) to shade all values beyond that threshold — a y-axis value-region tint, as opposed to window_shading's x-axis category/time span.",
+   "first_seen": "e4_q9 function3"
+  },
+  {
+   "tag": "transition_morph",
+   "definition": "Existing marks smoothly interpolate their GEOMETRY (x/width/y/height, cx/cy, or path `d` via attrTween) to a new scale or layout — a positional/shape tween of already-present elements, distinct from transition_grow (baseline growth entrance), transition_fade (opacity), and transition_recolor (color/opacity in place).",
+   "first_seen": "e2_q2.js:379-408 (D3 update-selection .transition() morphing bar x/width/y/height to new scale); also e2_q9.js:298-308 line path attrTween and e2_q10.js:359-375."
+  },
+  {
+   "tag": "partition_divider",
+   "definition": "A full-height vertical (or full-width horizontal) line that DIVIDES the plot into labeled regions/groups (e.g. a year boundary), not encoding a threshold/average value like reference_line.",
+   "first_seen": "e10_q4.js:348-356 (function2 year-split divider at the Dec'20/Jan'21 midpoint with 2020/2021 region labels)"
+  }
+ ],
+ "file_notes": [
+  "All 10 files read completely. Chart types confirmed against renderer names and match the q-number rubric (q1/q6 SimpleBar, q2/q7 StackedBar, q3/q8 GroupedBar, q4/q9 SimpleLine, q5/q10 MultipleLine). NO transitions anywhere in expert e7: every step sets attributes statically (no .transition()/.duration()/.delay() calls), so no transition-family tags (transition_fade/grow/recolor/stagger) were emitted. Function-count vs explanation-count: e7_q1 has 3 explanations and 3 non-empty exported functions (function1/2/3 all draw). e7_q2..e7_q10 each have exactly 2 explanations and export function1 (draws), function2 (draws), and function3 with an empty body `{}` — function3 is trailing padding and was SKIPPED in every case (q2,q3,q4,q5,q6,q7,q8,q9,q10). Cumulative pattern: in nearly every file function2 first calls function1() then adds its own layer, so effects accumulate across steps (noted per row). Cross-step visual reuse: q1 average lines (fn1/fn2) are consumed by the fn3 difference arrow; q9 averages (fn1) consumed by fn2 difference arrow — reference elements attributed to their creating step per rule 4. Shared helpers reused across steps: q3 drawCityPopulationJumps, q5 drawPriceConvenienceGaps, q7 annotateMethodDifferences (fn1 all-items, fn2 with highlight arg). ANOMALY: e7_q8's renderValidationGroupedBarChart (line 90) lacks the `if (container.querySelector('svg')) return;` idempotent-render guard that all other e7 renderers include — flagged in the q8_f1 row notes. No new tags needed; all observed effects mapped to existing rubric vocabulary (window_shading, connector_arrow_cumulative, single_arrow_change, double_arrow_diff, reference_line/local_reference_line, fade_context, opacity_emphasis, text_value_label).",
+  "All 10 files read fully. Chart types confirmed by base renderer names and consistent with the q-number rubric mapping.\n\nNO TRANSITIONS anywhere: every reconstruction uses static attribute setting or rebuildSvgInPlace({instant:true}); no .transition()/.duration()/.delay() calls exist in any e5 file. So no transition_* tags were emitted for any row.\n\nEmpty trailing functions skipped (all bodies are `{}`, padding beyond the explanation's function count):\n- e5_q2: function3 empty (skipped).\n- e5_q3: function3 empty (skipped).\n- e5_q4: function2, function3 empty (skipped) — explanation only has function1, matches.\n- e5_q5: function3 empty (skipped).\n- e5_q6: function3 empty (skipped).\n- e5_q7: function3 empty (skipped).\n- e5_q8: function3 empty (skipped).\n- e5_q9: function2, function3 empty (skipped) — explanation only has function1, matches.\n- e5_q10: function2, function3 empty (skipped) — explanation only has function1, matches.\n\nAnomalies / notes:\n- e5_q1: an inline reviewer comment (l264-266, l294-295) states function1/function2 bodies were previously SWAPPED relative to their sentences and have been corrected: function1 now = max highlight (S1), function2 = average line (S2). Rows reflect the current (corrected) bodies.\n- e5_q3 function2: uses hardcoded getCsvDietTargets() listing 8 diet types (Clean eating, Intermittent fasting, Gluten-free, Low-carb, Ketogenic, Plant-based, Weight-loss, Mediterranean) that are largely ABSENT from data_rows (only Ketogenic/Weight-loss/Mediterranean exist). The step visualizes an authored/overridden target set, not the file's own 2019 data. Explanation text is also internally inconsistent (lists 8 diets then says '4 diet types'). Confidence medium on count vs boolean.\n- e5_q5, e5_q7, e5_q9, e5_q10 involve a chart-TYPE change from the base renderer (MultipleLine/StackedBar/SimpleLine) into a derived bar/line comparison via rebuildSvgInPlace; e5_q5 adds an explanatory title to signal the swap. These are the restructure-under-a-computation cases (operation named by the computation; restructure recorded in visual_effects: materialized_chart / reencode_line_to_bar / axis_rescale).\n- e5_q2 and e5_q7 rebuild the ENTIRE chart on every step (function2 re-renders, not just adds a layer); noted per-row.\n- Cross-step reuse: e5_q1 function3 diffs against the average reference line created in function2; e5_q8 function2 re-applies the target highlight established in function1.\"",
+  "All 10 files read fully. Structure is uniform: each file exports a renderValidation<Type>Chart base renderer plus function1/function2/function3; function3 is an empty {} body in every file and was skipped (padding). e6_q5 additionally has empty function2 AND function3 — matching its chart_map which only defines explanation.function1; noted, not a dropped step. No file uses d3 .transition() anywhere — all annotation/emphasis is applied via direct .attr(), and the two full-rebuild helpers (rebuildSvgInPlace in q3/q10) are called with instant:true — so NO transition-family tags (transition_fade/grow/recolor/stagger) apply to any row. Several files hardcode the CSV answer values (averages, gaps, totals, diffs) rather than computing them from data_rows (q1 674, q2 2015=0.41, q3 2019=746, q4 166.6/173, q6 81.45, q9 1781). q2/q3/q7/q10 function-steps fully rebuild the container (innerHTML='' or rebuildSvgInPlace) into a different chart form (stacked↔grouped, isolated 2-bar, line→bar). q10 has a reviewer comment that the displayed differences were changed to absolute (positive) values, so its rendered sum is positive while the chart_map explanation still states -150.86 — an explanation/code value-sign mismatch, noted on the q10 rows.\"",
+  "All ten files share the same structure: an unused exported base renderer (renderValidationSimpleBar/Stacked/Grouped/SimpleLine/MultipleLineChart) plus exported function1..function3. function3 is an empty ({}) no-op in every file and was skipped everywhere. Empty function2 (skipped) in e8_q6, e8_q9, e8_q10 — these are single-step explanations (chart_map has only function1), so the trailing empty function2 is padding, consistent with the explanation count. e8_q1, e8_q2, e8_q3, e8_q4, e8_q7 use a private helper (renderCompanyNameLengthChart / renderNonBlackVeryInterestedChart / renderTransposedPaymentChart / renderAdjacentDifferenceChart / renderMetaFrequencyChart) invoked by both function1 and function2 with a boolean flag; the exported base renderer is not what the steps call. e8_q3/e8_q4 function2 and e8_q5/e8_q8 function2 are annotation-only (they read function1's DOM instead of rebuilding). e8_q7 has an explicit explanation-vs-code arithmetic mismatch noted in code comments (gold 138 corrected to 134). Only e8_q3 function2 and e8_q4 function2 contain D3 .transition() animations; all other steps apply attributes instantly. No files were missing or malformed; no files modified.",
+  "All 10 files present and well-formed; each has a render* base renderer plus function1..functionK exports. Empty trailing functions skipped (padding to match a fixed function-slot count): e1_q1.js function3 (l231) = {}; e1_q9.js function3 (l251) = {}; e1_q10.js function3 (l310) = {}. In those three, the chart_map explanation has exactly 2 functions while the code declares 3 — the third is empty padding, consistent with the rubric note. All other files' code function count matches their explanation function count (q2/q3/q4/q5/q7 = 4 each; q6/q8 = 3 each). Cross-step reuse: q1/q9 compute AVG_VALUE at module scope and the step1 reference line is later consumed by step2's threshold. Several files restructure-under-a-computation (filter/average/sum build brand-new SVG layers via oldLayers crossfade): q2,q3,q4,q5,q6,q7,q8. Two effects had no matching rubric tag and were assigned new tags (segment_highlight_overlay for q4f1's red run-segment overlays; reorder_slide for q6f1's sort-driven bar repositioning, also contributing to q6f2). Note: q5f1 and several rescale steps animate path/point geometry as a position tween that fits no existing transition tag; captured via remove_rescale/axis_rescale + transition_fade and noted per-row.",
+  "All 10 files present and structurally uniform (import chartUtils, data_rows, renderValidation<Type>Chart with an R1 idempotent-render guard, getQ*Geometry helpers, then exported functionN steps). Skipped functions: e3_q1.js function3 (empty body {} at line 321) — dropped/padding step. e3_q6.js function3 (lines 301-314) transitions main-bars opacity 1→1 with no visible change — a no-op; the intended below-average bar highlight appears to have been dropped, and the count result is delivered by function4 instead (so q6 has 4 code functions vs 4 map functions but function3 is inert). Data-vs-explanation mismatches: e3_q8 chart data is military-service Women/Men share while the map question/explanation is about construction 2019 highest percentage — rows classified from code (argmax over grouped bars); e3_q3 data years start at 2015 (code argmin = 2015) whereas explanation cites 2010, so the chart's data window differs from the explanation. e3_q6 function1 draws only decorative gridlines (no data operation) — operation_type is a forced closest term with low confidence. Several summary/derived-value displays are text cards/labels rather than materialized auxiliary charts (e3_q7 function2 summary card, e3_q2/q3/q5 summary text) — tagged text_value_label. Cross-step primitive reuse is common: drawQ1JumpArrow (q1 f1/f2), gap-lines created in q3 f1 restyled by f2/f3, era averages from q4 f2 consumed by f3 diff, gaps from q10 f1 aggregated by f2.",
+  "All 10 files present and well-formed; each has a base renderValidation<Type>Chart plus geometry/stat helper functions and exported functionN steps. No fully-empty ({}) exported functions were found — every exported functionN draws something and got a row (32 rows total: q1=3, q2=3, q3=3, q4=3, q5=2, q6=3, q7=3, q8=5, q9=4, q10=3).\n\nNon-drawing no-ops noticed (not separate steps, just dead lines inside real steps): e4_q1.js:332-333 `g.selectAll('.main-bar');` empty chain; e4_q6.js:291-292 same empty `g.selectAll('.main-bar');`; e4_q3.js:312-315 `svg.selectAll('.color-legend text, .color-legend circle').each(function(){ /* comment only */ })` — a genuinely empty each() (the actual legend dimming is done just below by index).\n\nExplanation-vs-code count: q1,q2,q3,q4,q6,q7 have 3 explanation functions and 3 code functions; q5 has 2/2; q8 has 5/5; q9 has 4 code but explanation lists 4 (fn1-fn4); q10 3/3. Content offset worth flagging on q6: code function1 is a range-focus/filter step (2010-2019 band) while explanation.function1 describes the max bar — the code front-loads an extra range-isolation step, so code fn1=filter, fn2=extremum(max/min), fn3=diff, whereas explanation reads max, min, subtract. Counts still align (3/3) but semantics are shifted by one; noted in the relevant rows.\n\nCross-step reuse is pervasive: the per-item 'gap/diff connector' created in the first computational step is consumed and re-emphasized (recolor/opacity) by the later extremum/boolean step in q1, q2, q3, q4, q5, q9, q10 (per rubric rule 4 the connector/reference_line is credited to its creating step).\n\nRecurring transition idioms across the whole expert: dashed reference/gap lines draw in via x2/y2 grow (.transition().duration(~650)) = transition_grow; text labels fade opacity 0→1 = transition_fade; highlight rects fade opacity 0→0.55 = transition_fade; existing marks recolored/dimmed in place = transition_recolor. q9 function1 is the only staggered one, and it staggers via per-element duration (500+i*60) rather than delay().",
+  "All 10 files share the same skeleton: data_rows + a renderValidation<Type>Chart base renderer (with an R1 idempotent SVG-exists guard) + exported functionN steps. chart_type per q-number matches the base renderer in every file (q1/q6 SimpleBar, q2/q7 StackedBar, q3/q8 GroupedBar, q4/q9 SimpleLine, q5/q10 MultipleLine). SKIPPED empty/no-op trailing functions (body `{}`): e2_q1 function3 (l460), e2_q3 function3 (l651), e2_q4 function3 (l420), e2_q5 function3 (l446), e2_q6 function3 (l331), e2_q7 function3 (l568). q2/q8/q9/q10 have no empty trailing functions. Explanation function-count matches drawing-function count in every file. ONE content mismatch: e2_q2 function3 — explanation.function3 discusses 'Jan-Oct 2019' (SK>France), but the code hardcodes and highlights the 2018 period band (getAttribute('data-target')==='2018', l512); flagged low confidence. Cross-step reuse: the diff steps (q3 f2, q7 f2, q8 f4, q9 f4, q10 f4) consume values/positions established by earlier average/extremum/filter steps; q9/q10 f3 are explicitly cumulative (keep f2's red highlight while adding the second). q3 f2 and q8 f3 restructure into side-by-side panels under an average/diff computation (rebuildSvgInPlace crossfade). q1 f1 was refactored per reviewer to front-load f2's highlight+recolor. e2_q1.js also contains large DEBUG-only helpers (MutationObserver l217-252, _e2q1DebugSnapshotBars l281-320) that draw nothing — not counted as steps.\"",
+  "All 10 files present and structurally uniform: each has a renderValidation<Type>Chart base renderer plus function1..functionN exports. Empty trailing functions skipped per rubric: function3 is `{}` in q1, q2, q3(no—see below), q5, q6, q7, q8, q9; and q1/q2/q6/q7's function3 are empty. Correction: empty function3 skipped in q1, q2, q5, q6, q7, q8, q9. q3 function3 IS non-empty (an added comparison/conclusion step, l390-448, with the only explicit fade transition). q4 has a non-empty function4 (conclusion) that idempotently re-draws the same deviation arrows — included at low confidence; its code comment (l446-451) flags a gold-answer error (2021 actually has the larger deviation, not 2020). q10 has three non-empty functions matching its three explanation steps.\\n\\nExplanation/code count & alignment notes: q3 — explanation.function1/2/3 = male-total / female-total / comparison, but code.function1/2/3 = filter / stack-sum / totals+comparison, so code steps are offset by one relative to the semantic steps (classified from code+explanation jointly). q4 — 4 explanation fns vs 4 code fns, and a code comment (l326-331) notes the step bodies were reordered to match S1 overall-avg / S2 per-year-avg / S3 deviation. q9 — 2 explanation fns, 2 code fns; function1 draws neutral deviation bars, function2 recolors by sign (the count highlight). Several steps re-render the whole chart via rebuildSvgInPlace(instant:true) or innerHTML='' rather than mutating in place, so aside from q3.function3 there are no true D3 transition tweens; recolor/rescale effects arrive via full instant rebuilds. Cross-step reuse: q1(f1 highlight→f2 ranks), q4(f1 avg line & f2 dots→f3/f4 arrows), q6(f1 threshold line→f2 count), q10(f2 diff bars→f3 avg line).",
+  "All 10 files present and readable; each base renderer name matches the q-number-fixed chart type (q1/q6 SimpleBar, q2/q7 StackedBar, q3/q8 GroupedBar, q4/q9 SimpleLine, q5/q10 MultipleLine). No new tags were needed.\n\nSKIPPED functions (idempotent duplicates with NO matching explanation entry — bodies are just `function1({d3,container})`, drawing nothing new): e9_q4 function2 & function3 (map has only function1); e9_q6 function2 & function3 (map has only function1); e9_q8 function2 & function3 (map has only function1); e9_q10 function2 & function3 (map has only function1). These are trailing padding per the round-3 'R11 idempotent re-apply' comments.\n\nEMITTED despite calling function1: e9_q3 function2 — kept because explanation.function2 exists (the counting step), even though its body idempotently re-applies function1.\n\nANOMALY: e9_q9 function2 is a broken copy-paste leftover from a month-based template — it filters on data-target 'Jun'/'Jul' which do not exist in this quarter/year dataset, has no explanation.function2, and produces a degenerate/stray annotation (empty selections → zero-length line at the origin) while dimming the whole chart. Emitted at low confidence as a catalog record of the defect.\n\nCross-step reuse of note: only e9_q1 has a genuine multi-step additive pipeline — function1 builds the 'Baseline' bar that function2 reads to place its reference line; function1 is also the only base-panel builder that function2 annotates without a full SVG rebuild. Every other non-empty function wipes the SVG (svg.selectAll('*').remove()) and rebuilds a fresh auxiliary panel (hence axis_rescale on those rows).\n\nTransitions: the ONLY real D3 .transition() in the entire expert set is e9_q1 function2 (reference-line grow x2 0→plotW and label fade opacity 0→1, both 650ms). Everywhere else, legend/point opacity-0-then-1 and circle r-0-then-r-4 are set synchronously (no .transition()), so they are instant pop-ins, not transitions — none tagged.\n\nRecurring pattern across q2/q5/q7 (and q4): 'average/diff' explanation steps are realized by isolating a series/subset and rebuilding a simple bar panel with source bars + a red computed summary bar; the difference steps (q2f3, q5f3) and comparison steps (q7f2) show the operands as bars but never draw an explicit diff arrow or numeric result, so those rows are medium confidence."
+ ]
+}

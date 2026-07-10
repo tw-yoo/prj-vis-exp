@@ -1,0 +1,79 @@
+{
+ "e3_q1": {
+  "question": "How big was the change from 2016 to 2017 compared to the change from 2017 to 2018?\n",
+  "explanation": {
+   "function1": "Scanning the x-axis from 2016 to 2018, the 2016 bar sits a bit above the 2 mark, while the 2017 bar rises to just under the 3.5 level—visibly a big step up (roughly one and a half units on the y-axis).",
+   "function2": "From 2017 to 2018, the 2018 bar is only slightly taller than 2017, moving from just under 3.5 to around 3.7, which is a small increase compared to the previous jump."
+  }
+ },
+ "e3_q2": {
+  "question": "For how many years was Thailand's revenue higher than the revenue of the Philippines?",
+  "explanation": {
+   "function1": "Scanning year by year along the x-axis (2016 through 2021) and comparing the thickness/height of Thailand’s segment against the Philippines’ segment within the same bar. ",
+   "function2": "Thailand’s segment is visibly smaller in 2016, 2017, 2018, and 2019, but becomes taller than the Philippines in 2020 and stays taller in 2021. ",
+   "function3": "That gives 2 years (2020 and 2021) where Thailand is higher than the Philippines."
+  }
+ },
+ "e3_q3": {
+  "question": "For which year was the difference between the average age at marriage for men and women the lowest?",
+  "explanation": {
+   "function1": "Scanning each year’s pair of gender-colored bars, the smallest vertical gap appears in the 2010 panel. ",
+   "function2": "In that first year, the men’s bar sits a bit above 37 while the women’s bar is a bit above 33, and the two bars are closer together than in later years. ",
+   "function3": "Moving right across the year panels, the men’s bar stays consistently higher and the separation gradually looks slightly wider (especially by 2019–2020, where the women’s bar rises into the mid‑36 range while the men’s bar is near 39.5), confirming 2010 has the lowest difference."
+  }
+ },
+ "e3_q4": {
+  "question": "What is the difference between the average from 2011 and the average up to 2010?",
+  "explanation": {
+   "function1": "The line has a marked point at 2011 sitting a bit above the 60% tick, around 65%. ",
+   "function2": "For the years up to 2010, the points run from about 8% (2005), 16% (2006), 29% (2008), 46% (2009) to about 61% (2010)—visually averaging to the mid‑40s (around 45%) because two points are below 30, one is just under 50, and one is just above 60. ",
+   "function3": "Comparing the 2011 point (~65%) to that earlier average (~45%) gives a difference of about 20 percentage points."
+  }
+ },
+ "e3_q5": {
+  "question": "How many times did the dominant opinion change?",
+  "explanation": {
+   "function1": "Scanning year by year along the x‑axis, the “Good” line sits above the “Bad” line in 2007 and 2008, but in 2009 the “Bad” line jumps clearly above “Good” (the “Bad” point is near the 70% level while “Good” is down near the 30% level), indicating a switch.",
+   "function2": "In 2010, “Bad” is still slightly higher (mid‑50s vs mid‑40s). Then in 2011 the “Good” line rises above “Bad” again (around the high‑60s vs low‑30s) and stays above through 2017. ",
+   "function3": "That produces two dominance changes: once from Good→Bad (2008 to 2009) and once from Bad→Good (2010 to 2011)."
+  }
+ },
+ "e3_q6": {
+  "question": "Which fiscal years' expenditures are below average?",
+  "explanation": {
+   "function1": "Most early bars sit around the 1–4 range, while the last several bars rise clearly above 4, including a very tall final bar near the 6+ level. ",
+   "function2": "That makes the “middle” height (the average) appear a bit above 3.5 on the y‑axis. ",
+   "function3": "Scanning left to right, every bar from 00/01 up to 12/13 stays at or below roughly the mid‑3s (with 09/10 and 11/12 reaching about 3.6 but still not surpassing the apparent average line), whereas starting at 13/14 the bars jump to about 4.2 and higher and remain above that level. ",
+   "function4": "Hence, the below‑average years are 00/01–12/13."
+  }
+ },
+ "e3_q7": {
+  "question": "What is the difference between the average of values corresponding to Poor and the average of values corresponding to Good?",
+  "explanation": {
+   "function1": "Scanning the four year bars (2014–2017) and reading segment heights against the y-axis percent scale: the Good segments sit near 58%, 62%, low 40s, and mid 40s, which visually averages to roughly just above 50%.",
+   "function2": "The Poor segments are tiny—around 4%, about 1%, about 2%, and about 6%—averaging to roughly 3–4%. Subtracting these two visual averages yields a gap of about 48 points."
+  }
+ },
+ "e3_q8": {
+  "question": "What year did construction record the highest percentage?",
+  "explanation": {
+   "function1": "I scan the bars from Q2 2014 through Q2 2019 along the x-axis. The bar for Q2 2019 is visibly the tallest, rising to a bit above the 0.2 level on the y-axis, while earlier years (like Q2 2018 around ~0.13 and Q2 2014–2017 around ~0.07–0.10) are clearly shorter. ",
+   "function2": "This makes 2019 the peak year for Construction."
+  }
+ },
+ "e3_q9": {
+  "question": "On how many dates was the growth rate below the average?\n",
+  "explanation": {
+   "function1": "The “middle” level of the series is a bit above 1.1 (since several points cluster around 1.4–1.5, pulling the average upward). ",
+   "function2": "Scanning month by month against that slightly-above-1.1 reference, the points clearly below it are: Feb and Mar (both near 0.7), Apr (just under 1.0), Dec (just under 1.0), and Nov (right around 1.1 but still a touch below the average level).",
+   "function3": "That totals five points below the average."
+  }
+ },
+ "e3_q10": {
+  "question": "What is the average difference between Women and Men from 2000?",
+  "explanation": {
+   "function1": "Scanning the x‑axis from 2000 to 2012, the vertical gaps between the two lines at each year are roughly: 2000 (Women near 54 vs Men near 42, gap ~12), 2004 (~51 vs ~44, gap ~7), 2008 (~56 vs ~49, gap ~7), and 2012 (~55 vs ~45, gap ~10).",
+   "function2": "Averaging these visible gaps (12, 7, 7, 10) gives roughly 9, which reads as about 8–9 points; rounded to a single clear figure, it’s about 8 percentage points."
+  }
+ }
+}

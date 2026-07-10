@@ -116,6 +116,23 @@ function hideTooltip(tooltip: HTMLElement) {
   tooltip.setAttribute('aria-hidden', 'true')
 }
 
+/**
+ * True when an element BETWEEN `mark` and `container` (exclusive) carries its
+ * own tooltip binding. Happens after a surface split: the pre-split binding on
+ * the root container survives while each split host gets a fresh binding from
+ * its own renderChart call. The innermost binding owns the mark — the outer
+ * one must stay silent or two tooltips render for one hover, the outer one
+ * positioned across the whole split container.
+ */
+function hasInnerTooltipBinding(mark: Element, container: HTMLElement): boolean {
+  let el: Element | null = mark.parentElement
+  while (el && el !== container) {
+    if (el instanceof HTMLElement && tooltipCleanupStore.has(el)) return true
+    el = el.parentElement
+  }
+  return false
+}
+
 export function attachChartHoverTooltip(container: HTMLElement) {
   tooltipCleanupStore.get(container)?.()
 
@@ -125,6 +142,10 @@ export function attachChartHoverTooltip(container: HTMLElement) {
   const showTooltipForTarget = (target: EventTarget | null, clientX: number, clientY: number) => {
     const matched = target instanceof Element ? target.closest(TOOLTIP_TARGET_SELECTOR) : null
     if (!(matched instanceof SVGElement)) {
+      hideTooltip(tooltip)
+      return
+    }
+    if (hasInnerTooltipBinding(matched, container)) {
       hideTooltip(tooltip)
       return
     }

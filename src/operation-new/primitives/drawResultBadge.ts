@@ -28,6 +28,13 @@ export interface ResultBadgeOptions {
   inset?: number
   /** Font size. Default 14. */
   fontSize?: number
+  /**
+   * Extra vertical offset (px) applied AFTER the anchor position — a second
+   * badge slot. Lets two coexisting badges share a corner without overlap
+   * (e.g. `add`'s running total on the first row, `scale`'s result one row
+   * below). Default 0.
+   */
+  offsetY?: number
 }
 
 /**
@@ -48,6 +55,7 @@ export async function drawResultBadge(opts: ResultBadgeOptions): Promise<void> {
     color = COLORS.TEXT_DARK,
     inset = 8,
     fontSize = 14,
+    offsetY = 0,
   } = opts
 
   // Drop prior badge of the same op so re-runs don't stack labels.
@@ -95,7 +103,7 @@ export async function drawResultBadge(opts: ResultBadgeOptions): Promise<void> {
     .append(SvgElements.Text)
     .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${cssClass}`)
     .attr(SvgAttributes.X, x)
-    .attr(SvgAttributes.Y, y)
+    .attr(SvgAttributes.Y, y + offsetY)
     .attr(SvgAttributes.TextAnchor, textAnchor)
     .attr(SvgAttributes.FontSize, fontSize)
     .attr(SvgAttributes.FontWeight, 700)

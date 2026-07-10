@@ -17,7 +17,7 @@
   ],
   "ops2": [
     {
-      "op": "filter",
+      "op": "findExtremum",
       "id": "n2",
       "meta": {
         "nodeId": "n2",
@@ -26,9 +26,7 @@
         ],
         "sentenceIndex": 2
       },
-      "field": "Share_of_Import_Value",
-      "operator": ">=",
-      "value": -0.05
+      "which": "min"
     }
   ]
 }

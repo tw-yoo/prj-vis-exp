@@ -391,7 +391,7 @@ export function function2({ d3, container }) {
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
-        .attr('orient', 'auto')
+        .attr('orient', 'auto-start-reverse')
         .append('path')
         .attr('d', 'M0,-5L10,0L0,5')
         .attr('fill', '#111827');

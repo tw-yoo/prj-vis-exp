@@ -8,12 +8,12 @@
         "inputs": [],
         "sentenceIndex": 1
       },
-      "group": "Services"
+      "group": "Agriculture"
     }
   ],
   "ops2": [
     {
-      "op": "findExtremum",
+      "op": "retrieveValue",
       "id": "n2",
       "meta": {
         "nodeId": "n2",
@@ -22,8 +22,8 @@
         ],
         "sentenceIndex": 2
       },
-      "which": "max",
-      "field": "Share_of_GDP"
+      "field": "Share_of_GDP",
+      "target": "2017"
     }
   ]
 }

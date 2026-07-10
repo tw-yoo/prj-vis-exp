@@ -1,0 +1,70 @@
+{
+ "e5_q1": {
+  "question": "What is the difference between the average and the maximum number?",
+  "explanation": {
+   "function1": "Identify the maximum number of fires in the data (380). ",
+   "function2": "Then compute the average by summing all yearly fire counts and dividing by the number of years (16), which gives 225. ",
+   "function3": "Finally, subtract the average from the maximum: 380 − 225 = 155."
+  }
+ },
+ "e5_q2": {
+  "question": "Which country has the highest european factor?",
+  "explanation": {
+   "function1": "Interpret “European factor” as the Europe-related export factors in the data (Germany – exports and Italy – exports). For each country, add the Germany and Italy export decreases, then compare across countries. ",
+   "function2": "Hungary has the largest combined European export decrease (0.004 + 0.069 = 0.073), higher than Czechia (0.067), Romania (0.040), and Poland (0.039)."
+  }
+ },
+ "e5_q3": {
+  "question": "How many diet types surpassed the threshold of 0.03% in 2019?",
+  "explanation": {
+   "function1": "Look at the 2019 “Share of respondents” values for each diet type and count those strictly greater than 0.03. ",
+   "function2": "The diet types above 0.03 in 2019 are: Clean eating (0.10), Intermittent fasting (0.09), Gluten-free diet (0.06), Low-carb diet (0.06), Ketogenic or high-fat diet (0.06), Plant-based diet (0.05), Weight-loss plan (0.05), and Mediterranean diet (0.05). \nThat makes 4 diet types.\n"
+  }
+ },
+ "e5_q4": {
+  "question": "How many years have a score below 80 in total?",
+  "explanation": {
+   "function1": "Review the CPI_Score for each year and count those strictly below 80.  The years 2012 (74), 2013 (76), 2014 (78), 2019 (77), and 2020 (77) are below 80, giving a total of 5 years.\n\n"
+  }
+ },
+ "e5_q5": {
+  "question": "What is the difference between the maximum and minimum gap between the two groups?",
+  "explanation": {
+   "function1": "For each year, compute the gap in life expectancy between Canada and Newfoundland and Labrador (Canada minus Newfoundland and Labrador). ",
+   "function2": "Identify the largest of these gaps (maximum gap) and the smallest of these gaps (minimum gap). \nThe maximum gap is 2.5 years (in 2012–2014 and 2013–2015), and the minimum gap is 1.7 years (in 2017–2019). \nSubtracting the minimum gap from the maximum gap gives a difference of 0.8 years."
+  }
+ },
+ "e5_q6": {
+  "question": "What is the average of Revenue multiple from 2006 to 2011?",
+  "explanation": {
+   "function1": "Take the Revenue multiple values for the years 2006–2011 (4.66, 4.69, 4.68, 4.41, 4.08, 3.97). ",
+   "function2": "Add these six numbers together and divide by 6 to get the mean, which is approximately 4.42."
+  }
+ },
+ "e5_q7": {
+  "question": "What is the difference between the service value in 2010 and the service value in 2020?",
+  "explanation": {
+   "function1": "Read the Services share for 2010 (0.5804) and for 2020 (0.6308) from the data table. ",
+   "function2": "Subtract the 2010 value from the 2020 value to get the change in Services share: 0.6308 − 0.5804 = 0.0504."
+  }
+ },
+ "e5_q8": {
+  "question": "What is the difference between Scotland's largest value and England & Wales' smallest value?",
+  "explanation": {
+   "function1": "Identify Scotland’s largest SharePercentage by scanning its values; the maximum is 28 (Strongly against). Then identify England & Wales’ smallest SharePercentage; the minimum is 2 (Strongly against). ",
+   "function2": "Subtract the smallest England & Wales value from the largest Scotland value to get 28 − 2 = 26."
+  }
+ },
+ "e5_q9": {
+  "question": "What is the total from 2011 to 2017?",
+  "explanation": {
+   "function1": "Take the inhabitants values for each year from 2011 through 2017 (7.00, 7.09, 7.17, 7.25, 7.34, 7.42, 7.51). \nAdd these seven numbers together to get a total of 51.78 billion.\n"
+  }
+ },
+ "e5_q10": {
+  "question": "What is the difference between the female value in 2010 and the male value in 2016?",
+  "explanation": {
+   "function1": "Read the female life expectancy for 2010 (80.6) and the male life expectancy for 2016 (73.9) from the data table. \nSubtract the male 2016 value from the female 2010 value to get the difference: 80.6 − 73.9 = 6.7 years.\n"
+  }
+ }
+}

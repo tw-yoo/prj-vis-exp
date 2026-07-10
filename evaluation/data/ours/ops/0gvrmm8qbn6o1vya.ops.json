@@ -10,7 +10,7 @@
       },
       "field": "Average ticket price in US dollars",
       "operator": "<=",
-      "value": 65
+      "value": 60
     }
   ],
   "ops2": [

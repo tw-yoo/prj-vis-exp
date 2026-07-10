@@ -61,9 +61,21 @@ function endpointRectOnSurface(
   if (!surface) return null
   for (const refKey of refKeys) {
     if (!refKey) continue
-    const el = surface.querySelector<SVGGraphicsElement>(`[${RESULT_REF_ATTRIBUTE}="${escapeRef(refKey)}"]`)
-    const rect = usableRect(el?.getBoundingClientRect())
-    if (rect) return rect
+    // Geometry-first: appliers stamp the ref on the endpoint geometry AND on
+    // its text label (e.g. barGroup average stamps both the <line> and the
+    // value <text>). Anchoring the arrow on a label box shifts the endpoint
+    // off the actual reference, so prefer line, then circle/rect marks, and
+    // only then any remaining tagged element.
+    const escaped = escapeRef(refKey)
+    for (const selector of [
+      `line[${RESULT_REF_ATTRIBUTE}="${escaped}"]`,
+      `circle[${RESULT_REF_ATTRIBUTE}="${escaped}"], rect[${RESULT_REF_ATTRIBUTE}="${escaped}"]`,
+      `[${RESULT_REF_ATTRIBUTE}="${escaped}"]`,
+    ]) {
+      const el = surface.querySelector<SVGGraphicsElement>(selector)
+      const rect = usableRect(el?.getBoundingClientRect())
+      if (rect) return rect
+    }
   }
   const avg = surface.querySelector<SVGGraphicsElement>(AVERAGE_LINE_SELECTOR)
   return usableRect(avg?.getBoundingClientRect())
@@ -103,18 +115,33 @@ export function computeSplitDiffGeometry(args: {
   const rightRect = endpointRectOnSurface(host, SPLIT_RIGHT_ID, refKeys)
   if (!leftRect || !rightRect) return null
 
-  const rootRectRaw = svgNode.getBoundingClientRect()
-  const hostRect = host.getBoundingClientRect()
-  const rootZeroed = !(rootRectRaw.width > 0 && rootRectRaw.height > 0)
-  const effRect = rootZeroed ? hostRect : rootRectRaw
+  // Project into the box the mounted overlay will actually FILL. In every
+  // mountRootDiffOverlay topology the root SVG ends up covering the
+  // `surface-layout--split` wrapper (the flex container both panels live in),
+  // so that wrapper's rect — not the root SVG's own (possibly narrower /
+  // left-shifted) pre-mount rect — is the frame the viewBox maps onto. Using
+  // the SVG's own rect here made the arrow drift toward the right chart once
+  // the overlay was stretched to the wider wrapper.
+  const splitWrapper = svgNode.closest<HTMLElement>('.surface-layout--split')
+    ?? host.querySelector<HTMLElement>('.surface-layout--split')
+  const effRect = (splitWrapper ?? host).getBoundingClientRect()
 
   const vbW = svgNode.viewBox?.baseVal?.width || effRect.width || 1
   const vbH = svgNode.viewBox?.baseVal?.height || effRect.height || 1
-  const xRatio = vbW / Math.max(effRect.width, 1)
-  const yRatio = vbH / Math.max(effRect.height, 1)
 
-  const yLeftVB = (leftRect.top + leftRect.height / 2 - effRect.top) * yRatio
-  const yRightVB = (rightRect.top + rightRect.height / 2 - effRect.top) * yRatio
+  // The overlay keeps the default preserveAspectRatio (xMidYMid meet): the
+  // viewBox is uniformly scaled to fit inside the fill box and centered,
+  // letterboxing the remainder. Invert that mapping so screen coordinates land
+  // on the correct viewBox point (a plain width/height ratio ignores the
+  // letterbox offsets and skews both x and y).
+  const scale = Math.min(effRect.width / vbW, effRect.height / vbH) || 1
+  const offsetX = (effRect.width - vbW * scale) / 2
+  const offsetY = (effRect.height - vbH * scale) / 2
+  const toVBX = (screenX: number) => (screenX - effRect.left - offsetX) / scale
+  const toVBY = (screenY: number) => (screenY - effRect.top - offsetY) / scale
+
+  const yLeftVB = toVBY(leftRect.top + leftRect.height / 2)
+  const yRightVB = toVBY(rightRect.top + rightRect.height / 2)
 
   const leftSurfaceRect = host
     .querySelector<HTMLElement>(`[data-surface-id="${SPLIT_LEFT_ID}"]`)
@@ -126,7 +153,7 @@ export function computeSplitDiffGeometry(args: {
     leftSurfaceRect && rightSurfaceRect
       ? (leftSurfaceRect.right + rightSurfaceRect.left) / 2
       : effRect.left + effRect.width / 2
-  const arrowX = (arrowScreenX - effRect.left) * xRatio
+  const arrowX = toVBX(arrowScreenX)
 
   return {
     topY: Math.min(yLeftVB, yRightVB),

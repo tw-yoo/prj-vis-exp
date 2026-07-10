@@ -356,7 +356,8 @@ function renderOpinionDifferenceBarChart({ d3, container, showAverage = false })
         .attr('font-size', 11)
         .attr('font-weight', 700)
         .attr('fill', '#111827')
-        .text((d) => String(d.value));
+        // Reviewer (e10 q10): excluded years should read "N/A", not "0".
+        .text((d) => d.excluded ? 'N/A' : String(d.value));
 
     if (!showAverage) return;
 

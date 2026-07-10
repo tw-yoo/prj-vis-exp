@@ -1,6 +1,7 @@
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec } from '../../../domain/operation/types'
 import { RESULT_REF_ATTRIBUTE, operationResultRef } from '../../../operation-next/diffEndpoint'
+import { DataAttributes } from '../../../rendering/interfaces'
 import { DURATIONS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
@@ -151,7 +152,18 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
 
     const layer = instance.annotationLayer
     applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS, options?.referencedResultIds)
-    fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS)
+    // nodeId-scoped cleanup: a re-run of the SAME filter node replaces its own
+    // annotations, but another filter node's threshold line stays — chained
+    // filters AND-compose (workingData flows through), so every prior bound is
+    // still a live constraint. Legacy specs without nodeIds keep the
+    // whole-class removal.
+    const filterNodeId = typeof operation.meta?.nodeId === 'string' ? operation.meta.nodeId : null
+    fadeRemoveAnnotations(
+      layer,
+      filterNodeId
+        ? `${FILTER_ANNOTATION_CLASS}[${DataAttributes.AnnotationNodeId}="${filterNodeId}"]`
+        : FILTER_ANNOTATION_CLASS,
+    )
 
     const remainingTargets = new Set(result.map((d) => String(d.target)))
 
@@ -216,6 +228,16 @@ export const filterApplier: OperationApplier<SimpleBarChartInstance> = {
         viewport,
         anchorValue: threshold,
       })
+      // Stamp this node's id on the just-drawn line+label (the primitive has
+      // no attr slot) so the nodeId-scoped cleanup above pairs them on re-run.
+      if (filterNodeId) {
+        layer
+          .selectAll<SVGElement, unknown>(`.${FILTER_ANNOTATION_CLASS}`)
+          .filter(function () {
+            return this.getAttribute(DataAttributes.AnnotationNodeId) == null
+          })
+          .attr(DataAttributes.AnnotationNodeId, filterNodeId)
+      }
     }
 
     // Phase 1: DIM only (axes hold still).

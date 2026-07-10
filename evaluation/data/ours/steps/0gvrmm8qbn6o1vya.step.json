@@ -7,11 +7,11 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Filter to the lower-priced seasons (including 2012/13 at about $63)."
+      "text": "Keep the seasons priced $60 or less (this excludes 2012/13 at $63.1)."
     },
     {
       "id": "ops2",
-      "text": "Average those ticket prices, giving about 54.79."
+      "text": "Average those six prices, giving 53.41."
     }
   ]
 }

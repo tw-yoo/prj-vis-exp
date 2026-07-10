@@ -323,7 +323,19 @@ function addCpiDeviationDots(d3, container) {
     });
 }
 
+// Reviewer (e10 q4): the explanation text's step order is S1 = overall
+// average, S2 = per-year averages (year divider + yearly average points),
+// S3 = absolute deviation. The step bodies below were previously offset by
+// one (function1 drew the year divider, function2 drew the overall average,
+// function3 drew only the yearly dots) — reordered here to match.
+
 export function function1({ d3, container }) {
+    // S1: overall average line.
+    addCpiAverageLine(d3, container);
+}
+
+export function function2({ d3, container }) {
+    // S2: year divider + per-year average points, shown together per reviewer.
     const { g, plotH, xScale } = getCpiChartMetrics(d3, container);
     if (g.empty()) return;
 
@@ -358,22 +370,13 @@ export function function1({ d3, container }) {
             .attr('fill', '#111827')
             .text(d.label);
     });
-}
 
-export function function2({ d3, container }) {
-    addCpiAverageLine(d3, container);
-}
-
-export function function3({ d3, container }) {
     addCpiDeviationDots(d3, container);
 }
 
-export function function4({ d3, container }) {
+function addCpiDeviationArrows(d3, container) {
     const { g, plotW, yScale, average, yearAverages } = getCpiChartMetrics(d3, container);
     if (g.empty()) return;
-
-    addCpiAverageLine(d3, container);
-    addCpiDeviationDots(d3, container);
 
     const avgY = yScale(average);
     const dots = g.selectAll('circle.validation-cpi-deviation-dot').nodes().map((node) => ({
@@ -428,4 +431,23 @@ export function function4({ d3, container }) {
             .attr('fill', '#ef4444')
             .text(deviation.toFixed(2));
     });
+}
+
+export function function3({ d3, container }) {
+    // S3: absolute deviation of each year's average from the overall average.
+    addCpiDeviationArrows(d3, container);
+}
+
+export function function4({ d3, container }) {
+    // S4: conclusion sentence. Steps 1-3 already draw the overall average,
+    // per-year averages, and deviation arrows needed to compare them, so this
+    // step is idempotent (no new marks) rather than re-emphasizing a winner.
+    //
+    // NOTE: the gold explanation claims 2020 has the larger deviation, but
+    // recomputing from data_rows gives |2020 avg - overall| = 2.24 and
+    // |2021 avg - overall| = 3.58 — 2021 is actually larger. Flagged for
+    // researcher review; not resolved here since the correct conclusion
+    // (and whether to re-author the sentence or the data) is a stimulus
+    // decision, not a rendering bug.
+    addCpiDeviationArrows(d3, container);
 }

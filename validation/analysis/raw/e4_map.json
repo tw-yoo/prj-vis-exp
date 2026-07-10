@@ -1,0 +1,84 @@
+{
+ "e4_q1": {
+  "question": "Which year shows the highest difference from the average?",
+  "explanation": {
+   "function1": "Scanning left to right along the x‑axis from 05/06 through 14/15, most bars cluster tightly around the upper‑40s level, with several (like 08/09–10/11) appearing nearly the same height. ",
+   "function2": "The bar for 14/15 stands noticeably taller than the rest, reaching close to the 49 mark, while the overall “typical” bar height sits around the high‑47 range. ",
+   "function3": "Because 14/15 is visually the farthest from that central cluster (the biggest vertical gap from the average level), it has the largest difference from the average."
+  }
+ },
+ "e4_q2": {
+  "question": "Which season has the biggest gap between Matchday and Commercial?",
+  "explanation": {
+   "function1": "The chart uses stacked bars by season with different colored segments for each revenue type (Matchday and Commercial are two of the colored slices in each stack).",
+   "function2": "Scanning left to right along the x‑axis seasons, the Commercial slice grows dramatically in the final seasons, and in 2018/19 it is visibly much taller than the Matchday slice in the same bar. ",
+   "function3": "Using the y‑axis scale as a reference, Matchday in 2018/19 sits just under the 100 mark, while Commercial rises to around the 150 mark—creating the largest vertical separation between those two colored segments compared with earlier seasons, where the two slices are closer in height."
+  }
+ },
+ "e4_q3": {
+  "question": "Which year shows the lowest gap between lending and investment?",
+  "explanation": {
+   "function1": "In each panel, the Lending and Investment bars are different colors (as indicated by the legend) and sit side-by-side. ",
+   "function2": "Scanning year by year, the Lending and Investment bars in 2011 are both very short and closest in height—Lending is just above the 0.5 level while Investment is just above 0.1—so their vertical separation is small.",
+   "function3": "In 2012 and 2013, the Lending bar rises much higher than Investment, widening the gap, and in 2014 the Lending bar towers near the top of the scale while Investment is around the 1 mark, making the gap clearly the largest."
+  }
+ },
+ "e4_q4": {
+  "question": "Which years has the biggest jump?",
+  "explanation": {
+   "function1": "Scanning left to right along the x‑axis (2009 through 2015), the steepest upward segments are from 2009 to 2010 and from 2010 to 2011. ",
+   "function2": "The point rises from just under the 15 mark to just under 25 (a jump of about 10), and then from just under 25 up to about 35 (again about 10).",
+   "function3": "All later year-to-year rises (like 2013→2014 and 2014→2015) are noticeable but slightly less steep than those two biggest jumps."
+  }
+ },
+ "e4_q5": {
+  "question": "Which year had the biggest gap between favor and oppose?",
+  "explanation": {
+   "function1": "Scanning left to right along the Year axis, the widest vertical separation between the two lines occurs at 1996: the Oppose line sits near the 65% level while the Favor line is down near about 27%, creating the largest visible gap.",
+   "function2": "In later years (like 2010), the two lines move closer together (around the high 40s vs low 40s), so the separation is clearly smaller than in 1996."
+  }
+ },
+ "e4_q6": {
+  "question": "What is the difference between the largest and smallest values between 2010 and 2019?",
+  "explanation": {
+   "function1": "Scanning the bars from 2010 through 2019, the tallest bar appears at 2010, reaching just under the 500 mark (around 491). ",
+   "function2": "The shortest bar in that same span is 2016, sitting a bit above the 250 mark (around 264). ",
+   "function3": "Subtracting these visually read heights gives a difference of roughly 491 − 264 ≈ 197."
+  }
+ },
+ "e4_q7": {
+  "question": "What is the difference between the average of Commercial and the average of Matchday?",
+  "explanation": {
+   "function1": "Scanning across the seasons, the Commercial segments are consistently much taller—typically sitting around the 1,100 to 1,700 range on the y-axis—while the Matchday segments cluster much lower, mostly around 400 to 760.",
+   "function2": "Averaging by eye across all six seasons, Commercial centers near about €1.4 billion, and Matchday near about €0.6 billion. ",
+   "function3": "The visual gap between those typical heights is therefore roughly €0.75 billion (about €750 million)."
+  }
+ },
+ "e4_q8": {
+  "question": "What is the average of the vote share at an age when Clinton received a lower vote share?",
+  "explanation": {
+   "function1": "Scanning each panel and comparing bar heights, Clinton’s bar is shorter than Sanders’s in the first three panels (18–29, 30–44, and 45–64), but taller in the 65+ panel. ",
+   "function2": "Reading the approximate heights from the y-axis: Clinton is around 0.16, 0.32, and 0.45 in those three panels where she’s lower. ",
+   "function3": "Averaging those visually read values gives about \\((0.16 + 0.32 + 0.45) / 3 \\approx 0.31\\), i.e., about 31%. ",
+   "function4": "Interpreting the question’s “at an age when Clinton received a lower vote share” as the age-group shares for those same panels (shown in the age labels: 19%, 22%, 42%), their average is \\((19 + 22 + 42) / 3 \\approx 27.7%\\). ",
+   "function5": "However, if the intended “vote share” is Clinton’s bar height (the more direct visual measure), the average is about 31%."
+  }
+ },
+ "e4_q9": {
+  "question": "How many years are below average?",
+  "explanation": {
+   "function1": "Scanning the y-axis values, the points are roughly at 231 (2008), 742 (2009), 1,534 (2010), 1,781 (2011), 933 (2012), 3,000 (2013), 3,415 (2014), and 4,279 (2015). ",
+   "function2": "The “middle” level (the average) sits a bit above the 2,000 mark—around 2,200—because the last three points (2013–2015) are high (near 3,000–4,300) and pull the center upward. ",
+   "function3": "Comparing each point to that level, the points for 2008–2012 sit clearly below it, while 2013–2015 are above it. ",
+   "function4": "That makes 5 below vs 3 above, but since the average is around 2,200, the years below it are 2008, 2009, 2010, 2011, and 2012—which totals 5."
+  }
+ },
+ "e4_q10": {
+  "question": "In how many years was the difference between Female and Male higher than average?",
+  "explanation": {
+   "function1": "Scanning year by year along the x‑axis (2009–2019), the vertical gap between the two lines is usually about a quarter of a unit on the y‑axis (since the y‑axis is in “millions,” this looks like roughly 0.25 million most years).  ",
+   "function2": "The years where the gap is visibly a bit wider than that typical gap are 2010, 2011, 2012, 2014, and 2017—in these, the Male line sits slightly farther above the Female line than in the surrounding years.",
+   "function3": "Counting those wider‑than‑typical separations gives 5 years where the Female–Male difference is higher than the average gap across the whole chart."
+  }
+ }
+}

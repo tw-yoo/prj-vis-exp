@@ -1,0 +1,69 @@
+{
+ "e8_q1": {
+  "question": "What is the average market share for a company with 5 or fewer letters in its name?",
+  "explanation": {
+   "function1": "Identify the companies whose names have 5 or fewer letters: Conad (0.148), Selex (0.101), MD (0.031), Crai (0.024), and Aspiag (0.024). ",
+   "function2": "Add their market shares and divide by the 5 qualifying companies to get the average, which is 0.082."
+  }
+ },
+ "e8_q2": {
+  "question": "What is the average percentage of non-black races that they answered very interested?",
+  "explanation": {
+   "function1": "Take the “Very interested” shares for the non-Black race/ethnicity groups (White = 0.20, Hispanic = 0.16, Other = 0.21). ",
+   "function2": "Compute their average: (0.20 + 0.16 + 0.21) / 3 = 0.19). \nConvert 0.19 to a percentage, which is 19%."
+  }
+ },
+ "e8_q3": {
+  "question": "What is the difference between average of maximum payment in all states and average of minimum payment in all states?",
+  "explanation": {
+   "function1": "Take the “Maximum” payment values for all 11 states and compute their average (20.0). \nThen take the “Minimum” payment values for all 11 states and compute their average (6.25). ",
+   "function2": "Subtract the minimum average from the maximum average to get 20.0 − 6.25 = 13.75 million USD."
+  }
+ },
+ "e8_q4": {
+  "question": "Which year has the biggest difference in value from the following year?",
+  "explanation": {
+   "function1": "Compare each year’s immigration rate to the rate in the immediately following year and compute the absolute difference. ",
+   "function2": "The largest year-to-year change occurs between 2008 (36.34) and 2009 (31.64), a difference of 4.70, which is bigger than any other adjacent-year difference in the data."
+  }
+ },
+ "e8_q5": {
+  "question": "What is the difference between the maximum value for female victims and the minimum value for male victims?",
+  "explanation": {
+   "function1": "Identify the highest “Number_of_Victims” value among Female entries (maximum Female = 207 in 2002). \nThen identify the lowest “Number_of_Victims” value among Male entries (minimum Male = 375 in 2002). ",
+   "function2": "Subtract the Female maximum from the Male minimum to get the difference: 375 − 207 = 168."
+  }
+ },
+ "e8_q6": {
+  "question": "Which party has the third most respondents?",
+  "explanation": {
+   "function1": "Read the “Share of respondents” values for each party and rank them from highest to lowest. \nThe top three shares are Lega (0.211), Fratelli d'Italia (0.195), and PD (Partito Democratico) (0.19). \nTherefore, PD (Partito Democratico) has the third most respondents."
+  }
+ },
+ "e8_q7": {
+  "question": "What is the sum of percentage using META's platform as a separate times a day?",
+  "explanation": {
+   "function1": "META’s platforms in the data are Facebook and Instagram. \nFor each of these platforms, take the percentage for the “Several times a day” frequency (Facebook = 51, Instagram = 38) and add them together. ",
+   "function2": "The sum is 51 + 38 = 89. If we also include “About once a day” as a separate “times a day” category (Facebook = 23, Instagram = 22), then add those too: 89 + 23 + 22 = 134."
+  }
+ },
+ "e8_q8": {
+  "question": "What's the difference between women over 60 and men under 40?",
+  "explanation": {
+   "function1": "Identify the value for Women, 60 years and over (0.739) and the value for Men, 18 to 39 years (0.312). ",
+   "function2": "Subtract the men-under-40 value from the women-over-60 value to get the difference: 0.739 − 0.312 = 0.427."
+  }
+ },
+ "e8_q9": {
+  "question": "How many years correspond to a value between 20 and 30?",
+  "explanation": {
+   "function1": "Review each year’s FIFA World Ranking position and count those that fall between 20 and 30 (inclusive). \nThe qualifying years are 2003 (27), 2004 (27), 2009 (29), 2012 (27), 2013 (27), 2014 (26), 2015 (28), 2016 (25), 2017 (22), 2018 (23), and 2019 (20). \nThat makes 11 years in total.\n"
+  }
+ },
+ "e8_q10": {
+  "question": "What is the sum of the number of weights exceeding 3670 in the Boys group and the number of weights exceeding 3550 in the Girls group?",
+  "explanation": {
+   "function1": "Count the Boys-year values that are greater than 3670: 2010 (3672), 2011 (3677), and 2014 (3675) → 3 values. \nThen count the Girls-year values that are greater than 3550: 2010 (3580), 2011 (3553), 2014 (3554), 2017 (3555), 2020 (3555) → 5 values. \nAdd the two counts: 3 + 5 = 8."
+  }
+ }
+}

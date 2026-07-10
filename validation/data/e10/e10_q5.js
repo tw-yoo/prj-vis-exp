@@ -286,17 +286,22 @@ export function renderValidationMultipleLineChart({ container }) {
 }
 
 function getLifeExpectancyGapRows(d3) {
+    // Reviewer (e10 q5): the question asks for the year whose COMBINED
+    // (female + male) life expectancy total is closest to the average of all
+    // yearly totals — not the gender gap (female - male). This previously
+    // plotted gender-gap deviation, which put a different year at the
+    // smallest bar than the "2013" highlighted below.
     const years = Array.from(new Set(data_rows.map((d) => String(d.Year)))).sort((a, b) => Number(a) - Number(b));
-    const gaps = years.map((year) => {
+    const totals = years.map((year) => {
         const female = data_rows.find((d) => String(d.Year) === year && d.Gender === 'female');
         const male = data_rows.find((d) => String(d.Year) === year && d.Gender === 'male');
         return {
             year,
-            gap: Number(female?.['Life expectancy at virth in years'] ?? 0) - Number(male?.['Life expectancy at virth in years'] ?? 0)
+            total: Number(female?.['Life expectancy at virth in years'] ?? 0) + Number(male?.['Life expectancy at virth in years'] ?? 0)
         };
     });
-    const averageGap = d3.mean(gaps, (d) => d.gap) ?? 0;
-    return gaps.map((d) => ({ ...d, value: d.gap - averageGap }));
+    const averageTotal = d3.mean(totals, (d) => d.total) ?? 0;
+    return totals.map((d) => ({ ...d, value: d.total - averageTotal }));
 }
 
 function renderLifeExpectancyCompositeChart({ d3, container }) {

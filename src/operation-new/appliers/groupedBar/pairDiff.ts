@@ -94,12 +94,24 @@ export const pairDiffApplier: OperationApplier<GroupedBarChartInstance> = {
       /* interrupted */
     }
 
-    // ---- Phase 2: per-(panel,target) Δ arrows on the live grouped chart ----
+    // ---- Phase 2: per-pair Δ arrows on the live grouped chart ----
+    // The DOM pairing key must mirror pairDiffData's key semantics
+    // (targetKeyForPairDiff): when `by`/`keyField` names the chart's FACET
+    // field, the pair key is the PANEL — groupA/groupB bars sit at different
+    // x-targets within one panel (e.g. facet=Sector, x=series=Year). Otherwise
+    // groupA/groupB are two series sharing one x-target, so the key is
+    // `${panel}|${target}`. Keying facet-shaped charts by target split every
+    // pair across two keys and found zero pairs.
     interface PairedBars {
       target: string
       barA: SVGRectElement
       barB: SVGRectElement
     }
+    const facetField = instance.svg.attr(DataAttributes.FacetField) ?? ''
+    const pairKeyFieldRaw = typeof spec.keyField === 'string' && spec.keyField.trim().length > 0
+      ? spec.keyField.trim()
+      : String(spec.by ?? '').trim()
+    const pairByPanel = facetField !== '' && pairKeyFieldRaw === facetField
     const pairedByKey = new Map<string, { target: string; barA?: SVGRectElement; barB?: SVGRectElement }>()
     ;(instance.mainBars().nodes() as SVGRectElement[]).forEach((node) => {
       const panel = node.getAttribute(DataAttributes.ChartId) ?? 'root'
@@ -107,8 +119,10 @@ export const pairDiffApplier: OperationApplier<GroupedBarChartInstance> = {
       const series =
         node.getAttribute(DataAttributes.Series) ?? node.getAttribute(DataAttributes.GroupValue) ?? ''
       if (!target) return
-      const key = `${panel}|${target}`
-      const slot = pairedByKey.get(key) ?? { target }
+      // In panel mode, `target` doubles as the pair's diff-row lookup key —
+      // pairDiffData emits one row per panel with row.target = the panel value.
+      const key = pairByPanel ? panel : `${panel}|${target}`
+      const slot = pairedByKey.get(key) ?? { target: pairByPanel ? panel : target }
       if (series === groupA) slot.barA = node
       else if (series === groupB) slot.barB = node
       pairedByKey.set(key, slot)

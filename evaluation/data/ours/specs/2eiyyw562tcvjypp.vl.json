@@ -9,12 +9,6 @@
   "data": {
     "url": "ChartQA/data/csv/line/multiple/2eiyyw562tcvjypp.csv"
   },
-  "transform": [
-    {
-      "calculate": "datum.Favorability_Direction == 'US favorability in Russia' ? 'US' : 'Russia'",
-      "as": "Country"
-    }
-  ],
   "width": 600,
   "height": 400,
   "layer": [
@@ -49,10 +43,10 @@
           }
         },
         "color": {
-          "field": "Country",
+          "field": "Favorability_Direction",
           "type": "nominal",
           "legend": {
-            "title": "Country",
+            "title": "Direction",
             "titleFontSize": 18,
             "labelFontSize": 16
           }
@@ -76,7 +70,7 @@
           "type": "quantitative"
         },
         "color": {
-          "field": "Country",
+          "field": "Favorability_Direction",
           "type": "nominal"
         },
         "tooltip": [
@@ -86,9 +80,9 @@
             "title": "Year"
           },
           {
-            "field": "Country",
+            "field": "Favorability_Direction",
             "type": "nominal",
-            "title": "Country"
+            "title": "Direction"
           },
           {
             "field": "Favorable_View_Percentage",

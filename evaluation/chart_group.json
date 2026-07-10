@@ -1,4 +1,41 @@
 {
+  "G0": {
+    "slot1": {
+      "id": "16fif5hdi8yzml00",
+      "question": "What is the difference between average of maximum payment in all states and average of minimum payment in all states?",
+      "answer": "7.5",
+      "correctAnswer": "7.5",
+      "answerIsCorrect": true
+    },
+    "slot2": {
+      "id": "21fa7gb8l1ix6yfm",
+      "question": "Which method shows the highest difference between every day and less often?",
+      "answer": "Text messaging",
+      "correctAnswer": "Text messaging",
+      "answerIsCorrect": true
+    },
+    "slot3": {
+      "id": "16aphfabldrpgcmd",
+      "question": "What is the sum of the number of weights exceeding 3670 in the Boys group and the number of weights exceeding 3550 in the Girls group?",
+      "answer": "8",
+      "correctAnswer": "8",
+      "answerIsCorrect": true
+    },
+    "slot4": {
+      "id": "avwb8xstxx1lmfpk",
+      "question": "What is the Year that has the biggest deviation from the total average?",
+      "answer": "2021",
+      "correctAnswer": "2021",
+      "answerIsCorrect": true
+    },
+    "slot5": {
+      "id": "66va2s35es5t86l3",
+      "question": "What is the year with the largest increase compared to the previous year?",
+      "answer": "2010",
+      "correctAnswer": "2010",
+      "answerIsCorrect": true
+    }
+  },
   "G1": {
     "bar_simple": {
       "id": "0wflwm4jebx7n12y",
@@ -126,10 +163,10 @@
       "answerIsCorrect": false
     },
     "bar_grouped": {
-      "id": "0prhtod4tli879nh",
-      "question": "Which city had the biggest jump in population from 2010 to 2025?",
-      "answer": "Delhi",
-      "correctAnswer": "Delhi",
+      "id": "01mksjs373fhcl4q",
+      "question": "Which sector showed the most decline?",
+      "answer": "Large companies",
+      "correctAnswer": "Large companies",
       "answerIsCorrect": true
     },
     "line_simple": {
@@ -163,10 +200,10 @@
       "answerIsCorrect": true
     },
     "bar_grouped": {
-      "id": "01mksjs373fhcl4q",
-      "question": "Which sector showed the most decline?",
-      "answer": "Large companies",
-      "correctAnswer": "Large companies",
+      "id": "0prhtod4tli879nh",
+      "question": "Which city had the biggest jump in population from 2010 to 2025?",
+      "answer": "Delhi",
+      "correctAnswer": "Delhi",
       "answerIsCorrect": true
     },
     "line_simple": {

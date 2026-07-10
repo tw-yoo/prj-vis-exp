@@ -1,7 +1,7 @@
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue, type OperationSpec } from '../../../domain/operation/types'
 import { COLORS, DURATIONS, OPACITIES } from '../../../rendering/common/d3Helpers'
-import { SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
+import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../../rendering/interfaces'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleLineChartInstance } from '../../../rendering-new/instances/simpleLineInstance'
 import { resolveAnnotationViewport } from '../../primitives/annotationLayer'
@@ -131,7 +131,18 @@ export const filterApplier: OperationApplier = {
     })
     const layer = instance.annotationLayer
     applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
-    fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS)
+    // nodeId-scoped cleanup: a re-run of the SAME filter node replaces its own
+    // annotations, but another filter node's threshold line stays — chained
+    // filters AND-compose (workingData flows through), so every prior bound is
+    // still a live constraint (e.g. `>20` then `<=30` must show BOTH lines).
+    // Legacy specs without nodeIds keep the whole-class removal.
+    const filterNodeId = typeof operation.meta?.nodeId === 'string' ? operation.meta.nodeId : null
+    fadeRemoveAnnotations(
+      layer,
+      filterNodeId
+        ? `${FILTER_ANNOTATION_CLASS}[${DataAttributes.AnnotationNodeId}="${filterNodeId}"]`
+        : FILTER_ANNOTATION_CLASS,
+    )
 
     const remainingTargets = new Set(result.map((d) => String(d.target)))
 
@@ -179,6 +190,7 @@ export const filterApplier: OperationApplier = {
         layer
           .append(SvgElements.Line)
           .attr(SvgAttributes.Class, `${SvgClassNames.LineAnnotation} ${FILTER_ANNOTATION_CLASS}`)
+          .attr(DataAttributes.AnnotationNodeId, filterNodeId)
           .attr(SvgAttributes.X1, x1)
           .attr(SvgAttributes.X2, x2)
           .attr(SvgAttributes.Y1, thresholdY)
@@ -205,6 +217,16 @@ export const filterApplier: OperationApplier = {
           viewport,
           anchorValue: threshold,
         })
+        // Stamp this node's id on the just-drawn line+label (the primitive has
+        // no attr slot) so the nodeId-scoped cleanup above can pair them.
+        if (filterNodeId) {
+          layer
+            .selectAll<SVGElement, unknown>(`.${FILTER_ANNOTATION_CLASS}`)
+            .filter(function () {
+              return this.getAttribute(DataAttributes.AnnotationNodeId) == null
+            })
+            .attr(DataAttributes.AnnotationNodeId, filterNodeId)
+        }
       }
     }
 
@@ -229,12 +251,24 @@ export const filterApplier: OperationApplier = {
         instance.pointMarks
           .interrupt('filter-value-highlight')
           .attr(SvgAttributes.Fill, function (d) {
+            const el = this as SVGCircleElement
+            // Remember the pre-highlight styling ONCE, then restore from it for
+            // out-of-scope points. Without this, a point reddened by an earlier
+            // chained filter that fails THIS filter kept its red fill — the
+            // final frame showed more "matched" points than the count reports.
+            if (!el.hasAttribute('data-base-fill')) {
+              el.setAttribute('data-base-fill', el.getAttribute(SvgAttributes.Fill) ?? '')
+            }
             const inScope = remainingTargets.has(String((d as { target?: unknown }).target ?? ''))
-            return inScope ? COLORS.ANNOTATION_RED : (this as SVGCircleElement).getAttribute(SvgAttributes.Fill) ?? ''
+            return inScope ? COLORS.ANNOTATION_RED : el.getAttribute('data-base-fill') ?? ''
           })
           .attr(SvgAttributes.R, function (d) {
+            const el = this as SVGCircleElement
+            if (!el.hasAttribute('data-base-r')) {
+              el.setAttribute('data-base-r', el.getAttribute(SvgAttributes.R) ?? '4')
+            }
             const inScope = remainingTargets.has(String((d as { target?: unknown }).target ?? ''))
-            return inScope ? FILTER_HIGHLIGHT_R : Number((this as SVGCircleElement).getAttribute(SvgAttributes.R) ?? 4)
+            return inScope ? FILTER_HIGHLIGHT_R : Number(el.getAttribute('data-base-r') ?? 4)
           })
           .style(SvgAttributes.Opacity, function (d) {
             const inScope = remainingTargets.has(String((d as { target?: unknown }).target ?? ''))

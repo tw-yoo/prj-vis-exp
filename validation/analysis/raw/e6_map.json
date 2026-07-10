@@ -1,0 +1,71 @@
+{
+ "e6_q1": {
+  "question": "What is the average value of top 3 malls' per square foot cost?",
+  "explanation": {
+   "function1": "Identify the three highest per-square-foot costs in the data: 732 (Sydney), 646 (Melbourne), and 422 (Brisbane Mall). ",
+   "function2": "Add these three values and divide by 3 to get their average, which equals 674."
+  }
+ },
+ "e6_q2": {
+  "question": "In what year is the smallest difference between the market size of Asia Pacific region and the remaining three regions?",
+  "explanation": {
+   "function1": "For each year, add the market sizes of the three non–Asia Pacific regions (Americas, Europe, and Japan) to get the “remaining three regions” total. \nThen compare Asia Pacific’s value to that combined total by taking the absolute difference. ",
+   "function2": "The year where this difference is smallest is 2015, where Asia Pacific (15.78) is closest to the other three regions combined (12.17 + 1.55 + 1.65 = 15.37), giving the smallest gap (0.41)."
+  }
+ },
+ "e6_q3": {
+  "question": "which year had the lowest amount of suicides of all ages combined?",
+  "explanation": {
+   "function1": "Add the suicides across all four age groups for each year to get a yearly total. \nCompare these totals across 2009–2019 and identify the smallest one. ",
+   "function2": "The totals show 2019 has the lowest combined number (38 + 267 + 272 + 169 = 746), which is lower than every other year’s total."
+  }
+ },
+ "e6_q4": {
+  "question": "In average and median values, which one is bigger?",
+  "explanation": {
+   "function1": "Use the fatalities values for all years (2000–2020). \nCompute the average by summing all yearly fatalities and dividing by the number of years. \nCompute the median by sorting the values and taking the middle one (since there are 21 years, it’s the 11th value). ",
+   "function2": "The data has several higher values in the early 2000s (around 200–221) and many lower values later (down to 85), which pulls the median down more than the mean. \nAfter calculating both, the mean is about 166.6 while the median is 173, so the median is actually higher than the mean."
+  }
+ },
+ "e6_q5": {
+  "question": "How many years has Russia had higher favorability than the US?",
+  "explanation": {
+   "function1": "For each year, compare “Russia favorability in U.S.” against “U.S. favorability in Russia.” \nRussia’s value is higher in 2007 (44 vs 41) and 2015 (22 vs 15). \nIn all other listed years, the U.S. value is higher, so Russia is higher in 2 years total."
+  }
+ },
+ "e6_q6": {
+  "question": "What is the average of the sales values of a company with a sales volume in million units of 60 or more?",
+  "explanation": {
+   "function1": "Identify the companies with sales volumes of 60 or more: Huawei & Honor (102.55), Oppo (77.56), and Vivo (72.23). ",
+   "function2": "Add these three sales values and divide by 3 to get their average, which is 81.45 million units."
+  }
+ },
+ "e6_q7": {
+  "question": "What is the difference between white and black who answer more than most of all time?",
+  "explanation": {
+   "function1": "“More than most of the time” means only the “Almost all of the time” category (since it is higher than “Most of the time”). \nWhite has 10% answering “Almost all of the time,” and Black has 26%. ",
+   "function2": "The difference is 26% − 10% = 11 percentage points."
+  }
+ },
+ "e6_q8": {
+  "question": "Which sector showed the most decline?",
+  "explanation": {
+   "function1": "Compare the average lease length in 2003 versus mid-2013 for each sector and compute the decline (2003 value minus mid-2013 value). ",
+   "function2": "Large companies drop from 9.5 years to 5.2 years, a decline of 4.3 years, which is larger than the declines in Retail (3.5), All (2.3), SMEs (0.9), Offices (0.8), and Industrial (1.5)."
+  }
+ },
+ "e6_q9": {
+  "question": "How many years are below average?",
+  "explanation": {
+   "function1": "Calculate the average number of renunciations across all listed years (2008–2015). \nThen compare each year’s value to this average and count the years that fall below it. ",
+   "function2": "The years 2008, 2009, 2010, and 2012 are below the average, giving a total of 4 years."
+  }
+ },
+ "e6_q10": {
+  "question": "What is the sum of the differences between women and men in the last five years?",
+  "explanation": {
+   "function1": "Take the last five years in the data (2016–2020). \nFor each of these years, compute the difference as (Female population − Male population): 2016: 674.56−708.15, 2017: 678.71−711.37, 2018: 681.87−713.51, 2019: 684.78−715.27, 2020: 688.44−723.34. ",
+   "function2": "Then add these five yearly differences together to get a total of -150.86 million inhabitants."
+  }
+ }
+}

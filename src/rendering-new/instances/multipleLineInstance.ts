@@ -137,10 +137,183 @@ export class MultipleLineChartInstance implements ChartInstance {
     }
   }
 
-  async transitionChartScale(_opts: TransitionChartScaleOptions): Promise<void> {
-    // No-op stub for ops still going through the legacy runner. Filter uses
-    // the more specific `transitionFilterScope` below; other ops will be
-    // ported as we extend operation-new coverage.
+  /**
+   * X-domain recompose for multi-line charts (ported from the simple-line
+   * instance): narrow the x axis to `opts.activeTargets`, slide every
+   * in-scope point/line to the new positions, rescale the y axis to the
+   * surviving values, and drop the filtered-out ticks — all under ONE shared
+   * transition so nothing flickers.
+   *
+   * DOM-driven: the legacy renderer doesn't expose its scales, so geometry is
+   * re-derived from the circles' cx/cy + data-* attributes. The x axis is NOT
+   * re-`.call`ed — surviving tick <g>s are translated to their new slot and
+   * removed ticks fade out, which preserves the original label formatting,
+   * wrapping and rotation exactly.
+   */
+  async transitionChartScale(opts: TransitionChartScaleOptions): Promise<void> {
+    if (!this.svg || this.svg.empty()) return
+    const activeTargets = opts.activeTargets
+    if (!activeTargets || activeTargets.size === 0) return
+    const duration = opts.duration ?? DURATIONS.AXIS_RESCALE
+    const ease = opts.ease ?? EASINGS.SMOOTH
+    const outOpacity = opts.outOfScopeOpacity ?? OPACITIES.HIDDEN
+
+    type Pt = {
+      node: SVGCircleElement
+      target: string
+      id: string
+      series: string
+      value: number
+      cx: number
+      cy: number
+    }
+    const pts: Pt[] = []
+    this.pointMarks().each(function () {
+      const node = this as SVGCircleElement
+      const cx = Number(node.getAttribute(SvgAttributes.CX))
+      const cy = Number(node.getAttribute(SvgAttributes.CY))
+      if (!Number.isFinite(cx) || !Number.isFinite(cy)) return
+      pts.push({
+        node,
+        target: node.getAttribute(DataAttributes.Target) ?? '',
+        id: node.getAttribute(DataAttributes.Id) ?? '',
+        series: node.getAttribute(DataAttributes.Series) ?? '',
+        value: Number(node.getAttribute(DataAttributes.Value)),
+        cx,
+        cy,
+      })
+    })
+    if (pts.length === 0) return
+
+    const isInScope = (p: Pt) => activeTargets.has(p.target) || activeTargets.has(p.id)
+    const inScope = pts.filter(isInScope)
+    if (inScope.length === 0) return
+
+    // Surviving x slots ordered by their CURRENT position; new positions from
+    // the same scalePoint(padding 0.5) shape the base renderer uses.
+    const slotByTarget = new Map<string, number>()
+    pts.forEach((p) => {
+      if (!slotByTarget.has(p.target)) slotByTarget.set(p.target, p.cx)
+    })
+    const survivingTargets = [...new Set(inScope.map((p) => p.target))].sort(
+      (a, b) => (slotByTarget.get(a) ?? 0) - (slotByTarget.get(b) ?? 0),
+    )
+    const xPoint = d3
+      .scalePoint<string>()
+      .domain(survivingTargets)
+      .range([0, this.layout.plotWidth])
+      .padding(0.5)
+
+    const values = inScope.map((p) => p.value).filter(Number.isFinite)
+    let yDomain = opts.yDomain
+    if (!yDomain && values.length > 0) {
+      const min = Math.min(...values)
+      const max = Math.max(...values)
+      yDomain = min === max ? [min, max + 1] : [min, max]
+    }
+    const yScale = yDomain
+      ? d3.scaleLinear().domain(yDomain).nice().range([this.layout.plotHeight, 0])
+      : null
+
+    console.info('[operation-new] MultipleLineChartInstance.transitionChartScale', {
+      pointCount: pts.length,
+      inScopeCount: inScope.length,
+      survivingSlots: survivingTargets.length,
+      yDomainTo: yScale ? yScale.domain() : null,
+    })
+
+    const parent = this.svg.transition().duration(duration).ease(ease)
+    const inheritT = parent as never
+
+    const newCX = (p: Pt) => xPoint(p.target) ?? p.cx
+    const newCY = (p: Pt) => (yScale && Number.isFinite(p.value) ? yScale(p.value) : p.cy)
+
+    // Points: in-scope slide to the new slots; out-of-scope fade out in place.
+    pts.forEach((p) => {
+      const sel = d3.select(p.node)
+      if (isInScope(p)) {
+        sel
+          .interrupt('filter-scope')
+          .transition(inheritT)
+          .attr(SvgAttributes.CX, newCX(p))
+          .attr(SvgAttributes.CY, newCY(p))
+          .style(SvgAttributes.Opacity, OPACITIES.FULL)
+      } else {
+        sel.interrupt('filter-scope').transition(inheritT).style(SvgAttributes.Opacity, outOpacity)
+      }
+    })
+
+    // Series paths: re-datum to the in-scope subset AT CURRENT coordinates
+    // (instant truncation — the excluded points were already dimmed by the
+    // filter's phase 1), then tween to the new coordinates. Same point count
+    // on both ends → clean interpolation, no rise-from-the-bottom morph.
+    const bySeries = d3.group(inScope, (p) => p.series)
+    this.mainLinePaths().each(function () {
+      const path = this as SVGPathElement
+      const series = path.getAttribute(DataAttributes.Series) ?? ''
+      const seriesPts = (bySeries.get(series) ?? []).slice().sort((a, b) => a.cx - b.cx)
+      const sel = d3.select(path)
+      if (seriesPts.length < 2) {
+        sel.interrupt('filter-scope').transition(inheritT).style(SvgAttributes.Opacity, outOpacity)
+        return
+      }
+      const toPathD = (coords: Array<[number, number]>) =>
+        coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x},${y}`).join('')
+      sel
+        .interrupt('filter-scope')
+        .attr(SvgAttributes.D, toPathD(seriesPts.map((p) => [p.cx, p.cy])))
+        .transition(inheritT)
+        .attr(SvgAttributes.D, toPathD(seriesPts.map((p) => [newCX(p), newCY(p)])))
+        .style(SvgAttributes.Opacity, OPACITIES.FULL)
+    })
+
+    // X axis: translate surviving ticks to their new slot; fade out the rest.
+    // Ticks sit exactly at their slot's scalePoint position, so a tick maps to
+    // its target by x-coincidence with a point slot (±1px tolerance).
+    const xAxisGroup = this.svg.select<SVGGElement>(`g.${SvgClassNames.XAxis}`)
+    if (!xAxisGroup.empty()) {
+      const slotEntries = [...slotByTarget.entries()]
+      xAxisGroup.selectAll<SVGGElement, unknown>('g.tick').each(function () {
+        const tick = this as SVGGElement
+        const m = (tick.getAttribute('transform') ?? '').match(/translate\(\s*([^,)]+)/)
+        const tx = m ? Number(m[1]) : NaN
+        if (!Number.isFinite(tx)) return
+        let tickTarget: string | null = null
+        for (const [target, cx] of slotEntries) {
+          if (Math.abs(cx - tx) <= 1) {
+            tickTarget = target
+            break
+          }
+        }
+        const sel = d3.select(tick)
+        const nextX = tickTarget != null ? xPoint(tickTarget) : undefined
+        if (tickTarget != null && nextX !== undefined && activeTargets.has(tickTarget)) {
+          sel
+            .transition(inheritT)
+            .attr('transform', `translate(${nextX},0)`)
+            .style(SvgAttributes.Opacity, 1)
+        } else {
+          sel.transition(inheritT).style(SvgAttributes.Opacity, 0).remove()
+        }
+      })
+    }
+
+    // Y axis: numeric labels only — safe to re-.call under the same parent.
+    if (yScale) {
+      const yAxisGroup = this.svg.select<SVGGElement>(`g.${SvgClassNames.YAxis}`)
+      if (!yAxisGroup.empty()) {
+        yAxisGroup.transition(inheritT).call(d3.axisLeft(yScale).ticks(6) as never)
+      }
+    }
+
+    this.activeTargets = new Set(activeTargets)
+    this.outOfScopeOpacity = outOpacity
+
+    try {
+      await parent.end()
+    } catch {
+      /* interrupted */
+    }
   }
 
   /** All `<circle data-target>` points in this chart (across all series). */

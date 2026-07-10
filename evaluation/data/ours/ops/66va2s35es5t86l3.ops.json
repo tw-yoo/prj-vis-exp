@@ -1,15 +1,30 @@
 {
   "ops": [
     {
-      "op": "findExtremum",
+      "op": "lagDiff",
       "id": "n1",
       "meta": {
         "nodeId": "n1",
         "inputs": [],
         "sentenceIndex": 1
       },
-      "which": "max",
-      "field": "In millions"
+      "field": "In millions",
+      "orderField": "Year",
+      "order": "asc"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [
+          "n1"
+        ],
+        "sentenceIndex": 2
+      },
+      "which": "max"
     }
   ]
 }

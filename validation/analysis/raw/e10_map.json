@@ -1,0 +1,76 @@
+{
+ "e10_q1": {
+  "question": "Which creator has the 2nd biggest number of subscribers within creators starting with alphabet \"a\"?",
+  "explanation": {
+   "function1": "Filter the creators to only those whose names start with the letter “a”. \nThe remaining creators are Amixem (4085) and Andy (3409). ",
+   "function2": "Rank these by subscriber count from highest to lowest; Amixem is 1st and Andy is 2nd, so the 2nd biggest is Andy."
+  }
+ },
+ "e10_q2": {
+  "question": "What is the sum of number of employees from Europe region before 2015?",
+  "explanation": {
+   "function1": "Treat “Europe region” as the European categories in the chart: Germany, Great Britain, Spain, and Rest of Europe. Consider only years before 2015 (2011–2014). ",
+   "function2": "Sum the employees across those four regions for each of the years 2011, 2012, 2013, and 2014, then add those yearly totals together to get 169,212."
+  }
+ },
+ "e10_q3": {
+  "question": "With today and previous week, do male respondents used the application than female respondents?",
+  "explanation": {
+   "function1": "Look at the “Today” and “Within the previous week” shares for each gender. Male respondents are 0.08 (Today) and 0.09 (previous week), totaling 0.17.",
+   "function2": "Female respondents are 0.10 (Today) and 0.09 (previous week), totaling 0.19.",
+   "function3": "Since 0.17 is less than 0.19, males did not use the application more than females over those two periods."
+  }
+ },
+ "e10_q4": {
+  "question": "What is the Year that has the biggest deviation from the total average?",
+  "explanation": {
+   "function1": "First, compute the overall average Consumer Price Index using all the months shown (May ’20 through May ’21). ",
+   "function2": "Then compute the average CPI within each year (average of all 2020 months vs. average of all 2021 months). ",
+   "function3": "Compare how far each year’s average is from the overall average (the absolute deviation). ",
+   "function4": "The 2020 average is farther below the overall average than the 2021 average is above it, so 2020 has the biggest deviation from the total average."
+  }
+ },
+ "e10_q5": {
+  "question": "Which year has the closest value with the average value in sum of life expectancy for both genders?",
+  "explanation": {
+   "function1": "First, sum the female and male life expectancy for each year to get a “both genders combined” total per year. \nThen compute the average of these yearly totals across all years (2008–2018). ",
+   "function2": "Finally, compare each year’s total to this average by looking at the absolute difference; the year with the smallest difference is 2013, making it the closest to the average combined life expectancy."
+  }
+ },
+ "e10_q6": {
+  "question": "How many years was revenue less than 2 billion us dollars?",
+  "explanation": {
+   "function1": "Review the revenue values for each year and identify those below 2.0 billion US dollars. ",
+   "function2": "The years 2010 (1.94), 2019 (1.9), and 2020 (1.8) are below 2.0. Counting these gives 3 years."
+  }
+ },
+ "e10_q7": {
+  "question": "Which perception has the biggest share across the royal figures whose gender is female?",
+  "explanation": {
+   "function1": "Identify the female royal figures in the data (Meghan, Duchess of Sussex; Catherine, Duchess of Cambridge; Queen Elizabeth II). ",
+   "function2": "For each perception category, add up the shares across these three figures. Compare the totals across perceptions; “Fair and balanced” has the highest combined share (0.25 + 0.44 + 0.55 = 1.24), larger than “Overly favourable” (0.64), “Don’t know” (0.53), and “Overly critical” (0.59)."
+  }
+ },
+ "e10_q8": {
+  "question": "Which year has the most revenue across all sectors?",
+  "explanation": {
+   "function1": "Add the revenues of Healthcare, Life Science, and Performance Materials for each year to get total revenue per year. \nCompare these yearly totals. ",
+   "function2": "The year 2020 has the highest combined total (6639 + 7515 + 3380 = 17,534 million euros), which is larger than any other year’s total."
+  }
+ },
+ "e10_q9": {
+  "question": "How many months have a lower index than the average of index across the years?",
+  "explanation": {
+   "function1": "First, compute the average index using all the listed months’ index values. \nThen compare each month’s index to this average and mark those that are lower. ",
+   "function2": "The months below the overall average are Feb ’18 (105.8), Apr ’18 (105.3), Jun ’18 (105.2), and Jul ’18 (105.6), giving a total of 4 months."
+  }
+ },
+ "e10_q10": {
+  "question": "What is the average of difference in values except for two years which have the biggest opinion value for favorable and unfavorable, respectively?",
+  "explanation": {
+   "function1": "For each year, compute the difference between Favorable and Unfavorable values. \nIdentify the year with the highest Favorable value (72 in 2002) and the year with the highest Unfavorable value (42 in 2007), and exclude those two years from consideration. ",
+   "function2": "For the remaining years (2003, 2005, 2009, 2013, 2015), the differences are 29, 22, 40, 34, and 42. ",
+   "function3": "Take the average of these five differences to get 34.6."
+  }
+ }
+}

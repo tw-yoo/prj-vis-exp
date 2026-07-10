@@ -105,7 +105,18 @@ export const filterApplier: OperationApplier<GroupedBarChartInstance> = {
 
     const layer = instance.annotationLayer
     applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
-    fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS)
+    // nodeId-scoped cleanup: a re-run of the SAME filter node replaces its own
+    // annotations, but another filter node's threshold line stays — chained
+    // filters AND-compose (workingData flows through), so every prior bound is
+    // still a live constraint. Legacy specs without nodeIds keep the
+    // whole-class removal.
+    const filterNodeId = typeof operation.meta?.nodeId === 'string' ? operation.meta.nodeId : null
+    fadeRemoveAnnotations(
+      layer,
+      filterNodeId
+        ? `${FILTER_ANNOTATION_CLASS}[${DataAttributes.AnnotationNodeId}="${filterNodeId}"]`
+        : FILTER_ANNOTATION_CLASS,
+    )
 
     const pairDiffInput = isPairDiffResultInput(result)
     const activeKeys = buildScopeKeys(result)
@@ -189,7 +200,15 @@ export const filterApplier: OperationApplier<GroupedBarChartInstance> = {
     // drawn as Δ-arrows by the pairDiff applier), so a baseline at the
     // threshold value (e.g., y=0) does not correspond to any bar height and
     // would just visually clutter the chart.
-    const threshold = pairDiffInput ? null : resolveBarThreshold(operation, state.workingData)
+    // ALSO only for a filter on the Y MEASURE: an x/category-field filter
+    // (e.g. Year < 2015, or excluding an x category) compares non-measure
+    // values, so a horizontal y-threshold is meaningless — it used to draw a
+    // stray line at an extrapolated y (numeric x values) or at the excluded
+    // bar's own height (resolveBarThreshold's target-value fallback).
+    const yField = instance.svg.attr(DataAttributes.YField) ?? ''
+    const isMeasureFilter = !operation.field || operation.field === yField
+    const threshold =
+      pairDiffInput || !isMeasureFilter ? null : resolveBarThreshold(operation, state.workingData)
     if (threshold != null) {
       const thresholdY = inferBarYFromAxis(instance.svg, threshold)
       if (thresholdY != null) {
@@ -210,6 +229,16 @@ export const filterApplier: OperationApplier<GroupedBarChartInstance> = {
             height: instance.layout.plotHeight,
           },
         })
+        // Stamp this node's id on the just-drawn line+label (the primitive has
+        // no attr slot) so the nodeId-scoped cleanup above pairs them on re-run.
+        if (filterNodeId) {
+          layer
+            .selectAll<SVGElement, unknown>(`.${FILTER_ANNOTATION_CLASS}`)
+            .filter(function () {
+              return this.getAttribute(DataAttributes.AnnotationNodeId) == null
+            })
+            .attr(DataAttributes.AnnotationNodeId, filterNodeId)
+        }
       }
     }
 

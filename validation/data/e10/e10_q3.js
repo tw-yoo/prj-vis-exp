@@ -383,4 +383,66 @@ export function function2({ d3, container }) {
     renderUsageStackedBarChart({ d3, container, rows: filteredRows, seriesDomain: selectedPeriods });
 }
 
-export function function3({ d3, container }) {}
+// Reviewer (e10 q3 S2): the comparison conclusion ("0.17 < 0.19, so males
+// did not use more") was previously folded into function2's sentence — split
+// out into its own step so the totals and the conclusion don't read as one
+// cramped sentence.
+export function function3({ d3, container }) {
+    const selectedPeriods = ['Today', 'Within the previous week'];
+    const totals = ['Male', 'Female'].map((gender) => ({
+        gender,
+        total: data_rows
+            .filter((row) => String(row.Gender) === gender && selectedPeriods.includes(String(row.Usage_Period)))
+            .reduce((sum, row) => sum + Number(row.Share_of_Respondents), 0),
+    }));
+
+    const width = 640;
+    const margin = { top: 32, right: 16, bottom: 56, left: 56 };
+    const legendReserve = 200;
+    const plotW = width - margin.left - margin.right - legendReserve;
+    const xScale = d3.scaleBand().domain(totals.map((d) => d.gender)).range([0, plotW]).padding(0.28);
+
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    g.selectAll('.e10-q3-total-label').remove();
+
+    totals.forEach(({ gender, total }) => {
+        const topRect = g.selectAll('rect.main-bar')
+            .filter((d) => d.gender === gender && d.y1 === total)
+            .node();
+        if (!topRect) return;
+        g.append('text')
+            .attr('class', 'e10-q3-total-label')
+            .attr('x', (xScale(gender) ?? 0) + xScale.bandwidth() / 2)
+            .attr('y', Number(topRect.getAttribute('y')) - 8)
+            .attr('text-anchor', 'middle')
+            .attr('font-family', 'sans-serif')
+            .attr('font-size', 12)
+            .attr('font-weight', 700)
+            .attr('fill', '#111827')
+            .attr('opacity', 0)
+            .text(total.toFixed(2))
+            .transition()
+            .duration(400)
+            .attr('opacity', 1);
+    });
+
+    const maleTotal = totals.find((t) => t.gender === 'Male')?.total ?? 0;
+    const femaleTotal = totals.find((t) => t.gender === 'Female')?.total ?? 0;
+    g.append('text')
+        .attr('class', 'e10-q3-total-label')
+        .attr('x', plotW / 2)
+        .attr('y', -14)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#dc2626')
+        .attr('opacity', 0)
+        .text(`${maleTotal.toFixed(2)} < ${femaleTotal.toFixed(2)} — males did not use more`)
+        .transition()
+        .duration(400)
+        .attr('opacity', 1);
+}

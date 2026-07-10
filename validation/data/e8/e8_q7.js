@@ -207,18 +207,23 @@ export function renderValidationStackedBarChart({ container }) {
 function renderMetaFrequencyChart({ d3, container, showSum = false }) {
     injectStackedChartStyles();
 
+    // Reviewer (e8 q7 S1): sentence1 already says "and add them together", so
+    // step 1 should show the combined "several times a day" bar too.
     const severalTimes = [
         { label: 'Facebook', value: 51 },
         { label: 'Instagram', value: 38 },
+        { label: 'Several sum', value: 89, isSum: true },
     ];
-    const csvContributions = [
-        { label: 'Facebook several', value: 51 },
-        { label: 'Instagram several', value: 38 },
-        { label: 'Facebook once', value: 23 },
-        { label: 'Instagram once', value: 22 },
+    // Reviewer (e8 q7 S2): show several-sum / once-sum / total-sum as three
+    // separate bars, not raw per-platform contributions. Also corrects the
+    // gold arithmetic: 89 + 23 + 22 = 134 (previously mislabeled 138).
+    const totals = [
+        { label: 'Several sum', value: 89, isSum: true },
+        { label: 'Once sum', value: 45, isSum: true },
+        { label: 'Total sum', value: 134, isSum: true },
     ];
-    const csvSum = 138;
-    const data = showSum ? [...csvContributions, { label: 'Sum', value: csvSum, isSum: true }] : severalTimes;
+    const csvSum = 134;
+    const data = showSum ? totals : severalTimes;
 
     const width = 640;
     const height = 360;
@@ -229,7 +234,7 @@ function renderMetaFrequencyChart({ d3, container, showSum = false }) {
     container.classList.add('validation-stacked-chart-host');
 
     const xScale = d3.scaleBand().domain(data.map((d) => d.label)).range([0, plotW]).padding(0.25);
-    const yScale = d3.scaleLinear().domain([0, showSum ? csvSum : 60]).nice().range([plotH, 0]);
+    const yScale = d3.scaleLinear().domain([0, showSum ? csvSum : 89]).nice().range([plotH, 0]);
 
     // Use rebuildSvgInPlace with instant=true (no crossfade — E5–E10 don't need
     // animation, so avoid the disappear/reappear flash).
@@ -281,7 +286,7 @@ function renderMetaFrequencyChart({ d3, container, showSum = false }) {
         .attr('fill', '#dc2626')
         .attr('font-size', 13)
         .attr('font-weight', 700)
-        .text('Sum: 138');
+        .text('Sum: 134');
 }
 
 export function function1({ d3, container }) {

@@ -3,6 +3,7 @@ import { OperationOp, type OperationSpec } from '../../../domain/operation/types
 import { DataAttributes, SvgAttributes } from '../../../rendering/interfaces'
 import { COLORS, DURATIONS } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
+import { RESULT_REF_ATTRIBUTE } from '../../../operation-next/diffEndpoint'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
@@ -93,6 +94,26 @@ export const nthApplier: OperationApplier<SimpleBarChartInstance> = {
           .end()
           .catch(() => undefined),
       )
+
+      // Invisible result-ref anchor at the bar-top value-y, so a cross-surface
+      // merge (diff / compareBool) can resolve this endpoint precisely —
+      // mirrors barGroup/selection.ts's anchor idiom (stroke present →
+      // non-empty bounding box; opacity 0 → not visible). First row only.
+      if (nodeId && drawnTargets.length === 1) {
+        layer
+          .append('line')
+          .attr(SvgAttributes.Class, `${NTH_ANNOTATION_CLASS} ${NTH_ANNOTATION_CLASS}-anchor`)
+          .attr(DataAttributes.AnnotationNodeId, nodeId)
+          .attr(RESULT_REF_ATTRIBUTE, nodeId)
+          .attr(SvgAttributes.X1, metrics.centerX - metrics.width / 2)
+          .attr(SvgAttributes.X2, metrics.centerX + metrics.width / 2)
+          .attr(SvgAttributes.Y1, metrics.topY)
+          .attr(SvgAttributes.Y2, metrics.topY)
+          .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
+          .attr(SvgAttributes.StrokeWidth, 2)
+          .style(SvgAttributes.Opacity, 0)
+          .style('pointer-events', 'none')
+      }
 
       // Value label above the bar top, placed by the shared collision-aware
       // placer (avoids bars + other labels; never lands inside the bar).

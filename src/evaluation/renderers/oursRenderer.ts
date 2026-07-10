@@ -341,6 +341,13 @@ export class OursRenderer implements ExplanationRenderer {
   private surfaceManager: SurfaceManager | null = null
   private splitPlan: SplitPlan | null = null
   private referencedResultIds: string[] = []
+  // Per-split-surface derived specs. A split child's chart-type conversion
+  // (e.g. sort turning the line into a sorted bar via storeDerivedChartState)
+  // must stay LOCAL to that surface: promoting it to `activeSpec` made the
+  // MERGE step re-run the ROOT with the derived spec, which rebuilt the root
+  // chart as the derived type and visually collapsed the split back into one
+  // chart (case 25gpdzxh8nu0c0vf).
+  private splitSurfaceSpecs = new Map<string, ChartSpec>()
 
   constructor(context: RendererContext, overrideSteps?: StepManifest[]) {
     this.context = context
@@ -430,6 +437,7 @@ export class OursRenderer implements ExplanationRenderer {
     this.activeSpec = this.chart.spec
     this.surfaceManager = null
     this.splitPlan = null
+    this.splitSurfaceSpecs = new Map()
     this.referencedResultIds = collectReferencedIdsForSteps(this.chart.steps)
 
     // Mirror ReviewPage's convergent-DAG split orchestration so the same
@@ -508,7 +516,19 @@ export class OursRenderer implements ExplanationRenderer {
     const summaryText = buildSummaryTextForOperations({ operations: allOps, logicalArtifacts: null })?.initialText || ''
     drawSummaryTextBox(this.context.container, summaryText)
 
-    const result = await runChartOps(runHost, this.activeSpec, step.opsSpec, {
+    // Split children run with THEIR OWN derived spec (a prior step on that
+    // surface may have converted its chart type, e.g. sort line→bar); the
+    // root/merge step always keeps the pre-split `activeSpec` so the merge
+    // never rebuilds the hidden root chart as a child's derived type.
+    const surfaceKey =
+      role === 'left' && this.splitPlan
+        ? this.splitPlan.leftSurfaceId
+        : role === 'right' && this.splitPlan
+          ? this.splitPlan.rightSurfaceId
+          : null
+    const runSpec = (surfaceKey ? this.splitSurfaceSpecs.get(surfaceKey) : null) ?? this.activeSpec
+
+    const result = await runChartOps(runHost, runSpec, step.opsSpec, {
       initialRenderMode: 'reuse-existing',
       resetRuntime: previous == null,
       runtimeSnapshot: previous?.runtimeSnapshot,
@@ -531,7 +551,10 @@ export class OursRenderer implements ExplanationRenderer {
     await waitForD3Transitions(this.context.container)
     if (!isSplitNow) fitSvgViewBoxToContent(this.context.container)
     const derived = consumeDerivedChartState(runHost)
-    if (derived) this.activeSpec = derived.spec
+    if (derived) {
+      if (surfaceKey) this.splitSurfaceSpecs.set(surfaceKey, derived.spec)
+      else this.activeSpec = derived.spec
+    }
 
     this.stepRecords[i] = {
       runtimeSnapshot: result.runtimeSnapshot,
@@ -547,6 +570,7 @@ export class OursRenderer implements ExplanationRenderer {
     this.activeSpec = null
     this.surfaceManager = null
     this.splitPlan = null
+    this.splitSurfaceSpecs = new Map()
     this.referencedResultIds = []
   }
 }

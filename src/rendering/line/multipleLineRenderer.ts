@@ -308,7 +308,15 @@ function applyLineTransforms(data: RawDatum[], spec: MultiLineSpec) {
   transforms.forEach((transform) => {
     if (!transform || typeof transform !== 'object' || Array.isArray(transform)) return
     const filterSpec = (transform as { filter?: unknown }).filter
-    if (filterSpec === undefined) return
+    if (filterSpec === undefined) {
+      // Only `filter` transforms are evaluated. A dropped `calculate` whose
+      // output feeds an encoding (e.g. color) silently degrades the chart —
+      // every point's series comes out null and the lines collapse into one
+      // zigzag path. Surface it so spec authors bind encodings to real
+      // columns instead.
+      console.warn('[multipleLineRenderer] skipping unsupported non-filter transform', transform)
+      return
+    }
     result = result.filter((row) => shouldKeepByFilter(row, filterSpec))
   })
 

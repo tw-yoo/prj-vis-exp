@@ -258,7 +258,10 @@ function renderNonBlackVeryInterestedChart({ d3, container, showAverage = false 
         .attr('width', xScale.bandwidth())
         .attr('y', (d) => yScale(d.value))
         .attr('height', (d) => plotH - yScale(d.value))
-        .attr('fill', '#2563eb')
+        // Reviewer (e8 q2): keep the "Very interested" color from the original
+        // stacked chart (palette index 0 = #4f46e5) so the transition preserves
+        // the encoding instead of switching to a different blue.
+        .attr('fill', '#4f46e5')
         .attr('data-target', (d) => d.Race_Ethnicity)
         .attr('data-series', 'Very interested')
         .attr('data-value', (d) => d.value)

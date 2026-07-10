@@ -1,0 +1,84 @@
+{
+ "e1_q1": {
+  "question": "How many years are above the average?",
+  "explanation": {
+   "function1": "Calculate the average of the “Production in million units” values across all years in the chart.",
+   "function2": "Compare each year's bar to that average, then count the years whose production is above the average."
+  }
+ },
+ "e1_q2": {
+  "question": "Which season was above average in both commercial and broadcasting?",
+  "explanation": {
+   "function1": "Split the stacked bars into two simple bar charts — Commercial revenue on top and Broadcasting revenue below.",
+   "function2": "Calculate the average Revenue across all seasons for Commercial, and the average across all seasons for Broadcasting.",
+   "function3": "Mark the seasons whose Commercial value is above the Commercial average and whose Broadcasting value is above the Broadcasting average.",
+   "function4": "Select the seasons that are above average in both revenue types."
+  }
+ },
+ "e1_q3": {
+  "question": "What is the difference between the average of surgical values in European countries and the average of surgical values in Asian countries?",
+  "explanation": {
+   "function1": "Split the grouped bars into two simple bar charts — Surgical values on the left and Nonsurgical values on the right.",
+   "function2": "Focus on the Surgical chart and keep the European countries (Germany, France, Italy) and the Asian countries (India, Turkey, Japan).",
+   "function3": "Compute the average of the Surgical values for the European set and for the Asian set.",
+   "function4": "Subtract the Asian average from the European average to get the difference."
+  }
+ },
+ "e1_q4": {
+  "question": "What is the sum of the y-values for the period in which the y-axis value increased most sharply for two or more consecutive years?",
+  "explanation": {
+   "function1": "Compute the year-to-year change between adjacent years and highlight the stretches where the value keeps rising.",
+   "function2": "Among those rising stretches, find the run of two or more consecutive years with the greatest total rise.",
+   "function3": "Isolate the years in that run as a small bar chart.",
+   "function4": "Sum the y-values for the years included in that run."
+  }
+ },
+ "e1_q5": {
+  "question": "What is the average of the Internet, where the value of the year is higher than that of Radio and lower than that of Newspaper?",
+  "explanation": {
+   "function1": "Set aside the Television series to focus on Newspaper, Internet, and Radio.",
+   "function2": "Keep only the years where the Internet value lies between the Radio and Newspaper values for the same year.",
+   "function3": "Collect the Internet Share_of_Respondents values for those qualifying years.",
+   "function4": "Average those Internet values across the qualifying years."
+  }
+ },
+ "e1_q6": {
+  "question": "What is the sum of the three median values for each year?",
+  "explanation": {
+   "function1": "List the fatalities values for all years and sort them from smallest to largest.",
+   "function2": "Locate the three middle values in the sorted list — the median trio for an odd count of years.",
+   "function3": "Add those three middle values together."
+  }
+ },
+ "e1_q7": {
+  "question": "In which year is the difference between the blue and gray bars the greatest?",
+  "explanation": {
+   "function1": "Keep only the blue “0 – 500 million US dollars” segment and the gray “Over 10,001 million US dollars” segment.",
+   "function2": "Read the Market share values for those two segments in each year, side by side.",
+   "function3": "Calculate the absolute difference between the two values for every year.",
+   "function4": "Compare the differences across years and select the year with the largest gap."
+  }
+ },
+ "e1_q8": {
+  "question": "Which group shows the highest value in the sum of occasionally and infrequently answered?",
+  "explanation": {
+   "function1": "Remove the “Frequently” column, keeping the “Occasionally” and “Infrequently” answers.",
+   "function2": "For each Race/Ethnicity, add its Occasionally and Infrequently values into a single bar.",
+   "function3": "Compare these sums across groups and select the largest."
+  }
+ },
+ "e1_q9": {
+  "question": "How many years are there that have a lower value than the average?",
+  "explanation": {
+   "function1": "Calculate the average of the “Cinema visits in millions” values across all years.",
+   "function2": "Compare each year's value to that average and count the years that fall below it."
+  }
+ },
+ "e1_q10": {
+  "question": "What is the difference between the days when Obama is higher than Romney and the days when Romney is higher than Obama?",
+  "explanation": {
+   "function1": "At each Date_Range, compare Obama's and Romney's share, shading who is higher and counting the days each leads.",
+   "function2": "Subtract the smaller count from the larger to get the difference."
+  }
+ }
+}

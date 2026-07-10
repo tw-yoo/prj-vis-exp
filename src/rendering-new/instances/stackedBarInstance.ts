@@ -1,7 +1,13 @@
 import * as d3 from 'd3'
 import { ChartType, type ChartSpec } from '../../domain/chart'
 import { DataAttributes, SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
-import { DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
+import {
+  DURATIONS,
+  EASINGS,
+  OPACITIES,
+  applyAxisTickLabelSize,
+  resolveAxisTickFontSize,
+} from '../../rendering/common/d3Helpers'
 import {
   renderStackedBarChart,
   type StackedSpec,
@@ -325,6 +331,31 @@ export class StackedBarChartInstance implements ChartInstance {
     const layoutByNode = new Map<SVGRectElement, StackedRectLayout>()
     layouts.forEach((layout) => layoutByNode.set(layout.node, layout))
 
+    // X-band narrowing: targets whose EVERY cell went out of scope leave the
+    // x domain entirely — surviving stacks slide over to close the gap and the
+    // x-axis drops their ticks (mirrors simpleBarInstance.transitionChartScale).
+    // Targets keeping ≥1 in-scope cell stay on the axis (partial dims don't
+    // reflow). `layouts` iterates in DOM order, so the surviving domain keeps
+    // the original category order.
+    const orderedTargets: string[] = []
+    const targetHasInScope = new Map<string, boolean>()
+    layouts.forEach((layout) => {
+      if (!targetHasInScope.has(layout.target)) {
+        orderedTargets.push(layout.target)
+        targetHasInScope.set(layout.target, false)
+      }
+      if (layout.inScope) targetHasInScope.set(layout.target, true)
+    })
+    const survivingTargets = orderedTargets.filter((t) => targetHasInScope.get(t))
+    const newXScale =
+      survivingTargets.length > 0 && survivingTargets.length < orderedTargets.length
+        ? d3
+            .scaleBand<string>()
+            .domain(survivingTargets)
+            .range([0, this.layout.plotWidth])
+            .padding(0.2)
+        : null
+
     const ownedParent = opts.parent
       ? null
       : (this.svg.transition().duration(duration).ease(ease) as unknown as ParentTransition)
@@ -338,9 +369,49 @@ export class StackedBarChartInstance implements ChartInstance {
       yAxisGroup.transition(inheritT).call(d3.axisLeft(newYScale).ticks(5))
     }
 
+    // X-axis rides the SAME shared transition (tick exit for removed targets).
+    // Preserve each surviving tick's current display label — the original
+    // render may have applied a categorical display map and multi-line wrap,
+    // so re-deriving from the raw domain value would change the text.
+    if (newXScale) {
+      const xAxisGroup = this.svg.select<SVGGElement>(`g.${SvgClassNames.XAxis}`)
+      if (!xAxisGroup.empty()) {
+        const labelByValue = new Map<string, string>()
+        xAxisGroup.selectAll<SVGGElement, unknown>('g.tick').each(function (datum) {
+          const text = (this as SVGGElement).querySelector('text')
+          if (datum == null || !text) return
+          const tspans = Array.from(text.querySelectorAll('tspan'))
+          const label = tspans.length > 0
+            ? tspans.map((t) => t.textContent ?? '').join(' ').replace(/\s+/g, ' ').trim()
+            : (text.textContent ?? '')
+          labelByValue.set(String(datum), label)
+        })
+        xAxisGroup
+          .transition(inheritT)
+          .call(
+            d3
+              .axisBottom(newXScale)
+              .tickFormat((d) => labelByValue.get(String(d)) ?? String(d)) as never,
+          )
+        applyAxisTickLabelSize(xAxisGroup, resolveAxisTickFontSize(this.layout.plotWidth))
+      }
+    }
+
     bars
       .interrupt('series-scope')
       .transition(inheritT)
+      .attr(SvgAttributes.X, function () {
+        const layout = layoutByNode.get(this as SVGRectElement)
+        const current = Number(this.getAttribute(SvgAttributes.X) ?? 0)
+        if (!newXScale || !layout || !layout.inScope) return current
+        return newXScale(layout.target) ?? current
+      })
+      .attr(SvgAttributes.Width, function () {
+        const layout = layoutByNode.get(this as SVGRectElement)
+        const current = Number(this.getAttribute(SvgAttributes.Width) ?? 0)
+        if (!newXScale || !layout || !layout.inScope) return current
+        return newXScale.bandwidth()
+      })
       .attr(SvgAttributes.Y, function () {
         const layout = layoutByNode.get(this as SVGRectElement)
         if (!layout) return Number(this.getAttribute(SvgAttributes.Y) ?? 0)

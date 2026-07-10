@@ -1,0 +1,73 @@
+{
+ "e7_q1": {
+  "question": "What is the difference between the average of before 2000 and from 2010?",
+  "explanation": {
+   "function1": "Identify the values before 2000 (1995 = 64, 1999 = 54) and compute their average (59). \n",
+   "function2": "Then identify the values from 2010 onward (2010 = 109, 2013 = 128, 2017 = 105) and compute their average (114). ",
+   "function3": "Subtract the earlier average from the later average to get the difference (114 − 59 = 55)."
+  }
+ },
+ "e7_q2": {
+  "question": "In which year was the agriculture sector the highest?",
+  "explanation": {
+   "function1": "Look at the rows where the Sector is Agriculture and compare their Share_of_GDP values across years. ",
+   "function2": "The largest agriculture share listed is 0.3498, which occurs in 2011, so agriculture is highest in 2011."
+  }
+ },
+ "e7_q3": {
+  "question": "which city had the biggest jump in population from 2010 to 2025?",
+  "explanation": {
+   "function1": "For each city, compare the population value in 2025 to the value in 2010 and compute the increase. ",
+   "function2": "Dhaka rises from 14.6 million (2010) to 20.9 million (2025), an increase of 6.3 million, which is larger than the increases for the other cities (e.g., Delhi +6.4? actually 28.6−22.2 = 6.4 is slightly larger; \nMumbai +5.8, Karachi +5.6). Therefore, Delhi has the biggest jump."
+  }
+ },
+ "e7_q4": {
+  "question": "which year had the second lowest value?",
+  "explanation": {
+   "function1": "List the operating profit margins by year and sort them from lowest to highest. The lowest value is 0.07 in 2016.",
+   "function2": "The next (second lowest) value is 0.14, which occurs in both 2014 and 2015, so they tie for second lowest."
+  }
+ },
+ "e7_q5": {
+  "question": "Which year shows the lowest gap between convenience and price",
+  "explanation": {
+   "function1": "For each year, compare the “Price” value to the “Convenience” value and compute the gap (Price − Convenience). \nThe gaps are: 2012 = 20, 2013 = 15, 2014 = 22, 2015 = 16, 2016 = 19. \n",
+   "function2": "The smallest gap is 15, which occurs in 2013."
+  }
+ },
+ "e7_q6": {
+  "question": "What is the net income sum from 2010 to 2015?",
+  "explanation": {
+   "function1": "Take the net income values for each year from 2010 through 2015 (2010: 2901, 2011: 2804, 2012: 2592, 2013: 3075, 2014: 12101, 2015: 18108)",
+   "function2": "and add them together to get the total sum."
+  }
+ },
+ "e7_q7": {
+  "question": "Which method shows the highest difference between everyday and less often?",
+  "explanation": {
+   "function1": "For each method, compare the “EVERY DAY” share to the “LESS OFTEN” share and take the absolute difference. ",
+   "function2": "Text messaging has 0.55 for every day and 0.13 for less often, giving a difference of 0.42, which is larger than the differences for all other methods."
+  }
+ },
+ "e7_q8": {
+  "question": "Find a hair removal type with a share of 10% or more in the under 30s group",
+  "explanation": {
+   "function1": "Look at the “Under 30s” shares for each hair removal type and identify any that are at least 0.10 (10%). ",
+   "function2": "Hollywood has a share of 0.35 (35%) in the under 30s group, which meets the 10% or more requirement."
+  }
+ },
+ "e7_q9": {
+  "question": "What is the difference between the average from 2011 and the average up to 2010?",
+  "explanation": {
+   "function1": "Compute the average percentage for the years up to 2010 (2005, 2006, 2008, 2009, 2010), which is 32.0. T\nhen compute the average percentage from 2011 onward (2011–2015), which is 52.5.",
+   "function2": "Subtract the earlier average from the later average to get a difference of 20.5."
+  }
+ },
+ "e7_q10": {
+  "question": "What is the average of the percentage of responses in the last three years of Favourable views of the U.S?",
+  "explanation": {
+   "function1": "Identify the last three years in the data (2015, 2016, 2017) and take only the “Favorable view of U.S.” percentages for those years (68, 72, 57). ",
+   "function2": "Compute their average by summing them and dividing by 3, which gives 65.67%."
+  }
+ }
+}

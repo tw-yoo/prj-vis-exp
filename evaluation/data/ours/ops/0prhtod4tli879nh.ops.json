@@ -27,7 +27,7 @@
         ],
         "sentenceIndex": 2
       },
-      "which": "min",
+      "which": "max",
       "field": "Population in millions"
     }
   ]

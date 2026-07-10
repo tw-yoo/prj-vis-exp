@@ -624,6 +624,14 @@ function targetKeyForPairDiff(item: DatumValue, byField: string) {
   if (!normalized) return null
   if (normalized === 'target' || normalized === 'category') return String(item.target)
   if (item.category != null && normalized === String(item.category)) return String(item.target)
+  // Faceted charts: when `by` names the facet/panel field (e.g. a grouped bar
+  // faceted by "City"), the per-pair key is the panel value, not the x-axis
+  // target. keyFieldForPairDiff already handles this for `keyField`; mirror it
+  // here so a plain `by: "<facetField>"` also pairs correctly instead of
+  // throwing "unsupported key field".
+  if (item.panelField != null && normalized === String(item.panelField)) {
+    return item.panel != null ? String(item.panel) : null
+  }
   if (normalized === 'id') {
     const id = item.id ?? item.lookupId ?? null
     return id != null ? String(id) : null
@@ -905,7 +913,13 @@ export function findExtremum(data: DatumValue[], op: OperationSpec): DatumValue[
   if (normalized.length === 0) return []
   const sorted = normalized.slice().sort((a, b) => compareComparableValues(a.value, b.value))
   const pickMax = which !== 'min'
-  const chosen = pickMax ? sorted[sorted.length - 1] : sorted[0]
+  // 1-based extremum rank (default 1 = the extremum itself): rank 2 picks the
+  // second-largest/-smallest, etc. Out-of-range ranks yield no result rather
+  // than silently clamping to a wrong row.
+  const rank = Math.max(1, Math.floor(Number(spec.rank ?? 1)) || 1)
+  const chosenIndex = pickMax ? sorted.length - rank : rank - 1
+  if (chosenIndex < 0 || chosenIndex >= sorted.length) return []
+  const chosen = sorted[chosenIndex]
   const label = buildAggregateLabel(
     pickMax ? 'maximum' : 'minimum',
     semanticSubjectFromRows(section, field || 'value'),

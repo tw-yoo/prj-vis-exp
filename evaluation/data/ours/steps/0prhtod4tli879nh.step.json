@@ -7,11 +7,11 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Compare each city’s 2010 and 2025 population bars."
+      "text": "Compare each city's 2010 and 2025 population bars."
     },
     {
       "id": "ops2",
-      "text": "Tokyo stands out among the cities, so the biggest jump is Tokyo."
+      "text": "Delhi has the biggest jump (22.2 → 28.6, +6.4)."
     }
   ]
 }

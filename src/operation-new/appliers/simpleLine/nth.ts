@@ -76,6 +76,26 @@ export const nthApplier: OperationApplier = {
       // diff can locate this endpoint on its surface (primitives/splitDiffOverlay).
       if (nodeId) pointSel.attr(RESULT_REF_ATTRIBUTE, nodeId)
 
+      // ALSO drop an invisible anchor line in the ANNOTATION LAYER at the
+      // value position: a mid-chain chart-type swap (sort line→bar) detaches
+      // the circle stamped above, and a detached node can't be located by the
+      // cross-surface merge resolver. The annotation layer survives the swap.
+      if (nodeId) {
+        layer
+          .append('line')
+          .attr(SvgAttributes.Class, `${NTH_ANNOTATION_CLASS} ${NTH_ANNOTATION_CLASS}-anchor`)
+          .attr(DataAttributes.AnnotationNodeId, nodeId)
+          .attr(RESULT_REF_ATTRIBUTE, nodeId)
+          .attr(SvgAttributes.X1, metrics.x - 12)
+          .attr(SvgAttributes.X2, metrics.x + 12)
+          .attr(SvgAttributes.Y1, metrics.y)
+          .attr(SvgAttributes.Y2, metrics.y)
+          .attr(SvgAttributes.Stroke, COLORS.ANNOTATION_RED)
+          .attr(SvgAttributes.StrokeWidth, 2)
+          .style(SvgAttributes.Opacity, 0)
+          .style('pointer-events', 'none')
+      }
+
       highlightPromises.push(
         pointSel
           .interrupt()

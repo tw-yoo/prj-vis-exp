@@ -261,14 +261,9 @@ function drawFireHorizontalLine(g, y, plotW, className, label, color = '#111827'
 }
 
 export function function1({ d3, container }) {
-    const csvAverage = 225;
-    const { g, plotW, yScale } = getFireChartMetrics(d3, container);
-    if (g.empty()) return;
-    g.selectAll('.e5-q1-average').remove();
-    drawFireHorizontalLine(g, yScale(csvAverage), plotW, 'e5-q1-average', String(csvAverage));
-}
-
-export function function2({ d3, container }) {
+    // Reviewer (e5 q1 S1): sentence identifies the MAXIMUM (380), so this step
+    // must highlight the max bar — not draw the average line. (function1 and
+    // function2 bodies were previously swapped relative to their sentences.)
     const csvMax = 380;
     const { g } = getFireChartMetrics(d3, container);
     if (g.empty()) return;
@@ -293,6 +288,16 @@ export function function2({ d3, container }) {
         .attr('font-weight', 700)
         .attr('fill', '#ef4444')
         .text(String(csvMax));
+}
+
+export function function2({ d3, container }) {
+    // Reviewer (e5 q1 S2): sentence computes the AVERAGE (225), so this step
+    // draws the average reference line.
+    const csvAverage = 225;
+    const { g, plotW, yScale } = getFireChartMetrics(d3, container);
+    if (g.empty()) return;
+    g.selectAll('.e5-q1-average').remove();
+    drawFireHorizontalLine(g, yScale(csvAverage), plotW, 'e5-q1-average', String(csvAverage));
 }
 
 export function function3({ d3, container }) {

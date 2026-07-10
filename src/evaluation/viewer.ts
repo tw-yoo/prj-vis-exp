@@ -238,7 +238,6 @@ const containerEl = document.getElementById('chartContainer') as HTMLElement
 const questionEl = document.getElementById('questionText') as HTMLElement
 const descriptionEl = document.getElementById('descriptionText') as HTMLElement
 const debugMetaEl = document.getElementById('debugMeta') as HTMLElement
-debugMetaEl.style.display = 'none'
 const explanationEl = document.getElementById('explanationArea') as HTMLElement
 const surveyEl = document.getElementById('surveyArea') as HTMLFormElement
 const prevBtn = document.getElementById('prevBtn') as HTMLButtonElement
@@ -689,8 +688,11 @@ function handleSurveyChange() {
 }
 
 function isSurveyPageComplete(): boolean {
-  // Pilot exception: PILOTA / PILOTB may leave any question blank (nothing required).
+  // Pilot / demo exception: PILOTA / PILOTB and any DEMO* walkthrough (DEMO,
+  // DEMOB1/B2/B3) may leave any question blank (nothing required), so they can
+  // click straight through.
   if (['PILOTA', 'PILOTB'].includes(participant.code.toUpperCase())) return true
+  if (participant.order.system.startsWith('DEMO')) return true
   const ctx = currentSurveyContext()
   if (!ctx) return true
   return ctx.questions.every((q) => {
@@ -1349,7 +1351,13 @@ function updateUI() {
   descriptionEl.textContent = ''
   // debugMeta is a subtle researcher readout; keep it anonymized (the System
   // label, never the raw Ours/B1/B2/B3 name) so identity can't be inferred.
-  debugMetaEl.textContent = `${itemLabel} · Group ${item.group} · ID ${item.chart_id}`
+  // Also flags whether the SHOWN answer is correct or a planted (deception)
+  // wrong answer — and, when wrong, the true value — so the researcher can tell
+  // at a glance which items should be judged "incorrect".
+  const answerFlag = item.answerIsCorrect
+    ? 'Answer CORRECT'
+    : `Answer INCORRECT (shown ${item.answer}, true ${item.correctAnswer})`
+  debugMetaEl.textContent = `${itemLabel} · Group ${item.group} · ID ${item.chart_id} · ${answerFlag}`
 
   const stepTexts = currentRenderer?.getStepTexts() ?? []
   if (item.method === 'b1') {

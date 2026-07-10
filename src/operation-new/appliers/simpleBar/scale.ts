@@ -6,13 +6,15 @@ import type { SimpleBarChartInstance } from '../../../rendering-new/instances/si
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawResultBadge } from '../../primitives/drawResultBadge'
 import { FILTER_ANNOTATION_CLASS } from './filter'
-import { ARITH_RESULT_ANNOTATION_CLASS } from './add'
+
+export const SCALE_RESULT_ANNOTATION_CLASS = 'operation-next-bar-scale-result'
 
 /**
  * Scale applier for simple-bar (e.g. the ×(1/3) that turns a sum of three
- * values into an average). Shares ARITH_RESULT_ANNOTATION_CLASS with `add` so
- * the final value replaces the prior running-total badge in the same corner.
- * Was previously a no-op (no applier registered) — see add.ts header.
+ * values into an average). Draws its OWN badge one row below `add`'s running
+ * total (offsetY slot) — sharing add's class made drawResultBadge's same-class
+ * cleanup overwrite the running total, so the viewer lost the intermediate
+ * value the step text still referenced.
  */
 export const scaleApplier: OperationApplier<SimpleBarChartInstance> = {
   op: OperationOp.Scale,
@@ -39,11 +41,12 @@ export const scaleApplier: OperationApplier<SimpleBarChartInstance> = {
 
     await drawResultBadge({
       layer: instance.annotationLayer,
-      cssClass: ARITH_RESULT_ANNOTATION_CLASS,
+      cssClass: SCALE_RESULT_ANNOTATION_CLASS,
       text: `= ${formatOperationValue(value)}`,
       layout: instance.layout,
       anchor: 'top-right',
       fontSize: 16,
+      offsetY: 22,
     })
 
     return {
@@ -52,8 +55,8 @@ export const scaleApplier: OperationApplier<SimpleBarChartInstance> = {
         ...state,
         lastResult: result,
         annotationRecords: [
-          ...state.annotationRecords.filter((r) => r.cssClass !== ARITH_RESULT_ANNOTATION_CLASS),
-          { cssClass: ARITH_RESULT_ANNOTATION_CLASS, role: 'result', persistent: false },
+          ...state.annotationRecords,
+          { cssClass: SCALE_RESULT_ANNOTATION_CLASS, role: 'result', persistent: false },
         ],
       },
     }

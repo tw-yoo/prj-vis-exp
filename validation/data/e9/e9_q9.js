@@ -278,7 +278,7 @@ export function function1({ d3, container }) {
     const line = d3.line()
         .x((d) => xScale(d.year) ?? 0)
         .y((d) => yScale(d.value))
-        .curve(d3.curveMonotoneX);
+        .curve(d3.curveLinear);
     svg.selectAll('*').remove();
 
     const g = svg.append('g')

@@ -450,10 +450,39 @@ function resolvePairDiffColorGroups(
 async function applyPairDiffFocusTransform(
   container: HTMLElement,
   operation: OperationSpec,
+  state?: ChainState,
 ): Promise<ScaleRecord | null> {
   const groupA = operation.groupA == null ? null : String(operation.groupA)
   const groupB = operation.groupB == null ? null : String(operation.groupB)
   if (!groupA || !groupB) return null
+
+  // In-scope predicate for domain/path computation. A prior filter narrowed
+  // workingData (e.g. to the last five years) and drove the excluded circles
+  // to opacity 0 — but they are still in the DOM with their original
+  // data-value. Without this scope, those stale circles stretch the recomputed
+  // y domain and the rebound line paths regrow through the filtered-out years
+  // (the "stray point" / rise-from-the-bottom morph).
+  const scopeTargets =
+    state && state.workingData.length > 0
+      ? new Set(
+          state.workingData.flatMap((d) => {
+            const out: string[] = [String(d.target)]
+            if (d.id != null) out.push(String(d.id))
+            return out
+          }),
+        )
+      : null
+  const circleInScope = (node: SVGCircleElement): boolean => {
+    if (scopeTargets) {
+      const target = node.getAttribute(DataAttributes.Target) ?? ''
+      const id = node.getAttribute(DataAttributes.Id) ?? ''
+      if (!scopeTargets.has(target) && !scopeTargets.has(id)) return false
+    }
+    // Never let an invisible mark steer the focus domain or the rebound paths.
+    const styleOpacity = node.style.opacity
+    if (styleOpacity !== '' && Number(styleOpacity) === 0) return false
+    return true
+  }
 
   const svg = d3.select(container).select<SVGSVGElement>(SvgElements.Svg)
   if (svg.empty()) return null
@@ -501,8 +530,9 @@ async function applyPairDiffFocusTransform(
   const keptPoints = svg
     .selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Series}]`)
     .filter(function () {
-      const series = (this as SVGCircleElement).getAttribute(DataAttributes.Series) ?? ''
-      return keptGroups.has(series)
+      const node = this as SVGCircleElement
+      const series = node.getAttribute(DataAttributes.Series) ?? ''
+      return keptGroups.has(series) && circleInScope(node)
     })
   const values = keptPoints
     .nodes()
@@ -532,11 +562,14 @@ async function applyPairDiffFocusTransform(
     )
   }
 
-  // Capture original domain (from current circle values) before rescaling,
-  // so subsequent operations can detect the pairDiff rescale via scaleState.
+  // Capture original domain (from current IN-SCOPE circle values) before
+  // rescaling, so subsequent operations can detect the pairDiff rescale via
+  // scaleState. Out-of-scope (filtered/hidden) circles are excluded — their
+  // stale values would misrepresent the chart the viewer actually sees.
   const allValues = svg
     .selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Value}]`)
     .nodes()
+    .filter((n) => circleInScope(n))
     .map((n) => Number(n.getAttribute(DataAttributes.Value)))
     .filter(Number.isFinite)
   const originalMin = d3.min(allValues) ?? 0
@@ -590,7 +623,8 @@ async function applyPairDiffFocusTransform(
     const points = svg
       .selectAll<SVGCircleElement, unknown>(`${SvgElements.Circle}[${DataAttributes.Series}]`)
       .filter(function () {
-        return (this as SVGCircleElement).getAttribute(DataAttributes.Series) === series
+        const node = this as SVGCircleElement
+        return node.getAttribute(DataAttributes.Series) === series && circleInScope(node)
       })
       .nodes()
       .map((point) => ({
@@ -1505,7 +1539,9 @@ export async function runPairDiffOperation(
     dom: summarizeMultipleLineDom(run.container),
   })
   const shouldRescale = run.options?.tensionPolicy?.rescaleAfterIsolation.default ?? true
-  const scaleState = shouldRescale ? await applyPairDiffFocusTransform(run.container, operation) : null
+  const scaleState = shouldRescale
+    ? await applyPairDiffFocusTransform(run.container, operation, state)
+    : null
   await annotatePairDiff(run.container, result, operation, state)
   await run.options?.onOperationCompleted?.({ operation, operationIndex, result })
   console.log('[operation-next] multiple-line pairDiff', { operationIndex, operation, result })

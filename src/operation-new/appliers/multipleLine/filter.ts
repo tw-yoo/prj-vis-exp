@@ -238,7 +238,18 @@ export const filterApplier: OperationApplier<MultipleLineChartInstance> = {
 
     const layer = instance.annotationLayer
     applyAnnotationContextFade(layer, state.annotationRecords, FILTER_ANNOTATION_CLASS)
-    fadeRemoveAnnotations(layer, FILTER_ANNOTATION_CLASS)
+    // nodeId-scoped cleanup: a re-run of the SAME filter node replaces its own
+    // annotations, but another filter node's threshold line stays — chained
+    // filters AND-compose (workingData flows through), so every prior bound is
+    // still a live constraint. Legacy specs without nodeIds keep the
+    // whole-class removal.
+    const filterNodeId = typeof operation.meta?.nodeId === 'string' ? operation.meta.nodeId : null
+    fadeRemoveAnnotations(
+      layer,
+      filterNodeId
+        ? `${FILTER_ANNOTATION_CLASS}[${DataAttributes.AnnotationNodeId}="${filterNodeId}"]`
+        : FILTER_ANNOTATION_CLASS,
+    )
 
     const remainingKeys = resultPointKeys(result)
 
@@ -253,7 +264,18 @@ export const filterApplier: OperationApplier<MultipleLineChartInstance> = {
         const sm = (d as { semanticMeasure?: unknown }).semanticMeasure
         return typeof sm === 'string' && sm.startsWith('Δ')
       })
-    const layers = isPostDerivedDiff ? [] : computeFilterLineSegments(instance, remainingKeys)
+
+    // X-range filter (e.g. Year > 2014): the x axis RECOMPOSES to the
+    // surviving targets (phase 2 below) — filtered years leave the axis and
+    // the remaining points spread across the plot, mirroring simple-line's
+    // filter rescale. The ghost-segment overlay is skipped for these: its
+    // absolute-pixel segments would be orphaned by the recompose, and the
+    // removed points leave the plot entirely anyway.
+    const xFieldAttr = instance.svg.attr(DataAttributes.XField)
+    const isXRangeFilter =
+      typeof operation.field === 'string' && xFieldAttr != null && operation.field === xFieldAttr
+    const layers =
+      isPostDerivedDiff || isXRangeFilter ? [] : computeFilterLineSegments(instance, remainingKeys)
 
     // Post-pairDiff: pairDiff stamps result.group = "A-B" (combined series), but
     // the chart's DOM circles still carry the original data-series ("A" or "B").
@@ -321,6 +343,31 @@ export const filterApplier: OperationApplier<MultipleLineChartInstance> = {
       /* interrupted */
     }
 
+    // ----- Phase 2 (x-range filters): axis recompose --------------------
+    // After the dim phase, narrow the x domain to the surviving targets:
+    // filtered ticks leave the axis, in-scope points/lines slide to the new
+    // slots, and the y axis rescales to the surviving values — one shared
+    // transition inside transitionChartScale (no flicker). This also keeps
+    // downstream ops honest: no dimmed off-scale points linger to stretch a
+    // later recomputed y domain.
+    if (isXRangeFilter && !isPostDerivedDiff) {
+      const xScopeTargets = new Set(
+        result.flatMap((d) => {
+          const out: string[] = [String(d.target)]
+          if (d.id != null) out.push(String(d.id))
+          const normalized = normalizedDateTarget(String(d.target))
+          if (normalized) out.push(normalized)
+          return out
+        }),
+      )
+      await instance.transitionChartScale({
+        activeTargets: xScopeTargets,
+        outOfScopeOpacity: OPACITIES.HIDDEN,
+        duration: DURATIONS.AXIS_RESCALE,
+      })
+      instance.activeTargets = xScopeTargets.size > 0 ? xScopeTargets : null
+    }
+
     // ----- Phase 2: threshold reference line (y-measure filters only) -----
     // Skip for x-range filters (e.g. Year>=2010, #10/#50): their value is an x
     // label, so inferYForValue would extrapolate it against the y-axis and draw
@@ -351,6 +398,16 @@ export const filterApplier: OperationApplier<MultipleLineChartInstance> = {
             height: instance.layout.plotHeight,
           },
         })
+        // Stamp this node's id on the just-drawn line+label (the primitive has
+        // no attr slot) so the nodeId-scoped cleanup above pairs them on re-run.
+        if (filterNodeId) {
+          layer
+            .selectAll<SVGElement, unknown>(`.${FILTER_ANNOTATION_CLASS}`)
+            .filter(function () {
+              return this.getAttribute(DataAttributes.AnnotationNodeId) == null
+            })
+            .attr(DataAttributes.AnnotationNodeId, filterNodeId)
+        }
       }
     }
 
