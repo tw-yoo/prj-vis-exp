@@ -190,5 +190,95 @@
       "system": "SO1",
       "chart": "CO2"
     }
+  },
+  "DEMOP1": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO1"
+    }
+  },
+  "DEMOP3": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO3"
+    }
+  },
+  "DEMOP4": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO4"
+    }
+  },
+  "DEMOP5": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO1"
+    }
+  },
+  "DEMOP6": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO2"
+    }
+  },
+  "DEMOP7": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO3"
+    }
+  },
+  "DEMOP8": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO4"
+    }
+  },
+  "DEMOP9": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO1"
+    }
+  },
+  "DEMOP0": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO2"
+    }
+  },
+  "DEMOPA": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO3"
+    }
+  },
+  "DEMOPB": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO4"
+    }
+  },
+  "DEMOPC": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO1"
+    }
+  },
+  "DEMOPD": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO2"
+    }
+  },
+  "DEMOPE": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO3"
+    }
+  },
+  "DEMOPF": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO4"
+    }
   }
 }
