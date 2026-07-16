@@ -184,5 +184,11 @@
       "system": "DEMOTM",
       "chart": "DEMOTM"
     }
+  },
+  "DEMOP2": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO2"
+    }
   }
 }

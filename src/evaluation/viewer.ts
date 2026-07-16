@@ -887,10 +887,13 @@ function handleSurveyChange() {
 }
 
 function isSurveyPageComplete(): boolean {
-  // Pilot / demo exception: PILOTA / PILOTB and any DEMO* walkthrough (DEMO,
-  // DEMOB1/B2/B3) may leave any question blank (nothing required), so they can
+  // Pilot / demo exception: PILOTA / PILOTB, any DEMO* walkthrough (DEMO,
+  // DEMOB1/B2/B3), and any participant CODE starting with "DEMO" (even one
+  // riding a real system/chart order, e.g. DEMOP2 = order SO1CO2's exact
+  // interface but freely navigable) may leave any question blank, so they can
   // click straight through.
   if (['PILOTA', 'PILOTB'].includes(participant.code.toUpperCase())) return true
+  if (participant.code.toUpperCase().startsWith('DEMO')) return true
   if (participant.order.system.startsWith('DEMO')) return true
   if (allPages[currentPageIndex]?.kind === 'demographics') return isDemographicsComplete()
   return isContextComplete(currentSurveyContext())
@@ -1514,7 +1517,8 @@ const DEMOGRAPHICS_TEXT_FIELDS = ['gender', 'gender-self', 'education', 'field',
 // Pilots / DEMO walkthroughs can click straight through (nothing required),
 // mirroring isSurveyPageComplete's exemption.
 function isDemographicsExempt(): boolean {
-  return ['PILOTA', 'PILOTB'].includes(participant.code.toUpperCase()) || participant.order.system.startsWith('DEMO')
+  const code = participant.code.toUpperCase()
+  return ['PILOTA', 'PILOTB'].includes(code) || code.startsWith('DEMO') || participant.order.system.startsWith('DEMO')
 }
 
 function isDemographicsComplete(): boolean {

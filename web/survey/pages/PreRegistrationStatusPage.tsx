@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { listPreRegistrations, updatePreRegistrationSchedule } from '../services'
+import { listPreRegistrations, updatePreRegistrationSchedule, updatePreRegistrationCompletion } from '../services'
 import type { PreRegistrationRecord } from '../services'
 import { formatSlotLabel } from '../components'
 import './preRegistrationStatus.css'
@@ -117,9 +117,32 @@ function RecordCard({
   const [pending, setPending] = useState<PendingSchedule>(() => initialSchedule(record.fields, slotIds))
   const [saving, setSaving] = useState(false)
   const [savedNote, setSavedNote] = useState('')
+  const [completing, setCompleting] = useState(false)
+  const [expanded, setExpanded] = useState(false)
 
   const currentlyScheduled = record.fields.scheduled === true || record.fields.scheduled === 'true'
   const currentLabel = asString(record.fields.scheduledLabel)
+  const currentlyCompleted = record.fields.studyCompleted === true || record.fields.studyCompleted === 'true'
+
+  const setCompletion = useCallback(
+    async (completed: boolean) => {
+      setCompleting(true)
+      try {
+        await updatePreRegistrationCompletion(record.id, completed)
+        onSaved(record.id, {
+          ...record.fields,
+          studyCompleted: completed,
+          studyCompletedAt: completed ? new Date().toISOString() : '',
+        })
+        setExpanded(false)
+      } catch (error) {
+        setSavedNote(`Failed: ${error instanceof Error ? error.message : String(error)}`)
+      } finally {
+        setCompleting(false)
+      }
+    },
+    [onSaved, record.fields, record.id],
+  )
 
   const resolvedLabel = useCallback((): string => {
     if (!pending.scheduled) return ''
@@ -171,6 +194,28 @@ function RecordCard({
   }, [onSaved, pending, record.fields, record.id, resolvedLabel])
 
   const labels = availabilityLabels(record.fields)
+
+  // Once marked complete, collapse the whole card to a single summary line so
+  // finished registrations stop taking up visual space. "Reopen" expands it
+  // back into the full editable card.
+  if (currentlyCompleted && !expanded) {
+    return (
+      <article className="prs-card prs-card--done">
+        <div className="prs-done-row">
+          <span className="prs-done-check" aria-hidden="true">
+            ✓
+          </span>
+          <span className="prs-email prs-done-email">{record.email}</span>
+          <span className="prs-muted prs-small">
+            Study completed {formatTimestamp(asString(record.fields.studyCompletedAt))}
+          </span>
+          <button className="prs-btn prs-btn--ghost prs-done-reopen" type="button" onClick={() => setExpanded(true)}>
+            Reopen
+          </button>
+        </div>
+      </article>
+    )
+  }
 
   return (
     <article className={`prs-card${currentlyScheduled ? ' prs-card--scheduled' : ''}`}>
@@ -253,6 +298,17 @@ function RecordCard({
             </button>
             {savedNote ? <span className="prs-saved">{savedNote}</span> : null}
           </div>
+        </div>
+
+        <div className="prs-complete">
+          <button
+            className="prs-btn prs-btn--complete"
+            type="button"
+            onClick={() => void setCompletion(true)}
+            disabled={completing}
+          >
+            {completing ? 'Saving…' : '✓ Mark study completed'}
+          </button>
         </div>
       </div>
     </article>

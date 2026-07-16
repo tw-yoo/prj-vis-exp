@@ -195,6 +195,20 @@ export async function updatePreRegistrationSchedule(docId: string, schedule: Pre
   await patchDocument(path, merged)
 }
 
+/**
+ * Set/clear the "study completed" flag for a pre-registration entry. Reads the
+ * existing document first and merges the field back in so screening/availability/
+ * schedule answers are never clobbered.
+ */
+export async function updatePreRegistrationCompletion(docId: string, completed: boolean) {
+  const path = ['eval-pre-registration', docId]
+  const existing = await getDocument(path)
+  const merged: Record<string, JsonValue> = { ...(existing?.fields || {}) }
+  merged.studyCompleted = completed
+  merged.studyCompletedAt = completed ? new Date().toISOString() : ''
+  await patchDocument(path, merged)
+}
+
 export async function validateSurveyCode(code: string) {
   const doc = await getDocument(['survey', code])
   return doc !== null

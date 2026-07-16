@@ -202,6 +202,87 @@
   background: #1d4ed8;
 }
 
+.prs-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: #2563eb;
+  padding: 4px 8px;
+}
+
+.prs-btn--ghost:hover {
+  background: #eff6ff;
+}
+
+/* "Mark study completed" spans both card-body columns, set apart by a divider. */
+.prs-complete {
+  grid-column: 1 / -1;
+  border-top: 1px solid #eef2f7;
+  padding-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.prs-btn--complete {
+  background: #ffffff;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.prs-btn--complete:hover {
+  background: #f0fdf4;
+}
+
+/* Collapsed one-line summary for a completed registration. */
+.prs-card--done {
+  padding: 10px 16px;
+}
+
+.prs-done-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.prs-done-check {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.prs-done-email {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.prs-done-row .prs-muted {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.prs-done-reopen {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .prs-done-row .prs-muted {
+    display: none;
+  }
+}
+
 /* Access gate */
 .prs-gate {
   min-height: 70vh;

@@ -1,0 +1,488 @@
+{
+  "charts": {
+    "01mksjs373fhcl4q": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "Large companies",
+      "correctAnswer": "Large companies",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G4",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "7"
+      },
+      "responseTimeMs": 47360,
+      "system": "B3"
+    },
+    "0egzejn5mejtnfdm": {
+      "answerCorrect": "No",
+      "answerIsCorrect": false,
+      "answerShown": "12",
+      "correctAnswer": "26",
+      "errorDescription": "The answer in the explaination is correct but the answer output by the system is wrong",
+      "firstErrorChunkIndex": 0,
+      "group": "G2",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "6",
+        "usefulness": "6"
+      },
+      "responseTimeMs": 124790,
+      "system": "B1"
+    },
+    "0gvrmm8qbn6o1vya": {
+      "answerCorrect": "No",
+      "answerIsCorrect": true,
+      "answerShown": "53.41",
+      "correctAnswer": "53.41",
+      "errorDescription": "The answer in the explanation should be 53.41",
+      "firstErrorChunkIndex": 2,
+      "group": "G3",
+      "ratings": {
+        "derivation-clear": "5",
+        "reasoning-easy": "5",
+        "usefulness": "4"
+      },
+      "responseTimeMs": 72592,
+      "system": "B2"
+    },
+    "0jbrb1dcbliiampz": {
+      "answerCorrect": "No",
+      "answerIsCorrect": false,
+      "answerShown": "7",
+      "correctAnswer": "3",
+      "errorDescription": "The explanation is correct the output answer is wrong",
+      "firstErrorChunkIndex": 0,
+      "group": "G2",
+      "ratings": {
+        "derivation-clear": "6",
+        "reasoning-easy": "6",
+        "usefulness": "6"
+      },
+      "responseTimeMs": 105933,
+      "system": "B1"
+    },
+    "0wflwm4jebx7n12y": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "141.25",
+      "correctAnswer": "141.25",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G1",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "6"
+      },
+      "responseTimeMs": 103241,
+      "system": "Ours"
+    },
+    "0xc7sx6ll8fl5rgh": {
+      "answerCorrect": "No",
+      "answerIsCorrect": false,
+      "answerShown": "0.37",
+      "correctAnswer": "0.31",
+      "errorDescription": "The final output answer is wrong but the answer in the explanation is correct ",
+      "firstErrorChunkIndex": 2,
+      "group": "G3",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "7"
+      },
+      "responseTimeMs": 70505,
+      "system": "B2"
+    },
+    "10gtgmmgh599jnr7": {
+      "answerCorrect": "No",
+      "answerIsCorrect": true,
+      "answerShown": "0.02",
+      "correctAnswer": "0.02",
+      "errorDescription": "The difference should be 0.023 which is wrong in the explanation but the final output answer is still correct if rounded",
+      "firstErrorChunkIndex": 2,
+      "group": "G3",
+      "ratings": {
+        "derivation-clear": "6",
+        "reasoning-easy": "5",
+        "usefulness": "5"
+      },
+      "responseTimeMs": 110772,
+      "system": "B2"
+    },
+    "10t8o5vhethzeod1": {
+      "answerCorrect": "No",
+      "answerIsCorrect": false,
+      "answerShown": "2017",
+      "correctAnswer": "2011",
+      "errorDescription": "Industry and Service sector should be dim instead of Industry and Agriculture since we want to visualize which year was the agricultural sector the highest",
+      "firstErrorChunkIndex": 0,
+      "group": "G4",
+      "ratings": {
+        "derivation-clear": "2",
+        "reasoning-easy": "2",
+        "usefulness": "3"
+      },
+      "responseTimeMs": 103850,
+      "system": "B3"
+    },
+    "11e148qcs7x70t8v": {
+      "answerCorrect": "No",
+      "answerIsCorrect": false,
+      "answerShown": "2015, 2016, 2017, 2018, Jan-Oct 2019",
+      "correctAnswer": "2016, 2017, 2018, Jan-Oct 2019",
+      "errorDescription": "The explanation ignores the small value difference of france and south korea in 2015 where france actually is > south korea, which leads to a wrong explanation and answer. Answer should be 4, 2016, 2017, 2018, Jan-Oct 2019",
+      "firstErrorChunkIndex": 1,
+      "group": "G1",
+      "ratings": {
+        "derivation-clear": "2",
+        "reasoning-easy": "2",
+        "usefulness": "2"
+      },
+      "responseTimeMs": 114128,
+      "system": "Ours"
+    },
+    "16aphfabldrpgcmd": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "8",
+      "correctAnswer": "8",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G2",
+      "ratings": {
+        "derivation-clear": "6",
+        "reasoning-easy": "6",
+        "usefulness": "6"
+      },
+      "responseTimeMs": 110734,
+      "system": "B1"
+    },
+    "16fif5hdi8yzml00": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "7.5",
+      "correctAnswer": "7.5",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G1",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "7"
+      },
+      "responseTimeMs": 84963,
+      "system": "Ours"
+    },
+    "1a09xqtrj8zms716": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "600",
+      "correctAnswer": "600",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G4",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "7"
+      },
+      "responseTimeMs": 26710,
+      "system": "B3"
+    },
+    "1k8qhmg9rui7gtzh": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "31",
+      "correctAnswer": "31",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G1",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "6"
+      },
+      "responseTimeMs": 47604,
+      "system": "Ours"
+    },
+    "2bhsybiilde28j87": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "19%",
+      "correctAnswer": "19%",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G2",
+      "ratings": {
+        "derivation-clear": "6",
+        "reasoning-easy": "6",
+        "usefulness": "4"
+      },
+      "responseTimeMs": 59235,
+      "system": "B1"
+    },
+    "2eiyyw562tcvjypp": {
+      "answerCorrect": "No",
+      "answerIsCorrect": false,
+      "answerShown": "3",
+      "correctAnswer": "2",
+      "errorDescription": "In 2009, Russia is below than US, so the answer should be 2?",
+      "firstErrorChunkIndex": 0,
+      "group": "G4",
+      "ratings": {
+        "derivation-clear": "4",
+        "reasoning-easy": "3",
+        "usefulness": "4"
+      },
+      "responseTimeMs": 136220,
+      "system": "B3"
+    },
+    "2s65jcap9pn289qx": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": false,
+      "answerShown": "196.94",
+      "correctAnswer": "163.28",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G3",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "7"
+      },
+      "responseTimeMs": 81186,
+      "system": "B2"
+    },
+    "66va2s35es5t86l3": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "2010",
+      "correctAnswer": "2010",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G2",
+      "ratings": {
+        "derivation-clear": "6",
+        "reasoning-easy": "6",
+        "usefulness": "3"
+      },
+      "responseTimeMs": 92794,
+      "system": "B1"
+    },
+    "77xb5ug5lhfmkb74": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "230769",
+      "correctAnswer": "230769",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G3",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "7"
+      },
+      "responseTimeMs": 56830,
+      "system": "B2"
+    },
+    "8chfa8n079zpfigi": {
+      "answerCorrect": "No",
+      "answerIsCorrect": false,
+      "answerShown": "10",
+      "correctAnswer": "11",
+      "errorDescription": "The range in the graph should mark between 19 and 30 instead of 20 and 30, the correct answer should be 11",
+      "firstErrorChunkIndex": 0,
+      "group": "G1",
+      "ratings": {
+        "derivation-clear": "3",
+        "reasoning-easy": "2",
+        "usefulness": "2"
+      },
+      "responseTimeMs": 85373,
+      "system": "Ours"
+    },
+    "95yhyqjyeu4fohbj": {
+      "answerCorrect": "Yes",
+      "answerIsCorrect": true,
+      "answerShown": "No",
+      "correctAnswer": "No",
+      "errorDescription": "",
+      "firstErrorChunkIndex": "",
+      "group": "G4",
+      "ratings": {
+        "derivation-clear": "7",
+        "reasoning-easy": "7",
+        "usefulness": "7"
+      },
+      "responseTimeMs": 110781,
+      "system": "B3"
+    }
+  },
+  "code": "SO1CO1",
+  "demographics": {
+    "age": 21,
+    "education": "Bachelor's degree",
+    "field": "Computer Science",
+    "gender": "Male",
+    "occupation": "Student"
+  },
+  "final": {
+    "comment": ""
+  },
+  "order": {
+    "chart": "CO1",
+    "system": "SO1"
+  },
+  "postSession": {
+    "B1": {
+      "best-aspect": "It provides clear guidance on how to find the answer ",
+      "tlx-effort": "4",
+      "tlx-effort-reason": "Moderate, it was harder than the previous one but still manageable considering the information is not super dense",
+      "tlx-mental": "5",
+      "tlx-mental-reason": "Quite mentally demanding since I have to read the text and determine the correctness of the text and the information from the graph which is double effort",
+      "tlx-performance": "5",
+      "tlx-performance-reason": "Yes, although it requires higher mental effort but I can still understand it",
+      "tlx-temporal": "2",
+      "tlx-temporal-reason": "Not really since I can still do it in my own pace",
+      "transparency": "3",
+      "transparency-reason": "The system is not as transparent as the previous one, since I dont know how the explanation is formed and no steps are provided, and I'm just dumped with a bunch of text",
+      "trust": "3",
+      "trust-reason": "I generally dont trust the system when I'm first trying it out, because I have to manually check its correctness before I can determine whether the explanation it provides is actually accurate",
+      "usefulness": "4",
+      "usefulness-reason": "However, the explanation is still useful as a guidance in my opinion once the correctness is guaranteed",
+      "worst-aspect": "Maybe structure the text into steps like 1) 2) etc or break it down into point forms that might be easier to interpret by users"
+    },
+    "B2": {},
+    "B3": {},
+    "Ours": {
+      "best-aspect": "I personally like a step-by-step approach that requires low cognitive effort, while still delivering accurate visualizations tailored to the user's needs",
+      "tlx-effort": "2",
+      "tlx-effort-reason": "Not really, it was pretty straightforward and easy to understand.",
+      "tlx-mental": "2",
+      "tlx-mental-reason": "Not really, it was pretty straightforward and easy to understand.",
+      "tlx-performance": "6",
+      "tlx-performance-reason": "Yes, most the explanation delivered is correct.",
+      "tlx-temporal": "2",
+      "tlx-temporal-reason": "Not really, the step by step approach allows me to do it in my own pace",
+      "transparency": "6",
+      "transparency-reason": "I think the system is highly transparent because of the step-by-step pipeline where it allows user to trace the analysis based on the user's need",
+      "trust": "5",
+      "trust-reason": "The system got most of the answer correct, but there are cases like Explanation 5 where the system got it wrong",
+      "usefulness": "6",
+      "usefulness-reason": "I really like how the visualization is shown step-by-step because I believe it has reduced cognitive effort of analysing the graph manually, most of the explanation is useful as well.",
+      "worst-aspect": "Maybe increasing the accuracy of the system when representing the graph would be perfect. "
+    }
+  },
+  "sequence": [
+    {
+      "chart_id": "0wflwm4jebx7n12y",
+      "group": "G1",
+      "system": "Ours"
+    },
+    {
+      "chart_id": "0egzejn5mejtnfdm",
+      "group": "G2",
+      "system": "B1"
+    },
+    {
+      "chart_id": "2eiyyw562tcvjypp",
+      "group": "G4",
+      "system": "B3"
+    },
+    {
+      "chart_id": "1k8qhmg9rui7gtzh",
+      "group": "G1",
+      "system": "Ours"
+    },
+    {
+      "chart_id": "0jbrb1dcbliiampz",
+      "group": "G2",
+      "system": "B1"
+    },
+    {
+      "chart_id": "16fif5hdi8yzml00",
+      "group": "G1",
+      "system": "Ours"
+    },
+    {
+      "chart_id": "10gtgmmgh599jnr7",
+      "group": "G3",
+      "system": "B2"
+    },
+    {
+      "chart_id": "10t8o5vhethzeod1",
+      "group": "G4",
+      "system": "B3"
+    },
+    {
+      "chart_id": "11e148qcs7x70t8v",
+      "group": "G1",
+      "system": "Ours"
+    },
+    {
+      "chart_id": "66va2s35es5t86l3",
+      "group": "G2",
+      "system": "B1"
+    },
+    {
+      "chart_id": "2s65jcap9pn289qx",
+      "group": "G3",
+      "system": "B2"
+    },
+    {
+      "chart_id": "2bhsybiilde28j87",
+      "group": "G2",
+      "system": "B1"
+    },
+    {
+      "chart_id": "01mksjs373fhcl4q",
+      "group": "G4",
+      "system": "B3"
+    },
+    {
+      "chart_id": "0xc7sx6ll8fl5rgh",
+      "group": "G3",
+      "system": "B2"
+    },
+    {
+      "chart_id": "16aphfabldrpgcmd",
+      "group": "G2",
+      "system": "B1"
+    },
+    {
+      "chart_id": "95yhyqjyeu4fohbj",
+      "group": "G4",
+      "system": "B3"
+    },
+    {
+      "chart_id": "77xb5ug5lhfmkb74",
+      "group": "G3",
+      "system": "B2"
+    },
+    {
+      "chart_id": "8chfa8n079zpfigi",
+      "group": "G1",
+      "system": "Ours"
+    },
+    {
+      "chart_id": "1a09xqtrj8zms716",
+      "group": "G4",
+      "system": "B3"
+    },
+    {
+      "chart_id": "0gvrmm8qbn6o1vya",
+      "group": "G3",
+      "system": "B2"
+    }
+  ],
+  "systems": {
+    "A": "Ours",
+    "B": "B1",
+    "C": "B2",
+    "D": "B3"
+  },
+  "updatedAt": "2026-07-16T09:52:51.768Z"
+}

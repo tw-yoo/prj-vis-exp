@@ -34,6 +34,7 @@ export {
   listDocuments,
   listPreRegistrations,
   updatePreRegistrationSchedule,
+  updatePreRegistrationCompletion,
 } from './surveyFirestore'
 
 export type { PreRegistrationRecord, PreRegistrationSchedule } from './surveyFirestore'
