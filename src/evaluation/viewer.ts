@@ -1766,9 +1766,9 @@ function updateUI() {
   if (page.kind === 'final') {
     progressLabelEl.textContent = `Page ${logicalCurrentPage} of ${logicalTotalPages}`
     if (methodBadgeEl) methodBadgeEl.textContent = ''
-    // Anonymized: the A->system mapping is persisted in the saved doc's `systems`
-    // field for the researcher; never reveal it in the participant-facing UI.
-    debugMetaEl.textContent = `Final · ${finalItems.length} systems (${finalItems.map((it) => it.key).join('/')})`
+    // No researcher readout in the participant-facing UI: the A->system mapping
+    // is persisted in the saved doc's `systems` field instead.
+    debugMetaEl.textContent = ''
     questionEl.textContent = 'Final step: share any comments, then submit.'
     descriptionEl.textContent = ''
     explanationEl.hidden = true
@@ -1784,8 +1784,8 @@ function updateUI() {
     const blockLabel = block ? labelForSystem(block.system) : 'System ?'
     progressLabelEl.textContent = `Page ${logicalCurrentPage} of ${logicalTotalPages}`
     if (methodBadgeEl) methodBadgeEl.textContent = ''
-    // Anonymized researcher readout (the System label, never the raw name).
-    debugMetaEl.textContent = block ? `Post-session · ${blockLabel} · Group ${block.group}` : ''
+    // No researcher readout here — it would expose the internal group assignment.
+    debugMetaEl.textContent = ''
     // Heading sits ABOVE the review carousel (#postSessionHeading); keep the
     // in-flow questionText empty so it is not duplicated below the panel. Name
     // the (anonymized) system so the participant knows which one they're rating.
@@ -1807,15 +1807,11 @@ function updateUI() {
   if (methodBadgeEl) methodBadgeEl.textContent = `${itemLabel} · Question ${page.itemIdx + 1} / ${sequence.length}`
   questionEl.textContent = item.question
   descriptionEl.textContent = ''
-  // debugMeta is a subtle researcher readout; keep it anonymized (the System
-  // label, never the raw Ours/B1/B2/B3 name) so identity can't be inferred.
-  // Also flags whether the SHOWN answer is correct or a planted (deception)
-  // wrong answer — and, when wrong, the true value — so the researcher can tell
-  // at a glance which items should be judged "incorrect".
-  const answerFlag = item.answerIsCorrect
-    ? 'Answer CORRECT'
-    : `Answer INCORRECT (shown ${item.answer}, true ${item.correctAnswer})`
-  debugMetaEl.textContent = `${itemLabel} · Group ${item.group} · ID ${item.chart_id} · ${answerFlag}`
+  // NEVER surface chart id / group / answer correctness here — this element is
+  // participant-facing and printing the deception ground truth would give the
+  // task away. The condition + correctness ground truth is persisted in the
+  // saved doc (see buildSubmission) and logged to the console for researchers.
+  debugMetaEl.textContent = ''
 
   const stepTexts = currentRenderer?.getStepTexts() ?? []
   if (item.method === 'b1') {
