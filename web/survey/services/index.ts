@@ -32,4 +32,8 @@ export {
   fetchMainSessionItems,
   fetchPostSessionResponse,
   listDocuments,
+  listPreRegistrations,
+  updatePreRegistrationSchedule,
 } from './surveyFirestore'
+
+export type { PreRegistrationRecord, PreRegistrationSchedule } from './surveyFirestore'

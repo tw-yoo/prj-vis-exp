@@ -11,6 +11,7 @@ import OperationSpecPage from './operationSpec/pages/OperationSpecPage'
 // the ?view= query form. Keeps deep links like localhost:5173/pre-registration working.
 const SURVEY_PATH_VIEWS: Record<string, string> = {
   '/pre-registration': 'pre-registration',
+  '/pre-registration/status': 'pre-registration-status',
   '/consent': 'consent',
   '/main-survey': 'main-survey',
   '/data-collection': 'data-collection',

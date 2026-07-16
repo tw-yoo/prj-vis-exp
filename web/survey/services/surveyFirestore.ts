@@ -152,6 +152,49 @@ export async function recordPreRegistration(payload: PreRegistrationPayload) {
   await patchDocument(path, fields)
 }
 
+export interface PreRegistrationRecord {
+  id: string
+  email: string
+  fields: Record<string, JsonValue>
+}
+
+/** List every pre-registration entry stored under `eval-pre-registration`. */
+export async function listPreRegistrations(): Promise<PreRegistrationRecord[]> {
+  const docs = (await listDocuments(['eval-pre-registration'])) as Array<{
+    id: string
+    fields: Record<string, JsonValue>
+  }>
+  return docs.map((doc) => ({
+    id: doc.id,
+    email: typeof doc.fields.email === 'string' ? doc.fields.email : doc.id,
+    fields: doc.fields || {},
+  }))
+}
+
+export interface PreRegistrationSchedule {
+  scheduled: boolean
+  scheduledAt: string
+  scheduledLabel: string
+  scheduleNote: string
+}
+
+/**
+ * Set/clear the scheduling status for a pre-registration entry. Reads the
+ * existing document first and merges the schedule fields back in so the
+ * original screening/availability answers are never clobbered.
+ */
+export async function updatePreRegistrationSchedule(docId: string, schedule: PreRegistrationSchedule) {
+  const path = ['eval-pre-registration', docId]
+  const existing = await getDocument(path)
+  const merged: Record<string, JsonValue> = { ...(existing?.fields || {}) }
+  merged.scheduled = schedule.scheduled
+  merged.scheduledAt = schedule.scheduledAt
+  merged.scheduledLabel = schedule.scheduledLabel
+  merged.scheduleNote = schedule.scheduleNote
+  merged.scheduleUpdatedAt = new Date().toISOString()
+  await patchDocument(path, merged)
+}
+
 export async function validateSurveyCode(code: string) {
   const doc = await getDocument(['survey', code])
   return doc !== null

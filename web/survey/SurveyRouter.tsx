@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect, useMemo } from 'react'
 const ResultViewerPage = lazy(() => import('./pages/ResultViewerPage'))
 const ConsentPage = lazy(() => import('./pages/ConsentPage'))
 const PreRegistrationPage = lazy(() => import('./pages/PreRegistrationPage'))
+const PreRegistrationStatusPage = lazy(() => import('./pages/PreRegistrationStatusPage'))
 const MainSurveyPage = lazy(() => import('./pages/MainSurveyPage'))
 const DataCollectionPage = lazy(() => import('./pages/DataCollectionPage'))
 
@@ -10,6 +11,7 @@ type SurveyViewMode =
   | 'result-viewer'
   | 'consent'
   | 'pre-registration'
+  | 'pre-registration-status'
   | 'main-survey'
   | 'data-collection'
   | null
@@ -23,6 +25,7 @@ function isSurveyView(viewMode: string | null): viewMode is Exclude<SurveyViewMo
     viewMode === 'result-viewer' ||
     viewMode === 'consent' ||
     viewMode === 'pre-registration' ||
+    viewMode === 'pre-registration-status' ||
     viewMode === 'main-survey' ||
     viewMode === 'data-collection'
   )
@@ -45,6 +48,8 @@ function SurveyRouter({ viewMode }: SurveyRouterProps) {
         return <ConsentPage />
       case 'pre-registration':
         return <PreRegistrationPage />
+      case 'pre-registration-status':
+        return <PreRegistrationStatusPage />
       case 'main-survey':
         return <MainSurveyPage />
       case 'data-collection':
