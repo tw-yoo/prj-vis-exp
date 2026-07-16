@@ -11,11 +11,11 @@
     },
     {
       "id": "ops2",
-      "text": "Subtract the men's value from the women's value for each year."
+      "text": "Subtract the women's value from the men's value for each year."
     },
     {
       "id": "ops3",
-      "text": "Sum those yearly differences to get −196.94."
+      "text": "Sum those yearly differences to get 196.94."
     }
   ]
 }

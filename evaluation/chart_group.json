@@ -60,7 +60,7 @@
     },
     "line_simple": {
       "id": "8chfa8n079zpfigi",
-      "question": "How many years correspond to a value between 20 and 30?",
+      "question": "How many years correspond to a value between 19 and 30?",
       "answer": "10",
       "correctAnswer": "11",
       "answerIsCorrect": false
@@ -142,8 +142,8 @@
     "line_multiple": {
       "id": "2s65jcap9pn289qx",
       "question": "What is the sum of the differences between women and men in the last five years?",
-      "answer": "-196.94",
-      "correctAnswer": "-163.28",
+      "answer": "196.94",
+      "correctAnswer": "163.28",
       "answerIsCorrect": false
     }
   },
@@ -170,10 +170,10 @@
       "answerIsCorrect": true
     },
     "line_simple": {
-      "id": "25gpdzxh8nu0c0vf",
-      "question": "In average and median values, which one is bigger?",
-      "answer": "median",
-      "correctAnswer": "median",
+      "id": "95yhyqjyeu4fohbj",
+      "question": "Is the average of the minimum and maximum values greater compared to the value in 2010?",
+      "answer": "No",
+      "correctAnswer": "No",
       "answerIsCorrect": true
     },
     "line_multiple": {
@@ -218,6 +218,22 @@
       "question": "Which year shows the lowest gap between convenience and price",
       "answer": "2013",
       "correctAnswer": "2013",
+      "answerIsCorrect": true
+    }
+  },
+  "GTM": {
+    "bar_stacked": {
+      "id": "11e148qccorrect",
+      "question": "in which years does south korea have a bigger value than france?",
+      "answer": "2016, 2017, 2018, Jan-Oct 2019",
+      "correctAnswer": "2016, 2017, 2018, Jan-Oct 2019",
+      "answerIsCorrect": true
+    },
+    "bar_grouped": {
+      "id": "e6q3stacked",
+      "question": "which year had the lowest amount of suicides of all ages combined?",
+      "answer": "2019",
+      "correctAnswer": "2019",
       "answerIsCorrect": true
     }
   }

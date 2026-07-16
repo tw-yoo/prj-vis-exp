@@ -846,6 +846,68 @@ body {
   outline-offset: 2px;
 }
 
+/* ---------- Demographics ("About You") page ---------- */
+
+/* 4-option groups (gender, occupation) lay out 2×2 and collapse to 1 column on
+   narrow screens. */
+.choice-row--quad {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 520px;
+}
+
+.survey-question--demo {
+  gap: 16px;
+}
+
+.demo-input,
+.demo-select {
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  font-size: 16px;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.demo-input--age {
+  max-width: 200px;
+}
+
+.demo-input:focus,
+.demo-select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+.demo-input::placeholder {
+  color: #94a3b8;
+}
+
+.demo-hint {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.demo-selfdescribe {
+  margin-top: 2px;
+}
+
+.demo-selfdescribe[hidden] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .choice-row--quad {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Conditional error-localization (shown only when the answer is judged wrong) */
 
 .survey-question--error-loc .error-loc-steps {

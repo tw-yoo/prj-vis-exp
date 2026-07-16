@@ -6,7 +6,11 @@
  */
 export function formatOperationValue(value: number): string {
   if (!Number.isFinite(value)) return String(value)
-  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)))
+  // Keep up to 4 decimals (stripping trailing zeros) rather than forcing 2:
+  // 2-decimal rounding turned axis-aligned point labels like 0.106 into "0.11",
+  // which no longer matched where the mark sat on the y-axis. The 4-decimal cap
+  // still trims float noise (0.30000000004 → "0.3").
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(4)))
 }
 
 /**

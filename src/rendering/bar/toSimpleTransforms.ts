@@ -254,6 +254,14 @@ function toSimpleBarSpec(
   const nextAny = next as unknown as Record<string, unknown>
   delete nextAny.facet
   delete nextAny.repeat
+  // Explicit canvas sizes inherited from the source spec (split orchestration
+  // injects per-panel width/height) would pin the derived chart to the OLD
+  // chart's canvas — e.g. a 140px-wide faceted panel becomes a 240px-min
+  // simple-bar canvas that CSS then stretches across the host with blown-up
+  // typography. The derived chart should size to its live container like any
+  // fresh render.
+  delete nextAny.width
+  delete nextAny.height
 
   const encAny = nextAny.encoding as Record<string, unknown>
   delete encAny.color
@@ -393,6 +401,25 @@ export async function convertStackedToSimple(
   return simple
 }
 
+/**
+ * The RENDERED y domain of the live chart, read from its y-axis tick labels
+ * (the ground truth after any `nice()` rounding). Faceted grouped charts share
+ * one y domain across panels, so the first y-axis found is representative.
+ * Returns `null` when the ticks aren't plain numbers (e.g. SI-suffixed).
+ */
+function readRenderedYDomain(container: HTMLElement): [number, number] | null {
+  const svg = getLiveSvg(container)
+  if (!svg) return null
+  const ticks = Array.from(svg.querySelectorAll('.y-axis .tick text'))
+    .map((t) => Number(String(t.textContent ?? '').replace(/,/g, '')))
+    .filter(Number.isFinite)
+  if (ticks.length < 2) return null
+  const max = Math.max(...ticks)
+  const min = Math.min(...ticks)
+  if (!(max > min)) return null
+  return [Math.min(0, min), max]
+}
+
 export async function convertGroupedToSimple(
   container: HTMLElement,
   spec: GroupedSpec,
@@ -403,6 +430,11 @@ export async function convertGroupedToSimple(
     console.warn('grouped-to-simple: no dataset available to hand off simple bar chart state')
     return null
   }
+  console.info('[grouped-to-simple] converting', {
+    series: toSimple.series,
+    rowCount: values.length,
+    surfaceId: container.closest('[data-surface-id]')?.getAttribute('data-surface-id') ?? null,
+  })
 
   const encodingAny = spec.encoding as unknown as Record<string, any>
   const xOffsetField = typeof encodingAny.xOffset?.field === 'string' ? (encodingAny.xOffset.field as string) : null
@@ -443,118 +475,296 @@ export async function convertGroupedToSimple(
     baseSort,
     explicitColor,
   })
+  if (!((simple.data?.values as RawDatum[] | undefined)?.length)) {
+    console.warn('grouped-to-simple: series has no rows to convert', { series: toSimple.series })
+    return null
+  }
 
-  await animateGroupedToSimple(container, String(toSimple.series), simple)
-  await renderSimpleBarChart(container, simple)
+  // Preserve the source chart's rendered y scale: the conversion changes the
+  // x LAYOUT only, so the y axis must not rescale (no flicker, bars keep their
+  // heights mid-transition) — and on a split surface the sibling panel keeps
+  // the same scale, so a later cross-surface diff still reads as a real
+  // vertical gap instead of two near-identical line heights.
+  const renderedYDomain = readRenderedYDomain(container)
+  if (renderedYDomain) {
+    ;(simple.encoding.y as Record<string, JsonValue>).scale = {
+      domain: renderedYDomain as unknown as JsonValue,
+    }
+  }
+
+  const swapped = await animatedGroupedToSimpleSwap(container, String(toSimple.series), simple)
+  if (!swapped) {
+    await renderSimpleBarChart(container, simple)
+  }
 
   finalizeSimpleBarHandoff(container, simple, (simple.data?.values as RawDatum[] | undefined) ?? [])
   return simple
 }
 
-function parsePanelTranslate(panelEl: Element): { x: number; y: number } {
-  const transform = panelEl.getAttribute('transform') ?? ''
-  const m = transform.match(/translate\(\s*([\d.+-]+)\s*,\s*([\d.+-]+)\s*\)/)
-  return { x: m ? parseFloat(m[1]) : 0, y: m ? parseFloat(m[2]) : 0 }
+/**
+ * Animated grouped→simple handoff, built as a VISUAL BRIDGE over a normal
+ * re-render rather than a DOM adoption:
+ *
+ *   1. Snapshot the kept series' bars (screen rect + fill) and clone them into
+ *      a pixel-space overlay pinned on the container, hiding the originals in
+ *      the same frame (pixel-identical takeover).
+ *   2. Dissolve the old chart under the overlay — vacated series, per-panel
+ *      axes, facet titles, legend all fade as one.
+ *   3. Re-render the simple chart through the ORDINARY renderer path (so it
+ *      gets exactly the sizing/typography any chart rendered into this host
+ *      gets), revealed at opacity 0.
+ *   4. Glide the overlay clones onto the new bars' measured screen rects while
+ *      the new chart fades in beneath them, then drop the overlay.
+ *
+ * Measuring both endpoints on REAL rendered charts sidesteps every staged-
+ * layout pitfall (transient flex boxes, viewBox-vs-CSS scale mismatches).
+ *
+ * Handles both grouped shapes: facet-promoted x (old panel `data-chart-id` →
+ * new bar `data-target`) and plain grouped (old `data-target` → new
+ * `data-target`).
+ *
+ * @returns `false` when the bridge can't be set up (no live SVG / no matching
+ *   bars) — the caller then falls back to a direct re-render.
+ */
+const G2S_OVERLAY_CLASS = 'grouped-to-simple-overlay-host'
+
+/**
+ * Re-apply the split shared-y-axis policy to a freshly rendered chart.
+ * `applySplitSharedYAxisPolicy` stamps `sharedYAxisHidden` on the surface HOST
+ * at split time and hides/compacts the SVG that existed then — a chart-type
+ * conversion replaces that SVG, so the fresh one must re-hide its y axis and
+ * reclaim the gutter to match how simple-bar splits render (y axis on the
+ * left panel only). Mirrors `compactSharedYAxisSurface`
+ * (operation-next/splitSurfaceVisuals.ts) for the single-plot-group case; the
+ * arch boundary keeps rendering/ from importing it directly.
+ */
+function reapplySharedYAxisHiddenPolicy(container: HTMLElement, svg: SVGSVGElement): boolean {
+  if (container.dataset.sharedYAxisHidden !== 'true') return false
+  svg.querySelectorAll<SVGElement>('.y-axis, .y-axis-label').forEach((node) => {
+    node.style.display = 'none'
+    node.setAttribute('aria-hidden', 'true')
+  })
+  const marginLeft = Number(svg.getAttribute(DataAttributes.MarginLeft) ?? 0)
+  if (!Number.isFinite(marginLeft) || marginLeft <= 0) return false
+  const plotGroup = svg.querySelector('g')
+  if (!plotGroup) return false
+  const t = /translate\(\s*([-+\d.]+)(?:[,\s]+([-+\d.]+))?\s*\)/.exec(
+    plotGroup.getAttribute('transform') ?? '',
+  )
+  const gx = t ? Number(t[1]) || 0 : marginLeft
+  const gy = t ? Number(t[2]) || 0 : 0
+  const offset = Math.min(marginLeft, gx)
+  if (!(offset > 0)) return false
+  plotGroup.setAttribute('transform', `translate(${gx - offset},${gy})`)
+  const xTitle = svg.querySelector<SVGElement>('.x-axis-label')
+  if (xTitle) {
+    const x = Number(xTitle.getAttribute('x'))
+    if (Number.isFinite(x)) xTitle.setAttribute('x', String(x - offset))
+  }
+  // Shrink the viewBox by the reclaimed gutter so the plot fills the panel
+  // instead of leaving a blank strip on the right.
+  const vb = (svg.getAttribute('viewBox') ?? '').trim().split(/[\s,]+/).map(Number)
+  if (vb.length === 4 && vb.every(Number.isFinite) && vb[2] - offset > 0) {
+    svg.setAttribute('viewBox', `${vb[0]} ${vb[1]} ${vb[2] - offset} ${vb[3]}`)
+  }
+  svg.setAttribute(DataAttributes.MarginLeft, String(Math.max(0, marginLeft - offset)))
+  svg.setAttribute('data-shared-y-axis-compacted', 'true')
+  svg.setAttribute('data-shared-y-axis-compact-offset', String(offset))
+  return true
 }
 
-async function animateGroupedToSimple(
+/**
+ * Rebalance the split panels so both render at the same pixels-per-viewBox
+ * scale (the shared-axis policy's invariant: flex-grow ∝ content viewBox
+ * width). Without this, shrinking one panel's viewBox (reclaimed y-axis
+ * gutter) zooms its bars relative to the neighbor's. Only SURFACE hosts are
+ * touched — the hidden split-source pivot and the legend strip keep their
+ * styles.
+ */
+function rebalanceSplitFlexByViewBox(container: HTMLElement) {
+  const wrapper = container.closest<HTMLElement>('.surface-layout--split')
+  if (!wrapper) return
+  Array.from(wrapper.children).forEach((child) => {
+    if (!(child instanceof HTMLElement)) return
+    if (!child.getAttribute('data-surface-id')) return
+    if (getComputedStyle(child).display === 'none') return
+    const childSvg = child.querySelector<SVGSVGElement>('svg[data-render-epoch]')
+    const childVb = childSvg?.viewBox?.baseVal
+    if (!childVb || !(childVb.width > 0)) return
+    child.style.flex = `${childVb.width / 1000} 1 0`
+    child.dataset.splitFlexManaged = 'true'
+  })
+}
+
+async function animatedGroupedToSimpleSwap(
   container: HTMLElement,
   targetSeries: string,
-  simpleSpec: SimpleBarSpec,
-): Promise<void> {
-  const svg = container.querySelector('svg')
-  if (!svg) return
+  simple: SimpleBarSpec,
+): Promise<boolean> {
+  const oldSvg = getLiveSvg(container) as SVGSVGElement | null
+  if (!oldSvg) return false
 
-  const svgSel = d3.select<SVGSVGElement, unknown>(svg as SVGSVGElement)
+  const oldXField = oldSvg.getAttribute(DataAttributes.XField)
+  const promoted = simple.encoding.x.field !== oldXField
 
-  // Read layout from SVG data attributes
-  const mLeft = parseFloat(svg.getAttribute('data-m-left') ?? '0')
-  const mTop = parseFloat(svg.getAttribute('data-m-top') ?? '0')
-  const plotW = parseFloat(svg.getAttribute('data-plot-w') ?? '0')
-  const plotH = parseFloat(svg.getAttribute('data-plot-h') ?? '0')
-
-  // Collect target-series bars grouped by panel (facet value)
-  const panels = Array.from(svg.querySelectorAll<SVGGElement>('g[data-chart-panel="true"]'))
-  type BarInfo = { el: SVGRectElement; absX: number; absY: number; width: number; height: number; facetId: string }
-  const targetBars: BarInfo[] = []
-
-  panels.forEach((panel) => {
-    const { x: px, y: py } = parsePanelTranslate(panel)
-    const facetId = panel.getAttribute('data-chart-id') ?? ''
-    Array.from(panel.querySelectorAll<SVGRectElement>('rect.main-bar')).forEach((bar) => {
-      const series = bar.getAttribute('data-series') ?? bar.getAttribute('data-group-value') ?? ''
-      if (series !== targetSeries) return
-      const bx = parseFloat(bar.getAttribute('x') ?? '0')
-      const by = parseFloat(bar.getAttribute('y') ?? '0')
-      const bw = parseFloat(bar.getAttribute('width') ?? '0')
-      const bh = parseFloat(bar.getAttribute('height') ?? '0')
-      targetBars.push({ el: bar, absX: px + bx, absY: py + by, width: bw, height: bh, facetId })
+  // Snapshot the kept series' bars, keyed by the value that becomes the simple
+  // bar's x category: the facet/panel id when the facet field was promoted to
+  // x, otherwise the bar's own target.
+  const containerRect = container.getBoundingClientRect()
+  if (!(containerRect.width > 4) || !(containerRect.height > 4)) return false
+  type Snap = { left: number; top: number; width: number; height: number; fill: string; el: SVGRectElement }
+  const snaps = new Map<string, Snap>()
+  oldSvg.querySelectorAll<SVGRectElement>('rect.main-bar').forEach((bar) => {
+    const series = bar.getAttribute('data-series') ?? bar.getAttribute('data-group-value') ?? ''
+    if (series !== targetSeries) return
+    const key = promoted
+      ? (bar.getAttribute('data-chart-id') ?? '')
+      : (bar.getAttribute(DataAttributes.Target) ?? '')
+    if (!key) return
+    const rect = bar.getBoundingClientRect()
+    snaps.set(key, {
+      left: rect.left - containerRect.left,
+      top: rect.top - containerRect.top,
+      width: rect.width,
+      height: rect.height,
+      fill: bar.getAttribute('fill') ?? '#69b3a2',
+      el: bar,
     })
   })
+  if (snaps.size === 0) return false
 
-  if (!targetBars.length) return
+  if (window.getComputedStyle(container).position === 'static') {
+    container.style.position = 'relative'
+  }
 
-  // Build target simple-bar x scale using the order from simpleSpec
-  const facetOrder = (simpleSpec.data?.values as RawDatum[] | undefined ?? [])
-    .map((row) => String(row[simpleSpec.encoding.x.field] ?? ''))
-    .filter(Boolean)
-  const xScale = d3.scaleBand<string>()
-    .domain(facetOrder.length ? facetOrder : targetBars.map((b) => b.facetId))
-    .range([mLeft, mLeft + plotW])
-    .paddingInner(0.22)
-    .paddingOuter(0.08)
+  // Lock the container's box for the duration of the swap. The surface host
+  // often sits in a fit-content ancestor chain (flex-basis 0 host → split
+  // wrapper → card) whose width is ultimately derived from the chart SVG
+  // itself — removing the old SVG collapses the whole chain to ~0, and the
+  // re-render's measure passes then resolve a degenerate 240×300 default
+  // canvas. A min-width/min-height floor keeps the chain at its current size
+  // until the new chart is in place.
+  const prevMinWidth = container.style.minWidth
+  const prevMinHeight = container.style.minHeight
+  container.style.minWidth = `${containerRect.width}px`
+  container.style.minHeight = `${containerRect.height}px`
+  const unlockBox = () => {
+    container.style.minWidth = prevMinWidth
+    container.style.minHeight = prevMinHeight
+  }
 
-  // --- Phase 1: fade out non-target bars and panel decorations ---
-  const exitDuration = NON_SPLIT_EXIT_MS
-
-  svgSel.selectAll<SVGRectElement, unknown>('rect.main-bar')
-    .filter(function () {
-      const series = this.getAttribute('data-series') ?? this.getAttribute('data-group-value') ?? ''
-      return series !== targetSeries
-    })
-    .transition()
-    .duration(exitDuration)
-    .attr('opacity', 0.08)
-
-  svgSel.selectAll<SVGGElement, unknown>('g[data-chart-panel="true"] .panel-title, g[data-chart-panel="true"] .x-axis')
-    .transition()
-    .duration(exitDuration)
-    .attr('opacity', 0)
-
-  // Hide original target bars now that we will use clones
-  targetBars.forEach(({ el }) => {
-    d3.select(el).attr('opacity', 0)
-  })
-
-  // --- Create overlay clones at current absolute positions ---
-  const overlay = svgSel.append('g').attr('class', 'grouped-to-simple-overlay')
-
-  const clones = overlay.selectAll<SVGRectElement, BarInfo>('rect')
-    .data(targetBars)
+  // Pixel-space overlay (an un-viewBoxed SVG: 1 user unit = 1 CSS px) pinned
+  // over the container. It carries the bar clones through the transition and
+  // must survive the re-render below (preserveSelectors).
+  const overlayHost = document.createElement('div')
+  overlayHost.className = G2S_OVERLAY_CLASS
+  overlayHost.style.position = 'absolute'
+  overlayHost.style.inset = '0'
+  overlayHost.style.pointerEvents = 'none'
+  overlayHost.style.zIndex = '10'
+  const overlaySvg = d3
+    .select(overlayHost)
+    .append('svg')
+    .style('width', '100%')
+    .style('height', '100%')
+    .style('overflow', 'visible')
+  const clones = overlaySvg
+    .selectAll<SVGRectElement, [string, Snap]>('rect')
+    .data(Array.from(snaps.entries()))
     .enter()
     .append('rect')
-    .attr('fill', function (d) { return d3.select(d.el).attr('fill') })
-    .attr('opacity', 1)
-    .attr('x', (d) => d.absX)
-    .attr('y', (d) => d.absY)
-    .attr('width', (d) => d.width)
-    .attr('height', (d) => d.height)
+    .attr('x', (d) => d[1].left)
+    .attr('y', (d) => d[1].top)
+    .attr('width', (d) => d[1].width)
+    .attr('height', (d) => d[1].height)
+    .attr('fill', (d) => d[1].fill)
+  container.appendChild(overlayHost)
 
-  // --- Phase 2: animate clones to simple bar positions ---
-  const moveDuration = NON_SPLIT_UPDATE_MS
-  const startDelay = exitDuration * 0.6
-
-  const moveTransition = clones
+  // Clones now cover the originals exactly — hide the originals and dissolve
+  // the rest of the old chart (vacated bars, axes, facet titles, legend).
+  snaps.forEach((snap) => {
+    snap.el.style.opacity = '0'
+  })
+  const oldSel = d3.select(oldSvg as SVGSVGElement)
+  oldSel.selectAll<SVGElement, unknown>('*').interrupt()
+  await oldSel
     .transition()
-    .delay(startDelay)
-    .duration(moveDuration)
+    .duration(NON_SPLIT_EXIT_MS + 160)
+    .ease(d3.easeCubicOut)
+    .style('opacity', 0)
+    .end()
+    .catch(() => undefined)
+
+  // Re-render through the ordinary path (this wipes the old SVG, which is
+  // already invisible — the overlay clones are all the viewer sees), then
+  // reveal the new chart at opacity 0 for the crossfade.
+  await renderSimpleBarChart(container, simple, { preserveSelectors: [`.${G2S_OVERLAY_CLASS}`] })
+  const chartSvg = container.querySelector<SVGSVGElement>('svg[data-render-epoch]')
+  if (!chartSvg) {
+    overlayHost.remove()
+    unlockBox()
+    return true // re-render happened; nothing left to animate
+  }
+  chartSvg.style.opacity = '0'
+  // Split surfaces past the first show no y axis (shared-axis policy) — the
+  // fresh chart must match BEFORE its bar rects are measured below, so the
+  // clones glide to the compacted positions.
+  const yAxisCompacted = reapplySharedYAxisHiddenPolicy(container, chartSvg)
+  // Keep the overlay above the fresh chart in paint order.
+  container.appendChild(overlayHost)
+
+  // Measure the new bars' screen rects and glide each clone onto its match.
+  const newRects = new Map<string, { left: number; top: number; width: number; height: number }>()
+  const baseRect = container.getBoundingClientRect()
+  chartSvg.querySelectorAll<SVGRectElement>('rect.main-bar').forEach((bar) => {
+    const key = bar.getAttribute(DataAttributes.Target) ?? ''
+    if (!key) return
+    const rect = bar.getBoundingClientRect()
+    newRects.set(key, {
+      left: rect.left - baseRect.left,
+      top: rect.top - baseRect.top,
+      width: rect.width,
+      height: rect.height,
+    })
+  })
+
+  const moveClones = clones
+    .transition()
+    .duration(NON_SPLIT_UPDATE_MS)
     .ease(d3.easeCubicInOut)
-    .attr('x', (d) => xScale(d.facetId) ?? d.absX)
-    .attr('y', (d) => mTop + (d.absY - mTop))   // y stays same (same scale)
-    .attr('width', xScale.bandwidth())
+    .attr('x', (d) => newRects.get(d[0])?.left ?? d[1].left)
+    .attr('y', (d) => newRects.get(d[0])?.top ?? d[1].top)
+    .attr('width', (d) => newRects.get(d[0])?.width ?? d[1].width)
+    .attr('height', (d) => newRects.get(d[0])?.height ?? d[1].height)
+    .style('opacity', (d) => (newRects.has(d[0]) ? 1 : 0))
+    .end()
+    .catch(() => undefined)
 
-  await moveTransition.end().catch(() => {/* ignore if interrupted */})
+  const fadeInChart = d3
+    .select(chartSvg)
+    .transition()
+    .delay(NON_SPLIT_UPDATE_MS * 0.3)
+    .duration(NON_SPLIT_UPDATE_MS * 0.6)
+    .ease(d3.easeCubicOut)
+    .style('opacity', 1)
+    .end()
+    .catch(() => undefined)
 
-  // Remove overlay before final re-render
-  overlay.remove()
+  await Promise.all([moveClones, fadeInChart])
+
+  overlayHost.remove()
+  chartSvg.style.opacity = ''
+  unlockBox()
+  // Once the shared-axis compaction has run (i.e. this is the axis-less
+  // panel's conversion — by then the sibling is typically converted too),
+  // size the panels ∝ their chart viewBoxes so both keep equal pixel scale.
+  // Rebalancing earlier (on the axis-BEARING panel's conversion) would shrink
+  // it against a still-grouped neighbor whose canvas is far wider.
+  if (yAxisCompacted) rebalanceSplitFlexByViewBox(container)
+  console.info('[grouped-to-simple] bridge swap complete', {
+    series: targetSeries,
+    clones: snaps.size,
+    matchedNewBars: newRects.size,
+  })
+  return true
 }

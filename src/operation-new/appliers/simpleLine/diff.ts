@@ -190,6 +190,7 @@ export const diffApplier: OperationApplier = {
           phaseOnePromises: [],
           color: COLORS.ANNOTATION_RED,
           label: `Difference: ${formatOperationValue(Number(result[0]?.value))}`,
+          labelPlacement: 'above-center',
           svg: instance.svg,
           viewport: resolveAnnotationViewport(instance),
         })

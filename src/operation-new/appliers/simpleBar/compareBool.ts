@@ -86,6 +86,7 @@ export const compareBoolApplier: OperationApplier<SimpleBarChartInstance> = {
           label: Number.isFinite(delta)
             ? `${verdict} (Difference: ${formatOperationValue(Math.abs(delta))})`
             : verdict,
+          labelPlacement: 'above-center',
           svg: instance.svg,
           viewport: resolveBarAnnotationViewport(instance),
         })

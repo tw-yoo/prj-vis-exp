@@ -352,9 +352,13 @@ function mountSplitLegendPanel(surfaceManager: SurfaceManager | null | undefined
 
   const panel = document.createElement('div')
   panel.className = SPLIT_LEGEND_PANEL_CLASS
+  // BOTTOM full-width row (no order:-1): a top row pushed the chart panels
+  // down by the legend's height the moment the split cleanup switched the
+  // container to flex — and the pre-cleanup block flow already shows the
+  // legend BELOW the charts, so keeping it below means it never moves.
   panel.style.cssText =
-    'flex:0 0 100%;order:-1;display:flex;flex-wrap:wrap;align-items:center;' +
-    'gap:4px 16px;padding:2px 4px 6px;font-family:sans-serif;font-size:14px;pointer-events:none;'
+    'flex:0 0 100%;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;' +
+    'gap:4px 16px;padding:6px 4px 2px;font-family:sans-serif;font-size:14px;pointer-events:none;'
 
   if (title) {
     const titleEl = document.createElement('span')
@@ -373,10 +377,35 @@ function mountSplitLegendPanel(surfaceManager: SurfaceManager | null | undefined
     panel.appendChild(item)
   })
 
-  // Wrap mode: legend takes the first full-width row, the two chart panels wrap
-  // to the row below and share its full width (by their managed flex-grow).
+  // Wrap mode: the two chart panels share the first row; the legend wraps to
+  // its own full-width row BELOW them.
   container.style.flexWrap = 'wrap'
+  // While the split hosts are still in their absolute build phase (before the
+  // entrance cleanup switches the container to flex), a normal-flow panel
+  // would land at an arbitrary block position and then JUMP when flex kicks
+  // in. Park it absolutely at its final spot — directly below the (fixed
+  // height) chart row — and let the split cleanup un-park it in place.
+  let parkedRowHeight: number | null = null
+  if (container.style.display !== 'flex') {
+    const rowHeight = parseFloat(container.style.minHeight)
+    if (Number.isFinite(rowHeight) && rowHeight > 0) {
+      parkedRowHeight = rowHeight
+      panel.dataset.splitLegendParked = 'true'
+      panel.style.position = 'absolute'
+      panel.style.top = `${rowHeight}px`
+      panel.style.left = '0'
+      panel.style.right = '0'
+    }
+  }
   container.appendChild(panel)
+  // Pre-commit the legend row's height into the container's minHeight while
+  // the panel is parked (absolute = no flow height). Otherwise the container
+  // grows by the legend row when the cleanup un-parks it, and an ancestor
+  // that vertically centers the card shifts everything by half that growth.
+  if (parkedRowHeight != null) {
+    const panelHeight = panel.offsetHeight
+    if (panelHeight > 0) container.style.minHeight = `${parkedRowHeight + panelHeight}px`
+  }
 }
 
 function readOperationRefs(operation: OperationSpec) {

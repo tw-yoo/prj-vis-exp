@@ -2,7 +2,7 @@ import * as d3 from 'd3'
 import { SvgAttributes, SvgClassNames, SvgElements } from '../../rendering/interfaces'
 import { COLORS, DURATIONS, EASINGS } from '../../rendering/common/d3Helpers'
 
-export type BadgeAnchor = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center-above'
+export type BadgeAnchor = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center-above' | 'top-right-above'
 
 export interface ResultBadgeLayout {
   marginLeft: number
@@ -90,6 +90,13 @@ export async function drawResultBadge(opts: ResultBadgeOptions): Promise<void> {
       x = layout.marginLeft + layout.plotWidth / 2
       y = Math.max(fontSize + 4, layout.marginTop - 8)
       textAnchor = 'middle'
+      break
+    case 'top-right-above':
+      // Right-aligned in the top margin band ABOVE the plot (arithmetic
+      // results), clearing both the marks below and the centered count/sum.
+      x = layout.marginLeft + layout.plotWidth - inset
+      y = Math.max(fontSize + 4, layout.marginTop - 8)
+      textAnchor = 'end'
       break
     case 'top-right':
     default:

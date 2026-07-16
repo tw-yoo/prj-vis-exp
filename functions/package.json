@@ -1,0 +1,13 @@
+{
+  "name": "functions",
+  "description": "Cloud Functions for prj-vis-exp (pre-registration email notifications)",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-functions": "^5.1.0",
+    "nodemailer": "^6.9.14"
+  }
+}

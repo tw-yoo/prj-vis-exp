@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { recordPreRegistration } from '../services'
-import { LikertQuestion, OpenEndedInput, SurveyNav } from '../components'
+import { AvailabilityPicker, formatSlotLabel, LikertQuestion, OpenEndedInput, SurveyNav } from '../components'
 import './preRegistration.css'
 
 type BinaryChoice = '1' | '2' | ''
@@ -14,6 +14,7 @@ interface ScreeningStatement {
 }
 
 const STORAGE_KEY = 'preRegResponses'
+const AVAILABILITY_KEY = 'preRegAvailability'
 const SCREENING_KEYS: ScreeningKey[] = ['pre_screen_q1', 'pre_screen_q2', 'pre_screen_q3', 'pre_screen_q4']
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -94,6 +95,17 @@ function readStoredResponses() {
   }
 }
 
+function readStoredAvailability(): string[] {
+  try {
+    const raw = localStorage.getItem(AVAILABILITY_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+  } catch {
+    return []
+  }
+}
+
 function createInitialResponses() {
   const saved = readStoredResponses()
   const responses: PreRegResponses = {
@@ -126,6 +138,8 @@ export default function PreRegistrationPage() {
   const [pageIndex, setPageIndex] = useState(getInitialPageIndex)
   const [statementMap] = useState<Record<ScreeningKey, string>>(generateStatementMap)
   const [responses, setResponses] = useState<PreRegResponses>(createInitialResponses)
+  const [availability, setAvailability] = useState<string[]>(readStoredAvailability)
+  const [availabilityError, setAvailabilityError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const pageId = PAGE_IDS[pageIndex]
@@ -167,6 +181,15 @@ export default function PreRegistrationPage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(responses))
   }, [responses])
 
+  useEffect(() => {
+    localStorage.setItem(AVAILABILITY_KEY, JSON.stringify(availability))
+  }, [availability])
+
+  // Clear the "please pick a time" warning as soon as the participant selects one.
+  useEffect(() => {
+    if (availability.length > 0) setAvailabilityError(false)
+  }, [availability])
+
   const setBinaryResponse = useCallback((name: string, value: BinaryChoice) => {
     setResponses((prev) => ({ ...prev, [name]: value }))
   }, [])
@@ -207,11 +230,21 @@ export default function PreRegistrationPage() {
         return
       }
 
+      if (availability.length === 0) {
+        // Gentle inline nudge (no blocking alert) + scroll the picker into view.
+        setAvailabilityError(true)
+        document.getElementById('pre-reg-availability')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        return
+      }
+
       setSubmitting(true)
       try {
         await recordPreRegistration({
           ...responses,
           email,
+          availability,
+          availabilityLabels: availability.map(formatSlotLabel),
+          availabilityCount: availability.length,
           submittedAt: new Date().toISOString(),
         })
         navigateTo(3)
@@ -222,7 +255,7 @@ export default function PreRegistrationPage() {
         setSubmitting(false)
       }
     }
-  }, [evaluateScreening, navigateTo, pageId, responses, validateScreeningPage])
+  }, [availability, evaluateScreening, navigateTo, pageId, responses, validateScreeningPage])
 
   if (pageId === 'pre_fail') {
     return (
@@ -340,7 +373,7 @@ export default function PreRegistrationPage() {
                   <p className="pr-chart-label">Reference chart</p>
                   <img
                     className="pr-chart"
-                    src="/survey/pre-registration/pages/chart01.png"
+                    src={`${import.meta.env.BASE_URL}survey/pre-registration/pages/chart01.png`}
                     alt="Line chart used for screening questions"
                   />
                 </div>
@@ -369,8 +402,7 @@ export default function PreRegistrationPage() {
             <div className="pr-status pr-status--pass">
               <div className="pr-status__icon">✓</div>
               <div>
-                <h1>You're qualified to participate</h1>
-                <p className="pr-footnote">Great job on the screening! We just need an email to send the consent form.</p>
+                <h1>You're qualified to participate!</h1>
               </div>
             </div>
 
@@ -392,8 +424,27 @@ export default function PreRegistrationPage() {
                   onChange={(value) => setResponses((prev) => ({ ...prev, email: value }))}
                 />
                 <p className="pr-subtle">We will only use this email to send the consent form for this study.</p>
+              </div>
+            </section>
+
+            <section className="pr-card" id="pre-reg-availability">
+              <div className="pr-card__header">
+                <div>
+                  <h3>When are you available for the study session?</h3>
+                  <p className="pr-subtle">
+                    The session takes about 1 hour 30 minutes. Please mark <strong>every</strong> time that could work.
+                  </p>
+                </div>
+              </div>
+              <div className="pr-card__body">
+                <AvailabilityPicker value={availability} onChange={setAvailability} />
+                {availabilityError ? (
+                  <p className="avail__error" role="alert">
+                    Please select at least one time slot so we can schedule your session.
+                  </p>
+                ) : null}
                 <p className="pr-footnote">
-                  After filling your email, click <strong>Submit</strong> to continue.
+                  Once your email and availability are filled in, click <strong>Submit</strong> to continue.
                 </p>
               </div>
             </section>

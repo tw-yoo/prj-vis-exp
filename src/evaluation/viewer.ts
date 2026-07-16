@@ -64,7 +64,7 @@ type SurveyPage = {
   questions: SurveyQuestion[]
 }
 
-type IntroKind = 'intro-welcome' | 'tutorial-interact' | 'tutorial-text' | 'tutorial-task'
+type IntroKind = 'intro-welcome' | 'tutorial-interact' | 'tutorial-text' | 'tutorial-task' | 'eval-intro'
 
 // One block = the 5 charts a participant saw for a single (system, group) pair.
 // After full interleaving those 5 charts are scattered across the presentation
@@ -78,6 +78,7 @@ type FinalItem = { key: string; label: string; system: string }
 
 type PageDescriptor =
   | { kind: IntroKind }
+  | { kind: 'demographics' }
   | { kind: 'survey'; itemIdx: number; surveyPageIdx: number }
   | { kind: 'post-session'; blockIdx: number }
   | { kind: 'final' }
@@ -160,6 +161,10 @@ const postSessionQuestions: SurveyQuestion[] = [
 ]
 
 const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-text', 'tutorial-task']
+// Pages shown before the survey trials: the 4 intro/tutorial pages + the
+// one-time demographics page inserted right after the welcome page. Drives the
+// progress-bar denominator.
+const PRE_SURVEY_PAGE_COUNT = INTRO_PAGE_KINDS.length + 1
 // Tutorial demo charts: G5 (backup) charts, so they are NOT in the main-study
 // sequence for CO1–CO4 participants (G5 appears only in the PRE practice order).
 // The step-by-step practice uses the Ours engine; the text practice uses the
@@ -171,14 +176,19 @@ const EVAL_TUTORIAL_TEXT_CHART_ID = '20qa83ih1gn6toqt'
 const WELCOME_BODY_HTML = `
   <p>Thank you for participating in this research study.</p>
   <p>We are investigating how different <strong>visual explanations</strong> help people understand and verify answers to questions about charts.</p>
-  <p>In this study, you will see a series of charts paired with questions and AI-generated answers. For each pair, an explanation will show how the answer was derived. <strong>Four different explanation systems</strong> are compared in this study; you will see explanations from all four, in a mixed order, throughout the survey.</p>
-  <p>Your task on each question:</p>
+  <p>In this study, you will see a series of charts paired with questions and AI-generated answers. For each pair, an explanation will show how the answer was derived. <strong>Four different explanation systems</strong> are compared in this study, labeled <strong>System A</strong>, <strong>System B</strong>, <strong>System C</strong>, and <strong>System D</strong>. You will see explanations from all four.</p>
+  <p>The study has two parts:</p>
+  <ol>
+    <li><strong>20 questions.</strong> You answer 20 chart questions one at a time. The explanations for these are drawn from the four systems in a <strong>completely random order</strong>, so which system produced each explanation changes from question to question, so you will not know which system is which.</li>
+    <li><strong>System evaluation.</strong> After the 20 questions, you evaluate each system (A, B, C, and D) one at a time. For each system you can review all of the explanations it produced, then answer questions about it.</li>
+  </ol>
+  <p>Your task on each of the 20 questions:</p>
   <ol>
     <li>Decide whether the provided answer is correct.</li>
     <li>Rate how clearly the explanation showed the reasoning behind the answer.</li>
   </ol>
   <p><strong>These systems can make mistakes while producing an explanation.</strong> The reasoning an explanation shows may itself contain an error. Please decide for yourself whether each answer and its explanation are actually correct &mdash; do not assume they are right.</p>
-  <p>The study takes about <strong>70&ndash;90 minutes</strong>. Your responses are anonymous and linked only to your participant code (<code>{code}</code>).</p>
+  <p>The study takes about <strong>70&ndash;90 minutes</strong>.</p>
   <p>The next pages will walk you through how the explanations are shown and what we'll ask you to do.</p>
 `
 
@@ -212,13 +222,21 @@ const TUTORIAL_TASK_BODY_HTML = `
   <div class="intro-notes">
     <p class="intro-notes__title">Important notes</p>
     <ul>
-      <li><strong>Some answers are correct and some are not.</strong> Whether the shown answer is right is exactly what we ask you to judge &mdash; read the explanation and decide for yourself.</li>
-      <li><strong>Systems can make mistakes while producing an explanation.</strong> An explanation may go wrong at one of its steps. Do not assume an explanation is correct just because it looks confident &mdash; check the reasoning yourself. If you judge the answer incorrect, you will then be asked which step the reasoning first goes wrong.</li>
+      <li><strong>Some answers are correct and some are not.</strong> Whether the shown answer is right is exactly what we ask you to judge. So please read the explanation and decide for yourself.</li>
+      <li><strong>Systems can make mistakes while producing an explanation.</strong> An explanation may go wrong at one of its steps. Do not assume an explanation is correct just because it looks confident. Please check the reasoning yourself. If you judge the answer incorrect, you will then be asked which step the reasoning first goes wrong.</li>
       <li><strong>Answer the first question accurately.</strong> We measure how long you take to answer the "The answer is correct." question on each page. Please stay focused and respond as accurate as you have made your decision.</li>
-      <li><strong>Use external tools freely.</strong> A calculator or scrap paper is fine if you need to verify a calculation &mdash; just try to keep it brief.</li>
+      <li><strong>Use external tools freely.</strong> A calculator or scrap paper is fine if you need to verify a calculation, so please just try to keep it brief.</li>
     </ul>
   </div>
   <p>When you're ready, click <strong>Next</strong> to begin the survey.</p>
+`
+
+// Transition page shown after all trials, before the per-system evaluation.
+const EVAL_INTRO_BODY_HTML = `
+  <p>You have completed all <strong>{sequenceLength}</strong> tasks &mdash; thank you!</p>
+  <p>Next, you will <strong>evaluate each system</strong> one at a time. The explanations you just saw were produced by different systems, labeled <strong>System A</strong>, <strong>System B</strong>, <strong>System C</strong>, and <strong>System D</strong>.</p>
+  <p>On each of the following pages, you can <strong>review every explanation that one system produced</strong>. Look through them, then answer the questions about that system.</p>
+  <p>When you're ready, click <strong>Next</strong> to begin.</p>
 `
 
 const evaluationBasePath = window.__EVALUATION_BASE_PATH__ ?? ''
@@ -327,12 +345,19 @@ const labelForSystem = (system: string): string => systemLabels.get(system) ?? '
 // evaluation pages (one per system, in canonical A/B/C/D order), then one final
 // ranking + comments page.
 const allPages: PageDescriptor[] = (() => {
-  const pages: PageDescriptor[] = INTRO_PAGE_KINDS.map((kind) => ({ kind }))
+  const pages: PageDescriptor[] = []
+  INTRO_PAGE_KINDS.forEach((kind) => {
+    pages.push({ kind })
+    // The demographics ("About You") page comes immediately after the welcome page.
+    if (kind === 'intro-welcome') pages.push({ kind: 'demographics' })
+  })
   for (let i = 0; i < sequence.length; i += 1) {
     for (let j = 0; j < surveyPages.length; j += 1) {
       pages.push({ kind: 'survey', itemIdx: i, surveyPageIdx: j })
     }
   }
+  // Transition into the per-system evaluation phase.
+  pages.push({ kind: 'eval-intro' })
   blocks.forEach((_, blockIdx) => {
     pages.push({ kind: 'post-session', blockIdx })
   })
@@ -364,6 +389,178 @@ let demoStepsUnlocked = 0
 let demoSelectedStepIndex = -1
 let demoStepRunInProgress = false
 let demoErrors = new Map<number, string>()
+
+// ── DEMO-mode "Save SVG" button ─────────────────────────────────────────────
+// In any DEMO* walkthrough, add a button on the chart card that downloads the
+// current chart as an SVG named `{chart_id}_{opsNumber}.svg`. opsNumber is the
+// currently-shown step (0 = base chart, 1 = after ops, 2 = after ops2, …).
+if (participant.order.system.startsWith('DEMO') && chartCardEl && containerEl) {
+  const SVG_NS = 'http://www.w3.org/2000/svg'
+
+  // Composite the WHOLE chart container into ONE standalone <svg>. A split chart
+  // holds several <svg>s (a zero-sized root plus the left/right panels plus a
+  // diff overlay); serialising only the first saved an empty/tiny file. Each
+  // VISIBLE (non-zero) svg is embedded as a nested <svg> positioned at its
+  // container-relative coordinates, in DOM paint order, over a white background.
+  const buildCompositeSvg = (container: HTMLElement): SVGSVGElement => {
+    const contRect = container.getBoundingClientRect()
+    const placed = Array.from(container.querySelectorAll('svg'))
+      .map((svg) => ({ svg, r: svg.getBoundingClientRect(), cs: getComputedStyle(svg) }))
+      .filter(({ r, cs }) => r.width > 1 && r.height > 1 && cs.display !== 'none' && cs.visibility !== 'hidden')
+      .map(({ svg, r }) => ({ svg, x: r.left - contRect.left, y: r.top - contRect.top, w: r.width, h: r.height }))
+    if (!placed.length) throw new Error('no visible chart svg to export')
+
+    const width = Math.ceil(Math.max(...placed.map((p) => p.x + p.w)))
+    const height = Math.ceil(Math.max(...placed.map((p) => p.y + p.h)))
+
+    const wrapper = document.createElementNS(SVG_NS, 'svg')
+    wrapper.setAttribute('xmlns', SVG_NS)
+    wrapper.setAttribute('width', String(width))
+    wrapper.setAttribute('height', String(height))
+    wrapper.setAttribute('viewBox', `0 0 ${width} ${height}`)
+    const bg = document.createElementNS(SVG_NS, 'rect')
+    bg.setAttribute('x', '0')
+    bg.setAttribute('y', '0')
+    bg.setAttribute('width', String(width))
+    bg.setAttribute('height', String(height))
+    bg.setAttribute('fill', '#ffffff')
+    wrapper.appendChild(bg)
+    for (const p of placed) {
+      const clone = p.svg.cloneNode(true) as SVGSVGElement
+      clone.setAttribute('x', String(p.x))
+      clone.setAttribute('y', String(p.y))
+      clone.setAttribute('width', String(p.w))
+      clone.setAttribute('height', String(p.h))
+      if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', SVG_NS)
+      wrapper.appendChild(clone)
+    }
+    return wrapper
+  }
+
+  const loadImage = (src: string): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const image = new Image()
+      image.onload = () => resolve(image)
+      image.onerror = () => reject(new Error('failed to load svg for crop scan'))
+      image.src = src
+    })
+
+  // Shrink the wrapper's viewBox/width/height to the tightest box that still
+  // contains every non-white pixel, independently on each of the 4 sides —
+  // whichever side hits real content first wins, so uneven whitespace (e.g. a
+  // tall diff-overlay leaving blank space only at the bottom) is trimmed
+  // correctly per-side rather than by a single uniform bounding box guess.
+  // Renders to an offscreen canvas at a fixed raster scale purely to LOCATE
+  // the crop box; the saved file stays the original vector markup with an
+  // adjusted viewBox, so there is no quality loss.
+  const cropToContent = async (wrapper: SVGSVGElement): Promise<void> => {
+    const scale = 2
+    const width = Number(wrapper.getAttribute('width'))
+    const height = Number(wrapper.getAttribute('height'))
+    if (!(width > 0) || !(height > 0)) return
+
+    const serialized = new XMLSerializer().serializeToString(wrapper)
+    const url = URL.createObjectURL(
+      new Blob(['<?xml version="1.0" encoding="utf-8"?>\n', serialized], { type: 'image/svg+xml;charset=utf-8' }),
+    )
+    let image: HTMLImageElement
+    try {
+      image = await loadImage(url)
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+
+    const canvasW = Math.max(1, Math.round(width * scale))
+    const canvasH = Math.max(1, Math.round(height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasW
+    canvas.height = canvasH
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(image, 0, 0, canvasW, canvasH)
+
+    let data: Uint8ClampedArray
+    try {
+      data = ctx.getImageData(0, 0, canvasW, canvasH).data
+    } catch {
+      return // canvas tainted (shouldn't happen for same-origin inline svg) — keep uncropped
+    }
+    const isWhitePixel = (x: number, y: number) => {
+      const i = (y * canvasW + x) * 4
+      return data[i] >= 250 && data[i + 1] >= 250 && data[i + 2] >= 250
+    }
+
+    let top = 0
+    outerTop: for (; top < canvasH; top += 1) {
+      for (let x = 0; x < canvasW; x += 1) if (!isWhitePixel(x, top)) break outerTop
+    }
+    let bottom = canvasH - 1
+    outerBottom: for (; bottom > top; bottom -= 1) {
+      for (let x = 0; x < canvasW; x += 1) if (!isWhitePixel(x, bottom)) break outerBottom
+    }
+    let left = 0
+    outerLeft: for (; left < canvasW; left += 1) {
+      for (let y = top; y <= bottom; y += 1) if (!isWhitePixel(left, y)) break outerLeft
+    }
+    let right = canvasW - 1
+    outerRight: for (; right > left; right -= 1) {
+      for (let y = top; y <= bottom; y += 1) if (!isWhitePixel(right, y)) break outerRight
+    }
+
+    if (right <= left || bottom <= top) return // all-white or scan failed — keep uncropped
+
+    const cropX = left / scale
+    const cropY = top / scale
+    const cropRight = right / scale
+    const cropBottom = bottom / scale
+    const cropW = Math.ceil(cropRight - cropX)
+    const cropH = Math.ceil(cropBottom - cropY)
+
+    wrapper.setAttribute('viewBox', `${cropX} ${cropY} ${cropW} ${cropH}`)
+    wrapper.setAttribute('width', String(cropW))
+    wrapper.setAttribute('height', String(cropH))
+  }
+
+  if (getComputedStyle(chartCardEl).position === 'static') chartCardEl.style.position = 'relative'
+  const downloadBtn = document.createElement('button')
+  downloadBtn.type = 'button'
+  downloadBtn.id = 'demoDownloadBtn'
+  downloadBtn.textContent = '⤓ Save SVG'
+  downloadBtn.style.cssText =
+    'position:absolute;top:12px;right:12px;z-index:20;padding:6px 12px;font-size:13px;font-weight:600;' +
+    'background:#1e40af;color:#fff;border:none;border-radius:6px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.2);'
+  downloadBtn.addEventListener('click', async () => {
+    if (!containerEl.querySelector('svg')) {
+      console.warn('[evaluation] Save SVG: no chart svg found')
+      return
+    }
+    const chartId = sequence[currentItemIndex]?.chart_id ?? 'chart'
+    const opsNumber = selectedStepIndex + 1 // base=0, ops=1, ops2=2, ops3=3
+    const filename = `${chartId}_${opsNumber}.svg`
+    downloadBtn.disabled = true
+    try {
+      const composite = buildCompositeSvg(containerEl)
+      await cropToContent(composite)
+      const serialized = new XMLSerializer().serializeToString(composite)
+      const blob = new Blob(['<?xml version="1.0" encoding="utf-8"?>\n', serialized], {
+        type: 'image/svg+xml;charset=utf-8',
+      })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 2000)
+    } catch (error) {
+      console.error('[evaluation] Save SVG export failed', error)
+    } finally {
+      downloadBtn.disabled = false
+    }
+  })
+  chartCardEl.appendChild(downloadBtn)
+}
 
 // Post-session review carousel: replay this system's 5 chart/question/
 // explanation sets one at a time, above the survey. Mirrors the demo pattern
@@ -423,8 +620,7 @@ function createRenderer(method: ExplanationMethod, context: RendererContext = re
 // post-session page. `keyPrefix` makes input names + stored responses unique.
 type SurveyContext = { questions: SurveyQuestion[]; keyPrefix: string }
 
-function currentSurveyContext(): SurveyContext | null {
-  const page = allPages[currentPageIndex]
+function surveyContextForPage(page: PageDescriptor | undefined): SurveyContext | null {
   if (!page) return null
   if (page.kind === 'survey') {
     const item = sequence[page.itemIdx]
@@ -440,15 +636,18 @@ function currentSurveyContext(): SurveyContext | null {
   return null
 }
 
+function currentSurveyContext(): SurveyContext | null {
+  return surveyContextForPage(allPages[currentPageIndex])
+}
+
 function fieldKey(keyPrefix: string, questionId: string): string {
   return `${keyPrefix}::${questionId}`
 }
 
 function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTMLFieldSetElement {
   const fieldset = document.createElement('fieldset')
-  fieldset.className = `survey-question survey-question--${
-    question.kind === 'yes-no' ? 'choice' : question.kind === 'error-localization' ? 'error-loc' : 'likert'
-  }`
+  fieldset.className = `survey-question survey-question--${question.kind === 'yes-no' ? 'choice' : question.kind === 'error-localization' ? 'error-loc' : 'likert'
+    }`
 
   const legend = document.createElement('legend')
   legend.className = 'survey-question__text'
@@ -490,7 +689,7 @@ function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTML
 
     const row = document.createElement('div')
     row.className = 'choice-row'
-    ;['Yes', 'No'].forEach((opt) => row.appendChild(buildOption(opt, 'choice-option')))
+      ;['Yes', 'No'].forEach((opt) => row.appendChild(buildOption(opt, 'choice-option')))
     fieldset.appendChild(row)
   } else if (question.kind === 'text') {
     const textarea = document.createElement('textarea')
@@ -568,7 +767,7 @@ function renderSurveyQuestion(question: SurveyQuestion, keyPrefix: string): HTML
 
     const optionsRow = document.createElement('div')
     optionsRow.className = 'likert-scale__options'
-    ;['1', '2', '3', '4', '5', '6', '7'].forEach((opt) => optionsRow.appendChild(buildOption(opt, 'likert-option')))
+      ;['1', '2', '3', '4', '5', '6', '7'].forEach((opt) => optionsRow.appendChild(buildOption(opt, 'likert-option')))
     scale.appendChild(optionsRow)
 
     const endpoints = document.createElement('div')
@@ -693,7 +892,16 @@ function isSurveyPageComplete(): boolean {
   // click straight through.
   if (['PILOTA', 'PILOTB'].includes(participant.code.toUpperCase())) return true
   if (participant.order.system.startsWith('DEMO')) return true
-  const ctx = currentSurveyContext()
+  if (allPages[currentPageIndex]?.kind === 'demographics') return isDemographicsComplete()
+  return isContextComplete(currentSurveyContext())
+}
+
+// DOM-independent completeness check for a survey/post-session context. Reads
+// only from `surveyResponses` (hydrated from Firebase at startup), so it can be
+// evaluated for pages the participant is not currently viewing — this is what
+// the page-navigation guard relies on. Radio (yes-no / likert7) selections are
+// mirrored into surveyResponses on click, so no DOM lookup is needed.
+function isContextComplete(ctx: SurveyContext | null): boolean {
   if (!ctx) return true
   return ctx.questions.every((q) => {
     // Hidden conditional questions are not required.
@@ -708,9 +916,43 @@ function isSurveyPageComplete(): boolean {
       const desc = surveyResponses.get(fieldKey(ctx.keyPrefix, ERROR_DESCRIPTION_FIELD)) ?? ''
       return step !== '' && desc.trim() !== ''
     }
-    const name = fieldKey(ctx.keyPrefix, q.id)
-    return surveyEl.querySelector(`input[name="${CSS.escape(name)}"]:checked`) !== null
+    return (surveyResponses.get(fieldKey(ctx.keyPrefix, q.id)) ?? '').trim() !== ''
   })
+}
+
+// A page is "complete" for guard purposes when it has no pending required input.
+// Intro / eval-intro / final pages carry no required questions, so they never
+// block forward navigation on their own; survey and post-session pages defer to
+// their context. A page with no visible questions (e.g. an error-localization
+// page skipped because the answer was "Yes") is trivially complete.
+function isPageCompleteAt(idx: number): boolean {
+  const page = allPages[idx]
+  if (!page) return true
+  if (page.kind === 'demographics') return isDemographicsComplete()
+  if (page.kind !== 'survey' && page.kind !== 'post-session') return true
+  return isContextComplete(surveyContextForPage(page))
+}
+
+// The furthest page a non-DEMO participant is allowed to reach: the first page
+// they have not yet completed. They may freely revisit earlier pages, but may
+// not skip ahead past unfinished work (enforced on URL entry + history nav).
+// DEMO* walkthroughs and pilots are exempt — they roam freely.
+function furthestAllowedPageIndex(): number {
+  // Exempt exactly the accounts for which completeness is not enforced (mirrors
+  // isSurveyPageComplete): DEMO* walkthroughs and the PILOT pilots click through
+  // freely, so the guard would otherwise trap them on their first blank page.
+  const code = participant.code.toUpperCase()
+  if (
+    code.startsWith('DEMO') ||
+    participant.order.system.startsWith('DEMO') ||
+    ['PILOTA', 'PILOTB'].includes(code)
+  ) {
+    return allPages.length - 1
+  }
+  for (let i = 0; i < allPages.length; i += 1) {
+    if (!isPageCompleteAt(i)) return i
+  }
+  return allPages.length - 1
 }
 
 // Stop timing the current Yes/No page and add the elapsed time to its running
@@ -767,12 +1009,25 @@ function buildSubmission(): Record<string, FsJson> {
   const systems: Record<string, FsJson> = {}
   finalItems.forEach((it) => { systems[it.key] = it.system })
 
+  // Aggregate-only background details (age stored as a number for mean/SD/range).
+  const demographics: Record<string, FsJson> = {}
+  const demoAge = (surveyResponses.get(demoKey('age')) ?? '').trim()
+  if (demoAge !== '') {
+    const n = Number(demoAge)
+    demographics.age = Number.isFinite(n) ? n : demoAge
+  }
+  DEMOGRAPHICS_TEXT_FIELDS.forEach((id) => {
+    const v = surveyResponses.get(demoKey(id))
+    if (v != null && v.trim() !== '') demographics[id] = v
+  })
+
   return {
     code: participant.code,
     order: { system: participant.order.system, chart: participant.order.chart },
     systems,
     sequence: sequence.map((it) => ({ chart_id: it.chart_id, system: it.system, group: it.group })),
     charts,
+    demographics,
     postSession,
     final: { comment: surveyResponses.get('final::comment') ?? '' },
     updatedAt: new Date().toISOString(),
@@ -801,6 +1056,10 @@ function hydrateFromDoc(fields: Record<string, FsJson>) {
     Object.entries((obj as Record<string, any>) ?? {}).forEach(([qid, val]) => {
       if (val != null && val !== '') surveyResponses.set(`postsession:${system}::${qid}`, String(val))
     })
+  })
+  const demographics = (fields.demographics as Record<string, any>) ?? {}
+  Object.entries(demographics).forEach(([id, val]) => {
+    if (val != null && val !== '') surveyResponses.set(demoKey(id), String(val))
   })
   const final = (fields.final as any) ?? {}
   if (typeof final.comment === 'string' && final.comment) surveyResponses.set('final::comment', final.comment)
@@ -1214,11 +1473,208 @@ async function renderIntroPage(kind: IntroKind) {
     return
   }
 
+  if (kind === 'eval-intro') {
+    introEyebrowEl.textContent = 'SYSTEM EVALUATION'
+    introTitleEl.textContent = 'Evaluate Each System'
+    introBodyEl.innerHTML = EVAL_INTRO_BODY_HTML.replace(/\{sequenceLength\}/g, String(sequence.length))
+    introDemoEl.hidden = true
+    return
+  }
+
   // tutorial-task
   introEyebrowEl.textContent = 'TUTORIAL · 3 OF 3'
   introTitleEl.textContent = 'Your Task'
   introBodyEl.innerHTML = TUTORIAL_TASK_BODY_HTML.replace(/\{sequenceLength\}/g, String(sequence.length))
   introDemoEl.hidden = true
+}
+
+// ============================================================================
+// Demographics — a one-time "About You" page shown right after the welcome
+// page. Background details are collected for aggregate reporting only (mean age,
+// gender split, STEM %, student/worker split). Stored under `demographics::*`
+// keys in surveyResponses and emitted as a `demographics` object in the saved
+// doc; hydrated back on reload like every other response.
+// ============================================================================
+const DEMOGRAPHICS_PREFIX = 'demographics'
+const demoKey = (id: string) => `${DEMOGRAPHICS_PREFIX}::${id}`
+const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Prefer not to answer']
+const EDUCATION_OPTIONS = [
+  'High school or below',
+  'Some college (no degree yet)',
+  "Associate's / 2-year degree",
+  "Bachelor's degree",
+  "Master's degree",
+  'Doctoral degree',
+  'Other',
+]
+const OCCUPATION_OPTIONS = ['Student', 'Employed', 'Self-employed', 'Other']
+// Fields whose value is a plain string carried into the saved `demographics` map.
+const DEMOGRAPHICS_TEXT_FIELDS = ['gender', 'gender-self', 'education', 'field', 'occupation', 'occupation-detail']
+
+// Pilots / DEMO walkthroughs can click straight through (nothing required),
+// mirroring isSurveyPageComplete's exemption.
+function isDemographicsExempt(): boolean {
+  return ['PILOTA', 'PILOTB'].includes(participant.code.toUpperCase()) || participant.order.system.startsWith('DEMO')
+}
+
+function isDemographicsComplete(): boolean {
+  if (isDemographicsExempt()) return true
+  const get = (id: string) => (surveyResponses.get(demoKey(id)) ?? '').trim()
+  const age = get('age')
+  const ageNum = Number(age)
+  const ageOk = age !== '' && Number.isFinite(ageNum) && ageNum > 0
+  return ageOk && get('gender') !== '' && get('education') !== '' && get('field') !== '' && get('occupation') !== ''
+}
+
+function showDemographicsLayout() {
+  introCardEl.hidden = true
+  chartCardEl.hidden = true
+  bottomAreaEl.hidden = false
+  taskBannerEl.hidden = true
+  introDemoEl.hidden = true
+}
+
+// Persist on any demographics edit; clear the warning once the page is complete.
+function onDemographicsChange() {
+  scheduleSave()
+  if (isDemographicsComplete()) surveyWarningEl.textContent = ''
+}
+
+// Store/clear a text-ish value (empty string → delete so it never reaches the doc).
+function setDemoValue(id: string, value: string) {
+  if (value.trim() === '') surveyResponses.delete(demoKey(id))
+  else surveyResponses.set(demoKey(id), value)
+}
+
+function demoFieldset(legendText: string): HTMLFieldSetElement {
+  const fs = document.createElement('fieldset')
+  fs.className = 'survey-question survey-question--demo'
+  const legend = document.createElement('legend')
+  legend.className = 'survey-question__text'
+  legend.textContent = legendText
+  fs.appendChild(legend)
+  return fs
+}
+
+function demoTextInput(id: string, placeholder: string): HTMLInputElement {
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.className = 'demo-input'
+  input.placeholder = placeholder
+  input.value = surveyResponses.get(demoKey(id)) ?? ''
+  input.addEventListener('input', () => { setDemoValue(id, input.value); onDemographicsChange() })
+  return input
+}
+
+// Radio group reusing the survey `.choice-option` cards (sr-only input +
+// `:has(input:checked)` styling — no re-render needed on selection).
+function demoChoiceField(id: string, legendText: string, options: string[], onSelect?: (value: string) => void): HTMLFieldSetElement {
+  const fs = demoFieldset(legendText)
+  const row = document.createElement('div')
+  row.className = 'choice-row choice-row--quad'
+  const name = demoKey(id)
+  const current = surveyResponses.get(name) ?? ''
+  options.forEach((value) => {
+    const label = document.createElement('label')
+    label.className = 'choice-option'
+    const input = document.createElement('input')
+    input.type = 'radio'
+    input.name = name
+    input.value = value
+    input.checked = current === value
+    const span = document.createElement('span')
+    span.className = 'choice-option__label'
+    span.textContent = value
+    label.append(input, span)
+    input.addEventListener('change', () => {
+      surveyResponses.set(name, value)
+      onSelect?.(value)
+      onDemographicsChange()
+    })
+    row.appendChild(label)
+  })
+  fs.appendChild(row)
+  return fs
+}
+
+function buildDemoAge(): HTMLFieldSetElement {
+  const fs = demoFieldset('How old are you? (international age)')
+  const input = document.createElement('input')
+  input.type = 'number'
+  input.className = 'demo-input demo-input--age'
+  input.min = '1'
+  input.max = '120'
+  input.step = '1'
+  input.inputMode = 'numeric'
+  input.placeholder = 'e.g., 27'
+  input.value = surveyResponses.get(demoKey('age')) ?? ''
+  input.addEventListener('input', () => { setDemoValue('age', input.value); onDemographicsChange() })
+  const hint = document.createElement('p')
+  hint.className = 'demo-hint'
+  // Korea uses a different age reckoning, so spell out international ("full") age
+  // explicitly to avoid off-by-one/two errors.
+  hint.innerHTML =
+    'Please enter your <strong>international age</strong> — the number of full years since you were born. ' +
+    'This is typically 1–2 years lower than the traditional Korean age (한국식 나이가 아닌 만 나이를 적어주세요).'
+  fs.append(input, hint)
+  return fs
+}
+
+function buildDemoGender(): HTMLFieldSetElement {
+  const selfWrap = document.createElement('div')
+  selfWrap.className = 'demo-selfdescribe'
+  selfWrap.appendChild(demoTextInput('gender-self', 'Prefer to self-describe? (optional)'))
+  const setSelfVisible = (value: string) => {
+    selfWrap.hidden = value !== 'Other'
+    if (value !== 'Other') { setDemoValue('gender-self', '') ; (selfWrap.firstElementChild as HTMLInputElement).value = '' }
+  }
+  const fs = demoChoiceField('gender', 'What is your gender?', GENDER_OPTIONS, setSelfVisible)
+  selfWrap.hidden = (surveyResponses.get(demoKey('gender')) ?? '') !== 'Other'
+  fs.appendChild(selfWrap)
+  return fs
+}
+
+function buildDemoEducation(): HTMLFieldSetElement {
+  const fs = demoFieldset('What is your highest level of education, and your field of study?')
+  const select = document.createElement('select')
+  select.className = 'demo-select'
+  select.name = demoKey('education')
+  const current = surveyResponses.get(demoKey('education')) ?? ''
+  const placeholder = document.createElement('option')
+  placeholder.value = ''
+  placeholder.textContent = 'Select your highest level of education…'
+  placeholder.disabled = true
+  placeholder.selected = current === ''
+  select.appendChild(placeholder)
+  EDUCATION_OPTIONS.forEach((level) => {
+    const option = document.createElement('option')
+    option.value = level
+    option.textContent = level
+    option.selected = current === level
+    select.appendChild(option)
+  })
+  select.addEventListener('change', () => { surveyResponses.set(demoKey('education'), select.value); onDemographicsChange() })
+  const field = demoTextInput('field', 'Field of study or expertise (e.g., Computer Science, Nursing — write N/A if none)')
+  fs.append(select, field)
+  return fs
+}
+
+function buildDemoOccupation(): HTMLFieldSetElement {
+  const fs = demoChoiceField('occupation', 'Which best describes your current status?', OCCUPATION_OPTIONS)
+  fs.appendChild(demoTextInput('occupation-detail', 'Your occupation or affiliation (optional)'))
+  return fs
+}
+
+function renderDemographicsPage() {
+  questionEl.textContent = 'A few questions about you'
+  descriptionEl.innerHTML =
+    'Before the study begins, we would kindly ask for a little background information. We use it only to describe our participants as a group in the research paper (for example, the group’s average age). <strong>Your responses are used for research purposes only, are kept confidential and never linked to your identity, and will be permanently discarded once the study is complete.</strong>'
+  descriptionEl.hidden = false
+  explanationEl.hidden = true
+  explanationEl.innerHTML = ''
+  debugMetaEl.textContent = ''
+  surveyEl.innerHTML = ''
+  surveyEl.append(buildDemoAge(), buildDemoGender(), buildDemoEducation(), buildDemoOccupation())
 }
 
 function showSurveyLayout() {
@@ -1278,14 +1734,14 @@ function updateUI() {
     else if (page.kind === 'final') logicalCurrentPage = sequence.length + blocks.length + 1
   }
 
-  const totalLogicalSteps = INTRO_PAGE_KINDS.length + logicalTotalPages
+  const totalLogicalSteps = PRE_SURVEY_PAGE_COUNT + logicalTotalPages
   let pct = 0
   if (page && (page.kind === 'survey' || page.kind === 'post-session' || page.kind === 'final')) {
-    pct = Math.round((INTRO_PAGE_KINDS.length + logicalCurrentPage) / totalLogicalSteps * 100)
+    pct = Math.round((PRE_SURVEY_PAGE_COUNT + logicalCurrentPage) / totalLogicalSteps * 100)
   } else {
     pct = Math.round((currentPageIndex + 1) / totalLogicalSteps * 100)
   }
-  
+
   progressFillEl.style.width = `${pct}%`
   progressTrackEl.setAttribute('aria-valuenow', String(pct))
   surveyWarningEl.textContent = ''
@@ -1297,9 +1753,11 @@ function updateUI() {
     if (methodBadgeEl) methodBadgeEl.textContent = ''
     debugMetaEl.textContent = ''
     if (page?.kind === 'intro-welcome') progressLabelEl.textContent = 'Introduction · 1 of 4'
+    else if (page?.kind === 'demographics') progressLabelEl.textContent = 'About You'
     else if (page?.kind === 'tutorial-interact') progressLabelEl.textContent = 'Introduction · 2 of 4'
     else if (page?.kind === 'tutorial-text') progressLabelEl.textContent = 'Introduction · 3 of 4'
     else if (page?.kind === 'tutorial-task') progressLabelEl.textContent = 'Introduction · 4 of 4'
+    else if (page?.kind === 'eval-intro') progressLabelEl.textContent = 'System Evaluation'
     else progressLabelEl.textContent = ''
     return
   }
@@ -1454,6 +1912,14 @@ async function loadPage(idx: number) {
     return
   }
 
+  if (page.kind === 'demographics') {
+    currentItemIndex = -1
+    showDemographicsLayout()
+    updateUI()
+    renderDemographicsPage() // runs last so it owns the shared question/description/survey containers
+    return
+  }
+
   currentItemIndex = -1
   await renderIntroPage(page.kind)
   updateUI()
@@ -1511,7 +1977,9 @@ window.addEventListener('popstate', () => {
   // error page after a "Yes"); resolve skips in the direction of travel and
   // keep the URL in sync with where we actually settle.
   const urlIdx = getPageIndexFromUrl()
-  const resolved = resolveSkips(urlIdx, urlIdx >= currentPageIndex ? 1 : -1)
+  let resolved = resolveSkips(urlIdx, urlIdx >= currentPageIndex ? 1 : -1)
+  // Guard: a non-DEMO participant may not jump past their first unfinished page.
+  resolved = Math.min(resolved, furthestAllowedPageIndex())
   if (resolved !== urlIdx) syncPageUrl(resolved, true)
   void loadPage(resolved)
 })
@@ -1533,5 +2001,9 @@ window.addEventListener('pagehide', () => { flushTimer(); void saveNow(true) })
 // Resolve AFTER hydration so a reload/deep link onto a fully-hidden conditional
 // page (e.g. the error page of a "Yes" item) settles on the next visible page.
 currentPageIndex = resolveSkips(currentPageIndex, 1)
+// Guard (post-hydration): a non-DEMO participant who deep-links to a page beyond
+// their first unfinished one is snapped back to that furthest legitimate page,
+// so every required response is collected in order. DEMO*/pilots are exempt.
+currentPageIndex = Math.min(currentPageIndex, furthestAllowedPageIndex())
 syncPageUrl(currentPageIndex, true)
 void loadPage(currentPageIndex)

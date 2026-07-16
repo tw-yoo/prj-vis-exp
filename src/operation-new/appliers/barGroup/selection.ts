@@ -9,6 +9,7 @@ import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { applyMarkSalience } from '../../primitives/markSalience'
+import { drawRegionHighlight } from '../../primitives/drawRegionHighlight'
 import { drawResultBadge } from '../../primitives/drawResultBadge'
 import { placeValueLabel } from '../../primitives/placeValueLabel'
 import { barMarkKeyFromNode } from './_shared'
@@ -91,39 +92,110 @@ export function makeBarSelectionApplier<T extends BarGroupApplierInstance>(opts:
       const transitions: Promise<unknown>[] = []
 
       result.forEach((datum, index) => {
-        const rects = findBarsByDatum(instance, datum)
+        // A DERIVED-row selection (pairDiff / lagDiff Δ rows) picks a whole
+        // x-position (a Period / panel), not one bar segment — recoloring the
+        // segments red would misread as a value selection. Paint a translucent
+        // highlighter band over that region instead; the Δ arrows/labels the
+        // deriving op drew stay on top and carry the value.
+        const isDerivedSelection =
+          typeof datum.semanticMeasure === 'string' && datum.semanticMeasure.startsWith('Δ')
+        // Per-category aggregate selection (findExtremum with aggregate:'sum'):
+        // the datum is a whole x-CATEGORY (e.g. a year's stack total), so
+        // highlight its entire column as a region and label the total — never
+        // recolour one segment red.
+        const isColumnTotalSelection =
+          typeof (operation as OperationSpec & { aggregate?: unknown }).aggregate === 'string' &&
+          String((operation as OperationSpec & { aggregate?: unknown }).aggregate).trim().length > 0
+
+        let rects = findBarsByDatum(instance, datum)
+        if (rects.length === 0 && (isDerivedSelection || isColumnTotalSelection) && datum.target != null) {
+          // Derived/aggregate rows carry target = a whole column value (a Period
+          // / year). Resolve the region via the panel id or the raw target.
+          const panelKey = String(datum.target)
+          rects = (instance.mainBars().nodes() as SVGRectElement[]).filter(
+            (node) =>
+              node.getAttribute(DataAttributes.ChartId) === panelKey ||
+              node.getAttribute(DataAttributes.Target) === panelKey,
+          )
+        }
         if (rects.length === 0) return
         const metrics = barRootMetrics(rects[0])
 
-        // Highlight every matching bar red.
-        transitions.push(
-          (d3.selectAll(rects) as d3.Selection<SVGRectElement, unknown, null, undefined>)
-            .interrupt()
-            .transition()
-            .duration(DURATIONS.HIGHLIGHT)
-            .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
-            .end()
-            .catch(() => undefined),
-        )
+        if (isDerivedSelection || isColumnTotalSelection) {
+          let x0 = Number.POSITIVE_INFINITY
+          let x1 = Number.NEGATIVE_INFINITY
+          let colTopY = Number.POSITIVE_INFINITY
+          rects.forEach((rect) => {
+            const m = barRootMetrics(rect)
+            x0 = Math.min(x0, m.centerX - m.width / 2)
+            x1 = Math.max(x1, m.centerX + m.width / 2)
+            colTopY = Math.min(colTopY, m.topY)
+          })
+          transitions.push(
+            drawRegionHighlight({
+              layer,
+              cssClass: opts.cssClass,
+              x0,
+              x1,
+              y0: instance.layout.marginTop,
+              y1: instance.layout.marginTop + instance.layout.plotHeight,
+              nodeId,
+            }),
+          )
+          // Label the aggregate total above the highlighted column (the Δ path
+          // skips this because the deriving op already drew the value).
+          if (isColumnTotalSelection) {
+            const totalLabel = placeValueLabel({
+              layer,
+              svg: instance.svg,
+              viewport: barAnnotationViewport(instance),
+              preferred: { x: (x0 + x1) / 2, y: colTopY - 12 },
+              text: formatOperationValue(datum.value),
+              className: opts.cssClass,
+              dataAttrs: nodeId ? [[DataAttributes.AnnotationNodeId, nodeId]] : [],
+            })
+            transitions.push(
+              totalLabel
+                .transition()
+                .duration(DURATIONS.LABEL_FADE_IN)
+                .style(SvgAttributes.Opacity, 1)
+                .end()
+                .catch(() => undefined),
+            )
+          }
+        } else {
+          // Highlight every matching bar red.
+          transitions.push(
+            (d3.selectAll(rects) as d3.Selection<SVGRectElement, unknown, null, undefined>)
+              .interrupt()
+              .transition()
+              .duration(DURATIONS.HIGHLIGHT)
+              .attr(SvgAttributes.Fill, COLORS.ANNOTATION_RED)
+              .end()
+              .catch(() => undefined),
+          )
 
-        // Value label above the bar top (collision-aware placer).
-        const labelNode = placeValueLabel({
-          layer,
-          svg: instance.svg,
-          viewport: barAnnotationViewport(instance),
-          preferred: { x: metrics.centerX, y: metrics.topY - 12 - index * 16 },
-          text: formatOperationValue(metrics.value),
-          className: opts.cssClass,
-          dataAttrs: nodeId ? [[DataAttributes.AnnotationNodeId, nodeId]] : [],
-        })
-        transitions.push(
-          labelNode
-            .transition()
-            .duration(DURATIONS.LABEL_FADE_IN)
-            .style(SvgAttributes.Opacity, 1)
-            .end()
-            .catch(() => undefined),
-        )
+          // Value label above the bar top (collision-aware placer). Skipped for
+          // derived selections — the deriving op's Δ label already shows the
+          // value; repeating the raw bar value here confused the narrative.
+          const labelNode = placeValueLabel({
+            layer,
+            svg: instance.svg,
+            viewport: barAnnotationViewport(instance),
+            preferred: { x: metrics.centerX, y: metrics.topY - 12 - index * 16 },
+            text: formatOperationValue(metrics.value),
+            className: opts.cssClass,
+            dataAttrs: nodeId ? [[DataAttributes.AnnotationNodeId, nodeId]] : [],
+          })
+          transitions.push(
+            labelNode
+              .transition()
+              .duration(DURATIONS.LABEL_FADE_IN)
+              .style(SvgAttributes.Opacity, 1)
+              .end()
+              .catch(() => undefined),
+          )
+        }
 
         // Invisible result-ref anchor at the bar-top value-y, so a cross-surface
         // diff resolves this endpoint precisely (stroke present → non-empty

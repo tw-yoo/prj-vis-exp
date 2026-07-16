@@ -103,6 +103,7 @@ export function makeBarGroupDiffApplier<T extends BarGroupApplierInstance>(): Op
             refLines: [],
             color: COLORS.ANNOTATION_RED,
             label: `Difference: ${formatOperationValue(value)}`,
+            labelPlacement: 'above-center',
             svg: instance.svg,
             viewport: barAnnotationViewport(instance),
           })

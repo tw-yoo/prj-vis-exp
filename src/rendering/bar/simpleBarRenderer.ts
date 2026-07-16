@@ -400,6 +400,13 @@ export async function renderSimpleBarChart(
     { maxPasses: 4 },
   )
 
+  // Bind the hover tooltip here (mirrors groupedBarRenderer). renderChart also
+  // attaches after dispatch, but the grouped→simple conversion calls this
+  // renderer DIRECTLY (bypassing renderChart), so without this the converted
+  // simple bars would have no tooltip. Idempotent — attach cleans up any prior
+  // binding first.
+  attachChartHoverTooltip(container)
+
   return svg
 }
 

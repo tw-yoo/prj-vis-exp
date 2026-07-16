@@ -178,25 +178,6 @@
         ]
       }
     },
-    "25gpdzxh8nu0c0vf": {
-      "question": "In average and median values, which one is bigger?",
-      "ours": {
-        "steps": [
-          {
-            "id": "ops",
-            "text": "Calculate the average of the Number_of_Fatalities values across all years."
-          },
-          {
-            "id": "ops2",
-            "text": "Sort the values and take the middle one as the median."
-          },
-          {
-            "id": "ops3",
-            "text": "Compare the average and the median to see which is bigger."
-          }
-        ]
-      }
-    },
     "2eiyyw562tcvjypp": {
       "question": "How many years has Russia had higher favorability than the US?",
       "ours": {
@@ -423,6 +404,55 @@
           {
             "id": "ops2",
             "text": "Select the method with the largest gap."
+          }
+        ]
+      }
+    },
+    "95yhyqjyeu4fohbj": {
+      "question": "Is the average of the minimum and maximum values greater compared to the value in 2010?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Find the minimum (1.88 in 2000) and maximum (2.71 in 2020) values."
+          },
+          {
+            "id": "ops2",
+            "text": "Average those two values to get 2.295."
+          },
+          {
+            "id": "ops3",
+            "text": "Compare that average to the 2010 value (2.39): 2.295 is not greater, so No."
+          }
+        ]
+      }
+    },
+    "11e148qccorrect": {
+      "question": "in which years does south korea have a bigger value than france?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Compare South Korea and France in each period (South Korea minus France)."
+          },
+          {
+            "id": "ops2",
+            "text": "Keep the periods where South Korea is actually ahead (difference above 0): 2016, 2017, 2018, and Jan-Oct 2019. In 2014 and 2015 France is higher, so they do not count."
+          }
+        ]
+      }
+    },
+    "e6q3stacked": {
+      "question": "which year had the lowest amount of suicides of all ages combined?",
+      "ours": {
+        "steps": [
+          {
+            "id": "ops",
+            "text": "Stack the age groups within each year so each bar shows that year's combined total."
+          },
+          {
+            "id": "ops2",
+            "text": "Select the year with the lowest combined total — 2019 (746)."
           }
         ]
       }

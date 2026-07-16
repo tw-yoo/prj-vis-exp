@@ -676,13 +676,31 @@ function techEvalPlugin(): Plugin {
   }
 }
 
+// GitHub Pages has no server-side SPA rewrite, so a deep link like
+// /prj-vis-exp/pre-registration 404s. Copying the built index.html to 404.html
+// makes Pages serve the SPA for any unknown path; the client router (web/App.tsx)
+// then resolves the pathname. Build-only.
+function spaFallbackPlugin(): Plugin {
+  return {
+    name: 'spa-404-fallback',
+    apply: 'build',
+    closeBundle() {
+      const indexPath = path.join(projectRoot, 'dist', 'index.html')
+      const fallbackPath = path.join(projectRoot, 'dist', '404.html')
+      if (fs.existsSync(indexPath)) {
+        fs.copyFileSync(indexPath, fallbackPath)
+      }
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
   // GitHub Pages serves this project site under /prj-vis-exp/. Production builds
   // must prefix every asset URL with it; dev + e2e stay at root '/' so the
   // existing middleware routes (/evaluation, /validation, /api/review) keep working.
   base: command === 'build' ? '/prj-vis-exp/' : '/',
-  plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin(), chartQaDataPlugin(), reviewApiPlugin(), techEvalPlugin()],
+  plugins: [react(), validationViewerPlugin(), evaluationViewerPlugin(), chartQaDataPlugin(), reviewApiPlugin(), techEvalPlugin(), spaFallbackPlugin()],
   optimizeDeps: {
     entries: ['index.html'],
   },

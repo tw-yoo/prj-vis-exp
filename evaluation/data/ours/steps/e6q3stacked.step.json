@@ -1,0 +1,17 @@
+{
+  "chart_id": "e6q3stacked",
+  "question": "which year had the lowest amount of suicides of all ages combined?",
+  "description": "",
+  "specPath": "specs/e6q3stacked.vl.json",
+  "opsPath": "ops/e6q3stacked.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Stack the age groups within each year so each bar shows that year's combined total."
+    },
+    {
+      "id": "ops2",
+      "text": "Select the year with the lowest combined total — 2019 (746)."
+    }
+  ]
+}

@@ -175,20 +175,6 @@
       }
     ]
   },
-  "25gpdzxh8nu0c0vf": {
-    "expertId": "e6_q4",
-    "module": "expert/25gpdzxh8nu0c0vf.js",
-    "steps": [
-      {
-        "fn": "function1",
-        "text": "Use the fatalities values for all years (2000–2020). \nCompute the average by summing all yearly fatalities and dividing by the number of years. \nCompute the median by sorting the values and taking the middle one (since there are 21 years, it’s the 11th value)."
-      },
-      {
-        "fn": "function2",
-        "text": "The data has several higher values in the early 2000s (around 200–221) and many lower values later (down to 85), which pulls the median down more than the mean. \nAfter calculating both, the mean is about 166.6 while the median is 173, so the median is actually higher than the mean."
-      }
-    ]
-  },
   "2eiyyw562tcvjypp": {
     "expertId": "e6_q5",
     "module": "expert/2eiyyw562tcvjypp.js",
@@ -205,11 +191,11 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Take the last six years in the data (2015–2020). For each of these years, compute the difference as (Female population − Male population): 2015: 670.48−704.14, 2016: 674.56−708.15, 2017: 678.71−711.37, 2018: 681.87−713.51, 2019: 684.78−715.27, 2020: 688.44−723.34."
+        "text": "Take the last six years in the data (2015–2020). For each of these years, compute the difference as (Male population − Female population): 2015: 704.14−670.48, 2016: 708.15−674.56, 2017: 711.37−678.71, 2018: 713.51−681.87, 2019: 715.27−684.78, 2020: 723.34−688.44."
       },
       {
         "fn": "function2",
-        "text": "Add these six yearly differences together to get a total of −196.94 million inhabitants."
+        "text": "Add these six yearly differences together to get a total of 196.94 million inhabitants."
       }
     ]
   },
@@ -261,7 +247,7 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Review each year's FIFA World Ranking position and count those whose value is above 20 and at most 30 (strictly above 20, so value=20 is excluded). The qualifying years are 2003 (27), 2004 (27), 2009 (29), 2012 (27), 2013 (27), 2014 (26), 2015 (28), 2016 (25), 2017 (22), and 2018 (23). That makes 10 years in total."
+        "text": "Count each year whose FIFA World Ranking position lies in the 20-to-30 range. The qualifying years are 2003 (27), 2004 (27), 2009 (29), 2012 (27), 2013 (27), 2014 (26), 2015 (28), 2016 (25), 2017 (22), and 2018 (23), giving 10 years in total."
       }
     ]
   },
@@ -378,6 +364,16 @@
       {
         "fn": "function2",
         "text": "Text messaging has 0.55 for every day and 0.13 for less often, giving a difference of 0.42, which is larger than the differences for all other methods."
+      }
+    ]
+  },
+  "95yhyqjyeu4fohbj": {
+    "expertId": "e9_q4",
+    "module": "expert/95yhyqjyeu4fohbj.js",
+    "steps": [
+      {
+        "fn": "function1",
+        "text": "Identify the minimum value (1.88 in 2000) and the maximum value (2.71 in 2020). Compute their average, which is about 2.295. Compare this to the 2010 value (2.39). Since 2.295 is less than 2.39, the average of the minimum and maximum is not greater than the 2010 value."
       }
     ]
   }

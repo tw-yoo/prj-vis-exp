@@ -7,6 +7,10 @@ export { LikertQuestion } from './LikertQuestion'
 export type { OpenEndedInputProps } from './OpenEndedInput'
 export { OpenEndedInput } from './OpenEndedInput'
 
+export type { AvailabilityPickerProps } from './AvailabilityPicker'
+export { AvailabilityPicker } from './AvailabilityPicker'
+export { formatSlotLabel } from './availabilitySlots'
+
 export type { RankingQuestionProps } from './RankingQuestion'
 export { RankingQuestion } from './RankingQuestion'
 

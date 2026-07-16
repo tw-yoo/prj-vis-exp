@@ -476,6 +476,11 @@ export class OursRenderer implements ExplanationRenderer {
         if (layoutType !== 'split-horizontal') {
           const rawRows = extractSpecRows(this.activeSpec)
           const datumValues = buildDatumValuesForSpec(this.activeSpec, rawRows)
+          // deferEntrance: the panels stay invisible (opacity 0) while both
+          // charts render and the shared-y-axis policy finalizes their axes/
+          // viewBox — THEN the entrance fires. Without this the viewer
+          // watched empty panels slide in, charts pop mid-animation, and the
+          // right axis vanish/rescale (axis "왔다갔다" on 0wflwm4jebx7n12y).
           this.surfaceManager.splitSurface('horizontal', {
             idA: this.splitPlan.leftSurfaceId,
             idB: this.splitPlan.rightSurfaceId,
@@ -483,12 +488,14 @@ export class OursRenderer implements ExplanationRenderer {
             specB: this.activeSpec,
             dataA: datumValues,
             dataB: datumValues,
+            deferEntrance: true,
           })
           const leftHost = this.surfaceManager.getSurface(this.splitPlan.leftSurfaceId)?.hostElement as HTMLElement | null
           const rightHost = this.surfaceManager.getSurface(this.splitPlan.rightSurfaceId)?.hostElement as HTMLElement | null
           if (leftHost) await renderChart(leftHost, this.activeSpec)
           if (rightHost) await renderChart(rightHost, this.activeSpec)
           applySplitSharedYAxisPolicy(this.surfaceManager)
+          this.surfaceManager.triggerSplitEntrance()
           // Active step only: wait for the split entrance animation to
           // fully settle, then pause ~0.7s so the next animation (left-
           // surface filter/avg ops) doesn't blend visually into the

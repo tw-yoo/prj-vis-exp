@@ -10,6 +10,7 @@ import {
 } from '../../../rendering-new/instances/multipleLineInstance'
 import { applyAnnotationContextFade } from '../../primitives/contextFade'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
+import { drawRegionHighlight } from '../../primitives/drawRegionHighlight'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 
 export const FILTER_ANNOTATION_CLASS = 'operation-next-multiple-line-filter'
@@ -341,6 +342,58 @@ export const filterApplier: OperationApplier<MultipleLineChartInstance> = {
       await parent.end()
     } catch {
       /* interrupted */
+    }
+
+    // Region bands over the in-scope (qualifying) x-columns, IN ADDITION to the
+    // point/line salience — the counted years read as highlighted regions, not
+    // just recolored points. Skipped for x-range filters (their axis recomposes
+    // below, so a band would land on stale coordinates).
+    if (!isXRangeFilter || isPostDerivedDiff) {
+      const inScopeCircle = (node: SVGCircleElement): boolean => {
+        const target = node.getAttribute(DataAttributes.Target) ?? ''
+        const id = node.getAttribute(DataAttributes.Id) ?? ''
+        if (remainingTargets) return remainingTargets.has(target) || remainingTargets.has(id)
+        const series = node.getAttribute(DataAttributes.Series) ?? ''
+        return (
+          remainingKeys.has(multiLinePointKey(target, series)) ||
+          remainingKeys.has(multiLinePointKey(id, series))
+        )
+      }
+      const circles = points.nodes() as SVGCircleElement[]
+      const allCx = circles
+        .map((n) => Number(n.getAttribute(SvgAttributes.CX)))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b)
+      let minGap = Infinity
+      for (let i = 1; i < allCx.length; i += 1) {
+        const g = allCx[i] - allCx[i - 1]
+        if (g > 0.5 && g < minGap) minGap = g
+      }
+      const halfBand = Number.isFinite(minGap) ? minGap * 0.42 : 16
+      const { marginLeft, marginTop, plotHeight } = instance.layout
+      const drawnX = new Set<number>()
+      const bandPromises: Array<Promise<unknown>> = []
+      circles.forEach((c) => {
+        if (!inScopeCircle(c)) return
+        const cx = Number(c.getAttribute(SvgAttributes.CX))
+        if (!Number.isFinite(cx)) return
+        const key = Math.round(cx)
+        if (drawnX.has(key)) return
+        drawnX.add(key)
+        bandPromises.push(
+          drawRegionHighlight({
+            layer,
+            cssClass: FILTER_ANNOTATION_CLASS,
+            x0: marginLeft + cx - halfBand,
+            x1: marginLeft + cx + halfBand,
+            y0: marginTop,
+            y1: marginTop + plotHeight,
+            nodeId: filterNodeId,
+            padX: 0,
+          }).catch(() => undefined),
+        )
+      })
+      await Promise.all(bandPromises)
     }
 
     // ----- Phase 2 (x-range filters): axis recompose --------------------

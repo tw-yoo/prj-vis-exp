@@ -1,0 +1,83 @@
+{
+  "ops": [
+    {
+      "op": "findExtremum",
+      "id": "n1",
+      "meta": {
+        "nodeId": "n1",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "field": "Number of people in millions",
+      "which": "min"
+    },
+    {
+      "op": "findExtremum",
+      "id": "n2",
+      "meta": {
+        "nodeId": "n2",
+        "inputs": [],
+        "sentenceIndex": 1
+      },
+      "field": "Number of people in millions",
+      "which": "max"
+    }
+  ],
+  "ops2": [
+    {
+      "op": "add",
+      "id": "n3",
+      "meta": {
+        "nodeId": "n3",
+        "inputs": [
+          "n1",
+          "n2"
+        ],
+        "sentenceIndex": 2
+      },
+      "targetA": "ref:n1",
+      "targetB": "ref:n2"
+    },
+    {
+      "op": "scale",
+      "id": "n4",
+      "meta": {
+        "nodeId": "n4",
+        "inputs": [
+          "n3"
+        ],
+        "sentenceIndex": 2
+      },
+      "target": "ref:n3",
+      "factor": 0.5
+    }
+  ],
+  "ops3": [
+    {
+      "op": "retrieveValue",
+      "id": "n5",
+      "meta": {
+        "nodeId": "n5",
+        "inputs": [],
+        "sentenceIndex": 3
+      },
+      "field": "Number of people in millions",
+      "target": "2010"
+    },
+    {
+      "op": "compareBool",
+      "id": "n6",
+      "meta": {
+        "nodeId": "n6",
+        "inputs": [
+          "n4",
+          "n5"
+        ],
+        "sentenceIndex": 3
+      },
+      "operator": ">",
+      "targetA": "ref:n4",
+      "targetB": "ref:n5"
+    }
+  ]
+}

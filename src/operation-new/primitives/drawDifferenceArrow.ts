@@ -23,6 +23,15 @@ export interface VerticalComparisonArrowOptions {
   viewport?: AnnotationViewport
   refLines?: Array<{ startX: number; y: number }>
   phaseOnePromises?: Promise<void>[]
+  /**
+   * 'right' (default) — label sits to the right of the shaft, collision-
+   * avoided (in-chart arrows).
+   * 'above-center' — label is centered ON the arrow x, just above the top
+   * head, with NO collision placer. For cross-surface split arrows: the
+   * arrow lives in the gap corridor between the two panels and the placer
+   * would otherwise shove the label over a chart.
+   */
+  labelPlacement?: 'right' | 'above-center'
 }
 
 /**
@@ -103,6 +112,23 @@ export async function drawVerticalComparisonArrow(opts: VerticalComparisonArrowO
     .attr(SvgAttributes.StrokeWidth, 2)
 
   if (!label || !svg || !viewport) return
+
+  if (opts.labelPlacement === 'above-center') {
+    // Cross-surface corridor label: centered on the shaft, above the top
+    // head, fixed position (the collision placer only knows THIS chart's
+    // marks and would push the label over a panel).
+    layer
+      .append(SvgElements.Text)
+      .attr(SvgAttributes.Class, `${SvgClassNames.TextAnnotation} ${cssClass} difference-label`)
+      .attr(SvgAttributes.X, x)
+      .attr(SvgAttributes.Y, Math.max(annotationFontSize(svg.node()), topY - VERTICAL_HEAD_SIZE_PX - 6))
+      .attr(SvgAttributes.TextAnchor, 'middle')
+      .attr(SvgAttributes.FontSize, annotationFontSize(svg.node()))
+      .attr(SvgAttributes.FontWeight, 700)
+      .attr(SvgAttributes.Fill, color)
+      .text(label)
+    return
+  }
 
   const labelX = x + 12
   const labelY = (topY + bottomY) / 2

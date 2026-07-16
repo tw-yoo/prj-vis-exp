@@ -1,7 +1,8 @@
 import * as d3 from 'd3'
 import { averageData } from '../../../domain/operation/dataOps'
 import { OperationOp } from '../../../domain/operation/types'
-import { ChartType } from '../../../domain/chart'
+import { ChartType, type ChartSpec } from '../../../domain/chart'
+import type { SimpleBarSpec } from '../../../rendering/bar/simpleBarRenderer'
 import { DataAttributes, SvgClassNames } from '../../../rendering/interfaces'
 import { DURATIONS, EASINGS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
@@ -142,12 +143,43 @@ export function makeBarGroupAverageApplier<T extends BarGroupApplierInstance>(op
             ? { type: rt.chartType, spec: rt.spec }
             : null
         if (source) {
-          const simpleSpec = await convertGroupToSimpleBarSurface(
-            instance.host,
-            source,
-            group,
-            state.workingData,
-          )
+          // Grouped charts take the ANIMATED grouped→simple transition (kept
+          // series' bars glide from their grouped/faceted slots into the
+          // simple-bar layout) when the chain hasn't narrowed the data — a
+          // prior filter's retained-target set must flow through the
+          // spec-based conversion below instead, which honors workingData.
+          // The animated path reads the renderer's stored rows, so it also
+          // covers url-data specs that `buildSimpleBarFromGroup`
+          // (spec.data.values only) declines — those used to fall through to
+          // the dim-only fallback.
+          let simpleSpec: SimpleBarSpec | null = null
+          const chainNarrowed = state.filterContext != null || state.salienceMap.size > 0
+          const groupedInstance = instance as unknown as {
+            chartTypeKey?: string
+            transitionToSimple?: (opts: {
+              currentSpec: ChartSpec
+              toSimple: { series: string }
+            }) => Promise<SimpleBarSpec | null>
+          }
+          if (
+            source.type === ChartType.GROUPED_BAR &&
+            !chainNarrowed &&
+            groupedInstance.chartTypeKey === 'grouped-bar' &&
+            typeof groupedInstance.transitionToSimple === 'function'
+          ) {
+            simpleSpec = await groupedInstance.transitionToSimple({
+              currentSpec: source.spec,
+              toSimple: { series: group },
+            })
+          }
+          if (!simpleSpec) {
+            simpleSpec = await convertGroupToSimpleBarSurface(
+              instance.host,
+              source,
+              group,
+              state.workingData,
+            )
+          }
           if (simpleSpec) {
             const newSvgNode = instance.host.querySelector('svg') as SVGSVGElement | null
             if (newSvgNode) {

@@ -14,6 +14,7 @@ import { createTemporalTickFormatter } from '../common/temporalTicks'
 import { CHART_TEXT_SIZE } from '../config/chartTextConfig'
 import { bumpRenderEpoch } from '../common/renderEpoch'
 import { storeRuntimeChartState } from '../utils/runtimeChartState'
+import { applyVegaLiteTransforms } from '../vegaLite/transform'
 
 const localDataStore: WeakMap<HTMLElement, RawDatum[]> = new WeakMap()
 const splitDomainStore: WeakMap<HTMLElement, Record<string, Set<string>>> = new WeakMap()
@@ -244,83 +245,13 @@ function resolveColorPalette(spec: MultiLineSpec) {
   return fallback
 }
 
-function shouldKeepByFilter(row: RawDatum, filterSpec: unknown): boolean {
-  if (filterSpec == null) return true
-  if (typeof filterSpec === 'string') {
-    const expr = filterSpec.replace(/\bdatum\./g, 'd.')
-    try {
-      const fn = new Function('d', `return (${expr});`) as (d: RawDatum) => boolean
-      return Boolean(fn(row))
-    } catch {
-      return true
-    }
-  }
-  if (!filterSpec || typeof filterSpec !== 'object' || Array.isArray(filterSpec)) return true
-
-  const rec = filterSpec as Record<string, unknown>
-  if (Array.isArray(rec.and)) return rec.and.every((entry) => shouldKeepByFilter(row, entry))
-  if (Array.isArray(rec.or)) return rec.or.some((entry) => shouldKeepByFilter(row, entry))
-  if (rec.not !== undefined) return !shouldKeepByFilter(row, rec.not)
-
-  const field = typeof rec.field === 'string' ? rec.field : null
-  if (!field) return true
-  const value = row[field]
-
-  if (Array.isArray(rec.oneOf)) {
-    const tokenSet = new Set(rec.oneOf.map((entry) => String(entry)))
-    return tokenSet.has(String(value))
-  }
-  if (rec.equal !== undefined) return String(value) === String(rec.equal)
-  if (Array.isArray(rec.range) && rec.range.length >= 2) {
-    const lower = Number(rec.range[0])
-    const upper = Number(rec.range[1])
-    const numeric = Number(value)
-    if (!Number.isFinite(numeric) || !Number.isFinite(lower) || !Number.isFinite(upper)) return false
-    return numeric >= lower && numeric <= upper
-  }
-
-  const numeric = Number(value)
-  if (rec.lt !== undefined) {
-    const threshold = Number(rec.lt)
-    return Number.isFinite(numeric) && Number.isFinite(threshold) ? numeric < threshold : false
-  }
-  if (rec.lte !== undefined) {
-    const threshold = Number(rec.lte)
-    return Number.isFinite(numeric) && Number.isFinite(threshold) ? numeric <= threshold : false
-  }
-  if (rec.gt !== undefined) {
-    const threshold = Number(rec.gt)
-    return Number.isFinite(numeric) && Number.isFinite(threshold) ? numeric > threshold : false
-  }
-  if (rec.gte !== undefined) {
-    const threshold = Number(rec.gte)
-    return Number.isFinite(numeric) && Number.isFinite(threshold) ? numeric >= threshold : false
-  }
-
-  return true
-}
-
 function applyLineTransforms(data: RawDatum[], spec: MultiLineSpec) {
-  let result = data
-  const transforms = (spec as { transform?: unknown }).transform
-  if (!Array.isArray(transforms)) return result
-
-  transforms.forEach((transform) => {
-    if (!transform || typeof transform !== 'object' || Array.isArray(transform)) return
-    const filterSpec = (transform as { filter?: unknown }).filter
-    if (filterSpec === undefined) {
-      // Only `filter` transforms are evaluated. A dropped `calculate` whose
-      // output feeds an encoding (e.g. color) silently degrades the chart —
-      // every point's series comes out null and the lines collapse into one
-      // zigzag path. Surface it so spec authors bind encodings to real
-      // columns instead.
-      console.warn('[multipleLineRenderer] skipping unsupported non-filter transform', transform)
-      return
-    }
-    result = result.filter((row) => shouldKeepByFilter(row, filterSpec))
-  })
-
-  return result
+  // Delegate to the shared Vega-Lite transform evaluator, which handles BOTH
+  // `filter` AND `calculate`. A `calculate` that derives the color/series field
+  // (e.g. `datum.Direction == 'US...' ? 'US' : 'Russia'` → `Country`) MUST be
+  // evaluated — otherwise every point's series is undefined and the multi-line
+  // chart collapses into a single zigzag path that looks like a simple line.
+  return applyVegaLiteTransforms(data, (spec as { transform?: JsonValue }).transform) as RawDatum[]
 }
 
 async function loadLineData(spec: MultiLineSpec): Promise<RawDatum[]> {
@@ -624,19 +555,27 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
       }
 
       const grouped = d3.group(points, (point) => point.series ?? '')
-      grouped.forEach((seriesRows, seriesKey) => {
-        const sorted = seriesRows.slice().sort((a, b) => {
+      // Precompute each series' sorted rows + stroke, then draw in two passes so
+      // EVERY circle sits above EVERY line: with per-series path+points inline,
+      // a later series' path overdraws an earlier series' circles.
+      const seriesDraw = Array.from(grouped, ([seriesKey, seriesRows]) => ({
+        seriesKey,
+        stroke: seriesKey && uniqueSeries.includes(seriesKey) ? colorScale(seriesKey) : '#4f46e5',
+        sorted: seriesRows.slice().sort((a, b) => {
           if (xType === 'temporal' || xType === 'quantitative') {
             return Number(a.xSort) - Number(b.xSort)
           }
           return (xSortIndex.get(a.xLabel) ?? 0) - (xSortIndex.get(b.xLabel) ?? 0)
-        })
-        const stroke = seriesKey && uniqueSeries.includes(seriesKey) ? colorScale(seriesKey) : '#4f46e5'
+        }),
+      }))
 
-        const line = d3
-          .line<RenderDatum>()
-          .x((point) => resolveX(point))
-          .y((point) => yScale(point.yValue))
+      const line = d3
+        .line<RenderDatum>()
+        .x((point) => resolveX(point))
+        .y((point) => yScale(point.yValue))
+
+      // Pass 1: all series line paths.
+      seriesDraw.forEach(({ seriesKey, sorted, stroke }) => {
         g.append(SvgElements.Path)
           .datum(sorted)
           .attr(SvgAttributes.D, line)
@@ -644,8 +583,11 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
           .attr(SvgAttributes.Stroke, stroke)
           .attr(SvgAttributes.StrokeWidth, style.strokeWidth)
           .attr(DataAttributes.Series, seriesKey || null)
+      })
 
-        if (style.showPoints) {
+      // Pass 2: all series circles, appended after every path so points stay on top.
+      if (style.showPoints) {
+        seriesDraw.forEach(({ seriesKey, sorted, stroke }) => {
           const pointsGroup = g.append(SvgElements.Group).attr(DataAttributes.Series, seriesKey || null)
           pointsGroup
             .selectAll<SVGCircleElement, RenderDatum>(SvgElements.Circle)
@@ -663,8 +605,8 @@ export async function renderMultipleLineChart(container: HTMLElement, spec: Mult
             .attr(DataAttributes.XValue, (point) => point.xDisplayLabel)
             .attr(DataAttributes.YValue, (point) => formatTooltipValue(point.yValue))
             .attr(DataAttributes.GroupValue, seriesKey || null)
-        }
-      })
+        })
+      }
 
       if (showLegend) {
         renderColorLegend({

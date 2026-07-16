@@ -1,7 +1,10 @@
 import * as d3 from 'd3'
 import { filterData } from '../../../domain/operation/dataOps'
 import { OperationOp, type DatumValue } from '../../../domain/operation/types'
+import { ChartType } from '../../../domain/chart'
 import { DataAttributes } from '../../../rendering/interfaces'
+import { getRuntimeChartState } from '../../../rendering/utils/runtimeChartState'
+import type { GroupedSpec } from '../../../rendering/bar/groupedBarRenderer'
 import { DURATIONS, EASINGS, OPACITIES } from '../../../rendering/common/d3Helpers'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { GroupedBarChartInstance } from '../../../rendering-new/instances/groupedBarInstance'
@@ -131,6 +134,61 @@ export const filterApplier: OperationApplier<GroupedBarChartInstance> = {
     // when any persistent annotation is on the layer.
     const hasPersistentAnchor = state.annotationRecords.some((r) => r.persistent)
     const mode: 'recompose' | 'dim' = pairDiffInput || hasPersistentAnchor ? 'dim' : 'recompose'
+
+    // A filter that keeps exactly ONE whole series collapses the grouped chart
+    // into a simple bar of that series (animated grouped→simple transition)
+    // instead of recomposing around vacated slots — the removed series' space
+    // is pure dead area. Chain-state-only decision: (a) the result spans a
+    // single non-empty series, (b) it retains EVERY row of that series (a
+    // value filter that trims targets keeps the recompose path so trimmed
+    // slots stay visible), (c) recompose is allowed at all.
+    if (mode === 'recompose' && result.length > 0) {
+      const seriesLeft = new Set(result.map((r) => String(r.group ?? r.series ?? '')))
+      const only = seriesLeft.size === 1 ? [...seriesLeft][0] : ''
+      const wholeSeries =
+        only !== '' &&
+        state.workingData.filter((r) => String(r.group ?? r.series ?? '') === only).length ===
+          result.length
+      if (wholeSeries) {
+        const rt = getRuntimeChartState(instance.host)
+        if (rt?.chartType === ChartType.GROUPED_BAR) {
+          const oldXField = instance.svg.attr(DataAttributes.XField)
+          const simpleSpec = await instance.transitionToSimple({
+            currentSpec: rt.spec as GroupedSpec,
+            toSimple: { series: only },
+          })
+          if (simpleSpec) {
+            // Faceted grouped charts promote the facet field to x during the
+            // conversion — remap each row's target to its panel so downstream
+            // ops keyed on data-target still match the new simple bars.
+            const promoted = simpleSpec.encoding.x.field !== oldXField
+            const remapped = promoted
+              ? result.map((r) => ({
+                  ...r,
+                  target: String(r.panel ?? r.target),
+                  displayTarget: String(r.panel ?? r.displayTarget ?? r.target),
+                  group: null,
+                  panel: null,
+                }))
+              : result
+            return {
+              result: remapped,
+              nextState: {
+                ...state,
+                workingData: remapped,
+                derivedData: null,
+                // The conversion left no dimmed marks — reset salience. No
+                // annotation record either: the narrowing is embodied by the
+                // chart itself, and a stale persistent record would force
+                // later appliers into their dim-mode fallbacks.
+                salienceMap: new Map(),
+                lastResult: remapped,
+              },
+            }
+          }
+        }
+      }
+    }
 
     // Active series for legend transition. When the input is a pairDiff
     // result the compound `"groupA-groupB"` group does not match any DOM

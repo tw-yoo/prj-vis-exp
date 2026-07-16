@@ -496,6 +496,7 @@ function resolveGroupedDiffAnnotationGeometry(params: {
   bounds: { x1: number; x2: number }
   label: string
   midY: number
+  preferredArrowX?: number | null
 }): GroupedDiffAnnotationGeometry | null {
   const viewBox = resolveSvgViewBoxBounds(params.svg)
   if (!viewBox) return null
@@ -513,7 +514,13 @@ function resolveGroupedDiffAnnotationGeometry(params: {
   )
   const plotWidth = Math.max(0, params.bounds.x2 - params.bounds.x1)
   const laneInset = clampToRange(plotWidth * 0.04, 36, 72)
-  const desiredArrowX = params.bounds.x2 - laneInset
+  // Prefer the midpoint BETWEEN the two compared bars (a clear lane) over the
+  // default right-edge lane — the right edge lands on the rightmost highlighted
+  // bar, hiding a same-colored arrow (0egzejn5mejtnfdm).
+  const desiredArrowX =
+    params.preferredArrowX != null && Number.isFinite(params.preferredArrowX)
+      ? params.preferredArrowX
+      : params.bounds.x2 - laneInset
   const minArrowX = Math.max(
     viewBox.x1 + edgePadding + labelWidth + labelGap,
     params.bounds.x1 + labelWidth + labelGap,
@@ -725,15 +732,50 @@ function resolveReferenceLineSegments(params: {
     .filter((segment): segment is { scope: PlotScope; y: number } => segment != null)
 }
 
+/**
+ * X-center of the endpoint's stamped marker line (a findExtremum/selection
+ * bar-top anchor or a reference line) for the given result-ref. Used ONLY to
+ * position the Δ arrow between the two compared bars — unlike
+ * referenceLineForResultRef it accepts opacity-0 anchors, since we want the
+ * bar's x even when its anchor is invisible.
+ */
+function anchorXCenterForResultRef(
+  layer: d3.Selection<SVGGElement, unknown, null, undefined>,
+  resultRef: string | null | undefined,
+): number | null {
+  if (!resultRef) return null
+  const node = layer
+    .selectAll<SVGLineElement, unknown>(`line[${RESULT_REF_ATTRIBUTE}]`)
+    .nodes()
+    .find((n) => n.getAttribute(RESULT_REF_ATTRIBUTE) === resultRef)
+  if (!node) return null
+  const x1 = readNumberAttr(node, SvgAttributes.X1)
+  const x2 = readNumberAttr(node, SvgAttributes.X2)
+  if (x1 == null || x2 == null) return null
+  return (x1 + x2) / 2
+}
+
 function referenceLineForResultRef(
   layer: d3.Selection<SVGGElement, unknown, null, undefined>,
   resultRef: string | null | undefined,
 ) {
   if (!resultRef) return null
+  // Prefer a VISIBLE reference line. findExtremum / selection stamps an
+  // opacity-0 bar-top anchor line with the SAME result-ref (used only for
+  // cross-surface split-diff resolution). Reusing that invisible anchor made
+  // the in-place grouped diff think a reference already existed → it skipped
+  // drawing its own visible reference line AND suppressed the connector, so
+  // the whole diff collapsed to a lone arrow parked over a (same-colored) bar
+  // = invisible (0egzejn5mejtnfdm). Skip opacity-0 candidates.
   const found = layer
     .selectAll<SVGLineElement, unknown>(`line[${RESULT_REF_ATTRIBUTE}]`)
     .nodes()
-    .find((node) => node.getAttribute(RESULT_REF_ATTRIBUTE) === resultRef) ?? null
+    .find(
+      (node) =>
+        node.getAttribute(RESULT_REF_ATTRIBUTE) === resultRef &&
+        node.style.opacity !== '0' &&
+        node.getAttribute(SvgAttributes.Opacity) !== '0',
+    ) ?? null
   if (!found) return null
 
   const y = readNumberAttr(found, SvgAttributes.Y1)
@@ -952,12 +994,12 @@ async function annotateGroupedBarDiff(
   const markMetricsA = markA ? barRootMetrics(markA) : null
   const markMetricsB = markB ? barRootMetrics(markB) : null
   const a = derivedA && referenceA
-    ? { value: derivedA.value, y: referenceA.y, fromExistingReference: Boolean(existingA) }
+    ? { value: derivedA.value, y: referenceA.y, fromExistingReference: true }
     : markMetricsA
       ? { value: markMetricsA.value, y: markMetricsA.y, fromExistingReference: false }
       : null
   const b = derivedB && referenceB
-    ? { value: derivedB.value, y: referenceB.y, fromExistingReference: Boolean(existingB) }
+    ? { value: derivedB.value, y: referenceB.y, fromExistingReference: true }
     : markMetricsB
       ? { value: markMetricsB.value, y: markMetricsB.y, fromExistingReference: false }
       : null
@@ -968,11 +1010,16 @@ async function annotateGroupedBarDiff(
   const topY = Math.min(a.y, b.y)
   const bottomY = Math.max(a.y, b.y)
   const label = `Difference: ${formatOperationValue(differenceValue)}`
+  const anchorXA = anchorXCenterForResultRef(layer, derivedA?.refKey)
+  const anchorXB = anchorXCenterForResultRef(layer, derivedB?.refKey)
+  const preferredArrowX =
+    anchorXA != null && anchorXB != null ? (anchorXA + anchorXB) / 2 : null
   const geometry = resolveGroupedDiffAnnotationGeometry({
     svg,
     bounds,
     label,
     midY: (topY + bottomY) / 2,
+    preferredArrowX,
   })
   if (!geometry) return
   logGroupedDiffDebug('before-draw', {

@@ -36,6 +36,12 @@ export interface ApplierArgs<TInstance extends ChartInstance = SimpleLineChartIn
   runtimeSpec?: ChartSpec
   /** Chart type from the dispatcher (e.g. ChartType.SIMPLE_BAR). */
   chartType?: ChartTypeValue
+  /**
+   * Every op across ALL groups in this run, in order. Lets an applier build a
+   * nodeId→op registry — e.g. `add` flattens a nested add-chain to leaf values
+   * for the full "732 + 646 + 422 = 1800" formula.
+   */
+  allOps?: OperationSpec[]
 }
 
 export interface ApplierResult {

@@ -54,7 +54,7 @@ import { normalizeGroupSelection } from './groupSelection'
 // Shared helpers (ported from dataOpsCore.js)
 // ---------------------------------------------------------------------------
 
-const ROUND_PRECISION = 2
+const ROUND_PRECISION = 3
 const ROUND_FACTOR = 10 ** ROUND_PRECISION
 
 /** Round a numeric value to 2 decimal places; return original if non-numeric. */
@@ -889,6 +889,52 @@ export function findExtremum(data: DatumValue[], op: OperationSpec): DatumValue[
   const spec = assertFindExtremumSpec(op)
   const { field, which, group } = spec
   const byGroup = sliceByGroup(arr, group ?? null)
+
+  // Per-category aggregate mode: sum (or avg/min/max) each x-CATEGORY's rows
+  // across series, then pick the extremum CATEGORY. e.g. on a stacked bar
+  // (rows = year × age-group), `aggregate:'sum'` finds the year with the
+  // min/max stack TOTAL, not the smallest single segment. Returns one datum
+  // for the winning category (group cleared so it matches the whole column).
+  const aggMode = typeof op.aggregate === 'string' && op.aggregate.trim() ? op.aggregate.toLowerCase() : null
+  if (aggMode) {
+    const section = byGroup.filter(predicateByField(field, 'measure'))
+    if (section.length === 0) return []
+    const byTarget = new Map<string, DatumValue[]>()
+    section.forEach((d) => {
+      const key = String(d.target)
+      const list = byTarget.get(key)
+      if (list) list.push(d)
+      else byTarget.set(key, [d])
+    })
+    const totals = Array.from(byTarget.entries())
+      .map(([target, rows]) => ({
+        target,
+        rows,
+        value: aggregate(rows.map((r) => Number(r.value)), aggMode),
+      }))
+      .filter((entry) => Number.isFinite(entry.value))
+    if (!totals.length) return []
+    const sortedTotals = totals.slice().sort((a, b) => a.value - b.value)
+    const pickMaxAgg = which !== 'min'
+    const aggRank = Math.max(1, Math.floor(Number(spec.rank ?? 1)) || 1)
+    const aggIndex = pickMaxAgg ? sortedTotals.length - aggRank : aggRank - 1
+    if (aggIndex < 0 || aggIndex >= sortedTotals.length) return []
+    const winner = sortedTotals[aggIndex]
+    const aggLabel = buildAggregateLabel(pickMaxAgg ? 'maximum' : 'minimum', field || 'value')
+    return [
+      {
+        ...winner.rows[0],
+        value: winner.value,
+        target: winner.target,
+        group: null,
+        series: undefined,
+        name: aggLabel,
+        displayTarget: aggLabel,
+        semanticMeasure: winner.rows[0].semanticMeasure ?? winner.rows[0].measure ?? null,
+      },
+    ]
+  }
+
   let kind = inferFieldKind(byGroup, field) || 'category'
   let effectiveField = field
   // Field-less findExtremum on a DERIVED/measure dataset (lagDiff / diffByValue
@@ -1332,6 +1378,75 @@ export function addData(data: DatumValue[], op: OperationSpec): DatumValue[] {
     buildBinaryLabel('sum', labels.left, labels.right),
     buildSemanticMeasure(OperationOp.Add, spec.field ?? 'value', { addend: labels.right }),
   )
+}
+
+/**
+ * The operand scalars of an arithmetic op, for rendering the full formula
+ * ("3 + 5 = 8") instead of only the total. Returns null when the operands
+ * can't be resolved (the caller then shows just the total).
+ *
+ * - binary add shape (`add`, or a `sum` routed through targetA/targetB):
+ *   the two resolved operands, in [A, B] order.
+ * - row-aggregation `sum`: each summed row's value.
+ */
+export function arithmeticOperands(data: DatumValue[], op: OperationSpec): number[] | null {
+  const arr = cloneData(data)
+  const group = op.group ?? null
+  const fallbackTargets = resolveBinaryInputsFromMeta(op.meta?.inputs)
+  const targetA = op.targetA ?? fallbackTargets.targetA
+  const targetB = op.targetB ?? fallbackTargets.targetB
+  if (targetA != null && targetB != null) {
+    const left = resolveSelectorScalar(arr, op.field, targetA, group, op.aggregate as string | undefined)
+    const right = resolveSelectorScalar(arr, op.field, targetB, group, op.aggregate as string | undefined)
+    if (!Number.isFinite(left) || !Number.isFinite(right)) return null
+    return [Number(left), Number(right)]
+  }
+  if (op.op === OperationOp.Sum) {
+    const byGroup = sliceByGroup(arr, group ?? null).filter(predicateByField(op.field, 'measure'))
+    const values = byGroup.map((d) => Number(d.value)).filter(Number.isFinite)
+    return values.length >= 2 ? values : null
+  }
+  return null
+}
+
+/**
+ * Like `arithmeticOperands`, but flattens a NESTED add-chain to its leaf values
+ * so the formula shows every original term. e.g. an "average of top-3" chain
+ * `n4 = add(n1, n2)`, `n5 = add(n4, n3)` renders `n5` as `732 + 646 + 422`
+ * (n4 expanded) rather than `1378 + 422`.
+ *
+ * `nodeById` maps each op's nodeId to its spec so we can tell whether an operand
+ * ref points at another add/sum (recurse) or a leaf (resolve its scalar from the
+ * runtime store). Returns null when any operand can't be resolved.
+ */
+export function flattenArithmeticOperands(
+  op: OperationSpec,
+  nodeById: Map<string, OperationSpec>,
+): number[] | null {
+  const expandRef = (ref: string, depth: number): number[] | null => {
+    const node = nodeById.get(ref)
+    if (node && (node.op === OperationOp.Add || node.op === OperationOp.Sum)) {
+      return collect(node, depth + 1)
+    }
+    const rows = getRuntimeResultsById(ref)
+    const vals = rows.map((r) => Number(r.value)).filter(Number.isFinite)
+    return vals.length ? [vals[0]] : null
+  }
+  const collect = (o: OperationSpec, depth: number): number[] | null => {
+    if (depth > 16) return null
+    const fb = resolveBinaryInputsFromMeta(o.meta?.inputs)
+    const targetA = o.targetA ?? fb.targetA
+    const targetB = o.targetB ?? fb.targetB
+    if (targetA == null || targetB == null) return null
+    const refA = selectorRefKey(targetA)
+    const refB = selectorRefKey(targetB)
+    if (!refA || !refB) return null
+    const left = expandRef(refA, depth)
+    const right = expandRef(refB, depth)
+    if (!left || !right) return null
+    return [...left, ...right]
+  }
+  return collect(op, 0)
 }
 
 /** 3.14 scale — scalar multiply. */

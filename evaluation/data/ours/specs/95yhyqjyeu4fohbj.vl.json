@@ -1,8 +1,8 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-  "description": "Simple line chart for 25gpdzxh8nu0c0vf.csv",
+  "description": "Simple line chart for 95yhyqjyeu4fohbj.csv",
   "data": {
-    "url": "ChartQA/data/csv/line/simple/25gpdzxh8nu0c0vf.csv"
+    "url": "ChartQA/data/csv/line/simple/95yhyqjyeu4fohbj.csv"
   },
   "width": 600,
   "height": 400,
@@ -27,10 +27,10 @@
           }
         },
         "y": {
-          "field": "Number_of_Fatalities",
+          "field": "Number of people in millions",
           "type": "quantitative",
           "axis": {
-            "title": "Number_of_Fatalities",
+            "title": "Number of people in millions",
             "labelFontSize": 11,
             "titleFontSize": 13,
             "titlePadding": 10,
@@ -52,7 +52,7 @@
           "type": "ordinal"
         },
         "y": {
-          "field": "Number_of_Fatalities",
+          "field": "Number of people in millions",
           "type": "quantitative"
         },
         "tooltip": [
@@ -62,9 +62,9 @@
             "title": "Year"
           },
           {
-            "field": "Number_of_Fatalities",
+            "field": "Number of people in millions",
             "type": "quantitative",
-            "title": "Number_of_Fatalities"
+            "title": "Number of people in millions"
           }
         ]
       }

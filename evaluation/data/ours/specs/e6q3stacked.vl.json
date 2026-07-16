@@ -1,0 +1,41 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "description": "Grouped bar for e6q3stacked (age groups by year, stacked on demand)",
+  "data": {
+    "url": "ChartQA/data/csv/bar/grouped/0q8vqyb35mbq0efx.csv"
+  },
+  "mark": "bar",
+  "encoding": {
+    "x": {
+      "field": "Year",
+      "type": "ordinal",
+      "axis": {
+        "title": "Year",
+        "labelAngle": 0
+      }
+    },
+    "y": {
+      "field": "Number of suicides",
+      "type": "quantitative",
+      "axis": {
+        "title": "Number of suicides"
+      }
+    },
+    "xOffset": {
+      "field": "Age Group",
+      "type": "nominal"
+    },
+    "color": {
+      "field": "Age Group",
+      "type": "nominal"
+    }
+  },
+  "config": {
+    "view": {
+      "stroke": "transparent"
+    },
+    "axis": {
+      "domainWidth": 1
+    }
+  }
+}

@@ -29,8 +29,8 @@ export const scaleApplier: OperationApplier = {
       cssClass: SCALE_RESULT_ANNOTATION_CLASS,
       text: `= ${formatOperationValue(value)}`,
       layout: instance.layout,
-      anchor: 'top-right',
-      offsetY: 20,
+      anchor: 'top-left',
+      offsetY: 18,
     })
 
     return {

@@ -25,8 +25,8 @@
         "sentenceIndex": 2
       },
       "by": "Year",
-      "groupA": "Female",
-      "groupB": "Male",
+      "groupA": "Male",
+      "groupB": "Female",
       "seriesField": "Gender",
       "field": "Population_Million_Inhabitants",
       "signed": true

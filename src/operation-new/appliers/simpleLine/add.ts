@@ -28,7 +28,7 @@ export const addApplier: OperationApplier = {
       cssClass: ARITH_RESULT_ANNOTATION_CLASS,
       text: `= ${formatOperationValue(value)}`,
       layout: instance.layout,
-      anchor: 'top-right',
+      anchor: 'top-left',
     })
 
     return {

@@ -12,6 +12,7 @@ import {
   type StackGroupTransformResult,
 } from '../../rendering/bar/stackGroupTransforms'
 import { convertGroupedToSimple } from '../../rendering/bar/toSimpleTransforms'
+import { attachChartHoverTooltip } from '../../rendering/common/chartHoverTooltip'
 import type { SimpleBarSpec } from '../../rendering/bar/simpleBarRenderer'
 import type { DrawStackGroupSpec, DrawToSimpleSpec } from '../../rendering/draw/types'
 import {
@@ -495,6 +496,11 @@ export class GroupedBarChartInstance implements ChartInstance {
     })
     const simpleSpec = await convertGroupedToSimple(this.host, opts.currentSpec, opts.toSimple)
     if (simpleSpec) {
+      // The overlay-bridge conversion swaps in a fresh simple-bar SVG (bars
+      // carry data-x/y-value) but never binds the hover tooltip — rebind it on
+      // the host so the converted bars show values on hover, same as any
+      // renderChart-built chart.
+      attachChartHoverTooltip(this.host)
       detachInstance(this.host)
     }
     return simpleSpec ?? null

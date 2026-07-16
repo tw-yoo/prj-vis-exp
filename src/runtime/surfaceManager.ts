@@ -6,7 +6,10 @@ import type { SurfaceLayout } from '../domain/surface/surfaceLayout'
 import { createSurfaceRuntimeContext } from '../domain/surface/surfaceRuntimeContext'
 import { getActiveSurfaces } from '../domain/surface/surfaceLayout'
 
-const SPLIT_SURFACE_GAP_PX = 10
+// Corridor between the two split panels. Wide enough for the cross-surface
+// Δ arrow + its centered label to live BETWEEN the charts instead of touching
+// either panel (user feedback on 0wflwm4jebx7n12y).
+const SPLIT_SURFACE_GAP_PX = 72
 const SPLIT_DEBUG_PREFIX = '[split-simple-bar-debug]'
 
 /**
@@ -67,6 +70,7 @@ export class SurfaceManager {
   private surfaces = new Map<string, ChartSurfaceInstance>()
   private layout: SurfaceLayout | null = null
   private splitAnimationPromise: Promise<void> = Promise.resolve()
+  private pendingSplitEntrance: (() => void) | null = null
 
   /**
    * SurfaceManager → hostElement 역방향 조회용 WeakMap.
@@ -93,6 +97,17 @@ export class SurfaceManager {
    */
   waitForSplitAnimation(): Promise<void> {
     return this.splitAnimationPromise
+  }
+
+  /**
+   * Fire a `deferEntrance` split's entrance animation. No-op when nothing is
+   * pending (or it already fired). Callers MUST fire this after a deferred
+   * split, or `waitForSplitAnimation()` never resolves.
+   */
+  triggerSplitEntrance(): void {
+    const trigger = this.pendingSplitEntrance
+    this.pendingSplitEntrance = null
+    trigger?.()
   }
 
   getLayout(): SurfaceLayout | null {
@@ -162,6 +177,15 @@ export class SurfaceManager {
       specB?: ChartSpec
       dataA?: DatumValue[]
       dataB?: DatumValue[]
+      /**
+       * When true, the entrance animation (source fade-out + panels slide-in)
+       * is NOT scheduled here — the caller renders/finalizes the panel charts
+       * while they are still invisible (opacity 0) and then fires
+       * {@link triggerSplitEntrance}. Prevents the viewer from watching empty
+       * panels slide in, charts pop mid-animation, and the shared-y-axis
+       * policy rescale — the panels appear fully formed in one transition.
+       */
+      deferEntrance?: boolean
     },
   ): { surfaceA: ChartSurfaceInstance; surfaceB: ChartSurfaceInstance } {
     if (!this.layout || this.layout.type !== 'single') {
@@ -339,19 +363,6 @@ export class SurfaceManager {
     // committed before we animate them.
     void hostA.offsetWidth
 
-    // 4. Kick off animations on the next frame: the two copies fade in and slide
-    //    out from the center to their halves while the source fades away — a
-    //    duplicate-and-slide-apart, with no blank frame.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (sourcePivot) sourcePivot.style.opacity = '0'
-        hostA.style.transform = 'translateX(0)'
-        hostA.style.opacity = '1'
-        hostB.style.transform = 'translateX(0)'
-        hostB.style.opacity = '1'
-      })
-    })
-
     // 5. After the transition settles, hide source and switch chart-host
     //    to flex layout. Drop absolute positioning + transform from hosts.
     //    Slack (+120ms) covers scheduler variability + cubic-bezier tail.
@@ -386,16 +397,26 @@ export class SurfaceManager {
       }
       // Hosts: strip absolute positioning + transform, switch to flex.
       const finalizeHost = (host: HTMLElement) => {
-        host.style.position = ''
+        // Keep the host a positioning context (NOT static): the chart hover
+        // tooltip is an absolutely-positioned child whose left/top are
+        // computed relative to the host's rect — a static host would make it
+        // resolve against an ancestor and render over the sibling panel.
+        host.style.position = 'relative'
         host.style.left = ''
         host.style.right = ''
         host.style.top = ''
         host.style.width = ''
-        host.style.height = ''
+        // KEEP the explicit height set for the build phase: with height auto
+        // the host collapses to its svg's (viewBox-derived) content height,
+        // which changes on every chart-type conversion and threw the whole
+        // row's vertical layout around. A fixed-height host pins the panel
+        // rect for the session; the svg just draws top-aligned inside it.
         host.style.overflow = ''
         host.style.transform = ''
         host.style.transformOrigin = ''
-        host.style.transition = ''
+        // Later ops may redistribute the panels' flex (rebalance ∝ viewBox
+        // width after a chart-type conversion) — animate instead of snapping.
+        host.style.transition = 'flex-grow 400ms ease, flex-basis 400ms ease'
         host.style.opacity = ''
         host.style.zIndex = ''
         // Don't clobber a flex-grow the split-visuals policy scaled for
@@ -410,17 +431,57 @@ export class SurfaceManager {
       finalizeHost(hostA)
       finalizeHost(hostB)
       // chart-host: turn into a real flex container now that the source is
-      // gone and the hosts are normal block elements again.
+      // gone and the hosts are normal block elements again. KEEP the minHeight
+      // captured before the split: clearing it let the container collapse to
+      // the panels' (viewBox-derived, often much shorter) content height, which
+      // re-centered the whole card and read as the chart "dropping" right after
+      // the entrance — and again on every chart-type conversion that changed a
+      // panel's height (16fif5hdi8yzml00 grouped→simple instability).
       this.rootContainer.style.position = originalRootPosition
-      this.rootContainer.style.minHeight = ''
       this.rootContainer.style.display = 'flex'
+      this.rootContainer.style.alignContent = 'flex-start'
+      // Un-park the shared legend panel (if the split-visuals policy mounted
+      // one while the hosts were still absolute): it was absolutely parked at
+      // its final spot below the chart row, so dropping the parking styles
+      // here hands it to the flex-wrap layout at the SAME position.
+      this.rootContainer
+        .querySelectorAll<HTMLElement>('[data-split-legend-parked]')
+        .forEach((panel) => {
+          panel.style.position = ''
+          panel.style.top = ''
+          panel.style.left = ''
+          panel.style.right = ''
+          delete panel.dataset.splitLegendParked
+        })
       this.rootContainer.style.gap = `${gapPx}px`
       this.rootContainer.style.columnGap = `${gapPx}px`
       this.rootContainer.style.rowGap = `${gapPx}px`
       this.rootContainer.style.flexDirection = orientation === 'horizontal' ? 'row' : 'column'
       resolveSplitAnimation()
     }
-    setTimeout(cleanup, SPLIT_ANIMATION_MS + 120)
+    // 4. Kick off animations on the next frame: the two copies fade in and
+    //    slide out from the center to their halves while the source fades
+    //    away — a duplicate-and-slide-apart, with no blank frame. With
+    //    `deferEntrance` the caller fires this via triggerSplitEntrance()
+    //    once the panel charts are fully rendered + policy-finalized.
+    const triggerEntrance = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (sourcePivot) sourcePivot.style.opacity = '0'
+          hostA.style.transform = 'translateX(0)'
+          hostA.style.opacity = '1'
+          hostB.style.transform = 'translateX(0)'
+          hostB.style.opacity = '1'
+        })
+      })
+      setTimeout(cleanup, SPLIT_ANIMATION_MS + 120)
+    }
+    if (options?.deferEntrance) {
+      this.pendingSplitEntrance = triggerEntrance
+    } else {
+      this.pendingSplitEntrance = null
+      triggerEntrance()
+    }
 
     splitDebug('surfaceManager.splitSurface-after-layout', {
       layoutType,

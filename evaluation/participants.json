@@ -1,4 +1,100 @@
 {
+  "SO1CO1": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO1"
+    }
+  },
+  "SO1CO2": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO2"
+    }
+  },
+  "SO1CO3": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO3"
+    }
+  },
+  "SO1CO4": {
+    "order": {
+      "system": "SO1",
+      "chart": "CO4"
+    }
+  },
+  "SO2CO1": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO1"
+    }
+  },
+  "SO2CO2": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO2"
+    }
+  },
+  "SO2CO3": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO3"
+    }
+  },
+  "SO2CO4": {
+    "order": {
+      "system": "SO2",
+      "chart": "CO4"
+    }
+  },
+  "SO3CO1": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO1"
+    }
+  },
+  "SO3CO2": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO2"
+    }
+  },
+  "SO3CO3": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO3"
+    }
+  },
+  "SO3CO4": {
+    "order": {
+      "system": "SO3",
+      "chart": "CO4"
+    }
+  },
+  "SO4CO1": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO1"
+    }
+  },
+  "SO4CO2": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO2"
+    }
+  },
+  "SO4CO3": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO3"
+    }
+  },
+  "SO4CO4": {
+    "order": {
+      "system": "SO4",
+      "chart": "CO4"
+    }
+  },
   "PILOTA": {
     "order": {
       "system": "SO2",
@@ -81,6 +177,12 @@
     "order": {
       "system": "DEMOB3",
       "chart": "DEMO"
+    }
+  },
+  "DEMOTM": {
+    "order": {
+      "system": "DEMOTM",
+      "chart": "DEMOTM"
     }
   }
 }

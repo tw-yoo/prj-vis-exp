@@ -446,6 +446,7 @@ export const diffApplier: OperationApplier<SimpleBarChartInstance> = {
       phaseOnePromises: labelPromises as unknown as Promise<void>[],
       color: COLORS.ANNOTATION_RED,
       label: differenceText,
+      labelPlacement: crossSurfaceArrow ? 'above-center' : 'right',
       svg: instance.svg,
       viewport,
     })

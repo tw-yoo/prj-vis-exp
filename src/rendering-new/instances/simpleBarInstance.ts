@@ -8,7 +8,7 @@ import { resolveAxisTitle } from '../../rendering/common/resolveAxisTitle'
 import { buildCategoricalDisplayLabelMap, categoricalTickFormatter } from '../../rendering/common/displayLabels'
 import { wrapAxisTickLabels } from '../../rendering/common/wrapAxisTickLabels'
 import { applyAxisTickLabelSize, resolveAxisTickFontSize, DURATIONS, EASINGS, OPACITIES } from '../../rendering/common/d3Helpers'
-import { formatTooltipValue, writeTooltipRootAttrs } from '../../rendering/common/chartHoverTooltip'
+import { attachChartHoverTooltip, formatTooltipValue, writeTooltipRootAttrs } from '../../rendering/common/chartHoverTooltip'
 import { CHART_TEXT_SIZE } from '../../rendering/config/chartTextConfig'
 import { bumpRenderEpoch } from '../../rendering/common/renderEpoch'
 import { storeRuntimeChartState } from '../../rendering/utils/runtimeChartState'
@@ -653,6 +653,12 @@ export class SimpleBarChartInstance implements ChartInstance {
         yAxisLabel,
       }),
     )
+
+    // Bind the hover tooltip on the freshly-built SVG. The operation-new
+    // simpleBar runner rebuilds through this instance (e.g. after a grouped→
+    // simple conversion), bypassing renderChart's attach — without this the
+    // rebuilt bars carry data-x/y-value but show nothing on hover.
+    attachChartHoverTooltip(this.host)
   }
 
   // -------------------------------------------------------------------------

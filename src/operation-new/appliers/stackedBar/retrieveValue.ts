@@ -7,6 +7,7 @@ import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier
 import type { StackedBarChartInstance } from '../../../rendering-new/instances/stackedBarInstance'
 import { fadeRemoveAnnotations } from '../../primitives/fadeRemove'
 import { drawReferenceLine } from '../../primitives/drawReferenceLine'
+import { drawRegionHighlight } from '../../primitives/drawRegionHighlight'
 import { readNumberAttr, type AnnotationViewport } from '../../primitives/annotationLayer'
 import { placeValueLabel } from '../../primitives/placeValueLabel'
 
@@ -173,6 +174,11 @@ export const retrieveValueApplier: OperationApplier<StackedBarChartInstance> = {
         })
       })
     } else {
+      // Highlight the retrieved column as a REGION band (spanning the plot
+      // height) rather than recoloring the bar — a "which year" answer reads as
+      // "this whole column is it". One band per target column (deduped).
+      const highlightedTargets = new Set<string>()
+      const { marginTop, plotHeight } = instance.layout
       result.forEach((datum, index) => {
         const target = String(datum.target)
         const series = datum.group != null ? String(datum.group) : null
@@ -182,7 +188,22 @@ export const retrieveValueApplier: OperationApplier<StackedBarChartInstance> = {
           if (rectTarget !== target) return
           if (series != null && rectSeries !== series) return
           const cx = rectCenterRootX(rect, instance)
+          const w = readNumberAttr(rect, SvgAttributes.Width) ?? 0
           const top = rectTopRootY(rect, instance)
+          if (!highlightedTargets.has(target)) {
+            highlightedTargets.add(target)
+            standaloneTransitions.push(
+              drawRegionHighlight({
+                layer,
+                cssClass: RETRIEVE_ANNOTATION_CLASS,
+                x0: cx - w / 2,
+                x1: cx + w / 2,
+                y0: marginTop,
+                y1: marginTop + plotHeight,
+                nodeId: operation.meta?.nodeId != null ? String(operation.meta.nodeId) : null,
+              }).catch(() => undefined),
+            )
+          }
           const value = Number(rect.getAttribute(DataAttributes.Value))
           placeValueLabel({
             layer,

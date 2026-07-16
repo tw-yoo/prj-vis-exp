@@ -1,27 +1,27 @@
 import { autoRotateXAxisLabels } from '../chartUtils.js';
 
 export const data_rows = [
-    { Year: 2000, Number_of_Fatalities: 213 },
-    { Year: 2001, Number_of_Fatalities: 194 },
-    { Year: 2002, Number_of_Fatalities: 199 },
-    { Year: 2003, Number_of_Fatalities: 212 },
-    { Year: 2004, Number_of_Fatalities: 193 },
-    { Year: 2005, Number_of_Fatalities: 173 },
-    { Year: 2006, Number_of_Fatalities: 190 },
-    { Year: 2007, Number_of_Fatalities: 214 },
-    { Year: 2008, Number_of_Fatalities: 221 },
-    { Year: 2009, Number_of_Fatalities: 183 },
-    { Year: 2010, Number_of_Fatalities: 193 },
-    { Year: 2011, Number_of_Fatalities: 195 },
-    { Year: 2012, Number_of_Fatalities: 168 },
-    { Year: 2013, Number_of_Fatalities: 160 },
-    { Year: 2014, Number_of_Fatalities: 155 },
-    { Year: 2015, Number_of_Fatalities: 151 },
-    { Year: 2016, Number_of_Fatalities: 141 },
-    { Year: 2017, Number_of_Fatalities: 121 },
-    { Year: 2018, Number_of_Fatalities: 124 },
-    { Year: 2019, Number_of_Fatalities: 118 },
-    { Year: 2020, Number_of_Fatalities: 85 }
+    { Year: 2000, 'Number of people in millions': 1.88 },
+    { Year: 2001, 'Number of people in millions': 1.93 },
+    { Year: 2002, 'Number of people in millions': 1.98 },
+    { Year: 2003, 'Number of people in millions': 2.02 },
+    { Year: 2004, 'Number of people in millions': 2.07 },
+    { Year: 2005, 'Number of people in millions': 2.12 },
+    { Year: 2006, 'Number of people in millions': 2.17 },
+    { Year: 2007, 'Number of people in millions': 2.22 },
+    { Year: 2008, 'Number of people in millions': 2.28 },
+    { Year: 2009, 'Number of people in millions': 2.34 },
+    { Year: 2010, 'Number of people in millions': 2.39 },
+    { Year: 2011, 'Number of people in millions': 2.45 },
+    { Year: 2012, 'Number of people in millions': 2.47 },
+    { Year: 2013, 'Number of people in millions': 2.5 },
+    { Year: 2014, 'Number of people in millions': 2.52 },
+    { Year: 2015, 'Number of people in millions': 2.54 },
+    { Year: 2016, 'Number of people in millions': 2.57 },
+    { Year: 2017, 'Number of people in millions': 2.6 },
+    { Year: 2018, 'Number of people in millions': 2.64 },
+    { Year: 2019, 'Number of people in millions': 2.68 },
+    { Year: 2020, 'Number of people in millions': 2.71 }
 ];
 
 function injectSimpleLineStyles() {
@@ -91,7 +91,7 @@ export function renderValidationSimpleLineChart({ container }) {
         return;
     }
     const xField = 'Year';
-    const yField = 'Number_of_Fatalities';
+    const yField = 'Number of people in millions';
 
     injectSimpleLineStyles();
 
@@ -228,65 +228,185 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
-function getFatalityLineMetrics({ d3, container }) {
-    const width = 640;
-    const height = 360;
-    const margin = { top: 32, right: 24, bottom: 48, left: 56 };
+export function function1({ d3, container }) {
+    const xField = 'Year';
+    const yField = 'Number of people in millions';
+
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+
+    d3.select(container).selectAll('.validation-simple-line-tooltip').remove();
+
+    const svgNode = svg.node();
+    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
+    const [, , width, height] = viewBox.split(/\s+/).map(Number);
+    // R11 (round 3): reserve extra top margin for the summary title.
+    // Round 6 fix: reserve right margin so the (2000/2020) legend sits OUTSIDE
+    // the plot area, not overlapping the 2010 bar's right edge.
+    const margin = { top: 48, right: 88, bottom: 56, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
-    const values = data_rows.map((d) => d.Number_of_Fatalities);
+
+    const minRow = data_rows.reduce((best, row) => (
+        Number(row[yField]) < Number(best[yField]) ? row : best
+    ), data_rows[0]);
+    const maxRow = data_rows.reduce((best, row) => (
+        Number(row[yField]) > Number(best[yField]) ? row : best
+    ), data_rows[0]);
+    const targetRow = data_rows.find((row) => Number(row[xField]) === 2010);
+
+    const minValue = Number(minRow[yField]);
+    const maxValue = Number(maxRow[yField]);
+    const averageValue = (minValue + maxValue) / 2;
+    const targetValue = Number(targetRow?.[yField] ?? 0);
+
+    const firstSegment = minValue / 2;
+    const secondSegment = maxValue / 2;
+
+    const chartRows = [
+        {
+            label: `${minRow[xField]} & ${maxRow[xField]} average`,
+            type: 'stacked-average',
+            total: averageValue,
+            segments: [
+                {
+                    label: String(minRow[xField]),
+                    value: firstSegment,
+                    color: '#93c5fd'
+                },
+                {
+                    label: String(maxRow[xField]),
+                    value: secondSegment,
+                    color: '#1d4ed8'
+                }
+            ]
+        },
+        {
+            label: String(targetRow?.[xField] ?? 2010),
+            type: 'target',
+            total: targetValue,
+            segments: [
+                {
+                    label: String(targetRow?.[xField] ?? 2010),
+                    value: targetValue,
+                    color: '#9ca3af'
+                }
+            ]
+        }
+    ];
+
+    const xScale = d3.scaleBand()
+        .domain(chartRows.map((d) => d.label))
+        .range([0, plotW])
+        .padding(0.42);
+
     const yScale = d3.scaleLinear()
-        .domain([d3.min(values) ?? 0, d3.max(values) ?? 1])
+        .domain([0, d3.max(chartRows, (d) => d.total) ?? 0])
         .nice()
         .range([plotH, 0]);
-    return {
-        g: d3.select(container).select('svg > g'),
-        plotW,
-        yScale,
-    };
-}
+    svg.selectAll('*').remove();
 
-function drawFatalityStatisticLines({ d3, container, emphasizeMedian = false }) {
-    const csvValues = [
-        { key: 'mean', label: 'Mean: 166.6', value: 166.6, color: '#2563eb' },
-        { key: 'median', label: 'Median: 173', value: 173, color: '#dc2626' },
-    ];
-    const { g, plotW, yScale } = getFatalityLineMetrics({ d3, container });
+    const g = svg.append('g')
+        .attr('class', 'validation-function1-average-bar-layer')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
 
-    g.selectAll('.e6-q4-annotation').remove();
-    csvValues.forEach((stat) => {
-        const y = yScale(stat.value);
-        const isEmphasis = emphasizeMedian && stat.key === 'median';
-        g.append('line')
-            .attr('class', 'e6-q4-annotation')
-            .attr('x1', 0)
-            .attr('x2', plotW)
-            .attr('y1', y)
-            .attr('y2', y)
-            .attr('stroke', stat.color)
-            .attr('stroke-width', isEmphasis ? 3.5 : 2)
-            .attr('stroke-dasharray', stat.key === 'mean' ? '6 4' : 'none')
-            .attr('opacity', emphasizeMedian && stat.key !== 'median' ? 0.35 : 1);
+    g.append('g')
+        .attr('class', 'y-axis')
+        .call(d3.axisLeft(yScale).ticks(6));
 
-        g.append('text')
-            .attr('class', 'e6-q4-annotation')
-            .attr('x', plotW + 8)
-            .attr('y', y)
-            .attr('dominant-baseline', 'middle')
-            .attr('font-size', isEmphasis ? 13 : 12)
-            .attr('font-weight', isEmphasis ? 800 : 700)
-            .attr('fill', stat.color)
-            .attr('opacity', emphasizeMedian && stat.key !== 'median' ? 0.45 : 1)
-            .text(stat.label);
+    const xAxis = g.append('g')
+        .attr('class', 'x-axis')
+        .attr('transform', `translate(0,${plotH})`)
+        .call(d3.axisBottom(xScale));
+
+    autoRotateXAxisLabels(xAxis);
+
+    g.append('text')
+        .attr('class', 'x-axis-label')
+        .attr('x', plotW / 2)
+        .attr('y', plotH + 46)
+        .attr('text-anchor', 'middle')
+        .text(xField);
+
+    g.append('text')
+        .attr('class', 'y-axis-label')
+        .attr('transform', 'rotate(-90)')
+        .attr('x', -plotH / 2)
+        .attr('y', -42)
+        .attr('text-anchor', 'middle')
+        .text(yField);
+
+    chartRows.forEach((bar) => {
+        const x = xScale(bar.label);
+        const barW = xScale.bandwidth();
+        let runningValue = 0;
+
+        g.selectAll(`rect.segment-${bar.type}`)
+            .data(bar.segments.map((segment) => {
+                const y0 = runningValue;
+                const y1 = runningValue + segment.value;
+                runningValue = y1;
+                return { ...segment, barLabel: bar.label, y0, y1, total: bar.total };
+            }))
+            .join('rect')
+            .attr('class', `main-bar segment-${bar.type}`)
+            .attr('x', x)
+            .attr('width', barW)
+            .attr('fill', (d) => d.color)
+            .attr('data-target', (d) => d.barLabel)
+            .attr('data-value', (d) => d.total)
+            .attr('data-x-value', (d) => d.barLabel)
+            .attr('data-y-value', (d) => String(d.total))
+            .attr('data-segment-label', (d) => d.label)
+        .attr('y', (d) => yScale(d.y1))
+            .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)));
     });
+
+    // Theme K (#36 round 3): legend explaining which color = 2000, which = 2020.
+    const legendData = [
+        { label: `${minRow[xField]}`, color: '#93c5fd' },
+        { label: `${maxRow[xField]}`, color: '#1d4ed8' },
+    ];
+    // Place legend in the reserved right margin (plotW + 12), well clear of bars.
+    const legendG = g.append('g')
+        .attr('class', 'validation-q4-legend')
+        .attr('transform', `translate(${plotW + 12}, 6)`);
+    legendData.forEach((row, i) => {
+        const ry = i * 18;
+        legendG.append('rect')
+            .attr('x', 0)
+            .attr('y', ry)
+            .attr('width', 12)
+            .attr('height', 12)
+            .attr('rx', 2)
+            .attr('fill', row.color);
+        legendG.append('text')
+            .attr('x', 18)
+            .attr('y', ry + 10)
+            .attr('font-size', 11)
+            .attr('font-family', 'sans-serif')
+            .attr('fill', '#111827')
+            .text(row.label);
+    });
+
+    // R11 (round 3): function1 draws the full comparison label too.
+    g.append('text')
+        .attr('class', 'validation-q4-summary')
+        .attr('x', plotW / 2)
+        .attr('y', -10)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 13)
+        .attr('font-weight', 700)
+        .attr('fill', '#ef4444')
+        .text(`Average ${averageValue.toFixed(3)} ${averageValue > targetValue ? '>' : '<'} 2010 (${targetValue.toFixed(2)})`);
 }
 
-export function function1({ d3, container }) {
-    drawFatalityStatisticLines({ d3, container });
-}
-
+// R11 (round 3): function2 / function3 re-apply function1's complete visual idempotently.
 export function function2({ d3, container }) {
-    drawFatalityStatisticLines({ d3, container, emphasizeMedian: true });
+    function1({ d3, container });
 }
 
-export function function3({ d3, container }) {}
+export function function3({ d3, container }) {
+    function1({ d3, container });
+}

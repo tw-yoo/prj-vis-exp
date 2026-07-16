@@ -3,7 +3,10 @@ import type { FirestoreDocument, FirestoreSettings, MainSessionResponseItem, Pos
 
 const FIRESTORE_HOST = 'https://firestore.googleapis.com/v1'
 const DEFAULT_DATABASE_ID = '(default)'
-const CONFIG_FILE = 'config.json'
+// Reuse the committed evaluation config (same Firebase project) instead of a
+// separate public/config.json. Served in dev via the /evaluation middleware and
+// emitted to dist/evaluation/config.json in the production build.
+const CONFIG_FILE = 'evaluation/config.json'
 
 let cachedSettings: FirestoreSettings | null = null
 let configTask: Promise<FirestoreSettings> | null = null
@@ -121,7 +124,7 @@ export async function patchDocument(pathSegments: string[], fields: Record<strin
 
 /**
  * Store or update a pre-registration entry keyed by normalized email.
- * Document path: `pre-registration/{sanitizedEmail}`.
+ * Document path: `eval-pre-registration/{sanitizedEmail}`.
  */
 export async function recordPreRegistration(payload: PreRegistrationPayload) {
   const email = payload.email?.trim().toLowerCase()
@@ -130,7 +133,7 @@ export async function recordPreRegistration(payload: PreRegistrationPayload) {
   }
 
   const docId = email.replace(/[^a-z0-9]/gi, '_')
-  const path = ['pre-registration', docId]
+  const path = ['eval-pre-registration', docId]
   const existing = await getDocument(path)
   const fields: Record<string, JsonValue> = {
     email,

@@ -8,7 +8,7 @@ import { COLORS, DURATIONS, EASINGS } from '../../rendering/common/d3Helpers'
  * other's primitives. Update both files together.
  */
 
-export type BadgeAnchor = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center-above'
+export type BadgeAnchor = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center-above' | 'top-right-above'
 
 export interface ResultBadgeLayout {
   marginLeft: number
@@ -73,6 +73,14 @@ export async function drawResultBadge(opts: ResultBadgeOptions): Promise<void> {
       x = layout.marginLeft + layout.plotWidth / 2
       y = Math.max(fontSize + 4, layout.marginTop - 8)
       textAnchor = 'middle'
+      break
+    case 'top-right-above':
+      // Right-aligned in the top margin band ABOVE the plot. Used by arithmetic
+      // results (add/scale) so the formula clears the marks/lines below AND the
+      // centered count/sum badges.
+      x = layout.marginLeft + layout.plotWidth - inset
+      y = Math.max(fontSize + 4, layout.marginTop - 8)
+      textAnchor = 'end'
       break
     case 'top-right':
     default:

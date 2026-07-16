@@ -1,0 +1,17 @@
+{
+  "chart_id": "11e148qccorrect",
+  "question": "in which years does south korea have a bigger value than france?",
+  "description": "",
+  "specPath": "specs/11e148qccorrect.vl.json",
+  "opsPath": "ops/11e148qccorrect.ops.json",
+  "steps": [
+    {
+      "id": "ops",
+      "text": "Compare South Korea and France in each period (South Korea minus France)."
+    },
+    {
+      "id": "ops2",
+      "text": "Keep the periods where South Korea is actually ahead (difference above 0): 2016, 2017, 2018, and Jan-Oct 2019. In 2014 and 2015 France is higher, so they do not count."
+    }
+  ]
+}

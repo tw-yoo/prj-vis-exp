@@ -172,6 +172,7 @@ export async function runSimpleBarOperationsNew(run: ParsedOperationRun) {
         nextGroupHeadOp,
         runtimeSpec: run.runtimeSpec,
         chartType: run.chartType,
+        allOps: allOpsInOrder,
       })
 
       lastResult = result

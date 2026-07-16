@@ -1,6 +1,7 @@
 import * as d3 from 'd3'
 import {
   addData,
+  arithmeticOperands,
   countData,
   compareBoolOp,
   scaleData,
@@ -76,7 +77,12 @@ function computeResult(operation: OperationSpec, data: DatumValue[]): DatumValue
   }
 }
 
-function formatBadgeText(operation: OperationSpec, result: DatumValue[], chartType?: ChartTypeValue): string {
+function formatBadgeText(
+  operation: OperationSpec,
+  result: DatumValue[],
+  chartType?: ChartTypeValue,
+  operands?: number[] | null,
+): string {
   const value = Number(result[0]?.value)
   if (!Number.isFinite(value)) return String(value)
   const isBar =
@@ -94,6 +100,11 @@ function formatBadgeText(operation: OperationSpec, result: DatumValue[], chartTy
     case OperationOp.Sum:
       return `Total: ${formatOperationValue(value)}`
     case OperationOp.Add:
+      // Show the full formula ("3 + 5 = 8") when the operands resolve, so the
+      // add reads as a computation rather than an unexplained total.
+      if (operands && operands.length >= 2) {
+        return `${operands.map((n) => formatOperationValue(n)).join(' + ')} = ${formatOperationValue(value)}`
+      }
       return `= ${formatOperationValue(value)}`
     case OperationOp.Scale:
       return `= ${formatOperationValue(value)}`
@@ -103,6 +114,9 @@ function formatBadgeText(operation: OperationSpec, result: DatumValue[], chartTy
 }
 
 function defaultAnchorForChart(operation: OperationSpec, chartType?: ChartTypeValue): BadgeAnchor {
+  // Arithmetic results (add/scale) sit in the top margin band, right-aligned,
+  // so the formula clears the marks below and the centered count/sum badges.
+  if (operation.op === OperationOp.Add || operation.op === OperationOp.Scale) return 'top-right-above'
   if (operation.op !== OperationOp.Count && operation.op !== OperationOp.Sum) return 'top-right'
   const isChartTypeAware =
     chartType === ChartType.SIMPLE_BAR ||
@@ -143,10 +157,11 @@ export async function runTerminalBadgeOperation(
 
   const cssClassPrefix = opts?.cssClassPrefix ?? 'operation-next-terminal-badge'
   const cssClass = `${cssClassPrefix}-${operation.op}`
+  const operands = operation.op === OperationOp.Add ? arithmeticOperands(state.workingData, operation) : null
   await drawResultBadge({
     layer,
     cssClass,
-    text: formatBadgeText(operation, result, opts?.chartType),
+    text: formatBadgeText(operation, result, opts?.chartType, operands),
     layout,
     anchor: opts?.anchor ?? defaultAnchorForChart(operation, opts?.chartType),
     fontSize: 16,

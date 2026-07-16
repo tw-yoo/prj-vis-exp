@@ -53,6 +53,15 @@ export function writeTooltipRootAttrs(
 }
 
 function createTooltipElement(container: HTMLElement) {
+  // The tooltip is position:absolute and positionTooltip computes left/top
+  // RELATIVE TO THIS CONTAINER's rect — so the container must be the tooltip's
+  // positioning context. A static container (e.g. a split host after the
+  // entrance animation strips its inline position) would make the tooltip
+  // resolve against some ancestor instead, rendering a right-panel hover's
+  // tooltip over the LEFT panel.
+  if (getComputedStyle(container).position === 'static') {
+    container.style.position = 'relative'
+  }
   const tooltip = document.createElement('div')
   tooltip.className = TOOLTIP_CLASS
   tooltip.hidden = true

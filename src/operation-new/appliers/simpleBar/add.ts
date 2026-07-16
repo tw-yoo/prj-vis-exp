@@ -1,5 +1,5 @@
-import { addData } from '../../../domain/operation/dataOps'
-import { OperationOp } from '../../../domain/operation/types'
+import { addData, flattenArithmeticOperands } from '../../../domain/operation/dataOps'
+import { OperationOp, type OperationSpec } from '../../../domain/operation/types'
 import { formatOperationValue } from '../../../operation-next/primitives/formatValue'
 import type { OperationApplier, ApplierArgs, ApplierResult } from '../../applier'
 import type { SimpleBarChartInstance } from '../../../rendering-new/instances/simpleBarInstance'
@@ -24,7 +24,7 @@ export const ARITH_RESULT_ANNOTATION_CLASS = 'operation-next-bar-arith-result'
 export const addApplier: OperationApplier<SimpleBarChartInstance> = {
   op: OperationOp.Add,
 
-  async apply({ operation, state, instance, options }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
+  async apply({ operation, state, instance, options, allOps }: ApplierArgs<SimpleBarChartInstance>): Promise<ApplierResult> {
     const result = addData(state.workingData, operation)
     const value = Number(result[0]?.value)
     console.info('[operation-new] bar applier:add', {
@@ -44,10 +44,23 @@ export const addApplier: OperationApplier<SimpleBarChartInstance> = {
       options?.referencedResultIds,
     )
 
+    // Show the full formula ("732 + 646 + 422 = 1800") by flattening the nested
+    // add-chain to its leaf values; fall back to "= total" if it can't resolve.
+    const nodeById = new Map<string, OperationSpec>()
+    for (const o of allOps ?? []) {
+      const id = o.meta?.nodeId != null ? String(o.meta.nodeId) : o.id != null ? String(o.id) : null
+      if (id) nodeById.set(id, o)
+    }
+    const operands = flattenArithmeticOperands(operation, nodeById)
+    const text =
+      operands && operands.length >= 2
+        ? `${operands.map((n) => formatOperationValue(n)).join(' + ')} = ${formatOperationValue(value)}`
+        : `= ${formatOperationValue(value)}`
+
     await drawResultBadge({
       layer: instance.annotationLayer,
       cssClass: ARITH_RESULT_ANNOTATION_CLASS,
-      text: `= ${formatOperationValue(value)}`,
+      text,
       layout: instance.layout,
       anchor: 'top-right',
       fontSize: 16,

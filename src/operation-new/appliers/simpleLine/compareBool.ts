@@ -77,6 +77,7 @@ export const compareBoolApplier: OperationApplier = {
           label: Number.isFinite(delta)
             ? `${verdict} (Difference: ${formatOperationValue(Math.abs(delta))})`
             : verdict,
+          labelPlacement: 'above-center',
           svg: instance.svg,
           viewport: resolveAnnotationViewport(instance),
         })
@@ -101,7 +102,11 @@ export const compareBoolApplier: OperationApplier = {
       cssClass: COMPARE_BOOL_ANNOTATION_CLASS,
       text: verdict,
       layout: instance.layout,
-      anchor: 'top-right',
+      // Stack below any add/scale running-total badges (same top-left column) so
+      // an arithmetic-chain → compareBool (e.g. avg(min,max) vs a value) reads as
+      // one tidy result column instead of colliding with peak data-point labels.
+      anchor: 'top-left',
+      offsetY: 40,
     })
 
     return {
