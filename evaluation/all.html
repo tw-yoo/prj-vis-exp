@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Evaluation — All Charts</title>
+  <link rel="stylesheet" id="evaluationStylesheet">
+  <link rel="stylesheet" id="evaluationAllStylesheet">
+  <script>
+    // Same base derivation as index.html / entry.html: everything up to and
+    // including the "evaluation" segment, so the page works at the domain root
+    // (/evaluation/all) and under a project-pages prefix
+    // (/prj-vis-exp/evaluation/all).
+    (function () {
+      var segs = location.pathname.split('/').filter(Boolean);
+      var i = segs.indexOf('evaluation');
+      window.__EVALUATION_BASE_PATH__ = i >= 0 ? '/' + segs.slice(0, i + 1).join('/') : '';
+    })();
+    document.getElementById('evaluationStylesheet').href = `${window.__EVALUATION_BASE_PATH__}/viewer.css`;
+    document.getElementById('evaluationAllStylesheet').href = `${window.__EVALUATION_BASE_PATH__}/all.css`;
+  </script>
+</head>
+<body class="all-page">
+  <main class="all-wrap">
+    <header class="all-header">
+      <h1 class="all-title">All charts — answer review</h1>
+      <p class="all-subtitle" id="allSubtitle">Loading…</p>
+    </header>
+    <div id="allRoot"></div>
+  </main>
+  <script type="module" src="__EVALUATION_ALL_SCRIPT__"></script>
+</body>
+</html>

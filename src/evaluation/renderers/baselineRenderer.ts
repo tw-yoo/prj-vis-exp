@@ -63,13 +63,29 @@ function hydrateD3DataBindings(container: HTMLElement) {
   })
 }
 
+// The scene snippets were authored against the single-chart viewer, so several
+// reach for their chart with a document-wide `d3.select('svg')`. On a page that
+// shows more than one chart at once (/evaluation/all) that would grab the FIRST
+// chart and annotate the wrong card, so string selectors are resolved inside the
+// scene's own container. Element/selection arguments pass through untouched, and
+// with a single chart on screen both forms select the same node.
+function scopeD3ToContainer(container: HTMLElement): typeof d3 {
+  return {
+    ...d3,
+    select: (selector: unknown) =>
+      typeof selector === 'string' ? d3.select(container).select(selector) : d3.select(selector as never),
+    selectAll: (selector: unknown) =>
+      typeof selector === 'string' ? d3.select(container).selectAll(selector) : d3.selectAll(selector as never),
+  } as unknown as typeof d3
+}
+
 async function executeD3Code(container: HTMLElement, d3Code: string) {
   if (!d3Code || !d3Code.trim()) return
   const svgElement = container.querySelector('svg')
   if (!svgElement) throw new Error('No SVG element found for D3 rendering.')
   hydrateD3DataBindings(container)
   const runD3 = new Function('d3', 'container', 'svgElement', `"use strict";\n${d3Code}`)
-  const result = runD3(d3, container, svgElement)
+  const result = runD3(scopeD3ToContainer(container), container, svgElement)
   if (result && typeof result.then === 'function') {
     await result
   }

@@ -14,7 +14,9 @@ const evaluationRoot = path.join(projectRoot, 'evaluation')
 const evaluationUrlPrefix = '/evaluation'
 const evaluationViewerEntry = path.join(projectRoot, 'src/evaluation/viewer.ts')
 const evaluationEntryEntry = path.join(projectRoot, 'src/evaluation/entry.ts')
+const evaluationAllEntry = path.join(projectRoot, 'src/evaluation/all.ts')
 const evaluationViewerUrlSuffix = '/run'
+const evaluationAllUrlSuffix = '/all'
 
 const validationMimeTypes: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
@@ -262,6 +264,15 @@ function isEvaluationViewerRoute(urlPathname: string) {
   return urlPathname === `${viewerPrefix}/index.html`
 }
 
+// /evaluation/all — internal all-charts review page (not the participant flow).
+function isEvaluationAllRoute(urlPathname: string) {
+  const allPrefix = `${evaluationUrlPrefix}${evaluationAllUrlSuffix}`
+  if (urlPathname === allPrefix || urlPathname === `${allPrefix}/`) {
+    return true
+  }
+  return urlPathname === `${allPrefix}/index.html`
+}
+
 function evaluationEntrySource(scriptSrc: string) {
   return fs.readFileSync(path.join(evaluationRoot, 'entry.html'), 'utf8')
     .replace('__EVALUATION_ENTRY_SCRIPT__', scriptSrc)
@@ -270,6 +281,11 @@ function evaluationEntrySource(scriptSrc: string) {
 function evaluationViewerSource(scriptSrc: string) {
   return fs.readFileSync(path.join(evaluationRoot, 'index.html'), 'utf8')
     .replace('__EVALUATION_VIEWER_SCRIPT__', scriptSrc)
+}
+
+function evaluationAllSource(scriptSrc: string) {
+  return fs.readFileSync(path.join(evaluationRoot, 'all.html'), 'utf8')
+    .replace('__EVALUATION_ALL_SCRIPT__', scriptSrc)
 }
 
 function sendEvaluationFile(response: ServerResponse, filePath: string) {
@@ -286,7 +302,12 @@ function sendEvaluationHtml(response: ServerResponse, html: string) {
   response.end(html)
 }
 
-function installEvaluationMiddleware(middlewares: Connect.Server, entryScriptSrc: string, viewerScriptSrc: string) {
+function installEvaluationMiddleware(
+  middlewares: Connect.Server,
+  entryScriptSrc: string,
+  viewerScriptSrc: string,
+  allScriptSrc: string,
+) {
   middlewares.use((request, response, next) => {
     const requestUrl = request.url ?? '/'
     const url = new URL(requestUrl, 'http://localhost')
@@ -301,6 +322,11 @@ function installEvaluationMiddleware(middlewares: Connect.Server, entryScriptSrc
       return
     }
 
+    if (isEvaluationAllRoute(url.pathname)) {
+      sendEvaluationHtml(response, evaluationAllSource(allScriptSrc))
+      return
+    }
+
     const staticPath = getEvaluationStaticPath(url.pathname)
     if (staticPath && fs.existsSync(staticPath) && fs.statSync(staticPath).isFile()) {
       const basename = path.basename(staticPath)
@@ -310,6 +336,10 @@ function installEvaluationMiddleware(middlewares: Connect.Server, entryScriptSrc
       }
       if (basename === 'index.html') {
         sendEvaluationHtml(response, evaluationViewerSource(viewerScriptSrc))
+        return
+      }
+      if (basename === 'all.html') {
+        sendEvaluationHtml(response, evaluationAllSource(allScriptSrc))
         return
       }
       sendEvaluationFile(response, staticPath)
@@ -353,10 +383,20 @@ function evaluationViewerPlugin(): Plugin {
       base = config.base
     },
     configureServer(server) {
-      installEvaluationMiddleware(server.middlewares, '/src/evaluation/entry.ts', '/src/evaluation/viewer.ts')
+      installEvaluationMiddleware(
+        server.middlewares,
+        '/src/evaluation/entry.ts',
+        '/src/evaluation/viewer.ts',
+        '/src/evaluation/all.ts',
+      )
     },
     configurePreviewServer(server) {
-      installEvaluationMiddleware(server.middlewares, '/evaluation/entry.js', '/evaluation/viewer.js')
+      installEvaluationMiddleware(
+        server.middlewares,
+        '/evaluation/entry.js',
+        '/evaluation/viewer.js',
+        '/evaluation/all.js',
+      )
     },
     buildStart() {
       if (!isBuild) return
@@ -370,6 +410,11 @@ function evaluationViewerPlugin(): Plugin {
         id: evaluationEntryEntry,
         fileName: 'evaluation/entry.js',
       })
+      this.emitFile({
+        type: 'chunk',
+        id: evaluationAllEntry,
+        fileName: 'evaluation/all.js',
+      })
     },
     generateBundle() {
       // `base` ends with '/', so this yields e.g. '/prj-vis-exp/evaluation/entry.js'
@@ -377,10 +422,11 @@ function evaluationViewerPlugin(): Plugin {
       // emitted in buildStart, which Pages serves under the same base.
       const entrySource = evaluationEntrySource(`${base}evaluation/entry.js`)
       const viewerSource = evaluationViewerSource(`${base}evaluation/viewer.js`)
+      const allSource = evaluationAllSource(`${base}evaluation/all.js`)
 
       for (const filePath of collectStaticFiles(evaluationRoot)) {
         const relativePath = path.relative(evaluationRoot, filePath)
-        if (relativePath === 'index.html' || relativePath === 'entry.html') {
+        if (relativePath === 'index.html' || relativePath === 'entry.html' || relativePath === 'all.html') {
           continue
         }
 
@@ -401,6 +447,12 @@ function evaluationViewerPlugin(): Plugin {
         type: 'asset',
         fileName: 'evaluation/run/index.html',
         source: viewerSource,
+      })
+
+      this.emitFile({
+        type: 'asset',
+        fileName: 'evaluation/all/index.html',
+        source: allSource,
       })
     },
   }

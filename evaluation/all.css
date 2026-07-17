@@ -1,0 +1,182 @@
+/* /evaluation/all — internal review page. Loaded on top of viewer.css, which
+   supplies the shared tokens plus .chart-card, .question-text, .sentence*,
+   .explanation-answer and .renderer-* styles. Everything here is either layout
+   for the all-charts list or a per-card equivalent of a viewer rule that was
+   written against a single #chartContainer / #explanationArea id. */
+
+.all-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 28px 80px;
+}
+
+.all-header {
+  padding: 32px 0 8px;
+}
+
+.all-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.all-subtitle {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.all-section-title {
+  margin: 36px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #cbd5e1;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.all-card {
+  margin-bottom: 20px;
+  padding: 20px 24px 24px;
+}
+
+.all-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.all-card__group {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #334155;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.all-card__id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.all-truth {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.all-truth--correct {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.all-truth--incorrect {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.all-methods {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.all-method-btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  padding: 6px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.all-method-btn:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.all-method-btn--active {
+  color: #ffffff;
+  border-color: #0f172a;
+  background: #0f172a;
+}
+
+.all-method-btn:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+/* Ours anchors its summary caption to the chart container's parent, so that
+   parent has to be a box that hugs the chart (see buildCard in all.ts). */
+.all-chart-wrap {
+  position: relative;
+}
+
+/* Per-card twin of viewer.css's #chartContainer: fixed box, SVG scaled to fit
+   so a card never resizes as annotations change the viewBox. */
+.all-chart {
+  position: relative;
+  height: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.all-chart svg {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+
+.all-chart__placeholder {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.all-card .question-text {
+  margin-bottom: 12px;
+}
+
+.all-card .explanation-area {
+  margin-top: 12px;
+}
+
+.all-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.all-truth-line {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .all-wrap {
+    padding: 0 14px 60px;
+  }
+
+  .all-chart {
+    height: 300px;
+  }
+}
