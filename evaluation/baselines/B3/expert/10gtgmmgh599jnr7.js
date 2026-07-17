@@ -236,9 +236,11 @@ function getPopulationTargets() {
     const smallest = rows.reduce((best, row) => (
         Number(row.Percentage_of_Population) < Number(best.Percentage_of_Population) ? row : best
     ), rows[0]);
-    const distinctValues = Array.from(new Set(rows.map((d) => Number(d.Percentage_of_Population)))).sort((a, b) => b - a);
-    const secondLargestValue = distinctValues[1];
-    const secondLargest = rows.find((d) => Number(d.Percentage_of_Population) === secondLargestValue);
+    // Positional ranking (D1 decision): with 2003/2004 tied at 0.109, the
+    // second-largest VALUE is the second entry of the sorted list (0.109),
+    // not the second distinct value.
+    const sortedRows = [...rows].sort((a, b) => Number(b.Percentage_of_Population) - Number(a.Percentage_of_Population));
+    const secondLargest = sortedRows[1] ?? sortedRows[0];
     return { smallest, secondLargest };
 }
 

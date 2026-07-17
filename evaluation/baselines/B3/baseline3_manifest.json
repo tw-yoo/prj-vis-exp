@@ -73,11 +73,11 @@
       },
       {
         "fn": "function3",
-        "text": "The largest in that span is around 2003–2004 near 0.11; the second largest is the point in 2002, which sits a bit above 0.10 (about 0.105)."
+        "text": "The largest points in that span are 2003 and 2004, both sitting just above the 0.11 line (about 0.109); with a tie at the top, the second-largest value is also about 0.109."
       },
       {
         "fn": "function4",
-        "text": "Subtracting the visually read values gives roughly 0.105 − 0.086 ≈ 0.019, but because the 2002 point is clearly above 0.10 and the 2001 point is clearly below 0.09, the difference reads closer to about 0.02, and using the plotted positions it’s about 0.023."
+        "text": "Subtracting the visually read values gives about 0.109 − 0.086 ≈ 0.023."
       }
     ]
   },

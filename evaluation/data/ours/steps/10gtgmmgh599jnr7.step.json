@@ -7,7 +7,7 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Filter to the years 2000–2008 and find the second-largest value (0.106)."
+      "text": "Filter to the years 2000–2008 and find the second-largest value (0.109 — 2003 and 2004 tie at the top)."
     },
     {
       "id": "ops2",
@@ -15,7 +15,7 @@
     },
     {
       "id": "ops3",
-      "text": "Subtract the smallest from the second-largest, leaving 0.02."
+      "text": "Subtract the smallest from the second-largest: 0.109 − 0.086 = 0.023."
     }
   ]
 }

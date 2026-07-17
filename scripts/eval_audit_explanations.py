@@ -33,13 +33,9 @@ ROOT = Path(__file__).resolve().parent.parent
 EVAL = ROOT / "evaluation"
 
 # Deliberate waivers (chart_id, system) -> reason. Keep short and honest.
-WAIVERS = {
-    # W4/D1 pending: "second largest" ambiguity (0.02 distinct-value vs 0.023
-    # positional). Shown answer stays 0.02; B1/B2 say 0.019, B3 wanders.
-    ("10gtgmmgh599jnr7", "B1"): "D1 pending (0.019 vs 0.02 rounding)",
-    ("10gtgmmgh599jnr7", "B2"): "D1 pending (0.019 vs 0.02 rounding)",
-    ("10gtgmmgh599jnr7", "B3"): "D1 pending (0.019/0.023 vs 0.02)",
-}
+# (D1 resolved 2026-07-17: 10gtgmmgh599jnr7 adopted the positional reading,
+# answer 0.023, so its waivers are gone.)
+WAIVERS: dict[tuple[str, str], str] = {}
 
 ACTIVE_GROUPS = ["G1", "G2", "G3", "G4"]
 

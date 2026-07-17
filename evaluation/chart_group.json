@@ -135,8 +135,8 @@
     "line_simple": {
       "id": "10gtgmmgh599jnr7",
       "question": "What is the difference between the second largest and the smallest values between 2000 and 2008?",
-      "answer": "0.02",
-      "correctAnswer": "0.02",
+      "answer": "0.023",
+      "correctAnswer": "0.023",
       "answerIsCorrect": true
     },
     "line_multiple": {
