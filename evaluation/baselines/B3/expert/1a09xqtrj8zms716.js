@@ -234,7 +234,7 @@ export function function1({ d3, container }) {
 export function function2({ d3, container }) {
     function1({ d3, container });
 
-    const csvAverage = 674;
+    const csvAverage = 600;
     const { g, plotW, yScale } = getMallChartMetrics({ d3, container });
     const y = yScale(csvAverage);
 

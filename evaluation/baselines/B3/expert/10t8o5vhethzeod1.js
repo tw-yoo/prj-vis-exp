@@ -224,18 +224,17 @@ export function renderValidationStackedBarChart({ container }) {
 
 export function function1({ d3, container }) {
     // Blur-in-place (E7 feedback): keep the stacked chart, axes and legend
-    // intact; just dim the non-Services segments so the chart still reads as
-    // "the same chart, different annotation". Services is the top segment,
-    // so its position never shifts.
+    // intact; just dim the non-Agriculture segments so the chart still reads
+    // as "the same chart, different annotation".
     d3.select(container).selectAll('rect.main-bar')
-        .attr('opacity', (s) => (s.series === 'Services' ? 1 : 0.18));
+        .attr('opacity', (s) => (s.series === 'Agriculture' ? 1 : 0.18));
 }
 
 export function function2({ d3, container }) {
     function1({ d3, container });
 
     const target = d3.select(container).selectAll('rect.main-bar')
-        .filter((s) => s.series === 'Services' && String(s.target) === '2017');
+        .filter((s) => s.series === 'Agriculture' && String(s.target) === '2017');
     const node = target.node();
     if (!node) return;
 

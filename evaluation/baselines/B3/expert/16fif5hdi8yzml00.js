@@ -5,10 +5,10 @@ export const data_rows = [
     { State: 'Iowa', Type: 'Minimum', Payment_Million_USD: 15 },
     { State: 'Oklahoma', Type: 'Maximum', Payment_Million_USD: 25 },
     { State: 'Oklahoma', Type: 'Minimum', Payment_Million_USD: 15 },
-    { State: 'Minnesota', Type: 'Maximum', Payment_Million_USD: 15 },
-    { State: 'Minnesota', Type: 'Minimum', Payment_Million_USD: 10 },
-    { State: 'Washington', Type: 'Maximum', Payment_Million_USD: 10 },
-    { State: 'Washington', Type: 'Minimum', Payment_Million_USD: 5 }
+    { State: 'Kansas', Type: 'Maximum', Payment_Million_USD: 15 },
+    { State: 'Kansas', Type: 'Minimum', Payment_Million_USD: 10 },
+    { State: 'Illinois', Type: 'Maximum', Payment_Million_USD: 15 },
+    { State: 'Illinois', Type: 'Minimum', Payment_Million_USD: 10 }
 ];
 
 // Workbench default category color palette (DEFAULT_CATEGORY_COLORS)
@@ -251,8 +251,8 @@ export function renderValidationGroupedBarChart({ container }) {
 function renderTransposedPaymentChart({ d3, container, showDifference = false }) {
     injectGroupedChartStyles();
 
-    const csvAverage = { Maximum: 20.0, Minimum: 6.25 };
-    const csvDifference = 13.75;
+    const csvAverage = { Maximum: 20.0, Minimum: 12.5 };
+    const csvDifference = 7.5;
     const xDomain = ['Maximum', 'Minimum'];
     const seriesDomain = Array.from(new Set(data_rows.map((d) => d.State)));
     const data = [];
@@ -380,8 +380,8 @@ export function function1({ d3, container }) {
 export function function2({ d3, container }) {
     // Per reviewer: do NOT rebuild the whole chart — only add the difference
     // line + label annotation on top of function1's existing chart.
-    const csvAverage = { Maximum: 20.0, Minimum: 6.25 };
-    const csvDifference = 13.75;
+    const csvAverage = { Maximum: 20.0, Minimum: 12.5 };
+    const csvDifference = 7.5;
     const xDomain = ['Maximum', 'Minimum'];
     const width = 640;
     const margin = { top: 32, right: 176, bottom: 48, left: 56 };

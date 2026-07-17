@@ -23,7 +23,7 @@
       },
       {
         "fn": "function2",
-        "text": "Starting at 2016, the South Korea segment becomes visibly taller than the France segment and stays that way through 2017 and 2018."
+        "text": "Starting at 2016, the South Korea segment becomes visibly taller than the France segment and stays that way through 2017, 2018, and Jan-Oct 2019."
       },
       {
         "fn": "function3",
@@ -37,11 +37,11 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Scanning left to right along the x-axis (1970, 1980, 1990, 2000, 2010, 2019), the steepest upward segment is between the 1990 point (a bit above the 20 mark, around 23) and the 2000 point (mid-30s, around 36)."
+        "text": "Scanning left to right along the x-axis (1970, 1980, 1990, 2000, 2010, 2019), the steepest upward segment is between the 2000 point (mid-30s, around 36) and the 2010 point (just above the 50 mark, around 51)."
       },
       {
         "fn": "function2",
-        "text": "That rise is visibly larger than the other segments—1970→1980 and 1980→1990 are smaller, 2000→2010 is also big but slightly less steep, and 2010→2019 is the smallest."
+        "text": "That rise (about +15) is visibly larger than the other segments—1970→1980, 1980→1990 and 1990→2000 are smaller, and 2010→2019 is flatter—so the year with the largest increase over the previous year is 2010."
       }
     ]
   },
@@ -55,7 +55,7 @@
       },
       {
         "fn": "function2",
-        "text": "Reading those six bar heights (about 52.5, 57, 54.5, 53.5, 51.5, 51.5) and averaging them gives roughly $53.8."
+        "text": "Reading those six bar heights (about 52.5, 57, 54.5, 53.5, 51.5, 51.5) and averaging them gives roughly $53.4."
       }
     ]
   },
@@ -113,11 +113,11 @@
       },
       {
         "fn": "function2",
-        "text": "Then compute the average by summing all yearly fire counts and dividing by the number of years (16), which gives 225."
+        "text": "Then compute the average by summing all yearly fire counts and dividing by the number of years (16), which gives 238.75."
       },
       {
         "fn": "function3",
-        "text": "Finally, subtract the average from the maximum: 380 − 225 = 155."
+        "text": "Finally, subtract the average from the maximum: 380 − 238.75 = 141.25."
       }
     ]
   },
@@ -171,7 +171,7 @@
       },
       {
         "fn": "function2",
-        "text": "Add these three values and divide by 3 to get their average, which equals 674."
+        "text": "Add these three values and divide by 3 to get their average, which equals 600."
       }
     ]
   },
@@ -261,7 +261,7 @@
       },
       {
         "fn": "function2",
-        "text": "Sum the employees across those four regions for each of the years 2011, 2012, 2013, and 2014, then add those yearly totals together to get 169,212."
+        "text": "Sum the employees across those four regions for each of the years 2011, 2012, 2013, and 2014, then add those yearly totals together to get 230,769."
       }
     ]
   },
@@ -317,11 +317,11 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Take the “Maximum” payment values for all 11 states and compute their average (20.0). \nThen take the “Minimum” payment values for all 11 states and compute their average (6.25)."
+        "text": "Take the “Maximum” payment values for all 4 states and compute their average (20.0). \nThen take the “Minimum” payment values for all 4 states and compute their average (12.5)."
       },
       {
         "fn": "function2",
-        "text": "Subtract the minimum average from the maximum average to get 20.0 − 6.25 = 13.75 million USD."
+        "text": "Subtract the minimum average from the maximum average to get 20.0 − 12.5 = 7.5 million USD."
       }
     ]
   },
@@ -345,11 +345,11 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Track the Services-coloured band across the years, dimming all other sectors."
+        "text": "Track the Agriculture-coloured band across the years, dimming all other sectors."
       },
       {
         "fn": "function2",
-        "text": "The Services band peaks in 2017 (Share_of_GDP = 0.510). The 2017 bar is highlighted in red and labelled with its value."
+        "text": "The Agriculture band peaks in 2017 (Share_of_GDP = 0.2708). The 2017 bar is highlighted in red and labelled with its value."
       }
     ]
   },
