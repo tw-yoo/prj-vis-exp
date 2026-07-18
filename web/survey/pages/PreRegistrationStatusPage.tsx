@@ -195,24 +195,32 @@ function RecordCard({
 
   const labels = availabilityLabels(record.fields)
 
-  // Once marked complete, collapse the whole card to a single summary line so
-  // finished registrations stop taking up visual space. "Reopen" expands it
-  // back into the full editable card.
-  if (currentlyCompleted && !expanded) {
+  // Every card starts collapsed to a single clickable summary line (so a long
+  // list stays scannable regardless of scheduling state); clicking it expands
+  // the full card, revealing the person's availability + the scheduling
+  // controls.
+  if (!expanded) {
+    const statusBadge = currentlyCompleted ? (
+      <span className="prs-badge prs-badge--done">✓ Completed</span>
+    ) : currentlyScheduled ? (
+      <span className="prs-badge prs-badge--yes">Scheduled · {currentLabel || '—'}</span>
+    ) : (
+      <span className="prs-badge prs-badge--no">Not scheduled</span>
+    )
     return (
-      <article className="prs-card prs-card--done">
-        <div className="prs-done-row">
-          <span className="prs-done-check" aria-hidden="true">
-            ✓
+      <article
+        className={`prs-card prs-card--collapsed${
+          currentlyCompleted ? ' prs-card--done' : currentlyScheduled ? ' prs-card--scheduled' : ''
+        }`}
+      >
+        <button className="prs-collapsed-row" type="button" onClick={() => setExpanded(true)} aria-expanded="false">
+          <span className="prs-collapsed-chevron" aria-hidden="true" />
+          <span className="prs-email prs-collapsed-email">{record.email}</span>
+          <span className="prs-muted prs-small prs-collapsed-avail">
+            {labels.length} time{labels.length === 1 ? '' : 's'}
           </span>
-          <span className="prs-email prs-done-email">{record.email}</span>
-          <span className="prs-muted prs-small">
-            Study completed {formatTimestamp(asString(record.fields.studyCompletedAt))}
-          </span>
-          <button className="prs-btn prs-btn--ghost prs-done-reopen" type="button" onClick={() => setExpanded(true)}>
-            Reopen
-          </button>
-        </div>
+          {statusBadge}
+        </button>
       </article>
     )
   }
@@ -220,12 +228,31 @@ function RecordCard({
   return (
     <article className={`prs-card${currentlyScheduled ? ' prs-card--scheduled' : ''}`}>
       <header className="prs-card__head">
-        <div>
-          <h3 className="prs-email">{record.email}</h3>
-          <p className="prs-muted prs-small">Submitted {formatTimestamp(asString(record.fields.submittedAt))}</p>
+        <div className="prs-head-left">
+          <button
+            className="prs-chevron-btn"
+            type="button"
+            onClick={() => setExpanded(false)}
+            aria-expanded="true"
+            aria-label="Collapse"
+          >
+            <span className="prs-collapsed-chevron prs-collapsed-chevron--open" aria-hidden="true" />
+          </button>
+          <div>
+            <h3 className="prs-email">{record.email}</h3>
+            <p className="prs-muted prs-small">Submitted {formatTimestamp(asString(record.fields.submittedAt))}</p>
+          </div>
         </div>
-        <span className={`prs-badge ${currentlyScheduled ? 'prs-badge--yes' : 'prs-badge--no'}`}>
-          {currentlyScheduled ? `Scheduled · ${currentLabel || '—'}` : 'Not scheduled'}
+        <span
+          className={`prs-badge ${
+            currentlyCompleted ? 'prs-badge--done' : currentlyScheduled ? 'prs-badge--yes' : 'prs-badge--no'
+          }`}
+        >
+          {currentlyCompleted
+            ? '✓ Completed'
+            : currentlyScheduled
+              ? `Scheduled · ${currentLabel || '—'}`
+              : 'Not scheduled'}
         </span>
       </header>
 

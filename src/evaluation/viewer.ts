@@ -64,7 +64,7 @@ type SurveyPage = {
   questions: SurveyQuestion[]
 }
 
-type IntroKind = 'intro-welcome' | 'tutorial-interact' | 'tutorial-text' | 'tutorial-task' | 'eval-intro'
+type IntroKind = 'intro-welcome' | 'tutorial-text' | 'tutorial-task' | 'eval-intro'
 
 // One block = the 5 charts a participant saw for a single (system, group) pair.
 // After full interleaving those 5 charts are scattered across the presentation
@@ -160,7 +160,7 @@ const postSessionQuestions: SurveyQuestion[] = [
   { id: 'worst-aspect', text: 'What recommendations or suggestions do you have for improving this system?', kind: 'text', required: true },
 ]
 
-const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-interact', 'tutorial-text', 'tutorial-task']
+const INTRO_PAGE_KINDS: IntroKind[] = ['intro-welcome', 'tutorial-text', 'tutorial-task']
 // Pages shown before the survey trials: the 4 intro/tutorial pages + the
 // one-time demographics page inserted right after the welcome page. Drives the
 // progress-bar denominator.
@@ -195,19 +195,12 @@ const WELCOME_BODY_HTML = `
 // Step-by-step (visual) practice page. The body introduces BOTH formats
 // neutrally (the participant meets them in a random order, so both must be
 // previewed) and frames the live demo below as the step-by-step format.
-const TUTORIAL_INTERACT_BODY_HTML = `
-  <p>For each item you will see a chart, a question, and an answer to that question. Each answer comes with an explanation of how the answer was reached.</p>
-  <p>Explanations may be presented in <strong>different formats</strong> from one item to the next:</p>
-  <ul>
-    <li>Some are shown <strong>step by step on the chart</strong> &mdash; pressing the screen or a step block reveals each step in turn.</li>
-    <li>Some are shown <strong>as text</strong>, with the full explanation visible all at once. There is nothing to press, and pressing it reveals no further content; the text you see is the whole explanation. This is not an error &mdash; it is simply that explanation's format.</li>
-  </ul>
-  <p>We will now practice each format once. The example below is the <strong>step-by-step</strong> format &mdash; try pressing the blocks to move through it.</p>
-`
-
-// Text-format practice page.
+// First tutorial page: introduces the two explanation formats, then practices
+// the text format (the step-by-step format is practiced on the task page).
 const TUTORIAL_TEXT_BODY_HTML = `
-  <p>This explanation is in <strong>text format</strong>. Try pressing it &mdash; it is normal for no further content to appear. Read the text shown and continue.</p>
+  <p>For each item you will see a chart, a question, and an answer, together with an explanation of how the answer was reached.</p>
+  <p>Explanations appear in <strong>different formats</strong> from one item to the next: some are shown <strong>step by step on the chart</strong> (you press to reveal each step in turn), and some are shown <strong>as text</strong>, with the whole explanation visible at once.</p>
+  <p>The example below is the <strong>text format</strong> &mdash; try pressing it; it is normal for nothing more to appear, as the text you see is the whole explanation. You will practice the step-by-step format on the next page.</p>
 `
 
 const TUTORIAL_TASK_BODY_HTML = `
@@ -217,7 +210,7 @@ const TUTORIAL_TASK_BODY_HTML = `
     <li><strong>Read the question and the proposed answer.</strong></li>
     <li><strong>Read the explanation.</strong> If it is shown step by step, press each block to move through it; if it is shown as text, the full explanation is already visible.</li>
     <li><strong>Verify the answer.</strong> After reviewing the explanation, decide: Yes (correct) or No (incorrect).</li>
-    <li><strong>Rate the explanation.</strong> Two statements use a 7-point scale (Strongly disagree &rarr; Strongly agree).</li>
+    <li><strong>Rate the explanation.</strong> A few statements use a 7-point scale (Strongly disagree &rarr; Strongly agree).</li>
   </ol>
   <div class="intro-notes">
     <p class="intro-notes__title">Important notes</p>
@@ -228,7 +221,7 @@ const TUTORIAL_TASK_BODY_HTML = `
       <li><strong>Use external tools freely.</strong> A calculator or scrap paper is fine if you need to verify a calculation, so please just try to keep it brief.</li>
     </ul>
   </div>
-  <p>When you're ready, click <strong>Next</strong> to begin the survey.</p>
+  <p>Below is a <strong>complete practice trial</strong> — the chart, its explanation, and the exact questions you will answer each time. Step through the explanation and try the questions. When you're ready, click <strong>Next</strong> to begin the survey.</p>
 `
 
 // Transition page shown after all trials, before the per-system evaluation.
@@ -276,6 +269,7 @@ const introDemoChartEl = document.getElementById('introDemoChart') as HTMLElemen
 const introDemoQuestionEl = document.getElementById('introDemoQuestion') as HTMLElement
 const introDemoExplanationEl = document.getElementById('introDemoExplanation') as HTMLElement
 const introDemoHintEl = document.getElementById('introDemoHint') as HTMLElement
+const introDemoSurveyEl = document.getElementById('introDemoSurvey') as HTMLElement
 const reviewPanelEl = document.getElementById('reviewPanel') as HTMLElement
 const postSessionHeadingEl = document.getElementById('postSessionHeading') as HTMLElement
 const reviewPrevBtn = document.getElementById('reviewPrev') as HTMLButtonElement
@@ -1417,11 +1411,179 @@ function teardownReview() {
   reviewCounterEl.textContent = ''
 }
 
+// A radio option matching the real survey's markup (.choice-option /
+// .likert-option). Purely for the tutorial preview — native radios + the
+// existing `:has(input:checked)` CSS handle selection, so no JS state needed.
+function buildPreviewChoice(name: string, value: string, optionClass: string): HTMLLabelElement {
+  const label = document.createElement('label')
+  label.className = optionClass
+  const input = document.createElement('input')
+  input.type = 'radio'
+  input.name = name
+  input.value = value
+  const span = document.createElement('span')
+  span.className = `${optionClass}__label`
+  span.textContent = value
+  label.append(input, span)
+  return label
+}
+
+function buildPreviewLikert(name: string, legendText: string): HTMLFieldSetElement {
+  const fs = document.createElement('fieldset')
+  fs.className = 'survey-question survey-question--likert'
+  const legend = document.createElement('legend')
+  legend.className = 'survey-question__text'
+  legend.textContent = legendText
+  fs.appendChild(legend)
+  const scale = document.createElement('div')
+  scale.className = 'likert-scale'
+  const options = document.createElement('div')
+  options.className = 'likert-scale__options'
+  ;['1', '2', '3', '4', '5', '6', '7'].forEach((v) => options.appendChild(buildPreviewChoice(name, v, 'likert-option')))
+  scale.appendChild(options)
+  const endpoints = document.createElement('div')
+  endpoints.className = 'likert-scale__endpoints'
+  const low = document.createElement('span')
+  low.className = 'likert-scale__endpoint likert-scale__endpoint--low'
+  low.textContent = AGREE_SCALE.low
+  const high = document.createElement('span')
+  high.className = 'likert-scale__endpoint likert-scale__endpoint--high'
+  high.textContent = AGREE_SCALE.high
+  endpoints.append(low, high)
+  scale.appendChild(endpoints)
+  fs.appendChild(scale)
+  return fs
+}
+
+// Non-recording preview of the exact per-trial questions (Yes/No verify → the
+// conditional "which step is wrong" → the three ratings), for the tutorial's
+// full-practice-trial page. Uses the real survey CSS classes so it looks
+// identical, but writes to nothing (a throwaway `tutorial-preview` radio group)
+// and is decoupled from navigation/gating. `stepTexts` are the demo
+// explanation's steps, so the error-localization list is the demo's own steps.
+function renderTutorialSurveyPreview(container: HTMLElement, stepTexts: string[]) {
+  container.innerHTML = ''
+
+  const heading = document.createElement('p')
+  heading.className = 'intro-demo__survey-heading'
+  heading.textContent =
+    'After reviewing the explanation above, you answer these questions on every trial — one screen at a time, just like here. This is practice, so nothing is recorded.'
+  container.appendChild(heading)
+
+  // (1) Timed Yes/No verification. In the real study this is its OWN screen and
+  // is TIMED, so we present it alone first and reveal the rest only after the
+  // participant answers and presses “Next”.
+  const yesNo = document.createElement('fieldset')
+  yesNo.className = 'survey-question survey-question--choice'
+  const ynLegend = document.createElement('legend')
+  ynLegend.className = 'survey-question__text'
+  ynLegend.textContent = 'The answer is correct.'
+  yesNo.appendChild(ynLegend)
+  const timerNote = document.createElement('p')
+  timerNote.className = 'intro-demo__survey-timer'
+  timerNote.textContent =
+    '⏱ We measure how long you take on this question. Answer it as soon as you have decided, then press Next.'
+  yesNo.appendChild(timerNote)
+  const ynRow = document.createElement('div')
+  ynRow.className = 'choice-row'
+  ;['Yes', 'No'].forEach((v) => ynRow.appendChild(buildPreviewChoice('tutorial-answer-correct', v, 'choice-option')))
+  yesNo.appendChild(ynRow)
+  container.appendChild(yesNo)
+
+  // Mock “Next” that advances to the follow-up questions (mirrors pressing Next
+  // after the timed Yes/No screen).
+  const nextRow = document.createElement('div')
+  nextRow.className = 'intro-demo__survey-nextrow'
+  const nextBtn = document.createElement('button')
+  nextBtn.type = 'button'
+  nextBtn.className = 'intro-demo__survey-next'
+  nextBtn.textContent = 'Next →'
+  const nextWarn = document.createElement('span')
+  nextWarn.className = 'intro-demo__survey-warn'
+  nextWarn.textContent = 'Choose Yes or No first.'
+  nextWarn.hidden = true
+  nextRow.append(nextBtn, nextWarn)
+  container.appendChild(nextRow)
+
+  // (2) Follow-up screen: error-localization (only after “No”) + the three
+  // ratings. Hidden until Next is pressed.
+  const followup = document.createElement('div')
+  followup.className = 'intro-demo__survey-followup'
+  followup.hidden = true
+
+  const errFs = document.createElement('fieldset')
+  errFs.className = 'survey-question survey-question--error-loc'
+  errFs.hidden = true // only when the answer was “No”
+  const errLegend = document.createElement('legend')
+  errLegend.className = 'survey-question__text'
+  errLegend.textContent = 'At which step does the reasoning first go wrong? Select the step.'
+  errFs.appendChild(errLegend)
+  const errNote = document.createElement('p')
+  errNote.className = 'survey-question__hint'
+  errNote.textContent = 'This screen appears only when you answered “No”.'
+  errFs.appendChild(errNote)
+  const list = document.createElement('div')
+  list.className = 'error-loc-steps'
+  stepTexts.forEach((stepText, index) => {
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.className = 'error-loc-step'
+    const badge = document.createElement('span')
+    badge.className = 'error-loc-step__badge'
+    badge.textContent = String(index + 1)
+    const span = document.createElement('span')
+    span.className = 'error-loc-step__text'
+    span.textContent = stripLeadingNumber(stepText)
+    btn.append(badge, span)
+    btn.addEventListener('click', () => {
+      list.querySelectorAll('.error-loc-step').forEach((el) => {
+        const on = el === btn
+        el.classList.toggle('is-selected', on)
+        el.setAttribute('aria-pressed', on ? 'true' : 'false')
+      })
+    })
+    list.appendChild(btn)
+  })
+  errFs.appendChild(list)
+  const descLabel = document.createElement('label')
+  descLabel.className = 'error-loc-desc__label'
+  descLabel.textContent = 'Describe what is wrong with this step.'
+  errFs.appendChild(descLabel)
+  const descArea = document.createElement('textarea')
+  descArea.className = 'survey-text'
+  descArea.rows = 3
+  errFs.appendChild(descArea)
+  followup.appendChild(errFs)
+
+  // (3) The three per-trial ratings (matches surveyPages[RATINGS_PAGE_IDX]).
+  ;[
+    'The explanation was easy to understand.',
+    'The explanation was transparent.',
+    'The explanation was useful.',
+  ].forEach((text, i) => followup.appendChild(buildPreviewLikert(`tutorial-rating-${i}`, text)))
+  container.appendChild(followup)
+
+  nextBtn.addEventListener('click', () => {
+    const selected = ynRow.querySelector<HTMLInputElement>('input:checked')
+    if (!selected) {
+      nextWarn.hidden = false
+      return
+    }
+    nextWarn.hidden = true
+    errFs.hidden = selected.value !== 'No' // error-localization only after “No”
+    followup.hidden = false
+    nextBtn.disabled = true
+    nextBtn.textContent = 'Next ✓'
+    followup.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  })
+}
+
 async function renderIntroPage(kind: IntroKind) {
   introCardEl.hidden = false
   chartCardEl.hidden = true
   bottomAreaEl.hidden = true
   taskBannerEl.hidden = true
+  introDemoSurveyEl.hidden = true // shown only on the full-practice-trial (tutorial-task) page
   introCardEl.classList.toggle('intro-card--welcome', kind === 'intro-welcome')
 
   if (kind === 'intro-welcome') {
@@ -1432,29 +1594,14 @@ async function renderIntroPage(kind: IntroKind) {
     return
   }
 
-  if (kind === 'tutorial-interact') {
-    introEyebrowEl.textContent = 'TUTORIAL · 1 OF 3'
-    introTitleEl.textContent = 'How Explanations Are Shown'
-    introBodyEl.innerHTML = TUTORIAL_INTERACT_BODY_HTML
-    introDemoEl.hidden = false
-    introDemoHintEl.textContent = '↑ Try pressing each block to move through the explanation.'
-
-    // ensureDemoLoaded reloads when the demo was torn down by the text-practice
-    // page, so the step-by-step chart is always present in the shared container.
-    await ensureDemoLoaded()
-    const tutorialEntry = Object.values(chartGroup).flatMap((g) => Object.values(g)).find((c) => c.id === demoChartId)
-    introDemoQuestionEl.textContent = tutorialEntry?.question ?? ''
-    renderDemoExplanation()
-    return
-  }
-
   if (kind === 'tutorial-text') {
-    // Text-format practice: a static chart + plain-text explanation (no
-    // stepping). Tear down the step-by-step demo so the shared demo container
-    // shows this chart; render via TextRenderer (the B1 condition's renderer).
+    // First tutorial page: introduce the formats + practice the text format.
+    // A static chart + plain-text explanation (no stepping). Tear down any
+    // step-by-step demo so the shared demo container shows this chart; render
+    // via TextRenderer (the B1 condition's renderer).
     teardownDemo()
-    introEyebrowEl.textContent = 'TUTORIAL · 2 OF 3'
-    introTitleEl.textContent = 'Text-Format Explanation'
+    introEyebrowEl.textContent = 'TUTORIAL · 1 OF 2'
+    introTitleEl.textContent = 'How Explanations Are Shown'
     introBodyEl.innerHTML = TUTORIAL_TEXT_BODY_HTML
     introDemoEl.hidden = false
     introDemoHintEl.textContent = '↑ Press the text — nothing more appears, and that is normal.'
@@ -1484,11 +1631,21 @@ async function renderIntroPage(kind: IntroKind) {
     return
   }
 
-  // tutorial-task
-  introEyebrowEl.textContent = 'TUTORIAL · 3 OF 3'
+  // tutorial-task — a complete practice trial: the step-by-step demo chart +
+  // explanation, then the exact Yes/No + follow-up questions each trial asks,
+  // so participants (and researchers demoing the study) see a full trial once
+  // before it counts.
+  introEyebrowEl.textContent = 'TUTORIAL · 2 OF 2'
   introTitleEl.textContent = 'Your Task'
   introBodyEl.innerHTML = TUTORIAL_TASK_BODY_HTML.replace(/\{sequenceLength\}/g, String(sequence.length))
-  introDemoEl.hidden = true
+  introDemoEl.hidden = false
+  introDemoHintEl.textContent = '↑ Press the blocks to step through the explanation, then answer the questions below.'
+  await ensureDemoLoaded()
+  const taskEntry = Object.values(chartGroup).flatMap((g) => Object.values(g)).find((c) => c.id === demoChartId)
+  introDemoQuestionEl.textContent = taskEntry?.question ?? ''
+  renderDemoExplanation()
+  introDemoSurveyEl.hidden = false
+  renderTutorialSurveyPreview(introDemoSurveyEl, demoStepTexts)
 }
 
 // ============================================================================
@@ -1756,11 +1913,10 @@ function updateUI() {
   if (!page || (page.kind !== 'survey' && page.kind !== 'post-session' && page.kind !== 'final')) {
     if (methodBadgeEl) methodBadgeEl.textContent = ''
     debugMetaEl.textContent = ''
-    if (page?.kind === 'intro-welcome') progressLabelEl.textContent = 'Introduction · 1 of 4'
+    if (page?.kind === 'intro-welcome') progressLabelEl.textContent = 'Introduction · 1 of 3'
     else if (page?.kind === 'demographics') progressLabelEl.textContent = 'About You'
-    else if (page?.kind === 'tutorial-interact') progressLabelEl.textContent = 'Introduction · 2 of 4'
-    else if (page?.kind === 'tutorial-text') progressLabelEl.textContent = 'Introduction · 3 of 4'
-    else if (page?.kind === 'tutorial-task') progressLabelEl.textContent = 'Introduction · 4 of 4'
+    else if (page?.kind === 'tutorial-text') progressLabelEl.textContent = 'Introduction · 2 of 3'
+    else if (page?.kind === 'tutorial-task') progressLabelEl.textContent = 'Introduction · 3 of 3'
     else if (page?.kind === 'eval-intro') progressLabelEl.textContent = 'System Evaluation'
     else progressLabelEl.textContent = ''
     return

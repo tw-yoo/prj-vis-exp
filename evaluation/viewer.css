@@ -180,6 +180,90 @@ body {
   letter-spacing: 0.005em;
 }
 
+/* Full-practice-trial preview: the real Yes/No + follow-up questions, shown
+   inside the tutorial demo (reuses .survey-question / .likert-scale styling). */
+.intro-demo__survey {
+  margin-top: 22px;
+  padding-top: 22px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.intro-demo__survey-heading {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #475569;
+  line-height: 1.5;
+}
+
+/* Prominent "this question is timed" note on the Yes/No practice step. */
+.intro-demo__survey-timer {
+  margin: -8px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.intro-demo__survey-nextrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.intro-demo__survey-next {
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 10px;
+  padding: 9px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+
+.intro-demo__survey-next:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.intro-demo__survey-next:disabled {
+  background: #16a34a;
+  border-color: #16a34a;
+  cursor: default;
+}
+
+.intro-demo__survey-warn {
+  font-size: 14px;
+  font-weight: 600;
+  color: #b91c1c;
+}
+
+.intro-demo__survey-warn[hidden] {
+  display: none;
+}
+
+.intro-demo__survey-followup {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* .survey-question fieldsets set display:flex, which overrides the UA
+   [hidden] rule — hide the follow-up block and the conditional error step
+   explicitly. */
+.intro-demo__survey-followup[hidden],
+.intro-demo__survey .survey-question[hidden] {
+  display: none;
+}
+
 /* ---------- Task banner (above chart card) ---------- */
 
 .task-banner {
