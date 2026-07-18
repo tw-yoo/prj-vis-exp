@@ -43,7 +43,7 @@ export const sumApplier: OperationApplier<SimpleBarChartInstance> = {
       cssClass: SUM_ANNOTATION_CLASS,
       text: `Total: ${formatOperationValue(value)}`,
       layout: instance.layout,
-      anchor: 'top-center-above',
+      anchor: 'top-right',
       fontSize: 16,
     })
 

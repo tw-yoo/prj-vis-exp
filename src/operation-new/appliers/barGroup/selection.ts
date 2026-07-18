@@ -265,8 +265,10 @@ export function makeBarSelectionApplier<T extends BarGroupApplierInstance>(opts:
 
 /**
  * Shared native `count` applier for grouped + stacked bars — draws the
- * "Total N bars" badge above the chart (mirrors simpleBar/count). The scalar
- * result carries no target to highlight, so it's a separate factory.
+ * "Total N bars" badge top-right (mirrors simpleBar/count; top-center-above
+ * collided with Ours' top-center step-summary caption, hiding one or the
+ * other). The scalar result carries no target to highlight, so it's a
+ * separate factory.
  */
 export function makeBarCountApplier<T extends BarGroupApplierInstance>(opts: {
   cssClass: string
@@ -298,7 +300,7 @@ export function makeBarCountApplier<T extends BarGroupApplierInstance>(opts: {
         cssClass: opts.cssClass,
         text: `Total ${value} bars`,
         layout: instance.layout,
-        anchor: 'top-center-above',
+        anchor: 'top-right',
         fontSize: 16,
       })
 

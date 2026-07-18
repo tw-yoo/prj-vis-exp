@@ -71,7 +71,7 @@ export const compareBoolApplier: OperationApplier<SimpleBarChartInstance> = {
           cssClass: COMPARE_BOOL_ANNOTATION_CLASS,
           text: verdict,
           layout: instance.layout,
-          anchor: 'top-center-above',
+          anchor: 'top-right',
           fontSize: 16,
         })
         const delta = (derivedA?.value ?? NaN) - (derivedB?.value ?? NaN)
@@ -110,7 +110,7 @@ export const compareBoolApplier: OperationApplier<SimpleBarChartInstance> = {
       cssClass: COMPARE_BOOL_ANNOTATION_CLASS,
       text: verdict,
       layout: instance.layout,
-      anchor: 'top-center-above',
+      anchor: 'top-left',
       fontSize: 16,
     })
 
