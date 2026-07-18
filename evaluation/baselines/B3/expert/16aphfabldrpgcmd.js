@@ -320,19 +320,26 @@ function getBirthWeightLineMetrics(d3) {
     return { plotW, plotH, yScale };
 }
 
+// STEP 1 (ours_steps[0]): "Filter to the Boys group and count the years where
+// the weight exceeds 3670." De-emphasizes all series (same final dim levels
+// used throughout the walkthrough), then highlights only the Boys (+ Total,
+// which never matches a target) circles and draws the Boys threshold line.
+// Girls circles are left at their base render style until function2 runs.
 export function function1({ d3, container }) {
     const svg = d3.select(container).select('svg');
     const g = svg.select('g');
     if (svg.empty() || g.empty()) return;
 
-    const csvThresholds = { Boys: 3670, Girls: 3550 };
     const csvTargets = [
         { series: 'Boys', years: new Set(['2010', '2011', '2014']), color: '#2563eb' },
-        { series: 'Girls', years: new Set(['2010', '2011', '2014', '2017', '2020']), color: '#dc2626' },
     ];
     const { plotW, yScale } = getBirthWeightLineMetrics(d3);
 
     g.selectAll('.e8-q10-function1').remove();
+
+    // De-emphasize every line up front — this is the same opacity/width map
+    // the combined version used for all series, so it doesn't need to be
+    // repeated (or reverted) by the later steps.
     g.selectAll('path[data-series]')
         .attr('opacity', function (d) {
             return d.series === 'Total' ? 0.12 : 0.45;
@@ -340,7 +347,9 @@ export function function1({ d3, container }) {
         .attr('stroke-width', function (d) {
             return d.series === 'Total' ? 1 : 2;
         });
+
     g.selectAll('circle[data-target]')
+        .filter((p) => p.series !== 'Girls')
         .attr('opacity', function (p) {
             const target = csvTargets.find((item) => item.series === p.series && item.years.has(String(p.target)));
             if (target) return 1;
@@ -356,32 +365,92 @@ export function function1({ d3, container }) {
             return '#94a3b8';
         });
 
-    Object.entries(csvThresholds).forEach(([series, value]) => {
-        const y = yScale(value);
-        const color = series === 'Boys' ? '#2563eb' : '#dc2626';
-        g.append('line')
-            .attr('class', 'e8-q10-function1')
-            .attr('x1', 0)
-            .attr('x2', plotW)
-            .attr('y1', y)
-            .attr('y2', y)
-            .attr('stroke', color)
-            .attr('stroke-width', 1.5)
-            .attr('stroke-dasharray', '5 4');
-        g.append('text')
-            .attr('class', 'e8-q10-function1')
-            .attr('x', plotW + 8)
-            .attr('y', y + 4)
-            .attr('fill', color)
-            .attr('font-size', 11)
-            .attr('font-weight', 700)
-            .text(`${series} > ${value}`);
-    });
-
-    // Theme D (#32 round 3): move summary to top-center so it doesn't sit on
-    // top of the chart's right-edge labels.
+    const y = yScale(3670);
+    g.append('line')
+        .attr('class', 'e8-q10-function1')
+        .attr('x1', 0)
+        .attr('x2', plotW)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#2563eb')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '5 4');
     g.append('text')
         .attr('class', 'e8-q10-function1')
+        .attr('x', plotW + 8)
+        .attr('y', y + 4)
+        .attr('fill', '#2563eb')
+        .attr('font-size', 11)
+        .attr('font-weight', 700)
+        .text('Boys > 3670');
+}
+
+// STEP 2 (ours_steps[1]): "Filter to the Girls group and count the years
+// where the weight exceeds 3550." Runs after function1 on the same live
+// chart, so Boys highlighting from step 1 is already in place and untouched
+// here — only the Girls circles + Girls threshold line are added.
+export function function2({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const csvTargets = [
+        { series: 'Girls', years: new Set(['2010', '2011', '2014', '2017', '2020']), color: '#dc2626' },
+    ];
+    const { plotW, yScale } = getBirthWeightLineMetrics(d3);
+
+    g.selectAll('.e8-q10-function2').remove();
+
+    g.selectAll('circle[data-target]')
+        .filter((p) => p.series === 'Girls')
+        .attr('opacity', function (p) {
+            const target = csvTargets.find((item) => item.series === p.series && item.years.has(String(p.target)));
+            return target ? 1 : 0.22;
+        })
+        .attr('r', function (p) {
+            const target = csvTargets.find((item) => item.series === p.series && item.years.has(String(p.target)));
+            return target ? 6 : 3;
+        })
+        .attr('fill', function (p) {
+            const target = csvTargets.find((item) => item.series === p.series && item.years.has(String(p.target)));
+            return target ? target.color : '#94a3b8';
+        });
+
+    const y = yScale(3550);
+    g.append('line')
+        .attr('class', 'e8-q10-function2')
+        .attr('x1', 0)
+        .attr('x2', plotW)
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#dc2626')
+        .attr('stroke-width', 1.5)
+        .attr('stroke-dasharray', '5 4');
+    g.append('text')
+        .attr('class', 'e8-q10-function2')
+        .attr('x', plotW + 8)
+        .attr('y', y + 4)
+        .attr('fill', '#dc2626')
+        .attr('font-size', 11)
+        .attr('font-weight', 700)
+        .text('Girls > 3550');
+}
+
+// STEP 3 (ours_steps[2]): "Add the two counts together." Both group counts
+// are already visible from steps 1-2 (highlighted circles + threshold
+// lines); this step just adds the top-center arithmetic summary — identical
+// text/position to the original combined function's summary line.
+export function function3({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const { plotW } = getBirthWeightLineMetrics(d3);
+
+    g.selectAll('.e8-q10-function3').remove();
+
+    g.append('text')
+        .attr('class', 'e8-q10-function3')
         .attr('x', plotW / 2)
         .attr('y', -10)
         .attr('text-anchor', 'middle')
@@ -390,7 +459,3 @@ export function function1({ d3, container }) {
         .attr('font-weight', 700)
         .text('Boys: 3  Girls: 5  Sum: 8');
 }
-
-export function function2({ d3, container }) {}
-
-export function function3({ d3, container }) {}

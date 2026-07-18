@@ -321,17 +321,27 @@ function getPopulationDifferenceRows() {
     });
 }
 
+// Ours step 0: "Take the recent years as 2015 through 2020." — emphasize the
+// six target-year points (full opacity/larger radius) and dim the rest.
 export function function1({ d3, container }) {
     const differenceRows = getPopulationDifferenceRows();
     const targetYears = new Set(differenceRows.map((d) => d.year));
+
+    d3.select(container).selectAll('circle[data-target]')
+        .attr('opacity', (p) => (targetYears.has(String(p.target)) ? 1 : 0.28))
+        .attr('r', (p) => (targetYears.has(String(p.target)) ? 5 : 4));
+}
+
+// Ours step 1: "Subtract the women's value from the men's value for each
+// year." — draw the per-year Female↔Male double-arrow connector and its
+// difference-value label for each of the six target years.
+export function function3({ d3, container }) {
+    const differenceRows = getPopulationDifferenceRows();
     const svg = d3.select(container).select('svg');
     const g = svg.select('g');
     const markerId = ensurePopulationArrowMarker({ d3, svg });
 
     g.selectAll('.e6-q10-function1').remove();
-    d3.select(container).selectAll('circle[data-target]')
-        .attr('opacity', (p) => (targetYears.has(String(p.target)) ? 1 : 0.28))
-        .attr('r', (p) => (targetYears.has(String(p.target)) ? 5 : 4));
 
     differenceRows.forEach((row) => {
         const circles = d3.select(container).selectAll(`circle[data-target="${row.year}"]`).nodes();
@@ -413,7 +423,7 @@ export function function2({ d3, container }) {
         .attr('text-anchor', 'middle')
         .attr('font-size', 11)
         .attr('fill', '#111827')
-        .text('Difference (Female - Male, million inhabitants)');
+        .text('Difference (Male - Female, million inhabitants)');
 
     // Bars: positive differences → from baseline (zeroY) UP to yScale(value).
     g.selectAll('rect.main-bar')
@@ -454,5 +464,3 @@ export function function2({ d3, container }) {
         .attr('fill', '#111827')
         .text(csvSumLabel);
 }
-
-export function function3({ d3, container }) {}

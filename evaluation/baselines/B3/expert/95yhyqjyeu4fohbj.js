@@ -228,7 +228,81 @@ export function renderValidationSimpleLineChart({ container }) {
         });
 }
 
+// STEP 0 — find the minimum (2000) and maximum (2020) values. This stays on
+// the base line chart: it enlarges/recolors the min/max circles that
+// renderValidationSimpleLineChart already drew (selected via data-target) and
+// adds "Min: … / Max: …" labels next to them. No SVG wipe here — the
+// chart-type switch to the bar comparison happens in function2.
 export function function1({ d3, container }) {
+    const xField = 'Year';
+    const yField = 'Number of people in millions';
+
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const minRow = data_rows.reduce((best, row) => (
+        Number(row[yField]) < Number(best[yField]) ? row : best
+    ), data_rows[0]);
+    const maxRow = data_rows.reduce((best, row) => (
+        Number(row[yField]) > Number(best[yField]) ? row : best
+    ), data_rows[0]);
+
+    const minLabel = String(minRow[xField]);
+    const maxLabel = String(maxRow[xField]);
+
+    // Same layout constants as renderValidationSimpleLineChart (base renderer
+    // is untouched, so these stay in sync with it).
+    const width = 640;
+    const margin = { right: 24, left: 56 };
+    const plotW = width - margin.left - margin.right;
+
+    const minCircle = g.select(`circle[data-target="${minLabel}"]`);
+    const maxCircle = g.select(`circle[data-target="${maxLabel}"]`);
+    if (minCircle.empty() || maxCircle.empty()) return;
+
+    // Enlarge + recolor the min/max points using the same palette the
+    // stacked-average bar's segments use later, so the story stays linked.
+    minCircle.attr('r', 7).attr('fill', '#93c5fd').attr('opacity', 1);
+    maxCircle.attr('r', 7).attr('fill', '#1d4ed8').attr('opacity', 1);
+
+    g.selectAll('.validation-minmax-label').remove();
+
+    const labelData = [
+        {
+            cx: Number(minCircle.attr('cx')),
+            cy: Number(minCircle.attr('cy')),
+            text: `Min: ${Number(minRow[yField]).toFixed(2)} (${minLabel})`,
+        },
+        {
+            cx: Number(maxCircle.attr('cx')),
+            cy: Number(maxCircle.attr('cy')),
+            text: `Max: ${Number(maxRow[yField]).toFixed(2)} (${maxLabel})`,
+        },
+    ];
+
+    g.selectAll('.validation-minmax-label')
+        .data(labelData)
+        .join('text')
+        .attr('class', 'validation-minmax-label')
+        .attr('x', (d) => d.cx)
+        .attr('y', (d) => d.cy - 12)
+        .attr('text-anchor', (d) => (d.cx < plotW / 2 ? 'start' : 'end'))
+        .attr('dx', (d) => (d.cx < plotW / 2 ? 6 : -6))
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 11)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text((d) => d.text);
+}
+
+// STEP 1 — average the min/max to get 2.295. Switches the view from the line
+// chart to the derived two-bar comparison chart: draws the shared axes/labels
+// and the legend, plus ONLY the stacked "average" bar (min/2 + max/2
+// segments) with its value label. The x/y scales are built from the FULL
+// two-bar layout (average + 2010 target) so the axes already match the final
+// step3 layout and nothing rescales/jumps when the target bar is added later.
+export function function2({ d3, container }) {
     const xField = 'Year';
     const yField = 'Number of people in millions';
 
@@ -336,31 +410,32 @@ export function function1({ d3, container }) {
         .attr('text-anchor', 'middle')
         .text(yField);
 
-    chartRows.forEach((bar) => {
-        const x = xScale(bar.label);
-        const barW = xScale.bandwidth();
-        let runningValue = 0;
+    // Only the average bar (chartRows[0]) is rendered this step — the target
+    // bar (chartRows[1]) is added in function3.
+    const averageBar = chartRows[0];
+    const barX = xScale(averageBar.label);
+    const barW = xScale.bandwidth();
+    let runningValue = 0;
 
-        g.selectAll(`rect.segment-${bar.type}`)
-            .data(bar.segments.map((segment) => {
-                const y0 = runningValue;
-                const y1 = runningValue + segment.value;
-                runningValue = y1;
-                return { ...segment, barLabel: bar.label, y0, y1, total: bar.total };
-            }))
-            .join('rect')
-            .attr('class', `main-bar segment-${bar.type}`)
-            .attr('x', x)
-            .attr('width', barW)
-            .attr('fill', (d) => d.color)
-            .attr('data-target', (d) => d.barLabel)
-            .attr('data-value', (d) => d.total)
-            .attr('data-x-value', (d) => d.barLabel)
-            .attr('data-y-value', (d) => String(d.total))
-            .attr('data-segment-label', (d) => d.label)
+    g.selectAll(`rect.segment-${averageBar.type}`)
+        .data(averageBar.segments.map((segment) => {
+            const y0 = runningValue;
+            const y1 = runningValue + segment.value;
+            runningValue = y1;
+            return { ...segment, barLabel: averageBar.label, y0, y1, total: averageBar.total };
+        }))
+        .join('rect')
+        .attr('class', `main-bar segment-${averageBar.type}`)
+        .attr('x', barX)
+        .attr('width', barW)
+        .attr('fill', (d) => d.color)
+        .attr('data-target', (d) => d.barLabel)
+        .attr('data-value', (d) => d.total)
+        .attr('data-x-value', (d) => d.barLabel)
+        .attr('data-y-value', (d) => String(d.total))
+        .attr('data-segment-label', (d) => d.label)
         .attr('y', (d) => yScale(d.y1))
-            .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)));
-    });
+        .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)));
 
     // Theme K (#36 round 3): legend explaining which color = 2000, which = 2020.
     const legendData = [
@@ -389,7 +464,109 @@ export function function1({ d3, container }) {
             .text(row.label);
     });
 
-    // R11 (round 3): function1 draws the full comparison label too.
+    // New for step 1: an explicit "Average = …" value label on the bar itself.
+    g.append('text')
+        .attr('class', 'validation-q4-average-label')
+        .attr('x', barX + barW / 2)
+        .attr('y', yScale(averageBar.total) - 8)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'sans-serif')
+        .attr('font-size', 12)
+        .attr('font-weight', 700)
+        .attr('fill', '#111827')
+        .text(`Average = ${averageValue.toFixed(3)}`);
+}
+
+// STEP 2 — compare the average (2.295) to the 2010 value (2.39) and answer
+// No. Adds the gray 2010 target bar to the comparison chart function2 already
+// drew, plus the red summary text. Recomputes the identical chartRows/scales
+// as function2 so the target bar lands at the exact position/height already
+// reserved by function2's axes — no rescale, no jump.
+export function function3({ d3, container }) {
+    const xField = 'Year';
+    const yField = 'Number of people in millions';
+
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g.validation-function1-average-bar-layer');
+    if (svg.empty() || g.empty()) return;
+
+    const svgNode = svg.node();
+    const viewBox = svgNode.getAttribute('viewBox') || '0 0 640 360';
+    const [, , width, height] = viewBox.split(/\s+/).map(Number);
+    const margin = { top: 48, right: 88, bottom: 56, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = height - margin.top - margin.bottom;
+
+    const minRow = data_rows.reduce((best, row) => (
+        Number(row[yField]) < Number(best[yField]) ? row : best
+    ), data_rows[0]);
+    const maxRow = data_rows.reduce((best, row) => (
+        Number(row[yField]) > Number(best[yField]) ? row : best
+    ), data_rows[0]);
+    const targetRow = data_rows.find((row) => Number(row[xField]) === 2010);
+
+    const minValue = Number(minRow[yField]);
+    const maxValue = Number(maxRow[yField]);
+    const averageValue = (minValue + maxValue) / 2;
+    const targetValue = Number(targetRow?.[yField] ?? 0);
+
+    const chartRows = [
+        {
+            label: `${minRow[xField]} & ${maxRow[xField]} average`,
+            type: 'stacked-average',
+            total: averageValue,
+        },
+        {
+            label: String(targetRow?.[xField] ?? 2010),
+            type: 'target',
+            total: targetValue,
+            segments: [
+                {
+                    label: String(targetRow?.[xField] ?? 2010),
+                    value: targetValue,
+                    color: '#9ca3af'
+                }
+            ]
+        }
+    ];
+
+    const xScale = d3.scaleBand()
+        .domain(chartRows.map((d) => d.label))
+        .range([0, plotW])
+        .padding(0.42);
+
+    const yScale = d3.scaleLinear()
+        .domain([0, d3.max(chartRows, (d) => d.total) ?? 0])
+        .nice()
+        .range([plotH, 0]);
+
+    const targetBar = chartRows[1];
+    const x = xScale(targetBar.label);
+    const barW = xScale.bandwidth();
+    let runningValue = 0;
+
+    g.selectAll(`rect.segment-${targetBar.type}`)
+        .data(targetBar.segments.map((segment) => {
+            const y0 = runningValue;
+            const y1 = runningValue + segment.value;
+            runningValue = y1;
+            return { ...segment, barLabel: targetBar.label, y0, y1, total: targetBar.total };
+        }))
+        .join('rect')
+        .attr('class', `main-bar segment-${targetBar.type}`)
+        .attr('x', x)
+        .attr('width', barW)
+        .attr('fill', (d) => d.color)
+        .attr('data-target', (d) => d.barLabel)
+        .attr('data-value', (d) => d.total)
+        .attr('data-x-value', (d) => d.barLabel)
+        .attr('data-y-value', (d) => String(d.total))
+        .attr('data-segment-label', (d) => d.label)
+        .attr('y', (d) => yScale(d.y1))
+        .attr('height', (d) => Math.max(0, yScale(d.y0) - yScale(d.y1)));
+
+    // R11 (round 3): the full comparison label.
+    g.selectAll('.validation-q4-summary').remove();
     g.append('text')
         .attr('class', 'validation-q4-summary')
         .attr('x', plotW / 2)
@@ -400,13 +577,4 @@ export function function1({ d3, container }) {
         .attr('font-weight', 700)
         .attr('fill', '#ef4444')
         .text(`Average ${averageValue.toFixed(3)} ${averageValue > targetValue ? '>' : '<'} 2010 (${targetValue.toFixed(2)})`);
-}
-
-// R11 (round 3): function2 / function3 re-apply function1's complete visual idempotently.
-export function function2({ d3, container }) {
-    function1({ d3, container });
-}
-
-export function function3({ d3, container }) {
-    function1({ d3, container });
 }

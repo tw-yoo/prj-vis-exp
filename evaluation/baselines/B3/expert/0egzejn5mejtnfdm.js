@@ -276,8 +276,8 @@ function getReferendumChartMetrics({ d3, container }) {
     return { svg, g, plotW, yScale };
 }
 
-function applyReferendumTargetHighlight({ d3, container }) {
-    const csvTargets = [
+function applyReferendumTargetHighlight({ d3, container, targets }) {
+    const csvTargets = targets ?? [
         { category: 'Strongly against', region: 'Scotland', value: 28 },
         { category: 'Somewhat against', region: 'England & Wales', value: 16 },
     ];
@@ -330,11 +330,32 @@ function ensureReferendumArrowMarker({ d3, svg }) {
     return markerId;
 }
 
+// Step 0 — "Find Scotland's highest SharePercentage across the response-category
+// panels (28)." Highlight only the Scotland max bar; all other bars (including
+// the England & Wales target used in step 1) stay dimmed for now.
 export function function1({ d3, container }) {
+    applyReferendumTargetHighlight({
+        d3,
+        container,
+        targets: [
+            { category: 'Strongly against', region: 'Scotland', value: 28 },
+        ],
+    });
+}
+
+// Step 1 — "Find England & Wales's second-lowest SharePercentage (16), treating
+// the 2% outlier as anomalous." applyReferendumTargetHighlight clears and
+// redraws all highlight/annotation state from scratch each call, so re-running
+// it with the full two-target list is safe standalone (idempotent replay) and
+// now also highlights + labels the England & Wales 16 bar alongside Scotland's 28.
+export function function2({ d3, container }) {
     applyReferendumTargetHighlight({ d3, container });
 }
 
-export function function2({ d3, container }) {
+// Step 2 — "28 − 16 = 12." Re-applies the full highlight (robust standalone,
+// matching the idempotent pattern above) then draws the reference lines,
+// difference arrow, and "12" label.
+export function function3({ d3, container }) {
     applyReferendumTargetHighlight({ d3, container });
 
     const csvValues = { scotlandMax: 28, englandWalesMin: 16, difference: 12 };
@@ -381,5 +402,3 @@ export function function2({ d3, container }) {
         .attr('fill', '#dc2626')
         .text(String(csvValues.difference));
 }
-
-export function function3({ d3, container }) {}

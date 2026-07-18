@@ -285,8 +285,19 @@ export function function1({ d3, container }) {
             .text(String(value));
     });
 
+}
+
+export function function2({ d3, container }) {
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    if (svg.empty() || g.empty()) return;
+
+    const { plotW } = getRankingLineMetrics(d3);
+
+    g.selectAll('.e8-q9-function2').remove();
+
     g.append('text')
-        .attr('class', 'e8-q9-function1')
+        .attr('class', 'e8-q9-function2')
         .attr('x', plotW)
         .attr('y', 18)
         .attr('text-anchor', 'end')
@@ -295,7 +306,5 @@ export function function1({ d3, container }) {
         .attr('font-weight', 700)
         .text('Count: 10 years');
 }
-
-export function function2({ d3, container }) {}
 
 export function function3({ d3, container }) {}

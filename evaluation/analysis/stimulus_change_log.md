@@ -75,6 +75,71 @@ conclude 0.023. Scoring note: a pre-change participant judging this item against
 0.02 was still judging a *correct* item (answerIsCorrect=true throughout); only
 the displayed value changed.
 
+## Change 3 — text unification: every system now uses the Ours wording verbatim (this commit)
+
+**Problem** (2026-07-18): Change 1 only fixed explanations whose *conclusion value*
+contradicted the shown answer. It did not touch cases where every system reached
+the same value but described it in **different words**, or where a system split
+the explanation into a different number of segments than Ours. A user-study
+explanation must read identically across systems for a given chart — otherwise a
+participant comparing "System A" vs "System B" on the same chart is really
+comparing prose style, not the explanation mechanism under test.
+
+**Policy adopted**: Ours is the canonical text for all 20 active items. Every
+other system is now rewritten, segment-for-segment, to Ours' exact wording:
+- **B1** — the Ours steps joined into one paragraph (B1 has always been a single
+  block of prose; no per-step interaction).
+- **B2** — one scene per Ours step, `text_chunk` set verbatim to that step's
+  text. Where B2 had *more* scenes than Ours steps, the redundant intermediate
+  scene(s) were dropped (B2 scenes are cumulative SVG snapshots, so dropping an
+  intermediate scene loses no visual state — the kept scenes already contain it).
+  No chart needed B2 scenes *added*.
+- **B3** — one manifest step per Ours step, `text` set verbatim, `fn` pointing at
+  the expert module function whose animation matches that step. Where the
+  module had *fewer* real step functions than Ours steps, the animation code
+  was split into additional functions (reusing empty stub exports where
+  present) so each Ours step gets its own visual increment. Where the module
+  had *more* functions than Ours steps, a merge wrapper was added that calls
+  the grouped functions in sequence, and the manifest points at the wrapper —
+  no functions were deleted, no visual design (colors/positions/durations)
+  changed, only regrouped.
+
+**Also removed everywhere**: the phrase "(ignoring the 2011–2014 restriction)"
+/ "(ignoring the 2011–2014 window)" from `0jbrb1dcbliiampz` (Ours step text and
+the B3 manifest/module wording) — the deception mechanism (the year window
+being silently dropped) still stands, it is simply no longer narrated aloud.
+
+**Segment-count changes** (systems whose scene/step count changed; all other
+systems for that chart already matched Ours' count and only got a wording
+pass): `11e148qcs7x70t8v` B2 3→2, B3 3→2 (merge); `16fif5hdi8yzml00` B3 2→3
+(split); `8chfa8n079zpfigi` B2 3→2, B3 1→2 (split); `0jbrb1dcbliiampz`,
+`2bhsybiilde28j87`, `66va2s35es5t86l3`, `0gvrmm8qbn6o1vya`, `77xb5ug5lhfmkb74`,
+`1a09xqtrj8zms716`, `10t8o5vhethzeod1`, `01mksjs373fhcl4q` B2 3→2 (drop one
+redundant scene, no B3 change); `0egzejn5mejtnfdm` B3 2→3 (split);
+`16aphfabldrpgcmd` B3 1→3 (split); `0xc7sx6ll8fl5rgh` B3 5→2 (merge);
+`10gtgmmgh599jnr7` B3 4→3 (merge); `2s65jcap9pn289qx` B3 2→3 (split);
+`95yhyqjyeu4fohbj` B3 1→3 (split); `2eiyyw562tcvjypp` B3 1→3 (split).
+`0wflwm4jebx7n12y` and `1k8qhmg9rui7gtzh` already matched Ours' count on both
+B2 and B3 — wording pass only (B3 for `0wflwm4jebx7n12y` was additionally
+mis-wired: the manifest ran function1/function2 in the wrong order relative to
+what each function actually draws — corrected to function2→function1→function3).
+
+**Verification**: `scripts/eval_audit_explanations.py` now also asserts, for
+every item × system, that the segment count and every segment's text are
+byte-identical to the corresponding Ours step (`check_uniformity`), in addition
+to the pre-existing conclusion-value consistency check — 80/80 PASS both checks.
+All 10 edited B3 expert modules re-verified by running their base render + full
+step sequence in a real browser (no exceptions) and spot-checked visually
+(screenshots) for the handful of steps that mutate existing DOM node
+attributes only (opacity/highlight changes, which don't move the node-count
+proxy but ARE visually correct).
+
+Any participant whose session ran before this change (**SO1CO1, SO1CO2,
+SO1CO4, SO2CO3** per the list above, plus anyone else who started before this
+deploy) saw system-inconsistent wording/segment counts — exclude explanation-
+wording comparisons for their trials, or flag separately; value-level scoring
+(Change 1/2) is unaffected.
+
 ## Scoring guidance for pre-change trials
 
 - Group 1a trials (item × B1, plus 0jbrb/0xc7 × B2): the deception manipulation

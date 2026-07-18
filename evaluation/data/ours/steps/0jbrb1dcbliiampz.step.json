@@ -7,7 +7,7 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Keep all years whose investments value is greater than 22 billion euros (ignoring the 2011–2014 restriction)."
+      "text": "Keep all years whose investments value is greater than 22 billion euros."
     },
     {
       "id": "ops2",

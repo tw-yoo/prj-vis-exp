@@ -543,3 +543,8 @@ export function function3({ d3, container }) {
         .attr('stroke', '#111827')
         .attr('stroke-width', 2);
 }
+
+export function mergedStep1({ d3, container }) {
+    function1({ d3, container });
+    function2({ d3, container });
+}

@@ -305,8 +305,11 @@ function ensureFavorabilityMarker({ d3, svg, markerId, color }) {
         .attr('fill', color);
 }
 
+// Step 1: "Compare Russia's and the US's favorable-view percentages for each
+// year shown." Draws the high/low connector line + diff-value text for every
+// year using ONE uniform neutral (faint) style -- no reveal yet of which
+// years get "kept".
 export function function1({ d3, container }) {
-    const csvRussiaHigherYears = new Set(['2007', '2009', '2015']);
     const seriesColors = {
         'US favorability in Russia': '#60a5fa',
         'Russia favorability in US': '#fb7185',
@@ -317,7 +320,6 @@ export function function1({ d3, container }) {
     };
     const svg = d3.select(container).select('svg');
     const g = svg.select('g');
-    const plotW = 640 - 56 - 16 - 200;
 
     g.selectAll('.e6-q5-function1').remove();
     ensureFavorabilityMarker({ d3, svg, markerId: markerIds['US favorability in Russia'], color: seriesColors['US favorability in Russia'] });
@@ -343,7 +345,6 @@ export function function1({ d3, container }) {
         const markerId = markerIds[high.series];
         const x = high.x;
         const diff = Math.abs(high.value - low.value);
-        const isRussiaHigher = csvRussiaHigherYears.has(year);
 
         g.append('line')
             .attr('class', 'e6-q5-function1')
@@ -352,8 +353,8 @@ export function function1({ d3, container }) {
             .attr('y1', high.y)
             .attr('y2', low.y)
             .attr('stroke', color)
-            .attr('stroke-width', isRussiaHigher ? 2.4 : 1.5)
-            .attr('opacity', isRussiaHigher ? 1 : 0.55)
+            .attr('stroke-width', 1.5)
+            .attr('opacity', 0.55)
             .attr('marker-start', `url(#${markerId})`)
             .attr('marker-end', `url(#${markerId})`);
 
@@ -362,15 +363,54 @@ export function function1({ d3, container }) {
             .attr('x', x + 5)
             .attr('y', (high.y + low.y) / 2)
             .attr('dominant-baseline', 'middle')
-            .attr('font-size', isRussiaHigher ? 11 : 9)
-            .attr('font-weight', isRussiaHigher ? 800 : 700)
+            .attr('font-size', 9)
+            .attr('font-weight', 700)
             .attr('fill', color)
-            .attr('opacity', isRussiaHigher ? 1 : 0.55)
+            .attr('opacity', 0.55)
             .text(String(diff));
     });
+}
 
+// Step 2: "Keep the years where Russia is at or above the US, including
+// near-ties (within 1 point): 2007, 2009, 2015." Re-styles the already-drawn
+// connector line + diff text for the 3 kept years to the bold/opaque
+// treatment, leaving the other 6 years at function1's faint style.
+export function function2({ d3, container }) {
+    const csvRussiaHigherYears = new Set(['2007', '2009', '2015']);
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+
+    csvRussiaHigherYears.forEach((year) => {
+        const circle = d3.select(container).select(`circle[data-target="${year}"]`);
+        if (circle.empty()) return;
+        const x = Number(circle.attr('cx'));
+
+        g.selectAll('line.e6-q5-function1')
+            .filter(function filterLine() { return Number(d3.select(this).attr('x1')) === x; })
+            .attr('stroke-width', 2.4)
+            .attr('opacity', 1);
+
+        g.selectAll('text.e6-q5-function1')
+            .filter(function filterText() { return Number(d3.select(this).attr('x')) === x + 5; })
+            .attr('font-size', 11)
+            .attr('font-weight', 800)
+            .attr('opacity', 1);
+    });
+}
+
+// Step 3: "Count those years -- 3." Appends the final summary/count text.
+export function function3({ d3, container }) {
+    const seriesColors = {
+        'US favorability in Russia': '#60a5fa',
+        'Russia favorability in US': '#fb7185',
+    };
+    const svg = d3.select(container).select('svg');
+    const g = svg.select('g');
+    const plotW = 640 - 56 - 16 - 200;
+
+    g.selectAll('.e6-q5-function3').remove();
     g.append('text')
-        .attr('class', 'e6-q5-function1')
+        .attr('class', 'e6-q5-function3')
         .attr('x', plotW)
         .attr('y', 8)
         .attr('text-anchor', 'end')
@@ -379,7 +419,3 @@ export function function1({ d3, container }) {
         .attr('fill', seriesColors['Russia favorability in US'])
         .text('Russia higher: 3 years (incl. near-tie 2009)');
 }
-
-export function function2({ d3, container }) {}
-
-export function function3({ d3, container }) {}

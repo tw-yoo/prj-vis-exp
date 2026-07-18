@@ -248,11 +248,12 @@ export function renderValidationGroupedBarChart({ container }) {
         });
 }
 
-function renderTransposedPaymentChart({ d3, container, showDifference = false }) {
+function renderTransposedPaymentChart({ d3, container }) {
+    // Rebuilds the base chart transposed: Maximum/Minimum as x categories,
+    // states as series. Average annotations are NOT drawn here — each step
+    // function adds its own average line on top (see drawTypeAverageAnnotation).
     injectGroupedChartStyles();
 
-    const csvAverage = { Maximum: 20.0, Minimum: 12.5 };
-    const csvDifference = 7.5;
     const xDomain = ['Maximum', 'Minimum'];
     const seriesDomain = Array.from(new Set(data_rows.map((d) => d.State)));
     const data = [];
@@ -268,7 +269,6 @@ function renderTransposedPaymentChart({ d3, container, showDifference = false })
     const margin = { top: 32, right: 176, bottom: 48, left: 56 };
     const plotW = width - margin.left - margin.right;
     const plotH = height - margin.top - margin.bottom;
-
 
     container.classList.add('validation-grouped-chart-host');
 
@@ -302,29 +302,6 @@ function renderTransposedPaymentChart({ d3, container, showDifference = false })
         .attr('data-y-value', (d) => String(d.value))
         .attr('data-group-value', (d) => d.series);
 
-    xDomain.forEach((type) => {
-        const x0 = xScale(type) ?? 0;
-        const y = yScale(csvAverage[type]);
-        g.append('line')
-            .attr('class', 'e8-q3-function1')
-            .attr('x1', x0)
-            .attr('x2', x0 + xScale.bandwidth())
-            .attr('y1', y)
-            .attr('y2', y)
-            .attr('stroke', '#dc2626')
-            .attr('stroke-width', 2)
-            .attr('stroke-dasharray', '5 4');
-        g.append('text')
-            .attr('class', 'e8-q3-function1')
-            .attr('x', x0 + xScale.bandwidth() / 2)
-            .attr('y', y - 7)
-            .attr('text-anchor', 'middle')
-            .attr('fill', '#dc2626')
-            .attr('font-size', 11)
-            .attr('font-weight', 700)
-            .text(`${type} avg: ${csvAverage[type]}`);
-    });
-
     const legend = svg.append('g')
         .attr('class', 'color-legend')
         .attr('transform', `translate(${margin.left + plotW + 28},${margin.top})`);
@@ -334,55 +311,69 @@ function renderTransposedPaymentChart({ d3, container, showDifference = false })
         legend.append('text').attr('x', 18).attr('y', y + 11).attr('font-size', 11).text(state);
     });
 
-    if (!showDifference) return;
+    return { svg, g, xScale, yScale };
+}
 
-    const defs = svg.append('defs');
-    defs.append('marker')
-        .attr('id', 'e8-q3-arrow')
-        .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 5)
-        .attr('refY', 0)
-        .attr('markerWidth', 6)
-        .attr('markerHeight', 6)
-        .attr('orient', 'auto')
-        .append('path')
-        .attr('d', 'M0,-5L10,0L0,5')
-        .attr('fill', '#111827');
-
-    const x = plotW + 18;
-    const yMax = yScale(csvAverage.Maximum);
-    const yMin = yScale(csvAverage.Minimum);
+function drawTypeAverageAnnotation({ g, xScale, yScale, type, avg }) {
+    const x0 = xScale(type) ?? 0;
+    const y = yScale(avg);
     g.append('line')
-        .attr('class', 'e8-q3-function2')
-        .attr('x1', x)
-        .attr('x2', x)
-        .attr('y1', yMax)
-        .attr('y2', yMin)
-        .attr('stroke', '#111827')
+        .attr('class', 'e8-q3-function1')
+        .attr('x1', x0)
+        .attr('x2', x0 + xScale.bandwidth())
+        .attr('y1', y)
+        .attr('y2', y)
+        .attr('stroke', '#dc2626')
         .attr('stroke-width', 2)
-        .attr('marker-start', 'url(#e8-q3-arrow)')
-        .attr('marker-end', 'url(#e8-q3-arrow)');
+        .attr('stroke-dasharray', '5 4');
     g.append('text')
-        .attr('class', 'e8-q3-function2')
-        .attr('x', x + 8)
-        .attr('y', (yMax + yMin) / 2)
-        .attr('dominant-baseline', 'middle')
-        .attr('fill', '#111827')
-        .attr('font-size', 12)
+        .attr('class', 'e8-q3-function1')
+        .attr('x', x0 + xScale.bandwidth() / 2)
+        .attr('y', y - 7)
+        .attr('text-anchor', 'middle')
+        .attr('fill', '#dc2626')
+        .attr('font-size', 11)
         .attr('font-weight', 700)
-        .text(`${csvDifference} million USD`);
+        .text(`${type} avg: ${avg}`);
 }
 
 export function function1({ d3, container }) {
-    renderTransposedPaymentChart({ d3, container, showDifference: false });
+    // Step 0: "Average the Maximum payment values across all state panels."
+    // Rebuilds the transposed chart (fresh instant swap from the base render)
+    // and annotates only the Maximum average.
+    const csvAverage = { Maximum: 20.0, Minimum: 12.5 };
+    const { g, xScale, yScale } = renderTransposedPaymentChart({ d3, container });
+    drawTypeAverageAnnotation({ g, xScale, yScale, type: 'Maximum', avg: csvAverage.Maximum });
 }
 
 export function function2({ d3, container }) {
+    // Step 1: "Average the Minimum payment values across all state panels."
+    // Additive only — do NOT rebuild. Adds the Minimum average annotation on
+    // top of function1's existing chart. Scales are recomputed locally since
+    // no state is shared across step-function calls under the replay model.
+    const csvAverage = { Maximum: 20.0, Minimum: 12.5 };
+    const xDomain = ['Maximum', 'Minimum'];
+    const width = 640;
+    const margin = { top: 32, right: 176, bottom: 48, left: 56 };
+    const plotW = width - margin.left - margin.right;
+    const plotH = 360 - margin.top - margin.bottom;
+    const xScale = d3.scaleBand().domain(xDomain).range([0, plotW]).padding(0.22);
+    const yScale = d3.scaleLinear().domain([0, 25]).nice().range([plotH, 0]);
+
+    const svg = d3.select(container).select('svg');
+    if (svg.empty()) return;
+    const g = svg.select('g');
+    if (g.empty()) return;
+
+    drawTypeAverageAnnotation({ g, xScale, yScale, type: 'Minimum', avg: csvAverage.Minimum });
+}
+
+export function function3({ d3, container }) {
+    // Step 2: "Subtract the minimum average from the maximum average."
     // Per reviewer: do NOT rebuild the whole chart — only add the difference
-    // line + label annotation on top of function1's existing chart.
+    // line + label annotation on top of the existing chart.
     const csvAverage = { Maximum: 20.0, Minimum: 12.5 };
     const csvDifference = 7.5;
-    const xDomain = ['Maximum', 'Minimum'];
     const width = 640;
     const margin = { top: 32, right: 176, bottom: 48, left: 56 };
     const plotW = width - margin.left - margin.right;
@@ -444,5 +435,3 @@ export function function2({ d3, container }) {
         .duration(650)
         .attr('opacity', 1);
 }
-
-export function function3({ d3, container }) {}

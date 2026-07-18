@@ -148,6 +148,55 @@ def b2_svg_conclusion_check(answer: str, svg: str) -> tuple[bool, str]:
     return False, f"svg conclusion labels {labels[:4]} lack {answer}"
 
 
+def check_uniformity(b1, b2, b3) -> list[str]:
+    """Every system must carry EXACTLY the Ours step texts (2026-07-18 policy):
+    B1 = the steps joined into one paragraph; B2 = one scene per step with
+    text_chunk == step text; B3 = one manifest step per Ours step with
+    text == step text and fn actually exported by the module."""
+    failures: list[str] = []
+    for g, slot, item in load_items():
+        cid = item["id"]
+        steps = ours_steps(cid)
+        if not steps:
+            failures.append(f"[{g} {slot}] {cid}: no Ours step file")
+            continue
+        tag = f"[{g} {slot}] {cid}"
+
+        prose = (b1.get(cid) or {}).get("explanation", "")
+        want_prose = " ".join(steps)
+        if prose != want_prose:
+            failures.append(f"{tag} B1: paragraph != joined Ours steps\n    got : {prose[:120]}\n    want: {want_prose[:120]}")
+
+        scenes = b2.get(cid) or []
+        if len(scenes) != len(steps):
+            failures.append(f"{tag} B2: {len(scenes)} scenes != {len(steps)} Ours steps")
+        else:
+            for k, s in enumerate(scenes):
+                if s.get("text_chunk", "") != steps[k]:
+                    failures.append(f"{tag} B2 scene[{k}]: text != Ours step\n    got : {s.get('text_chunk','')[:120]}\n    want: {steps[k][:120]}")
+
+        entry = b3.get(cid) or {}
+        msteps = entry.get("steps", [])
+        if len(msteps) != len(steps):
+            failures.append(f"{tag} B3: {len(msteps)} manifest steps != {len(steps)} Ours steps")
+        else:
+            for k, s in enumerate(msteps):
+                if s.get("text", "") != steps[k]:
+                    failures.append(f"{tag} B3 step[{k}]: text != Ours step\n    got : {s.get('text','')[:120]}\n    want: {steps[k][:120]}")
+        module_rel = entry.get("module", "")
+        module_path = EVAL / "baselines" / "B3" / module_rel
+        if module_rel and module_path.exists():
+            src = module_path.read_text(encoding="utf-8")
+            exported = set(re.findall(r"export\s+function\s+([A-Za-z0-9_]+)", src))
+            for s in msteps:
+                fn = s.get("fn", "")
+                if fn and fn not in exported:
+                    failures.append(f"{tag} B3: manifest fn '{fn}' is not exported by {module_rel}")
+        elif module_rel:
+            failures.append(f"{tag} B3: module file missing: {module_rel}")
+    return failures
+
+
 def main() -> int:
     b1, b2, b3 = load_sources()
     failures = []
@@ -187,15 +236,22 @@ def main() -> int:
                 else:
                     failures.append(f"{tag}: shown={answer!r} — {why}\n    final: {final_text[:160]}")
 
+    uniformity_failures = check_uniformity(b1, b2, b3)
+
     print(f"checked {rows} item x system explanations across {len(ACTIVE_GROUPS)} groups")
     for w in waived:
         print("  ~", w)
     if failures:
-        print(f"\nFAIL ({len(failures)}):")
+        print(f"\nFAIL — conclusion consistency ({len(failures)}):")
         for f in failures:
             print("  ✗", f)
+    if uniformity_failures:
+        print(f"\nFAIL — text uniformity vs Ours ({len(uniformity_failures)}):")
+        for f in uniformity_failures:
+            print("  ✗", f)
+    if failures or uniformity_failures:
         return 1
-    print("PASS: every explanation's conclusion is consistent with its shown answer")
+    print("PASS: every explanation is consistent with its shown answer AND textually identical to Ours")
     return 0
 
 

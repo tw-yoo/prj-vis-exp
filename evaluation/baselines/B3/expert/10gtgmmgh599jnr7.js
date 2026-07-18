@@ -462,3 +462,8 @@ export function function4({ d3, container }) {
         .duration(650)
         .attr('opacity', 1);
 }
+
+export function mergedStep2({ d3, container }) {
+    function2({ d3, container });
+    function3({ d3, container });
+}

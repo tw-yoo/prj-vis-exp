@@ -483,3 +483,14 @@ export function function5({ d3, container }) {
         .duration(650)
         .attr('opacity', 1);
 }
+
+export function mergedStep1({ d3, container }) {
+    function1({ d3, container });
+    function2({ d3, container });
+}
+
+export function mergedStep2({ d3, container }) {
+    function3({ d3, container });
+    function4({ d3, container });
+    function5({ d3, container });
+}
