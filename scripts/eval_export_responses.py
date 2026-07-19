@@ -13,10 +13,16 @@ script normalizes everyone onto the same schema and writes three tidy tables:
 Access mirrors the web app: the public Firestore REST API + the API key from
 evaluation/config.json (no firebase-admin, no service account, stdlib only).
 
+A default run (no args) exports the 16 real-participant combos SO1CO1..SO4CO4.
+To keep Firestore I/O minimal it fetches them with a SINGLE `:batchGet` request,
+which returns every requested document's found/missing status together with its
+data — so we learn exactly what exists and pull only what we asked for, in one
+round trip (no per-id probing, no listing the whole collection).
+
 Usage:
-  python scripts/eval_export_responses.py                 # hardcoded ID list
-  python scripts/eval_export_responses.py --all           # every document
-  python scripts/eval_export_responses.py --ids ABC123,DEF456
+  python scripts/eval_export_responses.py                 # 16 SOxCOy combos (1 batchGet)
+  python scripts/eval_export_responses.py --all           # every document (list)
+  python scripts/eval_export_responses.py --ids ABC123,DEF456   # those ids (1 batchGet)
   python scripts/eval_export_responses.py --out-dir evaluation/analysis
 """
 from __future__ import annotations
@@ -39,11 +45,10 @@ DEFAULT_OUT_DIR = ROOT / "evaluation" / "analysis"
 HOST = "https://firestore.googleapis.com/v1"
 COLLECTION = "evaluation_responses"
 
-# Hardcoded participant codes -- a default run fetches ONLY these. Edit freely.
-# (Seeded from evaluation/participants.json; --all ignores this list.)
-PARTICIPANT_IDS = [
-    "PILOT1", "PILOT2", "PILOT3", "PILOT4",
-]
+# Default run (no args): the 16 real-participant combos SO1CO1 .. SO4CO4 — the
+# full system-order x chart-order counterbalancing grid (see participants.json).
+# --all ignores this list; --ids overrides it.
+SOXCOY_IDS = [f"SO{s}CO{c}" for s in range(1, 5) for c in range(1, 5)]
 
 # Preferred column order for the dynamic rating / post-session blocks. Any keys
 # seen in the data but missing here are appended afterwards (sorted), so a survey
@@ -140,6 +145,45 @@ def fetch_all_docs(base, api_key):
         page_token = body.get("nextPageToken")
         if not page_token:
             return out
+
+
+def http_post(url, body):
+    """POST JSON, return the parsed response."""
+    data = json.dumps(body).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=data, method="POST",
+        headers={"Accept": "application/json", "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, context=_SSL) as res:
+            return json.loads(res.read().decode("utf-8"))
+    except urllib.error.HTTPError as err:
+        detail = err.read().decode("utf-8", "replace")
+        raise SystemExit(f"Firestore POST failed ({err.code}): {detail}")
+
+
+def fetch_docs_batch(base, name_prefix, codes, api_key):
+    """Fetch exactly the requested codes with a single `:batchGet` per chunk.
+
+    Returns {code: fields|None} for EVERY requested code — the batchGet response
+    reports each document as `found` (with data) or `missing`, so we learn what
+    exists AND pull only those, in one round trip. No per-id GETs, no listing the
+    whole collection.
+    """
+    out = {c: None for c in codes}
+    url = f"{base}:batchGet?key={urllib.parse.quote(api_key)}"
+    chunk_size = 100  # batchGet handles far more, but stay well under any cap
+    for start in range(0, len(codes), chunk_size):
+        chunk = codes[start:start + chunk_size]
+        names = [f"{name_prefix}/{COLLECTION}/{urllib.parse.quote(c)}" for c in chunk]
+        for entry in http_post(url, {"documents": names}) or []:
+            doc = entry.get("found")
+            if not doc:
+                continue  # `missing` entries stay None
+            code = doc.get("name", "").rsplit("/", 1)[-1]
+            if code in out:
+                out[code] = decode_fields(doc.get("fields", {}))
+    return out
 
 
 # ---- Helpers ----------------------------------------------------------------
@@ -301,6 +345,7 @@ def main() -> int:
     if not api_key or not project_id:
         raise SystemExit(f"Missing API_KEY / PROJECT_ID in {CONFIG}")
     base = doc_base(project_id, database_id)
+    name_prefix = f"projects/{project_id}/databases/{database_id}/documents"
 
     chart_index = load_chart_index(CHART_GROUP)
 
@@ -308,11 +353,18 @@ def main() -> int:
     docs = {}
     if args.all:
         docs = fetch_all_docs(base, api_key)
-        print(f"--all: {len(docs)} documents in {COLLECTION}")
+        print(f"--all: fetched {len(docs)} documents in {COLLECTION} (list request)")
     else:
-        codes = [c.strip().upper() for c in args.ids.split(",") if c.strip()] or list(PARTICIPANT_IDS)
-        for code in codes:
-            docs[code] = fetch_doc(base, code, api_key)
+        codes = [c.strip().upper() for c in args.ids.split(",") if c.strip()] or list(SOXCOY_IDS)
+        # ONE batchGet: existence check + data fetch for exactly these codes.
+        docs = fetch_docs_batch(base, name_prefix, codes, api_key)
+        present = sorted(c for c in codes if docs.get(c))
+        missing = sorted(c for c in codes if not docs.get(c))
+        print(f"batchGet: {len(present)}/{len(codes)} present, {len(missing)} missing (1 request)")
+        if present:
+            print(f"  present: {', '.join(present)}")
+        if missing:
+            print(f"  missing: {', '.join(missing)}")
 
     trial_rows, post_rows, summary_rows, warns = [], [], [], []
     rating_keys_seen, post_keys_seen = set(), set()
@@ -320,7 +372,8 @@ def main() -> int:
     for code in sorted(docs):
         fields = docs[code]
         if not fields:
-            print(f"warning: no document for {code}", file=sys.stderr)
+            # Absent participant (existence already reported above): still emit a
+            # has_document=False summary row so the roster shows who's outstanding.
             summary_rows.append({"participant_code": code, "has_document": False})
             continue
         t_rows, p_rows, s_row = build_rows(code, fields, chart_index, warns)
