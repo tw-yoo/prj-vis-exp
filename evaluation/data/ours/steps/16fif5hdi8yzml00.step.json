@@ -7,15 +7,15 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Average the Maximum payment values across all state panels."
+      "text": "Average the Maximum payment values across all state panels: (25 + 25 + 15 + 15) ÷ 4 = 20."
     },
     {
       "id": "ops2",
-      "text": "Average the Minimum payment values across all state panels."
+      "text": "Average the Minimum payment values across all state panels: (15 + 15 + 10 + 10) ÷ 4 = 12.5."
     },
     {
       "id": "ops3",
-      "text": "Subtract the minimum average from the maximum average."
+      "text": "Subtract the minimum average from the maximum average: 20 − 12.5 = 7.5."
     }
   ]
 }

@@ -7,15 +7,15 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Filter to the Boys group and count the years where the weight exceeds 3670."
+      "text": "Filter to the Boys group and count the years where the weight exceeds 3670 — 3 years."
     },
     {
       "id": "ops2",
-      "text": "Filter to the Girls group and count the years where the weight exceeds 3550."
+      "text": "Filter to the Girls group and count the years where the weight exceeds 3550 — 5 years."
     },
     {
       "id": "ops3",
-      "text": "Add the two counts together."
+      "text": "Add the two counts together: 3 + 5 = 8."
     }
   ]
 }

@@ -7,7 +7,7 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Calculate the overall average Consumer Price Index across all plotted months."
+      "text": "Calculate the overall average Consumer Price Index across all plotted months (261.56)."
     },
     {
       "id": "ops2",
@@ -15,7 +15,7 @@
     },
     {
       "id": "ops3",
-      "text": "Select the year with the largest deviation."
+      "text": "Select the year with the largest deviation: 2021 (3.58 above the overall average, vs 2.24 for 2020)."
     }
   ]
 }

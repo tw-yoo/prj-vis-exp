@@ -11,15 +11,15 @@
     },
     {
       "id": "ops2",
-      "text": "Find Germany's maximum favorable-view percentage in that range."
+      "text": "Find Germany's maximum favorable-view percentage in that range: 50, in 2010."
     },
     {
       "id": "ops3",
-      "text": "Find the U.S. minimum favorable-view percentage in that range."
+      "text": "Find the U.S. minimum favorable-view percentage in that range: 19, in 2014."
     },
     {
       "id": "ops4",
-      "text": "Subtract the U.S. minimum from the Germany maximum."
+      "text": "Subtract the U.S. minimum from the Germany maximum: 50 − 19 = 31."
     }
   ]
 }

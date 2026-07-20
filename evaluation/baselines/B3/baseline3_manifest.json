@@ -51,7 +51,7 @@
       },
       {
         "fn": "function2",
-        "text": "Average those six prices, giving 53.41."
+        "text": "Average those six prices: 320.43 ÷ 6 = 53.41."
       }
     ]
   },
@@ -83,15 +83,15 @@
       },
       {
         "fn": "function2",
-        "text": "Find Germany's maximum favorable-view percentage in that range."
+        "text": "Find Germany's maximum favorable-view percentage in that range: 50, in 2010."
       },
       {
         "fn": "function3",
-        "text": "Find the U.S. minimum favorable-view percentage in that range."
+        "text": "Find the U.S. minimum favorable-view percentage in that range: 19, in 2014."
       },
       {
         "fn": "function4",
-        "text": "Subtract the U.S. minimum from the Germany maximum."
+        "text": "Subtract the U.S. minimum from the Germany maximum: 50 − 19 = 31."
       }
     ]
   },
@@ -123,7 +123,7 @@
       },
       {
         "fn": "mergedStep2",
-        "text": "Average those values to get 0.368."
+        "text": "Average those values: (0.16 + 0.32 + 0.45 + 0.54) ÷ 4 = 0.368."
       }
     ]
   },
@@ -151,11 +151,11 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Read off the top three malls' values by US dollars per square foot."
+        "text": "Read off the top three malls' values by US dollars per square foot: 732, 646, and 422."
       },
       {
         "fn": "function2",
-        "text": "Add the three values and divide by three to get the average."
+        "text": "Add the three values and divide by three: (732 + 646 + 422) ÷ 3 = 600."
       }
     ]
   },
@@ -191,7 +191,7 @@
       },
       {
         "fn": "function2",
-        "text": "Sum those yearly differences to get 196.94."
+        "text": "Sum those yearly differences: 33.66 + 33.59 + 32.66 + 31.64 + 30.49 + 34.90 = 196.94."
       }
     ]
   },
@@ -233,7 +233,7 @@
       },
       {
         "fn": "function2",
-        "text": "Average those three values."
+        "text": "Average those three values: (0.20 + 0.16 + 0.21) ÷ 3 ≈ 0.19, i.e. 19%."
       }
     ]
   },
@@ -261,7 +261,7 @@
       },
       {
         "fn": "function2",
-        "text": "Sum the Number_of_Employees across those regions and years."
+        "text": "Sum the Number_of_Employees across those regions and years — 230,769 in total."
       }
     ]
   },
@@ -283,7 +283,7 @@
       },
       {
         "fn": "function4",
-        "text": "The 2020 average is farther below the overall average than the 2021 average is above it, so 2020 has the biggest deviation from the total average."
+        "text": "The 2021 average is farther above the overall average (3.58) than the 2020 average is below it (2.24), so 2021 has the biggest deviation from the total average."
       }
     ]
   },
@@ -293,15 +293,15 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Filter to the Boys group and count the years where the weight exceeds 3670."
+        "text": "Filter to the Boys group and count the years where the weight exceeds 3670 — 3 years."
       },
       {
         "fn": "function2",
-        "text": "Filter to the Girls group and count the years where the weight exceeds 3550."
+        "text": "Filter to the Girls group and count the years where the weight exceeds 3550 — 5 years."
       },
       {
         "fn": "function3",
-        "text": "Add the two counts together."
+        "text": "Add the two counts together: 3 + 5 = 8."
       }
     ]
   },
@@ -325,15 +325,15 @@
     "steps": [
       {
         "fn": "function1",
-        "text": "Average the Maximum payment values across all state panels."
+        "text": "Average the Maximum payment values across all state panels: (25 + 25 + 15 + 15) ÷ 4 = 20."
       },
       {
         "fn": "function2",
-        "text": "Average the Minimum payment values across all state panels."
+        "text": "Average the Minimum payment values across all state panels: (15 + 15 + 10 + 10) ÷ 4 = 12.5."
       },
       {
         "fn": "function3",
-        "text": "Subtract the minimum average from the maximum average."
+        "text": "Subtract the minimum average from the maximum average: 20 − 12.5 = 7.5."
       }
     ]
   },
@@ -347,7 +347,7 @@
       },
       {
         "fn": "function2",
-        "text": "Select the sector with the largest drop (Large companies)."
+        "text": "Select the sector with the largest drop: Large companies (9.5 → 5.2, a drop of 4.3)."
       }
     ]
   },

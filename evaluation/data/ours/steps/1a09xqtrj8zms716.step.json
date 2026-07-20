@@ -7,11 +7,11 @@
   "steps": [
     {
       "id": "ops",
-      "text": "Read off the top three malls' values by US dollars per square foot."
+      "text": "Read off the top three malls' values by US dollars per square foot: 732, 646, and 422."
     },
     {
       "id": "ops2",
-      "text": "Add the three values and divide by three to get the average."
+      "text": "Add the three values and divide by three: (732 + 646 + 422) ÷ 3 = 600."
     }
   ]
 }
