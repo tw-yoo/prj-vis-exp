@@ -36,6 +36,16 @@ function availabilitySlots(fields: PreRegistrationRecord['fields']): Array<{ id:
   return ids.map((id, index) => ({ id, label: labels[index] || id }))
 }
 
+/**
+ * Three mutually exclusive buckets. `studyCompleted` wins over `scheduled`
+ * (a completed session keeps its scheduled flag), so a record is counted once.
+ */
+function bucketOf(fields: PreRegistrationRecord['fields']): 0 | 1 | 2 {
+  if (fields.studyCompleted === true || fields.studyCompleted === 'true') return 2
+  if (fields.scheduled === true || fields.scheduled === 'true') return 1
+  return 0
+}
+
 function formatTimestamp(value: string): string {
   if (!value) return '—'
   const dt = new Date(value)
@@ -226,7 +236,11 @@ function RecordCard({
   }
 
   return (
-    <article className={`prs-card${currentlyScheduled ? ' prs-card--scheduled' : ''}`}>
+    <article
+      className={`prs-card${
+        currentlyCompleted ? ' prs-card--done' : currentlyScheduled ? ' prs-card--scheduled' : ''
+      }`}
+    >
       <header className="prs-card__head">
         <div className="prs-head-left">
           <button
@@ -352,9 +366,7 @@ export default function PreRegistrationStatusPage() {
     setLoading(true)
     setError('')
     try {
-      const list = await listPreRegistrations()
-      list.sort((a, b) => asString(b.fields.submittedAt).localeCompare(asString(a.fields.submittedAt)))
-      setRecords(list)
+      setRecords(await listPreRegistrations())
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -370,10 +382,31 @@ export default function PreRegistrationStatusPage() {
     setRecords((prev) => prev.map((record) => (record.id === id ? { ...record, fields } : record)))
   }, [])
 
-  const scheduledCount = useMemo(
-    () => records.filter((record) => record.fields.scheduled === true || record.fields.scheduled === 'true').length,
-    [records],
-  )
+  // Pending first, then scheduled by session time (soonest first), completed at
+  // the bottom. Re-derived from `records` so an inline save re-sorts immediately.
+  const sorted = useMemo(() => {
+    return [...records].sort((a, b) => {
+      const bucketA = bucketOf(a.fields)
+      const bucketB = bucketOf(b.fields)
+      if (bucketA !== bucketB) return bucketA - bucketB
+      if (bucketA === 1) {
+        // Slot ids and manual datetime-local values are both ISO-ish → lexicographic == chronological.
+        return asString(a.fields.scheduledAt).localeCompare(asString(b.fields.scheduledAt))
+      }
+      return asString(b.fields.submittedAt).localeCompare(asString(a.fields.submittedAt))
+    })
+  }, [records])
+
+  const counts = useMemo(() => {
+    const tally = { pending: 0, scheduled: 0, completed: 0 }
+    for (const record of records) {
+      const bucket = bucketOf(record.fields)
+      if (bucket === 2) tally.completed += 1
+      else if (bucket === 1) tally.scheduled += 1
+      else tally.pending += 1
+    }
+    return tally
+  }, [records])
 
   if (!unlocked) {
     return <GateForm onUnlock={() => setUnlocked(true)} />
@@ -386,7 +419,8 @@ export default function PreRegistrationStatusPage() {
           <div>
             <h1>Pre-registration status</h1>
             <p className="prs-muted">
-              {records.length} registered · {scheduledCount} scheduled · {records.length - scheduledCount} pending
+              {records.length} registered · {counts.completed} completed · {counts.scheduled} scheduled ·{' '}
+              {counts.pending} pending
             </p>
           </div>
           <button className="prs-btn" type="button" onClick={() => void load()} disabled={loading}>
@@ -401,7 +435,7 @@ export default function PreRegistrationStatusPage() {
         ) : null}
 
         <div className="prs-list">
-          {records.map((record) => (
+          {sorted.map((record) => (
             <RecordCard key={record.id} record={record} onSaved={handleSaved} />
           ))}
         </div>
