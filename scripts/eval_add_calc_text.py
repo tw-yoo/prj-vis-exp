@@ -91,6 +91,9 @@ REPLACEMENTS: list[tuple[str, str, str]] = [
      "Select the method with the largest gap: Text messaging (0.55 − 0.13 = 0.42).", "ours"),
     ("Select the method with the largest gap, which is Text messaging.",
      "Select the method with the largest gap, which is Text messaging (0.55 − 0.13 = 0.42).", "all"),
+    # 0vmvmj77j3p6vcy7 — B3's own step 2 lists the six values but never the total
+    ("and add them together to get the total sum.",
+     "and add them together to get the total sum: 41,581.", "all"),
     # avwb8xstxx1lmfpk — overall average value + THE 2020→2021 BUG FIX
     ("Calculate the overall average Consumer Price Index across all plotted months.",
      "Calculate the overall average Consumer Price Index across all plotted months (261.56).", "all"),
