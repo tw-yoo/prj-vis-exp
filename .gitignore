@@ -88,3 +88,10 @@ pdfs/
 # Scratch / throwaway experiment files (convention: name temp files "scratch_<purpose>.<ext>").
 # Single rule, extension-agnostic, matches in every directory.
 scratch_*
+
+evaluation/analysis/
+
+# Google API creds for evaluation/analysis/eval_export_responses.py --interviews (never commit)
+evaluation/analysis/google_oauth_client.json
+evaluation/analysis/.google_token.json
+evaluation/analysis/google_service_account.json

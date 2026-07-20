@@ -19,16 +19,64 @@ which returns every requested document's found/missing status together with its
 data — so we learn exactly what exists and pull only what we asked for, in one
 round trip (no per-id probing, no listing the whole collection).
 
+Interviews (--interviews): pulls the participant interview transcript + margin
+NOTES (Google Docs comments) from the study's Google Doc and writes
+`interview_notes.csv` (one row per note, with the script text it is anchored to)
+plus `interview_transcript.txt`. This path needs Google API access — see the
+one-time setup at the bottom of this docstring; it lazily imports the Google
+client libraries, so the Firestore export above stays dependency-free.
+
 Usage:
-  python scripts/eval_export_responses.py                 # 16 SOxCOy combos (1 batchGet)
-  python scripts/eval_export_responses.py --all           # every document (list)
-  python scripts/eval_export_responses.py --ids ABC123,DEF456   # those ids (1 batchGet)
-  python scripts/eval_export_responses.py --out-dir evaluation/analysis
+  python evaluation/analysis/eval_export_responses.py                 # 16 SOxCOy combos (1 batchGet)
+  python evaluation/analysis/eval_export_responses.py --all           # every document (list)
+  python evaluation/analysis/eval_export_responses.py --ids ABC123    # those ids (1 batchGet)
+  python evaluation/analysis/eval_export_responses.py --interviews    # Google-Doc interview notes
+  python evaluation/analysis/eval_export_responses.py --out-dir some/dir
+
+The interview Doc is organised into tabs "P1".."P6" (one Google-Docs tab per
+participant). Each note is tagged with the tab it is anchored in, so the CSV's
+`participant` column tells you whose interview a note belongs to.
+
+Google API setup for --interviews (one-time). Do EITHER option, then
+  pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+
+Common step (both options): Cloud Console (project `prj-vis-exp`, the same one
+Firebase uses) → APIs & Services → Library → enable "Google Docs API" AND
+"Google Drive API".
+
+Option A — Service account (simplest; NO consent screen, NO browser):
+  1. APIs & Services → Credentials → Create credentials → "Service account" →
+     give it any name → Done.
+  2. Click the new service account → "Keys" tab → Add key → Create new key →
+     JSON → download.
+  3. Save it as evaluation/analysis/google_service_account.json (gitignored).
+  4. Open the interview Doc → Share → add the service account's email
+     (…@prj-vis-exp.iam.gserviceaccount.com, shown on the Credentials page) as
+     Viewer. That is what grants it read access.
+  5. Run with --interviews. No browser, no token to refresh.
+
+Option B — OAuth (your own Google account; opens a browser once):
+  1. The "OAuth consent screen" now lives under APIs & Services → "OAuth consent
+     screen", which redirects to the newer "Google Auth Platform" pages (direct:
+     console.cloud.google.com/auth/overview?project=prj-vis-exp). If it is not
+     set up yet, click "Get started": App name + your email → Audience "External"
+     → contact email → Create. Then under "Audience", add your own Google account
+     under "Test users". (Tip: the fastest way to reach it is the Console top
+     search bar — type "OAuth consent screen".)
+  2. APIs & Services → Credentials → Create credentials → OAuth client ID →
+     Application type "Desktop app" → download the JSON.
+  3. Save it as evaluation/analysis/google_oauth_client.json (gitignored).
+  4. Run with --interviews: a browser opens once for consent; the token is cached
+     at evaluation/analysis/.google_token.json (gitignored) and reused. (In
+     "Testing" publishing status the refresh token expires ~weekly, so you may
+     re-consent occasionally — Option A avoids this.) You must have at least view
+     access to the Doc with the account you consent as.
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import html
 import json
 import ssl
 import sys
@@ -37,10 +85,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ANALYSIS_DIR = Path(__file__).resolve().parent  # evaluation/analysis (this dir)
+ROOT = ANALYSIS_DIR.parents[1]  # analysis -> evaluation -> repo root
 CONFIG = ROOT / "evaluation" / "config.json"
 CHART_GROUP = ROOT / "evaluation" / "chart_group.json"
-DEFAULT_OUT_DIR = ROOT / "evaluation" / "analysis"
+DEFAULT_OUT_DIR = ANALYSIS_DIR
 
 HOST = "https://firestore.googleapis.com/v1"
 COLLECTION = "evaluation_responses"
@@ -329,14 +378,232 @@ def write_csv(path, fieldnames, rows):
         writer.writerows(rows)
 
 
+# ---- Interview transcript + notes (Google Docs / Drive) ---------------------
+#
+# The study's interview Google Doc: participant transcripts, with the notes the
+# participants gave surfaced as Google Docs *comments* (margin notes anchored to
+# a span of the script). We read the transcript via the Docs API and the
+# comments via the Drive API, then write one CSV row per comment (with the
+# anchored script snippet + the nearest heading, so each note keeps its context).
+INTERVIEW_DOC_ID = "1f7yiGMFqLLgGewnp5rDoXh0KI5Qx3fOA3TlsMYPnaWg"
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/documents.readonly",
+    "https://www.googleapis.com/auth/drive.readonly",
+]
+OAUTH_CLIENT = ANALYSIS_DIR / "google_oauth_client.json"
+OAUTH_TOKEN = ANALYSIS_DIR / ".google_token.json"
+# Simplest auth: a service-account key. Drop it here and SHARE the interview Doc
+# with the service account's email (…@prj-vis-exp.iam.gserviceaccount.com) as
+# Viewer — no OAuth consent screen, no browser step. Used in preference to OAuth
+# when present.
+SERVICE_ACCOUNT_KEY = ANALYSIS_DIR / "google_service_account.json"
+
+_GOOGLE_LIBS_HINT = (
+    "The --interviews export needs the Google client libraries. Install them:\n"
+    "  pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib"
+)
+
+
+def google_credentials():
+    """A service-account key (SERVICE_ACCOUNT_KEY) if present — no browser, no
+    consent screen; just share the Doc with the SA email. Otherwise the OAuth
+    installed-app flow, caching/refreshing the token at OAUTH_TOKEN."""
+    if SERVICE_ACCOUNT_KEY.exists():
+        try:
+            from google.oauth2 import service_account
+        except ImportError:
+            raise SystemExit(_GOOGLE_LIBS_HINT)
+        return service_account.Credentials.from_service_account_file(
+            str(SERVICE_ACCOUNT_KEY), scopes=GOOGLE_SCOPES
+        )
+
+    try:
+        from google.oauth2.credentials import Credentials
+        from google.auth.transport.requests import Request
+        from google_auth_oauthlib.flow import InstalledAppFlow
+    except ImportError:
+        raise SystemExit(_GOOGLE_LIBS_HINT)
+
+    creds = None
+    if OAUTH_TOKEN.exists():
+        creds = Credentials.from_authorized_user_file(str(OAUTH_TOKEN), GOOGLE_SCOPES)
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            if not OAUTH_CLIENT.exists():
+                raise SystemExit(
+                    f"Missing OAuth client file: {OAUTH_CLIENT}\n"
+                    "Download a 'Desktop app' OAuth client JSON from Google Cloud Console\n"
+                    "(project prj-vis-exp) and save it there. See the setup notes in this file's docstring."
+                )
+            flow = InstalledAppFlow.from_client_secrets_file(str(OAUTH_CLIENT), GOOGLE_SCOPES)
+            creds = flow.run_local_server(port=0)
+        OAUTH_TOKEN.write_text(creds.to_json(), encoding="utf-8")
+    return creds
+
+
+def _paragraphs_plaintext_and_headings(content):
+    """(plain_text, [(char_index, heading_text)]) for a list of structural
+    elements (a doc body or a tab's documentTab body). char_index is the offset
+    of each heading paragraph in plain_text, so a note's snippet can be mapped
+    to its nearest sub-heading."""
+    text_parts, headings, length = [], [], 0
+    for element in content or []:
+        para = element.get("paragraph")
+        if not para:
+            continue
+        style = (para.get("paragraphStyle") or {}).get("namedStyleType", "")
+        para_text = "".join(
+            (pe.get("textRun") or {}).get("content", "") for pe in para.get("elements", [])
+        )
+        if (style.startswith("HEADING") or style == "TITLE") and para_text.strip():
+            headings.append((length, para_text.strip()))
+        text_parts.append(para_text)
+        length += len(para_text)
+    return "".join(text_parts), headings
+
+
+def _iter_tabs(tabs):
+    """Depth-first over tabs, including nested child tabs."""
+    for tab in tabs or []:
+        yield tab
+        yield from _iter_tabs(tab.get("childTabs", []))
+
+
+def parse_tabs(doc):
+    """Return [(tab_title, plain_text, headings)] — one entry per tab (P1..P6).
+    Falls back to a single unnamed section for a doc that has no tabs."""
+    sections = []
+    for tab in _iter_tabs(doc.get("tabs", [])):
+        title = (tab.get("tabProperties") or {}).get("title", "")
+        body = (tab.get("documentTab") or {}).get("body", {}) or {}
+        plain, headings = _paragraphs_plaintext_and_headings(body.get("content", []))
+        sections.append((title, plain, headings))
+    if not sections:  # doc predates tabs (or includeTabsContent unsupported)
+        plain, headings = _paragraphs_plaintext_and_headings(doc.get("body", {}).get("content", []))
+        sections.append(("", plain, headings))
+    return sections
+
+
+def _heading_before(headings, idx):
+    section = ""
+    for char_index, heading in headings:
+        if char_index <= idx:
+            section = heading
+        else:
+            break
+    return section
+
+
+def locate_note(sections, quoted):
+    """Which tab (participant) + sub-heading a note's anchored snippet lives in.
+    Returns (participant, section, sort_key). Matched by finding the snippet's
+    text inside each tab, so it works regardless of the opaque comment anchor."""
+    quoted = (quoted or "").strip()
+    for tab_index, (title, plain, headings) in enumerate(sections):
+        idx = plain.find(quoted) if quoted else -1
+        if idx < 0 and quoted:  # snippet may cross paragraph breaks — try line 1
+            first = quoted.splitlines()[0].strip()
+            idx = plain.find(first) if first else -1
+        if idx >= 0:
+            return title, _heading_before(headings, idx), (tab_index, idx)
+    return "", "", (len(sections), 1 << 30)
+
+
+def export_interviews(out_dir):
+    """Write interview_notes.csv (one row per Google-Docs comment, tagged with the
+    participant tab P1..P6 it is anchored in) + interview_transcript.txt."""
+    try:
+        from googleapiclient.discovery import build
+    except ImportError:
+        raise SystemExit(_GOOGLE_LIBS_HINT)
+
+    creds = google_credentials()
+    docs_api = build("docs", "v1", credentials=creds, cache_discovery=False)
+    drive_api = build("drive", "v3", credentials=creds, cache_discovery=False)
+
+    # includeTabsContent=True returns EVERY tab (P1..P6); without it the Docs API
+    # only returns the first tab's content.
+    doc = docs_api.documents().get(documentId=INTERVIEW_DOC_ID, includeTabsContent=True).execute()
+    title = doc.get("title", "")
+    sections = parse_tabs(doc)
+
+    comments, page_token = [], None
+    fields = (
+        "nextPageToken,comments(id,author/displayName,content,createdTime,"
+        "modifiedTime,resolved,quotedFileContent/value,"
+        "replies(author/displayName,content,createdTime))"
+    )
+    while True:
+        resp = (
+            drive_api.comments()
+            .list(fileId=INTERVIEW_DOC_ID, pageSize=100, fields=fields, pageToken=page_token)
+            .execute()
+        )
+        comments.extend(resp.get("comments", []))
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+
+    rows = []
+    for c in comments:
+        # Drive returns the anchored snippet HTML-escaped (&quot; &#39; …); the Docs
+        # body has the raw characters, so unescape before matching or the note
+        # won't locate to its tab.
+        quoted = html.unescape((c.get("quotedFileContent") or {}).get("value", ""))
+        participant, section, sort_key = locate_note(sections, quoted)
+        replies = " || ".join(
+            f"{(r.get('author') or {}).get('displayName', '')}: {r.get('content', '')}"
+            for r in c.get("replies", [])
+        )
+        rows.append({
+            "_sort": sort_key,
+            "participant": participant,
+            "section": section,
+            "quoted_text": (quoted or "").strip(),
+            "note": (c.get("content") or "").strip(),
+            "author": (c.get("author") or {}).get("displayName", ""),
+            "created_time": c.get("createdTime", ""),
+            "modified_time": c.get("modifiedTime", ""),
+            "resolved": c.get("resolved", False),
+            "replies": replies,
+        })
+    rows.sort(key=lambda r: r["_sort"])
+    for r in rows:
+        r.pop("_sort", None)
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fieldnames = ["participant", "section", "quoted_text", "note", "author",
+                  "created_time", "modified_time", "resolved", "replies"]
+    write_csv(out_dir / "interview_notes.csv", fieldnames, rows)
+    transcript = "\n\n".join(
+        f"===== {t or '(untitled tab)'} =====\n{plain}" for t, plain, _ in sections
+    )
+    (out_dir / "interview_transcript.txt").write_text(transcript, encoding="utf-8")
+    named = [t for t, _, _ in sections if t]
+    print(
+        f"OK: interviews from “{title}” — {len(rows)} notes across "
+        f"{len(sections)} tab(s){' (' + ', '.join(named) + ')' if named else ''} "
+        f"-> {out_dir / 'interview_notes.csv'} (+ interview_transcript.txt)"
+    )
+    return 0
+
+
 # ---- Main -------------------------------------------------------------------
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--all", action="store_true", help="fetch every document in the collection")
     ap.add_argument("--ids", default="", help="comma-separated codes (overrides the hardcoded list)")
+    ap.add_argument("--interviews", action="store_true",
+                    help="export the Google-Doc interview transcript + notes (needs Google API setup)")
     ap.add_argument("--out-dir", default=str(DEFAULT_OUT_DIR), help="output directory")
     args = ap.parse_args()
+
+    if args.interviews:
+        return export_interviews(args.out_dir)
 
     cfg = json.loads(CONFIG.read_text(encoding="utf-8"))
     api_key = cfg.get("API_KEY") or cfg.get("apiKey", "")
