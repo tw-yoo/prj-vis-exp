@@ -110,6 +110,72 @@ def fix_stacked_filter(svg: str) -> str | None:
     return out
 
 
+def fix_fifa_count_labels(svg: str) -> str | None:
+    """8chfa8n079zpfigi — the layer's `range-label`/`count-label` children carry
+    absolute translates, but `point-count-labels` was authored in plot space, so
+    the 1..10 running count floats up-left of the points it counts (and "1" falls
+    off-canvas). Translate just that subgroup."""
+    old = '<g class="point-count-labels"'
+    if old not in svg or 'point-count-labels" transform' in svg:
+        return None
+    m = re.search(r'<svg[^>]*data-m-left="([\d.]+)"[^>]*data-m-top="([\d.]+)"', svg)
+    return svg.replace(old, f'<g class="point-count-labels" transform="translate({m.group(1)},{m.group(2)})"')
+
+
+def fix_scotland_max(svg: str) -> str | None:
+    """0egzejn5mejtnfdm — the "Scotland max = 28" callout's lower edge sits on the
+    legend's "Group" title. Lift it 14px into the clear top margin."""
+    if '<rect x="1410" y="18"' not in svg:
+        return None
+    svg = svg.replace('<rect x="1410" y="18"', '<rect x="1410" y="4"')
+    svg = svg.replace('<text x="1420" y="40"', '<text x="1420" y="26"')
+    return svg.replace('x2="1410" y2="40"', 'x2="1410" y2="26"')
+
+
+def fix_largest_jump(svg: str) -> str | None:
+    """66va2s35es5t86l3 — the "Largest jump" callout runs 40px past the right edge
+    of the canvas. Flip it to the left of its anchor, where the area above the
+    line is empty."""
+    if '<rect x="430" y="34" width="150"' not in svg:
+        return None
+    svg = svg.replace('<rect x="430" y="34" width="150"', '<rect x="240" y="34" width="150"')
+    svg = svg.replace('<text x="438" y="52"', '<text x="248" y="52"')
+    return svg.replace('d="M430,52 L402,66"', 'd="M390,52 L402,66"')
+
+
+def fix_total_summary(svg: str) -> str | None:
+    """16aphfabldrpgcmd — the total box overlaps the legend AND its text overflows
+    both the box and the canvas. Move it left of the legend, shrink the type to
+    fit the box, and re-aim the two connectors at the box's new edges."""
+    if '<rect x="520" y="10" width="300"' not in svg:
+        return None
+    svg = svg.replace('<rect x="520" y="10" width="300"', '<rect x="260" y="10" width="300"')
+    svg = svg.replace('<text x="535" y="44" font-size="20"', '<text x="275" y="44" font-size="17"')
+    svg = svg.replace('d="M490,263 L520,37"', 'd="M490,263 L470,64"')
+    return svg.replace('d="M208.636,9.375 L520,37"', 'd="M208.636,9.375 L260,30"')
+
+
+def fix_largest_decline(svg: str) -> str | None:
+    """01mksjs373fhcl4q — the "Largest decline" label box is clipped by the top of
+    the canvas (its top edge is 5px above y=0). Drop it 30px; the connector still
+    meets it."""
+    if '<rect x="-360" y="-70"' not in svg:
+        return None
+    svg = svg.replace('<rect x="-360" y="-70"', '<rect x="-360" y="-40"')
+    return svg.replace('<text x="-348" y="-53"', '<text x="-348" y="-23"')
+
+
+def fix_net_income_total(svg: str) -> str | None:
+    """0vmvmj77j3p6vcy7 — the total callout sits on the 2014/2015 bars and hides
+    the "12,101" value label. Move it into the empty upper-left of the plot and
+    shorten the leader to the band anchor it already points at."""
+    if '<rect x="300" y="44" width="210"' not in svg:
+        return None
+    svg = svg.replace('<rect x="300" y="44" width="210"', '<rect x="10" y="30" width="210"')
+    svg = svg.replace('<text x="405" y="66"', '<text x="115" y="52"')
+    return svg.replace('d="M451,34 L243,42"', 'd="M220,47 L243,42"')
+
+
 def translate_layer(svg: str) -> str | None:
     """Give a root-level annotation layer the skeleton's margin transform."""
     m = re.search(r'<svg[^>]*data-m-left="([\d.]+)"[^>]*data-m-top="([\d.]+)"', svg)
@@ -136,6 +202,13 @@ def main() -> None:
         ("2bhsybiilde28j87", fix_stacked_bar),
         ("95yhyqjyeu4fohbj", fix_line_extremum),
         ("77xb5ug5lhfmkb74", fix_stacked_filter),
+        # Second pass: charts flagged by the full 63-scene geometry audit.
+        ("8chfa8n079zpfigi", fix_fifa_count_labels),
+        ("0egzejn5mejtnfdm", fix_scotland_max),
+        ("66va2s35es5t86l3", fix_largest_jump),
+        ("16aphfabldrpgcmd", fix_total_summary),
+        ("01mksjs373fhcl4q", fix_largest_decline),
+        ("0vmvmj77j3p6vcy7", fix_net_income_total),
     )
     for cid, fixer in fixers:
         for scene in charts[cid]:
