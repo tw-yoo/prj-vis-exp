@@ -295,13 +295,13 @@ function ensureFavorabilityMarker({ d3, svg, markerId, color }) {
         .append('marker')
         .attr('id', markerId)
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 5)
+        .attr('refX', 10)
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
-        .attr('orient', 'auto')
+        .attr('orient', 'auto-start-reverse')
         .append('path')
-        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('d', 'M0,-5L10,0L0,5L3,0Z')
         .attr('fill', color);
 }
 
@@ -417,5 +417,5 @@ export function function3({ d3, container }) {
         .attr('font-size', 13)
         .attr('font-weight', 800)
         .attr('fill', seriesColors['Russia favorability in US'])
-        .text('Russia higher: 3 years (incl. near-tie 2009)');
+        .text('Russia higher: 3 years');
 }

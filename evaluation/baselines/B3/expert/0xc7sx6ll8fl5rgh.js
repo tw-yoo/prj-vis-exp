@@ -426,7 +426,7 @@ export function function3({ d3, container }) {
         .attr('font-weight', 700)
         .attr('fill', '#ef4444')
         .attr('opacity', 0)
-        .text(`avg Clinton = ${(clintonAvg * 100).toFixed(0)}%`)
+        .text(`avg Clinton = ${(clintonAvg * 100).toFixed(1)}%`)
         .transition()
         .duration(650)
         .attr('opacity', 1);
@@ -478,7 +478,7 @@ export function function5({ d3, container }) {
         .attr('font-weight', 700)
         .attr('fill', '#ef4444')
         .attr('opacity', 0)
-        .text(`≈ ${(clintonAvg * 100).toFixed(0)}% (Clinton-share) or ${ageAvg.toFixed(0)}% (age-share)`)
+        .text(`≈ ${(clintonAvg * 100).toFixed(1)}% (Clinton-share) or ${ageAvg.toFixed(0)}% (age-share)`)
         .transition()
         .duration(650)
         .attr('opacity', 1);

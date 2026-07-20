@@ -233,8 +233,10 @@ export function function1({ d3, container }) {
 export function function2({ d3, container }) {
     function1({ d3, container });
 
+    // FLAW: claims 2012 (0.3315) is agriculture's peak — it is the third tallest,
+    // just under the true max 2011 (0.3498), so the mistake is plausible.
     const target = d3.select(container).selectAll('rect.main-bar')
-        .filter((s) => s.series === 'Agriculture' && String(s.target) === '2017');
+        .filter((s) => s.series === 'Agriculture' && String(s.target) === '2012');
     const node = target.node();
     if (!node) return;
 

@@ -393,13 +393,13 @@ export function function4({ d3, container }) {
     defs.append('marker')
         .attr('id', 'validation-cpi-arrow-head')
         .attr('viewBox', '0 0 10 10')
-        .attr('refX', 5)
+        .attr('refX', 10)
         .attr('refY', 5)
         .attr('markerWidth', 5)
         .attr('markerHeight', 5)
         .attr('orient', 'auto-start-reverse')
         .append('path')
-        .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+        .attr('d', 'M 0 0 L 10 5 L 0 10 L 3 5 z')
         .attr('fill', '#ef4444');
 
     dots.forEach((dot) => {

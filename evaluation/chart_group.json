@@ -128,7 +128,7 @@
     "bar_grouped": {
       "id": "0xc7sx6ll8fl5rgh",
       "question": "What is the average of the vote share at an age when Clinton received a lower vote share?",
-      "answer": "0.37",
+      "answer": "0.368",
       "correctAnswer": "0.31",
       "answerIsCorrect": false
     },
@@ -158,7 +158,7 @@
     "bar_stacked": {
       "id": "10t8o5vhethzeod1",
       "question": "In which year was the agriculture sector the highest",
-      "answer": "2017",
+      "answer": "2012",
       "correctAnswer": "2011",
       "answerIsCorrect": false
     },

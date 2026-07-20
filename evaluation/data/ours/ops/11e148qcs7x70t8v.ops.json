@@ -17,7 +17,7 @@
   ],
   "ops2": [
     {
-      "op": "findExtremum",
+      "op": "filter",
       "id": "n2",
       "meta": {
         "nodeId": "n2",
@@ -26,7 +26,8 @@
         ],
         "sentenceIndex": 2
       },
-      "which": "min"
+      "operator": "<",
+      "value": 0
     }
   ]
 }

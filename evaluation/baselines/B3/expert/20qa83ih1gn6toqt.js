@@ -308,7 +308,7 @@ function drawPriceConvenienceGaps({ d3, container, highlightYear = null }) {
         .append('marker')
         .attr('id', markerId)
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 5)
+        .attr('refX', 10)
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
@@ -317,7 +317,7 @@ function drawPriceConvenienceGaps({ d3, container, highlightYear = null }) {
         // is the arrow glitch E7 flagged on this gap annotation.
         .attr('orient', 'auto-start-reverse')
         .append('path')
-        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('d', 'M0,-5L10,0L0,5L3,0Z')
         .attr('fill', '#dc2626');
 
     g.selectAll('.e7-q5-annotation').remove();

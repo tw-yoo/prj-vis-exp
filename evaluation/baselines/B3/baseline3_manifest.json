@@ -23,7 +23,7 @@
       },
       {
         "fn": "function3",
-        "text": "Only 2014 shows France clearly ahead (Δ −0.26) — from 2015 on the two are about even or South Korea leads, so 2015 through Jan-Oct 2019 all count."
+        "text": "France is ahead in 2014 (Δ −0.26) and only barely in 2015 (Δ −0.04, essentially even), so from 2015 on South Korea is level or ahead — 2015 through Jan-Oct 2019 all count."
       }
     ]
   },
@@ -123,7 +123,7 @@
       },
       {
         "fn": "mergedStep2",
-        "text": "Average those values to get 0.37."
+        "text": "Average those values to get 0.368."
       }
     ]
   },
@@ -361,7 +361,7 @@
       },
       {
         "fn": "function2",
-        "text": "Its tallest year is 2017 (27.1%)."
+        "text": "Its tallest year is 2012 (33.2%)."
       }
     ]
   },

@@ -256,13 +256,13 @@ export function function2({ d3, container }) {
         .append('marker')
         .attr('id', markerId)
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 9)
+        .attr('refX', 10)
         .attr('refY', 0)
         .attr('markerWidth', 7)
         .attr('markerHeight', 7)
-        .attr('orient', 'auto')
+        .attr('orient', 'auto-start-reverse')
         .append('path')
-        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('d', 'M0,-5L10,0L0,5L3,0Z')
         .attr('fill', '#dc2626');
 
     g.selectAll('.e7-q6-function2').remove();

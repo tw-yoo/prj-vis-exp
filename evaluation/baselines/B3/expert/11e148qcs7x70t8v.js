@@ -507,9 +507,12 @@ export function function3({ d3, container }) {
 
     g.selectAll('.validation-country-highlight').remove();
 
-    // Find the 2015 bars in the current grouped chart (drawn by f2) to show the near-tie flaw.
+    // Mark BOTH periods where France is ahead — 2014 (Δ −0.26) and 2015
+    // (Δ −0.04). They are adjacent, so the rect below spans them as one band.
+    // The flaw is the narrative that treats 2015's −0.04 as "essentially even".
+    const HIGHLIGHT_PERIODS = ['2014', '2015'];
     const targetBars = g.selectAll('.main-bar')
-        .filter(function () { return this.getAttribute('data-target') === '2015'; });
+        .filter(function () { return HIGHLIGHT_PERIODS.includes(this.getAttribute('data-target')); });
     if (targetBars.empty()) return;
 
     const xValues = targetBars.nodes().map((node) => Number(node.getAttribute('x')));
@@ -536,7 +539,7 @@ export function function3({ d3, container }) {
         .duration(600)
         .attr('opacity', 0.55);
 
-    // Outline the 2018 bars to draw attention.
+    // Outline the highlighted bars to draw attention.
     targetBars
         .transition()
         .duration(600)

@@ -253,15 +253,18 @@ export function function1({ d3, container }) {
     g.selectAll('.e8-q9-function1').remove();
     g.select('.main-line').attr('opacity', 0.3);
 
+    // Out-of-range points are DIMMED, never hidden: at opacity 0.18 with r=3 and
+    // a pale fill they read as missing, which makes the chart look like it lost
+    // data instead of de-emphasising it.
     g.selectAll('circle[data-target]')
         .attr('opacity', function (p) {
-            return csvYears.has(String(p.target)) ? 1 : 0.18;
+            return csvYears.has(String(p.target)) ? 1 : 0.45;
         })
         .attr('r', function (p) {
-            return csvYears.has(String(p.target)) ? 5.5 : 3;
+            return csvYears.has(String(p.target)) ? 5.5 : 4;
         })
         .attr('fill', function (p) {
-            return csvYears.has(String(p.target)) ? '#dc2626' : '#94a3b8';
+            return csvYears.has(String(p.target)) ? '#dc2626' : '#64748b';
         });
 
     [csvRange.min, csvRange.max].forEach((value) => {

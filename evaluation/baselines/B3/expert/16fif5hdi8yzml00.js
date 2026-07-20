@@ -395,13 +395,13 @@ export function function3({ d3, container }) {
     defs.append('marker')
         .attr('id', 'e8-q3-arrow')
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 5)
+        .attr('refX', 10)
         .attr('refY', 0)
         .attr('markerWidth', 6)
         .attr('markerHeight', 6)
-        .attr('orient', 'auto')
+        .attr('orient', 'auto-start-reverse')
         .append('path')
-        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('d', 'M0,-5L10,0L0,5L3,0Z')
         .attr('fill', '#111827');
 
     const x = plotW + 18;
