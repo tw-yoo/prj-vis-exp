@@ -9,6 +9,10 @@ const TOOLTIP_TARGET_SELECTOR = `rect.main-bar[${DataAttributes.XValue}][${DataA
 
 const tooltipCleanupStore: WeakMap<HTMLElement, () => void> = new WeakMap()
 const numericFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
+// Hover display of the raw datum. 4 fraction digits so close values stay
+// distinguishable (0.105 / 0.106 / 0.109 all collapse to "0.11" at 2), while
+// still absorbing float noise from derived data.
+const preciseNumericFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 })
 
 type TooltipMetadata = {
   xLabel: string
@@ -96,7 +100,18 @@ function resolveTooltipRows(mark: SVGElement): TooltipRow[] {
   const xLabel = normalizeLabel(svg.getAttribute(DataAttributes.XLabel), svg.getAttribute(DataAttributes.XField) ?? 'x')
   const yLabel = normalizeLabel(svg.getAttribute(DataAttributes.YLabel), svg.getAttribute(DataAttributes.YField) ?? 'y')
   const xValue = formatTooltipValue(mark.getAttribute(DataAttributes.XValue))
-  const yValue = formatTooltipValue(mark.getAttribute(DataAttributes.YValue))
+  // data-y-value is stamped through the 2-fraction-digit display formatter, so
+  // nearby data points collapse to the same string (0.105/0.106/0.109 → "0.11").
+  // data-value carries the raw datum (also baked into the stored baseline SVGs),
+  // so prefer it — but only when the y row is numeric, to keep category labels
+  // intact on charts whose y axis is not the measure.
+  const displayYValue = mark.getAttribute(DataAttributes.YValue)
+  const rawValue = mark.getAttribute(DataAttributes.Value)
+  const rawNumber = rawValue === null || rawValue.trim() === '' ? NaN : Number(rawValue)
+  const displayNumber = displayYValue === null ? NaN : Number(displayYValue.replace(/,/g, ''))
+  const yValue = Number.isFinite(rawNumber) && Number.isFinite(displayNumber)
+    ? preciseNumericFormatter.format(rawNumber)
+    : formatTooltipValue(displayYValue)
   const groupLabel = normalizeOptionalLabel(svg.getAttribute(DataAttributes.GroupLabel))
   const groupValue = formatTooltipValue(mark.getAttribute(DataAttributes.GroupValue))
 
