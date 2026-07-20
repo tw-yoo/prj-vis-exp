@@ -3,7 +3,6 @@ import { Suspense, lazy, useEffect, useMemo } from 'react'
 const ResultViewerPage = lazy(() => import('./pages/ResultViewerPage'))
 const ConsentPage = lazy(() => import('./pages/ConsentPage'))
 const PreRegistrationPage = lazy(() => import('./pages/PreRegistrationPage'))
-const PreRegistrationClosedPage = lazy(() => import('./pages/PreRegistrationClosedPage'))
 const PreRegistrationStatusPage = lazy(() => import('./pages/PreRegistrationStatusPage'))
 const MainSurveyPage = lazy(() => import('./pages/MainSurveyPage'))
 const DataCollectionPage = lazy(() => import('./pages/DataCollectionPage'))
@@ -16,13 +15,6 @@ type SurveyViewMode =
   | 'main-survey'
   | 'data-collection'
   | null
-
-/** Whether the pre-registration form accepts new submissions. */
-const PRE_REGISTRATION_OPEN = false
-
-function isReopenRequested() {
-  return new URLSearchParams(window.location.search).get('reopen') === '1'
-}
 
 type SurveyRouterProps = {
   viewMode: string | null
@@ -55,9 +47,7 @@ function SurveyRouter({ viewMode }: SurveyRouterProps) {
       case 'consent':
         return <ConsentPage />
       case 'pre-registration':
-        // Recruitment closed 2026-07-20. Flip PRE_REGISTRATION_OPEN (or append
-        // ?reopen=1) to serve the form again.
-        return PRE_REGISTRATION_OPEN || isReopenRequested() ? <PreRegistrationPage /> : <PreRegistrationClosedPage />
+        return <PreRegistrationPage />
       case 'pre-registration-status':
         return <PreRegistrationStatusPage />
       case 'main-survey':
