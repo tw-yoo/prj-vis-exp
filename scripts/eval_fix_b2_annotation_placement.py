@@ -176,6 +176,16 @@ def fix_net_income_total(svg: str) -> str | None:
     return svg.replace('d="M451,34 L243,42"', 'd="M220,47 L243,42"')
 
 
+def fix_clinton_avg_precision(svg: str) -> str | None:
+    """0xc7sx6ll8fl5rgh — the reference-line label rounds to "Avg = 0.37" while the
+    scene's own narration (and the next scene's arithmetic) uses 0.368. Clinton's
+    shares are 0.16/0.32/0.45/0.54, mean 0.3675, so 0.368 is the correct 3dp
+    value; only the label text changes."""
+    if '>Avg = 0.37</text>' not in svg:
+        return None
+    return svg.replace('>Avg = 0.37</text>', '>Avg = 0.368</text>')
+
+
 def translate_layer(svg: str) -> str | None:
     """Give a root-level annotation layer the skeleton's margin transform."""
     m = re.search(r'<svg[^>]*data-m-left="([\d.]+)"[^>]*data-m-top="([\d.]+)"', svg)
@@ -209,6 +219,7 @@ def main() -> None:
         ("16aphfabldrpgcmd", fix_total_summary),
         ("01mksjs373fhcl4q", fix_largest_decline),
         ("0vmvmj77j3p6vcy7", fix_net_income_total),
+        ("0xc7sx6ll8fl5rgh", fix_clinton_avg_precision),
     )
     for cid, fixer in fixers:
         for scene in charts[cid]:
