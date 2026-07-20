@@ -89,9 +89,8 @@ pdfs/
 # Single rule, extension-agnostic, matches in every directory.
 scratch_*
 
+# Study analysis workspace — LOCAL ONLY, never commit. Holds participant
+# responses (demographics, free-text answers, interview transcripts and notes),
+# the derived CSVs, and the Google API credentials used to fetch them. This repo
+# is public, so nothing under here may be tracked.
 evaluation/analysis/
-
-# Google API creds for evaluation/analysis/eval_export_responses.py --interviews (never commit)
-evaluation/analysis/google_oauth_client.json
-evaluation/analysis/.google_token.json
-evaluation/analysis/google_service_account.json
