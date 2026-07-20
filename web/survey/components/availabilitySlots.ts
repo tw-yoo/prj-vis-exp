@@ -55,8 +55,24 @@ function periodKeyFor(startMin: number): string {
   return (PERIOD_DEFS.find((p) => startMin < p.endBefore) ?? PERIOD_DEFS[PERIOD_DEFS.length - 1]).key
 }
 
+// Today's date in the study timezone (KST) as a "YYYY-MM-DD" key, so it compares
+// directly against a day's `dateKey`. Built from Intl parts (not toLocaleString
+// text) to be locale/format independent.
+function currentKstDateKey(): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+
 export function buildDays(): Day[] {
   const days: Day[] = []
+  // Hide dates already in the past (KST); the window still ends at RANGE_END.
+  const todayKey = currentKstDateKey()
   const end = new Date(RANGE_END.year, RANGE_END.month - 1, RANGE_END.day)
   const cursor = new Date(RANGE_START.year, RANGE_START.month - 1, RANGE_START.day)
   while (cursor <= end) {
@@ -64,6 +80,10 @@ export function buildDays(): Day[] {
     const month = cursor.getMonth() + 1
     const day = cursor.getDate()
     const dateKey = `${year}-${pad2(month)}-${pad2(day)}`
+    if (dateKey < todayKey) {
+      cursor.setDate(cursor.getDate() + 1)
+      continue // day is already past — skip it (today itself stays visible)
+    }
     const slots: Slot[] = []
     const byPeriod = new Map<string, Slot[]>()
     for (let start = DAY_START_MIN; start + SESSION_MIN <= DAY_END_MIN; start += STEP_MIN) {
