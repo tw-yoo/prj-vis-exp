@@ -65,7 +65,11 @@ export function drawSummaryTextBox(
     // overflowing the card. Top (workbench) keeps the original single line.
     overlay.style.whiteSpace = placement === 'bottom' ? 'normal' : 'nowrap'
 
-    host.appendChild(overlay)
+    // Bottom boxes sit directly after the chart container so they land above
+    // any siblings that follow it (e.g. the review panel's question and
+    // explanation blocks); top boxes float over the host as before.
+    if (placement === 'bottom' && container !== host) container.insertAdjacentElement('afterend', overlay)
+    else host.appendChild(overlay)
     overlay.textContent = text
     return
   }

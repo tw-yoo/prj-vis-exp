@@ -380,6 +380,10 @@ export class OursRenderer implements ExplanationRenderer {
     // session-state reset happens here, NOT on every step click.
     if (index < 0) {
       resetChartHost(this.context.container)
+      // Empty text removes any summary caption left over from the previous
+      // item — the box lives next to the container, so resetChartHost alone
+      // doesn't clear it.
+      drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
       await renderChart(this.context.container, this.chart.spec)
       fitSvgViewBoxToContent(this.context.container)
       this.resetSession()
@@ -583,6 +587,7 @@ export class OursRenderer implements ExplanationRenderer {
   }
 
   teardown(): void {
+    drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
     this.context.container.innerHTML = ''
     this.chart = null
     this.stepRecords = []
