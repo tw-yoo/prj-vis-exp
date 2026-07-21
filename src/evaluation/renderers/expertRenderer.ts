@@ -1,4 +1,5 @@
 import * as d3 from 'd3'
+import { drawSummaryTextBox } from '../../api/operation-summary-text'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 
 type ExpertStep = { fn: string; text: string }
@@ -123,10 +124,12 @@ export class ExpertRenderer implements ExplanationRenderer {
     installGlobalD3()
     if (!this.mod) {
       this.context.container.innerHTML = '<div class="renderer-empty">Expert explanation unavailable.</div>'
+      drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
       return
     }
     if (index < 0) {
       this.renderBase()
+      drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
       return
     }
     const hasBase = !!this.context.container.querySelector('svg')
@@ -139,9 +142,13 @@ export class ExpertRenderer implements ExplanationRenderer {
       for (let i = this.currentStep + 1; i <= index; i += 1) this.runStepFn(i)
     }
     this.currentStep = index
+    // B3 has no ops spec to derive a calculation caption from; the authored
+    // step text (which already carries the numbers) doubles as the caption.
+    drawSummaryTextBox(this.context.container, this.steps[index]?.text ?? '', { placement: 'bottom' })
   }
 
   teardown(): void {
+    drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
     this.context.container.innerHTML = ''
     this.currentStep = -1
   }
