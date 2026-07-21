@@ -396,7 +396,7 @@ function imperativeSentenceForOperation(args: {
     }
     case OperationOp.Scale: {
       const factor = Number(op.factor)
-      const factorText = Number.isFinite(factor) ? factor.toString() : 'the specified factor'
+      const factorText = Number.isFinite(factor) ? formatExplanationNumber(factor) : 'the specified factor'
       return `Scale ${phraseForSelector({ selector: op.target, context: { mode: 'summary' }, artifacts, seen })} by ${factorText}`
     }
     case OperationOp.Add:
