@@ -503,6 +503,125 @@ export function buildSummaryTextForOperations(args: {
   }
 }
 
+// Caption text for the evaluation summary box: the same imperative labels as
+// buildSummaryTextForOperations, enriched with actual computed numbers once op
+// results are available ("Calculate the difference …: 380 − 238.75 = 141.25").
+// With an empty results map this returns exactly the label-only text, so one
+// builder serves both the pre-run and post-run paints.
+export function buildCalculationSummaryText(args: {
+  operations: OperationSpec[]
+  resultsByNodeId: ReadonlyMap<string, DatumValue[]>
+  lastResult?: DatumValue[] | null
+}): string {
+  const entries = collectSummaryEntries(args.operations)
+  if (entries.length === 0) return ''
+
+  // Authored step prose comma-groups big integers ("41,581"); mirror that here
+  // without touching the shared formatter used by the explanation sentences.
+  const fmt = (value: number, precision?: number) => {
+    const text = formatExplanationNumber(value, precision)
+    const [head, tail = ''] = text.split('.')
+    if (head.replace('-', '').length < 5) return text
+    const grouped = head.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    return tail ? `${grouped}.${tail}` : grouped
+  }
+  const operandValue = (selector: TargetSelector | TargetSelector[] | undefined) => {
+    const nodeId = selectorNodeId(selector)
+    return nodeId ? firstFiniteValue(args.resultsByNodeId.get(nodeId)) : null
+  }
+
+  const clauses = entries.map((entry, index) => {
+    const op = entry.op
+    let label = imperativeSentenceForOperation({ op, artifacts: null, refine: false })
+    const rows =
+      args.resultsByNodeId.get(entry.nodeId) ??
+      (index === entries.length - 1 && args.lastResult?.length ? args.lastResult : undefined)
+
+    // Per-op calculation suffix. Any missing/non-finite value degrades to the
+    // bare label — never "undefined", never a dangling colon.
+    let suffix = ''
+    const v = firstFiniteValue(rows)
+    switch (op.op) {
+      case OperationOp.FindExtremum:
+      case OperationOp.Average:
+      case OperationOp.Sum:
+      case OperationOp.Count:
+      case OperationOp.Nth:
+        if (v != null) suffix = fmt(v, op.precision)
+        break
+      case OperationOp.RetrieveValue: {
+        const numeric = (rows ?? [])
+          .map((row) => Number(row?.value))
+          .filter((value) => Number.isFinite(value))
+        if (numeric.length >= 1 && numeric.length <= 3) {
+          suffix = joinPhrases(numeric.map((value) => fmt(value, op.precision)))
+        }
+        break
+      }
+      case OperationOp.Diff: {
+        const leftSelector = binaryOperandSelector(op, 'left')
+        const rightSelector = binaryOperandSelector(op, 'right')
+        // With no artifacts, ref operands phrase as "the previous result";
+        // when BOTH sides are refs the long form carries zero information
+        // ("between the previous result and the previous result") — compress
+        // to the bare verb phrase and let the equation tell the story.
+        if (selectorNodeId(leftSelector) && selectorNodeId(rightSelector)) label = 'Calculate the difference'
+        if (v == null) break
+        const left = operandValue(leftSelector)
+        const right = operandValue(rightSelector)
+        // Unsigned diff may have flipped the operand order; pick the order
+        // that keeps the equation arithmetically true, else show result only.
+        if (left != null && right != null && Math.abs(left - right - v) < 0.005) {
+          suffix = `${fmt(left, op.precision)} − ${fmt(right, op.precision)} = ${fmt(v, op.precision)}`
+        } else if (left != null && right != null && Math.abs(right - left - v) < 0.005) {
+          suffix = `${fmt(right, op.precision)} − ${fmt(left, op.precision)} = ${fmt(v, op.precision)}`
+        } else {
+          suffix = fmt(v, op.precision)
+        }
+        break
+      }
+      case OperationOp.Add: {
+        const leftSelector = binaryOperandSelector(op, 'left')
+        const rightSelector = binaryOperandSelector(op, 'right')
+        if (selectorNodeId(leftSelector) && selectorNodeId(rightSelector)) label = 'Calculate the sum'
+        if (v == null) break
+        const left = operandValue(leftSelector)
+        const right = operandValue(rightSelector)
+        suffix = left != null && right != null && Math.abs(left + right - v) < 0.005
+          ? `${fmt(left, op.precision)} + ${fmt(right, op.precision)} = ${fmt(v, op.precision)}`
+          : fmt(v, op.precision)
+        break
+      }
+      case OperationOp.Scale: {
+        if (v == null) break
+        const base = operandValue(op.target)
+        const factor = Number(op.factor)
+        suffix = base != null && Number.isFinite(factor) && Math.abs(base * factor - v) < 0.005
+          ? `${fmt(base, op.precision)} × ${fmt(factor)} = ${fmt(v, op.precision)}`
+          : fmt(v, op.precision)
+        break
+      }
+      case OperationOp.PairDiff:
+      case OperationOp.LagDiff:
+      case OperationOp.DiffByValue:
+        // Multi-row results are already visualized per-key on the chart; only
+        // a single collapsed value reads well in the caption.
+        if (rows?.length === 1 && v != null) suffix = fmt(v, op.precision)
+        break
+      case OperationOp.CompareBool:
+        if (v != null) suffix = v > 0 ? 'yes' : 'no'
+        break
+      default:
+        // filter / sort / others: the label already says everything useful.
+        break
+    }
+
+    return suffix ? `${label}: ${suffix}` : label
+  })
+
+  return joinClauses(clauses)
+}
+
 export type ExplanationSummaryText = {
   initialText: string
   finalText?: string

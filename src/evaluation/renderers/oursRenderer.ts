@@ -10,9 +10,9 @@ import { applySplitSharedYAxisPolicy } from '../../operation-next/splitSurfaceVi
 import { getChartType } from '../../domain/chart/chartType'
 import { resolveEncodingFields } from '../../rendering/ops/common/resolveEncodingFields'
 import { toDatumValuesFromRaw, type RawRow } from '../../domain/data/datum'
-import type { OperationSpec } from '../../domain/operation/types'
+import type { DatumValue, OperationSpec } from '../../domain/operation/types'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
-import { buildSummaryTextForOperations, drawSummaryTextBox } from '../../api/operation-summary-text'
+import { buildCalculationSummaryText, drawSummaryTextBox } from '../../api/operation-summary-text'
 
 type StepManifest = {
   id: string
@@ -520,8 +520,10 @@ export class OursRenderer implements ExplanationRenderer {
 
     const groups = normalizeOpsGroups(step.opsSpec)
     const allOps = groups.flatMap((g) => g.ops)
-    const summaryText = buildSummaryTextForOperations({ operations: allOps, logicalArtifacts: null })?.initialText || ''
-    drawSummaryTextBox(this.context.container, summaryText)
+    // Pre-run paint: label only (empty results map). The post-run repaint
+    // below swaps in the same labels enriched with the computed numbers.
+    const summaryText = buildCalculationSummaryText({ operations: allOps, resultsByNodeId: new Map() })
+    drawSummaryTextBox(this.context.container, summaryText, { placement: 'bottom' })
 
     // Split children run with THEIR OWN derived spec (a prior step on that
     // surface may have converted its chart type, e.g. sort line→bar); the
@@ -567,6 +569,17 @@ export class OursRenderer implements ExplanationRenderer {
       runtimeSnapshot: result.runtimeSnapshot,
       continuation: result.continuation,
     }
+
+    // Post-run repaint: same labels, now with computed numbers. Snapshots are
+    // cumulative across steps, but merging every executed step's record keeps
+    // cross-step refs (e.g. a diff over two earlier averages) resolvable under
+    // any replay ordering.
+    const resultsByNodeId = new Map<string, DatumValue[]>()
+    for (const record of this.stepRecords.slice(0, i + 1)) {
+      if (record) Object.entries(record.runtimeSnapshot).forEach(([key, rows]) => resultsByNodeId.set(key, rows))
+    }
+    const enriched = buildCalculationSummaryText({ operations: allOps, resultsByNodeId, lastResult: result.result })
+    if (enriched) drawSummaryTextBox(this.context.container, enriched, { placement: 'bottom' })
   }
 
   teardown(): void {
