@@ -18,7 +18,12 @@ const BASE_FONT_SIZE = 10
 // a new step / item switch cancels a stale watcher before it draws onto the
 // next chart.
 const pendingRaf: WeakMap<HTMLElement, number> = new WeakMap()
-const numericFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
+// Rounding to 2 decimals collapses distinct data points onto one label
+// (0.127 and 0.128 both read "0.13"), which is a correctness bug on a study
+// chart. Precision is chosen per chart: the fewest decimals (from 2 up to this
+// cap) that keep every distinct value's label distinct.
+const MIN_FRACTION_DIGITS = 2
+const MAX_FRACTION_DIGITS = 6
 
 // Settle watcher: if no transition has started within this window, treat the
 // chart as static and label immediately (B2 scenes are static SVG swaps).
@@ -36,11 +41,31 @@ export type SettleOptions = ValueLabelOptions & {
   maxWaitMs?: number
 }
 
-function resolveLabelText(mark: SVGElement): string | null {
+// Fewest decimals (MIN..MAX) at which no two distinct values share a label.
+function chooseFractionDigits(values: number[]): number {
+  const distinct = Array.from(new Set(values.filter((v) => Number.isFinite(v))))
+  for (let digits = MIN_FRACTION_DIGITS; digits < MAX_FRACTION_DIGITS; digits += 1) {
+    const formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: digits })
+    const seen = new Set<string>()
+    let collision = false
+    for (const value of distinct) {
+      const label = formatter.format(value)
+      if (seen.has(label)) {
+        collision = true
+        break
+      }
+      seen.add(label)
+    }
+    if (!collision) return digits
+  }
+  return MAX_FRACTION_DIGITS
+}
+
+function resolveLabelText(mark: SVGElement, formatter: Intl.NumberFormat): string | null {
   const raw = mark.getAttribute(DataAttributes.Value)
   if (raw !== null && raw.trim() !== '') {
     const num = Number(raw)
-    if (Number.isFinite(num)) return numericFormatter.format(num)
+    if (Number.isFinite(num)) return formatter.format(num)
     return raw.trim()
   }
   const display = mark.getAttribute(DataAttributes.YValue)
@@ -118,10 +143,20 @@ function renderLabelsForSvg(svg: SVGSVGElement) {
   if (!overlayScreenCTM) return overlay
   const overlayFromScreen = overlayScreenCTM.inverse()
 
+  // Chart-wide precision: enough decimals that no two distinct values collapse
+  // to the same label, so 0.127 and 0.128 stay distinguishable.
+  const rawValues = marks
+    .map((m) => Number(m.getAttribute(DataAttributes.Value)))
+    .filter((v) => Number.isFinite(v))
+  const formatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: chooseFractionDigits(rawValues) })
+
   const rects = marks.filter((m): m is SVGRectElement => m instanceof SVGRectElement)
   const stackedRects = computeStackedColumns(overlayFromScreen, rects)
   const fontSize = labelFontSize(svg)
   const placedBoxes: Box[] = []
+  // Marks we end up labelling — used to erase any baked-in value number the
+  // source chart already drew on the same mark, so ours isn't a duplicate.
+  const labeledMarks: SVGGraphicsElement[] = []
 
   marks.forEach((mark) => {
     const style = getComputedStyle(mark)
@@ -129,7 +164,7 @@ function renderLabelsForSvg(svg: SVGSVGElement) {
     const markOpacity = Number(style.opacity)
     if (Number.isFinite(markOpacity) && markOpacity < HIDDEN_OPACITY_THRESHOLD) return
 
-    const text = resolveLabelText(mark)
+    const text = resolveLabelText(mark, formatter)
     if (!text) return
 
     let anchor: { x: number; y: number } | null = null
@@ -138,6 +173,9 @@ function renderLabelsForSvg(svg: SVGSVGElement) {
     // Filled when a segment is too short for an inside label: a short connector
     // from the segment edge to the outside label placed beside the bar.
     let leader: { x1: number; y1: number; x2: number; y2: number } | null = null
+    // Fallback spot (below a point) tried before dropping a colliding label, so
+    // adjacent line points like 0.128 / 0.127 both stay visible.
+    let altAnchor: { x: number; y: number } | null = null
 
     if (mark instanceof SVGRectElement) {
       const x = Number(mark.getAttribute('x') ?? 0)
@@ -196,6 +234,8 @@ function renderLabelsForSvg(svg: SVGSVGElement) {
         anchor.y -= 4
         if (anchor.y - fontSize < 0) anchor.y += r * 2 + fontSize + 8
       }
+      const below = toOverlayPoint(overlayFromScreen, mark, cx, cy + r)
+      if (below) altAnchor = { x: below.x, y: below.y + fontSize + 4 }
     }
 
     if (!anchor) return
@@ -236,15 +276,71 @@ function renderLabelsForSvg(svg: SVGSVGElement) {
     // exempt — they carry the only readable copy of an otherwise-hidden value,
     // and a leader keeps them unambiguous even when crowded.
     const bbox = label.getBBox()
-    const box: Box = { x: bbox.x, y: bbox.y, w: bbox.width, h: bbox.height }
+    let box: Box = { x: bbox.x, y: bbox.y, w: bbox.width, h: bbox.height }
     if (!leader && placedBoxes.some((placed) => boxesOverlap(placed, box))) {
-      label.remove()
-      return
+      // Retry at the fallback spot (below a point) before giving up, so both
+      // members of a close pair survive.
+      if (altAnchor) {
+        label.setAttribute('x', String(altAnchor.x))
+        label.setAttribute('y', String(altAnchor.y))
+        const retry = label.getBBox()
+        box = { x: retry.x, y: retry.y, w: retry.width, h: retry.height }
+      }
+      if (!altAnchor || placedBoxes.some((placed) => boxesOverlap(placed, box))) {
+        label.remove()
+        return
+      }
     }
     placedBoxes.push(box)
+    labeledMarks.push(mark)
   })
 
+  removeBakedValueLabels(svg, labeledMarks)
+
   return overlay
+}
+
+// A source chart may already print its own value number on a bar/point. Where
+// we've drawn our own label for that mark, erase the baked one so the value
+// isn't shown twice. Only marks we actually labelled are touched (so a chart
+// whose marks we can't label keeps its numbers), and axis ticks, legend text,
+// and operation annotations are protected.
+function isProtectedFromRemoval(text: Element): boolean {
+  if (text.closest(`.${OVERLAY_CLASS}`)) return true
+  if (text.closest('.tick')) return true
+  let el: Element | null = text
+  for (let depth = 0; el && depth < 4; depth += 1, el = el.parentElement) {
+    const cls = el.getAttribute('class') ?? ''
+    if (/axis|legend|annotation|operation-next|panel-title|summary/i.test(cls)) return true
+    if (
+      el.hasAttribute('data-series') ||
+      el.hasAttribute('data-group-value') ||
+      el.hasAttribute('data-base-axis-label-transform')
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+function removeBakedValueLabels(svg: SVGSVGElement, labeledMarks: SVGGraphicsElement[]) {
+  if (!labeledMarks.length) return
+  const markRects = labeledMarks.map((m) => m.getBoundingClientRect())
+  svg.querySelectorAll('text').forEach((text) => {
+    if (isProtectedFromRemoval(text)) return
+    const value = text.textContent?.trim() ?? ''
+    // Purely-numeric text only (a value label), never a category/word.
+    if (!/^-?\d[\d.,\s]*%?$/.test(value)) return
+    const rect = text.getBoundingClientRect()
+    const cx = rect.x + rect.width / 2
+    const cy = rect.y + rect.height / 2
+    // Inside a labelled mark's box, allowing a little headroom for value
+    // numbers printed just above a bar top.
+    const onLabeledMark = markRects.some(
+      (m) => cx >= m.x - 1 && cx <= m.right + 1 && cy >= m.top - 16 && cy <= m.bottom + 2,
+    )
+    if (onLabeledMark) text.remove()
+  })
 }
 
 function applyNow(container: HTMLElement, fade: boolean) {
