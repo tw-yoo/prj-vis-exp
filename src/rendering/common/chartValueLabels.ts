@@ -154,6 +154,19 @@ function renderLabelsForSvg(svg: SVGSVGElement) {
   const stackedRects = computeStackedColumns(overlayFromScreen, rects)
   const fontSize = labelFontSize(svg)
   const placedBoxes: Box[] = []
+  // An operation may already print a mark's value ON it (the answer highlight —
+  // findExtremum / retrieveValue / nth …). Those labels are protected from
+  // removal (see isProtectedFromRemoval), so if we ALSO labelled that mark the
+  // value would show twice. Collect the operation layer's numeric value labels
+  // up front (screen boxes) and skip the overlay label for any mark one sits on.
+  const opValueLabelRects = Array.from(
+    // Op value labels live either inside the annotation layer or carry an
+    // `operation-next-*` class directly (e.g. simpleBar's extremum label sits
+    // outside the layer group) — match both so none slip through.
+    svg.querySelectorAll<SVGTextElement>('.annotation-layer text, text[class*="operation-next"]'),
+  )
+    .filter((t) => /^-?\d[\d.,\s]*%?$/.test((t.textContent ?? '').trim()))
+    .map((t) => t.getBoundingClientRect())
   // Marks we end up labelling — used to erase any baked-in value number the
   // source chart already drew on the same mark, so ours isn't a duplicate.
   const labeledMarks: SVGGraphicsElement[] = []
@@ -166,6 +179,24 @@ function renderLabelsForSvg(svg: SVGSVGElement) {
 
     const text = resolveLabelText(mark, formatter)
     if (!text) return
+
+    // Skip marks an operation already value-labelled (same region as
+    // removeBakedValueLabels uses, with headroom for a number above a bar top),
+    // so the op's answer label isn't shadowed by a duplicate overlay label.
+    if (opValueLabelRects.length) {
+      const mr = mark.getBoundingClientRect()
+      // Headroom above the bar top: an op result label (e.g. the extremum "380")
+      // is lifted a full label-height clear of the top, further than a baked
+      // value number, so 16px missed it by a hair. The horizontal test keeps
+      // this to the bar's own column, so a generous vertical reach is safe.
+      const headroom = fontSize * 2 + 10
+      const covered = opValueLabelRects.some((b) => {
+        const cx = b.x + b.width / 2
+        const cy = b.y + b.height / 2
+        return cx >= mr.x - 1 && cx <= mr.right + 1 && cy >= mr.top - headroom && cy <= mr.bottom + 2
+      })
+      if (covered) return
+    }
 
     let anchor: { x: number; y: number } | null = null
     let baseline = 'auto'
