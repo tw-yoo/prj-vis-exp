@@ -167,8 +167,16 @@ export const filterApplier: OperationApplier = {
     const x1 = instance.layout.marginLeft
     const x2 = instance.layout.marginLeft + instance.layout.plotWidth
 
-    // Phase 0: threshold reference line.
-    const threshold = resolveNumericThreshold(operation, state.workingData)
+    // Phase 0: threshold reference line. Only meaningful for a Y-measure
+    // threshold — a horizontal guide sits at yScale(threshold). An x-dimension
+    // filter (e.g. `Year <= 2008`) has no y threshold: feeding the x value
+    // 2008 through the y-scale yields a garbage off-plot coordinate (the
+    // "weird values" bug). The x-axis rescale in Phase 2 already conveys the
+    // range, so skip the guide entirely for x-dimension filters.
+    const xField = instance.resolvedEncoding?.xField
+    const isXDimFilter =
+      typeof operation.field === 'string' && xField != null && operation.field === xField
+    const threshold = isXDimFilter ? null : resolveNumericThreshold(operation, state.workingData)
     const valueBased = isValueBasedFilter(operation, instance)
     if (threshold != null && Number.isFinite(instance.yScale(threshold))) {
       const thresholdY = instance.layout.marginTop + instance.yScale(threshold)
