@@ -1,4 +1,5 @@
 import { attachChartHoverTooltip } from '../../rendering/common/chartHoverTooltip'
+import { applyChartValueLabels, clearChartValueLabels } from '../../rendering/common/chartValueLabels'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 
 type BaselineInput = Record<string, { question?: string; explanation?: string; svg?: string }>
@@ -52,9 +53,11 @@ export class TextRenderer implements ExplanationRenderer {
   async renderStep(_index: number): Promise<void> {
     this.context.container.innerHTML = this.svg || '<div class="renderer-empty">No chart.</div>'
     attachChartHoverTooltip(this.context.container)
+    applyChartValueLabels(this.context.container)
   }
 
   teardown(): void {
+    clearChartValueLabels(this.context.container)
     this.context.container.innerHTML = ''
   }
 }

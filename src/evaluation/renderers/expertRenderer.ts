@@ -1,5 +1,7 @@
 import * as d3 from 'd3'
 import { drawSummaryTextBox } from '../../api/operation-summary-text'
+import { attachChartHoverTooltip } from '../../rendering/common/chartHoverTooltip'
+import { applyChartValueLabels, clearChartValueLabels } from '../../rendering/common/chartValueLabels'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 
 type ExpertStep = { fn: string; text: string }
@@ -105,6 +107,9 @@ export class ExpertRenderer implements ExplanationRenderer {
     }
     this.context.container.innerHTML = ''
     renderFn({ d3, container: this.context.container })
+    // B3's expert modules stamp the same data-* mark contract but never wired
+    // the hover tooltip; attach it here so all four systems behave alike.
+    attachChartHoverTooltip(this.context.container)
     this.currentStep = -1
   }
 
@@ -129,9 +134,11 @@ export class ExpertRenderer implements ExplanationRenderer {
     }
     if (index < 0) {
       this.renderBase()
+      applyChartValueLabels(this.context.container)
       drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
       return
     }
+    clearChartValueLabels(this.context.container)
     const hasBase = !!this.context.container.querySelector('svg')
     if (index <= this.currentStep || !hasBase) {
       // backward / jump / missing base: reset to base, then replay 0..index.
@@ -142,12 +149,16 @@ export class ExpertRenderer implements ExplanationRenderer {
       for (let i = this.currentStep + 1; i <= index; i += 1) this.runStepFn(i)
     }
     this.currentStep = index
+    // Expert step functions start d3 transitions they don't await; label once
+    // the marks settle.
+    applyChartValueLabels(this.context.container, { settleMs: 1500, fade: true })
     // B3 has no ops spec to derive a calculation caption from; the authored
     // step text (which already carries the numbers) doubles as the caption.
     drawSummaryTextBox(this.context.container, this.steps[index]?.text ?? '', { placement: 'bottom' })
   }
 
   teardown(): void {
+    clearChartValueLabels(this.context.container)
     drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
     this.context.container.innerHTML = ''
     this.currentStep = -1

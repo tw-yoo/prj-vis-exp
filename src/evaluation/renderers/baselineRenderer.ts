@@ -1,5 +1,6 @@
 import * as d3 from 'd3'
 import { attachChartHoverTooltip } from '../../rendering/common/chartHoverTooltip'
+import { applyChartValueLabels, clearChartValueLabels } from '../../rendering/common/chartValueLabels'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 
 // Renders the B2 study baseline: an SVG-scene visual explanation. The base chart
@@ -130,9 +131,11 @@ export class BaselineRenderer implements ExplanationRenderer {
   }
 
   async renderStep(index: number): Promise<void> {
+    clearChartValueLabels(this.context.container)
     if (index < 0) {
       this.context.container.innerHTML = this.baseSvg || '<div class="renderer-empty">No base SVG.</div>'
       attachChartHoverTooltip(this.context.container)
+      applyChartValueLabels(this.context.container)
       return
     }
     const scene = this.scenes[index]
@@ -153,9 +156,13 @@ export class BaselineRenderer implements ExplanationRenderer {
     // so the same hover tooltip Ours uses works here too. Re-attach after each
     // swap (it cleans up the prior attachment on the same container).
     attachChartHoverTooltip(this.context.container)
+    // The scene's d3_code may still be animating marks into place (it isn't
+    // always awaited), so read positions after they settle.
+    applyChartValueLabels(this.context.container, { settleMs: 1500, fade: true })
   }
 
   teardown(): void {
+    clearChartValueLabels(this.context.container)
     this.context.container.innerHTML = ''
   }
 }

@@ -13,6 +13,7 @@ import { toDatumValuesFromRaw, type RawRow } from '../../domain/data/datum'
 import type { DatumValue, OperationSpec } from '../../domain/operation/types'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 import { buildCalculationSummaryText, drawSummaryTextBox } from '../../api/operation-summary-text'
+import { applyChartValueLabels, clearChartValueLabels } from '../../rendering/common/chartValueLabels'
 
 type StepManifest = {
   id: string
@@ -385,6 +386,7 @@ export class OursRenderer implements ExplanationRenderer {
       // doesn't clear it.
       drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
       await renderChart(this.context.container, this.chart.spec)
+      applyChartValueLabels(this.context.container)
       fitSvgViewBoxToContent(this.context.container)
       this.resetSession()
       return
@@ -403,7 +405,11 @@ export class OursRenderer implements ExplanationRenderer {
       (previousIndex === -1 || previousRecord != null)
 
     if (isActiveForward) {
+      // Drop stale labels while marks animate to new positions, re-place them
+      // once the step's ops have settled.
+      clearChartValueLabels(this.context.container)
       await this.executeStep(index, previousRecord, /* isReplay */ false)
+      applyChartValueLabels(this.context.container, { fade: true })
       this.lastRenderedStepIndex = index
       return
     }
@@ -412,6 +418,7 @@ export class OursRenderer implements ExplanationRenderer {
     // annotations don't match the target step's prefix, so we wipe + rebuild
     // + replay steps 0..index. Motion is suppressed on the replays via the
     // d3 controller; only the final target step animates normally.
+    clearChartValueLabels(this.context.container)
     resetChartHost(this.context.container)
     await renderChart(this.context.container, this.chart.spec)
     fitSvgViewBoxToContent(this.context.container)
@@ -426,6 +433,7 @@ export class OursRenderer implements ExplanationRenderer {
       else await exec()
       previous = this.stepRecords[i]
     }
+    applyChartValueLabels(this.context.container, { fade: true })
     this.lastRenderedStepIndex = index
   }
 
@@ -587,6 +595,7 @@ export class OursRenderer implements ExplanationRenderer {
   }
 
   teardown(): void {
+    clearChartValueLabels(this.context.container)
     drawSummaryTextBox(this.context.container, '', { placement: 'bottom' })
     this.context.container.innerHTML = ''
     this.chart = null
