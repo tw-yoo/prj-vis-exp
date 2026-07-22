@@ -1,7 +1,7 @@
 import * as d3 from 'd3'
 import { drawSummaryTextBox } from '../../api/operation-summary-text'
 import { attachChartHoverTooltip } from '../../rendering/common/chartHoverTooltip'
-import { applyChartValueLabels, clearChartValueLabels } from '../../rendering/common/chartValueLabels'
+import { applyChartValueLabels, applyChartValueLabelsWhenSettled, clearChartValueLabels } from '../../rendering/common/chartValueLabels'
 import type { ExplanationMethod, ExplanationRenderer, RendererContext } from './types'
 
 type ExpertStep = { fn: string; text: string }
@@ -149,9 +149,9 @@ export class ExpertRenderer implements ExplanationRenderer {
       for (let i = this.currentStep + 1; i <= index; i += 1) this.runStepFn(i)
     }
     this.currentStep = index
-    // Expert step functions start d3 transitions they don't await; label once
-    // the marks settle.
-    applyChartValueLabels(this.context.container, { settleMs: 1500, fade: true })
+    // Expert step functions start d3 transitions they don't await; label the
+    // moment those transitions drain rather than after a fixed delay.
+    applyChartValueLabelsWhenSettled(this.context.container, { fade: true })
     // B3 has no ops spec to derive a calculation caption from; the authored
     // step text (which already carries the numbers) doubles as the caption.
     drawSummaryTextBox(this.context.container, this.steps[index]?.text ?? '', { placement: 'bottom' })

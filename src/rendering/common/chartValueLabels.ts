@@ -14,15 +14,26 @@ const HIDDEN_OPACITY_THRESHOLD = 0.15
 const MIN_SEGMENT_HEIGHT_FOR_INSIDE_LABEL = 12
 const BASE_FONT_SIZE = 10
 
-const pendingTimers: WeakMap<HTMLElement, number> = new WeakMap()
+// Per-container in-flight rAF watcher id (applyChartValueLabelsWhenSettled), so
+// a new step / item switch cancels a stale watcher before it draws onto the
+// next chart.
+const pendingRaf: WeakMap<HTMLElement, number> = new WeakMap()
 const numericFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })
 
+// Settle watcher: if no transition has started within this window, treat the
+// chart as static and label immediately (B2 scenes are static SVG swaps).
+const NO_ANIMATION_GRACE_MS = 200
+// Hard cap so a stuck/looping transition can never withhold labels forever.
+const SETTLE_MAX_WAIT_MS = 5000
+
 export type ValueLabelOptions = {
-  // Delay before reading mark positions — for renderers whose step code kicks
-  // off d3 transitions it does not await (B2 d3_code, B3 expert functions).
-  settleMs?: number
   // Fade the fresh labels in instead of popping.
   fade?: boolean
+}
+
+export type SettleOptions = ValueLabelOptions & {
+  graceMs?: number
+  maxWaitMs?: number
 }
 
 function resolveLabelText(mark: SVGElement): string | null {
@@ -250,29 +261,75 @@ function applyNow(container: HTMLElement, fade: boolean) {
   })
 }
 
+function cancelPendingRaf(container: HTMLElement) {
+  const raf = pendingRaf.get(container)
+  if (raf !== undefined) {
+    cancelAnimationFrame(raf)
+    pendingRaf.delete(container)
+  }
+}
+
 export function applyChartValueLabels(container: HTMLElement, options: ValueLabelOptions = {}) {
-  const { settleMs, fade = false } = options
-  const pending = pendingTimers.get(container)
-  if (pending !== undefined) {
-    window.clearTimeout(pending)
-    pendingTimers.delete(container)
+  cancelPendingRaf(container)
+  applyNow(container, options.fade ?? false)
+}
+
+// True while any d3 transition is scheduled or running anywhere in the chart:
+// d3-transition stores live schedules on `node.__transition` and deletes the
+// property once every schedule on that node (delays included) has ended, so an
+// absence across the whole subtree means the animation is over.
+function hasActiveTransition(container: HTMLElement): boolean {
+  const svgs = container.querySelectorAll('svg')
+  for (const svg of svgs) {
+    if ((svg as unknown as { __transition?: unknown }).__transition) return true
+    const nodes = svg.querySelectorAll('*')
+    for (const node of nodes) {
+      if ((node as unknown as { __transition?: unknown }).__transition) return true
+    }
   }
-  if (settleMs && settleMs > 0) {
-    const timer = window.setTimeout(() => {
-      pendingTimers.delete(container)
+  return false
+}
+
+// Apply labels the moment the chart's animation ends, instead of guessing a
+// fixed delay. Watches for d3 transitions to drain (see hasActiveTransition);
+// a chart that never animates (B2's static scene swaps) is labelled after a
+// short grace. Supersedes any earlier watcher on the same container.
+export function applyChartValueLabelsWhenSettled(container: HTMLElement, options: SettleOptions = {}) {
+  const { fade = false, graceMs = NO_ANIMATION_GRACE_MS, maxWaitMs = SETTLE_MAX_WAIT_MS } = options
+  cancelPendingRaf(container)
+
+  const start = performance.now()
+  let sawActive = false
+  let quietFrames = 0
+
+  const tick = () => {
+    const active = hasActiveTransition(container)
+    if (active) {
+      sawActive = true
+      quietFrames = 0
+    } else {
+      quietFrames += 1
+    }
+    const elapsed = performance.now() - start
+    // Settled once a seen animation has been quiet for 2 frames (debounce
+    // against the brief gap between chained transitions), or nothing ever
+    // animated within the grace window, or the safety cap is reached.
+    const settled =
+      (sawActive && quietFrames >= 2) ||
+      (!sawActive && elapsed >= graceMs) ||
+      elapsed >= maxWaitMs
+    if (settled) {
+      pendingRaf.delete(container)
       applyNow(container, fade)
-    }, settleMs)
-    pendingTimers.set(container, timer)
-    return
+      return
+    }
+    pendingRaf.set(container, requestAnimationFrame(tick))
   }
-  applyNow(container, fade)
+
+  pendingRaf.set(container, requestAnimationFrame(tick))
 }
 
 export function clearChartValueLabels(container: HTMLElement) {
-  const pending = pendingTimers.get(container)
-  if (pending !== undefined) {
-    window.clearTimeout(pending)
-    pendingTimers.delete(container)
-  }
+  cancelPendingRaf(container)
   container.querySelectorAll(`svg g.${OVERLAY_CLASS}`).forEach((g) => g.remove())
 }
