@@ -164,7 +164,7 @@
       }
     },
     "1a09xqtrj8zms716": {
-      "question": "What is the average value of top 3 malls' per sqaure foot cost?",
+      "question": "What is the average value of top 3 malls' per square foot cost?",
       "ours": {
         "steps": [
           {
@@ -330,7 +330,7 @@
       }
     },
     "20qa83ih1gn6toqt": {
-      "question": "Which year shows the lowest gap between convenience and price",
+      "question": "Which year shows the lowest gap between convenience and price?",
       "ours": {
         "steps": [
           {
